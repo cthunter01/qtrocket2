@@ -19,7 +19,7 @@ find_program(LLVM_PROFDATA_PROGRAM llvm-profdata HINTS ${llvm_tool_hints} REQUIR
 find_program(LLVM_COV_PROGRAM llvm-cov HINTS ${llvm_tool_hints} REQUIRED)
 
 # Every test executable whose coverage should be counted.
-set(coverage_targets QtRocket_tests)
+set(coverage_targets QtRocket_core_tests)
 
 set(coverage_binaries "")
 foreach(target IN LISTS coverage_targets)
@@ -32,7 +32,7 @@ add_custom_target(coverage
         "-DBUILD_DIR=${PROJECT_BINARY_DIR}"
         "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
         "-DBINARIES=${coverage_binaries_arg}"
-        "-DIGNORE_REGEX=.*/(build|_deps|tests)/.*"
+        "-DIGNORE_REGEX=.*/(build|_deps|tests|third_party|tools)/.*"
         "-DLLVM_PROFDATA=${LLVM_PROFDATA_PROGRAM}"
         "-DLLVM_COV=${LLVM_COV_PROGRAM}"
         "-DCTEST=${CMAKE_CTEST_COMMAND}"

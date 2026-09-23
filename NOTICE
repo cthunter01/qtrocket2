@@ -1,0 +1,12 @@
+QtRocket - model rocket design and flight simulation
+Copyright (C) 2026 Travis Hunter
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
+option) any later version. See LICENSE for the full text.
+
+QtRocket is a C++ re-implementation of OpenRocket (https://openrocket.info), Copyright (C) 2007-2025 Sampo
+Niskanen and others, licensed under the GNU General Public License version 3 or later. The component model,
+aerodynamic and mass calculations, simulation engine and the .ork file format follow OpenRocket's design and
+algorithms. The bundled motor database (data/motors/initial_motors.db) and example designs (data/examples/) are
+taken from OpenRocket unchanged.

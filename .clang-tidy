@@ -16,6 +16,7 @@ Checks: >
   modernize-*,
   -modernize-use-trailing-return-type,
   performance-*,
+  -performance-enum-size,
   portability-*,
   -portability-avoid-pragma-once,
   readability-*,
@@ -24,7 +25,7 @@ Checks: >
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '(include|src|tests)/'
-ExcludeHeaderFilterRegex: '_deps/'
+ExcludeHeaderFilterRegex: '(_deps|third_party)/'
 FormatStyle: file
 
 CheckOptions:
@@ -33,7 +34,7 @@ CheckOptions:
   # Valid cases: lower_case, UPPER_CASE, camelBack, CamelCase,
   #              camel_Snake_Back, Camel_Snake_Case, Leading_upper_snake_case
   # ---------------------------------------------------------------------------
-  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.NamespaceCase: CamelCase
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
   readability-identifier-naming.UnionCase: CamelCase

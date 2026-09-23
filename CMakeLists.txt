@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)   # FetchContent SYSTEM + EXCLUDE_FROM_ALL + FIND_PACKAGE_ARGS
-project(QtRocket VERSION 0.1.0 DESCRIPTION "TODO: describe QtRocket" LANGUAGES CXX)
+project(QtRocket VERSION 0.1.0
+        DESCRIPTION "Model rocket design and flight simulation, a C++ re-implementation of OpenRocket"
+        LANGUAGES C CXX)
 
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are not allowed. Use a preset: cmake --preset clang-debug")
@@ -46,6 +48,10 @@ include(${PROJECT_SOURCE_DIR}/cmake/ProjectOptions.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
 add_subdirectory(src)
+
+# Shipped data files: the motor database and the example designs (read at run time from share/QtRocket).
+include(GNUInstallDirs)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/QtRocket)
 
 if(QTROCKET_BUILD_TESTS)
     enable_testing()

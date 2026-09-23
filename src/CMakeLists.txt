@@ -1,12 +1,14 @@
-# The library holds the code; the executable and the tests link against it.
-add_library(QtRocket_lib STATIC greet.cpp)
-add_library(QtRocket::lib ALIAS QtRocket_lib)
-target_include_directories(QtRocket_lib PUBLIC ${PROJECT_SOURCE_DIR}/include)
-QtRocket_configure_target(QtRocket_lib)
+# QtRocket_core: the Qt-free model, physics, simulation and file I/O. Each subsystem directory adds its sources
+# with target_sources(). The executables (cli/, later gui/) and the tests link against it.
+add_library(QtRocket_core STATIC)
+add_library(QtRocket::core ALIAS QtRocket_core)
+target_include_directories(QtRocket_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_compile_definitions(QtRocket_core PRIVATE QTROCKET_VERSION="${PROJECT_VERSION}")
+target_link_libraries(QtRocket_core PRIVATE pugixml::pugixml MINIZIP::minizip-ng SQLite::SQLite3)
+QtRocket_configure_target(QtRocket_core)
 
-add_executable(QtRocket main.cpp)
-target_link_libraries(QtRocket PRIVATE QtRocket::lib)
-QtRocket_configure_target(QtRocket)
+# Subsystems, in dependency order (each may include only the ones before it).
+add_subdirectory(util)
+add_subdirectory(file)
 
-include(GNUInstallDirs)
-install(TARGETS QtRocket RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+add_subdirectory(cli)
