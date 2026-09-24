@@ -1,6 +1,7 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/BoundingBoxTests.cpp
     util/BugErrorTests.cpp
     util/ColorTests.cpp
     util/CoordinateTests.cpp
@@ -18,6 +19,7 @@ add_executable(QtRocket_core_tests
     util/Rotation2DTests.cpp
     util/SignalTests.cpp
     util/StringsTests.cpp
+    util/TransformationTests.cpp
     util/UuidTests.cpp
     util/VersionTests.cpp
     logging/ErrorMessageTests.cpp

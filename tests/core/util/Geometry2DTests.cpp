@@ -5,6 +5,7 @@
 #include <limits>
 #include <numbers>
 #include <span>
+#include <sstream>
 
 #include <gtest/gtest.h>
 
@@ -16,6 +17,7 @@ using QtRocket::distanceSquared;
 using QtRocket::Point2D;
 using QtRocket::pointToSegmentDistance;
 using QtRocket::pointToSegmentDistanceSquared;
+using QtRocket::Rectangle2D;
 using QtRocket::relativeCcw;
 using QtRocket::segmentsIntersect;
 
@@ -37,6 +39,26 @@ TEST(Geometry2D, PointsCompareByValue)
     EXPECT_NE((Point2D{1, 2}), (Point2D{2, 1}));
     EXPECT_EQ(Point2D{}.x, 0.0);
     EXPECT_EQ(Point2D{}.y, 0.0);
+}
+
+TEST(Geometry2D, RectanglesCompareByValue)
+{
+    constexpr Rectangle2D kRect{.x = 1.0, .y = 2.0, .width = 3.0, .height = 4.0};
+    EXPECT_EQ(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 3.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 3.0, .height = 5.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 4.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 0.0, .width = 3.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 0.0, .y = 2.0, .width = 3.0, .height = 4.0}));
+    static_assert(Rectangle2D{} == Rectangle2D{.x = 0.0, .y = 0.0, .width = 0.0, .height = 0.0});
+    // A NaN is equal to nothing, as for any double
+    EXPECT_NE((Rectangle2D{.x = kNaN}), (Rectangle2D{.x = kNaN}));
+}
+
+TEST(Geometry2D, RectangleStreamInsertionNamesEveryField)
+{
+    std::ostringstream os;
+    os << Rectangle2D{.x = 1.0, .y = -2.5, .width = 3.0, .height = 0.125};
+    EXPECT_EQ(os.str(), "Rectangle2D[x=1, y=-2.5, w=3, h=0.125]");
 }
 
 TEST(Geometry2D, RelativeCcwFollowsLine2D)

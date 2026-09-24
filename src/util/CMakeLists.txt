@@ -1,4 +1,5 @@
 target_sources(QtRocket_core PRIVATE
+    BoundingBox.cpp
     BugError.cpp
     Color.cpp
     Coordinate.cpp
@@ -15,6 +16,7 @@ target_sources(QtRocket_core PRIVATE
     Quaternion.cpp
     Rotation2D.cpp
     Strings.cpp
+    Transformation.cpp
     Uuid.cpp
     Version.cpp
 )
