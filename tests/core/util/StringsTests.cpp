@@ -759,6 +759,23 @@ TEST(Strings, Split)
     EXPECT_EQ(Strings::split("no separator", ','), Parts{"no separator"});
 }
 
+TEST(Strings, SplitJavaDropsTrailingEmptyFields)
+{
+    // Java's String.split with limit 0: trailing empty strings are discarded, and an input the
+    // separator never matches comes back as itself.
+    using Parts = std::vector<std::string>;
+    EXPECT_EQ(Strings::splitJava("", ','), Parts{""});
+    EXPECT_EQ(Strings::splitJava("a", ','), Parts{"a"});
+    EXPECT_EQ(Strings::splitJava("a,b,c", ','), (Parts{"a", "b", "c"}));
+    EXPECT_EQ(Strings::splitJava("a,,b", ','), (Parts{"a", "", "b"}));
+    EXPECT_EQ(Strings::splitJava("a,,b,,", ','), (Parts{"a", "", "b"}));
+    EXPECT_EQ(Strings::splitJava(",a,", ','), (Parts{"", "a"}));
+    EXPECT_EQ(Strings::splitJava(",", ','), Parts{});
+    EXPECT_EQ(Strings::splitJava(",,,", ','), Parts{});
+    EXPECT_EQ(Strings::splitJava("1,2,3,", ','), (Parts{"1", "2", "3"}));
+    EXPECT_EQ(Strings::splitJava("a\nb\n", '\n'), (Parts{"a", "b"}));
+}
+
 TEST(Strings, Utf8CodePointDecodesOneSequence)
 {
     // The test helper itself: one two- or three-byte sequence, nothing else.

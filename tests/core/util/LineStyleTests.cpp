@@ -15,6 +15,7 @@ using QtRocket::displayKey;
 using QtRocket::kAllLineStyles;
 using QtRocket::LineStyle;
 using QtRocket::lineStyleFromString;
+using QtRocket::lineStyleName;
 using QtRocket::toString;
 
 std::vector<double> dashList(LineStyle style)
@@ -54,6 +55,19 @@ TEST(LineStyle, FromStringRoundTrips)
     {
         EXPECT_EQ(lineStyleFromString(toString(style)), style);
         EXPECT_EQ(lineStyleFromString(std::string(toString(style)) + " "), style);
+    }
+}
+
+TEST(LineStyle, NameIsTheEnumConstant)
+{
+    // ApplicationPreferences.setDefaultLineStyle stores LineStyle.name().
+    EXPECT_EQ(lineStyleName(LineStyle::SOLID), "SOLID");
+    EXPECT_EQ(lineStyleName(LineStyle::DASHED), "DASHED");
+    EXPECT_EQ(lineStyleName(LineStyle::DOTTED), "DOTTED");
+    EXPECT_EQ(lineStyleName(LineStyle::DASHDOT), "DASHDOT");
+    for (const LineStyle style : kAllLineStyles)
+    {
+        EXPECT_EQ(lineStyleFromString(lineStyleName(style)), style);
     }
 }
 

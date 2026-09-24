@@ -7,8 +7,9 @@
 #include <iterator>
 #include <map>
 #include <span>
-#include <stdexcept>
 #include <vector>
+
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket
 {
@@ -54,8 +55,7 @@ void LinearInterpolator::addPoints(std::span<const double> x, std::span<const do
 {
     if (x.size() != y.size())
     {
-        throw std::invalid_argument(
-            std::format("Array lengths do not match, x={} y={}", x.size(), y.size()));
+        bug(std::format("Array lengths do not match, x={} y={}", x.size(), y.size()));
     }
     for (std::size_t i = 0; i < x.size(); ++i)
     {
@@ -77,7 +77,7 @@ double LinearInterpolator::getValue(double x) const
     }
     if (m_points.empty())
     {
-        throw std::logic_error("No points added yet to the interpolator.");
+        bug("No points added yet to the interpolator.");
     }
     // x is not a point, so the first point not below it is strictly above it.
     const auto above = m_points.lower_bound(x);

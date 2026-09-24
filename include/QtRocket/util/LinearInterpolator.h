@@ -19,20 +19,19 @@ public:
     /// No points: add some before calling getValue().
     LinearInterpolator() = default;
 
-    /// Throws std::invalid_argument when @p x and @p y differ in length
-    /// (Java: IllegalArgumentException).
+    /// Throws BugError when @p x and @p y differ in length (Java: IllegalArgumentException).
     LinearInterpolator(std::span<const double> x, std::span<const double> y);
     LinearInterpolator(std::initializer_list<double> x, std::initializer_list<double> y);
 
     void addPoint(double x, double y);
-    /// Throws std::invalid_argument when @p x and @p y differ in length; nothing is added then.
+    /// Throws BugError when @p x and @p y differ in length; nothing is added then.
     void addPoints(std::span<const double> x, std::span<const double> y);
     void addPoints(std::initializer_list<double> x, std::initializer_list<double> y);
 
     /// The interpolated value at @p x: the y of the first point below it, the y of the last point
-    /// above it (also for NaN, which Java orders after every number). Throws std::logic_error
-    /// when there are no points (Java: IllegalStateException). Deviation: getValue(-0.0) when the
-    /// first point is at 0.0 holds that point's value, where OpenRocket's TreeMap.subMap(0.0, -0.0)
+    /// above it (also for NaN, which Java orders after every number). Throws BugError when there
+    /// are no points (Java: IllegalStateException). Deviation: getValue(-0.0) when the first
+    /// point is at 0.0 holds that point's value, where OpenRocket's TreeMap.subMap(0.0, -0.0)
     /// throws IllegalArgumentException.
     [[nodiscard]] double getValue(double x) const;
 

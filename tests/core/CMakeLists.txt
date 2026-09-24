@@ -1,9 +1,11 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/BoundingBoxTests.cpp
     util/BugErrorTests.cpp
     util/ColorTests.cpp
     util/CoordinateTests.cpp
+    util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
     util/LinearInterpolatorTests.cpp
@@ -11,14 +13,17 @@ add_executable(QtRocket_core_tests
     util/MathUtilTests.cpp
     util/Md5Tests.cpp
     util/ModIdTests.cpp
+    util/MonitorableTests.cpp
     util/PinkNoiseTests.cpp
     util/PolyInterpolatorTests.cpp
     util/QuaternionTests.cpp
     util/Rotation2DTests.cpp
     util/SignalTests.cpp
     util/StringsTests.cpp
+    util/TransformationTests.cpp
     util/UuidTests.cpp
     util/VersionTests.cpp
+    util/WorldCoordinateTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp
     logging/MessageSetTests.cpp
@@ -31,6 +36,9 @@ add_executable(QtRocket_core_tests
     unit/UnitGroupTests.cpp
     unit/UnitTests.cpp
     unit/ValueTests.cpp
+    preferences/DocumentPreferencesTests.cpp
+    preferences/InMemoryPreferencesTests.cpp
+    preferences/PreferencesTests.cpp
     material/BuiltinMaterialsTests.cpp
     material/MaterialDatabaseTests.cpp
     material/MaterialGroupTests.cpp

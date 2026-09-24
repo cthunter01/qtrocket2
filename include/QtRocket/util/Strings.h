@@ -105,6 +105,11 @@ std::string_view trim(const String&& text) = delete;
 /// {""}.
 [[nodiscard]] std::vector<std::string> split(std::string_view text, char separator);
 
+/// Java's String.split(String) for a one-character separator: as split(), but trailing empty
+/// fields are dropped, so "a,,b,," gives {"a", "", "b"} and "," gives {} (no fields at all);
+/// text without the separator gives {text}, so "" gives {""}.
+[[nodiscard]] std::vector<std::string> splitJava(std::string_view text, char separator);
+
 /// StringUtils.join: the values formatted with std::format("{}") and separated by @p separator;
 /// an empty range gives "". Deviation: OpenRocket omits the separator after a leading empty
 /// element; here every element is separated.

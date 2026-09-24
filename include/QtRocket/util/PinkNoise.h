@@ -28,7 +28,7 @@ public:
     explicit PinkNoise(double alpha);
     /// A nondeterministic seed from std::random_device, like Java's new Random().
     PinkNoise(double alpha, int poles);
-    /// Throws std::invalid_argument when @p poles is negative (Java: NegativeArraySizeException).
+    /// Throws BugError when @p poles is negative (Java: NegativeArraySizeException).
     /// Zero poles give plain white noise (Java fails on the first nextValue() then). OpenRocket
     /// keeps its seed as an int (PinkNoiseWindModel): pass static_cast<std::uint32_t>(seed),
     /// which keeps the bit pattern.

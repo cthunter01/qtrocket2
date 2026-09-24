@@ -2,9 +2,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
+#include <ostream>
 
 namespace QtRocket
 {
+
+std::ostream& operator<<(std::ostream& os, const Rectangle2D& rect)
+{
+    return os << std::format("Rectangle2D[x={}, y={}, w={}, h={}]", rect.x, rect.y, rect.width,
+                             rect.height);
+}
 
 double distance(Point2D p, Point2D q) noexcept
 {

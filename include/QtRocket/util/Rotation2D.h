@@ -1,27 +1,21 @@
 #pragma once
 
-#include <concepts>
+#include "QtRocket/util/Coordinate.h"
 
 namespace QtRocket
 {
 
-/// A weighted 3-D coordinate: public x, y, z and weight, and construction as T{x, y, z, weight}.
-/// Coordinate has this shape, and so can a test double; Rotation2D works on any of them. The
-/// concept cannot check the constructor's argument order: it must be x, y, z, weight, as
-/// OpenRocket's Coordinate(double x, double y, double z, double w).
-template <class T>
-concept WeightedCoordinate = requires(const T& c) {
-    { c.x } -> std::convertible_to<double>;
-    { c.y } -> std::convertible_to<double>;
-    { c.z } -> std::convertible_to<double>;
-    { c.weight } -> std::convertible_to<double>;
-    T{0.0, 0.0, 0.0, 0.0};
-};
-
 /// A rotation by a fixed angle about a coordinate axis, kept as its sine and cosine, as
 /// OpenRocket's Rotation2D. rotateX/Y/Z turn a coordinate about that axis by the angle with
 /// OpenRocket's sign convention (x' = cos x - sin y, y' = cos y + sin x about z, and the cyclic
-/// equivalents about x and y); invRotateX/Y/Z turn it back. The weight is carried through.
+/// equivalents about x and y: the right-hand rule, so that rotateZ() agrees with
+/// Quaternion::rotation(Coordinate::kZUnit, angle).rotate()); invRotateX/Y/Z turn it back. The
+/// weight is carried through unchanged, as Java's new Coordinate(..., c.getWeight()) does. The
+/// simulation stepper builds one from the flight conditions' theta, or from the airspeed
+/// direction as Rotation2D(y / len, x / len).
+///
+/// Not ported: rotateZInPlace() and invRotateZInPlace(), which work on MutableCoordinate (not
+/// ported either; Coordinate is a value type, so rotateZ() costs the same).
 class Rotation2D
 {
 public:
@@ -37,40 +31,40 @@ public:
     [[nodiscard]] constexpr double sin() const noexcept { return m_sin; }
     [[nodiscard]] constexpr double cos() const noexcept { return m_cos; }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C rotateX(const C& c) const
+    [[nodiscard]] constexpr Coordinate rotateX(const Coordinate& c) const noexcept
     {
-        return C{c.x, (m_cos * c.y) - (m_sin * c.z), (m_cos * c.z) + (m_sin * c.y), c.weight};
+        return Coordinate{c.x, (m_cos * c.y) - (m_sin * c.z), (m_cos * c.z) + (m_sin * c.y),
+                          c.weight};
     }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C rotateY(const C& c) const
+    [[nodiscard]] constexpr Coordinate rotateY(const Coordinate& c) const noexcept
     {
-        return C{(m_cos * c.x) + (m_sin * c.z), c.y, (m_cos * c.z) - (m_sin * c.x), c.weight};
+        return Coordinate{(m_cos * c.x) + (m_sin * c.z), c.y, (m_cos * c.z) - (m_sin * c.x),
+                          c.weight};
     }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C rotateZ(const C& c) const
+    [[nodiscard]] constexpr Coordinate rotateZ(const Coordinate& c) const noexcept
     {
-        return C{(m_cos * c.x) - (m_sin * c.y), (m_cos * c.y) + (m_sin * c.x), c.z, c.weight};
+        return Coordinate{(m_cos * c.x) - (m_sin * c.y), (m_cos * c.y) + (m_sin * c.x), c.z,
+                          c.weight};
     }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C invRotateX(const C& c) const
+    [[nodiscard]] constexpr Coordinate invRotateX(const Coordinate& c) const noexcept
     {
-        return C{c.x, (m_cos * c.y) + (m_sin * c.z), (m_cos * c.z) - (m_sin * c.y), c.weight};
+        return Coordinate{c.x, (m_cos * c.y) + (m_sin * c.z), (m_cos * c.z) - (m_sin * c.y),
+                          c.weight};
     }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C invRotateY(const C& c) const
+    [[nodiscard]] constexpr Coordinate invRotateY(const Coordinate& c) const noexcept
     {
-        return C{(m_cos * c.x) - (m_sin * c.z), c.y, (m_cos * c.z) + (m_sin * c.x), c.weight};
+        return Coordinate{(m_cos * c.x) - (m_sin * c.z), c.y, (m_cos * c.z) + (m_sin * c.x),
+                          c.weight};
     }
 
-    template <WeightedCoordinate C>
-    [[nodiscard]] constexpr C invRotateZ(const C& c) const
+    [[nodiscard]] constexpr Coordinate invRotateZ(const Coordinate& c) const noexcept
     {
-        return C{(m_cos * c.x) + (m_sin * c.y), (m_cos * c.y) - (m_sin * c.x), c.z, c.weight};
+        return Coordinate{(m_cos * c.x) + (m_sin * c.y), (m_cos * c.y) - (m_sin * c.x), c.z,
+                          c.weight};
     }
 
 private:

@@ -4,11 +4,10 @@
 #include <cstddef>
 #include <format>
 #include <functional>
-#include <limits>
 #include <ostream>
-#include <stdexcept>
 #include <string>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
 
 namespace QtRocket
@@ -30,7 +29,7 @@ Coordinate Coordinate::normalize() const
     const double l = length();
     if (l < 0.0000001)
     {
-        throw std::domain_error("Cannot normalize zero coordinate");
+        bug("Cannot normalize zero coordinate");
     }
     return Coordinate{x / l, y / l, z / l, weight};
 }
@@ -78,34 +77,10 @@ std::ostream& operator<<(std::ostream& os, const Coordinate& c)
     return os << c.toString();
 }
 
-namespace
-{
-
-/// Java's (int) narrowing of a double: NaN gives 0, out-of-range values saturate, anything else is
-/// truncated towards zero. A plain static_cast would be undefined for the first two.
-int javaIntCast(double value) noexcept
-{
-    if (std::isnan(value))
-    {
-        return 0;
-    }
-    if (value >= static_cast<double>(std::numeric_limits<int>::max()))
-    {
-        return std::numeric_limits<int>::max();
-    }
-    if (value <= static_cast<double>(std::numeric_limits<int>::min()))
-    {
-        return std::numeric_limits<int>::min();
-    }
-    return static_cast<int>(value);
-}
-
-}  // namespace
-
 }  // namespace QtRocket
 
 std::size_t std::hash<QtRocket::Coordinate>::operator()(
     const QtRocket::Coordinate& c) const noexcept
 {
-    return static_cast<std::size_t>(QtRocket::javaIntCast((c.x + c.y + c.z) * 100000));
+    return static_cast<std::size_t>(QtRocket::MathUtil::javaIntCast((c.x + c.y + c.z) * 100000));
 }

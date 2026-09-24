@@ -9,9 +9,9 @@
 #include <limits>
 #include <numbers>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace QtRocket::MathUtil
@@ -53,7 +53,7 @@ double map(double value, double fromMin, double fromMax, double toMin, double to
     }
     if (equals(fromMin, fromMax))
     {
-        throw std::invalid_argument(
+        bug(
             std::format("from range is singular and to range is not: value={} fromMin={} "
                         "fromMax={} toMin={} toMax={}",
                         value, fromMin, fromMax, toMin, toMax));
@@ -70,7 +70,7 @@ Coordinate map(double value, double fromMin, double fromMax, const Coordinate& t
     }
     if (equals(fromMin, fromMax))
     {
-        throw std::invalid_argument(
+        bug(
             std::format("from range is singular and to range is not: value={} fromMin={} "
                         "fromMax={} toMin={} toMax={}",
                         value, fromMin, fromMax, toMin.toString(), toMax.toString()));
@@ -163,6 +163,23 @@ bool equals(double a, double b, double epsilon) noexcept
 bool equals(double a, double b) noexcept
 {
     return equals(a, b, kEpsilon);
+}
+
+int javaIntCast(double value) noexcept
+{
+    if (std::isnan(value))
+    {
+        return 0;
+    }
+    if (value >= static_cast<double>(std::numeric_limits<int>::max()))
+    {
+        return std::numeric_limits<int>::max();
+    }
+    if (value <= static_cast<double>(std::numeric_limits<int>::min()))
+    {
+        return std::numeric_limits<int>::min();
+    }
+    return static_cast<int>(value);
 }
 
 double average(std::span<const double> values) noexcept

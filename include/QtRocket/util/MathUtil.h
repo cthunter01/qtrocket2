@@ -79,13 +79,13 @@ auto clamp(T x, U min, V max) = delete;
 
 /// Maps @p value from the range [fromMin, fromMax] onto [toMin, toMax] linearly. When the
 /// destination range is singular (toMin equals toMax within kEpsilon) the result is toMin.
-/// @throws std::invalid_argument when the source range is singular but the destination is not
-///         (OpenRocket: IllegalArgumentException).
+/// @throws BugError when the source range is singular but the destination is not (OpenRocket:
+///         IllegalArgumentException).
 [[nodiscard]] double map(double value, double fromMin, double fromMax, double toMin, double toMax);
 
 /// Maps @p value from [fromMin, fromMax] onto the segment from @p toMin to @p toMax: the result is
 /// toMax * a + toMin * (1 - a), weights included. Same singular-range rules as the double overload.
-/// @throws std::invalid_argument when the source range is singular but the destination is not.
+/// @throws BugError when the source range is singular but the destination is not.
 [[nodiscard]] Coordinate map(double value, double fromMin, double fromMax, const Coordinate& toMin,
                              const Coordinate& toMax);
 
@@ -124,6 +124,11 @@ auto clamp(T x, U min, V max) = delete;
 
 /// equals(a, b, kEpsilon)
 [[nodiscard]] bool equals(double a, double b) noexcept;
+
+/// Java's (int) narrowing of a double: NaN gives 0, values beyond the int range saturate to
+/// INT_MAX / INT_MIN, anything else is truncated towards zero. A plain static_cast is undefined
+/// for the first two, so every ported hashCode goes through this.
+[[nodiscard]] int javaIntCast(double value) noexcept;
 
 /// -1.0 when x < 0, otherwise 1.0 (also for zero and NaN, unlike a signum).
 [[nodiscard]] constexpr double sign(double x) noexcept

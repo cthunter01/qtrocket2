@@ -7,6 +7,7 @@
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/Warning.h"
+#include "logging/TestSources.h"
 
 namespace
 {
@@ -14,6 +15,7 @@ namespace
 using QtRocket::MessageSources;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
+using QtRocket::Test::source;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
@@ -129,11 +131,11 @@ TEST(WarningSet, AddByTextUsesTheDefaultPriority)
 TEST(WarningSet, SameTextWithDifferentSourcesAreDistinct)
 {
     WarningSet warnings;
-    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{{"fs-1", "Fin set 1"}}));
-    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{{"fs-2", "Fin set 2"}}));
-    EXPECT_FALSE(warnings.add(Warning::kThickFin, MessageSources{{"fs-1", "Fin set 1"}}));
-    EXPECT_TRUE(warnings.add(Warning::kThickFin,
-                             MessageSources{{"fs-1", "Fin set 1"}, {"fs-2", "Fin set 2"}}));
+    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{source("fs-1", "Fin set 1")}));
+    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{source("fs-2", "Fin set 2")}));
+    EXPECT_FALSE(warnings.add(Warning::kThickFin, MessageSources{source("fs-1", "Fin set 1")}));
+    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{source("fs-1", "Fin set 1"),
+                                                                source("fs-2", "Fin set 2")}));
     EXPECT_EQ(warnings.size(), 3U);
     EXPECT_EQ(warnings.toString(),
               "Messages[Thick fins may not simulate accurately:  \"Fin set 1\","
@@ -144,8 +146,8 @@ TEST(WarningSet, SameTextWithDifferentSourcesAreDistinct)
 TEST(WarningSet, FilterOutRemovesTheWholeType)
 {
     WarningSet warnings;
-    warnings.add(Warning::kOpenAirframeForward, MessageSources{{"nc-1", "Nose cone"}});
-    warnings.add(Warning::kOpenAirframeForward, MessageSources{{"tr-1", "Transition"}});
+    warnings.add(Warning::kOpenAirframeForward, MessageSources{source("nc-1", "Nose cone")});
+    warnings.add(Warning::kOpenAirframeForward, MessageSources{source("tr-1", "Transition")});
     warnings.add(Warning::LargeAOA{0.2});
     ASSERT_EQ(warnings.size(), 3U);
     warnings.filterOut(Warning::kOpenAirframeForward);

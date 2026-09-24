@@ -3,17 +3,20 @@
 #include <memory>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <string_view>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
+#include "logging/TestSources.h"
 
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::causeFromName;
 using QtRocket::causeName;
 using QtRocket::causeText;
@@ -21,6 +24,8 @@ using QtRocket::Message;
 using QtRocket::MessagePriority;
 using QtRocket::MessageSources;
 using QtRocket::SimulationAbort;
+using QtRocket::Uuid;
+using QtRocket::Test::source;
 using Cause = SimulationAbort::Cause;
 
 /// Checks a cause's constant name, its OpenRocket text and the name round trip.
@@ -84,11 +89,11 @@ TEST(SimulationAbort, IsAMessageWithJavaSemantics)
     EXPECT_EQ(noLiftoff.typeName(), "SimulationAbort");
     EXPECT_TRUE(noLiftoff.sources().empty());
     EXPECT_FALSE(noLiftoff.replaceBy(SimulationAbort{Cause::NO_CP}));
-    EXPECT_THROW(SimulationAbort{Cause::NO_CP}.replaceContents(noLiftoff), std::logic_error);
+    EXPECT_THROW(SimulationAbort{Cause::NO_CP}.replaceContents(noLiftoff), BugError);
     // Java does not override equals(): two aborts are equal whatever their causes.
     EXPECT_TRUE(noLiftoff == SimulationAbort{Cause::NO_CP});
     SimulationAbort withSource{Cause::ACTIVE_MASS_ZERO};
-    withSource.setSources(MessageSources{{"st-1", "Sustainer"}});
+    withSource.setSources(MessageSources{source("st-1", "Sustainer")});
     EXPECT_FALSE(noLiftoff == withSource);
     EXPECT_EQ(withSource.toString(), "Total mass of active stages is 0:  \"Sustainer\"");
 }
@@ -96,11 +101,12 @@ TEST(SimulationAbort, IsAMessageWithJavaSemantics)
 TEST(SimulationAbort, CloneKeepsCauseIdAndSources)
 {
     SimulationAbort original{Cause::TUMBLE_UNDER_THRUST};
-    original.setSources(MessageSources{{"bo-1", "Booster"}});
-    original.setId("abort-1");
+    original.setSources(MessageSources{source("bo-1", "Booster")});
+    const Uuid id = Uuid::random();
+    original.setId(id);
     const std::unique_ptr<Message> copy = original.clone();
     ASSERT_NE(copy, nullptr);
-    EXPECT_EQ(copy->id(), "abort-1");
+    EXPECT_EQ(copy->id(), id);
     EXPECT_EQ(copy->toString(), "Stage began to tumble under thrust.:  \"Booster\"");
     const auto* typed = dynamic_cast<const SimulationAbort*>(copy.get());
     ASSERT_NE(typed, nullptr);

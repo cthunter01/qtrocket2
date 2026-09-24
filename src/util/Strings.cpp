@@ -24,14 +24,13 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <fast_float/fast_float.h>
 
+#include "QtRocket/util/MathUtil.h"
+
 namespace QtRocket::Strings
 {
 
 namespace
 {
-
-/// MathUtil.EPSILON (10 mm^3 in m^3); MathUtil.equals(d, 0) is |d| < kEpsilon / 2.
-constexpr double kEpsilon = 1e-8;
 
 /// 2^63: FloatingDecimal converts the integers below it exactly (MAX_SMALL_BIN_EXP = 62).
 constexpr double kTwoPow63 = 9223372036854775808.0;
@@ -312,7 +311,7 @@ struct ScientificParts
 std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation)
 {
     // TextUtil checks for zero before NaN: MathUtil.equals(NaN, 0) is false, so the order is safe.
-    if (std::abs(value) < kEpsilon / 2)
+    if (MathUtil::equals(value, 0.0))
     {
         return "0";
     }
@@ -567,6 +566,21 @@ std::vector<std::string> split(std::string_view text, char separator)
         parts.emplace_back(text.substr(start, end - start));
         start = end + 1;
     }
+}
+
+std::vector<std::string> splitJava(std::string_view text, char separator)
+{
+    // String.split: no match, the input itself; otherwise the fields without the trailing empties.
+    if (!text.contains(separator))
+    {
+        return {std::string(text)};
+    }
+    std::vector<std::string> parts = split(text, separator);
+    while (!parts.empty() && parts.back().empty())
+    {
+        parts.pop_back();
+    }
+    return parts;
 }
 
 std::string hexString(std::span<const std::byte> bytes)

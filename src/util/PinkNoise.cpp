@@ -5,8 +5,9 @@
 #include <cstdint>
 #include <format>
 #include <random>
-#include <stdexcept>
 #include <vector>
+
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket
 {
@@ -28,7 +29,7 @@ PinkNoise::PinkNoise(double alpha, int poles, std::uint32_t seed) : m_generator(
 {
     if (poles < 0)
     {
-        throw std::invalid_argument(std::format("PinkNoise: negative number of poles {}", poles));
+        bug(std::format("PinkNoise: negative number of poles {}", poles));
     }
     const auto count = static_cast<std::size_t>(poles);
     m_multipliers.resize(count);

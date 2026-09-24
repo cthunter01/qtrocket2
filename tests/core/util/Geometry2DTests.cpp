@@ -5,6 +5,7 @@
 #include <limits>
 #include <numbers>
 #include <span>
+#include <sstream>
 
 #include <gtest/gtest.h>
 
@@ -16,6 +17,7 @@ using QtRocket::distanceSquared;
 using QtRocket::Point2D;
 using QtRocket::pointToSegmentDistance;
 using QtRocket::pointToSegmentDistanceSquared;
+using QtRocket::Rectangle2D;
 using QtRocket::relativeCcw;
 using QtRocket::segmentsIntersect;
 
@@ -37,6 +39,26 @@ TEST(Geometry2D, PointsCompareByValue)
     EXPECT_NE((Point2D{1, 2}), (Point2D{2, 1}));
     EXPECT_EQ(Point2D{}.x, 0.0);
     EXPECT_EQ(Point2D{}.y, 0.0);
+}
+
+TEST(Geometry2D, RectanglesCompareByValue)
+{
+    constexpr Rectangle2D kRect{.x = 1.0, .y = 2.0, .width = 3.0, .height = 4.0};
+    EXPECT_EQ(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 3.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 3.0, .height = 5.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 2.0, .width = 4.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 1.0, .y = 0.0, .width = 3.0, .height = 4.0}));
+    EXPECT_NE(kRect, (Rectangle2D{.x = 0.0, .y = 2.0, .width = 3.0, .height = 4.0}));
+    static_assert(Rectangle2D{} == Rectangle2D{.x = 0.0, .y = 0.0, .width = 0.0, .height = 0.0});
+    // A NaN is equal to nothing, as for any double
+    EXPECT_NE((Rectangle2D{.x = kNaN}), (Rectangle2D{.x = kNaN}));
+}
+
+TEST(Geometry2D, RectangleStreamInsertionNamesEveryField)
+{
+    std::ostringstream os;
+    os << Rectangle2D{.x = 1.0, .y = -2.5, .width = 3.0, .height = 0.125};
+    EXPECT_EQ(os.str(), "Rectangle2D[x=1, y=-2.5, w=3, h=0.125]");
 }
 
 TEST(Geometry2D, RelativeCcwFollowsLine2D)
@@ -167,6 +189,81 @@ TEST(Geometry2D, DecimalSegmentsSharingAPointIntersect)
     EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.2, 0.2}, {0.2, 0.2}, {0.3, 0.3}));
     EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.3, 0.3}, {0.2, 0.2}, {0.2, 0.2}));
     EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.2, 0.2}, {0.1, 0.1}, {0.5, 0.5}));
+}
+
+TEST(Geometry2D, DecimalSegmentsTouchingAtAnEndPointIntersectLikeLine2D)
+{
+    // (0.1,0.1)-(0.7,0.7) and (0.7,0.7)-(1.3,0.2) share the end point (0.7,0.7). Every value in
+    // this test and the next two is what java.awt.geom.Line2D computes for the same doubles
+    // (checked against OpenJDK 17): the products are taken exactly, with no tolerance.
+    EXPECT_EQ(relativeCcw({0.1, 0.1}, {0.7, 0.7}, {0.7, 0.7}), 0);
+    EXPECT_EQ(relativeCcw({0.1, 0.1}, {0.7, 0.7}, {1.3, 0.2}), 1);
+    EXPECT_EQ(relativeCcw({0.7, 0.7}, {1.3, 0.2}, {0.1, 0.1}), 1);
+    EXPECT_EQ(relativeCcw({0.7, 0.7}, {1.3, 0.2}, {0.7, 0.7}), 0);
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.7, 0.7}, {0.7, 0.7}, {1.3, 0.2}));
+    EXPECT_TRUE(segmentsIntersect({0.7, 0.7}, {1.3, 0.2}, {0.1, 0.1}, {0.7, 0.7}));
+    EXPECT_TRUE(segmentsIntersect({0.7, 0.7}, {0.1, 0.1}, {1.3, 0.2}, {0.7, 0.7}));
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.7, 0.7}, {1.3, 0.2}, {0.7, 0.7}));
+    // A T junction: (0.4,0.4) is on the diagonal in floating point as well.
+    EXPECT_EQ(relativeCcw({0.1, 0.1}, {0.7, 0.7}, {0.4, 0.4}), 0);
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.1}, {0.7, 0.7}, {0.4, 0.4}, {0.9, 0.1}));
+    EXPECT_TRUE(segmentsIntersect({0.4, 0.4}, {0.9, 0.1}, {0.1, 0.1}, {0.7, 0.7}));
+    // Just past the touch is not touching.
+    EXPECT_FALSE(segmentsIntersect({0.1, 0.1}, {0.7, 0.7}, {0.7, 0.7000001}, {1.3, 0.2}));
+    EXPECT_FALSE(segmentsIntersect({0.1, 0.1}, {0.7, 0.7}, {0.7000001, 0.7}, {1.3, 0.2}));
+}
+
+TEST(Geometry2D, DecimalPointsOnALineAreClassifiedByExactProductsLikeLine2D)
+{
+    // Points of y = 0.3x + 0.1 relative to its segment from x = 0.1 to x = 0.7. The decimals are
+    // not exactly representable, so px*y2 - py*x2 is not always exactly 0 for a point that is on
+    // the line on paper: (0.4,0.22) comes out just below it and (0.6,0.28) just above. Line2D
+    // takes the products as they come, and so does this port.
+    const Point2D a{0.1, 0.13};
+    const Point2D b{0.7, 0.31};
+    EXPECT_EQ(relativeCcw(a, b, {0.1, 0.13}), 0);
+    EXPECT_EQ(relativeCcw(a, b, {0.2, 0.16}), 0);
+    EXPECT_EQ(relativeCcw(a, b, {0.3, 0.19}), 0);
+    EXPECT_EQ(relativeCcw(a, b, {0.4, 0.22}), 1);
+    EXPECT_EQ(relativeCcw(a, b, {0.5, 0.25}), 0);
+    EXPECT_EQ(relativeCcw(a, b, {0.6, 0.28}), -1);
+    EXPECT_EQ(relativeCcw(a, b, {0.7, 0.31}), 0);
+    // Beyond the ends.
+    EXPECT_EQ(relativeCcw(a, b, {0.0, 0.1}), -1);
+    EXPECT_EQ(relativeCcw(a, b, {0.9, 0.37}), 1);
+    // The shorter segment from x = 0.3 to x = 0.5 sees the same points with other roundings.
+    const Point2D c{0.3, 0.19};
+    const Point2D d{0.5, 0.25};
+    EXPECT_EQ(relativeCcw(c, d, {0.1, 0.13}), 1);
+    EXPECT_EQ(relativeCcw(c, d, {0.7, 0.31}), -1);
+    EXPECT_EQ(relativeCcw(c, d, {0.4, 0.22}), 1);
+    EXPECT_EQ(relativeCcw(c, d, {0.3, 0.19}), 0);
+    EXPECT_EQ(relativeCcw(c, d, {0.5, 0.25}), 0);
+}
+
+TEST(Geometry2D, CollinearDecimalSegmentsIntersectLikeLine2D)
+{
+    // Segments of y = 0.3x + 0.1. Overlapping:
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.13}, {0.5, 0.25}, {0.3, 0.19}, {0.7, 0.31}));
+    EXPECT_TRUE(segmentsIntersect({0.3, 0.19}, {0.7, 0.31}, {0.1, 0.13}, {0.5, 0.25}));
+    // One inside the other.
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.13}, {0.7, 0.31}, {0.3, 0.19}, {0.5, 0.25}));
+    EXPECT_TRUE(segmentsIntersect({0.3, 0.19}, {0.5, 0.25}, {0.1, 0.13}, {0.7, 0.31}));
+    // Touching end to end.
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.13}, {0.3, 0.19}, {0.3, 0.19}, {0.5, 0.25}));
+    EXPECT_TRUE(segmentsIntersect({0.3, 0.19}, {0.5, 0.25}, {0.1, 0.13}, {0.3, 0.19}));
+    // Identical, in either direction.
+    EXPECT_TRUE(segmentsIntersect({0.2, 0.16}, {0.6, 0.28}, {0.2, 0.16}, {0.6, 0.28}));
+    EXPECT_TRUE(segmentsIntersect({0.2, 0.16}, {0.6, 0.28}, {0.6, 0.28}, {0.2, 0.16}));
+    // A gap between them.
+    EXPECT_FALSE(segmentsIntersect({0.1, 0.13}, {0.3, 0.19}, {0.4, 0.22}, {0.6, 0.28}));
+    EXPECT_FALSE(segmentsIntersect({0.4, 0.22}, {0.6, 0.28}, {0.1, 0.13}, {0.3, 0.19}));
+    // A point of the line as a zero-length segment: (0.2,0.16) is on the segment in floating
+    // point and intersects; (0.4,0.22) rounds off it (see the previous test) and, with no
+    // tolerance, does not, exactly as Line2D reports; nor does a point past the end.
+    EXPECT_TRUE(segmentsIntersect({0.1, 0.13}, {0.7, 0.31}, {0.2, 0.16}, {0.2, 0.16}));
+    EXPECT_FALSE(segmentsIntersect({0.4, 0.22}, {0.4, 0.22}, {0.1, 0.13}, {0.7, 0.31}));
+    EXPECT_FALSE(segmentsIntersect({0.9, 0.37}, {0.9, 0.37}, {0.1, 0.13}, {0.7, 0.31}));
 }
 
 TEST(Geometry2D, NanCoordinatesCountAsIntersectingLikeLine2D)

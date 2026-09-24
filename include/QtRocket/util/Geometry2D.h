@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iosfwd>
+
 namespace QtRocket
 {
 
@@ -14,6 +16,23 @@ struct Point2D
 
     [[nodiscard]] constexpr bool operator==(const Point2D&) const noexcept = default;
 };
+
+/// An axis-aligned rectangle in the plane: the corner with the smallest x and y and the extents
+/// from it (java.awt.geom.Rectangle2D.Double). Its getMinX/getMaxX are x and x + width, and
+/// getMinY/getMaxY are y and y + height; a negative extent is kept as given.
+struct Rectangle2D
+{
+    double x{0.0};
+    double y{0.0};
+    double width{0.0};
+    double height{0.0};
+
+    [[nodiscard]] constexpr bool operator==(const Rectangle2D&) const noexcept = default;
+};
+
+/// Writes "Rectangle2D[x=.., y=.., w=.., h=..]" (shortest round-trip digits), so that GoogleTest
+/// prints a readable value when EXPECT_EQ on two rectangles fails.
+std::ostream& operator<<(std::ostream& os, const Rectangle2D& rect);
 
 /// |p - q| (java.awt.geom.Point2D.distance).
 [[nodiscard]] double distance(Point2D p, Point2D q) noexcept;

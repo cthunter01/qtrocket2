@@ -7,18 +7,19 @@
 #include <limits>
 #include <numbers>
 #include <random>
-#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace
 {
 
 namespace MathUtil = QtRocket::MathUtil;
+using QtRocket::BugError;
 using QtRocket::Coordinate;
 
 constexpr double kEps = 0.00000000001;
@@ -144,7 +145,7 @@ TEST(MathUtil, Map)
     EXPECT_NEAR(6.0, MathUtil::map(6.0, 0.0, 5.0, std::nextafter(6.0, 7.0), 6.0), kEps);
     EXPECT_NEAR(6.0, MathUtil::map(6.0, 0.0, 0.0, std::nextafter(6.0, 7.0), 6.0), kEps);
     EXPECT_THROW(static_cast<void>(MathUtil::map(6.0, 1.0, std::nextafter(1.0, 2.0), 1.0, 2.0)),
-                 std::invalid_argument);
+                 BugError);
 
     EXPECT_NEAR(7.0, MathUtil::map(std::nextafter(1.0, 2.0), 0.0, 5.0, 9.0, -1.0), kEps);
 }
@@ -463,6 +464,25 @@ TEST(MathUtil, InterpolateEdgeCases)
     EXPECT_NEAR(20.0, MathUtil::interpolate(domain, range, 2.0), kEps);
 }
 
+TEST(MathUtil, JavaIntCastTruncatesSaturatesAndZeroesNaN)
+{
+    EXPECT_EQ(MathUtil::javaIntCast(0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(-0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(1.999), 1);
+    EXPECT_EQ(MathUtil::javaIntCast(-1.999), -1);
+    EXPECT_EQ(MathUtil::javaIntCast(600000.7), 600000);
+    EXPECT_EQ(MathUtil::javaIntCast(2147483647.0), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-2147483648.0), std::numeric_limits<int>::min());
+    // Java's (int) cast saturates instead of being undefined ...
+    EXPECT_EQ(MathUtil::javaIntCast(2147483648.0), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-2147483649.0), std::numeric_limits<int>::min());
+    EXPECT_EQ(MathUtil::javaIntCast(1e300), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(kInf), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-kInf), std::numeric_limits<int>::min());
+    // ... and NaN is zero.
+    EXPECT_EQ(MathUtil::javaIntCast(kNaN), 0);
+}
+
 TEST(MathUtil, MapCoordinateEdgeCases)
 {
     const Coordinate a(0, 1, 2, 3);
@@ -476,7 +496,7 @@ TEST(MathUtil, MapCoordinateEdgeCases)
     // Beyond the source range the mapping extrapolates.
     EXPECT_TRUE(MathUtil::map(10.0, 0.0, 5.0, a, b) == Coordinate(8, 11, -2, 13));
     EXPECT_THROW(static_cast<void>(MathUtil::map(6.0, 1.0, std::nextafter(1.0, 2.0), a, b)),
-                 std::invalid_argument);
+                 BugError);
 }
 
 // ---- QtRocket additions: Java's Math.round and its narrowing casts (values pinned on JDK 17) ----

@@ -21,8 +21,7 @@ namespace QtRocket
 class PolyInterpolator
 {
 public:
-    /// Throws std::invalid_argument when there is no constraint at all
-    /// (Java: IllegalArgumentException).
+    /// Throws BugError when there is no constraint at all (Java: IllegalArgumentException).
     explicit PolyInterpolator(std::span<const std::vector<double>> points);
     PolyInterpolator(std::initializer_list<std::vector<double>> points);
 
@@ -31,7 +30,7 @@ public:
 
     /// The coefficients of the polynomial that meets the constraints with these values (function
     /// values first, then first derivatives, ...), highest order term first and the constant
-    /// last. Throws std::invalid_argument when there are not count() values.
+    /// last. Throws BugError when there are not count() values.
     [[nodiscard]] std::vector<double> interpolator(std::span<const double> values) const;
     [[nodiscard]] std::vector<double> interpolator(std::initializer_list<double> values) const;
 

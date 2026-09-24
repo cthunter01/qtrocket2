@@ -5,7 +5,6 @@
 #include <limits>
 #include <memory>
 #include <numbers>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -13,14 +12,20 @@
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
+#include "logging/TestSources.h"
 
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::Message;
 using QtRocket::MessagePriority;
 using QtRocket::MessageSources;
+using QtRocket::Uuid;
 using QtRocket::Warning;
+using QtRocket::Test::source;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -138,11 +143,11 @@ TEST(Warning, OtherComparesTextPriorityAndSources)
     EXPECT_FALSE(a == Warning::Other{"other text"});
     EXPECT_FALSE((a == Warning::Other{"text", MessagePriority::HIGH}));
     Warning::Other withSources{"text"};
-    withSources.setSources(MessageSources{{"fs-1", "Fin set"}});
+    withSources.setSources(MessageSources{source("fs-1", "Fin set")});
     EXPECT_FALSE(a == withSources);
     EXPECT_TRUE(withSources == Warning::Other{withSources});
     EXPECT_FALSE(a.replaceBy(withSources));
-    EXPECT_THROW(Warning::Other{"x"}.replaceContents(a), std::logic_error);
+    EXPECT_THROW(Warning::Other{"x"}.replaceContents(a), BugError);
 }
 
 TEST(Warning, LargeAOAFormatsDegrees)
@@ -182,12 +187,13 @@ TEST(Warning, LargeAOAIsReplacedByALargerAngle)
     Warning::LargeAOA target{0.1};
     target.replaceContents(large);
     EXPECT_DOUBLE_EQ(target.aoa(), 0.3);
-    EXPECT_THROW(target.replaceContents(Warning::kSupersonic), std::invalid_argument);
+    EXPECT_THROW(target.replaceContents(Warning::kSupersonic), BugError);
 }
 
 TEST(Warning, SpeedWarningsFormatMetresPerSecond)
 {
-    const Warning::RecoveryHighSpeedDeployment high{38.27, MessageSources{{"main-1", "Main"}}};
+    const Warning::RecoveryHighSpeedDeployment high{38.27,
+                                                    MessageSources{source("main-1", "Main")}};
     EXPECT_EQ(high.messageDescription(), "Recovery device deployment at high speed (38.3 m/s)");
     EXPECT_EQ(high.toString(), "Recovery device deployment at high speed (38.3 m/s):  \"Main\"");
     EXPECT_DOUBLE_EQ(high.speed(), 38.27);
@@ -252,9 +258,9 @@ TEST(Warning, SpeedWarningsAreEqualWhateverTheSpeed)
     EXPECT_EQ(Warning::LowSpeedMainDeployment{1.0}.typeName(), "LowSpeedMainDeployment");
     EXPECT_EQ(Warning::LowSpeedDrogueDeployment{1.0}.typeName(), "LowSpeedDrogueDeployment");
     EXPECT_EQ(Warning::HighSpeedMainDeployment{1.0}.priority(), MessagePriority::NORMAL);
-    const Warning::HighSpeedMainDeployment withChute{1.0, MessageSources{{"main-1", "Main"}}};
+    const Warning::HighSpeedMainDeployment withChute{1.0, MessageSources{source("main-1", "Main")}};
     EXPECT_FALSE(one == withChute);  // sources differ
-    EXPECT_EQ(withChute.sources(), (MessageSources{{"main-1", "Main"}}));
+    EXPECT_EQ(withChute.sources(), (MessageSources{source("main-1", "Main")}));
 }
 
 TEST(Warning, RecoveryDrogueWithoutMainIsCritical)
@@ -289,6 +295,7 @@ TEST(Warning, EventAfterLandingCanBePatchedWithTheEvent)
     Warning::EventAfterLanding       loaded;  // the .ork loader knows the event only later
     EXPECT_FALSE(loaded.eventType().has_value());
     loaded.setId(apogee.id());
+    // Equal ids are equal here; Java compares the UUID references (see the class comment).
     EXPECT_TRUE(loaded == apogee);
     loaded.setEventType("Ejection charge");
     EXPECT_EQ(loaded.eventType().value_or(""), "Ejection charge");
@@ -342,7 +349,7 @@ TEST(Warning, MissingMotorComparesEveryField)
     EXPECT_FALSE(a == b);
     a.setManufacturer("Estes");
     EXPECT_TRUE(a == b);
-    b.setSources(MessageSources{{"mm-1", "Motor mount"}});
+    b.setSources(MessageSources{source("mm-1", "Motor mount")});
     EXPECT_FALSE(a == b);
     EXPECT_FALSE(a == Warning::kSupersonic);
 }
@@ -361,13 +368,14 @@ TEST(Warning, MissingMotorDistinguishesSignedZero)
 TEST(Warning, CloneKeepsDynamicTypeAndState)
 {
     Warning::LargeAOA original{0.25};
-    original.setSources(MessageSources{{"fs-1", "Fin set"}});
-    original.setId("id-1");
+    original.setSources(MessageSources{source("fs-1", "Fin set")});
+    const Uuid id = Uuid::random();
+    original.setId(id);
     const std::unique_ptr<Message> copy = original.clone();
     ASSERT_NE(copy, nullptr);
     EXPECT_EQ(copy->typeName(), "LargeAOA");
-    EXPECT_EQ(copy->id(), "id-1");
-    EXPECT_EQ(copy->sources(), (MessageSources{{"fs-1", "Fin set"}}));
+    EXPECT_EQ(copy->id(), id);
+    EXPECT_EQ(copy->sources(), (MessageSources{source("fs-1", "Fin set")}));
     EXPECT_EQ(copy->priority(), MessagePriority::LOW);
     const auto* typed = dynamic_cast<const Warning::LargeAOA*>(copy.get());
     ASSERT_NE(typed, nullptr);

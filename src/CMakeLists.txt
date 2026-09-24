@@ -11,6 +11,7 @@ QtRocket_configure_target(QtRocket_core)
 add_subdirectory(util)
 add_subdirectory(logging)
 add_subdirectory(unit)
+add_subdirectory(preferences)
 add_subdirectory(material)
 add_subdirectory(file)
 

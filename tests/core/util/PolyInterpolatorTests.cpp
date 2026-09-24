@@ -3,14 +3,16 @@
 #include <array>
 #include <cstddef>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
+
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::PolyInterpolator;
 
 /// The coefficients of the derivative of a polynomial given highest order term first.
@@ -241,18 +243,18 @@ TEST(PolyInterpolator, InterpolateEvaluatesTheInterpolator)
 
 TEST(PolyInterpolator, RejectsNoConstraints)
 {
-    EXPECT_THROW((PolyInterpolator{{}}), std::invalid_argument);
-    EXPECT_THROW((PolyInterpolator{{}, {}}), std::invalid_argument);
+    EXPECT_THROW((PolyInterpolator{{}}), BugError);
+    EXPECT_THROW((PolyInterpolator{{}, {}}), BugError);
     const std::vector<std::vector<double>> none;
-    EXPECT_THROW(PolyInterpolator{none}, std::invalid_argument);
+    EXPECT_THROW(PolyInterpolator{none}, BugError);
 }
 
 TEST(PolyInterpolator, RejectsTheWrongNumberOfValues)
 {
     const PolyInterpolator p{{0.6, 1.1}, {0.6, 1.1}};
-    EXPECT_THROW(static_cast<void>(p.interpolator({1.5, 1.6, 2})), std::invalid_argument);
-    EXPECT_THROW(static_cast<void>(p.interpolator({1.5, 1.6, 2, -3, 0})), std::invalid_argument);
-    EXPECT_THROW(static_cast<void>(p.interpolate(0.7, {1.5})), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(p.interpolator({1.5, 1.6, 2})), BugError);
+    EXPECT_THROW(static_cast<void>(p.interpolator({1.5, 1.6, 2, -3, 0})), BugError);
+    EXPECT_THROW(static_cast<void>(p.interpolate(0.7, {1.5})), BugError);
 }
 
 }  // namespace

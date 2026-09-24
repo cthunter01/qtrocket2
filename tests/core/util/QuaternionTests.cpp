@@ -6,15 +6,16 @@
 #include <limits>
 #include <numbers>
 #include <sstream>
-#include <stdexcept>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::Coordinate;
 using QtRocket::Quaternion;
 
@@ -150,8 +151,8 @@ TEST(Quaternion, InverseRotateRestoresCoordinate)
 TEST(Quaternion, NormalizeThrowsForZeroQuaternion)
 {
     const Quaternion zero(0, 0, 0, 0);
-    EXPECT_THROW(static_cast<void>(zero.normalize()), std::domain_error);
-    EXPECT_THROW(static_cast<void>(zero.normalizeIfNecessary()), std::domain_error);
+    EXPECT_THROW(static_cast<void>(zero.normalize()), BugError);
+    EXPECT_THROW(static_cast<void>(zero.normalizeIfNecessary()), BugError);
 }
 
 // normalizeIfNecessaryReturnsSameInstanceWhenAlreadyUnit. Java's assertSame checks object
@@ -309,8 +310,7 @@ TEST(Quaternion, RotationAboutAxisNormalizesTheAxis)
     expectQuaternionNear(unit, scaled, 1.0e-12);
     EXPECT_NEAR(1.0, scaled.norm(), 1.0e-12);
 
-    EXPECT_THROW(static_cast<void>(Quaternion::rotation(Coordinate::kZero, 1.0)),
-                 std::domain_error);
+    EXPECT_THROW(static_cast<void>(Quaternion::rotation(Coordinate::kZero, 1.0)), BugError);
 }
 
 TEST(Quaternion, RotationVectorBelowThresholdIsIdentity)
