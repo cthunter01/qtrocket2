@@ -1,0 +1,164 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>End Plate Test</name>
+    <id>859009ed-056f-450b-95ec-9e14ebf0ed3e</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>fd7ff6f2-8fec-40dc-a968-81c720e90af7</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>7b9f0dda-f53b-458d-b143-6b1680a720ae</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.05</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.01</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>89d9bf74-cb64-42ea-a69c-f5cb85928729</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.254</length>
+            <thickness>0.002</thickness>
+            <radius>0.01</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Body Tube FinSet</name>
+                <id>0bb6fe17-279d-4093-9d98-1702c025bcf5</id>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.05</rootchord>
+                <tipchord>0.05</tipchord>
+                <sweeplength>0.0</sweeplength>
+                <height>0.025</height>
+              </trapezoidfinset>
+
+              <podset>
+                <name>Pod Set</name>
+                <id>924ec1c5-60c9-4f9a-b9e1-b9734101b8d0</id>
+                <instancecount>4</instancecount>
+                <radiusoffset method="relative">0.025</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+
+                <subcomponents>
+                  <bodytube>
+                    <name>Phantom</name>
+                    <id>f2b3f360-18b4-48b8-a018-5f4b3c0bc2e7</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.05</length>
+                    <thickness>0.0</thickness>
+                    <radius>0.0</radius>
+
+                    <subcomponents>
+                      <trapezoidfinset>
+                        <name>End plates</name>
+                        <id>11997e38-7d42-4bb2-b02b-7595e887ec32</id>
+                        <instancecount>2</instancecount>
+                        <fincount>2</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">90.0</angleoffset>
+                        <rotation>90.0</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                        <thickness>0.003</thickness>
+                        <crosssection>square</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                        <rootchord>0.05</rootchord>
+                        <tipchord>0.05</tipchord>
+                        <sweeplength>0.0</sweeplength>
+                        <height>0.025</height>
+                      </trapezoidfinset>
+                    </subcomponents>
+                  </bodytube>
+                </subcomponents>
+              </podset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>[No motors]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

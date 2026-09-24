@@ -1,0 +1,62 @@
+{
+ "schema": "simulation",
+ "schemaVersion": 1,
+ "input": "example-simulation-scripting",
+ "index": 2,
+ "name": "Roll control + air-start",
+ "flightConfiguration": {"index": 1, "id": "487170d2-211b-49a5-b58b-9c222d926522", "name": "[L540-P]"},
+ "optionsSource": "document",
+ "options": {
+  "launchRodLength": 1.0,
+  "launchIntoWind": true,
+  "launchRodAngle": 0.0,
+  "launchRodDirection": 1.5707963267948966,
+  "windModelType": "AVERAGE",
+  "averageWind": {"average": 2.0, "standardDeviation": 0.0, "turbulenceIntensity": 0.0, "direction": 1.5707963267948966},
+  "multiLevelWind": {
+   "altitudeReference": "MSL",
+   "levels": [
+    {"altitude": 0.0, "speed": 3.8, "direction": 3.0892327760299634, "standardDeviation": 0.0}
+   ]
+  },
+  "launchAltitude": 0.0,
+  "launchLatitude": 45.0,
+  "launchLongitude": 0.0,
+  "geodeticComputation": "FLAT",
+  "isaAtmosphere": true,
+  "launchTemperature": 288.15,
+  "launchPressure": 101325.0,
+  "launchRelativeHumidity": 0.0,
+  "timeStep": 0.05,
+  "maxSimulationTime": 1200.0,
+  "maximumStepAngle": 0.05235987755982988,
+  "randomSeed": 0,
+  "randomSeedFixed": true,
+  "gravityModelType": "WGS",
+  "constantGravity": 9.807,
+  "stepperMethod": "RK4",
+  "recoverySpeedWarning": 20.0,
+  "drogueLowSpeedWarning": 3.048,
+  "recoveryDrogueMainHighSpeedWarning": 30.48,
+  "recoveryDrogueMainLowSpeedWarning": 15.24,
+  "hasDragLookup": false,
+  "hasStabilityLookup": false
+ },
+ "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [1.52], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true},
+ "extensions": [
+  {
+   "id": "info.openrocket.core.simulation.extension.impl.ScriptingExtension",
+   "type": "ScriptingExtension",
+   "name": "JavaScript script",
+   "config": {"enabled": false, "language": "JavaScript", "script": "// Name of control fin set\nconst CONTROL_FIN_NAME = \"CONTROL\";\n\n// Desired roll rate (rad/sec)\nconst SETPOINT = 0 * Math.PI / 180;\n\n// Maximum control fin angle (rad)\nconst MAX_ANGLE = 15 * Math.PI / 180;\n\n// PID parameters\nconst KP = 0.007;\nconst KI = 0.2;\n\n////////////////////////////////////////\n\nvar rollrate = 0;\nvar previousTime = 0;\nvar intState = 0;\n\nfunction postFlightConditions(status, flightConditions) {\n\t// Store the current roll rate for later use\n\trollrate = flightConditions.getRollRate();\n}\n\nfunction postStep(status) {\n\tconst controlFin = findControlFin(status);\n\tconst deltaT = status.getSimulationTime() - previousTime;\n\tpreviousTime = status.getSimulationTime();\n\t\n\tconst error = SETPOINT - rollrate;\n\tintState += error * deltaT;\n\n\tconst p = KP * error;\n\tconst i = KI * intState;\n\tlet value = p + i;\n\n\t// Clamp to -MAX_ANGLE .. MAX_ANGLE\n\tif (value > MAX_ANGLE) {\n\t\tvalue = MAX_ANGLE;\n\t}\n\tif (value < -MAX_ANGLE) {\n\t\tvalue = -MAX_ANGLE;\n\t}\n\n\tcontrolFin.setCantAngle(value);\n}\n\nfunction findControlFin(status) {\n\tlet component;\n\tconst iterator = status.getConfiguration().getAllComponents().iterator();\n\twhile (iterator.hasNext()) {\n\t\tcomponent = iterator.next();\n\t\tif (component.getName() == CONTROL_FIN_NAME) {\n\t\t\treturn component;\n\t\t}\n\t}\n\tthrow \"Could not find fin with name \" + CONTROL_FIN_NAME;\n}\n"}
+  },
+  {
+   "id": "info.openrocket.core.simulation.extension.impl.ScriptingExtension",
+   "type": "ScriptingExtension",
+   "name": "JavaScript script",
+   "config": {"enabled": false, "language": "JavaScript", "script": "var Coordinate = Java.type(\"net.sf.openrocket.util.Coordinate\");\n// launch altitude\nconst ALTITUDE = 100.0;\n\n// launch velocity\nconst VELOCITY = 50.0;\n\nfunction startSimulation(status) {\n\tstatus.setRocketPosition(new Coordinate(0, 0, ALTITUDE));\n\tstatus.setRocketVelocity(new Coordinate(0, 0, VELOCITY));\n}\n"}
+  }
+ ],
+ "skipped": true,
+ "skipReason": "uses a JavaScript scripting extension (out of scope for QtRocket)"
+}

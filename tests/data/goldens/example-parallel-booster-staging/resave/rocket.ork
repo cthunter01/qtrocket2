@@ -1,0 +1,658 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Parallel booster staging</name>
+    <id>09bec2e8-0266-4174-b7a2-75d4c67be8a1</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designer>Stephen Heilman</designer>
+    <designtype>original</designtype>
+    <motorconfiguration configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="61807321-6072-430e-87cd-91fd258cb161" default="true">
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>e8f25deb-6885-453c-afb4-a4a38f413341</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>dffc432e-ab26-4c93-8b7f-60b4614dc3c7</id>
+            <appearance>
+              <paint red="255" green="255" blue="255" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <insideappearance>
+              <edgessameasinside>false</edgessameasinside>
+              <insidesameasoutside>false</insidesameasoutside>
+              <paint red="255" green="255" blue="255" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </insideappearance>
+            <finish>normal</finish>
+            <material type="bulk" density="1199.7829086600002" shearModulus="0.0" group="Custom">Polycarbonate</material>
+            <length>0.27940000000000004</length>
+            <thickness>0.0022860000000000003</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>auto 0.028701999999999995</aftradius>
+            <aftshoulderradius>0.025</aftshoulderradius>
+            <aftshoulderlength>0.038099999999999995</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>true</aftshouldercapped>
+            <isflipped>false</isflipped>
+
+            <subcomponents>
+              <masscomponent>
+                <name>Mass Component</name>
+                <id>f986d79a-afde-402f-bdad-ffa031e12252</id>
+                <appearance>
+                  <paint red="1" green="1" blue="1" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="/datafiles/textures/wadding.png" rotation="0.0" edgemode="REPEAT">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="0.0" y="0.0"/>
+                    <scale x="1.0" y="1.0"/>
+                  </decal>
+                </appearance>
+                <axialoffset method="top">0.14223999999999998</axialoffset>
+                <position type="top">0.14223999999999998</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>0.1417476155</mass>
+                <masscomponenttype>masscomponent</masscomponenttype>
+              </masscomponent>
+            </subcomponents>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>5b698c52-d1e5-49c5-be89-e10419c58f1d</id>
+            <appearance>
+              <paint red="212" green="185" blue="145" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="/datafiles/textures/spiral-wound-alpha.png" rotation="0.0" edgemode="REPEAT">
+                <center x="0.0" y="0.0"/>
+                <offset x="0.0" y="0.0"/>
+                <scale x="1.0" y="1.0"/>
+              </decal>
+            </appearance>
+            <insideappearance>
+              <edgessameasinside>false</edgessameasinside>
+              <insidesameasoutside>false</insidesameasoutside>
+              <paint red="212" green="185" blue="145" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="/datafiles/textures/spiral-wound-alpha.png" rotation="0.0" edgemode="REPEAT">
+                <center x="0.0" y="0.0"/>
+                <offset x="0.0" y="0.0"/>
+                <scale x="1.0" y="1.0"/>
+              </decal>
+            </insideappearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.8635999999999999</length>
+            <thickness>0.0015239999999999941</thickness>
+            <radius>0.028701999999999995</radius>
+            <motormount>
+              <ignitionevent>launch</ignitionevent>
+              <ignitiondelay>0.0</ignitiondelay>
+              <overhang>0.009524999999999999</overhang>
+              <motor configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+                <type>reload</type>
+                <manufacturer>AeroTech</manufacturer>
+                <digest>0039ed088e61360d934d9bd8503fad92</digest>
+                <designation>I115W</designation>
+                <diameter>0.054</diameter>
+                <length>0.156</length>
+                <delay>10.0</delay>
+              </motor>
+              <ignitionconfiguration configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+                <ignitionevent>automatic</ignitionevent>
+                <ignitiondelay>0.0</ignitiondelay>
+              </ignitionconfiguration>
+              <motor configid="61807321-6072-430e-87cd-91fd258cb161">
+                <type>reload</type>
+                <manufacturer>AeroTech</manufacturer>
+                <digest>0039ed088e61360d934d9bd8503fad92</digest>
+                <designation>I115W</designation>
+                <diameter>0.054</diameter>
+                <length>0.156</length>
+                <delay>10.0</delay>
+              </motor>
+              <ignitionconfiguration configid="61807321-6072-430e-87cd-91fd258cb161">
+                <ignitionevent>automatic</ignitionevent>
+                <ignitiondelay>0.0</ignitiondelay>
+              </ignitionconfiguration>
+            </motormount>
+
+            <subcomponents>
+              <parallelstage>
+                <name>Booster Set</name>
+                <id>d2de0559-b136-4ffd-9789-5c835f54d3b6</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="relative">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <separationevent>ejection</separationevent>
+                <separationaltitude>200.0</separationaltitude>
+                <separationdelay>0.0</separationdelay>
+                <separationconfiguration configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+                    <separationevent>ejection</separationevent>
+                    <separationaltitude>200.0</separationaltitude>
+                    <separationdelay>0.0</separationdelay>
+                </separationconfiguration>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Nose Cone</name>
+                    <id>633d012a-ea10-4731-a2d1-e83b6e6c3024</id>
+                    <appearance>
+                      <paint red="255" green="255" blue="255" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <insideappearance>
+                      <edgessameasinside>false</edgessameasinside>
+                      <insidesameasoutside>false</insidesameasoutside>
+                      <paint red="255" green="255" blue="255" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </insideappearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="160.2" shearModulus="0.0" group="Custom">Balsa, bulk, Estes typical</material>
+                    <length>0.044449999999999996</length>
+                    <thickness>filled</thickness>
+                    <shape>conical</shape>
+                    <aftradius>0.0168275</aftradius>
+                    <aftshoulderradius>0.0162941</aftshoulderradius>
+                    <aftshoulderlength>0.019049999999999997</aftshoulderlength>
+                    <aftshoulderthickness>0.0162941</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+
+                  <bodytube>
+                    <name>Booster Body Tube</name>
+                    <id>091032e6-23e5-4e9e-8b41-68435ead56d0</id>
+                    <appearance>
+                      <paint red="212" green="185" blue="145" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                      <decal name="/datafiles/textures/spiral-wound-alpha.png" rotation="0.0" edgemode="REPEAT">
+                        <center x="0.0" y="0.0"/>
+                        <offset x="0.0" y="0.0"/>
+                        <scale x="1.0" y="1.0"/>
+                      </decal>
+                    </appearance>
+                    <insideappearance>
+                      <edgessameasinside>false</edgessameasinside>
+                      <insidesameasoutside>false</insidesameasoutside>
+                      <paint red="212" green="185" blue="145" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                      <decal name="/datafiles/textures/spiral-wound-alpha.png" rotation="0.0" edgemode="REPEAT">
+                        <center x="0.0" y="0.0"/>
+                        <offset x="0.0" y="0.0"/>
+                        <scale x="1.0" y="1.0"/>
+                      </decal>
+                    </insideappearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="894.4" shearModulus="0.0" group="Custom">Paper, spiral kraft glassine, Estes avg, bulk</material>
+                    <length>0.127</length>
+                    <thickness>5.333999999999998E-4</thickness>
+                    <radius>0.0168275</radius>
+
+                    <subcomponents>
+                      <trapezoidfinset>
+                        <name>Trapezoidal Fin Set</name>
+                        <id>469a21df-70fa-4655-a80f-ab5ab7b302c0</id>
+                        <appearance>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </appearance>
+                        <insideappearance>
+                          <edgessameasinside>false</edgessameasinside>
+                          <insidesameasoutside>false</insidesameasoutside>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </insideappearance>
+                        <instancecount>1</instancecount>
+                        <fincount>1</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">45.0</angleoffset>
+                        <rotation>45.0</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="630.0" shearModulus="6.13E8" group="Woods">Plywood (birch)</material>
+                        <thickness>0.00635</thickness>
+                        <crosssection>square</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                        <rootchord>0.07619999999999999</rootchord>
+                        <tipchord>0.05</tipchord>
+                        <sweeplength>0.025</sweeplength>
+                        <height>0.0508</height>
+                      </trapezoidfinset>
+
+                      <trapezoidfinset>
+                        <name>Trapezoidal Fin Set</name>
+                        <id>01266b17-63fd-42f2-8fb3-9043521e1287</id>
+                        <appearance>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </appearance>
+                        <insideappearance>
+                          <edgessameasinside>false</edgessameasinside>
+                          <insidesameasoutside>false</insidesameasoutside>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </insideappearance>
+                        <instancecount>1</instancecount>
+                        <fincount>1</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">-45.00000000000001</angleoffset>
+                        <rotation>-45.00000000000001</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="630.0" shearModulus="6.13E8" group="Woods">Plywood (birch)</material>
+                        <thickness>0.00635</thickness>
+                        <crosssection>square</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                        <rootchord>0.07619999999999999</rootchord>
+                        <tipchord>0.05</tipchord>
+                        <sweeplength>0.025</sweeplength>
+                        <height>0.0508</height>
+                      </trapezoidfinset>
+
+                      <centeringring>
+                        <name>Centering Ring</name>
+                        <id>de5b8276-c7f8-4c1a-8cbb-54c1b32e6fbf</id>
+                        <appearance>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/wood.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </appearance>
+                        <instancecount>1</instancecount>
+                        <instanceseparation>0.0</instanceseparation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="657.0" shearModulus="0.0" group="Custom">Fiber, bulk</material>
+                        <length>0.00127</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.016268699999999997</outerradius>
+                        <innerradius>0.012420599999999999</innerradius>
+                      </centeringring>
+
+                      <centeringring>
+                        <name>Centering Ring</name>
+                        <id>78a7a725-63fb-4e25-8090-eef5d106a299</id>
+                        <appearance>
+                          <paint red="1" green="1" blue="1" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/wood.jpg" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </appearance>
+                        <instancecount>1</instancecount>
+                        <instanceseparation>0.0</instanceseparation>
+                        <axialoffset method="bottom">-0.07365999999999999</axialoffset>
+                        <position type="bottom">-0.07365999999999999</position>
+                        <material type="bulk" density="657.0" shearModulus="0.0" group="Custom">Fiber, bulk</material>
+                        <length>0.00127</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.016268699999999997</outerradius>
+                        <innerradius>0.012420599999999999</innerradius>
+                      </centeringring>
+
+                      <innertube>
+                        <name>Booster Motor Tube</name>
+                        <id>1540a83d-9346-4cec-ab39-f404b1f3df25</id>
+                        <appearance>
+                          <paint red="168" green="146" blue="116" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                          <decal name="/datafiles/textures/spiral-wound-alpha.png" rotation="0.0" edgemode="REPEAT">
+                            <center x="0.0" y="0.0"/>
+                            <offset x="0.0" y="0.0"/>
+                            <scale x="1.0" y="1.0"/>
+                          </decal>
+                        </appearance>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="894.4" shearModulus="0.0" group="Custom">Paper, spiral kraft glassine, Estes avg, bulk</material>
+                        <length>0.1016</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.012395199999999999</outerradius>
+                        <thickness>3.3019999999999924E-4</thickness>
+                        <clusterconfiguration>single</clusterconfiguration>
+                        <clusterscale>1.0</clusterscale>
+                        <clusterrotation>0.0</clusterrotation>
+                        <motormount>
+                          <ignitionevent>automatic</ignitionevent>
+                          <ignitiondelay>0.0</ignitiondelay>
+                          <overhang>0.009524999999999999</overhang>
+                          <motor configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+                            <type>single</type>
+                            <manufacturer>Estes</manufacturer>
+                            <digest>7baff5a049a60829dbb8316d1b183e86</digest>
+                            <designation>E12</designation>
+                            <diameter>0.024</diameter>
+                            <length>0.095</length>
+                            <delay>0.0</delay>
+                          </motor>
+                          <ignitionconfiguration configid="6e2539fb-efe5-43e4-8c58-601dd9b5dc12">
+                            <ignitionevent>automatic</ignitionevent>
+                            <ignitiondelay>0.0</ignitiondelay>
+                          </ignitionconfiguration>
+                        </motormount>
+
+                        <subcomponents>
+                          <engineblock>
+                            <name>Engine Block</name>
+                            <id>4943f352-dd70-4494-b906-383820722c66</id>
+                            <appearance>
+                              <paint red="1" green="1" blue="1" alpha="255"/>
+                              <shine>0.3</shine>
+                              <opacityaffectstexture>false</opacityaffectstexture>
+                              <decal name="/datafiles/textures/hardboard.jpg" rotation="0.0" edgemode="REPEAT">
+                                <center x="0.0" y="0.0"/>
+                                <offset x="0.0" y="0.0"/>
+                                <scale x="1.0" y="1.0"/>
+                              </decal>
+                            </appearance>
+                            <axialoffset method="bottom">-0.09398</axialoffset>
+                            <position type="bottom">-0.09398</position>
+                            <material type="bulk" density="657.0" shearModulus="0.0" group="Custom">Fiber, bulk</material>
+                            <length>0.00635</length>
+                            <radialposition>0.0</radialposition>
+                            <radialdirection>0.0</radialdirection>
+                            <outerradius>0.0120396</outerradius>
+                            <thickness>0.0026669999999999992</thickness>
+                          </engineblock>
+                        </subcomponents>
+                      </innertube>
+                    </subcomponents>
+                  </bodytube>
+                </subcomponents>
+              </parallelstage>
+
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>8a32009f-e5f8-472d-9e76-27a18438d6de</id>
+                <appearance>
+                  <paint red="1" green="1" blue="1" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="0.0" y="0.0"/>
+                    <scale x="1.0" y="1.0"/>
+                  </decal>
+                </appearance>
+                <insideappearance>
+                  <edgessameasinside>false</edgessameasinside>
+                  <insidesameasoutside>false</insidesameasoutside>
+                  <paint red="1" green="1" blue="1" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="/datafiles/textures/balsa.jpg" rotation="0.0" edgemode="REPEAT">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="0.0" y="0.0"/>
+                    <scale x="1.0" y="1.0"/>
+                  </decal>
+                </insideappearance>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">45.0</angleoffset>
+                <rotation>45.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="630.0" shearModulus="6.13E8" group="Woods">Plywood (birch)</material>
+                <thickness>0.00635</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.07619999999999999</rootchord>
+                <tipchord>0.05</tipchord>
+                <sweeplength>0.025</sweeplength>
+                <height>0.0508</height>
+              </trapezoidfinset>
+
+              <shockcord>
+                <name>Shock Cord</name>
+                <id>41ef6f77-ebc7-4e72-81ed-f90ed17b3b77</id>
+                <appearance>
+                  <paint red="1" green="1" blue="1" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="/datafiles/textures/wadding.png" rotation="0.0" edgemode="REPEAT">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="0.0" y="0.0"/>
+                    <scale x="1.0" y="1.0"/>
+                  </decal>
+                </appearance>
+                <axialoffset method="top">0.0508</axialoffset>
+                <position type="top">0.0508</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>1.016</cordlength>
+                <material type="line" density="0.002" group="Elastics">Elastic braided cord (flat 4 mm, 5/32 in)</material>
+              </shockcord>
+
+              <parachute>
+                <name>Parachute, 36 in., nylon, 8 lines</name>
+                <id>22befe69-240e-44e3-b9d8-12289cc4b2ef</id>
+                <appearance>
+                  <paint red="1" green="1" blue="1" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="/datafiles/textures/chute.jpg" rotation="0.0" edgemode="REPEAT">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="0.0" y="0.0"/>
+                    <scale x="1.0" y="1.0"/>
+                  </decal>
+                </appearance>
+                <axialoffset method="top">0.09906</axialoffset>
+                <position type="top">0.09906</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.0527" shearModulus="0.0" group="Custom">Nylon fabric, ripstop, 1.7 oz actual</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.9144</diameter>
+                <linecount>8</linecount>
+                <linelength>0.9144</linelength>
+                <linematerial type="line" density="0.0016" shearModulus="0.0" group="Custom">Nylon Paracord, 110 lb, 1/16 in. dia.</linematerial>
+              </parachute>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>1c8ce0e2-38e5-43bd-b827-7e749a89113f</id>
+                <appearance>
+                  <paint red="255" green="255" blue="220" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.23600000000000013</instanceseparation>
+                <angleoffset method="relative">-90.0</angleoffset>
+                <axialoffset method="middle">0.002539999999999991</axialoffset>
+                <position type="middle">0.002539999999999991</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>6e2539fb-efe5-43e4-8c58-601dd9b5dc12</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="1120.361" maxvelocity="210.802" maxacceleration="132.783" maxmach="0.622" timetoapogee="13.049" flighttime="224.366" groundhitvelocity="5.53" launchrodvelocity="14.765" deploymentvelocity="4.9385" optimumdelay="9.5845">
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 2</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>61807321-6072-430e-87cd-91fd258cb161</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="848.398" maxvelocity="188.761" maxacceleration="116.692" maxmach="0.557" timetoapogee="11.149" flighttime="163.367" groundhitvelocity="5.739" launchrodvelocity="12.972" deploymentvelocity="13.9735" optimumdelay="7.6345">
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>BULK|Balsa, bulk, Estes typical|160.2|0.0|Custom</material>
+      <material>BULK|Delrin|1420.0|0.0|Custom</material>
+      <material>LINE|Elastic braided cord (flat 4 mm, 5/32 in)|0.002|0.0|Custom</material>
+      <material>BULK|Fiber, bulk|657.0|0.0|Custom</material>
+      <material>LINE|Nylon Paracord, 110 lb, 1/16 in. dia.|0.0016|0.0|Custom</material>
+      <material>SURFACE|Nylon fabric, ripstop, 1.7 oz actual|0.0527|0.0|Custom</material>
+      <material>BULK|Paper, kraft glassine, LOC tube avg|855.2|0.0|Custom</material>
+      <material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|Custom</material>
+      <material>BULK|Plywood (birch)|630.0|0.0|Custom</material>
+      <material>BULK|Polycarbonate|1199.7829086600002|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

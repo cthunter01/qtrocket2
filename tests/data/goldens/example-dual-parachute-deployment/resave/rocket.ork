@@ -1,0 +1,727 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Dual parachute deployment</name>
+    <id>5b3bdde2-5a1e-4223-87ba-cc52d1641209</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>A standard fiberglass zipperless dual deploy rocket. 
+
+While it is overstable, it&#39;s fast enough off the rail on anything bigger than the G motor that weathercocking isn&#39;t a problem.</comment>
+    <designer>Joe Pfeiffer (an adaptation of Hichory Dichory Mach)</designer>
+    <designtype>original</designtype>
+    <motorconfiguration configid="b38ea08b-626b-4abf-97a2-2dfc56fd69df">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="db9b08a1-6330-45b0-b43a-27c75784989e">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="de88d3eb-091c-4f62-9a0e-2240b7c3560d">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="098d8c95-54c4-4552-bf81-e65e1de4796b" default="true">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="1654d8fb-f69f-43de-984a-d55765ad8a9d">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="e4cf5b98-e53c-40da-8fa6-3a9354ad28d1">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>477705be-6590-4163-b581-f0d3bf638f1b</id>
+        <overridemass>1.3607771088</overridemass>
+        <overridesubcomponentsmass>true</overridesubcomponentsmass>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose cone</name>
+            <id>dd2419e3-15dd-40a2-91e6-67461aa6a7ca</id>
+            <comment>MadCow 5:1 ogive nose cone</comment>
+            <finish>normal</finish>
+            <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+            <length>0.28321</length>
+            <thickness>9.906E-4</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>auto 0.028321</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>1185d77d-e323-4db2-8da6-d99f1391d4fc</id>
+                <axialoffset method="bottom">0.0508</axialoffset>
+                <position type="bottom">0.0508</position>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <length>0.07619999999999999</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.027305</outerradius>
+                <thickness>0.0019050000000000004</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>2ee8185c-126b-4105-9190-bb2d3319bb7b</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                    <length>0.002</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>auto</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+            </subcomponents>
+          </nosecone>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>0543a98f-093c-4bc0-9289-e4eceacad85b</id>
+            <finish>normal</finish>
+            <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+            <length>0.4064</length>
+            <thickness>9.905999999999977E-4</thickness>
+            <radius>auto 0.025</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Elliptical 12-Gore 42&quot; Parachute</name>
+                <id>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</id>
+                <axialoffset method="top">0.07619999999999999</axialoffset>
+                <position type="top">0.07619999999999999</position>
+                <overridemass>0.07512623621499999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <packedlength>0.11285771168170697</packedlength>
+                <packedradius>auto 0.024009400000000004</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>1.5</cd>
+                <material type="surface" density="0.035653924" shearModulus="0.0" group="Custom">Ripstop nylon, lightweight, 3 mil</material>
+                <deployevent>altitude</deployevent>
+                <deployaltitude>152.4</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>1.0668</diameter>
+                <linecount>12</linecount>
+                <linelength>1.6001999999999998</linelength>
+                <linematerial type="line" density="6.56168E-4" shearModulus="0.0" group="Custom">Spectra #200 [Round 1.5 mm, 1/16 in]</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>3afdb622-2dd4-449e-a779-96839bf365b3</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.0254</length>
+            <thickness>9.905999999999977E-4</thickness>
+            <radius>auto 0.028321</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>7c47954e-4fb2-4a33-8923-62ccae522760</id>
+                <axialoffset method="middle">-0.0</axialoffset>
+                <position type="middle">-0.0</position>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <length>0.127</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.0019304000000000023</thickness>
+              </tubecoupler>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>e886c29e-4c0c-40a8-897e-ac15465486e2</id>
+            <finish>normal</finish>
+            <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+            <length>0.30479999999999996</length>
+            <thickness>9.905999999999977E-4</thickness>
+            <radius>0.028321</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Apex 12&quot; Drouge Parachute</name>
+                <id>0fde7df3-e1ba-4d69-959e-c031b4b63957</id>
+                <axialoffset method="middle">-0.0</axialoffset>
+                <position type="middle">-0.0</position>
+                <overridemass>0.034019427719999995</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <packedlength>0.048868261218059435</packedlength>
+                <packedradius>auto 0.0273304</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>0.61</cd>
+                <material type="surface" density="0.058906483" shearModulus="0.0" group="Custom">Ripstop Nylon, 1.9 oz 5 mil</material>
+                <deployevent>apogee</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.30479999999999996</diameter>
+                <linecount>4</linecount>
+                <linelength>0.30479999999999996</linelength>
+                <linematerial type="line" density="0.004090114" shearModulus="0.0" group="Custom">0555 Nylon webbing #440 [flat 1/2 x 3/64 in (12.7 x 1 mm)]</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>5ffcc206-0b5b-4acc-98ab-26ab4347f7eb</id>
+            <finish>normal</finish>
+            <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+            <length>0.4572</length>
+            <thickness>9.905999999999977E-4</thickness>
+            <radius>auto 0.028321</radius>
+
+            <subcomponents>
+              <innertube>
+                <name>Inner Tube</name>
+                <id>ac0dc0f5-be04-42bf-bbcc-80557e67d6ff</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <length>0.4064</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.02032</outerradius>
+                <thickness>0.001016000000000003</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0127</overhang>
+                  <motor configid="b38ea08b-626b-4abf-97a2-2dfc56fd69df">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>26a5e7834018943090396d419ca64662</digest>
+                    <designation>H669N</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.152</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="b38ea08b-626b-4abf-97a2-2dfc56fd69df">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="db9b08a1-6330-45b0-b43a-27c75784989e">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>cff44a78b2c4bc9e2ef19f6a2ded4da0</digest>
+                    <designation>H242T</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.152</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="db9b08a1-6330-45b0-b43a-27c75784989e">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="de88d3eb-091c-4f62-9a0e-2240b7c3560d">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>6eb7fe0c078fe0365e2052d8c877f6a4</digest>
+                    <designation>J570W</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.479</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="de88d3eb-091c-4f62-9a0e-2240b7c3560d">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="098d8c95-54c4-4552-bf81-e65e1de4796b">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>871f7fe309f61ec7e45e4b29833349d9</digest>
+                    <designation>H999N</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.203</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="098d8c95-54c4-4552-bf81-e65e1de4796b">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="1654d8fb-f69f-43de-984a-d55765ad8a9d">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>e26c7159754a0c58db92d8c5b3568902</digest>
+                    <designation>I1299N</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.249</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="1654d8fb-f69f-43de-984a-d55765ad8a9d">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="e4cf5b98-e53c-40da-8fa6-3a9354ad28d1">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>0fa1ede88d6407eadc5bbc413810100d</digest>
+                    <designation>G64W</designation>
+                    <diameter>0.029</diameter>
+                    <length>0.124</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="e4cf5b98-e53c-40da-8fa6-3a9354ad28d1">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+              </innertube>
+
+              <trapezoidfinset>
+                <name>Trapezoidal fin set</name>
+                <id>d7af33eb-b3e2-4e2b-8a99-0b14fa615e75</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.0020066</axialoffset>
+                <position type="bottom">-0.0020066</position>
+                <comment>PML FIN-C-05 modified by cutting down the height</comment>
+                <finish>normal</finish>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <thickness>0.0023622</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.008000999999999998</tabheight>
+                <tablength>0.15239999999999998</tablength>
+                <tabposition relativeto="center">0.0</tabposition>
+                <tabposition relativeto="middle">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.15239999999999998</rootchord>
+                <tipchord>0.08889999999999999</tipchord>
+                <sweeplength>0.04399409051224947</sweeplength>
+                <height>0.07619999999999999</height>
+              </trapezoidfinset>
+
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>6402576b-0705-4067-a7fc-179ca1d56c58</id>
+                <axialoffset method="top">-0.0508</axialoffset>
+                <position type="top">-0.0508</position>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <length>0.1016</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.0019304000000000023</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>53247293-63d7-433a-9d75-d1ae1f2b6bca</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                    <length>0.002</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>auto</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>013f7d84-d07f-4c91-94a3-2620d04abe32</id>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.381</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <axialoffset method="top">0.0635</axialoffset>
+                <position type="top">0.0635</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>c44b0df5-4f40-4774-9bc3-6acb71b40481</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.06984999999999997</axialoffset>
+                <position type="top">0.06984999999999997</position>
+                <material type="bulk" density="1850.0" shearModulus="4.14E9" group="Composites">Fiberglass</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>66ee4e45-21ce-495a-95de-c2c268e84c22</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.15440659999999998</axialoffset>
+                <position type="bottom">-0.15440659999999998</position>
+                <material type="bulk" density="40.827859344" shearModulus="0.0" group="Custom">Fiberglass</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>891e30f4-bf52-498b-9345-af8407a8da4d</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="40.827859344" shearModulus="0.0" group="Custom">Fiberglass</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>b38ea08b-626b-4abf-97a2-2dfc56fd69df</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="592.721" maxvelocity="135.387" maxacceleration="721.905" maxmach="0.398" timetoapogee="10.324" flighttime="65.294" groundhitvelocity="4.635" launchrodvelocity="53.045" deploymentvelocity="23.611" optimumdelay="9.994915">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>a631d393-6d31-4fac-b12f-c44c793dcbe8</id>
+          <description>Recovery device deployment at high speed (23.6 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>23.610536176139007</parameter>
+          Recovery device deployment at high speed (23.6 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 2</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>db9b08a1-6330-45b0-b43a-27c75784989e</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="697.16" maxvelocity="140.914" maxacceleration="144.068" maxmach="0.415" timetoapogee="11.446" flighttime="70.791" groundhitvelocity="4.77" launchrodvelocity="29.935" deploymentvelocity="23.571" optimumdelay="10.105668">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>9ed64212-cfe0-4872-aca0-6b0c20f0646a</id>
+          <description>Recovery device deployment at high speed (23.6 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>23.57102743497518</parameter>
+          Recovery device deployment at high speed (23.6 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 3</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>de88d3eb-091c-4f62-9a0e-2240b7c3560d</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="2223.846" maxvelocity="388.569" maxacceleration="504.582" maxmach="1.147" timetoapogee="17.352" flighttime="129.906" groundhitvelocity="5.006" launchrodvelocity="54.125" deploymentvelocity="24.978" optimumdelay="15.35">
+        <warning type="Other">
+          <id>6ec220ba-aea5-4619-80e1-787a9a95952d</id>
+          <description>Body calculations may not be entirely accurate at supersonic speeds.</description>
+          <priority>NORMAL</priority>
+          Body calculations may not be entirely accurate at supersonic speeds.
+        </warning>
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>f3d5d68c-ad5c-4a04-8e8b-b481c7f81b9d</id>
+          <description>Recovery device deployment at high speed (25 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>24.978212367977193</parameter>
+          Recovery device deployment at high speed (25 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 4</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>098d8c95-54c4-4552-bf81-e65e1de4796b</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="897.473" maxvelocity="190.816" maxacceleration="1003.51" maxmach="0.561" timetoapogee="12.194" flighttime="78.265" groundhitvelocity="4.608" launchrodvelocity="65.073" deploymentvelocity="23.852" optimumdelay="11.915162">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>2dbae6f2-6a17-4727-ba39-76451967ab1f</id>
+          <description>Recovery device deployment at high speed (23.9 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>23.851683157551676</parameter>
+          Recovery device deployment at high speed (23.9 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 5</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>1654d8fb-f69f-43de-984a-d55765ad8a9d</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="1158.663" maxvelocity="242.744" maxacceleration="867.184" maxmach="0.714" timetoapogee="13.443" flighttime="90.22" groundhitvelocity="4.73" launchrodvelocity="71.334" deploymentvelocity="24.189" optimumdelay="13.153479">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>61492123-8b79-4f97-b883-520b12fbb18e</id>
+          <description>Recovery device deployment at high speed (24.2 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>24.189200865520373</parameter>
+          Recovery device deployment at high speed (24.2 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 6</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>e4cf5b98-e53c-40da-8fa6-3a9354ad28d1</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="226.185" maxvelocity="58.427" maxacceleration="61.849" maxmach="0.172" timetoapogee="7.34" flighttime="47.127" groundhitvelocity="4.619" launchrodvelocity="19.204" deploymentvelocity="22.678" optimumdelay="4.9">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>11c81537-6ca0-4545-8455-8bdf38cd6140</id>
+          <description>Recovery device deployment at high speed (22.7 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>f8ac6967-22c4-433c-9548-c1ee9d28c0eb</source>
+          <parameter>22.678462716265063</parameter>
+          Recovery device deployment at high speed (22.7 m/s):  &quot;Elliptical 12-Gore 42&quot; Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>LINE|0555 Nylon webbing #440 [flat 1/2 x 3/64 in (12.7 x 1 mm)]|0.004090114|0.0|Custom</material>
+      <material>BULK|Cardboard|680.0|0.0|Custom</material>
+      <material>BULK|Delrin|1420.0|0.0|Custom</material>
+      <material>BULK|Fiberglass|40.827859344|0.0|Custom</material>
+      <material>BULK|Fiberglass|1850.0|0.0|Custom</material>
+      <material>SURFACE|Ripstop Nylon, 1.9 oz 5 mil|0.058906483|0.0|Custom</material>
+      <material>SURFACE|Ripstop nylon, lightweight, 3 mil|0.035653924|0.0|Custom</material>
+      <material>LINE|Spectra #200 [Round 1.5 mm, 1/16 in]|6.56168E-4|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

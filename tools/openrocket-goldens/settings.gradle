@@ -1,0 +1,4 @@
+// The golden-data harness: a stand-alone Gradle project (not part of the CMake build) that compiles
+// OpenRocket's core from a local checkout and dumps reference data into tests/data/goldens.
+// See README.md; run it through generate.sh.
+rootProject.name = 'openrocket-goldens'

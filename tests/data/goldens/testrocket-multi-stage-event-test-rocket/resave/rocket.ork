@@ -1,0 +1,326 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Rocket</name>
+    <id>98fd157c-eda0-4b32-b755-9ffe933a4f99</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <motorconfiguration configid="edc2406f-9ca4-4142-b61b-39cdcee073a1" default="true">
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+      <stage number="2" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>0da5bc77-0a4c-4d65-9710-208b3b3799e3</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Sustainer Nose Cone</name>
+            <id>ad64c12b-e3fd-4f33-82d4-c8455e9ace8a</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.1</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.01</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Sustainer Body Tube</name>
+            <id>0388bcba-5b58-4936-a014-e5ec1d80ab63</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.2</length>
+            <thickness>0.002</thickness>
+            <radius>0.01</radius>
+            <motormount>
+              <ignitionevent>automatic</ignitionevent>
+              <ignitiondelay>0.0</ignitiondelay>
+              <overhang>0.0</overhang>
+              <motor configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                <type>single</type>
+                <manufacturer>Estes</manufacturer>
+                <digest>digest C6 test</digest>
+                <designation>C6</designation>
+                <diameter>0.018</diameter>
+                <length>0.07</length>
+                <delay>5.0</delay>
+              </motor>
+              <ignitionconfiguration configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                <ignitionevent>burnout</ignitionevent>
+                <ignitiondelay>0.0</ignitiondelay>
+              </ignitionconfiguration>
+            </motormount>
+
+            <subcomponents>
+              <parachute>
+                <name>Sustainer Parachute</name>
+                <id>9ba9ef3b-7639-4125-942c-e65fa683df3e</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>6</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Center Booster</name>
+        <id>6a60a4be-8387-43b5-ab17-d8318fcb5cf8</id>
+        <separationevent>ejection</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+
+        <subcomponents>
+          <bodytube>
+            <name>Center Booster Body Tube</name>
+            <id>23152ed0-e87d-41d0-913e-f7c13e2e40f7</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.09</length>
+            <thickness>0.002</thickness>
+            <radius>0.01</radius>
+            <motormount>
+              <ignitionevent>automatic</ignitionevent>
+              <ignitiondelay>0.0</ignitiondelay>
+              <overhang>0.0</overhang>
+              <motor configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                <type>single</type>
+                <manufacturer>Estes</manufacturer>
+                <digest>digest C6 test</digest>
+                <designation>C6</designation>
+                <diameter>0.018</diameter>
+                <length>0.07</length>
+                <delay>0.0</delay>
+              </motor>
+              <ignitionconfiguration configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                <ignitionevent>launch</ignitionevent>
+                <ignitiondelay>0.01</ignitiondelay>
+              </ignitionconfiguration>
+            </motormount>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Center Booster Fin Set</name>
+                <id>c958a3c6-2582-4411-86c0-96a68ab8ec8e</id>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.015</axialoffset>
+                <position type="bottom">-0.015</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.04</rootchord>
+                <tipchord>0.02</tipchord>
+                <sweeplength>0.015</sweeplength>
+                <height>0.03</height>
+              </trapezoidfinset>
+
+              <parallelstage>
+                <name>Side boosters</name>
+                <id>8490bd2b-12c5-4a7b-9233-14bfa27a0609</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="relative">0.0</radiusoffset>
+                <angleoffset method="relative">45.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <separationevent>ejection</separationevent>
+                <separationaltitude>200.0</separationaltitude>
+                <separationdelay>0.0</separationdelay>
+                <separationconfiguration configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                    <separationevent>burnout</separationevent>
+                    <separationaltitude>200.0</separationaltitude>
+                    <separationdelay>0.0</separationdelay>
+                </separationconfiguration>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Side Booster Nose Cones</name>
+                    <id>b80ae7ea-6b34-4680-b611-f19b2dbf5294</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.05</length>
+                    <thickness>0.002</thickness>
+                    <shape>ogive</shape>
+                    <shapeparameter>1.0</shapeparameter>
+                    <aftradius>0.007</aftradius>
+                    <aftshoulderradius>0.0</aftshoulderradius>
+                    <aftshoulderlength>0.0</aftshoulderlength>
+                    <aftshoulderthickness>0.0</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+
+                  <bodytube>
+                    <name>Side Booster Body Tubes</name>
+                    <id>54d16c85-8e80-4abc-a347-f9c8b210428c</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.09</length>
+                    <thickness>0.002</thickness>
+                    <radius>0.007</radius>
+                    <motormount>
+                      <ignitionevent>automatic</ignitionevent>
+                      <ignitiondelay>0.0</ignitiondelay>
+                      <overhang>0.0</overhang>
+                      <motor configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                        <type>single</type>
+                        <manufacturer>Estes</manufacturer>
+                        <digest>digest A10 test</digest>
+                        <designation>A10</designation>
+                        <diameter>0.013</diameter>
+                        <length>0.045</length>
+                        <delay>0.0</delay>
+                      </motor>
+                      <ignitionconfiguration configid="edc2406f-9ca4-4142-b61b-39cdcee073a1">
+                        <ignitionevent>launch</ignitionevent>
+                        <ignitiondelay>0.0</ignitiondelay>
+                      </ignitionconfiguration>
+                    </motormount>
+
+                    <subcomponents>
+                      <parachute>
+                        <name>Side Chutes</name>
+                        <id>67cd4a39-823a-4f07-af93-e1173ab14ada</id>
+                        <axialoffset method="top">0.0</axialoffset>
+                        <position type="top">0.0</position>
+                        <packedlength>0.025</packedlength>
+                        <packedradius>0.0125</packedradius>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <cd>auto</cd>
+                        <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                        <deployevent>ejection</deployevent>
+                        <deployaltitude>200.0</deployaltitude>
+                        <deploydelay>0.0</deploydelay>
+                        <diameter>0.3</diameter>
+                        <linecount>6</linecount>
+                        <linelength>auto</linelength>
+                        <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+                      </parachute>
+                    </subcomponents>
+                  </bodytube>
+                </subcomponents>
+              </parallelstage>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>[No motors]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[C6-5; C6-0; 2× A10-0]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>edc2406f-9ca4-4142-b61b-39cdcee073a1</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

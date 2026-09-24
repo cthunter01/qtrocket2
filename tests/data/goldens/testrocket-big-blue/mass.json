@@ -1,0 +1,25 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "testrocket-big-blue",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.3127882181490093, "cm": [0.4612650860718485, 0.0, 0.0, 0.3127882181490093], "ixx": 7.173240109195056E-4, "iyy": 0.02423674967430736, "izz": 0.02423674967430736, "longitudinalInertia": 0.02423674967430736, "rotationalInertia": 7.173240109195056E-4},
+   "launch": {"mass": 0.3127882181490093, "cm": [0.4612650860718485, 0.0, 0.0, 0.3127882181490093], "ixx": 7.173240109195056E-4, "iyy": 0.02423674967430736, "izz": 0.02423674967430736, "longitudinalInertia": 0.02423674967430736, "rotationalInertia": 7.173240109195056E-4},
+   "burnout": {"mass": 0.3127882181490093, "cm": [0.4612650860718485, 0.0, 0.0, 0.3127882181490093], "ixx": 7.173240109195056E-4, "iyy": 0.02423674967430736, "izz": 0.02423674967430736, "longitudinalInertia": 0.02423674967430736, "rotationalInertia": 7.173240109195056E-4},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Stage1", "eachMass": 0.3127882181490093, "totalCM": [0.4612650860718485, 0.0, 0.0, 0.3127882181490093]},
+    {"kind": "component", "path": "/0/0", "name": "Nose Cone", "eachMass": 0.011791525399827781, "totalCM": [0.05930009951396557, 0.0, 0.0, 0.011791525399827781]},
+    {"kind": "component", "path": "/0/1", "name": "Body Tube", "eachMass": 0.09581229274918153, "totalCM": [0.44999999999999996, 0.0, 0.0, 0.09581229274918153]},
+    {"kind": "component", "path": "/0/1/0", "name": "Freeform Fin Set", "eachMass": 0.1001844, "totalCM": [0.7879321930360415, 0.0, 0.0, 0.1001844]},
+    {"kind": "component", "path": "/0/1/1", "name": "Mass Component", "eachMass": 0.105, "totalCM": [0.20500000000000002, 0.0, 0.0, 0.105]},
+    {"kind": "total", "path": "/", "name": "Rocket", "eachMass": 0.3127882181490093, "totalCM": [0.4612650860718485, 0.0, 0.0, 0.3127882181490093]}
+   ]
+  }
+ ]
+}

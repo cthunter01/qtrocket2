@@ -1,0 +1,3184 @@
+{
+ "schema": "geometry",
+ "schemaVersion": 1,
+ "input": "example-dual-parachute-deployment",
+ "rocketName": "Dual parachute deployment",
+ "selectedConfiguration": "098d8c95-54c4-4552-bf81-e65e1de4796b",
+ "loadWarnings": [],
+ "components": [
+  {
+   "path": "/",
+   "type": "Rocket",
+   "name": "Dual parachute deployment",
+   "id": "5b3bdde2-5a1e-4223-87ba-cc52d1641209",
+   "stageNumber": -1,
+   "length": 1.4770100000000002,
+   "axialMethod": "ABSOLUTE",
+   "axialOffset": 0.0,
+   "position": [0.0, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": false,
+   "componentMass": 0.0,
+   "componentCG": [0.0, 0.0, 0.0, 0.0],
+   "longitudinalUnitInertia": 0.0,
+   "rotationalUnitInertia": 0.0,
+   "mass": 0.0,
+   "sectionMass": 1.3607771088,
+   "cg": [0.0, 0.0, 0.0, 0.0],
+   "longitudinalInertia": 0.0,
+   "rotationalInertia": 0.0,
+   "overrides": {"massOverridden": false, "overrideMass": 0.0, "cgOverridden": false, "overrideCGX": 0.0, "cdOverridden": false, "overrideCD": 2.0927129683969583, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "componentBounds": [],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [1.7976931348623157E308, 1.7976931348623157E308, 1.7976931348623157E308], "max": [-1.7976931348623157E308, -1.7976931348623157E308, -1.7976931348623157E308]},
+    "motorMount": false,
+    "referenceType": "MAXIMUM",
+    "customReferenceLength": 0.01,
+    "perfectFinish": false
+   }
+  },
+  {
+   "path": "/0",
+   "type": "AxialStage",
+   "name": "Sustainer",
+   "id": "477705be-6590-4163-b581-f0d3bf638f1b",
+   "stageNumber": 0,
+   "length": 1.4770100000000002,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [0.0, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": false,
+   "componentMass": 0.0,
+   "componentCG": [0.0, 0.0, 0.0, 0.0],
+   "longitudinalUnitInertia": 0.0,
+   "rotationalUnitInertia": 0.0,
+   "mass": 1.3607771088,
+   "sectionMass": 1.3607771088,
+   "cg": [0.0, 0.0, 0.0, 1.3607771088],
+   "longitudinalInertia": 0.0,
+   "rotationalInertia": 0.0,
+   "overrides": {"massOverridden": true, "overrideMass": 1.3607771088, "cgOverridden": false, "overrideCGX": 0.0, "cdOverridden": false, "overrideCD": 2.0927129683969588, "subcomponentsOverriddenMass": true, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "componentBounds": [],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [1.7976931348623157E308, 1.7976931348623157E308, 1.7976931348623157E308], "max": [-1.7976931348623157E308, -1.7976931348623157E308, -1.7976931348623157E308]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/0",
+   "type": "NoseCone",
+   "name": "Nose cone",
+   "id": "dd2419e3-15dd-40a2-91e6-67461aa6a7ca",
+   "stageNumber": 0,
+   "length": 0.28321,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [0.0, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.060311549221210764,
+   "componentCG": [0.17752931413932588, 0.0, 0.0, 0.060311549221210764],
+   "longitudinalUnitInertia": 0.004963735642115545,
+   "rotationalUnitInertia": 5.309133867560642E-4,
+   "mass": 0.060311549221210764,
+   "sectionMass": 0.1122763393587667,
+   "cg": [0.17752931413932588, 0.0, 0.0, 0.060311549221210764],
+   "longitudinalInertia": 2.993705865005299E-4,
+   "rotationalInertia": 3.202020885753807E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.060311549221210764, "cgOverridden": false, "overrideCGX": 0.17752931413932588, "cdOverridden": false, "overrideCD": 0.20231759669149146, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0, -0.0],
+    [0.0, 0.0, -0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, -0.0, 0.0],
+    [0.056642000000000005, -0.010260993285418296, -0.010260993285418296],
+    [0.056642000000000005, 0.010260993285418296, -0.010260993285418296],
+    [0.056642000000000005, 0.010260993285418296, 0.010260993285418296],
+    [0.056642000000000005, -0.010260993285418296, 0.010260993285418296],
+    [0.11328400000000001, -0.018190507898938835, -0.018190507898938835],
+    [0.11328400000000001, 0.018190507898938835, -0.018190507898938835],
+    [0.11328400000000001, 0.018190507898938835, 0.018190507898938835],
+    [0.11328400000000001, -0.018190507898938835, 0.018190507898938835],
+    [0.16992600000000002, -0.0238274458396186, -0.0238274458396186],
+    [0.16992600000000002, 0.0238274458396186, -0.0238274458396186],
+    [0.16992600000000002, 0.0238274458396186, 0.0238274458396186],
+    [0.16992600000000002, -0.0238274458396186, 0.0238274458396186],
+    [0.22656800000000002, -0.027198936083033365, -0.027198936083033365],
+    [0.22656800000000002, 0.027198936083033365, -0.027198936083033365],
+    [0.22656800000000002, 0.027198936083033365, 0.027198936083033365],
+    [0.22656800000000002, -0.027198936083033365, 0.027198936083033365],
+    [0.28321, -0.028321, -0.028321],
+    [0.28321, 0.028321, -0.028321],
+    [0.28321, 0.028321, 0.028321],
+    [0.28321, -0.028321, 0.028321]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 3.260083741687068E-5,
+    "fullVolume": 3.816807987075497E-4,
+    "componentWetArea": 0.03379799724531998,
+    "componentPlanformArea": 0.01071558070206438,
+    "foreRadius": 0.0,
+    "aftRadius": 0.028321,
+    "maxRadius": 0.028321,
+    "innerRadius": 0.0,
+    "thickness": 9.906E-4,
+    "filled": false,
+    "shapeType": "OGIVE",
+    "shapeParameter": 1.0,
+    "clipped": false,
+    "foreShoulderRadius": 0.0,
+    "foreShoulderLength": 0.0,
+    "foreShoulderThickness": 0.0,
+    "foreShoulderCapped": false,
+    "aftShoulderRadius": 0.0,
+    "aftShoulderLength": 0.0,
+    "aftShoulderThickness": 0.0,
+    "aftShoulderCapped": false,
+    "finish": "NORMAL",
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.028321, -0.028321], "max": [0.28321, 0.028321, 0.028321]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/0/0",
+   "type": "TubeCoupler",
+   "name": "Tube coupler",
+   "id": "1185d77d-e323-4db2-8da6-d99f1391d4fc",
+   "stageNumber": 0,
+   "length": 0.07619999999999999,
+   "axialMethod": "BOTTOM",
+   "axialOffset": 0.0508,
+   "position": [0.25781000000000004, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.04446551944691297,
+   "componentCG": [0.038099999999999995, 0.0, 0.0, 0.04446551944691297],
+   "longitudinalUnitInertia": 8.315507562499999E-4,
+   "rotationalUnitInertia": 6.953615124999999E-4,
+   "mass": 0.04446551944691297,
+   "sectionMass": 0.051964790137555936,
+   "cg": [0.038099999999999995, 0.0, 0.0, 0.04446551944691297],
+   "longitudinalInertia": 3.6975336323129554E-5,
+   "rotationalInertia": 3.091961085670356E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.04446551944691297, "cgOverridden": false, "overrideCGX": 0.038099999999999995, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.027305, -0.027305],
+    [0.0, 0.027305, -0.027305],
+    [0.0, 0.027305, 0.027305],
+    [0.0, -0.027305, 0.027305],
+    [0.07619999999999999, -0.027305, -0.027305],
+    [0.07619999999999999, 0.027305, -0.027305],
+    [0.07619999999999999, 0.027305, 0.027305],
+    [0.07619999999999999, -0.027305, 0.027305]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.25781000000000004, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.25781000000000004, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.027305,
+    "innerRadius": 0.0254,
+    "thickness": 0.0019050000000000004,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.027305, -0.027305], "max": [0.07619999999999999, 0.027305, 0.027305]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/0/0/0",
+   "type": "Bulkhead",
+   "name": "Bulkhead",
+   "id": "2ee8185c-126b-4105-9190-bb2d3319bb7b",
+   "stageNumber": 0,
+   "length": 0.002,
+   "axialMethod": "BOTTOM",
+   "axialOffset": 0.0,
+   "position": [0.07419999999999999, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.007499270690642966,
+   "componentCG": [0.001, 0.0, 0.0, 0.007499270690642966],
+   "longitudinalUnitInertia": 1.6162333333333333E-4,
+   "rotationalUnitInertia": 3.2258E-4,
+   "mass": 0.007499270690642966,
+   "sectionMass": 0.007499270690642966,
+   "cg": [0.001, 0.0, 0.0, 0.007499270690642966],
+   "longitudinalInertia": 1.212057126590685E-6,
+   "rotationalInertia": 2.419114739387608E-6,
+   "overrides": {"massOverridden": false, "overrideMass": 0.007499270690642966, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0254, -0.0254],
+    [0.0, 0.0254, -0.0254],
+    [0.0, 0.0254, 0.0254],
+    [0.0, -0.0254, 0.0254],
+    [0.002, -0.0254, -0.0254],
+    [0.002, 0.0254, -0.0254],
+    [0.002, 0.0254, 0.0254],
+    [0.002, -0.0254, 0.0254]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.07419999999999999, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.33201, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0254,
+    "innerRadius": 0.0,
+    "thickness": 0.0254,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceSeparation": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0254, -0.0254], "max": [0.002, 0.0254, 0.0254]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/1",
+   "type": "BodyTube",
+   "name": "Body tube",
+   "id": "0543a98f-093c-4bc0-9289-e4eceacad85b",
+   "stageNumber": 0,
+   "length": 0.4064,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [0.28321, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.1302116128289328,
+   "componentCG": [0.2032, 0.0, 0.0, 0.1302116128289328],
+   "longitudinalUnitInertia": 0.014150670784623334,
+   "rotationalUnitInertia": 7.7451490258E-4,
+   "mass": 0.1302116128289328,
+   "sectionMass": 0.20533784904393276,
+   "cg": [0.2032, 0.0, 0.0, 0.1302116128289328],
+   "longitudinalInertia": 0.0018425816654770641,
+   "rotationalInertia": 1.0085083462498556E-4,
+   "overrides": {"massOverridden": false, "overrideMass": 0.1302116128289328, "cgOverridden": false, "overrideCGX": 0.2032, "cdOverridden": false, "overrideCD": 0.4328972658493574, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.028321, -0.028321],
+    [0.0, 0.028321, -0.028321],
+    [0.0, 0.028321, 0.028321],
+    [0.0, -0.028321, 0.028321],
+    [0.08127999999999999, -0.028321, -0.028321],
+    [0.08127999999999999, 0.028321, -0.028321],
+    [0.08127999999999999, 0.028321, 0.028321],
+    [0.08127999999999999, -0.028321, 0.028321],
+    [0.16255999999999998, -0.028321, -0.028321],
+    [0.16255999999999998, 0.028321, -0.028321],
+    [0.16255999999999998, 0.028321, 0.028321],
+    [0.16255999999999998, -0.028321, 0.028321],
+    [0.24383999999999997, -0.028321, -0.028321],
+    [0.24383999999999997, 0.028321, -0.028321],
+    [0.24383999999999997, 0.028321, 0.028321],
+    [0.24383999999999997, -0.028321, 0.028321],
+    [0.32511999999999996, -0.028321, -0.028321],
+    [0.32511999999999996, 0.028321, -0.028321],
+    [0.32511999999999996, 0.028321, 0.028321],
+    [0.32511999999999996, -0.028321, 0.028321],
+    [0.4064, -0.028321, -0.028321],
+    [0.4064, 0.028321, -0.028321],
+    [0.4064, 0.028321, 0.028321],
+    [0.4064, -0.028321, 0.028321]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.28321, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.28321, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 7.038465558320691E-5,
+    "fullVolume": 0.0010240490051075244,
+    "componentWetArea": 0.07231729141679487,
+    "componentPlanformArea": 0.0230193088,
+    "foreRadius": 0.028321,
+    "aftRadius": 0.028321,
+    "maxRadius": 0.028321,
+    "outerRadius": 0.028321,
+    "innerRadius": 0.0273304,
+    "thickness": 9.905999999999977E-4,
+    "filled": false,
+    "finish": "NORMAL",
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.028321, -0.028321], "max": [0.4064, 0.028321, 0.028321]},
+    "motorMount": false,
+    "motorOverhang": 0.0,
+    "clusterConfiguration": "single"
+   }
+  },
+  {
+   "path": "/0/1/0",
+   "type": "Parachute",
+   "name": "Elliptical 12-Gore 42\" Parachute",
+   "id": "f8ac6967-22c4-433c-9548-c1ee9d28c0eb",
+   "stageNumber": 0,
+   "length": 0.08709673571783902,
+   "axialMethod": "TOP",
+   "axialOffset": 0.07619999999999999,
+   "position": [0.07619999999999999, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.044468618354953734,
+   "componentCG": [0.04354836785891951, 0.0, 0.0, 0.044468618354953734],
+   "longitudinalUnitInertia": 8.188911387652579E-4,
+   "rotationalUnitInertia": 3.7347538208000003E-4,
+   "mass": 0.07512623621499999,
+   "sectionMass": 0.07512623621499999,
+   "cg": [0.04354836785891951, 0.0, 0.0, 0.07512623621499999],
+   "longitudinalInertia": 6.152020912524911E-5,
+   "rotationalInertia": 2.8057799774629457E-5,
+   "overrides": {"massOverridden": true, "overrideMass": 0.07512623621499999, "cgOverridden": false, "overrideCGX": 0.04354836785891951, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.08709673571783902, -0.0273304, -0.0273304],
+    [0.08709673571783902, 0.0273304, -0.0273304],
+    [0.08709673571783902, 0.0273304, 0.0273304],
+    [0.08709673571783902, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.07619999999999999, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.35941, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "radius": 0.0273304,
+    "material": {"name": "Ripstop nylon, lightweight, 3 mil", "type": "SURFACE", "density": 0.035653924},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "motorMount": false,
+    "diameter": 1.0668,
+    "cD": 1.5,
+    "lineCount": 12,
+    "lineLength": 1.6001999999999998
+   }
+  },
+  {
+   "path": "/0/2",
+   "type": "BodyTube",
+   "name": "Body tube",
+   "id": "3afdb622-2dd4-449e-a779-96839bf365b3",
+   "stageNumber": 0,
+   "length": 0.0254,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [0.6896100000000001, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.0029913478622862937,
+   "componentCG": [0.0127, 0.0, 0.0, 0.0029913478622862937],
+   "longitudinalUnitInertia": 4.4102078462333335E-4,
+   "rotationalUnitInertia": 7.7451490258E-4,
+   "mass": 0.0029913478622862937,
+   "sectionMass": 0.07812486107520351,
+   "cg": [0.0127, 0.0, 0.0, 0.0029913478622862937],
+   "longitudinalInertia": 1.319246581306832E-6,
+   "rotationalInertia": 2.31684349814156E-6,
+   "overrides": {"massOverridden": false, "overrideMass": 0.0029913478622862937, "cgOverridden": false, "overrideCGX": 0.0127, "cdOverridden": false, "overrideCD": 0.027056079115584837, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.028321, -0.028321],
+    [0.0, 0.028321, -0.028321],
+    [0.0, 0.028321, 0.028321],
+    [0.0, -0.028321, 0.028321],
+    [0.0050799999999999994, -0.028321, -0.028321],
+    [0.0050799999999999994, 0.028321, -0.028321],
+    [0.0050799999999999994, 0.028321, 0.028321],
+    [0.0050799999999999994, -0.028321, 0.028321],
+    [0.010159999999999999, -0.028321, -0.028321],
+    [0.010159999999999999, 0.028321, -0.028321],
+    [0.010159999999999999, 0.028321, 0.028321],
+    [0.010159999999999999, -0.028321, 0.028321],
+    [0.015239999999999998, -0.028321, -0.028321],
+    [0.015239999999999998, 0.028321, -0.028321],
+    [0.015239999999999998, 0.028321, 0.028321],
+    [0.015239999999999998, -0.028321, 0.028321],
+    [0.020319999999999998, -0.028321, -0.028321],
+    [0.020319999999999998, 0.028321, -0.028321],
+    [0.020319999999999998, 0.028321, 0.028321],
+    [0.020319999999999998, -0.028321, 0.028321],
+    [0.0254, -0.028321, -0.028321],
+    [0.0254, 0.028321, -0.028321],
+    [0.0254, 0.028321, 0.028321],
+    [0.0254, -0.028321, 0.028321]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.6896100000000001, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.6896100000000001, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 4.399040973950432E-6,
+    "fullVolume": 6.400306281922027E-5,
+    "componentWetArea": 0.004519830713549679,
+    "componentPlanformArea": 0.0014387068,
+    "foreRadius": 0.028321,
+    "aftRadius": 0.028321,
+    "maxRadius": 0.028321,
+    "outerRadius": 0.028321,
+    "innerRadius": 0.0273304,
+    "thickness": 9.905999999999977E-4,
+    "filled": false,
+    "finish": "NORMAL",
+    "material": {"name": "Cardboard", "type": "BULK", "density": 680.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.028321, -0.028321], "max": [0.0254, 0.028321, 0.028321]},
+    "motorMount": false,
+    "motorOverhang": 0.0,
+    "clusterConfiguration": "single"
+   }
+  },
+  {
+   "path": "/0/2/0",
+   "type": "TubeCoupler",
+   "name": "Tube coupler",
+   "id": "7c47954e-4fb2-4a33-8923-62ccae522760",
+   "stageNumber": 0,
+   "length": 0.127,
+   "axialMethod": "MIDDLE",
+   "axialOffset": -0.0,
+   "position": [-0.0508, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.07513351321291722,
+   "componentCG": [0.0635, 0.0, 0.0, 0.07513351321291722],
+   "longitudinalUnitInertia": 0.0016921110243733335,
+   "rotationalUnitInertia": 6.9605538208E-4,
+   "mass": 0.07513351321291722,
+   "sectionMass": 0.07513351321291722,
+   "cg": [0.0635, 0.0, 0.0, 0.07513351321291722],
+   "longitudinalInertia": 1.2713424600747675E-4,
+   "rotationalInertia": 5.229708624642983E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.07513351321291722, "cgOverridden": false, "overrideCGX": 0.0635, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.127, -0.0273304, -0.0273304],
+    [0.127, 0.0273304, -0.0273304],
+    [0.127, 0.0273304, 0.0273304],
+    [0.127, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [-0.0508, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.6388100000000001, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0273304,
+    "innerRadius": 0.0254,
+    "thickness": 0.0019304000000000023,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0273304, -0.0273304], "max": [0.127, 0.0273304, 0.0273304]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/3",
+   "type": "BodyTube",
+   "name": "Body tube",
+   "id": "e886c29e-4c0c-40a8-897e-ac15465486e2",
+   "stageNumber": 0,
+   "length": 0.30479999999999996,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [0.71501, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.09765870962169984,
+   "componentCG": [0.15239999999999998, 0.0, 0.0, 0.09765870962169984],
+   "longitudinalUnitInertia": 0.008129177451289998,
+   "rotationalUnitInertia": 7.7451490258E-4,
+   "mass": 0.09765870962169984,
+   "sectionMass": 0.13167813734169984,
+   "cg": [0.15239999999999998, 0.0, 0.0, 0.09765870962169984],
+   "longitudinalInertia": 7.938849801787999E-4,
+   "rotationalInertia": 7.563812596873936E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.09765870962169984, "cgOverridden": false, "overrideCGX": 0.15239999999999998, "cdOverridden": false, "overrideCD": 0.3246729493870181, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.028321, -0.028321],
+    [0.0, 0.028321, -0.028321],
+    [0.0, 0.028321, 0.028321],
+    [0.0, -0.028321, 0.028321],
+    [0.06095999999999999, -0.028321, -0.028321],
+    [0.06095999999999999, 0.028321, -0.028321],
+    [0.06095999999999999, 0.028321, 0.028321],
+    [0.06095999999999999, -0.028321, 0.028321],
+    [0.12191999999999999, -0.028321, -0.028321],
+    [0.12191999999999999, 0.028321, -0.028321],
+    [0.12191999999999999, 0.028321, 0.028321],
+    [0.12191999999999999, -0.028321, 0.028321],
+    [0.18288, -0.028321, -0.028321],
+    [0.18288, 0.028321, -0.028321],
+    [0.18288, 0.028321, 0.028321],
+    [0.18288, -0.028321, 0.028321],
+    [0.24383999999999997, -0.028321, -0.028321],
+    [0.24383999999999997, 0.028321, -0.028321],
+    [0.24383999999999997, 0.028321, 0.028321],
+    [0.24383999999999997, -0.028321, 0.028321],
+    [0.30479999999999996, -0.028321, -0.028321],
+    [0.30479999999999996, 0.028321, -0.028321],
+    [0.30479999999999996, 0.028321, 0.028321],
+    [0.30479999999999996, -0.028321, 0.028321]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.71501, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.71501, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 5.278849168740532E-5,
+    "fullVolume": 7.680367538306428E-4,
+    "componentWetArea": 0.05423796856259615,
+    "componentPlanformArea": 0.017264481599999996,
+    "foreRadius": 0.028321,
+    "aftRadius": 0.028321,
+    "maxRadius": 0.028321,
+    "outerRadius": 0.028321,
+    "innerRadius": 0.0273304,
+    "thickness": 9.905999999999977E-4,
+    "filled": false,
+    "finish": "NORMAL",
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.028321, -0.028321], "max": [0.30479999999999996, 0.028321, 0.028321]},
+    "motorMount": false,
+    "motorOverhang": 0.0,
+    "clusterConfiguration": "single"
+   }
+  },
+  {
+   "path": "/0/3/0",
+   "type": "Parachute",
+   "name": "Apex 12\" Drouge Parachute",
+   "id": "0fde7df3-e1ba-4d69-959e-c031b4b63957",
+   "stageNumber": 0,
+   "length": 0.048868261218059435,
+   "axialMethod": "MIDDLE",
+   "axialOffset": -0.0,
+   "position": [0.12796586939097027, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.009284830181293863,
+   "componentCG": [0.024434130609029717, 0.0, 0.0, 0.009284830181293863],
+   "longitudinalUnitInertia": 3.85746603913041E-4,
+   "rotationalUnitInertia": 3.7347538208000003E-4,
+   "mass": 0.034019427719999995,
+   "sectionMass": 0.034019427719999995,
+   "cg": [0.024434130609029717, 0.0, 0.0, 0.034019427719999995],
+   "longitudinalInertia": 1.3122878710055166E-5,
+   "rotationalInertia": 1.2705418765869943E-5,
+   "overrides": {"massOverridden": true, "overrideMass": 0.034019427719999995, "cgOverridden": false, "overrideCGX": 0.024434130609029717, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.048868261218059435, -0.0273304, -0.0273304],
+    [0.048868261218059435, 0.0273304, -0.0273304],
+    [0.048868261218059435, 0.0273304, 0.0273304],
+    [0.048868261218059435, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.12796586939097027, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.8429758693909704, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "radius": 0.0273304,
+    "material": {"name": "Ripstop Nylon, 1.9 oz 5 mil", "type": "SURFACE", "density": 0.058906483},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "motorMount": false,
+    "diameter": 0.30479999999999996,
+    "cD": 0.61,
+    "lineCount": 4,
+    "lineLength": 0.30479999999999996
+   }
+  },
+  {
+   "path": "/0/4",
+   "type": "BodyTube",
+   "name": "Body tube",
+   "id": "5ffcc206-0b5b-4acc-98ab-26ab4347f7eb",
+   "stageNumber": 0,
+   "length": 0.4572,
+   "axialMethod": "AFTER",
+   "axialOffset": 0.0,
+   "position": [1.01981, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.14648806443254966,
+   "componentCG": [0.2286, 0.0, 0.0, 0.14648806443254966],
+   "longitudinalUnitInertia": 0.01780657745129,
+   "rotationalUnitInertia": 7.7451490258E-4,
+   "mass": 0.14648806443254966,
+   "sectionMass": 0.4514050820201833,
+   "cg": [0.2286, 0.0, 0.0, 0.14648806443254966],
+   "longitudinalInertia": 0.002608451065007755,
+   "rotationalInertia": 1.1345718895310897E-4,
+   "overrides": {"massOverridden": false, "overrideMass": 0.14648806443254966, "cgOverridden": false, "overrideCGX": 0.2286, "cdOverridden": false, "overrideCD": 0.6070094240805273, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.028321, -0.028321],
+    [0.0, 0.028321, -0.028321],
+    [0.0, 0.028321, 0.028321],
+    [0.0, -0.028321, 0.028321],
+    [0.09144, -0.028321, -0.028321],
+    [0.09144, 0.028321, -0.028321],
+    [0.09144, 0.028321, 0.028321],
+    [0.09144, -0.028321, 0.028321],
+    [0.18288, -0.028321, -0.028321],
+    [0.18288, 0.028321, -0.028321],
+    [0.18288, 0.028321, 0.028321],
+    [0.18288, -0.028321, 0.028321],
+    [0.27432, -0.028321, -0.028321],
+    [0.27432, 0.028321, -0.028321],
+    [0.27432, 0.028321, 0.028321],
+    [0.27432, -0.028321, 0.028321],
+    [0.36576, -0.028321, -0.028321],
+    [0.36576, 0.028321, -0.028321],
+    [0.36576, 0.028321, 0.028321],
+    [0.36576, -0.028321, 0.028321],
+    [0.4572, -0.028321, -0.028321],
+    [0.4572, 0.028321, -0.028321],
+    [0.4572, 0.028321, 0.028321],
+    [0.4572, -0.028321, 0.028321]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [1.01981, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [1.01981, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 7.918273753110792E-5,
+    "fullVolume": 0.0011520551307459645,
+    "componentWetArea": 0.08135695284389423,
+    "componentPlanformArea": 0.0258967224,
+    "foreRadius": 0.028321,
+    "aftRadius": 0.028321,
+    "maxRadius": 0.028321,
+    "outerRadius": 0.028321,
+    "innerRadius": 0.0273304,
+    "thickness": 9.905999999999977E-4,
+    "filled": false,
+    "finish": "NORMAL",
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.028321, -0.028321], "max": [0.4572, 0.028321, 0.028321]},
+    "motorMount": false,
+    "motorOverhang": 0.0,
+    "clusterConfiguration": "single"
+   }
+  },
+  {
+   "path": "/0/4/0",
+   "type": "InnerTube",
+   "name": "Inner Tube",
+   "id": "ac0dc0f5-be04-42bf-bbcc-80557e67d6ff",
+   "stageNumber": 0,
+   "length": 0.4064,
+   "axialMethod": "BOTTOM",
+   "axialOffset": 0.0,
+   "position": [0.05080000000000001, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.09508835259073206,
+   "componentCG": [0.2032, 0.0, 0.0, 0.09508835259073206],
+   "longitudinalUnitInertia": 0.013959800037333332,
+   "rotationalUnitInertia": 3.92773408E-4,
+   "mass": 0.09508835259073206,
+   "sectionMass": 0.09508835259073206,
+   "cg": [0.2032, 0.0, 0.0, 0.09508835259073206],
+   "longitudinalInertia": 0.0013274143880460665,
+   "rotationalInertia": 3.734817630816746E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.09508835259073206, "cgOverridden": false, "overrideCGX": 0.2032, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.02032, -0.02032],
+    [0.0, 0.02032, -0.02032],
+    [0.0, 0.02032, 0.02032],
+    [0.0, -0.02032, 0.02032],
+    [0.4064, -0.02032, -0.02032],
+    [0.4064, 0.02032, -0.02032],
+    [0.4064, 0.02032, 0.02032],
+    [0.4064, -0.02032, 0.02032]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.05080000000000001, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [1.07061, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.02032,
+    "innerRadius": 0.019303999999999998,
+    "thickness": 0.001016000000000003,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.02032, -0.02032], "max": [0.4064, 0.02032, 0.02032]},
+    "motorMount": true,
+    "motorOverhang": 0.0127,
+    "clusterConfiguration": "single",
+    "clusterScale": 1.0,
+    "clusterRotation": 0.0
+   }
+  },
+  {
+   "path": "/0/4/1",
+   "type": "TrapezoidFinSet",
+   "name": "Trapezoidal fin set",
+   "id": "d7af33eb-b3e2-4e2b-8a99-0b14fa615e75",
+   "stageNumber": 0,
+   "length": 0.15239999999999998,
+   "axialMethod": "BOTTOM",
+   "axialOffset": -0.0020066,
+   "position": [0.3027934, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.13651507496930398,
+   "componentCG": [0.08113101538597405, 0.0, 0.0, 0.13651507496930398],
+   "longitudinalUnitInertia": 0.0036594960883330973,
+   "rotationalUnitInertia": 0.004254482176666194,
+   "mass": 0.13651507496930398,
+   "sectionMass": 0.13651507496930398,
+   "cg": [0.08113101538597405, 0.0, 0.0, 0.13651507496930398],
+   "longitudinalInertia": 4.995763828486674E-4,
+   "rotationalInertia": 5.808009533031531E-4,
+   "overrides": {"massOverridden": false, "overrideMass": 0.13651507496930398, "cgOverridden": false, "overrideCGX": 0.08113101538597405, "cdOverridden": false, "overrideCD": 0.16623654091621876, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.10452099999999999, -0.10452099999999999],
+    [1.4750034000000003, 0.10452099999999999, 0.10452099999999999]
+   ],
+   "instanceCount": 3,
+   "instanceOffsets": [
+    [0.0, 0.028321, 0.0],
+    [0.0, -0.014160499999999993, 0.024526705460579088],
+    [0.0, -0.014160500000000012, -0.024526705460579078]
+   ],
+   "instanceAngles": [0.0, 2.0943951023931953, 4.1887902047863905],
+   "instanceLocations": [
+    [0.3027934, 0.028321, 0.0],
+    [0.3027934, -0.014160499999999993, 0.024526705460579088],
+    [0.3027934, -0.014160500000000012, -0.024526705460579078]
+   ],
+   "componentLocations": [
+    [1.3226034000000002, 0.028321, 0.0],
+    [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+    [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0],
+    [2.0943951023931953, 0.0, 0.0],
+    [4.1887902047863905, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 7.379193241583999E-5,
+    "planformArea": 0.009193529999999998,
+    "thickness": 0.0023622,
+    "bodyRadius": 0.028321,
+    "finCount": 3,
+    "cantAngle": 0.0,
+    "baseRotation": 0.0,
+    "crossSection": "SQUARE",
+    "span": 0.07619999999999999,
+    "rootChord": 0.15239999999999998,
+    "tipChord": 0.08889999999999999,
+    "height": 0.07619999999999999,
+    "sweep": 0.04399409051224947,
+    "sweepAngle": 0.5235987755982988,
+    "tabHeight": 0.008000999999999998,
+    "tabLength": 0.15239999999999998,
+    "tabOffset": 0.0,
+    "filletRadius": 0.0,
+    "finPoints": [
+     [0.0, 0.0, 0.0],
+     [0.04399409051224947, 0.07619999999999999, 0.0],
+     [0.13289409051224946, 0.07619999999999999, 0.0],
+     [0.15239999999999998, 0.0, 0.0]
+    ],
+    "rootPoints": [
+     [0.0, 0.0, 0.0],
+     [0.15239999999999998, 0.0, 0.0]
+    ],
+    "tabPoints": [
+     [0.0, 0.0, 0.0],
+     [0.0, -0.008000999999999998, 0.0],
+     [0.15239999999999998, -0.008000999999999998, 0.0],
+     [0.15239999999999998, 0.0, 0.0]
+    ],
+    "finish": "NORMAL",
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "filletMaterial": {"name": "Cardboard", "type": "BULK", "density": 680.0},
+    "radiusMethod": "SURFACE",
+    "radiusOffset": 0.0,
+    "angleMethod": "RELATIVE",
+    "angleOffset": 0.0,
+    "instanceBoundingBox": {"min": [0.0, 0.0, -0.0011811], "max": [0.15239999999999998, 0.07619999999999999, 0.0011811]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/2",
+   "type": "TubeCoupler",
+   "name": "Tube coupler",
+   "id": "6402576b-0705-4067-a7fc-179ca1d56c58",
+   "stageNumber": 0,
+   "length": 0.1016,
+   "axialMethod": "TOP",
+   "axialOffset": -0.0508,
+   "position": [-0.0508, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.06010681057033378,
+   "componentCG": [0.0508, 0.0, 0.0, 0.06010681057033378],
+   "longitudinalUnitInertia": 0.0012082410243733333,
+   "rotationalUnitInertia": 6.9605538208E-4,
+   "mass": 0.06010681057033378,
+   "sectionMass": 0.06760608126097674,
+   "cg": [0.0508, 0.0, 0.0, 0.06010681057033378],
+   "longitudinalInertia": 7.262351437531398E-5,
+   "rotationalInertia": 4.183766899714386E-5,
+   "overrides": {"massOverridden": false, "overrideMass": 0.06010681057033378, "cgOverridden": false, "overrideCGX": 0.0508, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.1016, -0.0273304, -0.0273304],
+    [0.1016, 0.0273304, -0.0273304],
+    [0.1016, 0.0273304, 0.0273304],
+    [0.1016, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [-0.0508, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.9690100000000001, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0273304,
+    "innerRadius": 0.0254,
+    "thickness": 0.0019304000000000023,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0273304, -0.0273304], "max": [0.1016, 0.0273304, 0.0273304]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/2/0",
+   "type": "Bulkhead",
+   "name": "Bulkhead",
+   "id": "53247293-63d7-433a-9d75-d1ae1f2b6bca",
+   "stageNumber": 0,
+   "length": 0.002,
+   "axialMethod": "TOP",
+   "axialOffset": 0.0,
+   "position": [0.0, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.007499270690642966,
+   "componentCG": [0.001, 0.0, 0.0, 0.007499270690642966],
+   "longitudinalUnitInertia": 1.6162333333333333E-4,
+   "rotationalUnitInertia": 3.2258E-4,
+   "mass": 0.007499270690642966,
+   "sectionMass": 0.007499270690642966,
+   "cg": [0.001, 0.0, 0.0, 0.007499270690642966],
+   "longitudinalInertia": 1.212057126590685E-6,
+   "rotationalInertia": 2.419114739387608E-6,
+   "overrides": {"massOverridden": false, "overrideMass": 0.007499270690642966, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0254, -0.0254],
+    [0.0, 0.0254, -0.0254],
+    [0.0, 0.0254, 0.0254],
+    [0.0, -0.0254, 0.0254],
+    [0.002, -0.0254, -0.0254],
+    [0.002, 0.0254, -0.0254],
+    [0.002, 0.0254, 0.0254],
+    [0.002, -0.0254, 0.0254]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.0, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [0.9690100000000001, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0254,
+    "innerRadius": 0.0,
+    "thickness": 0.0254,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceSeparation": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0254, -0.0254], "max": [0.002, 0.0254, 0.0254]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/3",
+   "type": "RailButton",
+   "name": "Rail Button",
+   "id": "013f7d84-d07f-4c91-94a3-2620d04abe32",
+   "stageNumber": 0,
+   "length": 0.0,
+   "axialMethod": "TOP",
+   "axialOffset": 0.0635,
+   "position": [0.0635, 0.0, 0.0],
+   "isAerodynamic": true,
+   "isMassive": true,
+   "componentMass": 0.0016531801959055739,
+   "componentCG": [0.1905, -0.033171, 4.062275897451685E-18, 0.0016531801959055739],
+   "longitudinalUnitInertia": 0.0,
+   "rotationalUnitInertia": 0.0,
+   "mass": 0.0016531801959055739,
+   "sectionMass": 0.0016531801959055739,
+   "cg": [0.1905, -0.033171, 4.062275897451685E-18, 0.0016531801959055739],
+   "longitudinalInertia": 0.0,
+   "rotationalInertia": 0.0,
+   "overrides": {"massOverridden": false, "overrideMass": 0.0016531801959055739, "cgOverridden": false, "overrideCGX": 0.1905, "cdOverridden": false, "overrideCD": 2.501526216167509E-5, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.00485, 0.0097, 0.00485],
+    [0.00485, 0.0097, -0.00485],
+    [0.00485, 0.0, 0.00485],
+    [0.00485, 0.0, -0.00485],
+    [-0.00485, 0.0, 0.00485],
+    [-0.00485, 0.0, -0.00485],
+    [-0.00485, 0.0097, 0.00485],
+    [-0.00485, 0.0097, -0.00485]
+   ],
+   "instanceCount": 2,
+   "instanceOffsets": [
+    [0.0, -0.028321, 3.4683221998652188E-18],
+    [0.381, -0.028321, 3.4683221998652188E-18]
+   ],
+   "instanceAngles": [0.0, 0.0],
+   "instanceLocations": [
+    [0.0635, -0.028321, 3.4683221998652188E-18],
+    [0.4445, -0.028321, 3.4683221998652188E-18]
+   ],
+   "componentLocations": [
+    [1.08331, -0.028321, 3.4683221998652188E-18],
+    [1.4643100000000002, -0.028321, 3.4683221998652188E-18]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "componentVolume": 1.1642114055673056E-6,
+    "finish": "NORMAL",
+    "material": {"name": "Delrin", "type": "BULK", "density": 1420.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleMethod": "RELATIVE",
+    "angleOffset": 3.141592653589793,
+    "instanceSeparation": 0.381,
+    "instanceBoundingBox": {"min": [-0.00485, -0.0097, -0.00485], "max": [0.00485, 0.0097, 0.00485]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/4",
+   "type": "CenteringRing",
+   "name": "Centering Ring",
+   "id": "c44b0df5-4f40-4774-9bc3-6acb71b40481",
+   "stageNumber": 0,
+   "length": 0.002,
+   "axialMethod": "TOP",
+   "axialOffset": 0.06984999999999997,
+   "position": [0.06984999999999997, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 0.0038829423811183525,
+   "componentCG": [0.001, 0.0, 0.0, 0.0038829423811183525],
+   "longitudinalUnitInertia": 2.9029662437333336E-4,
+   "rotationalUnitInertia": 5.7992658208E-4,
+   "mass": 0.0038829423811183525,
+   "sectionMass": 0.0038829423811183525,
+   "cg": [0.001, 0.0, 0.0, 0.0038829423811183525],
+   "longitudinalInertia": 1.127205065874811E-6,
+   "rotationalInertia": 2.251821503495543E-6,
+   "overrides": {"massOverridden": false, "overrideMass": 0.0038829423811183525, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.002, -0.0273304, -0.0273304],
+    [0.002, 0.0273304, -0.0273304],
+    [0.002, 0.0273304, 0.0273304],
+    [0.002, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.06984999999999997, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [1.08966, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0273304,
+    "innerRadius": 0.02032,
+    "thickness": 0.0070104,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 1850.0},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceSeparation": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0273304, -0.0273304], "max": [0.002, 0.0273304, 0.0273304]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/5",
+   "type": "CenteringRing",
+   "name": "Centering Ring",
+   "id": "66ee4e45-21ce-495a-95de-c2c268e84c22",
+   "stageNumber": 0,
+   "length": 0.002,
+   "axialMethod": "BOTTOM",
+   "axialOffset": -0.15440659999999998,
+   "position": [0.3007934, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 8.569309479846299E-5,
+   "componentCG": [0.001, 0.0, 0.0, 8.569309479846299E-5],
+   "longitudinalUnitInertia": 2.9029662437333336E-4,
+   "rotationalUnitInertia": 5.7992658208E-4,
+   "mass": 8.569309479846299E-5,
+   "sectionMass": 8.569309479846299E-5,
+   "cg": [0.001, 0.0, 0.0, 8.569309479846299E-5],
+   "longitudinalInertia": 2.487641615209786E-8,
+   "rotationalInertia": 4.969570357433007E-8,
+   "overrides": {"massOverridden": false, "overrideMass": 8.569309479846299E-5, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.002, -0.0273304, -0.0273304],
+    [0.002, 0.0273304, -0.0273304],
+    [0.002, 0.0273304, 0.0273304],
+    [0.002, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.3007934, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [1.3206034, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0273304,
+    "innerRadius": 0.02032,
+    "thickness": 0.0070104,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 40.827859344},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceSeparation": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0273304, -0.0273304], "max": [0.002, 0.0273304, 0.0273304]},
+    "motorMount": false
+   }
+  },
+  {
+   "path": "/0/4/6",
+   "type": "CenteringRing",
+   "name": "Centering Ring",
+   "id": "891e30f4-bf52-498b-9345-af8407a8da4d",
+   "stageNumber": 0,
+   "length": 0.002,
+   "axialMethod": "BOTTOM",
+   "axialOffset": 0.0,
+   "position": [0.4552, 0.0, 0.0],
+   "isAerodynamic": false,
+   "isMassive": true,
+   "componentMass": 8.569309479846299E-5,
+   "componentCG": [0.001, 0.0, 0.0, 8.569309479846299E-5],
+   "longitudinalUnitInertia": 2.9029662437333336E-4,
+   "rotationalUnitInertia": 5.7992658208E-4,
+   "mass": 8.569309479846299E-5,
+   "sectionMass": 8.569309479846299E-5,
+   "cg": [0.001, 0.0, 0.0, 8.569309479846299E-5],
+   "longitudinalInertia": 2.487641615209786E-8,
+   "rotationalInertia": 4.969570357433007E-8,
+   "overrides": {"massOverridden": false, "overrideMass": 8.569309479846299E-5, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": "/0", "cgOverriddenBy": null},
+   "componentBounds": [
+    [0.0, -0.0273304, -0.0273304],
+    [0.0, 0.0273304, -0.0273304],
+    [0.0, 0.0273304, 0.0273304],
+    [0.0, -0.0273304, 0.0273304],
+    [0.002, -0.0273304, -0.0273304],
+    [0.002, 0.0273304, -0.0273304],
+    [0.002, 0.0273304, 0.0273304],
+    [0.002, -0.0273304, 0.0273304]
+   ],
+   "instanceCount": 1,
+   "instanceOffsets": [
+    [0.0, 0.0, 0.0]
+   ],
+   "instanceAngles": [0.0],
+   "instanceLocations": [
+    [0.4552, 0.0, 0.0]
+   ],
+   "componentLocations": [
+    [1.4750100000000002, 0.0, 0.0]
+   ],
+   "componentAngles": [
+    [0.0, 0.0, 0.0]
+   ],
+   "details": {
+    "outerRadius": 0.0273304,
+    "innerRadius": 0.02032,
+    "thickness": 0.0070104,
+    "material": {"name": "Fiberglass", "type": "BULK", "density": 40.827859344},
+    "radiusMethod": "COAXIAL",
+    "radiusOffset": 0.0,
+    "angleOffset": 0.0,
+    "radialPosition": 0.0,
+    "radialDirection": 0.0,
+    "instanceSeparation": 0.0,
+    "instanceBoundingBox": {"min": [0.0, -0.0273304, -0.0273304], "max": [0.002, 0.0273304, 0.0273304]},
+    "motorMount": false
+   }
+  }
+ ],
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": false,
+   "hasRecoveryDevice": true,
+   "motors": [],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "id": "b38ea08b-626b-4abf-97a2-2dfc56fd69df",
+   "isDefault": false,
+   "name": "[H669-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "H669-P", "designation": "H669N", "manufacturer": "AeroTech", "digest": "26a5e7834018943090396d419ca64662", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [0.26709999999999995, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "id": "db9b08a1-6330-45b0-b43a-27c75784989e",
+   "isDefault": false,
+   "name": "[H242-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "H242-P", "designation": "H242T", "manufacturer": "AeroTech", "digest": "cff44a78b2c4bc9e2ef19f6a2ded4da0", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [0.26709999999999995, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "id": "de88d3eb-091c-4f62-9a0e-2240b7c3560d",
+   "isDefault": false,
+   "name": "[J570-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "J570-P", "designation": "J570W", "manufacturer": "AeroTech", "digest": "6eb7fe0c078fe0365e2052d8c877f6a4", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [-0.059899999999999995, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "id": "098d8c95-54c4-4552-bf81-e65e1de4796b",
+   "isDefault": false,
+   "name": "[H999-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "H999-P", "designation": "H999N", "manufacturer": "AeroTech", "digest": "871f7fe309f61ec7e45e4b29833349d9", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [0.21609999999999996, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 5,
+   "id": "1654d8fb-f69f-43de-984a-d55765ad8a9d",
+   "isDefault": false,
+   "name": "[I1299-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "I1299-P", "designation": "I1299N", "manufacturer": "AeroTech", "digest": "e26c7159754a0c58db92d8c5b3568902", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [0.17009999999999997, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "index": 6,
+   "id": "e4cf5b98-e53c-40da-8fa6-3a9354ad28d1",
+   "isDefault": false,
+   "name": "[G64-P]",
+   "stageCount": 1,
+   "activeStages": [0],
+   "referenceLength": 0.056642,
+   "referenceArea": 0.0025198056228039464,
+   "length": 1.4770100000000002,
+   "lengthAerodynamic": 1.4770100000000002,
+   "boundingBox": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "boundingBoxAerodynamic": {"min": [0.0, -0.05328336260440977, -0.09110839122895326], "max": [1.4770100000000002, 0.10452099999999999, 0.08992729122895331]},
+   "hasMotors": true,
+   "hasRecoveryDevice": true,
+   "motors": [
+    {"mount": "/0/4/0", "motorName": "G64-P", "designation": "G64W", "manufacturer": "AeroTech", "digest": "0fa1ede88d6407eadc5bbc413810100d", "ejectionDelay": "Infinity", "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0127, "position": [0.2951, 0.0, 0.0]}
+   ],
+   "activeComponents": ["/", "/0", "/0/0", "/0/0/0", "/0/0/0/0", "/0/1", "/0/1/0", "/0/2", "/0/2/0", "/0/3", "/0/3/0", "/0/4", "/0/4/0", "/0/4/1", "/0/4/2", "/0/4/2/0", "/0/4/3", "/0/4/4", "/0/4/5", "/0/4/6"],
+   "instances": [
+    {
+     "path": "/",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.0, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.25781000000000004, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/0/0/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.33201, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.33201, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.25781000000000004, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.28321, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/1/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.35941, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.35941, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.28321, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6896100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.6388100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6388100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.6896100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.71501, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/3/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.8429758693909704, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.8429758693909704, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.71501, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.01981, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.07061, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.07061, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/1",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3226034000000002, 0.028321, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3226034000000002, 0.028321, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.4999999999999998, -0.8660254037844387, 0.0, 0.8660254037844387, -0.4999999999999998], "translation": [1.3226034000000002, -0.014160499999999993, 0.024526705460579088]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 2,
+       "location": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.5000000000000004, 0.8660254037844384, 0.0, -0.8660254037844384, -0.5000000000000004], "translation": [1.3226034000000002, -0.014160500000000012, -0.024526705460579078]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/2/0",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [0.9690100000000001, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.9690100000000001, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/3",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08331, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08331, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      },
+      {
+       "instanceNumber": 1,
+       "location": [1.46431, -0.028321, 3.4683221998652188E-18],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.46431, -0.028321, 3.4683221998652188E-18]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/4",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.08966, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.08966, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/5",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.3206034, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.3206034, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    },
+    {
+     "path": "/0/4/6",
+     "instances": [
+      {
+       "instanceNumber": 0,
+       "location": [1.4750100000000002, 0.0, 0.0],
+       "transform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.4750100000000002, 0.0, 0.0]},
+       "parentTransform": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [1.01981, 0.0, 0.0]}
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

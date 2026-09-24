@@ -1,0 +1,354 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Falcon9H Scale Rocket</name>
+    <id>2e76ce88-cd0d-43db-b5a6-a53b399b2617</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <motorconfiguration configid="00000000-0000-0000-0000-00007cc3bbaa" default="true">
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+      <stage number="2" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Payload Fairing Stage</name>
+        <id>474e7158-0ce2-4b5e-96f1-33342b2ad806</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>PL Fairing Nose</name>
+            <id>aebb5848-a03d-46f0-a9bb-87e3f05c9eaf</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.118</length>
+            <thickness>0.001</thickness>
+            <shape>power</shape>
+            <shapeclipped>false</shapeclipped>
+            <shapeparameter>0.5</shapeparameter>
+            <aftradius>0.052</aftradius>
+            <aftshoulderradius>0.051</aftshoulderradius>
+            <aftshoulderlength>0.02</aftshoulderlength>
+            <aftshoulderthickness>0.001</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>PL Fairing Body</name>
+            <id>bcda5cff-699a-40df-bd97-1b7ce17e11c7</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.132</length>
+            <thickness>0.001</thickness>
+            <radius>0.052</radius>
+          </bodytube>
+
+          <transition>
+            <name>PL Fairing Transition</name>
+            <id>5b507c3d-7ce4-44a7-89e0-c5c275a89957</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.014</length>
+            <thickness>0.002</thickness>
+            <shape>conical</shape>
+            <foreradius>auto 0.052</foreradius>
+            <aftradius>auto 0.0385</aftradius>
+            <foreshoulderradius>0.0</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+
+          <bodytube>
+            <name>Upper Stage Body</name>
+            <id>ff770267-0243-4370-b915-ad6ac20c244d</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.18</length>
+            <thickness>0.001</thickness>
+            <radius>0.0385</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Parachute</name>
+                <id>d6fc0d3f-5f0b-46c2-89bb-f8db431ba1c3</id>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>6</linecount>
+                <linelength>0.3</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+
+              <shockcord>
+                <name>Shock Cord</name>
+                <id>3d524bbe-9642-4f14-9649-814adb799cf5</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>0.4</cordlength>
+                <material type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</material>
+              </shockcord>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Interstage</name>
+            <id>76bff927-eb50-4234-b200-d77a1a1bcc4e</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.12</length>
+            <thickness>0.001</thickness>
+            <radius>0.0385</radius>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Core Stage</name>
+        <id>98f288fd-c9cb-429c-b7b7-2081bef48330</id>
+        <separationevent>ejection</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+
+        <subcomponents>
+          <bodytube>
+            <name>Core Stage Body</name>
+            <id>c64e8853-e679-4bcf-9ef8-d0d37b1ad0a8</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.8</length>
+            <thickness>0.001</thickness>
+            <radius>0.0385</radius>
+            <motormount>
+              <ignitionevent>automatic</ignitionevent>
+              <ignitiondelay>0.0</ignitiondelay>
+              <overhang>0.0</overhang>
+              <motor configid="00000000-0000-0000-0000-00007cc3bbaa">
+                <type>single</type>
+                <manufacturer>AeroTech</manufacturer>
+                <digest>digest M1350 test</digest>
+                <designation>M1350</designation>
+                <diameter>0.075</diameter>
+                <length>0.622</length>
+                <delay>0.0</delay>
+              </motor>
+              <ignitionconfiguration configid="00000000-0000-0000-0000-00007cc3bbaa">
+                <ignitionevent>automatic</ignitionevent>
+                <ignitiondelay>0.0</ignitiondelay>
+              </ignitionconfiguration>
+            </motormount>
+
+            <subcomponents>
+              <parallelstage>
+                <name>Booster Stage</name>
+                <id>a36980e0-a4f5-4e52-91fa-407dfe40cf00</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <separationevent>ejection</separationevent>
+                <separationaltitude>200.0</separationaltitude>
+                <separationdelay>0.0</separationdelay>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Booster Nose</name>
+                    <id>046ce22a-ba91-4589-be57-26202fed0328</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.08</length>
+                    <thickness>0.002</thickness>
+                    <shape>power</shape>
+                    <shapeclipped>false</shapeclipped>
+                    <shapeparameter>0.5</shapeparameter>
+                    <aftradius>0.0385</aftradius>
+                    <aftshoulderradius>0.0375</aftshoulderradius>
+                    <aftshoulderlength>0.02</aftshoulderlength>
+                    <aftshoulderthickness>0.001</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+
+                  <bodytube>
+                    <name>Booster Body</name>
+                    <id>e749c0b5-1364-4272-ad83-d10cb6d3f2b0</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.8</length>
+                    <thickness>0.001</thickness>
+                    <radius>auto 0.0385</radius>
+
+                    <subcomponents>
+                      <innertube>
+                        <name>Booster Motor Tubes</name>
+                        <id>a405bc5f-f59a-430f-9466-704dc12cc923</id>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                        <length>0.15</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.015</outerradius>
+                        <thickness>5.000000000000004E-4</thickness>
+                        <clusterconfiguration>4-ring</clusterconfiguration>
+                        <clusterscale>1.0</clusterscale>
+                        <clusterrotation>0.0</clusterrotation>
+                        <motormount>
+                          <ignitionevent>automatic</ignitionevent>
+                          <ignitiondelay>0.0</ignitiondelay>
+                          <overhang>0.01234</overhang>
+                          <motor configid="00000000-0000-0000-0000-00007cc3bbaa">
+                            <type>single</type>
+                            <manufacturer>AeroTech</manufacturer>
+                            <digest>digest G77 test</digest>
+                            <designation>G77</designation>
+                            <diameter>0.029</diameter>
+                            <length>0.124</length>
+                            <delay>0.0</delay>
+                          </motor>
+                          <ignitionconfiguration configid="00000000-0000-0000-0000-00007cc3bbaa">
+                            <ignitionevent>automatic</ignitionevent>
+                            <ignitiondelay>0.0</ignitiondelay>
+                          </ignitionconfiguration>
+                        </motormount>
+                      </innertube>
+
+                      <trapezoidfinset>
+                        <name>Booster Fins</name>
+                        <id>6272cb33-6680-400a-aaa5-716703002eb6</id>
+                        <instancecount>3</instancecount>
+                        <fincount>3</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">0.0</angleoffset>
+                        <rotation>0.0</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                        <thickness>0.003</thickness>
+                        <crosssection>rounded</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                        <rootchord>0.32</rootchord>
+                        <tipchord>0.12</tipchord>
+                        <sweeplength>0.18</sweeplength>
+                        <height>0.1</height>
+                      </trapezoidfinset>
+                    </subcomponents>
+                  </bodytube>
+                </subcomponents>
+              </parallelstage>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>[No motors]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[None; M1350-0; 8× G77-0]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>00000000-0000-0000-0000-00007cc3bbaa</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

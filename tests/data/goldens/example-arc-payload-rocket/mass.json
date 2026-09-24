@@ -1,0 +1,66 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "example-arc-payload-rocket",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.26751214523066746, "cm": [0.509532877419258, 0.0, 2.0264541102435374E-19, 0.26751214523066746], "ixx": 1.53166292587075E-4, "iyy": 0.02859630110385188, "izz": 0.02859630110385188, "longitudinalInertia": 0.02859630110385188, "rotationalInertia": 1.53166292587075E-4},
+   "launch": {"mass": 0.26751214523066746, "cm": [0.509532877419258, 0.0, 2.0264541102435374E-19, 0.26751214523066746], "ixx": 1.53166292587075E-4, "iyy": 0.02859630110385188, "izz": 0.02859630110385188, "longitudinalInertia": 0.02859630110385188, "rotationalInertia": 1.53166292587075E-4},
+   "burnout": {"mass": 0.26751214523066746, "cm": [0.509532877419258, 0.0, 2.0264541102435374E-19, 0.26751214523066746], "ixx": 1.53166292587075E-4, "iyy": 0.02859630110385188, "izz": 0.02859630110385188, "longitudinalInertia": 0.02859630110385188, "rotationalInertia": 1.53166292587075E-4},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Payload", "eachMass": 0.12486328227380955, "totalCM": [0.22172535942102492, 0.0, 0.0, 0.12486328227380955]},
+    {"kind": "component", "path": "/0/0", "name": "Nose cone", "eachMass": 0.030358959568793108, "totalCM": [0.13142359426677436, 0.0, 0.0, 0.030358959568793108]},
+    {"kind": "component", "path": "/0/1", "name": "Body tube", "eachMass": 0.013310413599508483, "totalCM": [0.24129999999999951, 0.0, 0.0, 0.013310413599508483]},
+    {"kind": "component", "path": "/0/1/0", "name": "Mass component", "eachMass": 0.05, "totalCM": [0.1903, 0.0, 0.0, 0.05]},
+    {"kind": "component", "path": "/0/1/1", "name": "Tube coupler", "eachMass": 0.016784813693737067, "totalCM": [0.30479999999999907, 0.0, 0.0, 0.016784813693737067]},
+    {"kind": "component", "path": "/0/1/1/0", "name": "Bulkhead", "eachMass": 0.004486762326770884, "totalCM": [0.35401249999999906, 0.0, 0.0, 0.004486762326770884]},
+    {"kind": "component", "path": "/0/1/2", "name": "Elliptical 12-Gore 12\" Parachute", "eachMass": 0.009922333084999999, "totalCM": [0.4297667247985193, 0.0, 0.0, 0.009922333084999999]},
+    {"kind": "component", "path": "/1", "name": "Booster stage", "eachMass": 0.1426488629568579, "totalCM": [0.761456311055083, 0.0, 3.8002482109282767E-19, 0.1426488629568579]},
+    {"kind": "component", "path": "/1/0", "name": "Body tube", "eachMass": 0.0798624815970514, "totalCM": [0.6857999999999991, 0.0, 0.0, 0.0798624815970514]},
+    {"kind": "component", "path": "/1/0/0", "name": "Elliptical 12-Gore 15\" Parachute", "eachMass": 0.013891266319, "totalCM": [0.4475856520015845, 0.0, 0.0, 0.013891266319]},
+    {"kind": "component", "path": "/1/0/1", "name": "Inner Tube", "eachMass": 0.0321156589490248, "totalCM": [0.952499999999999, 0.0, 0.0, 0.0321156589490248]},
+    {"kind": "component", "path": "/1/0/2", "name": "Centering ring", "eachMass": 0.0021572280458908564, "totalCM": [0.9387999999999991, 0.0, 0.0, 0.0021572280458908564]},
+    {"kind": "component", "path": "/1/0/3", "name": "Centering ring", "eachMass": 0.0021572280458908564, "totalCM": [1.053099999999999, 0.0, 0.0, 0.0021572280458908564]},
+    {"kind": "component", "path": "/1/0/4", "name": "Trapezoidal fin set #1", "eachMass": 0.004155, "totalCM": [1.0225838666666658, 0.05116536666666668, 0.0, 0.004155]},
+    {"kind": "component", "path": "/1/0/5", "name": "Trapezoidal fin set #2", "eachMass": 0.004155, "totalCM": [1.0225838666666658, -0.025582683333333328, 0.04431050732727887, 0.004155]},
+    {"kind": "component", "path": "/1/0/6", "name": "Trapezoidal fin set #3", "eachMass": 0.004155, "totalCM": [1.0225838666666658, -0.02558268333333335, -0.044310507327278856, 0.004155]},
+    {"kind": "total", "path": "/", "name": "ARC payload rocket", "eachMass": 0.26751214523066746, "totalCM": [0.509532877419258, 0.0, 2.0264541102435374E-19, 0.26751214523066746]}
+   ]
+  },
+  {
+   "index": 1,
+   "id": "c2a3649d-3248-44e0-a5be-d50d73490c56",
+   "isDefault": false,
+   "name": "[None; F50-9]",
+   "structure": {"mass": 0.26751214523066746, "cm": [0.509532877419258, 0.0, 2.0264541102435374E-19, 0.26751214523066746], "ixx": 1.53166292587075E-4, "iyy": 0.02859630110385188, "izz": 0.02859630110385188, "longitudinalInertia": 0.02859630110385188, "rotationalInertia": 1.53166292587075E-4},
+   "launch": {"mass": 0.35731214523066746, "cm": [0.6372710139952916, 0.0, 1.5171638957102672E-19, 0.35731214523066746], "ixx": 1.6260651758707501E-4, "iyy": 0.04604114262489635, "izz": 0.04604114262489635, "longitudinalInertia": 0.04604114262489635, "rotationalInertia": 1.6260651758707501E-4},
+   "burnout": {"mass": 0.3237121452306675, "cm": [0.5977736577232635, 0.0, 1.6746393183872275E-19, 0.3237121452306675], "ixx": 1.59074317587075E-4, "iyy": 0.040642123468002785, "izz": 0.040642123468002785, "longitudinalInertia": 0.040642123468002785, "rotationalInertia": 1.59074317587075E-4},
+   "motor": {"mass": 0.0898, "cm": [1.017799999999999, 0.0, 0.0, 0.0898], "ixx": 9.440225000000002E-6, "iyy": 7.659004583333334E-5, "izz": 7.659004583333334E-5, "longitudinalInertia": 7.659004583333334E-5, "rotationalInertia": 9.440225000000002E-6},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Payload", "eachMass": 0.12486328227380955, "totalCM": [0.22172535942102492, 0.0, 0.0, 0.12486328227380955]},
+    {"kind": "component", "path": "/0/0", "name": "Nose cone", "eachMass": 0.030358959568793108, "totalCM": [0.13142359426677436, 0.0, 0.0, 0.030358959568793108]},
+    {"kind": "component", "path": "/0/1", "name": "Body tube", "eachMass": 0.013310413599508483, "totalCM": [0.24129999999999951, 0.0, 0.0, 0.013310413599508483]},
+    {"kind": "component", "path": "/0/1/0", "name": "Mass component", "eachMass": 0.05, "totalCM": [0.1903, 0.0, 0.0, 0.05]},
+    {"kind": "component", "path": "/0/1/1", "name": "Tube coupler", "eachMass": 0.016784813693737067, "totalCM": [0.30479999999999907, 0.0, 0.0, 0.016784813693737067]},
+    {"kind": "component", "path": "/0/1/1/0", "name": "Bulkhead", "eachMass": 0.004486762326770884, "totalCM": [0.35401249999999906, 0.0, 0.0, 0.004486762326770884]},
+    {"kind": "component", "path": "/0/1/2", "name": "Elliptical 12-Gore 12\" Parachute", "eachMass": 0.009922333084999999, "totalCM": [0.4297667247985193, 0.0, 0.0, 0.009922333084999999]},
+    {"kind": "component", "path": "/1", "name": "Booster stage", "eachMass": 0.2324488629568579, "totalCM": [0.8604873967503737, 0.0, 2.332130513984769E-19, 0.2324488629568579]},
+    {"kind": "component", "path": "/1/0", "name": "Body tube", "eachMass": 0.0798624815970514, "totalCM": [0.6857999999999991, 0.0, 0.0, 0.0798624815970514]},
+    {"kind": "component", "path": "/1/0/0", "name": "Elliptical 12-Gore 15\" Parachute", "eachMass": 0.013891266319, "totalCM": [0.4475856520015845, 0.0, 0.0, 0.013891266319]},
+    {"kind": "component", "path": "/1/0/1", "name": "Inner Tube", "eachMass": 0.0321156589490248, "totalCM": [0.952499999999999, 0.0, 0.0, 0.0321156589490248]},
+    {"kind": "component", "path": "/1/0/2", "name": "Centering ring", "eachMass": 0.0021572280458908564, "totalCM": [0.9387999999999991, 0.0, 0.0, 0.0021572280458908564]},
+    {"kind": "component", "path": "/1/0/3", "name": "Centering ring", "eachMass": 0.0021572280458908564, "totalCM": [1.053099999999999, 0.0, 0.0, 0.0021572280458908564]},
+    {"kind": "component", "path": "/1/0/4", "name": "Trapezoidal fin set #1", "eachMass": 0.004155, "totalCM": [1.0225838666666658, 0.05116536666666668, 0.0, 0.004155]},
+    {"kind": "component", "path": "/1/0/5", "name": "Trapezoidal fin set #2", "eachMass": 0.004155, "totalCM": [1.0225838666666658, -0.025582683333333328, 0.04431050732727887, 0.004155]},
+    {"kind": "component", "path": "/1/0/6", "name": "Trapezoidal fin set #3", "eachMass": 0.004155, "totalCM": [1.0225838666666658, -0.02558268333333335, -0.044310507327278856, 0.004155]},
+    {"kind": "motor", "path": null, "name": "F50T", "eachMass": 0.0898, "totalCM": [1.017799999999999, 0.0, 0.0, 0.0898]},
+    {"kind": "total", "path": "/", "name": "ARC payload rocket", "eachMass": 0.35731214523066746, "totalCM": [0.6372710139952916, 0.0, 1.5171638957102672E-19, 0.35731214523066746]}
+   ]
+  }
+ ]
+}

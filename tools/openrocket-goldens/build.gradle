@@ -1,0 +1,131 @@
+// Builds the golden-data dumper against OpenRocket's core, compiled here from a local, read-only
+// checkout of OpenRocket (nothing is written into that checkout).
+//
+//   ./gradlew -p tools/openrocket-goldens -PopenrocketDir=/path/to/openrocket goldensClasspath
+//
+// generate.sh does this and then runs the dumper with the classpath written to
+// build/goldens-classpath.txt. See README.md.
+//
+// Why not a composite build (includeBuild of the OpenRocket checkout)? Building OpenRocket's own
+// project writes into the checkout (core/build/, and processResources copies ReleaseNotes.md and the
+// component database into core/src/main/resources), needs the Swing module's plugins, and its
+// resource tasks run `git submodule update --remote` (network) when the preset submodule is missing.
+// Compiling core's sources into this project's build directory avoids all of that and guarantees
+// that the classes match the commit recorded in tests/data/goldens/manifest.json.
+
+plugins {
+    id 'java'
+}
+
+def openrocketDirValue = providers.gradleProperty('openrocketDir')
+        .orElse(providers.environmentVariable('OPENROCKET_DIR'))
+        .getOrNull()
+if (openrocketDirValue == null) {
+    throw new GradleException('Set -PopenrocketDir=<OpenRocket checkout> (or the OPENROCKET_DIR environment variable)')
+}
+def openrocketDir = file(openrocketDirValue)
+def openrocketCore = new File(openrocketDir, 'core')
+if (!new File(openrocketCore, 'src/main/java/info/openrocket/core/startup/Application.java').isFile()) {
+    throw new GradleException("Not an OpenRocket checkout: ${openrocketDir}")
+}
+
+// OpenRocket core's third-party dependencies, read from core/build.gradle of the checkout so that
+// they always match the commit being built ("implementation 'group:artifact:version'" lines).
+def openrocketCoreDependencies = new File(openrocketCore, 'build.gradle').readLines()
+        .collect { line -> (line =~ /^\s*implementation\s+'([^']+)'/) }
+        .findAll { matcher -> matcher.find() }
+        .collect { matcher -> matcher.group(1) }
+if (openrocketCoreDependencies.isEmpty()) {
+    throw new GradleException('No dependencies found in core/build.gradle of the OpenRocket checkout')
+}
+
+// OpenRocket's processResources appends the short commit hash to a -SNAPSHOT build.version; the saver
+// writes that version into creator="OpenRocket <version>" of every .ork file, so it is replicated here.
+def openrocketShortHash = providers.exec {
+    workingDir = openrocketDir
+    commandLine 'git', 'rev-parse', '--short', 'HEAD'
+}.standardOutput.asText.map { it.trim() }
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    // Class path only, as OpenRocket's own build and tests do (core's module-info.java is excluded).
+    modularity.inferModulePath = false
+}
+
+sourceSets {
+    // OpenRocket's core (module-info.java excluded: everything runs on the class path, as in its tests).
+    openrocket {
+        java {
+            srcDir new File(openrocketCore, 'src/main/java')
+            exclude 'module-info.java'
+        }
+        resources {
+            srcDir new File(openrocketCore, 'src/main/resources')
+        }
+    }
+    // The test bootstrap classes the dumper uses exactly as OpenRocket's tests do.
+    openrocketTestSupport {
+        java {
+            srcDir new File(openrocketCore, 'src/test/java')
+            include 'info/openrocket/core/ServicesForTesting.java'
+        }
+    }
+}
+
+configurations {
+    openrocketTestSupportImplementation.extendsFrom openrocketImplementation
+    implementation.extendsFrom openrocketImplementation
+}
+
+dependencies {
+    openrocketCoreDependencies.each { coordinates -> openrocketImplementation coordinates }
+    openrocketImplementation files(new File(openrocketCore, 'libs/script-api-1.0.jar'))
+    openrocketTestSupportImplementation sourceSets.openrocket.output
+    implementation sourceSets.openrocket.output
+    implementation sourceSets.openrocketTestSupport.output
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    // No implicit source path: javac must not find core's module-info.java next to the sources.
+    options.sourcepath = files()
+}
+
+// OpenRocket's sources produce many deprecation/unchecked notes; they are not ours to fix.
+tasks.named('compileOpenrocketJava', JavaCompile) {
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+
+// The dumper itself compiles without warnings.
+tasks.named('compileJava', JavaCompile) {
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
+
+tasks.named('processOpenrocketResources', ProcessResources) {
+    inputs.property('openrocketShortHash', openrocketShortHash)
+    filesMatching('build.properties') {
+        filter { line ->
+            if (line.startsWith('build.version=') && line.trim().endsWith('-SNAPSHOT')) {
+                "${line}-${openrocketShortHash.get()}"
+            } else {
+                line
+            }
+        }
+    }
+}
+
+// Writes the dumper's runtime class path (one line, platform path separator) for generate.sh.
+tasks.register('goldensClasspath') {
+    dependsOn tasks.named('classes')
+    def output = layout.buildDirectory.file('goldens-classpath.txt')
+    def runtimeClasspath = sourceSets.main.runtimeClasspath
+    inputs.files(runtimeClasspath)
+    outputs.file(output)
+    doLast {
+        output.get().asFile.text = runtimeClasspath.files.collect { it.absolutePath }.join(File.pathSeparator)
+    }
+}

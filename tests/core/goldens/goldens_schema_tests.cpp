@@ -1,0 +1,838 @@
+// Schema checks of the golden reference data in tests/data/goldens (tools/openrocket-goldens):
+// every file manifest.json lists parses, carries the schema version and has the keys the golden
+// comparison tests rely on. Also tests the GoldenData loader itself.
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <filesystem>
+#include <format>
+#include <initializer_list>
+#include <limits>
+#include <random>
+#include <set>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <vector>
+
+#include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+
+#include "QtRocket/file/GzipStream.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
+#include "TestPaths.h"
+#include "goldens/GoldenData.h"
+
+namespace
+{
+
+using nlohmann::json;
+using QtRocket::ErrorCode;
+using QtRocket::Test::GoldenInput;
+using QtRocket::Test::GoldenManifest;
+using QtRocket::Test::GoldenSimulation;
+
+constexpr std::size_t kExampleCount    = 16;
+constexpr std::size_t kTestRocketCount = 13;
+/// The Mach x AoA grid (7 x 3) plus the two off-grid points of aero.json.
+constexpr std::size_t kAeroPointCount = 23;
+constexpr std::size_t kMachCount      = 7;
+constexpr std::size_t kMissing        = std::numeric_limits<std::size_t>::max();
+
+/// A directory in the temporary directory, removed again when the test ends.
+class TempDir
+{
+public:
+    TempDir()
+      : m_path(std::filesystem::temp_directory_path() /
+               std::format("qtrocket_goldens_{}", std::random_device{}()))
+    {
+        std::filesystem::create_directories(m_path);
+    }
+    ~TempDir()
+    {
+        std::error_code ignored;
+        std::filesystem::remove_all(m_path, ignored);
+    }
+    TempDir(const TempDir&)            = delete;
+    TempDir& operator=(const TempDir&) = delete;
+    TempDir(TempDir&&)                 = delete;
+    TempDir& operator=(TempDir&&)      = delete;
+
+    [[nodiscard]] const std::filesystem::path& path() const { return m_path; }
+
+private:
+    std::filesystem::path m_path;
+};
+
+GoldenManifest loadManifestOrFail()
+{
+    auto manifest = QtRocket::Test::loadGoldenManifest();
+    if (!manifest)
+    {
+        ADD_FAILURE() << manifest.error().toString();
+        return {};
+    }
+    return *manifest;
+}
+
+json loadJsonOrFail(const std::string& path)
+{
+    auto parsed = QtRocket::Test::loadGoldenJson(path);
+    if (!parsed)
+    {
+        ADD_FAILURE() << parsed.error().toString();
+        return json::object();
+    }
+    return *parsed;
+}
+
+/// The error code of a failed result; UNKNOWN for a success, which the callers do not expect.
+template <class T>
+ErrorCode errorCode(const QtRocket::Result<T>& result)
+{
+    return result.has_value() ? ErrorCode::UNKNOWN : result.error().code;
+}
+
+bool manifestParses(const json& manifest)
+{
+    return QtRocket::Test::parseGoldenManifest(manifest).has_value();
+}
+
+void expectKeys(const json& object, std::initializer_list<std::string_view> keys,
+                const std::string& context)
+{
+    ASSERT_TRUE(object.is_object()) << context;
+    for (const auto key : keys)
+    {
+        EXPECT_TRUE(object.contains(key)) << context << ": missing \"" << key << "\"";
+    }
+}
+
+void expectNumber(const json& object, std::string_view key, const std::string& context)
+{
+    const auto it = object.find(key);
+    ASSERT_NE(it, object.end()) << context << ": missing \"" << key << "\"";
+    EXPECT_TRUE(QtRocket::Test::goldenNumber(*it).has_value())
+        << context << ": \"" << key << "\" is not a number";
+}
+
+/// A coordinate array of @p size numbers.
+void expectCoordinate(const json& value, std::size_t size, const std::string& context)
+{
+    ASSERT_TRUE(value.is_array()) << context;
+    ASSERT_EQ(value.size(), size) << context;
+    for (const auto& element : value)
+    {
+        EXPECT_TRUE(QtRocket::Test::goldenNumber(element).has_value()) << context;
+    }
+}
+
+void expectHeader(const json& document, std::string_view schema, const std::string& input,
+                  const std::string& context)
+{
+    expectKeys(document, {"schema", "schemaVersion", "input"}, context);
+    EXPECT_EQ(document.value("schema", ""), schema) << context;
+    EXPECT_EQ(document.value("schemaVersion", -1), QtRocket::Test::kGoldenSchemaVersion) << context;
+    EXPECT_EQ(document.value("input", ""), input) << context;
+}
+
+void expectConfigurationHeader(const json& configuration, std::size_t index,
+                               const std::string& context)
+{
+    expectKeys(configuration, {"index", "id", "isDefault", "name"}, context);
+    EXPECT_EQ(configuration.value("index", kMissing), index) << context;
+}
+
+void expectRigidBody(const json& body, const std::string& context)
+{
+    expectKeys(body,
+               {"mass", "cm", "ixx", "iyy", "izz", "longitudinalInertia", "rotationalInertia"},
+               context);
+    expectNumber(body, "mass", context);
+    expectCoordinate(body.value("cm", json::array()), 4, context + " cm");
+}
+
+void expectForces(const json& forces, const std::string& context)
+{
+    for (const std::string_view key :
+         {"cn", "cm", "cside", "cyaw", "croll", "crollDamp", "crollForce", "cd", "cdAxial",
+          "pressureCD", "baseCD", "frictionCD", "overrideCD", "pitchDampingMoment",
+          "yawDampingMoment"})
+    {
+        expectNumber(forces, key, context);
+    }
+    expectCoordinate(forces.value("cp", json::array()), 4, context + " cp");
+}
+
+// ---- manifest checks ----
+
+bool isLowerHex(std::string_view text)
+{
+    return std::ranges::all_of(
+        text, [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+/// An example input names its directory after, and has as its source, a data/examples file.
+void checkExampleInput(const GoldenInput& input)
+{
+    constexpr std::string_view kExamplesPrefix = "data/examples/";
+    EXPECT_TRUE(input.name.starts_with("example-")) << input.name;
+    ASSERT_TRUE(input.source.starts_with(kExamplesPrefix)) << input.source;
+    const std::filesystem::path file =
+        QtRocket::Test::dataDir() / "examples" /
+        std::filesystem::path{input.source.substr(kExamplesPrefix.size())};
+    EXPECT_TRUE(std::filesystem::is_regular_file(file)) << input.source;
+}
+
+/// Checks one manifest input and counts it by kind.
+void checkManifestInput(const GoldenInput& input, std::size_t& examples, std::size_t& testRockets)
+{
+    EXPECT_FALSE(input.simulations.empty()) << input.name;
+    if (input.kind == "example")
+    {
+        checkExampleInput(input);
+        ++examples;
+        return;
+    }
+    EXPECT_EQ(input.kind, "testrocket") << input.name;
+    EXPECT_TRUE(input.name.starts_with("testrocket-")) << input.name;
+    ++testRockets;
+}
+
+std::size_t countExampleFiles()
+{
+    std::size_t count = 0;
+    for (const auto& entry :
+         std::filesystem::directory_iterator(QtRocket::Test::dataDir() / "examples"))
+    {
+        if (entry.path().extension() == ".ork")
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::set<std::string> listedFiles(const GoldenManifest& manifest)
+{
+    std::set<std::string> listed;
+    for (const auto& input : manifest.inputs)
+    {
+        listed.insert({input.geometry, input.mass, input.aero, input.resave});
+        for (const auto& simulation : input.simulations)
+        {
+            listed.insert(simulation.json);
+            listed.insert(simulation.branches.begin(), simulation.branches.end());
+        }
+    }
+    return listed;
+}
+
+/// Every file under the input's directory is in @p listed.
+void expectDirectoryListed(const std::string& inputName, const std::set<std::string>& listed)
+{
+    const auto dir = QtRocket::Test::goldensDir() / inputName;
+    ASSERT_TRUE(std::filesystem::is_directory(dir)) << dir.generic_string();
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir))
+    {
+        if (!entry.is_regular_file())
+        {
+            continue;
+        }
+        const auto relative =
+            entry.path().lexically_relative(QtRocket::Test::goldensDir()).generic_string();
+        EXPECT_TRUE(listed.contains(relative)) << "not in manifest.json: " << relative;
+    }
+}
+
+// ---- geometry.json ----
+
+void checkComponent(const json& component, const std::string& file, std::set<std::string>& paths)
+{
+    const std::string context = file + " " + component.value("path", "?");
+    expectKeys(component,
+               {"path",
+                "type",
+                "name",
+                "id",
+                "stageNumber",
+                "length",
+                "axialMethod",
+                "position",
+                "componentMass",
+                "componentCG",
+                "longitudinalUnitInertia",
+                "rotationalUnitInertia",
+                "mass",
+                "cg",
+                "overrides",
+                "componentBounds",
+                "instanceCount",
+                "instanceOffsets",
+                "instanceAngles",
+                "componentLocations",
+                "details"},
+               context);
+    EXPECT_TRUE(paths.insert(component.value("path", "")).second) << context;
+    expectNumber(component, "componentMass", context);
+    expectCoordinate(component.value("componentCG", json::array()), 4, context);
+    expectCoordinate(component.value("position", json::array()), 3, context);
+    EXPECT_EQ(component.value("instanceOffsets", json::array()).size(),
+              component.value("instanceCount", kMissing))
+        << context;
+}
+
+void checkInstances(const json& entry, const std::set<std::string>& paths,
+                    const std::string& context)
+{
+    EXPECT_TRUE(paths.contains(entry.value("path", ""))) << context;
+    for (const auto& instance : entry.value("instances", json::array()))
+    {
+        expectKeys(instance, {"instanceNumber", "location", "transform"}, context);
+        const auto& transform = instance.value("transform", json::object());
+        expectCoordinate(transform.value("rotation", json::array()), 9, context);
+        expectCoordinate(transform.value("translation", json::array()), 3, context);
+    }
+}
+
+void checkGeometryConfiguration(const json& configuration, std::size_t index,
+                                const std::set<std::string>& paths, const std::string& file)
+{
+    const std::string context = file + " configuration " + std::to_string(index);
+    expectConfigurationHeader(configuration, index, context);
+    expectKeys(configuration,
+               {"stageCount", "activeStages", "referenceLength", "referenceArea", "length",
+                "boundingBox", "motors", "activeComponents", "instances"},
+               context);
+    for (const auto& entry : configuration.value("instances", json::array()))
+    {
+        checkInstances(entry, paths, context);
+    }
+}
+
+// ---- mass.json ----
+
+void checkMassConfiguration(const json& configuration, std::size_t index, const std::string& file)
+{
+    const std::string context = file + " configuration " + std::to_string(index);
+    expectConfigurationHeader(configuration, index, context);
+    for (const std::string_view key : {"structure", "launch", "burnout", "motor"})
+    {
+        expectRigidBody(configuration.value(key, json::object()),
+                        std::format("{} {}", context, key));
+    }
+    const auto& analysis = configuration.value("cmAnalysis", json::array());
+    ASSERT_FALSE(analysis.empty()) << context;
+    EXPECT_EQ(analysis.back().value("kind", ""), "total") << context;
+    for (const auto& row : analysis)
+    {
+        expectKeys(row, {"kind", "path", "name", "eachMass", "totalCM"}, context);
+        expectCoordinate(row.value("totalCM", json::array()), 4, context);
+    }
+}
+
+// ---- aero.json ----
+
+void checkAeroPoint(const json& point, const std::string& context)
+{
+    expectKeys(point, {"conditions", "cp", "forces", "components", "warnings"}, context);
+    expectKeys(point.value("conditions", json::object()),
+               {"mach", "aoa", "theta", "rollRate", "pitchRate", "yawRate", "pitchCenter"},
+               context);
+    expectCoordinate(point.value("cp", json::array()), 4, context);
+    expectForces(point.value("forces", json::object()), context + " forces");
+    for (const auto& component : point.value("components", json::array()))
+    {
+        expectKeys(component, {"path"}, context);
+        expectForces(component, context + " " + component.value("path", "?"));
+    }
+}
+
+void checkAeroConfiguration(const json& aero, std::size_t index, const std::string& file)
+{
+    const std::string context       = file + " configuration " + std::to_string(index);
+    const auto&       configuration = aero.at("configurations").at(index);
+    expectConfigurationHeader(configuration, index, context);
+    expectKeys(configuration, {"referenceLength", "referenceArea", "sameResultsAs"}, context);
+    const json* results = QtRocket::Test::aeroResults(aero, index);
+    ASSERT_NE(results, nullptr) << context;
+    expectKeys(*results, {"geometryWarnings", "points", "worstCP"}, context);
+    const auto& points = results->value("points", json::array());
+    ASSERT_EQ(points.size(), kAeroPointCount) << context;
+    for (const auto& point : points)
+    {
+        checkAeroPoint(point, context);
+    }
+    EXPECT_EQ(results->value("worstCP", json::array()).size(), kMachCount) << context;
+}
+
+// ---- sim_<sim>.json and the branch CSVs ----
+
+void checkSimulationHeader(const json& simulation, const GoldenSimulation& listed,
+                           std::size_t index, const std::string& inputName)
+{
+    const std::string& context = listed.json;
+    expectHeader(simulation, "simulation", inputName, context);
+    expectKeys(simulation,
+               {"index", "name", "flightConfiguration", "optionsSource", "options", "harness",
+                "extensions", "skipped", "skipReason"},
+               context);
+    EXPECT_EQ(simulation.value("index", kMissing), index) << context;
+    EXPECT_EQ(simulation.value("name", ""), listed.name) << context;
+    const auto& options = simulation.value("options", json::object());
+    expectKeys(
+        options,
+        {"launchRodLength", "launchRodAngle", "launchRodDirection", "windModelType", "averageWind",
+         "timeStep", "maxSimulationTime", "randomSeed", "gravityModelType", "stepperMethod"},
+        context);
+    EXPECT_EQ(options.value("randomSeed", -1), 0) << context;
+    EXPECT_EQ(options.value("averageWind", json::object()).value("standardDeviation", -1.0), 0.0)
+        << context;
+}
+
+void checkEvents(const json& branch, const std::string& csvFile)
+{
+    for (const auto& event : branch.value("events", json::array()))
+    {
+        expectKeys(event, {"time", "type", "source", "data"}, csvFile);
+        expectNumber(event, "time", csvFile);
+    }
+}
+
+void checkBranch(const json& branch, const std::string& csvFile, const std::string& inputName)
+{
+    expectKeys(branch, {"index", "name", "rows", "csv", "columns", "events", "excludedColumns"},
+               csvFile);
+    EXPECT_EQ(inputName + "/" + branch.value("csv", ""), csvFile);
+    checkEvents(branch, csvFile);
+
+    const auto table = QtRocket::Test::loadGoldenCsv(csvFile);
+    ASSERT_TRUE(table.has_value()) << table.error().toString();
+    std::vector<std::string> keys;
+    for (const auto& column : branch.value("columns", json::array()))
+    {
+        keys.push_back(column.value("key", ""));
+    }
+    EXPECT_EQ(table->columns, keys) << csvFile;
+    EXPECT_EQ(table->rows.size(), branch.value("rows", kMissing)) << csvFile;
+    const auto time = table->column("time").value_or(std::vector<double>{});
+    EXPECT_EQ(time.size(), table->rows.size()) << csvFile << ": no time column";
+    EXPECT_TRUE(std::ranges::is_sorted(time)) << csvFile;
+}
+
+void checkSimulation(const GoldenInput& input, std::size_t index)
+{
+    const GoldenSimulation& listed     = input.simulations[index];
+    const json              simulation = loadJsonOrFail(listed.json);
+    checkSimulationHeader(simulation, listed, index, input.name);
+    if (simulation.value("skipped", false))
+    {
+        EXPECT_TRUE(listed.branches.empty()) << listed.json;
+        EXPECT_TRUE(simulation.value("skipReason", json()).is_string()) << listed.json;
+        return;
+    }
+    expectKeys(simulation, {"result", "summary", "warnings", "branches"}, listed.json);
+    expectKeys(simulation.value("summary", json::object()),
+               {"maxAltitude", "maxVelocity", "timeToApogee", "flightTime", "branchCount"},
+               listed.json);
+    const auto& branches = simulation.value("branches", json::array());
+    ASSERT_EQ(branches.size(), listed.branches.size()) << listed.json;
+    for (std::size_t b = 0; b < branches.size(); ++b)
+    {
+        checkBranch(branches[b], listed.branches[b], input.name);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The loader
+
+TEST(GoldenData, GoldenNumberAcceptsNumbersAndNonFiniteStrings)
+{
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json::parse("1.0E-5")), 1.0e-5);
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json::parse("-0.0")), -0.0);
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json(3)), 3.0);
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json::parse("0.30000000000000004")),
+              0.30000000000000004);
+    EXPECT_TRUE(std::isnan(QtRocket::Test::goldenNumber(json("NaN")).value_or(0.0)));
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json("Infinity")),
+              std::numeric_limits<double>::infinity());
+    EXPECT_EQ(QtRocket::Test::goldenNumber(json("-Infinity")),
+              -std::numeric_limits<double>::infinity());
+}
+
+TEST(GoldenData, GoldenNumberRejectsOtherValues)
+{
+    EXPECT_FALSE(QtRocket::Test::goldenNumber(json("nan")).has_value());
+    EXPECT_FALSE(QtRocket::Test::goldenNumber(json("1.5")).has_value());
+    EXPECT_FALSE(QtRocket::Test::goldenNumber(json(nullptr)).has_value());
+    EXPECT_FALSE(QtRocket::Test::goldenNumber(json(true)).has_value());
+    EXPECT_FALSE(QtRocket::Test::goldenNumber(json::array({1.0})).has_value());
+}
+
+TEST(GoldenData, ParsesCsv)
+{
+    const auto table = QtRocket::Test::parseGoldenCsv(
+        "time,altitude,custom:Control fin cant\n0.0,0.0,NaN\n0.01,1.0E-5,-Infinity\n");
+    ASSERT_TRUE(table.has_value()) << table.error().toString();
+    EXPECT_EQ(table->columns,
+              (std::vector<std::string>{"time", "altitude", "custom:Control fin cant"}));
+    ASSERT_EQ(table->rows.size(), 2U);
+    EXPECT_EQ(table->rows[1][0], 0.01);
+    EXPECT_EQ(table->rows[1][1], 1.0e-5);
+    EXPECT_TRUE(std::isnan(table->rows[0][2]));
+    EXPECT_EQ(table->rows[1][2], -std::numeric_limits<double>::infinity());
+
+    EXPECT_EQ(table->columnIndex("altitude"), 1U);
+    EXPECT_FALSE(table->columnIndex("mass").has_value());
+    EXPECT_EQ(table->column("time"), (std::vector<double>{0.0, 0.01}));
+    EXPECT_FALSE(table->column("mass").has_value());
+}
+
+TEST(GoldenData, CsvWithOnlyAHeaderHasNoRows)
+{
+    const auto table = QtRocket::Test::parseGoldenCsv("time,altitude\n");
+    ASSERT_TRUE(table.has_value()) << table.error().toString();
+    EXPECT_EQ(table->columns.size(), 2U);
+    EXPECT_TRUE(table->rows.empty());
+    // The column exists and is empty (the default would have one value).
+    EXPECT_EQ(table->column("time").value_or(std::vector<double>{-1.0}).size(), 0U);
+}
+
+TEST(GoldenData, RejectsMalformedCsv)
+{
+    for (const std::string_view text :
+         {std::string_view{""}, std::string_view{"time,altitude"},
+          std::string_view{"time,altitude\n0.0\n"},
+          std::string_view{"time,altitude\n0.0,1.0,2.0\n"},
+          std::string_view{"time,altitude\n0.0,one\n"}, std::string_view{"time,altitude\n0.0,\n"},
+          std::string_view{"time,altitude\n0.0,1.0\n1.0,2.0"}})
+    {
+        const auto table = QtRocket::Test::parseGoldenCsv(text);
+        EXPECT_FALSE(table.has_value()) << "accepted: " << text;
+        EXPECT_EQ(errorCode(table), ErrorCode::PARSE) << text;
+    }
+}
+
+TEST(GoldenData, LoadsGzipCompressedCsv)
+{
+    const TempDir dir;
+    const auto    compressed =
+        QtRocket::gzipDeflate(QtRocket::stringToBytes("time,mass\n0.0,1.5\n0.5,1.25\n"));
+    ASSERT_TRUE(compressed.has_value()) << compressed.error().toString();
+    const auto file = dir.path() / "good.csv.gz";
+    ASSERT_TRUE(QtRocket::writeFile(file, *compressed).has_value());
+    const auto table = QtRocket::Test::loadGoldenCsv(file);
+    ASSERT_TRUE(table.has_value()) << table.error().toString();
+    EXPECT_EQ(table->column("mass"), (std::vector<double>{1.5, 1.25}));
+}
+
+TEST(GoldenData, ReportsUnreadableCsvFiles)
+{
+    const TempDir dir;
+    const auto    notGzip = dir.path() / "plain.csv.gz";
+    ASSERT_TRUE(QtRocket::writeTextFile(notGzip, "time\n0.0\n").has_value());
+    EXPECT_EQ(errorCode(QtRocket::Test::loadGoldenCsv(notGzip)), ErrorCode::PARSE);
+
+    const auto ragged = QtRocket::gzipDeflate(QtRocket::stringToBytes("time\n0.0,1.0\n"));
+    ASSERT_TRUE(ragged.has_value()) << ragged.error().toString();
+    const auto raggedFile = dir.path() / "ragged.csv.gz";
+    ASSERT_TRUE(QtRocket::writeFile(raggedFile, *ragged).has_value());
+    EXPECT_EQ(errorCode(QtRocket::Test::loadGoldenCsv(raggedFile)), ErrorCode::PARSE);
+
+    EXPECT_EQ(errorCode(QtRocket::Test::loadGoldenCsv(dir.path() / "missing.csv.gz")),
+              ErrorCode::IO);
+}
+
+TEST(GoldenData, ParsesJson)
+{
+    const auto parsed = QtRocket::Test::parseGoldenJson(R"({"a": [1.0, "NaN"]})");
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
+    EXPECT_EQ(parsed->at("a").size(), 2U);
+}
+
+TEST(GoldenData, RejectsInvalidJson)
+{
+    for (const std::string_view text :
+         {std::string_view{""}, std::string_view{"{"}, std::string_view{R"({"a": NaN})"}})
+    {
+        EXPECT_EQ(errorCode(QtRocket::Test::parseGoldenJson(text)), ErrorCode::PARSE) << text;
+    }
+    EXPECT_EQ(errorCode(QtRocket::Test::loadGoldenJson("no-such-input/geometry.json")),
+              ErrorCode::IO);
+}
+
+TEST(GoldenData, ParsesManifest)
+{
+    const json manifest = json::parse(R"({
+        "schemaVersion": 1,
+        "openrocket": {"commit": "abc", "version": "26.xx"},
+        "inputs": [{"name": "example-x", "kind": "example", "source": "data/examples/X.ork",
+                    "geometry": "example-x/geometry.json", "mass": "example-x/mass.json",
+                    "aero": "example-x/aero.json", "resave": "example-x/resave/rocket.ork",
+                    "simulations": [{"name": "Simulation 1", "json": "example-x/sim_00.json",
+                                     "branches": ["example-x/sim_00_branch0.csv.gz"]}]}]})");
+    const auto parsed   = QtRocket::Test::parseGoldenManifest(manifest);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
+    EXPECT_EQ(parsed->schemaVersion, 1);
+    EXPECT_EQ(parsed->openrocketCommit, "abc");
+    EXPECT_EQ(parsed->openrocketVersion, "26.xx");
+    ASSERT_EQ(parsed->inputs.size(), 1U);
+    const auto* input = parsed->find("example-x");
+    ASSERT_NE(input, nullptr);
+    EXPECT_EQ(input->kind, "example");
+    EXPECT_EQ(input->resave, "example-x/resave/rocket.ork");
+    ASSERT_EQ(input->simulations.size(), 1U);
+    EXPECT_EQ(input->simulations[0].branches,
+              std::vector<std::string>{"example-x/sim_00_branch0.csv.gz"});
+    EXPECT_EQ(parsed->find("example-y"), nullptr);
+}
+
+const json& completeManifest()
+{
+    static const json kManifest = json::parse(R"({
+        "schemaVersion": 1,
+        "openrocket": {"commit": "abc", "version": "26.xx"},
+        "inputs": [{"name": "n", "kind": "example", "source": "s", "geometry": "g", "mass": "m",
+                    "aero": "a", "resave": "r",
+                    "simulations": [{"name": "s", "json": "j", "branches": []}]}]})");
+    return kManifest;
+}
+
+TEST(GoldenData, RejectsManifestsWithoutARequiredField)
+{
+    ASSERT_TRUE(manifestParses(completeManifest()));
+    for (const char* pointer :
+         {"/schemaVersion", "/openrocket", "/openrocket/commit", "/openrocket/version", "/inputs",
+          "/inputs/0/name", "/inputs/0/kind", "/inputs/0/source", "/inputs/0/geometry",
+          "/inputs/0/mass", "/inputs/0/aero", "/inputs/0/resave", "/inputs/0/simulations",
+          "/inputs/0/simulations/0/name", "/inputs/0/simulations/0/json",
+          "/inputs/0/simulations/0/branches"})
+    {
+        const json::json_pointer removed{pointer};
+        json                     broken = completeManifest();
+        broken[removed.parent_pointer()].erase(removed.back());
+        EXPECT_FALSE(manifestParses(broken)) << "accepted without " << pointer;
+    }
+}
+
+TEST(GoldenData, RejectsManifestsWithWrongTypes)
+{
+    json wrongVersion             = completeManifest();
+    wrongVersion["schemaVersion"] = "1";
+    EXPECT_FALSE(manifestParses(wrongVersion));
+
+    json badBranch                                       = completeManifest();
+    badBranch["inputs"][0]["simulations"][0]["branches"] = json::array({1});
+    EXPECT_FALSE(manifestParses(badBranch));
+
+    json badInput         = completeManifest();
+    badInput["inputs"][0] = "example";
+    EXPECT_FALSE(manifestParses(badInput));
+
+    json badSimulation                        = completeManifest();
+    badSimulation["inputs"][0]["simulations"] = json::array({42});
+    EXPECT_FALSE(manifestParses(badSimulation));
+
+    EXPECT_FALSE(manifestParses(json::array()));
+    EXPECT_EQ(errorCode(QtRocket::Test::parseGoldenManifest(json::array())), ErrorCode::PARSE);
+}
+
+TEST(GoldenData, AeroResultsFollowSameResultsAs)
+{
+    const json  aero           = json::parse(R"({"configurations": [
+        {"index": 0, "sameResultsAs": null, "points": [0]},
+        {"index": 1, "sameResultsAs": 0},
+        {"index": 2, "sameResultsAs": 2},
+        {"index": 3, "sameResultsAs": 1},
+        {"index": 4},
+        {"index": 5, "sameResultsAs": -1}]})");
+    const auto& configurations = aero.at("configurations");
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 0), &configurations[0]);
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 1), &configurations[0]);
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 2), nullptr);  // refers to itself
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 3), nullptr);  // refers to a reference
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 4), nullptr);  // no sameResultsAs
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 5), nullptr);  // negative
+    EXPECT_EQ(QtRocket::Test::aeroResults(aero, 6), nullptr);  // out of range
+    EXPECT_EQ(QtRocket::Test::aeroResults(json::array(), 0), nullptr);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The committed golden data
+
+TEST(GoldenSchema, ManifestDescribesItsSource)
+{
+    const auto manifest = loadManifestOrFail();
+    EXPECT_EQ(manifest.schemaVersion, QtRocket::Test::kGoldenSchemaVersion);
+    EXPECT_EQ(manifest.openrocketCommit.size(), 40U);
+    EXPECT_TRUE(isLowerHex(manifest.openrocketCommit)) << manifest.openrocketCommit;
+    EXPECT_FALSE(manifest.openrocketVersion.empty());
+}
+
+TEST(GoldenSchema, ManifestListsEveryInput)
+{
+    const auto            manifest = loadManifestOrFail();
+    std::set<std::string> names;
+    std::size_t           examples    = 0;
+    std::size_t           testRockets = 0;
+    for (const auto& input : manifest.inputs)
+    {
+        EXPECT_TRUE(names.insert(input.name).second) << "duplicate input " << input.name;
+        checkManifestInput(input, examples, testRockets);
+    }
+    EXPECT_EQ(examples, kExampleCount);
+    EXPECT_EQ(testRockets, kTestRocketCount);
+    // Every example design has goldens.
+    EXPECT_EQ(countExampleFiles(), kExampleCount);
+}
+
+TEST(GoldenSchema, EveryFileOfAnInputIsListed)
+{
+    const auto manifest = loadManifestOrFail();
+    const auto listed   = listedFiles(manifest);
+    for (const auto& input : manifest.inputs)
+    {
+        expectDirectoryListed(input.name, listed);
+    }
+    for (const auto& file : listed)
+    {
+        EXPECT_TRUE(std::filesystem::is_regular_file(QtRocket::Test::goldensDir() / file))
+            << "listed but missing: " << file;
+    }
+}
+
+// ---- one input's design files ----
+
+void checkGeometryFile(const GoldenInput& input)
+{
+    const std::string& file     = input.geometry;
+    const json         geometry = loadJsonOrFail(file);
+    expectHeader(geometry, "geometry", input.name, file);
+    expectKeys(
+        geometry,
+        {"rocketName", "selectedConfiguration", "loadWarnings", "components", "configurations"},
+        file);
+
+    const auto& components = geometry.value("components", json::array());
+    ASSERT_FALSE(components.empty()) << file;
+    EXPECT_EQ(components[0].value("path", ""), "/") << file;
+    EXPECT_EQ(components[0].value("type", ""), "Rocket") << file;
+    std::set<std::string> paths;
+    for (const auto& component : components)
+    {
+        checkComponent(component, file, paths);
+    }
+
+    const auto& configurations = geometry.value("configurations", json::array());
+    ASSERT_FALSE(configurations.empty()) << file;
+    for (std::size_t i = 0; i < configurations.size(); ++i)
+    {
+        checkGeometryConfiguration(configurations[i], i, paths, file);
+    }
+}
+
+void checkMassFile(const GoldenInput& input)
+{
+    const std::string& file = input.mass;
+    const json         mass = loadJsonOrFail(file);
+    expectHeader(mass, "mass", input.name, file);
+    const auto& configurations = mass.value("configurations", json::array());
+    ASSERT_FALSE(configurations.empty()) << file;
+    for (std::size_t i = 0; i < configurations.size(); ++i)
+    {
+        checkMassConfiguration(configurations[i], i, file);
+    }
+}
+
+void checkAeroFile(const GoldenInput& input)
+{
+    const std::string& file = input.aero;
+    const json         aero = loadJsonOrFail(file);
+    expectHeader(aero, "aero", input.name, file);
+    expectKeys(aero, {"atmosphere", "stallAngle", "configurations"}, file);
+    const auto& configurations = aero.value("configurations", json::array());
+    ASSERT_FALSE(configurations.empty()) << file;
+    EXPECT_TRUE(configurations[0].value("sameResultsAs", json(0)).is_null()) << file;
+    for (std::size_t i = 0; i < configurations.size(); ++i)
+    {
+        checkAeroConfiguration(aero, i, file);
+    }
+}
+
+void checkResaveFile(const GoldenInput& input)
+{
+    const auto text = QtRocket::readTextFile(QtRocket::Test::goldensDir() / input.resave);
+    ASSERT_TRUE(text.has_value()) << text.error().toString();
+    EXPECT_TRUE(text->starts_with("<?xml version='1.0' encoding='utf-8'?>\n")) << input.resave;
+    EXPECT_NE(text->find(R"(<openrocket version="1.11" creator="OpenRocket )"), std::string::npos)
+        << input.resave;
+    EXPECT_TRUE(text->ends_with("</openrocket>\n")) << input.resave;
+}
+
+/// The names of the inputs listed in manifest.json; none when it cannot be read
+/// (which GoldenSchema.ManifestDescribesItsSource reports).
+std::vector<std::string> goldenInputNames()
+{
+    std::vector<std::string> names;
+    if (const auto manifest = QtRocket::Test::loadGoldenManifest())
+    {
+        for (const auto& input : manifest->inputs)
+        {
+            names.push_back(input.name);
+        }
+    }
+    return names;
+}
+
+/// The schema checks of one input's files, split in two tests per input (the
+/// design files, the simulations) so that no single test parses all of the
+/// golden data (its time series hold millions of values) while the number of
+/// test processes stays small.
+class GoldenInputSchema : public ::testing::TestWithParam<std::string>
+{
+protected:
+    void SetUp() override
+    {
+        auto manifest = QtRocket::Test::loadGoldenManifest();
+        ASSERT_TRUE(manifest.has_value()) << manifest.error().toString();
+        const auto* input = manifest->find(GetParam());
+        ASSERT_NE(input, nullptr) << GetParam();
+        m_input = *input;
+    }
+
+    [[nodiscard]] const GoldenInput& input() const { return m_input; }
+
+private:
+    GoldenInput m_input;
+};
+
+TEST_P(GoldenInputSchema, DesignFilesHaveTheRequiredKeys)
+{
+    checkGeometryFile(input());
+    checkMassFile(input());
+    checkAeroFile(input());
+    checkResaveFile(input());
+}
+
+TEST_P(GoldenInputSchema, SimulationsMatchTheirTimeSeries)
+{
+    for (std::size_t s = 0; s < input().simulations.size(); ++s)
+    {
+        checkSimulation(input(), s);
+    }
+}
+
+// One instantiation per input of manifest.json, named after it ('-' becomes
+// '_').
+INSTANTIATE_TEST_SUITE_P(Goldens, GoldenInputSchema, ::testing::ValuesIn(goldenInputNames()),
+                         [](const ::testing::TestParamInfo<std::string>& paramInfo) {
+                             std::string name = paramInfo.param;
+                             std::ranges::replace(name, '-', '_');
+                             return name;
+                         });
+
+}  // namespace

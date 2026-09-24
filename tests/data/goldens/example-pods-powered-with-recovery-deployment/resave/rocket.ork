@@ -1,0 +1,390 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Pods With Recovery</name>
+    <id>26a4f2f3-5767-400a-a422-2ad5d5412d6a</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>This shows a simple rocket with a center motor and two powered  pods, with streamers in the pods. While it is intended to fly with a booster motor such as an A8-0 in the center, it&#39;s necessary to call it a plugged motor in the simulation to keep the streamers from ejecting when it burns out.</comment>
+    <designer>Joe Pfeiffer</designer>
+    <designtype>original</designtype>
+    <motorconfiguration configid="0df5a831-a981-4f33-ba5a-681e21172fc6" default="true">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>8a56cb45-7f91-429f-9014-fd444d8d91bb</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>5c3c0b3c-0709-4abd-a266-6eb8dec26163</id>
+            <preset type="NOSE_CONE" manufacturer="Estes" partno="PNC-50YR, 72604" digest="18363dec5642206a109389ef48efcb32"/>
+            <appearance>
+              <paint red="51" green="51" blue="51" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <color red="0" green="0" blue="240" alpha="255"/>
+            <finish>normal</finish>
+            <material type="bulk" density="756.2852368449444" shearModulus="0.0" group="Custom">Polystyrene, cast, bulk</material>
+            <length>0.104775</length>
+            <thickness>0.0015748</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.012395199999999999</aftradius>
+            <aftshoulderradius>0.012065</aftshoulderradius>
+            <aftshoulderlength>0.019049999999999997</aftshoulderlength>
+            <aftshoulderthickness>0.0015748</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>39ef16c7-2ded-4c56-8546-81ad92467af6</id>
+            <preset type="BODY_TUBE" manufacturer="Estes" partno="BT-50, 30352" digest="a59dec8e4034a2fee5955dbf4ff07f1c"/>
+            <appearance>
+              <paint red="51" green="51" blue="51" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="894.4" shearModulus="0.0" group="Other">Paper, spiral kraft glassine, Estes avg, bulk</material>
+            <length>0.07</length>
+            <thickness>3.3019999999999924E-4</thickness>
+            <radius>0.012395199999999999</radius>
+
+            <subcomponents>
+              <podset>
+                <name>Pod Set</name>
+                <id>30669894-ba72-48c5-ab1d-4608a58442dc</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="relative">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Nose Cone</name>
+                    <id>de3c4285-a1ef-4a9e-b3a9-feb001d118c5</id>
+                    <preset type="NOSE_CONE" manufacturer="Estes" partno="PNC-20, 072606" digest="6f564a198c80de3af437608827fa1bc1"/>
+                    <appearance>
+                      <paint red="51" green="51" blue="51" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="682.4826031822124" shearModulus="0.0" group="Custom">Polystyrene, cast, bulk</material>
+                    <length>0.06731</length>
+                    <thickness>0.0015748</thickness>
+                    <shape>ogive</shape>
+                    <shapeparameter>1.0</shapeparameter>
+                    <aftradius>0.0093472</aftradius>
+                    <aftshoulderradius>0.009016999999999999</aftshoulderradius>
+                    <aftshoulderlength>0.0127</aftshoulderlength>
+                    <aftshoulderthickness>0.0015748</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+
+                  <bodytube>
+                    <name>Body Tube</name>
+                    <id>17d7440c-c212-4887-be49-55f0febfac25</id>
+                    <appearance>
+                      <paint red="51" green="51" blue="51" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.25</length>
+                    <thickness>0.002</thickness>
+                    <radius>auto 0.0093472</radius>
+
+                    <subcomponents>
+                      <trapezoidfinset>
+                        <name>Trapezoidal Fin Set</name>
+                        <id>cf00a134-f578-41ea-85ce-6835e9f2718b</id>
+                        <appearance>
+                          <paint red="51" green="51" blue="51" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                        </appearance>
+                        <instancecount>1</instancecount>
+                        <fincount>1</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">45.0</angleoffset>
+                        <rotation>45.0</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                        <thickness>0.003</thickness>
+                        <crosssection>square</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                        <rootchord>0.04</rootchord>
+                        <tipchord>0.04</tipchord>
+                        <sweeplength>0.025</sweeplength>
+                        <height>0.06</height>
+                      </trapezoidfinset>
+
+                      <trapezoidfinset>
+                        <name>Trapezoidal Fin Set</name>
+                        <id>7cbd38a0-af0b-45ee-b467-e344308b9a6b</id>
+                        <appearance>
+                          <paint red="51" green="51" blue="51" alpha="255"/>
+                          <shine>0.3</shine>
+                          <opacityaffectstexture>false</opacityaffectstexture>
+                        </appearance>
+                        <instancecount>1</instancecount>
+                        <fincount>1</fincount>
+                        <radiusoffset method="surface">0.0</radiusoffset>
+                        <angleoffset method="relative">-45.0</angleoffset>
+                        <rotation>-45.0</rotation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <finish>normal</finish>
+                        <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                        <thickness>0.003</thickness>
+                        <crosssection>square</crosssection>
+                        <cant>0.0</cant>
+                        <filletradius>0.0</filletradius>
+                        <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                        <rootchord>0.04</rootchord>
+                        <tipchord>0.04</tipchord>
+                        <sweeplength>0.025</sweeplength>
+                        <height>0.06</height>
+                      </trapezoidfinset>
+
+                      <streamer>
+                        <name>Streamer</name>
+                        <id>a5908df4-576c-4798-84f8-cee97141e71d</id>
+                        <axialoffset method="middle">0.0</axialoffset>
+                        <position type="middle">0.0</position>
+                        <packedlength>0.026050664836456225</packedlength>
+                        <packedradius>auto 0.0073472</packedradius>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <cd>auto</cd>
+                        <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                        <deployevent>ejection</deployevent>
+                        <deployaltitude>200.0</deployaltitude>
+                        <deploydelay>0.0</deploydelay>
+                        <striplength>1.8288000000000002</striplength>
+                        <stripwidth>0.0254</stripwidth>
+                      </streamer>
+
+                      <innertube>
+                        <name>Inner Tube</name>
+                        <id>acb86806-2061-4a9c-abfc-c0c1fd3a99b4</id>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="894.4" shearModulus="0.0" group="Other">Paper, spiral kraft glassine, Estes avg, bulk</material>
+                        <length>0.05</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.0068707</outerradius>
+                        <thickness>3.302000000000001E-4</thickness>
+                        <clusterconfiguration>single</clusterconfiguration>
+                        <clusterscale>1.0</clusterscale>
+                        <clusterrotation>0.0</clusterrotation>
+                        <motormount>
+                          <ignitionevent>automatic</ignitionevent>
+                          <ignitiondelay>0.0</ignitiondelay>
+                          <overhang>0.01</overhang>
+                          <motor configid="0df5a831-a981-4f33-ba5a-681e21172fc6">
+                            <type>single</type>
+                            <manufacturer>Estes</manufacturer>
+                            <digest>e5b53def203dd437ebf0d67846f6cd3b</digest>
+                            <designation>A10</designation>
+                            <diameter>0.013</diameter>
+                            <length>0.045</length>
+                            <delay>3.0</delay>
+                          </motor>
+                          <ignitionconfiguration configid="0df5a831-a981-4f33-ba5a-681e21172fc6">
+                            <ignitionevent>automatic</ignitionevent>
+                            <ignitiondelay>0.0</ignitiondelay>
+                          </ignitionconfiguration>
+                        </motormount>
+                      </innertube>
+
+                      <centeringring>
+                        <name>Centering Ring</name>
+                        <id>3d51a061-e415-4d67-a6f0-3dcc1d6bc4d6</id>
+                        <instancecount>1</instancecount>
+                        <instanceseparation>0.0</instanceseparation>
+                        <axialoffset method="top">0.20500000000000002</axialoffset>
+                        <position type="top">0.20500000000000002</position>
+                        <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                        <length>0.005</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>auto</outerradius>
+                        <innerradius>auto</innerradius>
+                      </centeringring>
+
+                      <centeringring>
+                        <name>Centering Ring</name>
+                        <id>f64e12df-194f-4777-ba6c-61c50d29223b</id>
+                        <instancecount>1</instancecount>
+                        <instanceseparation>0.0</instanceseparation>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                        <length>0.005</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>auto</outerradius>
+                        <innerradius>auto</innerradius>
+                      </centeringring>
+                    </subcomponents>
+                  </bodytube>
+                </subcomponents>
+              </podset>
+
+              <launchlug>
+                <name>Launch Lug</name>
+                <id>42e66ddc-671a-4f4d-8fc2-1325687c8ade</id>
+                <appearance>
+                  <paint red="51" green="51" blue="51" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">90.0</angleoffset>
+                <radialdirection>90.0</radialdirection>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.003</radius>
+                <length>0.03</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>17eba90f-20e3-4bdf-8c5e-663c5c54bb7b</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="894.4" shearModulus="0.0" group="Other">Paper, spiral kraft glassine, Estes avg, bulk</material>
+                <length>0.07</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0093472</outerradius>
+                <thickness>3.30200000000001E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.01</overhang>
+                  <motor configid="0df5a831-a981-4f33-ba5a-681e21172fc6">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>bd060845629e4cfceec7e9b19297ab9f</digest>
+                    <designation>A8</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="0df5a831-a981-4f33-ba5a-681e21172fc6">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+              </innertube>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>0df5a831-a981-4f33-ba5a-681e21172fc6</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="0.0" standarddeviation="0.2"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="90.703729" maxvelocity="43.272946" maxacceleration="264.36964" maxmach="0.127581" timetoapogee="4.192304" flighttime="10.415242" groundhitvelocity="18.227054" launchrodvelocity="20.433528" deploymentvelocity="1.355854" optimumdelay="3.123145">
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+    <roll>3.14</roll>
+    <yaw>0.0</yaw>
+    <pitch>2.05</pitch>
+    <advance>0.0</advance>
+    <viewAlt>-0.1660008401940507</viewAlt>
+    <viewAz>3.3843478260869526</viewAz>
+    <viewDistance>0.44</viewDistance>
+    <fov>1.4</fov>
+    <lightAlt>0.35</lightAlt>
+    <lightAz>-1.0</lightAz>
+    <sunlight red="255" green="255" blue="255" alpha="255"/>
+    <ambiance>0.30000001192092896</ambiance>
+    <skyColor red="55" green="95" blue="155" alpha="255"/>
+    <motionBlurred>false</motionBlurred>
+    <flame>false</flame>
+    <flameColor red="255" green="100" blue="50" alpha="255"/>
+    <smoke>false</smoke>
+    <smokeColor red="230" green="230" blue="230" alpha="102"/>
+    <sparks>false</sparks>
+    <exhaustScale>1.0</exhaustScale>
+    <flameAspectRatio>1.0</flameAspectRatio>
+    <sparkConcentration>0.2</sparkConcentration>
+    <sparkWeight>0.0</sparkWeight>
+    <sky>info.openrocket.swing.gui.figure3d.photo.sky.builtin.Mountains</sky>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|Other</material>
+      <material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|Custom</material>
+      <material>BULK|Polystyrene, cast, bulk|682.4826031822124|0.0|Custom</material>
+      <material>BULK|Polystyrene, cast, bulk|756.2852368449444|0.0|Custom</material>
+      <material>BULK|Polystyrene, cast, bulk|925.3257270343619|0.0|Custom</material>
+      <material>BULK|Polystyrene, cast, bulk|1014.3383946535503|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

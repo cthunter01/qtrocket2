@@ -1,0 +1,460 @@
+{
+ "schema": "manifest",
+ "schemaVersion": 1,
+ "generator": "tools/openrocket-goldens/generate.sh (GoldenDumper)",
+ "openrocket": {"commit": "5f164fd0e05d6e188857b0185601293b7a6e9eaf", "version": "26.xx-SNAPSHOT-5f164fd0e", "presetDatabaseCommit": "1512874ace50917e25ccf7d7df1f616b5f39a8b5", "javaVersion": "17.0.20.1"},
+ "databases": {"motorDatabase": "core/src/main/resources/datafiles/thrustcurves/initial_motors.db", "motorDatabaseSha256": "2138975605dbf195a2c4e7ca3b98fef278f2bb554fcc2acc2b6807c5fb7ec7fc", "motorCount": 1591, "presetFiles": ["database/BMS.ORC", "database/ROCKETARIUM.ORC", "database/apogee.orc", "database/bluetube.orc", "database/competition_chutes.orc", "database/estes_classic.orc", "database/estes_ps2.orc", "database/generic_materials.orc", "database/giantleaprocketry.orc", "database/loc_precision.orc", "database/madcow.orc", "database/mpc.orc", "database/publicmissiles.orc", "database/quest.orc", "database/semroc.orc", "database/top_flight.orc", "internal/Estes-legacy.orc", "internal/Front_Range_Rocket_Recovery.orc", "internal/Fruity_Chutes_Enhanced.orc", "internal/LocPrecision-legacy.orc", "internal/Quest-legacy.orc", "internal/RailButton_Database.orc", "internal/Rocketman.orc", "internal/Spherachutes_Parachutes.orc", "internal/b2_Rocketry_Parachutes..orc", "internal/bluetube-legacy.orc", "internal/bms-legacy.orc", "internal/fliskits-legacy.orc", "internal/giantleaprocketry-legacy.orc", "internal/publicmissiles-legacy.orc", "internal/semroc-legacy.orc"], "presetCount": 5228},
+ "settings": {"machs": [0.05, 0.3, 0.6, 0.9, 1.1, 1.5, 2.0], "aoasDeg": [0.0, 2.0, 10.0], "simulationRandomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true, "resaveIncludesSimulationData": false},
+ "tolerances": {"geometryMassAeroRelative": 1.0E-9, "cpCgAbsoluteMetres": 1.0E-9, "tableInterpolatedAeroRelative": 1.0E-7, "eventTimeAbsoluteSeconds": 0.001, "apogeeMaxVelocityRelative": 1.0E-4, "noisyRunsRelative": 0.02},
+ "inputs": [
+  {
+   "name": "example-3d-printable-nose-cone-and-fins",
+   "kind": "example",
+   "source": "data/examples/3D printable nose cone and fins.ork",
+   "sourceSha256": "f7805f774a5374b09a05332b945e154690da317025f8ece644786e0154ebc3dd",
+   "geometry": "example-3d-printable-nose-cone-and-fins/geometry.json",
+   "mass": "example-3d-printable-nose-cone-and-fins/mass.json",
+   "aero": "example-3d-printable-nose-cone-and-fins/aero.json",
+   "resave": "example-3d-printable-nose-cone-and-fins/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-3d-printable-nose-cone-and-fins/sim_00_simulation-1.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-3d-printable-nose-cone-and-fins/sim_01_simulation-2.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3 - too short delay", "json": "example-3d-printable-nose-cone-and-fins/sim_02_simulation-3-too-short-delay.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_02_simulation-3-too-short-delay_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-3d-printable-nose-cone-and-fins/sim_03_simulation-4.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-3d-printable-nose-cone-and-fins/sim_04_simulation-5.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_04_simulation-5_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-a-simple-model-rocket",
+   "kind": "example",
+   "source": "data/examples/A simple model rocket.ork",
+   "sourceSha256": "53369c1707ca2f7959c0a2df2ef5af5d508806c7d0d3010026843905de18f4ae",
+   "geometry": "example-a-simple-model-rocket/geometry.json",
+   "mass": "example-a-simple-model-rocket/mass.json",
+   "aero": "example-a-simple-model-rocket/aero.json",
+   "resave": "example-a-simple-model-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-a-simple-model-rocket/sim_00_simulation-1.json", "branches": ["example-a-simple-model-rocket/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-a-simple-model-rocket/sim_01_simulation-2.json", "branches": ["example-a-simple-model-rocket/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3 - too short delay", "json": "example-a-simple-model-rocket/sim_02_simulation-3-too-short-delay.json", "branches": ["example-a-simple-model-rocket/sim_02_simulation-3-too-short-delay_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-a-simple-model-rocket/sim_03_simulation-4.json", "branches": ["example-a-simple-model-rocket/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-a-simple-model-rocket/sim_04_simulation-5.json", "branches": ["example-a-simple-model-rocket/sim_04_simulation-5_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-arc-payload-rocket",
+   "kind": "example",
+   "source": "data/examples/ARC payload rocket.ork",
+   "sourceSha256": "3f6be2f1c6a7228f988471fb7707fc34afb67e209e646d1d13302e33cef2b026",
+   "geometry": "example-arc-payload-rocket/geometry.json",
+   "mass": "example-arc-payload-rocket/mass.json",
+   "aero": "example-arc-payload-rocket/aero.json",
+   "resave": "example-arc-payload-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-arc-payload-rocket/sim_00_simulation-1.json", "branches": ["example-arc-payload-rocket/sim_00_simulation-1_branch0.csv.gz", "example-arc-payload-rocket/sim_00_simulation-1_branch1.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-airstart-timing",
+   "kind": "example",
+   "source": "data/examples/Airstart timing.ork",
+   "sourceSha256": "254f5251fbd66540c5b8529e10edb20edc851ed87528d59ea8f7779c3a2c5f40",
+   "geometry": "example-airstart-timing/geometry.json",
+   "mass": "example-airstart-timing/mass.json",
+   "aero": "example-airstart-timing/aero.json",
+   "resave": "example-airstart-timing/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-airstart-timing/sim_00_simulation-1.json", "branches": ["example-airstart-timing/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-airstart-timing/sim_01_simulation-2.json", "branches": ["example-airstart-timing/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3", "json": "example-airstart-timing/sim_02_simulation-3.json", "branches": ["example-airstart-timing/sim_02_simulation-3_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-airstart-timing/sim_03_simulation-4.json", "branches": ["example-airstart-timing/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-airstart-timing/sim_04_simulation-5.json", "branches": ["example-airstart-timing/sim_04_simulation-5_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-chute-release",
+   "kind": "example",
+   "source": "data/examples/Chute release.ork",
+   "sourceSha256": "3e7d7d4910ff45fbf045faeb74d3c49fade958fad78b69a238b20759826c91c5",
+   "geometry": "example-chute-release/geometry.json",
+   "mass": "example-chute-release/mass.json",
+   "aero": "example-chute-release/aero.json",
+   "resave": "example-chute-release/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 2", "json": "example-chute-release/sim_00_simulation-2.json", "branches": ["example-chute-release/sim_00_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3", "json": "example-chute-release/sim_01_simulation-3.json", "branches": ["example-chute-release/sim_01_simulation-3_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-clustered-motors",
+   "kind": "example",
+   "source": "data/examples/Clustered motors.ork",
+   "sourceSha256": "676c83198308d0d44efbc280a97275b07783225aaaeab29c58100a8686af5a46",
+   "geometry": "example-clustered-motors/geometry.json",
+   "mass": "example-clustered-motors/mass.json",
+   "aero": "example-clustered-motors/aero.json",
+   "resave": "example-clustered-motors/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-clustered-motors/sim_00_simulation-1.json", "branches": ["example-clustered-motors/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-clustered-motors/sim_01_simulation-2.json", "branches": ["example-clustered-motors/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3 - too short delay", "json": "example-clustered-motors/sim_02_simulation-3-too-short-delay.json", "branches": ["example-clustered-motors/sim_02_simulation-3-too-short-delay_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-clustered-motors/sim_03_simulation-4.json", "branches": ["example-clustered-motors/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-clustered-motors/sim_04_simulation-5.json", "branches": ["example-clustered-motors/sim_04_simulation-5_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-deployable-payload",
+   "kind": "example",
+   "source": "data/examples/Deployable payload.ork",
+   "sourceSha256": "1fa8005a9f9ac17570f07f605c388305d0e804de81a2f5a79a5e97adf2151e41",
+   "geometry": "example-deployable-payload/geometry.json",
+   "mass": "example-deployable-payload/mass.json",
+   "aero": "example-deployable-payload/aero.json",
+   "resave": "example-deployable-payload/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-deployable-payload/sim_00_simulation-1.json", "branches": ["example-deployable-payload/sim_00_simulation-1_branch0.csv.gz", "example-deployable-payload/sim_00_simulation-1_branch1.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-deployable-payload/sim_01_simulation-2.json", "branches": ["example-deployable-payload/sim_01_simulation-2_branch0.csv.gz", "example-deployable-payload/sim_01_simulation-2_branch1.csv.gz"]},
+    {"name": "Simulation 3 - too short delay", "json": "example-deployable-payload/sim_02_simulation-3-too-short-delay.json", "branches": ["example-deployable-payload/sim_02_simulation-3-too-short-delay_branch0.csv.gz", "example-deployable-payload/sim_02_simulation-3-too-short-delay_branch1.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-deployable-payload/sim_03_simulation-4.json", "branches": ["example-deployable-payload/sim_03_simulation-4_branch0.csv.gz", "example-deployable-payload/sim_03_simulation-4_branch1.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-deployable-payload/sim_04_simulation-5.json", "branches": ["example-deployable-payload/sim_04_simulation-5_branch0.csv.gz", "example-deployable-payload/sim_04_simulation-5_branch1.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-dual-parachute-deployment",
+   "kind": "example",
+   "source": "data/examples/Dual parachute deployment.ork",
+   "sourceSha256": "3b484264187f7867cfad875dcb16ba6b9e0aa4830f926414fb622c04c72f45dc",
+   "geometry": "example-dual-parachute-deployment/geometry.json",
+   "mass": "example-dual-parachute-deployment/mass.json",
+   "aero": "example-dual-parachute-deployment/aero.json",
+   "resave": "example-dual-parachute-deployment/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-dual-parachute-deployment/sim_00_simulation-1.json", "branches": ["example-dual-parachute-deployment/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-dual-parachute-deployment/sim_01_simulation-2.json", "branches": ["example-dual-parachute-deployment/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3", "json": "example-dual-parachute-deployment/sim_02_simulation-3.json", "branches": ["example-dual-parachute-deployment/sim_02_simulation-3_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-dual-parachute-deployment/sim_03_simulation-4.json", "branches": ["example-dual-parachute-deployment/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-dual-parachute-deployment/sim_04_simulation-5.json", "branches": ["example-dual-parachute-deployment/sim_04_simulation-5_branch0.csv.gz"]},
+    {"name": "Simulation 6", "json": "example-dual-parachute-deployment/sim_05_simulation-6.json", "branches": ["example-dual-parachute-deployment/sim_05_simulation-6_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-parallel-booster-staging",
+   "kind": "example",
+   "source": "data/examples/Parallel booster staging.ork",
+   "sourceSha256": "999a7af8aacd4a27dc3f24b0a5c06a34bd8907139412299def0f91081227d570",
+   "geometry": "example-parallel-booster-staging/geometry.json",
+   "mass": "example-parallel-booster-staging/mass.json",
+   "aero": "example-parallel-booster-staging/aero.json",
+   "resave": "example-parallel-booster-staging/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-parallel-booster-staging/sim_00_simulation-1.json", "branches": ["example-parallel-booster-staging/sim_00_simulation-1_branch0.csv.gz", "example-parallel-booster-staging/sim_00_simulation-1_branch1.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-parallel-booster-staging/sim_01_simulation-2.json", "branches": ["example-parallel-booster-staging/sim_01_simulation-2_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-pods-airframes-and-winglets",
+   "kind": "example",
+   "source": "data/examples/Pods--airframes and winglets.ork",
+   "sourceSha256": "0237cd9d96054164b9026ffc5a182949ac2cd7c4fbd87785ead3862cb87a1ba0",
+   "geometry": "example-pods-airframes-and-winglets/geometry.json",
+   "mass": "example-pods-airframes-and-winglets/mass.json",
+   "aero": "example-pods-airframes-and-winglets/aero.json",
+   "resave": "example-pods-airframes-and-winglets/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-pods-airframes-and-winglets/sim_00_simulation-1.json", "branches": ["example-pods-airframes-and-winglets/sim_00_simulation-1_branch0.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-pods-airframes-and-winglets/sim_01_simulation-2.json", "branches": ["example-pods-airframes-and-winglets/sim_01_simulation-2_branch0.csv.gz"]},
+    {"name": "Simulation 3", "json": "example-pods-airframes-and-winglets/sim_02_simulation-3.json", "branches": ["example-pods-airframes-and-winglets/sim_02_simulation-3_branch0.csv.gz"]},
+    {"name": "Simulation 4", "json": "example-pods-airframes-and-winglets/sim_03_simulation-4.json", "branches": ["example-pods-airframes-and-winglets/sim_03_simulation-4_branch0.csv.gz"]},
+    {"name": "Simulation 5", "json": "example-pods-airframes-and-winglets/sim_04_simulation-5.json", "branches": ["example-pods-airframes-and-winglets/sim_04_simulation-5_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-pods-powered-with-recovery-deployment",
+   "kind": "example",
+   "source": "data/examples/Pods--powered with recovery deployment.ork",
+   "sourceSha256": "d0f191636d5a13c36124997ad6803c661718e987ccba09024c907f4ef665a6c0",
+   "geometry": "example-pods-powered-with-recovery-deployment/geometry.json",
+   "mass": "example-pods-powered-with-recovery-deployment/mass.json",
+   "aero": "example-pods-powered-with-recovery-deployment/aero.json",
+   "resave": "example-pods-powered-with-recovery-deployment/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-pods-powered-with-recovery-deployment/sim_00_simulation-1.json", "branches": ["example-pods-powered-with-recovery-deployment/sim_00_simulation-1_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-simulation-extensions",
+   "kind": "example",
+   "source": "data/examples/Simulation extensions.ork",
+   "sourceSha256": "ed66db65f26f21ff722640e5ff3930d80109fbed662bd0f0ec3d60aa32f6bb8b",
+   "geometry": "example-simulation-extensions/geometry.json",
+   "mass": "example-simulation-extensions/mass.json",
+   "aero": "example-simulation-extensions/aero.json",
+   "resave": "example-simulation-extensions/resave/rocket.ork",
+   "simulations": [
+    {"name": "No controlling", "json": "example-simulation-extensions/sim_00_no-controlling.json", "branches": ["example-simulation-extensions/sim_00_no-controlling_branch0.csv.gz"]},
+    {"name": "Active roll control", "json": "example-simulation-extensions/sim_01_active-roll-control.json", "branches": ["example-simulation-extensions/sim_01_active-roll-control_branch0.csv.gz"]},
+    {"name": "Roll control + air-start", "json": "example-simulation-extensions/sim_02_roll-control-air-start.json", "branches": ["example-simulation-extensions/sim_02_roll-control-air-start_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-simulation-scripting",
+   "kind": "example",
+   "source": "data/examples/Simulation scripting.ork",
+   "sourceSha256": "8119275c9f81dc538572fd89c9ed0861a6617c5b6fb88effd64d2c9b5a205a03",
+   "geometry": "example-simulation-scripting/geometry.json",
+   "mass": "example-simulation-scripting/mass.json",
+   "aero": "example-simulation-scripting/aero.json",
+   "resave": "example-simulation-scripting/resave/rocket.ork",
+   "simulations": [
+    {"name": "No controlling", "json": "example-simulation-scripting/sim_00_no-controlling.json", "branches": ["example-simulation-scripting/sim_00_no-controlling_branch0.csv.gz"]},
+    {"name": "Active roll control", "json": "example-simulation-scripting/sim_01_active-roll-control.json", "branches": []},
+    {"name": "Roll control + air-start", "json": "example-simulation-scripting/sim_02_roll-control-air-start.json", "branches": []}
+   ]
+  },
+  {
+   "name": "example-three-stage-low-power-rocket",
+   "kind": "example",
+   "source": "data/examples/Three stage low power rocket.ork",
+   "sourceSha256": "01658f55a89cfa3722b0b7c499b4f25c6562bfdfe885fe7a2511f8a4c5abca9a",
+   "geometry": "example-three-stage-low-power-rocket/geometry.json",
+   "mass": "example-three-stage-low-power-rocket/mass.json",
+   "aero": "example-three-stage-low-power-rocket/aero.json",
+   "resave": "example-three-stage-low-power-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-three-stage-low-power-rocket/sim_00_simulation-1.json", "branches": ["example-three-stage-low-power-rocket/sim_00_simulation-1_branch0.csv.gz", "example-three-stage-low-power-rocket/sim_00_simulation-1_branch1.csv.gz", "example-three-stage-low-power-rocket/sim_00_simulation-1_branch2.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-three-stage-low-power-rocket/sim_01_simulation-2.json", "branches": ["example-three-stage-low-power-rocket/sim_01_simulation-2_branch0.csv.gz", "example-three-stage-low-power-rocket/sim_01_simulation-2_branch1.csv.gz", "example-three-stage-low-power-rocket/sim_01_simulation-2_branch2.csv.gz"]},
+    {"name": "Simulation 3", "json": "example-three-stage-low-power-rocket/sim_02_simulation-3.json", "branches": ["example-three-stage-low-power-rocket/sim_02_simulation-3_branch0.csv.gz", "example-three-stage-low-power-rocket/sim_02_simulation-3_branch1.csv.gz", "example-three-stage-low-power-rocket/sim_02_simulation-3_branch2.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-tube-fin-rocket",
+   "kind": "example",
+   "source": "data/examples/Tube fin rocket.ork",
+   "sourceSha256": "dc184622d49050c259b82effb72fd0177da9fddeef2e378335bcc55935dc240f",
+   "geometry": "example-tube-fin-rocket/geometry.json",
+   "mass": "example-tube-fin-rocket/mass.json",
+   "aero": "example-tube-fin-rocket/aero.json",
+   "resave": "example-tube-fin-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-tube-fin-rocket/sim_00_simulation-1.json", "branches": ["example-tube-fin-rocket/sim_00_simulation-1_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "example-two-stage-high-power-rocket",
+   "kind": "example",
+   "source": "data/examples/Two stage high power rocket.ork",
+   "sourceSha256": "ccb52e5002b0106c005e29b891487f851754d2891d910231eea68023fb171ebd",
+   "geometry": "example-two-stage-high-power-rocket/geometry.json",
+   "mass": "example-two-stage-high-power-rocket/mass.json",
+   "aero": "example-two-stage-high-power-rocket/aero.json",
+   "resave": "example-two-stage-high-power-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "Simulation 1", "json": "example-two-stage-high-power-rocket/sim_00_simulation-1.json", "branches": ["example-two-stage-high-power-rocket/sim_00_simulation-1_branch0.csv.gz", "example-two-stage-high-power-rocket/sim_00_simulation-1_branch1.csv.gz"]},
+    {"name": "Simulation 2", "json": "example-two-stage-high-power-rocket/sim_01_simulation-2.json", "branches": ["example-two-stage-high-power-rocket/sim_01_simulation-2_branch0.csv.gz", "example-two-stage-high-power-rocket/sim_01_simulation-2_branch1.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-estes-alpha-iii",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEstesAlphaIII()",
+   "sourceSha256": null,
+   "geometry": "testrocket-estes-alpha-iii/geometry.json",
+   "mass": "testrocket-estes-alpha-iii/mass.json",
+   "aero": "testrocket-estes-alpha-iii/aero.json",
+   "resave": "testrocket-estes-alpha-iii/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-estes-alpha-iii/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii/sim_01_a8-0_branch0.csv.gz"]},
+    {"name": "[B4-3]", "json": "testrocket-estes-alpha-iii/sim_02_b4-3.json", "branches": ["testrocket-estes-alpha-iii/sim_02_b4-3_branch0.csv.gz"]},
+    {"name": "[C6-3]", "json": "testrocket-estes-alpha-iii/sim_03_c6-3.json", "branches": ["testrocket-estes-alpha-iii/sim_03_c6-3_branch0.csv.gz"]},
+    {"name": "[C6-5]", "json": "testrocket-estes-alpha-iii/sim_04_c6-5.json", "branches": ["testrocket-estes-alpha-iii/sim_04_c6-5_branch0.csv.gz"]},
+    {"name": "[C6-7]", "json": "testrocket-estes-alpha-iii/sim_05_c6-7.json", "branches": ["testrocket-estes-alpha-iii/sim_05_c6-7_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-beta",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeBeta()",
+   "sourceSha256": null,
+   "geometry": "testrocket-beta/geometry.json",
+   "mass": "testrocket-beta/mass.json",
+   "aero": "testrocket-beta/aero.json",
+   "resave": "testrocket-beta/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-beta/sim_00_no-motors.json", "branches": ["testrocket-beta/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[A8-0; None]", "json": "testrocket-beta/sim_01_a8-0-none.json", "branches": ["testrocket-beta/sim_01_a8-0-none_branch0.csv.gz"]},
+    {"name": "[B4-3; D21-0]", "json": "testrocket-beta/sim_02_b4-3-d21-0.json", "branches": ["testrocket-beta/sim_02_b4-3-d21-0_branch0.csv.gz", "testrocket-beta/sim_02_b4-3-d21-0_branch1.csv.gz"]},
+    {"name": "[C6-3; None]", "json": "testrocket-beta/sim_03_c6-3-none.json", "branches": ["testrocket-beta/sim_03_c6-3-none_branch0.csv.gz"]},
+    {"name": "[C6-5; None]", "json": "testrocket-beta/sim_04_c6-5-none.json", "branches": ["testrocket-beta/sim_04_c6-5-none_branch0.csv.gz"]},
+    {"name": "[C6-7; None]", "json": "testrocket-beta/sim_05_c6-7-none.json", "branches": ["testrocket-beta/sim_05_c6-7-none_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-simple-2-stage",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeSimple2Stage()",
+   "sourceSha256": null,
+   "geometry": "testrocket-simple-2-stage/geometry.json",
+   "mass": "testrocket-simple-2-stage/mass.json",
+   "aero": "testrocket-simple-2-stage/aero.json",
+   "resave": "testrocket-simple-2-stage/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-simple-2-stage/sim_00_no-motors.json", "branches": ["testrocket-simple-2-stage/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[No motors]", "json": "testrocket-simple-2-stage/sim_01_no-motors.json", "branches": ["testrocket-simple-2-stage/sim_01_no-motors_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-big-blue",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeBigBlue()",
+   "sourceSha256": null,
+   "geometry": "testrocket-big-blue/geometry.json",
+   "mass": "testrocket-big-blue/mass.json",
+   "aero": "testrocket-big-blue/aero.json",
+   "resave": "testrocket-big-blue/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-big-blue/sim_00_no-motors.json", "branches": ["testrocket-big-blue/sim_00_no-motors_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-iso-haisu",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeIsoHaisu()",
+   "sourceSha256": null,
+   "geometry": "testrocket-iso-haisu/geometry.json",
+   "mass": "testrocket-iso-haisu/mass.json",
+   "aero": "testrocket-iso-haisu/aero.json",
+   "resave": "testrocket-iso-haisu/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-iso-haisu/sim_00_no-motors.json", "branches": ["testrocket-iso-haisu/sim_00_no-motors_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-falcon-9-heavy",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeFalcon9Heavy()",
+   "sourceSha256": null,
+   "geometry": "testrocket-falcon-9-heavy/geometry.json",
+   "mass": "testrocket-falcon-9-heavy/mass.json",
+   "aero": "testrocket-falcon-9-heavy/aero.json",
+   "resave": "testrocket-falcon-9-heavy/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-falcon-9-heavy/sim_00_no-motors.json", "branches": ["testrocket-falcon-9-heavy/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[None; M1350-0; 8× G77-0]", "json": "testrocket-falcon-9-heavy/sim_01_none-m1350-0-8-g77-0.json", "branches": ["testrocket-falcon-9-heavy/sim_01_none-m1350-0-8-g77-0_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-multi-stage-event-test-rocket",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeMultiStageEventTestRocket()",
+   "sourceSha256": null,
+   "geometry": "testrocket-multi-stage-event-test-rocket/geometry.json",
+   "mass": "testrocket-multi-stage-event-test-rocket/mass.json",
+   "aero": "testrocket-multi-stage-event-test-rocket/aero.json",
+   "resave": "testrocket-multi-stage-event-test-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-multi-stage-event-test-rocket/sim_00_no-motors.json", "branches": ["testrocket-multi-stage-event-test-rocket/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[C6-5; C6-0; 2× A10-0]", "json": "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0.json", "branches": ["testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch0.csv.gz", "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch1.csv.gz", "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch2.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-end-plate-rocket",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEndPlateRocket()",
+   "sourceSha256": null,
+   "geometry": "testrocket-end-plate-rocket/geometry.json",
+   "mass": "testrocket-end-plate-rocket/mass.json",
+   "aero": "testrocket-end-plate-rocket/aero.json",
+   "resave": "testrocket-end-plate-rocket/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-end-plate-rocket/sim_00_no-motors.json", "branches": ["testrocket-end-plate-rocket/sim_00_no-motors_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-estes-alpha-iii-with-pods",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEstesAlphaIIIWithPods()",
+   "sourceSha256": null,
+   "geometry": "testrocket-estes-alpha-iii-with-pods/geometry.json",
+   "mass": "testrocket-estes-alpha-iii-with-pods/mass.json",
+   "aero": "testrocket-estes-alpha-iii-with-pods/aero.json",
+   "resave": "testrocket-estes-alpha-iii-with-pods/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-pods/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii-with-pods/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_01_a8-0_branch0.csv.gz"]},
+    {"name": "[B4-3]", "json": "testrocket-estes-alpha-iii-with-pods/sim_02_b4-3.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_02_b4-3_branch0.csv.gz"]},
+    {"name": "[C6-3]", "json": "testrocket-estes-alpha-iii-with-pods/sim_03_c6-3.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_03_c6-3_branch0.csv.gz"]},
+    {"name": "[C6-5]", "json": "testrocket-estes-alpha-iii-with-pods/sim_04_c6-5.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_04_c6-5_branch0.csv.gz"]},
+    {"name": "[C6-7]", "json": "testrocket-estes-alpha-iii-with-pods/sim_05_c6-7.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_05_c6-7_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-estes-alpha-iii-with-motor-pods",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEstesAlphaIIIWithMotorPods()",
+   "sourceSha256": null,
+   "geometry": "testrocket-estes-alpha-iii-with-motor-pods/geometry.json",
+   "mass": "testrocket-estes-alpha-iii-with-motor-pods/mass.json",
+   "aero": "testrocket-estes-alpha-iii-with-motor-pods/aero.json",
+   "resave": "testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[2× A10-0, A8-0]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_01_2-a10-0-a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_01_2-a10-0-a8-0_branch0.csv.gz"]},
+    {"name": "[2× A10-0, B4-3]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_02_2-a10-0-b4-3.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_02_2-a10-0-b4-3_branch0.csv.gz"]},
+    {"name": "[2× A10-0, C6-3]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_03_2-a10-0-c6-3.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_03_2-a10-0-c6-3_branch0.csv.gz"]},
+    {"name": "[2× A10-0, C6-5]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_04_2-a10-0-c6-5.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_04_2-a10-0-c6-5_branch0.csv.gz"]},
+    {"name": "[2× A10-0, C6-7]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_05_2-a10-0-c6-7.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_05_2-a10-0-c6-7_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-estes-alpha-iii-with-second-motor",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEstesAlphaIIIWithSecondMotor()",
+   "sourceSha256": null,
+   "geometry": "testrocket-estes-alpha-iii-with-second-motor/geometry.json",
+   "mass": "testrocket-estes-alpha-iii-with-second-motor/mass.json",
+   "aero": "testrocket-estes-alpha-iii-with-second-motor/aero.json",
+   "resave": "testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[A10-5, A8-0]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_01_a10-5-a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_01_a10-5-a8-0_branch0.csv.gz"]},
+    {"name": "[A10-5, B4-3]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_02_a10-5-b4-3.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_02_a10-5-b4-3_branch0.csv.gz"]},
+    {"name": "[A10-5, C6-3]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_03_a10-5-c6-3.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_03_a10-5-c6-3_branch0.csv.gz"]},
+    {"name": "[A10-5, C6-5]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_04_a10-5-c6-5.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_04_a10-5-c6-5_branch0.csv.gz"]},
+    {"name": "[A10-5, C6-7]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_05_a10-5-c6-7.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_05_a10-5-c6-7_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-estes-alpha-iii-with-inline-pod",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeEstesAlphaIIIwithInlinePod()",
+   "sourceSha256": null,
+   "geometry": "testrocket-estes-alpha-iii-with-inline-pod/geometry.json",
+   "mass": "testrocket-estes-alpha-iii-with-inline-pod/mass.json",
+   "aero": "testrocket-estes-alpha-iii-with-inline-pod/aero.json",
+   "resave": "testrocket-estes-alpha-iii-with-inline-pod/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_01_a8-0_branch0.csv.gz"]},
+    {"name": "[B4-3]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_02_b4-3.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_02_b4-3_branch0.csv.gz"]},
+    {"name": "[C6-3]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_03_c6-3.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_03_c6-3_branch0.csv.gz"]},
+    {"name": "[C6-5]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_04_c6-5.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_04_c6-5_branch0.csv.gz"]},
+    {"name": "[C6-7]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_05_c6-7.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_05_c6-7_branch0.csv.gz"]}
+   ]
+  },
+  {
+   "name": "testrocket-cluster-pods",
+   "kind": "testrocket",
+   "source": "info.openrocket.core.util.TestRockets.makeClusterPods()",
+   "sourceSha256": null,
+   "geometry": "testrocket-cluster-pods/geometry.json",
+   "mass": "testrocket-cluster-pods/mass.json",
+   "aero": "testrocket-cluster-pods/aero.json",
+   "resave": "testrocket-cluster-pods/resave/rocket.ork",
+   "simulations": [
+    {"name": "[No motors]", "json": "testrocket-cluster-pods/sim_00_no-motors.json", "branches": ["testrocket-cluster-pods/sim_00_no-motors_branch0.csv.gz"]},
+    {"name": "[2× C6-0; 12× C6-0]", "json": "testrocket-cluster-pods/sim_01_2-c6-0-12-c6-0.json", "branches": ["testrocket-cluster-pods/sim_01_2-c6-0-12-c6-0_branch0.csv.gz"]}
+   ]
+  }
+ ]
+}
