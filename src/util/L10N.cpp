@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -191,11 +192,13 @@ std::string normalize(std::string_view text)
     // unicodeNormalize(text), then toLowerCase(): only ASCII survives the filter below
     std::string mapped;
     mapped.reserve(text.size());
+    // Searched through a span: its iterator is a class on every standard library, whereas
+    // std::array's is a raw pointer in libstdc++/libc++ and a class in MSVC's STL.
+    const std::span<const Normalization> map{kNormalizationMap};
     for (const char32_t c : Strings::toCodePoints(text))
     {
-        const auto* const found =
-            std::ranges::lower_bound(kNormalizationMap, c, {}, &Normalization::codePoint);
-        if (found != kNormalizationMap.end() && found->codePoint == c)
+        const auto found = std::ranges::lower_bound(map, c, {}, &Normalization::codePoint);
+        if (found != map.end() && found->codePoint == c)
         {
             mapped += found->replacement;
         }

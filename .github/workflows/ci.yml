@@ -18,7 +18,8 @@ jobs:
         preset: [ci-gcc, ci-clang, asan, tidy]
     steps:
       - name: Install toolchain
-        run: pacman -Syu --noconfirm --needed cmake ninja clang git
+        # llvm brings llvm-symbolizer, so sanitizer reports show functions and lines.
+        run: pacman -Syu --noconfirm --needed cmake ninja clang llvm git
       - uses: actions/checkout@v7
       - name: Configure, build and test
         run: cmake --workflow --preset ${{ matrix.preset }}

@@ -228,8 +228,10 @@ Material toMaterial(const BuiltinMaterial& row)
 std::string translatedMaterialName(std::string_view baseName)
 {
     const std::string key = L10N::normalize(baseName);
-    const auto* found = std::ranges::lower_bound(kMaterialMessages, key, {}, &MaterialMessage::key);
-    if (found != kMaterialMessages.end() && found->key == key)
+    // A span's iterator is a class on every standard library (std::array's is a pointer in some).
+    const std::span<const MaterialMessage> messages{kMaterialMessages};
+    const auto found = std::ranges::lower_bound(messages, key, {}, &MaterialMessage::key);
+    if (found != messages.end() && found->key == key)
     {
         return std::string(found->name);
     }

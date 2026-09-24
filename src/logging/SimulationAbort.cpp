@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -84,10 +85,11 @@ std::string_view causeName(SimulationAbort::Cause cause) noexcept
 
 std::optional<SimulationAbort::Cause> causeFromName(std::string_view name) noexcept
 {
-    const auto* const it = std::ranges::find_if(
-        SimulationAbort::kAllCauses,
-        [name](SimulationAbort::Cause cause) { return causeName(cause) == name; });
-    if (it == SimulationAbort::kAllCauses.end())
+    // A span's iterator is a class on every standard library (std::array's is a pointer in some).
+    const std::span<const SimulationAbort::Cause> causes{SimulationAbort::kAllCauses};
+    const auto                                    it = std::ranges::find_if(
+        causes, [name](SimulationAbort::Cause cause) { return causeName(cause) == name; });
+    if (it == causes.end())
     {
         return std::nullopt;
     }

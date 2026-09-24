@@ -163,9 +163,9 @@
     { "name": "tsan", "configurePreset": "tsan" },
     { "name": "coverage", "configurePreset": "coverage", "targets": ["coverage"] },
     { "name": "tidy", "configurePreset": "tidy" },
-    { "name": "ci-gcc", "configurePreset": "ci-gcc" },
-    { "name": "ci-clang", "configurePreset": "ci-clang" },
-    { "name": "ci-msvc", "configurePreset": "ci-msvc" },
+    { "name": "ci-gcc", "configurePreset": "ci-gcc", "nativeToolOptions": ["-k", "0"] },
+    { "name": "ci-clang", "configurePreset": "ci-clang", "nativeToolOptions": ["-k", "0"] },
+    { "name": "ci-msvc", "configurePreset": "ci-msvc", "nativeToolOptions": ["-k", "0"] },
     { "name": "dist-linux", "configurePreset": "dist-linux" },
     { "name": "dist-macos", "configurePreset": "dist-macos" },
     { "name": "dist-windows", "configurePreset": "dist-windows" }

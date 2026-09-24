@@ -560,9 +560,11 @@ constexpr std::array<FoldRange, 199> kCaseFolds{{
 /// The case fold of @p codePoint (see kCaseFolds).
 [[nodiscard]] std::uint32_t caseFold(char32_t codePoint) noexcept
 {
-    const auto        value = static_cast<std::uint32_t>(codePoint);
-    const auto* const after = std::ranges::upper_bound(kCaseFolds, value, {}, &FoldRange::first);
-    if (after == kCaseFolds.begin())
+    const auto value = static_cast<std::uint32_t>(codePoint);
+    // A span's iterator is a class on every standard library (std::array's is a pointer in some).
+    const std::span<const FoldRange> folds{kCaseFolds};
+    const auto after = std::ranges::upper_bound(folds, value, {}, &FoldRange::first);
+    if (after == folds.begin())
     {
         return value;
     }

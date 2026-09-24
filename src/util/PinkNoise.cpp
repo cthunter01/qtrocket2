@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <random>
 #include <vector>
 
@@ -60,7 +61,10 @@ double PinkNoise::nextValue()
     }
     if (!m_values.empty())
     {
-        std::ranges::shift_right(m_values, 1);
+        // Java's System.arraycopy(values, 0, values, 1, n - 1): rotating right by one and
+        // overwriting the front is the same shift (std::ranges::shift_right is missing from Apple's
+        // libc++).
+        std::ranges::rotate(m_values, std::prev(m_values.end()));
         m_values[0] = x;
     }
 

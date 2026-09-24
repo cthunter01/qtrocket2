@@ -17,6 +17,22 @@ if(QTROCKET_BUILD_TESTS)
         EXCLUDE_FROM_ALL
         FIND_PACKAGE_ARGS NAMES GTest)
     FetchContent_MakeAvailable(googletest)
+    # A GoogleTest built from source links into the test binary, which keeps one copy of each inline std::vector
+    # member: some from our annotated code (ProjectOptions.cmake: _GLIBCXX_SANITIZE_VECTOR, and libc++ annotates
+    # under ASan by default), some from GoogleTest's. A vector reserved by an annotated copy and filled by an
+    # unannotated one is a false container-overflow, so GoogleTest gets the same instrumentation. An installed
+    # GoogleTest is imported (a separate library with its own copies) and is left alone.
+    if("address" IN_LIST QTROCKET_SANITIZERS)
+        foreach(gtest_target IN ITEMS gtest gtest_main gmock gmock_main)
+            if(TARGET ${gtest_target})
+                get_target_property(gtest_imported ${gtest_target} IMPORTED)
+                if(NOT gtest_imported)
+                    target_compile_options(${gtest_target} PRIVATE -fsanitize=address)
+                    target_compile_definitions(${gtest_target} PRIVATE _GLIBCXX_SANITIZE_VECTOR)
+                endif()
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # ---- QtRocket_core dependencies (all Qt-free) ----
