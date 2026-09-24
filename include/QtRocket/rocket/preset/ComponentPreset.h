@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -11,9 +10,9 @@
 #include <vector>
 
 #include "QtRocket/material/Material.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/unit/UnitGroup.h"
@@ -23,51 +22,6 @@ namespace QtRocket
 
 class Manufacturer;
 
-/// The kind of component a preset describes (OpenRocket's ComponentPreset.Type), in Java's
-/// declaration order. ComponentPreset::Type names it too.
-enum class ComponentPresetType
-{
-    BODY_TUBE,
-    NOSE_CONE,
-    TRANSITION,
-    TUBE_COUPLER,
-    BULK_HEAD,
-    CENTERING_RING,
-    ENGINE_BLOCK,
-    LAUNCH_LUG,
-    RAIL_BUTTON,
-    STREAMER,
-    PARACHUTE,
-};
-
-/// Every preset type, in declaration order (Type.values()).
-inline constexpr std::array<ComponentPresetType, 11> kAllComponentPresetTypes{
-    ComponentPresetType::BODY_TUBE,    ComponentPresetType::NOSE_CONE,
-    ComponentPresetType::TRANSITION,   ComponentPresetType::TUBE_COUPLER,
-    ComponentPresetType::BULK_HEAD,    ComponentPresetType::CENTERING_RING,
-    ComponentPresetType::ENGINE_BLOCK, ComponentPresetType::LAUNCH_LUG,
-    ComponentPresetType::RAIL_BUTTON,  ComponentPresetType::STREAMER,
-    ComponentPresetType::PARACHUTE};
-
-/// The constant's name, e.g. "BULK_HEAD" (Java: name() and toString()), which the preset digest
-/// and the type="" attribute of the .ork <preset> element hold.
-[[nodiscard]] std::string_view componentPresetTypeName(ComponentPresetType type) noexcept;
-
-/// The preset type named exactly @p name (Type.valueOf()), or nullopt.
-[[nodiscard]] std::optional<ComponentPresetType> componentPresetTypeFromName(
-    std::string_view name) noexcept;
-
-/// The component a preset of @p type is made for: BODY_TUBE, NOSE_CONE, TRANSITION,
-/// TUBE_COUPLER, BULKHEAD, CENTERING_RING, ENGINE_BLOCK, LAUNCH_LUG, RAIL_BUTTON, STREAMER,
-/// PARACHUTE.
-[[nodiscard]] ComponentKind componentKind(ComponentPresetType type) noexcept;
-
-/// The preset type of a component of @p kind (RocketComponent.getPresetType() of the concrete
-/// classes): the type of the same name, BODY_TUBE also for an inner tube and a tube fin set, and
-/// nullopt for the kinds without presets (the assemblies, the fin sets, mass components and
-/// shock cords).
-[[nodiscard]] std::optional<ComponentPresetType> presetTypeOf(ComponentKind kind) noexcept;
-
 /// A preset component (OpenRocket's ComponentPreset): a manufacturer's part as a typed property
 /// map, with the MD5 digest of its properties that .ork files store to recognise it again.
 ///
@@ -75,6 +29,10 @@ inline constexpr std::array<ComponentPresetType, 11> kAllComponentPresetTypes{
 /// completes the derived ones and computes the digest; afterwards a preset is immutable. The
 /// properties are read through the typed keys below (Java's static TypedKey fields, named
 /// kCamelCase here: LENGTH is kLength), whose names are OpenRocket's ("Length", "PartNo", ...).
+///
+/// The accessors that return a reference into the preset (getDigest(), get(), getProperties())
+/// return a copy when called on a temporary preset. A preset reached through operator-> of a
+/// temporary Result is not a temporary to them: keep the Result while using such a reference.
 ///
 /// Not ported: Java's serialization (writeObject/readObject with MaterialSerializationProxy);
 /// the .orc loaders (Milestone 3) rebuild presets through the factory instead.
@@ -157,11 +115,14 @@ public:
     /// The manufacturer (getManufacturer()).
     [[nodiscard]] const Manufacturer& getManufacturer() const { return get(kManufacturer).get(); }
 
-    /// The part number (getPartNo()).
-    [[nodiscard]] const std::string& getPartNo() const { return get(kPartNo); }
+    /// The part number (getPartNo()), a copy as Java's String, so that it outlives a temporary
+    /// preset (ComponentPresetFactory::create(...)->getPartNo()).
+    [[nodiscard]] std::string getPartNo() const { return get(kPartNo); }
 
-    /// The digest: 32 lowercase hexadecimal digits (getDigest()).
-    [[nodiscard]] const std::string& getDigest() const noexcept { return m_digest; }
+    /// The digest: 32 lowercase hexadecimal digits (getDigest()). The reference lives as long as
+    /// the preset; a temporary preset gives a copy.
+    [[nodiscard]] const std::string& getDigest() const& noexcept { return m_digest; }
+    [[nodiscard]] std::string        getDigest() const&& { return m_digest; }
 
     /// True when @p key has a value (has()).
     [[nodiscard]] bool has(const AnyTypedKey& key) const noexcept
@@ -169,11 +130,12 @@ public:
         return m_properties.containsKey(key);
     }
 
-    /// The value of @p key (get()).
+    /// The value of @p key (get()). The reference lives as long as the preset; a temporary
+    /// preset gives a copy.
     /// @throws BugError "Preset did not contain key <key> <properties>" when it has none, as
     ///         OpenRocket's BugException.
     template <TypedValueType T>
-    [[nodiscard]] const T& get(const TypedKey<T>& key) const
+    [[nodiscard]] const T& get(const TypedKey<T>& key) const&
     {
         const T* value = m_properties.get(key);
         if (value == nullptr)
@@ -182,9 +144,16 @@ public:
         }
         return *value;
     }
+    template <TypedValueType T>
+    [[nodiscard]] T get(const TypedKey<T>& key) const&&
+    {
+        return get(key);
+    }
 
-    /// The properties, in the order they were put.
-    [[nodiscard]] const TypedPropertyMap& getProperties() const noexcept { return m_properties; }
+    /// The properties, in the order they were put. The reference lives as long as the preset; a
+    /// temporary preset gives a copy.
+    [[nodiscard]] const TypedPropertyMap& getProperties() const& noexcept { return m_properties; }
+    [[nodiscard]] TypedPropertyMap        getProperties() const&& { return m_properties; }
 
     // ---- identity
 
@@ -192,8 +161,8 @@ public:
     /// String.compareTo, Strings::javaCompareTo). Negative, zero or positive.
     [[nodiscard]] int compareTo(const ComponentPreset& other) const;
 
-    /// The part number (toString()).
-    [[nodiscard]] const std::string& toString() const { return getPartNo(); }
+    /// The part number (toString()), a copy as getPartNo().
+    [[nodiscard]] std::string toString() const { return getPartNo(); }
 
     /// "<manufacturer>|<part number>" with the manufacturer's display name (preferenceKey()),
     /// under which the preferences keep a favourite preset.
@@ -218,6 +187,12 @@ public:
 
     /// The digest's String.hashCode (hashCode()).
     [[nodiscard]] int hashCode() const noexcept;
+
+    /// The factory's put() (private) of a value that would convert silently does not compile,
+    /// as in TypedPropertyMap::put().
+    template <TypedValueType T, class U>
+        requires RefusedTypedValue<T, U>
+    void put(const TypedKey<T>& /*key*/, U&& /*value*/) = delete;
 
 private:
     friend class ComponentPresetFactory;

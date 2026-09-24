@@ -150,9 +150,12 @@ double calculateClipLength(TransitionShape shape, double r1, double r2, double l
     {
         const double clipLength = (min + max) / 2;
         const double width      = max - min;
-        // Deviation: a NaN width ends the search here; OpenRocket's (max - min) < CLIP_PRECISION
-        // never holds for it, so it loops forever.
-        if (width < kTransitionClipPrecision || std::isnan(width))
+        // Deviation: a NaN width, or a midpoint that is no longer strictly inside the bracket
+        // (adjacent doubles more than CLIP_PRECISION apart: a clip length of 2^39, about 5.5e11,
+        // or more), ends the search here; OpenRocket's (max - min) < CLIP_PRECISION never holds
+        // there, so it loops forever. Below that the result is OpenRocket's bit for bit.
+        if (width < kTransitionClipPrecision || std::isnan(width) || clipLength <= min ||
+            clipLength >= max)
         {
             return clipLength;
         }

@@ -82,7 +82,7 @@ inline constexpr std::array<Finish, 9> kAllFinishes{
 [[nodiscard]] std::string_view displayName(Finish finish) noexcept;
 
 /// Finish.toString(): the English name and the roughness in the default unit of the roughness
-/// unit group, e.g. "Regular paint (60 μm)".
+/// unit group, e.g. "Regular paint (60 µm)" (U+00B5 MICRO SIGN, Chars::kMicro).
 [[nodiscard]] std::string toString(Finish finish);
 
 }  // namespace QtRocket

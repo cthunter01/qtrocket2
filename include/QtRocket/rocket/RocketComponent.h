@@ -21,6 +21,7 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
@@ -126,14 +127,13 @@ class Rocket;
 ///   Here the stored value is returned and kept; it only matters to the GUI, since the saver
 ///   writes the override CD only when it is overridden.
 ///
-/// Deferred to the concrete components, which override them (the ComponentPreset type is in
-/// rocket/preset/ComponentPreset.h; the extra parameters serve Parachute, whose .ork setter
-/// passes allowAutoRadius = false):
-/// - loadPreset(preset, params...) and loadFromPreset(preset, params...) (the base version copies
-///   ComponentPreset.LENGTH into the length), and getPresetType() (presetTypeOf(kind()) answers
-///   it for every concrete class). The preset pointer is kept (getPresetComponent(),
-///   clearPreset(), setIgnorePresetClearing(), and the protected setPresetComponent() for
-///   loadPreset()).
+/// Presets: loadPreset() is one non-virtual method, as Java's final one, and the only entry point
+/// (the .ork loader and the GUI call it on any component). A concrete class overrides only the
+/// protected loadFromPreset(), calling the base version first, and getPresetType() where
+/// presetTypeOf(kind()) does not already answer it. Java's two loadFromPreset overloads (with and
+/// without the Object... params) are one here, with PresetLoadOptions for the params; in Java a
+/// component that overrides only the one-argument form is skipped when params are passed, which
+/// only the Parachute setter does, and Parachute overrides both.
 ///
 /// Deferred to rocket-config (they need FlightConfiguration or MotorMount/MotorConfiguration):
 /// - toDebugMountNode() and its call in toDebugTreeNode() for an active motor mount.
@@ -171,6 +171,15 @@ public:
     {
         std::vector<RocketComponent*>    components;
         std::unique_ptr<RocketComponent> original;
+    };
+
+    /// The extra parameters of loadPreset() (Java's Object... params, which only Parachute reads).
+    struct PresetLoadOptions
+    {
+        /// Whether a parachute preset with a packed length and diameter may make the radius
+        /// automatic (params[0]); nullopt when not given, which Parachute takes as true. The .ork
+        /// loader passes false.
+        std::optional<bool> allowAutoRadius;
     };
 
     RocketComponent& operator=(const RocketComponent&) = delete;
@@ -309,6 +318,21 @@ public:
     /// Forgets the preset (the component's values stay) and fires NONFUNCTIONAL_CHANGE, unless
     /// there is none or setIgnorePresetClearing(true) is in force.
     void clearPreset();
+
+    /// Bases this component on @p preset and loads its values (Java's final loadPreset()): does
+    /// nothing when @p preset is the current preset, and clearPreset() when it is nullptr.
+    /// Otherwise, with the Rocket at the root frozen (when the root is one), calls
+    /// loadFromPreset() and stores the preset, thaws the rocket (which fires the changes
+    /// loadFromPreset() made, combined) and fires NONFUNCTIONAL_CHANGE. When loadFromPreset()
+    /// throws, the rocket is thawed, the preset is not stored, no NONFUNCTIONAL_CHANGE fires and
+    /// the exception propagates. The component keeps a pointer to @p preset (presets are owned
+    /// by their database). Java's loop over the config listeners is not ported (see above).
+    /// @throws BugError when the Rocket is already frozen (see Rocket::freeze()).
+    void loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options = {});
+
+    /// The preset type that suits this component (getPresetType()), nullopt when it takes no
+    /// presets. Defaults to presetTypeOf(kind()), which gives every concrete class's Java answer.
+    [[nodiscard]] virtual std::optional<ComponentPresetType> getPresetType() const;
 
     /// While true, clearPreset() keeps the preset.
     void setIgnorePresetClearing(bool ignorePresetClearing) noexcept
@@ -887,8 +911,15 @@ protected:
     /// @throws BugError when this component has a parent.
     virtual std::vector<std::unique_ptr<RocketComponent>> copyFrom(const RocketComponent& source);
 
-    /// Stores the preset without firing (for loadPreset(), deferred to the concrete components).
+    /// Stores the preset without firing or loading its values (no Java counterpart: loadPreset()
+    /// is the way to base a component on a preset).
     void setPresetComponent(const ComponentPreset* preset) noexcept { m_presetComponent = preset; }
+
+    /// Loads the component's values from @p preset, which is of the component's preset type
+    /// (Java's loadFromPreset(preset, params...)). The base version sets the length field to the
+    /// preset's LENGTH when it has one, directly (no setter: no clearPreset(), no event). An
+    /// override calls it first; it may fire events, which the frozen rocket combines.
+    virtual void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options);
 
     /// A detailed multi-line dump: " >> Dumping Detailed Information from: <caller>" and the
     /// name, class, position, offset, method and length.

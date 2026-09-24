@@ -81,6 +81,7 @@ add_executable(QtRocket_core_tests
     rocket/InsideColorComponentTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
     rocket/preset/ComponentPresetTests.cpp
+    rocket/preset/ComponentPresetTypeTests.cpp
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RocketComponentTests.cpp

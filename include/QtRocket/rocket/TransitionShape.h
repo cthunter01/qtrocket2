@@ -117,8 +117,11 @@ inline constexpr double kTransitionClipPrecision = 0.0001;
 /// below r1 (at most 11 doublings) and then bisecting until the bracket is narrower than
 /// kTransitionClipPrecision, returning its midpoint.
 ///
-/// Deviation: when the bracket width becomes NaN (a NaN or infinite length), the bisection stops
-/// and returns the NaN or infinite midpoint; OpenRocket loops forever there.
+/// Deviation: the bisection always ends. When the bracket width is NaN (a NaN length), or when
+/// the midpoint is no longer strictly inside the bracket (an infinite length, or ends that are
+/// adjacent doubles further apart than kTransitionClipPrecision, which takes a clip length of
+/// 2^39, about 5.5e11, or more), it returns that midpoint; OpenRocket loops forever there. For
+/// shorter clip lengths the result is OpenRocket's bit for bit.
 [[nodiscard]] double calculateClipLength(TransitionShape shape, double r1, double r2, double length,
                                          double param) noexcept;
 

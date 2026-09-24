@@ -13,16 +13,13 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/unit/UnitGroup.h"
 
 namespace QtRocket
 {
 
 class Manufacturer;
-
-/// ComponentPreset.Type, defined in ComponentPreset.h; declared here so that preset values can
-/// hold one.
-enum class ComponentPresetType;
 
 /// A preset's reference to its manufacturer. Manufacturers live in their registry for the whole
 /// program (Manufacturer.h), so a preset holds a reference, never a copy, and never a null one.
@@ -116,7 +113,12 @@ private:
 };
 
 /// A key of a TypedPropertyMap whose values have type @p T (OpenRocket's TypedKey<T>): the map's
-/// get() and put() take and give a T for it, so a value of the wrong type does not compile.
+/// get() gives a T for it and put() takes a T. As in Java, a value of an unrelated type does not
+/// compile, nor does a bool for a key of another type or another value for a bool key (a
+/// const char* or a double would silently become true), nor a character for a numeric key.
+/// Deviation: put() still makes C++'s other implicit conversions, such as an int for a double key
+/// (Java needs a Double); a lossy one (a double for an int key) is diagnosed by -Wconversion at
+/// the call site.
 ///
 /// Keys are process-wide constants (ComponentPreset's kLength and the rest) built at compile
 /// time: the constructor is consteval, so the name, a view, always refers to a string literal

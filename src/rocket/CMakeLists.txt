@@ -17,6 +17,7 @@ target_sources(QtRocket_core PRIVATE
     position/RadiusMethod.cpp
     preset/ComponentPreset.cpp
     preset/ComponentPresetFactory.cpp
+    preset/ComponentPresetType.cpp
     preset/TypedPropertyMap.cpp
     ReferenceType.cpp
     Rocket.cpp

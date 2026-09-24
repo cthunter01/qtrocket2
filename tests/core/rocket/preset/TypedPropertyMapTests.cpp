@@ -15,9 +15,11 @@
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
@@ -57,6 +59,31 @@ static_assert(!Puttable<TypedKey<ComponentPresetType>, TransitionShape>);
 static_assert(!Puttable<TypedKey<Material>, double>);
 static_assert(Puttable<TypedKey<QtRocket::ManufacturerRef>, const Manufacturer&>);
 static_assert(!Puttable<TypedKey<QtRocket::ManufacturerRef>, std::string>);
+
+// Nor the implicit conversions Java's put(TypedKey<T>, T) refuses and C++ would make silently:
+// a string or a number for a bool key (it would store true), a bool for any other key, a
+// character for a number key.
+static_assert(!Puttable<TypedKey<bool>, const char*>);
+static_assert(!Puttable<TypedKey<bool>, decltype("false")>);
+static_assert(!Puttable<TypedKey<bool>, double>);
+static_assert(!Puttable<TypedKey<bool>, int>);
+static_assert(!Puttable<TypedKey<double>, bool>);
+static_assert(!Puttable<TypedKey<double>, const bool&>);
+static_assert(!Puttable<TypedKey<int>, bool>);
+static_assert(!Puttable<TypedKey<std::string>, bool>);
+static_assert(!Puttable<TypedKey<double>, char>);
+static_assert(!Puttable<TypedKey<int>, char>);
+static_assert(!Puttable<TypedKey<int>, char16_t>);
+// Not a byte count for the image either (std::vector's size constructor is explicit).
+static_assert(!Puttable<TypedKey<std::vector<std::byte>>, std::size_t>);
+// The conversions that stay: a bool for a bool key however it is held, an int for a double key
+// (exact), a C string for a string key.
+static_assert(Puttable<TypedKey<bool>, bool>);
+static_assert(Puttable<TypedKey<bool>, const bool&>);
+static_assert(Puttable<TypedKey<double>, int>);
+static_assert(Puttable<TypedKey<int>, int>);
+static_assert(Puttable<TypedKey<std::string>, const char*>);
+static_assert(Puttable<TypedKey<std::string>, decltype("false")>);
 
 // Only the preset value types make keys.
 static_assert(QtRocket::TypedValueType<double>);
@@ -307,6 +334,8 @@ TEST(TypedPropertyMap, ValuesAsJavaWritesThem)
 {
     using QtRocket::toString;
     using QtRocket::TypedValue;
+    // A finish is written in the default roughness unit: start from (and restore) the defaults.
+    const QtRocket::Test::DefaultUnitsGuard defaults;
     EXPECT_EQ(toString(TypedValue(true)), "true");
     EXPECT_EQ(toString(TypedValue(false)), "false");
     EXPECT_EQ(toString(TypedValue(-8)), "-8");
@@ -318,6 +347,8 @@ TEST(TypedPropertyMap, ValuesAsJavaWritesThem)
     EXPECT_EQ(toString(TypedValue(ComponentPresetType::BULK_HEAD)), "BULK_HEAD");
     EXPECT_EQ(toString(TypedValue(TransitionShape::POWER)), "Power series");
     EXPECT_EQ(toString(TypedValue(Finish::NORMAL)), "Regular paint (60 \xC2\xB5m)");
+    ASSERT_TRUE(QtRocket::unitGroup(QtRocket::UnitGroupId::ROUGHNESS).setDefaultUnit("mil"));
+    EXPECT_EQ(toString(TypedValue(Finish::NORMAL)), "Regular paint (2.36 mil)");
     const Material material = Material::newMaterial(Material::Type::SURFACE, "Ripstop nylon", 0.067,
                                                     QtRocket::MaterialGroup::FABRICS, false);
     EXPECT_EQ(toString(TypedValue(material)), material.toString());

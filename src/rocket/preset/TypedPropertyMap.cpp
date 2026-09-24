@@ -12,7 +12,7 @@
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/TransitionShape.h"
-#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"

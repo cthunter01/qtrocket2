@@ -17,6 +17,7 @@
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/Error.h"

@@ -219,6 +219,13 @@ public:
         m_onChildAdded = std::move(hook);
     }
 
+    /// Runs @p hook from loadFromPreset(), after the base version, with its arguments.
+    void setOnLoadFromPreset(
+        std::function<void(const ComponentPreset&, const PresetLoadOptions&)> hook)
+    {
+        m_onLoadFromPreset = std::move(hook);
+    }
+
     /// How many times componentChanged() ran.
     [[nodiscard]] int componentChangedCount() const noexcept { return m_componentChangedCount; }
     /// The last event componentChanged() received, as its type.
@@ -261,6 +268,15 @@ protected:
         }
     }
 
+    void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override
+    {
+        RocketComponent::loadFromPreset(preset, options);
+        if (m_onLoadFromPreset)
+        {
+            m_onLoadFromPreset(preset, options);
+        }
+    }
+
 private:
     ComponentKind                         m_kind;
     double                                m_mass{0.0};
@@ -283,6 +299,7 @@ private:
     int                                   m_componentChangedCount{0};
     std::optional<int>                    m_lastChangeType;
     std::function<void(RocketComponent&)> m_onChildAdded;
+    std::function<void(const ComponentPreset&, const PresetLoadOptions&)> m_onLoadFromPreset;
 };
 
 }  // namespace QtRocket::Test

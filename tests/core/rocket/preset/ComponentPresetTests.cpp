@@ -1,6 +1,5 @@
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 
-#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +9,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -18,20 +19,21 @@
 #include "QtRocket/material/MaterialGroup.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Md5.h"
+#include "QtRocket/util/Strings.h"
 
 namespace
 {
 
 using QtRocket::AnyTypedKey;
-using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
@@ -232,6 +234,72 @@ TEST(ComponentPreset, DigestWritesNaNCanonically)
     EXPECT_EQ(make(negative).getDigest(), digest);
 }
 
+/// Appends what DataOutputStream.writeBytes writes for the ASCII @p text: one byte a character.
+void writeAscii(std::vector<std::byte>& out, std::string_view text)
+{
+    for (const char c : text)
+    {
+        out.push_back(static_cast<std::byte>(c));
+    }
+}
+
+/// Appends what DataOutputStream.writeDouble writes: the IEEE bits, big-endian.
+void writeDouble(std::vector<std::byte>& out, double value)
+{
+    const auto bits = std::bit_cast<std::uint64_t>(value);
+    for (unsigned shift = 64; shift > 0;)
+    {
+        shift -= 8;
+        out.push_back(static_cast<std::byte>((bits >> shift) & 0xFFU));
+    }
+}
+
+TEST(ComponentPreset, DigestWritesKeysOfOneNameInInsertionOrder)
+{
+    // Keys of different value types may share a name. Java's List.sort is stable, so such keys
+    // are written in the order they were put, whatever the platform's sort.
+    static constexpr QtRocket::TypedKey<double>      kZetaDouble{"Zeta"};
+    static constexpr QtRocket::TypedKey<std::string> kZetaString{"Zeta"};
+
+    TypedPropertyMap doubleFirst = streamerSpec();
+    doubleFirst.put(kZetaDouble, 1.5);
+    doubleFirst.put(kZetaString, "z");
+    TypedPropertyMap stringFirst = streamerSpec();
+    stringFirst.put(kZetaString, "z");
+    stringFirst.put(kZetaDouble, 1.5);
+
+    // The streamer's properties sorted by name, as computeDigest writes them.
+    std::vector<std::byte> streamer;
+    writeAscii(streamer, "Length");
+    writeDouble(streamer, 1.0);
+    writeAscii(streamer, "Manufacturer");
+    writeAscii(streamer, Manufacturer::getManufacturer("a").getSimpleName());
+    writeAscii(streamer, "PartNo");
+    writeAscii(streamer, "Type");
+    writeAscii(streamer, "STREAMER");
+    writeAscii(streamer, "Width");
+    writeDouble(streamer, 0.05);
+    ASSERT_EQ(QtRocket::Strings::hexString(QtRocket::md5(streamer)),
+              make(streamerSpec()).getDigest());
+
+    std::vector<std::byte> expectedDoubleFirst = streamer;
+    writeAscii(expectedDoubleFirst, "Zeta");
+    writeDouble(expectedDoubleFirst, 1.5);
+    writeAscii(expectedDoubleFirst, "Zeta");
+    writeAscii(expectedDoubleFirst, "z");
+    std::vector<std::byte> expectedStringFirst = streamer;
+    writeAscii(expectedStringFirst, "Zeta");
+    writeAscii(expectedStringFirst, "z");
+    writeAscii(expectedStringFirst, "Zeta");
+    writeDouble(expectedStringFirst, 1.5);
+
+    EXPECT_EQ(make(doubleFirst).getDigest(),
+              QtRocket::Strings::hexString(QtRocket::md5(expectedDoubleFirst)));
+    EXPECT_EQ(make(stringFirst).getDigest(),
+              QtRocket::Strings::hexString(QtRocket::md5(expectedStringFirst)));
+    EXPECT_NE(make(doubleFirst).getDigest(), make(stringFirst).getDigest());
+}
+
 TEST(ComponentPreset, Getters)
 {
     const ComponentPreset bodyTube = make(bodyTubeSpec());
@@ -257,6 +325,42 @@ TEST(ComponentPreset, Getters)
               std::bit_cast<double>(std::uint64_t{0x3f98c7e28240b780ULL}));
     EXPECT_EQ(ring.get(ComponentPreset::kOuterDiameter), 0.0332);
     EXPECT_EQ(ring.get(ComponentPreset::kThickness), 0.0045);
+}
+
+TEST(ComponentPreset, ATemporaryPresetGivesCopies)
+{
+    // The references a preset hands out live as long as the preset; a temporary preset gives
+    // copies instead, so that a reference bound to the result does not dangle.
+    using Lvalue    = const ComponentPreset&;
+    using Temporary = const ComponentPreset&&;
+    static_assert(std::is_same_v<decltype(std::declval<Lvalue>().getDigest()), const std::string&>);
+    static_assert(std::is_same_v<decltype(std::declval<Temporary>().getDigest()), std::string>);
+    static_assert(std::is_same_v<decltype(std::declval<Lvalue>().get(ComponentPreset::kMaterial)),
+                                 const Material&>);
+    static_assert(
+        std::is_same_v<decltype(std::declval<Temporary>().get(ComponentPreset::kMaterial)),
+                       Material>);
+    static_assert(
+        std::is_same_v<decltype(std::declval<Lvalue>().getProperties()), const TypedPropertyMap&>);
+    static_assert(
+        std::is_same_v<decltype(std::declval<Temporary>().getProperties()), TypedPropertyMap>);
+    // The part number is a copy whatever the preset, as Java's String: a preset reached through a
+    // temporary Result's operator-> is an lvalue.
+    static_assert(std::is_same_v<decltype(std::declval<Lvalue>().getPartNo()), std::string>);
+    static_assert(std::is_same_v<decltype(std::declval<Lvalue>().toString()), std::string>);
+
+    const QtRocket::MaterialStorage materials;
+    const std::string&              partNo =
+        ComponentPresetFactory::create(bodyTubeSpec(), materials)->getPartNo();
+    EXPECT_EQ(partNo, "BT-20");
+    const std::string& digest = make(bodyTubeSpec()).getDigest();
+    EXPECT_EQ(digest, "969303205d66134d65c638ac2c6ab0fb");
+    const Material& material = make(bodyTubeSpec()).get(ComponentPreset::kMaterial);
+    EXPECT_EQ(material.getName(), "Paper (office)");
+    const double& length = make(bodyTubeSpec()).get(ComponentPreset::kLength);
+    EXPECT_EQ(length, 0.3);
+    const TypedPropertyMap& properties = make(bodyTubeSpec()).getProperties();
+    EXPECT_EQ(properties.size(), 10U);
 }
 
 TEST(ComponentPreset, MissingKeyIsABug)
@@ -486,86 +590,6 @@ TEST(ComponentPreset, DisplayedColumns)
               (Names{"Legacy", "Manufacturer", "PartNo", "Description", "CanopyShape", "Diameter",
                      "SpillDia", "SurfaceArea", "Material", "Sides", "LineCount", "LineLength",
                      "LineMaterial", "DragCoefficient", "PackedDiameter", "PackedLength"}));
-}
-
-/// A preset type, its Java name and the component it is made for.
-struct TypeExpectation
-{
-    ComponentPresetType type;
-    std::string_view    name;
-    ComponentKind       kind;
-};
-
-// In Java's declaration order.
-constexpr std::array<TypeExpectation, 11> kTypes{{
-    {.type = ComponentPresetType::BODY_TUBE, .name = "BODY_TUBE", .kind = ComponentKind::BODY_TUBE},
-    {.type = ComponentPresetType::NOSE_CONE, .name = "NOSE_CONE", .kind = ComponentKind::NOSE_CONE},
-    {.type = ComponentPresetType::TRANSITION,
-     .name = "TRANSITION",
-     .kind = ComponentKind::TRANSITION},
-    {.type = ComponentPresetType::TUBE_COUPLER,
-     .name = "TUBE_COUPLER",
-     .kind = ComponentKind::TUBE_COUPLER},
-    {.type = ComponentPresetType::BULK_HEAD, .name = "BULK_HEAD", .kind = ComponentKind::BULKHEAD},
-    {.type = ComponentPresetType::CENTERING_RING,
-     .name = "CENTERING_RING",
-     .kind = ComponentKind::CENTERING_RING},
-    {.type = ComponentPresetType::ENGINE_BLOCK,
-     .name = "ENGINE_BLOCK",
-     .kind = ComponentKind::ENGINE_BLOCK},
-    {.type = ComponentPresetType::LAUNCH_LUG,
-     .name = "LAUNCH_LUG",
-     .kind = ComponentKind::LAUNCH_LUG},
-    {.type = ComponentPresetType::RAIL_BUTTON,
-     .name = "RAIL_BUTTON",
-     .kind = ComponentKind::RAIL_BUTTON},
-    {.type = ComponentPresetType::STREAMER, .name = "STREAMER", .kind = ComponentKind::STREAMER},
-    {.type = ComponentPresetType::PARACHUTE, .name = "PARACHUTE", .kind = ComponentKind::PARACHUTE},
-}};
-
-void expectType(const TypeExpectation& e)
-{
-    SCOPED_TRACE(std::string(e.name));
-    EXPECT_EQ(QtRocket::componentPresetTypeName(e.type), e.name);
-    EXPECT_EQ(QtRocket::componentPresetTypeFromName(e.name), e.type);
-    EXPECT_EQ(QtRocket::componentKind(e.type), e.kind);
-    EXPECT_EQ(QtRocket::presetTypeOf(e.kind), e.type);
-}
-
-TEST(ComponentPreset, TypeOrderIsJavas)
-{
-    ASSERT_EQ(QtRocket::kAllComponentPresetTypes.size(), kTypes.size());
-    for (std::size_t i = 0; i < kTypes.size(); i++)
-    {
-        EXPECT_EQ(QtRocket::kAllComponentPresetTypes.at(i), kTypes.at(i).type);
-        EXPECT_EQ(static_cast<std::size_t>(kTypes.at(i).type), i);
-    }
-}
-
-TEST(ComponentPreset, TypeNamesAndComponentKinds)
-{
-    for (const TypeExpectation& e : kTypes)
-    {
-        expectType(e);
-    }
-    EXPECT_EQ(QtRocket::componentPresetTypeFromName("body_tube"), std::nullopt);
-    EXPECT_EQ(QtRocket::componentPresetTypeFromName("BULKHEAD"), std::nullopt);
-}
-
-TEST(ComponentPreset, PresetTypeOfEveryKind)
-{
-    // RocketComponent.getPresetType(): InnerTube and TubeFinSet use body tube presets; the rest
-    // without an override return null.
-    EXPECT_EQ(QtRocket::presetTypeOf(ComponentKind::INNER_TUBE), ComponentPresetType::BODY_TUBE);
-    EXPECT_EQ(QtRocket::presetTypeOf(ComponentKind::TUBE_FIN_SET), ComponentPresetType::BODY_TUBE);
-    for (const ComponentKind kind :
-         {ComponentKind::ROCKET, ComponentKind::AXIAL_STAGE, ComponentKind::PARALLEL_STAGE,
-          ComponentKind::POD_SET, ComponentKind::TRAPEZOID_FIN_SET,
-          ComponentKind::ELLIPTICAL_FIN_SET, ComponentKind::FREEFORM_FIN_SET,
-          ComponentKind::MASS_COMPONENT, ComponentKind::SHOCK_CORD})
-    {
-        EXPECT_EQ(QtRocket::presetTypeOf(kind), std::nullopt) << QtRocket::xmlName(kind);
-    }
 }
 
 }  // namespace

@@ -574,6 +574,32 @@ TEST(TransitionShape, ClipLengthSolvesTheForeRadius)
         std::isfinite(calculateClipLength(TransitionShape::ELLIPSOID, 0.5, 1.0, inf, 0.0)));
 }
 
+TEST(TransitionShape, ClipLengthEndsForHugeLengths)
+{
+    // Deviation: once the bracket's ends are adjacent doubles more than CLIP_PRECISION apart
+    // (clip lengths from 2^39 on), the midpoint is one of them and the bisection stops there;
+    // OpenRocket loops forever. For ELLIPSOID with radii 1/2 and 1 the clip length is
+    // length * (1 - sqrt(3/4)) / sqrt(3/4), and the bisection still gets it to rounding.
+    constexpr double kRatio = 0.15470053837925153;
+    for (const double length : {1e12, 1e13, 1e15, 1e300})
+    {
+        SCOPED_TRACE("length=" + std::to_string(length));
+        const double clip = calculateClipLength(TransitionShape::ELLIPSOID, 0.5, 1.0, length, 0.0);
+        EXPECT_NEAR(clip / length, kRatio, 1e-9);
+        // The clipped radius is solved as well.
+        EXPECT_NEAR(
+            getTransitionRadius(TransitionShape::ELLIPSOID, length / 2, 0.5, 1.0, length, 0.0,
+                                true),
+            getRadius(TransitionShape::ELLIPSOID, clip + (length / 2), 1.0, clip + length, 0.0),
+            1e-12);
+    }
+    for (const TransitionShape shape :
+         {TransitionShape::POWER, TransitionShape::HAACK, TransitionShape::ELLIPSOID})
+    {
+        EXPECT_TRUE(std::isfinite(calculateClipLength(shape, 0.2, 0.6, 1e15, 0.3)));
+    }
+}
+
 TEST(TransitionShape, TransitionRadiusOutsideTheTransition)
 {
     // Ahead of the fore end the fore radius, from the aft end on the aft radius.
