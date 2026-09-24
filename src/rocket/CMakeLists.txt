@@ -6,15 +6,24 @@ target_sources(QtRocket_core PRIVATE
     ComponentChangeEvent.cpp
     ComponentKind.cpp
     Decal.cpp
+    DeploymentConfiguration.cpp
     DesignType.cpp
+    FlightConfiguration.cpp
     FlightConfigurationId.cpp
     InsideColorComponent.cpp
     InsideColorComponentHandler.cpp
+    InstanceContext.cpp
+    InstanceMap.cpp
+    MotorConfiguration.cpp
+    MotorConfigurationSet.cpp
+    ParallelStage.cpp
+    PodSet.cpp
     position/AngleMethod.cpp
     position/AxialMethod.cpp
     position/RadiusMethod.cpp
     ReferenceType.cpp
     Rocket.cpp
     RocketComponent.cpp
+    RocketUtils.cpp
     StageSeparationConfiguration.cpp
 )

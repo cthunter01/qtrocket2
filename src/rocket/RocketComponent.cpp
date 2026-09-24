@@ -19,13 +19,18 @@
 #include <vector>
 
 #include "QtRocket/material/Material.h"
+#include "QtRocket/motor/Motor.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InsideColorComponent.h"
 #include "QtRocket/rocket/Instanceable.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/position/AnglePositionable.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
@@ -776,12 +781,11 @@ void RocketComponent::setAfter()
         return;
     }
 
-    // HOOK(rocket-config): the activeness test is getRocket().getSelectedConfiguration()
-    // .isComponentActive() in Java; a tree that is not in a Rocket counts every component as
-    // active (Java's getRocket() would throw).
+    // Java: getRocket().getSelectedConfiguration().isComponentActive(); a tree that is not in a
+    // Rocket counts every component as active (Java's getRocket() would throw).
     const Rocket* rocket   = findRocket();
     const auto    isActive = [rocket](const RocketComponent& component) {
-        return rocket == nullptr || rocket->isComponentActiveInSelectedConfiguration(component);
+        return rocket == nullptr || rocket->getSelectedConfiguration().isComponentActive(component);
     };
 
     std::size_t            idx                = *thisIndex - 1;
@@ -1123,6 +1127,8 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
                 rocket->forgetStageEntries(*stage);
             }
         });
+        // Nor may a flight configuration keep the removed components (see FlightConfiguration).
+        rocket->forgetComponents(*removed);
     }
 
     checkComponentStructure();
@@ -2129,7 +2135,50 @@ void RocketComponent::toDebugTreeNode(std::string& buffer, const std::string& in
             "Instanceable interface.");
     }
 
-    // Deferred to rocket-config: an active motor mount appends toDebugMountNode() here.
+    // A component acting as a motor mount (body tubes and inner tubes share no ancestor but
+    // RocketComponent, so it is done here).
+    if (const auto* mount = dynamic_cast<const MotorMount*>(this);
+        mount != nullptr && mount->isMotorMount())
+    {
+        toDebugMountNode(buffer, indent);
+    }
+}
+
+void RocketComponent::toDebugMountNode(std::string& buffer, const std::string& indent) const
+{
+    const auto* mount = dynamic_cast<const MotorMount*>(this);
+    if (mount == nullptr)
+    {
+        bug("toDebugMountNode() of a component that is not a motor mount");
+    }
+
+    const std::vector<Coordinate> absCoords = getComponentLocations();
+    const FlightConfigurationId   curId =
+        getRocket().getSelectedConfiguration().getFlightConfigurationId();
+    const MotorConfiguration& curInstance = mount->getMotorConfig(curId);
+    if (curInstance.isEmpty())
+    {
+        // Just the tube locations.
+        buffer += indent +
+                  "    [X] This Instance doesn't have any motors for the active configuration.\n";
+        return;
+    }
+
+    const Motor&      curMotor       = *curInstance.getMotor();
+    const double      motorOffset    = getLength() - curMotor.getLength();
+    const std::string instancePrefix = std::format("{}    [ */{:2}]", indent, getInstanceCount());
+
+    // Java's %f: six decimals.
+    std::format_to(std::back_inserter(buffer), "{:<40}Thrust: {} N; \n",
+                   indent + "  Mounted: " + curMotor.getDesignation(),
+                   Strings::formatFixed(curMotor.getMaxThrustEstimate(), 6));
+
+    const Coordinate motorRelativePosition{motorOffset, 0, 0};
+    const Coordinate tubeAbs = firstLocation(absCoords);
+    const Coordinate motorAbsolutePosition{tubeAbs.x + motorOffset, tubeAbs.y, tubeAbs.z};
+    std::format_to(std::back_inserter(buffer), "{:<40}|  {}; {:>24}; {:>24};\n", instancePrefix,
+                   javaFixed(curMotor.getLength(), 3, 5), motorRelativePosition.toString(),
+                   motorAbsolutePosition.toString());
 }
 
 // ================================================================== helpers for subclasses

@@ -9,6 +9,7 @@
 
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -17,6 +18,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestMotorMount.h"
 
 namespace
 {
@@ -137,12 +139,200 @@ TEST(AxialStage, ActiveWhileItHasChildren)
 {
     Rocket      rocket;
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    rocket.enableEvents();
     EXPECT_FALSE(stage.isStageActive()) << "a stage without children is inactive";
     stage.addChild(TestComponent::make(0.1));
     EXPECT_TRUE(stage.isStageActive());
+    EXPECT_TRUE(stage.isStageActive(rocket.getSelectedConfiguration()));
 
     const AxialStage detached;
     EXPECT_THROW(static_cast<void>(detached.isStageActive()), BugError);
+}
+
+TEST(AxialStage, TheFlagsWaitForAnUpdateWhileEventsAreDisabled)
+{
+    // As in Java, the selected configuration learns of a new stage on the next update.
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    stage.addChild(TestComponent::make(0.1));
+    EXPECT_FALSE(stage.isStageActive()) << "no flag yet";
+    rocket.enableEvents();
+    EXPECT_TRUE(stage.isStageActive());
+}
+
+TEST(AxialStage, SeparationOfTheSelectedConfiguration)
+{
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    stage.addChild(TestComponent::make(0.1));
+    rocket.enableEvents();
+
+    // In the default configuration it is the default.
+    EXPECT_EQ(&stage.getSeparationConfiguration(),
+              &stage.getSeparationConfigurations().getDefault());
+    EXPECT_EQ(stage.getSeparationConfigurations().size(), 0U);
+
+    // In another one, a copy is stored first, so that editing it leaves the default alone.
+    const FlightConfigurationId fcid;
+    rocket.createFlightConfiguration(fcid);
+    rocket.setSelectedConfiguration(fcid);
+    StageSeparationConfiguration& separation = stage.getSeparationConfiguration();
+    EXPECT_NE(&separation, &stage.getSeparationConfigurations().getDefault());
+    EXPECT_TRUE(stage.getSeparationConfigurations().containsId(fcid));
+    separation.setSeparationEvent(SeparationEvent::APOGEE);
+    EXPECT_EQ(stage.getSeparationConfigurations().getDefault().getSeparationEvent(),
+              SeparationEvent::EJECTION);
+    EXPECT_EQ(&stage.getSeparationConfiguration(), &separation) << "the same one next time";
+}
+
+// ---- Ported from AxialStageTest.java, on TestRockets.makeFalcon9Heavy()'s shape ----
+
+/// The selected configuration and a second one of the Falcon 9 Heavy test double.
+class DisableStageTest : public ::testing::Test
+{
+protected:
+    DisableStageTest()
+      : m_config(&m_f9h.rocket->getSelectedConfiguration()),
+        m_config2(&m_f9h.rocket->createFlightConfiguration(FlightConfigurationId{}))
+    {
+    }
+
+    /// Whether stages 0, 1 and 2 are active in @p config.
+    [[nodiscard]] static std::vector<bool> active(const QtRocket::FlightConfiguration& config,
+                                                  int                                  count = 3)
+    {
+        std::vector<bool> result;
+        result.reserve(static_cast<std::size_t>(count));
+        for (int i = 0; i < count; i++)
+        {
+            result.push_back(config.isStageActive(i));
+        }
+        return result;
+    }
+
+    QtRocket::Test::TestFalcon9Heavy m_f9h;
+    QtRocket::FlightConfiguration*   m_config;
+    QtRocket::FlightConfiguration*   m_config2;
+};
+
+using Flags = std::vector<bool>;
+
+TEST_F(DisableStageTest, DisableStage)
+{
+    QtRocket::FlightConfiguration& config  = *m_config;
+    QtRocket::FlightConfiguration& config2 = *m_config2;
+
+    // Disable the payload stage.
+    config.setStageActive(0, false);
+    EXPECT_EQ(active(config), (Flags{false, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Enable the payload stage.
+    config.setStageActive(0, true);
+    EXPECT_EQ(active(config), (Flags{true, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Toggle the payload stage to false, then to true.
+    config.toggleStage(0);
+    EXPECT_EQ(active(config), (Flags{false, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+    config.toggleStage(0);
+    EXPECT_EQ(active(config), (Flags{true, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Only one stage.
+    config.setOnlyStage(1);
+    EXPECT_EQ(active(config), (Flags{false, true, false}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Stage activeness in the other configuration.
+    config2.toggleStage(1);
+    EXPECT_EQ(active(config), (Flags{false, true, false}));
+    EXPECT_EQ(active(config2), (Flags{true, false, false}));
+    config.setAllStages();
+    EXPECT_EQ(active(config), (Flags{true, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, false, false}));
+
+    // With and without the sub-stages.
+    config.setAllStages();
+    config2.setAllStages();
+    config.setStageActive(1, false, true);
+    EXPECT_EQ(active(config), (Flags{true, false, false}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+    config.setStageActive(1, true, false);
+    EXPECT_EQ(active(config), (Flags{true, true, false}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+}
+
+TEST_F(DisableStageTest, DisableStageAndMove)
+{
+    QtRocket::FlightConfiguration&       config  = *m_config;
+    const QtRocket::FlightConfiguration& config2 = *m_config2;
+    Rocket&                              rocket  = *m_f9h.rocket;
+
+    // Disable the payload stage.
+    config.setAllStages();
+    config.setStageActive(0, false);
+    AxialStage* payloadStage = rocket.getStage(0);
+
+    // Move the payload stage to the back of the rocket.
+    rocket.freeze();
+    std::unique_ptr<RocketComponent> payload = rocket.removeChild(payloadStage);
+    rocket.addChild(std::move(payload));
+    rocket.thaw();
+
+    // core, booster, payload
+    EXPECT_EQ(active(config), (Flags{true, true, false}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Re-enable the payload stage.
+    config.setStageActive(payloadStage->getStageNumber(), true);
+    EXPECT_EQ(active(config), (Flags{true, true, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Disable the core stage (and the booster stage).
+    config.setStageActive(0, false);
+    EXPECT_EQ(active(config), (Flags{false, false, true}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+
+    // Move the core stage to the back of the rocket.
+    AxialStage* coreStage = rocket.getStage(0);
+    rocket.freeze();
+    std::unique_ptr<RocketComponent> core = rocket.removeChild(coreStage);
+    rocket.addChild(std::move(core));
+    rocket.thaw();
+
+    // payload, core, booster
+    EXPECT_EQ(active(config), (Flags{true, false, false}));
+    EXPECT_EQ(active(config2), (Flags{true, true, true}));
+}
+
+TEST_F(DisableStageTest, DisableStageAndCopy)
+{
+    QtRocket::FlightConfiguration&       config  = *m_config;
+    const QtRocket::FlightConfiguration& config2 = *m_config2;
+    Rocket&                              rocket  = *m_f9h.rocket;
+
+    // Disable the core stage.
+    config.setAllStages();
+    config.setStageActive(1, false);
+    const AxialStage* coreStage = rocket.getStage(1);
+
+    // Copy the core stage to the back of the rocket.
+    rocket.addChild(QtRocket::componentCast<AxialStage>(coreStage->copyWithNewIds()));
+
+    EXPECT_EQ(active(config, 5), (Flags{true, false, false, true, true}));
+    EXPECT_EQ(active(config2, 5), (Flags{true, true, true, true, true}));
+
+    // Disable the copied core stage (not the booster copy).
+    config.setStageActive(3, false, false);
+    EXPECT_EQ(active(config, 5), (Flags{true, false, false, false, true}));
+    EXPECT_EQ(active(config2, 5), (Flags{true, true, true, true, true}));
+
+    // Toggle the original core stage back.
+    config.toggleStage(1);
+    EXPECT_EQ(active(config, 5), (Flags{true, true, true, false, true}));
+    EXPECT_EQ(active(config2, 5), (Flags{true, true, true, true, true}));
 }
 
 TEST(AxialStage, RecoveryDevicesOfItsOwn)

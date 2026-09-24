@@ -7,15 +7,10 @@
 namespace QtRocket
 {
 
+class FlightConfiguration;
+
 /// How the reference length (and area) of the aerodynamic coefficients is chosen (OpenRocket's
-/// ReferenceType).
-///
-/// Deferred to rocket-config: ReferenceType.getReferenceLength(FlightConfiguration), which walks
-/// the configuration's active components: NOSECONE takes twice the fore radius of the first
-/// symmetric component whose fore radius is at least 0.0005 m (else twice its aft radius when that
-/// is), MAXIMUM twice the largest fore or aft radius of all symmetric components, CUSTOM the
-/// rocket's custom reference length; NOSECONE and MAXIMUM fall back to
-/// Rocket::kDefaultReferenceLength (MAXIMUM when twice the radius is below 0.001 m).
+/// ReferenceType). getReferenceLength() computes it for a flight configuration.
 enum class ReferenceType
 {
     NOSECONE,
@@ -36,5 +31,19 @@ inline constexpr std::array<ReferenceType, 3> kAllReferenceTypes{
 
 /// The type @p text names, matched as DocumentConfig.findEnum() does; nullopt for anything else.
 [[nodiscard]] std::optional<ReferenceType> referenceTypeFromOrkName(std::string_view text);
+
+/// The reference length of @p config for @p type (ReferenceType.getReferenceLength()), from the
+/// symmetric components (nose cones, transitions, body tubes) among the configuration's active
+/// components, in FlightConfiguration::getActiveComponents() order:
+/// - NOSECONE: twice the fore radius of the first one whose fore radius is at least 0.0005 m, or
+///   else twice its aft radius when that is; Rocket::kDefaultReferenceLength when none qualifies.
+/// - MAXIMUM: twice the largest fore or aft radius of all of them (Java's Math.max, so a NaN
+///   radius gives NaN), or Rocket::kDefaultReferenceLength when that is below 0.001 m.
+/// - CUSTOM: the rocket's custom reference length.
+/// HOOK(rocket-components): a symmetric component is a component of a body component kind that
+/// is a RadialParent, its fore radius getOuterRadius(-1) and its aft radius
+/// getOuterRadius(getLength()) (SymmetricComponent's getRadius() gives exactly the fore radius
+/// before the component and the aft radius at its end), until SymmetricComponent exists.
+[[nodiscard]] double getReferenceLength(ReferenceType type, const FlightConfiguration& config);
 
 }  // namespace QtRocket
