@@ -17,6 +17,7 @@ add_executable(QtRocket_core_tests
     util/Md5Tests.cpp
     util/ModIdTests.cpp
     util/MonitorableTests.cpp
+    util/MutableTests.cpp
     util/PinkNoiseTests.cpp
     util/PolyInterpolatorTests.cpp
     util/QuaternionTests.cpp
@@ -58,6 +59,9 @@ add_executable(QtRocket_core_tests
     material/MaterialPreferencesTests.cpp
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
+    simulation/DataBranchTests.cpp
+    simulation/FlightDataTypeGroupTests.cpp
+    simulation/FlightDataTypeTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )
