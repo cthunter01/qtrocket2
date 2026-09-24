@@ -16,6 +16,13 @@ add_executable(QtRocket_core_tests
     util/PolyInterpolatorTests.cpp
     util/Rotation2DTests.cpp
     util/VersionTests.cpp
+    logging/ErrorMessageTests.cpp
+    logging/MessagePriorityTests.cpp
+    logging/MessageSetTests.cpp
+    logging/MessageTests.cpp
+    logging/SimulationAbortTests.cpp
+    logging/WarningSetTests.cpp
+    logging/WarningTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )
