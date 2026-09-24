@@ -4,6 +4,11 @@ add_executable(QtRocket_core_tests
     util/CoordinateTests.cpp
     util/MathUtilTests.cpp
     util/QuaternionTests.cpp
+    util/BugErrorTests.cpp
+    util/Md5Tests.cpp
+    util/ModIdTests.cpp
+    util/SignalTests.cpp
+    util/UuidTests.cpp
     util/VersionTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
