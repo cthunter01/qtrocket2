@@ -189,6 +189,11 @@ std::string_view trim(const String&& text) = delete;
 [[nodiscard]] bool javaRegexWordBoundary(std::u32string_view codePoints,
                                          std::size_t         index) noexcept;
 
+/// String.toCharArray(): the UTF-16 code units of the String, javaLength() of them (a code
+/// point above U+FFFF becomes its surrogate pair, a malformed byte U+FFFD). The preset digest
+/// needs them for DataOutputStream.writeBytes, which writes the low byte of each.
+[[nodiscard]] std::u16string toUtf16(std::string_view text);
+
 /// Collator.getInstance(Locale.US).compare(a, b) with the strength set to PRIMARY, which
 /// OpenRocket sorts manufacturer names and motor designations with: -1, 0 or 1. Case and accents
 /// are ignored ("AeroTech" equals "aerotech", "été" equals "ete"), expansions apply ("Æ" equals

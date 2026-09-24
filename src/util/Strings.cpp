@@ -1664,6 +1664,17 @@ int javaHashCode(std::string_view text) noexcept
     return static_cast<int>(hash);
 }
 
+std::u16string toUtf16(std::string_view text)
+{
+    std::u16string units;
+    Utf16Reader    reader(text);
+    while (!reader.atEnd())
+    {
+        units.push_back(reader.next());
+    }
+    return units;
+}
+
 std::size_t javaLength(std::string_view text) noexcept
 {
     std::size_t length   = 0;

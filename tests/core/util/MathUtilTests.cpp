@@ -610,6 +610,33 @@ TEST(MathUtil, JavaMaxIsJavasMathMax)
     EXPECT_TRUE(std::signbit(MathUtil::javaMax(-0.0, -0.0)));
 }
 
+TEST(MathUtil, JavaPowIsJavasMathPow)
+{
+    // Where C's pow and Java's Math.pow disagree: a NaN exponent is NaN even for base 1, and an
+    // infinite exponent of 1 or -1 is NaN (C's pow gives 1 for all of these).
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(1.0, kNaN)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(0.5, kNaN)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(kNaN, kNaN)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(1.0, kInf)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(1.0, -kInf)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(-1.0, kInf)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(-1.0, -kInf)));
+    // Where they agree: a zero exponent is 1 even for a NaN base, a NaN base is NaN otherwise.
+    EXPECT_EQ(MathUtil::javaPow(kNaN, 0.0), 1.0);
+    EXPECT_EQ(MathUtil::javaPow(kNaN, -0.0), 1.0);
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(kNaN, 1.0)));
+    EXPECT_EQ(MathUtil::javaPow(1.0, 3.5), 1.0);
+    EXPECT_EQ(MathUtil::javaPow(0.5, kInf), 0.0);
+    EXPECT_EQ(MathUtil::javaPow(2.0, kInf), kInf);
+    EXPECT_EQ(MathUtil::javaPow(2.0, -kInf), 0.0);
+    EXPECT_EQ(MathUtil::javaPow(0.0, -1.0), kInf);
+    EXPECT_EQ(MathUtil::javaPow(-0.0, -1.0), -kInf);
+    EXPECT_TRUE(std::isnan(MathUtil::javaPow(-8.0, 1.0 / 3.0)));
+    EXPECT_DOUBLE_EQ(MathUtil::javaPow(2.0, 10.0), 1024.0);
+    EXPECT_DOUBLE_EQ(MathUtil::javaPow(-2.0, 3.0), -8.0);
+    EXPECT_DOUBLE_EQ(MathUtil::javaPow(4.0, 0.5), 2.0);
+}
+
 TEST(MathUtil, JavaDoubleHashCodeIsJavasDoubleHashCode)
 {
     // Double.hashCode on JDK 17.

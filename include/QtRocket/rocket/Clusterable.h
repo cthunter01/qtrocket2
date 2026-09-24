@@ -8,7 +8,7 @@ namespace QtRocket
 class ClusterConfiguration;
 
 /// A component that can be arranged in one of the cluster layouts, such as a clustered inner
-/// tube (OpenRocket's Clusterable). ClusterConfiguration (the 15 layouts) belongs to the rocket
+/// tube (OpenRocket's Clusterable). ClusterConfiguration (the 14 layouts) belongs to the rocket
 /// components group and is only declared here; its layouts are immutable shared constants, so
 /// they are passed by reference.
 ///

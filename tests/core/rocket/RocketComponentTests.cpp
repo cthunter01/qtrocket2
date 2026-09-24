@@ -8,12 +8,15 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
@@ -22,6 +25,10 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetFactory.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
+#include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
@@ -43,12 +50,17 @@ using QtRocket::ComponentAssembly;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
+using QtRocket::ComponentPreset;
+using QtRocket::ComponentPresetFactory;
+using QtRocket::ComponentPresetType;
 using QtRocket::Coordinate;
 using QtRocket::LineStyle;
+using QtRocket::Manufacturer;
 using QtRocket::ModId;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::TypedPropertyMap;
 using QtRocket::Uuid;
 using QtRocket::Test::TestComponent;
 using StageTracking = RocketComponent::StageTracking;
@@ -1065,6 +1077,180 @@ TEST(RocketComponentProperties, ClearPresetWithoutAPresetDoesNothing)
     component.setIgnorePresetClearing(true);
     component.clearPreset();
     EXPECT_EQ(component.getPresetComponent(), nullptr);
+}
+
+// ---- Presets ----
+
+/// A body tube preset of @p length made by the factory, part number @p partNo.
+[[nodiscard]] ComponentPreset bodyTubePreset(double length, const std::string& partNo)
+{
+    TypedPropertyMap props;
+    props.put(ComponentPreset::kType, ComponentPresetType::BODY_TUBE);
+    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("Estes"));
+    props.put(ComponentPreset::kPartNo, partNo);
+    props.put(ComponentPreset::kLength, length);
+    props.put(ComponentPreset::kOuterDiameter, 0.0247);
+    props.put(ComponentPreset::kInnerDiameter, 0.0237);
+    const QtRocket::MaterialStorage materials;
+    return ComponentPresetFactory::create(props, materials).value();
+}
+
+TEST_F(PropertyEventsTest, LoadPresetCopiesTheLengthAndFiresOnce)
+{
+    const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
+    m_body->loadPreset(&preset);
+    EXPECT_EQ(m_body->getLength(), 0.3);
+    EXPECT_EQ(m_body->getPresetComponent(), &preset);
+    EXPECT_FALSE(m_rocket.isFrozen());
+    // The base loadFromPreset() assigns the field, so only loadPreset()'s own event fires.
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+
+    // The same preset again: nothing happens.
+    m_body->setLength(0.1);
+    m_types.clear();
+    m_body->loadPreset(&preset);
+    EXPECT_EQ(m_body->getLength(), 0.1);
+    EXPECT_TRUE(m_types.empty());
+
+    // Another preset replaces it.
+    const ComponentPreset longer = bodyTubePreset(0.5, "BT-20L");
+    m_body->loadPreset(&longer);
+    EXPECT_EQ(m_body->getLength(), 0.5);
+    EXPECT_EQ(m_body->getPresetComponent(), &longer);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+
+    // nullptr clears the preset (clearPreset()), keeping the values.
+    m_types.clear();
+    m_body->loadPreset(nullptr);
+    EXPECT_EQ(m_body->getPresetComponent(), nullptr);
+    EXPECT_EQ(m_body->getLength(), 0.5);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+    m_types.clear();
+    m_body->loadPreset(nullptr);
+    EXPECT_TRUE(m_types.empty());
+}
+
+TEST_F(PropertyEventsTest, LoadPresetCombinesTheChangesOfLoadFromPreset)
+{
+    // The rocket is frozen while loadFromPreset() runs: its events come out as one on the thaw,
+    // before NONFUNCTIONAL_CHANGE.
+    const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
+    m_body->setOnLoadFromPreset([this](const ComponentPreset& /*preset*/,
+                                       const RocketComponent::PresetLoadOptions& /*options*/) {
+        EXPECT_TRUE(m_rocket.isFrozen());
+        m_body->setMass(0.02);
+        m_body->setOuterRadius(0.012);
+    });
+    m_body->loadPreset(&preset);
+    EXPECT_EQ(m_types, (std::vector<int>{ComponentChangeEvent::kMassChange |
+                                             ComponentChangeEvent::kAeromassChange,
+                                         ComponentChangeEvent::kNonFunctionalChange}));
+    EXPECT_EQ(m_body->getComponentMass(), 0.02);
+}
+
+/// Loads @p preset into @p component through a loadFromPreset() that changes the mass and then
+/// throws; true when loadPreset() let the exception through (a helper, for clang-tidy's
+/// cognitive complexity limit on the test body).
+[[nodiscard]] bool loadFails(TestComponent& component, const ComponentPreset& preset)
+{
+    component.setOnLoadFromPreset(
+        [&component](const ComponentPreset& /*preset*/,
+                     const RocketComponent::PresetLoadOptions& /*options*/) {
+            component.setMass(0.02);
+            throw std::runtime_error("load failed");
+        });
+    try
+    {
+        component.loadPreset(&preset);
+    }
+    catch (const std::runtime_error&)
+    {
+        return true;
+    }
+    return false;
+}
+
+TEST_F(PropertyEventsTest, AFailedLoadKeepsTheOldPresetAndThaws)
+{
+    const ComponentPreset first = bodyTubePreset(0.3, "BT-20");
+    m_body->loadPreset(&first);
+    m_types.clear();
+
+    const ComponentPreset second = bodyTubePreset(0.4, "BT-50");
+    EXPECT_TRUE(loadFails(*m_body, second));
+    EXPECT_FALSE(m_rocket.isFrozen());
+    EXPECT_EQ(m_body->getPresetComponent(), &first);
+    // The base version had already copied the length (as in Java); the queued change fired on
+    // the thaw, and no NONFUNCTIONAL_CHANGE.
+    EXPECT_EQ(m_body->getLength(), 0.4);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kMassChange});
+}
+
+TEST_F(PropertyEventsTest, LoadPresetInAFrozenRocketIsABug)
+{
+    // Deviation: Java reports the second freeze() through the error handler and carries on.
+    const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
+    m_rocket.freeze();
+    EXPECT_THROW(m_body->loadPreset(&preset), BugError);
+    EXPECT_EQ(m_body->getPresetComponent(), nullptr);
+    m_rocket.thaw();
+}
+
+TEST(RocketComponentPresets, LoadPresetOfADetachedComponent)
+{
+    // Without a Rocket at the root nothing is frozen and no event goes anywhere.
+    const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
+    TestComponent         component;
+    component.loadPreset(&preset);
+    EXPECT_EQ(component.getLength(), 0.3);
+    EXPECT_EQ(component.getPresetComponent(), &preset);
+}
+
+TEST(RocketComponentPresets, APresetWithoutALengthKeepsTheLength)
+{
+    TypedPropertyMap props;
+    props.put(ComponentPreset::kType, ComponentPresetType::PARACHUTE);
+    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("Rocketman"));
+    props.put(ComponentPreset::kPartNo, "R4C");
+    props.put(ComponentPreset::kDiameter, 1.2192);
+    props.put(ComponentPreset::kLineCount, 8);
+    props.put(ComponentPreset::kLineLength, 1.2);
+    const QtRocket::MaterialStorage materials;
+    const ComponentPreset parachute = ComponentPresetFactory::create(props, materials).value();
+
+    TestComponent component(ComponentKind::PARACHUTE, AxialMethod::AFTER, 0.07);
+    component.loadPreset(&parachute);
+    EXPECT_EQ(component.getLength(), 0.07);
+    EXPECT_EQ(component.getPresetComponent(), &parachute);
+}
+
+TEST(RocketComponentPresets, OptionsReachLoadFromPreset)
+{
+    const ComponentPreset            first  = bodyTubePreset(0.3, "BT-20");
+    const ComponentPreset            second = bodyTubePreset(0.4, "BT-50");
+    std::vector<std::optional<bool>> seen;
+    TestComponent                    component;
+    component.setOnLoadFromPreset([&seen](const ComponentPreset& /*preset*/,
+                                          const RocketComponent::PresetLoadOptions& options) {
+        seen.push_back(options.allowAutoRadius);
+    });
+    component.loadPreset(&first);
+    component.loadPreset(&second, {.allowAutoRadius = false});
+    EXPECT_EQ(seen, (std::vector<std::optional<bool>>{std::nullopt, false}));
+}
+
+TEST(RocketComponentPresets, PresetTypeFollowsTheKind)
+{
+    // RocketComponent.getPresetType() and the overrides of the concrete classes.
+    EXPECT_EQ(TestComponent(ComponentKind::BODY_TUBE).getPresetType(),
+              ComponentPresetType::BODY_TUBE);
+    EXPECT_EQ(TestComponent(ComponentKind::INNER_TUBE).getPresetType(),
+              ComponentPresetType::BODY_TUBE);
+    EXPECT_EQ(TestComponent(ComponentKind::BULKHEAD).getPresetType(),
+              ComponentPresetType::BULK_HEAD);
+    EXPECT_EQ(TestComponent(ComponentKind::MASS_COMPONENT).getPresetType(), std::nullopt);
+    EXPECT_EQ(Rocket().getPresetType(), std::nullopt);
+    EXPECT_EQ(AxialStage().getPresetType(), std::nullopt);
 }
 
 // ---- Mass, CG and overrides ----

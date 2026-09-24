@@ -2,12 +2,14 @@ target_sources(QtRocket_core PRIVATE
     Appearance.cpp
     AppearanceBuilder.cpp
     AxialStage.cpp
+    ClusterConfiguration.cpp
     ComponentAssembly.cpp
     ComponentChangeEvent.cpp
     ComponentKind.cpp
     Decal.cpp
     DeploymentConfiguration.cpp
     DesignType.cpp
+    Finish.cpp
     FlightConfiguration.cpp
     FlightConfigurationId.cpp
     InsideColorComponent.cpp
@@ -21,9 +23,14 @@ target_sources(QtRocket_core PRIVATE
     position/AngleMethod.cpp
     position/AxialMethod.cpp
     position/RadiusMethod.cpp
+    preset/ComponentPreset.cpp
+    preset/ComponentPresetFactory.cpp
+    preset/ComponentPresetType.cpp
+    preset/TypedPropertyMap.cpp
     ReferenceType.cpp
     Rocket.cpp
     RocketComponent.cpp
     RocketUtils.cpp
     StageSeparationConfiguration.cpp
+    TransitionShape.cpp
 )

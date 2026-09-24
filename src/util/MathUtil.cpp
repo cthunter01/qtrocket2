@@ -335,6 +335,15 @@ double javaMin(double a, double b) noexcept
     return (a < b) ? a : b;
 }
 
+double javaPow(double a, double b) noexcept
+{
+    if (std::isnan(b) || (std::isinf(b) && std::abs(a) == 1.0))
+    {
+        return kNaN;
+    }
+    return std::pow(a, b);
+}
+
 int javaDoubleHashCode(double value) noexcept
 {
     constexpr std::uint64_t kCanonicalNaN = 0x7ff8000000000000ULL;

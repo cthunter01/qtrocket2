@@ -35,6 +35,8 @@
 #include "QtRocket/rocket/position/AnglePositionable.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
@@ -352,6 +354,58 @@ void RocketComponent::clearPreset()
     }
     m_presetComponent = nullptr;
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options)
+{
+    if (m_presetComponent == preset)
+    {
+        return;
+    }
+    if (preset == nullptr)
+    {
+        clearPreset();
+        return;
+    }
+
+    Rocket* rocket = findRocket();
+    if (rocket != nullptr)
+    {
+        rocket->freeze();
+    }
+    try
+    {
+        loadFromPreset(*preset, options);
+        m_presetComponent = preset;
+    }
+    catch (...)
+    {
+        if (rocket != nullptr)
+        {
+            rocket->thaw();
+        }
+        throw;
+    }
+    if (rocket != nullptr)
+    {
+        rocket->thaw();
+    }
+
+    fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+std::optional<ComponentPresetType> RocketComponent::getPresetType() const
+{
+    return presetTypeOf(kind());
+}
+
+void RocketComponent::loadFromPreset(const ComponentPreset& preset,
+                                     const PresetLoadOptions& /*options*/)
+{
+    if (preset.has(ComponentPreset::kLength))
+    {
+        m_length = preset.get(ComponentPreset::kLength);
+    }
 }
 
 void RocketComponent::setVisible(bool value)
