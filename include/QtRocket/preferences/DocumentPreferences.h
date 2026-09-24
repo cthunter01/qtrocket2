@@ -42,11 +42,14 @@ namespace QtRocket
 /// Materials (Java: three Database<Material> for BULK, SURFACE and LINE; getBulkMaterials(),
 /// getSurfaceMaterials(), getLineMaterials(), getDatabase(Type), getAllMaterials(),
 /// addMaterial(Material), removeMaterial(Material), getMaterialCount(Type),
-/// getTotalMaterialCount()): until material/ exists a material is its Material.toStorableString()
-/// text, "TYPE|name|density|shearModulus|group", the form the .ork `<docmaterials>` element
-/// holds. They are kept unique and in insertion order; Java's Database sorts by name then
-/// density and getAllMaterials() lists bulk, then surface, then line materials, which the
-/// material group restores when it types this API.
+/// getTotalMaterialCount()): material/ sits above preferences/ (plan 3.1), so a material here is
+/// its Material.toStorableString() text, "TYPE|name|density|shearModulus|group", the form the
+/// .ork `<docmaterials>` element holds. They are kept unique (by text, where Java compares with
+/// Material.equals) and in insertion order; Java's Database sorts by name then density and
+/// getAllMaterials() lists bulk, then surface, then line materials. The typed form of those three
+/// databases is MaterialStorage (QtRocket/material/MaterialStorage.h: database(),
+/// addMaterial(), removeMaterial(), allMaterials(), materialCount(), totalMaterialCount()); the
+/// document group, above both, decides whether a document keeps its materials there instead.
 ///
 /// A copy holds the same preferences and materials and none of the connections to changed().
 class DocumentPreferences

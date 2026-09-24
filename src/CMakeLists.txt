@@ -7,10 +7,12 @@ target_compile_definitions(QtRocket_core PRIVATE QTROCKET_VERSION="${PROJECT_VER
 target_link_libraries(QtRocket_core PRIVATE pugixml::pugixml MINIZIP::minizip-ng SQLite::SQLite3 FastFloat::fast_float)
 QtRocket_configure_target(QtRocket_core)
 
-# Subsystems, in dependency order (each may include only the ones before it).
+# Subsystems, in dependency order (each may include only the ones before it). unit/ comes before
+# logging/, a deviation from the plan's util -> logging -> unit order: OpenRocket's Warning formats
+# its speeds and angles through UnitGroup, and unit/ needs nothing from logging/.
 add_subdirectory(util)
-add_subdirectory(logging)
 add_subdirectory(unit)
+add_subdirectory(logging)
 add_subdirectory(preferences)
 add_subdirectory(material)
 add_subdirectory(file)

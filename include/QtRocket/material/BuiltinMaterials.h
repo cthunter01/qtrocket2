@@ -29,9 +29,10 @@ struct BuiltinMaterial
 /// The material of a row: not user-defined, not a document material.
 [[nodiscard]] Material toMaterial(const BuiltinMaterial& row);
 
-/// Databases' static initialiser without the user materials and the preference listener: adds
-/// every built-in material to the database of its type. Returns the number added (82 into an
-/// empty storage; a material already present is not added twice).
+/// Databases' static initialiser without the user materials and the preference listener (those
+/// are addUserMaterials() and storeUserMaterialChanges() in MaterialPreferences.h): adds every
+/// built-in material to the database of its type. Returns the number added (82 into an empty
+/// storage; a material already present is not added twice).
 std::size_t addBuiltinMaterials(MaterialStorage& storage);
 
 }  // namespace QtRocket

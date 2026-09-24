@@ -11,8 +11,10 @@
 /// and the rest lower-cased, with a `k` in front (`LAUNCH_USE_ISA` -> kLaunchUseIsa,
 /// `OPENGL_ENABLE_MSAA` -> kOpenglEnableMsaa, `OBJ_SRGB` -> kObjSrgb). The three directory names
 /// ApplicationPreferences uses as string literals ("componentStyle", "componentMaterials",
-/// "componentColors") are here as k...Node constants. The keys DocumentPreferences.java declares
-/// (PREF_SHOW_WARNINGS, ...) are members of DocumentPreferences, as in Java.
+/// "componentColors") are here as k...Node constants, and so are the two node names of
+/// SwingPreferences ("units", "userMaterials") whose storage the core ports. The keys
+/// DocumentPreferences.java declares (PREF_SHOW_WARNINGS, ...) are members of
+/// DocumentPreferences, as in Java.
 namespace QtRocket::PreferenceKeys
 {
 
@@ -216,6 +218,13 @@ inline constexpr std::string_view kComponentStyleNode = "componentStyle";
 inline constexpr std::string_view kComponentMaterialsNode = "componentMaterials";
 /// Node of the default colour ("R,G,B") per component class name (getDefaultColor()).
 inline constexpr std::string_view kComponentColorsNode = "componentColors";
+
+// The nodes SwingPreferences names with string literals.
+/// Node of the default unit name per UnitGroup.UNITS key (loadDefaultUnits()/storeDefaultUnits()).
+inline constexpr std::string_view kUnitsNode = "units";
+/// Node of the user-defined materials, each a Material.toStorableString() under a key
+/// "material0", "material1", ... (addUserMaterial(), getUserMaterials(), removeUserMaterial()).
+inline constexpr std::string_view kUserMaterialsNode = "userMaterials";
 
 /// The separator of the user thrust-curve and component-preset file lists
 /// (ApplicationPreferences.SPLIT_CHARACTER).

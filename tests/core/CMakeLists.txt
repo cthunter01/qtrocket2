@@ -26,6 +26,11 @@ add_executable(QtRocket_core_tests
     util/UuidTests.cpp
     util/VersionTests.cpp
     util/WorldCoordinateTests.cpp
+    unit/FixedPrecisionUnitTests.cpp
+    unit/FractionalUnitTests.cpp
+    unit/UnitGroupTests.cpp
+    unit/UnitTests.cpp
+    unit/ValueTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp
     logging/MessageSetTests.cpp
@@ -33,17 +38,13 @@ add_executable(QtRocket_core_tests
     logging/SimulationAbortTests.cpp
     logging/WarningSetTests.cpp
     logging/WarningTests.cpp
-    unit/FixedPrecisionUnitTests.cpp
-    unit/FractionalUnitTests.cpp
-    unit/UnitGroupTests.cpp
-    unit/UnitTests.cpp
-    unit/ValueTests.cpp
     preferences/DocumentPreferencesTests.cpp
     preferences/InMemoryPreferencesTests.cpp
     preferences/PreferencesTests.cpp
     material/BuiltinMaterialsTests.cpp
     material/MaterialDatabaseTests.cpp
     material/MaterialGroupTests.cpp
+    material/MaterialPreferencesTests.cpp
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
     file/GzipStreamTests.cpp

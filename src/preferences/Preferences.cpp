@@ -17,7 +17,10 @@
 #include <vector>
 
 #include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/unit/Unit.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Chars.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
@@ -212,6 +215,21 @@ constexpr Color kAwtGray{128, 128, 128};
 [[nodiscard]] bool isOneOf(std::span<const std::string_view> names, std::string_view name) noexcept
 {
     return std::ranges::find(names, name) != names.end();
+}
+
+/// Whether @p id is in OpenRocket's UnitGroup.UNITS map, whose keys name the groups in the "units"
+/// node: every group but SHAPE_PARAMETER and STABILITY_CALIBERS.
+[[nodiscard]] constexpr bool isInUnitsMap(UnitGroupId id) noexcept
+{
+    return id != UnitGroupId::SHAPE_PARAMETER && id != UnitGroupId::STABILITY_CALIBERS;
+}
+
+/// The multi-level wind CSV unit getters: the unit of the process-wide group @p id named exactly
+/// by @p stored, or nullptr when nothing is stored or the group has no such unit (Java throws
+/// IllegalArgumentException for the latter; see the header).
+[[nodiscard]] const Unit* storedUnit(const std::optional<std::string>& stored, UnitGroupId id)
+{
+    return stored.has_value() ? unitGroup(id).getUnit(*stored) : nullptr;
 }
 
 /// The text putDouble() stores: Java's spellings of the non-finite values, else the shortest
@@ -587,6 +605,43 @@ bool Preferences::isDisplaySecondaryStability() const
 void Preferences::setDisplaySecondaryStability(bool check)
 {
     putBoolean(Keys::kDisplaySecondaryStability, check);
+}
+
+void Preferences::loadDefaultUnits() const
+{
+    const Preferences* const node = findNode(Keys::kUnitsNode);
+    if (node == nullptr)
+    {
+        return;
+    }
+    for (const std::string& key : node->keys())
+    {
+        const std::optional<UnitGroupId> id = unitGroupFromName(key);
+        if (!id.has_value() || !isInUnitsMap(*id))
+        {
+            continue;
+        }
+        const std::optional<std::string> unitName = node->get(key);
+        if (unitName.has_value())
+        {
+            // False for a name the group lacks, which Java ignores as well.
+            unitGroup(*id).setDefaultUnit(std::string_view{*unitName});
+        }
+    }
+}
+
+void Preferences::storeDefaultUnits()
+{
+    Preferences& node = getNode(Keys::kUnitsNode);
+    for (const UnitGroupId id : kAllUnitGroupIds)
+    {
+        const UnitGroup& group = unitGroup(id);
+        if (!isInUnitsMap(id) || group.getUnitCount() < 2)
+        {
+            continue;
+        }
+        node.put(unitGroupName(id), group.getDefaultUnit().getUnit());
+    }
 }
 
 std::optional<std::filesystem::path> Preferences::getDefaultDirectory() const
@@ -1398,6 +1453,18 @@ void Preferences::setMultiLevelWindCsvImportAltitudeColumnIndex(int columnIndex)
     putInt(Keys::kMultiLevelWindCsvImportAltitudeColumnIndex, columnIndex);
 }
 
+const Unit& Preferences::getMultiLevelWindCsvImportAltitudeUnit() const
+{
+    const Unit* const unit =
+        storedUnit(get(Keys::kMultiLevelWindCsvImportAltitudeUnit), UnitGroupId::DISTANCE);
+    return unit != nullptr ? *unit : unitGroup(UnitGroupId::DISTANCE).getSIUnit();
+}
+
+void Preferences::setMultiLevelWindCsvImportAltitudeUnit(const Unit& unit)
+{
+    putString(Keys::kMultiLevelWindCsvImportAltitudeUnit, unit.getUnit());
+}
+
 std::string Preferences::getMultiLevelWindCsvImportSpeedColumn() const
 {
     return getString(Keys::kMultiLevelWindCsvImportSpeedColumn, "speed");
@@ -1416,6 +1483,18 @@ int Preferences::getMultiLevelWindCsvImportSpeedColumnIndex() const
 void Preferences::setMultiLevelWindCsvImportSpeedColumnIndex(int columnIndex)
 {
     putInt(Keys::kMultiLevelWindCsvImportSpeedColumnIndex, columnIndex);
+}
+
+const Unit& Preferences::getMultiLevelWindCsvImportSpeedUnit() const
+{
+    const Unit* const unit =
+        storedUnit(get(Keys::kMultiLevelWindCsvImportSpeedUnit), UnitGroupId::WINDSPEED);
+    return unit != nullptr ? *unit : unitGroup(UnitGroupId::WINDSPEED).getSIUnit();
+}
+
+void Preferences::setMultiLevelWindCsvImportSpeedUnit(const Unit& unit)
+{
+    putString(Keys::kMultiLevelWindCsvImportSpeedUnit, unit.getUnit());
 }
 
 std::string Preferences::getMultiLevelWindCsvImportDirectionColumn() const
@@ -1438,6 +1517,25 @@ void Preferences::setMultiLevelWindCsvImportDirectionColumnIndex(int columnIndex
     putInt(Keys::kMultiLevelWindCsvImportDirectionColumnIndex, columnIndex);
 }
 
+const Unit& Preferences::getMultiLevelWindCsvImportDirectionUnit() const
+{
+    const Unit* const unit =
+        storedUnit(get(Keys::kMultiLevelWindCsvImportDirectionUnit), UnitGroupId::ANGLE);
+    if (unit != nullptr)
+    {
+        return *unit;
+    }
+    // Java: new DegreeUnit(), a unit equal to the ANGLE group's degrees.
+    const Unit* const degrees = unitGroup(UnitGroupId::ANGLE).getUnit(Chars::kDegree);
+    QTROCKET_ASSERT(degrees != nullptr);
+    return *degrees;
+}
+
+void Preferences::setMultiLevelWindCsvImportDirectionUnit(const Unit& unit)
+{
+    putString(Keys::kMultiLevelWindCsvImportDirectionUnit, unit.getUnit());
+}
+
 std::string Preferences::getMultiLevelWindCsvImportStddevColumn() const
 {
     return getString(Keys::kMultiLevelWindCsvImportStddevColumn, "stddev");
@@ -1456,6 +1554,18 @@ int Preferences::getMultiLevelWindCsvImportStddevColumnIndex() const
 void Preferences::setMultiLevelWindCsvImportStddevColumnIndex(int columnIndex)
 {
     putInt(Keys::kMultiLevelWindCsvImportStddevColumnIndex, columnIndex);
+}
+
+const Unit& Preferences::getMultiLevelWindCsvImportStddevUnit() const
+{
+    const Unit* const unit =
+        storedUnit(get(Keys::kMultiLevelWindCsvImportStddevUnit), UnitGroupId::WINDSPEED);
+    return unit != nullptr ? *unit : unitGroup(UnitGroupId::WINDSPEED).getSIUnit();
+}
+
+void Preferences::setMultiLevelWindCsvImportStddevUnit(const Unit& unit)
+{
+    putString(Keys::kMultiLevelWindCsvImportStddevUnit, unit.getUnit());
 }
 
 }  // namespace QtRocket

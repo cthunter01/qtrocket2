@@ -114,7 +114,9 @@ public:
 
     [[nodiscard]] double aoa() const noexcept { return m_aoa; }
 
-    /// "Large angle of attack encountered." for NaN, otherwise "... encountered (15.3°)".
+    /// "Large angle of attack encountered." for NaN, otherwise "... encountered (15.3°)": the
+    /// angle in the default unit of the process-wide ANGLE unit group (degrees unless the user
+    /// chose another), as UnitGroup::toStringUnit writes it.
     [[nodiscard]] std::string messageDescription() const override;
     /// True when @p other is a LargeAOA with a larger angle, or this angle is NaN.
     [[nodiscard]] bool replaceBy(const Message& other) const override;
@@ -138,6 +140,9 @@ public:
 
     [[nodiscard]] double speed() const noexcept { return m_speed; }
 
+    /// The text, followed unless the speed is NaN by the speed in brackets in the default unit of
+    /// the process-wide VELOCITY unit group: "... at high speed (38.3 m/s)" with the metric
+    /// default. The other three deployment-speed warnings format theirs the same way.
     [[nodiscard]] std::string messageDescription() const override;
     [[nodiscard]] bool        replaceBy(const Message& /*other*/) const override { return false; }
     [[nodiscard]] std::unique_ptr<Message> clone() const override;

@@ -3,5 +3,6 @@ target_sources(QtRocket_core PRIVATE
     Material.cpp
     MaterialDatabase.cpp
     MaterialGroup.cpp
+    MaterialPreferences.cpp
     MaterialStorage.cpp
 )

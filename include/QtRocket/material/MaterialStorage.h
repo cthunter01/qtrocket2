@@ -15,12 +15,14 @@ namespace QtRocket
 /// The three material databases, one per non-custom type, with OpenRocket's lookups on them
 /// (Databases.java's static databases and methods, and DocumentPreferences' copies of them for a
 /// document's own materials). An instance starts empty: addBuiltinMaterials() fills it with
-/// OpenRocket's built-in materials, and the preferences layer adds the user's.
+/// OpenRocket's built-in materials, and addUserMaterials() (MaterialPreferences.h) adds the
+/// user's from the preferences.
 ///
 /// OpenRocket's MaterialStorage is the DatabaseListener that writes user-defined materials to
 /// the preferences as they are added and removed; that part is the userMaterialAdded and
 /// userMaterialRemoved signals here (added fires only for user-defined materials, removed for
-/// every removal, as there), which the preferences layer connects to.
+/// every removal, as there), which storeUserMaterialChanges() (MaterialPreferences.h) connects
+/// to the preferences.
 ///
 /// Not thread-safe; the GUI thread owns it.
 class MaterialStorage

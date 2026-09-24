@@ -16,6 +16,7 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
@@ -34,20 +35,8 @@ using QtRocket::Result;
 using QtRocket::UnitGroup;
 using QtRocket::unitGroupId;
 using QtRocket::UnitGroupId;
+using QtRocket::Test::DefaultUnitsGuard;
 using Type = Material::Type;
-
-/// Restores UnitGroup.java's default units when it goes out of scope, so that a test changing them
-/// leaves the process-wide groups as it found them.
-class DefaultUnitsGuard
-{
-public:
-    DefaultUnitsGuard() { UnitGroup::resetDefaultUnits(); }
-    ~DefaultUnitsGuard() { UnitGroup::resetDefaultUnits(); }
-    DefaultUnitsGuard(const DefaultUnitsGuard&)            = delete;
-    DefaultUnitsGuard& operator=(const DefaultUnitsGuard&) = delete;
-    DefaultUnitsGuard(DefaultUnitsGuard&&)                 = delete;
-    DefaultUnitsGuard& operator=(DefaultUnitsGuard&&)      = delete;
-};
 
 /// Every type's name maps back to it.
 void expectTypeNamesRoundTrip()

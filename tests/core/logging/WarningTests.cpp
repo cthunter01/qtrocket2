@@ -12,9 +12,11 @@
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Uuid.h"
 #include "logging/TestSources.h"
+#include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
@@ -23,8 +25,12 @@ using QtRocket::BugError;
 using QtRocket::Message;
 using QtRocket::MessagePriority;
 using QtRocket::MessageSources;
+using QtRocket::unitGroup;
+using QtRocket::UnitGroup;
+using QtRocket::UnitGroupId;
 using QtRocket::Uuid;
 using QtRocket::Warning;
+using QtRocket::Test::DefaultUnitsGuard;
 using QtRocket::Test::source;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -152,6 +158,7 @@ TEST(Warning, OtherComparesTextPriorityAndSources)
 
 TEST(Warning, LargeAOAFormatsDegrees)
 {
+    const DefaultUnitsGuard defaults;  // the metric defaults: degrees and m/s
     const Warning::LargeAOA unknown{kNaN};
     EXPECT_EQ(unknown.messageDescription(), "Large angle of attack encountered.");
     EXPECT_EQ(unknown.priority(), MessagePriority::LOW);
@@ -170,6 +177,34 @@ TEST(Warning, LargeAOAFormatsDegrees)
               "Large angle of attack encountered (∞°)");
     EXPECT_EQ(Warning::LargeAOA{-kInf}.messageDescription(),
               "Large angle of attack encountered (-∞°)");
+    // DegreeUnit's "0.#" keeps the sign of a value that rounds to zero.
+    EXPECT_EQ(Warning::LargeAOA{-1.0e-9}.messageDescription(),
+              "Large angle of attack encountered (-0°)");
+}
+
+TEST(Warning, LargeAOAFollowsTheDefaultAngleUnit)
+{
+    {
+        const DefaultUnitsGuard defaults;
+        UnitGroup&              angle = unitGroup(UnitGroupId::ANGLE);
+        ASSERT_TRUE(angle.setDefaultUnit("rad"));  // a FixedPrecisionUnit, two decimals
+        EXPECT_EQ(Warning::LargeAOA{0.3}.messageDescription(),
+                  "Large angle of attack encountered (0.30 rad)");
+        EXPECT_EQ(Warning::LargeAOA{-0.3}.messageDescription(),
+                  "Large angle of attack encountered (-0.30 rad)");
+        EXPECT_EQ(Warning::LargeAOA{-kInf}.messageDescription(),
+                  "Large angle of attack encountered (-Infinity rad)");
+        ASSERT_TRUE(angle.setDefaultUnit("arcmin"));
+        EXPECT_EQ(Warning::LargeAOA{0.3}.messageDescription(),
+                  "Large angle of attack encountered (1031 arcmin)");
+        EXPECT_EQ(Warning::LargeAOA{std::numbers::pi}.messageDescription(),
+                  "Large angle of attack encountered (10800 arcmin)");
+        EXPECT_EQ(Warning::LargeAOA{kNaN}.messageDescription(),
+                  "Large angle of attack encountered.");
+    }
+    // The guard put degrees back.
+    EXPECT_EQ(Warning::LargeAOA{0.3}.messageDescription(),
+              "Large angle of attack encountered (17.2°)");
 }
 
 TEST(Warning, LargeAOAIsReplacedByALargerAngle)
@@ -192,6 +227,7 @@ TEST(Warning, LargeAOAIsReplacedByALargerAngle)
 
 TEST(Warning, SpeedWarningsFormatMetresPerSecond)
 {
+    const DefaultUnitsGuard                    defaults;  // the metric defaults: degrees and m/s
     const Warning::RecoveryHighSpeedDeployment high{38.27,
                                                     MessageSources{source("main-1", "Main")}};
     EXPECT_EQ(high.messageDescription(), "Recovery device deployment at high speed (38.3 m/s)");
@@ -215,6 +251,7 @@ TEST(Warning, SpeedWarningsFormatMetresPerSecond)
 
 TEST(Warning, SpeedWarningsFormatSmallAndNegativeSpeeds)
 {
+    const DefaultUnitsGuard defaults;  // the metric defaults: degrees and m/s
     // Unit.toString(): three significant digits and at most three decimals below 100 ...
     EXPECT_EQ(Warning::LowSpeedDrogueDeployment{0.0123}.messageDescription(),
               "Drogue deployment at low speed at apogee (0.012 m/s)");
@@ -237,6 +274,7 @@ TEST(Warning, SpeedWarningsFormatSmallAndNegativeSpeeds)
 
 TEST(Warning, InfinitiesPrintTheInfinitySymbol)
 {
+    const DefaultUnitsGuard defaults;  // the metric defaults: degrees and m/s
     // DecimalFormat prints the infinity symbol, sign in front, whatever the pattern.
     EXPECT_EQ(Warning::RecoveryHighSpeedDeployment{kInf}.messageDescription(),
               "Recovery device deployment at high speed (∞ m/s)");
@@ -244,6 +282,38 @@ TEST(Warning, InfinitiesPrintTheInfinitySymbol)
               "Main parachute deployment at low speed (-∞ m/s)");
     EXPECT_EQ(Warning::HighSpeedMainDeployment{kInf}.toString(),
               "Main parachute deployment at high speed (∞ m/s)");
+}
+
+TEST(Warning, SpeedWarningsFollowTheDefaultVelocityUnit)
+{
+    {
+        const DefaultUnitsGuard defaults;
+        UnitGroup&              velocity = unitGroup(UnitGroupId::VELOCITY);
+        ASSERT_TRUE(velocity.setDefaultUnit("km/h"));
+        EXPECT_EQ(Warning::RecoveryHighSpeedDeployment{38.27}.messageDescription(),
+                  "Recovery device deployment at high speed (138 km/h)");
+        EXPECT_EQ(Warning::LowSpeedDrogueDeployment{2.0}.messageDescription(),
+                  "Drogue deployment at low speed at apogee (7.2 km/h)");
+        ASSERT_TRUE(velocity.setDefaultUnit("kt"));
+        EXPECT_EQ(Warning::HighSpeedMainDeployment{10.0}.messageDescription(),
+                  "Main parachute deployment at high speed (19.4 kt)");
+        ASSERT_TRUE(velocity.setDefaultUnit("mph"));
+        EXPECT_EQ(Warning::LowSpeedMainDeployment{-kInf}.messageDescription(),
+                  "Main parachute deployment at low speed (-∞ mph)");
+        EXPECT_EQ(Warning::LowSpeedMainDeployment{kNaN}.messageDescription(),
+                  "Main parachute deployment at low speed");
+        // The imperial defaults switch velocities to ft/s.
+        UnitGroup::setDefaultImperialUnits();
+        EXPECT_EQ(Warning::HighSpeedMainDeployment{123.4}.messageDescription(),
+                  "Main parachute deployment at high speed (405 ft/s)");
+        const Warning::RecoveryHighSpeedDeployment high{0.456,
+                                                        MessageSources{source("main-1", "Main")}};
+        EXPECT_EQ(high.toString(),
+                  "Recovery device deployment at high speed (1.5 ft/s):  \"Main\"");
+    }
+    // The guard put m/s back.
+    EXPECT_EQ(Warning::RecoveryHighSpeedDeployment{38.27}.messageDescription(),
+              "Recovery device deployment at high speed (38.3 m/s)");
 }
 
 TEST(Warning, SpeedWarningsAreEqualWhateverTheSpeed)
