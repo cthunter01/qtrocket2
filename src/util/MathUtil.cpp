@@ -300,28 +300,39 @@ double signum(double d) noexcept
 
 double javaMax(double a, double b) noexcept
 {
+    // Java's Math.max, with every NaN and signed-zero case decided explicitly: MSVC's optimiser
+    // turns a bare (a >= b) ? a : b into maxsd, which returns its second operand for two zeros.
     if (std::isnan(a))
     {
         return a;
     }
-    if (a == 0.0 && b == 0.0 && std::signbit(a))
+    if (std::isnan(b))
     {
-        return b;  // max(-0.0, +-0.0) is the second zero, so +0.0 wins over -0.0
+        return b;
     }
-    return (a >= b) ? a : b;  // a NaN b fails the comparison and comes back
+    if (a == 0.0 && b == 0.0)
+    {
+        return std::signbit(a) ? b : a;  // max(-0.0, +-0.0) is the second zero; +0.0 wins
+    }
+    return (a > b) ? a : b;
 }
 
 double javaMin(double a, double b) noexcept
 {
+    // Java's Math.min; see javaMax() for why the NaN and zero cases are explicit.
     if (std::isnan(a))
     {
         return a;
     }
-    if (a == 0.0 && b == 0.0 && std::signbit(b))
+    if (std::isnan(b))
     {
-        return b;  // min(+-0.0, -0.0) is the second zero, so -0.0 wins over 0.0
+        return b;
     }
-    return (a <= b) ? a : b;  // a NaN b fails the comparison and comes back
+    if (a == 0.0 && b == 0.0)
+    {
+        return std::signbit(b) ? b : a;  // min(+-0.0, -0.0) is the second zero; -0.0 wins
+    }
+    return (a < b) ? a : b;
 }
 
 int javaDoubleHashCode(double value) noexcept
