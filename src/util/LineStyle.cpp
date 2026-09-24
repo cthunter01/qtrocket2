@@ -68,6 +68,22 @@ std::string_view toString(LineStyle style) noexcept
     return "solid";
 }
 
+std::string_view lineStyleName(LineStyle style) noexcept
+{
+    switch (style)
+    {
+        case LineStyle::SOLID:
+            return "SOLID";
+        case LineStyle::DASHED:
+            return "DASHED";
+        case LineStyle::DOTTED:
+            return "DOTTED";
+        case LineStyle::DASHDOT:
+            return "DASHDOT";
+    }
+    return "SOLID";
+}
+
 std::optional<LineStyle> lineStyleFromString(std::string_view text) noexcept
 {
     const std::string_view name = Strings::trim(text);
