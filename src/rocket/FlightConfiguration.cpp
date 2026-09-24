@@ -68,62 +68,33 @@ enum class SubstitutionKey
 
 struct KeyWord
 {
-    SubstitutionKey  key;
-    std::string_view word;
+    SubstitutionKey     key;
+    std::string_view    word;
+    std::u32string_view codePoints;  ///< the word as code points
 };
 
 constexpr std::array<KeyWord, 3> kKeyWords{{
-    {.key = SubstitutionKey::MOTORS, .word = "motors"},
-    {.key = SubstitutionKey::MANUFACTURERS, .word = "manufacturers"},
-    {.key = SubstitutionKey::CASES, .word = "cases"},
+    {.key = SubstitutionKey::MOTORS, .word = "motors", .codePoints = U"motors"},
+    {.key        = SubstitutionKey::MANUFACTURERS,
+     .word       = "manufacturers",
+     .codePoints = U"manufacturers"},
+    {.key = SubstitutionKey::CASES, .word = "cases", .codePoints = U"cases"},
 }};
 
 /// The most rounds of substitution getName() runs (Java: unbounded).
 constexpr int kMaxSubstitutionRounds = 100;
 
 /// Java regex \s: [ \t\n\x0B\f\r].
-[[nodiscard]] constexpr bool isJavaWhitespace(char c) noexcept
+[[nodiscard]] constexpr bool isJavaWhitespace(char32_t c) noexcept
 {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\x0B' || c == '\f' || c == '\r';
+    return c == U' ' || c == U'\t' || c == U'\n' || c == U'\x0B' || c == U'\f' || c == U'\r';
 }
 
-/// A word character for Java regex \b: an ASCII letter, digit or '_', or any non-ASCII byte (Java
-/// counts the Unicode letters and digits; see the class comment).
-[[nodiscard]] constexpr bool isWordChar(char c) noexcept
+/// Whether @p c is one of the line terminators Java's '.' does not match: \n, \r, U+0085, U+2028,
+/// U+2029.
+[[nodiscard]] constexpr bool isLineTerminator(char32_t c) noexcept
 {
-    const auto u = static_cast<unsigned char>(c);
-    return (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9') || u == '_' ||
-           u >= 0x80;
-}
-
-/// The length in bytes of the UTF-8 code point at @p pos (1 for a stray byte), within @p s.
-[[nodiscard]] std::size_t codePointLength(std::string_view s, std::size_t pos) noexcept
-{
-    const auto  lead   = static_cast<unsigned char>(s[pos]);
-    std::size_t length = 1;
-    if (lead >= 0xF0 && lead <= 0xF7)
-    {
-        length = 4;
-    }
-    else if (lead >= 0xE0)
-    {
-        length = 3;
-    }
-    else if (lead >= 0xC0)
-    {
-        length = 2;
-    }
-    return std::min(length, s.size() - pos);
-}
-
-/// Whether the code point of @p length bytes at @p pos is one of the line terminators Java's '.'
-/// does not match: \n, \r, U+0085, U+2028, U+2029.
-[[nodiscard]] bool isLineTerminator(std::string_view s, std::size_t pos,
-                                    std::size_t length) noexcept
-{
-    const std::string_view cp = s.substr(pos, length);
-    return cp == "\n" || cp == "\r" || cp == "\xC2\x85" || cp == "\xE2\x80\xA8" ||
-           cp == "\xE2\x80\xA9";
+    return c == U'\n' || c == U'\r' || c == U'\u0085' || c == U'\u2028' || c == U'\u2029';
 }
 
 /// A tag: the positions of its '{' and of its '}'.
@@ -140,7 +111,9 @@ struct Tag
 };
 
 /// The next match of Java's \{(.*?)\} at or after @p from: a '{' and the first '}' after it with
-/// no line terminator in between.
+/// no line terminator in between. The text is read as Java's decoder would have read it: a byte
+/// that does not start a well-formed UTF-8 sequence is one U+FFFD (Strings::nextCodePoint()), so a
+/// '}' right after a truncated sequence still closes the tag.
 [[nodiscard]] std::optional<Tag> findTag(std::string_view s, std::size_t from)
 {
     for (std::size_t open = from; open < s.size(); ++open)
@@ -156,12 +129,10 @@ struct Tag
             {
                 return Tag{.open = open, .close = pos};
             }
-            const std::size_t length = codePointLength(s, pos);
-            if (isLineTerminator(s, pos, length))
+            if (isLineTerminator(Strings::nextCodePoint(s, pos)))
             {
                 break;
             }
-            pos += length;
         }
     }
     return std::nullopt;
@@ -180,15 +151,14 @@ struct Tag
         std::size_t pos = open + 1;
         while (pos < s.size())
         {
-            const std::size_t length   = codePointLength(s, pos);
-            const bool        nonBlank = length > 1 || !isJavaWhitespace(s[pos]);
-            const std::size_t next     = pos + length;
-            if (nonBlank && next < s.size() && s[next] == '}')
+            std::size_t    next      = pos;
+            const char32_t codePoint = Strings::nextCodePoint(s, next);
+            if (!isJavaWhitespace(codePoint) && next < s.size() && s[next] == '}')
             {
                 return Tag{.open = open, .close = next};
             }
             // The character joins the lazy '.*?' part, which excludes line terminators.
-            if (isLineTerminator(s, pos, length))
+            if (isLineTerminator(codePoint))
             {
                 break;
             }
@@ -217,33 +187,33 @@ struct Tag
     return false;
 }
 
-/// The key words of @p tagContent matched as \b(motors|manufacturers|cases)\b, in order.
+/// The key words of @p tagContent matched as \b(motors|manufacturers|cases)\b, in order, with
+/// Java's \b (Strings::javaRegexWordBoundary()) over the content's code points.
 [[nodiscard]] std::vector<const KeyWord*> findKeyWords(std::string_view tagContent)
 {
+    const std::u32string        text = Strings::toCodePoints(tagContent);
     std::vector<const KeyWord*> found;
     std::size_t                 pos = 0;
-    while (pos < tagContent.size())
+    while (pos < text.size())
     {
         const KeyWord* matched = nullptr;
-        for (const KeyWord& keyWord : kKeyWords)
+        if (Strings::javaRegexWordBoundary(text, pos))
         {
-            const std::size_t end = pos + keyWord.word.size();
-            if (tagContent.substr(pos, keyWord.word.size()) != keyWord.word)
+            for (const KeyWord& keyWord : kKeyWords)
             {
-                continue;
-            }
-            const bool boundaryBefore = pos == 0 || !isWordChar(tagContent[pos - 1]);
-            const bool boundaryAfter  = end == tagContent.size() || !isWordChar(tagContent[end]);
-            if (boundaryBefore && boundaryAfter)
-            {
-                matched = &keyWord;
-                break;
+                const std::size_t end = pos + keyWord.codePoints.size();
+                if (std::u32string_view{text}.substr(pos).starts_with(keyWord.codePoints) &&
+                    Strings::javaRegexWordBoundary(text, end))
+                {
+                    matched = &keyWord;
+                    break;
+                }
             }
         }
         if (matched != nullptr)
         {
             found.push_back(matched);
-            pos += matched->word.size();
+            pos += matched->codePoints.size();
         }
         else
         {
@@ -397,7 +367,8 @@ using StageSubstitutes = std::map<const AxialStage*, std::optional<std::vector<s
             // The separator written before this key word in the tag.
             if (!stageSub.empty() && idx > 0)
             {
-                stageSub += separators.at(idx - 1);
+                QTROCKET_ASSERT(idx - 1 < separators.size());
+                stageSub += separators[idx - 1];
             }
             stageSub += finalSubstitute(*substitutes, stageSub);
             idx++;
@@ -884,6 +855,11 @@ bool FlightConfiguration::isComponentActive(const RocketComponent& component) co
     return isStageActive(component.getStageNumber());
 }
 
+bool FlightConfiguration::isMountActive(const MotorMount& mount) const
+{
+    return isComponentActive(asComponent(mount));
+}
+
 bool FlightConfiguration::hasRecoveryDevice() const
 {
     if (m_fcid.hasError())
@@ -1165,7 +1141,7 @@ void FlightConfiguration::updateMotors()
     m_activeMotors.clear();
     for (const MotorConfiguration& config : m_motors)
     {
-        if (isComponentActive(asComponent(config.getMount())))
+        if (isComponentActive(config.getMount()))
         {
             m_activeMotors.push_back(config);
         }
@@ -1262,12 +1238,13 @@ FlightConfiguration FlightConfiguration::clone(Rocket& rocket) const
     FlightConfiguration clone{rocket, m_fcid};
     clone.setNameRaw(m_configurationName);
     clone.copyStageActiveness(*this);
-    clone.m_preloadStageActiveness  = m_preloadStageActiveness;
-    clone.m_cachedBoundsAerodynamic = m_cachedBoundsAerodynamic;
-    clone.m_cachedBounds            = m_cachedBounds;
-    clone.m_modId                   = m_modId;
-    clone.m_boundsModId             = ModId::invalid();
-    clone.m_refLengthModId          = ModId::invalid();
+    clone.m_preloadStageActiveness = m_preloadStageActiveness;
+    clone.m_modId                  = m_modId;
+    // Java also copies the cached bounds, which nothing reads before they are recomputed (the
+    // bounds ids are invalid); not reading them keeps a clone made on another thread (a
+    // simulation's) from racing with the source's geometry getters.
+    clone.m_boundsModId    = ModId::invalid();
+    clone.m_refLengthModId = ModId::invalid();
     return clone;
 }
 
@@ -1292,13 +1269,12 @@ FlightConfiguration FlightConfiguration::copy(const FlightConfigurationId& newId
     }
 
     copy.copyStages(*this);
-    copy.m_preloadStageActiveness  = m_preloadStageActiveness;
-    copy.m_cachedBoundsAerodynamic = m_cachedBoundsAerodynamic;
-    copy.m_cachedBounds            = m_cachedBounds;
-    copy.m_modId                   = m_modId;
-    copy.m_boundsModId             = ModId::invalid();
-    copy.m_refLengthModId          = ModId::invalid();
-    copy.m_configurationName       = m_configurationName;
+    copy.m_preloadStageActiveness = m_preloadStageActiveness;
+    copy.m_modId                  = m_modId;
+    // The cached bounds are not copied (see clone()).
+    copy.m_boundsModId       = ModId::invalid();
+    copy.m_refLengthModId    = ModId::invalid();
+    copy.m_configurationName = m_configurationName;
     return copy;
 }
 

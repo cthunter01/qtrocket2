@@ -38,6 +38,11 @@ namespace QtRocket
 /// - get(int) throws BugError instead of an ArrayIndexOutOfBoundsException, and getId() gives
 ///   nullopt for Java's null.
 /// - toArray() (typed on FlightConfiguration) is not ported; iterate values() instead.
+/// - A parameter type whose default must never change declares kFixedDefaultMessage: setDefault()
+///   then throws BugError with it (Java: MotorConfigurationSet's setDefault() override throws
+///   UnsupportedOperationException, whichever reference it is called through).
+/// - toDebug() passes its arguments on to the values' toString() (FlightConfiguration's needs the
+///   Preferences).
 ///
 /// Copying a set clones every value with E::clone() (Java's copy constructor); moving keeps the
 /// cells.
@@ -82,12 +87,20 @@ public:
 
     /// Replaces the default value, unless it is equal to the current one (isDefault(value)).
     void setDefault(E nextDefaultValue)
+        requires(!requires { E::kFixedDefaultMessage; })
     {
-        if (isDefault(nextDefaultValue))
+        if (!isDefault(nextDefaultValue))
         {
-            return;
+            m_entries.front().second = std::make_unique<E>(std::move(nextDefaultValue));
         }
-        m_entries.front().second = std::make_unique<E>(std::move(nextDefaultValue));
+    }
+
+    /// The default of a parameter that declares kFixedDefaultMessage never changes.
+    /// @throws BugError with that message, always.
+    void setDefault(const E& /*nextDefaultValue*/)
+        requires requires { E::kFixedDefaultMessage; }
+    {
+        bug(E::kFixedDefaultMessage);
     }
 
     /// Whether @p fcid has an entry (an override, or the default id itself).
@@ -240,8 +253,10 @@ public:
     /// A multi-line dump: "====== Dumping ConfigurationSet<Name> (n configurations)" and one
     /// "    [shortkey    ]: value" line per override, the key starred when the value equals the
     /// default. Name is E::kTypeName when E declares it (Java: the class's simple name), and the
-    /// value is E::toString() when E has it.
-    [[nodiscard]] std::string toDebug() const
+    /// value is E::toString(@p args...) when E has it, else "?" (so a FlightConfiguration set
+    /// needs toDebug(preferences) for its names).
+    template <typename... Args>
+    [[nodiscard]] std::string toDebug([[maybe_unused]] const Args&... args) const
     {
         std::string      buf;
         std::string_view typeName = "Parameter";
@@ -262,9 +277,11 @@ public:
                 shortKey.push_back('*');
             }
             std::string text = "?";
-            if constexpr (requires(const E& value) { value.toString(); })
+            if constexpr (requires(const E& value, const Args&... arguments) {
+                              value.toString(arguments...);
+                          })
             {
-                text = inst.toString();
+                text = inst.toString(args...);
             }
             std::format_to(std::back_inserter(buf), "    [{:<12}]: {}\n", shortKey, text);
         }

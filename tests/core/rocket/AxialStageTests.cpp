@@ -18,7 +18,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestComponent.h"
-#include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {

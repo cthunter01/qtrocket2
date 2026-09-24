@@ -22,6 +22,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -63,6 +64,24 @@ TEST(MotorConfigurationSet, DefaultIsAnEmptyConfigurationOfTheMount)
     EXPECT_EQ(MotorConfigurationSet::kDefaultMotorEventType,
               ComponentChangeEvent::kMotorChange | ComponentChangeEvent::kEventChange);
     EXPECT_FALSE(mount->hasMotor());
+}
+
+TEST(MotorConfigurationSet, TheDefaultCannotChangeThroughTheBaseClass)
+{
+    const std::unique_ptr<TestMotorMount>               mount  = TestMotorMount::make(0.2, 0.01);
+    FlightConfigurableParameterSet<MotorConfiguration>& base   = mount->getMotorConfigurationSet();
+    const MotorConfiguration*                           before = &base.getDefault();
+
+    // Java's override throws whichever reference it is called through: even a configuration
+    // with a motor, or one equal to the default, is refused.
+    MotorConfiguration withMotor{*mount, FlightConfigurationId::defaultValueId()};
+    withMotor.setMotor(motorD21());
+    EXPECT_THROW(base.setDefault(withMotor), QtRocket::BugError);
+    EXPECT_THROW(base.setDefault(base.getDefault().clone()), QtRocket::BugError);
+    EXPECT_EQ(&base.getDefault(), before);
+    EXPECT_TRUE(base.getDefault().isEmpty());
+    EXPECT_EQ(MotorConfiguration::kFixedDefaultMessage,
+              "Cannot change default value of motor configuration");
 }
 
 /// Checks that @p copied is @p original made anew for @p target.
@@ -176,7 +195,7 @@ TEST(MotorConfigurationSet, ToDebug)
     };
     const std::string expected = " ====== Dumping MotorConfigurationSet: 1 motors in " +
                                  mount->getDebugName() + " ======\n" + "  [DEF]" +
-                                 line("DefaultKey", defaults, "empty") + "       " +
+                                 line("DefaultKey", defaults, "None") + "       " +
                                  line(fcid.toShortKey(), config, "D21-3");
     EXPECT_EQ(mount->getMotorConfigurationSet().toDebug(preferences), expected);
     EXPECT_EQ(mount->toMotorDebug(preferences), expected);

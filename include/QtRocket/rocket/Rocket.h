@@ -70,9 +70,16 @@ class Preferences;
 ///   whatever its StageTracking, and update() rebuilds the map from the tree's stages. Java keeps
 ///   the entry of a stage removed without tracking (a stale but live object there) until its
 ///   number is reused; the same stages get the same numbers either way.
-/// - The selected configuration is kept by id: getSelectedConfiguration() is the set's
-///   configuration of that id, or the default when the set no longer holds one (Java keeps the
-///   removed object selected until removeFlightConfiguration() or another selection).
+/// - The selected configuration is kept by its id. When setFlightConfiguration(id, nullopt) drops
+///   it from the set, Java keeps the removed object selected; here the selection is marked
+///   orphaned: getSelectedConfiguration() gives the default instead of the removed object, while
+///   setSelectedConfiguration(), toDebugConfigs(), copyWithOriginalId() and loadFrom() go on
+///   using the removed configuration's id, as Java does. So selecting the default fires
+///   NONFUNCTIONAL_CHANGE, and a configuration made again with that id is not selected (Java:
+///   the removed object stays selected), until setSelectedConfiguration() selects another id or
+///   removeFlightConfiguration() of that id selects the default. A configuration removed from
+///   the set directly (getFlightConfigurations()) leaves the selection on an id without a
+///   configuration, and getSelectedConfiguration() gives the default then too.
 /// - removeChild() drops the removed subtree from every configuration's instance maps and motors
 ///   at once (see FlightConfiguration), and loadFrom() updates the default configuration for the
 ///   loaded tree, so that no configuration refers to a destroyed component while events are
@@ -224,7 +231,8 @@ public:
     [[nodiscard]] const FlightConfiguration& getSelectedConfiguration() const;
 
     /// Selects the configuration of @p selectId (the default when the set has none) and fires
-    /// NONFUNCTIONAL_CHANGE; nothing happens when its id is already selected.
+    /// NONFUNCTIONAL_CHANGE; nothing happens when @p selectId is the selected id (also that of an
+    /// orphaned selection, see the class comment).
     void setSelectedConfiguration(const FlightConfigurationId& selectId);
 
     /// The number of configurations, the default not counted (Java: getConfigurationCount() and
@@ -239,7 +247,8 @@ public:
     /// @throws BugError when @p configIndex is out of range (Java: IndexOutOfBoundsException).
     [[nodiscard]] FlightConfigurationId getFlightConfigurationId(int configIndex) const;
 
-    /// Removes the configuration of @p fcid: selects the default when it was selected, resets
+    /// Removes the configuration of @p fcid: selects the default when its id was the selected
+    /// one (also for an orphaned selection), resets
     /// @p fcid in every FlightConfigurableComponent, drops it from the set and fires
     /// NONFUNCTIONAL_CHANGE. The error id is ignored; the default id cannot be removed.
     void removeFlightConfiguration(const FlightConfigurationId& fcid);
@@ -284,8 +293,11 @@ public:
                                                                      bool allowDefault = false);
 
     /// Stores @p newConfig under @p fcid and fires NONFUNCTIONAL_CHANGE; nullopt removes the
-    /// configuration of @p fcid (Java: null). Nothing happens for the error id, nor when the set
-    /// already holds a configuration with the id @p fcid.
+    /// configuration of @p fcid (Java: null), orphaning the selection when it was the selected
+    /// one (see the class comment). Nothing happens for the error id, nor when the set already
+    /// holds a configuration with the id @p fcid.
+    /// @throws BugError when @p newConfig is stored and is not a configuration of this rocket
+    ///         with the id @p fcid (Java stores it all the same).
     void setFlightConfiguration(const FlightConfigurationId&       fcid,
                                 std::optional<FlightConfiguration> newConfig);
 
@@ -294,8 +306,8 @@ public:
     [[nodiscard]] const FlightConfiguration& getEmptyConfiguration() const noexcept;
 
     /// "====== Dumping <n> Configurations from rocket: <name> ======" and one line per
-    /// configuration, the default first: its short key ("=>" before the selected one's) and its
-    /// raw name.
+    /// configuration, the default first: its short key ("=>" before the one with the selected id)
+    /// and its raw name. getFlightConfigurations().toDebug(preferences) is the set's own dump.
     [[nodiscard]] std::string toDebugConfigs(const Preferences& preferences) const;
 
     // --------------------------------------------------------------------------- events
@@ -457,6 +469,9 @@ private:
     FlightConfigurableParameterSet<FlightConfiguration> m_configSet;
     /// The id of the selected configuration (see the class comment).
     FlightConfigurationId m_selectedConfigurationId{FlightConfigurationId::defaultValueId()};
+    /// Whether the selected configuration has left the set (Java keeps the removed object
+    /// selected); getSelectedConfiguration() gives the default then.
+    bool m_selectionOrphaned{false};
 };
 
 }  // namespace QtRocket

@@ -20,6 +20,7 @@
 #include "QtRocket/util/Inertia.h"
 #include "QtRocket/util/ModId.h"
 #include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -78,7 +79,7 @@ TEST_F(MotorConfigurationTest, NewConfigurationIsEmptyAndAutomatic)
     EXPECT_FALSE(config.hasIgnitionOverride());
     EXPECT_GT(config.getModId(), QtRocket::ModId::zero());
     EXPECT_EQ(config.modId(), config.getModId());
-    EXPECT_EQ(config.toMotorName(m_preferences), "empty");
+    EXPECT_EQ(config.toMotorName(m_preferences), "None");
 }
 
 TEST_F(MotorConfigurationTest, EmptyConfigurationHasNoGeometry)

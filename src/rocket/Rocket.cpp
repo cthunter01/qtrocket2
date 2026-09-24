@@ -323,22 +323,26 @@ double Rocket::getBoundingRadius() const
 
 FlightConfiguration& Rocket::getSelectedConfiguration()
 {
-    return m_configSet.get(m_selectedConfigurationId);
+    return m_selectionOrphaned ? m_configSet.getDefault()
+                               : m_configSet.get(m_selectedConfigurationId);
 }
 
 const FlightConfiguration& Rocket::getSelectedConfiguration() const
 {
-    return m_configSet.get(m_selectedConfigurationId);
+    return m_selectionOrphaned ? m_configSet.getDefault()
+                               : m_configSet.get(m_selectedConfigurationId);
 }
 
 void Rocket::setSelectedConfiguration(const FlightConfigurationId& selectId)
 {
-    if (selectId == getSelectedConfiguration().getFlightConfigurationId())
+    // Java compares with the selected object's id, also when that object has left the set.
+    if (selectId == m_selectedConfigurationId)
     {
         // The configuration is already selected: no event.
         return;
     }
     m_selectedConfigurationId = m_configSet.get(selectId).getId();
+    m_selectionOrphaned       = false;
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
 }
 
@@ -374,9 +378,10 @@ void Rocket::removeFlightConfiguration(const FlightConfigurationId& fcid)
     {
         return;
     }
-    if (getSelectedConfiguration().getId() == fcid)
+    if (m_selectedConfigurationId == fcid)
     {
         m_selectedConfigurationId = FlightConfigurationId::defaultValueId();
+        m_selectionOrphaned       = false;
     }
 
     // Every component configuration tied to this id goes too.
@@ -476,6 +481,11 @@ void Rocket::setFlightConfiguration(const FlightConfigurationId&       fcid,
     if (!newConfig)
     {
         m_configSet.reset(fcid);
+        if (fcid == m_selectedConfigurationId && !m_configSet.containsId(fcid))
+        {
+            // Java keeps the removed configuration selected (see the class comment).
+            m_selectionOrphaned = true;
+        }
     }
     else if (fcid == m_configSet.get(fcid).getFlightConfigurationId())
     {
@@ -484,6 +494,11 @@ void Rocket::setFlightConfiguration(const FlightConfigurationId&       fcid,
     }
     else
     {
+        // OpenRocket's only caller (FlightConfigurationPanel) passes a configuration of this
+        // rocket stored under its own id; anything else would be selected and found by the wrong
+        // key, or refer to another rocket's components.
+        QTROCKET_ASSERT(newConfig->getId() == fcid);
+        QTROCKET_ASSERT(&newConfig->getRocket() == this);
         m_configSet.set(fcid, std::move(*newConfig));
     }
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
@@ -508,7 +523,8 @@ std::string Rocket::toDebugConfigs(const Preferences& preferences) const
     for (const FlightConfiguration& config : m_configSet.values())
     {
         std::string shortKey = config.getId().toShortKey();
-        if (getSelectedConfiguration() == config)
+        // Java's equals(): the same id, also for a selection that has left the set.
+        if (config.getId() == m_selectedConfigurationId)
         {
             shortKey.insert(0, "=>");
         }
@@ -709,8 +725,10 @@ std::unique_ptr<RocketComponent> Rocket::copyWithOriginalId() const
     copyRocket.m_configSet = FlightConfigurableParameterSet<FlightConfiguration>{
         FlightConfiguration{copyRocket, FlightConfigurationId::defaultValueId()}};
     copyRocket.rebuildConfigurations(m_configSet);
+    // Java looks up the selected object's id, also when that object has left the set.
     copyRocket.m_selectedConfigurationId =
-        copyRocket.m_configSet.get(getSelectedConfiguration().getId()).getId();
+        copyRocket.m_configSet.get(m_selectedConfigurationId).getId();
+    copyRocket.m_selectionOrphaned = false;
     return copy;
 }
 
@@ -765,7 +783,8 @@ void Rocket::loadFrom(const Rocket& source)
     m_configSet.reset();
     m_configSet.getDefault().update();
     rebuildConfigurations(source.m_configSet);
-    m_selectedConfigurationId = m_configSet.get(source.getSelectedConfiguration().getId()).getId();
+    m_selectedConfigurationId = m_configSet.get(source.m_selectedConfigurationId).getId();
+    m_selectionOrphaned       = false;
 
     m_perfectFinish = source.m_perfectFinish;
 

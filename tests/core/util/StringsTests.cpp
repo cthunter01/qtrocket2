@@ -937,6 +937,111 @@ TEST(Strings, JavaLengthCountsUtf16CodeUnits)
     EXPECT_EQ(Strings::javaLength("\xFF"), 1U);
 }
 
+TEST(Strings, NextCodePointReadsOneCodePoint)
+{
+    const std::string_view text     = "a\u00E9\U0001F680\xC3}";
+    std::size_t            position = 0;
+    EXPECT_EQ(Strings::nextCodePoint(text, position), U'a');
+    EXPECT_EQ(position, 1U);
+    EXPECT_EQ(Strings::nextCodePoint(text, position), U'\u00E9');
+    EXPECT_EQ(position, 3U);
+    EXPECT_EQ(Strings::nextCodePoint(text, position), U'\U0001F680');
+    EXPECT_EQ(position, 7U);
+    // A truncated sequence is one U+FFFD, and the byte after it is read on its own.
+    EXPECT_EQ(Strings::nextCodePoint(text, position), U'\uFFFD');
+    EXPECT_EQ(position, 8U);
+    EXPECT_EQ(Strings::nextCodePoint(text, position), U'}');
+    EXPECT_EQ(position, text.size());
+}
+
+TEST(Strings, JavaIsLetterOrDigitMatchesJdk17)
+{
+    // Character.isLetterOrDigit() of JDK 17.
+    for (const char32_t c :
+         {U'a', U'Z', U'0', U'9', U'\u00AA', U'\u00B5', U'\u00BA', U'\u00E9', U'\u01C5', U'\u02B0',
+          U'\u4E2D', U'\u0660', U'\U00010400', U'\U0001D7CE', U'\U00030000'})
+    {
+        EXPECT_TRUE(Strings::javaIsLetterOrDigit(c)) << static_cast<std::uint32_t>(c);
+    }
+    for (const char32_t c :
+         {U'_', U' ', U'-', U'\u00A0', U'\u00B2', U'\u00B7', U'\u00D7', U'\u00F7', U'\u0301',
+          U'\u0903', U'\u2014', U'\u2160', U'\uFFFD', U'\U0001F600', U'\U0010FFFF', U'\0'})
+    {
+        EXPECT_FALSE(Strings::javaIsLetterOrDigit(c)) << static_cast<std::uint32_t>(c);
+    }
+}
+
+TEST(Strings, JavaIsNonSpacingMarkMatchesJdk17)
+{
+    for (const char32_t c : {U'\u0300', U'\u0301', U'\u036F', U'\u0610', U'\u20D0', U'\U0001D167',
+                             U'\U000E0100', U'\U000E01EF'})
+    {
+        EXPECT_TRUE(Strings::javaIsNonSpacingMark(c)) << static_cast<std::uint32_t>(c);
+    }
+    // U+0903 is a spacing mark (Mc), U+20DD an enclosing one (Me).
+    for (const char32_t c : {U'a', U' ', U'\u0903', U'\u20DD', U'\u00B4', U'\U000E01F0'})
+    {
+        EXPECT_FALSE(Strings::javaIsNonSpacingMark(c)) << static_cast<std::uint32_t>(c);
+    }
+}
+
+/// The indices at which Java's \b matches in @p text.
+std::vector<std::size_t> wordBoundaries(std::u32string_view text)
+{
+    std::vector<std::size_t> found;
+    for (std::size_t i = 0; i <= text.size(); i++)
+    {
+        if (Strings::javaRegexWordBoundary(text, i))
+        {
+            found.push_back(i);
+        }
+    }
+    return found;
+}
+
+TEST(Strings, JavaRegexWordBoundaryMatchesJdk17)
+{
+    using Indices = std::vector<std::size_t>;
+    // The positions of Pattern.compile("\\b").matcher(text).find() on JDK 17, in code points.
+    EXPECT_EQ(wordBoundaries(U"motors"), (Indices{0, 6}));
+    EXPECT_EQ(wordBoundaries(U"a b"), (Indices{0, 1, 2, 3}));
+    EXPECT_EQ(wordBoundaries(U"_x_"), (Indices{0, 3}));
+    EXPECT_EQ(wordBoundaries(U""), (Indices{}));
+    EXPECT_EQ(wordBoundaries(U" "), (Indices{}));
+    // Non-ASCII punctuation, symbols, No and Nl numbers and U+FFFD end a word.
+    EXPECT_EQ(wordBoundaries(U"motors\u00D7cases"), (Indices{0, 6, 7, 12}));
+    EXPECT_EQ(wordBoundaries(U"motors\u2014cases"), (Indices{0, 6, 7, 12}));
+    EXPECT_EQ(wordBoundaries(U"motors\u00B7cases"), (Indices{0, 6, 7, 12}));
+    EXPECT_EQ(wordBoundaries(U"motors\u00A0cases"), (Indices{0, 6, 7, 12}));
+    EXPECT_EQ(wordBoundaries(U"\u00B2motors"), (Indices{1, 7}));
+    EXPECT_EQ(wordBoundaries(U"\u2160motors"), (Indices{1, 7}));
+    EXPECT_EQ(wordBoundaries(U"motors\uFFFD"), (Indices{0, 6}));
+    EXPECT_EQ(wordBoundaries(U"\u0903motors"), (Indices{1, 7}));
+    EXPECT_EQ(wordBoundaries(U"\U0001F600motors"), (Indices{1, 7}));
+    // Letters and digits beyond ASCII continue it.
+    EXPECT_EQ(wordBoundaries(U"\u00E9motors"), (Indices{0, 7}));
+    EXPECT_EQ(wordBoundaries(U"\u00B5motors"), (Indices{0, 7}));
+    EXPECT_EQ(wordBoundaries(U"\u00AAx\u00BA"), (Indices{0, 3}));
+    EXPECT_EQ(wordBoundaries(U"\u4E2Dmotors"), (Indices{0, 7}));
+    EXPECT_EQ(wordBoundaries(U"\u0660\u0661"), (Indices{0, 2}));
+    EXPECT_EQ(wordBoundaries(U"\U00010400motors"), (Indices{0, 7}));
+    // A non-spacing mark is a word character after a letter or digit only.
+    EXPECT_EQ(wordBoundaries(U"motors\u0301"), (Indices{0, 7}));
+    EXPECT_EQ(wordBoundaries(U"-\u0301motors"), (Indices{2, 8}));
+    EXPECT_EQ(wordBoundaries(U"x\u0301 "), (Indices{0, 2}));
+    EXPECT_EQ(wordBoundaries(U"_\u0301a"), (Indices{0, 1, 2, 3}));
+    EXPECT_EQ(wordBoundaries(U"\u0301a"), (Indices{1, 2}));
+    EXPECT_EQ(wordBoundaries(U" \u0301\u0301a"), (Indices{3, 4}));
+    EXPECT_EQ(wordBoundaries(U"a\u0301\u0301 "), (Indices{0, 3}));
+    EXPECT_EQ(wordBoundaries(U"\u0301"), (Indices{}));
+    EXPECT_EQ(wordBoundaries(U"a\u0301b\u0301 \u0301"), (Indices{0, 4}));
+    // Java's walk back over UTF-16 code units stops at a code point above U+FFFF.
+    EXPECT_EQ(wordBoundaries(U"a\U0001D167 "), (Indices{0}));
+    EXPECT_EQ(wordBoundaries(U"\U0001D167a"), (Indices{1, 2}));
+    EXPECT_EQ(wordBoundaries(U"a\U0001D167\u0301 "), (Indices{0}));
+    EXPECT_EQ(wordBoundaries(U"\U00010400\u0301 "), (Indices{0, 1}));
+}
+
 TEST(Strings, JavaPrimaryCollatorCompareMatchesJava)
 {
     // Collator.getInstance(Locale.US) at PRIMARY strength, pinned from JDK 17.

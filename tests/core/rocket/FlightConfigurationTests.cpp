@@ -8,10 +8,12 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -26,6 +28,7 @@
 #include "QtRocket/rocket/InstanceMap.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorConfigurationSet.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/ReferenceType.h"
@@ -38,8 +41,10 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/ModId.h"
+#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 #include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -58,6 +63,7 @@ using QtRocket::InstanceContext;
 using QtRocket::InstanceMap;
 using QtRocket::ModId;
 using QtRocket::MotorConfiguration;
+using QtRocket::MotorMount;
 using QtRocket::ParallelStage;
 using QtRocket::PodSet;
 using QtRocket::RadiusMethod;
@@ -760,9 +766,13 @@ TEST(FlightConfigurationTest, Copy)
     EXPECT_EQ(original.getPreloadedStageActiveness(), copy.getPreloadedStageActiveness());
     EXPECT_FALSE(copy.getPreloadedStageActiveness().has_value());
 
-    // The modification id is copied. (Java also checks the private cached bounds and the invalid
-    // bounds and reference length ids through reflection; they are private here.)
+    // The modification id is copied. (Java also checks through reflection that the cached
+    // bounds are copied and the bounds and reference length ids invalid; the port does not copy
+    // the cached bounds, see clone(), and the bounds the copy computes are the same.)
     EXPECT_EQ(original.getModId(), copy.getModId());
+    EXPECT_EQ(original.getBoundingBox(), copy.getBoundingBox());
+    EXPECT_EQ(original.getBoundingBoxAerodynamic(), copy.getBoundingBoxAerodynamic());
+    EXPECT_EQ(original.getLength(), copy.getLength());
 
     EXPECT_EQ(stageActiveness(original), stageActiveness(copy));
     EXPECT_EQ(stageActiveness(copy), (std::vector<bool>{true, false, false}));
@@ -784,6 +794,10 @@ TEST(FlightConfigurationTest, Clone)
     EXPECT_EQ(original.getPreloadedStageActiveness(), clone.getPreloadedStageActiveness());
     EXPECT_EQ(original.getModId(), clone.getModId());
     EXPECT_EQ(stageActiveness(original), stageActiveness(clone));
+    // Java compares the cached bounds (copied there); here the clone computes its own.
+    EXPECT_EQ(original.getBoundingBox(), clone.getBoundingBox());
+    EXPECT_EQ(original.getBoundingBoxAerodynamic(), clone.getBoundingBoxAerodynamic());
+    EXPECT_EQ(original.getLengthAerodynamic(), clone.getLengthAerodynamic());
 }
 
 // ================================================================= QtRocket's own cases
@@ -962,6 +976,44 @@ TEST_F(ConfigurationTest, ComponentLists)
     EXPECT_FALSE(config.isComponentActive(*m_topBody));
     EXPECT_TRUE(config.isComponentActive(*m_mount));
     EXPECT_TRUE(config.isComponentActive(m_rocket));
+
+    // A mount known by its interface (Java's isComponentActive(MotorMount)).
+    const MotorMount& mount = *m_mount;
+    EXPECT_TRUE(config.isComponentActive(mount));
+    config.setStageActive(1, false);
+    EXPECT_FALSE(config.isComponentActive(mount));
+    EXPECT_FALSE(
+        config.isComponentActive(m_mount->getMotorConfig(FlightConfigurationId{}).getMount()));
+}
+
+// Const access stays const: a const configuration gives a const rocket, a const motor
+// configuration a const mount.
+static_assert(std::is_same_v<decltype(std::declval<const FlightConfiguration&>().getRocket()),
+                             const Rocket&>);
+static_assert(std::is_same_v<decltype(std::declval<FlightConfiguration&>().getRocket()), Rocket&>);
+static_assert(std::is_same_v<decltype(std::declval<const MotorConfiguration&>().getMount()),
+                             const MotorMount&>);
+static_assert(
+    std::is_same_v<decltype(std::declval<MotorConfiguration&>().getMount()), MotorMount&>);
+// A holder may reassign a configuration it keeps by value (a simulation status); copies go
+// through clone().
+static_assert(std::is_nothrow_move_assignable_v<FlightConfiguration>);
+static_assert(!std::is_copy_assignable_v<FlightConfiguration>);
+
+TEST_F(ConfigurationTest, AConfigurationCanBeMoveAssigned)
+{
+    const FlightConfigurationId        fcid;
+    std::optional<FlightConfiguration> held{m_rocket.getSelectedConfiguration().clone()};
+    FlightConfiguration                other{m_rocket, fcid};
+    other.setStageActive(0, false);
+    *held = std::move(other);
+    EXPECT_EQ(held->getId(), fcid);
+    EXPECT_EQ(&held->getRocket(), &m_rocket);
+    EXPECT_FALSE(held->isStageActive(0));
+    EXPECT_EQ(held->getActiveInstances().count(*m_mount), 1);
+    EXPECT_FALSE(held->getActiveInstances().containsKey(*m_topBody));
+    held = m_rocket.getSelectedConfiguration().clone();
+    EXPECT_TRUE(held->getId().isDefaultId());
 }
 
 TEST_F(ConfigurationTest, ActiveComponentsAreBreadthFirstOverTheActiveStages)
@@ -1293,6 +1345,230 @@ TEST_F(ConfigurationTest, RemovedComponentsLeaveTheConfigurationsAtOnce)
     EXPECT_TRUE(config.getActiveMotors().empty());
     removed.reset();  // destroys the components
     EXPECT_NEAR(config.getLength(), 0.3, 1e-12);
+}
+
+/// Every component of @p subtree, itself included, by address.
+std::set<const RocketComponent*> componentsOf(const RocketComponent& subtree)
+{
+    std::set<const RocketComponent*> components;
+    subtree.forEach([&components](const RocketComponent& c) { components.insert(&c); });
+    return components;
+}
+
+/// The motor mounts of @p subtree, by address.
+std::set<const MotorMount*> mountsOf(const RocketComponent& subtree)
+{
+    std::set<const MotorMount*> mounts;
+    subtree.forEach([&mounts](const RocketComponent& c) {
+        if (const auto* mount = dynamic_cast<const MotorMount*>(&c))
+        {
+            mounts.insert(mount);
+        }
+    });
+    return mounts;
+}
+
+/// Whether @p map refers to none of @p removed (compared by address, never dereferenced) and
+/// every entry left is a live component of @p rocket's tree (dereferenced, so AddressSanitizer
+/// reports a dangling one).
+::testing::AssertionResult mapForgets(const InstanceMap& map, const Rocket& rocket,
+                                      const std::set<const RocketComponent*>& removed)
+{
+    for (const auto& [component, contexts] : map)
+    {
+        if (removed.contains(component))
+        {
+            return ::testing::AssertionFailure() << "a removed component is kept";
+        }
+        if (&component->getRoot() != &rocket)
+        {
+            return ::testing::AssertionFailure() << component->getName() << " is not in the tree";
+        }
+        const bool stray = std::ranges::any_of(
+            contexts, [component](const InstanceContext& c) { return c.component != component; });
+        if (stray)
+        {
+            return ::testing::AssertionFailure() << "a stray context";
+        }
+    }
+    return ::testing::AssertionSuccess();
+}
+
+/// Whether @p motors has no motor of @p removedMounts (compared by address) and every mount left
+/// is in @p rocket's tree (dereferenced).
+::testing::AssertionResult motorsForget(const std::vector<MotorConfiguration>& motors,
+                                        const Rocket&                          rocket,
+                                        const std::set<const MotorMount*>&     removedMounts)
+{
+    for (const MotorConfiguration& motor : motors)
+    {
+        if (removedMounts.contains(&motor.getMount()))
+        {
+            return ::testing::AssertionFailure() << "a removed motor is kept";
+        }
+        if (&QtRocket::asComponent(motor.getMount()).getRoot() != &rocket)
+        {
+            return ::testing::AssertionFailure() << "a motor off the tree";
+        }
+    }
+    return ::testing::AssertionSuccess();
+}
+
+/// Whether no configuration of @p rocket, the default included, refers to one of the removed
+/// components or mounts, in its instance maps or its motor lists.
+::testing::AssertionResult forgetsTheRemoved(const Rocket&                           rocket,
+                                             const std::set<const RocketComponent*>& removed,
+                                             const std::set<const MotorMount*>&      removedMounts)
+{
+    for (const FlightConfiguration& config : rocket.getFlightConfigurations().values())
+    {
+        for (::testing::AssertionResult result :
+             {mapForgets(config.getActiveInstances(), rocket, removed),
+              mapForgets(config.getExtraRenderInstances(), rocket, removed),
+              motorsForget(config.getAllMotors(), rocket, removedMounts),
+              motorsForget(config.getActiveMotors(), rocket, removedMounts)})
+        {
+            if (!result)
+            {
+                return result << " (configuration " << config.getId().toShortKey() << ")";
+            }
+        }
+    }
+    return ::testing::AssertionSuccess();
+}
+
+TEST(FlightConfigurationRemoval, TheBoosterSetLeavesEveryConfiguration)
+{
+    const TestFalcon9Heavy      f9h;
+    Rocket&                     rocket = *f9h.rocket;
+    const FlightConfigurationId other;
+    rocket.createFlightConfiguration(other).setOnlyStage(f9h.coreStage->getStageNumber());
+    f9h.boosterMotorTubes->addMotor(other, motorD21());
+    rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
+    ASSERT_TRUE(rocket.getFlightConfiguration(f9h.fcid).getActiveInstances().containsKey(
+        *f9h.boosterMotorTubes));
+    ASSERT_EQ(rocket.getFlightConfiguration(f9h.fcid).getAllMotors().size(), 2U);
+
+    const std::set<const RocketComponent*> removed       = componentsOf(*f9h.boosterStage);
+    const std::set<const MotorMount*>      removedMounts = mountsOf(*f9h.boosterStage);
+    std::unique_ptr<RocketComponent>       boosters = f9h.coreBody->removeChild(f9h.boosterStage);
+    ASSERT_NE(boosters, nullptr);
+    boosters.reset();  // destroys the booster set and its components
+
+    EXPECT_TRUE(forgetsTheRemoved(rocket, removed, removedMounts));
+    const FlightConfiguration& config = rocket.getFlightConfiguration(f9h.fcid);
+    ASSERT_EQ(config.getAllMotors().size(), 1U) << "the core motor stays";
+    EXPECT_EQ(&config.getAllMotors().front().getMount(),
+              static_cast<const MotorMount*>(f9h.coreBody));
+    EXPECT_TRUE(config.getActiveInstances().containsKey(*f9h.coreBody));
+    EXPECT_EQ(config.getStageCount(), 2) << "the booster set's flag is gone";
+    EXPECT_NEAR(config.getLength(), 1.364, 1e-8);
+}
+
+TEST(FlightConfigurationRemoval, AnExtraRenderedBoosterSetLeavesAtOnce)
+{
+    const TestFalcon9Heavy f9h;
+    Rocket&                rocket = *f9h.rocket;
+    // A booster set without children is inactive but drawn while its flag is set.
+    ParallelStage& empty = f9h.coreBody->addChild(std::make_unique<ParallelStage>());
+    empty.setInstanceCount(3);
+    const FlightConfiguration& config = rocket.getSelectedConfiguration();
+    ASSERT_EQ(config.getExtraRenderInstances().count(empty), 3);
+    ASSERT_EQ(rocket.getEmptyConfiguration().getExtraRenderInstances().count(empty), 3);
+
+    // Frozen: the event waits for the thaw, the configurations forget the set at once.
+    const std::set<const RocketComponent*> removed = componentsOf(empty);
+    rocket.freeze();
+    std::unique_ptr<RocketComponent> taken = f9h.coreBody->removeChild(&empty);
+    ASSERT_NE(taken, nullptr);
+    taken.reset();
+    EXPECT_TRUE(forgetsTheRemoved(rocket, removed, {}));
+    EXPECT_TRUE(config.getExtraRenderInstances().isEmpty());
+    rocket.thaw();
+    EXPECT_TRUE(forgetsTheRemoved(rocket, removed, {}));
+}
+
+TEST(FlightConfigurationRemoval, AMountUnderAComponentThatStaysLeaves)
+{
+    const TestFalcon9Heavy                 f9h;
+    Rocket&                                rocket        = *f9h.rocket;
+    const std::set<const RocketComponent*> removed       = componentsOf(*f9h.boosterMotorTubes);
+    const std::set<const MotorMount*>      removedMounts = mountsOf(*f9h.boosterMotorTubes);
+
+    // With events disabled no update follows: only the removal itself cleans up.
+    rocket.enableEvents(false);
+    std::unique_ptr<RocketComponent> tubes = f9h.boosterBody->removeChild(f9h.boosterMotorTubes);
+    ASSERT_NE(tubes, nullptr);
+    tubes.reset();
+
+    EXPECT_TRUE(forgetsTheRemoved(rocket, removed, removedMounts));
+    const FlightConfiguration& config = rocket.getFlightConfiguration(f9h.fcid);
+    EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2)
+        << "its parent keeps its instances";
+    EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterFins), 6) << "3 fins per booster";
+    EXPECT_EQ(config.getAllMotors().size(), 1U);
+    EXPECT_EQ(config.getActiveMotors().size(), 1U);
+}
+
+/// The names of TestFalcon9Heavy's selected configuration (two boosters) with tags next to
+/// non-ASCII characters.
+class NonAsciiNameTest : public ::testing::Test
+{
+protected:
+    /// getName() after setName(@p name).
+    [[nodiscard]] std::string nameOf(std::string_view name)
+    {
+        FlightConfiguration& selected = m_f9h.rocket->getSelectedConfiguration();
+        selected.setName(name);
+        return selected.getName(m_prefs);
+    }
+
+    /// "8×": the booster motors of both boosters.
+    [[nodiscard]] static std::string eight() { return std::format("8{}", kTimes); }
+
+private:
+    TestFalcon9Heavy    m_f9h;
+    InMemoryPreferences m_prefs;
+};
+
+TEST_F(NonAsciiNameTest, PunctuationAndSymbolsSeparateKeys)
+{
+    // Java's \b: punctuation, symbols and the no-break space end a word.
+    EXPECT_EQ(nameOf("[{motors\u00D7manufacturers}]"),
+              std::format("[None; M1350-0\u00D7AeroTech; {} G77-0\u00D7AeroTech]", eight()));
+    EXPECT_EQ(nameOf("[{motors\u2014cases}]"),
+              std::format("[None; M1350-0\u2014SU 75/512; {} G77-0\u2014SU 29/180]", eight()));
+    EXPECT_EQ(nameOf("[{motors\u00B7cases}]"),
+              std::format("[None; M1350-0\u00B7SU 75/512; {} G77-0\u00B7SU 29/180]", eight()));
+    EXPECT_EQ(nameOf("[{motors\u00A0cases}]"),
+              std::format("[None; M1350-0\u00A0SU 75/512; {} G77-0\u00A0SU 29/180]", eight()));
+}
+
+TEST_F(NonAsciiNameTest, NumbersThatAreNoDigitsEndAWord)
+{
+    // "²" (No) and "Ⅰ" (Nl) are neither letters nor digits; a non-spacing mark after '-' has no
+    // base letter.
+    const std::string motors = std::format("[None; M1350-0; {} G77-0]", eight());
+    EXPECT_EQ(nameOf("[{\u00B2motors}]"), motors);
+    EXPECT_EQ(nameOf("[{\u2160motors}]"), motors);
+    EXPECT_EQ(nameOf("[{-\u0301motors}]"), motors);
+}
+
+TEST_F(NonAsciiNameTest, LettersAndMarksContinueAWord)
+{
+    // No key, so the tag becomes "No motors".
+    EXPECT_EQ(nameOf("[{\u00E9motors}]"), "[No motors]");
+    EXPECT_EQ(nameOf("[{\u00B5motors}]"), "[No motors]");
+    EXPECT_EQ(nameOf("[{motors\u0301}]"), "[No motors]");
+}
+
+TEST_F(NonAsciiNameTest, MalformedBytesAreReplacementCharacters)
+{
+    // A malformed byte reads as U+FFFD (Java decodes it so), which ends a word, and the '}'
+    // after a truncated sequence closes the tag.
+    EXPECT_EQ(nameOf("[{motors\xC3}]"), std::format("[None; M1350-0; {} G77-0]", eight()));
+    EXPECT_EQ(nameOf("[{\xC3motors}] {x\xE2\x80}"),
+              std::format("[None; M1350-0; {} G77-0] No motors", eight()));
 }
 
 TEST_F(ConfigurationTest, DebugStrings)

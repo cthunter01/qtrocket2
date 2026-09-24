@@ -26,8 +26,8 @@ class Preferences;
 /// the copy (Java's set() ignores the default id; the loop reaches the default too).
 ///
 /// Deviations from OpenRocket:
-/// - setDefault() throws UnsupportedOperationException in Java; here it is deleted. It stays
-///   reachable through a reference to the base class, which does not know about the rule.
+/// - setDefault() throws UnsupportedOperationException in Java; here it is deleted, and through
+///   a reference to the base class it throws BugError (MotorConfiguration::kFixedDefaultMessage).
 /// - toDebug() takes the Preferences that choose the motor names; the base class's toDebug()
 ///   (the generic format) is hidden.
 class MotorConfigurationSet : public FlightConfigurableParameterSet<MotorConfiguration>
@@ -52,7 +52,8 @@ public:
     MotorConfigurationSet& operator=(MotorConfigurationSet&&)      = delete;
     ~MotorConfigurationSet()                                       = default;
 
-    /// The default of a motor set cannot change (Java: UnsupportedOperationException).
+    /// The default of a motor set cannot change (Java: UnsupportedOperationException); the base
+    /// class's setDefault() throws BugError.
     // NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): hides it on purpose
     void setDefault(MotorConfiguration value) = delete;
 

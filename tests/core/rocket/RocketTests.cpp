@@ -32,8 +32,10 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 #include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -724,6 +726,110 @@ TEST_F(RocketTest, SetFlightConfiguration)
     EXPECT_EQ(m_events.size(), 2U);
 }
 
+TEST_F(RocketTest, SetFlightConfigurationRefusesAMismatchedConfiguration)
+{
+    // Stored under another id, the configuration would be selected and found by the wrong key.
+    const FlightConfigurationId key;
+    EXPECT_THROW(m_rocket.setFlightConfiguration(
+                     key, FlightConfiguration{m_rocket, FlightConfigurationId{}}),
+                 BugError);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(key));
+
+    // A configuration of another rocket would refer to that rocket's components.
+    Rocket other;
+    EXPECT_THROW(m_rocket.setFlightConfiguration(key, FlightConfiguration{other, key}), BugError);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(key));
+    EXPECT_TRUE(m_events.empty());
+}
+
+TEST_F(RocketTest, ASelectionDroppedFromTheSetIsOrphaned)
+{
+    const FlightConfigurationId a;
+    m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    m_events.clear();
+
+    // Java keeps the dropped object selected; the default stands in for it here.
+    m_rocket.setFlightConfiguration(a, std::nullopt);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(a));
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &m_rocket.getEmptyConfiguration());
+    EXPECT_EQ(m_events.size(), 1U);
+
+    // Made again, the configuration is not the selected one, and selecting its id does nothing,
+    // since the dropped object has that id.
+    FlightConfiguration& again = m_rocket.createFlightConfiguration(a);
+    EXPECT_NE(&m_rocket.getSelectedConfiguration(), &again);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_TRUE(m_events.empty());
+    EXPECT_NE(&m_rocket.getSelectedConfiguration(), &again);
+
+    // Java's equals() compares ids: the dump and a copy see the new configuration as selected.
+    const QtRocket::InMemoryPreferences prefs;
+    EXPECT_NE(m_rocket.toDebugConfigs(prefs).find("=>" + a.toShortKey()), std::string::npos);
+    const std::unique_ptr<Rocket> copy = m_rocket.copyRocketWithOriginalId();
+    EXPECT_EQ(&copy->getSelectedConfiguration(), &copy->getFlightConfiguration(a));
+
+    // Selecting the default moves away from the dropped object: an event.
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &m_rocket.getEmptyConfiguration());
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(m_events.size(), 2U);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &again);
+}
+
+TEST_F(RocketTest, RemovingAnOrphanedSelectionSelectsTheDefault)
+{
+    const FlightConfigurationId a;
+    m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.setFlightConfiguration(a, std::nullopt);
+
+    // Java compares the selected object's id with the removed one.
+    m_rocket.removeFlightConfiguration(a);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_TRUE(m_events.empty()) << "the default is selected already";
+    FlightConfiguration& again = m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &again);
+}
+
+TEST_F(RocketTest, DroppingAnotherConfigurationKeepsTheSelection)
+{
+    const FlightConfigurationId a;
+    const FlightConfigurationId b;
+    FlightConfiguration&        selected = m_rocket.createFlightConfiguration(a);
+    m_rocket.createFlightConfiguration(b);
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.setFlightConfiguration(b, std::nullopt);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &selected);
+
+    // The default cannot be dropped, so it cannot be orphaned.
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    m_rocket.setFlightConfiguration(FlightConfigurationId::defaultValueId(), std::nullopt);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_TRUE(m_events.empty());
+}
+
+TEST_F(RocketTest, TheConfigurationSetDumpsTheNames)
+{
+    // FlightConfigurableParameterSet.toDebug() on the rocket's set: the class name and each
+    // configuration's toString(), its name.
+    const QtRocket::InMemoryPreferences prefs;
+    const FlightConfigurationId         a;
+    m_rocket.createFlightConfiguration(a).setName("Alpha");
+    const FlightConfigurationId b;
+    m_rocket.createFlightConfiguration(b);
+    EXPECT_EQ(m_rocket.getFlightConfigurations().toDebug(prefs),
+              "====== Dumping ConfigurationSet<FlightConfiguration> (2 configurations)\n"
+              "    [" +
+                  std::format("{:<12}", a.toShortKey()) + "]: Alpha\n    [" +
+                  std::format("{:<12}", b.toShortKey()) + "]: [No motors]\n");
+}
+
 TEST_F(RocketTest, ToDebugConfigs)
 {
     const QtRocket::InMemoryPreferences prefs;
@@ -768,6 +874,54 @@ TEST(RocketCopy, CopyIndependence)
     EXPECT_EQ(id2, config5.getId());
     EXPECT_NE(instance2, config5.getConfigurationInstanceId());
     EXPECT_EQ(&config5.getRocket(), rkt2.get());
+}
+
+/// The positions of RocketTest.testEstesAlphaIII on the test double, and the bounds' x extent.
+/// Deferred until the concrete components exist: the launch lug's radial offset (y = -0.015),
+/// the y and z extents of the bounds (they need the real fin shapes), and the centering rings'
+/// return from one instance to two (the double does not keep the instance separation).
+TEST(RocketEstesAlphaIII, ComponentLocations)
+{
+    const QtRocket::Test::TestEstesAlphaIII rocket;
+    const RocketComponent&                  stage = rocket.rocket->getChild(0);
+
+    const RocketComponent& nose = stage.getChild(0);
+    EXPECT_EQ(nose.getComponentLocations().at(0), (Coordinate{0, 0, 0})) << nose.getName();
+    const RocketComponent& body = stage.getChild(1);
+    EXPECT_EQ(body.getComponentLocations().at(0), (Coordinate{0.07, 0, 0})) << body.getName();
+
+    const RocketComponent& fins = body.getChild(0);
+    EXPECT_EQ(fins.getInstanceCount(), 3) << fins.getName();
+    EXPECT_EQ(fins.getComponentLocations().at(0), (Coordinate{0.22, 0.012, 0})) << "fin #1";
+
+    const RocketComponent& lugs = body.getChild(1);
+    EXPECT_EQ(lugs.getInstanceCount(), 1) << lugs.getName();
+    EXPECT_NEAR(lugs.getComponentLocations().at(0).x, 0.181, 1e-8) << lugs.getName();
+
+    const RocketComponent& mmt = body.getChild(2);
+    EXPECT_EQ(mmt.getComponentLocations().at(0), (Coordinate{0.203, 0, 0})) << mmt.getName();
+    const RocketComponent& block = mmt.getChild(0);
+    EXPECT_EQ(block.getComponentLocations().at(0), (Coordinate{0.203, 0, 0})) << block.getName();
+
+    const RocketComponent& chute = body.getChild(3);
+    EXPECT_EQ(chute.getComponentLocations().at(0), (Coordinate{0.098, 0, 0})) << chute.getName();
+
+    TestComponent& ring = *rocket.rings;
+    EXPECT_EQ(ring.getInstanceCount(), 2) << ring.getName();
+    const std::vector<Coordinate> ringLocations = ring.getComponentLocations();
+    EXPECT_EQ(ringLocations.at(0), (Coordinate{0.21, 0, 0})) << "first instance";
+    EXPECT_EQ(ringLocations.at(1), (Coordinate{0.245, 0, 0})) << "second instance";
+    // A single instance follows a different code path.
+    ring.setInstanceCount(1);
+    const Coordinate single = ring.getComponentLocations().at(0);
+    EXPECT_NEAR(single.x, 0.21, 1e-8);
+    EXPECT_NEAR(single.y, 0.0, 1e-8);
+    EXPECT_NEAR(single.z, 0.0, 1e-8);
+    EXPECT_EQ(single, (Coordinate{0.21, 0, 0}));
+
+    const QtRocket::BoundingBox bounds = rocket.rocket->getBoundingBox();
+    EXPECT_NEAR(bounds.min().x, 0.0, 1e-8);
+    EXPECT_NEAR(bounds.max().x, 0.27, 1e-8);
 }
 
 /// The positions of RocketTest.testBeta on the test double, and the bounds' x extent (the y and z

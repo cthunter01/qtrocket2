@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -20,6 +21,7 @@ namespace QtRocket
 {
 
 class AxialStage;
+class MotorMount;
 class Preferences;
 class Rocket;
 class RocketComponent;
@@ -74,11 +76,15 @@ class RocketComponent;
 /// - getName()'s substitution stops after 100 rounds, or when a round changes nothing, where Java
 ///   loops for ever (only possible with braces in the motor data).
 /// - Java's regular expressions are hand-written here: '.' excludes the line terminators \n, \r,
-///   U+0085, U+2028 and U+2029, '\s' is [ \t\n\x0B\f\r], and a word character for '\b' is an ASCII
-///   letter, digit or '_' or any non-ASCII character (Java's Unicode letters and digits).
+///   U+0085, U+2028 and U+2029, '\s' is [ \t\n\x0B\f\r], and '\b' is JDK 17's
+///   (Strings::javaRegexWordBoundary(): '_', the Unicode letters and decimal digits, and a
+///   non-spacing mark after one of them are word characters, so "×", "—", "·" or a no-break space
+///   next to a key separate it while "é" or "µ" do not). The name is read as Java's decoder would
+///   have read it, a byte of malformed UTF-8 as one U+FFFD.
 /// - The motors keep the order in which updateMotors() found their mounts (Java: a HashMap in
 ///   hash order of the random motor configuration ids). The motor lists hold copies of the mounts'
-///   configurations (Java shares the objects), refreshed by every update.
+///   configurations (Java shares the objects), refreshed by every update: see getAllMotors() for
+///   how long a reference into them lives.
 /// - A flag setter given a stage without a flag, or a sub-stage without one, ignores it where
 ///   Java logs an error or throws a NullPointerException; the instance walk counts a booster set
 ///   without a flag as inactive (Java: NullPointerException); getAllStages() leaves out the
@@ -90,9 +96,19 @@ class RocketComponent;
 ///   update.
 /// - The Java constructor with a null id takes a fresh random id: pass FlightConfigurationId{}.
 /// - Java's configurationInstanceId is a public field; getConfigurationInstanceId() reads it.
+///
+/// Threads: the const geometry getters (getLength(), getLengthAerodynamic(), getReferenceLength(),
+/// getReferenceArea(), getBounds(), getBoundingBox*()) refresh mutable caches, so they must not
+/// run concurrently on one configuration, nor while it is cloned or copied; a simulation works on
+/// its own clone(). Moving a configuration is allowed (a holder such as a simulation status may
+/// reassign one); the Rocket's own configurations are never moved or assigned in place, since
+/// the set keeps each one in its own cell (FlightConfigurableParameterSet).
 class FlightConfiguration
 {
 public:
+    /// The class name FlightConfigurableParameterSet::toDebug() prints.
+    static constexpr std::string_view kTypeName = "FlightConfiguration";
+
     /// The default name (Java: DEFAULT_CONFIG_NAME).
     static constexpr std::string_view kDefaultConfigName = "[{motors}]";
 
@@ -113,11 +129,12 @@ public:
     FlightConfiguration(const FlightConfiguration&)                = delete;
     FlightConfiguration& operator=(const FlightConfiguration&)     = delete;
     FlightConfiguration(FlightConfiguration&&) noexcept            = default;
-    FlightConfiguration& operator=(FlightConfiguration&&) noexcept = delete;
+    FlightConfiguration& operator=(FlightConfiguration&&) noexcept = default;
     ~FlightConfiguration()                                         = default;
 
     /// The rocket (non-owning).
-    [[nodiscard]] Rocket& getRocket() const noexcept { return *m_rocket; }
+    [[nodiscard]] Rocket&       getRocket() noexcept { return *m_rocket; }
+    [[nodiscard]] const Rocket& getRocket() const noexcept { return *m_rocket; }
 
     // ---------------------------------------------------------------------- stage flags
 
@@ -202,14 +219,17 @@ public:
     /// the instancing of parent components; used for the motors and the reference length).
     [[nodiscard]] std::vector<RocketComponent*> getActiveComponents() const;
 
-    /// Every instance of every active component (see the class comment).
+    /// Every instance of every active component (see the class comment). References, iterators
+    /// and spans into the map live until the next update of this configuration: a flag setter,
+    /// update(), or a change event of the rocket (and removeChild() drops the removed
+    /// components' entries at once).
     [[nodiscard]] const InstanceMap& getActiveInstances() const noexcept
     {
         return m_activeInstances;
     }
 
     /// The instances drawn although not active: the booster sets without children whose stage is
-    /// flagged active (OpenRocket issue #1980).
+    /// flagged active (OpenRocket issue #1980). Valid as long as getActiveInstances().
     [[nodiscard]] const InstanceMap& getExtraRenderInstances() const noexcept
     {
         return m_extraRenderInstances;
@@ -235,6 +255,16 @@ public:
 
     /// Whether @p component is in an active stage (isStageActive(its stage number)).
     [[nodiscard]] bool isComponentActive(const RocketComponent& component) const;
+
+    /// isComponentActive(asComponent(mount)) for a mount known by its interface (Java's
+    /// isComponentActive(MotorMount), which a simulation calls with MotorClusterState::getMount()).
+    /// A concrete mount class, which is both a RocketComponent and a MotorMount, takes the
+    /// RocketComponent overload: the constraint keeps this one from making such calls ambiguous.
+    template <std::same_as<MotorMount> Mount>
+    [[nodiscard]] bool isComponentActive(const Mount& mount) const
+    {
+        return isMountActive(mount);
+    }
 
     /// Whether an active stage has a recovery device of its own; false for the error id.
     [[nodiscard]] bool hasRecoveryDevice() const;
@@ -315,7 +345,8 @@ public:
     /// id) cannot be set.
     void setName(std::string_view newName);
 
-    /// getName() (Java: toString()).
+    /// getName() (Java: toString()); FlightConfigurableParameterSet::toDebug(preferences) prints
+    /// it.
     [[nodiscard]] std::string toString(const Preferences& preferences) const;
 
     // --------------------------------------------------------------------------- motors
@@ -330,12 +361,18 @@ public:
 
     /// The motor configurations of the active acting mounts that have a motor, as of the last
     /// update, plus those added since with addMotor().
+    ///
+    /// These are copies, rebuilt by every update: references and iterators into the list become
+    /// invalid on any flag setter, update(), addMotor(), clearAllMotors(), change event of the
+    /// rocket or removal of a mount. Java hands out the mounts' own objects, which a simulation
+    /// keeps across stage separations (MotorClusterState); a holder like that must keep its own
+    /// copy of the MotorConfiguration, not a reference into this list.
     [[nodiscard]] const std::vector<MotorConfiguration>& getAllMotors() const noexcept
     {
         return m_motors;
     }
 
-    /// The motors whose mount is active, as of the last update.
+    /// The motors whose mount is active, as of the last update. Valid as long as getAllMotors().
     [[nodiscard]] const std::vector<MotorConfiguration>& getActiveMotors() const noexcept
     {
         return m_activeMotors;
@@ -357,16 +394,18 @@ public:
     // ------------------------------------------------------------------------ copying
 
     /// A configuration of @p rocket with this id, name, stage activeness (by stage number),
-    /// preloaded activeness, cached bounds and modification id; the bounds and reference length
-    /// caches are invalid.
+    /// preloaded activeness and modification id; the bounds and reference length caches start
+    /// empty (Java copies the cached bounds, which nothing reads before they are recomputed).
     [[nodiscard]] FlightConfiguration clone(Rocket& rocket) const;
 
     /// clone(getRocket()).
     [[nodiscard]] FlightConfiguration clone() const;
 
-    /// A configuration of the same rocket with the id @p newId: every motor of this configuration
-    /// is copied to @p newId in its mount, and the stage flags, preloaded activeness, cached
-    /// bounds, modification id and name are copied.
+    /// A configuration of the same rocket with the id @p newId: the stage flags, preloaded
+    /// activeness, modification id and name are copied, and every motor of this configuration is
+    /// copied to @p newId in its mount. Although const (FlightConfigurableParameter requires a
+    /// const copy()), it therefore changes the rocket: each of those mounts gets a motor
+    /// configuration for @p newId, as in Java.
     [[nodiscard]] FlightConfiguration copy(const FlightConfigurationId& newId) const;
 
     /// Java's equals(): the same id.
@@ -402,6 +441,9 @@ private:
 
     /// Java's fireChangeEvent(): a new modification id, invalid caches, then update().
     void fireChangeEvent();
+
+    /// isComponentActive() of @p mount's component.
+    [[nodiscard]] bool isMountActive(const MotorMount& mount) const;
 
     /// Rebuilds the flags from the rocket's stages, keeping each stage's activeness by id.
     void updateStages();

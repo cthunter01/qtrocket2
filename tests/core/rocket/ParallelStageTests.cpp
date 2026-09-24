@@ -19,7 +19,8 @@
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestMotorMount.h"
+#include "rocket/TestBodyComponent.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {

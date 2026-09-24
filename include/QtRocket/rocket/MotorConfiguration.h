@@ -60,9 +60,15 @@ public:
     /// The class name FlightConfigurableParameterSet::toDebug() prints.
     static constexpr std::string_view kTypeName = "MotorConfiguration";
 
-    /// toMotorName() without a motor: Java looks up the translation key "empty", which does not
-    /// exist, and gets the key back.
-    static constexpr std::string_view kEmptyMotorName = "empty";
+    /// A set's default is always an empty configuration: FlightConfigurableParameterSet's
+    /// setDefault() throws BugError with this message (MotorConfigurationSet.setDefault()).
+    static constexpr std::string_view kFixedDefaultMessage =
+        "Cannot change default value of motor configuration";
+
+    /// toMotorName() without a motor: OpenRocket's English text for the key
+    /// "MotorConfiguration.empty" (Java looks up "empty", and the class-based translator prefixes
+    /// the calling class name).
+    static constexpr std::string_view kEmptyMotorName = "None";
 
     /// An empty configuration (no motor) of @p mount for @p fcid.
     MotorConfiguration(MotorMount& mount, const FlightConfigurationId& fcid);
@@ -93,7 +99,8 @@ public:
     [[nodiscard]] const std::shared_ptr<const Motor>& getMotor() const noexcept { return m_motor; }
 
     /// The mount this configuration belongs to.
-    [[nodiscard]] MotorMount& getMount() const noexcept { return *m_mount; }
+    [[nodiscard]] MotorMount&       getMount() noexcept { return *m_mount; }
+    [[nodiscard]] const MotorMount& getMount() const noexcept { return *m_mount; }
 
     /// The ejection charge delay in s (Motor::kPluggedDelay for a plugged motor).
     [[nodiscard]] double getEjectionDelay() const noexcept { return m_ejectionDelay; }
