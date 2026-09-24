@@ -86,6 +86,15 @@ public:
         return m_mostSignificantBits == 0 && m_leastSignificantBits == 0;
     }
 
+    /// java.util.UUID.hashCode(): the two halves xor-ed, then the upper and lower 32 bits of that
+    /// xor-ed, as a Java int. MotorConfigurationId derives its key from a mount's id with it.
+    [[nodiscard]] constexpr std::int32_t javaHashCode() const noexcept
+    {
+        const std::uint64_t hilo = m_mostSignificantBits ^ m_leastSignificantBits;
+        return static_cast<std::int32_t>(static_cast<std::uint32_t>(hilo >> 32U) ^
+                                         static_cast<std::uint32_t>(hilo));
+    }
+
     /// The lowercase canonical form, exactly what java.util.UUID.toString() prints.
     [[nodiscard]] std::string toString() const;
 

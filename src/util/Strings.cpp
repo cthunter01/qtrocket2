@@ -5,6 +5,7 @@
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -561,14 +562,15 @@ constexpr std::array<FoldRange, 199> kCaseFolds{{
 [[nodiscard]] std::uint32_t caseFold(char32_t codePoint) noexcept
 {
     const auto value = static_cast<std::uint32_t>(codePoint);
-    // A span's iterator is a class on every standard library (std::array's is a pointer in some).
-    const std::span<const FoldRange> folds{kCaseFolds};
-    const auto after = std::ranges::upper_bound(folds, value, {}, &FoldRange::first);
-    if (after == folds.begin())
+    // An index, not an iterator: std::array's iterator is a pointer with libstdc++ and libc++
+    // but a class with MSVC, so `const auto*` would not compile there.
+    const auto rangesBefore = static_cast<std::size_t>(std::distance(
+        kCaseFolds.begin(), std::ranges::upper_bound(kCaseFolds, value, {}, &FoldRange::first)));
+    if (rangesBefore == 0)
     {
         return value;
     }
-    const FoldRange& range = *std::prev(after);
+    const FoldRange& range = kCaseFolds.at(rangesBefore - 1);
     if (value > range.last || (value - range.first) % range.stride != 0)
     {
         return value;
@@ -806,6 +808,161 @@ struct DecimalExponent
     }
     return i;
 }
+
+/// A run of BMP code points that JDK 17's Collator.getInstance(Locale.US) gives the same primary
+/// collation weights: {first, last, primary, second primary}, up to two non-zero primaries each
+/// (0 marks an absent one, so a run with none is ignorable at the PRIMARY strength). Transcribed
+/// from CollationElementIterator.primaryOrder() for every code point from U+0000 to U+FFFF; a
+/// code point outside every run is unmapped there.
+using CollationRun = std::array<std::uint16_t, 4>;
+
+constexpr std::size_t kRunFirst         = 0;
+constexpr std::size_t kRunLast          = 1;
+constexpr std::size_t kRunPrimary       = 2;
+constexpr std::size_t kRunSecondPrimary = 3;
+
+// clang-format off
+constexpr std::array<CollationRun, 264> kUsCollationRuns{{
+    {0x0000, 0x0020, 0, 0}, {0x0021, 0x0021, 6, 0}, {0x0022, 0x0022, 20, 0}, {0x0023, 0x0023, 55, 0},
+    {0x0024, 0x0024, 39, 0}, {0x0025, 0x0025, 56, 0}, {0x0026, 0x0026, 54, 0}, {0x0027, 0x0027, 19, 0},
+    {0x0028, 0x0028, 23, 0}, {0x0029, 0x0029, 24, 0}, {0x002A, 0x002A, 52, 0}, {0x002B, 0x002B, 57, 0},
+    {0x002C, 0x002C, 3, 0}, {0x002D, 0x002D, 0, 0}, {0x002E, 0x002E, 11, 0}, {0x002F, 0x002F, 10, 0},
+    {0x0030, 0x0030, 69, 0}, {0x0031, 0x0031, 70, 0}, {0x0032, 0x0032, 71, 0}, {0x0033, 0x0033, 72, 0},
+    {0x0034, 0x0034, 73, 0}, {0x0035, 0x0035, 74, 0}, {0x0036, 0x0036, 75, 0}, {0x0037, 0x0037, 76, 0},
+    {0x0038, 0x0038, 77, 0}, {0x0039, 0x0039, 78, 0}, {0x003A, 0x003A, 5, 0}, {0x003B, 0x003B, 4, 0},
+    {0x003C, 0x003C, 61, 0}, {0x003D, 0x003D, 62, 0}, {0x003E, 0x003E, 63, 0}, {0x003F, 0x003F, 8, 0},
+    {0x0040, 0x0040, 33, 0}, {0x0041, 0x0041, 82, 0}, {0x0042, 0x0042, 83, 0}, {0x0043, 0x0043, 84, 0},
+    {0x0044, 0x0044, 85, 0}, {0x0045, 0x0045, 87, 0}, {0x0046, 0x0046, 88, 0}, {0x0047, 0x0047, 89, 0},
+    {0x0048, 0x0048, 90, 0}, {0x0049, 0x0049, 91, 0}, {0x004A, 0x004A, 92, 0}, {0x004B, 0x004B, 93, 0},
+    {0x004C, 0x004C, 94, 0}, {0x004D, 0x004D, 95, 0}, {0x004E, 0x004E, 96, 0}, {0x004F, 0x004F, 97, 0},
+    {0x0050, 0x0050, 98, 0}, {0x0051, 0x0051, 99, 0}, {0x0052, 0x0052, 100, 0}, {0x0053, 0x0053, 101, 0},
+    {0x0054, 0x0054, 102, 0}, {0x0055, 0x0055, 103, 0}, {0x0056, 0x0056, 104, 0}, {0x0057, 0x0057, 105, 0},
+    {0x0058, 0x0058, 106, 0}, {0x0059, 0x0059, 107, 0}, {0x005A, 0x005A, 108, 0}, {0x005B, 0x005B, 25, 0},
+    {0x005C, 0x005C, 53, 0}, {0x005D, 0x005D, 26, 0}, {0x005E, 0x005E, 14, 0}, {0x005F, 0x005F, 1, 0},
+    {0x0060, 0x0060, 13, 0}, {0x0061, 0x0061, 82, 0}, {0x0062, 0x0062, 83, 0}, {0x0063, 0x0063, 84, 0},
+    {0x0064, 0x0064, 85, 0}, {0x0065, 0x0065, 87, 0}, {0x0066, 0x0066, 88, 0}, {0x0067, 0x0067, 89, 0},
+    {0x0068, 0x0068, 90, 0}, {0x0069, 0x0069, 91, 0}, {0x006A, 0x006A, 92, 0}, {0x006B, 0x006B, 93, 0},
+    {0x006C, 0x006C, 94, 0}, {0x006D, 0x006D, 95, 0}, {0x006E, 0x006E, 96, 0}, {0x006F, 0x006F, 97, 0},
+    {0x0070, 0x0070, 98, 0}, {0x0071, 0x0071, 99, 0}, {0x0072, 0x0072, 100, 0}, {0x0073, 0x0073, 101, 0},
+    {0x0074, 0x0074, 102, 0}, {0x0075, 0x0075, 103, 0}, {0x0076, 0x0076, 104, 0}, {0x0077, 0x0077, 105, 0},
+    {0x0078, 0x0078, 106, 0}, {0x0079, 0x0079, 107, 0}, {0x007A, 0x007A, 108, 0}, {0x007B, 0x007B, 27, 0},
+    {0x007C, 0x007C, 65, 0}, {0x007D, 0x007D, 28, 0}, {0x007E, 0x007E, 16, 0}, {0x007F, 0x00A0, 0, 0},
+    {0x00A1, 0x00A1, 7, 0}, {0x00A2, 0x00A2, 36, 0}, {0x00A3, 0x00A3, 47, 0}, {0x00A4, 0x00A4, 34, 0},
+    {0x00A5, 0x00A5, 51, 0}, {0x00A6, 0x00A6, 66, 0}, {0x00A7, 0x00A7, 29, 0}, {0x00A8, 0x00A8, 15, 0},
+    {0x00A9, 0x00A9, 31, 0}, {0x00AB, 0x00AB, 21, 0}, {0x00AC, 0x00AC, 64, 0}, {0x00AD, 0x00AD, 0, 0},
+    {0x00AE, 0x00AE, 32, 0}, {0x00AF, 0x00AF, 2, 0}, {0x00B0, 0x00B0, 67, 0}, {0x00B1, 0x00B1, 58, 0},
+    {0x00B4, 0x00B4, 12, 0}, {0x00B5, 0x00B5, 68, 0}, {0x00B6, 0x00B6, 30, 0}, {0x00B7, 0x00B7, 17, 0},
+    {0x00B8, 0x00B8, 18, 0}, {0x00BB, 0x00BB, 22, 0}, {0x00BC, 0x00BC, 79, 0}, {0x00BD, 0x00BD, 80, 0},
+    {0x00BE, 0x00BE, 81, 0}, {0x00BF, 0x00BF, 9, 0}, {0x00C0, 0x00C5, 82, 0}, {0x00C6, 0x00C6, 82, 87},
+    {0x00C7, 0x00C7, 84, 0}, {0x00C8, 0x00CB, 87, 0}, {0x00CC, 0x00CF, 91, 0}, {0x00D0, 0x00D0, 86, 0},
+    {0x00D1, 0x00D1, 96, 0}, {0x00D2, 0x00D6, 97, 0}, {0x00D7, 0x00D7, 60, 0}, {0x00D9, 0x00DC, 103, 0},
+    {0x00DD, 0x00DD, 107, 0}, {0x00DE, 0x00DE, 102, 90}, {0x00DF, 0x00DF, 101, 101}, {0x00E0, 0x00E5, 82, 0},
+    {0x00E6, 0x00E6, 82, 87}, {0x00E7, 0x00E7, 84, 0}, {0x00E8, 0x00EB, 87, 0}, {0x00EC, 0x00EF, 91, 0},
+    {0x00F0, 0x00F0, 86, 0}, {0x00F1, 0x00F1, 96, 0}, {0x00F2, 0x00F6, 97, 0}, {0x00F7, 0x00F7, 59, 0},
+    {0x00F9, 0x00FC, 103, 0}, {0x00FD, 0x00FD, 107, 0}, {0x00FE, 0x00FE, 102, 90}, {0x00FF, 0x00FF, 107, 0},
+    {0x0100, 0x0105, 82, 0}, {0x0106, 0x010D, 84, 0}, {0x010E, 0x010F, 85, 0}, {0x0112, 0x011B, 87, 0},
+    {0x011C, 0x0123, 89, 0}, {0x0124, 0x0125, 90, 0}, {0x0128, 0x0130, 91, 0}, {0x0134, 0x0135, 92, 0},
+    {0x0136, 0x0137, 93, 0}, {0x0139, 0x013E, 94, 0}, {0x0143, 0x0148, 96, 0}, {0x014C, 0x0151, 97, 0},
+    {0x0152, 0x0153, 97, 87}, {0x0154, 0x0159, 100, 0}, {0x015A, 0x0161, 101, 0}, {0x0162, 0x0165, 102, 0},
+    {0x0168, 0x0173, 103, 0}, {0x0174, 0x0175, 105, 0}, {0x0176, 0x0178, 107, 0}, {0x0179, 0x017E, 108, 0},
+    {0x01A0, 0x01A1, 97, 0}, {0x01AF, 0x01B0, 103, 0}, {0x01CD, 0x01CE, 82, 0}, {0x01CF, 0x01D0, 91, 0},
+    {0x01D1, 0x01D2, 97, 0}, {0x01D3, 0x01DC, 103, 0}, {0x01DE, 0x01E1, 82, 0}, {0x01E2, 0x01E3, 32256, 0},
+    {0x01E6, 0x01E7, 89, 0}, {0x01E8, 0x01E9, 93, 0}, {0x01EA, 0x01ED, 97, 0}, {0x01F0, 0x01F0, 92, 0},
+    {0x01F4, 0x01F5, 89, 0}, {0x01F8, 0x01F9, 96, 0}, {0x01FA, 0x01FB, 82, 0}, {0x01FC, 0x01FD, 32256, 0},
+    {0x0200, 0x0203, 82, 0}, {0x0204, 0x0207, 87, 0}, {0x0208, 0x020B, 91, 0}, {0x020C, 0x020F, 97, 0},
+    {0x0210, 0x0213, 100, 0}, {0x0214, 0x0217, 103, 0}, {0x0218, 0x0219, 101, 0}, {0x021A, 0x021B, 102, 0},
+    {0x021E, 0x021F, 90, 0}, {0x0226, 0x0227, 82, 0}, {0x0228, 0x0229, 87, 0}, {0x022A, 0x0231, 97, 0},
+    {0x0232, 0x0233, 107, 0}, {0x0300, 0x0345, 0, 0}, {0x0360, 0x0361, 0, 0}, {0x037E, 0x037E, 4, 0},
+    {0x0385, 0x0385, 15, 0}, {0x0387, 0x0387, 17, 0}, {0x0483, 0x0486, 0, 0}, {0x0E3F, 0x0E3F, 35, 0},
+    {0x1E00, 0x1E01, 82, 0}, {0x1E02, 0x1E07, 83, 0}, {0x1E08, 0x1E09, 84, 0}, {0x1E0A, 0x1E13, 85, 0},
+    {0x1E14, 0x1E1D, 87, 0}, {0x1E1E, 0x1E1F, 88, 0}, {0x1E20, 0x1E21, 89, 0}, {0x1E22, 0x1E2B, 90, 0},
+    {0x1E2C, 0x1E2F, 91, 0}, {0x1E30, 0x1E35, 93, 0}, {0x1E36, 0x1E3D, 94, 0}, {0x1E3E, 0x1E43, 95, 0},
+    {0x1E44, 0x1E4B, 96, 0}, {0x1E4C, 0x1E53, 97, 0}, {0x1E54, 0x1E57, 98, 0}, {0x1E58, 0x1E5F, 100, 0},
+    {0x1E60, 0x1E69, 101, 0}, {0x1E6A, 0x1E71, 102, 0}, {0x1E72, 0x1E7B, 103, 0}, {0x1E7C, 0x1E7F, 104, 0},
+    {0x1E80, 0x1E89, 105, 0}, {0x1E8A, 0x1E8D, 106, 0}, {0x1E8E, 0x1E8F, 107, 0}, {0x1E90, 0x1E95, 108, 0},
+    {0x1E96, 0x1E96, 90, 0}, {0x1E97, 0x1E97, 102, 0}, {0x1E98, 0x1E98, 105, 0}, {0x1E99, 0x1E99, 107, 0},
+    {0x1EA0, 0x1EB7, 82, 0}, {0x1EB8, 0x1EC7, 87, 0}, {0x1EC8, 0x1ECB, 91, 0}, {0x1ECC, 0x1EE3, 97, 0},
+    {0x1EE4, 0x1EF1, 103, 0}, {0x1EF2, 0x1EF9, 107, 0}, {0x1FC1, 0x1FC1, 15, 0}, {0x1FED, 0x1FEE, 15, 0},
+    {0x1FEF, 0x1FEF, 13, 0}, {0x1FFD, 0x1FFD, 12, 0}, {0x2000, 0x2015, 0, 0}, {0x20A1, 0x20A1, 37, 0},
+    {0x20A2, 0x20A2, 38, 0}, {0x20A3, 0x20A3, 42, 0}, {0x20A4, 0x20A4, 43, 0}, {0x20A5, 0x20A5, 44, 0},
+    {0x20A6, 0x20A6, 45, 0}, {0x20A7, 0x20A7, 46, 0}, {0x20A8, 0x20A8, 48, 0}, {0x20A9, 0x20A9, 50, 0},
+    {0x20AA, 0x20AA, 49, 0}, {0x20AB, 0x20AB, 40, 0}, {0x20AC, 0x20AC, 41, 0}, {0x20D0, 0x20E1, 0, 0},
+    {0x212A, 0x212A, 93, 0}, {0x212B, 0x212B, 82, 0}, {0x2212, 0x2212, 0, 0}, {0x2260, 0x2260, 62, 0},
+    {0x226E, 0x226E, 61, 0}, {0x226F, 0x226F, 63, 0}, {0x3000, 0x3000, 0, 0}, {0xFEFF, 0xFEFF, 0, 0},
+}};
+// clang-format on
+
+/// The primary weight Java gives an unmapped character, followed by its UTF-16 code unit(s).
+constexpr std::uint16_t kUnmappedPrimary = 0x7FFF;
+
+/// Appends the non-zero primary collation weights of @p codePoint, as Java's
+/// CollationElementIterator returns them for the character.
+void appendCollationPrimaries(char32_t codePoint, std::vector<std::uint16_t>& out)
+{
+    if (codePoint > 0xFFFF)
+    {
+        // A supplementary character is unmapped: the marker, then its surrogate pair.
+        const std::uint32_t offset = static_cast<std::uint32_t>(codePoint) - 0x10000U;
+        out.push_back(kUnmappedPrimary);
+        out.push_back(static_cast<std::uint16_t>(0xD800U + (offset >> 10U)));
+        out.push_back(static_cast<std::uint16_t>(0xDC00U + (offset & 0x3FFU)));
+        return;
+    }
+    const auto unit = static_cast<std::uint16_t>(codePoint);
+    // The number of runs starting at or before the unit; an index, not an iterator, since
+    // std::array's iterator is a pointer with libstdc++ and libc++ but a class with MSVC.
+    const auto runsBefore = static_cast<std::size_t>(std::distance(
+        kUsCollationRuns.begin(),
+        std::ranges::upper_bound(kUsCollationRuns, unit, {},
+                                 [](const CollationRun& run) { return run[kRunFirst]; })));
+    if (runsBefore > 0)
+    {
+        const CollationRun& run = kUsCollationRuns.at(runsBefore - 1);
+        if (unit <= run[kRunLast])
+        {
+            for (const std::uint16_t primary : {run[kRunPrimary], run[kRunSecondPrimary]})
+            {
+                if (primary != 0)
+                {
+                    out.push_back(primary);
+                }
+            }
+            return;
+        }
+    }
+    out.push_back(kUnmappedPrimary);
+    out.push_back(unit);
+}
+
+/// The primary collation weights of UTF-8 @p text, character by character (the US rules have no
+/// contractions, so the weights of a string are those of its characters in turn).
+[[nodiscard]] std::vector<std::uint16_t> collationPrimaries(std::string_view text)
+{
+    std::vector<std::uint16_t> primaries;
+    primaries.reserve(text.size());
+    std::size_t position = 0;
+    while (position < text.size())
+    {
+        appendCollationPrimaries(decodeCodePoint(text, position), primaries);
+    }
+    return primaries;
+}
+
+/// True for the characters of Java's regex class \s: space, \t, \n, \x0B, \f and \r.
+[[nodiscard]] bool isRegexWhitespace(char c) noexcept
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\x0B' || c == '\f' || c == '\r';
+}
+
+[[nodiscard]] char asciiUpper(char c) noexcept
+{
+    if (c >= 'a' && c <= 'z')
+    {
+        return static_cast<char>(c - ('a' - 'A'));
+    }
+    return c;
+}
+
 }  // namespace
 
 std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation)
@@ -1099,6 +1256,37 @@ std::string toLower(std::string_view text)
     return out;
 }
 
+std::string toUpper(std::string_view text)
+{
+    std::string out(text);
+    std::ranges::transform(out, out.begin(), asciiUpper);
+    return out;
+}
+
+std::string collapseWhitespace(std::string_view text)
+{
+    std::string out;
+    out.reserve(text.size());
+    bool inRun = false;
+    for (const char c : text)
+    {
+        if (isRegexWhitespace(c))
+        {
+            if (!inRun)
+            {
+                out.push_back(' ');
+            }
+            inRun = true;
+        }
+        else
+        {
+            out.push_back(c);
+            inRun = false;
+        }
+    }
+    return std::string(trim(out));
+}
+
 bool equalsIgnoreAsciiCase(std::string_view a, std::string_view b) noexcept
 {
     return std::ranges::equal(a, b, {}, asciiLower, asciiLower);
@@ -1169,6 +1357,30 @@ int javaHashCode(std::string_view text) noexcept
         hash = (31U * hash) + static_cast<std::uint32_t>(reader.next());
     }
     return static_cast<int>(hash);
+}
+
+std::size_t javaLength(std::string_view text) noexcept
+{
+    std::size_t length   = 0;
+    std::size_t position = 0;
+    while (position < text.size())
+    {
+        // a code point above U+FFFF is a surrogate pair
+        length += decodeCodePoint(text, position) > 0xFFFF ? 2U : 1U;
+    }
+    return length;
+}
+
+int javaPrimaryCollatorCompare(std::string_view a, std::string_view b)
+{
+    // The weights compare element by element, and a string whose weights run out first sorts
+    // first: std::vector's lexicographic ordering.
+    const std::strong_ordering order = collationPrimaries(a) <=> collationPrimaries(b);
+    if (std::is_lt(order))
+    {
+        return -1;
+    }
+    return std::is_gt(order) ? 1 : 0;
 }
 
 std::vector<std::string> split(std::string_view text, char separator)

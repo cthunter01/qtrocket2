@@ -854,6 +854,170 @@ TEST(Strings, ToLower)
     EXPECT_EQ(Strings::toLower(alpha), std::string("a") + std::string(Chars::kAlpha));
 }
 
+TEST(Strings, ToUpper)
+{
+    EXPECT_EQ(Strings::toUpper(""), "");
+    EXPECT_EQ(Strings::toUpper("g80-7a"), "G80-7A");
+    EXPECT_EQ(Strings::toUpper("ALREADY UPPER 123"), "ALREADY UPPER 123");
+    // Non-ASCII bytes are left alone.
+    EXPECT_EQ(Strings::toUpper("stra\u00DFe"), "STRA\u00DFE");
+}
+
+TEST(Strings, CollapseWhitespace)
+{
+    EXPECT_EQ(Strings::collapseWhitespace(""), "");
+    EXPECT_EQ(Strings::collapseWhitespace("   "), "");
+    EXPECT_EQ(Strings::collapseWhitespace("Hello  world! "), "Hello world!");
+    EXPECT_EQ(Strings::collapseWhitespace("\nHello\tworld!\n\r"), "Hello world!");
+    EXPECT_EQ(Strings::collapseWhitespace("Hello\r\r\r\nworld!"), "Hello world!");
+    EXPECT_EQ(Strings::collapseWhitespace("a\x0B\x0C"
+                                          "b"),
+              "a b");
+    // Other control characters are no regex whitespace, but trim() takes them at either end.
+    EXPECT_EQ(Strings::collapseWhitespace("\x01"
+                                          "a\x01"
+                                          "b\x01"),
+              "a\x01"
+              "b");
+    // Non-ASCII spaces are kept (Java's \s is ASCII only).
+    EXPECT_EQ(Strings::collapseWhitespace("a\u00A0b"), "a\u00A0b");
+}
+
+TEST(Strings, JavaLengthCountsUtf16CodeUnits)
+{
+    EXPECT_EQ(Strings::javaLength(""), 0U);
+    EXPECT_EQ(Strings::javaLength("abc"), 3U);
+    EXPECT_EQ(Strings::javaLength("\u00E9t\u00E9"), 3U);
+    EXPECT_EQ(Strings::javaLength("\u4E00"), 1U);
+    // A code point above U+FFFF is a surrogate pair.
+    EXPECT_EQ(Strings::javaLength("\U0001F600"), 2U);
+    // A malformed byte reads as U+FFFD, one unit.
+    EXPECT_EQ(Strings::javaLength("\xFF"), 1U);
+}
+
+TEST(Strings, JavaPrimaryCollatorCompareMatchesJava)
+{
+    // Collator.getInstance(Locale.US) at PRIMARY strength, pinned from JDK 17.
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("AeroTech", "Apogee"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("Kosdon by AeroTech", "Kosdon"), 1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("LOC/Precision", "Loki Research"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("Public Missiles, Ltd.", "Propulsion Polymers"),
+              1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("a-b", "ab"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("a b", "ab"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("a.b", "ab"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("ab", "a b c"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("A", "a"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("-5", "5"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("", "-"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("-", "5"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("W", "-"), 1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("1", "a"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("_", "a"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\x01"
+                                                  "a",
+                                                  "a"),
+              0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare(std::string_view("x\0", 2), "x"), 0);
+    // Accents, expansions and characters beyond Latin-1.
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u00E9t\u00E9", "ete"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u00C6ther", "aether"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("stra\u00DFe", "strasse"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("z", "\u00E9"), 1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("x", "\u00F8"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u00F8", "\u4E00"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u4E00", "\U0001F600"), -1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u2126", "z"), 1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\u212A", "k"), 0);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("\uFFFF", "\U00010000"), 1);
+    EXPECT_EQ(Strings::javaPrimaryCollatorCompare("a\U0001F600", "a\uFFFD"), -1);
+}
+
+TEST(Strings, JavaPrimaryCollatorOrdersAsciiAsJava)
+{
+    // The printable ASCII characters sorted by JDK 17's US collator at PRIMARY strength: '<'
+    // between two characters means the first sorts before the second, '=' that they are equal.
+    // '-' has no primary weight at all, so it sorts first.
+    constexpr std::string_view kOrder =
+        R"x(-<_<,<;<:<!<?</<.<`<^<~<'<"<(<)<[<]<{<}<@<$<*<\<&<#<%<+<<<=<><|<0<1<2<3<4<5<6<7<8<9<A=a<B=b<C=c<D=d<E=e<F=f<G=g<H=h<I=i<J=j<K=k<L=l<M=m<N=n<O=o<P=p<Q=q<R=r<S=s<T=t<U=u<V=v<W=w<X=x<Y=y<Z=z)x";
+    ASSERT_EQ(kOrder.size() % 2, 1U);
+    for (std::size_t i = 0; i + 2 < kOrder.size(); i += 2)
+    {
+        const std::string_view first    = kOrder.substr(i, 1);
+        const std::string_view second   = kOrder.substr(i + 2, 1);
+        const int              expected = kOrder[i + 1] == '=' ? 0 : -1;
+        EXPECT_EQ(Strings::javaPrimaryCollatorCompare(first, second), expected)
+            << first << " vs " << second;
+        EXPECT_EQ(Strings::javaPrimaryCollatorCompare(second, first), -expected)
+            << second << " vs " << first;
+    }
+}
+
+TEST(Strings, JavaPrimaryCollatorOrdersWordsAsJava)
+{
+    // Java's sort of these words; a pair joined by true compares equal.
+    const std::vector<std::pair<std::string_view, bool>> sorted{
+        {"", false},
+        {" ", true},
+        {"--", true},
+        {"#1", false},
+        {"12", false},
+        {"1-2", true},
+        {"123", false},
+        {"a#", false},
+        {"A1", false},
+        {"a10", false},
+        {"a9", false},
+        {"AeroTech", false},
+        {"Aerotech", true},
+        {"Alpha Hybrid Rocketry LLC", false},
+        {"\u00C5ngstr\u00F6m", false},
+        {"Angstrom", true},
+        {"Animal Motor Works", false},
+        {"Apogee", false},
+        {"caf\u00E9", false},
+        {"cafe", true},
+        {"cafes", false},
+        {"Cesaroni Technology Inc.", false},
+        {"Contrail Rockets", false},
+        {"Ellis Mountain", false},
+        {"Estes", false},
+        {"Estes_2", false},
+        {"Estes.2", false},
+        {"estes2", false},
+        {"Estes 2", true},
+        {"Estes-2", true},
+        {"Gorilla Rocket Motors", false},
+        {"HyperTEK", false},
+        {"Kosdon by AeroTech", false},
+        {"LOC/Precision", false},
+        {"Loki Research", false},
+        {"Propulsion Polymers", false},
+        {"Public Missiles, Ltd.", false},
+        {"Quest", false},
+        {"quest", true},
+        {"Q-uest", true},
+        {"RATT Works", false},
+        {"Roadrunner Rocketry", false},
+        {"Rocketvision", false},
+        {"Sky Ripper Systems", false},
+        {"WECO Feuerwerk", false},
+        {"West Coast Hybrids", false},
+        {"Z\u00FCrich", false},
+        {"Zurich", true},
+    };
+    for (std::size_t i = 1; i < sorted.size(); i++)
+    {
+        const std::string_view previous = sorted.at(i - 1).first;
+        const auto& [current, equal]    = sorted.at(i);
+        const int expected              = equal ? 0 : -1;
+        EXPECT_EQ(Strings::javaPrimaryCollatorCompare(previous, current), expected)
+            << previous << " vs " << current;
+        EXPECT_EQ(Strings::javaPrimaryCollatorCompare(current, previous), -expected)
+            << current << " vs " << previous;
+    }
+}
+
 TEST(Strings, EqualsIgnoreAsciiCase)
 {
     EXPECT_TRUE(Strings::equalsIgnoreAsciiCase("", ""));

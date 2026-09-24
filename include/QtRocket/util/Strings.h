@@ -114,6 +114,16 @@ std::string_view trim(const String&& text) = delete;
 /// (Java's toLowerCase(Locale.ENGLISH) also folds non-ASCII letters).
 [[nodiscard]] std::string toLower(std::string_view text);
 
+/// ASCII letters upper-cased; every other byte, including UTF-8 sequences, is kept as it is
+/// (Java's toUpperCase() also folds non-ASCII letters, "ß" becoming "SS").
+[[nodiscard]] std::string toUpper(std::string_view text);
+
+/// text.replaceAll("\\s+", " ").trim(): every run of Java regex whitespace (space, tab, \n,
+/// \x0B, \f, \r) becomes one space, then characters at or below U+0020 are trimmed at either end
+/// as trim() does. OpenRocket normalises motor comments this way before digesting or comparing
+/// them.
+[[nodiscard]] std::string collapseWhitespace(std::string_view text);
+
 /// True when @p a and @p b are the same once ASCII letters are lower-cased as toLower() does;
 /// every other byte must match exactly (Java's equalsIgnoreCase also folds non-ASCII letters;
 /// see javaEqualsIgnoreCase()).
@@ -140,6 +150,18 @@ std::string_view trim(const String&& text) = delete;
 
 /// String.hashCode: h = 31 * h + unit over the UTF-16 code units, wrapping as a Java int.
 [[nodiscard]] int javaHashCode(std::string_view text) noexcept;
+
+/// String.length(): the number of UTF-16 code units (a code point above U+FFFF counts twice).
+[[nodiscard]] std::size_t javaLength(std::string_view text) noexcept;
+
+/// Collator.getInstance(Locale.US).compare(a, b) with the strength set to PRIMARY, which
+/// OpenRocket sorts manufacturer names and motor designations with: -1, 0 or 1. Case and accents
+/// are ignored ("AeroTech" equals "aerotech", "été" equals "ete"), expansions apply ("Æ" equals
+/// "ae", "ß" equals "ss"), and spaces, hyphens and control characters are ignorable ("a-b"
+/// equals "ab") while most other punctuation is not ("a.b" sorts before "ab"). The weights are
+/// JDK 17's for every BMP character, transcribed from its CollationElementIterator; characters
+/// the rules do not map (CJK, for one) sort after all mapped ones by UTF-16 code unit, as there.
+[[nodiscard]] int javaPrimaryCollatorCompare(std::string_view a, std::string_view b);
 
 /// Splits at every @p separator, keeping empty fields: "a,,b" gives {"a", "", "b"} and "" gives
 /// {""}.
