@@ -150,6 +150,17 @@ std::string_view trim(const String&& text) = delete;
 /// text without the separator gives {text}, so "" gives {""}.
 [[nodiscard]] std::vector<std::string> splitJava(std::string_view text, char separator);
 
+/// The .ork spelling of a Java enum constant that OpenRocket's DocumentConfig.findEnum() matches
+/// against: the constant's name with ASCII letters lower-cased and every '_' removed
+/// ("UPPER_IGNITION" gives "upperignition"). DesignType.getStorableString() and the stage
+/// separation saver write exactly this.
+[[nodiscard]] std::string toOrkEnumName(std::string_view enumName);
+
+/// DocumentConfig.findEnum()'s test for one constant: @p text, trimmed as String.trim() does,
+/// equals toOrkEnumName(@p enumName). Note that the plain lower-cased name the savers write for
+/// some enums ("mirror_xy") does not match a name with an underscore, exactly as in OpenRocket.
+[[nodiscard]] bool orkEnumNameMatches(std::string_view text, std::string_view enumName);
+
 /// StringUtils.join: the values formatted with std::format("{}") and separated by @p separator;
 /// an empty range gives "". Deviation: OpenRocket omits the separator after a leading empty
 /// element; here every element is separated.

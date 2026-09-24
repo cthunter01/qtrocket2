@@ -1059,4 +1059,25 @@ TEST(Strings, JavaDoubleToStringMatchesJdk)
     EXPECT_EQ(Strings::javaDoubleToString(-kInf), "-Infinity");
 }
 
+TEST(Strings, OrkEnumNameIsLowerCaseWithoutUnderscores)
+{
+    EXPECT_EQ(Strings::toOrkEnumName("UPPER_IGNITION"), "upperignition");
+    EXPECT_EQ(Strings::toOrkEnumName("KIT_BASH"), "kitbash");
+    EXPECT_EQ(Strings::toOrkEnumName("ABSOLUTE"), "absolute");
+    EXPECT_EQ(Strings::toOrkEnumName(""), "");
+}
+
+// DocumentConfig.findEnum: trim, then compare with the lower-cased name without underscores.
+TEST(Strings, OrkEnumNameMatchesLikeFindEnum)
+{
+    EXPECT_TRUE(Strings::orkEnumNameMatches("upperignition", "UPPER_IGNITION"));
+    EXPECT_TRUE(Strings::orkEnumNameMatches("  upperignition\n", "UPPER_IGNITION"));
+    EXPECT_TRUE(Strings::orkEnumNameMatches("mirrorxy", "MIRROR_XY"));
+    // The savers write some names with the underscore kept, which findEnum does not match.
+    EXPECT_FALSE(Strings::orkEnumNameMatches("mirror_xy", "MIRROR_XY"));
+    // The comparison itself is case-sensitive: only the constant's name is lower-cased.
+    EXPECT_FALSE(Strings::orkEnumNameMatches("Absolute", "ABSOLUTE"));
+    EXPECT_FALSE(Strings::orkEnumNameMatches("", "ABSOLUTE"));
+}
+
 }  // namespace

@@ -86,6 +86,16 @@ public:
         return m_mostSignificantBits == 0 && m_leastSignificantBits == 0;
     }
 
+    /// java.util.UUID.hashCode(): the two halves xor-ed and folded to 32 bits,
+    /// (int) (hilo >> 32) ^ (int) hilo with hilo = most ^ least. RocketComponent.hashCode() and
+    /// FlightConfigurationId.hashCode() return it. (std::hash below mixes the halves instead.)
+    [[nodiscard]] constexpr std::int32_t hashCode() const noexcept
+    {
+        const std::uint64_t hilo = m_mostSignificantBits ^ m_leastSignificantBits;
+        return static_cast<std::int32_t>(static_cast<std::uint32_t>(hilo >> 32U) ^
+                                         static_cast<std::uint32_t>(hilo));
+    }
+
     /// The lowercase canonical form, exactly what java.util.UUID.toString() prints.
     [[nodiscard]] std::string toString() const;
 

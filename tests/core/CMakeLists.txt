@@ -58,6 +58,18 @@ add_executable(QtRocket_core_tests
     material/MaterialPreferencesTests.cpp
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
+    rocket/AngleMethodTests.cpp
+    rocket/AppearanceTests.cpp
+    rocket/AxialMethodTests.cpp
+    rocket/AxialStageTests.cpp
+    rocket/ComponentChangeEventTests.cpp
+    rocket/FlightConfigurableParameterSetTests.cpp
+    rocket/FlightConfigurationIdTests.cpp
+    rocket/InsideColorComponentTests.cpp
+    rocket/RadiusMethodTests.cpp
+    rocket/RocketComponentTests.cpp
+    rocket/RocketTests.cpp
+    rocket/StageSeparationConfigurationTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )

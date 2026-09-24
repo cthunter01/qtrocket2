@@ -215,3 +215,22 @@ TEST(Uuid, HashesConsistentlyWithEquality)
 }
 
 }  // namespace
+
+namespace
+{
+
+// java.util.UUID.hashCode(): (int) (hilo >> 32) ^ (int) hilo with hilo = most ^ least; the
+// expected values were computed with that formula.
+TEST(Uuid, HashCodeMatchesJavaUtilUuid)
+{
+    EXPECT_EQ(Uuid{}.hashCode(), 0);
+    EXPECT_EQ((Uuid{0U, 1U}.hashCode()), 1);
+    EXPECT_EQ((Uuid{std::uint64_t{1} << 32U, 0U}.hashCode()), 1);
+    EXPECT_EQ(Uuid::fromSigned(0, -1).hashCode(), 0);
+    EXPECT_EQ((Uuid{0x123e4567e89b12d3ULL, 0xa456426614174000ULL}.hashCode()), 1256478162);
+    // FlightConfigurationId's default and error keys.
+    EXPECT_EQ((Uuid{0xFFFFFFFFF4F2F1F0ULL, 5676U}.hashCode()), 185407523);
+    EXPECT_EQ((Uuid{0xFFFFFFFFF4F2F1F0ULL, 2489U}.hashCode()), 185403318);
+}
+
+}  // namespace

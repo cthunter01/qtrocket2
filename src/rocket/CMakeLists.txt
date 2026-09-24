@@ -1,0 +1,20 @@
+target_sources(QtRocket_core PRIVATE
+    Appearance.cpp
+    AppearanceBuilder.cpp
+    AxialStage.cpp
+    ComponentAssembly.cpp
+    ComponentChangeEvent.cpp
+    ComponentKind.cpp
+    Decal.cpp
+    DesignType.cpp
+    FlightConfigurationId.cpp
+    InsideColorComponent.cpp
+    InsideColorComponentHandler.cpp
+    position/AngleMethod.cpp
+    position/AxialMethod.cpp
+    position/RadiusMethod.cpp
+    ReferenceType.cpp
+    Rocket.cpp
+    RocketComponent.cpp
+    StageSeparationConfiguration.cpp
+)
