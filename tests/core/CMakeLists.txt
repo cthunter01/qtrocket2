@@ -9,6 +9,12 @@ add_executable(QtRocket_core_tests
     util/ModIdTests.cpp
     util/SignalTests.cpp
     util/UuidTests.cpp
+    util/Geometry2DTests.cpp
+    util/InertiaTests.cpp
+    util/LinearInterpolatorTests.cpp
+    util/PinkNoiseTests.cpp
+    util/PolyInterpolatorTests.cpp
+    util/Rotation2DTests.cpp
     util/VersionTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp

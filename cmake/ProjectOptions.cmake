@@ -51,6 +51,11 @@ function(QtRocket_configure_target target)
             -Wimplicit-fallthrough -Wcast-align
             $<$<CXX_COMPILER_ID:GNU>:-Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wuseless-cast>
             $<$<BOOL:${QTROCKET_WARNINGS_AS_ERRORS}>:-Werror>)
+        # Formulas ported from OpenRocket (Java) rely on every product being rounded before it is added:
+        # Java forbids fused multiply-add, but GCC and Clang contract a*b+c into one by default, which on
+        # an FMA target (Apple Silicon, -march=native) changes the last bit and breaks exact comparisons
+        # such as Line2D.relativeCCW's px*y2 - py*x2 == 0. MSVC's /fp:precise never contracts.
+        target_compile_options(${target} PRIVATE -ffp-contract=off)
         # Bounds-checked operator[] etc. in the standard library, ABI-compatible (unlike _GLIBCXX_DEBUG):
         # libstdc++ (Linux) and libc++ (macOS) each ignore the other's macro. MSVC's Debug STL checks itself.
         target_compile_definitions(${target} PRIVATE

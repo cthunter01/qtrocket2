@@ -8,5 +8,10 @@ target_sources(QtRocket_core PRIVATE
     Md5.cpp
     ModId.cpp
     Uuid.cpp
+    Geometry2D.cpp
+    LinearInterpolator.cpp
+    PinkNoise.cpp
+    PolyInterpolator.cpp
+    Rotation2D.cpp
     Version.cpp
 )
