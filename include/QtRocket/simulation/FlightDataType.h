@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -135,6 +134,7 @@ public:
     static constexpr std::string_view kLegacyUpwindName = "Position upwind";
 
     /// The built-in type @p id (FlightDataType.TYPE_*).
+    /// @throws BugError when @p id is not one of the enumerators
     [[nodiscard]] static const FlightDataType& builtin(FlightDataTypeId id);
 
     /// The 72 built-in types, in declaration order (the order of FlightDataTypeId).
@@ -152,15 +152,19 @@ public:
     /// that symbol exists and has the same name and an equal unit group (UnitGroup::equals), it
     /// is returned. When the name or the unit group differs, a new type with @p name, @p symbol,
     /// @p units and the old type's priority replaces it for later lookups by symbol (the old type
-    /// stays valid, as Java's does for whoever holds it). An empty (or blank) @p name stands for
-    /// the existing type's name. Without an existing type a new one is made in the CUSTOM group
-    /// with kDefaultPriority and no save key. Thread-safe (Java: synchronized).
-    /// Deviation: Java throws IllegalArgumentException for a null name and an unknown symbol;
-    /// an empty name here makes a type with that name, as Java does for "".
+    /// stays valid, as Java's does for whoever holds it); the replacement is a CUSTOM type without
+    /// a save key even when the old one was built in. An empty (or blank) @p name stands for the
+    /// existing type's name. Without an existing type a new one is made in the CUSTOM group with
+    /// kDefaultPriority and no save key; an empty @p name then makes a type named "", as Java
+    /// does for "" (a custom expression without a name). Thread-safe (Java: synchronized).
     [[nodiscard]] static const FlightDataType& getType(std::string_view name,
                                                        std::string_view symbol, UnitGroupId units);
-    /// getType() with a null unit group (Java: null): the existing type's unit group, or
-    /// UNITS_NONE for a new type.
+    /// getType() with a null unit group (Java: getType(name, symbol, null)): the existing type's
+    /// unit group, or UNITS_NONE for a new type. An empty @p name stands for Java's null, which
+    /// is how OpenRocket's range and index expressions look a type up: the existing type, or
+    /// BugError where Java throws IllegalArgumentException("typeName is null"). findBySymbol() is
+    /// the lookup that gives null instead.
+    /// @throws BugError when @p name is empty and no type has @p symbol
     [[nodiscard]] static const FlightDataType& getType(std::string_view name,
                                                        std::string_view symbol);
     /// getType() with a new FixedUnitGroup(@p unit) (Java: getType(name, symbol, new
@@ -238,8 +242,13 @@ public:
     /// Strings::javaEqualsIgnoreCase). Two distinct types can be equal.
     [[nodiscard]] bool equals(const FlightDataType& other) const noexcept;
 
-    /// FlightDataType.hashCode: the String.hashCode of the name lower-cased. Deviation: only
-    /// ASCII letters are lower-cased (Strings::toLower); Java also folds other letters.
+    /// FlightDataType.hashCode: the String.hashCode of the name lower-cased. Deviation: the name
+    /// is case-folded as equals() folds it (Strings::javaCaseFold), so that equal types always
+    /// hash alike. That is Java's toLowerCase(Locale.ENGLISH) for every character but 25: the 23
+    /// lower-case letters that fold to another one (the micro sign, the dotless i, the long s,
+    /// final sigma, Greek symbol forms such as U+03D1) and String.toLowerCase's special cases
+    /// U+0130 and a word-final capital sigma. Java's hash of a name holding one of them can
+    /// differ from that of an equal name, which the fold avoids.
     [[nodiscard]] int hashCode() const noexcept { return m_hashCode; }
 
     /// FlightDataType.compareTo: by group (compareTo(FlightDataTypeGroup, FlightDataTypeGroup)),

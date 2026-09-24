@@ -5,10 +5,12 @@
 #include <cstddef>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <source_location>
 #include <span>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -66,6 +68,27 @@ std::string bugMessage(const std::function<void()>& body)
         return error.what();
     }
     return "";
+}
+
+/// Runs @p body and returns the BugError it throws, or a marker error when nothing is thrown.
+BugError catchBug(const std::function<void()>& body)
+{
+    try
+    {
+        body();
+    }
+    catch (const BugError& error)
+    {
+        return error;
+    }
+    return BugError{"nothing was thrown"};
+}
+
+/// Whether @p error was raised on the line after @p before, in this file.
+void expectRaisedAfter(const BugError& error, const std::source_location& before)
+{
+    EXPECT_EQ(error.where().line(), before.line() + 1) << error.what();
+    EXPECT_EQ(std::string_view(error.where().file_name()), std::string_view(before.file_name()));
 }
 
 /// Whether @p values are @p expected, NaN matching NaN.
@@ -459,6 +482,35 @@ TEST(DataBranch, AnEqualTypeFindsTheSameColumn)
     EXPECT_THROW(branch.addType(shouting), BugError);
 }
 
+TEST(DataBranch, AnEqualNonAsciiTypeFindsTheSameColumn)
+{
+    // Java lower-cases the names in hashCode() and compares them ignoring case in equals(), so
+    // names differing in the case of a Greek letter share a column (Java: one hash, 29506).
+    const FlightDataType& upper =
+        FlightDataType::getType("\xCE\x94v", "qtrBranchDeltaUpper", UnitGroupId::VELOCITY);
+    const FlightDataType& lower =
+        FlightDataType::getType("\xCE\xB4v", "qtrBranchDeltaLower", UnitGroupId::VELOCITY);
+    ASSERT_NE(&upper, &lower);
+    ASSERT_TRUE(upper.equals(lower));
+
+    Branch branch("delta", {timeType(), upper});
+    branch.addPoint();
+    branch.setValue(lower, 7.0);
+    EXPECT_EQ(branch.getLast(upper), 7.0);
+    EXPECT_EQ(branch.getTypes(), (std::vector<const FlightDataType*>{&timeType(), &upper}));
+    EXPECT_THROW(Branch("both", {upper, lower}), BugError);
+
+    const FlightDataType& theta =
+        FlightDataType::getType("\xCE\x98-x", "qtrBranchThetaUpper", UnitGroupId::NONE);
+    const FlightDataType& thetaLower =
+        FlightDataType::getType("\xCE\xB8-X", "qtrBranchThetaLower", UnitGroupId::NONE);
+    Branch thetas("theta", {theta});
+    thetas.addPoint();
+    thetas.setValue(thetaLower, 1.0);
+    EXPECT_EQ(thetas.getTypes().size(), 1U);
+    EXPECT_EQ(thetas.getLast(theta), 1.0);
+}
+
 // ---- immutability ----
 
 TEST(DataBranch, ImmutableBranchRefusesChanges)
@@ -486,6 +538,63 @@ TEST(DataBranch, ImmutableBranchRefusesChanges)
     EXPECT_EQ(branch.getLast(timeType()), 2.0);
     EXPECT_EQ(branch.getMaximum(altitudeType()), 10.0);
     expectColumn(branch.get(altitudeType()), {0.0, 10.0, 5.0});
+}
+
+TEST(DataBranch, RefusalsAreRaisedAtTheCaller)
+{
+    Branch branch = threeRows();
+    branch.immute();
+    std::source_location before;
+    expectRaisedAfter(catchBug([&branch, &before] {
+                          before = std::source_location::current();
+                          branch.addPoint();
+                      }),
+                      before);
+    expectRaisedAfter(catchBug([&branch, &before] {
+                          before = std::source_location::current();
+                          branch.setValue(timeType(), 1.0);
+                      }),
+                      before);
+    expectRaisedAfter(catchBug([&branch, &before] {
+                          before = std::source_location::current();
+                          branch.addType(velocityType());
+                      }),
+                      before);
+}
+
+TEST(DataBranch, AssigningToAnImmutableBranchIsRefused)
+{
+    Branch     frozen = threeRows();
+    const auto line   = std::source_location::current().line() + 1;
+    frozen.immute();
+    const Branch other("other", {velocityType()});
+
+    const std::string where = "DataBranchTests.cpp:" + std::to_string(line);
+    EXPECT_NE(bugMessage([&frozen, &other] { frozen = other; }).find(where), std::string::npos);
+    EXPECT_NE(bugMessage([&frozen] { frozen = Branch("moved", {velocityType()}); }).find(where),
+              std::string::npos);
+    // Nothing changed.
+    EXPECT_EQ(frozen.getName(), "three");
+    EXPECT_EQ(frozen.getLength(), 3U);
+    EXPECT_FALSE(frozen.hasType(velocityType()));
+    EXPECT_FALSE(frozen.isMutable());
+
+    // Assigning an immutable branch to a mutable one copies its immutability, as a copy does.
+    Branch target("target", {timeType()});
+    target = frozen;
+    EXPECT_FALSE(target.isMutable());
+    EXPECT_EQ(target.modId(), frozen.modId());
+    EXPECT_EQ(target.getLength(), 3U);
+    EXPECT_THROW(target = other, BugError);
+
+    // Assigning a branch to itself changes nothing.
+    Branch      self   = threeRows();
+    const ModId selfId = self.modId();
+    // A self-assignment on purpose, through a reference.
+    const Branch& alias = self;
+    self                = alias;
+    EXPECT_EQ(self.modId(), selfId);
+    EXPECT_EQ(self.getLength(), 3U);
 }
 
 // ---- modification ids ----
@@ -578,6 +687,96 @@ TEST(DataBranch, MoveKeepsTheData)
     EXPECT_EQ(moved.getLast(altitudeType()), 5.0);
     moved.addPoint();
     EXPECT_EQ(moved.getLength(), 4U);
+}
+
+// ---- subclasses ----
+
+/// A branch with state of its own, as FlightDataBranch has its events.
+class EventBranch final : public Branch
+{
+public:
+    using Branch::Branch;
+
+    /// As FlightDataBranch.addEvent(): refused when immutable, and a change of the branch.
+    void addEvent(double time, std::source_location where = std::source_location::current())
+    {
+        checkMutable(where);
+        m_events.push_back(time);
+        markModified();
+    }
+
+    [[nodiscard]] const std::vector<double>& getEvents() const noexcept { return m_events; }
+
+    /// As FlightDataBranch.clone(): the columns through DataBranch::clone(), and the events.
+    [[nodiscard]] EventBranch cloneWithEvents() const { return {Branch::clone(), m_events}; }
+
+private:
+    EventBranch(Branch columns, std::vector<double> events)
+      : Branch(std::move(columns)), m_events(std::move(events))
+    {
+    }
+
+    std::vector<double> m_events;
+};
+
+TEST(DataBranch, SubclassesCheckMutabilityAndDrawModIds)
+{
+    EventBranch branch("events", {timeType()});
+    branch.addPoint();
+    const ModId before = branch.modId();
+    branch.addEvent(1.5);
+    EXPECT_GT(branch.modId(), before);
+    EXPECT_EQ(branch.getEvents(), std::vector<double>{1.5});
+
+    const auto line = std::source_location::current().line() + 1;
+    branch.immute();
+    std::source_location calledAt;
+    const BugError       error = catchBug([&branch, &calledAt] {
+        calledAt = std::source_location::current();
+        branch.addEvent(2.0);
+    });
+    const std::string    where = "DataBranchTests.cpp:" + std::to_string(line);
+    EXPECT_NE(std::string(error.what()).find("Object has been made immutable at " + where),
+              std::string::npos)
+        << error.what();
+    expectRaisedAfter(error, calledAt);
+    EXPECT_EQ(branch.getEvents(), std::vector<double>{1.5});
+}
+
+TEST(DataBranch, SubclassesCloneThroughTheBase)
+{
+    EventBranch branch("events", {timeType()});
+    branch.addPoint();
+    branch.addEvent(1.5);
+    branch.immute();
+
+    // A clone is mutable and keeps the ModId, the columns and the events.
+    EventBranch clone = branch.cloneWithEvents();
+    EXPECT_TRUE(clone.isMutable());
+    EXPECT_EQ(clone.modId(), branch.modId());
+    EXPECT_EQ(clone.getEvents(), branch.getEvents());
+    EXPECT_EQ(clone.getLength(), 1U);
+    clone.addEvent(3.0);
+    EXPECT_GT(clone.modId(), branch.modId());
+    EXPECT_EQ(branch.getEvents().size(), 1U);
+}
+
+TEST(DataBranch, ASubclassIsDestroyedThroughTheBase)
+{
+    // Java's DataBranch is abstract; here the destructor is virtual, so a branch held as a
+    // DataBranch frees its subclass's state too (AddressSanitizer reports a mismatched delete
+    // otherwise).
+    static_assert(std::has_virtual_destructor_v<Branch>);
+    const std::array<const FlightDataType*, 1> types{&timeType()};
+    auto                                       events =
+        std::make_unique<EventBranch>("events", std::span<const FlightDataType* const>(types));
+    events->addEvent(1.0);
+    events->addEvent(2.0);
+    std::unique_ptr<Branch> branch = std::move(events);
+    branch->addPoint();
+    EXPECT_EQ(branch->getLength(), 1U);
+    branch.reset();
+    EXPECT_EQ(branch, nullptr);
 }
 
 // ---- another data type ----

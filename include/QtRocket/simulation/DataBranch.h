@@ -26,7 +26,8 @@ namespace QtRocket
 {
 
 /// What DataBranch needs of its data types, the Java methods it relies on: equals() and
-/// hashCode() (its map keys) and compareTo() (getTypes() sorts with it).
+/// hashCode() (its map keys; types that are equal must have equal hash codes) and compareTo()
+/// (getTypes() sorts with it).
 template <class T>
 concept BranchDataType = std::derived_from<T, DataType> && requires(const T& a, const T& b) {
     { a.equals(b) } -> std::convertible_to<bool>;
@@ -44,18 +45,28 @@ concept BranchDataType = std::derived_from<T, DataType> && requires(const T& a, 
 /// still updates the minimum and maximum.
 ///
 /// Keys: the columns are keyed by the address of their type (const T*) and keep the order the
-/// types were added in. As in Java, whose map compares keys with equals() and hashCode(), a type
+/// types were added in. As in Java, whose map compares keys with hashCode() and equals(), a type
 /// that is a different object but equal to a key (for FlightDataType: the same name ignoring
 /// case, such as the replacement FlightDataType::getType() makes when a custom expression's unit
-/// changes) finds that key's column. The types must outlive the branch; FlightDataTypes live for
-/// the whole process.
+/// changes) finds that key's column; equal types hash alike (FlightDataType's hashCode() folds
+/// case as its equals() does). The types must outlive the branch; FlightDataTypes live for the
+/// whole process.
 ///
-/// Immutability (Java: Mutable): after immute() every change (addType(), addPoint(), setValue())
-/// throws BugError naming where immute() was called. A copy (or move) keeps the source's
-/// immutability and ModId; clone() gives a mutable copy.
+/// Immutability (Java: Mutable): after immute() every change (addType(), addPoint(), setValue(),
+/// and assigning another branch to this one) throws BugError naming where immute() was called,
+/// raised at the caller of addType(), addPoint() and setValue(). A copy (or move) keeps the
+/// source's immutability and ModId; clone() gives a mutable copy. An assignment replaces the
+/// columns, so the vectors getView() handed out do not survive it.
 ///
 /// Monitoring (Java: Monitorable): modId() is ModId::invalid() until the first change and is
 /// redrawn on every change.
+///
+/// Subclasses (Java: DataBranch is abstract; FlightDataBranch and CADataBranch extend it): the
+/// destructor is virtual, so a subclass may be deleted through a DataBranch<T> pointer. A
+/// subclass method that changes state of its own (FlightDataBranch::addEvent(),
+/// CADataBranch::setValue(type, component, value)) calls checkMutable() before the change and
+/// markModified() after it, as the Java subclasses use the protected mutable and modID. Copying
+/// a subclass into a DataBranch<T> keeps only the columns.
 ///
 /// Programming errors throw BugError where Java throws IllegalArgumentException or
 /// IllegalStateException: an empty type list given to the constructor, a type added twice, an
@@ -100,34 +111,69 @@ public:
         }
     }
 
-    /// Adds a column for @p type, NaN in every existing row.
-    /// @throws BugError when the branch is immutable or already has the type
-    void addType(const T& type)
+    virtual ~DataBranch() = default;
+
+    DataBranch(const DataBranch&) = default;
+    DataBranch(DataBranch&&)      = default;
+
+    /// Replaces this branch with a copy of @p other, its immutability and ModId included.
+    /// @throws BugError when this branch is immutable
+    DataBranch& operator=(const DataBranch& other)
     {
         m_mutable.check();
+        if (this != &other)
+        {
+            *this = DataBranch(other);
+        }
+        return *this;
+    }
+
+    /// Replaces this branch with @p other, its immutability and ModId included.
+    /// @throws BugError when this branch is immutable
+    DataBranch& operator=(DataBranch&& other) noexcept(false)
+    {
+        m_mutable.check();
+        if (this != &other)
+        {
+            m_name    = std::move(other.m_name);
+            m_columns = std::move(other.m_columns);
+            m_index   = std::move(other.m_index);
+            m_mutable = other.m_mutable;
+            m_modId   = other.m_modId;
+        }
+        return *this;
+    }
+
+    /// Adds a column for @p type, NaN in every existing row. A refusal is raised at @p where, the
+    /// call site by default, as for addPoint() and setValue().
+    /// @throws BugError when the branch is immutable or already has the type
+    void addType(const T& type, std::source_location where = std::source_location::current())
+    {
+        checkMutable(where);
         addColumn(type);
-        m_modId = ModId{};
+        markModified();
     }
 
     /// Opens a new row: NaN in every column (Java: addPoint()).
     /// @throws BugError when the branch is immutable
-    void addPoint()
+    void addPoint(std::source_location where = std::source_location::current())
     {
-        m_mutable.check();
+        checkMutable(where);
         for (Column& column : m_columns)
         {
             column.values.push_back(std::numeric_limits<double>::quiet_NaN());
         }
-        m_modId = ModId{};
+        markModified();
     }
 
     /// Writes @p value to the last row of @p type's column, adding the column when the branch
     /// does not have it yet, and updates the column's minimum and maximum: a NaN value becomes
     /// the minimum and maximum only while they are NaN (Java: setValue()).
     /// @throws BugError when the branch is immutable
-    void setValue(const T& type, double value)
+    void setValue(const T& type, double value,
+                  std::source_location where = std::source_location::current())
     {
-        m_mutable.check();
+        checkMutable(where);
 
         const std::optional<std::size_t> index = indexOf(type);
         Column& column = index.has_value() ? m_columns.at(*index) : addColumn(type);
@@ -144,7 +190,7 @@ public:
         {
             column.maximum = value;
         }
-        m_modId = ModId{};
+        markModified();
     }
 
     /// Whether the branch has a column for @p type (or a type equal to it).
@@ -165,8 +211,8 @@ public:
     /// @p type's values themselves, read-only, or null when the branch does not have the type
     /// (Java: getView()). The vector is live: it grows with addPoint() and changes with
     /// setValue(), and stays valid (at the same address) while the branch lives, even when other
-    /// columns are added. Hold it no longer than the branch, and take no iterators or spans into
-    /// it across an addPoint().
+    /// columns are added, until another branch is assigned to this one. Hold it no longer than the
+    /// branch, and take no iterators or spans into it across an addPoint().
     [[nodiscard]] const std::vector<double>* getView(const T& type) const
     {
         const std::optional<std::size_t> index = indexOf(type);
@@ -266,6 +312,19 @@ public:
         return copy;
     }
 
+protected:
+    /// Throws when the branch is immutable (Java: the protected mutable's check()), raised at
+    /// @p where (the caller by default). Every subclass method that changes state calls it first.
+    /// @throws BugError "Object has been made immutable at <file>:<line>"
+    void checkMutable(std::source_location where = std::source_location::current()) const
+    {
+        m_mutable.check(where);
+    }
+
+    /// Draws a new ModId (Java: modID = new ModID()). Every subclass method that changes state
+    /// calls it after the change.
+    void markModified() noexcept { m_modId = ModId{}; }
+
 private:
     struct Column
     {
@@ -296,16 +355,26 @@ private:
     }
 
     /// Adds a column for @p type with NaN in every existing row and NaN as minimum and maximum.
+    /// When that fails (an allocation), the branch is left as it was.
     Column& addColumn(const T& type)
     {
         if (indexOf(type).has_value())
         {
             bug(std::format("Value type {} already exists.", type.getName()));
         }
-        m_index.emplace(&type, m_columns.size());
-        return m_columns.emplace_back(Column{
+        Column& column = m_columns.emplace_back(Column{
             .type   = &type,
             .values = std::vector<double>(getLength(), std::numeric_limits<double>::quiet_NaN())});
+        try
+        {
+            m_index.emplace(&type, m_columns.size() - 1);
+        }
+        catch (...)
+        {
+            m_columns.pop_back();
+            throw;
+        }
+        return column;
     }
 
     std::string m_name;

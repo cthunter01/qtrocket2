@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
+#include <cstdlib>
+#include <functional>
 #include <optional>
 #include <set>
 #include <span>
@@ -17,6 +20,7 @@
 #include "QtRocket/simulation/FlightDataTypeGroup.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"
 
 namespace
@@ -666,13 +670,116 @@ TEST(FlightDataType, GetTypeWithoutUnitsKeepsTheFixedUnitGroup)
     EXPECT_EQ(renamedAgain.getUnitGroup().getDefaultUnit().getUnit(), "cubit");
 }
 
+TEST(FlightDataType, GetTypeWithoutANameOrUnitsIsALookup)
+{
+    // Java's getType(null, symbol, null), what range and index expressions call: the existing
+    // type, or IllegalArgumentException("typeName is null"), and nothing is registered.
+    EXPECT_EQ(&FlightDataType::getType("", "Cd"), &type(Id::TYPE_DRAG_COEFF));
+    EXPECT_THROW(static_cast<void>(FlightDataType::getType("", "qtrUnnamedLookup")),
+                 QtRocket::BugError);
+    EXPECT_EQ(FlightDataType::findBySymbol("qtrUnnamedLookup"), nullptr);
+    // A blank name is a name, as in Java.
+    const FlightDataType& blank = FlightDataType::getType(" ", "qtrBlankName");
+    EXPECT_EQ(blank.getName(), " ");
+    EXPECT_EQ(blank.getUnitGroupId(), UnitGroupId::NONE);
+}
+
 TEST(FlightDataType, GetTypeWithAnEmptyNameAndAnUnknownSymbol)
 {
-    // Java throws for a null name here and makes a type named "" for an empty one.
-    const FlightDataType& unnamed = FlightDataType::getType("", "qtrUnnamed");
+    // With a unit group an empty name is Java's "" (a custom expression without a name), which
+    // makes a type of that name.
+    const FlightDataType& unnamed = FlightDataType::getType("", "qtrUnnamed", UnitGroupId::MASS);
     EXPECT_EQ(unnamed.getName(), "");
-    EXPECT_EQ(unnamed.getUnitGroupId(), UnitGroupId::NONE);
+    EXPECT_EQ(unnamed.getUnitGroupId(), UnitGroupId::MASS);
+    EXPECT_EQ(unnamed.getGroup(), Group::CUSTOM);
+    EXPECT_EQ(&FlightDataType::getType("", "qtrUnnamed", UnitGroupId::MASS), &unnamed);
     EXPECT_EQ(&FlightDataType::getType("", "qtrUnnamed"), &unnamed);
+}
+
+TEST(FlightDataType, BuiltinRejectsAnIdOutsideTheEnum)
+{
+    EXPECT_THROW(
+        static_cast<void>(FlightDataType::builtin(static_cast<Id>(kBuiltinFlightDataTypeCount))),
+        QtRocket::BugError);
+    EXPECT_THROW(static_cast<void>(FlightDataType::builtin(static_cast<Id>(-1))),
+                 QtRocket::BugError);
+}
+
+/// @p custom is a CUSTOM type named @p name, not built in and without a save key or translation
+/// key of its own.
+void expectCustomType(const FlightDataType& custom, std::string_view name)
+{
+    EXPECT_EQ(custom.getName(), name);
+    EXPECT_EQ(custom.getGroup(), Group::CUSTOM);
+    EXPECT_FALSE(custom.isBuiltin());
+    EXPECT_EQ(custom.getSaveKey(), name);
+    EXPECT_EQ(custom.getDisplayKey(), "");
+}
+
+/// @p replacement has replaced the built-in type @p id for its symbol: another object with the
+/// built-in type's priority. The built-in type itself is still found by id and save key.
+void expectReplaced(const FlightDataType& replacement, Id id)
+{
+    const FlightDataType& builtin = type(id);
+    EXPECT_NE(&replacement, &builtin);
+    EXPECT_EQ(replacement.getPriority(), builtin.getPriority());
+    EXPECT_EQ(FlightDataType::findBySymbol(builtin.getSymbol()), &replacement);
+    EXPECT_EQ(FlightDataType::getTypeBySaveKey(builtin.getSaveKey()), &builtin);
+    EXPECT_EQ(builtin.getId(), id);
+}
+
+/// A new name for the altitude symbol "h".
+void replaceAltitude()
+{
+    const FlightDataType& replacement =
+        FlightDataType::getType("My height", "h", UnitGroupId::DISTANCE);
+    expectCustomType(replacement, "My height");
+    expectReplaced(replacement, Id::TYPE_ALTITUDE);
+    EXPECT_EQ(replacement.getPriority(), 0);
+    EXPECT_EQ(replacement.getUnitGroupId(), UnitGroupId::DISTANCE);
+    EXPECT_EQ(FlightDataType::findByName("Altitude"), &type(Id::TYPE_ALTITUDE));
+}
+
+/// The built-in name again, after replaceAltitude(): one more CUSTOM type, not the built-in one.
+void renameAltitudeBack()
+{
+    const FlightDataType* const previous = FlightDataType::findBySymbol("h");
+    const FlightDataType& again = FlightDataType::getType("Altitude", "h", UnitGroupId::DISTANCE);
+    expectCustomType(again, "Altitude");
+    expectReplaced(again, Id::TYPE_ALTITUDE);
+    EXPECT_NE(&again, previous);
+    EXPECT_TRUE(again.equals(type(Id::TYPE_ALTITUDE)));
+}
+
+/// New units for the drag coefficient, the name taken from the built-in type.
+void replaceDragCoefficientUnits()
+{
+    const FlightDataType& inMetres = FlightDataType::getType("", "Cd", UnitGroupId::LENGTH);
+    expectCustomType(inMetres, "Drag coefficient (CD)");
+    expectReplaced(inMetres, Id::TYPE_DRAG_COEFF);
+    EXPECT_EQ(inMetres.getPriority(), 3);
+    EXPECT_EQ(inMetres.getUnitGroupId(), UnitGroupId::LENGTH);
+}
+
+/// Replaces built-in types by their symbols and checks the replacements as Java makes them. The
+/// replacements are for good, so this runs only in the child process of a death test, and exits
+/// with 1 when a check failed (a failure in the child is not reported otherwise).
+[[noreturn]] void replaceBuiltinsAndExit()
+{
+    replaceAltitude();
+    renameAltitudeBack();
+    replaceDragCoefficientUnits();
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): the child of a death test, with no other threads
+    std::exit(::testing::Test::HasFailure() ? 1 : 0);
+}
+
+TEST(FlightDataTypeDeathTest, GetTypeReplacesABuiltin)
+{
+    // Java: EXISTING_TYPES.remove(symbol), then newType(s, symbol, u, oldPriority).
+    EXPECT_EXIT(replaceBuiltinsAndExit(), ::testing::ExitedWithCode(0), "");
+    // The replacements were made in the child process only.
+    EXPECT_EQ(FlightDataType::findBySymbol("h"), &type(Id::TYPE_ALTITUDE));
+    EXPECT_EQ(FlightDataType::findBySymbol("Cd"), &type(Id::TYPE_DRAG_COEFF));
 }
 
 TEST(FlightDataType, GetTypeIsThreadSafe)
@@ -701,6 +808,68 @@ TEST(FlightDataType, GetTypeIsThreadSafe)
     EXPECT_EQ(FlightDataType::findBySymbol("qtrThreads"), results.front());
 }
 
+constexpr std::string_view kRaceName   = "QtRocket test race";
+constexpr std::string_view kRaceSymbol = "qtrRace";
+constexpr std::size_t      kRaceRounds = 200;
+
+/// Replaces the race type again and again, the units alternating from @p first; counts the
+/// types made wrong in @p bad.
+void raceWriter(std::size_t first, std::atomic<int>& bad)
+{
+    for (std::size_t n = first; n < first + kRaceRounds; n++)
+    {
+        const UnitGroupId     units = n % 2 == 0 ? UnitGroupId::LENGTH : UnitGroupId::VELOCITY;
+        const FlightDataType& made  = FlightDataType::getType(kRaceName, kRaceSymbol, units);
+        if (made.getUnitGroupId() != units || made.getName() != kRaceName)
+        {
+            bad++;
+        }
+    }
+}
+
+/// Looks the race type up again and again; counts the types found missing or not whole in @p bad.
+void raceReader(std::atomic<int>& bad)
+{
+    const QtRocket::UnitGroup& length   = unitGroup(UnitGroupId::LENGTH);
+    const QtRocket::UnitGroup& velocity = unitGroup(UnitGroupId::VELOCITY);
+    for (std::size_t n = 0; n < kRaceRounds; n++)
+    {
+        const FlightDataType* found = FlightDataType::findBySymbol(kRaceSymbol);
+        if (found == nullptr || found->getName() != kRaceName ||
+            found->getSymbol() != kRaceSymbol ||
+            (&found->getUnitGroup() != &length && &found->getUnitGroup() != &velocity))
+        {
+            bad++;
+        }
+    }
+}
+
+TEST(FlightDataType, GetTypeReplacesSafelyWhileOthersLookUp)
+{
+    // Writers keep replacing the type of one symbol (the units alternate), readers keep looking
+    // it up: every type found must be whole. Counted, not asserted, in the threads.
+    constexpr std::size_t kThreads = 4;
+    static_cast<void>(FlightDataType::getType(kRaceName, kRaceSymbol, UnitGroupId::LENGTH));
+
+    std::atomic<int> badWrites{0};
+    std::atomic<int> badReads{0};
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(2 * kThreads);
+        for (std::size_t i = 0; i < kThreads; i++)
+        {
+            threads.emplace_back(raceWriter, i, std::ref(badWrites));
+            threads.emplace_back(raceReader, std::ref(badReads));
+        }
+    }  // joins
+    EXPECT_EQ(badWrites.load(), 0);
+    EXPECT_EQ(badReads.load(), 0);
+    const FlightDataType* last = FlightDataType::findBySymbol(kRaceSymbol);
+    ASSERT_NE(last, nullptr);
+    EXPECT_EQ(last->getName(), kRaceName);
+    EXPECT_EQ(last->getPriority(), FlightDataType::kDefaultPriority);
+}
+
 TEST(FlightDataType, EqualsIgnoresCaseOfTheName)
 {
     const FlightDataType& altitude = type(Id::TYPE_ALTITUDE);
@@ -717,17 +886,56 @@ TEST(FlightDataType, EqualsIgnoresCaseOfTheName)
     const FlightDataType& greekLower =
         FlightDataType::getType("\xCE\xB8-TEST", "qtrGreekLower", UnitGroupId::NONE);
     EXPECT_TRUE(greek.equals(greekLower));
+    EXPECT_EQ(greek.hashCode(), greekLower.hashCode());
 }
 
 TEST(FlightDataType, HashCodeIsJavasHashOfTheLowerCaseName)
 {
     // "time".hashCode() in Java.
     EXPECT_EQ(type(Id::TYPE_TIME).hashCode(), 3560141);
+    // name.toLowerCase(Locale.ENGLISH).hashCode() in Java, for a name with a Greek letter.
+    EXPECT_EQ(type(Id::TYPE_CNA).hashCode(), 1324030731);
     for (const FlightDataType* t : FlightDataType::builtinTypes())
     {
         EXPECT_EQ(t->hashCode(),
                   QtRocket::Strings::javaHashCode(QtRocket::Strings::toLower(t->getName())));
     }
+}
+
+TEST(FlightDataType, HashCodeLowerCasesNonAsciiLetters)
+{
+    // Java: 29506 and 190199131 for both spellings.
+    const FlightDataType& deltaUpper =
+        FlightDataType::getType("\xCE\x94v", "qtrHashDeltaUpper", UnitGroupId::VELOCITY);
+    const FlightDataType& deltaLower =
+        FlightDataType::getType("\xCE\xB4v", "qtrHashDeltaLower", UnitGroupId::VELOCITY);
+    EXPECT_EQ(deltaUpper.hashCode(), 29506);
+    EXPECT_EQ(deltaLower.hashCode(), 29506);
+    const FlightDataType& thetaUpper =
+        FlightDataType::getType("\xCE\x98-PROBE", "qtrHashThetaUpper", UnitGroupId::NONE);
+    const FlightDataType& thetaLower =
+        FlightDataType::getType("\xCE\xB8-probe", "qtrHashThetaLower", UnitGroupId::NONE);
+    EXPECT_EQ(thetaUpper.hashCode(), 190199131);
+    EXPECT_EQ(thetaLower.hashCode(), 190199131);
+}
+
+TEST(FlightDataType, EqualTypesHashAlike)
+{
+    // Deviation: Java hashes "\u00B5m" (micro sign) as 5720 and "\u03BCm" (mu) as 29745 although
+    // the two are equal ignoring case; here both hash as Java hashes "\u03BCm".
+    const FlightDataType& micro =
+        FlightDataType::getType("\xC2\xB5m", "qtrHashMicro", UnitGroupId::LENGTH);
+    const FlightDataType& mu =
+        FlightDataType::getType("\xCE\x9CM", "qtrHashMu", UnitGroupId::LENGTH);
+    ASSERT_TRUE(micro.equals(mu));
+    EXPECT_EQ(micro.hashCode(), mu.hashCode());
+    EXPECT_EQ(mu.hashCode(), 29745);
+    const FlightDataType& longS =
+        FlightDataType::getType("Po\xC5\xBFition", "qtrHashLongS", UnitGroupId::LENGTH);
+    const FlightDataType& plainS =
+        FlightDataType::getType("POSITION", "qtrHashPlainS", UnitGroupId::LENGTH);
+    ASSERT_TRUE(longS.equals(plainS));
+    EXPECT_EQ(longS.hashCode(), plainS.hashCode());
 }
 
 TEST(FlightDataType, CompareToOrdersByGroupThenPriority)

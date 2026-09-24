@@ -750,6 +750,48 @@ TEST(Strings, JavaEqualsIgnoreCaseFoldsAsJava)
     EXPECT_FALSE(Strings::javaEqualsIgnoreCase("\u00E9", "e"));
 }
 
+TEST(Strings, JavaCaseFoldLowerCases)
+{
+    EXPECT_EQ(Strings::javaCaseFold(""), "");
+    EXPECT_EQ(Strings::javaCaseFold("Aluminum 6061-T6"), "aluminum 6061-t6");
+    EXPECT_EQ(Strings::javaCaseFold("\u00D6lpapier"), "\u00F6lpapier");
+    EXPECT_EQ(Strings::javaCaseFold("\u0394v"), "\u03B4v");
+    EXPECT_EQ(Strings::javaCaseFold("\U00010400"), "\U00010428");  // Deseret, four UTF-8 bytes
+    // Java: "\u0394v".toLowerCase(Locale.ENGLISH).hashCode() is 29506.
+    EXPECT_EQ(Strings::javaHashCode(Strings::javaCaseFold("\u0394v")), 29506);
+}
+
+TEST(Strings, JavaCaseFoldFoldsWhereToLowerCaseDoesNot)
+{
+    // Character.toLowerCase(Character.toUpperCase(c)) where it is not toLowerCase(c).
+    EXPECT_EQ(Strings::javaCaseFold("\u00B5m"), "\u03BCm");  // micro sign
+    EXPECT_EQ(Strings::javaCaseFold("\u017F"), "s");         // long s
+    EXPECT_EQ(Strings::javaCaseFold("\u03A3\u03C2"), "\u03C3\u03C3");
+    EXPECT_EQ(Strings::javaCaseFold("\u212A"), "k");  // Kelvin sign
+    EXPECT_EQ(Strings::javaCaseFold("\u0130\u0131"), "ii");
+    // No full case folding, and a malformed byte reads as U+FFFD.
+    EXPECT_EQ(Strings::javaCaseFold("\u00DF"), "\u00DF");
+    EXPECT_EQ(Strings::javaCaseFold("a\xFF"), "a\uFFFD");
+}
+
+TEST(Strings, JavaCaseFoldAgreesWithJavaEqualsIgnoreCase)
+{
+    // Strings equal ignoring case have equal folds.
+    for (const auto& [a, b] : std::initializer_list<std::pair<std::string_view, std::string_view>>{
+             {"Aluminum", "aLUMINUM"},
+             {"\u00B5m", "\u03BCM"},
+             {"\u212A", "k"},
+             {"\u017F", "S"},
+             {"\u0130", "I"},
+             {"\U00010400", "\U00010428"},
+             {"\xFF", "\uFFFD"}})
+    {
+        EXPECT_TRUE(Strings::javaEqualsIgnoreCase(a, b)) << a << " / " << b;
+        EXPECT_EQ(Strings::javaCaseFold(a), Strings::javaCaseFold(b)) << a << " / " << b;
+    }
+    EXPECT_NE(Strings::javaCaseFold("\u00E9"), Strings::javaCaseFold("e"));
+}
+
 TEST(Strings, JavaCompareToComparesUtf16CodeUnits)
 {
     EXPECT_EQ(Strings::javaCompareTo("abc", "abc"), 0);

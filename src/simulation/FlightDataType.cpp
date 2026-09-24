@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <map>
 #include <memory>
@@ -377,9 +378,13 @@ constexpr std::array<FlightDataTypeId, kAllTypesCount> kAllTypes{
     TYPE_COMPUTATION_TIME,
 };
 
-[[nodiscard]] constexpr std::size_t indexOf(FlightDataTypeId id) noexcept
+/// The index of @p id in the table of built-in types.
+/// @throws BugError when @p id is not one of the enumerators (an integer cast to the enum)
+[[nodiscard]] std::size_t indexOf(FlightDataTypeId id)
 {
-    return static_cast<std::size_t>(id);
+    const auto index = static_cast<std::size_t>(id);
+    QTROCKET_ASSERT(index < kBuiltinFlightDataTypeCount);
+    return index;
 }
 
 }  // namespace
@@ -456,7 +461,7 @@ FlightDataType::FlightDataType(Passkey /*passkey*/, std::optional<FlightDataType
     m_units(m_unitGroupId.has_value() ? &unitGroup(*m_unitGroupId) : m_ownedUnits.get()),
     m_group(group),
     m_priority(typePriority),
-    m_hashCode(Strings::javaHashCode(Strings::toLower(m_name)))
+    m_hashCode(Strings::javaHashCode(Strings::javaCaseFold(m_name)))
 {
     QTROCKET_ASSERT(m_units != nullptr);
 }
@@ -497,6 +502,19 @@ const FlightDataType& FlightDataType::getTypeWithFixedUnit(std::string_view name
 
 const FlightDataType& FlightDataType::getType(std::string_view name, std::string_view symbol)
 {
+    if (name.empty())
+    {
+        // Java's getType(null, symbol, null): the existing type, else "typeName is null".
+        const FlightDataType* const existing = findBySymbol(symbol);
+        if (existing == nullptr)
+        {
+            bug(
+                std::format("No flight data type has the symbol \"{}\", and no name was given to "
+                            "make one",
+                            symbol));
+        }
+        return *existing;
+    }
     return internType(name, symbol, std::nullopt, nullptr);
 }
 
@@ -528,16 +546,13 @@ const FlightDataType& FlightDataType::internType(std::string_view name, std::str
         }
         const UnitGroup& units = unitGroupId.has_value() ? unitGroup(*unitGroupId) : *ownedUnits;
 
-        // When something has changed the old type is replaced; otherwise it is the answer.
-        if (!units.equals(type.getUnitGroup()) || typeName != type.getName())
-        {
-            oldPriority = type.m_priority;
-            reg.bySymbol.erase(found);
-        }
-        else
+        // When something has changed the old type is replaced (its entry in bySymbol is
+        // overwritten below); otherwise it is the answer.
+        if (units.equals(type.getUnitGroup()) && typeName == type.getName())
         {
             return type;
         }
+        oldPriority = type.m_priority;
     }
 
     if (!unitGroupId.has_value() && ownedUnits == nullptr)
@@ -550,9 +565,11 @@ const FlightDataType& FlightDataType::internType(std::string_view name, std::str
                                                  std::string{}, std::string{}, std::string(symbol),
                                                  unitGroupId, std::move(ownedUnits),
                                                  FlightDataTypeGroup::CUSTOM, oldPriority);
-    const FlightDataType& result = *type;
-    reg.bySymbol.insert_or_assign(std::string(symbol), &result);
+    // Owned first, then published: should either step fail, bySymbol never names a type that
+    // does not exist (a type owned but not published is merely never found).
     reg.types.push_back(std::move(type));
+    const FlightDataType& result = *reg.types.back();
+    reg.bySymbol.insert_or_assign(std::string(symbol), &result);
     return result;
 }
 
