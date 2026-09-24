@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/MotorDigest.h"
@@ -383,20 +385,177 @@ TEST(RockSimMotorLoader, AttributeWhitespaceIsNormalised)
 
 TEST(RockSimMotorLoader, RejectsMalformedXml)
 {
-    EXPECT_EQ(loadError(""), "Premature end of file.");
-    EXPECT_EQ(loadError("   \n"), "Premature end of file.");
-    EXPECT_EQ(loadError(document(kData) + "<x/>"),
-              "The markup in the document following the root element must be "
-              "well-formed.");
-    EXPECT_EQ(loadError(document(kData) + "junk"), "Content is not allowed in trailing section.");
-    EXPECT_EQ(loadError("junk" + document(kData)), "Content is not allowed in prolog.");
-    // Java's InputStreamReader keeps a byte-order mark, which the parser rejects.
-    EXPECT_EQ(loadError("\xEF\xBB\xBF" + document(kData)), "Content is not allowed in prolog.");
-    EXPECT_EQ(loadError(replaced(kHead, R"(dia="18")", R"(dia="18" dia="19")") +
-                        std::string(kData) + std::string(kTail)),
-              R"(Attribute "dia" was already specified for element "engine".)");
-    EXPECT_FALSE(load(document(kData).substr(0, 60)));                       // truncated
-    EXPECT_FALSE(load("<engine-database><engine-list></engine-database>"));  // mismatched
+    // The documents OpenRocket's parser rejects, with its messages (pinned by running OpenRocket
+    // 5f164fd0e on each; XmlScannerTests has many more).
+    const std::string body         = document(kData);
+    const auto        withComments = [](std::string_view comments) {
+        return document("<comments>" + std::string(comments) + "</comments>" + std::string(kData));
+    };
+    const auto withHead = [](std::string_view from, std::string_view to) {
+        return replaced(kHead, from, to) + std::string(kData) + std::string(kTail);
+    };
+    const std::vector<std::pair<std::string, std::string_view>> cases{
+        {"", "Premature end of file."},
+        {"   \n", "Premature end of file."},
+        {body + "<x/>",
+         "The markup in the document following the root element must be well-formed."},
+        {body + "junk", "Content is not allowed in trailing section."},
+        {"junk" + body, "Content is not allowed in prolog."},
+        // Java's InputStreamReader keeps a byte-order mark, which the parser rejects.
+        {"\xEF\xBB\xBF" + body, "Content is not allowed in prolog."},
+        {body.substr(0, 60), "XML document structures must start and end within the same entity."},
+        {"<engine-database><engine-list></engine-database>",
+         R"(The element type "engine-list" must be terminated by the matching end-tag )"
+         R"("</engine-list>".)"},
+        // (a) the Char production, literal and referenced
+        {withComments("a\x01z"),
+         "An invalid XML character (Unicode: 0x1) was found in the element content of the "
+         "document."},
+        {withComments(std::string("a") + '\0' + "z"),
+         "An invalid XML character (Unicode: 0x0) was found in the element content of the "
+         "document."},
+        {withComments("a\uFFFEz"),
+         "An invalid XML character (Unicode: 0xfffe) was found in the element content of the "
+         "document."},
+        {withHead(R"(mfg="Estes")", "mfg=\"E\x02s\""),
+         R"(An invalid XML character (Unicode: 0x2) was found in the value of attribute )"
+         R"("mfg" and element is "engine".)"},
+        {withComments("a&#0;z"), R"(Character reference "&#0" is an invalid XML character.)"},
+        {withComments("a&#1;z"), R"(Character reference "&#1" is an invalid XML character.)"},
+        {withComments("&#x110000;"),
+         R"(Character reference "&#x110000" is an invalid XML character.)"},
+        {withComments("&#xD800;"), R"(Character reference "&#xD800" is an invalid XML character.)"},
+        {body + std::string(1, '\0') + "junk", "Content is not allowed in trailing section."},
+        // (b) '<' in an attribute value
+        {withHead(R"(mfg="Estes")", R"(mfg="A<B")"),
+         R"(The value of attribute "mfg" associated with an element type "engine" must not )"
+         R"(contain the '<' character.)"},
+        // (c) references
+        {withComments("AT&T rocks"),
+         R"(The reference to entity "T" must end with the ';' delimiter.)"},
+        {withHead(R"(mfg="Estes")", R"(mfg="Es&tes")"),
+         R"(The reference to entity "tes" must end with the ';' delimiter.)"},
+        {withComments("a&amp b"),
+         R"(The reference to entity "amp" must end with the ';' delimiter.)"},
+        {withComments("Estes & Cox"),
+         "The entity name must immediately follow the '&' in the entity reference."},
+        // (d) namespace prefixes
+        {"<x:engine-database/>", R"(The prefix "x" for element "x:engine-database" is not bound.)"},
+        {withHead(R"(mfg="Estes")", R"(mfg="Estes" y:code="B6")"),
+         R"(The prefix "y" for attribute "y:code" associated with an element type "engine" )"
+         R"(is not bound.)"},
+        // (e) '--' in a comment
+        {document("<!-- a -- b -->" + std::string(kData)),
+         R"(The string "--" is not permitted within comments.)"},
+        // (f) ']]>' in text
+        {withComments("a]]>z"),
+         R"(The character sequence "]]>" must not appear in content unless used to mark the )"
+         R"(end of a CDATA section.)"},
+        // (g) the reserved processing-instruction target
+        {R"(  <?xml version="1.0"?>)" + body,
+         R"(The processing instruction target matching "[xX][mM][lL]" is not allowed.)"},
+        {R"(<?XML version="1.0"?>)" + body,
+         R"(The processing instruction target matching "[xX][mM][lL]" is not allowed.)"},
+        // (h) repeated attributes, by raw and by expanded name
+        {withHead(R"(dia="18")", R"(dia="18" dia="19")"),
+         R"(Attribute "dia" was already specified for element "engine".)"},
+        {withHead(R"(dia="18")", R"(dia="18" xmlns:u="urn:a" xmlns:v="urn:a" u:x="1" v:x="2")"),
+         R"(Attribute "x" bound to namespace "urn:a" was already specified for element )"
+         R"("engine".)"},
+        // (i) the XML declaration
+        {R"(<?xml encoding="UTF-8"?>)" + body, "The version is required in the XML declaration."},
+        {R"(<?xml version="2.0"?>)" + body,
+         R"(XML version "2.0" is not supported, only XML 1.0 is supported.)"},
+        {R"(<?xml version="1.0" standalone="maybe"?>)" + body,
+         R"(The standalone document declaration value must be "yes" or "no", not "maybe".)"},
+        {R"(<?xml version="1.0" standalone="yes" encoding="UTF-8"?>)" + body,
+         "No more pseudo attributes are allowed."},
+        // (j) one document type declaration, before the root
+        {"<!DOCTYPE engine-database><!DOCTYPE engine-database>" + body, "Already seen doctype."},
+        {body + "<!DOCTYPE engine-database>", R"(Comment must start with "<!--".)"},
+        // (k) empty prefixed bindings and two colons in a name
+        {withHead(R"(mfg="Estes")", R"(mfg="Estes" xmlns:x="")"),
+         R"(The value of the attribute "prefix="xmlns",localpart="x",rawname="xmlns:x"" is )"
+         R"(invalid. Prefixed namespace bindings may not be empty.)"},
+        // (l) an undeclared entity (only the five predefined ones exist without a DTD)
+        {withComments("Estes &amp; Cox &nbsp;"),
+         R"(The entity "nbsp" was referenced, but not declared.)"},
+    };
+    for (const auto& [text, message] : cases)
+    {
+        EXPECT_EQ(loadError(text), message) << text;
+    }
+}
+
+TEST(RockSimMotorLoader, AcceptsWhatOpenRocketsParserAccepts)
+{
+    // A name that starts with a colon has no prefix; OpenRocket's attribute map keys it ":a".
+    EXPECT_EQ(loadMotor(replaced(kHead, R"(mfg="Estes")", R"(mfg="Estes" :a="1")") +
+                        std::string(kData) + std::string(kTail))
+                  .getDigest(),
+              kDigestA8);
+    // An empty document type declaration, or one of comments, is read.
+    EXPECT_EQ(loadMotor("<!DOCTYPE engine-database [ <!-- no declarations --> ]>" + document(kData))
+                  .getDigest(),
+              kDigestA8);
+    // Namespaces: elements and attributes by local name, declarations left out.
+    EXPECT_EQ(loadMotor(R"(<r:engine-database xmlns:r="urn:r"><engine-list><engine )"
+                        R"(xmlns:q="urn:q" q:mfg="Estes" code="A8-3" dia="18" len="70" )"
+                        R"(initWt="16" propWt="3" delays="3,5">)" +
+                        std::string(kData) + "</engine></engine-list></r:engine-database>")
+                  .getDigest(),
+              kDigestA8);
+    // XML 1.1: character references to control characters, and U+0085 as a line end.
+    EXPECT_EQ(loadMotor(R"(<?xml version="1.1"?>)" +
+                        document("<comments>a&#1;z\u0085next</comments>" + std::string(kData)))
+                  .getDescription(),
+              "a\x01z\nnext");
+}
+
+TEST(RockSimMotorLoader, ReadsTheElementsBeforeAnXmlError)
+{
+    // OpenRocket's parser hands the elements over as it reads them, so an engine that fails
+    // before a later XML error fails the file with its own message.
+    EXPECT_EQ(loadError(R"(<engine-database><engine code="B6"/><foo></bar></engine-database>)"),
+              "Manufacturer missing");
+    EXPECT_EQ(loadError(R"(<engine-database><engine code="B6"/></engine-database>junk)"),
+              "Manufacturer missing");
+    // An XML error inside the engine's start tag comes first.
+    EXPECT_EQ(loadError(R"(<engine-database><engine code="B6" code="B7"/>)"),
+              R"(Attribute "code" was already specified for element "engine".)");
+}
+
+TEST(RockSimMotorLoader, LeavesDocumentTypeDeclarationsWithDeclarationsUnread)
+{
+    // Deviation: OpenRocket would expand the entity (and read an external subset); pugixml cannot
+    // follow, so these fail as an unsupported format rather than giving different data.
+    for (const std::string& text :
+         {"<!DOCTYPE engine-database [<!ENTITY m \"Estes\">]>" +
+              replaced(kHead, R"(mfg="Estes")", R"(mfg="&m;")") + std::string(kData) +
+              std::string(kTail),
+          R"(<!DOCTYPE engine-database SYSTEM "rse.dtd">)" + document(kData)})
+    {
+        const Result<std::vector<ThrustCurveMotor::Builder>> loaded = load(text);
+        ASSERT_FALSE(loaded);
+        EXPECT_EQ(loaded.error().code, ErrorCode::UNSUPPORTED_FORMAT);
+    }
+}
+
+TEST(RockSimMotorLoader, LoadTextReadsDecodedTextWithTheHandlersWarnings)
+{
+    // load(Reader, String), public as in OpenRocket (MotorBurnFile reads downloads with it)
+    QtRocket::WarningSet                                 warnings;
+    const Result<std::vector<ThrustCurveMotor::Builder>> loaded = RockSimMotorLoader::loadText(
+        document("<comments>a<b/>c</comments><extra/>" + std::string(kData)), "download", warnings);
+    ASSERT_TRUE(loaded) << loaded.error().toString();
+    ASSERT_EQ(loaded->size(), 1U);
+    std::vector<std::string> texts;
+    for (const QtRocket::Warning& warning : warnings)
+    {
+        texts.push_back(warning.messageDescription());
+    }
+    EXPECT_EQ(texts, (std::vector<std::string>{"Unknown element b, ignoring.",
+                                               "Unknown element 'extra' encountered, ignoring."}));
 }
 
 TEST(RockSimMotorLoader, RejectsMissingAttributes)

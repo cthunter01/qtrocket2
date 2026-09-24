@@ -5,6 +5,7 @@ import ch.qos.logback.core.read.ListAppender;
 
 import info.openrocket.core.database.motor.ThrustCurveMotorSQLiteDatabase;
 import info.openrocket.core.file.motor.GeneralMotorLoader;
+import info.openrocket.core.file.motor.RockSimMotorWriter;
 import info.openrocket.core.motor.ThrustCurveMotor;
 
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,9 +24,12 @@ import java.util.List;
 /**
  * Writes tests/data/goldens/motors.json: every thrust curve OpenRocket loads from the bundled
  * motor database and from the motor test files, with the values QtRocket must reproduce, and
- * the curves OpenRocket's database reader skips.
+ * the curves OpenRocket's database reader skips; what OpenRocket makes of the malformed and
+ * edge-case files of the edge directory (its motors or its exception) and of the database there;
+ * and the MD5 of RockSimMotorWriter's output for every bundled motor.
  *
- * Usage: java MotorsDumper <initial_motors.db> <motor test directory> <output.json> <version>
+ * Usage: java MotorsDumper <initial_motors.db> <motor test directory> <edge directory>
+ *            <output.json> <version>
  *
  * Run it through dump-motors.sh, which compiles it against OpenRocket's core classes.
  */
@@ -34,14 +39,15 @@ public final class MotorsDumper {
 	}
 
 	public static void main(String[] args) throws Exception {
-		if (args.length != 4) {
-			System.err.println("usage: MotorsDumper <initial_motors.db> <motor dir> <output.json> <version>");
+		if (args.length != 5) {
+			System.err.println("usage: MotorsDumper <initial_motors.db> <motor dir> <edge dir> <output.json> <version>");
 			System.exit(2);
 		}
 		File database = new File(args[0]);
 		File motorDirectory = new File(args[1]);
-		File output = new File(args[2]);
-		String version = args[3];
+		File edgeDirectory = new File(args[2]);
+		File output = new File(args[3]);
+		String version = args[4];
 
 		// OpenRocket logs the curves it skips instead of returning them: capture the log.
 		Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
@@ -67,7 +73,72 @@ public final class MotorsDumper {
 			json.append(i + 1 < motors.size() ? ",\n" : "\n");
 		}
 		json.append("    ],\n");
-		json.append("    \"skipped\": [\n");
+		List<String> skipped = skippedCurves(appender);
+		appendSkipped(json, skipped);
+		json.append("  },\n");
+
+		File[] files = motorFiles(motorDirectory, false);
+		json.append("  \"files\": [\n");
+		appendFiles(json, files);
+		json.append("  ],\n");
+
+		// The edge cases: malformed files and a database with curves OpenRocket skips
+		File[] edgeFiles = motorFiles(edgeDirectory, false);
+		json.append("  \"edgeFiles\": [\n");
+		appendFiles(json, edgeFiles);
+		json.append("  ],\n");
+		File[] edgeDatabases = motorFiles(edgeDirectory, true);
+		if (edgeDatabases.length != 1) {
+			throw new IOException("expected one .db file in " + edgeDirectory);
+		}
+		appender.list.clear();
+		List<ThrustCurveMotor> edgeMotors = ThrustCurveMotorSQLiteDatabase.readDatabase(edgeDatabases[0]);
+		json.append("  \"edgeDatabase\": {\n");
+		json.append("    \"file\": ").append(string(edgeDatabases[0].getName())).append(",\n");
+		json.append("    \"curves\": [\n");
+		for (int i = 0; i < edgeMotors.size(); i++) {
+			json.append("      ").append(motor(edgeMotors.get(i)));
+			json.append(i + 1 < edgeMotors.size() ? ",\n" : "\n");
+		}
+		json.append("    ],\n");
+		appendSkipped(json, skippedCurves(appender));
+		json.append("  },\n");
+
+		// RockSimMotorWriter's output for every bundled motor, as the MD5 of its UTF-8 bytes
+		json.append("  \"writer\": [\n");
+		RockSimMotorWriter writer = new RockSimMotorWriter();
+		for (int i = 0; i < motors.size(); i++) {
+			json.append("    ").append(string(md5(writer.write(motors.get(i)))));
+			json.append(i + 1 < motors.size() ? ",\n" : "\n");
+		}
+		json.append("  ]\n");
+		json.append("}\n");
+
+		Files.write(output.toPath(), json.toString().getBytes(StandardCharsets.UTF_8));
+		System.out.println("Wrote " + motors.size() + " database curves, " + skipped.size()
+				+ " skipped, " + files.length + " files, " + edgeFiles.length + " edge files, "
+				+ edgeMotors.size() + " edge database curves to " + output);
+	}
+
+	/** The files of @p directory, by name: the databases (*.db) or the others. */
+	private static File[] motorFiles(File directory, boolean databases) throws IOException {
+		File[] files = directory.listFiles(f -> f.isFile() && f.getName().endsWith(".db") == databases);
+		if (files == null) {
+			throw new IOException("cannot list " + directory);
+		}
+		Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
+		return files;
+	}
+
+	private static void appendFiles(StringBuilder json, File[] files) {
+		for (int f = 0; f < files.length; f++) {
+			json.append("    ").append(file(files[f]));
+			json.append(f + 1 < files.length ? ",\n" : "\n");
+		}
+	}
+
+	/** The skipped curves the database reader logged into @p appender. */
+	private static List<String> skippedCurves(ListAppender<ILoggingEvent> appender) {
 		List<String> skipped = new ArrayList<>();
 		for (ILoggingEvent event : appender.list) {
 			String entry = skipped(event);
@@ -75,29 +146,26 @@ public final class MotorsDumper {
 				skipped.add(entry);
 			}
 		}
+		return skipped;
+	}
+
+	private static void appendSkipped(StringBuilder json, List<String> skipped) {
+		json.append("    \"skipped\": [\n");
 		for (int i = 0; i < skipped.size(); i++) {
 			json.append("      ").append(skipped.get(i));
 			json.append(i + 1 < skipped.size() ? ",\n" : "\n");
 		}
 		json.append("    ]\n");
-		json.append("  },\n");
+	}
 
-		json.append("  \"files\": [\n");
-		File[] files = motorDirectory.listFiles(File::isFile);
-		if (files == null) {
-			throw new IOException("cannot list " + motorDirectory);
+	/** The MD5 of @p text's UTF-8 bytes, in lower-case hex. */
+	private static String md5(String text) throws Exception {
+		byte[] digest = MessageDigest.getInstance("MD5").digest(text.getBytes(StandardCharsets.UTF_8));
+		StringBuilder hex = new StringBuilder();
+		for (byte b : digest) {
+			hex.append(String.format("%02x", b & 0xff));
 		}
-		Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
-		for (int f = 0; f < files.length; f++) {
-			json.append("    ").append(file(files[f]));
-			json.append(f + 1 < files.length ? ",\n" : "\n");
-		}
-		json.append("  ]\n");
-		json.append("}\n");
-
-		Files.write(output.toPath(), json.toString().getBytes(StandardCharsets.UTF_8));
-		System.out.println("Wrote " + motors.size() + " database curves, " + skipped.size()
-				+ " skipped, " + files.length + " files to " + output);
+		return hex.toString();
 	}
 
 	/** One motor file as GeneralMotorLoader reads it: its motors, or the exception. */

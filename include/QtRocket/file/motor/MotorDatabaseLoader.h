@@ -62,7 +62,8 @@ public:
     /// under @p bundledDirectory (OpenRocket's datafiles/thrustcurves/), searched recursively and
     /// skipping names that start with '.'. A bundled file that fails to read fails the load, as
     /// OpenRocket's BugException does, keeping the motors of the files read before it; finding
-    /// none is recorded as a problem (OpenRocket logs an error) and is no failure.
+    /// none is recorded as a problem (OpenRocket logs an error) and is no failure, and so is a
+    /// directory under @p bundledDirectory that cannot be read.
     [[nodiscard]] Result<void> loadInternalMotorDatabase(
         const std::filesystem::path& bundledDirectory,
         const std::filesystem::path& motorLibraryDatabase = {});

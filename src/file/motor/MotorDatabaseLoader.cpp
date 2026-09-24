@@ -170,8 +170,12 @@ Result<void> MotorDatabaseLoader::loadInternalMotorDatabase(
         addProblem(motorLibraryDatabase, std::move(contents.error()));
     }
 
-    // Fall back to the bundled databases
-    const DirectoryListing listing = collectFiles(bundledDirectory, isSqliteFile);
+    // Fall back to the bundled databases (OpenRocket logs the directories it cannot read)
+    DirectoryListing listing = collectFiles(bundledDirectory, isSqliteFile);
+    for (Problem& problem : listing.problems)
+    {
+        m_problems.push_back(std::move(problem));
+    }
     if (listing.files.empty())
     {
         addProblem(bundledDirectory,

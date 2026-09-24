@@ -43,6 +43,9 @@ public:
     [[nodiscard]] Result<std::vector<ThrustCurveMotor::Builder>> load(
         std::span<const std::byte> data, std::string_view filename) const override;
 
+    /// Whether @p filename has one of the supported extensions.
+    [[nodiscard]] bool canLoad(std::string_view filename) const override;
+
     /// kSupportedExtensions (getSupportedExtensions()).
     [[nodiscard]] static std::span<const std::string_view> getSupportedExtensions() noexcept
     {

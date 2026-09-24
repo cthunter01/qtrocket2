@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -10,10 +11,9 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <random>
 #include <string>
 #include <string_view>
-#include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -29,6 +29,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
+#include "TestTempDir.h"
 
 namespace
 {
@@ -60,37 +61,7 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
     return {text.begin(), text.end()};
 }
 
-/// A directory in the temporary directory, removed with its contents when the test ends
-/// (JUnit's @TempDir).
-class TempDir
-{
-public:
-    TempDir()
-    {
-        const ::testing::TestInfo* info = ::testing::UnitTest::GetInstance()->current_test_info();
-        m_path = std::filesystem::temp_directory_path() /
-                 std::format("qtrocket_{}_{}_{}", info->test_suite_name(), info->name(),
-                             std::random_device{}());
-        std::filesystem::create_directories(m_path);
-    }
-    ~TempDir()
-    {
-        std::error_code ignored;
-        std::filesystem::remove_all(m_path, ignored);
-    }
-    TempDir(const TempDir&)            = delete;
-    TempDir& operator=(const TempDir&) = delete;
-    TempDir(TempDir&&)                 = delete;
-    TempDir& operator=(TempDir&&)      = delete;
-
-    [[nodiscard]] std::filesystem::path resolve(std::string_view name) const
-    {
-        return m_path / name;
-    }
-
-private:
-    std::filesystem::path m_path;
-};
+using QtRocket::Test::TempDir;
 
 /// Runs @p sql on the database @p file (created when missing), as the JUnit tests do through
 /// JDBC.
@@ -914,6 +885,57 @@ TEST(SqliteMotorDatabaseReader, ReadsNullTextColumnsAsEmpty)
     // No propellant weight: the mass stays at the total weight.
     EXPECT_DOUBLE_EQ(motor.getLaunchMass(), 0.016);
     EXPECT_DOUBLE_EQ(motor.getBurnoutMass(), 0.016);
+}
+
+TEST(SqliteMotorDatabaseReader, ReplacesMalformedUtf8InText)
+{
+    // sqlite-jdbc decodes text as UTF-8 with replacement: one U+FFFD per malformed sequence, an
+    // encoded surrogate being one (pinned by running OpenRocket on tests/data/motors-edge/edge.db).
+    const TempDir               tempDir;
+    const std::filesystem::path dbFile = tempDir.resolve("utf8.db");
+    exec(dbFile,
+         looseSchema(2) +
+             "INSERT INTO manufacturers (id, name, abbrev) VALUES "
+             "(1, CAST(X'4573FF746573' AS TEXT), 'X');"
+             "INSERT INTO motors (id, manufacturer_id, designation, common_name, case_info, "
+             "total_weight) VALUES (1, 1, CAST(X'4136EDA0802D33' AS TEXT), 'A6', "
+             "CAST(X'61E282' AS TEXT), 16);"
+             "INSERT INTO thrust_curves (id, motor_id) VALUES (1, 1);"
+             "INSERT INTO thrust_data (id, curve_id, time_seconds, force_newtons) VALUES "
+             "(1, 1, 0, 0), (2, 1, 0.5, 5), (3, 1, 1, 0);");
+    const SqliteMotorDatabaseReader::Contents contents = read(dbFile);
+    ASSERT_EQ(contents.motors.size(), 1U);
+    const ThrustCurveMotor& motor = *contents.motors.front();
+    EXPECT_EQ(motor.getCode(), "A6\uFFFD-3");
+    EXPECT_EQ(motor.getDesignation(), "A6\uFFFD");
+    EXPECT_EQ(motor.getCaseInfo(), "a\uFFFD");
+}
+
+TEST(SqliteMotorDatabaseReader, WaitsForALockHeldBriefly)
+{
+    // sqlite-jdbc waits up to 3000 ms (its busy_timeout) for another connection's lock, and so does
+    // the reader: a database locked while it opens is read once the lock goes.
+    const TempDir               tempDir;
+    const std::filesystem::path dbFile = tempDir.resolve("locked.db");
+    createDatabase(dbFile, "(1, 1, 'A8-3', 'A8', 18, 70, 3, 16, 'SU', '3')",
+                   "INSERT INTO thrust_curves (id, motor_id) VALUES (1, 1);"
+                   "INSERT INTO thrust_data (curve_id, time_seconds, force_newtons) VALUES "
+                   "(1, 0, 0), (1, 0.5, 5), (1, 1, 0);");
+
+    sqlite3* locker = nullptr;
+    ASSERT_EQ(sqlite3_open_v2(utf8(dbFile).c_str(), &locker, SQLITE_OPEN_READWRITE, nullptr),
+              SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(locker, "BEGIN EXCLUSIVE", nullptr, nullptr, nullptr), SQLITE_OK);
+    std::thread                                                 release([locker] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        sqlite3_exec(locker, "COMMIT", nullptr, nullptr, nullptr);
+    });
+    const QtRocket::Result<SqliteMotorDatabaseReader::Contents> contents =
+        SqliteMotorDatabaseReader::readDatabase(dbFile);
+    release.join();
+    sqlite3_close(locker);
+    ASSERT_TRUE(contents) << contents.error().toString();
+    EXPECT_EQ(contents->motors.size(), 1U);
 }
 
 // ---------------------------------------------------------------- writing details

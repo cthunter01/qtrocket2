@@ -42,6 +42,10 @@ namespace
 
 // ---------------------------------------------------------------- SQLite C API wrappers
 
+/// How long a connection waits for a lock another connection holds: sqlite-jdbc's default
+/// busy_timeout (SQLiteConfig, Pragma.BUSY_TIMEOUT), under which OpenRocket reads its databases.
+constexpr int kBusyTimeoutMs = 3000;
+
 struct DatabaseCloser
 {
     // close_v2 defers the close until every statement is finalized.
@@ -158,6 +162,8 @@ public:
     }
 
     /// ResultSet.getString(): the column as text (SQLite converts numbers), or nullopt for NULL.
+    /// sqlite-jdbc decodes SQLite's bytes as UTF-8 with each malformed sequence replaced by
+    /// U+FFFD, so text stored with invalid UTF-8 reads the same here (Strings::toValidUtf8).
     [[nodiscard]] std::optional<std::string> columnText(int column) const
     {
         if (columnType(column) == SQLITE_NULL)
@@ -172,7 +178,8 @@ public:
         }
         // The C boundary: SQLite hands out its UTF-8 text as unsigned char.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        return std::string(reinterpret_cast<const char*>(text), static_cast<std::size_t>(bytes));
+        const auto* characters = reinterpret_cast<const char*>(text);
+        return Strings::toValidUtf8(std::string_view(characters, static_cast<std::size_t>(bytes)));
     }
 
     /// ResultSet.getInt(): the column as a 32-bit integer (0 for NULL).
@@ -236,6 +243,9 @@ public:
         {
             return sqliteError(raw);
         }
+        // A database another connection holds locked is waited for, as long as sqlite-jdbc's
+        // default busy_timeout, before SQLite gives up with "database is locked".
+        sqlite3_busy_timeout(raw, kBusyTimeoutMs);
         if (Result<void> pragma = connection.execute("PRAGMA foreign_keys = ON"); !pragma)
         {
             return propagate(pragma);

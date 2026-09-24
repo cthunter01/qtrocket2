@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "QtRocket/file/motor/AbstractMotorLoader.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/util/Error.h"
 
@@ -25,21 +26,24 @@ namespace QtRocket
 /// length. The digest covers the times, the masses (MASS_PER_TIME, or the initial and burnout
 /// masses when computed), the CGs when given, and the thrusts.
 ///
-/// The XML is read as OpenRocket's SimpleSAX reads it, including a quirk of its DelegatorHandler:
-/// an element whose handler ignores it (an unknown element, or any element inside <comments> or
-/// <eng-data>) leaves its text buffer and attributes on the stacks, so its parent is closed with
-/// the text that follows the ignored element and with that element's attributes. So
-/// "<comments>a<b/>c</comments>" gives the description "c", and <eng-data t="0" f="0"><x/>
-/// </eng-data> is an illegal data point.
+/// The XML is read with SimpleSax, which accepts and rejects documents as OpenRocket's parser
+/// does (see XmlScanner) and keeps a quirk of its DelegatorHandler: an element whose handler
+/// ignores it (an unknown element, or any element inside <comments> or <eng-data>) leaves its
+/// text buffer and attributes on the stacks, so its parent is closed with the text that follows
+/// the ignored element and with that element's attributes. So "<comments>a<b/>c</comments>"
+/// gives the description "c", and <eng-data t="0" f="0"><x/></eng-data> is an illegal data point.
 ///
-/// Failures (ErrorCode::PARSE, OpenRocket's messages): malformed XML, a byte-order mark before
-/// the XML (Java's "Content is not allowed in prolog."), duplicate attributes, a missing or
+/// Failures (ErrorCode::PARSE, OpenRocket's messages): XML the JDK's parser rejects, with its
+/// message ("Content is not allowed in prolog." for a byte-order mark before the XML, "The
+/// reference to entity \"T\" must end with the ';' delimiter." for a bare '&', ...), a missing or
 /// non-numeric required attribute ("Manufacturer missing", "Invalid diameter <value>", ...), a
 /// propellant mass above the initial mass, a second <data> in an engine, a data point without a
 /// numeric time or thrust, an engine without data points, and the one-point curves that
-/// finalizeThrustCurve() rejects. Deviation: pugixml keeps an undeclared entity reference
-/// ("&nbsp;") as literal text where Java's parser rejects the file, and its messages for
-/// malformed XML are its own.
+/// finalizeThrustCurve() rejects. The elements before an XML error are read first, as the JDK's
+/// parser reports them while it reads, so an engine that fails there fails the file with its own
+/// message. Deviation: a document type declaration with an external subset or with markup
+/// declarations fails with ErrorCode::UNSUPPORTED_FORMAT (see XmlScanner), where OpenRocket would
+/// read the external subset and apply the declarations; RockSim and ThrustCurve write none.
 class RockSimMotorLoader final : public AbstractMotorLoader
 {
 public:
@@ -50,6 +54,14 @@ public:
     static constexpr int kDelayLimit = 90;
 
     RockSimMotorLoader() = default;
+
+    using AbstractMotorLoader::load;
+
+    /// The motors of @p text, a RockSim engine file already decoded, and in @p warnings the
+    /// warnings of OpenRocket's handlers (load(Reader, String), public in OpenRocket for the
+    /// ThrustCurve download, MotorBurnFile; OpenRocket discards the warnings).
+    [[nodiscard]] static Result<std::vector<ThrustCurveMotor::Builder>> loadText(
+        std::string_view text, std::string_view filename, WarningSet& warnings);
 
 protected:
     [[nodiscard]] Result<std::vector<ThrustCurveMotor::Builder>> loadText(

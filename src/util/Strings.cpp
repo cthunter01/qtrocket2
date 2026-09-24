@@ -990,6 +990,108 @@ void appendCollationPrimaries(char32_t codePoint, std::vector<std::uint16_t>& ou
     return c;
 }
 
+/// A sequence of bytes as JDK 17's UTF-8 decoder reads it: a well-formed character, or the
+/// bytes of a malformed sequence, which one U+FFFD replaces.
+struct JdkSequence
+{
+    std::size_t length;
+    bool        valid;
+};
+
+[[nodiscard]] bool isContinuation(unsigned char b) noexcept
+{
+    return (b & 0xC0U) == 0x80U;
+}
+
+// The sequences of UTF_8.Decoder.decodeArrayLoop() and malformedN(), with CharsetDecoder's rule
+// that a sequence cut off by the end of the input is malformed for all its remaining bytes. Each
+// reads the sequence of @p remaining bytes at the start of @p bytes, whose first is its lead.
+
+[[nodiscard]] JdkSequence twoByteSequence(std::span<const unsigned char> bytes) noexcept
+{
+    if (bytes.size() < 2)
+    {
+        return {.length = bytes.size(), .valid = false};
+    }
+    return isContinuation(bytes[1]) ? JdkSequence{.length = 2, .valid = true}
+                                    : JdkSequence{.length = 1, .valid = false};
+}
+
+[[nodiscard]] JdkSequence threeByteSequence(std::span<const unsigned char> bytes) noexcept
+{
+    const bool badSecond = bytes.size() > 1 && ((bytes[0] == 0xE0 && (bytes[1] & 0xE0U) == 0x80U) ||
+                                                !isContinuation(bytes[1]));
+    if (badSecond)
+    {
+        return {.length = 1, .valid = false};
+    }
+    if (bytes.size() < 3)
+    {
+        return {.length = bytes.size(), .valid = false};
+    }
+    if (!isContinuation(bytes[2]))
+    {
+        return {.length = 2, .valid = false};
+    }
+    // An encoded surrogate (ED A0..BF xx) is malformed as a whole.
+    const bool surrogate = bytes[0] == 0xED && bytes[1] >= 0xA0;
+    return {.length = 3, .valid = !surrogate};
+}
+
+[[nodiscard]] JdkSequence fourByteSequence(std::span<const unsigned char> bytes) noexcept
+{
+    if (bytes.size() > 1)
+    {
+        const unsigned char b1 = bytes[0];
+        const unsigned char b2 = bytes[1];
+        if ((b1 == 0xF0 && (b2 < 0x90 || b2 > 0xBF)) || (b1 == 0xF4 && (b2 & 0xF0U) != 0x80U) ||
+            !isContinuation(b2))
+        {
+            return {.length = 1, .valid = false};
+        }
+    }
+    if (bytes.size() > 2 && !isContinuation(bytes[2]))
+    {
+        return {.length = 2, .valid = false};
+    }
+    if (bytes.size() < 4)
+    {
+        return {.length = bytes.size(), .valid = false};
+    }
+    return isContinuation(bytes[3]) ? JdkSequence{.length = 4, .valid = true}
+                                    : JdkSequence{.length = 3, .valid = false};
+}
+
+/// The sequence that starts at @p position of @p text.
+[[nodiscard]] JdkSequence jdkSequenceAt(std::string_view text, std::size_t position) noexcept
+{
+    std::array<unsigned char, 4> bytes{};
+    std::size_t                  count = 0;
+    for (; count < bytes.size() && position + count < text.size(); count++)
+    {
+        bytes.at(count) = static_cast<unsigned char>(text[position + count]);
+    }
+    const std::span<const unsigned char> sequence(bytes.data(), count);
+    const unsigned char                  lead = bytes[0];
+    if (lead < 0x80)
+    {
+        return {.length = 1, .valid = true};
+    }
+    if (lead >= 0xC2 && lead <= 0xDF)
+    {
+        return twoByteSequence(sequence);
+    }
+    if (lead >= 0xE0 && lead <= 0xEF)
+    {
+        return threeByteSequence(sequence);
+    }
+    if (lead >= 0xF0 && lead <= 0xF4)
+    {
+        return fourByteSequence(sequence);
+    }
+    return {.length = 1, .valid = false};  // 80..C1 and F5..FF start nothing
+}
+
 }  // namespace
 
 std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation)
@@ -1350,6 +1452,18 @@ std::u32string toCodePoints(std::string_view text)
     return codePoints;
 }
 
+std::string fromCodePoints(std::u32string_view codePoints)
+{
+    std::string out;
+    out.reserve(codePoints.size());
+    for (const char32_t c : codePoints)
+    {
+        const bool valid = c <= 0x10FFFF && (c < 0xD800 || c > 0xDFFF);
+        appendUtf8(out, valid ? static_cast<std::uint32_t>(c) : kReplacementCharacter);
+    }
+    return out;
+}
+
 std::string toValidUtf8(std::string_view text)
 {
     std::string out;
@@ -1357,7 +1471,16 @@ std::string toValidUtf8(std::string_view text)
     std::size_t position = 0;
     while (position < text.size())
     {
-        appendUtf8(out, static_cast<std::uint32_t>(decodeCodePoint(text, position)));
+        const JdkSequence sequence = jdkSequenceAt(text, position);
+        if (sequence.valid)
+        {
+            out.append(text.substr(position, sequence.length));
+        }
+        else
+        {
+            appendUtf8(out, kReplacementCharacter);
+        }
+        position += sequence.length;
     }
     return out;
 }

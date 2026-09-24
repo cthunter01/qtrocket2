@@ -31,6 +31,13 @@ public:
     [[nodiscard]] virtual Result<std::vector<ThrustCurveMotor::Builder>> load(
         std::span<const std::byte> data, std::string_view filename) const = 0;
 
+    /// Whether load() reads a file called @p filename at all: false when it fails with
+    /// ErrorCode::UNSUPPORTED_FORMAT for the name alone, whatever the data (OpenRocket's
+    /// GeneralMotorLoader throws UnknownFileTypeException before it reads anything). An archive
+    /// reader asks this to skip such an entry without extracting it. True unless a loader says
+    /// otherwise.
+    [[nodiscard]] virtual bool canLoad(std::string_view /*filename*/) const { return true; }
+
 protected:
     MotorLoader()                              = default;
     MotorLoader(const MotorLoader&)            = default;

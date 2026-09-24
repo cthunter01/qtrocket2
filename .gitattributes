@@ -4,3 +4,7 @@
 *.jpg  binary
 *.ico  binary
 *.pdf  binary
+
+# Motor test files whose exact bytes are the point (CRLF and CR line ends, byte-order marks,
+# malformed UTF-8): no line-end conversion.
+tests/data/motors-edge/** -text

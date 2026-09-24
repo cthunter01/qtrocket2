@@ -30,6 +30,11 @@ Result<std::vector<ThrustCurveMotor::Builder>> GeneralMotorLoader::load(
     return (*loader)->load(data, filename);
 }
 
+bool GeneralMotorLoader::canLoad(std::string_view filename) const
+{
+    return selectLoader(filename).has_value();
+}
+
 Result<const MotorLoader*> GeneralMotorLoader::selectLoader(std::string_view filename) const
 {
     std::string_view  ext;

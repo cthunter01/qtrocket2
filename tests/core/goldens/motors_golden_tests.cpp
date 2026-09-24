@@ -1,5 +1,7 @@
 // Motor golden tests: every thrust curve OpenRocket loads from the bundled database and from the
-// motor test files, compared with tests/data/goldens/motors.json, which
+// motor test files, what it makes of the malformed and edge-case files and the database in
+// tests/data/motors-edge (motors or error messages), and its RockSimMotorWriter output for every
+// bundled motor, compared with tests/data/goldens/motors.json, which
 // tools/openrocket-goldens/motors/dump-motors.sh writes from OpenRocket's own code.
 //
 // Digests, strings and point counts must match exactly. The derived values come from +, -, *, /
@@ -13,6 +15,7 @@
 #include <format>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,12 +25,14 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/file/motor/GeneralMotorLoader.h"
+#include "QtRocket/file/motor/RockSimMotorWriter.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/SqliteMotorDatabaseReader.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "QtRocket/util/Md5.h"
 #include "TestPaths.h"
 
 namespace
@@ -204,13 +209,15 @@ constexpr int kMaxReported = 20;
                        designation, message);
 }
 
-/// The mismatches between what GeneralMotorLoader makes of the golden file @p entry and what
-/// OpenRocket made of it; empty when they agree.
-[[nodiscard]] std::string compareFile(const json& entry, const GeneralMotorLoader& loader)
+/// The mismatches between what GeneralMotorLoader makes of the golden file @p entry, in the test
+/// data directory @p directory, and what OpenRocket made of it; empty when they agree. A failure
+/// must carry OpenRocket's message (the golden has "<exception class>: <message>").
+[[nodiscard]] std::string compareFile(const json& entry, const GeneralMotorLoader& loader,
+                                      std::string_view directory)
 {
     const std::string                              name = entry.at("file").get<std::string>();
     const QtRocket::Result<std::vector<std::byte>> bytes =
-        QtRocket::readFile(QtRocket::Test::testDataDir() / "motors" / name);
+        QtRocket::readFile(QtRocket::Test::testDataDir() / directory / name);
     if (!bytes)
     {
         return bytes.error().toString();
@@ -219,7 +226,17 @@ constexpr int kMaxReported = 20;
         loader.load(*bytes, name);
     if (!entry.at("error").is_null())
     {
-        return loaded ? "OpenRocket failed: " + entry.at("error").get<std::string>() : "";
+        const std::string error   = entry.at("error").get<std::string>();
+        const std::size_t colon   = error.find(": ");
+        const std::string message = colon == std::string::npos ? error : error.substr(colon + 2);
+        if (loaded)
+        {
+            return "OpenRocket failed: " + error;
+        }
+        return loaded.error().message == message
+                   ? ""
+                   : std::format(R"(failed with "{}", OpenRocket with "{}")",
+                                 loaded.error().message, message);
     }
     if (!loaded)
     {
@@ -312,32 +329,131 @@ TEST(MotorsGolden, MotorFilesMatchOpenRocket)
     const GeneralMotorLoader loader;
     for (const json& entry : golden().at("files"))
     {
-        EXPECT_EQ(compareFile(entry, loader), "") << entry.at("file").get<std::string>();
+        EXPECT_EQ(compareFile(entry, loader, "motors"), "") << entry.at("file").get<std::string>();
     }
+}
+
+TEST(MotorsGolden, EdgeCaseFilesMatchOpenRocket)
+{
+    ASSERT_TRUE(golden().is_object());
+    const GeneralMotorLoader loader;
+    ASSERT_FALSE(golden().at("edgeFiles").empty());
+    for (const json& entry : golden().at("edgeFiles"))
+    {
+        EXPECT_EQ(compareFile(entry, loader, "motors-edge"), "")
+            << entry.at("file").get<std::string>();
+    }
+}
+
+/// The names of the files in the test data directory @p directory, sorted; the databases (*.db)
+/// or the others.
+[[nodiscard]] std::vector<std::string> filesIn(std::string_view directory, bool databases)
+{
+    std::vector<std::string> names;
+    for (const std::filesystem::directory_entry& file :
+         std::filesystem::directory_iterator(QtRocket::Test::testDataDir() / directory))
+    {
+        if (file.is_regular_file() && (file.path().extension() == ".db") == databases)
+        {
+            const std::u8string name = file.path().filename().u8string();
+            names.emplace_back(name.begin(), name.end());
+        }
+    }
+    std::ranges::sort(names);
+    return names;
+}
+
+[[nodiscard]] std::vector<std::string> goldenFiles(const char* key)
+{
+    std::vector<std::string> names;
+    for (const json& entry : golden().at(key))
+    {
+        names.push_back(entry.at("file").get<std::string>());
+    }
+    std::ranges::sort(names);
+    return names;
 }
 
 TEST(MotorsGolden, CoversEveryMotorTestFile)
 {
     ASSERT_TRUE(golden().is_object());
-    std::vector<std::string> inGolden;
-    for (const json& entry : golden().at("files"))
+    // A new motor test file needs tools/openrocket-goldens/motors/dump-motors.sh to be run again.
+    EXPECT_EQ(filesIn("motors", false), goldenFiles("files"));
+    EXPECT_EQ(filesIn("motors-edge", false), goldenFiles("edgeFiles"));
+    EXPECT_EQ(filesIn("motors-edge", true),
+              std::vector<std::string>{golden().at("edgeDatabase").at("file").get<std::string>()});
+}
+
+/// The edge-case database as the reader reads it; fails the test when it does not read.
+[[nodiscard]] SqliteMotorDatabaseReader::Contents readEdgeDatabase()
+{
+    const QtRocket::Result<SqliteMotorDatabaseReader::Contents> contents =
+        SqliteMotorDatabaseReader::readDatabase(
+            QtRocket::Test::testDataDir() / "motors-edge" /
+            golden().at("edgeDatabase").at("file").get<std::string>());
+    EXPECT_TRUE(contents) << contents.error().toString();
+    return contents ? *contents : SqliteMotorDatabaseReader::Contents{};
+}
+
+TEST(MotorsGolden, EdgeCaseDatabaseCurvesMatchOpenRocket)
+{
+    ASSERT_TRUE(golden().is_object());
+    const SqliteMotorDatabaseReader::Contents contents = readEdgeDatabase();
+    const json&                               curves   = golden().at("edgeDatabase").at("curves");
+    ASSERT_EQ(contents.motors.size(), curves.size());
+    for (std::size_t i = 0; i < curves.size(); i++)
     {
-        inGolden.push_back(entry.at("file").get<std::string>());
+        EXPECT_EQ(compare(curves[i], *contents.motors[i]), "") << "edge database curve " << i;
     }
-    std::vector<std::string> onDisk;
-    for (const std::filesystem::directory_entry& file :
-         std::filesystem::directory_iterator(QtRocket::Test::testDataDir() / "motors"))
+}
+
+TEST(MotorsGolden, EdgeCaseDatabaseSkipsTheCurvesOpenRocketSkips)
+{
+    ASSERT_TRUE(golden().is_object());
+    const SqliteMotorDatabaseReader::Contents contents = readEdgeDatabase();
+    std::vector<std::string>                  expected;
+    for (const json& entry : golden().at("edgeDatabase").at("skipped"))
     {
-        if (file.is_regular_file())
+        const std::optional<int> curveId = entry.at("curveId").is_null()
+                                               ? std::nullopt
+                                               : std::optional<int>(entry.at("curveId").get<int>());
+        expected.push_back(describe(entry.at("reason").get<std::string>(), curveId,
+                                    textOrEmpty(entry.at("designation")),
+                                    textOrEmpty(entry.at("message"))));
+    }
+    std::vector<std::string> actual;
+    actual.reserve(contents.skipped.size());
+    for (const SqliteMotorDatabaseReader::SkippedCurve& skipped : contents.skipped)
+    {
+        actual.push_back(describe(reasonName(skipped.reason), skipped.curveId, skipped.designation,
+                                  skipped.message));
+    }
+    EXPECT_EQ(actual, expected);
+}
+
+TEST(MotorsGolden, WriterOutputMatchesOpenRocket)
+{
+    ASSERT_TRUE(golden().is_object());
+    const QtRocket::Result<SqliteMotorDatabaseReader::Contents> contents =
+        SqliteMotorDatabaseReader::readDatabase(QtRocket::Test::dataDir() / "motors" /
+                                                "initial_motors.db");
+    ASSERT_TRUE(contents) << contents.error().toString();
+
+    const json& digests = golden().at("writer");
+    ASSERT_EQ(contents->motors.size(), digests.size());
+    int reported = 0;
+    for (std::size_t i = 0; i < digests.size() && reported < kMaxReported; i++)
+    {
+        const std::string document = QtRocket::RockSimMotorWriter::write(*contents->motors[i]);
+        const std::string actual =
+            QtRocket::toHex(QtRocket::md5(std::as_bytes(std::span(document))));
+        if (actual != digests[i].get<std::string>())
         {
-            const std::u8string name = file.path().filename().u8string();
-            onDisk.emplace_back(name.begin(), name.end());
+            ADD_FAILURE() << std::format("writer output for database curve {} ({}) differs", i,
+                                         contents->motors[i]->getCode());
+            reported++;
         }
     }
-    std::ranges::sort(onDisk);
-    std::ranges::sort(inGolden);
-    // A new motor test file needs tools/openrocket-goldens/motors/dump-motors.sh to be run again.
-    EXPECT_EQ(onDisk, inGolden);
 }
 
 }  // namespace

@@ -21,7 +21,7 @@ namespace QtRocket
 ///
 /// Text is UTF-8 inside QtRocket, so decoding turns the file's bytes into UTF-8: an ISO-8859-1
 /// file maps every byte to its code point, a UTF-8 file keeps its text and has each malformed
-/// byte replaced by U+FFFD (see Strings::toValidUtf8), which is the String Java's
+/// sequence replaced by U+FFFD (see Strings::toValidUtf8), which is the String Java's
 /// InputStreamReader makes of the same bytes.
 class AbstractMotorLoader : public MotorLoader
 {

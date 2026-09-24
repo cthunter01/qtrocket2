@@ -5,9 +5,7 @@
 #include <cstddef>
 #include <expected>
 #include <format>
-#include <functional>
 #include <limits>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -16,8 +14,12 @@
 #include <utility>
 #include <vector>
 
-#include <pugixml.hpp>
-
+#include "QtRocket/file/simplesax/AbstractElementHandler.h"
+#include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/file/simplesax/NullElementHandler.h"
+#include "QtRocket/file/simplesax/PlainTextHandler.h"
+#include "QtRocket/file/simplesax/SimpleSax.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/MotorDigest.h"
@@ -33,279 +35,7 @@ namespace QtRocket
 namespace
 {
 
-/// An element's attributes by local name (Java's HashMap<String, String>).
-using Attributes = std::map<std::string, std::string, std::less<>>;
-
-/// A handler of one XML element as OpenRocket's SimpleSAX calls it (ElementHandler). The
-/// handlers' warnings are not modelled: RockSimMotorLoader collects them in a WarningSet it
-/// discards, and endHandler() is a no-op for every handler it uses.
-class ElementHandler
-{
-public:
-    ElementHandler()                                 = default;
-    ElementHandler(const ElementHandler&)            = delete;
-    ElementHandler(ElementHandler&&)                 = delete;
-    ElementHandler& operator=(const ElementHandler&) = delete;
-    ElementHandler& operator=(ElementHandler&&)      = delete;
-    virtual ~ElementHandler()                        = default;
-
-    /// The handler of the child element @p element, nullptr to ignore it and everything in it,
-    /// or a failure (Java's SAXException).
-    [[nodiscard]] virtual Result<ElementHandler*> openElement(std::string_view  element,
-                                                              const Attributes& attributes) = 0;
-
-    /// Called when a child element this handler did not ignore closes, with the attributes and
-    /// text content DelegatorHandler pops for it.
-    [[nodiscard]] virtual Result<void> closeElement(std::string_view  element,
-                                                    const Attributes& attributes,
-                                                    std::string_view  content) = 0;
-};
-
-/// PlainTextHandler and NullElementHandler as the loader sees them: every child element is
-/// ignored (with a warning OpenRocket discards), and there is nothing to close.
-class IgnoringHandler final : public ElementHandler
-{
-public:
-    [[nodiscard]] Result<ElementHandler*> openElement(std::string_view /*element*/,
-                                                      const Attributes& /*attributes*/) override
-    {
-        return nullptr;
-    }
-
-    [[nodiscard]] Result<void> closeElement(std::string_view /*element*/,
-                                            const Attributes& /*attributes*/,
-                                            std::string_view /*content*/) override
-    {
-        return {};
-    }
-};
-
-/// OpenRocket's DelegatorHandler: hands SAX events to the handler stack. Kept exactly, including
-/// its bookkeeping slip: an ignored element pushes a text buffer and its attributes but never pops
-/// them, so the enclosing element is later closed with those (see RockSimMotorLoader).
-class Delegator
-{
-public:
-    explicit Delegator(ElementHandler& initialHandler) : m_handlers{&initialHandler}
-    {
-        m_elementData.emplace_back();  // Just in case
-    }
-
-    [[nodiscard]] Result<void> startElement(std::string_view name, Attributes attributes)
-    {
-        // Check for ignore
-        if (m_ignore > 0)
-        {
-            m_ignore++;
-            return {};
-        }
-
-        // Add layer to data stacks
-        m_elementData.emplace_back();
-        m_elementAttributes.push_back(std::move(attributes));
-
-        // Call the handler
-        Result<ElementHandler*> handler =
-            m_handlers.back()->openElement(name, m_elementAttributes.back());
-        if (!handler)
-        {
-            return std::unexpected(std::move(handler.error()));
-        }
-        if (*handler != nullptr)
-        {
-            m_handlers.push_back(*handler);
-        }
-        else
-        {
-            // Start ignoring elements
-            m_ignore++;
-        }
-        return {};
-    }
-
-    /// Stores encountered characters in the element data stack.
-    void characters(std::string_view text)
-    {
-        if (m_ignore > 0)
-        {
-            return;
-        }
-        m_elementData.back() += text;
-    }
-
-    /// Removes the last layer from the stack.
-    [[nodiscard]] Result<void> endElement(std::string_view name)
-    {
-        // Check for ignore
-        if (m_ignore > 0)
-        {
-            m_ignore--;
-            return {};
-        }
-        QTROCKET_ASSERT(m_handlers.size() > 1 && !m_elementAttributes.empty());
-
-        // Remove data from stack
-        const std::string content = std::move(m_elementData.back());
-        m_elementData.pop_back();
-        const Attributes attributes = std::move(m_elementAttributes.back());
-        m_elementAttributes.pop_back();
-
-        // Remove last handler (its endHandler() is a no-op) and call the next one
-        m_handlers.pop_back();
-        return m_handlers.back()->closeElement(name, attributes, content);
-    }
-
-private:
-    std::vector<ElementHandler*> m_handlers;
-    std::vector<std::string>     m_elementData;
-    std::vector<Attributes>      m_elementAttributes;
-    // Ignore all elements as long as m_ignore > 0
-    int m_ignore{0};
-};
-
-/// The local name of a qualified XML name ("r:engine" gives "engine"), which a namespace-aware
-/// SAX parser reports.
-[[nodiscard]] std::string_view localName(std::string_view name) noexcept
-{
-    const std::size_t colon = name.find(':');
-    return colon == std::string_view::npos ? name : name.substr(colon + 1);
-}
-
-[[nodiscard]] bool isXmlWhitespace(std::string_view text) noexcept
-{
-    return text.find_first_not_of(" \t\r\n") == std::string_view::npos;
-}
-
-/// The attributes of @p element as the SAX parser reports them: by local name, without the
-/// namespace declarations. A repeated attribute is an error, as XML requires.
-[[nodiscard]] Result<Attributes> attributesOf(const pugi::xml_node& element)
-{
-    Attributes attributes;
-    Attributes seen;
-    for (const pugi::xml_attribute& attribute : element.attributes())
-    {
-        const std::string_view name = attribute.name();
-        if (!seen.try_emplace(std::string(name)).second)
-        {
-            return fail(ErrorCode::PARSE,
-                        std::format(R"(Attribute "{}" was already specified for element "{}".)",
-                                    name, element.name()));
-        }
-        if (name == "xmlns" || name.starts_with("xmlns:"))
-        {
-            continue;
-        }
-        attributes.insert_or_assign(std::string(localName(name)), std::string(attribute.value()));
-    }
-    return attributes;
-}
-
-[[nodiscard]] Result<void> startElement(Delegator& sax, const pugi::xml_node& element)
-{
-    Result<Attributes> attributes = attributesOf(element);
-    if (!attributes)
-    {
-        return std::unexpected(std::move(attributes.error()));
-    }
-    return sax.startElement(localName(element.name()), std::move(*attributes));
-}
-
-/// Feeds the SAX events of the element @p root and its content to @p sax, in document order and
-/// without recursion, so that deep nesting cannot exhaust the stack.
-[[nodiscard]] Result<void> readElement(const pugi::xml_node& root, Delegator& sax)
-{
-    if (Result<void> started = startElement(sax, root); !started)
-    {
-        return started;
-    }
-    pugi::xml_node parent = root;
-    pugi::xml_node node   = root.first_child();
-    while (true)
-    {
-        if (node.empty())
-        {
-            if (Result<void> ended = sax.endElement(localName(parent.name())); !ended)
-            {
-                return ended;
-            }
-            if (parent == root)
-            {
-                return {};
-            }
-            node   = parent.next_sibling();
-            parent = parent.parent();
-            continue;
-        }
-        switch (node.type())
-        {
-            case pugi::node_element:
-                if (Result<void> started = startElement(sax, node); !started)
-                {
-                    return started;
-                }
-                parent = node;
-                node   = node.first_child();
-                continue;
-            case pugi::node_pcdata:
-            case pugi::node_cdata:
-                sax.characters(node.value());
-                break;
-            default:  // comments and processing instructions are not character data
-                break;
-        }
-        node = node.next_sibling();
-    }
-}
-
-/// Parses @p text and feeds it to @p sax, with the checks of Java's parser that pugixml does not
-/// make: a byte-order mark or text outside the root element, no root element, a second one.
-[[nodiscard]] Result<void> readXml(std::string_view text, Delegator& sax)
-{
-    // InputStreamReader keeps a byte-order mark as a character, which the parser then rejects.
-    if (text.starts_with("\xEF\xBB\xBF"))
-    {
-        return fail(ErrorCode::PARSE, "Content is not allowed in prolog.");
-    }
-    pugi::xml_document document;
-    // parse_fragment keeps text outside the root and accepts a document without one, so that the
-    // loop below can reject both with Java's messages; parse_ws_pcdata keeps whitespace-only
-    // text, which SAX reports as characters too.
-    const pugi::xml_parse_result parsed = document.load_buffer(
-        text.data(), text.size(),
-        pugi::parse_default | pugi::parse_ws_pcdata | pugi::parse_fragment, pugi::encoding_utf8);
-    if (!parsed)
-    {
-        return fail(ErrorCode::PARSE,
-                    std::format("{} (at offset {})", parsed.description(), parsed.offset));
-    }
-
-    pugi::xml_node root;
-    for (const pugi::xml_node& node : document.children())
-    {
-        if (node.type() == pugi::node_element)
-        {
-            if (!root.empty())
-            {
-                return fail(ErrorCode::PARSE,
-                            "The markup in the document following the root "
-                            "element must be well-formed.");
-            }
-            root = node;
-        }
-        else if ((node.type() == pugi::node_pcdata || node.type() == pugi::node_cdata) &&
-                 !isXmlWhitespace(node.value()))
-        {
-            return fail(ErrorCode::PARSE, !root.empty()
-                                              ? "Content is not allowed in trailing section."
-                                              : "Content is not allowed in prolog.");
-        }
-    }
-    if (root.empty())
-    {
-        return fail(ErrorCode::PARSE, "Premature end of file.");
-    }
-    return readElement(root, sax);
-}
+using Attributes = ElementHandler::Attributes;
 
 /// The attribute @p name of @p attributes, when present.
 [[nodiscard]] std::optional<std::string_view> attribute(const Attributes& attributes,
@@ -413,22 +143,26 @@ private:
 }  // namespace
 
 /// Handler for the <data> element in a RockSim engine file motor definition.
-class RockSimMotorLoader::RseMotorDataHandler final : public ElementHandler
+class RockSimMotorLoader::RseMotorDataHandler final : public AbstractElementHandler
 {
 public:
     [[nodiscard]] Result<ElementHandler*> openElement(std::string_view element,
-                                                      const Attributes& /*attributes*/) override
+                                                      const Attributes& /*attributes*/,
+                                                      WarningSet& warnings) override
     {
         if (element == "eng-data")
         {
-            return &m_nullHandler;
+            return &NullElementHandler::instance();
         }
-        return nullptr;  // Unknown element, ignoring
+
+        warnings.add("Unknown element '" + std::string(element) + "' encountered, ignoring.");
+        return nullptr;
     }
 
     [[nodiscard]] Result<void> closeElement(std::string_view /*element*/,
                                             const Attributes& attributes,
-                                            std::string_view /*content*/) override
+                                            std::string_view /*content*/,
+                                            WarningSet& /*warnings*/) override
     {
         const double t = parseOrNaN(attribute(attributes, "t"));
         const double f = parseOrNaN(attribute(attributes, "f"));
@@ -453,7 +187,6 @@ public:
     std::vector<double> takeCg() { return std::exchange(m_cg, {}); }
 
 private:
-    IgnoringHandler     m_nullHandler;
     std::vector<double> m_time;
     std::vector<double> m_force;
     std::vector<double> m_mass;
@@ -461,7 +194,7 @@ private:
 };
 
 /// Handler for a RockSim engine file <engine> element.
-class RockSimMotorLoader::RseMotorHandler final : public ElementHandler
+class RockSimMotorLoader::RseMotorHandler final : public AbstractElementHandler
 {
 public:
     /// An engine without attributes; create() reads them.
@@ -481,11 +214,12 @@ public:
     }
 
     [[nodiscard]] Result<ElementHandler*> openElement(std::string_view element,
-                                                      const Attributes& /*attributes*/) override
+                                                      const Attributes& /*attributes*/,
+                                                      WarningSet& warnings) override
     {
         if (element == "comments")
         {
-            return &m_plainTextHandler;
+            return &PlainTextHandler::instance();
         }
 
         if (element == "data")
@@ -499,12 +233,14 @@ public:
             return m_dataHandler.get();
         }
 
-        return nullptr;  // Unknown element, ignoring
+        warnings.add("Unknown element '" + std::string(element) + "' encountered, ignoring.");
+        return nullptr;
     }
 
     [[nodiscard]] Result<void> closeElement(std::string_view element,
                                             const Attributes& /*attributes*/,
-                                            std::string_view content) override
+                                            std::string_view content,
+                                            WarningSet& /*warnings*/) override
     {
         if (element == "comments")
         {
@@ -717,16 +453,16 @@ private:
     std::vector<double> m_mass;
     std::vector<double> m_cg;
 
-    IgnoringHandler                      m_plainTextHandler;
     std::unique_ptr<RseMotorDataHandler> m_dataHandler;
 };
 
 /// Initial handler for the RockSim engine files.
-class RockSimMotorLoader::RseHandler final : public ElementHandler
+class RockSimMotorLoader::RseHandler final : public AbstractElementHandler
 {
 public:
     [[nodiscard]] Result<ElementHandler*> openElement(std::string_view  element,
-                                                      const Attributes& attributes) override
+                                                      const Attributes& attributes,
+                                                      WarningSet& /*warnings*/) override
     {
         if (element == "engine-database" || element == "engine-list")
         {
@@ -756,7 +492,8 @@ public:
 
     [[nodiscard]] Result<void> closeElement(std::string_view element,
                                             const Attributes& /*attributes*/,
-                                            std::string_view /*content*/) override
+                                            std::string_view /*content*/,
+                                            WarningSet& /*warnings*/) override
     {
         if (element == "engine")
         {
@@ -782,15 +519,21 @@ private:
 };
 
 Result<std::vector<ThrustCurveMotor::Builder>> RockSimMotorLoader::loadText(
-    std::string_view text, std::string_view /*filename*/) const
+    std::string_view text, std::string_view /*filename*/, WarningSet& warnings)
 {
     RseHandler handler;
-    Delegator  sax(handler);
-    if (Result<void> read = readXml(text, sax); !read)
+    if (Result<void> read = SimpleSax::readXml(text, handler, warnings); !read)
     {
         return std::unexpected(std::move(read.error()));
     }
     return handler.takeMotors();
+}
+
+Result<std::vector<ThrustCurveMotor::Builder>> RockSimMotorLoader::loadText(
+    std::string_view text, std::string_view filename) const
+{
+    WarningSet warnings;  // OpenRocket discards the handlers' warnings
+    return loadText(text, filename, warnings);
 }
 
 }  // namespace QtRocket

@@ -98,6 +98,20 @@ TEST(GeneralMotorLoader, RejectsUnknownFileTypes)
     }
 }
 
+TEST(GeneralMotorLoader, CanLoadTellsTheSupportedNamesApart)
+{
+    // What load() would refuse by the name alone, before it reads anything.
+    const GeneralMotorLoader loader;
+    for (const std::string_view name : {"a.eng", "b.RSE", "dir/c.Zip", "x.y.eng"})
+    {
+        EXPECT_TRUE(loader.canLoad(name)) << name;
+    }
+    for (const std::string_view name : {"a.txt", "eng", ".eng", "a.eng.bak", "", "a."})
+    {
+        EXPECT_FALSE(loader.canLoad(name)) << name;
+    }
+}
+
 TEST(GeneralMotorLoader, SupportedExtensions)
 {
     const std::vector<std::string_view> extensions(

@@ -2,8 +2,6 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <format>
-#include <random>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -17,6 +15,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
+#include "TestTempDir.h"
 
 namespace
 {
@@ -53,59 +52,14 @@ constexpr std::size_t kWithFilesSetMotors = 1592;
     return count;
 }
 
-/// A directory in the temporary directory, removed with its contents when the test ends.
-class TempDir
+using QtRocket::Test::TempDir;
+
+/// Copies the motor test file @p name to @p target under @p tempDir.
+[[nodiscard]] std::filesystem::path copyTestFile(const TempDir& tempDir, std::string_view name,
+                                                 std::string_view target)
 {
-public:
-    TempDir()
-    {
-        const ::testing::TestInfo* info = ::testing::UnitTest::GetInstance()->current_test_info();
-        m_path = std::filesystem::temp_directory_path() /
-                 std::format("qtrocket_{}_{}_{}", info->test_suite_name(), info->name(),
-                             std::random_device{}());
-        std::filesystem::create_directories(m_path);
-    }
-    ~TempDir()
-    {
-        std::error_code ignored;
-        std::filesystem::remove_all(m_path, ignored);
-    }
-    TempDir(const TempDir&)            = delete;
-    TempDir& operator=(const TempDir&) = delete;
-    TempDir(TempDir&&)                 = delete;
-    TempDir& operator=(TempDir&&)      = delete;
-
-    [[nodiscard]] const std::filesystem::path& path() const noexcept { return m_path; }
-
-    /// Writes @p text to @p name under the directory, creating directories as needed.
-    [[nodiscard]] std::filesystem::path write(std::string_view name, std::string_view text) const
-    {
-        const std::filesystem::path file = m_path / name;
-        std::filesystem::create_directories(file.parent_path());
-        EXPECT_TRUE(QtRocket::writeTextFile(file, text));
-        return file;
-    }
-
-    /// Copies @p source to @p target under the directory.
-    [[nodiscard]] std::filesystem::path copy(const std::filesystem::path& source,
-                                             std::string_view             target) const
-    {
-        const std::filesystem::path file = m_path / target;
-        std::filesystem::create_directories(file.parent_path());
-        std::filesystem::copy_file(source, file);
-        return file;
-    }
-
-    /// Copies the motor test file @p name to @p target under the directory.
-    [[nodiscard]] std::filesystem::path copyTestFile(std::string_view name,
-                                                     std::string_view target) const
-    {
-        return copy(QtRocket::Test::testDataDir() / "motors" / name, target);
-    }
-
-private:
-    std::filesystem::path m_path;
-};
+    return tempDir.copy(QtRocket::Test::testDataDir() / "motors" / name, target);
+}
 
 TEST(MotorDatabaseLoader, LoadsTheBundledDatabase)
 {
@@ -125,7 +79,7 @@ TEST(MotorDatabaseLoader, AddsTheUsersMotorsAfterTheBundledOnes)
     for (const std::string_view name :
          {"Estes_A8.rse", "test.zip", "test1.eng", "test2.rse", "test3.rse"})
     {
-        static_cast<void>(tempDir.copyTestFile(name, name));
+        static_cast<void>(copyTestFile(tempDir, name, name));
     }
     // Hidden files and other extensions are not read.
     static_cast<void>(tempDir.write(".hidden.eng", "junk"));
@@ -162,7 +116,7 @@ TEST(MotorDatabaseLoader, SearchesDirectoriesRecursivelyInNameOrder)
     static_cast<void>(tempDir.write("b/c.eng", "B4 18 70 None 0.004 0.02 Estes\n0.2 3\n0.8 0\n"));
     static_cast<void>(tempDir.write("a.eng", kA8));
     static_cast<void>(tempDir.write(".hidden/d.eng", "junk"));
-    static_cast<void>(tempDir.copyTestFile("test3.rse", "b/z/test3.rse"));
+    static_cast<void>(copyTestFile(tempDir, "test3.rse", "b/z/test3.rse"));
 
     MotorDatabaseLoader                      loader;
     const std::vector<std::filesystem::path> userFiles{tempDir.path()};
@@ -285,6 +239,81 @@ TEST(MotorDatabaseLoader, ReadsUserZipArchives)
     loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{archive});
     EXPECT_TRUE(loader.getProblems().empty());
     EXPECT_EQ(loader.getMotorCount(), 1);
+}
+
+TEST(MotorDatabaseLoader, ReadsADirectoryReachedTwiceThroughLinksOnce)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.write("motors/a.eng", kA8));
+    std::error_code error;
+    std::filesystem::create_directories(tempDir.resolve("links"));
+    std::filesystem::create_directory_symlink(tempDir.resolve("motors"),
+                                              tempDir.resolve("links/one"), error);
+    if (!error)
+    {
+        std::filesystem::create_directory_symlink(tempDir.resolve("motors"),
+                                                  tempDir.resolve("links/two"), error);
+    }
+    if (!error)
+    {
+        std::filesystem::create_directory_symlink(tempDir.resolve("motors"),
+                                                  tempDir.resolve("motors/loop"), error);
+    }
+    if (error)
+    {
+        GTEST_SKIP() << "cannot create directory links here: " << error.message();
+    }
+
+    MotorDatabaseLoader loader;
+    loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{tempDir.path()});
+    EXPECT_TRUE(loader.getProblems().empty());
+    EXPECT_EQ(loader.getMotorCount(), 1);  // a.eng once, and no endless loop
+}
+
+TEST(MotorDatabaseLoader, ReadsPathsThatAreNotAscii)
+{
+    // UTF-8 names reach the file system (and SQLite) intact on every platform.
+    const TempDir               tempDir;
+    const std::filesystem::path directory = tempDir.resolve(std::filesystem::path(u8"mot\u00F6rs"));
+    static_cast<void>(tempDir.write(std::filesystem::path(u8"mot\u00F6rs/t\u00EBst.eng"), kA8));
+    static_cast<void>(tempDir.copy(QtRocket::Test::testDataDir() / "motors-edge" / "edge.db",
+                                   std::filesystem::path(u8"mot\u00F6rs/d\u00E5tabase.db")));
+
+    MotorDatabaseLoader loader;
+    loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{directory});
+    EXPECT_TRUE(loader.getProblems().empty());
+    EXPECT_EQ(loader.getMotorCount(), 3);  // the .eng file and the two curves of edge.db
+
+    MotorDatabaseLoader library;
+    ASSERT_TRUE(library.loadInternalMotorDatabase(
+        tempDir.resolve("nowhere"), directory / std::filesystem::path(u8"d\u00E5tabase.db")));
+    EXPECT_EQ(library.getMotorCount(), 2);
+}
+
+TEST(MotorDatabaseLoader, RecordsBundledDirectoriesItCannotRead)
+{
+    const TempDir tempDir;
+    static_cast<void>(
+        tempDir.copy(QtRocket::Test::testDataDir() / "motors-edge" / "edge.db", "bundled/edge.db"));
+    const std::filesystem::path closed = tempDir.resolve("bundled/closed");
+    std::filesystem::create_directories(closed);
+    std::filesystem::permissions(closed, std::filesystem::perms::none);
+    std::error_code                           error;
+    const std::filesystem::directory_iterator probe(closed, error);
+    if (!error)
+    {
+        std::filesystem::permissions(closed, std::filesystem::perms::owner_all);
+        GTEST_SKIP() << "permissions do not stop this user from listing a directory";
+    }
+
+    MotorDatabaseLoader loader;
+    const Result<void>  loaded = loader.loadInternalMotorDatabase(tempDir.resolve("bundled"));
+    std::filesystem::permissions(closed, std::filesystem::perms::owner_all);
+    ASSERT_TRUE(loaded) << loaded.error().toString();
+    EXPECT_EQ(loader.getMotorCount(), 2);
+    ASSERT_EQ(loader.getProblems().size(), 1U);
+    EXPECT_EQ(loader.getProblems().front().file, closed);
+    EXPECT_EQ(loader.getProblems().front().error.code, ErrorCode::IO);
 }
 
 TEST(MotorDatabaseLoader, TakeDatabaseLeavesAnEmptyOne)
