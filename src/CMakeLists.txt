@@ -18,6 +18,7 @@ add_subdirectory(logging)
 add_subdirectory(preferences)
 add_subdirectory(material)
 add_subdirectory(motor)
+add_subdirectory(rocket)
 add_subdirectory(file)
 
 add_subdirectory(cli)

@@ -1292,6 +1292,25 @@ bool equalsIgnoreAsciiCase(std::string_view a, std::string_view b) noexcept
     return std::ranges::equal(a, b, {}, asciiLower, asciiLower);
 }
 
+std::string toOrkEnumName(std::string_view enumName)
+{
+    std::string out;
+    out.reserve(enumName.size());
+    for (const char c : enumName)
+    {
+        if (c != '_')
+        {
+            out.push_back(asciiLower(c));
+        }
+    }
+    return out;
+}
+
+bool orkEnumNameMatches(std::string_view text, std::string_view enumName)
+{
+    return trim(text) == toOrkEnumName(enumName);
+}
+
 std::u32string toCodePoints(std::string_view text)
 {
     std::u32string codePoints;

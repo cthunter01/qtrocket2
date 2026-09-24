@@ -37,7 +37,7 @@ TEST(MotorConfigurationId, KeyMatchesOpenRocket)
     EXPECT_EQ(id.toDebug(), "4ae4/d11d");
     EXPECT_EQ(id.hashCode(), -1125188589);
     // The mount's UUID.hashCode() lands in the upper 32 bits.
-    EXPECT_EQ(kMount.javaHashCode(), 1256478162);
+    EXPECT_EQ(kMount.hashCode(), 1256478162);
     EXPECT_EQ(id.getKey().mostSignificantBits(), 0x4ae455d200000000ULL);
     EXPECT_EQ(id.getKey().leastSignificantBits(), kFlightConfiguration.mostSignificantBits());
 }

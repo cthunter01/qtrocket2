@@ -32,7 +32,7 @@ public:
     [[nodiscard]] bool operator==(const MotorConfigurationId& other) const noexcept = default;
 
     /// The key's java.util.UUID.hashCode() (hashCode()).
-    [[nodiscard]] std::int32_t hashCode() const noexcept { return m_key.javaHashCode(); }
+    [[nodiscard]] std::int32_t hashCode() const noexcept { return m_key.hashCode(); }
 
     /// The key in the canonical UUID form.
     [[nodiscard]] std::string toString() const;

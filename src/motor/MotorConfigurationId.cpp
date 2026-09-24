@@ -16,7 +16,7 @@ namespace
 /// hash lands unchanged in the upper 32 bits and the lower ones are zero.
 [[nodiscard]] std::uint64_t mountHashBits(const Uuid& mountId) noexcept
 {
-    return static_cast<std::uint64_t>(static_cast<std::uint32_t>(mountId.javaHashCode())) << 32U;
+    return static_cast<std::uint64_t>(static_cast<std::uint32_t>(mountId.hashCode())) << 32U;
 }
 
 }  // namespace

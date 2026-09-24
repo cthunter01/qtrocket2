@@ -190,6 +190,13 @@ auto clamp(T x, U min, V max) = delete;
 /// unchanged (the sign of zero included); unlike sign(), which never returns zero.
 [[nodiscard]] double signum(double d) noexcept;
 
+/// Java's Math.max(double, double): NaN when either value is NaN (unlike max() above and
+/// std::max, which drop a NaN), and 0.0 is larger than -0.0.
+[[nodiscard]] double javaMax(double a, double b) noexcept;
+
+/// Java's Math.min(double, double): NaN when either value is NaN, and -0.0 is smaller than 0.0.
+[[nodiscard]] double javaMin(double a, double b) noexcept;
+
 }  // namespace MathUtil
 
 }  // namespace QtRocket

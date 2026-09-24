@@ -575,4 +575,25 @@ TEST(MathUtil, SignumIsJavasMathSignum)
     EXPECT_TRUE(std::isnan(MathUtil::signum(kNaN)));
 }
 
+TEST(MathUtil, JavaMaxAndMinKeepNaNAndOrderSignedZeros)
+{
+    EXPECT_EQ(MathUtil::javaMax(1.0, 2.0), 2.0);
+    EXPECT_EQ(MathUtil::javaMax(2.0, -kInf), 2.0);
+    EXPECT_EQ(MathUtil::javaMin(1.0, 2.0), 1.0);
+    EXPECT_EQ(MathUtil::javaMin(-kInf, 2.0), -kInf);
+    // Math.max(0.0, NaN) and Math.max(NaN, 0.0) are NaN, where max() and std::max drop it.
+    EXPECT_TRUE(std::isnan(MathUtil::javaMax(0.0, kNaN)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaMax(kNaN, 0.0)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaMin(0.0, kNaN)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaMin(kNaN, 0.0)));
+    EXPECT_EQ(MathUtil::max(0.0, kNaN), 0.0);
+    // Math.max(-0.0, 0.0) is 0.0 either way round; Math.min gives -0.0.
+    EXPECT_FALSE(std::signbit(MathUtil::javaMax(-0.0, 0.0)));
+    EXPECT_FALSE(std::signbit(MathUtil::javaMax(0.0, -0.0)));
+    EXPECT_TRUE(std::signbit(MathUtil::javaMax(-0.0, -0.0)));
+    EXPECT_TRUE(std::signbit(MathUtil::javaMin(-0.0, 0.0)));
+    EXPECT_TRUE(std::signbit(MathUtil::javaMin(0.0, -0.0)));
+    EXPECT_FALSE(std::signbit(MathUtil::javaMin(0.0, 0.0)));
+}
+
 }  // namespace
