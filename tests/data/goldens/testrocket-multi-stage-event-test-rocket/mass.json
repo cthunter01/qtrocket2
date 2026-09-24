@@ -1,0 +1,57 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "testrocket-multi-stage-event-test-rocket",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.0757624329665986, "cm": [0.25827796850434065, -3.5776377883861543E-19, 0.0, 0.0757624329665986], "ixx": 1.8211823646920953E-5, "iyy": 7.687516620117641E-4, "izz": 7.687516620117641E-4, "longitudinalInertia": 7.687516620117641E-4, "rotationalInertia": 1.8211823646920953E-5},
+   "launch": {"mass": 0.0757624329665986, "cm": [0.25827796850434065, -3.5776377883861543E-19, 0.0, 0.0757624329665986], "ixx": 1.8211823646920953E-5, "iyy": 7.687516620117641E-4, "izz": 7.687516620117641E-4, "longitudinalInertia": 7.687516620117641E-4, "rotationalInertia": 1.8211823646920953E-5},
+   "burnout": {"mass": 0.0757624329665986, "cm": [0.25827796850434065, -3.5776377883861543E-19, 0.0, 0.0757624329665986], "ixx": 1.8211823646920953E-5, "iyy": 7.687516620117641E-4, "izz": 7.687516620117641E-4, "longitudinalInertia": 7.687516620117641E-4, "rotationalInertia": 1.8211823646920953E-5},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer", "eachMass": 0.02987265816794738, "totalCM": [0.1496411615535243, 0.0, 0.0, 0.02987265816794738]},
+    {"kind": "component", "path": "/0/0", "name": "Sustainer Nose Cone", "eachMass": 0.004895469610685141, "totalCM": [0.06422004147813548, 0.0, 0.0, 0.004895469610685141]},
+    {"kind": "component", "path": "/0/1", "name": "Sustainer Body Tube", "eachMass": 0.015381237631975627, "totalCM": [0.2, 0.0, 0.0, 0.015381237631975627]},
+    {"kind": "component", "path": "/0/1/0", "name": "Sustainer Parachute", "eachMass": 0.009595950925286614, "totalCM": [0.1125, 0.0, 0.0, 0.009595950925286614]},
+    {"kind": "component", "path": "/1", "name": "Center Booster", "eachMass": 0.04588977479865122, "totalCM": [0.3289967770567507, -5.906556401957821E-19, 0.0, 0.04588977479865122]},
+    {"kind": "component", "path": "/1/0", "name": "Center Booster Body Tube", "eachMass": 0.006921556934389034, "totalCM": [0.34500000000000003, 0.0, 0.0, 0.006921556934389034]},
+    {"kind": "component", "path": "/1/0/0", "name": "Center Booster Fin Set", "eachMass": 0.0073440000000000024, "totalCM": [0.3572222222222223, 0.0, 0.0, 0.0073440000000000024]},
+    {"kind": "component", "path": "/1/0/1", "name": "Side boosters", "eachMass": 0.015812108932131093, "totalCM": [0.3189394567652006, -8.570980135691647E-19, 0.0, 0.031624217864262186]},
+    {"kind": "component", "path": "/1/0/1/0", "name": "Side Booster Nose Cones", "eachMass": 0.001601786717251792, "totalCM": [0.2824425182153672, -1.0576101526270197E-18, 0.0, 0.003203573434503584]},
+    {"kind": "component", "path": "/1/0/1/1", "name": "Side Booster Body Tubes", "eachMass": 0.004614371289592687, "totalCM": [0.345, -7.342564298323452E-19, 0.0, 0.009228742579185375]},
+    {"kind": "component", "path": "/1/0/1/1/0", "name": "Side Chutes", "eachMass": 0.009595950925286614, "totalCM": [0.3125, -7.061586319890447E-19, 0.0, 0.019191901850573227]},
+    {"kind": "total", "path": "/", "name": "Rocket", "eachMass": 0.0757624329665986, "totalCM": [0.25827796850434065, -3.5776377883861543E-19, 0.0, 0.0757624329665986]}
+   ]
+  },
+  {
+   "index": 1,
+   "id": "edc2406f-9ca4-4142-b61b-39cdcee073a1",
+   "isDefault": false,
+   "name": "[C6-5; C6-0; 2× A10-0]",
+   "structure": {"mass": 0.0757624329665986, "cm": [0.25827796850434065, -3.5776377883861543E-19, 0.0, 0.0757624329665986], "ixx": 1.8211823646920953E-5, "iyy": 7.687516620117641E-4, "izz": 7.687516620117641E-4, "longitudinalInertia": 7.687516620117641E-4, "rotationalInertia": 1.8211823646920953E-5},
+   "launch": {"mass": 0.14316243296659859, "cm": [0.2914645023202051, -3.786615489897622E-19, 0.0, 0.14316243296659859], "ixx": 2.6873273646920955E-5, "iyy": 0.0011134974430403596, "izz": 0.0011134974430403596, "longitudinalInertia": 0.0011134974430403596, "rotationalInertia": 2.6873273646920955E-5},
+   "burnout": {"mass": 0.1057624329665986, "cm": [0.276211188189905, -3.2035304918592645E-19, 0.0, 0.1057624329665986], "ixx": 2.1044573646920947E-5, "iyy": 9.313480576115292E-4, "izz": 9.313480576115292E-4, "longitudinalInertia": 9.313480576115292E-4, "rotationalInertia": 2.1044573646920947E-5},
+   "motor": {"mass": 0.0674, "cm": [0.3287685459940653, -4.021521411296381E-19, 0.0, 0.0674], "ixx": 8.661450000000002E-6, "iyy": 1.6751184765084076E-4, "izz": 1.6751184765084076E-4, "longitudinalInertia": 1.6751184765084076E-4, "rotationalInertia": 8.661450000000002E-6},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer", "eachMass": 0.052572658167947386, "totalCM": [0.19945119064449274, 0.0, 0.0, 0.052572658167947386]},
+    {"kind": "component", "path": "/0/0", "name": "Sustainer Nose Cone", "eachMass": 0.004895469610685141, "totalCM": [0.06422004147813548, 0.0, 0.0, 0.004895469610685141]},
+    {"kind": "component", "path": "/0/1", "name": "Sustainer Body Tube", "eachMass": 0.015381237631975627, "totalCM": [0.2, 0.0, 0.0, 0.015381237631975627]},
+    {"kind": "component", "path": "/0/1/0", "name": "Sustainer Parachute", "eachMass": 0.009595950925286614, "totalCM": [0.1125, 0.0, 0.0, 0.009595950925286614]},
+    {"kind": "component", "path": "/1", "name": "Center Booster", "eachMass": 0.09058977479865121, "totalCM": [0.34486329255210274, -5.9841310727137775E-19, 0.0, 0.09058977479865121]},
+    {"kind": "component", "path": "/1/0", "name": "Center Booster Body Tube", "eachMass": 0.006921556934389034, "totalCM": [0.34500000000000003, 0.0, 0.0, 0.006921556934389034]},
+    {"kind": "component", "path": "/1/0/0", "name": "Center Booster Fin Set", "eachMass": 0.0073440000000000024, "totalCM": [0.3572222222222223, 0.0, 0.0, 0.0073440000000000024]},
+    {"kind": "component", "path": "/1/0/1", "name": "Side boosters", "eachMass": 0.02681210893213109, "totalCM": [0.3388620214890318, -1.0109258611751896E-18, 0.0, 0.05362421786426218]},
+    {"kind": "component", "path": "/1/0/1/0", "name": "Side Booster Nose Cones", "eachMass": 0.001601786717251792, "totalCM": [0.2824425182153672, -1.0576101526270197E-18, 0.0, 0.003203573434503584]},
+    {"kind": "component", "path": "/1/0/1/1", "name": "Side Booster Body Tubes", "eachMass": 0.004614371289592687, "totalCM": [0.345, -7.342564298323452E-19, 0.0, 0.009228742579185375]},
+    {"kind": "component", "path": "/1/0/1/1/0", "name": "Side Chutes", "eachMass": 0.009595950925286614, "totalCM": [0.3125, -7.061586319890447E-19, 0.0, 0.019191901850573227]},
+    {"kind": "motor", "path": null, "name": "A10", "eachMass": 0.011, "totalCM": [0.36750000000000005, -1.2320479232789825E-18, 0.0, 0.022]},
+    {"kind": "motor", "path": null, "name": "C6", "eachMass": 0.0227, "totalCM": [0.31000000000000005, 0.0, 0.0, 0.0454]},
+    {"kind": "total", "path": "/", "name": "Rocket", "eachMass": 0.14316243296659859, "totalCM": [0.2914645023202051, -3.786615489897622E-19, 0.0, 0.14316243296659859]}
+   ]
+  }
+ ]
+}

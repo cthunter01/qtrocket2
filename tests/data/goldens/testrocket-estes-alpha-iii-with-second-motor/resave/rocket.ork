@@ -1,0 +1,567 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Alpha III with a second motor</name>
+    <id>3adf3c4f-6bdc-4aa1-ac45-5fd57b6b84e6</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <motorconfiguration configid="d010716e-ce0e-469d-ae46-190f3653ebbf">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="f41bee5b-ebb8-4d92-bce7-53001577a313">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="3e8d1280-53c2-4234-89a7-de215ef5cd69">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="415a5485-f2da-4c2a-8803-394220ae58b8">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="5abc18ec-a200-46f1-90c4-60b6995fc933">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage</name>
+        <id>0ba481cb-5107-4dc4-ab08-3cbd23dea51d</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>8b7d3dc0-4274-4116-9cd7-a94b542989df</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.07</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.012</aftradius>
+            <aftshoulderradius>0.011</aftshoulderradius>
+            <aftshoulderlength>0.02</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>true</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>359861c2-a027-417e-8645-442c547e7a11</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.2</length>
+            <thickness>3.0E-4</thickness>
+            <radius>0.012</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>3 Fin Set</name>
+                <id>0ec06297-e895-4262-a59e-96000be681c1</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0032</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.05</rootchord>
+                <tipchord>0.03</tipchord>
+                <sweeplength>0.02</sweeplength>
+                <height>0.05</height>
+              </trapezoidfinset>
+
+              <launchlug>
+                <name>Launch Lugs</name>
+                <id>d389a51f-cbe6-4bc1-86d1-94c3c33270b4</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <radialdirection>180.0</radialdirection>
+                <axialoffset method="top">0.111</axialoffset>
+                <position type="top">0.111</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.003</radius>
+                <length>0.05</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <innertube>
+                <name>Motor Mount Tube</name>
+                <id>715be74b-9dc6-4369-9473-84472fca224c</id>
+                <axialoffset method="top">0.133</axialoffset>
+                <position type="top">0.133</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.07</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.009</outerradius>
+                <thickness>3.0E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                  <motor configid="d010716e-ce0e-469d-ae46-190f3653ebbf">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A8 test</digest>
+                    <designation>A8</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>0.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="d010716e-ce0e-469d-ae46-190f3653ebbf">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="f41bee5b-ebb8-4d92-bce7-53001577a313">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest B4 test</digest>
+                    <designation>B4</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>3.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="f41bee5b-ebb8-4d92-bce7-53001577a313">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="3e8d1280-53c2-4234-89a7-de215ef5cd69">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest C6 test</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>3.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="3e8d1280-53c2-4234-89a7-de215ef5cd69">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="415a5485-f2da-4c2a-8803-394220ae58b8">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest C6 test</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="415a5485-f2da-4c2a-8803-394220ae58b8">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="5abc18ec-a200-46f1-90c4-60b6995fc933">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest C6 test</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>7.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="5abc18ec-a200-46f1-90c4-60b6995fc933">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+
+                <subcomponents>
+                  <engineblock>
+                    <name>Engine Block</name>
+                    <id>b9074bc3-f269-43a7-b1a3-bdc2ae8bab8e</id>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.005</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.009</outerradius>
+                    <thickness>8.0E-4</thickness>
+                  </engineblock>
+                </subcomponents>
+              </innertube>
+
+              <parachute>
+                <name>Parachute</name>
+                <id>53f1e606-86a7-42ea-89e7-d49dd0561a9e</id>
+                <axialoffset method="top">0.028</axialoffset>
+                <position type="top">0.028</position>
+                <overridemass>0.002</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>6</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+
+              <centeringring>
+                <name>Centering Rings</name>
+                <id>f3e81dfb-5d4c-4108-a559-3c2518f679f0</id>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.035</instanceseparation>
+                <axialoffset method="top">0.14</axialoffset>
+                <position type="top">0.14</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.006</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <innertube>
+                <name>Second Motor Mount Tube</name>
+                <id>cb3aeb5d-2b0e-4fee-bcb1-7ba203726a58</id>
+                <axialoffset method="top">0.06</axialoffset>
+                <position type="top">0.06</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.045</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0065</outerradius>
+                <thickness>3.0E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                  <motor configid="d010716e-ce0e-469d-ae46-190f3653ebbf">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A10 test</digest>
+                    <designation>A10</designation>
+                    <diameter>0.013</diameter>
+                    <length>0.045</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="d010716e-ce0e-469d-ae46-190f3653ebbf">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="f41bee5b-ebb8-4d92-bce7-53001577a313">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A10 test</digest>
+                    <designation>A10</designation>
+                    <diameter>0.013</diameter>
+                    <length>0.045</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="f41bee5b-ebb8-4d92-bce7-53001577a313">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="3e8d1280-53c2-4234-89a7-de215ef5cd69">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A10 test</digest>
+                    <designation>A10</designation>
+                    <diameter>0.013</diameter>
+                    <length>0.045</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="3e8d1280-53c2-4234-89a7-de215ef5cd69">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="415a5485-f2da-4c2a-8803-394220ae58b8">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A10 test</digest>
+                    <designation>A10</designation>
+                    <diameter>0.013</diameter>
+                    <length>0.045</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="415a5485-f2da-4c2a-8803-394220ae58b8">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="5abc18ec-a200-46f1-90c4-60b6995fc933">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>digest A10 test</digest>
+                    <designation>A10</designation>
+                    <diameter>0.013</diameter>
+                    <length>0.045</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="5abc18ec-a200-46f1-90c4-60b6995fc933">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+              </innertube>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>[No motors]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[A10-5, A8-0]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>d010716e-ce0e-469d-ae46-190f3653ebbf</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[A10-5, B4-3]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>f41bee5b-ebb8-4d92-bce7-53001577a313</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[A10-5, C6-3]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>3e8d1280-53c2-4234-89a7-de215ef5cd69</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[A10-5, C6-5]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>415a5485-f2da-4c2a-8803-394220ae58b8</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[A10-5, C6-7]</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>5abc18ec-a200-46f1-90c4-60b6995fc933</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

@@ -1,0 +1,41 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "testrocket-simple-2-stage",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "launch": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "burnout": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer Stage", "eachMass": 0.004058937708438007, "totalCM": [0.05, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/0/0", "name": "Sustainer Body Tube", "eachMass": 0.004058937708438007, "totalCM": [0.05, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/1", "name": "Booster Stage", "eachMass": 0.004058937708438007, "totalCM": [0.15000000000000002, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/1/0", "name": "Booster Body Tube", "eachMass": 0.004058937708438007, "totalCM": [0.15000000000000002, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "total", "path": "/", "name": "Simple 2-Stage Rocket", "eachMass": 0.008117875416876015, "totalCM": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015]}
+   ]
+  },
+  {
+   "index": 1,
+   "id": "d010716e-ce0e-469d-ae46-190f3653ebbf",
+   "isDefault": false,
+   "name": "[No motors]",
+   "structure": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "launch": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "burnout": {"mass": 0.008117875416876015, "cm": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015], "ixx": 7.346677252272793E-7, "iyy": 2.74269185855337E-5, "izz": 2.74269185855337E-5, "longitudinalInertia": 2.74269185855337E-5, "rotationalInertia": 7.346677252272793E-7},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer Stage", "eachMass": 0.004058937708438007, "totalCM": [0.05, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/0/0", "name": "Sustainer Body Tube", "eachMass": 0.004058937708438007, "totalCM": [0.05, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/1", "name": "Booster Stage", "eachMass": 0.004058937708438007, "totalCM": [0.15000000000000002, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "component", "path": "/1/0", "name": "Booster Body Tube", "eachMass": 0.004058937708438007, "totalCM": [0.15000000000000002, 0.0, 0.0, 0.004058937708438007]},
+    {"kind": "total", "path": "/", "name": "Simple 2-Stage Rocket", "eachMass": 0.008117875416876015, "totalCM": [0.10000000000000002, 0.0, 0.0, 0.008117875416876015]}
+   ]
+  }
+ ]
+}

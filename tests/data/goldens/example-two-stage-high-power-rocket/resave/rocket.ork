@@ -1,0 +1,1060 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Rocket</name>
+    <id>07a4895e-aefd-492e-8872-085bf40b1638</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>A two stage rocket with 38mm motor mounts.  The intent is the interstage would contain a flight computer capable of a single ejection, and ignition of the second stage motor.  A second flight computer in the sustainer handles a dual deploy recovery for the sustainer.</comment>
+    <designer>Joe Pfeiffer</designer>
+    <designtype>original</designtype>
+    <motorconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067" default="true">
+      <name>[H148R-0; H148R-0]</name>
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+      <name>[I59WN-P; I357T-14]</name>
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>2d904dcd-83d3-4d14-b2df-a21cf2f7a4ba</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>07ed6b65-d365-4d7a-b7b3-ed41bdb805cd</id>
+            <appearance>
+              <paint red="0" green="0" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="946.0" shearModulus="0.0" group="Custom">Polypropylene, bulk</material>
+            <length>0.32384999999999997</length>
+            <thickness>0.001524</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.0508</aftradius>
+            <aftshoulderradius>0.04927599999999999</aftshoulderradius>
+            <aftshoulderlength>0.0508</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Payload Bay</name>
+            <id>56a70909-5408-4783-8cf8-3adbf6cf8e1e</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.07619999999999999</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>1b6ccd8c-3617-4ef0-a8b9-8d7c2254b5df</id>
+                <axialoffset method="bottom">0.10159999999999998</axialoffset>
+                <position type="bottom">0.10159999999999998</position>
+                <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                <length>0.127</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0493268</outerradius>
+                <thickness>8.890000000000009E-4</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>ea8ebe8b-955b-4d0e-bc42-bad00893b21e</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Sustainer Forward Airframe</name>
+            <id>92424dbc-97f5-42b3-be18-0a744363a3a4</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.43179999999999996</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Sustainer Main</name>
+                <id>65ecc4da-55e7-4a50-995b-8cae6ad9fe7f</id>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.0589" shearModulus="0.0" group="Custom">Nylon fabric, ripstop, 1.9 oz actual</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <deploymentconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                  <deployevent>altitude</deployevent>
+                  <deployaltitude>152.4</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <deploymentconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                  <deployevent>altitude</deployevent>
+                  <deployaltitude>152.4</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <diameter>0.9144</diameter>
+                <linecount>10</linecount>
+                <linelength>0.9144</linelength>
+                <linematerial type="line" density="0.0035" shearModulus="0.0" group="Custom">Nylon Paracord, 275 lb, 2.38 mm dia.</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Sustainer Switch Band</name>
+            <id>75df65c7-7577-4f9e-8fdf-203330caba8e</id>
+            <appearance>
+              <paint red="0" green="0" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.0254</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>12474132-2b01-4503-87c9-27e6cd58a50f</id>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                <length>0.2032</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0493268</outerradius>
+                <thickness>8.890000000000009E-4</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>7883e2a1-af01-473a-8829-2ee7f449020f</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">-0.0047498</axialoffset>
+                    <position type="top">-0.0047498</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>9836b369-28be-4825-81d5-b9c5d17d3bdf</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.048641</outerradius>
+                  </bulkhead>
+
+                  <tubecoupler>
+                    <name>Tube Coupler</name>
+                    <id>e67b1b59-102a-4e6b-a8f3-820410b0b8a8</id>
+                    <axialoffset method="middle">0.0</axialoffset>
+                    <position type="middle">0.0</position>
+                    <material type="bulk" density="603.3" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler stiffener avg</material>
+                    <length>0.1937004</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.0480695</outerradius>
+                    <thickness>0.002921</thickness>
+                  </tubecoupler>
+
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>46b32aa1-dc29-4f0d-8de9-5b07a9836915</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.048641</outerradius>
+                  </bulkhead>
+
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>8cf0397d-b6ab-40cc-b32f-84c4b3f80116</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">0.0047498</axialoffset>
+                    <position type="bottom">0.0047498</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>f738e5e9-fc24-4343-bb6e-8908d05711d3</id>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.44195999999999996</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Sustainer Aft Airframe</name>
+            <id>a26f8769-5263-48fc-b66a-4cff8470dc58</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.381</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Sustainer Drogue</name>
+                <id>54f964b5-1dad-47ca-a43d-7cf245759018</id>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.0589" shearModulus="0.0" group="Custom">Nylon fabric, ripstop, 1.9 oz actual</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <deploymentconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                  <deployevent>apogee</deployevent>
+                  <deployaltitude>200.0</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <deploymentconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                  <deployevent>apogee</deployevent>
+                  <deployaltitude>200.0</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <diameter>0.30479999999999996</diameter>
+                <linecount>6</linecount>
+                <linelength>0.30479999999999996</linelength>
+                <linematerial type="line" density="0.0016" shearModulus="0.0" group="Custom">Nylon Paracord, 110 lb, 1/16 in. dia.</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Sustainer Fin Section</name>
+            <id>797a787d-3cfc-4631-9779-0726db8270a8</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.17779999999999999</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>5ec3bffd-83dd-4684-ab84-bdc6c6cc0c4a</id>
+                <axialoffset method="top">-0.1016</axialoffset>
+                <position type="top">-0.1016</position>
+                <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                <length>0.12065</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0493268</outerradius>
+                <thickness>8.890000000000009E-4</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>15da66e1-4072-4775-87f6-c0df55da51d4</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="724.9956534840001" shearModulus="0.0" group="Custom">[material:Aircraft plywood (LOC)]</material>
+                    <length>0.004775199999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.048641</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>003002a0-43a9-44d9-8436-53aea3a6afdb</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.1523999999999999</axialoffset>
+                <position type="bottom">-0.1523999999999999</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.0394081</innerradius>
+              </centeringring>
+
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>83e5d38e-073a-40be-ae0c-ee037d74217e</id>
+                <appearance>
+                  <paint red="0" green="0" blue="0" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.00635</axialoffset>
+                <position type="bottom">-0.00635</position>
+                <finish>normal</finish>
+                <material type="bulk" density="630.0" shearModulus="6.13E8" group="Woods">Plywood (birch)</material>
+                <thickness>0.003175</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.011429999999999996</tabheight>
+                <tablength>0.1460499999999999</tablength>
+                <tabposition relativeto="center">5.551115123125783E-17</tabposition>
+                <tabposition relativeto="middle">5.551115123125783E-17</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14604999999999999</rootchord>
+                <tipchord>0.07619999999999999</tipchord>
+                <sweeplength>0.03809999999999997</sweeplength>
+                <height>0.15239999999999998</height>
+              </trapezoidfinset>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>140e10eb-d065-46dc-996d-6552df9c2ff6</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+                <length>0.15875</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.03937</outerradius>
+                <thickness>0.0012700000000000072</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+
+                <subcomponents>
+                  <centeringring>
+                    <name>Centering Ring</name>
+                    <id>49ad4403-2047-4192-bf0b-ff2cee380a8a</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                    <length>0.00635</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.038061899999999996</outerradius>
+                    <innerradius>0.020802599999999997</innerradius>
+                  </centeringring>
+
+                  <centeringring>
+                    <name>Centering Ring</name>
+                    <id>7dc1a5f0-196e-4f6b-b012-8309dea7b9e2</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">-0.08889999999999999</axialoffset>
+                    <position type="bottom">-0.08889999999999999</position>
+                    <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                    <length>0.00635</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.038061899999999996</outerradius>
+                    <innerradius>0.020802599999999997</innerradius>
+                  </centeringring>
+
+                  <innertube>
+                    <name>Sustainer Motor Mount</name>
+                    <id>0f27a531-7a07-464b-bf8f-f930cb0639b4</id>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+                    <length>0.15875</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.0206375</outerradius>
+                    <thickness>0.0013335000000000014</thickness>
+                    <clusterconfiguration>single</clusterconfiguration>
+                    <clusterscale>1.0</clusterscale>
+                    <clusterrotation>0.0</clusterrotation>
+                    <motormount>
+                      <ignitionevent>automatic</ignitionevent>
+                      <ignitiondelay>0.0</ignitiondelay>
+                      <overhang>0.0</overhang>
+                      <motor configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                        <type>reload</type>
+                        <manufacturer>AeroTech</manufacturer>
+                        <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+                        <designation>H148R</designation>
+                        <diameter>0.038</diameter>
+                        <length>0.152</length>
+                        <delay>0.0</delay>
+                      </motor>
+                      <ignitionconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                        <ignitionevent>burnout</ignitionevent>
+                        <ignitiondelay>0.0</ignitiondelay>
+                      </ignitionconfiguration>
+                      <motor configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                        <type>reload</type>
+                        <manufacturer>AeroTech</manufacturer>
+                        <digest>a0006978c9a542518b425c0caa67042b</digest>
+                        <designation>I59WN</designation>
+                        <diameter>0.038</diameter>
+                        <length>0.232</length>
+                        <delay>none</delay>
+                      </motor>
+                      <ignitionconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                        <ignitionevent>burnout</ignitionevent>
+                        <ignitiondelay>0.0</ignitiondelay>
+                      </ignitionconfiguration>
+                    </motormount>
+                  </innertube>
+                </subcomponents>
+              </innertube>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>41aa377d-9a77-4611-8d50-b4570e74a2ef</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.0394081</innerradius>
+              </centeringring>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Booster</name>
+        <id>780d8095-5117-4ea8-bf48-4850e517fc1e</id>
+        <separationevent>ejection</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+        <separationconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+            <separationevent>burnout</separationevent>
+            <separationaltitude>200.0</separationaltitude>
+            <separationdelay>0.0</separationdelay>
+        </separationconfiguration>
+        <separationconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+            <separationevent>upperignition</separationevent>
+            <separationaltitude>200.0</separationaltitude>
+            <separationdelay>0.0</separationdelay>
+        </separationconfiguration>
+
+        <subcomponents>
+          <bodytube>
+            <name>Interstage</name>
+            <id>8ced003c-008f-43cd-a1a4-56bd1e8f5ff1</id>
+            <appearance>
+              <paint red="0" green="0" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.07619999999999999</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>9dc76063-ed91-42e7-86b7-12e3198c2a13</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.0394081</innerradius>
+              </centeringring>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>71a11a4b-a55e-4ea2-8740-3f57ce86ee34</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+                <length>0.0508</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.03937</outerradius>
+                <thickness>0.0012700000000000072</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+
+                <subcomponents>
+                  <tubecoupler>
+                    <name>Tube Coupler</name>
+                    <id>99cf3560-c544-4da5-ba3c-753396dbfd00</id>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                    <length>0.1397</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.037973</outerradius>
+                    <thickness>0.0013970000000000024</thickness>
+
+                    <subcomponents>
+                      <tubecoupler>
+                        <name>Tube Coupler</name>
+                        <id>e9ca4976-f2d1-41ac-ac1a-bb9dd3a32df0</id>
+                        <axialoffset method="bottom">0.0</axialoffset>
+                        <position type="bottom">0.0</position>
+                        <material type="bulk" density="603.3" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler stiffener avg</material>
+                        <length>0.1397</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.0365506</outerradius>
+                        <thickness>0.0032131000000000035</thickness>
+                      </tubecoupler>
+                    </subcomponents>
+                  </tubecoupler>
+                </subcomponents>
+              </innertube>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>8b5638c6-7813-4baa-a296-8ec8072b6827</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.04444999999999996</axialoffset>
+                <position type="top">0.04444999999999996</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.0394081</innerradius>
+              </centeringring>
+
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>95e2d3f8-2ac1-466d-9185-2e49a65a15b2</id>
+                <axialoffset method="top">0.05080000000000002</axialoffset>
+                <position type="top">0.05080000000000002</position>
+                <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                <length>0.127</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0493268</outerradius>
+                <thickness>8.890000000000009E-4</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>209978b9-283e-446d-b8f5-207fca53dba0</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">-2.4674706722294104E-17</axialoffset>
+                    <position type="top">-2.4674706722294104E-17</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+
+                  <tubecoupler>
+                    <name>Tube Coupler</name>
+                    <id>96f4154e-1f4e-4dca-bd7c-3105dad111f1</id>
+                    <axialoffset method="bottom">-0.009829799999999994</axialoffset>
+                    <position type="bottom">-0.009829799999999994</position>
+                    <material type="bulk" density="958.7050344900001" shearModulus="0.0" group="Custom">[material:Kraft phenolic]</material>
+                    <length>0.11275059999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.048641</outerradius>
+                    <thickness>0.002921</thickness>
+
+                    <subcomponents>
+                      <bulkhead>
+                        <name>Bulkhead</name>
+                        <id>003eb614-a1e7-4993-9313-755aeb59f777</id>
+                        <instancecount>1</instancecount>
+                        <instanceseparation>0.0</instanceseparation>
+                        <axialoffset method="bottom">0.0047498</axialoffset>
+                        <position type="bottom">0.0047498</position>
+                        <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                        <length>0.004762499999999999</length>
+                        <radialposition>0.0</radialposition>
+                        <radialdirection>0.0</radialdirection>
+                        <outerradius>0.048641</outerradius>
+                      </bulkhead>
+                    </subcomponents>
+                  </tubecoupler>
+
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>272ecc19-3819-42c6-9efc-1103650d8ddf</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="bottom">0.0</axialoffset>
+                    <position type="bottom">0.0</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>e68fb7f8-e6be-42d6-8083-9fb86594dcc1</id>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.5027000000000001</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <axialoffset method="middle">0.02794</axialoffset>
+                <position type="middle">0.02794</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Booster airframe</name>
+            <id>d0569658-3672-4e7c-87ef-7bfb6ae29ea0</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.381</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Booster Chute</name>
+                <id>9f3bc4ff-14a3-44e1-b191-5e35f1c683bd</id>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.0589" shearModulus="0.0" group="Custom">Nylon fabric, ripstop, 1.9 oz actual</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <deploymentconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                  <deployevent>apogee</deployevent>
+                  <deployaltitude>200.0</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <deploymentconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                  <deployevent>apogee</deployevent>
+                  <deployaltitude>200.0</deployaltitude>
+                  <deploydelay>0.0</deploydelay>
+                </deploymentconfiguration>
+                <diameter>0.6095999999999999</diameter>
+                <linecount>8</linecount>
+                <linelength>0.6095999999999999</linelength>
+                <linematerial type="line" density="0.0016" shearModulus="0.0" group="Custom">Nylon Paracord, 110 lb, 1/16 in. dia.</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Booster fin section</name>
+            <id>118f4bc1-2b14-4a77-a27c-562231c70919</id>
+            <appearance>
+              <paint red="255" green="127" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+            <length>0.17779999999999999</length>
+            <thickness>0.0012700000000000003</thickness>
+            <radius>0.0508</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>ebb70147-d092-4f81-8cf1-8522f7038249</id>
+                <axialoffset method="top">-0.10159999999999997</axialoffset>
+                <position type="top">-0.10159999999999997</position>
+                <material type="bulk" density="789.6" shearModulus="0.0" group="Custom">Paper, kraft, LOC coupler avg</material>
+                <length>0.12065</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0493268</outerradius>
+                <thickness>8.890000000000009E-4</thickness>
+
+                <subcomponents>
+                  <bulkhead>
+                    <name>Bulkhead</name>
+                    <id>37007aba-2fad-4292-8e93-72d5e280f559</id>
+                    <instancecount>1</instancecount>
+                    <instanceseparation>0.0</instanceseparation>
+                    <axialoffset method="top">0.0</axialoffset>
+                    <position type="top">0.0</position>
+                    <material type="bulk" density="680.8" shearModulus="0.0" group="Custom">Birch</material>
+                    <length>0.004762499999999999</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>0.04953</outerradius>
+                  </bulkhead>
+                </subcomponents>
+              </tubecoupler>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>ce7b342f-8b22-485f-966f-06620ceff462</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.15239999999999998</axialoffset>
+                <position type="bottom">-0.15239999999999998</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.020802599999999997</innerradius>
+              </centeringring>
+
+              <innertube>
+                <name>Booster motor mount</name>
+                <id>c4a488c0-295b-4360-ac86-4afcd8c6133a</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="855.2" shearModulus="0.0" group="Custom">Paper, kraft glassine, LOC tube avg</material>
+                <length>0.15875</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0206375</outerradius>
+                <thickness>0.0013335000000000014</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                  <motor configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>a06234b6049c1079e394cb9ecd4607a9</digest>
+                    <designation>H148R</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.152</length>
+                    <delay>0.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="cf7a0b8c-19e9-4112-912f-505bc8e01067">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                    <type>reload</type>
+                    <manufacturer>AeroTech</manufacturer>
+                    <digest>1a3327383625336706131b2a9d198139</digest>
+                    <designation>I357T</designation>
+                    <diameter>0.038</diameter>
+                    <length>0.203</length>
+                    <delay>14.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="fadeeef3-4aa4-49e9-9581-71e14fa91c14">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+              </innertube>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>00f83b32-a764-4352-9493-b1e077c89ab8</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="0.0" group="Custom">Plywood, Baltic birch, bulk</material>
+                <length>0.00635</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0494919</outerradius>
+                <innerradius>0.020802599999999997</innerradius>
+              </centeringring>
+
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>d12bdd9c-5c03-4402-b0a3-707263c791e1</id>
+                <appearance>
+                  <paint red="0" green="0" blue="0" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.00635</axialoffset>
+                <position type="bottom">-0.00635</position>
+                <finish>normal</finish>
+                <material type="bulk" density="630.0" shearModulus="6.13E8" group="Woods">Plywood (birch)</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.0301625</tabheight>
+                <tablength>0.14604999999999999</tablength>
+                <tabposition relativeto="center">1.3877787807814457E-17</tabposition>
+                <tabposition relativeto="middle">1.3877787807814457E-17</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14604999999999999</rootchord>
+                <tipchord>0.07619999999999999</tipchord>
+                <sweeplength>0.03809999999999997</sweeplength>
+                <height>0.1650999999999999</height>
+              </trapezoidfinset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>cf7a0b8c-19e9-4112-912f-505bc8e01067</configid>
+        <launchrodlength>3.048</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>1.9982688</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>1.9982688</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.19982688</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>32.367</launchlatitude>
+        <launchlongitude>-106.83</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="675.97" maxvelocity="158.916" maxacceleration="110.229" maxmach="0.469" timetoapogee="11.049" flighttime="64.412" groundhitvelocity="6.204" launchrodvelocity="19.884" deploymentvelocity="19.038" optimumdelay="8.028926">
+        <warning type="Other">
+          <id>4253f05e-8f66-4789-983f-b736abc6f615</id>
+          <description>Open forward airframe (diameter &gt; 0)</description>
+          <priority>LOW</priority>
+          <source>8ced003c-008f-43cd-a1a4-56bd1e8f5ff1</source>
+          Open forward airframe (diameter &gt; 0):  &quot;Interstage&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 2</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>fadeeef3-4aa4-49e9-9581-71e14fa91c14</configid>
+        <launchrodlength>1.016</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>1.9982688</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>1.9982688</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.19982688</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>32.367</launchlatitude>
+        <launchlongitude>-106.83</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="1378.355" maxvelocity="175.735" maxacceleration="116.584" maxmach="0.519" timetoapogee="16.275" flighttime="103.389" groundhitvelocity="6.451" launchrodvelocity="15.523" deploymentvelocity="19.429" optimumdelay="6.15625">
+        <warning type="Other">
+          <id>4253f05e-8f66-4789-983f-b736abc6f615</id>
+          <description>Open forward airframe (diameter &gt; 0)</description>
+          <priority>LOW</priority>
+          <source>8ced003c-008f-43cd-a1a4-56bd1e8f5ff1</source>
+          Open forward airframe (diameter &gt; 0):  &quot;Interstage&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+    <roll>3.14</roll>
+    <yaw>0.0</yaw>
+    <pitch>2.05</pitch>
+    <advance>0.0</advance>
+    <viewAlt>-0.00464788732394375</viewAlt>
+    <viewAz>2.3942292490118717</viewAz>
+    <viewDistance>1.778</viewDistance>
+    <fov>1.4</fov>
+    <lightAlt>0.35</lightAlt>
+    <lightAz>-1.0</lightAz>
+    <sunlight red="255" green="255" blue="255" alpha="255"/>
+    <ambiance>0.30000001192092896</ambiance>
+    <skyColor red="55" green="95" blue="155" alpha="255"/>
+    <motionBlurred>false</motionBlurred>
+    <flame>false</flame>
+    <flameColor red="255" green="100" blue="50" alpha="255"/>
+    <smoke>false</smoke>
+    <smokeColor red="230" green="230" blue="230" alpha="102"/>
+    <sparks>false</sparks>
+    <exhaustScale>1.0</exhaustScale>
+    <flameAspectRatio>1.0</flameAspectRatio>
+    <sparkConcentration>0.2</sparkConcentration>
+    <sparkWeight>0.0</sparkWeight>
+    <sky>net.sf.openrocket.gui.figure3d.photo.sky.builtin.Mountains</sky>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>BULK|Birch|680.8|0.0|Custom</material>
+      <material>BULK|Delrin|1420.0|0.0|Custom</material>
+      <material>LINE|Nylon Paracord, 110 lb, 1/16 in. dia.|0.0016|0.0|Custom</material>
+      <material>LINE|Nylon Paracord, 275 lb, 2.38 mm dia.|0.0035|0.0|Custom</material>
+      <material>SURFACE|Nylon fabric, ripstop, 1.9 oz actual|0.0589|0.0|Custom</material>
+      <material>BULK|Paper, kraft glassine, LOC tube avg|855.2|0.0|Custom</material>
+      <material>BULK|Paper, kraft, LOC coupler avg|789.6|0.0|Custom</material>
+      <material>BULK|Paper, kraft, LOC coupler stiffener avg|603.3|0.0|Custom</material>
+      <material>BULK|Plywood (birch)|630.0|0.0|Custom</material>
+      <material>BULK|Plywood, Baltic birch, bulk|680.0|0.0|Custom</material>
+      <material>BULK|Polypropylene, bulk|946.0|0.0|Custom</material>
+      <material>BULK|[material:Aircraft plywood (LOC)]|724.9956534840001|0.0|Custom</material>
+      <material>BULK|[material:Kraft phenolic]|958.7050344900001|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

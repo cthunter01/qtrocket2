@@ -124,10 +124,13 @@ add_executable(QtRocket_core_tests
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
     file/ZipInputStreamTests.cpp
+    goldens/GoldenData.cpp
+    goldens/goldens_schema_tests.cpp
     goldens/motors_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-# The third-party canary tests use the libraries directly; everything else goes through QtRocket::core.
+# The third-party canary tests use the libraries directly; everything else goes through QtRocket::core, except
+# nlohmann_json, which reads the golden reference data (tests/core/goldens over tests/data/goldens).
 target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main pugixml::pugixml SQLite::SQLite3
     nlohmann_json::nlohmann_json)
 # Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from

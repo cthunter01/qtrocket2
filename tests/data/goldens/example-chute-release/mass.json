@@ -1,0 +1,90 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "example-chute-release",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.9107515635216936, "cm": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936], "ixx": 0.00103922687632542, "iyy": 0.09076254661564316, "izz": 0.09076254661564316, "longitudinalInertia": 0.09076254661564316, "rotationalInertia": 0.00103922687632542},
+   "launch": {"mass": 0.9107515635216936, "cm": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936], "ixx": 0.00103922687632542, "iyy": 0.09076254661564316, "izz": 0.09076254661564316, "longitudinalInertia": 0.09076254661564316, "rotationalInertia": 0.00103922687632542},
+   "burnout": {"mass": 0.9107515635216936, "cm": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936], "ixx": 0.00103922687632542, "iyy": 0.09076254661564316, "izz": 0.09076254661564316, "longitudinalInertia": 0.09076254661564316, "rotationalInertia": 0.00103922687632542},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer", "eachMass": 0.9107515635216936, "totalCM": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936]},
+    {"kind": "component", "path": "/0/0", "name": "Nose cone", "eachMass": 0.4961222761867005, "totalCM": [0.18237645267562907, 0.0, 0.0, 0.4961222761867005]},
+    {"kind": "component", "path": "/0/1", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.4445, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/1/0", "name": "Shock cord", "eachMass": 0.004535926920000001, "totalCM": [0.36829999999999996, 0.0, 0.0, 0.004535926920000001]},
+    {"kind": "component", "path": "/0/1/1", "name": "Reefed Parachute", "eachMass": 0.006634940109953235, "totalCM": [0.26015, 0.0, 0.0, 0.006634940109953235]},
+    {"kind": "component", "path": "/0/1/2", "name": "Opened Elliptical Parachute [Cd 1.55 (3.1 oz) 15.9 in^3]", "eachMass": 0.08788352, "totalCM": [0.4689956252164127, 0.0, 0.0, 0.08788352]},
+    {"kind": "component", "path": "/0/1/3", "name": "Wadding", "eachMass": 0.03686643671859199, "totalCM": [0.5413375, 0.0, 0.0, 0.03686643671859199]},
+    {"kind": "component", "path": "/0/2", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.8382, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/2/0", "name": "Tube Coupler", "eachMass": 0.013216767019016503, "totalCM": [0.64135, 0.0, 0.0, 0.013216767019016503]},
+    {"kind": "component", "path": "/0/2/1", "name": "Rail Button", "eachMass": 0.002865, "totalCM": [0.8445499999999999, -0.03552825, 4.350955764180695E-18, 0.002865]},
+    {"kind": "component", "path": "/0/2/2", "name": "Trapezoidal fin set", "eachMass": 0.11379441137567693, "totalCM": [0.9955204976538933, 0.0, 0.0, 0.11379441137567693]},
+    {"kind": "component", "path": "/0/2/3", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [0.9034017999999999, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/4", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [1.028065, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/5", "name": "Inner Tube", "eachMass": 0.01470346912851361, "totalCM": [0.93345, 0.0, 0.0, 0.01470346912851361]},
+    {"kind": "total", "path": "/", "name": "Chute release", "eachMass": 0.9107515635216936, "totalCM": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936]}
+   ]
+  },
+  {
+   "index": 1,
+   "id": "95aac292-c018-4713-8660-bd1a4714a0c2",
+   "isDefault": false,
+   "name": "[G40-7]",
+   "structure": {"mass": 0.9107515635216936, "cm": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936], "ixx": 0.00103922687632542, "iyy": 0.09076254661564316, "izz": 0.09076254661564316, "longitudinalInertia": 0.09076254661564316, "rotationalInertia": 0.00103922687632542},
+   "launch": {"mass": 1.0337515635216936, "cm": [0.48805279199381846, -9.846508565678596E-5, 1.2058495197735291E-20, 1.0337515635216936], "ixx": 0.0010521586049115376, "iyy": 0.12506893079144588, "izz": 0.12506893079144588, "longitudinalInertia": 0.12506893079144588, "rotationalInertia": 0.0010521586049115376},
+   "burnout": {"mass": 0.9799515635216937, "cm": [0.46090319013480413, -1.038708850917065E-4, 1.2720514695216094E-20, 0.9799515635216937], "ixx": 0.0010465023296636663, "iyy": 0.111117934910134, "izz": 0.111117934910134, "longitudinalInertia": 0.111117934910134, "rotationalInertia": 0.0010465023296636663},
+   "motor": {"mass": 0.123, "cm": [0.982575, 0.0, 0.0, 0.123], "ixx": 1.2930375E-5, "iyy": 1.6406918750000001E-4, "izz": 1.6406918750000001E-4, "longitudinalInertia": 1.6406918750000001E-4, "rotationalInertia": 1.2930375E-5},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer", "eachMass": 1.0337515635216936, "totalCM": [0.48805279199381846, -9.846508565678596E-5, 1.2058495197735291E-20, 1.0337515635216936]},
+    {"kind": "component", "path": "/0/0", "name": "Nose cone", "eachMass": 0.4961222761867005, "totalCM": [0.18237645267562907, 0.0, 0.0, 0.4961222761867005]},
+    {"kind": "component", "path": "/0/1", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.4445, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/1/0", "name": "Shock cord", "eachMass": 0.004535926920000001, "totalCM": [0.36829999999999996, 0.0, 0.0, 0.004535926920000001]},
+    {"kind": "component", "path": "/0/1/1", "name": "Reefed Parachute", "eachMass": 0.006634940109953235, "totalCM": [0.26015, 0.0, 0.0, 0.006634940109953235]},
+    {"kind": "component", "path": "/0/1/2", "name": "Opened Elliptical Parachute [Cd 1.55 (3.1 oz) 15.9 in^3]", "eachMass": 0.08788352, "totalCM": [0.4689956252164127, 0.0, 0.0, 0.08788352]},
+    {"kind": "component", "path": "/0/1/3", "name": "Wadding", "eachMass": 0.03686643671859199, "totalCM": [0.5413375, 0.0, 0.0, 0.03686643671859199]},
+    {"kind": "component", "path": "/0/2", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.8382, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/2/0", "name": "Tube Coupler", "eachMass": 0.013216767019016503, "totalCM": [0.64135, 0.0, 0.0, 0.013216767019016503]},
+    {"kind": "component", "path": "/0/2/1", "name": "Rail Button", "eachMass": 0.002865, "totalCM": [0.8445499999999999, -0.03552825, 4.350955764180695E-18, 0.002865]},
+    {"kind": "component", "path": "/0/2/2", "name": "Trapezoidal fin set", "eachMass": 0.11379441137567693, "totalCM": [0.9955204976538933, 0.0, 0.0, 0.11379441137567693]},
+    {"kind": "component", "path": "/0/2/3", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [0.9034017999999999, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/4", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [1.028065, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/5", "name": "Inner Tube", "eachMass": 0.01470346912851361, "totalCM": [0.93345, 0.0, 0.0, 0.01470346912851361]},
+    {"kind": "motor", "path": null, "name": "G40W", "eachMass": 0.123, "totalCM": [0.982575, 0.0, 0.0, 0.123]},
+    {"kind": "total", "path": "/", "name": "Chute release", "eachMass": 1.0337515635216936, "totalCM": [0.48805279199381846, -9.846508565678596E-5, 1.2058495197735291E-20, 1.0337515635216936]}
+   ]
+  },
+  {
+   "index": 2,
+   "id": "3c6373fb-a84b-4dd3-8b84-bfc96c7233d5",
+   "isDefault": false,
+   "name": "[G80-10]",
+   "structure": {"mass": 0.9107515635216936, "cm": [0.42126593812385915, -1.1176311996259936E-4, 1.36870347124919E-20, 0.9107515635216936], "ixx": 0.00103922687632542, "iyy": 0.09076254661564316, "izz": 0.09076254661564316, "longitudinalInertia": 0.09076254661564316, "rotationalInertia": 0.00103922687632542},
+   "launch": {"mass": 1.0156515635216936, "cm": [0.4792398759442675, -1.0021983907262094E-4, 1.227339051313481E-20, 1.0156515635216936], "ixx": 0.001050255663797931, "iyy": 0.12053950909269912, "izz": 0.12053950909269912, "longitudinalInertia": 0.12053950909269912, "rotationalInertia": 0.001050255663797931},
+   "burnout": {"mass": 0.9582515635216936, "cm": [0.4490897178640454, -1.0622308392163204E-4, 1.3008575972018739E-20, 0.9582515635216936], "ixx": 0.0010442208777370259, "iyy": 0.10504978752164838, "izz": 0.10504978752164838, "longitudinalInertia": 0.10504978752164838, "rotationalInertia": 0.0010442208777370259},
+   "motor": {"mass": 0.1049, "cm": [0.982575, 0.0, 0.0, 0.1049], "ixx": 1.10276125E-5, "iyy": 1.3992567291666667E-4, "izz": 1.3992567291666667E-4, "longitudinalInertia": 1.3992567291666667E-4, "rotationalInertia": 1.10276125E-5},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Sustainer", "eachMass": 1.0156515635216936, "totalCM": [0.4792398759442675, -1.0021983907262094E-4, 1.227339051313481E-20, 1.0156515635216936]},
+    {"kind": "component", "path": "/0/0", "name": "Nose cone", "eachMass": 0.4961222761867005, "totalCM": [0.18237645267562907, 0.0, 0.0, 0.4961222761867005]},
+    {"kind": "component", "path": "/0/1", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.4445, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/1/0", "name": "Shock cord", "eachMass": 0.004535926920000001, "totalCM": [0.36829999999999996, 0.0, 0.0, 0.004535926920000001]},
+    {"kind": "component", "path": "/0/1/1", "name": "Reefed Parachute", "eachMass": 0.006634940109953235, "totalCM": [0.26015, 0.0, 0.0, 0.006634940109953235]},
+    {"kind": "component", "path": "/0/1/2", "name": "Opened Elliptical Parachute [Cd 1.55 (3.1 oz) 15.9 in^3]", "eachMass": 0.08788352, "totalCM": [0.4689956252164127, 0.0, 0.0, 0.08788352]},
+    {"kind": "component", "path": "/0/1/3", "name": "Wadding", "eachMass": 0.03686643671859199, "totalCM": [0.5413375, 0.0, 0.0, 0.03686643671859199]},
+    {"kind": "component", "path": "/0/2", "name": "Body tube", "eachMass": 0.05983929945689692, "totalCM": [0.8382, 0.0, 0.0, 0.05983929945689692]},
+    {"kind": "component", "path": "/0/2/0", "name": "Tube Coupler", "eachMass": 0.013216767019016503, "totalCM": [0.64135, 0.0, 0.0, 0.013216767019016503]},
+    {"kind": "component", "path": "/0/2/1", "name": "Rail Button", "eachMass": 0.002865, "totalCM": [0.8445499999999999, -0.03552825, 4.350955764180695E-18, 0.002865]},
+    {"kind": "component", "path": "/0/2/2", "name": "Trapezoidal fin set", "eachMass": 0.11379441137567693, "totalCM": [0.9955204976538933, 0.0, 0.0, 0.11379441137567693]},
+    {"kind": "component", "path": "/0/2/3", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [0.9034017999999999, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/4", "name": "Centering ring", "eachMass": 0.0072251085747234755, "totalCM": [1.028065, 0.0, 0.0, 0.0072251085747234755]},
+    {"kind": "component", "path": "/0/2/5", "name": "Inner Tube", "eachMass": 0.01470346912851361, "totalCM": [0.93345, 0.0, 0.0, 0.01470346912851361]},
+    {"kind": "motor", "path": null, "name": "G80T", "eachMass": 0.1049, "totalCM": [0.982575, 0.0, 0.0, 0.1049]},
+    {"kind": "total", "path": "/", "name": "Chute release", "eachMass": 1.0156515635216936, "totalCM": [0.4792398759442675, -1.0021983907262094E-4, 1.227339051313481E-20, 1.0156515635216936]}
+   ]
+  }
+ ]
+}

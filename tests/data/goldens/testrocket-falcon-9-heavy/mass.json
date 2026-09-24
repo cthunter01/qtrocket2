@@ -1,0 +1,65 @@
+{
+ "schema": "mass",
+ "schemaVersion": 1,
+ "input": "testrocket-falcon-9-heavy",
+ "configurations": [
+  {
+   "index": 0,
+   "id": "ffffffff-f4f2-f1f0-0000-00000000162c",
+   "isDefault": true,
+   "name": "[No motors]",
+   "structure": {"mass": 0.8525333335355575, "cm": [0.9494231279648208, 0.0, 3.3534350018327204E-18, 0.8525333335355575], "ixx": 0.006263101378831559, "iyy": 0.11251016332487297, "izz": 0.11251016332487297, "longitudinalInertia": 0.11251016332487297, "rotationalInertia": 0.006263101378831559},
+   "launch": {"mass": 0.8525333335355575, "cm": [0.9494231279648208, 0.0, 3.3534350018327204E-18, 0.8525333335355575], "ixx": 0.006263101378831559, "iyy": 0.11251016332487297, "izz": 0.11251016332487297, "longitudinalInertia": 0.11251016332487297, "rotationalInertia": 0.006263101378831559},
+   "burnout": {"mass": 0.8525333335355575, "cm": [0.9494231279648208, 0.0, 3.3534350018327204E-18, 0.8525333335355575], "ixx": 0.006263101378831559, "iyy": 0.11251016332487297, "izz": 0.11251016332487297, "longitudinalInertia": 0.11251016332487297, "rotationalInertia": 0.006263101378831559},
+   "motor": {"mass": 0.0, "cm": [0.0, 0.0, 0.0, 0.0], "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "longitudinalInertia": 0.0, "rotationalInertia": 0.0},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Payload Fairing Stage", "eachMass": 0.11628853296935873, "totalCM": [0.2780673116227175, 0.0, 0.0, 0.11628853296935873]},
+    {"kind": "component", "path": "/0/0", "name": "PL Fairing Nose", "eachMass": 0.022551141337332027, "totalCM": [0.08079767055284799, 0.0, 0.0, 0.022551141337332027]},
+    {"kind": "component", "path": "/0/1", "name": "PL Fairing Body", "eachMass": 0.029044903728380624, "totalCM": [0.184, 0.0, 0.0, 0.029044903728380624]},
+    {"kind": "component", "path": "/0/2", "name": "PL Fairing Transition", "eachMass": 0.007289284477103439, "totalCM": [0.256640909510057, 0.0, 0.0, 0.007289284477103439]},
+    {"kind": "component", "path": "/0/3", "name": "Upper Stage Body", "eachMass": 0.029224351500753608, "totalCM": [0.354, 0.0, 0.0, 0.029224351500753608]},
+    {"kind": "component", "path": "/0/3/0", "name": "Parachute", "eachMass": 0.007975950925286614, "totalCM": [0.354, 0.0, 0.0, 0.007975950925286614]},
+    {"kind": "component", "path": "/0/3/1", "name": "Shock Cord", "eachMass": 7.2E-4, "totalCM": [0.4315, 0.0, 0.0, 7.2E-4]},
+    {"kind": "component", "path": "/0/4", "name": "Interstage", "eachMass": 0.01948290100050243, "totalCM": [0.504, 0.0, 0.0, 0.01948290100050243]},
+    {"kind": "component", "path": "/1", "name": "Core Stage", "eachMass": 0.7362448005661988, "totalCM": [1.055462563384711, 0.0, 3.883103987571333E-18, 0.7362448005661988]},
+    {"kind": "component", "path": "/1/0", "name": "Core Stage Body", "eachMass": 0.1298860066700161, "totalCM": [0.9640000000000001, 0.0, 0.0, 0.1298860066700161]},
+    {"kind": "component", "path": "/1/0/0", "name": "Booster Stage", "eachMass": 0.3031793969480914, "totalCM": [1.0750544407309763, 0.0, 4.7148901767173094E-18, 0.6063587938961827]},
+    {"kind": "component", "path": "/1/0/0/0", "name": "Booster Nose", "eachMass": 0.02109368568877191, "totalCM": [0.5378329585955801, 0.0, 4.7148901767173094E-18, 0.04218737137754382]},
+    {"kind": "component", "path": "/1/0/0/1", "name": "Booster Body", "eachMass": 0.1298860066700161, "totalCM": [0.9640000000000003, 0.0, 4.7148901767173094E-18, 0.2597720133400322]},
+    {"kind": "component", "path": "/1/0/0/1/0", "name": "Booster Motor Tubes", "eachMass": 0.018906104589303415, "totalCM": [1.2890000000000001, 0.0, 4.7148901767173094E-18, 0.03781220917860683]},
+    {"kind": "component", "path": "/1/0/0/1/1", "name": "Booster Fins", "eachMass": 0.13329359999999998, "totalCM": [1.237939393939394, 0.0, 4.7148901767173094E-18, 0.26658719999999997]},
+    {"kind": "total", "path": "/", "name": "Falcon9H Scale Rocket", "eachMass": 0.8525333335355575, "totalCM": [0.9494231279648208, 0.0, 3.3534350018327204E-18, 0.8525333335355575]}
+   ]
+  },
+  {
+   "index": 1,
+   "id": "00000000-0000-0000-0000-00007cc3bbaa",
+   "isDefault": false,
+   "name": "[None; M1350-0; 8× G77-0]",
+   "structure": {"mass": 0.8525333335355575, "cm": [0.9494231279648208, 0.0, 3.3534350018327204E-18, 0.8525333335355575], "ixx": 0.006263101378831559, "iyy": 0.11251016332487297, "izz": 0.11251016332487297, "longitudinalInertia": 0.11251016332487297, "rotationalInertia": 0.006263101378831559},
+   "launch": {"mass": 6.644533333535557, "cm": [1.07841274391001, 0.0, 1.128501683775468E-18, 6.644533333535557], "ixx": 0.016024105378831557, "iyy": 0.34258540143508276, "izz": 0.34258540143508276, "longitudinalInertia": 0.34258540143508276, "rotationalInertia": 0.016024105378831557},
+   "burnout": {"mass": 3.334533333535558, "cm": [1.066646090608552, 0.0, 1.581312394857876E-18, 3.334533333535558], "ixx": 0.01096812962883156, "iyy": 0.2208932121614374, "izz": 0.2208932121614374, "longitudinalInertia": 0.2208932121614374, "rotationalInertia": 0.01096812962883156},
+   "motor": {"mass": 5.792, "cm": [1.0973989226519338, 0.0, 8.010103477019739E-19, 5.792], "ixx": 0.009761004, "iyy": 0.21380264372234398, "izz": 0.21380264372234398, "longitudinalInertia": 0.21380264372234398, "rotationalInertia": 0.009761004},
+   "cmAnalysis": [
+    {"kind": "component", "path": "/0", "name": "Payload Fairing Stage", "eachMass": 0.11628853296935873, "totalCM": [0.2780673116227175, 0.0, 0.0, 0.11628853296935873]},
+    {"kind": "component", "path": "/0/0", "name": "PL Fairing Nose", "eachMass": 0.022551141337332027, "totalCM": [0.08079767055284799, 0.0, 0.0, 0.022551141337332027]},
+    {"kind": "component", "path": "/0/1", "name": "PL Fairing Body", "eachMass": 0.029044903728380624, "totalCM": [0.184, 0.0, 0.0, 0.029044903728380624]},
+    {"kind": "component", "path": "/0/2", "name": "PL Fairing Transition", "eachMass": 0.007289284477103439, "totalCM": [0.256640909510057, 0.0, 0.0, 0.007289284477103439]},
+    {"kind": "component", "path": "/0/3", "name": "Upper Stage Body", "eachMass": 0.029224351500753608, "totalCM": [0.354, 0.0, 0.0, 0.029224351500753608]},
+    {"kind": "component", "path": "/0/3/0", "name": "Parachute", "eachMass": 0.007975950925286614, "totalCM": [0.354, 0.0, 0.0, 0.007975950925286614]},
+    {"kind": "component", "path": "/0/3/1", "name": "Shock Cord", "eachMass": 7.2E-4, "totalCM": [0.4315, 0.0, 0.0, 7.2E-4]},
+    {"kind": "component", "path": "/0/4", "name": "Interstage", "eachMass": 0.01948290100050243, "totalCM": [0.504, 0.0, 0.0, 0.01948290100050243]},
+    {"kind": "component", "path": "/1", "name": "Core Stage", "eachMass": 6.528244800566199, "totalCM": [1.092669408455026, 0.0, 1.1486038412877473E-18, 6.528244800566199]},
+    {"kind": "component", "path": "/1/0", "name": "Core Stage Body", "eachMass": 0.1298860066700161, "totalCM": [0.9640000000000001, 0.0, 0.0, 0.1298860066700161]},
+    {"kind": "component", "path": "/1/0/0", "name": "Booster Stage", "eachMass": 0.7951793969480914, "totalCM": [1.223107189094683, 0.0, 4.7148901767173094E-18, 1.5903587938961827]},
+    {"kind": "component", "path": "/1/0/0/0", "name": "Booster Nose", "eachMass": 0.02109368568877191, "totalCM": [0.5378329585955801, 0.0, 4.7148901767173094E-18, 0.04218737137754382]},
+    {"kind": "component", "path": "/1/0/0/1", "name": "Booster Body", "eachMass": 0.1298860066700161, "totalCM": [0.9640000000000003, 0.0, 4.7148901767173094E-18, 0.2597720133400322]},
+    {"kind": "component", "path": "/1/0/0/1/0", "name": "Booster Motor Tubes", "eachMass": 0.018906104589303415, "totalCM": [1.2890000000000001, 0.0, 4.7148901767173094E-18, 0.03781220917860683]},
+    {"kind": "component", "path": "/1/0/0/1/1", "name": "Booster Fins", "eachMass": 0.13329359999999998, "totalCM": [1.237939393939394, 0.0, 4.7148901767173094E-18, 0.26658719999999997]},
+    {"kind": "motor", "path": null, "name": "G77", "eachMass": 0.123, "totalCM": [1.31434, 0.0, 4.7148901767173094E-18, 0.984]},
+    {"kind": "motor", "path": null, "name": "M1350", "eachMass": 4.808, "totalCM": [1.0530000000000002, 0.0, 0.0, 4.808]},
+    {"kind": "total", "path": "/", "name": "Falcon9H Scale Rocket", "eachMass": 6.644533333535557, "totalCM": [1.07841274391001, 0.0, 1.128501683775468E-18, 6.644533333535557]}
+   ]
+  }
+ ]
+}

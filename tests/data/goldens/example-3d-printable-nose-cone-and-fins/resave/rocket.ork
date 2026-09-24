@@ -1,0 +1,613 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>3D printable nose cone and fins</name>
+    <id>ef6182bf-cd8a-46f9-a5ee-0a30ac588f9c</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>This rocket has two 3D-printable parts: a fin can, and a nose cone. Export the fin can and its children as one .OBJ file. Export the nose cone without its child (a screw eye) as an .OBJ file.
+
+You&#39;ll add a BT-50 body tube, parachute or streamer, screw eye and shock cord. The motor is retained by friction fit: a couple wraps of masking tape around the motor should secure it.
+
+Print the fin can out of filament with a higher melting point than PLA. Some good options are PETG and ABS. The motor mount should withstand the heat of paper-cased motors, but not aluminum-cased reloads.
+
+The fin can can prints well on its forward end, with 20% infill, concentric support and a 30mm 3-layer brim to ensure stability. The nose cone is an easy print on its base, with 20% infill and a 12mm 3-layer brim for stability.</comment>
+    <designer>David Cain, adapted from &quot;A simple model rocket&quot; by Sampo Niskanen</designer>
+    <designtype>original</designtype>
+    <revision>September 26, 2023, Version 1.1 - surface roughness, friction fit
+September 15, 2023, Version 1.0</revision>
+    <motorconfiguration configid="da326836-0959-4c94-bcd5-49dee07235a4">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="05896b5a-71a7-48ac-b7ae-eadeb267975b" default="true">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="b13e8ca2-f54d-4ca8-9b23-06c6c9eb237a">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="e1dc7488-77c0-403a-b54f-c01db07aba2f">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="5d9a2765-395d-4d9c-9678-38eed0988c72">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>5b246466-15c7-46a5-96a0-b75faba848d2</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Printable nose cone</name>
+            <id>c230e845-9783-4cf6-80d7-772d97828bbe</id>
+            <appearance>
+              <paint red="0" green="204" blue="51" alpha="255"/>
+              <shine>0.6</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>rough</finish>
+            <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+            <length>0.1</length>
+            <thickness>0.0019</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>auto 0.012395199999999999</aftradius>
+            <aftshoulderradius>0.01195</aftshoulderradius>
+            <aftshoulderlength>0.02</aftshoulderlength>
+            <aftshoulderthickness>0.0022</aftshoulderthickness>
+            <aftshouldercapped>true</aftshouldercapped>
+            <isflipped>false</isflipped>
+
+            <subcomponents>
+              <masscomponent>
+                <name>Screw Eye</name>
+                <id>439174cc-06c4-4f6d-b40c-7bb81cf5fa08</id>
+                <axialoffset method="bottom">0.033</axialoffset>
+                <position type="bottom">0.033</position>
+                <packedlength>0.016</packedlength>
+                <packedradius>0.003</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>9.000000000000001E-4</mass>
+                <masscomponenttype>recoveryhardware</masscomponenttype>
+              </masscomponent>
+            </subcomponents>
+          </nosecone>
+
+          <bodytube>
+            <name>Paper Body Tube -- DO NOT PRINT</name>
+            <id>402aead9-e43c-4d53-9367-03011b9c3776</id>
+            <preset type="BODY_TUBE" manufacturer="Estes" partno="BT-50FE, 30359" digest="e9c3e97d32e96762f65e051d74cb9fd7"/>
+            <appearance>
+              <paint red="255" green="255" blue="255" alpha="255"/>
+              <shine>0.21</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/dont-print-sticker.png" rotation="0.0" edgemode="REPEAT">
+                <center x="0.0" y="0.0"/>
+                <offset x="0.0" y="0.0"/>
+                <scale x="1.0" y="1.0"/>
+              </decal>
+            </appearance>
+            <insideappearance>
+              <edgessameasinside>false</edgessameasinside>
+              <insidesameasoutside>true</insidesameasoutside>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.1</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </insideappearance>
+            <finish>unfinished</finish>
+            <material type="bulk" density="894.4" shearModulus="0.0" group="Custom">Paper, spiral kraft glassine, Estes avg, bulk</material>
+            <length>0.15239999999999998</length>
+            <thickness>3.3019999999999924E-4</thickness>
+            <radius>0.012395199999999999</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Parachute</name>
+                <id>1b9849c1-68f4-4cfb-836c-65aecf733bca</id>
+                <axialoffset method="top">0.032</axialoffset>
+                <position type="top">0.032</position>
+                <packedlength>0.042</packedlength>
+                <packedradius>0.009000000000000001</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.04" group="Plastics">Polyethylene (heavy)</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.31</diameter>
+                <linecount>6</linecount>
+                <linelength>0.3</linelength>
+                <linematerial type="line" density="3.0E-4" group="Other">Thread (heavy-duty)</linematerial>
+              </parachute>
+
+              <shockcord>
+                <name>Shock cord</name>
+                <id>50e19614-2f1a-4b74-86b3-941842e4f59e</id>
+                <axialoffset method="top">0.06</axialoffset>
+                <position type="top">0.06</position>
+                <comment>The shock cord does not need to be attached to anything in particular, as it functions only as a mass component.</comment>
+                <packedlength>0.052000000000000005</packedlength>
+                <packedradius>0.006</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>0.4</cordlength>
+                <material type="line" density="0.0018" shearModulus="0.0" group="Custom">Elastic cord (round 2mm, 1/16 in)</material>
+              </shockcord>
+
+              <masscomponent>
+                <name>Wadding</name>
+                <id>516d8224-de7a-4e11-b14a-62d05543b754</id>
+                <axialoffset method="top">0.11</axialoffset>
+                <position type="top">0.11</position>
+                <packedlength>0.03</packedlength>
+                <packedradius>0.0115</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>0.002</mass>
+                <masscomponenttype>masscomponent</masscomponenttype>
+              </masscomponent>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Printable Fin Can and Motor Mount</name>
+            <id>2cdfe954-7c39-4fd6-bde3-471feb6ee0b3</id>
+            <appearance>
+              <paint red="0" green="204" blue="51" alpha="255"/>
+              <shine>0.6</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>rough</finish>
+            <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+            <length>0.07619999999999999</length>
+            <thickness>8.0E-4</thickness>
+            <radius>0.012395199999999999</radius>
+
+            <subcomponents>
+              <launchlug>
+                <name>Launch lug</name>
+                <id>dfebe2ef-b4f3-4bdb-a6ca-f6e7e434e73d</id>
+                <appearance>
+                  <paint red="0" green="204" blue="51" alpha="255"/>
+                  <shine>0.6</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <angleoffset method="relative">17.0</angleoffset>
+                <radialdirection>17.0</radialdirection>
+                <axialoffset method="top">0.0075</axialoffset>
+                <position type="top">0.0075</position>
+                <finish>rough</finish>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <radius>0.0035</radius>
+                <length>0.035</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <trapezoidfinset>
+                <name>Trapezoidal fin set</name>
+                <id>c294e437-de25-422e-b656-8f038ccacb4d</id>
+                <appearance>
+                  <paint red="0" green="204" blue="51" alpha="255"/>
+                  <shine>0.6</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>rough</finish>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <thickness>0.002</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</filletmaterial>
+                <rootchord>0.0508</rootchord>
+                <tipchord>0.0508</tipchord>
+                <sweeplength>0.0254</sweeplength>
+                <height>0.03</height>
+              </trapezoidfinset>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>6c189c9b-6623-4a05-84b0-ecd71ea125b6</id>
+                <appearance>
+                  <paint red="0" green="204" blue="51" alpha="255"/>
+                  <shine>0.6</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.045</axialoffset>
+                <position type="bottom">-0.045</position>
+                <comment>The centering ring automatically takes the outer diameter of the body tube and the inner diameter of the inner tube.</comment>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>97ce190a-7aed-4721-8dfc-932a51f087d4</id>
+                <appearance>
+                  <paint red="0" green="204" blue="51" alpha="255"/>
+                  <shine>0.6</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <comment>The centering ring automatically takes the outer diameter of the body tube and the inner diameter of the inner tube.</comment>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>5dc2f718-5999-4c1d-b857-57e740ca0540</id>
+                <appearance>
+                  <paint red="0" green="204" blue="51" alpha="255"/>
+                  <shine>0.6</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <axialoffset method="bottom">0.005</axialoffset>
+                <position type="bottom">0.005</position>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <length>0.075</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.01085</outerradius>
+                <thickness>0.0014999999999999996</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.003</overhang>
+                  <motor configid="da326836-0959-4c94-bcd5-49dee07235a4">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>c049499ca03fd69115352e5d4be72de7</digest>
+                    <designation>A8</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>3.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="da326836-0959-4c94-bcd5-49dee07235a4">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="05896b5a-71a7-48ac-b7ae-eadeb267975b">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>74472299ac7ffc451f7b434d6c81b89c</digest>
+                    <designation>B6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>4.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="05896b5a-71a7-48ac-b7ae-eadeb267975b">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="b13e8ca2-f54d-4ca8-9b23-06c6c9eb237a">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>2967cd7a160b396ef96f09695429d8e9</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>3.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="b13e8ca2-f54d-4ca8-9b23-06c6c9eb237a">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="e1dc7488-77c0-403a-b54f-c01db07aba2f">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>2967cd7a160b396ef96f09695429d8e9</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>5.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="e1dc7488-77c0-403a-b54f-c01db07aba2f">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                  <motor configid="5d9a2765-395d-4d9c-9678-38eed0988c72">
+                    <type>single</type>
+                    <manufacturer>Estes</manufacturer>
+                    <digest>2967cd7a160b396ef96f09695429d8e9</digest>
+                    <designation>C6</designation>
+                    <diameter>0.018</diameter>
+                    <length>0.07</length>
+                    <delay>7.0</delay>
+                  </motor>
+                  <ignitionconfiguration configid="5d9a2765-395d-4d9c-9678-38eed0988c72">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+
+                <subcomponents>
+                  <engineblock>
+                    <name>Engine block</name>
+                    <id>7aa8940c-fad1-47e8-bcae-e8a391bad773</id>
+                    <appearance>
+                      <paint red="0" green="204" blue="51" alpha="255"/>
+                      <shine>0.6</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <axialoffset method="top">0.002</axialoffset>
+                    <position type="top">0.002</position>
+                    <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                    <length>0.005</length>
+                    <radialposition>0.0</radialposition>
+                    <radialdirection>0.0</radialdirection>
+                    <outerradius>auto</outerradius>
+                    <thickness>0.003</thickness>
+                  </engineblock>
+                </subcomponents>
+              </innertube>
+
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>bc822f1b-b988-4a96-ba8e-34d472b8c9d4</id>
+                <axialoffset method="top">-0.013999999999999999</axialoffset>
+                <position type="top">-0.013999999999999999</position>
+                <material type="bulk" density="1250.0" shearModulus="8.0E8" group="Plastics">PETG - 100% infill</material>
+                <length>0.0254</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.012052299999999998</outerradius>
+                <thickness>0.00122</thickness>
+              </tubecoupler>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>da326836-0959-4c94-bcd5-49dee07235a4</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="38.733" maxvelocity="24.764" maxacceleration="124.056" maxmach="0.073" timetoapogee="3.085" flighttime="12.194" groundhitvelocity="4.691" launchrodvelocity="13.962" deploymentvelocity="5.886" optimumdelay="2.355954">
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 2</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>05896b5a-71a7-48ac-b7ae-eadeb267975b</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="112.011" maxvelocity="48.501" maxacceleration="152.721" maxmach="0.143" timetoapogee="4.912" flighttime="31.135" groundhitvelocity="4.696" launchrodvelocity="16.127" deploymentvelocity="1.404" optimumdelay="4.055747">
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 3 - too short delay</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>b13e8ca2-f54d-4ca8-9b23-06c6c9eb237a</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="243.099" maxvelocity="83.142" maxacceleration="167.793" maxmach="0.245" timetoapogee="5.431" flighttime="61.931" groundhitvelocity="4.814" launchrodvelocity="16.301" deploymentvelocity="26.964" optimumdelay="5.564536">
+        <warning type="RecoveryHighSpeedDeployment">
+          <id>22700265-0a82-46d3-beeb-e566a5687070</id>
+          <description>Recovery device deployment at high speed (26.9 m/s)</description>
+          <priority>NORMAL</priority>
+          <source>1b9849c1-68f4-4cfb-836c-65aecf733bca</source>
+          <parameter>26.943764412970157</parameter>
+          Recovery device deployment at high speed (26.9 m/s):  &quot;Parachute&quot;
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 4</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>e1dc7488-77c0-403a-b54f-c01db07aba2f</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="271.985" maxvelocity="83.16" maxacceleration="167.807" maxmach="0.245" timetoapogee="7.184" flighttime="70.339" groundhitvelocity="4.76" launchrodvelocity="16.302" deploymentvelocity="5.968333" optimumdelay="5.569963">
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 5</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>5d9a2765-395d-4d9c-9678-38eed0988c72</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="3.8" direction="3.0892327760299634" standarddeviation="1.52"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="272.559" maxvelocity="83.143" maxacceleration="167.808" maxmach="0.245" timetoapogee="7.443" flighttime="69.76" groundhitvelocity="4.665" launchrodvelocity="16.302" deploymentvelocity="10.228" optimumdelay="5.582774">
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|0.0|Custom</material>
+      <material>BULK|PETG - 100% infill|1250.0|0.0|Custom</material>
+      <material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|Other</material>
+      <material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|Custom</material>
+      <material>SURFACE|Polyethylene (heavy)|0.04|0.0|Custom</material>
+      <material>LINE|Thread (heavy-duty)|3.0E-4|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>
