@@ -6,6 +6,7 @@ target_sources(QtRocket_core PRIVATE
     Motor.cpp
     MotorConfigurationId.cpp
     MotorDigest.cpp
+    SqliteMotorDatabaseReader.cpp
     ThrustCurveMotor.cpp
     ThrustCurveMotorSet.cpp
     ThrustCurveMotorSetDatabase.cpp

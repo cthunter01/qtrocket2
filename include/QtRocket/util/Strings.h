@@ -137,6 +137,25 @@ std::string_view trim(const String&& text) = delete;
 /// The code points of UTF-8 @p text, what String.codePoints() gives for the String.
 [[nodiscard]] std::u32string toCodePoints(std::string_view text);
 
+/// The UTF-8 encoding of @p codePoints, the inverse of toCodePoints() for well-formed text; a
+/// surrogate or a value beyond U+10FFFF is written as U+FFFD.
+[[nodiscard]] std::string fromCodePoints(std::u32string_view codePoints);
+
+/// The String Java's UTF-8 decoder (InputStreamReader, JDK 17's sun.nio.cs.UTF_8) makes of the
+/// bytes @p text, encoded back to UTF-8: well-formed text, a byte-order mark included, comes back
+/// unchanged, and each malformed sequence becomes one U+FFFD. The decoder's rules decide how many
+/// bytes a malformed sequence spans: one for a byte that cannot start a sequence (0x80..0xC1,
+/// 0xF5..0xFF), or when the second byte is no continuation byte or is out of range for the lead
+/// (E0 80..9F, F0 80..8F, F4 90..BF); the lead and its valid continuation bytes when a later byte
+/// is missing or wrong ("\xE2\x82" before an ASCII byte is one U+FFFD); all three bytes of an
+/// encoded surrogate (ED A0..BF xx, as in CESU-8); and, at the end of @p text, whatever is left
+/// of a sequence that was well-formed so far.
+[[nodiscard]] std::string toValidUtf8(std::string_view text);
+
+/// The UTF-8 encoding of ISO-8859-1 (Latin-1) @p bytes: every byte is the code point of the same
+/// value, as Java's ISO-8859-1 decoder reads it (so "\xE9" becomes "\xC3\xA9", U+00E9).
+[[nodiscard]] std::string latin1ToUtf8(std::string_view bytes);
+
 /// String.equalsIgnoreCase: the same length, and every pair of characters equal after
 /// Character.toUpperCase and then Character.toLowerCase (JDK 17's Unicode 13 case data). Beyond
 /// ASCII this matches "µm" with "μm" (U+00B5 and U+03BC), "Ölpapier" with "ölpapier", and the

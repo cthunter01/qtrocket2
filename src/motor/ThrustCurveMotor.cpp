@@ -785,4 +785,23 @@ std::string ThrustCurveMotor::getDelayString(double delay, std::string_view plug
     return Strings::javaDoubleToString(delay);
 }
 
+std::string ThrustCurveMotor::removeDelay(std::string_view designation)
+{
+    // designation.matches(".*-([0-9]+|[pP])$"): the delay follows the last '-', since it holds
+    // none, and '.*' must span everything before it.
+    const std::size_t dash = designation.rfind('-');
+    if (dash == std::string_view::npos)
+    {
+        return std::string(designation);
+    }
+    const std::string_view delay   = designation.substr(dash + 1);
+    const bool             digits  = !delay.empty() && std::ranges::all_of(delay, isDigit);
+    const bool             plugged = delay == "p" || delay == "P";
+    if ((!digits && !plugged) || containsLineTerminator(designation.substr(0, dash)))
+    {
+        return std::string(designation);
+    }
+    return std::string(designation.substr(0, dash));
+}
+
 }  // namespace QtRocket

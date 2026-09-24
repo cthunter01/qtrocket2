@@ -66,6 +66,7 @@ add_executable(QtRocket_core_tests
     motor/MotorConfigurationIdTests.cpp
     motor/MotorDigestTests.cpp
     motor/MotorTests.cpp
+    motor/SqliteMotorDatabaseReaderTests.cpp
     motor/ThrustCurveMotorSetDatabaseTests.cpp
     motor/ThrustCurveMotorSetTests.cpp
     motor/ThrustCurveMotorTests.cpp
@@ -109,11 +110,26 @@ add_executable(QtRocket_core_tests
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
     file/GzipStreamTests.cpp
+    file/motor/GeneralMotorLoaderTests.cpp
+    file/motor/MotorDatabaseLoaderTests.cpp
+    file/motor/RaspMotorLoaderTests.cpp
+    file/motor/RockSimMotorLoaderTests.cpp
+    file/motor/RockSimMotorWriterTests.cpp
+    file/motor/ZipFileMotorLoaderTests.cpp
+    file/simplesax/AbstractElementHandlerTests.cpp
+    file/simplesax/DelegatorHandlerTests.cpp
+    file/simplesax/NullElementHandlerTests.cpp
+    file/simplesax/PlainTextHandlerTests.cpp
+    file/simplesax/SimpleSaxTests.cpp
+    file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
+    file/ZipInputStreamTests.cpp
+    goldens/motors_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # The third-party canary tests use the libraries directly; everything else goes through QtRocket::core.
-target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main pugixml::pugixml SQLite::SQLite3)
+target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main pugixml::pugixml SQLite::SQLite3
+    nlohmann_json::nlohmann_json)
 # Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from
 # any working directory.
 target_compile_definitions(QtRocket_core_tests PRIVATE
@@ -123,4 +139,7 @@ QtRocket_configure_target(QtRocket_core_tests)
 
 include(GoogleTest)
 # PRE_TEST: list the tests when ctest runs, not at build time (the binary may be sanitized or cross-compiled).
-gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST)
+# The golden tests (the suites of the *_golden_tests.cpp files, whose names contain "Golden") carry the ctest label
+# "golden", so that `ctest -L golden` re-runs them after a change to the physics or the file formats.
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST TEST_FILTER "-*Golden*.*")
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST TEST_FILTER "*Golden*.*" PROPERTIES LABELS golden)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<engine-database>
+<engine-list>
+<engine mfg="Estes" code="B6-4" Type="single-use" dia="18." len="70." initWt="20." propWt="10." delays="4" auto-calc-mass="1" auto-calc-cg="1">
+<comments>A motor</comments>
+<data>
+<eng-data t="0.0" f="0.0"/>
+<eng-data t="0.5" f="10.0"/>
+<eng-data t="1.0" f="0.0"/>
+</data>
+</engine>
+</engine-list>
+</engine-database>
+<!-- a -- b -->
