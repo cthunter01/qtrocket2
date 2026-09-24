@@ -1,6 +1,11 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/BugErrorTests.cpp
+    util/Md5Tests.cpp
+    util/ModIdTests.cpp
+    util/SignalTests.cpp
+    util/UuidTests.cpp
     util/VersionTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
