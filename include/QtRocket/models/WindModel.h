@@ -44,11 +44,17 @@ public:
     /// The wind velocity in m/s (x east, y north, z up) @p time seconds after the start of the
     /// simulation at @p altitudeMsl metres above mean sea level, which is @p altitudeAgl metres
     /// above the ground; the model decides which altitude it uses.
+    ///
+    /// Sign convention, as in OpenRocket: the vector points into the wind, towards where it
+    /// comes from (a wind from the east gives +x), so it is the negated motion of the air. The
+    /// simulation adds it to the rocket's velocity to get the airspeed (Java's
+    /// AbstractSimulationStepper: airSpeed = rocketVelocity + windVelocity); subtracting it
+    /// would turn every wind effect around.
     [[nodiscard]] virtual Coordinate getWindVelocity(double time, double altitudeMsl,
                                                      double altitudeAgl) = 0;
 
     /// The wind velocity in m/s @p time seconds after the start of the simulation at @p altitude
-    /// metres.
+    /// metres (with the sign convention above).
     [[nodiscard]] virtual Coordinate getWindVelocity(double time, double altitude) = 0;
 
     /// Seeds the model's random source, so that a simulation run with a given seed reproduces

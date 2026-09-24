@@ -33,8 +33,9 @@ AtmosphericConditions InterpolatingAtmosphericModel::getConditions(double altitu
         return m_levels.back();
     }
 
-    // (int) Math.floor(altitude / DELTA): 0 for a NaN altitude. The clamp only acts when the
-    // quotient of an altitude just below the top rounds up to maxIndex (see the header).
+    // (int) Math.floor(altitude / DELTA): 0 for a NaN altitude. The clamp is defensive: with
+    // kDelta = 500 the quotient of an altitude below the top never rounds up to maxIndex (see
+    // the header).
     const auto lowerIndex =
         std::min(static_cast<std::size_t>(MathUtil::javaIntCast(std::floor(altitude / kDelta))),
                  maxIndex - 1);
@@ -49,16 +50,29 @@ AtmosphericConditions InterpolatingAtmosphericModel::getConditions(double altitu
         MathUtil::interpolate(lower.getRelativeHumidity(), upper.getRelativeHumidity(), fraction)};
 }
 
-std::vector<AtmosphericConditions> InterpolatingAtmosphericModel::computeLayers() const
+std::vector<double> InterpolatingAtmosphericModel::tableAltitudes() const
 {
-    const double                       max  = getMaxAltitude();
-    const int                          size = MathUtil::javaIntCast(std::ceil(max / kDelta));
-    std::vector<AtmosphericConditions> newLevels;
-    newLevels.reserve(static_cast<std::size_t>(std::max(size, 0)));
+    const double        max  = getMaxAltitude();
+    const int           size = MathUtil::javaIntCast(std::ceil(max / kDelta));
+    std::vector<double> altitudes;
+    altitudes.reserve(static_cast<std::size_t>(std::max(size, 0)));
 
     for (int i = 0; i < size; ++i)
     {
-        newLevels.push_back(getExactConditions(static_cast<double>(i) * kDelta));
+        altitudes.push_back(static_cast<double>(i) * kDelta);
+    }
+    return altitudes;
+}
+
+std::vector<AtmosphericConditions> InterpolatingAtmosphericModel::computeLayers() const
+{
+    const std::vector<double>          altitudes = tableAltitudes();
+    std::vector<AtmosphericConditions> newLevels;
+    newLevels.reserve(altitudes.size());
+
+    for (const double altitude : altitudes)
+    {
+        newLevels.push_back(getExactConditions(altitude));
     }
     return newLevels;
 }

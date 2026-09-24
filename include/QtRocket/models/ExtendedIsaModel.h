@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -37,12 +38,18 @@ namespace QtRocket
 ///
 /// Error policy: the launch conditions come from the user (the simulation options, a .ork file),
 /// so where Java's constructor throws IllegalArgumentException the create() factories return an
-/// Error with Java's message: a launch site at or above the 11 km layer ("Too high first
-/// altitude: <altitude>"), a temperature or pressure that is not positive, a humidity outside
-/// 0 ... 1. create() also refuses a launch site whose extrapolated sea level temperature is not
-/// positive (a very cold site high up, such as 50 K at 5 km), with "Temperature must be positive
-/// (Kelvin)": Java accepts the model and throws that message from its first getConditions() call.
-/// A NaN passes every check, as in Java.
+/// Error (ErrorCode::INVALID_ARGUMENT) with Java's message:
+/// - a launch site at or above the 11 km layer ("Too high first altitude: <altitude>"), a
+///   temperature or pressure that is not positive, a humidity outside 0 ... 1 (the arguments);
+/// - a sample under a computed layer that AtmosphericConditions rejects (the constructor builds
+///   one per layer), such as a pressure that underflows to 0 from a subnormal launch pressure:
+///   AtmosphericConditions' message ("Pressure must be positive (Pascals)", ...).
+/// create() also checks every altitude the interpolation table samples, which Java only builds,
+/// and throws from, on the first getConditions() call: a launch site whose extrapolated sea level
+/// temperature is not positive (a very cold site high up, such as 50 K at 5 km) fails with
+/// "Temperature must be positive (Kelvin)", and a table pressure that underflows to 0 with
+/// "Pressure must be positive (Pascals)". A model from create() therefore never throws from
+/// getConditions(). A NaN passes every check, as in Java.
 ///
 /// Deviations from OpenRocket:
 /// - The constructors that can fail are the create() factories, which return the model through a
@@ -115,8 +122,9 @@ protected:
     [[nodiscard]] double getMaxAltitude() const override;
 
     /// The exact conditions at the geometric @p altitude (m), clamped to the layer table.
-    /// @throws BugError when the values are out of range for AtmosphericConditions (only for
-    ///         launch conditions far outside nature, e.g. a pressure that underflows to 0).
+    /// @throws BugError when the values are out of range for AtmosphericConditions; create()
+    ///         refuses launch conditions that do this at a layer or table altitude (see the class
+    ///         comment), so the table built from a created model never throws.
     [[nodiscard]] AtmosphericConditions getExactConditions(double altitude) const override;
 
 private:
@@ -152,6 +160,14 @@ private:
     /// getExactConditions() without constructing AtmosphericConditions (the constructor needs the
     /// values before the table is complete).
     [[nodiscard]] Sample exactSample(double altitude) const noexcept;
+
+    /// The sample 1 m (geopotential) below the base of @p layer, from which the constructor
+    /// takes that layer's base pressure and humidity.
+    [[nodiscard]] Sample layerSample(std::size_t layer) const noexcept;
+
+    /// create()'s checks of the built model, for the launch site @p altitude (see the class
+    /// comment): the constructor's layer samples, then the table's samples.
+    [[nodiscard]] Result<void> validateSamples(double altitude) const;
 
     std::vector<double> m_layer;                 ///< geopotential altitude of each layer, m
     std::vector<double> m_baseTemperature;       ///< K

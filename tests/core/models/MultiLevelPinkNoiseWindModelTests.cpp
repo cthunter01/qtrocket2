@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <numbers>
@@ -193,6 +194,68 @@ protected:
         return m_model.importLevelsFromCsv(csv.path(), separator, altitude, "1", "2", stdDeviation,
                                            siDistance(), siWindSpeed(), &degrees, siWindSpeed(),
                                            false);
+    }
+
+    /// A change a slot makes to a model's levels.
+    using LevelsChange = std::function<void(MultiLevelPinkNoiseWindModel&)>;
+
+    /// What happened when a slot changed the levels during a level's setter.
+    struct ReentryOutcome
+    {
+        bool        slotRan{false};
+        std::size_t levelsAfter{0};
+        double      lowestAltitude{std::numeric_limits<double>::quiet_NaN()};
+        int         emissions{0};  ///< of the model's changed()
+    };
+
+    /// A model with levels at 0 m and 100 m (5 m/s, deviation 1), whose changed() slot makes
+    /// @p change on its first call; then the 100 m level's setSpeed(6), which emits twice.
+    [[nodiscard]] ReentryOutcome changeLevelsDuringSetSpeed(const LevelsChange& change) const
+    {
+        MultiLevelPinkNoiseWindModel model(m_prefs);
+        EXPECT_TRUE(model.addWindLevel(100, 5, 0, 1.0).has_value());
+        ReentryOutcome                             outcome;
+        const QtRocket::Signal<>::ScopedConnection connection{model.changed().connect([&] {
+            ++outcome.emissions;
+            if (!outcome.slotRan)
+            {
+                outcome.slotRan = true;
+                change(model);
+            }
+        })};
+
+        model.getLevels()[1]->setSpeed(6);
+
+        outcome.levelsAfter = model.getLevels().size();
+        return outcome;
+    }
+
+    /// A model with levels at 0 m and 100 m, where a slot on the 100 m level's own changed()
+    /// removes that level on its first call; then @p set on the level.
+    [[nodiscard]] ReentryOutcome removeLevelFromItsOwnSlot(
+        const std::function<void(LevelWindModel&)>& set) const
+    {
+        MultiLevelPinkNoiseWindModel model(m_prefs);
+        EXPECT_TRUE(model.addWindLevel(100, 5, 0, 1.0).has_value());
+        ReentryOutcome  outcome;
+        LevelWindModel* level = model.getLevels()[1];
+        level->changed().connect([&] {
+            if (!outcome.slotRan)
+            {
+                outcome.slotRan = true;
+                model.removeWindLevelIdx(1);
+            }
+        });
+
+        set(*level);  // `level` dangles once the setter has returned
+
+        const std::vector<LevelWindModel*> levels = model.getLevels();
+        outcome.levelsAfter                       = levels.size();
+        if (!levels.empty())
+        {
+            outcome.lowestAltitude = levels.front()->getAltitude();
+        }
+        return outcome;
     }
 
     InMemoryPreferences          m_prefs;
@@ -784,6 +847,114 @@ TEST_F(MultiLevelWindModelTest, LevelListenersSeeTheirLevelOnly)
     EXPECT_TRUE(m_model.getLevels()[1]->changed().disconnect(connection));
 }
 
+// ---- QtRocket additions: slots that change the levels while a level announces a change ----
+
+TEST_F(MultiLevelWindModelTest, ChangeSlotMayRemoveTheLevelWhoseSetterFired)
+{
+    // Java's garbage collector keeps a removed level alive until its setter returns; here the
+    // setter keeps its level alive (run under the asan preset, this was a heap-use-after-free).
+    addLevel(100, 5, 0, 1.0);
+    int                                        count   = 0;
+    bool                                       removed = false;
+    const QtRocket::Signal<>::ScopedConnection connection{m_model.changed().connect([&] {
+        ++count;
+        if (!removed)
+        {
+            removed = true;
+            m_model.removeWindLevel(100);
+        }
+    })};
+
+    m_model.getLevels()[1]->setSpeed(6);  // emits for the deviation, then for the speed
+
+    EXPECT_TRUE(removed);
+    ASSERT_EQ(m_model.getLevels().size(), 1U);
+    EXPECT_EQ(m_model.getLevels()[0]->getAltitude(), 0.0);
+    // As in OpenRocket: the deviation, the removal, then the speed, which the removed level
+    // still reports to the model.
+    EXPECT_EQ(count, 3);
+}
+
+TEST_F(MultiLevelWindModelTest, ChangeSlotMayRestructureTheLevelsDuringALevelSetter)
+{
+    const TempCsv                      csv({"altitude,speed,direction", "50,1,0"});
+    const MultiLevelPinkNoiseWindModel source(m_prefs);
+    struct Case
+    {
+        std::string_view name;
+        LevelsChange     change;
+        std::size_t      levelsAfter;
+        int              emissions;  // OpenRocket's count
+    };
+    const std::vector<Case> cases{
+        {.name        = "removeWindLevel",
+         .change      = [](MultiLevelPinkNoiseWindModel& model) { model.removeWindLevel(100); },
+         .levelsAfter = 1,
+         .emissions   = 3},
+        {.name        = "removeWindLevelIdx",
+         .change      = [](MultiLevelPinkNoiseWindModel& model) { model.removeWindLevelIdx(1); },
+         .levelsAfter = 1,
+         .emissions   = 3},
+        {.name        = "clearLevels",
+         .change      = [](MultiLevelPinkNoiseWindModel& model) { model.clearLevels(); },
+         .levelsAfter = 0,
+         .emissions   = 3},
+        {.name        = "resetLevels",
+         .change      = [this](MultiLevelPinkNoiseWindModel& model) { model.resetLevels(m_prefs); },
+         .levelsAfter = 1,
+         .emissions   = 4},
+        {.name        = "loadFrom",
+         .change      = [&source](MultiLevelPinkNoiseWindModel& model) { model.loadFrom(source); },
+         .levelsAfter = 1,
+         .emissions   = 2},
+        {.name = "importLevelsFromCsv",
+         .change =
+             [&csv](MultiLevelPinkNoiseWindModel& model) {
+                 EXPECT_TRUE(model.importLevelsFromCsv(csv.path(), ",").has_value());
+             },
+         .levelsAfter = 1,
+         .emissions   = 4},
+    };
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.name);
+        const ReentryOutcome outcome = changeLevelsDuringSetSpeed(c.change);
+        EXPECT_TRUE(outcome.slotRan);
+        EXPECT_EQ(outcome.levelsAfter, c.levelsAfter);
+        EXPECT_EQ(outcome.emissions, c.emissions);
+    }
+}
+
+TEST_F(MultiLevelWindModelTest, LevelSlotMayRemoveItsLevelDuringEverySetter)
+{
+    // A slot on the level itself (a GUI row) removes the level while any of its setters runs.
+    struct Case
+    {
+        std::string_view                     name;
+        std::function<void(LevelWindModel&)> set;
+    };
+    const std::vector<Case> cases{
+        {.name = "setAltitude", .set = [](LevelWindModel& level) { level.setAltitude(150); }},
+        {.name = "setSpeed", .set = [](LevelWindModel& level) { level.setSpeed(6); }},
+        {.name = "setSpeedPreservingStandardDeviation",
+         .set  = [](LevelWindModel& level) { level.setSpeedPreservingStandardDeviation(12); }},
+        {.name = "setDirection", .set = [](LevelWindModel& level) { level.setDirection(1); }},
+        {.name = "setStandardDeviation",
+         .set  = [](LevelWindModel& level) { level.setStandardDeviation(2); }},
+        {.name = "setTurbulenceIntensity",
+         .set  = [](LevelWindModel& level) { level.setTurbulenceIntensity(0.5); }},
+        {.name = "fireChangeEvent", .set = [](LevelWindModel& level) { level.fireChangeEvent(); }},
+    };
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.name);
+        const ReentryOutcome outcome = removeLevelFromItsOwnSlot(c.set);
+        EXPECT_TRUE(outcome.slotRan);
+        EXPECT_EQ(outcome.levelsAfter, 1U);
+        EXPECT_EQ(outcome.lowestAltitude, 0.0);
+    }
+}
+
 TEST_F(MultiLevelWindModelTest, CopyIsJavasClone)
 {
     addLevel(100, 5, kPi / 4, 1.0);
@@ -931,7 +1102,7 @@ TEST_F(MultiLevelWindModelTest, LevelEqualityAndHash)
     // Objects.hash(100.0, model) printed by OpenRocket on JDK 17.
     EXPECT_EQ(level.hashCode(), -1505047304);
 
-    const std::unique_ptr<LevelWindModel> clone = level.clone();
+    const std::shared_ptr<LevelWindModel> clone = level.clone();
     EXPECT_TRUE(*clone == level);
     EXPECT_EQ(clone->hashCode(), level.hashCode());
     EXPECT_FALSE(LevelWindModel(-0.0, PinkNoiseWindModel{wind}) ==
@@ -1024,6 +1195,39 @@ TEST_F(MultiLevelWindModelTest, ImportOfAMissingFileFails)
     EXPECT_EQ(result.error().message, "Could not load the file. 'qtrocket_no_such_wind_file.csv'");
     // The levels were cleared before the file was read, as in Java.
     EXPECT_TRUE(m_model.getLevels().empty());
+}
+
+TEST_F(MultiLevelWindModelTest, FailedImportKeepsTheLevelsReadBeforeTheBadRow)
+{
+    // As in Java: the levels are cleared first and every row adds its level at once, so the
+    // rows before the failing one stay (the GUI resets the model after a failed import).
+    const TempCsv      csv({"altitude,speed,direction", "300,1,0", "100,2,0", "200,x,0"});
+    const Result<void> result = m_model.importLevelsFromCsv(csv.path(), ",");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::PARSE);
+    const std::vector<LevelWindModel*> levels = m_model.getLevels();
+    ASSERT_EQ(levels.size(), 2U);
+    EXPECT_EQ(levels[0]->getAltitude(), 100.0);
+    EXPECT_EQ(levels[0]->getSpeed(), 2.0);
+    EXPECT_EQ(levels[1]->getAltitude(), 300.0);
+}
+
+TEST_F(MultiLevelWindModelTest, ImportWithAnEmptySeparatorChangesNothing)
+{
+    // Refused before the levels are cleared: the rejection exists only in QtRocket.
+    addLevel(100, 5, 0, 1.0);
+    const ChangeCounter counter(m_model.changed());
+    const TempCsv       csv({"altitude,speed,direction", "300,1,0"});
+
+    const Result<void> result = m_model.importLevelsFromCsv(csv.path(), "");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(result.error().message, "The field separator is empty.");
+    EXPECT_FALSE(importByIndex(csv, "", "0", "").has_value());
+
+    EXPECT_EQ(counter.count(), 0);
+    ASSERT_EQ(m_model.getLevels().size(), 2U);
+    EXPECT_EQ(m_model.getLevels()[1]->getAltitude(), 100.0);
 }
 
 TEST_F(MultiLevelWindModelTest, ImportRejectsBadColumnSettings)

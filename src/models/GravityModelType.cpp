@@ -32,7 +32,7 @@ std::string_view gravityModelTypeName(GravityModelType type) noexcept
     return "WGS";  // not reached
 }
 
-std::string_view orkName(GravityModelType type) noexcept
+std::string_view toString(GravityModelType type) noexcept
 {
     switch (type)
     {

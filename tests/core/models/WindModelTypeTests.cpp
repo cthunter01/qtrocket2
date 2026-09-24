@@ -11,7 +11,6 @@ namespace
 
 using QtRocket::altitudeReferenceFromString;
 using QtRocket::kAllWindModelTypes;
-using QtRocket::orkName;
 using QtRocket::toStringValue;
 using QtRocket::WindModel;
 using QtRocket::WindModelType;
@@ -56,8 +55,8 @@ TEST(WindModelType, EnumNamesAndOrkSpellings)
 {
     EXPECT_EQ(windModelTypeName(WindModelType::AVERAGE), "AVERAGE");
     EXPECT_EQ(windModelTypeName(WindModelType::MULTI_LEVEL), "MULTI_LEVEL");
-    EXPECT_EQ(orkName(WindModelType::AVERAGE), "average");
-    EXPECT_EQ(orkName(WindModelType::MULTI_LEVEL), "multilevel");
+    EXPECT_EQ(toString(WindModelType::AVERAGE), "average");
+    EXPECT_EQ(toString(WindModelType::MULTI_LEVEL), "multilevel");
 }
 
 TEST(WindModelType, SpellingsParseBack)
@@ -65,7 +64,7 @@ TEST(WindModelType, SpellingsParseBack)
     for (const WindModelType type : kAllWindModelTypes)
     {
         EXPECT_EQ(windModelTypeFromString(toStringValue(type)), type);
-        EXPECT_EQ(windModelTypeFromString(orkName(type)), type);
+        EXPECT_EQ(windModelTypeFromString(toString(type)), type);
     }
 }
 

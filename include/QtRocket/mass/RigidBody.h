@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <string>
 
 #include "QtRocket/util/Coordinate.h"
@@ -19,8 +21,7 @@ namespace QtRocket
 /// initialize an InertiaMatrix with a negative inertia value"); the calculations never produce
 /// one from valid input. A NaN passes, as in Java.
 ///
-/// Not ported: hashCode(), a constant 1 in Java (equality is tolerant, so nothing better is
-/// consistent with it): a RigidBody is a computed value, never a key.
+/// Java's hashCode() is the std::hash specialisation below.
 class RigidBody
 {
 public:
@@ -65,8 +66,9 @@ public:
     /// Whether this body equals kEmpty (operator==, so within MathUtil::kEpsilon).
     [[nodiscard]] bool isEmpty() const noexcept;
 
-    /// Java's equals(): the centres of mass are equal (Coordinate::operator==, mass included)
-    /// and each inertia agrees within MathUtil::kEpsilon.
+    /// Java's equals(): true for the body itself (even with a NaN field), otherwise when the
+    /// centres of mass are equal (Coordinate::operator==, mass included) and each inertia agrees
+    /// within MathUtil::kEpsilon.
     [[nodiscard]] bool operator==(const RigidBody& other) const noexcept;
 
     /// The inertias moved from the centre of mass to @p newLocation by the parallel axis theorem,
@@ -109,3 +111,16 @@ private:
 inline constexpr RigidBody RigidBody::kEmpty{Unchecked{}, Coordinate::kZero, 0.0, 0.0, 0.0};
 
 }  // namespace QtRocket
+
+/// Java's hashCode(): the constant 1. Equality is tolerant (within MathUtil::kEpsilon), so a
+/// constant is the only hash that keeps equal bodies in one bucket at the tolerance edges; a
+/// RigidBody is a computed value, and a hashed container keyed on it degenerates into a list, as
+/// in OpenRocket.
+template <>
+struct std::hash<QtRocket::RigidBody>
+{
+    [[nodiscard]] std::size_t operator()(const QtRocket::RigidBody& /*body*/) const noexcept
+    {
+        return 1;
+    }
+};

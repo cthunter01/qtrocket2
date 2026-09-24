@@ -28,8 +28,10 @@ namespace QtRocket
 ///   and beyond the ends of the table, so a caller that modified them would change the table.
 /// - A table with no levels (getMaxAltitude() not positive) is a BugError on the first call;
 ///   Java fails with ArrayIndexOutOfBoundsException.
-/// - An altitude a hair below the top of the table whose quotient by kDelta rounds up to the last
-///   index interpolates towards the last level instead of indexing past the table.
+/// - The index of the lower level is clamped below the last one. Java would index past its table
+///   if an altitude a hair below the top had a quotient by kDelta that rounded up to the last
+///   index; with kDelta = 500 that cannot happen (the division is correctly rounded, and the
+///   quotient of the largest double below 500 * n stays below n), so the clamp is defensive.
 class InterpolatingAtmosphericModel : public AtmosphericModel
 {
 public:
@@ -60,8 +62,13 @@ protected:
     /// built, possibly from any thread (once per model).
     [[nodiscard]] virtual AtmosphericConditions getExactConditions(double altitude) const = 0;
 
+    /// The altitudes (m) at which the table samples getExactConditions(): i * kDelta for i = 0
+    /// ... ceil(getMaxAltitude() / kDelta) - 1, none when that is not positive. A subclass whose
+    /// values come from the user can check them there before the first getConditions().
+    [[nodiscard]] std::vector<double> tableAltitudes() const;
+
 private:
-    /// computeLayers(): the exact conditions every kDelta metres from 0 below getMaxAltitude().
+    /// computeLayers(): the exact conditions at every tableAltitudes() altitude.
     [[nodiscard]] std::vector<AtmosphericConditions> computeLayers() const;
 
     mutable std::once_flag                     m_levelsOnce;

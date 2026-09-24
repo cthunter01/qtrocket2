@@ -640,6 +640,39 @@ TEST(ExtendedIsaModel, ColdSiteWithoutPositiveSeaLevelTemperatureIsRefused)
     EXPECT_GT(chilly->getConditions(0).getTemperature(), 0);
 }
 
+TEST(ExtendedIsaModel, PressureThatUnderflowsInALayerIsRefused)
+{
+    // Java's constructor builds AtmosphericConditions from the sample under each layer and
+    // throws "Pressure must be positive (Pascals)" once a subnormal launch pressure underflows
+    // to 0 on the way up (OpenRocket's classes print that for these arguments).
+    for (const auto& [altitude, temperature, pressure] :
+         {std::array{0.0, 288.15, 1e-320}, std::array{1000.0, 281.15, 1e-320},
+          std::array{0.0, 288.15, std::numeric_limits<double>::denorm_min()}})
+    {
+        SCOPED_TRACE(pressure);
+        const QtRocket::Error error = refusal(altitude, temperature, pressure, 0.0);
+        EXPECT_EQ(error.code, ErrorCode::INVALID_ARGUMENT);
+        EXPECT_EQ(error.message, "Pressure must be positive (Pascals)");
+    }
+}
+
+TEST(ExtendedIsaModel, CreatedModelNeverThrowsFromGetConditions)
+{
+    // A tiny but accepted launch pressure: every table level is positive, so no altitude
+    // reaches AtmosphericConditions' BugError.
+    for (const auto& [altitude, pressure] :
+         {std::array{0.0, 1e-300}, std::array{2000.0, 1e-300}, std::array{0.0, 1e-310}})
+    {
+        SCOPED_TRACE(pressure);
+        const std::unique_ptr<ExtendedIsaModel> tiny = makeModel(altitude, 280.0, pressure, 0.5);
+        for (int i = -4; i <= 400; ++i)
+        {
+            const double h = i * 250.0;
+            EXPECT_GT(tiny->getConditions(h).getPressure(), 0.0) << h;
+        }
+    }
+}
+
 TEST(ExtendedIsaModel, NaNPassesTheChecksAsInJava)
 {
     // Java lets NaN through every check; a NaN altitude counts as sea level.

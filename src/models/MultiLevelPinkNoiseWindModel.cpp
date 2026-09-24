@@ -318,42 +318,58 @@ MultiLevelPinkNoiseWindModel::LevelWindModel::LevelWindModel(double             
     m_model.changed().connect([this] { m_changed.emit(); });
 }
 
+// Every setter holds keepAlive() for its whole call: a slot reached by its change notification
+// may remove the level from the model, and the setter (PinkNoiseWindModel::setAverage() emits
+// twice) and the signals' emit() loops go on using the level after that slot returns.
+
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setAltitude(double altitude)
 {
-    m_altitude = altitude;
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
+    m_altitude                                       = altitude;
     fireChangeEvent();
 }
 
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setSpeed(double speed)
 {
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
     m_model.setAverage(speed);
 }
 
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setSpeedPreservingStandardDeviation(double speed)
 {
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
     m_model.setAveragePreservingStandardDeviation(speed);
 }
 
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setDirection(double direction)
 {
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
     m_model.setDirection(direction);
 }
 
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setStandardDeviation(double standardDeviation)
 {
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
     m_model.setStandardDeviation(standardDeviation);
 }
 
 void MultiLevelPinkNoiseWindModel::LevelWindModel::setTurbulenceIntensity(
     double turbulenceIntensity)
 {
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
     m_model.setTurbulenceIntensity(turbulenceIntensity);
 }
 
-std::unique_ptr<MultiLevelPinkNoiseWindModel::LevelWindModel>
+void MultiLevelPinkNoiseWindModel::LevelWindModel::fireChangeEvent() const
+{
+    const std::shared_ptr<const LevelWindModel> self = keepAlive();
+    m_changed.emit();
+}
+
+std::shared_ptr<MultiLevelPinkNoiseWindModel::LevelWindModel>
 MultiLevelPinkNoiseWindModel::LevelWindModel::clone() const
 {
-    return std::make_unique<LevelWindModel>(m_altitude, PinkNoiseWindModel{m_model});
+    return std::make_shared<LevelWindModel>(m_altitude, PinkNoiseWindModel{m_model});
 }
 
 bool MultiLevelPinkNoiseWindModel::LevelWindModel::operator==(
@@ -406,7 +422,7 @@ Result<void> MultiLevelPinkNoiseWindModel::addWindLevel(double altitude, double 
                                                      Strings::javaDoubleToString(altitude));
     }
 
-    auto newLevel = std::make_unique<LevelWindModel>(altitude, std::move(pinkNoiseModel));
+    auto newLevel = std::make_shared<LevelWindModel>(altitude, std::move(pinkNoiseModel));
     connectLevel(*newLevel);
     m_levels.insert(m_levels.begin() + (-index - 1), std::move(newLevel));
     fireChangeEvent();
@@ -428,7 +444,7 @@ void MultiLevelPinkNoiseWindModel::addInitialLevel(const Preferences& preference
 
 void MultiLevelPinkNoiseWindModel::removeWindLevel(double altitude)
 {
-    std::erase_if(m_levels, [altitude](const std::unique_ptr<LevelWindModel>& level) {
+    std::erase_if(m_levels, [altitude](const std::shared_ptr<LevelWindModel>& level) {
         return level->m_altitude == altitude;
     });
     fireChangeEvent();
@@ -462,7 +478,7 @@ std::vector<MultiLevelPinkNoiseWindModel::LevelWindModel*> MultiLevelPinkNoiseWi
 {
     std::vector<LevelWindModel*> levels;
     levels.reserve(m_levels.size());
-    for (const std::unique_ptr<LevelWindModel>& level : m_levels)
+    for (const std::shared_ptr<LevelWindModel>& level : m_levels)
     {
         levels.push_back(level.get());
     }
@@ -474,7 +490,7 @@ MultiLevelPinkNoiseWindModel::getLevels() const
 {
     std::vector<const LevelWindModel*> levels;
     levels.reserve(m_levels.size());
-    for (const std::unique_ptr<LevelWindModel>& level : m_levels)
+    for (const std::shared_ptr<LevelWindModel>& level : m_levels)
     {
         levels.push_back(level.get());
     }
@@ -484,8 +500,8 @@ MultiLevelPinkNoiseWindModel::getLevels() const
 void MultiLevelPinkNoiseWindModel::sortLevels()
 {
     // List.sort is a stable merge sort; Comparator.comparingDouble compares with Double.compare.
-    std::ranges::stable_sort(m_levels, [](const std::unique_ptr<LevelWindModel>& a,
-                                          const std::unique_ptr<LevelWindModel>& b) {
+    std::ranges::stable_sort(m_levels, [](const std::shared_ptr<LevelWindModel>& a,
+                                          const std::shared_ptr<LevelWindModel>& b) {
         return MathUtil::javaDoubleCompare(a->m_altitude, b->m_altitude) < 0;
     });
 }
@@ -569,9 +585,9 @@ void MultiLevelPinkNoiseWindModel::loadFrom(const MultiLevelPinkNoiseWindModel& 
         return;  // Java would clear the very list it is about to copy
     }
     m_levels.clear();
-    for (const std::unique_ptr<LevelWindModel>& level : source.m_levels)
+    for (const std::shared_ptr<LevelWindModel>& level : source.m_levels)
     {
-        std::unique_ptr<LevelWindModel> copy = level->clone();
+        std::shared_ptr<LevelWindModel> copy = level->clone();
         connectLevel(*copy);
         m_levels.push_back(std::move(copy));
     }
@@ -584,6 +600,12 @@ Result<void> MultiLevelPinkNoiseWindModel::importLevelsFromCsv(
     std::string_view stdDeviationColumn, const Unit* altitudeUnit, const Unit* speedUnit,
     const Unit* directionUnit, const Unit* stdDeviationUnit, bool hasHeaders)
 {
+    // Not in Java (whose regex split takes an empty separator): refused before anything changes
+    if (fieldSeparator.empty())
+    {
+        return fail(ErrorCode::INVALID_ARGUMENT, "The field separator is empty.");
+    }
+
     // Clear the current levels
     clearLevels();
 
@@ -591,10 +613,6 @@ Result<void> MultiLevelPinkNoiseWindModel::importLevelsFromCsv(
     if (!text.has_value())
     {
         return fail(ErrorCode::IO, std::format("{} '{}'", kCouldNotLoadFile, fileName(file)));
-    }
-    if (fieldSeparator.empty())
-    {
-        return fail(ErrorCode::INVALID_ARGUMENT, "The field separator is empty.");
     }
 
     const std::vector<std::string_view> lines = readTextLines(*text);
@@ -676,15 +694,15 @@ bool MultiLevelPinkNoiseWindModel::operator==(
     }
     // Compare the levels list
     return std::ranges::equal(m_levels, other.m_levels,
-                              [](const std::unique_ptr<LevelWindModel>& a,
-                                 const std::unique_ptr<LevelWindModel>& b) { return *a == *b; });
+                              [](const std::shared_ptr<LevelWindModel>& a,
+                                 const std::shared_ptr<LevelWindModel>& b) { return *a == *b; });
 }
 
 int MultiLevelPinkNoiseWindModel::hashCode() const noexcept
 {
     // Objects.hash(levels) = 31 * 1 + levels.hashCode(), the list hash starting from 1
     int listHash = 1;
-    for (const std::unique_ptr<LevelWindModel>& level : m_levels)
+    for (const std::shared_ptr<LevelWindModel>& level : m_levels)
     {
         listHash = MathUtil::javaHashCombine(listHash, level->hashCode());
     }
@@ -693,7 +711,8 @@ int MultiLevelPinkNoiseWindModel::hashCode() const noexcept
 
 void MultiLevelPinkNoiseWindModel::connectLevel(LevelWindModel& level)
 {
-    // The model owns its levels and is not movable, so `this` outlives the connection.
+    // The model owns its levels and is not movable, so `this` outlives the connection (a level
+    // removed during its own setter lives on only until that setter returns).
     level.changed().connect([this] { fireChangeEvent(); });
 }
 

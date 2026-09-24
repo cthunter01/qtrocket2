@@ -44,11 +44,18 @@ class Unit;
 /// constructor and clone() are Java's clone(): the altitude reference and a copy of every level
 /// (see PinkNoiseWindModel's copy), without the connections to changed().
 ///
+/// A slot on changed() (or on a level's changed()) may add, remove, clear, reset, load or import
+/// levels, also while a level's setter is announcing a change. A level removed that way stays
+/// alive until its setter returns (Java's garbage collector keeps it too), finishes that setter,
+/// and meanwhile still reports its changes to this model, as in Java. A slot must not destroy
+/// the model itself (see Signal).
+///
 /// Deviations from OpenRocket:
-/// - The constructor and resetLevels() take the preferences whose average wind (Preferences::
-///   getWindAverage(), getWindDirection(), getWindStandardDeviation(), through
-///   PinkNoiseWindModel::loadFrom(const Preferences&)) makes the initial level at 0 m; Java reads
-///   the global application preferences.
+/// - The constructor and resetLevels() take the preferences whose average wind makes the initial
+///   level at 0 m: PinkNoiseWindModel::loadFrom(const Preferences&) applies
+///   Preferences::getWindAverage(), getWindTurbulenceIntensity() and getWindDirection(), and the
+///   level takes that model's average, direction and standard deviation. Java reads the global
+///   application preferences, through the same steps.
 /// - addWindLevel() returns an Error for an altitude that already has a level, where Java throws
 ///   IllegalArgumentException; the CSV import returns an Error where Java throws.
 /// - loadFrom() of the model itself does nothing (Java clears the levels it is about to copy).
@@ -60,7 +67,13 @@ class MultiLevelPinkNoiseWindModel final : public WindModel
 public:
     /// One level: an altitude and the wind there (OpenRocket's nested LevelWindModel). Neither
     /// copyable nor movable (its wind model reports to it); clone() copies it.
-    class LevelWindModel
+    ///
+    /// A model holds its levels through std::shared_ptr, and every setter (and fireChangeEvent())
+    /// of a level owned that way keeps the level alive until it returns, so that a slot removing
+    /// the level from its model while the setter announces the change cannot destroy it mid-call
+    /// (see the class comment of MultiLevelPinkNoiseWindModel). A level made on its own, not
+    /// through std::make_shared, is simply not kept alive.
+    class LevelWindModel : public std::enable_shared_from_this<LevelWindModel>
     {
     public:
         /// A level at @p altitude (m) with the wind @p model. Java's package-private constructor.
@@ -113,7 +126,7 @@ public:
 
         /// Java's clone(): the altitude and a copy of the wind model (seed included, see
         /// PinkNoiseWindModel), without the connections to changed().
-        [[nodiscard]] std::unique_ptr<LevelWindModel> clone() const;
+        [[nodiscard]] std::shared_ptr<LevelWindModel> clone() const;
 
         /// Java's equals(): the altitudes compare equal under Double.compare and the wind models
         /// are equal (PinkNoiseWindModel::operator==, seed included).
@@ -127,10 +140,17 @@ public:
         [[nodiscard]] Signal<>& changed() noexcept { return m_changed; }
 
         /// Emits changed().
-        void fireChangeEvent() const { m_changed.emit(); }
+        void fireChangeEvent() const;
 
     private:
         friend class MultiLevelPinkNoiseWindModel;
+
+        /// The owner of this level while one exists (see the class comment), held by a setter
+        /// for the rest of its call; null for a level not owned through a std::shared_ptr.
+        [[nodiscard]] std::shared_ptr<const LevelWindModel> keepAlive() const noexcept
+        {
+            return weak_from_this().lock();
+        }
 
         double             m_altitude;
         PinkNoiseWindModel m_model;
@@ -213,7 +233,9 @@ public:
     void loadFrom(const MultiLevelPinkNoiseWindModel& source);
 
     /// Replaces the levels with those read from the CSV @p file (UTF-8). First every level is
-    /// removed (emitting changed(), and the model stays empty if the import then fails). Lines
+    /// removed (emitting changed()), then every row adds its level in turn. If the import fails,
+    /// the levels of the rows before the failing one remain, as in Java (a caller such as the GUI
+    /// resets the model then); an empty @p fieldSeparator fails before anything changes. Lines
     /// are read as OpenRocket's TextLineReader reads them: trimmed, and skipped when blank or
     /// starting with '#'. Each is split at every @p fieldSeparator, keeping empty fields.
     ///
@@ -270,7 +292,9 @@ private:
     /// @p altitude, or -(insertion point) - 1.
     [[nodiscard]] std::ptrdiff_t binarySearch(double altitude) const noexcept;
 
-    std::vector<std::unique_ptr<LevelWindModel>> m_levels;
+    /// Shared ownership only so that a level's setter can keep it alive (see LevelWindModel);
+    /// the model is the only other owner.
+    std::vector<std::shared_ptr<LevelWindModel>> m_levels;
     AltitudeReference                            m_altitudeReference{AltitudeReference::MSL};
 };
 

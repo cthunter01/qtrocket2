@@ -22,7 +22,8 @@ class Preferences;
 /// source (alpha 5/3, two poles) sampled every kDeltaT seconds and interpolated linearly between
 /// samples, and kStdDev is the standard deviation of that source. The wind blows from
 /// getDirection() (radians clockwise from north, pi/2 being a wind from the east), and the
-/// velocity is speed * (sin(direction), cos(direction), 0).
+/// velocity is speed * (sin(direction), cos(direction), 0): it points towards where the wind
+/// comes from, the negated motion of the air (see WindModel::getWindVelocity()).
 ///
 /// The random source is seeded from the model's seed (XOR kSeedRandomization) when the first
 /// velocity is asked for, and started again whenever an earlier time is asked for, so the wind
@@ -30,8 +31,12 @@ class Preferences;
 /// std::mt19937 (see PinkNoise), so a seeded run is reproducible within QtRocket (for one standard
 /// library) but never bit-identical to OpenRocket's java.util.Random sequence.
 ///
-/// Changes to the average, direction or standard deviation emit changed() when the value
-/// actually changes. The turbulence intensity is not stored: it is standardDeviation / average.
+/// Each setter of the average, direction or standard deviation emits changed() unless its
+/// argument equals the stored value, as in Java. The comparison comes before the value is
+/// clamped or reduced, so a call that leaves the stored value as it was may still emit:
+/// setStandardDeviation(-1) with a deviation of 0 (stored as 0 again), setDirection(pi / 2 +
+/// 2 pi) with a direction of pi / 2 (reduced to pi / 2 again). The turbulence intensity is not
+/// stored: it is standardDeviation / average.
 ///
 /// Copying (the copy constructor, clone()) is Java's clone(): the average, direction, standard
 /// deviation and seed, with a fresh random state and no connections to changed(). There is no

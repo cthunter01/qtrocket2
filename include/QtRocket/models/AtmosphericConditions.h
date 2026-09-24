@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 
 namespace QtRocket
@@ -45,6 +46,14 @@ public:
     AtmosphericConditions(double temperature, double pressure,
                           double relativeHumidity = kStandardHumidity);
 
+    /// The constructor's checks without the exception, for code that derives conditions from the
+    /// user's values and must report them (ExtendedIsaModel::create()): fails with
+    /// ErrorCode::INVALID_ARGUMENT and the message the constructor would throw (Java's
+    /// IllegalArgumentException) for the first value out of range, in the constructor's order:
+    /// the temperature, the pressure, then the humidity. A NaN passes.
+    [[nodiscard]] static Result<void> validate(double temperature, double pressure,
+                                               double relativeHumidity);
+
     /// The pressure in Pa.
     [[nodiscard]] double getPressure() const noexcept { return m_pressure; }
     /// @throws BugError when @p pressure is not positive ("Pressure must be positive (Pascals)").
@@ -87,8 +96,9 @@ public:
     /// The id of the current state (Monitorable).
     [[nodiscard]] ModId modId() const noexcept { return m_modId; }
 
-    /// Java's equals(): the pressure, temperature and humidity each agree within
-    /// MathUtil::kEpsilon (MathUtil::equals, so never for a NaN). The modification id does not
+    /// Java's equals(): true for the object itself, otherwise when the pressure, temperature and
+    /// humidity each agree within MathUtil::kEpsilon (MathUtil::equals, so never for a NaN: a
+    /// copy with a NaN field differs, the object itself does not). The modification id does not
     /// count.
     [[nodiscard]] bool operator==(const AtmosphericConditions& other) const noexcept;
 

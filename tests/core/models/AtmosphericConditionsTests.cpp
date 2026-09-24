@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
 
@@ -192,6 +193,42 @@ TEST(AtmosphericConditions, NaNPassesTheChecksAsInJava)
     EXPECT_EQ(conditions.getGasConstant(), AtmosphericConditions::kR);
     const AtmosphericConditions copy = conditions;
     EXPECT_FALSE(conditions == copy);  // MathUtil::equals is never true for NaN
+    // Java's equals() starts with this == other, so the object itself still equals itself.
+    const AtmosphericConditions& same = conditions;
+    EXPECT_TRUE(conditions == same);
+    EXPECT_FALSE(conditions != same);
+}
+
+TEST(AtmosphericConditions, ValidateReportsTheConstructorsChecks)
+{
+    EXPECT_TRUE(AtmosphericConditions::validate(288.15, 101325.0, 0.5).has_value());
+    EXPECT_TRUE(AtmosphericConditions::validate(kNaN, kNaN, kNaN).has_value());  // as in Java
+    EXPECT_TRUE(AtmosphericConditions::validate(1e-300, 5e-324, 1.0).has_value());
+
+    const auto temperature = AtmosphericConditions::validate(0.0, 101325.0, 0.0);
+    ASSERT_FALSE(temperature.has_value());
+    EXPECT_EQ(temperature.error().code, QtRocket::ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(temperature.error().message, "Temperature must be positive (Kelvin)");
+
+    const auto pressure = AtmosphericConditions::validate(288.15, -0.0, 0.0);
+    ASSERT_FALSE(pressure.has_value());
+    EXPECT_EQ(pressure.error().message, "Pressure must be positive (Pascals)");
+
+    const auto humidity = AtmosphericConditions::validate(288.15, 101325.0, -0.1);
+    ASSERT_FALSE(humidity.has_value());
+    EXPECT_EQ(humidity.error().message, "Humidity must be between 0 and 1");
+
+    // The constructor's order: the temperature first, then the pressure, then the humidity.
+    const auto allBad = AtmosphericConditions::validate(-1.0, -1.0, 2.0);
+    ASSERT_FALSE(allBad.has_value());
+    EXPECT_EQ(allBad.error().message, "Temperature must be positive (Kelvin)");
+    const auto badPressureAndHumidity = AtmosphericConditions::validate(1.0, -1.0, 2.0);
+    ASSERT_FALSE(badPressureAndHumidity.has_value());
+    EXPECT_EQ(badPressureAndHumidity.error().message, "Pressure must be positive (Pascals)");
+
+    // The constructor throws exactly where validate() fails.
+    EXPECT_THROW(AtmosphericConditions(288.15, 101325.0, 1.5), BugError);
+    EXPECT_FALSE(AtmosphericConditions::validate(288.15, 101325.0, 1.5).has_value());
 }
 
 TEST(AtmosphericConditions, EveryChangeDrawsANewModId)

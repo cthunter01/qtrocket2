@@ -56,6 +56,8 @@ class EmptyTableModel final : public InterpolatingAtmosphericModel
 public:
     [[nodiscard]] ModId modId() const override { return ModId::zero(); }
 
+    [[nodiscard]] std::vector<double> sampledAltitudes() const { return tableAltitudes(); }
+
 protected:
     [[nodiscard]] double                getMaxAltitude() const override { return 0; }
     [[nodiscard]] AtmosphericConditions getExactConditions(double /*altitude*/) const override
@@ -70,6 +72,8 @@ class LinearProfileModel final : public InterpolatingAtmosphericModel
 {
 public:
     [[nodiscard]] ModId modId() const override { return ModId::zero(); }
+
+    [[nodiscard]] std::vector<double> sampledAltitudes() const { return tableAltitudes(); }
 
 protected:
     [[nodiscard]] double                getMaxAltitude() const override { return 2750; }
@@ -126,6 +130,31 @@ TEST(InterpolatingAtmosphericModel, TableIsBuiltOnceOnFirstUse)
     (void)model.getConditions(700);
     (void)model.getConditions(-5);
     EXPECT_EQ(model.evaluations(), 2);
+}
+
+TEST(InterpolatingAtmosphericModel, TableAltitudesAreWhereTheTableSamples)
+{
+    // ceil(2750 / 500) = 6 levels from 0 m; none for a maximum altitude that is not positive.
+    EXPECT_EQ(LinearProfileModel{}.sampledAltitudes(),
+              (std::vector<double>{0.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0}));
+    EXPECT_TRUE(EmptyTableModel{}.sampledAltitudes().empty());
+}
+
+TEST(InterpolatingAtmosphericModel, QuotientBelowALevelNeverRoundsUpToIt)
+{
+    // Why the clamp of the lower index is only defensive: the largest altitude below level n
+    // divided by kDelta = 500 still floors to n - 1 (far beyond any table's 172 levels).
+    constexpr double kDelta = InterpolatingAtmosphericModel::kDelta;
+    int              wrong  = 0;
+    for (int n = 1; n <= 1000000; ++n)
+    {
+        const double below = std::nextafter(kDelta * static_cast<double>(n), 0.0);
+        if (std::floor(below / kDelta) != static_cast<double>(n - 1))
+        {
+            ++wrong;
+        }
+    }
+    EXPECT_EQ(wrong, 0);
 }
 
 TEST(InterpolatingAtmosphericModel, EndsOfTheTableAreClamped)

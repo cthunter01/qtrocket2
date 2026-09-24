@@ -32,7 +32,7 @@ std::string_view windModelTypeName(WindModelType type) noexcept
     return "AVERAGE";  // not reached
 }
 
-std::string_view orkName(WindModelType type) noexcept
+std::string_view toString(WindModelType type) noexcept
 {
     switch (type)
     {

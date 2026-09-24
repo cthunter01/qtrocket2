@@ -56,6 +56,10 @@ bool RigidBody::isEmpty() const noexcept
 
 bool RigidBody::operator==(const RigidBody& other) const noexcept
 {
+    if (this == &other)
+    {
+        return true;  // as Java, so a body equals itself even with a NaN field
+    }
     return m_cm == other.m_cm && MathUtil::equals(m_ixx, other.m_ixx) &&
            MathUtil::equals(m_iyy, other.m_iyy) && MathUtil::equals(m_izz, other.m_izz);
 }

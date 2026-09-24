@@ -11,7 +11,6 @@ using QtRocket::GravityModelType;
 using QtRocket::gravityModelTypeFromString;
 using QtRocket::gravityModelTypeName;
 using QtRocket::kAllGravityModelTypes;
-using QtRocket::orkName;
 using QtRocket::tooltipKey;
 using QtRocket::toStringValue;
 
@@ -59,10 +58,10 @@ TEST(GravityModelType, EnumNames)
     EXPECT_EQ(gravityModelTypeName(GravityModelType::CONSTANT), "CONSTANT");
 }
 
-TEST(GravityModelType, OrkNamesAndTooltipKeys)
+TEST(GravityModelType, OrkSpellingsAndTooltipKeys)
 {
-    EXPECT_EQ(orkName(GravityModelType::WGS), "wgs");
-    EXPECT_EQ(orkName(GravityModelType::CONSTANT), "constant");
+    EXPECT_EQ(toString(GravityModelType::WGS), "wgs");
+    EXPECT_EQ(toString(GravityModelType::CONSTANT), "constant");
     EXPECT_EQ(tooltipKey(GravityModelType::WGS), "simedtdlg.GravityModel.WGS84.ttip");
     EXPECT_EQ(tooltipKey(GravityModelType::CONSTANT), "simedtdlg.GravityModel.Constant.ttip");
 }
@@ -72,7 +71,7 @@ TEST(GravityModelType, SpellingsParseBack)
     for (const GravityModelType type : kAllGravityModelTypes)
     {
         EXPECT_EQ(gravityModelTypeFromString(toStringValue(type)), type);
-        EXPECT_EQ(gravityModelTypeFromString(orkName(type)), type);
+        EXPECT_EQ(gravityModelTypeFromString(toString(type)), type);
         EXPECT_EQ(gravityModelTypeFromString(gravityModelTypeName(type)), type);
     }
 }

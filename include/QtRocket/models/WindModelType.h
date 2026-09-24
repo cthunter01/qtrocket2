@@ -11,11 +11,14 @@ namespace QtRocket
 ///
 /// Java's enum carries a string value ("Average", "MultiLevel") that toStringValue() returns and
 /// fromString() parses; here those are free functions, as for the other ported enums. The
-/// spellings OpenRocket stores in a .ork file:
-/// - <windmodeltype>Average</windmodeltype> or MultiLevel: the string value (toStringValue()),
-/// - <wind model="average"> or <wind model="multilevel">: orkName(), the lower-cased value that
-///   OpenRocketSaver writes and WindHandler reads.
-/// Java's toString() is Enum's default, the constant name: windModelTypeName().
+/// spellings, named as for LineStyle and WindModel::AltitudeReference:
+/// - toString(): the model attribute of a .ork file's <wind model="average"> or
+///   <wind model="multilevel">, the lower-cased value that OpenRocketSaver writes and
+///   WindHandler reads. Deviation: Java's toString() is Enum's default, the constant name, here
+///   windModelTypeName().
+/// - toStringValue(): the string value, which a .ork file also stores as
+///   <windmodeltype>Average</windmodeltype> or MultiLevel.
+/// - windModelTypeName(): Enum.name() ("AVERAGE", "MULTI_LEVEL").
 enum class WindModelType
 {
     /// One PinkNoiseWindModel for every altitude.
@@ -34,8 +37,9 @@ inline constexpr std::array<WindModelType, 2> kAllWindModelTypes{WindModelType::
 /// Java's Enum.name() (and toString()): "AVERAGE" or "MULTI_LEVEL".
 [[nodiscard]] std::string_view windModelTypeName(WindModelType type) noexcept;
 
-/// The model attribute of a .ork file's <wind> element: "average" or "multilevel".
-[[nodiscard]] std::string_view orkName(WindModelType type) noexcept;
+/// The .ork spelling, the model attribute of a <wind> element: "average" or "multilevel". Not
+/// Java's toString() (see windModelTypeName()).
+[[nodiscard]] std::string_view toString(WindModelType type) noexcept;
 
 /// Java's fromString(): the type whose string value equals @p text ignoring case as
 /// String.equalsIgnoreCase does (Strings::javaEqualsIgnoreCase; no trimming), so "average" and

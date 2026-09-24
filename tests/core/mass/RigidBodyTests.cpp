@@ -1,7 +1,9 @@
 #include "QtRocket/mass/RigidBody.h"
 
 #include <cmath>
+#include <functional>
 #include <limits>
+#include <unordered_set>
 
 #include <gtest/gtest.h>
 
@@ -289,6 +291,23 @@ TEST(RigidBody, EqualityIsTolerant)
     EXPECT_FALSE(body == RigidBody(Coordinate(1, 2, 3, 4), 5.001, 6, 7));
 }
 
+TEST(RigidBody, BodyWithNaNEqualsItselfOnly)
+{
+    // Java's equals() starts with this == obj; MathUtil::equals is never true for a NaN.
+    const double     nan = std::numeric_limits<double>::quiet_NaN();
+    const RigidBody  body(Coordinate(1, 2, 3, 4), nan, 6, 7);
+    const RigidBody& same = body;
+    EXPECT_TRUE(body == same);
+    const RigidBody copy = body;
+    EXPECT_FALSE(body == copy);
+    EXPECT_FALSE(body != same);
+
+    const RigidBody  nanCenter(Coordinate(nan, 0, 0, 1), 1, 1, 1);
+    const RigidBody& sameCenter = nanCenter;
+    EXPECT_TRUE(nanCenter == sameCenter);
+    EXPECT_FALSE(nanCenter == RigidBody(nanCenter));
+}
+
 TEST(RigidBody, ParallelAxisTheoremAboutAnOffsetPoint)
 {
     // A 2 kg point mass at (1, 0, 0) seen from the origin: nothing about x, m d^2 = 2 about y and
@@ -306,6 +325,23 @@ TEST(RigidBody, ParallelAxisTheoremAboutAnOffsetPoint)
     EXPECT_EQ(pair.getIxx(), 6.0);
     EXPECT_EQ(pair.getIyy(), 0.0);
     EXPECT_EQ(pair.getIzz(), 6.0);
+}
+
+TEST(RigidBody, HashIsJavasConstant)
+{
+    // RigidBody.hashCode() returns 1, the only hash consistent with the tolerant equality.
+    const std::hash<RigidBody> hash;
+    const RigidBody            body(Coordinate(1, 2, 3, 4), 5, 6, 7);
+    const RigidBody            nearlyTheSame(Coordinate(1, 2, 3, 4), 5 * (1 + 1e-10), 6, 7);
+    ASSERT_TRUE(body == nearlyTheSame);
+    EXPECT_EQ(hash(body), 1U);
+    EXPECT_EQ(hash(nearlyTheSame), hash(body));
+    EXPECT_EQ(hash(RigidBody::kEmpty), 1U);
+
+    // Usable as a key: equal bodies land together.
+    std::unordered_set<RigidBody> set{body, RigidBody::kEmpty};
+    EXPECT_FALSE(set.insert(nearlyTheSame).second);
+    EXPECT_EQ(set.size(), 2U);
 }
 
 TEST(RigidBody, EmptyIsAConstant)

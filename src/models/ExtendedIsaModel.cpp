@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <expected>
 #include <memory>
 #include <string>
 
@@ -36,6 +37,13 @@ constexpr double kG = 9.80665;
     }
     // Isothermal case
     return press2 / std::exp(-(alt2 - alt1) * kG / (AtmosphericConditions::kR * temp1));
+}
+
+/// The first layer whose base pressure and humidity the constructor computes: the layers below
+/// it (sea level, and the launch site when it is above sea level) are given.
+[[nodiscard]] constexpr std::size_t firstComputedLayer(double altitude) noexcept
+{
+    return altitude > 0 ? 2 : 1;
 }
 
 /// calculateRelativeHumidity(): the humidity at another geopotential altitude. OpenRocket carries
@@ -108,14 +116,49 @@ ExtendedIsaModel::ExtendedIsaModel(Key /*key*/, double altitude, double temperat
 
     // The pressure and humidity of every remaining layer, 1 m below its base, from the layer
     // below (Java calls getExactConditions() twice per layer with the same result; once is enough)
-    for (std::size_t i = (altitude > 0 ? std::size_t{2} : std::size_t{1});
-         i < m_basePressure.size(); ++i)
+    for (std::size_t i = firstComputedLayer(altitude); i < m_basePressure.size(); ++i)
     {
-        const double sampleAltitude = geopotentialToGeometric(m_layer[i] - 1);
-        const Sample sample         = exactSample(sampleAltitude);
-        m_basePressure[i]           = sample.pressure;
-        m_baseRelativeHumidity[i]   = sample.relativeHumidity;
+        const Sample sample       = layerSample(i);
+        m_basePressure[i]         = sample.pressure;
+        m_baseRelativeHumidity[i] = sample.relativeHumidity;
     }
+}
+
+ExtendedIsaModel::Sample ExtendedIsaModel::layerSample(std::size_t layer) const noexcept
+{
+    // Only the layers below @p layer are read, so the result is the same during construction
+    // (while the higher base pressures are still unset) and afterwards.
+    return exactSample(geopotentialToGeometric(m_layer[layer] - 1));
+}
+
+Result<void> ExtendedIsaModel::validateSamples(double altitude) const
+{
+    const auto check = [](const Sample& sample) {
+        return AtmosphericConditions::validate(sample.temperature, sample.pressure,
+                                               sample.relativeHumidity);
+    };
+
+    // Java's constructor builds AtmosphericConditions from the sample under each layer it
+    // computes, and throws IllegalArgumentException there (a pressure that underflows to 0).
+    for (std::size_t i = firstComputedLayer(altitude); i < m_layer.size(); ++i)
+    {
+        if (const Result<void> checked = check(layerSample(i)); !checked.has_value())
+        {
+            return checked;
+        }
+    }
+
+    // Java throws from the first getConditions(), which builds the table; checked here instead,
+    // so that the model create() returns never throws from getConditions() (the extrapolated sea
+    // level temperature of a very cold launch site is the table's first sample).
+    for (const double tableAltitude : tableAltitudes())
+    {
+        if (const Result<void> checked = check(exactSample(tableAltitude)); !checked.has_value())
+        {
+            return checked;
+        }
+    }
+    return {};
 }
 
 Result<std::unique_ptr<ExtendedIsaModel>> ExtendedIsaModel::create(double temperature,
@@ -158,11 +201,9 @@ Result<std::unique_ptr<ExtendedIsaModel>> ExtendedIsaModel::create(double altitu
 
     auto model = std::make_unique<ExtendedIsaModel>(Key{}, altitude, temperature, pressure,
                                                     relativeHumidity);
-    // Java only notices a non-positive extrapolated sea level temperature when the first
-    // getConditions() call builds the table (AtmosphericConditions throws there).
-    if (model->m_baseTemperature.front() <= 0)
+    if (const Result<void> checked = model->validateSamples(altitude); !checked.has_value())
     {
-        return fail(ErrorCode::INVALID_ARGUMENT, "Temperature must be positive (Kelvin)");
+        return std::unexpected(checked.error());
     }
     return model;
 }
