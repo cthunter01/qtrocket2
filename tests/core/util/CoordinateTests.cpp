@@ -5,14 +5,16 @@
 #include <functional>
 #include <limits>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
+
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::Coordinate;
 
 constexpr double kEps = 0.0000000001;
@@ -273,8 +275,8 @@ TEST(Coordinate, TolerantEqualityFollowsMathUtil)
 
 TEST(Coordinate, NormalizeRejectsZeroLength)
 {
-    EXPECT_THROW(static_cast<void>(Coordinate::kZero.normalize()), std::domain_error);
-    EXPECT_THROW(static_cast<void>(Coordinate(1e-8, 0, 0, 5).normalize()), std::domain_error);
+    EXPECT_THROW(static_cast<void>(Coordinate::kZero.normalize()), BugError);
+    EXPECT_THROW(static_cast<void>(Coordinate(1e-8, 0, 0, 5).normalize()), BugError);
     EXPECT_NO_THROW(static_cast<void>(Coordinate(1e-6, 0, 0).normalize()));
     expectCoordinateNear(Coordinate(-1, 0, 0, 3), Coordinate(-2, 0, 0, 3).normalize());
 }

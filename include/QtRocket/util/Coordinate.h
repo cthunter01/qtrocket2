@@ -179,7 +179,8 @@ public:
     }
 
     /// The same direction at distance one from the origin; the weight is unchanged.
-    /// @throws std::domain_error when the length is below 1e-7 (OpenRocket: IllegalStateException).
+    /// @throws BugError when the length is below 1e-7 (OpenRocket: IllegalStateException): a
+    ///         zero vector has no direction, so asking for one is a programming error.
     [[nodiscard]] Coordinate normalize() const;
 
     /// The weighted average: the weight is the sum of the weights and the position is weighted by

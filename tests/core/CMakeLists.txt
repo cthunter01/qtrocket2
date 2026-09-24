@@ -11,6 +11,7 @@ add_executable(QtRocket_core_tests
     util/MathUtilTests.cpp
     util/Md5Tests.cpp
     util/ModIdTests.cpp
+    util/MonitorableTests.cpp
     util/PinkNoiseTests.cpp
     util/PolyInterpolatorTests.cpp
     util/QuaternionTests.cpp

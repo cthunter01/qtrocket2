@@ -46,7 +46,7 @@ public:
     [[nodiscard]] static Quaternion rotation(const Coordinate& rotationVector) noexcept;
 
     /// The rotation of @p angle radians about @p axis (normalized here).
-    /// @throws std::domain_error when @p axis has (nearly) zero length.
+    /// @throws BugError when @p axis has (nearly) zero length (see Coordinate::normalize()).
     [[nodiscard]] static Quaternion rotation(const Coordinate& axis, double angle);
 
     [[nodiscard]] constexpr double w() const noexcept { return m_w; }
@@ -87,11 +87,11 @@ public:
     }
 
     /// This quaternion scaled to norm one.
-    /// @throws std::domain_error when the norm is below 1e-7 (OpenRocket: IllegalStateException).
+    /// @throws BugError when the norm is below 1e-7 (OpenRocket: IllegalStateException).
     [[nodiscard]] Quaternion normalize() const;
 
     /// This quaternion, normalized only when its norm is more than 1 ppm from one.
-    /// @throws std::domain_error when the norm is (nearly) zero.
+    /// @throws BugError when the norm is (nearly) zero.
     [[nodiscard]] Quaternion normalizeIfNecessary() const;
 
     /// sqrt(w^2 + x^2 + y^2 + z^2)

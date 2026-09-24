@@ -7,9 +7,9 @@
 #include <limits>
 #include <numbers>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace QtRocket::MathUtil
@@ -51,7 +51,7 @@ double map(double value, double fromMin, double fromMax, double toMin, double to
     }
     if (equals(fromMin, fromMax))
     {
-        throw std::invalid_argument(
+        bug(
             std::format("from range is singular and to range is not: value={} fromMin={} "
                         "fromMax={} toMin={} toMax={}",
                         value, fromMin, fromMax, toMin, toMax));
@@ -68,7 +68,7 @@ Coordinate map(double value, double fromMin, double fromMax, const Coordinate& t
     }
     if (equals(fromMin, fromMax))
     {
-        throw std::invalid_argument(
+        bug(
             std::format("from range is singular and to range is not: value={} fromMin={} "
                         "fromMax={} toMin={} toMax={}",
                         value, fromMin, fromMax, toMin.toString(), toMax.toString()));

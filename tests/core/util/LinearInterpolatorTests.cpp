@@ -3,14 +3,16 @@
 #include <array>
 #include <cmath>
 #include <limits>
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
+
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::LinearInterpolator;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -48,7 +50,7 @@ TEST(LinearInterpolator, IsEmptyByDefault)
 TEST(LinearInterpolator, ThrowsWithoutPoints)
 {
     const LinearInterpolator interpolator;
-    EXPECT_THROW(static_cast<void>(interpolator.getValue(1.0)), std::logic_error);
+    EXPECT_THROW(static_cast<void>(interpolator.getValue(1.0)), BugError);
 }
 
 TEST(LinearInterpolator, ReturnsThePointsThemselvesExactly)
@@ -163,10 +165,10 @@ TEST(LinearInterpolator, AddsPointsFromSpans)
 
 TEST(LinearInterpolator, RejectsMismatchedLengths)
 {
-    EXPECT_THROW(LinearInterpolator({1, 2, 3}, {1, 2}), std::invalid_argument);
+    EXPECT_THROW(LinearInterpolator({1, 2, 3}, {1, 2}), BugError);
 
     LinearInterpolator interpolator({1, 2}, {10, 20});
-    EXPECT_THROW(interpolator.addPoints({3}, {30, 40}), std::invalid_argument);
+    EXPECT_THROW(interpolator.addPoints({3}, {30, 40}), BugError);
     EXPECT_EQ(interpolator.size(), 2U) << "nothing is added when the lengths differ";
 }
 
