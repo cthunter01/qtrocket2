@@ -7,9 +7,10 @@
 #include <initializer_list>
 #include <ranges>
 #include <span>
-#include <stdexcept>
 #include <utility>
 #include <vector>
+
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket
 {
@@ -133,7 +134,7 @@ PolyInterpolator::PolyInterpolator(std::span<const std::vector<double>> points)
     }
     if (count == 0)
     {
-        throw std::invalid_argument("No interpolation points defined.");
+        bug("No interpolation points defined.");
     }
     m_count = count;
 
@@ -179,8 +180,7 @@ std::vector<double> PolyInterpolator::interpolator(std::span<const double> value
 {
     if (values.size() != m_count)
     {
-        throw std::invalid_argument(
-            std::format("Wrong number of arguments {} expected {}", values.size(), m_count));
+        bug(std::format("Wrong number of arguments {} expected {}", values.size(), m_count));
     }
 
     std::vector<double> ret(m_count, 0.0);

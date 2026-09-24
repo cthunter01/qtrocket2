@@ -6,18 +6,19 @@
 #include <limits>
 #include <numbers>
 #include <random>
-#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace
 {
 
 namespace MathUtil = QtRocket::MathUtil;
+using QtRocket::BugError;
 using QtRocket::Coordinate;
 
 constexpr double kEps = 0.00000000001;
@@ -143,7 +144,7 @@ TEST(MathUtil, Map)
     EXPECT_NEAR(6.0, MathUtil::map(6.0, 0.0, 5.0, std::nextafter(6.0, 7.0), 6.0), kEps);
     EXPECT_NEAR(6.0, MathUtil::map(6.0, 0.0, 0.0, std::nextafter(6.0, 7.0), 6.0), kEps);
     EXPECT_THROW(static_cast<void>(MathUtil::map(6.0, 1.0, std::nextafter(1.0, 2.0), 1.0, 2.0)),
-                 std::invalid_argument);
+                 BugError);
 
     EXPECT_NEAR(7.0, MathUtil::map(std::nextafter(1.0, 2.0), 0.0, 5.0, 9.0, -1.0), kEps);
 }
@@ -475,7 +476,7 @@ TEST(MathUtil, MapCoordinateEdgeCases)
     // Beyond the source range the mapping extrapolates.
     EXPECT_TRUE(MathUtil::map(10.0, 0.0, 5.0, a, b) == Coordinate(8, 11, -2, 13));
     EXPECT_THROW(static_cast<void>(MathUtil::map(6.0, 1.0, std::nextafter(1.0, 2.0), a, b)),
-                 std::invalid_argument);
+                 BugError);
 }
 
 }  // namespace

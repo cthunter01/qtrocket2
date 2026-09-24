@@ -24,14 +24,13 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <fast_float/fast_float.h>
 
+#include "QtRocket/util/MathUtil.h"
+
 namespace QtRocket::Strings
 {
 
 namespace
 {
-
-/// MathUtil.EPSILON (10 mm^3 in m^3); MathUtil.equals(d, 0) is |d| < kEpsilon / 2.
-constexpr double kEpsilon = 1e-8;
 
 /// 2^63: FloatingDecimal converts the integers below it exactly (MAX_SMALL_BIN_EXP = 62).
 constexpr double kTwoPow63 = 9223372036854775808.0;
@@ -280,7 +279,7 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
 std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation)
 {
     // TextUtil checks for zero before NaN: MathUtil.equals(NaN, 0) is false, so the order is safe.
-    if (std::abs(value) < kEpsilon / 2)
+    if (MathUtil::equals(value, 0.0))
     {
         return "0";
     }

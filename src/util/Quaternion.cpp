@@ -3,9 +3,9 @@
 #include <cmath>
 #include <format>
 #include <ostream>
-#include <stdexcept>
 #include <string>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 
@@ -43,7 +43,7 @@ Quaternion Quaternion::normalize() const
     const double n = norm();
     if (n < 0.0000001)
     {
-        throw std::domain_error("attempting to normalize zero-quaternion");
+        bug("attempting to normalize zero-quaternion");
     }
     return Quaternion{m_w / n, m_x / n, m_y / n, m_z / n};
 }

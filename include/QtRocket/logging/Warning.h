@@ -118,7 +118,7 @@ public:
     [[nodiscard]] std::string messageDescription() const override;
     /// True when @p other is a LargeAOA with a larger angle, or this angle is NaN.
     [[nodiscard]] bool replaceBy(const Message& other) const override;
-    /// Takes the angle of @p other; throws std::invalid_argument when it is not a LargeAOA.
+    /// Takes the angle of @p other; throws BugError when it is not a LargeAOA.
     void                                   replaceContents(const Message& other) override;
     [[nodiscard]] std::unique_ptr<Message> clone() const override;
     [[nodiscard]] std::string_view         typeName() const noexcept override { return "LargeAOA"; }
@@ -231,6 +231,10 @@ public:
 
 /// A flight event occurred after landing (Java: Warning.EventAfterLanding). Priority HIGH. Two of
 /// these are equal only when they are the same warning (same id), so a set keeps every one.
+/// Deviation: Java compares the UUID references with ==, so two warnings given equal ids by
+/// separate setID() calls stay unequal there; here equal ids are equal, which is what Java's own
+/// findById() (equals()) and clone() (a shared reference) paths rely on and what the .ork loader
+/// needs when it sets a saved id back.
 ///
 /// Extension point: OpenRocket stores the FlightEvent itself. simulation/ does not exist yet, so
 /// the event is represented by the display name of its type (FlightEvent.Type.toString(), e.g.
@@ -255,7 +259,7 @@ public:
     {
         return "EventAfterLanding";
     }
-    /// Same id only.
+    /// Same id only; by value, where Java compares the UUID references (see the class comment).
     [[nodiscard]] bool equals(const Message& other) const override;
 
 private:

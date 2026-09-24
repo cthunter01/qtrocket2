@@ -3,14 +3,16 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/util/BugError.h"
+
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::PinkNoise;
 
 // PinkNoiseWindModel's filter: alpha = 5/3 with two poles, whose standard deviation OpenRocket
@@ -141,7 +143,7 @@ TEST(PinkNoise, UnseededSourcesProduceFiniteValues)
 
 TEST(PinkNoise, RejectsNegativePoles)
 {
-    EXPECT_THROW(PinkNoise(1.0, -1, kSeed), std::invalid_argument);
+    EXPECT_THROW(PinkNoise(1.0, -1, kSeed), BugError);
 }
 
 }  // namespace

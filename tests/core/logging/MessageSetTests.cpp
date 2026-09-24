@@ -1,7 +1,9 @@
 #include "QtRocket/logging/MessageSet.h"
 
+#include <format>
+#include <functional>
 #include <iterator>
-#include <stdexcept>
+#include <source_location>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,16 +16,39 @@
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/ModId.h"
+#include "QtRocket/util/Uuid.h"
+#include "logging/TestSources.h"
 
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::ErrorMessage;
 using QtRocket::ErrorSet;
 using QtRocket::MessagePriority;
 using QtRocket::MessageSources;
+using QtRocket::ModId;
+using QtRocket::Uuid;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
+using QtRocket::Test::source;
+
+/// The what() of the BugError that @p body throws; fails the test when it throws nothing.
+std::string bugMessage(const std::function<void()>& body)
+{
+    try
+    {
+        body();
+    }
+    catch (const BugError& error)
+    {
+        return error.what();
+    }
+    ADD_FAILURE() << "no BugError was thrown";
+    return {};
+}
 
 TEST(MessageSet, IsEmptyUntilAdded)
 {
@@ -55,7 +80,7 @@ TEST(MessageSet, ErrorSetDeduplicatesByTextOnly)
     const ErrorMessage::Other a{"boom"};
     ErrorMessage::Other       b{"boom"};
     b.setPriority(MessagePriority::HIGH);
-    b.setSources(MessageSources{{"fs-1", "Fin set"}});
+    b.setSources(MessageSources{source("fs-1", "Fin set")});
     ErrorSet errors;
     EXPECT_TRUE(errors.add(a));
     EXPECT_FALSE(errors.add(b));  // Error.Other.equals() looks at the text only
@@ -85,18 +110,18 @@ TEST(MessageSet, AddStoresACopy)
 TEST(MessageSet, AddWithSourcesLeavesTheConstantAlone)
 {
     WarningSet warnings;
-    EXPECT_TRUE(warnings.add(Warning::kAirframeGap,
-                             MessageSources{{"bt-1", "Body tube"}, {"nc-1", "Nose cone"}}));
+    EXPECT_TRUE(warnings.add(Warning::kAirframeGap, MessageSources{source("bt-1", "Body tube"),
+                                                                   source("nc-1", "Nose cone")}));
     EXPECT_TRUE(Warning::kAirframeGap.sources().empty());
     ASSERT_EQ(warnings.size(), 1U);
     EXPECT_EQ(warnings.begin()->sources(),
-              (MessageSources{{"bt-1", "Body tube"}, {"nc-1", "Nose cone"}}));
+              (MessageSources{source("bt-1", "Body tube"), source("nc-1", "Nose cone")}));
     EXPECT_EQ(warnings.begin()->toString(),
               "Gap in rocket airframe:  \"Body tube\", \"Nose cone\"");
     // The same warning with other sources, or none, is another kind.
-    EXPECT_TRUE(warnings.add(Warning::kAirframeGap, MessageSources{{"fs-1", "Fin set"}}));
+    EXPECT_TRUE(warnings.add(Warning::kAirframeGap, MessageSources{source("fs-1", "Fin set")}));
     EXPECT_TRUE(warnings.add(Warning::kAirframeGap));
-    EXPECT_FALSE(warnings.add(Warning::kAirframeGap, MessageSources{{"fs-1", "Fin set"}}));
+    EXPECT_FALSE(warnings.add(Warning::kAirframeGap, MessageSources{source("fs-1", "Fin set")}));
     EXPECT_EQ(warnings.size(), 3U);
 }
 
@@ -105,20 +130,20 @@ TEST(MessageSet, SourcesAreComparedByComponentIdNotName)
     WarningSet warnings;
     // Two fin sets with the default name: two warnings, as in Java (RocketComponent.equals()
     // compares ids).
-    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{{"fs-1", "Fin set"}}));
-    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{{"fs-2", "Fin set"}}));
+    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{source("fs-1", "Fin set")}));
+    EXPECT_TRUE(warnings.add(Warning::kThickFin, MessageSources{source("fs-2", "Fin set")}));
     EXPECT_EQ(warnings.size(), 2U);
     // The same component under another name is the same warning.
-    EXPECT_FALSE(warnings.add(Warning::kThickFin, MessageSources{{"fs-1", "Fins"}}));
+    EXPECT_FALSE(warnings.add(Warning::kThickFin, MessageSources{source("fs-1", "Fins")}));
     EXPECT_EQ(warnings.size(), 2U);
     Warning::Other probe = Warning::kThickFin;
-    probe.setSources(MessageSources{{"fs-1", "Fins"}});
+    probe.setSources(MessageSources{source("fs-1", "Fins")});
     EXPECT_TRUE(warnings.contains(probe));
     EXPECT_NE(warnings.find(probe), nullptr);
-    probe.setSources(MessageSources{{"fs-3", "Fin set"}});
+    probe.setSources(MessageSources{source("fs-3", "Fin set")});
     EXPECT_FALSE(warnings.contains(probe));
     EXPECT_FALSE(warnings.remove(probe));
-    probe.setSources(MessageSources{{"fs-2", "Whatever"}});
+    probe.setSources(MessageSources{source("fs-2", "Whatever")});
     EXPECT_TRUE(warnings.remove(probe));
     EXPECT_EQ(warnings.toString(),
               "Messages[Thick fins may not simulate accurately:  \"Fin set\"]");
@@ -208,15 +233,15 @@ TEST(MessageSet, EraseLoopEmptiesTheSet)
     EXPECT_TRUE(errors.begin() == errors.end());
     errors.add("kept");
     errors.immute();
-    EXPECT_THROW(errors.erase(errors.begin()), std::logic_error);
+    EXPECT_THROW(errors.erase(errors.begin()), BugError);
     EXPECT_EQ(errors.size(), 1U);
 }
 
 TEST(MessageSet, FilterOutRemovesEveryMessageOfThatType)
 {
     WarningSet warnings;
-    warnings.add(Warning::kOpenAirframeForward, MessageSources{{"a-1", "A"}});
-    warnings.add(Warning::kOpenAirframeForward, MessageSources{{"b-1", "B"}});
+    warnings.add(Warning::kOpenAirframeForward, MessageSources{source("a-1", "A")});
+    warnings.add(Warning::kOpenAirframeForward, MessageSources{source("b-1", "B")});
     warnings.add(Warning::kSupersonic);
     warnings.add(Warning::LargeAOA{0.3});
     ASSERT_EQ(warnings.size(), 4U);
@@ -256,7 +281,7 @@ TEST(MessageSet, FindByIdGivesTheStoredMessageForPatching)
     typed->setEventType("Ejection charge");  // what the .ork loader does once it knows the event
     EXPECT_EQ(warnings.begin()->messageDescription(),
               "Flight Event occurred after landing: Ejection charge");
-    EXPECT_EQ(warnings.findById("no-such-id"), nullptr);
+    EXPECT_EQ(warnings.findById(Uuid::random()), nullptr);
     const WarningSet& constSet = warnings;
     EXPECT_EQ(constSet.findById(event.id()), found);
 }
@@ -271,11 +296,30 @@ TEST(MessageSet, CountsAndListsByPriority)
     EXPECT_EQ(warnings.countWithPriority(MessagePriority::LOW), 1U);
     EXPECT_EQ(warnings.countWithPriority(MessagePriority::NORMAL), 1U);
     EXPECT_EQ(warnings.countWithPriority(MessagePriority::HIGH), 2U);
-    const std::vector<const Warning*> high = warnings.messagesWithPriority(MessagePriority::HIGH);
+    const std::vector<const Warning*> high =
+        std::as_const(warnings).messagesWithPriority(MessagePriority::HIGH);
     ASSERT_EQ(high.size(), 2U);
     EXPECT_EQ(high[0]->messageDescription(), Warning::kNoRecoveryDevice.messageDescription());
     EXPECT_EQ(high[1]->messageDescription(), Warning::kEarlySeparation.messageDescription());
     EXPECT_EQ(warnings.messagesWithPriority(MessagePriority::LOW).size(), 1U);
+}
+
+TEST(MessageSet, MessagesWithPriorityCanBeModifiedInPlace)
+{
+    // Java hands out the stored objects, which the GUI may edit; a const set hands out const ones.
+    WarningSet warnings;
+    warnings.add(Warning::kNoRecoveryDevice);  // HIGH
+    warnings.add(Warning::kThickFin);          // LOW
+    const std::vector<Warning*> high = warnings.messagesWithPriority(MessagePriority::HIGH);
+    ASSERT_EQ(high.size(), 1U);
+    high.front()->setSources(MessageSources{source("bt-1", "Body tube")});
+    const WarningSet&                 constSet = warnings;
+    const std::vector<const Warning*> seen = constSet.messagesWithPriority(MessagePriority::HIGH);
+    ASSERT_EQ(seen.size(), 1U);
+    EXPECT_EQ(seen.front(), high.front());
+    EXPECT_EQ(seen.front()->toString(),
+              Warning::kNoRecoveryDevice.messageDescription() + ":  \"Body tube\"");
+    EXPECT_TRUE(constSet.messagesWithPriority(MessagePriority::NORMAL).empty());
 }
 
 TEST(MessageSet, ImmuteBlocksAdding)
@@ -288,12 +332,12 @@ TEST(MessageSet, ImmuteBlocksAdding)
     EXPECT_FALSE(errors.isMutable());
     ErrorSet more;
     more.add("more");
-    EXPECT_THROW(errors.add("more"), std::logic_error);
-    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}), std::logic_error);
-    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}, MessageSources{{"x-1", "x"}}),
-                 std::logic_error);
-    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}, "discriminator"), std::logic_error);
-    EXPECT_THROW(errors.addAll(more), std::logic_error);
+    EXPECT_THROW(errors.add("more"), BugError);
+    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}), BugError);
+    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}, MessageSources{source("x-1", "x")}),
+                 BugError);
+    EXPECT_THROW(errors.add(ErrorMessage::Other{"more"}, "discriminator"), BugError);
+    EXPECT_THROW(errors.addAll(more), BugError);
     EXPECT_EQ(errors.size(), 1U);
     EXPECT_TRUE(errors.contains(ErrorMessage::Other{"kept"}));
 }
@@ -303,10 +347,10 @@ TEST(MessageSet, ImmuteBlocksRemoving)
     ErrorSet errors;
     errors.add("kept");
     errors.immute();
-    EXPECT_THROW(errors.remove(ErrorMessage::Other{"kept"}), std::logic_error);
-    EXPECT_THROW(errors.erase(errors.begin()), std::logic_error);
-    EXPECT_THROW(errors.filterOut(ErrorMessage::Other{"kept"}), std::logic_error);
-    EXPECT_THROW(errors.clear(), std::logic_error);
+    EXPECT_THROW(errors.remove(ErrorMessage::Other{"kept"}), BugError);
+    EXPECT_THROW(errors.erase(errors.begin()), BugError);
+    EXPECT_THROW(errors.filterOut(ErrorMessage::Other{"kept"}), BugError);
+    EXPECT_THROW(errors.clear(), BugError);
     EXPECT_EQ(errors.size(), 1U);
     EXPECT_TRUE(errors.contains(ErrorMessage::Other{"kept"}));
 }
@@ -328,13 +372,13 @@ TEST(MessageSet, ImmutedSetReturnsQuietlyWhenNothingWouldChange)
     EXPECT_FALSE(kept.remove(ErrorMessage::Other{"absent"}));
     EXPECT_FALSE(kept.addAll(ErrorSet{}));
     // Java's add() checks before it looks, so adding the set to itself is not quiet.
-    EXPECT_THROW(kept.addAll(kept), std::logic_error);
+    EXPECT_THROW(kept.addAll(kept), BugError);
     EXPECT_EQ(kept.size(), 1U);
     WarningSet aoaOnly;
     aoaOnly.add(Warning::LargeAOA{0.1});
     aoaOnly.immute();
     EXPECT_NO_THROW(aoaOnly.filterOut(Warning::kSupersonic));  // no Other in the set
-    EXPECT_THROW(aoaOnly.filterOut(Warning::LargeAOA{0.9}), std::logic_error);
+    EXPECT_THROW(aoaOnly.filterOut(Warning::LargeAOA{0.9}), BugError);
     EXPECT_EQ(aoaOnly.size(), 1U);
 }
 
@@ -413,7 +457,7 @@ TEST(MessageSet, AssignmentReplacesTheWholeSetImmutabilityIncluded)
     target = other;
     EXPECT_FALSE(target.isMutable());
     EXPECT_TRUE(target == other);
-    EXPECT_THROW(target.add(Warning::kThickFin), std::logic_error);
+    EXPECT_THROW(target.add(Warning::kThickFin), BugError);
     EXPECT_FALSE(other.isMutable());  // the source is left alone
 }
 
@@ -429,7 +473,10 @@ TEST(MessageSet, AddAllAndSetEquality)
     EXPECT_TRUE(a.addAll(b));  // grows by kSupersonic; the LargeAOA is replaced by 0.4
     EXPECT_EQ(a.size(), 3U);
     EXPECT_FALSE(a.addAll(b));
-    EXPECT_FALSE(a.addAll(a));
+    const ModId beforeSelfAddAll = a.modId();
+    EXPECT_FALSE(a.addAll(a));  // Java add()s every element to itself, so an id is drawn
+    EXPECT_GT(a.modId().toInt(), beforeSelfAddAll.toInt());
+    EXPECT_EQ(a.size(), 3U);
     const auto* aoa = dynamic_cast<const Warning::LargeAOA*>(a.find(Warning::LargeAOA{0.0}));
     ASSERT_NE(aoa, nullptr);
     EXPECT_DOUBLE_EQ(aoa->aoa(), 0.4);
@@ -464,7 +511,7 @@ TEST(MessageSet, ToStringJoinsMessagesWithCommas)
     ErrorSet errors;
     EXPECT_EQ(errors.toString(), "Messages[]");
     errors.add("one");
-    errors.add(ErrorMessage::Other{"two"}, MessageSources{{"nc-1", "Nose cone"}});
+    errors.add(ErrorMessage::Other{"two"}, MessageSources{source("nc-1", "Nose cone")});
     EXPECT_EQ(errors.toString(), "Messages[one,two:  \"Nose cone\"]");
 }
 
@@ -482,6 +529,153 @@ TEST(MessageSet, IteratesAsAForwardRange)
     EXPECT_EQ((*it).messageDescription(), Warning::kSupersonic.messageDescription());
     ++it;
     EXPECT_TRUE(it == warnings.end());
+}
+
+TEST(MessageSet, ModIdIsRedrawnByEveryAdd)
+{
+    // Java: Monitorable.getModID(); the simulation's flight data reads it to refresh its view of
+    // the warnings only when something changed.
+    WarningSet warnings;
+    EXPECT_EQ(warnings.modId(), ModId::zero());
+    EXPECT_TRUE(warnings.add(Warning::kThickFin));
+    const ModId afterFirst = warnings.modId();
+    EXPECT_GT(afterFirst.toInt(), 0);
+    // Java draws a new id in add() before it looks for a duplicate, so an add that changes
+    // nothing counts too ...
+    EXPECT_FALSE(warnings.add(Warning::kThickFin));
+    const ModId afterDuplicate = warnings.modId();
+    EXPECT_GT(afterDuplicate.toInt(), afterFirst.toInt());
+    // ... as does one that replaces the contents of a stored message.
+    EXPECT_TRUE(warnings.add(Warning::LargeAOA{0.1}));
+    const ModId afterAoa = warnings.modId();
+    EXPECT_GT(afterAoa.toInt(), afterDuplicate.toInt());
+    EXPECT_FALSE(warnings.add(Warning::LargeAOA{0.5}));
+    EXPECT_GT(warnings.modId().toInt(), afterAoa.toInt());
+    // The other adds go through the same path.
+    ModId before = warnings.modId();
+    EXPECT_TRUE(warnings.add("text"));
+    EXPECT_GT(warnings.modId().toInt(), before.toInt());
+    before = warnings.modId();
+    EXPECT_TRUE(warnings.add(Warning::kAirframeGap, MessageSources{source("bt-1", "Body tube")}));
+    EXPECT_GT(warnings.modId().toInt(), before.toInt());
+    before = warnings.modId();
+    EXPECT_TRUE(warnings.add(Warning::kEmptyBranch, "Sustainer"));
+    EXPECT_GT(warnings.modId().toInt(), before.toInt());
+    before = warnings.modId();
+    WarningSet more;
+    more.add(Warning::kSupersonic);
+    EXPECT_TRUE(warnings.addAll(more));
+    EXPECT_GT(warnings.modId().toInt(), before.toInt());
+    before = warnings.modId();
+    EXPECT_FALSE(warnings.addAll(warnings));  // the same, element by element, onto itself
+    EXPECT_GT(warnings.modId().toInt(), before.toInt());
+}
+
+TEST(MessageSet, RefusedChangeNamesWhereTheSetWasImmuted)
+{
+    // Java: Mutable.check() throws "Object has been made immutable at ..." with the stack trace
+    // of the immute() call; the port names the file and line of that call, and keeps the first
+    // one when immute() is called again.
+    ErrorSet errors;
+    errors.add("kept");
+    const std::source_location first = std::source_location::current();
+    errors.immute();
+    errors.immute();
+    const std::string expected = std::format("MessageSetTests.cpp:{}", first.line() + 1);
+    const std::string later    = std::format("MessageSetTests.cpp:{}", first.line() + 2);
+    const std::string what     = bugMessage([&errors] { errors.add("more"); });
+    EXPECT_NE(what.find("MessageSet has been made immutable at "), std::string::npos) << what;
+    EXPECT_NE(what.find(expected), std::string::npos) << what;
+    EXPECT_EQ(what.find(later), std::string::npos) << what;
+    // A copy, and a set assigned from it, are immuted at the same place as the source.
+    const ErrorSet copy = errors;
+    ErrorSet       assigned;
+    assigned = copy;
+    EXPECT_NE(bugMessage([&assigned] { assigned.clear(); }).find(expected), std::string::npos);
+    EXPECT_NE(bugMessage([&copy] {
+                  ErrorSet moved = copy;
+                  moved.add("x");
+              }).find(expected),
+              std::string::npos);
+}
+
+TEST(MessageSet, ModIdIsRedrawnWhenAMessageIsRemoved)
+{
+    // Java draws no id here (Iterator.remove() bypasses add()); the port keeps Monitorable's
+    // contract instead, so that a reader notices a removal too.
+    ErrorSet errors;
+    errors.add("a");
+    errors.add("b");
+    errors.add("c");
+    errors.add("d");
+    ModId before = errors.modId();
+    EXPECT_TRUE(errors.remove(ErrorMessage::Other{"a"}));
+    EXPECT_GT(errors.modId().toInt(), before.toInt());
+    before = errors.modId();
+    errors.erase(errors.begin());
+    EXPECT_GT(errors.modId().toInt(), before.toInt());
+    before = errors.modId();
+    errors.filterOut(ErrorMessage::Other{"x"});  // every Other goes, i.e. "c" and "d"
+    EXPECT_GT(errors.modId().toInt(), before.toInt());
+    EXPECT_TRUE(errors.empty());
+    errors.add("e");
+    before = errors.modId();
+    errors.clear();
+    EXPECT_GT(errors.modId().toInt(), before.toInt());
+}
+
+TEST(MessageSet, ModIdStaysWhenNothingChanges)
+{
+    ErrorSet errors;
+    errors.add("kept");
+    const ModId before = errors.modId();
+    EXPECT_FALSE(errors.remove(ErrorMessage::Other{"absent"}));
+    EXPECT_FALSE(errors.addAll(ErrorSet{}));
+    // Reading is not a change.
+    EXPECT_TRUE(errors.contains(ErrorMessage::Other{"kept"}));
+    EXPECT_NE(errors.find(ErrorMessage::Other{"kept"}), nullptr);
+    EXPECT_EQ(errors.toString(), "Messages[kept]");
+    EXPECT_EQ(errors.modId(), before);
+    // A refused change of an immuted set is not one either: Java checks before it draws.
+    errors.immute();
+    EXPECT_THROW(errors.add("more"), BugError);
+    EXPECT_THROW(errors.clear(), BugError);
+    EXPECT_EQ(errors.modId(), before);
+    WarningSet aoaOnly;
+    aoaOnly.add(Warning::LargeAOA{0.1});
+    const ModId aoaBefore = aoaOnly.modId();
+    aoaOnly.filterOut(Warning::kSupersonic);  // no Other in the set
+    EXPECT_EQ(aoaOnly.modId(), aoaBefore);
+    ErrorSet empty;
+    empty.clear();
+    EXPECT_EQ(empty.modId(), ModId::zero());
+}
+
+TEST(MessageSet, ModIdOfCopiesAndAssignedSets)
+{
+    WarningSet original;
+    original.add(Warning::kThickFin);
+    const ModId originalId = original.modId();
+    // A copy or a move carries the id along with the contents.
+    const WarningSet copy = original;
+    EXPECT_EQ(copy.modId(), originalId);
+    WarningSet moved = std::move(original);
+    EXPECT_EQ(moved.modId(), originalId);
+    // Assignment draws a fresh one, so that a set's id never goes back to an earlier value, even
+    // when its earlier contents are restored from a copy.
+    moved.add(Warning::kSupersonic);
+    const ModId changedId = moved.modId();
+    EXPECT_GT(changedId.toInt(), originalId.toInt());
+    moved = copy;
+    EXPECT_TRUE(moved == copy);
+    EXPECT_GT(moved.modId().toInt(), changedId.toInt());
+    EXPECT_NE(moved.modId(), copy.modId());
+    const ModId assignedId = moved.modId();
+    WarningSet  other;
+    other.add(Warning::kAirframeGap);
+    moved = std::move(other);
+    EXPECT_GT(moved.modId().toInt(), assignedId.toInt());
+    EXPECT_TRUE(moved.contains(Warning::kAirframeGap));
 }
 
 }  // namespace

@@ -9,13 +9,13 @@
 #include <memory>
 #include <numbers>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket
 {
@@ -204,7 +204,7 @@ void Warning::LargeAOA::replaceContents(const Message& other)
     const auto* o = dynamic_cast<const LargeAOA*>(&other);
     if (o == nullptr)
     {
-        throw std::invalid_argument("LargeAOA::replaceContents needs a LargeAOA");
+        bug("LargeAOA::replaceContents needs a LargeAOA");
     }
     m_aoa = o->m_aoa;
 }

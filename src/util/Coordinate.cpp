@@ -6,9 +6,9 @@
 #include <functional>
 #include <limits>
 #include <ostream>
-#include <stdexcept>
 #include <string>
 
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
 
 namespace QtRocket
@@ -30,7 +30,7 @@ Coordinate Coordinate::normalize() const
     const double l = length();
     if (l < 0.0000001)
     {
-        throw std::domain_error("Cannot normalize zero coordinate");
+        bug("Cannot normalize zero coordinate");
     }
     return Coordinate{x / l, y / l, z / l, weight};
 }

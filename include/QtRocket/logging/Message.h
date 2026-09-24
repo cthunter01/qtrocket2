@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
 {
@@ -23,14 +24,13 @@ namespace QtRocket
 /// change the text of an existing message (Java prints the current name).
 struct MessageSource
 {
-    MessageSource(std::string componentId, std::string componentName)
-      : id(std::move(componentId)), name(std::move(componentName))
+    MessageSource(Uuid componentId, std::string componentName)
+      : id(componentId), name(std::move(componentName))
     {
     }
 
-    /// The component's UUID in canonical text form.
-    /// TODO(util): becomes QtRocket::Uuid when util/Uuid.h exists.
-    std::string id;
+    /// The component's id (Java: RocketComponent.getID()).
+    Uuid id;
     /// The component's name, e.g. "Body tube".
     std::string name;
 
@@ -60,6 +60,11 @@ using MessageSources = std::vector<MessageSource>;
 /// this: Warning::Other and ErrorMessage::Other also compare their text, Warning::EventAfterLanding
 /// compares ids and Warning::MissingMotor every field. A MessageSet uses this to hold at most one
 /// message of each kind.
+///
+/// Not ported: hashCode() (Java: getClass().hashCode(), with Warning::Other hashing its text and
+/// Warning::MissingMotor its fields), so there is no std::hash<Message>. Nothing in the core
+/// hashes messages: a MessageSet is a vector searched with equals(). A group that wants messages
+/// as keys of an unordered container adds a virtual hash consistent with equals() here.
 class Message
 {
 public:
@@ -78,7 +83,7 @@ public:
     [[nodiscard]] virtual bool replaceBy(const Message& other) const = 0;
 
     /// Copies the contents of @p other into this message. Only the subclasses whose replaceBy()
-    /// can return true implement it; the default throws std::logic_error (Java:
+    /// can return true implement it; the default throws BugError (Java:
     /// UnsupportedOperationException).
     virtual void replaceContents(const Message& other);
 
@@ -96,10 +101,11 @@ public:
     /// True when @p other has exactly the dynamic type of this message (Java: getClass() ==).
     [[nodiscard]] bool sameType(const Message& other) const noexcept;
 
-    /// A UUID in canonical text form, e.g. "0f8fad5b-d9cb-469f-a165-70867728950e" (Java: UUID).
-    /// TODO(util): becomes QtRocket::Uuid when util/Uuid.h exists.
-    [[nodiscard]] const std::string& id() const noexcept { return m_id; }
-    void                             setId(std::string id) { m_id = std::move(id); }
+    /// The message's id (Java: getID()): a random UUID unless one was set. The .ork saver writes
+    /// it and the loader sets it back, so that the flight events of a saved simulation find
+    /// their warnings again (MessageSet::findById()).
+    [[nodiscard]] const Uuid& id() const noexcept { return m_id; }
+    void                      setId(Uuid id) noexcept { m_id = id; }
 
     [[nodiscard]] const MessageSources& sources() const noexcept { return m_sources; }
     void setSources(MessageSources sources) { m_sources = std::move(sources); }
@@ -110,7 +116,8 @@ public:
 protected:
     /// A message with a fresh random id (Java: UUID.randomUUID()).
     Message();
-    explicit Message(std::string id);
+    /// A message with that id (Java: Message(UUID)).
+    explicit Message(Uuid id) noexcept;
     Message(const Message&)                = default;
     Message(Message&&) noexcept            = default;
     Message& operator=(const Message&)     = default;
@@ -127,7 +134,7 @@ protected:
                                            const MessageSources& rhs) noexcept;
 
 private:
-    std::string     m_id;
+    Uuid            m_id;
     MessageSources  m_sources;
     MessagePriority m_priority{MessagePriority::NORMAL};
 };
