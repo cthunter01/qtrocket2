@@ -4,6 +4,7 @@ add_executable(QtRocket_core_tests
     util/BugErrorTests.cpp
     util/ColorTests.cpp
     util/CoordinateTests.cpp
+    util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
     util/LinearInterpolatorTests.cpp
@@ -19,6 +20,7 @@ add_executable(QtRocket_core_tests
     util/StringsTests.cpp
     util/UuidTests.cpp
     util/VersionTests.cpp
+    util/WorldCoordinateTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp
     logging/MessageSetTests.cpp

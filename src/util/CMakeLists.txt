@@ -4,6 +4,7 @@ target_sources(QtRocket_core PRIVATE
     Coordinate.cpp
     Error.cpp
     FileIo.cpp
+    GeodeticComputationStrategy.cpp
     Geometry2D.cpp
     LinearInterpolator.cpp
     LineStyle.cpp
@@ -17,4 +18,5 @@ target_sources(QtRocket_core PRIVATE
     Strings.cpp
     Uuid.cpp
     Version.cpp
+    WorldCoordinate.cpp
 )
