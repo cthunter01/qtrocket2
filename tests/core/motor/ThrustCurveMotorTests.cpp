@@ -418,6 +418,21 @@ TEST(ThrustCurveMotor, DelayStringsMatchOpenRocket)
     EXPECT_EQ(ThrustCurveMotor::getDelayString(4, "none"), "4");
 }
 
+// AbstractMotorLoader.removeDelay(): designation.matches(".*-([0-9]+|[pP])$").
+TEST(ThrustCurveMotor, RemoveDelay)
+{
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("B6-0"), "B6");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("H128W-14"), "H128W");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("H128W-P"), "H128W");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("H128W-p"), "H128W");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("241H115-KS"), "241H115-KS");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("G115-13A"), "G115-13A");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("B6"), "B6");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("B6-"), "B6-");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("-7"), "");
+    EXPECT_EQ(ThrustCurveMotor::removeDelay("B6\n-7"), "B6\n-7");
+}
+
 TEST(ThrustCurveMotor, SimplifyDesignationEdgeCasesMatchOpenRocket)
 {
     EXPECT_EQ(ThrustCurveMotor::Builder::simplifyDesignation("h128w"), "h128w");

@@ -829,6 +829,39 @@ TEST(Strings, ToCodePointsDecodesUtf8)
     EXPECT_EQ(Strings::toCodePoints("\xF4\x90\x80\x80"), U"\uFFFD\uFFFD\uFFFD\uFFFD");
 }
 
+TEST(Strings, ToValidUtf8KeepsWellFormedText)
+{
+    EXPECT_EQ(Strings::toValidUtf8(""), "");
+    EXPECT_EQ(Strings::toValidUtf8("plain ASCII"), "plain ASCII");
+    EXPECT_EQ(Strings::toValidUtf8("a\u00E9\u2044\U0001F680"), "a\u00E9\u2044\U0001F680");
+    // A byte-order mark is a character like any other to Java's decoder.
+    EXPECT_EQ(Strings::toValidUtf8("\xEF\xBB\xBF<x/>"), "\xEF\xBB\xBF<x/>");
+}
+
+TEST(Strings, ToValidUtf8ReplacesMalformedBytes)
+{
+    EXPECT_EQ(Strings::toValidUtf8("\xE9t\xE9"), "\uFFFDt\uFFFD");          // Latin-1 read as UTF-8
+    EXPECT_EQ(Strings::toValidUtf8("\xC0\x80"), "\uFFFD\uFFFD");            // overlong
+    EXPECT_EQ(Strings::toValidUtf8("\xED\xA0\x80"), "\uFFFD\uFFFD\uFFFD");  // a surrogate
+    EXPECT_EQ(Strings::toValidUtf8("x\xC3"), "x\uFFFD");                    // truncated at the end
+}
+
+TEST(Strings, Latin1ToUtf8MapsEveryByteToItsCodePoint)
+{
+    EXPECT_EQ(Strings::latin1ToUtf8(""), "");
+    EXPECT_EQ(Strings::latin1ToUtf8("F32 24 124"), "F32 24 124");
+    EXPECT_EQ(Strings::latin1ToUtf8("\xE9"), "\u00E9");
+    EXPECT_EQ(Strings::latin1ToUtf8("\xA0\xFF\x80"), "\u00A0\u00FF\u0080");
+    std::string    all;
+    std::u32string expected;
+    for (int b = 0; b < 256; b++)
+    {
+        all.push_back(static_cast<char>(b));
+        expected.push_back(static_cast<char32_t>(b));
+    }
+    EXPECT_EQ(Strings::toCodePoints(Strings::latin1ToUtf8(all)), expected);
+}
+
 TEST(Strings, ParseInt)
 {
     EXPECT_EQ(Strings::parseInt("0"), 0);

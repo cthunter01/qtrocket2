@@ -142,6 +142,14 @@ public:
     /// Java's Double.toString writes it (getDelayString()).
     [[nodiscard]] static std::string getDelayString(double delay, std::string_view plugged = "P");
 
+    /// @p designation without a trailing delay (OpenRocket's AbstractMotorLoader.removeDelay(),
+    /// here so that the motor database reader in motor/ can use it): when the whole designation
+    /// matches Java's ".*-([0-9]+|[pP])$" (a '-' followed by ASCII digits or a single P at the end,
+    /// and no line terminator anywhere, since Java's '.' matches none of \n, \r, U+0085, U+2028
+    /// and U+2029), everything from the last '-' on is removed ("B6-5" gives "B6", "H128W-P" gives
+    /// "H128W"); otherwise it is returned unchanged.
+    [[nodiscard]] static std::string removeDelay(std::string_view designation);
+
 private:
     ThrustCurveMotor();
 

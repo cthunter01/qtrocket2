@@ -1350,6 +1350,29 @@ std::u32string toCodePoints(std::string_view text)
     return codePoints;
 }
 
+std::string toValidUtf8(std::string_view text)
+{
+    std::string out;
+    out.reserve(text.size());
+    std::size_t position = 0;
+    while (position < text.size())
+    {
+        appendUtf8(out, static_cast<std::uint32_t>(decodeCodePoint(text, position)));
+    }
+    return out;
+}
+
+std::string latin1ToUtf8(std::string_view bytes)
+{
+    std::string out;
+    out.reserve(bytes.size());
+    for (const char c : bytes)
+    {
+        appendUtf8(out, static_cast<unsigned char>(c));
+    }
+    return out;
+}
+
 bool javaEqualsIgnoreCase(std::string_view a, std::string_view b) noexcept
 {
     // Java's case mappings keep a character within its plane, so equal lengths in code points
