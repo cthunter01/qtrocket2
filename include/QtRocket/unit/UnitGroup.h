@@ -133,7 +133,7 @@ inline constexpr std::array<UnitGroupId, kUnitGroupCount> kAllUnitGroupIds{
 ///
 /// Lookups that fail return a null pointer or false where OpenRocket throws
 /// IllegalArgumentException (getUnit(name), findApproximate, setDefaultUnit(name)); an index out
-/// of range still throws.
+/// of range is a programming error and throws BugError.
 class UnitGroup
 {
 public:
@@ -155,28 +155,29 @@ public:
     static void resetDefaultUnits();
 
     /// UNITS_STABILITY with the caliber and percentage units bound to a constant reference length.
-    /// @throws std::invalid_argument when @p reference is not positive
+    /// @throws BugError when @p reference is not positive
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> stabilityUnits(double reference);
     /// UNITS_SECONDARY_STABILITY bound to a constant reference length.
-    /// @throws std::invalid_argument when @p reference is not positive
+    /// @throws BugError when @p reference is not positive
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> secondaryStabilityUnits(
         double reference);
     /// UNITS_STABILITY with the caliber and percentage units reading the reference length from
     /// @p referenceLengthProvider on every conversion (OpenRocket's Rocket and
     /// FlightConfiguration forms, once the rocket model supplies a provider).
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> stabilityUnits(
-        std::function<double()> referenceLengthProvider);
+        const std::function<double()>& referenceLengthProvider);
     /// UNITS_SECONDARY_STABILITY with a reference length provider.
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> secondaryStabilityUnits(
-        std::function<double()> referenceLengthProvider);
+        const std::function<double()>& referenceLengthProvider);
 
     /// Appends a unit; the group takes ownership.
     void addUnit(std::unique_ptr<Unit> unit);
 
-    [[nodiscard]] virtual int         getUnitCount() const;
+    [[nodiscard]] virtual int getUnitCount() const;
+    /// @throws BugError for a group without units (OpenRocket: IndexOutOfBoundsException)
     [[nodiscard]] virtual const Unit& getDefaultUnit() const;
     [[nodiscard]] int                 getDefaultUnitIndex() const noexcept { return m_defaultUnit; }
-    /// @throws std::invalid_argument when @p n is out of range (OpenRocket:
+    /// @throws BugError when @p n is out of range (OpenRocket:
     /// IllegalArgumentException)
     virtual void setDefaultUnit(int n);
     /// Makes the unit named @p name (exactly) the default; false when the group has no such unit
@@ -192,7 +193,7 @@ public:
     [[nodiscard]] const Unit* findApproximate(std::string_view str) const;
     /// The unit named @p name exactly, or null (OpenRocket throws IllegalArgumentException).
     [[nodiscard]] const Unit* getUnit(std::string_view name) const;
-    /// @throws std::out_of_range when @p n is out of range (OpenRocket: IndexOutOfBoundsException)
+    /// @throws BugError when @p n is out of range (OpenRocket: IndexOutOfBoundsException)
     [[nodiscard]] const Unit& getUnit(int n) const;
     /// The index of the first unit equal to @p u (Unit::equals), or -1.
     [[nodiscard]] int getUnitIndex(const Unit& u) const;
@@ -240,7 +241,7 @@ protected:
 class UnitGroup::StabilityUnitGroup : public UnitGroup
 {
 public:
-    /// @throws std::invalid_argument when @p reference is not positive
+    /// @throws BugError when @p reference is not positive
     StabilityUnitGroup(UnitGroup& stabilityUnit, double reference);
     StabilityUnitGroup(UnitGroup&                     stabilityUnit,
                        const std::function<double()>& referenceLengthProvider);
@@ -297,7 +298,7 @@ private:
 /// The key of the group in OpenRocket's UnitGroup.UNITS map, which the .ork <datatypes> and the
 /// preferences use: "LENGTH", "VELOCITY", "FLIGHT_TIME" for LONG_TIME, ... SHAPE_PARAMETER and
 /// STABILITY_CALIBERS are not in that map; they get their enumerator names.
-[[nodiscard]] std::string_view unitGroupName(UnitGroupId id) noexcept;
+[[nodiscard]] std::string_view unitGroupName(UnitGroupId id);
 
 /// The group with unitGroupName() equal to @p name (exactly), or nullopt.
 [[nodiscard]] std::optional<UnitGroupId> unitGroupFromName(std::string_view name) noexcept;

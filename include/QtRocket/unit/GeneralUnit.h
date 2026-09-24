@@ -29,8 +29,8 @@ public:
     /// @param decimalRounding     round() keeps 1/decimalRounding steps below the significant
     ///                            limit; must be positive
     /// @param stepValue           the step of a spinner in this unit (unused by OpenRocket too)
-    /// @throws std::invalid_argument when @p multiplier is 0; a non-positive count or rounding
-    ///         is a BugError (OpenRocket asserts them, which its runtime does not check)
+    /// @throws BugError when @p multiplier is 0, or when the count or the rounding is not
+    ///         positive (OpenRocket asserts them, which its runtime does not check)
     GeneralUnit(double multiplier, std::string unit, int significantNumbers, int decimalRounding,
                 double stepValue);
 

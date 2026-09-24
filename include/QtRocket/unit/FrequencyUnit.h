@@ -15,7 +15,7 @@ namespace QtRocket
 class FrequencyUnit : public GeneralUnit
 {
 public:
-    /// @throws std::invalid_argument when @p multiplier is 0
+    /// @throws BugError when @p multiplier is 0
     FrequencyUnit(double multiplier, std::string unit);
 
     /// (1 / value) / multiplier.

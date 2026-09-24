@@ -26,7 +26,7 @@ public:
     /// the unit with one that has a reference.
     CaliberUnit();
     /// A constant reference length.
-    /// @throws std::invalid_argument when @p reference is not positive
+    /// @throws BugError when @p reference is not positive
     explicit CaliberUnit(double reference);
     /// A reference length read from @p referenceLengthProvider on every conversion; an empty
     /// provider is the same as no reference.

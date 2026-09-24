@@ -17,8 +17,10 @@ class Value;
 /// subclasses (GeneralUnit, FixedPrecisionUnit, FractionalUnit, ...) differ in how they convert,
 /// round and format. A UnitGroup owns its units and a Value refers to one.
 ///
-/// toString(double) reproduces OpenRocket's DecimalFormat output digit for digit with a point as
-/// the decimal separator, whatever the process locale (OpenRocket follows the default locale).
+/// toString(double) reproduces OpenRocket's DecimalFormat output digit for digit (see
+/// QtRocket::DecimalFormat, which keeps java.text.DecimalFormat's digits and tie rules) with a
+/// point as the decimal separator, whatever the process locale (OpenRocket follows the default
+/// locale).
 ///
 /// Not ported: Unit.toString() with no argument, which returns the unit name (use getUnit()), so
 /// that no subclass overriding toString(double) hides it.
@@ -68,7 +70,7 @@ public:
 
     /// The ticks of an axis from @p start to @p end (SI units); @p minor and @p major are the
     /// smallest distances between minor and between major ticks, in SI units.
-    /// @throws std::invalid_argument when a distance is not positive or major is below minor
+    /// @throws BugError when a distance is not positive or major is below minor
     ///         (OpenRocket: IllegalArgumentException).
     [[nodiscard]] virtual std::vector<Tick> getTicks(double start, double end, double minor,
                                                      double major) const = 0;
@@ -86,7 +88,7 @@ public:
     [[nodiscard]] std::size_t hash() const;
 
 protected:
-    /// @throws std::invalid_argument when @p multiplier is 0 (OpenRocket:
+    /// @throws BugError when @p multiplier is 0 (OpenRocket:
     /// IllegalArgumentException).
     Unit(double multiplier, std::string unit);
     Unit(const Unit&)            = default;
@@ -104,17 +106,6 @@ protected:
     /// ones chosen by the position's remainder modulo the step ratios.
     [[nodiscard]] std::vector<Tick> decimalTicks(double start, double end, double minor,
                                                  double major) const;
-
-    /// java.text.DecimalFormat with a "0.0##"-like pattern: at least @p minFractionDigits and at
-    /// most @p maxFractionDigits decimals, rounded half to even on the exact binary value, the
-    /// zeros beyond the minimum dropped along with a bare point. NaN is "NaN", the infinities
-    /// U+221E with the sign, and a negative value that rounds to zero keeps its sign ("-0",
-    /// "-0.0") as DecimalFormat does. Exact for every pattern OpenRocket's units use ("#",
-    /// "#.###", "0.###", "0.0##", "0.#", "0.0").
-    [[nodiscard]] static std::string formatDecimal(double value, int minFractionDigits,
-                                                   int maxFractionDigits);
-    /// DecimalFormat("#"): formatDecimal(value, 0, 0).
-    [[nodiscard]] static std::string formatInteger(double value);
 
 private:
     double      m_multiplier;

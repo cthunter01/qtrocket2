@@ -1,5 +1,6 @@
 #include "QtRocket/unit/UnitGroup.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <format>
@@ -7,7 +8,6 @@
 #include <memory>
 #include <numbers>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -161,9 +161,13 @@ constexpr std::array<SiUnitEntry, 20> kSiUnits{{
     {.siUnit = "K", .id = UnitGroupId::TEMPERATURE},
 }};
 
-[[nodiscard]] std::size_t indexOf(UnitGroupId id) noexcept
+/// The position of @p id in the group tables; an id cast from an integer out of the enum's range
+/// is a BugError.
+[[nodiscard]] std::size_t indexOf(UnitGroupId id)
 {
-    return static_cast<std::size_t>(id);
+    const auto index = static_cast<std::size_t>(id);
+    QTROCKET_ASSERT(index < kUnitGroupCount);
+    return index;
 }
 
 [[nodiscard]] std::unique_ptr<Unit> general(double multiplier, std::string unit)
@@ -568,16 +572,10 @@ void setDefault(UnitGroupId id, std::string_view name)
 /// (line separator) or U+2029 (paragraph separator), the last three as UTF-8.
 [[nodiscard]] bool holdsLineTerminator(std::string_view text) noexcept
 {
-    for (const std::string_view terminator :
-         {std::string_view("\n"), std::string_view("\r"), std::string_view("\xC2\x85"),
-          std::string_view("\xE2\x80\xA8"), std::string_view("\xE2\x80\xA9")})
-    {
-        if (text.find(terminator) != std::string_view::npos)
-        {
-            return true;
-        }
-    }
-    return false;
+    constexpr std::array<std::string_view, 5> kTerminators{"\n", "\r", "\xC2\x85", "\xE2\x80\xA8",
+                                                           "\xE2\x80\xA9"};
+    return std::ranges::any_of(
+        kTerminators, [text](std::string_view terminator) { return text.contains(terminator); });
 }
 
 /// The character class [0-9.,-] of UnitGroup.STRING_PATTERN.
@@ -678,17 +676,17 @@ std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::secondaryStabilityUnit
 }
 
 std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::stabilityUnits(
-    std::function<double()> referenceLengthProvider)
+    const std::function<double()>& referenceLengthProvider)
 {
     return std::make_unique<StabilityUnitGroup>(unitGroup(UnitGroupId::STABILITY),
-                                                std::move(referenceLengthProvider));
+                                                referenceLengthProvider);
 }
 
 std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::secondaryStabilityUnits(
-    std::function<double()> referenceLengthProvider)
+    const std::function<double()>& referenceLengthProvider)
 {
     return std::make_unique<StabilityUnitGroup>(unitGroup(UnitGroupId::SECONDARY_STABILITY),
-                                                std::move(referenceLengthProvider));
+                                                referenceLengthProvider);
 }
 
 void UnitGroup::addUnit(std::unique_ptr<Unit> unit)
@@ -704,14 +702,16 @@ int UnitGroup::getUnitCount() const
 
 const Unit& UnitGroup::getDefaultUnit() const
 {
-    return *m_units.at(static_cast<std::size_t>(m_defaultUnit));
+    // OpenRocket: List.get's IndexOutOfBoundsException for a group without units
+    QTROCKET_ASSERT(std::cmp_less(m_defaultUnit, m_units.size()));
+    return *m_units[static_cast<std::size_t>(m_defaultUnit)];
 }
 
 void UnitGroup::setDefaultUnit(int n)
 {
     if (n < 0 || std::cmp_greater_equal(n, m_units.size()))
     {
-        throw std::invalid_argument(std::format("index out of range: {}", n));
+        bug(std::format("index out of range: {}", n));
     }
     m_defaultUnit = n;
 }
@@ -768,9 +768,10 @@ const Unit* UnitGroup::getUnit(std::string_view name) const
 
 const Unit& UnitGroup::getUnit(int n) const
 {
+    // OpenRocket: List.get's IndexOutOfBoundsException
     if (n < 0 || std::cmp_greater_equal(n, m_units.size()))
     {
-        throw std::out_of_range(std::format("unit index out of range: {}", n));
+        bug(std::format("unit index out of range: {}", n));
     }
     return *m_units[static_cast<std::size_t>(n)];
 }
@@ -977,7 +978,7 @@ UnitGroup& unitGroup(UnitGroupId id)
     return *registry().groups.at(indexOf(id));
 }
 
-std::string_view unitGroupName(UnitGroupId id) noexcept
+std::string_view unitGroupName(UnitGroupId id)
 {
     return kUnitGroupNames.at(indexOf(id));
 }

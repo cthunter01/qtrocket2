@@ -1,20 +1,23 @@
 #include "QtRocket/unit/FractionalUnit.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <memory>
-#include <stdexcept>
+#include <span>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/unit/Tick.h"
 #include "QtRocket/unit/Unit.h"
+#include "QtRocket/util/BugError.h"
 
 namespace
 {
 
+using QtRocket::BugError;
 using QtRocket::FractionalUnit;
 using QtRocket::Tick;
 using QtRocket::Unit;
@@ -24,14 +27,32 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
 
 // The expected strings were produced by OpenRocket's FractionalUnit on JDK 17 (Locale.US).
 
-const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
-const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
-const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
+/// Steps @p count times down from @p value with getPreviousValue, each step strictly lower.
+void expectStrictlyDecreasing(const FractionalUnit& unit, double value, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        EXPECT_GT(value, unit.getPreviousValue(value));
+        value = unit.getPreviousValue(value);
+    }
+}
+
+/// Steps down from @p value with getPreviousValue, expecting each of @p expected in turn.
+void expectPreviousValues(const FractionalUnit& unit, double value,
+                          std::span<const double> expected)
+{
+    for (const double next : expected)
+    {
+        value = unit.getPreviousValue(value);
+        EXPECT_DOUBLE_EQ(value, next);
+    }
+}
 
 // ---- Ported from FractionalUnitTest.java ----
 
 TEST(FractionalUnit, Round)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
     EXPECT_EQ(-1.0, testUnit.round(-1.125));  // rounds to -1 since mod is even
     EXPECT_EQ(-1.0, testUnit.round(-1.0));
     EXPECT_EQ(-1.0, testUnit.round(-0.875));  // rounds to -1 since mod is even
@@ -71,6 +92,7 @@ TEST(FractionalUnit, Round)
 
 TEST(FractionalUnit, Increment)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
     EXPECT_EQ(-1.0, testUnit.getNextValue(-1.2));
     EXPECT_EQ(-1.0, testUnit.getNextValue(-1.4));
 
@@ -94,6 +116,7 @@ TEST(FractionalUnit, Increment)
 
 TEST(FractionalUnit, Decrement)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
     EXPECT_EQ(-1.5, testUnit.getPreviousValue(-1.2));
     EXPECT_EQ(-1.5, testUnit.getPreviousValue(-1.4));
     EXPECT_EQ(-1.5, testUnit.getPreviousValue(-1.0));
@@ -118,6 +141,7 @@ TEST(FractionalUnit, Decrement)
 
 TEST(FractionalUnit, ToStringDefaultPrecision)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
     // The point is always the decimal separator here (OpenRocket follows the locale).
     EXPECT_EQ(testUnit.toString(-1.2), "-1.2");
     EXPECT_EQ(testUnit.toString(-1.3), "-1.3");
@@ -162,6 +186,7 @@ TEST(FractionalUnit, ToStringDefaultPrecision)
 
 TEST(FractionalUnit, ToStringWithPrecision)
 {
+    const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
     EXPECT_EQ(testUnitApprox.toString(-1.225), "-1.225");
     EXPECT_EQ(testUnitApprox.toString(-1.275), "-1.275");
 
@@ -204,6 +229,7 @@ TEST(FractionalUnit, ToStringWithPrecision)
 
 TEST(FractionalUnit, InchToString)
 {
+    const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     // Just some random test points.
     EXPECT_EQ(inchUnit.toString(1.0 / 64.0 * 0.0254), "¹⁄₆₄");
 
@@ -219,19 +245,16 @@ TEST(FractionalUnit, InchToString)
     EXPECT_EQ(inchUnit.toString(length), "7 ⁷⁄₈");
 
     // had problems with round-off in decrement.
-
-    double v = inchUnit.toUnit(length);
-    for (int i = 0; i < 15; i++)
-    {
-        EXPECT_GT(v, inchUnit.getPreviousValue(v));
-        v = inchUnit.getPreviousValue(v);
-    }
+    expectStrictlyDecreasing(inchUnit, inchUnit.toUnit(length), 15);
 }
 
 // ---- QtRocket additions ----
 
 TEST(FractionalUnit, Properties)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
+    const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     EXPECT_EQ(inchUnit.getUnit(), "in/64");
     EXPECT_EQ(inchUnit.getUnitLabel(), "in");
     EXPECT_EQ(inchUnit.getFractionBase(), 64);
@@ -244,6 +267,7 @@ TEST(FractionalUnit, Properties)
 
 TEST(FractionalUnit, ToStringUnitUsesTheLabel)
 {
+    const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     EXPECT_EQ(inchUnit.toStringUnit(1.0 / 64.0 * 0.0254), "¹⁄₆₄ in");
     EXPECT_EQ(inchUnit.toStringUnit(-5.0 / 64.0 * 0.0254), "-⁵⁄₆₄ in");
     EXPECT_EQ(inchUnit.toStringUnit(9.0 / 2.0 * 0.0254), "4 ¹⁄₂ in");
@@ -254,6 +278,7 @@ TEST(FractionalUnit, ToStringUnitUsesTheLabel)
 
 TEST(FractionalUnit, MoreInchStrings)
 {
+    const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     EXPECT_EQ(inchUnit.toString(0.0254), "1");
     EXPECT_EQ(inchUnit.toString(0.0254 * 3.0 / 128.0), "0.023");
     EXPECT_EQ(inchUnit.toString(0.0254 * 0.0254), "0.025");
@@ -265,19 +290,17 @@ TEST(FractionalUnit, MoreInchStrings)
     EXPECT_EQ(inchUnit.toString(0.0254 * 0.007), "0.007");
 
     // The decrement chain of testInchToString, value for value.
-    const double expected[] = {7.8125, 7.75, 7.6875, 7.625, 7.5625, 7.5, 7.4375, 7.375,
-                               7.3125, 7.25, 7.1875, 7.125, 7.0625, 7.0, 6.9375};
-    double       v          = inchUnit.toUnit(8.0 * 0.025);
-    EXPECT_DOUBLE_EQ(v, 7.874015748031497);
-    for (const double next : expected)
-    {
-        v = inchUnit.getPreviousValue(v);
-        EXPECT_DOUBLE_EQ(v, next);
-    }
+    constexpr std::array kExpected{7.8125, 7.75, 7.6875, 7.625, 7.5625, 7.5, 7.4375, 7.375,
+                                   7.3125, 7.25, 7.1875, 7.125, 7.0625, 7.0, 6.9375};
+    const double         start = inchUnit.toUnit(8.0 * 0.025);
+    EXPECT_DOUBLE_EQ(start, 7.874015748031497);
+    expectPreviousValues(inchUnit, start, kExpected);
 }
 
 TEST(FractionalUnit, ReducedFractionsAndDecimals)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
     EXPECT_EQ(testUnit.toString(0.5), "¹⁄₂");
     EXPECT_EQ(testUnit.toString(1.5), "1 ¹⁄₂");
     EXPECT_EQ(testUnit.toString(2.75), "2 ³⁄₄");
@@ -333,6 +356,8 @@ TEST(FractionalUnit, ReducedFractionsAndDecimals)
 
 TEST(FractionalUnit, NaNAndInfinityFallThroughAsInOpenRocket)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
     // Math.signum(NaN) is NaN, the numerator becomes 0 and the integer part prints as "NaN".
     EXPECT_EQ(testUnit.toString(kNaN), "NaN 0⁄₄");
     EXPECT_EQ(testUnitApprox.toString(kNaN), "NaN 0⁄₁₆");
@@ -344,8 +369,32 @@ TEST(FractionalUnit, NaNAndInfinityFallThroughAsInOpenRocket)
     EXPECT_TRUE(std::isnan(testUnit.getPreviousValue(kInf)));
 }
 
+TEST(FractionalUnit, LargeValuesTiesAndZerosMatchOpenRocket)
+{
+    const FractionalUnit inch64(0.0254, "in/64", "in", 64, 1.0 / 16.0, 0.5 / 64.0);
+    const FractionalUnit quarters(1, "unit", "unit", 4, 0.5);
+    EXPECT_EQ(inch64.toString(368502855063204480.0), "14507986419811201000");
+    EXPECT_EQ(inch64.toString(-748727788667643520.0), "-29477471994789118000");
+    EXPECT_EQ(inch64.toString(5.873443313069121e+23), "23123792571138272000000000");
+    EXPECT_EQ(inch64.toString(-0.0), "0");
+    EXPECT_EQ(inch64.toString(-1e-9), "0");
+    EXPECT_EQ(inch64.toString(0.0254 * ((3.0 / 64) + (0.5 / 64) + 1e-9)), "¹⁄₁₆");
+    EXPECT_EQ(quarters.toString(0x1p69), "590295810358705650000");
+    EXPECT_EQ(quarters.toString(1e23), "99999999999999990000000");
+    EXPECT_EQ(quarters.toString(2.0625), "2.062");
+    EXPECT_EQ(quarters.toString(1.1875), "1.188");
+    EXPECT_EQ(quarters.toString(0.1125), "0.113");
+    EXPECT_EQ(quarters.toString(-0.3375), "-0.338");
+    EXPECT_EQ(quarters.toString(-0.0), "0");
+    EXPECT_EQ(quarters.round(0.125), 0.0);
+    EXPECT_EQ(quarters.round(0.375), 0.5);
+    EXPECT_EQ(quarters.getNextValue(0.75 - 0.025), 1.0);
+    EXPECT_EQ(quarters.getPreviousValue(0.25 + 0.025), 0.0);
+}
+
 TEST(FractionalUnit, RoundNextAndPreviousSweep)
 {
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
     EXPECT_DOUBLE_EQ(testUnit.round(-1.2), -1.25);
     EXPECT_DOUBLE_EQ(testUnit.round(-0.1), 0.0);
     EXPECT_DOUBLE_EQ(testUnit.round(0.7), 0.75);
@@ -376,42 +425,65 @@ TEST(FractionalUnit, RoundNextAndPreviousSweep)
     EXPECT_DOUBLE_EQ(testUnit.getPreviousValue(5.03), 5.0);
 }
 
-TEST(FractionalUnit, TicksStepByHalvings)
+/// testUnit.getTicks(0, 1, 1/32, 0.5): mod3 is 16, mod4 32, and mod2 becomes 5 because it clashed
+/// with mod3 (both 16).
+void expectThirtySecondTick(const Tick& tick, std::size_t i)
 {
-    const std::vector<Tick> ticks = testUnit.getTicks(0, 1, 1.0 / 32.0, 0.5);
+    EXPECT_DOUBLE_EQ(tick.value, static_cast<double>(i) / 32.0) << i;
+    EXPECT_DOUBLE_EQ(tick.unitValue, static_cast<double>(i) / 32.0) << i;
+    EXPECT_EQ(tick.major, i % 16 == 0) << i;
+    EXPECT_EQ(tick.notable, i % 32 == 0 || (i % 16 != 0 && i % 5 == 0)) << i;
+}
+
+void expectThirtySecondsTicks(const std::vector<Tick>& ticks)
+{
     ASSERT_EQ(ticks.size(), 33U);
     for (std::size_t i = 0; i < ticks.size(); i++)
     {
-        EXPECT_DOUBLE_EQ(ticks[i].value, static_cast<double>(i) / 32.0) << i;
-        EXPECT_DOUBLE_EQ(ticks[i].unitValue, static_cast<double>(i) / 32.0) << i;
-        // mod3 is 16, mod4 32, mod2 becomes 5 because it clashed with mod3 (both 16).
-        EXPECT_EQ(ticks[i].major, i % 16 == 0) << i;
-        EXPECT_EQ(ticks[i].notable, i % 32 == 0 || (i % 16 != 0 && i % 5 == 0)) << i;
+        expectThirtySecondTick(ticks[i], i);
     }
+}
 
-    // (0, 3, 0.3, 1.2): steps of 0.5, only the origin major.
-    const std::vector<Tick> coarse = testUnit.getTicks(0, 3, 0.3, 1.2);
-    ASSERT_EQ(coarse.size(), 7U);
-    for (std::size_t i = 0; i < coarse.size(); i++)
+/// testUnit.getTicks(0, 3, 0.3, 1.2): steps of 0.5, only the origin major and notable.
+void expectHalvesTicks(const std::vector<Tick>& ticks)
+{
+    ASSERT_EQ(ticks.size(), 7U);
+    for (std::size_t i = 0; i < ticks.size(); i++)
     {
-        EXPECT_DOUBLE_EQ(coarse[i].value, 0.5 * static_cast<double>(i)) << i;
-        EXPECT_EQ(coarse[i].major, i == 0) << i;
-        EXPECT_EQ(coarse[i].notable, i == 0) << i;
+        EXPECT_DOUBLE_EQ(ticks[i].value, 0.5 * static_cast<double>(i)) << i;
+        EXPECT_EQ(ticks[i].major, i == 0) << i;
+        EXPECT_EQ(ticks[i].notable, i == 0) << i;
     }
+}
 
-    // (-0.6, 0.6, 0.125, 0.25): major every 0.5, notable at 0.
-    const std::vector<Tick> around = testUnit.getTicks(-0.6, 0.6, 0.125, 0.25);
-    ASSERT_EQ(around.size(), 9U);
-    const bool expectedMajor[]   = {true, false, false, false, true, false, false, false, true};
-    const bool expectedNotable[] = {false, false, false, false, true, false, false, false, false};
-    for (std::size_t i = 0; i < around.size(); i++)
+/// testUnit.getTicks(-0.6, 0.6, 0.125, 0.25): major every 0.5, notable at 0.
+void expectEighthsAroundZeroTicks(const std::vector<Tick>& ticks)
+{
+    constexpr std::array kMajor{true, false, false, false, true, false, false, false, true};
+    constexpr std::array kNotable{false, false, false, false, true, false, false, false, false};
+    ASSERT_EQ(ticks.size(), kMajor.size());
+    for (std::size_t i = 0; i < ticks.size(); i++)
     {
-        EXPECT_DOUBLE_EQ(around[i].value, -0.5 + (0.125 * static_cast<double>(i))) << i;
-        EXPECT_EQ(around[i].major, expectedMajor[i]) << i;
-        EXPECT_EQ(around[i].notable, expectedNotable[i]) << i;
+        EXPECT_DOUBLE_EQ(ticks[i].value, -0.5 + (0.125 * static_cast<double>(i))) << i;
+        EXPECT_EQ(ticks[i].major, kMajor.at(i)) << i;
+        EXPECT_EQ(ticks[i].notable, kNotable.at(i)) << i;
     }
+}
 
-    // In inches: the SI values are pos * minstep * 0.0254 as Java computes them.
+TEST(FractionalUnit, TicksStepByHalvings)
+{
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    expectThirtySecondsTicks(testUnit.getTicks(0, 1, 1.0 / 32.0, 0.5));
+    expectHalvesTicks(testUnit.getTicks(0, 3, 0.3, 1.2));
+    expectEighthsAroundZeroTicks(testUnit.getTicks(-0.6, 0.6, 0.125, 0.25));
+    EXPECT_THROW(static_cast<void>(testUnit.getTicks(0, 1, 0, 1)), BugError);
+    EXPECT_THROW(static_cast<void>(testUnit.getTicks(0, 1, 0.5, 0.25)), BugError);
+}
+
+TEST(FractionalUnit, InchTicksAreSiValuesOfTheInchPositions)
+{
+    // The SI values are pos * minstep * 0.0254 as Java computes them.
+    const FractionalUnit    inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     const std::vector<Tick> inches = inchUnit.getTicks(0, 0.0254 * 2, 0.0254 / 16, 0.0254 / 2);
     ASSERT_EQ(inches.size(), 33U);
     EXPECT_DOUBLE_EQ(inches[3].value, 0.004762499999999999);
@@ -432,13 +504,13 @@ TEST(FractionalUnit, TicksStepByHalvings)
     EXPECT_DOUBLE_EQ(partial[5].unitValue, 1.75);
     EXPECT_TRUE(partial[2].major);
     EXPECT_FALSE(partial[2].notable);
-
-    EXPECT_THROW(static_cast<void>(testUnit.getTicks(0, 1, 0, 1)), std::invalid_argument);
-    EXPECT_THROW(static_cast<void>(testUnit.getTicks(0, 1, 0.5, 0.25)), std::invalid_argument);
 }
 
 TEST(FractionalUnit, CloneAndEquality)
 {
+    const FractionalUnit        testUnit(1, "unit", "unit", 4, 0.5);
+    const FractionalUnit        testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
+    const FractionalUnit        inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     const std::unique_ptr<Unit> copy = inchUnit.clone();
     ASSERT_NE(dynamic_cast<const FractionalUnit*>(copy.get()), nullptr);
     EXPECT_EQ(copy->toStringUnit(0.0254), "1 in");

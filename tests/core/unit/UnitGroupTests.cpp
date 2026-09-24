@@ -2,11 +2,11 @@
 
 #include <cstddef>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <numbers>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -71,14 +71,30 @@ protected:
     void TearDown() override { UnitGroup::resetDefaultUnits(); }
 };
 
+/// A unit of UnitGroup.java: its name and multiplier. A constructor, not an aggregate, so that
+/// the table below stays one pair per unit.
 struct ExpectedUnit
 {
+    ExpectedUnit(std::string unitName, double unitMultiplier)
+      : name(std::move(unitName)), multiplier(unitMultiplier)
+    {
+    }
+
     std::string name;
     double      multiplier;
 };
 
 struct ExpectedGroup
 {
+    ExpectedGroup(UnitGroupId groupId, std::string_view groupJavaName, std::string groupDefaultUnit,
+                  std::vector<ExpectedUnit> groupUnits)
+      : id(groupId),
+        javaName(groupJavaName),
+        defaultUnit(std::move(groupDefaultUnit)),
+        units(std::move(groupUnits))
+    {
+    }
+
     UnitGroupId               id;
     std::string_view          javaName;  ///< the UNITS map key, empty when not in the map
     std::string               defaultUnit;
@@ -284,23 +300,56 @@ TEST_F(UnitGroupTest, ThereAreFortyThreeDistinctGroups)
     EXPECT_EQ(instances.size(), 43U);
 }
 
-TEST_F(UnitGroupTest, UnitsMultipliersOrderAndDefaultsMatchUnitGroupJava)
+void expectUnitMatches(const UnitGroup& group, const ExpectedUnit& expected, std::size_t i,
+                       const std::string& where)
+{
+    const Unit& unit = group.getUnit(static_cast<int>(i));
+    EXPECT_EQ(unit.getUnit(), expected.name) << where << " unit " << i;
+    EXPECT_EQ(unit.getMultiplier(), expected.multiplier) << where << " unit " << i;
+    EXPECT_EQ(group.getUnits()[i], &unit) << where;
+    EXPECT_EQ(group.getUnitIndex(unit), static_cast<int>(i)) << where;
+}
+
+void expectGroupMatches(const ExpectedGroup& expected)
+{
+    const UnitGroup& group = unitGroup(expected.id);
+    const auto       where = std::string(unitGroupName(expected.id));
+    ASSERT_EQ(group.getUnitCount(), static_cast<int>(expected.units.size())) << where;
+    ASSERT_EQ(group.getUnits().size(), expected.units.size()) << where;
+    for (std::size_t i = 0; i < expected.units.size(); i++)
+    {
+        expectUnitMatches(group, expected.units[i], i, where);
+    }
+    EXPECT_EQ(group.getDefaultUnit().getUnit(), expected.defaultUnit) << where;
+}
+
+/// Every group has UnitGroup.java's initial default unit.
+void expectInitialDefaults()
 {
     for (const ExpectedGroup& expected : expectedGroups())
     {
         const UnitGroup& group = unitGroup(expected.id);
-        const auto       where = std::string(unitGroupName(expected.id));
-        ASSERT_EQ(group.getUnitCount(), static_cast<int>(expected.units.size())) << where;
-        ASSERT_EQ(group.getUnits().size(), expected.units.size()) << where;
-        for (std::size_t i = 0; i < expected.units.size(); i++)
-        {
-            const Unit& unit = group.getUnit(static_cast<int>(i));
-            EXPECT_EQ(unit.getUnit(), expected.units[i].name) << where << " unit " << i;
-            EXPECT_EQ(unit.getMultiplier(), expected.units[i].multiplier) << where << " unit " << i;
-            EXPECT_EQ(group.getUnits()[i], &unit) << where;
-            EXPECT_EQ(group.getUnitIndex(unit), static_cast<int>(i)) << where;
-        }
-        EXPECT_EQ(group.getDefaultUnit().getUnit(), expected.defaultUnit) << where;
+        EXPECT_EQ(group.getDefaultUnit().getUnit(), expected.defaultUnit)
+            << unitGroupName(expected.id);
+        EXPECT_EQ(group.getDefaultUnitIndex(), group.getUnitIndex(group.getDefaultUnit()));
+    }
+}
+
+/// Units @p first to @p last (excluded) of @p group are of class T.
+template <class T>
+void expectUnitsOfClass(const UnitGroup& group, int first, int last)
+{
+    for (int i = first; i < last; i++)
+    {
+        EXPECT_NE(dynamic_cast<const T*>(&group.getUnit(i)), nullptr) << i;
+    }
+}
+
+TEST_F(UnitGroupTest, UnitsMultipliersOrderAndDefaultsMatchUnitGroupJava)
+{
+    for (const ExpectedGroup& expected : expectedGroups())
+    {
+        expectGroupMatches(expected);
     }
 }
 
@@ -350,17 +399,8 @@ TEST_F(UnitGroupTest, UnitsHaveTheirJavaClasses)
     EXPECT_EQ(ms->getPrecision(), 1.0);
     EXPECT_EQ(ms->getDecimals(), 0);
 
-    for (int i = 0; i < 3; i++)
-    {
-        EXPECT_NE(dynamic_cast<const FrequencyUnit*>(&unitGroup(UnitGroupId::FREQUENCY).getUnit(i)),
-                  nullptr);
-    }
-    for (int i = 0; i < 6; i++)
-    {
-        EXPECT_NE(
-            dynamic_cast<const FixedPrecisionUnit*>(&unitGroup(UnitGroupId::PRESSURE).getUnit(i)),
-            nullptr);
-    }
+    expectUnitsOfClass<FrequencyUnit>(unitGroup(UnitGroupId::FREQUENCY), 0, 3);
+    expectUnitsOfClass<FixedPrecisionUnit>(unitGroup(UnitGroupId::PRESSURE), 0, 6);
     EXPECT_NE(dynamic_cast<const GeneralUnit*>(&unitGroup(UnitGroupId::PRESSURE).getUnit(6)),
               nullptr);
 
@@ -378,20 +418,33 @@ TEST_F(UnitGroupTest, UnitsHaveTheirJavaClasses)
     EXPECT_EQ(relative->getMultiplier(), 0.001);
 }
 
+void expectCaliberPlaceholder(const Unit& unit)
+{
+    const auto* caliber = dynamic_cast<const CaliberUnit*>(&unit);
+    ASSERT_NE(caliber, nullptr);
+    EXPECT_FALSE(caliber->hasReference());
+}
+
+void expectPercentagePlaceholder(const Unit& unit)
+{
+    const auto* percent = dynamic_cast<const PercentageOfLengthUnit*>(&unit);
+    ASSERT_NE(percent, nullptr);
+    EXPECT_FALSE(percent->hasReference());
+}
+
 TEST_F(UnitGroupTest, StabilityPlaceholdersHaveNoReference)
 {
-    for (const UnitGroupId id : {UnitGroupId::STABILITY, UnitGroupId::SECONDARY_STABILITY})
-    {
-        const UnitGroup& group   = unitGroup(id);
-        const auto*      caliber = dynamic_cast<const CaliberUnit*>(&group.getUnit(4));
-        ASSERT_NE(caliber, nullptr);
-        EXPECT_FALSE(caliber->hasReference());
-        EXPECT_THROW(static_cast<void>(caliber->toUnit(1.0)), BugError);
-        const auto* percent = dynamic_cast<const PercentageOfLengthUnit*>(&group.getUnit(5));
-        ASSERT_NE(percent, nullptr);
-        EXPECT_FALSE(percent->hasReference());
-        EXPECT_THROW(static_cast<void>(percent->fromUnit(1.0)), BugError);
-    }
+    expectCaliberPlaceholder(unitGroup(UnitGroupId::STABILITY).getUnit(4));
+    expectPercentagePlaceholder(unitGroup(UnitGroupId::STABILITY).getUnit(5));
+    expectCaliberPlaceholder(unitGroup(UnitGroupId::SECONDARY_STABILITY).getUnit(4));
+    expectPercentagePlaceholder(unitGroup(UnitGroupId::SECONDARY_STABILITY).getUnit(5));
+    // Converting without a reference is a bug.
+    const UnitGroup& stability = unitGroup(UnitGroupId::STABILITY);
+    const UnitGroup& secondary = unitGroup(UnitGroupId::SECONDARY_STABILITY);
+    EXPECT_THROW(static_cast<void>(stability.getUnit(4).toUnit(1.0)), BugError);
+    EXPECT_THROW(static_cast<void>(stability.getUnit(5).fromUnit(1.0)), BugError);
+    EXPECT_THROW(static_cast<void>(secondary.getUnit(4).toUnit(1.0)), BugError);
+    EXPECT_THROW(static_cast<void>(secondary.getUnit(5).fromUnit(1.0)), BugError);
     // UNITS_STABILITY_CALIBERS holds a plain unit that never scales.
     const UnitGroup& calibers = unitGroup(UnitGroupId::STABILITY_CALIBERS);
     EXPECT_EQ(dynamic_cast<const CaliberUnit*>(&calibers.getUnit(0)), nullptr);
@@ -399,7 +452,8 @@ TEST_F(UnitGroupTest, StabilityPlaceholdersHaveNoReference)
     EXPECT_EQ(calibers.toStringUnit(2.5), "2.5 cal");
 }
 
-TEST_F(UnitGroupTest, NamesRoundTripAndUseTheJavaMapKeys)
+/// Every group's name maps back to it, and the names are distinct.
+void expectNamesRoundTrip()
 {
     std::set<std::string_view> names;
     for (const UnitGroupId id : kAllUnitGroupIds)
@@ -410,6 +464,11 @@ TEST_F(UnitGroupTest, NamesRoundTripAndUseTheJavaMapKeys)
         names.insert(name);
     }
     EXPECT_EQ(names.size(), 43U);
+}
+
+/// The names of the groups in UnitGroup.UNITS are its keys.
+void expectJavaMapKeys()
+{
     for (const ExpectedGroup& expected : expectedGroups())
     {
         if (!expected.javaName.empty())
@@ -417,6 +476,12 @@ TEST_F(UnitGroupTest, NamesRoundTripAndUseTheJavaMapKeys)
             EXPECT_EQ(unitGroupName(expected.id), expected.javaName);
         }
     }
+}
+
+TEST_F(UnitGroupTest, NamesRoundTripAndUseTheJavaMapKeys)
+{
+    expectNamesRoundTrip();
+    expectJavaMapKeys();
     EXPECT_EQ(unitGroupName(UnitGroupId::LONG_TIME), "FLIGHT_TIME");
     EXPECT_EQ(unitGroupFromName("FLIGHT_TIME"), UnitGroupId::LONG_TIME);
     EXPECT_EQ(unitGroupFromName("LENGTH"), UnitGroupId::LENGTH);
@@ -531,13 +596,7 @@ TEST_F(UnitGroupTest, ImperialDefaults)
 
     // resetDefaultUnits puts everything back.
     UnitGroup::resetDefaultUnits();
-    for (const ExpectedGroup& expected : expectedGroups())
-    {
-        EXPECT_EQ(unitGroup(expected.id).getDefaultUnit().getUnit(), expected.defaultUnit)
-            << unitGroupName(expected.id);
-        EXPECT_EQ(unitGroup(expected.id).getDefaultUnitIndex(),
-                  unitGroup(expected.id).getUnitIndex(unitGroup(expected.id).getDefaultUnit()));
-    }
+    expectInitialDefaults();
 }
 
 TEST_F(UnitGroupTest, SetDefaultUnitByIndexAndName)
@@ -551,17 +610,17 @@ TEST_F(UnitGroupTest, SetDefaultUnitByIndexAndName)
     EXPECT_FALSE(mass.setDefaultUnit("OZ"));  // exact name only, as UnitGroup.setDefaultUnit
     EXPECT_FALSE(mass.setDefaultUnit("stone"));
     EXPECT_EQ(mass.getDefaultUnitIndex(), 2);  // a failed lookup changes nothing
-    EXPECT_THROW(mass.setDefaultUnit(4), std::invalid_argument);
-    EXPECT_THROW(mass.setDefaultUnit(-1), std::invalid_argument);
+    EXPECT_THROW(mass.setDefaultUnit(4), BugError);
+    EXPECT_THROW(mass.setDefaultUnit(-1), BugError);
     EXPECT_EQ(mass.getDefaultUnitIndex(), 2);
     try
     {
         mass.setDefaultUnit(4);
         FAIL();
     }
-    catch (const std::invalid_argument& e)
+    catch (const BugError& e)
     {
-        EXPECT_STREQ(e.what(), "index out of range: 4");
+        EXPECT_TRUE(std::string_view(e.what()).starts_with("BUG: index out of range: 4 ("));
     }
 }
 
@@ -574,8 +633,8 @@ TEST_F(UnitGroupTest, LookupsByNameIndexAndApproximation)
     EXPECT_EQ(length.getUnit("IN"), nullptr);  // exact
     EXPECT_EQ(length.getUnit("furlong"), nullptr);
     EXPECT_EQ(length.getUnit(""), nullptr);
-    EXPECT_THROW(static_cast<void>(length.getUnit(6)), std::out_of_range);
-    EXPECT_THROW(static_cast<void>(length.getUnit(-1)), std::out_of_range);
+    EXPECT_THROW(static_cast<void>(length.getUnit(6)), BugError);
+    EXPECT_THROW(static_cast<void>(length.getUnit(-1)), BugError);
 
     // findApproximate keeps only ASCII letters, digits and underscores, ignoring case.
     EXPECT_EQ(length.findApproximate("in"), &length.getUnit(3));  // "in" before "in/64"
@@ -612,6 +671,15 @@ TEST_F(UnitGroupTest, LookupsByNameIndexAndApproximation)
     EXPECT_FALSE(length.contains(GeneralUnit(1, "furlong")));
 }
 
+void expectEverySiUnitHasMultiplierOne()
+{
+    for (const UnitGroupId id : kAllUnitGroupIds)
+    {
+        EXPECT_EQ(unitGroup(id).getSIUnit().getMultiplier(), 1.0) << unitGroupName(id);
+        EXPECT_TRUE(unitGroup(id).contains(unitGroup(id).getSIUnit())) << unitGroupName(id);
+    }
+}
+
 TEST_F(UnitGroupTest, SiUnitIsTheFirstWithMultiplierOne)
 {
     EXPECT_EQ(unitGroup(UnitGroupId::LENGTH).getSIUnit().getUnit(), "m");
@@ -624,11 +692,7 @@ TEST_F(UnitGroupTest, SiUnitIsTheFirstWithMultiplierOne)
     EXPECT_EQ(unitGroup(UnitGroupId::RELATIVE).getSIUnit().getUnit(), kZwsp);
     EXPECT_EQ(unitGroup(UnitGroupId::FREQUENCY).getSIUnit().getUnit(), "Hz");
     EXPECT_EQ(unitGroup(UnitGroupId::NONE).getSIUnit().getUnit(), kZwsp);
-    for (const UnitGroupId id : kAllUnitGroupIds)
-    {
-        EXPECT_EQ(unitGroup(id).getSIUnit().getMultiplier(), 1.0) << unitGroupName(id);
-        EXPECT_TRUE(unitGroup(id).contains(unitGroup(id).getSIUnit())) << unitGroupName(id);
-    }
+    expectEverySiUnitHasMultiplierOne();
 
     // Without a unit of multiplier 1, UNITS_NONE's default unit stands in.
     UnitGroup custom;
@@ -639,7 +703,7 @@ TEST_F(UnitGroupTest, SiUnitIsTheFirstWithMultiplierOne)
     EXPECT_EQ(custom.getUnitCount(), 2);
     EXPECT_EQ(custom.getDefaultUnitIndex(), 0);
     EXPECT_EQ(custom.getDefaultUnit().getUnit(), "double");
-    EXPECT_THROW(static_cast<void>(UnitGroup().getDefaultUnit()), std::out_of_range);
+    EXPECT_THROW(static_cast<void>(UnitGroup().getDefaultUnit()), BugError);
 }
 
 TEST_F(UnitGroupTest, DelegatesToTheDefaultUnit)
@@ -667,6 +731,16 @@ TEST_F(UnitGroupTest, DelegatesToTheDefaultUnit)
     EXPECT_EQ(unitGroup(UnitGroupId::ROLL).toStringUnit(kPi), "180 °/s");
 }
 
+void expectParseFailures(const UnitGroup& group, std::initializer_list<std::string_view> inputs)
+{
+    for (const std::string_view bad : inputs)
+    {
+        const auto result = group.fromString(bad);
+        ASSERT_FALSE(result.has_value()) << bad;
+        EXPECT_EQ(result.error().code, ErrorCode::PARSE) << bad;
+    }
+}
+
 TEST_F(UnitGroupTest, FromStringParsesValueAndOptionalUnit)
 {
     const UnitGroup& length = unitGroup(UnitGroupId::LENGTH);  // default cm
@@ -682,13 +756,8 @@ TEST_F(UnitGroupTest, FromStringParsesValueAndOptionalUnit)
     EXPECT_DOUBLE_EQ(unitGroup(UnitGroupId::TEMPERATURE).fromString("10 °C").value(), 283.15);
     EXPECT_DOUBLE_EQ(unitGroup(UnitGroupId::TEMPERATURE).fromString("50 °f").value(), 283.15);
 
-    for (const std::string_view bad :
-         {"", "   ", "abc", "mm", "12 furlong", "1e3", "1.5 mm\n", "12.5 mm km", "- 5 cm", "--5"})
-    {
-        const auto result = length.fromString(bad);
-        ASSERT_FALSE(result.has_value()) << bad;
-        EXPECT_EQ(result.error().code, ErrorCode::PARSE) << bad;
-    }
+    expectParseFailures(length, {"", "   ", "abc", "mm", "12 furlong", "1e3", "1.5 mm\n",
+                                 "12.5 mm km", "- 5 cm", "--5"});
     EXPECT_EQ(length.fromString("abc").error().message, "string did not match required pattern");
     EXPECT_EQ(length.fromString("12 furlong").error().message, "unknown unit furlong");
 }
@@ -752,11 +821,11 @@ TEST_F(UnitGroupTest, StabilityUnitGroupBindsAReferenceLength)
     EXPECT_TRUE(group->setDefaultUnit("%"));
     EXPECT_EQ(stability.getDefaultUnit().getUnit(), "%");
     EXPECT_EQ(group->toStringUnit(0.025), "50 %");
-    EXPECT_THROW(group->setDefaultUnit(6), std::invalid_argument);
+    EXPECT_THROW(group->setDefaultUnit(6), BugError);
 
-    EXPECT_THROW(static_cast<void>(UnitGroup::stabilityUnits(0.0)), std::invalid_argument);
-    EXPECT_THROW(static_cast<void>(UnitGroup::stabilityUnits(-1.0)), std::invalid_argument);
-    EXPECT_THROW(static_cast<void>(UnitGroup::secondaryStabilityUnits(0.0)), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(UnitGroup::stabilityUnits(0.0)), BugError);
+    EXPECT_THROW(static_cast<void>(UnitGroup::stabilityUnits(-1.0)), BugError);
+    EXPECT_THROW(static_cast<void>(UnitGroup::secondaryStabilityUnits(0.0)), BugError);
 }
 
 TEST_F(UnitGroupTest, SecondaryStabilityUnitGroupAndProviders)
@@ -768,20 +837,6 @@ TEST_F(UnitGroupTest, SecondaryStabilityUnitGroupAndProviders)
     EXPECT_EQ(constant->getDefaultUnit().getUnit(), "%");
     EXPECT_EQ(constant->toStringUnit(0.1), "20 %");
     EXPECT_DOUBLE_EQ(constant->getUnit(4).toUnit(0.1), 0.2);
-
-    double                                               reference = 0.1;
-    const std::unique_ptr<UnitGroup::StabilityUnitGroup> dynamic =
-        UnitGroup::stabilityUnits([&reference] { return reference; });
-    EXPECT_EQ(dynamic->getDefaultUnit().getUnit(), "cal");
-    EXPECT_DOUBLE_EQ(dynamic->fromUnit(2.0), 0.2);
-    reference = 0.2;
-    EXPECT_DOUBLE_EQ(dynamic->fromUnit(2.0), 0.4);
-    EXPECT_DOUBLE_EQ(dynamic->getPercentageOfLengthUnit().toUnit(0.1), 50.0);
-    const std::unique_ptr<UnitGroup::StabilityUnitGroup> dynamicSecondary =
-        UnitGroup::secondaryStabilityUnits([&reference] { return reference; });
-    EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "50 %");
-    reference = 0.4;
-    EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "25 %");
 
     // A provider-less group keeps the placeholders' behaviour.
     const std::unique_ptr<UnitGroup::StabilityUnitGroup> empty =
@@ -796,6 +851,30 @@ TEST_F(UnitGroupTest, SecondaryStabilityUnitGroupAndProviders)
     EXPECT_EQ(fromPlain.getUnitCount(), 1);
     EXPECT_DOUBLE_EQ(fromPlain.getPercentageOfLengthUnit().toUnit(1.0), 50.0);
     EXPECT_FALSE(fromPlain.contains(fromPlain.getPercentageOfLengthUnit()));
+}
+
+TEST_F(UnitGroupTest, StabilityProvidersAreReadOnEveryConversion)
+{
+    double                        reference = 0.1;
+    const std::function<double()> provider  = [&reference] { return reference; };
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> dynamic =
+        UnitGroup::stabilityUnits(provider);
+    EXPECT_EQ(dynamic->getDefaultUnit().getUnit(), "cal");
+    EXPECT_DOUBLE_EQ(dynamic->fromUnit(2.0), 0.2);
+    reference = 0.2;
+    EXPECT_DOUBLE_EQ(dynamic->fromUnit(2.0), 0.4);
+    EXPECT_DOUBLE_EQ(dynamic->getPercentageOfLengthUnit().toUnit(0.1), 50.0);
+}
+
+TEST_F(UnitGroupTest, SecondaryStabilityProvidersAreReadOnEveryConversion)
+{
+    double                        reference = 0.2;
+    const std::function<double()> provider  = [&reference] { return reference; };
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> dynamicSecondary =
+        UnitGroup::secondaryStabilityUnits(provider);
+    EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "50 %");
+    reference = 0.4;
+    EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "25 %");
 }
 
 TEST_F(UnitGroupTest, FixedUnitGroupIsOneArbitraryUnit)
@@ -817,7 +896,7 @@ TEST_F(UnitGroupTest, FixedUnitGroupIsOneArbitraryUnit)
     EXPECT_DOUBLE_EQ(furlongs.fromString("7 furlong").value(), 7.0);
     EXPECT_FALSE(furlongs.equals(unitGroup(UnitGroupId::SHORT_TIME)));
     EXPECT_TRUE(furlongs.equals(FixedUnitGroup("furlong")));
-    EXPECT_THROW(static_cast<void>(furlongs.getUnit(1)), std::out_of_range);
+    EXPECT_THROW(static_cast<void>(furlongs.getUnit(1)), BugError);
 }
 
 }  // namespace

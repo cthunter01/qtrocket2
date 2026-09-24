@@ -3,8 +3,10 @@ target_sources(QtRocket_core PRIVATE
     BugError.cpp
     Color.cpp
     Coordinate.cpp
+    DecimalFormat.cpp
     Error.cpp
     FileIo.cpp
+    FloatingDecimal.cpp
     GeodeticComputationStrategy.cpp
     Geometry2D.cpp
     LinearInterpolator.cpp

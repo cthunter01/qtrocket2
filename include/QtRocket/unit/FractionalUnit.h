@@ -25,7 +25,7 @@ public:
     /// @param fractionBase   the denominator of the finest fraction, e.g. 64
     /// @param incrementValue the step of getNextValue() and getPreviousValue()
     /// @param epsilon        the largest distance from a fraction still shown as that fraction
-    /// @throws std::invalid_argument when @p multiplier is 0
+    /// @throws BugError when @p multiplier is 0
     FractionalUnit(double multiplier, std::string unit, std::string unitLabel, int fractionBase,
                    double incrementValue, double epsilon);
 

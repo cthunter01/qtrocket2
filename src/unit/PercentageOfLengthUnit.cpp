@@ -2,7 +2,6 @@
 
 #include <functional>
 #include <memory>
-#include <stdexcept>
 #include <utility>
 
 #include "QtRocket/unit/GeneralUnit.h"
@@ -20,8 +19,7 @@ PercentageOfLengthUnit::PercentageOfLengthUnit(double reference)
 {
     if (reference <= 0)
     {
-        throw std::invalid_argument("Illegal reference = " +
-                                    Strings::javaDoubleToString(reference));
+        bug("Illegal reference = " + Strings::javaDoubleToString(reference));
     }
 }
 

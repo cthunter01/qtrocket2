@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,12 +12,14 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialGroup.h"
 #include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Signal.h"
 
 namespace
 {
 
 using QtRocket::addBuiltinMaterials;
+using QtRocket::BugError;
 using QtRocket::Material;
 using QtRocket::MaterialDatabase;
 using QtRocket::MaterialGroup;
@@ -36,46 +37,48 @@ Material bulk(const std::string& name, double density,
 class MaterialDatabaseTest : public ::testing::Test
 {
 protected:
-    MaterialDatabaseTest() { addBuiltinMaterials(databases); }
+    MaterialDatabaseTest() { addBuiltinMaterials(m_databases); }
 
-    MaterialStorage databases;
+    MaterialStorage m_databases;
 };
 
 TEST_F(MaterialDatabaseTest, DatabasesInitialization)
 {
-    EXPECT_FALSE(databases.bulkMaterials().empty());
-    EXPECT_FALSE(databases.surfaceMaterials().empty());
-    EXPECT_FALSE(databases.lineMaterials().empty());
+    EXPECT_FALSE(m_databases.bulkMaterials().empty());
+    EXPECT_FALSE(m_databases.surfaceMaterials().empty());
+    EXPECT_FALSE(m_databases.lineMaterials().empty());
 }
 
 /// Verify the exact number of built-in materials so accidental removals or duplicate additions
 /// cannot silently reduce or expand the choices presented to users.
 TEST_F(MaterialDatabaseTest, DefaultMaterialCounts)
 {
-    EXPECT_EQ(databases.bulkMaterials().size(), 32U);
-    EXPECT_EQ(databases.surfaceMaterials().size(), 8U);
-    EXPECT_EQ(databases.lineMaterials().size(), 42U);
+    EXPECT_EQ(m_databases.bulkMaterials().size(), 32U);
+    EXPECT_EQ(m_databases.surfaceMaterials().size(), 8U);
+    EXPECT_EQ(m_databases.lineMaterials().size(), 42U);
 
-    const std::size_t totalMaterialCount = databases.bulkMaterials().size() +
-                                           databases.surfaceMaterials().size() +
-                                           databases.lineMaterials().size();
+    const std::size_t totalMaterialCount = m_databases.bulkMaterials().size() +
+                                           m_databases.surfaceMaterials().size() +
+                                           m_databases.lineMaterials().size();
     EXPECT_EQ(totalMaterialCount, 82U);
-    EXPECT_EQ(databases.totalMaterialCount(), 82U);
+    EXPECT_EQ(m_databases.totalMaterialCount(), 82U);
 }
 
 TEST_F(MaterialDatabaseTest, FindMaterialByTypeAndName)
 {
-    const std::optional<Material> aluminum = databases.findMaterial(Type::BULK, "Aluminum");
-    ASSERT_TRUE(aluminum.has_value());
-    EXPECT_EQ(aluminum->getName(), "Aluminum");
-    EXPECT_EQ(aluminum->getType(), Type::BULK);
-    EXPECT_NEAR(aluminum->getDensity(), 2700, 0.001);
+    const std::optional<Material> found = m_databases.findMaterial(Type::BULK, "Aluminum");
+    ASSERT_TRUE(found.has_value());
+    const Material aluminum =
+        found.value_or(Material::newMaterial(Type::CUSTOM, "<not found>", 0, true));
+    EXPECT_EQ(aluminum.getName(), "Aluminum");
+    EXPECT_EQ(aluminum.getType(), Type::BULK);
+    EXPECT_NEAR(aluminum.getDensity(), 2700, 0.001);
 }
 
 TEST_F(MaterialDatabaseTest, FindMaterialByTypeNameAndDensity)
 {
     const Material customMaterial =
-        databases.findMaterial(Type::BULK, "CustomMaterial", 1000, MaterialGroup::PLASTICS);
+        m_databases.findMaterial(Type::BULK, "CustomMaterial", 1000, MaterialGroup::PLASTICS);
     EXPECT_EQ(customMaterial.getName(), "CustomMaterial");
     EXPECT_EQ(customMaterial.getType(), Type::BULK);
     EXPECT_NEAR(customMaterial.getDensity(), 1000, 0.001);
@@ -85,20 +88,20 @@ TEST_F(MaterialDatabaseTest, FindMaterialByTypeNameAndDensity)
 
 TEST_F(MaterialDatabaseTest, GetDatabase)
 {
-    EXPECT_EQ(&databases.database(Type::BULK), &databases.bulkMaterials());
-    EXPECT_EQ(&databases.database(Type::SURFACE), &databases.surfaceMaterials());
-    EXPECT_EQ(&databases.database(Type::LINE), &databases.lineMaterials());
-    const MaterialStorage& constDatabases = databases;
-    EXPECT_EQ(&constDatabases.database(Type::LINE), &databases.lineMaterials());
+    EXPECT_EQ(&m_databases.database(Type::BULK), &m_databases.bulkMaterials());
+    EXPECT_EQ(&m_databases.database(Type::SURFACE), &m_databases.surfaceMaterials());
+    EXPECT_EQ(&m_databases.database(Type::LINE), &m_databases.lineMaterials());
+    const MaterialStorage& constDatabases = m_databases;
+    EXPECT_EQ(&constDatabases.database(Type::LINE), &m_databases.lineMaterials());
 }
 
 TEST_F(MaterialDatabaseTest, GetDatabaseInvalidType)
 {
     // Java: getDatabase(null) throws a NullPointerException; the type that has no database here
     // is CUSTOM (OpenRocket: IllegalArgumentException).
-    EXPECT_THROW(static_cast<void>(databases.database(Type::CUSTOM)), std::invalid_argument);
-    const MaterialStorage& constDatabases = databases;
-    EXPECT_THROW(static_cast<void>(constDatabases.database(Type::CUSTOM)), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(m_databases.database(Type::CUSTOM)), BugError);
+    const MaterialStorage& constDatabases = m_databases;
+    EXPECT_THROW(static_cast<void>(constDatabases.database(Type::CUSTOM)), BugError);
 }
 
 // ---- QtRocket additions: the Database<T> container itself ----
@@ -111,7 +114,7 @@ TEST(MaterialDatabase, StartsEmpty)
     EXPECT_EQ(db.begin(), db.end());
     EXPECT_EQ(db.indexOf(bulk("x", 1.0)), -1);
     EXPECT_FALSE(db.contains(bulk("x", 1.0)));
-    EXPECT_THROW(static_cast<void>(db.get(0)), std::out_of_range);
+    EXPECT_THROW(static_cast<void>(db.get(0)), BugError);
 }
 
 TEST(MaterialDatabase, KeepsMaterialsInNaturalOrder)
@@ -124,7 +127,7 @@ TEST(MaterialDatabase, KeepsMaterialsInNaturalOrder)
     EXPECT_EQ(db.get(0).getName(), "Aluminum");
     EXPECT_EQ(db.get(1).getName(), "Balsa");
     EXPECT_EQ(db.get(2).getName(), "Delrin");
-    EXPECT_THROW(static_cast<void>(db.get(3)), std::out_of_range);
+    EXPECT_THROW(static_cast<void>(db.get(3)), BugError);
 
     std::vector<std::string> names;
     for (const Material& m : db)
@@ -200,23 +203,15 @@ TEST(MaterialDatabase, RemoveTakesTheFirstEqualMaterial)
     EXPECT_TRUE(db.empty());
 }
 
-TEST(MaterialDatabase, SignalsAdditionsAndRemovals)
+TEST(MaterialDatabase, SignalsAdditions)
 {
     MaterialDatabase         db;
     std::vector<std::string> added;
-    std::vector<std::string> removed;
     const MaterialDatabase*  source = nullptr;
-    const auto               addedConnection =
-        db.materialAdded.connect([&](const Material& m, const MaterialDatabase& from) {
-            added.push_back(m.getName());
-            source = &from;
-        });
-    const auto removedConnection =
-        db.materialRemoved.connect([&](const Material& m, const MaterialDatabase& from) {
-            removed.push_back(m.getName());
-            source = &from;
-        });
-
+    db.materialAdded.connect([&added, &source](const Material& m, const MaterialDatabase& from) {
+        added.push_back(m.getName());
+        source = &from;
+    });
     db.add(bulk("Balsa", 170));
     EXPECT_EQ(added, (std::vector<std::string>{"Balsa"}));
     EXPECT_EQ(source, &db);
@@ -224,21 +219,41 @@ TEST(MaterialDatabase, SignalsAdditionsAndRemovals)
     EXPECT_EQ(added.size(), 1U);
     db.add(bulk("Aluminum", 2700));
     EXPECT_EQ(added, (std::vector<std::string>{"Balsa", "Aluminum"}));
-    EXPECT_TRUE(removed.empty());
+}
 
+TEST(MaterialDatabase, SignalsRemovals)
+{
+    MaterialDatabase db;
+    db.add(bulk("Balsa", 170));
+    std::vector<std::string> removed;
+    const MaterialDatabase*  source = nullptr;
+    db.materialRemoved.connect(
+        [&removed, &source](const Material& m, const MaterialDatabase& from) {
+            removed.push_back(m.getName());
+            source = &from;
+        });
     db.remove(bulk("Zinc", 1));  // nothing removed: no signal
     EXPECT_TRUE(removed.empty());
     db.remove(bulk("Balsa", 170));
     EXPECT_EQ(removed, (std::vector<std::string>{"Balsa"}));
     EXPECT_EQ(source, &db);
+}
 
-    // A disconnected listener hears nothing more.
+TEST(MaterialDatabase, DisconnectedListenersHearNothing)
+{
+    MaterialDatabase db;
+    int              added   = 0;
+    int              removed = 0;
+    const auto       addedConnection =
+        db.materialAdded.connect([&added](const Material&, const MaterialDatabase&) { ++added; });
+    const auto removedConnection = db.materialRemoved.connect(
+        [&removed](const Material&, const MaterialDatabase&) { ++removed; });
     EXPECT_TRUE(db.materialAdded.disconnect(addedConnection));
-    db.add(bulk("Steel", 7850));
-    EXPECT_EQ(added.size(), 2U);
     EXPECT_TRUE(db.materialRemoved.disconnect(removedConnection));
+    db.add(bulk("Steel", 7850));
     db.remove(bulk("Steel", 7850));
-    EXPECT_EQ(removed.size(), 1U);
+    EXPECT_EQ(added, 0);
+    EXPECT_EQ(removed, 0);
 }
 
 TEST(MaterialDatabase, AddAllAndMoves)

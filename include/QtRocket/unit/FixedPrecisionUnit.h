@@ -6,6 +6,7 @@
 
 #include "QtRocket/unit/Tick.h"
 #include "QtRocket/unit/Unit.h"
+#include "QtRocket/util/DecimalFormat.h"
 
 namespace QtRocket
 {
@@ -21,7 +22,7 @@ public:
     /// @param precision            the step of round(); its decimals set the display decimals
     ///                             (0.01 gives two, 1 gives none, 10e-6 gives five)
     /// @param displayTrailingZeros show every decimal ("1.50") or drop trailing zeros ("1.5")
-    /// @throws std::invalid_argument when @p multiplier is 0
+    /// @throws BugError when @p multiplier is 0
     FixedPrecisionUnit(std::string unit, double precision, double multiplier,
                        bool displayTrailingZeros);
 
@@ -39,9 +40,9 @@ public:
     [[nodiscard]] double round(double value) const override;
 
     /// The value in this unit with the fixed number of decimals: Java's "%.Nf" (half-up on the
-    /// decimal digits, "NaN", "Infinity") with trailing zeros, DecimalFormat("0.###")-style
-    /// (half to even, "NaN", U+221E) without. Unlike Unit::toString, NaN is not "N/A" here,
-    /// though toStringUnit() still returns "N/A" for it.
+    /// decimal digits, "NaN", "Infinity") with trailing zeros, DecimalFormat("0.##") with as many
+    /// '#' as decimals (half to even, "NaN", U+221E) without. Unlike Unit::toString, NaN is not
+    /// "N/A" here, though toStringUnit() still returns "N/A" for it.
     [[nodiscard]] std::string toString(double value) const override;
 
     [[nodiscard]] std::vector<Tick>     getTicks(double start, double end, double minor,
@@ -49,9 +50,10 @@ public:
     [[nodiscard]] std::unique_ptr<Unit> clone() const override;
 
 private:
-    double m_precision;
-    int    m_decimals;
-    bool   m_displayTrailingZeros;
+    double        m_precision;
+    int           m_decimals;
+    bool          m_displayTrailingZeros;
+    DecimalFormat m_formatter;  ///< "0.##" without trailing zeros (OpenRocket builds it always)
 };
 
 }  // namespace QtRocket

@@ -41,7 +41,7 @@ public:
     [[nodiscard]] bool contains(const Material& material) const noexcept;
     /// The index of the first material equal to @p material, or -1.
     [[nodiscard]] int indexOf(const Material& material) const noexcept;
-    /// @throws std::out_of_range when @p index is out of range (Java: IndexOutOfBoundsException)
+    /// @throws BugError when @p index is out of range (Java: IndexOutOfBoundsException)
     [[nodiscard]] const Material& get(std::size_t index) const;
     [[nodiscard]] std::size_t     size() const noexcept { return m_list.size(); }
     [[nodiscard]] bool            empty() const noexcept { return m_list.empty(); }

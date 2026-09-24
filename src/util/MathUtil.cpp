@@ -316,24 +316,6 @@ std::int64_t javaLongCast(double a) noexcept
     return static_cast<std::int64_t>(a);
 }
 
-int javaIntCast(double a) noexcept
-{
-    if (std::isnan(a))
-    {
-        return 0;
-    }
-    constexpr double kTwoPow31 = 2147483648.0;
-    if (a >= kTwoPow31)
-    {
-        return std::numeric_limits<int>::max();
-    }
-    if (a <= -kTwoPow31)
-    {
-        return std::numeric_limits<int>::min();
-    }
-    return static_cast<int>(a);
-}
-
 std::int64_t javaRound(double a) noexcept
 {
     // Math.round as JDK 8+ implements it: the significand is shifted so that one bit of fraction

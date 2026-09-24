@@ -5,7 +5,6 @@
 #include <compare>
 #include <functional>
 #include <limits>
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -13,6 +12,7 @@
 #include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/BugError.h"
 
 namespace
 {
@@ -29,10 +29,7 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 const Unit& temperatureUnit(const char* approximateName)
 {
     const Unit* unit = unitGroup(UnitGroupId::TEMPERATURE).findApproximate(approximateName);
-    if (unit == nullptr)
-    {
-        throw std::logic_error("no such temperature unit");
-    }
+    QTROCKET_ASSERT(unit != nullptr);  // a typo in the test itself
     return *unit;
 }
 

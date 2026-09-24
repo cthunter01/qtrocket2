@@ -17,7 +17,7 @@ class TemperatureUnit : public FixedPrecisionUnit
 public:
     /// @param multiplier kelvins per degree of this scale
     /// @param addition   the scale's zero, in its own degrees below 0 K
-    /// @throws std::invalid_argument when @p multiplier is 0
+    /// @throws BugError when @p multiplier is 0
     TemperatureUnit(double multiplier, double addition, double precision, std::string unit);
 
     [[nodiscard]] double getAddition() const noexcept { return m_addition; }

@@ -3,13 +3,13 @@
 #include <cstddef>
 #include <format>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialDatabase.h"
 #include "QtRocket/material/MaterialGroup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
@@ -52,7 +52,7 @@ MaterialDatabase& MaterialStorage::database(Material::Type type)
         case Material::Type::CUSTOM:
             break;
     }
-    throw std::invalid_argument(std::format("Illegal material type: {}", toString(type)));
+    bug(std::format("Illegal material type: {}", toString(type)));
 }
 
 const MaterialDatabase& MaterialStorage::database(Material::Type type) const
@@ -68,7 +68,7 @@ const MaterialDatabase& MaterialStorage::database(Material::Type type) const
         case Material::Type::CUSTOM:
             break;
     }
-    throw std::invalid_argument(std::format("Illegal material type: {}", toString(type)));
+    bug(std::format("Illegal material type: {}", toString(type)));
 }
 
 Material MaterialStorage::findMaterial(Material::Type type, std::string_view name, double density,

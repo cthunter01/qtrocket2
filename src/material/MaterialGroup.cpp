@@ -21,23 +21,71 @@ struct GroupInfo
 /// MaterialGroup's constructor arguments per group, with the English message texts.
 [[nodiscard]] const GroupInfo& info(MaterialGroup group) noexcept
 {
-    static constexpr GroupInfo kMetals{"MaterialGroup.Metals", "Metals", "Metals", 0, false};
-    static constexpr GroupInfo kWoods{"MaterialGroup.Woods", "Woods", "Woods", 10, false};
-    static constexpr GroupInfo kPlastics{"MaterialGroup.Plastics", "Plastics", "Plastics", 20,
-                                         false};
-    static constexpr GroupInfo kFabrics{"MaterialGroup.Fabrics", "Fabrics", "Fabrics", 30, false};
-    static constexpr GroupInfo kPaper{"MaterialGroup.PaperProducts", "Paper Products",
-                                      "PaperProducts", 40, false};
-    static constexpr GroupInfo kFoams{"MaterialGroup.Foams", "Foams", "Foams", 50, false};
-    static constexpr GroupInfo kComposites{"MaterialGroup.Composites", "Composites", "Composites",
-                                           60, false};
-    static constexpr GroupInfo kFibers{"MaterialGroup.Fibers", "Fibers", "Fibers", 70, false};
-    static constexpr GroupInfo kElastics{"MaterialGroup.Elastics", "Elastics", "Elastics", 80,
-                                         false};
-    static constexpr GroupInfo kKevlars{"MaterialGroup.Kevlars", "Kevlars", "Kevlars", 90, false};
-    static constexpr GroupInfo kNylons{"MaterialGroup.Nylons", "Nylons", "Nylons", 100, false};
-    static constexpr GroupInfo kOther{"MaterialGroup.Other", "Other", "Other", 110, false};
-    static constexpr GroupInfo kCustom{"MaterialGroup.Custom", "Custom", "Custom", 1000, true};
+    static constexpr GroupInfo kMetals{.displayKey     = "MaterialGroup.Metals",
+                                       .displayName    = "Metals",
+                                       .databaseString = "Metals",
+                                       .priority       = 0,
+                                       .userDefined    = false};
+    static constexpr GroupInfo kWoods{.displayKey     = "MaterialGroup.Woods",
+                                      .displayName    = "Woods",
+                                      .databaseString = "Woods",
+                                      .priority       = 10,
+                                      .userDefined    = false};
+    static constexpr GroupInfo kPlastics{.displayKey     = "MaterialGroup.Plastics",
+                                         .displayName    = "Plastics",
+                                         .databaseString = "Plastics",
+                                         .priority       = 20,
+                                         .userDefined    = false};
+    static constexpr GroupInfo kFabrics{.displayKey     = "MaterialGroup.Fabrics",
+                                        .displayName    = "Fabrics",
+                                        .databaseString = "Fabrics",
+                                        .priority       = 30,
+                                        .userDefined    = false};
+    static constexpr GroupInfo kPaper{.displayKey     = "MaterialGroup.PaperProducts",
+                                      .displayName    = "Paper Products",
+                                      .databaseString = "PaperProducts",
+                                      .priority       = 40,
+                                      .userDefined    = false};
+    static constexpr GroupInfo kFoams{.displayKey     = "MaterialGroup.Foams",
+                                      .displayName    = "Foams",
+                                      .databaseString = "Foams",
+                                      .priority       = 50,
+                                      .userDefined    = false};
+    static constexpr GroupInfo kComposites{.displayKey     = "MaterialGroup.Composites",
+                                           .displayName    = "Composites",
+                                           .databaseString = "Composites",
+                                           .priority       = 60,
+                                           .userDefined    = false};
+    static constexpr GroupInfo kFibers{.displayKey     = "MaterialGroup.Fibers",
+                                       .displayName    = "Fibers",
+                                       .databaseString = "Fibers",
+                                       .priority       = 70,
+                                       .userDefined    = false};
+    static constexpr GroupInfo kElastics{.displayKey     = "MaterialGroup.Elastics",
+                                         .displayName    = "Elastics",
+                                         .databaseString = "Elastics",
+                                         .priority       = 80,
+                                         .userDefined    = false};
+    static constexpr GroupInfo kKevlars{.displayKey     = "MaterialGroup.Kevlars",
+                                        .displayName    = "Kevlars",
+                                        .databaseString = "Kevlars",
+                                        .priority       = 90,
+                                        .userDefined    = false};
+    static constexpr GroupInfo kNylons{.displayKey     = "MaterialGroup.Nylons",
+                                       .displayName    = "Nylons",
+                                       .databaseString = "Nylons",
+                                       .priority       = 100,
+                                       .userDefined    = false};
+    static constexpr GroupInfo kOther{.displayKey     = "MaterialGroup.Other",
+                                      .displayName    = "Other",
+                                      .databaseString = "Other",
+                                      .priority       = 110,
+                                      .userDefined    = false};
+    static constexpr GroupInfo kCustom{.displayKey     = "MaterialGroup.Custom",
+                                       .displayName    = "Custom",
+                                       .databaseString = "Custom",
+                                       .priority       = 1000,
+                                       .userDefined    = true};
 
     switch (group)
     {

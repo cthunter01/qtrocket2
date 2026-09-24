@@ -5,6 +5,8 @@ add_executable(QtRocket_core_tests
     util/BugErrorTests.cpp
     util/ColorTests.cpp
     util/CoordinateTests.cpp
+    util/DecimalFormatTests.cpp
+    util/FloatingDecimalTests.cpp
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp

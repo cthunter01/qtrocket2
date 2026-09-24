@@ -1,9 +1,9 @@
 #include "QtRocket/material/Material.h"
 
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -14,12 +14,14 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 
 namespace
 {
 
 using QtRocket::addBuiltinMaterials;
+using QtRocket::BugError;
 using QtRocket::displayKey;
 using QtRocket::displayName;
 using QtRocket::ErrorCode;
@@ -33,6 +35,28 @@ using QtRocket::UnitGroup;
 using QtRocket::unitGroupId;
 using QtRocket::UnitGroupId;
 using Type = Material::Type;
+
+/// Restores UnitGroup.java's default units when it goes out of scope, so that a test changing them
+/// leaves the process-wide groups as it found them.
+class DefaultUnitsGuard
+{
+public:
+    DefaultUnitsGuard() { UnitGroup::resetDefaultUnits(); }
+    ~DefaultUnitsGuard() { UnitGroup::resetDefaultUnits(); }
+    DefaultUnitsGuard(const DefaultUnitsGuard&)            = delete;
+    DefaultUnitsGuard& operator=(const DefaultUnitsGuard&) = delete;
+    DefaultUnitsGuard(DefaultUnitsGuard&&)                 = delete;
+    DefaultUnitsGuard& operator=(DefaultUnitsGuard&&)      = delete;
+};
+
+/// Every type's name maps back to it.
+void expectTypeNamesRoundTrip()
+{
+    for (const Type type : Material::kAllTypes)
+    {
+        EXPECT_EQ(materialTypeFromString(QtRocket::toString(type)), type);
+    }
+}
 
 constexpr double kEpsilon = 1e-6;
 constexpr double kNaN     = std::numeric_limits<double>::quiet_NaN();
@@ -191,10 +215,7 @@ TEST(Material, TypeHelpers)
     EXPECT_EQ(QtRocket::toString(Type::SURFACE), "SURFACE");
     EXPECT_EQ(QtRocket::toString(Type::LINE), "LINE");
     EXPECT_EQ(QtRocket::toString(Type::CUSTOM), "CUSTOM");
-    for (const Type type : Material::kAllTypes)
-    {
-        EXPECT_EQ(materialTypeFromString(QtRocket::toString(type)), type);
-    }
+    expectTypeNamesRoundTrip();
     EXPECT_EQ(materialTypeFromString("bulk"), std::nullopt);
     EXPECT_EQ(materialTypeFromString("Bulk"), std::nullopt);
     EXPECT_EQ(materialTypeFromString(""), std::nullopt);
@@ -215,8 +236,8 @@ TEST(Material, TypeHelpers)
 
 TEST(Material, NamesWithDensity)
 {
-    UnitGroup::resetDefaultUnits();
-    const Material aluminum =
+    const DefaultUnitsGuard defaults;
+    const Material          aluminum =
         Material::newMaterial(Type::BULK, "Aluminum", 2700, 26.0e9, MaterialGroup::METALS, false);
     EXPECT_EQ(aluminum.getName(), "Aluminum");
     EXPECT_EQ(aluminum.toString(), "Aluminum (2.7 g/cm³)");
@@ -234,7 +255,6 @@ TEST(Material, NamesWithDensity)
 
     UnitGroup::setDefaultImperialUnits();
     EXPECT_EQ(aluminum.toString(), "Aluminum (1.56 oz/in³)");
-    UnitGroup::resetDefaultUnits();
 }
 
 TEST(Material, EqualsIgnoresTheFlagsAndToleratesDensity)
@@ -481,7 +501,7 @@ TEST(Material, LoadFromCopiesEverythingOfTheSameType)
     EXPECT_EQ(target.getType(), Type::BULK);
 
     const Material line = Material::newMaterial(Type::LINE, "Line", 0.1, true);
-    EXPECT_THROW(target.loadFrom(line), std::invalid_argument);
+    EXPECT_THROW(target.loadFrom(line), BugError);
     EXPECT_EQ(target.getName(), "New");  // untouched
     EXPECT_NO_THROW(target.loadFrom(target));
 }

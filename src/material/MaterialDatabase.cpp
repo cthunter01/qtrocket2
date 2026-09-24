@@ -1,11 +1,13 @@
 #include "QtRocket/material/MaterialDatabase.h"
 
 #include <cstddef>
+#include <format>
 #include <iterator>
-#include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "QtRocket/material/Material.h"
+#include "QtRocket/util/BugError.h"
 
 namespace QtRocket
 {
@@ -73,7 +75,7 @@ bool MaterialDatabase::remove(const Material& material)
     {
         if (*it == material)
         {
-            const Material removed = *it;
+            const Material removed = std::move(*it);
             m_list.erase(it);
             materialRemoved.emit(removed, *this);
             return true;
@@ -101,9 +103,10 @@ int MaterialDatabase::indexOf(const Material& material) const noexcept
 
 const Material& MaterialDatabase::get(std::size_t index) const
 {
+    // OpenRocket: List.get's IndexOutOfBoundsException
     if (index >= m_list.size())
     {
-        throw std::out_of_range("material index out of range");
+        bug(std::format("material index out of range: {}", index));
     }
     return m_list[index];
 }

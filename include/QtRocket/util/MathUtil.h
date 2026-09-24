@@ -177,11 +177,8 @@ auto clamp(T x, U min, V max) = delete;
 /// with it; std::nearbyint is Java's Math.rint (half to even).
 [[nodiscard]] std::int64_t javaRound(double a) noexcept;
 
-/// Java's (int) narrowing of a double: truncated toward zero, NaN as 0, and anything beyond the
-/// int range saturated to the nearest limit (C++ leaves those conversions undefined).
-[[nodiscard]] int javaIntCast(double a) noexcept;
-
-/// Java's (long) narrowing of a double: as javaIntCast() with the 64-bit limits.
+/// Java's (long) narrowing of a double: as javaIntCast() with the 64-bit limits (NaN gives 0,
+/// anything beyond the range saturates, the rest is truncated toward zero).
 [[nodiscard]] std::int64_t javaLongCast(double a) noexcept;
 
 /// Java's Double.compare: -1, 0 or 1 with the total order -0.0 < 0.0 and every NaN equal to

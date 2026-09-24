@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <format>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,7 +13,9 @@
 
 #include "QtRocket/unit/Tick.h"
 #include "QtRocket/unit/Unit.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Chars.h"
+#include "QtRocket/util/DecimalFormat.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
@@ -116,9 +117,8 @@ std::vector<Tick> FractionalUnit::getTicks(double start, double end, double mino
 
     if (minor <= 0 || major <= 0 || major < minor)
     {
-        throw std::invalid_argument(std::format("getTicks called with minor={} major={}",
-                                                Strings::javaDoubleToString(minor),
-                                                Strings::javaDoubleToString(major)));
+        bug(std::format("getTicks called with minor={} major={}",
+                        Strings::javaDoubleToString(minor), Strings::javaDoubleToString(major)));
     }
 
     std::vector<Tick> ticks;
@@ -219,10 +219,12 @@ std::string FractionalUnit::toString(double value) const
 
     if (std::abs(val - correctVal) > m_epsilon)
     {
-        return formatDecimal(correctVal, 0, 3);  // DecimalFormat("#.###")
+        static const DecimalFormat kDecimalFormat("#.###");
+        return kDecimalFormat.format(correctVal);
     }
 
-    const double sign = MathUtil::signum(val);
+    static const DecimalFormat kIntegerFormat("#");
+    const double               sign = MathUtil::signum(val);
 
     double posValue = sign * val;
 
@@ -242,7 +244,7 @@ std::string FractionalUnit::toString(double value) const
 
     if (frac == 0.0)
     {
-        return formatInteger(posValue);  // DecimalFormat("#")
+        return kIntegerFormat.format(posValue);
     }
     const std::string fraction = digitString(MathUtil::javaIntCast(frac), kNumerator) +
                                  std::string(Chars::kFraction) +
@@ -251,7 +253,7 @@ std::string FractionalUnit::toString(double value) const
     {
         return (sign < 0 ? "-" : "") + fraction;
     }
-    return formatInteger(sign * intPart) + " " + fraction;
+    return kIntegerFormat.format(sign * intPart) + " " + fraction;
 }
 
 std::string FractionalUnit::toStringUnit(double value) const

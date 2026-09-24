@@ -99,7 +99,7 @@ public:
     [[nodiscard]] std::string toString() const;
 
     /// Copies every field of @p other into this material.
-    /// @throws std::invalid_argument when the types differ (OpenRocket: IllegalArgumentException)
+    /// @throws BugError when the types differ (OpenRocket: IllegalArgumentException)
     void loadFrom(const Material& other);
 
     /// Material.equals: the same type, name, density and shear modulus (MathUtil::equals) and

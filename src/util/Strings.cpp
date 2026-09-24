@@ -2,11 +2,9 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <format>
 #include <iterator>
 #include <limits>
@@ -24,6 +22,7 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <fast_float/fast_float.h>
 
+#include "QtRocket/util/FloatingDecimal.h"
 #include "QtRocket/util/MathUtil.h"
 
 namespace QtRocket::Strings
@@ -90,72 +89,17 @@ struct Decimal
     return decimal;
 }
 
-/// FloatingDecimal.insignificantDigitsNumber: for 2^p2 the number of times it can be divided by 10
-/// before dropping below 10, i.e. the count of its decimal digits below the leading one.
-constexpr std::array<int, 64> kInsignificantDigitsNumber{
-    0,  0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,
-    6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,  9,  10, 10, 10, 11, 11, 11, 12, 12, 12, 12,
-    13, 13, 13, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 19};
-
-/// FloatingDecimal.insignificantDigitsForPow2.
-[[nodiscard]] int insignificantDigitsForPow2(int p2)
-{
-    if (p2 > 1 && std::cmp_less(p2, kInsignificantDigitsNumber.size()))
-    {
-        return kInsignificantDigitsNumber.at(static_cast<std::size_t>(p2));
-    }
-    return 0;
-}
-
-/// FloatingDecimal.developLongDigits, reached from dtoa's "easy case": the exact digits of an
-/// integer @p value in [1, 2^63), with the low digits that lie below a double's 53 significant
-/// bits rounded away half-up (2^60 = 1152921504606846976 gives "115292150460684698" * 10).
-[[nodiscard]] Decimal exactIntegerDecimal(std::uint64_t value)
-{
-    constexpr int kSignificantBits = 53;  // FloatingDecimal's nSignificantBits of a normal double
-    const int     binExp           = std::bit_width(value) - 1;
-    int           exponent         = 0;
-    const int     insignificant =
-        binExp > kSignificantBits ? insignificantDigitsForPow2(binExp - kSignificantBits - 1) : 0;
-    if (insignificant != 0)
-    {
-        std::uint64_t pow10 = 1;
-        for (int i = 0; i < insignificant; i++)
-        {
-            pow10 *= 10;
-        }
-        const std::uint64_t residue = value % pow10;
-        value /= pow10;
-        exponent += insignificant;
-        if (residue >= pow10 / 2)
-        {
-            ++value;  // round up on the digits discarded
-        }
-    }
-    Decimal decimal;
-    decimal.digits = std::format("{}", value);
-    while (decimal.digits.size() > 1 && decimal.digits.back() == '0')
-    {
-        decimal.digits.pop_back();
-        ++exponent;
-    }
-    decimal.exponent = exponent + static_cast<int>(decimal.digits.size());
-    return decimal;
-}
-
 /// The digits Java's Formatter gets from FloatingDecimal.getBinaryToASCIIConverter(d, false): an
 /// integer below 2^63 exactly, anything else as the shortest digits. Deviation: from 2^63 Java 17
 /// keeps its older digit generation, which can differ from the shortest digits in the last place
 /// at a rounding tie; JDK 21+ (JDK-8300869) uses the shortest digits too.
 [[nodiscard]] Decimal javaDecimal(double magnitude)
 {
-    if (magnitude >= 1.0 && magnitude < kTwoPow63)
+    if (magnitude >= 1.0 && magnitude < kTwoPow63 && magnitude == std::trunc(magnitude))
     {
-        const auto integer = static_cast<std::uint64_t>(magnitude);
-        if (static_cast<double>(integer) == magnitude)
-        {
-            return exactIntegerDecimal(integer);
-        }
+        // FloatingDecimal's exact path for integers, the same in both of its modes.
+        FloatingDecimal::BinaryToAscii exact = FloatingDecimal::binaryToAscii(magnitude, false);
+        return Decimal{.digits = std::move(exact.digits), .exponent = exact.decimalExponent};
     }
     return shortestDecimal(magnitude);
 }

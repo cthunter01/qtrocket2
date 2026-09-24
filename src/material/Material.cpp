@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <format>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,6 +13,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
@@ -177,7 +177,7 @@ void Material::loadFrom(const Material& other)
 {
     if (m_type != other.m_type)
     {
-        throw std::invalid_argument("Material type mismatch");
+        bug("Material type mismatch");
     }
     m_name                = other.m_name;
     m_density             = other.m_density;

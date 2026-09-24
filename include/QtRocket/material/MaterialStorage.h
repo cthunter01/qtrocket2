@@ -34,7 +34,7 @@ public:
     MaterialStorage& operator=(MaterialStorage&&)      = delete;
 
     /// Databases.getDatabase: the database of @p type.
-    /// @throws std::invalid_argument for CUSTOM, which has none (OpenRocket:
+    /// @throws BugError for CUSTOM, which has none (OpenRocket:
     /// IllegalArgumentException)
     [[nodiscard]] MaterialDatabase&       database(Material::Type type);
     [[nodiscard]] const MaterialDatabase& database(Material::Type type) const;
@@ -50,36 +50,36 @@ public:
     /// shear modulus match within MathUtil::equals (the group is not compared, for files older
     /// than OpenRocket 24.12), or a new user-defined document material with the given fields
     /// when there is none. This is how the .ork loader resolves a component's material.
-    /// @throws std::invalid_argument for the CUSTOM type
+    /// @throws BugError for the CUSTOM type
     [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name, double density,
                                         double                       inPlaneShearModulus,
                                         std::optional<MaterialGroup> group) const;
     /// Databases.findMaterial(type, name, density, group): as above, matching by name and density
     /// only (the older lookup); the fallback material has shear modulus 0.
-    /// @throws std::invalid_argument for the CUSTOM type
+    /// @throws BugError for the CUSTOM type
     [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name, double density,
                                         std::optional<MaterialGroup> group) const;
     /// findMaterial(type, name, density, nullopt).
-    /// @throws std::invalid_argument for the CUSTOM type
+    /// @throws BugError for the CUSTOM type
     [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name,
                                         double density) const;
     /// Databases.findMaterial(type, name): a copy of the first material of @p type whose name
     /// matches ignoring ASCII case, or nullopt (OpenRocket: null).
-    /// @throws std::invalid_argument for the CUSTOM type
+    /// @throws BugError for the CUSTOM type
     [[nodiscard]] std::optional<Material> findMaterial(Material::Type   type,
                                                        std::string_view name) const;
 
     /// Databases.addMaterial: adds to the database of the material's type; true when added.
-    /// @throws std::invalid_argument for a CUSTOM material
+    /// @throws BugError for a CUSTOM material
     bool addMaterial(const Material& material);
     /// Databases.removeMaterial; true when a material was removed.
-    /// @throws std::invalid_argument for a CUSTOM material
+    /// @throws BugError for a CUSTOM material
     bool removeMaterial(const Material& material);
 
     /// DocumentPreferences.getAllMaterials: a new database holding every material of the three
     /// (changes to it do not affect them).
     [[nodiscard]] MaterialDatabase allMaterials() const;
-    /// DocumentPreferences.getMaterialCount. @throws std::invalid_argument for CUSTOM
+    /// DocumentPreferences.getMaterialCount. @throws BugError for CUSTOM
     [[nodiscard]] std::size_t materialCount(Material::Type type) const;
     /// DocumentPreferences.getTotalMaterialCount.
     [[nodiscard]] std::size_t totalMaterialCount() const noexcept;

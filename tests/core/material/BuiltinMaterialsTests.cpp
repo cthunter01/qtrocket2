@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <map>
-#include <optional>
 #include <set>
 #include <span>
 #include <string>
@@ -39,19 +38,76 @@ const BuiltinMaterial* find(Type type, std::string_view name)
     return nullptr;
 }
 
-TEST(BuiltinMaterials, CountsPerType)
+/// The number of rows per type.
+std::map<Type, std::size_t> countsPerType()
 {
-    const std::span<const BuiltinMaterial> rows = builtinMaterials();
-    EXPECT_EQ(rows.size(), 82U);
     std::map<Type, std::size_t> counts;
-    for (const BuiltinMaterial& row : rows)
+    for (const BuiltinMaterial& row : builtinMaterials())
     {
         counts[row.type]++;
     }
+    return counts;
+}
+
+/// The number of rows of @p type per group.
+std::map<MaterialGroup, int> groupsOf(Type type)
+{
+    std::map<MaterialGroup, int> groups;
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        if (row.type == type)
+        {
+            groups[row.group]++;
+        }
+    }
+    return groups;
+}
+
+/// Surface and line materials carry no shear modulus.
+void expectNoShearModulusOutsideBulk()
+{
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        if (row.type != Type::BULK)
+        {
+            EXPECT_EQ(row.inPlaneShearModulus, 0.0) << std::string(row.name);
+        }
+    }
+}
+
+/// No row is in the custom group.
+void expectNoCustomGroup()
+{
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        EXPECT_NE(row.group, MaterialGroup::CUSTOM) << std::string(row.name);
+    }
+}
+
+/// Every row is in the database of its type.
+void expectEveryRowIn(const MaterialStorage& storage)
+{
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        EXPECT_TRUE(storage.database(row.type).contains(toMaterial(row))) << std::string(row.name);
+    }
+}
+
+TEST(BuiltinMaterials, CountsPerType)
+{
+    EXPECT_EQ(builtinMaterials().size(), 82U);
+    std::map<Type, std::size_t> counts = countsPerType();
     EXPECT_EQ(counts[Type::BULK], 32U);
     EXPECT_EQ(counts[Type::SURFACE], 8U);
     EXPECT_EQ(counts[Type::LINE], 42U);
     EXPECT_EQ(counts[Type::CUSTOM], 0U);
+}
+
+void expectPlausibleRow(const BuiltinMaterial& row)
+{
+    EXPECT_FALSE(row.name.empty());
+    EXPECT_GT(row.density, 0.0) << std::string(row.name);
+    EXPECT_GE(row.inPlaneShearModulus, 0.0) << std::string(row.name);
 }
 
 TEST(BuiltinMaterials, NamesAreUniquePerType)
@@ -61,9 +117,7 @@ TEST(BuiltinMaterials, NamesAreUniquePerType)
     {
         EXPECT_TRUE(seen.insert({row.type, row.name}).second)
             << "duplicate " << std::string(row.name);
-        EXPECT_FALSE(row.name.empty());
-        EXPECT_GT(row.density, 0.0);
-        EXPECT_GE(row.inPlaneShearModulus, 0.0);
+        expectPlausibleRow(row);
     }
     // The one name shared across types: bulk paper and surface paper.
     EXPECT_NE(find(Type::BULK, "Paper (office)"), nullptr);
@@ -145,32 +199,14 @@ TEST(BuiltinMaterials, SpotValuesMatchDatabasesJava)
     EXPECT_EQ(find(Type::BULK, "Kevlar thread 138  (0.4 mm, 1/64 in)"), nullptr);
     EXPECT_EQ(find(Type::BULK, "aluminum"), nullptr);  // the table is case-sensitive
 
-    // Surface and line materials carry no shear modulus.
-    for (const BuiltinMaterial& row : builtinMaterials())
-    {
-        if (row.type != Type::BULK)
-        {
-            EXPECT_EQ(row.inPlaneShearModulus, 0.0) << std::string(row.name);
-        }
-    }
+    expectNoShearModulusOutsideBulk();
 }
 
 TEST(BuiltinMaterials, GroupsPerType)
 {
-    std::map<MaterialGroup, int> bulkGroups;
-    std::map<MaterialGroup, int> lineGroups;
-    for (const BuiltinMaterial& row : builtinMaterials())
-    {
-        if (row.type == Type::BULK)
-        {
-            bulkGroups[row.group]++;
-        }
-        else if (row.type == Type::LINE)
-        {
-            lineGroups[row.group]++;
-        }
-        EXPECT_NE(row.group, MaterialGroup::CUSTOM) << std::string(row.name);
-    }
+    expectNoCustomGroup();
+    std::map<MaterialGroup, int> bulkGroups = groupsOf(Type::BULK);
+    std::map<MaterialGroup, int> lineGroups = groupsOf(Type::LINE);
     EXPECT_EQ(bulkGroups[MaterialGroup::PLASTICS], 10);
     EXPECT_EQ(bulkGroups[MaterialGroup::METALS], 4);
     EXPECT_EQ(bulkGroups[MaterialGroup::WOODS], 8);
@@ -214,10 +250,7 @@ TEST(BuiltinMaterials, FillsAStorage)
     EXPECT_EQ(storage.lineMaterials().size(), 42U);
     EXPECT_EQ(storage.totalMaterialCount(), 82U);
     // Every row is found again, and the databases are sorted by name.
-    for (const BuiltinMaterial& row : builtinMaterials())
-    {
-        EXPECT_TRUE(storage.database(row.type).contains(toMaterial(row))) << std::string(row.name);
-    }
+    expectEveryRowIn(storage);
     EXPECT_EQ(storage.bulkMaterials().get(0).getName(), "ABS - 100% infill");
     EXPECT_EQ(storage.bulkMaterials().get(1).getName(), "ASA - 100% infill");
     EXPECT_EQ(storage.bulkMaterials().get(2).getName(), "Acrylic");
@@ -225,16 +258,19 @@ TEST(BuiltinMaterials, FillsAStorage)
     EXPECT_EQ(storage.surfaceMaterials().get(0).getName(), "Cellophane");
     EXPECT_EQ(storage.lineMaterials().get(0).getName(), "Braided nylon (2 mm, 1/16 in)");
     EXPECT_EQ(storage.lineMaterials().get(41).getName(), "Tubular nylon (25 mm, 1 in)");
+    // Adding them again adds nothing.
+    EXPECT_EQ(addBuiltinMaterials(storage), 0U);
+    EXPECT_EQ(storage.totalMaterialCount(), 82U);
+}
+
+TEST(BuiltinMaterials, AreNotAnnouncedAsUserMaterials)
+{
     // Built-in materials are not user materials: the preferences never hear of them.
-    int userAdded = 0;
-    storage.userMaterialAdded.connect([&userAdded](const Material&) { userAdded++; });
+    int             userAdded = 0;
     MaterialStorage listened;
     listened.userMaterialAdded.connect([&userAdded](const Material&) { userAdded++; });
     addBuiltinMaterials(listened);
     EXPECT_EQ(userAdded, 0);
-    // Adding them again adds nothing.
-    EXPECT_EQ(addBuiltinMaterials(storage), 0U);
-    EXPECT_EQ(storage.totalMaterialCount(), 82U);
 }
 
 }  // namespace
