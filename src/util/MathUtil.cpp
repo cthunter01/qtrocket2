@@ -163,6 +163,23 @@ bool equals(double a, double b) noexcept
     return equals(a, b, kEpsilon);
 }
 
+int javaIntCast(double value) noexcept
+{
+    if (std::isnan(value))
+    {
+        return 0;
+    }
+    if (value >= static_cast<double>(std::numeric_limits<int>::max()))
+    {
+        return std::numeric_limits<int>::max();
+    }
+    if (value <= static_cast<double>(std::numeric_limits<int>::min()))
+    {
+        return std::numeric_limits<int>::min();
+    }
+    return static_cast<int>(value);
+}
+
 double average(std::span<const double> values) noexcept
 {
     if (values.empty())

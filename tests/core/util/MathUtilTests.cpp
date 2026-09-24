@@ -463,6 +463,25 @@ TEST(MathUtil, InterpolateEdgeCases)
     EXPECT_NEAR(20.0, MathUtil::interpolate(domain, range, 2.0), kEps);
 }
 
+TEST(MathUtil, JavaIntCastTruncatesSaturatesAndZeroesNaN)
+{
+    EXPECT_EQ(MathUtil::javaIntCast(0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(-0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(1.999), 1);
+    EXPECT_EQ(MathUtil::javaIntCast(-1.999), -1);
+    EXPECT_EQ(MathUtil::javaIntCast(600000.7), 600000);
+    EXPECT_EQ(MathUtil::javaIntCast(2147483647.0), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-2147483648.0), std::numeric_limits<int>::min());
+    // Java's (int) cast saturates instead of being undefined ...
+    EXPECT_EQ(MathUtil::javaIntCast(2147483648.0), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-2147483649.0), std::numeric_limits<int>::min());
+    EXPECT_EQ(MathUtil::javaIntCast(1e300), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(kInf), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-kInf), std::numeric_limits<int>::min());
+    // ... and NaN is zero.
+    EXPECT_EQ(MathUtil::javaIntCast(kNaN), 0);
+}
+
 TEST(MathUtil, MapCoordinateEdgeCases)
 {
     const Coordinate a(0, 1, 2, 3);
