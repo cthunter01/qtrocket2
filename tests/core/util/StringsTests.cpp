@@ -1,0 +1,797 @@
+#include "QtRocket/util/Strings.h"
+
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <format>
+#include <initializer_list>
+#include <limits>
+#include <numbers>
+#include <optional>
+#include <random>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "QtRocket/util/Chars.h"
+
+namespace
+{
+
+namespace Strings = QtRocket::Strings;
+namespace Chars   = QtRocket::Chars;
+
+constexpr double kPi      = std::numbers::pi;
+constexpr double kEpsilon = 1e-8;  // MathUtil.EPSILON
+constexpr double kNaN     = std::numeric_limits<double>::quiet_NaN();
+constexpr double kInf     = std::numeric_limits<double>::infinity();
+
+std::vector<std::byte> bytesOf(std::initializer_list<int> values)
+{
+    std::vector<std::byte> out;
+    for (const int v : values)
+    {
+        out.push_back(static_cast<std::byte>(v));
+    }
+    return out;
+}
+
+std::vector<std::byte> bytesOf(std::string_view text)
+{
+    std::vector<std::byte> out;
+    for (const char c : text)
+    {
+        out.push_back(static_cast<std::byte>(c));
+    }
+    return out;
+}
+
+double parsed(std::string_view text)
+{
+    return Strings::parseDouble(text).value_or(kNaN);
+}
+
+/// A type std::format cannot print.
+struct Opaque
+{ };
+
+/// True when join() accepts a range of this type.
+template <typename Range>
+concept Joinable = requires(const Range& values) { Strings::join(",", values); };
+
+/// True when trim() accepts an argument of this type (a reference type for an lvalue).
+template <typename T>
+concept Trimmable = requires(T&& text) { Strings::trim(std::forward<T>(text)); };
+
+std::vector<std::byte> randomBytes(std::mt19937& rng, int count)
+{
+    std::uniform_int_distribution<int> value(0, 255);
+    std::vector<std::byte>             bytes;
+    bytes.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; i++)
+    {
+        bytes.push_back(static_cast<std::byte>(value(rng)));
+    }
+    return bytes;
+}
+
+/// The reference spelling of hexString(): one std::format per byte.
+std::string formattedHex(std::span<const std::byte> bytes)
+{
+    std::string out;
+    for (const std::byte b : bytes)
+    {
+        out += std::format("{:02x}", std::to_integer<int>(b));
+    }
+    return out;
+}
+
+/// The code point of @p text when it is exactly one well-formed UTF-8 sequence of two bytes
+/// (U+0080-U+07FF) or three (U+0800-U+FFFF), otherwise nullopt.
+std::optional<std::uint32_t> utf8CodePoint(std::string_view text)
+{
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+    const auto        lead   = static_cast<unsigned char>(text.front());
+    const std::size_t length = lead >= 0xE0 ? 3 : 2;
+    if (lead < 0xC2 || lead > 0xEF || text.size() != length)
+    {
+        return std::nullopt;
+    }
+    std::uint32_t codePoint = length == 2 ? (lead & 0x1FU) : (lead & 0x0FU);
+    for (const char c : text.substr(1))
+    {
+        const auto byte = static_cast<unsigned char>(c);
+        if (byte < 0x80 || byte > 0xBF)
+        {
+            return std::nullopt;
+        }
+        codePoint = (codePoint << 6U) | (byte & 0x3FU);
+    }
+    return codePoint;
+}
+
+// ---------------------------------------------------------------- TextUtilTest
+
+TEST(Strings, AsciiBytes)
+{
+    EXPECT_EQ(Strings::asciiBytes("PK"), bytesOf("PK"));
+    EXPECT_EQ(Strings::asciiBytes("<openrocket"), bytesOf("<openrocket"));
+    EXPECT_EQ(Strings::asciiBytes("<RockSimDoc"), bytesOf("<RockSimDoc"));
+    EXPECT_TRUE(Strings::asciiBytes("").empty());
+    // Java's US-ASCII encoder replaces each unmappable code point with one '?'.
+    EXPECT_EQ(Strings::asciiBytes(std::string("a") + std::string(Chars::kDegree) + "b"),
+              bytesOf("a?b"));
+    EXPECT_EQ(Strings::asciiBytes(std::string(Chars::kFraction)), bytesOf("?"));
+}
+
+TEST(Strings, HexString)
+{
+    EXPECT_EQ(Strings::hexString({}), "");
+    EXPECT_EQ(Strings::hexString(bytesOf({0x00})), "00");
+    EXPECT_EQ(Strings::hexString(bytesOf({0xff})), "ff");
+    EXPECT_EQ(Strings::hexString(bytesOf({0x0f, 0x1e, 0x2d, 0x3c, 0x4b, 0x5a, 0x69, 0x78})),
+              "0f1e2d3c4b5a6978");
+}
+
+TEST(Strings, HexStringOfEveryByte)
+{
+    for (int i = 0; i <= 0xff; i++)
+    {
+        EXPECT_EQ(std::format("{:02x}", i), Strings::hexString(bytesOf({i})));
+    }
+}
+
+TEST(Strings, HexStringOfRandomBytes)
+{
+    // NOLINTNEXTLINE(bugprone-random-generator-seed) a fixed seed keeps the test deterministic
+    std::mt19937                       rng(20240923);
+    std::uniform_int_distribution<int> length(0, 99);
+    for (int count = 0; count < 10; count++)
+    {
+        const std::vector<std::byte> bytes = randomBytes(rng, length(rng));
+        EXPECT_EQ(formattedHex(bytes), Strings::hexString(bytes));
+    }
+}
+
+TEST(Strings, DoubleToStringSpecialCases)
+{
+    EXPECT_EQ(Strings::doubleToString(kNaN), "NaN");
+    EXPECT_EQ(Strings::doubleToString(kInf), "Inf");
+    EXPECT_EQ(Strings::doubleToString(-kInf), "-Inf");
+    EXPECT_EQ(Strings::doubleToString(0.0), "0");
+    EXPECT_EQ(Strings::doubleToString(-0.0), "0");
+    EXPECT_EQ(Strings::doubleToString(kEpsilon / 3), "0");
+    EXPECT_EQ(Strings::doubleToString(-kEpsilon / 3), "0");
+    // Just outside MathUtil.equals(d, 0): printed, not zero.
+    EXPECT_EQ(Strings::doubleToString(kEpsilon), "1e-8");
+    EXPECT_EQ(Strings::doubleToString(-kEpsilon), "-1e-8");
+}
+
+TEST(Strings, DoubleToStringLong)
+{
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-5), "3.142e-5");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-4), "3.142e-4");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-3), "0.003");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-2), "0.031");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-1), "0.314");
+    EXPECT_EQ(Strings::doubleToString(kPi), "3.142");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e1), "31.416");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e2), "314.159");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e3), "3141.593");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e4), "3.142e4");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e5), "3.142e5");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e6), "3.142e6");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e7), "3.142e7");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e8), "3.142e8");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e9), "3.142e9");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e10), "3.142e10");
+
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e-5), "-3.142e-5");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e-4), "-3.142e-4");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e-3), "-0.003");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e-2), "-0.031");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e-1), "-0.314");
+    EXPECT_EQ(Strings::doubleToString(-kPi), "-3.142");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e1), "-31.416");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e2), "-314.159");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e3), "-3141.593");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e4), "-3.142e4");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e5), "-3.142e5");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e6), "-3.142e6");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e7), "-3.142e7");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e8), "-3.142e8");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e9), "-3.142e9");
+    EXPECT_EQ(Strings::doubleToString(-kPi * 1.0e10), "-3.142e10");
+}
+
+TEST(Strings, DoubleToStringShort)
+{
+    double p = 3.1;
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-5), "3.1e-5");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-4), "3.1e-4");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-3), "0.003");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-2), "0.031");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-1), "0.31");
+    EXPECT_EQ(Strings::doubleToString(p), "3.1");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e1), "31");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e2), "310");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e3), "3100");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e4), "3.1e4");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e5), "3.1e5");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e6), "3.1e6");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e7), "3.1e7");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e8), "3.1e8");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e9), "3.1e9");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e10), "3.1e10");
+
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-5), "-3.1e-5");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-4), "-3.1e-4");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-3), "-0.003");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-2), "-0.031");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-1), "-0.31");
+    EXPECT_EQ(Strings::doubleToString(-p), "-3.1");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e1), "-31");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e2), "-310");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e3), "-3100");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e4), "-3.1e4");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e5), "-3.1e5");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e6), "-3.1e6");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e7), "-3.1e7");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e8), "-3.1e8");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e9), "-3.1e9");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e10), "-3.1e10");
+
+    p = 3;
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-5), "3e-5");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-4), "3e-4");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-3), "0.003");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-2), "0.03");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e-1), "0.3");
+    EXPECT_EQ(Strings::doubleToString(p), "3");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e1), "30");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e2), "300");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e3), "3000");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e4), "3e4");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e5), "3e5");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e6), "3e6");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e7), "3e7");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e8), "3e8");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e9), "3e9");
+    EXPECT_EQ(Strings::doubleToString(p * 1.0e10), "3e10");
+
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-5), "-3e-5");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-4), "-3e-4");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-3), "-0.003");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-2), "-0.03");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e-1), "-0.3");
+    EXPECT_EQ(Strings::doubleToString(-p), "-3");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e1), "-30");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e2), "-300");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e3), "-3000");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e4), "-3e4");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e5), "-3e5");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e6), "-3e6");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e7), "-3e7");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e8), "-3e8");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e9), "-3e9");
+    EXPECT_EQ(Strings::doubleToString(-p * 1.0e10), "-3e10");
+}
+
+TEST(Strings, DoubleToStringRounding)
+{
+    EXPECT_EQ(Strings::doubleToString(1.00096, 3), "1.001");
+    EXPECT_EQ(Strings::doubleToString(1.0001500001e-5, 4), "1.0002e-5");
+    EXPECT_EQ(Strings::doubleToString(1.0001499999e-5, 4), "1.0001e-5");
+    EXPECT_EQ(Strings::doubleToString(1.0001500001e-4, 4), "1.0002e-4");
+    EXPECT_EQ(Strings::doubleToString(1.0001499999e-4, 4), "1.0001e-4");
+
+    EXPECT_EQ(Strings::doubleToString(-1.00096, 3), "-1.001");
+    EXPECT_EQ(Strings::doubleToString(-1.0001500001e-5, 4), "-1.0002e-5");
+    EXPECT_EQ(Strings::doubleToString(-1.0001499999e-5, 4), "-1.0001e-5");
+    EXPECT_EQ(Strings::doubleToString(-1.0001500001e-4, 4), "-1.0002e-4");
+    EXPECT_EQ(Strings::doubleToString(-1.0001499999e-4, 4), "-1.0001e-4");
+}
+
+TEST(Strings, DoubleToStringRoundTripsRandomValues)
+{
+    // NOLINTNEXTLINE(bugprone-random-generator-seed) a fixed seed keeps the test deterministic
+    std::mt19937                           rng(31415);
+    std::uniform_real_distribution<double> unit(0.0, 1.0);
+    for (int i = 0; i < 10000; i++)
+    {
+        const double orig     = unit(rng);
+        const double expected = std::rint(orig * 100000) / 100000.0;
+        if (orig < 0.1)
+        {
+            continue;
+        }
+        const std::string s = Strings::doubleToString(orig);
+        EXPECT_NEAR(expected, parsed(s), 0.001) << s;
+    }
+}
+
+TEST(Strings, StorageDecimalPlaces)
+{
+    EXPECT_EQ(6, Strings::kStorageDecimalPlaces);
+
+    // Values in the 0.001-0.1 m range where %.3f loses significant digits.
+    EXPECT_EQ("0.0125", Strings::doubleToString(0.0125, Strings::kStorageDecimalPlaces));
+    EXPECT_EQ("0.02473", Strings::doubleToString(0.02473, Strings::kStorageDecimalPlaces));
+    EXPECT_EQ("0.001234", Strings::doubleToString(0.001234, Strings::kStorageDecimalPlaces));
+
+    // The old DEFAULT_DECIMAL_PLACES (3) was insufficient for these values.
+    EXPECT_NE("0.0125", Strings::doubleToString(0.0125, Strings::kDefaultDecimalPlaces));
+    EXPECT_NE("0.02473", Strings::doubleToString(0.02473, Strings::kDefaultDecimalPlaces));
+}
+
+TEST(Strings, StorageDecimalPlacesRoundTrip)
+{
+    // Reference area for a 25 mm diameter rocket (< 0.001 m^2, exponential notation).
+    const double      refArea = kPi * 0.0125 * 0.0125;
+    const std::string storedRefArea =
+        Strings::doubleToString(refArea, Strings::kStorageDecimalPlaces);
+    EXPECT_NEAR(refArea, parsed(storedRefArea), refArea * 1e-5);
+
+    // Round-trip: all values survive parse with relative error < 1e-5.
+    const std::array values = {0.001234,   0.0125,     0.02473,      0.12345678,
+                               1.23456789, 12345.6789, 1.23456789e-5};
+    for (const double v : values)
+    {
+        const std::string s = Strings::doubleToString(v, Strings::kStorageDecimalPlaces);
+        EXPECT_NEAR(v, parsed(s), std::abs(v) * 1e-5) << "Round-trip failed for " << v;
+    }
+}
+
+TEST(Strings, EscapeXml)
+{
+    EXPECT_EQ(Strings::escapeXml(""), "");
+    EXPECT_EQ(Strings::escapeXml("foo&bar"), "foo&amp;bar");
+    EXPECT_EQ(Strings::escapeXml("<html>&"), "&lt;html&gt;&amp;");
+    EXPECT_EQ(Strings::escapeXml("\"'"), "&quot;&#39;");
+    EXPECT_EQ(Strings::escapeXml("foo\n\r\tbar"), "foo\n\r\tbar");
+    const std::string controls = std::string("foo") + '\0' + '\x01' + '\x1f' + '\x7f' + "bar";
+    EXPECT_EQ(Strings::escapeXml(controls), "foo&#0;&#1;&#31;&#127;bar");
+    // Non-ASCII text passes through untouched.
+    const std::string degrees = std::string("90") + std::string(Chars::kDegree);
+    EXPECT_EQ(Strings::escapeXml(degrees), degrees);
+}
+
+// ------------------------------------------------------------- StringUtilTest
+
+TEST(Strings, IsEmpty)
+{
+    EXPECT_TRUE(Strings::isEmpty(""));
+    EXPECT_TRUE(Strings::isEmpty(std::string()));
+    EXPECT_TRUE(Strings::isEmpty(" "));
+    EXPECT_TRUE(Strings::isEmpty("  "));
+    EXPECT_TRUE(Strings::isEmpty("       "));
+    EXPECT_TRUE(Strings::isEmpty("\t\n\r "));
+
+    EXPECT_FALSE(Strings::isEmpty("A"));
+    EXPECT_FALSE(Strings::isEmpty("         .        "));
+}
+
+TEST(Strings, ConvertToDouble)
+{
+    EXPECT_NEAR(0.2, Strings::convertToDouble(".2").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(0.2, Strings::convertToDouble(",2").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1, Strings::convertToDouble("1,").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(2, Strings::convertToDouble("2.").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1, Strings::convertToDouble("1").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1.52, Strings::convertToDouble("1.52").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1.52, Strings::convertToDouble("1,52").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1.5, Strings::convertToDouble("1.500").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1.5, Strings::convertToDouble("1,500").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500.61, Strings::convertToDouble("1.500,61").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500.61, Strings::convertToDouble("1,500.61").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500.2, Strings::convertToDouble("1,500,200").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500.2, Strings::convertToDouble("1.500.200").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500200.23, Strings::convertToDouble("1500200.23").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500200.23, Strings::convertToDouble("1500200,23").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500200.23, Strings::convertToDouble("1,500,200.23").value_or(kNaN), kEpsilon);
+    EXPECT_NEAR(1500200.23, Strings::convertToDouble("1.500.200,23").value_or(kNaN), kEpsilon);
+
+    // Java throws NumberFormatException; here the result is empty.
+    EXPECT_EQ(Strings::convertToDouble(""), std::nullopt);
+    EXPECT_EQ(Strings::convertToDouble("abc"), std::nullopt);
+    EXPECT_EQ(Strings::convertToDouble("1.5x"), std::nullopt);
+}
+
+TEST(Strings, JoinValues)
+{
+    EXPECT_EQ("", Strings::join(",", std::vector<std::string>{}));
+    EXPECT_EQ("a,b,c", Strings::join(",", std::vector<std::string>{"a", "b", "c"}));
+    EXPECT_EQ("1-2-3", Strings::join("-", std::vector<int>{1, 2, 3}));
+    EXPECT_EQ("x", Strings::join(", ", std::array<std::string_view, 1>{"x"}));
+    EXPECT_EQ("one;two;three", Strings::join(";", std::vector<std::string>{"one", "two", "three"}));
+    // Deviation from OpenRocket, which would give "b" here.
+    EXPECT_EQ(",b", Strings::join(",", std::vector<std::string>{"", "b"}));
+    // StringUtilTest's "1-true-null": the boolean element formats as Java prints it (a range
+    // holds one type, so the int and the null of that case are not applicable).
+    EXPECT_EQ("true-false", Strings::join("-", std::vector<bool>{true, false}));
+    EXPECT_EQ("true-false", Strings::join("-", std::array<bool, 2>{true, false}));
+    EXPECT_EQ("1.5-2", Strings::join("-", std::array<double, 2>{1.5, 2.0}));
+}
+
+TEST(Strings, JoinRequiresFormattableElements)
+{
+    static_assert(!Joinable<std::vector<Opaque>>);
+    static_assert(Joinable<std::vector<bool>>);
+    static_assert(Joinable<std::vector<std::string_view>>);
+    static_assert(Joinable<std::array<double, 2>>);
+}
+
+TEST(Strings, EscapeCsvHandlesSpecialCharacters)
+{
+    EXPECT_EQ("", Strings::escapeCsv(""));
+    EXPECT_EQ("plain", Strings::escapeCsv("plain"));
+    EXPECT_EQ("\"quoted,comma\"", Strings::escapeCsv("quoted,comma"));
+    EXPECT_EQ("\"contains\"\"quote\"\"\"", Strings::escapeCsv("contains\"quote\""));
+    EXPECT_EQ("\"line\nbreak\"", Strings::escapeCsv("line\nbreak"));
+    EXPECT_EQ("\"carriage\rreturn\"", Strings::escapeCsv("carriage\rreturn"));
+}
+
+TEST(Strings, RemoveHtmlTags)
+{
+    EXPECT_EQ("", Strings::removeHtmlTags(""));
+    EXPECT_EQ("plain text", Strings::removeHtmlTags("plain text"));
+    EXPECT_EQ("Hello world", Strings::removeHtmlTags("<p>Hello <b>world</b></p>"));
+    EXPECT_EQ("nested", Strings::removeHtmlTags("<div><span>nested</span></div>"));
+    // The regex "<[^>]*>" matches across anything but '>', and an unclosed '<' stays.
+    EXPECT_EQ("ab", Strings::removeHtmlTags("a<x<y>b"));
+    EXPECT_EQ("a<b", Strings::removeHtmlTags("a<b"));
+    EXPECT_EQ("a>b", Strings::removeHtmlTags("a>b"));
+}
+
+TEST(Strings, EscapeHtml)
+{
+    EXPECT_EQ("", Strings::escapeHtml(""));
+    EXPECT_EQ("plain", Strings::escapeHtml("plain"));
+    EXPECT_EQ("&lt;b&gt;&amp;&quot;&#39;", Strings::escapeHtml("<b>&\"'"));
+    EXPECT_EQ("one<br>two", Strings::escapeHtml("one\ntwo"));
+}
+
+// ---------------------------------------------------- behaviour OpenRocket did not test
+
+TEST(Strings, DoubleToStringRoundsHalfUpOnDecimalDigits)
+{
+    // Java's Formatter rounds the shortest decimal digits half-up; printf would give "1.000",
+    // "0.12" and "2" for these.
+    EXPECT_EQ(Strings::doubleToString(1.0005, 3), "1.001");
+    EXPECT_EQ(Strings::doubleToString(0.125, 2), "0.13");
+    EXPECT_EQ(Strings::doubleToString(2.5, 0), "3");
+    EXPECT_EQ(Strings::doubleToString(0.0125, 3), "0.013");
+    EXPECT_EQ(Strings::doubleToString(-1.0005, 3), "-1.001");
+    EXPECT_EQ(Strings::doubleToString(1.00049, 3), "1");
+}
+
+TEST(Strings, DoubleToStringCarriesIntoNewDigit)
+{
+    EXPECT_EQ(Strings::doubleToString(9999.9996), "10000");
+    EXPECT_EQ(Strings::doubleToString(0.9999999), "1");
+    EXPECT_EQ(Strings::doubleToString(0.00099999), "1e-3");
+    EXPECT_EQ(Strings::doubleToString(99999.99), "1e5");
+    EXPECT_EQ(Strings::doubleToString(-99999.99), "-1e5");
+    EXPECT_EQ(Strings::doubleToString(0.0095, 2), "0.01");
+    EXPECT_EQ(Strings::doubleToString(0.0094, 2), "0.01");
+    EXPECT_EQ(Strings::doubleToString(0.0049, 2), "0");
+}
+
+TEST(Strings, DoubleToStringWithoutExponentialNotation)
+{
+    EXPECT_EQ(Strings::doubleToString(31415.9265, 3, false), "31415.927");
+    EXPECT_EQ(Strings::doubleToString(12345678.9, 3, false), "12345678.9");
+    EXPECT_EQ(Strings::doubleToString(1e20, 3, false), "100000000000000000000");
+    EXPECT_EQ(Strings::doubleToString(3.1e-5, 3, false), "0");
+    EXPECT_EQ(Strings::doubleToString(0.0004, 3, false), "0");
+    // Java keeps the sign of a negative value whose digits all round away ("-0.000" trimmed).
+    EXPECT_EQ(Strings::doubleToString(-0.0004, 3, false), "-0");
+    EXPECT_EQ(Strings::doubleToString(0.0005, 3, false), "0.001");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1.0e-5, 3, true), "3.142e-5");
+}
+
+TEST(Strings, DoubleToStringDecimalPlaces)
+{
+    EXPECT_EQ(Strings::doubleToString(31415.9, 0), "3e4");
+    EXPECT_EQ(Strings::doubleToString(3.7, 0), "4");
+    EXPECT_EQ(Strings::doubleToString(0.4, 0), "0");
+    EXPECT_EQ(Strings::doubleToString(3.7, -2), "4");  // negative counts as 0
+    EXPECT_EQ(Strings::doubleToString(kPi, 10), "3.1415926536");
+    EXPECT_EQ(Strings::doubleToString(kPi, 20), "3.141592653589793");
+    EXPECT_EQ(Strings::doubleToString(kPi * 1e-5, 20), "3.1415926535897935e-5");
+    EXPECT_EQ(Strings::doubleToString(1.5, 1), "1.5");
+    EXPECT_EQ(Strings::doubleToString(1.25, 1), "1.3");
+}
+
+TEST(Strings, DoubleToStringExtremes)
+{
+    EXPECT_EQ(Strings::doubleToString(1e300), "1e300");
+    EXPECT_EQ(Strings::doubleToString(-1e-300), "0");  // within MathUtil.EPSILON / 2 of zero
+    EXPECT_EQ(Strings::doubleToString(std::numeric_limits<double>::max()), "1.798e308");
+    EXPECT_EQ(Strings::doubleToString(1e-8), "1e-8");
+    EXPECT_EQ(Strings::doubleToString(123456789012.0), "1.235e11");
+    EXPECT_EQ(Strings::doubleToString(0.001), "0.001");
+    EXPECT_EQ(Strings::doubleToString(0.000999), "9.99e-4");
+    EXPECT_EQ(Strings::doubleToString(10000.0), "1e4");
+    EXPECT_EQ(Strings::doubleToString(9999.0), "9999");
+}
+
+TEST(Strings, DoubleToStringPrintsLargeIntegersExactly)
+{
+    // Java's Formatter prints an integer below 2^63 from its exact digits, not the shortest
+    // round-trip digits (FloatingDecimal.developLongDigits); expectations replayed on JDK 17.
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 52) + 1, 3, false), "4503599627370497");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 53), 3, false), "9007199254740992");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 54), 3, false), "18014398509481984");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 54) + 8, 3, false), "18014398509481992");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 55), 3, false), "36028797018963968");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 56), 3, false), "72057594037927936");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 57), 3, false), "144115188075855872");
+    // From 2^58 the digits below the double's precision are rounded away (one digit up to 2^61,
+    // two from there): 288230376151711744 -> ...740, 2305843009213693952 -> ...4000.
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 58), 3, false), "288230376151711740");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 59), 3, false), "576460752303423490");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 60), 3, false), "1152921504606846980");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 61), 3, false), "2305843009213694000");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 62), 3, false), "4611686018427387900");
+    EXPECT_EQ(Strings::doubleToString(1e18, 3, false), "1000000000000000000");
+    EXPECT_EQ(Strings::doubleToString(-std::ldexp(1.0, 60), 3, false), "-1152921504606846980");
+    // The same digits feed the exponential notation.
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 55), 16), "3.6028797018963968e16");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 55), 20), "3.6028797018963968e16");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 60), 17), "1.15292150460684698e18");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 60)), "1.153e18");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 61), 2), "2.31e18");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 62)), "4.612e18");
+}
+
+TEST(Strings, DoubleToStringFromTwoPow63UsesShortestDigits)
+{
+    // From 2^63 Java's older digit generation applies; where it agrees with the shortest digits
+    // (JDK 17 replay) the port matches it.
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 63), 3, false), "9223372036854776000");
+    EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 63)), "9.223e18");
+    EXPECT_EQ(Strings::doubleToString(1e20, 3, false), "100000000000000000000");
+    EXPECT_EQ(Strings::doubleToString(1e20), "1e20");
+    EXPECT_EQ(Strings::doubleToString(12345678901234567890.0, 3, false), "12345678901234567000");
+    // Documented deviation: at a rounding tie JDK 17 prints "8.638e20" and "9.2550626e18" here;
+    // JDK 21+ (JDK-8300869) prints these.
+    EXPECT_EQ(Strings::doubleToString(8.6385e20), "8.639e20");
+    EXPECT_EQ(Strings::doubleToString(9.25506265e18, 7), "9.2550627e18");
+}
+
+TEST(Strings, DoubleToStringReadsBack)
+{
+    // Every stored value must come back through parseDouble.
+    const std::array values = {kPi * 1e-7, -kPi, 0.0125, 9999.9996, 1e300, -3.1e10};
+    for (const double v : values)
+    {
+        const std::string s = Strings::doubleToString(v, Strings::kStorageDecimalPlaces);
+        EXPECT_NEAR(v, parsed(s), std::abs(v) * 1e-5) << s;
+    }
+    EXPECT_TRUE(std::isnan(parsed(Strings::doubleToString(kNaN))));
+    EXPECT_EQ(parsed(Strings::doubleToString(kInf)), kInf);
+    EXPECT_EQ(parsed(Strings::doubleToString(-kInf)), -kInf);
+}
+
+TEST(Strings, ParseDoubleJavaFormats)
+{
+    EXPECT_EQ(Strings::parseDouble("1"), 1.0);
+    EXPECT_EQ(Strings::parseDouble("1.5"), 1.5);
+    EXPECT_EQ(Strings::parseDouble("-1.5"), -1.5);
+    EXPECT_EQ(Strings::parseDouble("+1.5"), 1.5);
+    EXPECT_EQ(Strings::parseDouble(".5"), 0.5);
+    EXPECT_EQ(Strings::parseDouble("5."), 5.0);
+    EXPECT_EQ(Strings::parseDouble("-.5"), -0.5);
+    EXPECT_EQ(Strings::parseDouble("0"), 0.0);
+    EXPECT_EQ(Strings::parseDouble("1e-5"), 1e-5);
+    EXPECT_EQ(Strings::parseDouble("1E-5"), 1e-5);
+    EXPECT_EQ(Strings::parseDouble("3.142e4"), 3.142e4);
+    EXPECT_EQ(Strings::parseDouble("-2.5E+3"), -2500.0);
+    EXPECT_EQ(Strings::parseDouble("3.1415926535897935e-5"), 3.1415926535897935e-5);
+    EXPECT_EQ(Strings::parseDouble("0.1"), 0.1);  // correctly rounded, as Java
+    EXPECT_EQ(Strings::parseDouble("4.9e-324"), 4.9e-324);
+    // Whitespace at either end is trimmed, as Double.parseDouble does.
+    EXPECT_EQ(Strings::parseDouble("  2.5  "), 2.5);
+    EXPECT_EQ(Strings::parseDouble("\t2.5\n"), 2.5);
+}
+
+TEST(Strings, ParseDoubleSpecialValues)
+{
+    EXPECT_TRUE(std::isnan(parsed("NaN")));
+    EXPECT_TRUE(std::isnan(parsed("-NaN")));
+    EXPECT_TRUE(std::isnan(parsed(" NaN ")));
+    EXPECT_EQ(Strings::parseDouble("Infinity"), kInf);
+    EXPECT_EQ(Strings::parseDouble("-Infinity"), -kInf);
+    EXPECT_EQ(Strings::parseDouble("+Infinity"), kInf);
+    EXPECT_EQ(Strings::parseDouble("Inf"), kInf);
+    EXPECT_EQ(Strings::parseDouble("-Inf"), -kInf);
+    EXPECT_EQ(Strings::parseDouble(" -Inf "), -kInf);
+}
+
+TEST(Strings, ParseDoubleRejectsJunk)
+{
+    EXPECT_EQ(Strings::parseDouble(""), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("   "), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("abc"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("-"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("+"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("."), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("- 1"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("--1"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1,5"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1 5"), std::nullopt);
+    // Partial matches fail rather than parse a prefix.
+    EXPECT_EQ(Strings::parseDouble("1.5x"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1.5 m"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1e"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1e+"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1.2.3"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("0x10"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1.0d"), std::nullopt);
+    // Only Java's exact spellings of the special values.
+    EXPECT_EQ(Strings::parseDouble("nan"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("NAN"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("inf"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("INFINITY"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("infinity"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("Infinite"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("nan(1)"), std::nullopt);
+    // Above the double range: OpenRocket writes "Inf" for infinities, never such literals.
+    EXPECT_EQ(Strings::parseDouble("1e999"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("-1e999"), std::nullopt);
+    EXPECT_EQ(Strings::parseDouble("1e-400x"), std::nullopt);
+}
+
+TEST(Strings, ParseDoubleUnderflowsToSignedZero)
+{
+    // Double.parseDouble gives 0.0 / -0.0 for a literal below the smallest subnormal.
+    const double positive = parsed("1e-400");
+    EXPECT_EQ(positive, 0.0);
+    EXPECT_FALSE(std::signbit(positive));
+    const double negative = parsed("-1e-400");
+    EXPECT_EQ(negative, 0.0);
+    EXPECT_TRUE(std::signbit(negative));
+    EXPECT_EQ(Strings::parseDouble("2.4e-324"), 0.0);  // below half the smallest subnormal
+    EXPECT_EQ(Strings::parseDouble("2.5e-324"), 4.9e-324);
+    EXPECT_EQ(Strings::parseDouble("0e-400"), 0.0);
+}
+
+TEST(Strings, ParseInt)
+{
+    EXPECT_EQ(Strings::parseInt("0"), 0);
+    EXPECT_EQ(Strings::parseInt("42"), 42);
+    EXPECT_EQ(Strings::parseInt("-42"), -42);
+    EXPECT_EQ(Strings::parseInt("+42"), 42);
+    EXPECT_EQ(Strings::parseInt("007"), 7);
+    EXPECT_EQ(Strings::parseInt("2147483647"), 2147483647);
+    EXPECT_EQ(Strings::parseInt("-2147483648"), std::numeric_limits<int>::min());
+
+    EXPECT_EQ(Strings::parseInt(""), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("-"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("+"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("+-1"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("--1"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt(" 1"), std::nullopt);  // Integer.parseInt does not trim
+    EXPECT_EQ(Strings::parseInt("1 "), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("1.0"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("1e3"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("0x10"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("abc"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("2147483648"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("-2147483649"), std::nullopt);
+    EXPECT_EQ(Strings::parseInt("99999999999999999999"), std::nullopt);
+}
+
+TEST(Strings, Trim)
+{
+    EXPECT_EQ(Strings::trim(""), "");
+    EXPECT_EQ(Strings::trim("   "), "");
+    EXPECT_EQ(Strings::trim("abc"), "abc");
+    EXPECT_EQ(Strings::trim("  abc  "), "abc");
+    EXPECT_EQ(Strings::trim("\t\n abc \r\n"), "abc");
+    EXPECT_EQ(Strings::trim("a b"), "a b");
+    // Java's trim() strips every character at or below U+0020, control characters included.
+    const std::string controls = std::string("\x01\x02") + "abc" + '\x1f' + '\0';
+    EXPECT_EQ(Strings::trim(controls), "abc");
+    // A UTF-8 no-break space is above U+0020 and stays.
+    const std::string nbsp = std::string(Chars::kNbsp) + "abc";
+    EXPECT_EQ(Strings::trim(nbsp), nbsp);
+}
+
+TEST(Strings, TrimRejectsTemporaryStrings)
+{
+    // The result views its argument, so trimming a temporary std::string would dangle.
+    static_assert(!Trimmable<std::string>);  // an rvalue
+    static_assert(!Trimmable<const std::string>);
+    static_assert(Trimmable<std::string&>);
+    static_assert(Trimmable<const std::string&>);
+    static_assert(Trimmable<std::string_view>);
+    static_assert(Trimmable<decltype("x")>);  // a string literal
+    static_assert(Trimmable<const char*>);
+    EXPECT_EQ(Strings::trim(std::string_view(" x ")), "x");
+    EXPECT_TRUE(Strings::isEmpty(std::string("  ")));  // returns a bool, so a temporary is safe
+}
+
+TEST(Strings, ToLower)
+{
+    EXPECT_EQ(Strings::toLower(""), "");
+    EXPECT_EQ(Strings::toLower("DashDot"), "dashdot");
+    EXPECT_EQ(Strings::toLower("already lower 123"), "already lower 123");
+    EXPECT_EQ(Strings::toLower("ABC_DEF-GHI"), "abc_def-ghi");
+    // Non-ASCII bytes are left alone.
+    const std::string alpha = std::string("A") + std::string(Chars::kAlpha);
+    EXPECT_EQ(Strings::toLower(alpha), std::string("a") + std::string(Chars::kAlpha));
+}
+
+TEST(Strings, EqualsIgnoreAsciiCase)
+{
+    EXPECT_TRUE(Strings::equalsIgnoreAsciiCase("", ""));
+    EXPECT_TRUE(Strings::equalsIgnoreAsciiCase("dashdot", "DASHDOT"));
+    EXPECT_TRUE(Strings::equalsIgnoreAsciiCase("DashDot", "dASHdOT"));
+    EXPECT_TRUE(Strings::equalsIgnoreAsciiCase("a-b_1", "A-B_1"));
+    EXPECT_FALSE(Strings::equalsIgnoreAsciiCase("dashdot", "dashdots"));
+    EXPECT_FALSE(Strings::equalsIgnoreAsciiCase("dashdot", " dashdot"));
+    EXPECT_FALSE(Strings::equalsIgnoreAsciiCase("", " "));
+    // Only ASCII letters fold: Greek alpha and its capital differ.
+    const std::string capitalAlpha = "\xCE\x91";
+    EXPECT_FALSE(Strings::equalsIgnoreAsciiCase(capitalAlpha, Chars::kAlpha));
+    EXPECT_TRUE(Strings::equalsIgnoreAsciiCase(Chars::kAlpha, Chars::kAlpha));
+}
+
+TEST(Strings, Split)
+{
+    using Parts = std::vector<std::string>;
+    EXPECT_EQ(Strings::split("", ','), Parts{""});
+    EXPECT_EQ(Strings::split("a", ','), Parts{"a"});
+    EXPECT_EQ(Strings::split("a,b,c", ','), (Parts{"a", "b", "c"}));
+    EXPECT_EQ(Strings::split("a,,b", ','), (Parts{"a", "", "b"}));
+    EXPECT_EQ(Strings::split(",a,", ','), (Parts{"", "a", ""}));
+    EXPECT_EQ(Strings::split("1 2 3 4", ' '), (Parts{"1", "2", "3", "4"}));
+    EXPECT_EQ(Strings::split("no separator", ','), Parts{"no separator"});
+}
+
+TEST(Strings, Utf8CodePointDecodesOneSequence)
+{
+    // The test helper itself: one two- or three-byte sequence, nothing else.
+    EXPECT_EQ(utf8CodePoint("\xC2\xB0"), 0x00B0U);
+    EXPECT_EQ(utf8CodePoint("\xE2\x81\x84"), 0x2044U);
+    EXPECT_EQ(utf8CodePoint(""), std::nullopt);
+    EXPECT_EQ(utf8CodePoint("a"), std::nullopt);
+    EXPECT_EQ(utf8CodePoint("\xC2"), std::nullopt);
+    EXPECT_EQ(utf8CodePoint("\xC2\x41"), std::nullopt);
+    EXPECT_EQ(utf8CodePoint("\xC2\xB0\xB0"), std::nullopt);
+}
+
+TEST(Strings, CharsAreUtf8)
+{
+    EXPECT_EQ(Chars::kDegree, "\xC2\xB0");
+    EXPECT_EQ(Chars::kFraction, "\xE2\x81\x84");
+
+    // Every constant decodes to the code point Chars.java names.
+    using CharCase                    = std::pair<std::string_view, std::uint32_t>;
+    const std::vector<CharCase> cases = {
+        {Chars::kFrac12, 0x00BD},    {Chars::kFrac14, 0x00BC},     {Chars::kFrac34, 0x00BE},
+        {Chars::kFraction, 0x2044},  {Chars::kDegree, 0x00B0},     {Chars::kSquared, 0x00B2},
+        {Chars::kCubed, 0x00B3},     {Chars::kPermille, 0x2030},   {Chars::kDot, 0x00B7},
+        {Chars::kTimes, 0x00D7},     {Chars::kNbsp, 0x00A0},       {Chars::kZwsp, 0x200B},
+        {Chars::kEmDash, 0x2014},    {Chars::kMicro, 0x00B5},      {Chars::kAlpha, 0x03B1},
+        {Chars::kTheta, 0x0398},     {Chars::kCopy, 0x00A9},       {Chars::kBullet, 0x2022},
+        {Chars::kLeftArrow, 0x2190}, {Chars::kRightArrow, 0x2192}, {Chars::kUpArrow, 0x2191},
+    };
+    ASSERT_EQ(cases.size(), 21U);
+    for (const auto& [text, codePoint] : cases)
+    {
+        EXPECT_EQ(utf8CodePoint(text), codePoint) << Strings::hexString(bytesOf(text));
+    }
+}
+
+}  // namespace

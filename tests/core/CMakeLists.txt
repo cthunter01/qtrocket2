@@ -15,6 +15,9 @@ add_executable(QtRocket_core_tests
     util/PinkNoiseTests.cpp
     util/PolyInterpolatorTests.cpp
     util/Rotation2DTests.cpp
+    util/ColorTests.cpp
+    util/LineStyleTests.cpp
+    util/StringsTests.cpp
     util/VersionTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp

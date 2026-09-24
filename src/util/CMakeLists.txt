@@ -13,5 +13,8 @@ target_sources(QtRocket_core PRIVATE
     PinkNoise.cpp
     PolyInterpolator.cpp
     Rotation2D.cpp
+    Color.cpp
+    LineStyle.cpp
+    Strings.cpp
     Version.cpp
 )

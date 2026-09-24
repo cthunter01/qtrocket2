@@ -31,6 +31,19 @@ FetchContent_Declare(pugixml
     FIND_PACKAGE_ARGS NAMES pugixml)
 FetchContent_MakeAvailable(pugixml)
 
+# Decimal parsing (Strings::parseDouble): std::from_chars for floating point is missing from Apple's libc++
+# (availability-gated), so every platform parses with fast_float, the header-only library that libstdc++'s own
+# from_chars wraps, and gets the same correctly rounded result.
+set(FASTFLOAT_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(fast_float
+    GIT_REPOSITORY https://github.com/fastfloat/fast_float.git
+    GIT_TAG        v8.3.0
+    GIT_SHALLOW    TRUE
+    SYSTEM
+    EXCLUDE_FROM_ALL
+    FIND_PACKAGE_ARGS NAMES FastFloat)
+FetchContent_MakeAvailable(fast_float)
+
 # Zip and gzip: an .ork file is a zip (rocket.ork, preview.png, decals, thrustcurves/*.rse) or a gzip stream.
 # minizip-ng brings zlib itself: the installed one when found, otherwise (and always in the dist presets, which
 # never take libraries from the build machine) zlib-ng in zlib-compatible mode, built from source.
