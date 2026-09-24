@@ -6,6 +6,7 @@
  "name": "[None; M1350-0; 8× G77-0]",
  "flightConfiguration": {"index": 1, "id": "00000000-0000-0000-0000-00007cc3bbaa", "name": "[None; M1350-0; 8× G77-0]"},
  "optionsSource": "applicationDefaults",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,
@@ -16,7 +17,7 @@
   "multiLevelWind": {
    "altitudeReference": "MSL",
    "levels": [
-    {"altitude": 0.0, "speed": 0.0, "direction": 0.0, "standardDeviation": 0.0}
+    {"altitude": 0.0, "speed": 2.0, "direction": 1.5707963267948966, "standardDeviation": 0.0}
    ]
   },
   "launchAltitude": 0.0,
@@ -42,7 +43,7 @@
   "hasDragLookup": false,
   "hasStabilityLookup": false
  },
- "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [0.0], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true},
+ "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [0.2], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true},
  "extensions": [],
  "skipped": false,
  "skipReason": null,

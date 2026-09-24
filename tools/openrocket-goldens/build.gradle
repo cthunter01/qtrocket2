@@ -10,8 +10,9 @@
 // project writes into the checkout (core/build/, and processResources copies ReleaseNotes.md and the
 // component database into core/src/main/resources), needs the Swing module's plugins, and its
 // resource tasks run `git submodule update --remote` (network) when the preset submodule is missing.
-// Compiling core's sources into this project's build directory avoids all of that and guarantees
-// that the classes match the commit recorded in tests/data/goldens/manifest.json.
+// Compiling core's sources into this project's build directory avoids all of that; together with
+// generate.sh's check that the checkout has no modified, untracked or ignored files among these
+// sources, it makes the classes match the commit recorded in tests/data/goldens/manifest.json.
 
 plugins {
     id 'java'
@@ -41,9 +42,12 @@ if (openrocketCoreDependencies.isEmpty()) {
 
 // OpenRocket's processResources appends the short commit hash to a -SNAPSHOT build.version; the saver
 // writes that version into creator="OpenRocket <version>" of every .ork file, so it is replicated here.
+// OpenRocket uses `git rev-parse --short HEAD`, whose length git chooses from the number of objects in
+// the clone (7 in a shallow clone, 9 or more in a full one); the goldens must not depend on the clone,
+// so the length is fixed at 9 characters (what OpenRocket's own build gives in a full clone today).
 def openrocketShortHash = providers.exec {
     workingDir = openrocketDir
-    commandLine 'git', 'rev-parse', '--short', 'HEAD'
+    commandLine 'git', 'rev-parse', '--short=9', 'HEAD'
 }.standardOutput.asText.map { it.trim() }
 
 repositories {
@@ -64,6 +68,11 @@ sourceSets {
         }
         resources {
             srcDir new File(openrocketCore, 'src/main/resources')
+            // Git-ignored copies that OpenRocket's own build leaves there (ReleaseNotes.md, and the preset
+            // database copied from the openrocket-database submodule, possibly from another commit):
+            // only tracked files go onto the class path. The dumper reads the presets from the submodule.
+            exclude 'ReleaseNotes.md'
+            exclude 'datafiles/components/database/**'
         }
     }
     // The test bootstrap classes the dumper uses exactly as OpenRocket's tests do.

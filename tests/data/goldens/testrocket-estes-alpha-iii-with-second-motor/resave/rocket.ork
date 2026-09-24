@@ -345,7 +345,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -384,7 +384,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -423,7 +423,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -462,7 +462,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -501,7 +501,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -540,7 +540,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>

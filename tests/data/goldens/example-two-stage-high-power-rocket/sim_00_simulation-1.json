@@ -6,6 +6,7 @@
  "name": "Simulation 1",
  "flightConfiguration": {"index": 1, "id": "cf7a0b8c-19e9-4112-912f-505bc8e01067", "name": "[H148R-0; H148R-0]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

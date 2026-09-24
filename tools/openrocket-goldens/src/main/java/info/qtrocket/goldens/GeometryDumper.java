@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import info.openrocket.core.logging.WarningSet;
@@ -127,13 +128,17 @@ final class GeometryDumper {
 		o.put("longitudinalInertia", c.getLongitudinalInertia());
 		o.put("rotationalInertia", c.getRotationalInertia());
 
+		// The override values only where the override is set. Without it OpenRocket's getters return a
+		// computed stand-in, not a stored value: getOverrideMass() the component mass, getOverrideCGX()
+		// the component CG, and getOverrideCD() the component's drag coefficient from a force analysis
+		// at the default Mach number (0 under the test preferences, 0.3 in an installed OpenRocket).
 		Map<String, Object> overrides = Json.object();
 		overrides.put("massOverridden", c.isMassOverridden());
-		overrides.put("overrideMass", c.getOverrideMass());
+		overrides.put("overrideMass", c.isMassOverridden() ? (Object) c.getOverrideMass() : null);
 		overrides.put("cgOverridden", c.isCGOverridden());
-		overrides.put("overrideCGX", c.getOverrideCGX());
+		overrides.put("overrideCGX", c.isCGOverridden() ? (Object) c.getOverrideCGX() : null);
 		overrides.put("cdOverridden", c.isCDOverridden());
-		overrides.put("overrideCD", c.getOverrideCD());
+		overrides.put("overrideCD", c.isCDOverridden() ? (Object) c.getOverrideCD() : null);
 		overrides.put("subcomponentsOverriddenMass", c.isSubcomponentsOverriddenMass());
 		overrides.put("subcomponentsOverriddenCG", c.isSubcomponentsOverriddenCG());
 		overrides.put("subcomponentsOverriddenCD", c.isSubcomponentsOverriddenCD());
@@ -180,8 +185,15 @@ final class GeometryDumper {
 		}
 	}
 
-	private static String key(String getter) {
+	/**
+	 * The JSON key of a getter: its name without "get"/"is", first letter lower-cased; a name that is
+	 * all capitals (getCD) is lower-cased entirely ("cd").
+	 */
+	static String key(String getter) {
 		String stripped = getter.startsWith("is") ? getter.substring(2) : getter.substring(3);
+		if (stripped.equals(stripped.toUpperCase(Locale.ROOT))) {
+			return stripped.toLowerCase(Locale.ROOT);
+		}
 		return Character.toLowerCase(stripped.charAt(0)) + stripped.substring(1);
 	}
 
@@ -302,6 +314,7 @@ final class GeometryDumper {
 			o.put("manufacturer", motor instanceof ThrustCurveMotor t ? t.getManufacturer().getSimpleName() : null);
 			o.put("digest", motor == null ? null : motor.getDigest());
 			o.put("ejectionDelay", mc.getEjectionDelay());
+			o.put("nozzleExitDiameter", mc.getNozzleExitDiameter());
 			o.put("ignitionEvent", mc.getIgnitionEvent() == null ? null : mc.getIgnitionEvent().name());
 			o.put("ignitionDelay", mc.getIgnitionDelay());
 			o.put("motorCount", mount.getMotorCount());

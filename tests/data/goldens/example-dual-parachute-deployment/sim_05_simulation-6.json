@@ -6,6 +6,7 @@
  "name": "Simulation 6",
  "flightConfiguration": {"index": 6, "id": "e4cf5b98-e53c-40da-8fa6-3a9354ad28d1", "name": "[G64-P]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

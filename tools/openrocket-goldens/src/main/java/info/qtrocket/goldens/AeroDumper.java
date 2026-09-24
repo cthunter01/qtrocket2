@@ -1,6 +1,7 @@
 package info.qtrocket.goldens;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -10,11 +11,14 @@ import info.openrocket.core.aerodynamics.FlightConditions;
 import info.openrocket.core.logging.WarningSet;
 import info.openrocket.core.masscalc.MassCalculator;
 import info.openrocket.core.models.atmosphere.AtmosphericConditions;
+import info.openrocket.core.rocketcomponent.ComponentAssembly;
 import info.openrocket.core.rocketcomponent.FlightConfiguration;
+import info.openrocket.core.rocketcomponent.MotorMount;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.CoordinateIF;
+import info.openrocket.core.util.MathUtil;
 
 /**
  * aero.json: for every flight configuration, the extended-Barrowman results of
@@ -33,25 +37,54 @@ final class AeroDumper {
 	private AeroDumper() {
 	}
 
+	/** The nozzle exit diameter the nozzle point gives every motor, as a fraction of its mount's diameter. */
+	static final double NOZZLE_EXIT_DIAMETER_FRACTION = 0.5;
+
 	/** One set of flight conditions. */
 	private record Point(double mach, double aoa, double theta, double rollRate, double pitchRate,
-			double yawRate, boolean pitchCenterAtStructureCG) {
+			double yawRate, boolean pitchCenterAtStructureCG, boolean thrustingNozzles) {
 	}
 
-	/** The points: the Mach x AoA grid at theta 0 without rotation, then two off-grid cases. */
+	/**
+	 * The points: the Mach x AoA grid at theta 0 without rotation, then four off-grid cases. None of
+	 * them depends on the motors, so configurations that differ only in their motors keep identical
+	 * results.
+	 */
 	private static List<Point> points() {
 		List<Point> points = new ArrayList<>();
 		for (double mach : MACHS) {
 			for (double aoaDeg : AOAS_DEG) {
-				points.add(new Point(mach, Math.toRadians(aoaDeg), 0.0, 0.0, 0.0, 0.0, false));
+				points.add(new Point(mach, Math.toRadians(aoaDeg), 0.0, 0.0, 0.0, 0.0, false, false));
 			}
 		}
 		// A lateral wind direction off the fin planes.
-		points.add(new Point(0.3, Math.toRadians(5.0), Math.PI / 4, 0.0, 0.0, 0.0, false));
-		// Rotation: roll forcing and damping, pitch and yaw damping about the structure CG (motor
-		// independent, so configurations that differ only in motors keep identical results).
-		points.add(new Point(0.8, Math.toRadians(2.0), 1.0, 20.0, 2.0, 1.0, true));
+		points.add(new Point(0.3, Math.toRadians(5.0), Math.PI / 4, 0.0, 0.0, 0.0, false, false));
+		// Rotation: roll forcing and damping, pitch and yaw damping, first about the default pitch
+		// centre (the nose tip, the only one the simulation uses), then about the structure CG.
+		points.add(new Point(0.8, Math.toRadians(2.0), 1.0, 20.0, 2.0, 1.0, false, false));
+		points.add(new Point(0.8, Math.toRadians(2.0), 1.0, 20.0, 2.0, 1.0, true, false));
+		// Powered base drag: thrusting nozzle exit areas in every assembly with a motor mount.
+		points.add(new Point(0.6, 0.0, 0.0, 0.0, 0.0, 0.0, false, true));
 		return points;
+	}
+
+	/**
+	 * The thrusting nozzle exit areas of the nozzle point, by component assembly: every active motor
+	 * mount contributes {@code getMotorCount()} nozzles of diameter {@link #NOZZLE_EXIT_DIAMETER_FRACTION}
+	 * times {@code getMotorMountDiameter()} to its assembly, as the simulation sums the thrusting motors
+	 * (AbstractSimulationStepper.setThrustingNozzleExitAreas). The area depends on the mounts only, not
+	 * on the motors, and a mount counts whether or not the configuration gives it a motor.
+	 */
+	private static Map<ComponentAssembly, Double> nozzleExitAreas(FlightConfiguration config, ComponentIndex index) {
+		Map<ComponentAssembly, Double> areas = new LinkedHashMap<>();
+		for (RocketComponent c : index.components()) {
+			if (c instanceof MotorMount mount && mount.isMotorMount() && config.isComponentActive(c)) {
+				double radius = NOZZLE_EXIT_DIAMETER_FRACTION * mount.getMotorMountDiameter() / 2;
+				double area = mount.getMotorCount() * Math.PI * MathUtil.pow2(radius);
+				areas.merge(c.getAssembly(), area, Double::sum);
+			}
+		}
+		return areas;
 	}
 
 	static Map<String, Object> dump(String inputName, Rocket rocket, ComponentIndex index) {
@@ -69,8 +102,7 @@ final class AeroDumper {
 		atmosphereJson.put("kinematicViscosity", atmosphere.getKinematicViscosity());
 		root.put("atmosphere", atmosphereJson);
 
-		BarrowmanCalculator calculator = new BarrowmanCalculator();
-		root.put("stallAngle", calculator.getStallAngle());
+		root.put("stallAngle", new BarrowmanCalculator().getStallAngle());
 
 		List<Object> configurations = Json.array();
 		List<Map<String, Object>> distinctResults = new ArrayList<>();
@@ -83,7 +115,10 @@ final class AeroDumper {
 			GeometryDumper.putConfigurationHeader(o, configIndex, config);
 			o.put("referenceLength", config.getReferenceLength());
 			o.put("referenceArea", config.getReferenceArea());
-			Map<String, Object> results = results(config, calculator, index);
+			// A fresh calculator per configuration: BarrowmanStabilityCalculator caches the damping
+			// geometry of the active components and voids the cache only on a change of the rocket's
+			// modification IDs, which selecting another configuration does not make.
+			Map<String, Object> results = results(config, new BarrowmanCalculator(), index);
 			// Configurations that differ only in their motors have identical aerodynamics; their
 			// results are stored once and referenced by the index of the first such configuration.
 			int same = distinctResults.indexOf(results);
@@ -147,6 +182,9 @@ final class AeroDumper {
 		if (p.pitchCenterAtStructureCG()) {
 			conditions.setPitchCenter(new Coordinate(structureCGX, 0, 0));
 		}
+		if (p.thrustingNozzles()) {
+			conditions.setThrustingNozzleExitAreas(nozzleExitAreas(config, index));
+		}
 
 		Map<String, Object> o = Json.object();
 		Map<String, Object> c = Json.object();
@@ -161,6 +199,17 @@ final class AeroDumper {
 		c.put("refArea", conditions.getRefArea());
 		c.put("velocity", conditions.getVelocity());
 		c.put("beta", conditions.getBeta());
+		List<Object> nozzles = Json.array();
+		for (RocketComponent component : index.components()) {
+			if (component instanceof ComponentAssembly assembly
+					&& conditions.getThrustingNozzleExitAreas().containsKey(assembly)) {
+				Map<String, Object> nozzle = Json.object();
+				nozzle.put("assembly", index.path(assembly));
+				nozzle.put("area", conditions.getThrustingNozzleExitArea(assembly));
+				nozzles.add(nozzle);
+			}
+		}
+		c.put("thrustingNozzleExitAreas", nozzles);
 		o.put("conditions", c);
 
 		WarningSet warnings = new WarningSet();

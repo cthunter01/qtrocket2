@@ -6,6 +6,7 @@
  "name": "Simulation 1",
  "flightConfiguration": {"index": 1, "id": "6e2539fb-efe5-43e4-8c58-601dd9b5dc12", "name": "[I115-10; 2× E12-0]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,

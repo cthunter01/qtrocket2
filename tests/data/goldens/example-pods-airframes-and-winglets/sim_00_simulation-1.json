@@ -6,6 +6,7 @@
  "name": "Simulation 1",
  "flightConfiguration": {"index": 1, "id": "5f9084c7-fb2c-4635-8540-bf065626e673", "name": "[A8-3]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.2191999999999998,
   "launchIntoWind": true,

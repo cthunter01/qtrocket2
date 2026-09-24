@@ -6,6 +6,7 @@
  "name": "Active roll control",
  "flightConfiguration": {"index": 1, "id": "487170d2-211b-49a5-b58b-9c222d926522", "name": "[L540-P]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 2.5,
   "launchIntoWind": true,

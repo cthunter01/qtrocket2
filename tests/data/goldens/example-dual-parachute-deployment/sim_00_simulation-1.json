@@ -6,6 +6,7 @@
  "name": "Simulation 1",
  "flightConfiguration": {"index": 1, "id": "b38ea08b-626b-4abf-97a2-2dfc56fd69df", "name": "[H669-P]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

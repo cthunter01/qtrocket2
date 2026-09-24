@@ -27,7 +27,7 @@
    "cg": [0.0, 0.0, 0.0, 0.0],
    "longitudinalInertia": 0.0,
    "rotationalInertia": 0.0,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0, "cgOverridden": false, "overrideCGX": 0.0, "cdOverridden": false, "overrideCD": 1.484118212866674, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [],
    "instanceCount": 1,
    "instanceOffsets": [
@@ -75,7 +75,7 @@
    "cg": [0.0, 0.0, 0.0, 0.0],
    "longitudinalInertia": 0.0,
    "rotationalInertia": 0.0,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0, "cgOverridden": false, "overrideCGX": 0.0, "cdOverridden": false, "overrideCD": 0.26684972852826494, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [],
    "instanceCount": 1,
    "instanceOffsets": [
@@ -120,7 +120,7 @@
    "cg": [0.13142359426677436, 0.0, 0.0, 0.030358959568793108],
    "longitudinalInertia": 5.845163910940158E-5,
    "rotationalInertia": 9.229212919686349E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.030358959568793108, "cgOverridden": false, "overrideCGX": 0.13142359426677436, "cdOverridden": false, "overrideCD": 0.1298124919596246, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0, -0.0],
     [0.0, 0.0, -0.0],
@@ -217,7 +217,7 @@
    "cg": [0.06349999999999953, 0.0, 0.0, 0.013310413599508483],
    "longitudinalInertia": 2.3067248063779033E-5,
    "rotationalInertia": 1.0353885969813205E-5,
-   "overrides": {"massOverridden": false, "overrideMass": 0.013310413599508483, "cgOverridden": false, "overrideCGX": 0.06349999999999953, "cdOverridden": false, "overrideCD": 0.13703723656864034, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0281559, -0.0281559],
     [0.0, 0.0281559, -0.0281559],
@@ -302,7 +302,7 @@
    "cg": [0.0125, 0.0, 0.0, 0.05],
    "longitudinalInertia": 4.557291666666667E-6,
    "rotationalInertia": 3.906250000000001E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.05, "cgOverridden": false, "overrideCGX": 0.0125, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0125, -0.0125],
     [0.0, 0.0125, -0.0125],
@@ -350,7 +350,7 @@
    "cg": [0.0508, 0.0, 0.0, 0.016784813693737067],
    "longitudinalInertia": 2.0627502124243884E-5,
    "rotationalInertia": 1.2377963174750691E-5,
-   "overrides": {"massOverridden": false, "overrideMass": 0.016784813693737067, "cgOverridden": false, "overrideCGX": 0.0508, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.027584400000000002, -0.027584400000000002],
     [0.0, 0.027584400000000002, -0.027584400000000002],
@@ -410,7 +410,7 @@
    "cg": [0.0015875, 0.0, 0.0, 0.004486762326770884],
    "longitudinalInertia": 8.046574822740602E-7,
    "rotationalInertia": 1.6017767364680695E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.004486762326770884, "cgOverridden": false, "overrideCGX": 0.0015875, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0267208, -0.0267208],
     [0.0, 0.0267208, -0.0267208],
@@ -471,7 +471,7 @@
    "cg": [0.014733275201479715, 0.0, 0.0, 0.009922333084999999],
    "longitudinalInertia": 2.6106362099686326E-6,
    "rotationalInertia": 3.785382505851146E-6,
-   "overrides": {"massOverridden": true, "overrideMass": 0.009922333084999999, "cgOverridden": false, "overrideCGX": 0.014733275201479715, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": true, "overrideMass": 0.009922333084999999, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.027622499999999998, -0.027622499999999998],
     [0.0, 0.027622499999999998, -0.027622499999999998],
@@ -506,7 +506,7 @@
     "radialDirection": 0.0,
     "motorMount": false,
     "diameter": 0.30479999999999996,
-    "cD": 1.5,
+    "cd": 1.5,
     "lineCount": 12,
     "lineLength": 0.4572
    }
@@ -532,7 +532,7 @@
    "cg": [0.0, 0.0, 0.0, 0.0],
    "longitudinalInertia": 0.0,
    "rotationalInertia": 0.0,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0, "cgOverridden": false, "overrideCGX": 0.0, "cdOverridden": false, "overrideCD": 1.217268484338409, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [],
    "instanceCount": 1,
    "instanceOffsets": [
@@ -577,7 +577,7 @@
    "cg": [0.381, 0.0, 0.0, 0.0798624815970514],
    "longitudinalInertia": 0.003895367554945966,
    "rotationalInertia": 6.212331581887962E-5,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0798624815970514, "cgOverridden": false, "overrideCGX": 0.381, "cdOverridden": false, "overrideCD": 0.9422234194118482, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0281559, -0.0281559],
     [0.0, 0.0281559, -0.0281559],
@@ -662,7 +662,7 @@
    "cg": [0.01578565200158541, 0.0, 0.0, 0.013891266319],
    "longitudinalInertia": 3.803607863629292E-6,
    "rotationalInertia": 5.299535508191605E-6,
-   "overrides": {"massOverridden": true, "overrideMass": 0.013891266319, "cgOverridden": false, "overrideCGX": 0.01578565200158541, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": true, "overrideMass": 0.013891266319, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.027622499999999998, -0.027622499999999998],
     [0.0, 0.027622499999999998, -0.027622499999999998],
@@ -697,7 +697,7 @@
     "radialDirection": 0.0,
     "motorMount": false,
     "diameter": 0.381,
-    "cD": 1.5,
+    "cd": 1.5,
     "lineCount": 12,
     "lineLength": 0.5715
    }
@@ -723,7 +723,7 @@
    "cg": [0.1143, 0.0, 0.0, 0.0321156589490248],
    "longitudinalInertia": 1.436282562352528E-4,
    "rotationalInertia": 7.540042348542276E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0321156589490248, "cgOverridden": false, "overrideCGX": 0.1143, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.0160655, -0.0160655],
     [0.0, 0.0160655, -0.0160655],
@@ -787,7 +787,7 @@
    "cg": [0.001, 0.0, 0.0, 0.0021572280458908564],
    "longitudinalInertia": 5.514069736021429E-7,
    "rotationalInertia": 1.1013757951736919E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0021572280458908564, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.027622499999999998, -0.027622499999999998],
     [0.0, 0.027622499999999998, -0.027622499999999998],
@@ -848,7 +848,7 @@
    "cg": [0.001, 0.0, 0.0, 0.0021572280458908564],
    "longitudinalInertia": 5.514069736021429E-7,
    "rotationalInertia": 1.1013757951736919E-6,
-   "overrides": {"massOverridden": false, "overrideMass": 0.0021572280458908564, "cgOverridden": false, "overrideCGX": 0.001, "cdOverridden": false, "overrideCD": 0.0, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.027622499999999998, -0.027622499999999998],
     [0.0, 0.027622499999999998, -0.027622499999999998],
@@ -909,7 +909,7 @@
    "cg": [0.03753386666666668, 0.05116536666666668, 0.0, 0.004155],
    "longitudinalInertia": 1.65771550066313E-6,
    "rotationalInertia": 7.047060013262599E-7,
-   "overrides": {"massOverridden": false, "overrideMass": 0.004155, "cgOverridden": false, "overrideCGX": 0.03753386666666668, "cdOverridden": false, "overrideCD": 0.09168168830885363, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.08355589999999999, -0.08355589999999999],
     [1.060449999999999, 0.08355589999999999, 0.08355589999999999]
@@ -995,7 +995,7 @@
    "cg": [0.03753386666666668, -0.025582683333333328, 0.04431050732727887, 0.004155],
    "longitudinalInertia": 1.65771550066313E-6,
    "rotationalInertia": 7.047060013262599E-7,
-   "overrides": {"massOverridden": false, "overrideMass": 0.004155, "cgOverridden": false, "overrideCGX": 0.03753386666666668, "cdOverridden": false, "overrideCD": 0.09168168830885363, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.08355589999999999, -0.08355589999999999],
     [1.060449999999999, 0.08355589999999999, 0.08355589999999999]
@@ -1081,7 +1081,7 @@
    "cg": [0.03753386666666668, -0.02558268333333335, -0.044310507327278856, 0.004155],
    "longitudinalInertia": 1.65771550066313E-6,
    "rotationalInertia": 7.047060013262599E-7,
-   "overrides": {"massOverridden": false, "overrideMass": 0.004155, "cgOverridden": false, "overrideCGX": 0.03753386666666668, "cdOverridden": false, "overrideCD": 0.09168168830885363, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
+   "overrides": {"massOverridden": false, "overrideMass": null, "cgOverridden": false, "overrideCGX": null, "cdOverridden": false, "overrideCD": null, "subcomponentsOverriddenMass": false, "subcomponentsOverriddenCG": false, "subcomponentsOverriddenCD": false, "cdOverriddenByAncestor": false, "massOverriddenBy": null, "cgOverriddenBy": null},
    "componentBounds": [
     [0.0, -0.08355589999999999, -0.08355589999999999],
     [1.060449999999999, 0.08355589999999999, 0.08355589999999999]
@@ -1371,7 +1371,7 @@
    "hasMotors": true,
    "hasRecoveryDevice": true,
    "motors": [
-    {"mount": "/1/0/1", "motorName": "F50-9", "designation": "F50T", "manufacturer": "AeroTech", "digest": "88ed07b96422ec99767fb35bf6a51966", "ejectionDelay": 9.0, "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0, "position": [0.1306, 0.0, 0.0]}
+    {"mount": "/1/0/1", "motorName": "F50-9", "designation": "F50T", "manufacturer": "AeroTech", "digest": "88ed07b96422ec99767fb35bf6a51966", "ejectionDelay": 9.0, "nozzleExitDiameter": 0.0, "ignitionEvent": "AUTOMATIC", "ignitionDelay": 0.0, "motorCount": 1, "motorCountIncludingAssemblyCopies": 1, "motorOverhang": 0.0, "position": [0.1306, 0.0, 0.0]}
    ],
    "activeComponents": ["/", "/0", "/0/0", "/0/1", "/0/1/0", "/0/1/1", "/0/1/1/0", "/0/1/2", "/1", "/1/0", "/1/0/0", "/1/0/1", "/1/0/2", "/1/0/3", "/1/0/4", "/1/0/5", "/1/0/6"],
    "instances": [

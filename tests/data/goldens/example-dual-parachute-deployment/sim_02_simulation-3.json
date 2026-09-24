@@ -6,6 +6,7 @@
  "name": "Simulation 3",
  "flightConfiguration": {"index": 3, "id": "de88d3eb-091c-4f62-9a0e-2240b7c3560d", "name": "[J570-P]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

@@ -6,6 +6,7 @@
  "name": "Simulation 4",
  "flightConfiguration": {"index": 4, "id": "37647ba6-86f6-423d-a08c-4c68a3215fc0", "name": "airstart @4s"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,

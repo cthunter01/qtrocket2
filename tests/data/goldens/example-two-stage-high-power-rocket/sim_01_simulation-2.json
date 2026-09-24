@@ -6,6 +6,7 @@
  "name": "Simulation 2",
  "flightConfiguration": {"index": 2, "id": "fadeeef3-4aa4-49e9-9581-71e14fa91c14", "name": "[I59WN-P; I357T-14]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.016,
   "launchIntoWind": true,

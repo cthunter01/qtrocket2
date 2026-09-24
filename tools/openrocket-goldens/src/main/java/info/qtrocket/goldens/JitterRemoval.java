@@ -6,7 +6,6 @@ import java.util.Arrays;
 import info.openrocket.core.aerodynamics.AerodynamicForces;
 import info.openrocket.core.aerodynamics.FlightConditions;
 import info.openrocket.core.simulation.SimulationStatus;
-import info.openrocket.core.simulation.exception.SimulationException;
 import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 
 /**
@@ -60,6 +59,8 @@ final class JitterRemoval {
 	private static final class Holder {
 		private FlightConditions conditions;
 		private long replacements;
+		/** Why the harness failed during the run, or null. */
+		private String failure;
 	}
 
 	/** The listener that replaces the jittered forces; install it first. */
@@ -75,6 +76,19 @@ final class JitterRemoval {
 	/** How many jittered force results were replaced (RK stepper aerodynamic calculations). */
 	long replacements() {
 		return holder.replacements;
+	}
+
+	/**
+	 * Throws if the listeners failed during the run. They also throw at the failure, but OpenRocket
+	 * swallows exceptions of the nested optimum-coast simulation (it logs them and carries on), so the
+	 * failure is recorded here as well and must be checked after every run.
+	 *
+	 * @param run names the simulation in the message
+	 */
+	void checkNoFailure(String run) {
+		if (holder.failure != null) {
+			throw new IllegalStateException("Golden harness failure in " + run + ": " + holder.failure);
+		}
 	}
 
 	private static boolean calledFromJitteringMethod() {
@@ -115,15 +129,17 @@ final class JitterRemoval {
 		}
 
 		@Override
-		public AerodynamicForces postAerodynamicCalculation(SimulationStatus status, AerodynamicForces forces)
-				throws SimulationException {
+		public AerodynamicForces postAerodynamicCalculation(SimulationStatus status, AerodynamicForces forces) {
 			if (!calledFromJitteringMethod()) {
 				return null;
 			}
 			FlightConditions conditions = holder.conditions;
 			if (conditions == null) {
-				throw new SimulationException("Golden harness: no flight conditions captured before the "
-						+ "aerodynamic calculation");
+				// Not a SimulationException: OpenRocket would record that as a simulation EXCEPTION
+				// event, and the golden would silently hold the harness's failure.
+				holder.failure = "no flight conditions captured before the aerodynamic calculation at t = "
+						+ status.getSimulationTime() + " s (did a listener override preFlightConditions?)";
+				throw new IllegalStateException("Golden harness: " + holder.failure);
 			}
 			holder.conditions = null;
 			holder.replacements++;

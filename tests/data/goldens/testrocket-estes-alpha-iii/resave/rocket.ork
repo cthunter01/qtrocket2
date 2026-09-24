@@ -259,7 +259,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -298,7 +298,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -337,7 +337,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -376,7 +376,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -415,7 +415,7 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
@@ -454,9 +454,128 @@
           <standarddeviation>0.0</standarddeviation>
         </wind>
         <wind model="multilevel" altituderef="msl">
-          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
         </wind>
         <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[C6-5] RK6 stepper</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>415a5485-f2da-4c2a-8803-394220ae58b8</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk6</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[C6-5] WGS84 geodetics</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>415a5485-f2da-4c2a-8803-394220ae58b8</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>28.61</launchlatitude>
+        <launchlongitude>-80.6</launchlongitude>
+        <geodeticmethod>wgs84</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <randomseed>0</randomseed>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>[C6-5] multi-level wind</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>415a5485-f2da-4c2a-8803-394220ae58b8</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>true</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>90.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.0"/>
+          <windlevel altitude="100.0" speed="4.0" direction="2.2" standarddeviation="0.0"/>
+          <windlevel altitude="200.0" speed="6.0" direction="3.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>MultiLevel</windmodeltype>
         <launchaltitude>0.0</launchaltitude>
         <launchlatitude>28.61</launchlatitude>
         <launchlongitude>-80.6</launchlongitude>

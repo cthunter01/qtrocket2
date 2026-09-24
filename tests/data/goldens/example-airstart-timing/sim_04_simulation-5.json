@@ -6,6 +6,7 @@
  "name": "Simulation 5",
  "flightConfiguration": {"index": 5, "id": "7c4d659a-a836-434a-acd4-66e27ae5e053", "name": "airstart @6s"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,

@@ -3,6 +3,7 @@ package info.qtrocket.goldens;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -11,12 +12,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -40,6 +43,9 @@ import info.openrocket.core.file.GeneralRocketLoader;
 import info.openrocket.core.file.openrocket.OpenRocketSaver;
 import info.openrocket.core.logging.ErrorSet;
 import info.openrocket.core.logging.WarningSet;
+import info.openrocket.core.models.wind.MultiLevelPinkNoiseWindModel;
+import info.openrocket.core.models.wind.PinkNoiseWindModel;
+import info.openrocket.core.models.wind.WindModelType;
 import info.openrocket.core.motor.ThrustCurveMotor;
 import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.preset.ComponentPreset;
@@ -48,8 +54,10 @@ import info.openrocket.core.rocketcomponent.FlightConfiguration;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.simulation.DefaultSimulationOptionFactory;
 import info.openrocket.core.simulation.SimulationOptions;
+import info.openrocket.core.simulation.SimulationStepperMethod;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.util.BuildProperties;
+import info.openrocket.core.util.GeodeticComputationStrategy;
 import info.openrocket.core.util.TestRockets;
 
 /**
@@ -57,7 +65,7 @@ import info.openrocket.core.util.TestRockets;
  * the file formats and how to regenerate.
  * <p>
  * Usage: {@code GoldenDumper --openrocket <checkout> --examples <dir> --out <dir> --work <dir>
- * [--commit <hash>] [--preset-commit <hash>] [--only <input name>]...}
+ * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--only <input name>]...}
  */
 public final class GoldenDumper {
 
@@ -69,7 +77,7 @@ public final class GoldenDumper {
 	private static final String TEST_ROCKET_PREFIX = "testrocket-";
 
 	/** The TestRockets factories, in the order and under the directory names of the goldens. */
-	private static final Map<String, Supplier<Rocket>> TEST_ROCKETS = new java.util.LinkedHashMap<>();
+	private static final Map<String, Supplier<Rocket>> TEST_ROCKETS = new LinkedHashMap<>();
 	static {
 		TEST_ROCKETS.put("estes-alpha-iii", TestRockets::makeEstesAlphaIII);
 		TEST_ROCKETS.put("beta", TestRockets::makeBeta);
@@ -99,6 +107,27 @@ public final class GoldenDumper {
 			Map.entry("estes-alpha-iii-with-inline-pod", "makeEstesAlphaIIIwithInlinePod"),
 			Map.entry("cluster-pods", "makeClusterPods"));
 
+	/**
+	 * A harness-defined extra simulation of a test rocket: the default simulation of one flight
+	 * configuration with one option changed, for code paths that no document simulation uses (the RK6
+	 * stepper, WGS84 geodetics, the multi-level wind model). {@code description} is written into the
+	 * simulation's JSON ({@code variant}).
+	 */
+	private record Variant(String testRocket, String configurationName, String label, String description,
+			Consumer<SimulationOptions> apply) {
+	}
+
+	/** The variants, in the order they are appended to the document's simulations. */
+	private static final List<Variant> VARIANTS = List.of(
+			new Variant("estes-alpha-iii", "[C6-5]", "RK6 stepper", "stepperMethod = RK6",
+					options -> options.setSimulationStepperMethodChoice(SimulationStepperMethod.RK6)),
+			new Variant("estes-alpha-iii", "[C6-5]", "WGS84 geodetics", "geodeticComputation = WGS84",
+					options -> options.setGeodeticComputation(GeodeticComputationStrategy.WGS84)),
+			new Variant("estes-alpha-iii", "[C6-5]", "multi-level wind",
+					"windModelType = MULTI_LEVEL; levels (altitude m, speed m/s, direction rad): "
+							+ "(0, 2, pi/2), (100, 4, 2.2), (200, 6, 3)",
+					GoldenDumper::useMultiLevelWind));
+
 	private GoldenDumper() {
 	}
 
@@ -109,6 +138,7 @@ public final class GoldenDumper {
 		Path work;
 		String commit = "unknown";
 		String presetCommit = "unknown";
+		boolean dirty = false;
 		final Set<String> only = new LinkedHashSet<>();
 	}
 
@@ -120,24 +150,32 @@ public final class GoldenDumper {
 		Arguments a = parse(args);
 		Path core = a.openrocket.resolve("core");
 
-		Map<String, Object> databases = bootstrap(core, a.work);
-
-		List<Map<String, Object>> inputs = new ArrayList<>();
 		List<Path> exampleFiles;
 		try (Stream<Path> files = Files.list(a.examples)) {
 			exampleFiles = files.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ork"))
 					.sorted(Comparator.comparing(p -> p.getFileName().toString()))
 					.toList();
 		}
-
-		cleanOutput(a.out, a.only);
+		Map<String, Path> examplesByName = new LinkedHashMap<>();
 		for (Path file : exampleFiles) {
 			String stem = file.getFileName().toString().replaceFirst("[.][^.]+$", "");
-			String name = EXAMPLE_PREFIX + slug(stem);
+			if (examplesByName.put(EXAMPLE_PREFIX + slug(stem), file) != null) {
+				throw new IllegalStateException("Two example files have the input name " + EXAMPLE_PREFIX + slug(stem));
+			}
+		}
+		checkOnlyNames(a.only, examplesByName.keySet());
+
+		useSqliteExtractionDirectory(a.work);
+		Map<String, Object> databases = bootstrap(core, a.work);
+
+		List<Map<String, Object>> inputs = new ArrayList<>();
+		cleanOutput(a.out, a.only);
+		for (Map.Entry<String, Path> example : examplesByName.entrySet()) {
+			String name = example.getKey();
 			if (!a.only.isEmpty() && !a.only.contains(name)) {
 				continue;
 			}
-			inputs.add(dumpExample(a, name, file));
+			inputs.add(dumpExample(a, name, example.getValue()));
 		}
 		for (Map.Entry<String, Supplier<Rocket>> entry : TEST_ROCKETS.entrySet()) {
 			String name = TEST_ROCKET_PREFIX + entry.getKey();
@@ -170,6 +208,7 @@ public final class GoldenDumper {
 				case "--work" -> a.work = Path.of(value).toAbsolutePath().normalize();
 				case "--commit" -> a.commit = value;
 				case "--preset-commit" -> a.presetCommit = value;
+				case "--dirty" -> a.dirty = parseBoolean(option, value);
 				case "--only" -> a.only.add(value);
 				default -> throw new IllegalArgumentException("Unknown option " + option);
 			}
@@ -177,9 +216,47 @@ public final class GoldenDumper {
 		if (a.openrocket == null || a.examples == null || a.out == null || a.work == null) {
 			throw new IllegalArgumentException(
 					"Usage: GoldenDumper --openrocket <dir> --examples <dir> --out <dir> --work <dir> "
-							+ "[--commit <hash>] [--preset-commit <hash>] [--only <name>]...");
+							+ "[--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--only <name>]...");
 		}
 		return a;
+	}
+
+	private static boolean parseBoolean(String option, String value) {
+		return switch (value) {
+			case "true" -> true;
+			case "false" -> false;
+			default -> throw new IllegalArgumentException(option + " expects true or false, not " + value);
+		};
+	}
+
+	/**
+	 * Fails (before anything is deleted or written) when an {@code --only} name matches no input, listing
+	 * the valid names: a typo would otherwise skip every input and still report success.
+	 */
+	private static void checkOnlyNames(Set<String> only, Set<String> exampleNames) {
+		List<String> valid = new ArrayList<>(exampleNames);
+		for (String key : TEST_ROCKETS.keySet()) {
+			valid.add(TEST_ROCKET_PREFIX + key);
+		}
+		List<String> unknown = only.stream().filter(name -> !valid.contains(name)).toList();
+		if (!unknown.isEmpty()) {
+			throw new IllegalArgumentException("--only: no input named " + String.join(", ", unknown)
+					+ "; the inputs are: " + String.join(", ", valid));
+		}
+	}
+
+	/**
+	 * Gives sqlite-jdbc a per-process directory for its native library. It extracts the library into
+	 * java.io.tmpdir under a name built from UUID.randomUUID(), which DeterministicUuids makes the same
+	 * in every process, so concurrent dumpers would otherwise share (and delete) one file. The
+	 * directory is deleted when the JVM exits (after the extracted files, which sqlite-jdbc registers
+	 * for deletion later).
+	 */
+	private static void useSqliteExtractionDirectory(Path work) throws IOException {
+		Path dir = work.resolve("sqlite-native-" + ProcessHandle.current().pid());
+		Files.createDirectories(dir);
+		dir.toFile().deleteOnExit();
+		System.setProperty("org.sqlite.tmpdir", dir.toString());
 	}
 
 	static void log(String message) {
@@ -213,9 +290,9 @@ public final class GoldenDumper {
 	/**
 	 * Sets up OpenRocket's Application exactly as its tests do: BaseTestCase.setUp() (Guice with
 	 * ServicesForTesting overridden by PluginModule), then, as ExampleFilesTest.setUp() does for the
-	 * example files, a second injector that also binds the component preset database (every .orc file
-	 * under core/src/main/resources/datafiles/components, sorted) and the bundled thrust curve
-	 * database (initial_motors.db, read with ThrustCurveMotorSQLiteDatabase from a private copy).
+	 * example files, a second injector that also binds the component preset database (the .orc files
+	 * of {@link #presetFiles}, sorted) and the bundled thrust curve database (initial_motors.db, read
+	 * with ThrustCurveMotorSQLiteDatabase from a private copy).
 	 */
 	private static Map<String, Object> bootstrap(Path core, Path work) throws Exception {
 		// BaseTestCase.setUp()
@@ -262,32 +339,50 @@ public final class GoldenDumper {
 		o.put("motorDatabaseSha256", sha256(bundledDb));
 		o.put("motorCount", motorList.size());
 		o.put("presetFiles", new ArrayList<Object>(presetFiles.keySet()));
+		Map<String, Object> presetSha256 = Json.object();
+		for (Map.Entry<String, Path> entry : presetFiles.entrySet()) {
+			presetSha256.put(entry.getKey(), sha256(entry.getValue()));
+		}
+		o.put("presetFileSha256", presetSha256);
 		o.put("presetCount", presets.listAll().size());
 		log("motor database: " + motorList.size() + " motors; presets: " + presets.listAll().size());
 		return o;
 	}
 
+	/** The build copy of the preset submodule inside core/src/main/resources/datafiles/components. */
+	private static final String PRESET_DATABASE_DIR = "database";
+
 	/**
-	 * The .orc files ExampleFilesTest loads: every file under core/src/main/resources/datafiles/components
-	 * (the tracked internal/ directory and database/, which OpenRocket's build copies from the
-	 * openrocket-database submodule), sorted by path. When database/ has not been copied (a checkout
-	 * that was never built) the submodule's orc/ directory stands in for it.
+	 * The .orc files ExampleFilesTest loads (every file under core/src/main/resources/datafiles/components,
+	 * sorted by path), taken from tracked sources only: internal/ (and any other tracked directory)
+	 * from that directory, and database/ from the openrocket-database submodule's orc/ directory,
+	 * walked recursively (*.bak files, which OpenRocket's externalComponentsCopy leaves out, never end
+	 * in .orc). The database/ copy that OpenRocket's build leaves in core/src/main/resources is git-ignored
+	 * and may come from another submodule commit (the copy task can run {@code git submodule update
+	 * --remote}), so it is never read. Symbolic links are followed.
 	 */
 	private static Map<String, Path> presetFiles(Path core) throws IOException {
 		Path components = core.resolve("src/main/resources/datafiles/components");
+		Path buildCopy = components.resolve(PRESET_DATABASE_DIR);
+		Path submodule = core.resolve("resources-src/datafiles/openrocket-database/orc");
+		if (!Files.isDirectory(submodule)) {
+			throw new IOException("The openrocket-database submodule is missing (" + submodule
+					+ "); run: git -C <OpenRocket checkout> submodule update --init");
+		}
 		TreeMap<String, Path> files = new TreeMap<>();
-		try (Stream<Path> walk = Files.walk(components)) {
-			walk.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".orc"))
+		try (Stream<Path> walk = Files.walk(components, FileVisitOption.FOLLOW_LINKS)) {
+			walk.filter(p -> !p.startsWith(buildCopy)).filter(GoldenDumper::isPresetFile)
 					.forEach(p -> files.put(components.relativize(p).toString().replace('\\', '/'), p));
 		}
-		if (!Files.isDirectory(components.resolve("database"))) {
-			Path submodule = core.resolve("resources-src/datafiles/openrocket-database/orc");
-			try (Stream<Path> list = Files.list(submodule)) {
-				list.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".orc"))
-						.forEach(p -> files.put("database/" + p.getFileName(), p));
-			}
+		try (Stream<Path> walk = Files.walk(submodule, FileVisitOption.FOLLOW_LINKS)) {
+			walk.filter(GoldenDumper::isPresetFile).forEach(p -> files.put(
+					PRESET_DATABASE_DIR + "/" + submodule.relativize(p).toString().replace('\\', '/'), p));
 		}
 		return files;
+	}
+
+	private static boolean isPresetFile(Path p) {
+		return Files.isRegularFile(p) && p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".orc");
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -316,7 +411,7 @@ public final class GoldenDumper {
 		for (Simulation sim : doc.getSimulations()) {
 			Map<String, Object> harness = SimulationDumper.makeReproducible(sim.getOptions());
 			sims.add(simulationEntry(name, sim, SimulationDumper.dump(dir, name, simIndex, sim, rocket, index,
-					"document", harness)));
+					"document", null, harness)));
 			simIndex++;
 		}
 		entry.put("simulations", sims);
@@ -331,21 +426,31 @@ public final class GoldenDumper {
 		OpenRocketDocument doc = OpenRocketDocumentFactory.createDocumentFromRocket(rocket);
 
 		// A default simulation per flight configuration (the default configuration included), with
-		// the options a fresh OpenRocket installation gives a new simulation.
-		ApplicationDefaultsPreferences defaults = new ApplicationDefaultsPreferences();
-		SimulationOptions defaultOptions = new DefaultSimulationOptionFactory(defaults).getDefault();
-		defaultOptions.setTimeStep(defaults.getTimeStep());
-		defaultOptions.setMaxSimulationTime(defaults.getMaxSimulationTime());
-		defaultOptions.setGeodeticComputation(defaults.getGeodeticComputation());
-		defaultOptions.setGravityModelType(defaults.getGravityModel());
-		defaultOptions.setConstantGravity(defaults.getConstantGravityValue());
+		// the options a fresh OpenRocket installation gives a new simulation, then the variants.
+		SimulationOptions defaultOptions = applicationDefaultOptions();
 		List<Map<String, Object>> harnesses = new ArrayList<>();
+		List<String> variants = new ArrayList<>();
 		for (FlightConfiguration config : rocket.getFlightConfigurations()) {
 			Simulation sim = new Simulation(doc, rocket);
 			sim.setFlightConfigurationId(config.getId());
 			sim.setName(config.getName());
 			sim.getOptions().copyConditionsFrom(defaultOptions);
 			harnesses.add(SimulationDumper.makeReproducible(sim.getOptions()));
+			variants.add(null);
+			doc.addSimulation(sim);
+		}
+		for (Variant variant : VARIANTS) {
+			if (!variant.testRocket().equals(key)) {
+				continue;
+			}
+			FlightConfiguration config = configurationNamed(rocket, variant.configurationName());
+			Simulation sim = new Simulation(doc, rocket);
+			sim.setFlightConfigurationId(config.getId());
+			sim.setName(config.getName() + " " + variant.label());
+			sim.getOptions().copyConditionsFrom(defaultOptions);
+			variant.apply().accept(sim.getOptions());
+			harnesses.add(SimulationDumper.makeReproducible(sim.getOptions()));
+			variants.add(variant.description());
 			doc.addSimulation(sim);
 		}
 
@@ -364,15 +469,64 @@ public final class GoldenDumper {
 		int simIndex = 0;
 		for (Simulation sim : doc.getSimulations()) {
 			sims.add(simulationEntry(name, sim, SimulationDumper.dump(dir, name, simIndex, sim, rocket, index,
-					"applicationDefaults", harnesses.get(simIndex))));
+					"applicationDefaults", variants.get(simIndex), harnesses.get(simIndex))));
 			simIndex++;
 		}
 		entry.put("simulations", sims);
 		return entry;
 	}
 
+	/**
+	 * The options a fresh OpenRocket installation gives a new simulation: those of
+	 * {@link DefaultSimulationOptionFactory} over {@link ApplicationDefaultsPreferences}, plus the other
+	 * application defaults a new simulation reads, and the multi-level wind model's initial level.
+	 * {@code MultiLevelPinkNoiseWindModel} takes that level from the preferences that were current
+	 * when the class was loaded (here the test preferences, which answer 0), so it is set explicitly
+	 * to what an installed OpenRocket gives: one level at 0 m with the average wind's speed,
+	 * direction and standard deviation.
+	 */
+	private static SimulationOptions applicationDefaultOptions() {
+		ApplicationDefaultsPreferences defaults = new ApplicationDefaultsPreferences();
+		SimulationOptions options = new DefaultSimulationOptionFactory(defaults).getDefault();
+		options.setTimeStep(defaults.getTimeStep());
+		options.setMaxSimulationTime(defaults.getMaxSimulationTime());
+		options.setGeodeticComputation(defaults.getGeodeticComputation());
+		options.setGravityModelType(defaults.getGravityModel());
+		options.setConstantGravity(defaults.getConstantGravityValue());
+		PinkNoiseWindModel averageWind = defaults.getAverageWindModel();
+		MultiLevelPinkNoiseWindModel multiLevel = options.getMultiLevelWindModel();
+		multiLevel.clearLevels();
+		multiLevel.addWindLevel(0, averageWind.getAverage(), averageWind.getDirection(),
+				averageWind.getStandardDeviation());
+		return options;
+	}
+
+	/** The multi-level wind variant: three levels up to 200 m (the harness makes them calm). */
+	private static void useMultiLevelWind(SimulationOptions options) {
+		MultiLevelPinkNoiseWindModel multiLevel = options.getMultiLevelWindModel();
+		multiLevel.clearLevels();
+		multiLevel.addWindLevel(0, 2.0, Math.PI / 2, 0.0);
+		multiLevel.addWindLevel(100, 4.0, 2.2, 0.0);
+		multiLevel.addWindLevel(200, 6.0, 3.0, 0.0);
+		options.setWindModelType(WindModelType.MULTI_LEVEL);
+	}
+
+	private static FlightConfiguration configurationNamed(Rocket rocket, String name) {
+		for (FlightConfiguration config : rocket.getFlightConfigurations()) {
+			if (config.getName().equals(name)) {
+				return config;
+			}
+		}
+		throw new IllegalStateException("No flight configuration named " + name + " in " + rocket.getName());
+	}
+
 	private static void dumpDesign(Path dir, String name, Rocket rocket, ComponentIndex index, WarningSet loadWarnings,
 			Map<String, Object> entry) throws IOException {
+		// Geometry, mass and aero describe the settled automatic dimensions (see AutomaticDimensions).
+		int changedPasses = AutomaticDimensions.settle(rocket, index);
+		if (changedPasses > 0) {
+			log("  automatic dimensions: " + changedPasses + " settling pass(es) changed values");
+		}
 		Json.write(dir.resolve("geometry.json"), GeometryDumper.dump(name, rocket, index, loadWarnings));
 		Json.write(dir.resolve("mass.json"), MassDumper.dump(name, rocket, index));
 		Json.write(dir.resolve("aero.json"), AeroDumper.dump(name, rocket, index));
@@ -450,6 +604,7 @@ public final class GoldenDumper {
 		openrocket.put("commit", a.commit);
 		openrocket.put("version", BuildProperties.getVersion());
 		openrocket.put("presetDatabaseCommit", a.presetCommit);
+		openrocket.put("dirty", a.dirty);
 		openrocket.put("javaVersion", System.getProperty("java.version"));
 		root.put("openrocket", openrocket);
 		root.put("databases", databases);

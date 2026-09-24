@@ -6,6 +6,7 @@
  "name": "Simulation 4",
  "flightConfiguration": {"index": 4, "id": "098d8c95-54c4-4552-bf81-e65e1de4796b", "name": "[H999-P]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

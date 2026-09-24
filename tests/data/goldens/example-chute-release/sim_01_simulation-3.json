@@ -6,6 +6,7 @@
  "name": "Simulation 3",
  "flightConfiguration": {"index": 2, "id": "3c6373fb-a84b-4dd3-8b84-bfc96c7233d5", "name": "[G80-10]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 3.048,
   "launchIntoWind": true,

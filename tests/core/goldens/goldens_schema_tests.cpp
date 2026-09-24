@@ -14,11 +14,13 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <pugixml.hpp>
 
 #include "QtRocket/file/GzipStream.h"
 #include "QtRocket/util/Error.h"
@@ -37,10 +39,13 @@ using QtRocket::Test::GoldenSimulation;
 
 constexpr std::size_t kExampleCount    = 16;
 constexpr std::size_t kTestRocketCount = 13;
-/// The Mach x AoA grid (7 x 3) plus the two off-grid points of aero.json.
-constexpr std::size_t kAeroPointCount = 23;
-constexpr std::size_t kMachCount      = 7;
-constexpr std::size_t kMissing        = std::numeric_limits<std::size_t>::max();
+/// The Mach x AoA grid (7 x 3) plus the four off-grid points of aero.json: a lateral wind
+/// direction, rotation about the nose tip and about the structure CG, thrusting nozzles.
+constexpr std::size_t kAeroPointCount = 25;
+/// The index of the thrusting-nozzle point (the last one).
+constexpr std::size_t kNozzlePoint = 24;
+constexpr std::size_t kMachCount   = 7;
+constexpr std::size_t kMissing     = std::numeric_limits<std::size_t>::max();
 
 /// A directory in the temporary directory, removed again when the test ends.
 class TempDir
@@ -251,6 +256,23 @@ void expectDirectoryListed(const std::string& inputName, const std::set<std::str
 
 // ---- geometry.json ----
 
+/// An override value is given exactly when the override is set (OpenRocket's getters return a
+/// computed stand-in otherwise).
+void checkOverrides(const json& overrides, const std::string& context)
+{
+    for (const auto& [flag, value] :
+         {std::pair{"massOverridden", "overrideMass"}, std::pair{"cgOverridden", "overrideCGX"},
+          std::pair{"cdOverridden", "overrideCD"}})
+    {
+        const auto overridden = overrides.find(flag);
+        ASSERT_TRUE(overridden != overrides.end() && overridden->is_boolean())
+            << context << ": " << flag;
+        const auto overrideValue = overrides.find(value);
+        ASSERT_NE(overrideValue, overrides.end()) << context << ": " << value;
+        EXPECT_EQ(overrideValue->is_null(), !overridden->get<bool>()) << context << ": " << value;
+    }
+}
+
 void checkComponent(const json& component, const std::string& file, std::set<std::string>& paths)
 {
     const std::string context = file + " " + component.value("path", "?");
@@ -284,6 +306,7 @@ void checkComponent(const json& component, const std::string& file, std::set<std
     EXPECT_EQ(component.value("instanceOffsets", json::array()).size(),
               component.value("instanceCount", kMissing))
         << context;
+    checkOverrides(component.value("overrides", json::object()), context);
 }
 
 void checkInstances(const json& entry, const std::set<std::string>& paths,
@@ -340,9 +363,16 @@ void checkMassConfiguration(const json& configuration, std::size_t index, const 
 void checkAeroPoint(const json& point, const std::string& context)
 {
     expectKeys(point, {"conditions", "cp", "forces", "components", "warnings"}, context);
-    expectKeys(point.value("conditions", json::object()),
-               {"mach", "aoa", "theta", "rollRate", "pitchRate", "yawRate", "pitchCenter"},
+    const auto& conditions = point.value("conditions", json::object());
+    expectKeys(conditions,
+               {"mach", "aoa", "theta", "rollRate", "pitchRate", "yawRate", "pitchCenter",
+                "thrustingNozzleExitAreas"},
                context);
+    for (const auto& nozzle : conditions.value("thrustingNozzleExitAreas", json::array()))
+    {
+        expectKeys(nozzle, {"assembly", "area"}, context);
+        expectNumber(nozzle, "area", context);
+    }
     expectCoordinate(point.value("cp", json::array()), 4, context);
     expectForces(point.value("forces", json::object()), context + " forces");
     for (const auto& component : point.value("components", json::array()))
@@ -363,9 +393,18 @@ void checkAeroConfiguration(const json& aero, std::size_t index, const std::stri
     expectKeys(*results, {"geometryWarnings", "points", "worstCP"}, context);
     const auto& points = results->value("points", json::array());
     ASSERT_EQ(points.size(), kAeroPointCount) << context;
-    for (const auto& point : points)
+    for (std::size_t p = 0; p < points.size(); ++p)
     {
-        checkAeroPoint(point, context);
+        checkAeroPoint(points[p], std::format("{} point {}", context, p));
+        // Only the nozzle point has thrusting nozzles.
+        if (p != kNozzlePoint)
+        {
+            EXPECT_TRUE(points[p]
+                            .value("conditions", json::object())
+                            .value("thrustingNozzleExitAreas", json::array({0}))
+                            .empty())
+                << context << " point " << p;
+        }
     }
     EXPECT_EQ(results->value("worstCP", json::array()).size(), kMachCount) << context;
 }
@@ -378,8 +417,8 @@ void checkSimulationHeader(const json& simulation, const GoldenSimulation& liste
     const std::string& context = listed.json;
     expectHeader(simulation, "simulation", inputName, context);
     expectKeys(simulation,
-               {"index", "name", "flightConfiguration", "optionsSource", "options", "harness",
-                "extensions", "skipped", "skipReason"},
+               {"index", "name", "flightConfiguration", "optionsSource", "variant", "options",
+                "harness", "extensions", "skipped", "skipReason"},
                context);
     EXPECT_EQ(simulation.value("index", kMissing), index) << context;
     EXPECT_EQ(simulation.value("name", ""), listed.name) << context;
@@ -547,6 +586,32 @@ TEST(GoldenData, ReportsUnreadableCsvFiles)
               ErrorCode::IO);
 }
 
+/// Writes the first @p kept bytes of @p compressed to a file in @p dir and expects the loader to
+/// reject it as a PARSE error.
+void expectTruncatedCsvRejected(const TempDir& dir, const std::vector<std::byte>& compressed,
+                                std::size_t kept)
+{
+    const std::vector<std::byte> truncated(compressed.begin(),
+                                           compressed.begin() + static_cast<std::ptrdiff_t>(kept));
+    const auto                   file = dir.path() / std::format("truncated_{}.csv.gz", kept);
+    ASSERT_TRUE(QtRocket::writeFile(file, truncated).has_value());
+    const auto table = QtRocket::Test::loadGoldenCsv(file);
+    EXPECT_FALSE(table.has_value()) << "accepted a stream cut to " << kept << " bytes";
+    EXPECT_EQ(errorCode(table), ErrorCode::PARSE) << kept;
+}
+
+TEST(GoldenData, ReportsTruncatedGzipCsvFiles)
+{
+    const TempDir dir;
+    const auto    compressed =
+        QtRocket::gzipDeflate(QtRocket::stringToBytes("time,mass\n0.0,1.5\n0.5,1.25\n"));
+    ASSERT_TRUE(compressed.has_value()) << compressed.error().toString();
+    ASSERT_GT(compressed->size(), 10U);
+    // Cut inside the deflate data and just before the trailer (CRC-32 and size).
+    expectTruncatedCsvRejected(dir, *compressed, compressed->size() / 2);
+    expectTruncatedCsvRejected(dir, *compressed, compressed->size() - 4);
+}
+
 TEST(GoldenData, ParsesJson)
 {
     const auto parsed = QtRocket::Test::parseGoldenJson(R"({"a": [1.0, "NaN"]})");
@@ -690,6 +755,29 @@ TEST(GoldenSchema, ManifestListsEveryInput)
     EXPECT_EQ(countExampleFiles(), kExampleCount);
 }
 
+/// A directory name the dumper owns (it deletes and rewrites these directories).
+bool isInputDirectoryName(std::string_view name)
+{
+    return name.starts_with("example-") || name.starts_with("testrocket-");
+}
+
+TEST(GoldenSchema, EveryInputDirectoryIsAnInput)
+{
+    const auto  manifest    = loadManifestOrFail();
+    std::size_t directories = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(QtRocket::Test::goldensDir()))
+    {
+        const std::string name = entry.path().filename().string();
+        if (!entry.is_directory() || !isInputDirectoryName(name))
+        {
+            continue;
+        }
+        ++directories;
+        EXPECT_NE(manifest.find(name), nullptr) << "not an input of manifest.json: " << name;
+    }
+    EXPECT_EQ(directories, manifest.inputs.size());
+}
+
 TEST(GoldenSchema, EveryFileOfAnInputIsListed)
 {
     const auto manifest = loadManifestOrFail();
@@ -763,14 +851,36 @@ void checkAeroFile(const GoldenInput& input)
     }
 }
 
+/// The re-saved design is well-formed XML with OpenRocketSaver's root element, a rocket and the
+/// input's simulations.
+void checkResaveXml(const std::string& text, const GoldenInput& input)
+{
+    pugi::xml_document           document;
+    const pugi::xml_parse_result parsed = document.load_buffer(text.data(), text.size());
+    ASSERT_TRUE(parsed) << input.resave << ": " << parsed.description() << " at offset "
+                        << parsed.offset;
+    const pugi::xml_node root = document.document_element();
+    EXPECT_STREQ(root.name(), "openrocket") << input.resave;
+    EXPECT_STREQ(root.attribute("version").value(), "1.11") << input.resave;
+    EXPECT_TRUE(std::string_view{root.attribute("creator").value()}.starts_with("OpenRocket "))
+        << input.resave;
+    EXPECT_TRUE(root.child("rocket")) << input.resave;
+    std::size_t simulations = 0;
+    for ([[maybe_unused]] const pugi::xml_node simulation :
+         root.child("simulations").children("simulation"))
+    {
+        ++simulations;
+    }
+    EXPECT_EQ(simulations, input.simulations.size()) << input.resave;
+}
+
 void checkResaveFile(const GoldenInput& input)
 {
     const auto text = QtRocket::readTextFile(QtRocket::Test::goldensDir() / input.resave);
     ASSERT_TRUE(text.has_value()) << text.error().toString();
     EXPECT_TRUE(text->starts_with("<?xml version='1.0' encoding='utf-8'?>\n")) << input.resave;
-    EXPECT_NE(text->find(R"(<openrocket version="1.11" creator="OpenRocket )"), std::string::npos)
-        << input.resave;
     EXPECT_TRUE(text->ends_with("</openrocket>\n")) << input.resave;
+    checkResaveXml(*text, input);
 }
 
 /// The names of the inputs listed in manifest.json; none when it cannot be read

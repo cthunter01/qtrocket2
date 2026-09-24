@@ -78,10 +78,12 @@ final class SimulationDumper {
 	/**
 	 * Runs simulation {@code simIndex} of the document (unless it is skipped) and writes its files.
 	 *
+	 * @param variant what a harness-defined variant simulation changed in the default options, or null
 	 * @return the written file names, relative to {@code inputDir}
 	 */
 	static List<String> dump(Path inputDir, String inputName, int simIndex, Simulation sim, Rocket rocket,
-			ComponentIndex index, String optionsSource, Map<String, Object> harness) throws IOException {
+			ComponentIndex index, String optionsSource, String variant, Map<String, Object> harness)
+			throws IOException {
 		String base = String.format("sim_%02d_%s", simIndex, GoldenDumper.slug(sim.getName()));
 		List<String> files = new ArrayList<>();
 
@@ -106,6 +108,7 @@ final class SimulationDumper {
 		config.put("name", rocket.getFlightConfiguration(fcid).getName());
 		root.put("flightConfiguration", config);
 		root.put("optionsSource", optionsSource);
+		root.put("variant", variant);
 		root.put("options", options(sim.getOptions()));
 		root.put("harness", harness);
 		root.put("extensions", extensions(sim));
@@ -136,6 +139,9 @@ final class SimulationDumper {
 		} catch (SimulationException e) {
 			exception = e;
 		}
+		// A failure of the harness itself (also one inside the nested optimum-coast simulation, whose
+		// exceptions OpenRocket only logs) aborts the run instead of being recorded as OpenRocket's.
+		jitterRemoval.checkNoFailure(inputName + " " + base);
 		FlightData data = engine.getFlightData();
 
 		Map<String, Object> result = Json.object();
@@ -168,14 +174,18 @@ final class SimulationDumper {
 		return files;
 	}
 
-	/** Why the golden run of this simulation is skipped, or null. */
+	/**
+	 * Why the golden run of this simulation is skipped, or null. Only an enabled scripting extension
+	 * skips it: a disabled one adds no listener ({@code ScriptingExtension.initialize}), so OpenRocket
+	 * simulates it like a plain simulation, and so does the harness.
+	 */
 	private static String skipReason(Simulation sim) {
 		if (sim.getStatus() == Simulation.Status.EXTERNAL) {
 			return "imported (external) simulation data cannot be re-simulated";
 		}
 		for (SimulationExtension extension : sim.getSimulationExtensions()) {
-			if (extension instanceof ScriptingExtension) {
-				return "uses a JavaScript scripting extension (out of scope for QtRocket)";
+			if (extension instanceof ScriptingExtension script && script.isEnabled()) {
+				return "uses an enabled JavaScript scripting extension (out of scope for QtRocket)";
 			}
 		}
 		return null;

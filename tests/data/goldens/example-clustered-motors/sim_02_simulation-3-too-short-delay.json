@@ -6,6 +6,7 @@
  "name": "Simulation 3 - too short delay",
  "flightConfiguration": {"index": 3, "id": "b13e8ca2-f54d-4ca8-9b23-06c6c9eb237a", "name": "[4× C6-3]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,

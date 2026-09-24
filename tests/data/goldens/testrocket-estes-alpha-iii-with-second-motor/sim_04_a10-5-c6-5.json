@@ -6,6 +6,7 @@
  "name": "[A10-5, C6-5]",
  "flightConfiguration": {"index": 4, "id": "415a5485-f2da-4c2a-8803-394220ae58b8", "name": "[A10-5, C6-5]"},
  "optionsSource": "applicationDefaults",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,
@@ -16,7 +17,7 @@
   "multiLevelWind": {
    "altitudeReference": "MSL",
    "levels": [
-    {"altitude": 0.0, "speed": 0.0, "direction": 0.0, "standardDeviation": 0.0}
+    {"altitude": 0.0, "speed": 2.0, "direction": 1.5707963267948966, "standardDeviation": 0.0}
    ]
   },
   "launchAltitude": 0.0,
@@ -42,7 +43,7 @@
   "hasDragLookup": false,
   "hasStabilityLookup": false
  },
- "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [0.0], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true},
+ "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [0.2], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true},
  "extensions": [],
  "skipped": false,
  "skipReason": null,

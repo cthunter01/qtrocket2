@@ -6,6 +6,7 @@
  "name": "Simulation 4",
  "flightConfiguration": {"index": 4, "id": "e1dc7488-77c0-403a-b54f-c01db07aba2f", "name": "[None; C6-5]"},
  "optionsSource": "document",
+ "variant": null,
  "options": {
   "launchRodLength": 1.0,
   "launchIntoWind": true,

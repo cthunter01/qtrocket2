@@ -16,7 +16,7 @@
    "geometryWarnings": [],
    "points": [
     {
-     "conditions": {"mach": 0.05, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909},
+     "conditions": {"mach": 0.05, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909, "thrustingNozzleExitAreas": []},
      "cp": [1.5565507463845554, 0.0, 0.0, 34.9808703434079],
      "forces": {"cp": [1.5565507463845554, 0.0, 0.0, 34.9808703434079], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8770835404457047, "cdAxial": 0.8770835404457047, "pressureCD": 0.29270075498892173, "baseCD": 0.1639221326320691, "frictionCD": 0.42046065282471384, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -40,7 +40,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.05, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909},
+     "conditions": {"mach": 0.05, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909, "thrustingNozzleExitAreas": []},
      "cp": [1.5440931970482075, 0.0, 0.0, 35.9155921592575],
      "forces": {"cp": [1.5440931970482075, 0.0, 0.0, 35.9155921592575], "cn": 1.2536906719650058, "cm": 19.05329958448781, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8770835404457047, "cdAxial": 0.8871522381214909, "pressureCD": 0.29270075498892173, "baseCD": 0.1639221326320691, "frictionCD": 0.42046065282471384, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -64,7 +64,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.05, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909},
+     "conditions": {"mach": 0.05, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 17.170945, "beta": 0.998749217771909, "thrustingNozzleExitAreas": []},
      "cp": [1.500896922921272, 0.0, 0.0, 39.600968281519805],
      "forces": {"cp": [1.500896922921272, 0.0, 0.0, 39.600968281519805], "cn": 6.911672834903612, "cm": 102.10343002111594, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8770835404457047, "cdAxial": 1.0431099382911158, "pressureCD": 0.29270075498892173, "baseCD": 0.1639221326320691, "frictionCD": 0.42046065282471384, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -88,7 +88,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.3, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457},
+     "conditions": {"mach": 0.3, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457, "thrustingNozzleExitAreas": []},
      "cp": [1.5582441769955135, 0.0, 0.0, 35.61948659457362],
      "forces": {"cp": [1.5582441769955135, 0.0, 0.0, 35.61948659457362], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8968419554155587, "cdAxial": 0.8968419554155587, "pressureCD": 0.30064263814306524, "baseCD": 0.17941861514767088, "frictionCD": 0.4167807021248226, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -112,7 +112,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.3, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457},
+     "conditions": {"mach": 0.3, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457, "thrustingNozzleExitAreas": []},
      "cp": [1.5459609634524254, 0.0, 0.0, 36.554208410423215],
      "forces": {"cp": [1.5459609634524254, 0.0, 0.0, 36.554208410423215], "cn": 1.2759825844441754, "cm": 19.4155439527149, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8968419554155587, "cdAxial": 0.9071374747083405, "pressureCD": 0.30064263814306524, "baseCD": 0.17941861514767088, "frictionCD": 0.4167807021248226, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -136,7 +136,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.3, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457},
+     "conditions": {"mach": 0.3, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457, "thrustingNozzleExitAreas": []},
      "cp": [1.5032791683187403, 0.0, 0.0, 40.23958453268553],
      "forces": {"cp": [1.5032791683187403, 0.0, 0.0, 40.23958453268553], "cn": 7.02313239729946, "cm": 103.91465186225136, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8968419554155587, "cdAxial": 1.066608496945473, "pressureCD": 0.30064263814306524, "baseCD": 0.17941861514767088, "frictionCD": 0.4167807021248226, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -160,7 +160,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.6, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8},
+     "conditions": {"mach": 0.6, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8, "thrustingNozzleExitAreas": []},
      "cp": [1.5646295010454374, 0.0, 0.0, 37.915646289288894],
      "forces": {"cp": [1.5646295010454374, 0.0, 0.0, 37.915646289288894], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9550742529756094, "cdAxial": 0.9550742529756094, "pressureCD": 0.32241249467178024, "baseCD": 0.22723633262438503, "frictionCD": 0.4054254256794441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -184,7 +184,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.6, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8},
+     "conditions": {"mach": 0.6, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8, "thrustingNozzleExitAreas": []},
      "cp": [1.552918630037388, 0.0, 0.0, 38.850368105138486],
      "forces": {"cp": [1.552918630037388, 0.0, 0.0, 38.850368105138486], "cn": 1.3561336780929139, "cm": 20.728004463893825, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9550742529756094, "cdAxial": 0.9660382643470371, "pressureCD": 0.32241249467178024, "baseCD": 0.22723633262438503, "frictionCD": 0.4054254256794441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -208,7 +208,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.6, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8},
+     "conditions": {"mach": 0.6, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 206.05134, "beta": 0.8, "thrustingNozzleExitAreas": []},
      "cp": [1.5119380535070104, 0.0, 0.0, 42.5357442274008],
      "forces": {"cp": [1.5119380535070104, 0.0, 0.0, 42.5357442274008], "cn": 7.423887865543153, "cm": 110.47695441814601, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9550742529756094, "cdAxial": 1.1358638021853216, "pressureCD": 0.32241249467178024, "baseCD": 0.22723633262438503, "frictionCD": 0.4054254256794441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -232,7 +232,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.9, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673},
+     "conditions": {"mach": 0.9, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673, "thrustingNozzleExitAreas": []},
      "cp": [1.582797282620284, 0.0, 0.0, 43.54970619912922],
      "forces": {"cp": [1.582797282620284, 0.0, 0.0, 43.54970619912922], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.0538888806484559, "cdAxial": 1.0538888806484559, "pressureCD": 0.36045638729240087, "baseCD": 0.3069325284189085, "frictionCD": 0.3864999649371465, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -256,7 +256,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.9, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673},
+     "conditions": {"mach": 0.9, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673, "thrustingNozzleExitAreas": []},
      "cp": [1.5721878740623234, 0.0, 0.0, 44.48442801497881],
      "forces": {"cp": [1.5721878740623234, 0.0, 0.0, 44.48442801497881], "cn": 1.552799469455571, "cm": 24.028469455988763, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.0538888806484559, "cdAxial": 1.0659872590055846, "pressureCD": 0.36045638729240087, "baseCD": 0.3069325284189085, "frictionCD": 0.3864999649371465, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -280,7 +280,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.9, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673},
+     "conditions": {"mach": 0.9, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 309.07701000000003, "beta": 0.4358898943540673, "thrustingNozzleExitAreas": []},
      "cp": [1.5345262359073835, 0.0, 0.0, 48.169804137241115],
      "forces": {"cp": [1.5345262359073835, 0.0, 0.0, 48.169804137241115], "cn": 8.40721682235644, "cm": 126.9792793786207, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.0538888806484559, "cdAxial": 1.2533834173883425, "pressureCD": 0.36045638729240087, "baseCD": 0.3069325284189085, "frictionCD": 0.3864999649371465, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -304,7 +304,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 1.1, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842},
+     "conditions": {"mach": 1.1, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842, "thrustingNozzleExitAreas": []},
      "cp": [1.592157384372958, 0.0, 0.0, 43.655694202822644],
      "forces": {"cp": [1.592157384372958, 0.0, 0.0, 43.655694202822644], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.1276363540026946, "cdAxial": 1.1276363540026946, "pressureCD": 0.47266750267209623, "baseCD": 0.3096200302817541, "frictionCD": 0.3453488210488441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -328,7 +328,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 1.1, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842},
+     "conditions": {"mach": 1.1, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842, "thrustingNozzleExitAreas": []},
      "cp": [1.581448979375704, 0.0, 0.0, 44.6382662049304],
      "forces": {"cp": [1.581448979375704, 0.0, 0.0, 44.6382662049304], "cn": 1.558169435315499, "cm": 24.253597078485356, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.1276363540026946, "cdAxial": 1.140581334740686, "pressureCD": 0.47266750267209623, "baseCD": 0.3096200302817541, "frictionCD": 0.3453488210488441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -352,7 +352,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 1.1, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842},
+     "conditions": {"mach": 1.1, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 377.76079000000004, "beta": 0.4582575694955842, "thrustingNozzleExitAreas": []},
      "cp": [1.5438954268139393, 0.0, 0.0, 48.6443457593263],
      "forces": {"cp": [1.5438954268139393, 0.0, 0.0, 48.6443457593263], "cn": 8.490039959787849, "cm": 129.01312861598484, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 1.1276363540026946, "cdAxial": 1.3410908236185108, "pressureCD": 0.47266750267209623, "baseCD": 0.3096200302817541, "frictionCD": 0.3453488210488441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -376,7 +376,7 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 1.5, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895},
+     "conditions": {"mach": 1.5, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895, "thrustingNozzleExitAreas": []},
      "cp": [1.5123887114670773, 0.0, 0.0, 19.654566941657485],
      "forces": {"cp": [1.5123887114670773, 0.0, 0.0, 19.654566941657485], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9843839586200401, "cdAxial": 0.9843839586200401, "pressureCD": 0.4579941848547379, "baseCD": 0.22705468887328636, "frictionCD": 0.2993350848920159, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -402,7 +402,7 @@
      ]
     },
     {
-     "conditions": {"mach": 1.5, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895},
+     "conditions": {"mach": 1.5, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895, "thrustingNozzleExitAreas": []},
      "cp": [1.4955919885804603, 0.0, 0.0, 20.950825686048677],
      "forces": {"cp": [1.4955919885804603, 0.0, 0.0, 20.950825686048677], "cn": 0.7313217784658982, "cm": 10.765344418779645, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9843839586200401, "cdAxial": 0.9956844380147419, "pressureCD": 0.4579941848547379, "baseCD": 0.22705468887328636, "frictionCD": 0.2993350848920159, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -428,7 +428,7 @@
      ]
     },
     {
-     "conditions": {"mach": 1.5, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895},
+     "conditions": {"mach": 1.5, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 515.12835, "beta": 1.118033988749895, "thrustingNozzleExitAreas": []},
      "cp": [1.4539180763070243, 0.0, 0.0, 27.059309070634278],
      "forces": {"cp": [1.4539180763070243, 0.0, 0.0, 27.059309070634278], "cn": 4.72274036597335, "cm": 67.58344082473923, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9843839586200401, "cdAxial": 1.1707216507667197, "pressureCD": 0.4579941848547379, "baseCD": 0.22705468887328636, "frictionCD": 0.2993350848920159, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -454,7 +454,7 @@
      ]
     },
     {
-     "conditions": {"mach": 2.0, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772},
+     "conditions": {"mach": 2.0, "aoa": 0.0, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772, "thrustingNozzleExitAreas": []},
      "cp": [1.4280406163992514, 0.0, 0.0, 12.68281474822022],
      "forces": {"cp": [1.4280406163992514, 0.0, 0.0, 12.68281474822022], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.913285239044824, "cdAxial": 0.913285239044824, "pressureCD": 0.4984792257193463, "baseCD": 0.1702910166549648, "frictionCD": 0.2445149966705129, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -480,7 +480,7 @@
      ]
     },
     {
-     "conditions": {"mach": 2.0, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772},
+     "conditions": {"mach": 2.0, "aoa": 0.03490658503988659, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772, "thrustingNozzleExitAreas": []},
      "cp": [1.4079773248757264, 0.0, 0.0, 13.828521873860634],
      "forces": {"cp": [1.4079773248757264, 0.0, 0.0, 13.828521873860634], "cn": 0.482706474765848, "cm": 6.689367825206801, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.913285239044824, "cdAxial": 0.9237695230835229, "pressureCD": 0.4984792257193463, "baseCD": 0.1702910166549648, "frictionCD": 0.2445149966705129, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -506,7 +506,7 @@
      ]
     },
     {
-     "conditions": {"mach": 2.0, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772},
+     "conditions": {"mach": 2.0, "aoa": 0.17453292519943295, "theta": 0.0, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 686.8378, "beta": 1.7320508075688772, "thrustingNozzleExitAreas": []},
      "cp": [1.35743140877887, 0.0, 0.0, 18.568712724259786],
      "forces": {"cp": [1.35743140877887, 0.0, 0.0, 18.568712724259786], "cn": 3.240851748952992, "cm": 43.299546803392964, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.913285239044824, "cdAxial": 1.086164390746775, "pressureCD": 0.4984792257193463, "baseCD": 0.1702910166549648, "frictionCD": 0.2445149966705129, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -532,7 +532,7 @@
      ]
     },
     {
-     "conditions": {"mach": 0.3, "aoa": 0.08726646259971647, "theta": 0.7853981633974483, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457},
+     "conditions": {"mach": 0.3, "aoa": 0.08726646259971647, "theta": 0.7853981633974483, "rollRate": 0.0, "pitchRate": 0.0, "yawRate": 0.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 103.02567, "beta": 0.9539392014169457, "thrustingNozzleExitAreas": []},
      "cp": [1.5287850029964791, 0.0, 0.0, 37.949787812576936],
      "forces": {"cp": [1.5287850029964791, 0.0, 0.0, 37.949787812576936], "cn": 3.3117437388134214, "cm": 49.83212757544731, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.8968419554155587, "cdAxial": 0.9529744409214175, "pressureCD": 0.30064263814306524, "baseCD": 0.17941861514767088, "frictionCD": 0.4167807021248226, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -556,7 +556,31 @@
      "warnings": []
     },
     {
-     "conditions": {"mach": 0.8, "aoa": 0.03490658503988659, "theta": 1.0, "rollRate": 20.0, "pitchRate": 2.0, "yawRate": 1.0, "pitchCenter": [1.2267990289011053, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 274.73512, "beta": 0.5999999999999999},
+     "conditions": {"mach": 0.8, "aoa": 0.03490658503988659, "theta": 1.0, "rollRate": 20.0, "pitchRate": 2.0, "yawRate": 1.0, "pitchCenter": [0.0, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 274.73512, "beta": 0.5999999999999999, "thrustingNozzleExitAreas": []},
+     "cp": [1.5644415768199968, 0.0, 0.0, 41.98205957773351],
+     "forces": {"cp": [1.5644415768199968, 0.0, 0.0, 41.98205957773351], "cn": 1.4654503327997397, "cm": 22.411553065183604, "cside": 0.0, "cyaw": 0.0, "croll": -1.693115292579191, "crollDamp": 1.693115292579191, "crollForce": 0.0, "cd": 1.016227136669479, "cdAxial": 1.0278931677112373, "pressureCD": 0.34575247655537605, "baseCD": 0.2768250766743108, "frictionCD": 0.39364958343979223, "overrideCD": 0.0, "pitchDampingMoment": 0.15352005879882735, "yawDampingMoment": 0.0, "axisymmetric": true},
+     "components": [
+      {"path": "/", "cp": [1.5644415768199968, 0.0, 0.0, 41.98205957773351], "cn": 1.46545033279974, "cm": 22.56507312398243, "cside": 0.0, "cyaw": 0.0, "croll": -1.693115292579191, "crollDamp": 1.693115292579191, "crollForce": 0.0, "cd": 1.016227136669479, "cdAxial": 1.0278931677112373, "pressureCD": 0.34575247655537605, "baseCD": 0.2768250766743108, "frictionCD": 0.39364958343979223, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0", "cp": [1.1850691992625861, 0.0, 0.0, 21.010521570574426], "cn": 0.7334055579356279, "cm": 8.55449150863686, "cside": 0.0, "cyaw": 0.0, "croll": -0.7699228728915469, "crollDamp": 0.7699228728915469, "crollForce": 0.0, "cd": 0.45304155466230356, "cdAxial": 0.45824235736593755, "pressureCD": 0.17115772056804154, "baseCD": 0.036382819990807266, "frictionCD": 0.2455010141034548, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/0", "cp": [0.15250839838722247, 0.0, 0.0, 2.103948211131798], "cn": 0.07344164715138939, "cm": 0.11024082659427081, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.03281151494858474, "cdAxial": 0.03318818285884327, "pressureCD": 1.4210854715202004E-14, "baseCD": 0.0, "frictionCD": 0.03281151494857053, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/1", "cp": [0.36195000000000005, 0.0, 0.0, 0.03665177667872608], "cn": 0.001279388359498884, "cm": 0.0045578210307147754, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.011413189864189849, "cdAxial": 0.011544210403237337, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.011413189864189849, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/2", "cp": [0.6159500000000003, 0.0, 0.0, 0.2076934011794478], "cn": 0.007249867370493677, "cm": 0.04395232093361794, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.06467474256374249, "cdAxial": 0.06541719228501158, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.06467474256374249, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/3", "cp": [0.84455, 0.0, 0.0, 0.012217258892908693], "cn": 4.26462786499628E-4, "cm": 0.0035449719127781582, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.0038043966213966163, "cdAxial": 0.0038480701344124455, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.0038043966213966163, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/3/1", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.0017665940122769128, "cdAxial": 0.0017868740656643376, "pressureCD": 0.0017665940122769128, "baseCD": 0.0, "frictionCD": 0.0, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/4", "cp": [1.0477499999999997, 0.0, 0.0, 0.1832588833936304], "cn": 0.00639694179749442, "cm": 0.06596846228666119, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.05706594932094925, "cdAxial": 0.057721052016186686, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.05706594932094925, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/5", "cp": [1.3271499999999998, 0.0, 0.0, 0.08552081225036084], "cn": 0.002985239505497396, "cm": 0.038994691040559734, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.026630776349776314, "cdAxial": 0.02693649094088712, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.026630776349776314, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/5/2", "cp": [1.3122641522614618, 0.0, 0.0, 18.381231227047554], "cn": 0.6416260109647545, "cm": 8.287232414838256, "cside": 0.0, "cyaw": 0.0, "croll": -0.7699228728915469, "crollDamp": 0.7699228728915469, "crollForce": 0.0, "cd": 0.08436926565637017, "cdAxial": 0.08533780353201015, "pressureCD": 0.05587484418115784, "baseCD": 0.012127606663602422, "frictionCD": 0.016366814811609915, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1", "cp": [1.9445191619369817, 0.0, 0.0, 20.97153800715908], "cn": 0.732044774864112, "cm": 14.010581615345572, "cside": 0.0, "cyaw": 0.0, "croll": -0.9231924196876441, "crollDamp": 0.9231924196876441, "crollForce": 0.0, "cd": 0.5631855820071753, "cdAxial": 0.5696508103452995, "pressureCD": 0.17459475598733445, "baseCD": 0.2404422566835035, "frictionCD": 0.14814856933633738, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/0", "cp": [1.4541499999999998, 0.0, 0.0, 0.03665177667872608], "cn": 0.001279388359498884, "cm": 0.018311245895327774, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.011413189864189849, "cdAxial": 0.011544210403237337, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.011413189864189849, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/0/4", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 7.522037870655468E-4, "cdAxial": 7.608388966911313E-4, "pressureCD": 7.522037870655468E-4, "baseCD": 0.0, "frictionCD": 0.0, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/1", "cp": [1.68275, 0.0, 0.0, 0.1832588833936304], "cn": 0.00639694179749442, "cm": 0.10594934852100134, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.05706594932094925, "cdAxial": 0.057721052016186686, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.05706594932094925, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/2", "cp": [1.96215, 0.0, 0.0, 0.08552081225036084], "cn": 0.002985239505497396, "cm": 0.057652437949918464, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.2298307763497763, "cdAxial": 0.23246917565491113, "pressureCD": 0.0, "baseCD": 0.2032, "frictionCD": 0.026630776349776314, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/2/4", "cp": [1.9476371474964043, 0.0, 0.0, 20.66610653483636], "cn": 0.7213832052016212, "cm": 13.828668582979324, "cside": 0.0, "cyaw": 0.0, "croll": -0.9231924196876441, "crollDamp": 0.9231924196876441, "crollForce": 0.0, "cd": 0.0877904196327096, "cdAxial": 0.0887982314925274, "pressureCD": 0.05769678280440112, "baseCD": 0.012414085561167831, "frictionCD": 0.01767955126714066, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true}
+     ],
+     "warnings": []
+    },
+    {
+     "conditions": {"mach": 0.8, "aoa": 0.03490658503988659, "theta": 1.0, "rollRate": 20.0, "pitchRate": 2.0, "yawRate": 1.0, "pitchCenter": [1.2267990289011053, 0.0, 0.0], "refLength": 0.1016, "refArea": 0.008107319665559963, "velocity": 274.73512, "beta": 0.5999999999999999, "thrustingNozzleExitAreas": []},
      "cp": [1.5644415768199968, 0.0, 0.0, 41.98205957773351],
      "forces": {"cp": [1.5644415768199968, 0.0, 0.0, 41.98205957773351], "cn": 1.4654503327997397, "cm": 22.54847766912774, "cside": 0.0, "cyaw": 0.0, "croll": -1.693115292579191, "crollDamp": 1.693115292579191, "crollForce": 0.0, "cd": 1.016227136669479, "cdAxial": 1.0278931677112373, "pressureCD": 0.34575247655537605, "baseCD": 0.2768250766743108, "frictionCD": 0.39364958343979223, "overrideCD": 0.0, "pitchDampingMoment": 0.016595454854689353, "yawDampingMoment": 0.0, "axisymmetric": true},
      "components": [
@@ -576,6 +600,46 @@
       {"path": "/1/1", "cp": [1.68275, 0.0, 0.0, 0.1832588833936304], "cn": 0.00639694179749442, "cm": 0.10594934852100134, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.05706594932094925, "cdAxial": 0.057721052016186686, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.05706594932094925, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
       {"path": "/1/2", "cp": [1.96215, 0.0, 0.0, 0.08552081225036084], "cn": 0.002985239505497396, "cm": 0.057652437949918464, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.2298307763497763, "cdAxial": 0.23246917565491113, "pressureCD": 0.0, "baseCD": 0.2032, "frictionCD": 0.026630776349776314, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
       {"path": "/1/2/4", "cp": [1.9476371474964043, 0.0, 0.0, 20.66610653483636], "cn": 0.7213832052016212, "cm": 13.828668582979324, "cside": 0.0, "cyaw": 0.0, "croll": -0.9231924196876441, "crollDamp": 0.9231924196876441, "crollForce": 0.0, "cd": 0.0877904196327096, "cdAxial": 0.0887982314925274, "pressureCD": 0.05769678280440112, "baseCD": 0.012414085561167831, "frictionCD": 0.01767955126714066, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true}
+     ],
+     "warnings": []
+    },
+    {
+     "conditions": {
+      "mach": 0.6,
+      "aoa": 0.0,
+      "theta": 0.0,
+      "rollRate": 0.0,
+      "pitchRate": 0.0,
+      "yawRate": 0.0,
+      "pitchCenter": [0.0, 0.0, 0.0],
+      "refLength": 0.1016,
+      "refArea": 0.008107319665559963,
+      "velocity": 206.05134,
+      "beta": 0.8,
+      "thrustingNozzleExitAreas": [
+       {"assembly": "/0", "area": 2.9267423992671466E-4},
+       {"assembly": "/1", "area": 2.9267423992671466E-4}
+      ]
+     },
+     "cp": [1.5646295010454374, 0.0, 0.0, 37.915646289288894],
+     "forces": {"cp": [1.5646295010454374, 0.0, 0.0, 37.915646289288894], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9490527729756094, "cdAxial": 0.9490527729756094, "pressureCD": 0.32241249467178024, "baseCD": 0.221214852624385, "frictionCD": 0.4054254256794441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+     "components": [
+      {"path": "/", "cp": [1.5646295010454374, 0.0, 0.0, 37.915646289288894], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.9490527729756093, "cdAxial": 0.9490527729756093, "pressureCD": 0.32241249467178024, "baseCD": 0.221214852624385, "frictionCD": 0.4054254256794441, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0", "cp": [1.1864126877871668, 0.0, 0.0, 18.979116194253418], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.44217706611885654, "cdAxial": 0.44217706611885654, "pressureCD": 0.15946657951376245, "baseCD": 0.029865425071194156, "frictionCD": 0.25284506153389996, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/0", "cp": [0.1499251050184923, 0.0, 0.0, 2.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.0337930559940548, "cdAxial": 0.0337930559940548, "pressureCD": 1.4210854715202004E-14, "baseCD": 0.0, "frictionCD": 0.03379305599404059, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/1", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.011754610073802367, "cdAxial": 0.011754610073802367, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.011754610073802367, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/2", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.06660945708488007, "cdAxial": 0.06660945708488007, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.06660945708488007, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/3", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.003918203357934122, "cdAxial": 0.003918203357934122, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.003918203357934122, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/3/1", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.001435742263271546, "cdAxial": 0.001435742263271546, "pressureCD": 0.001435742263271546, "baseCD": 0.0, "frictionCD": 0.0, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/4", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.05877305036901184, "cdAxial": 0.05877305036901184, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.05877305036901184, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/5", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.027427423505538853, "cdAxial": 0.027427423505538853, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.027427423505538853, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/0/5/2", "cp": [1.3085023856148397, 0.0, 0.0, 16.979116194253418], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.07900992706903048, "cdAxial": 0.07900992706903048, "pressureCD": 0.05219836499573505, "baseCD": 0.009955141690398052, "frictionCD": 0.01685642038289739, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1", "cp": [1.9436968808359332, 0.0, 0.0, 18.936530095035476], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.5068757068567528, "cdAxial": 0.5068757068567528, "pressureCD": 0.1629459151580178, "baseCD": 0.19134942755319084, "frictionCD": 0.15258036414554407, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/0", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.011754610073802367, "cdAxial": 0.011754610073802367, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.011754610073802367, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/0/4", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 6.223233077267628E-4, "cdAxial": 6.223233077267628E-4, "pressureCD": 6.223233077267628E-4, "baseCD": 0.0, "frictionCD": 0.0, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/1", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.05877305036901184, "cdAxial": 0.05877305036901184, "pressureCD": 0.0, "baseCD": 0.0, "frictionCD": 0.05877305036901184, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/2", "cp": [0.0, 0.0, 0.0, 0.0], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.18820594350553882, "cdAxial": 0.18820594350553882, "pressureCD": 0.0, "baseCD": 0.16077851999999998, "frictionCD": 0.027427423505538853, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true},
+      {"path": "/1/2/4", "cp": [1.9436968808359332, 0.0, 0.0, 18.936530095035476], "cn": 0.0, "cm": 0.0, "cside": 0.0, "cyaw": 0.0, "croll": 0.0, "crollDamp": 0.0, "crollForce": 0.0, "cd": 0.08229915209764871, "cdAxial": 0.08229915209764871, "pressureCD": 0.05390042284752142, "baseCD": 0.010190302517730288, "frictionCD": 0.018208426732397, "overrideCD": 0.0, "pitchDampingMoment": 0.0, "yawDampingMoment": 0.0, "axisymmetric": true}
      ],
      "warnings": []
     }
