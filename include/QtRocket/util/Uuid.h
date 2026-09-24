@@ -118,9 +118,9 @@ struct std::hash<QtRocket::Uuid>
     {
         // Boost's hash_combine of the two halves: unlike java.util.UUID.hashCode()'s plain xor,
         // swapping the halves gives a different value.
-        const std::hash<std::uint64_t> hash;
-        std::size_t                    seed = hash(id.mostSignificantBits());
-        seed ^= hash(id.leastSignificantBits()) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
+        const std::hash<std::uint64_t> hashHalf;
+        std::size_t                    seed = hashHalf(id.mostSignificantBits());
+        seed ^= hashHalf(id.leastSignificantBits()) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

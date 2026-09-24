@@ -1,20 +1,20 @@
 target_sources(QtRocket_core PRIVATE
+    BugError.cpp
+    Color.cpp
     Coordinate.cpp
     Error.cpp
     FileIo.cpp
-    MathUtil.cpp
-    Quaternion.cpp
-    BugError.cpp
-    Md5.cpp
-    ModId.cpp
-    Uuid.cpp
     Geometry2D.cpp
     LinearInterpolator.cpp
+    LineStyle.cpp
+    MathUtil.cpp
+    Md5.cpp
+    ModId.cpp
     PinkNoise.cpp
     PolyInterpolator.cpp
+    Quaternion.cpp
     Rotation2D.cpp
-    Color.cpp
-    LineStyle.cpp
     Strings.cpp
+    Uuid.cpp
     Version.cpp
 )
