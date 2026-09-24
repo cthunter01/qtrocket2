@@ -1,6 +1,5 @@
 #include "QtRocket/rocket/ComponentAssembly.h"
 
-#include <algorithm>
 #include <vector>
 
 #include "QtRocket/rocket/Coaxial.h"
@@ -12,6 +11,7 @@
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/MathUtil.h"
 
 namespace QtRocket
 {
@@ -81,11 +81,12 @@ double ComponentAssembly::getBoundingRadius() const
             // Transition exists.
             if (const auto* transition = dynamic_cast<const RadialParent*>(comp.get()))
             {
-                thisRadius = std::max(transition->getOuterRadius(-1.0),
-                                      transition->getOuterRadius(transition->getLength()));
+                thisRadius = MathUtil::javaMax(transition->getOuterRadius(-1.0),
+                                               transition->getOuterRadius(transition->getLength()));
             }
         }
-        outerRadius = std::max(outerRadius, thisRadius);
+        // Java's Math.max: a NaN radius makes the result NaN.
+        outerRadius = MathUtil::javaMax(outerRadius, thisRadius);
     }
     return outerRadius;
 }

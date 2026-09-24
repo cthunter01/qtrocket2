@@ -56,6 +56,12 @@ class OpenRocketDocument;
 /// - loadFrom() copies the source's children, so the source stays usable, and rebuilds the stage
 ///   map from this rocket's own stages (Java copies the source's map and repairs it on the next
 ///   update()).
+/// - The stage map never keeps a stage that left the tree: removeChild() drops the removed stages
+///   whatever its StageTracking, and update() rebuilds the map from the tree's stages. Java keeps
+///   the entry of a stage removed without tracking (a stale but live object there) until its
+///   number is reused; the same stages get the same numbers either way.
+/// - getLength() is computed from the stages on every call until rocket-config lands (see
+///   there).
 ///
 /// Deferred to rocket-config (they need FlightConfiguration, InstanceMap or the motors): the
 /// fields selectedConfiguration and configSet and the methods getBoundingBox(),
@@ -165,7 +171,9 @@ public:
 
     /// Registers @p newStage: a stage already mapped under its number (the same class and id)
     /// keeps it (the entry is pointed at this object); otherwise the stage gets the smallest free
-    /// number. Called by addChild().
+    /// number. Called by addChild(). The map holds a plain pointer: the stage must outlive its
+    /// entry, which is only guaranteed for a stage of this rocket's tree (removeChild() and
+    /// update() drop the others; Java's trackStage() is package-private).
     void trackStage(AxialStage& newStage);
 
     /// Removes the map entry under @p oldStage's number (whatever stage it holds, as in Java).
@@ -191,11 +199,15 @@ public:
     /// Always 0: the rocket is the origin (fires nothing).
     void setAxialOffset(double requestedOffset) override;
 
-    /// HOOK(rocket-config): the selected configuration's length (the x extent of its bounds). Until
-    /// then the assembly length: the sum of the stage lengths.
+    /// HOOK(rocket-config): the selected configuration's length (the x extent of its bounds).
+    /// Until then the sum of the lengths of the stages positioned AFTER (ComponentAssembly's
+    /// updateBounds() formula), computed on every call: the stored assembly length is refreshed
+    /// only when a stage is removed or moved, and Rocket::update() runs before the stages update
+    /// themselves in the same event.
     [[nodiscard]] double getLength() const override;
 
-    /// The largest getBoundingRadius() of the assemblies among the children.
+    /// The largest getBoundingRadius() of the assemblies among the children (Java's Math.max:
+    /// NaN when any of them is NaN).
     [[nodiscard]] double getBoundingRadius() const override;
 
     // --------------------------------------------------------------------------- events
@@ -236,8 +248,8 @@ public:
     /// Whether the rocket is frozen.
     [[nodiscard]] bool isFrozen() const noexcept { return m_freezeList.has_value(); }
 
-    /// Renumbers the stages in tree order and rebuilds the stage map (and, HOOK(rocket-config),
-    /// updates the configurations).
+    /// Renumbers the stages in tree order and rebuilds the stage map from them (and,
+    /// HOOK(rocket-config), updates the configurations).
     void update() override;
 
     // -------------------------------------------------------------------------- copying
@@ -279,6 +291,8 @@ public:
     Rocket(const Rocket& other, CopyKey key);
 
 private:
+    friend class RocketComponent;  // removeChild() calls forgetStageEntries()
+
     /// An event held back by freeze(): its type and its source's id, by which thaw() finds the
     /// source again.
     struct FrozenEvent
@@ -292,6 +306,9 @@ private:
 
     /// The smallest stage number not in the map.
     [[nodiscard]] int getNewStageNumber() const;
+
+    /// Removes every map entry that holds @p stage, whatever its number (removeChild()).
+    void forgetStageEntries(const AxialStage& stage) noexcept;
 
     /// Renumbers the stages in tree order.
     void updateStageNumbers();

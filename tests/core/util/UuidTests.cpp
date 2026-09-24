@@ -196,6 +196,53 @@ TEST(Uuid, OrdersLikeJavaUtilUuid)
     EXPECT_EQ(ids, (std::vector<Uuid>{negativeMost, negativeLeast, one, two}));
 }
 
+TEST(Uuid, JavaFromStringTakesWhatJavaUtilUuidTakes)
+{
+    // The canonical form, in either case.
+    EXPECT_EQ(Uuid::javaFromString(kSample).value_or(Uuid::nil()), *Uuid::parse(kSample));
+    EXPECT_EQ(Uuid::javaFromString("123E4567-E89B-12D3-A456-426614174000").value_or(Uuid::nil()),
+              *Uuid::parse(kSample));
+    // Shortened groups: UUID.fromString("1-2-3-4-5").toString().
+    EXPECT_EQ(Uuid::javaFromString("1-2-3-4-5").value_or(Uuid::nil()).toString(),
+              "00000001-0002-0003-0004-000000000005");
+    EXPECT_EQ(Uuid::javaFromString("0-0-0-0-0").value_or(Uuid{1, 1}), Uuid::nil());
+    // A '+' sign is Long.parseLong's.
+    EXPECT_EQ(Uuid::javaFromString("+a-b-c-d-e").value_or(Uuid::nil()).toString(),
+              "0000000a-000b-000c-000d-00000000000e");
+    // Longer groups keep their low 32, 16, 16, 16 and 48 bits.
+    EXPECT_EQ(
+        Uuid::javaFromString("123456789-12345-0-0-1234567890123").value_or(Uuid::nil()).toString(),
+        "23456789-2345-0000-0000-234567890123");
+    // Up to Long.MAX_VALUE per group.
+    EXPECT_EQ(Uuid::javaFromString("7fffffffffffffff-0-0-0-0").value_or(Uuid::nil()).toString(),
+              "ffffffff-0000-0000-0000-000000000000");
+}
+
+TEST(Uuid, JavaFromStringRejectsWhatJavaUtilUuidRejects)
+{
+    const std::vector<std::string_view> bad = {
+        "",
+        "not a uuid",
+        "1-2-3-4",                                // four groups
+        "1-2-3-4-5-6",                            // six groups
+        "1--3-4-5",                               // an empty group
+        "1-2-3-4-",                               // an empty last group
+        "+-2-3-4-5",                              // a lone sign
+        "1-2-3-4-5g",                             // not a hexadecimal digit
+        " 1-2-3-4-5",                             // whitespace
+        "8000000000000000-0-0-0-0",               // beyond Long.MAX_VALUE
+        "123e4567-e89b-12d3-a456-4266141740000",  // 37 characters
+        "{123e4567-e89b-12d3-a456-426614174000}",
+    };
+    for (const std::string_view text : bad)
+    {
+        const auto parsed = Uuid::javaFromString(text);
+        ASSERT_FALSE(parsed.has_value()) << "'" << text << "' parsed";
+        EXPECT_EQ(parsed.error().code, ErrorCode::PARSE) << text;
+        EXPECT_NE(parsed.error().message.find("UUID"), std::string::npos) << text;
+    }
+}
+
 TEST(Uuid, HashesConsistentlyWithEquality)
 {
     const std::hash<Uuid> hash;

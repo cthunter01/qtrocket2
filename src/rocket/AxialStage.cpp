@@ -5,6 +5,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "QtRocket/rocket/ComponentAssembly.h"
@@ -14,7 +15,9 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -103,30 +106,39 @@ AxialStage* AxialStage::getUpperStage()
 
 void AxialStage::toDebugTreeNode(std::string& buffer, const std::string& indent) const
 {
+    // Java's %5.3f, %6.4f and %4.1f round the decimal digits half-up: Strings::formatFixed().
+    const auto fixed = [](double value, int precision, std::size_t width) {
+        return std::format("{:>{}}", Strings::formatFixed(value, precision), width);
+    };
     const std::vector<Coordinate> relCoords = getInstanceOffsets();
     const std::vector<Coordinate> absCoords = getComponentLocations();
+    // Java: ArrayIndexOutOfBoundsException for fewer coordinates than instances.
+    QTROCKET_ASSERT(std::cmp_greater_equal(relCoords.size(), getInstanceCount()) &&
+                    std::cmp_greater_equal(absCoords.size(), getInstanceCount()));
     if (1 == getInstanceCount())
     {
-        std::format_to(std::back_inserter(buffer), "{:<40}|  {:5.3f}; {:>24}; {:>24};",
+        std::format_to(std::back_inserter(buffer), "{:<40}|  {}; {:>24}; {:>24};",
                        indent + getName() + " (# " + std::to_string(getStageNumber()) + ")",
-                       getLength(), getPosition().toString(), absCoords.front().toString());
-        std::format_to(std::back_inserter(buffer), "len: {:6.4f} )(offset: {:4.1f}  via: {} )\n",
-                       getLength(), getAxialOffset(), axialMethodName(m_axialMethod));
+                       fixed(getLength(), 3, 5), getPosition().toString(),
+                       absCoords.front().toString());
+        std::format_to(std::back_inserter(buffer), "len: {} )(offset: {}  via: {} )\n",
+                       fixed(getLength(), 4, 6), fixed(getAxialOffset(), 1, 4),
+                       axialMethodName(m_axialMethod));
     }
     else
     {
-        std::format_to(std::back_inserter(buffer),
-                       "{:<40}|(len: {:6.4f} )(offset: {:4.1f} via: {})\n",
+        std::format_to(std::back_inserter(buffer), "{:<40}|(len: {} )(offset: {} via: {})\n",
                        indent + getName() + "(# " + std::to_string(getStageNumber()) + ")",
-                       getLength(), getAxialOffset(), axialMethodName(m_axialMethod));
+                       fixed(getLength(), 4, 6), fixed(getAxialOffset(), 1, 4),
+                       axialMethodName(m_axialMethod));
         for (int instanceNumber = 0; instanceNumber < getInstanceCount(); instanceNumber++)
         {
             const auto        index = static_cast<std::size_t>(instanceNumber);
             const std::string prefix =
                 std::format("{}    [{:2}/{:2}]", indent, instanceNumber + 1, getInstanceCount());
-            std::format_to(std::back_inserter(buffer), "{:<40}|  {:5.3f}; {:>24}; {:>24};\n",
-                           prefix, getLength(), relCoords.at(index).toString(),
-                           absCoords.at(index).toString());
+            std::format_to(std::back_inserter(buffer), "{:<40}|  {}; {:>24}; {:>24};\n", prefix,
+                           fixed(getLength(), 3, 5), relCoords[index].toString(),
+                           absCoords[index].toString());
         }
     }
 }

@@ -61,6 +61,20 @@ int TestParameter::s_gid = 0;
 
 static_assert(QtRocket::FlightConfigurableParameter<TestParameter>);
 
+/// A parameter without operator==: the set compares parameters (Java: equals()), so the concept
+/// rejects it instead of the set failing to compile deep inside.
+struct IncomparableParameter
+{
+    [[nodiscard]] static IncomparableParameter clone() { return {}; }
+    [[nodiscard]] static IncomparableParameter copy(const FlightConfigurationId& /*copyId*/)
+    {
+        return {};
+    }
+    static void update() noexcept { }
+};
+
+static_assert(!QtRocket::FlightConfigurableParameter<IncomparableParameter>);
+
 using TestSet = QtRocket::FlightConfigurableParameterSet<TestParameter>;
 
 // ---- Ported from ParameterSetTest.java ----

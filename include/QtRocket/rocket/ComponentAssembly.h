@@ -45,7 +45,8 @@ public:
     [[nodiscard]] double getRotationalUnitInertia() const override;
 
     /// The largest outer radius among the direct children that are body tubes or transitions
-    /// (a transition counts with the larger of its fore and aft radii); 0 without any.
+    /// (a transition counts with the larger of its fore and aft radii); 0 without any. Java's
+    /// Math.max: a NaN radius gives NaN.
     [[nodiscard]] virtual double getBoundingRadius() const;
 
     /// False: an assembly has no aerodynamic effect of its own.

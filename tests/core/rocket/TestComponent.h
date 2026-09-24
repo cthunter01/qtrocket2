@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
@@ -212,6 +213,12 @@ public:
         fireComponentChangeEvent(ComponentChangeEvent::kAeromassChange);
     }
 
+    /// Runs @p hook from childAdded(), with each child added to this component.
+    void setOnChildAdded(std::function<void(RocketComponent&)> hook)
+    {
+        m_onChildAdded = std::move(hook);
+    }
+
     /// How many times componentChanged() ran.
     [[nodiscard]] int componentChangedCount() const noexcept { return m_componentChangedCount; }
     /// The last event componentChanged() received, as its type.
@@ -246,27 +253,36 @@ protected:
         RocketComponent::componentChanged(event);
     }
 
+    void childAdded(RocketComponent& child) override
+    {
+        if (m_onChildAdded)
+        {
+            m_onChildAdded(child);
+        }
+    }
+
 private:
-    ComponentKind           m_kind;
-    double                  m_mass{0.0};
-    Coordinate              m_cg;
-    double                  m_longitudinalUnit{0.0};
-    double                  m_rotationalUnit{0.0};
-    double                  m_innerRadius{0.0};
-    double                  m_outerRadius{0.0};
-    double                  m_boundingRadius{0.0};
-    double                  m_radiusOffset{0.0};
-    RadiusMethod            m_radiusMethod{RadiusMethod::COAXIAL};
-    double                  m_angleOffset{0.0};
-    AngleMethod             m_angleMethod{AngleMethod::RELATIVE};
-    std::vector<Coordinate> m_instanceOffsets{Coordinate::kZero};
-    std::vector<double>     m_instanceAngles{0.0};
-    bool                    m_aerodynamic{true};
-    bool                    m_massive{true};
-    bool                    m_acceptsAll{true};
-    std::set<ComponentKind> m_accepted;
-    int                     m_componentChangedCount{0};
-    std::optional<int>      m_lastChangeType;
+    ComponentKind                         m_kind;
+    double                                m_mass{0.0};
+    Coordinate                            m_cg;
+    double                                m_longitudinalUnit{0.0};
+    double                                m_rotationalUnit{0.0};
+    double                                m_innerRadius{0.0};
+    double                                m_outerRadius{0.0};
+    double                                m_boundingRadius{0.0};
+    double                                m_radiusOffset{0.0};
+    RadiusMethod                          m_radiusMethod{RadiusMethod::COAXIAL};
+    double                                m_angleOffset{0.0};
+    AngleMethod                           m_angleMethod{AngleMethod::RELATIVE};
+    std::vector<Coordinate>               m_instanceOffsets{Coordinate::kZero};
+    std::vector<double>                   m_instanceAngles{0.0};
+    bool                                  m_aerodynamic{true};
+    bool                                  m_massive{true};
+    bool                                  m_acceptsAll{true};
+    std::set<ComponentKind>               m_accepted;
+    int                                   m_componentChangedCount{0};
+    std::optional<int>                    m_lastChangeType;
+    std::function<void(RocketComponent&)> m_onChildAdded;
 };
 
 }  // namespace QtRocket::Test

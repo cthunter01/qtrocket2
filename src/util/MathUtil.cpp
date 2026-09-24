@@ -298,6 +298,34 @@ double signum(double d) noexcept
     return d;  // a zero of either sign, or NaN
 }
 
+double javaMax(double a, double b) noexcept
+{
+    if (std::isnan(a) || std::isnan(b))
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (a == 0.0 && b == 0.0)
+    {
+        // Equal zeros: the positive one, if any, is the larger.
+        return std::signbit(a) ? b : a;
+    }
+    return (a >= b) ? a : b;
+}
+
+double javaMin(double a, double b) noexcept
+{
+    if (std::isnan(a) || std::isnan(b))
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (a == 0.0 && b == 0.0)
+    {
+        // Equal zeros: the negative one, if any, is the smaller.
+        return std::signbit(a) ? a : b;
+    }
+    return (a <= b) ? a : b;
+}
+
 std::int64_t javaLongCast(double a) noexcept
 {
     if (std::isnan(a))

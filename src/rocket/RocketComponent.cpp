@@ -47,18 +47,96 @@ namespace QtRocket
 namespace
 {
 
-/// Java's Math.max(value, 0) for the override mass: a NaN stays NaN and -0.0 becomes 0.0.
-[[nodiscard]] double javaMaxZero(double value) noexcept
-{
-    return (value > 0.0 || std::isnan(value)) ? value : 0.0;
-}
-
 /// Java's name.matches("^\\s*$"): empty, or only the regex \s characters.
 [[nodiscard]] bool isJavaBlank(std::string_view text) noexcept
 {
     return std::ranges::all_of(text, [](char c) {
         return c == ' ' || c == '\t' || c == '\n' || c == '\x0B' || c == '\f' || c == '\r';
     });
+}
+
+/// The first of @p locations (Java: locations[0]).
+/// @throws BugError when there is none, as for a component with no instances (Java:
+///         ArrayIndexOutOfBoundsException).
+[[nodiscard]] Coordinate firstLocation(const std::vector<Coordinate>& locations)
+{
+    if (locations.empty())
+    {
+        bug("a component without instances has no first location");
+    }
+    return locations.front();
+}
+
+/// Java's String.format("%<width>.<precision>f", value): Strings::formatFixed() (which rounds
+/// the decimal digits half-up, as Java's Formatter does) right-aligned to @p width.
+[[nodiscard]] std::string javaFixed(double value, int precision, std::size_t width)
+{
+    return std::format("{:>{}}", Strings::formatFixed(value, precision), width);
+}
+
+/// The components of type @p T below @p component, in tree order, for either constness.
+template <class T, class Component>
+[[nodiscard]] std::vector<T*> descendantsOfType(Component& component)
+{
+    std::vector<T*> result;
+    component.forEach(
+        [&result](Component& c) {
+            if (auto* typed = dynamic_cast<T*>(&c))
+            {
+                result.push_back(typed);
+            }
+        },
+        false);
+    return result;
+}
+
+/// The children of type @p T of @p component, in order, for either constness.
+template <class T, class Component>
+[[nodiscard]] std::vector<T*> childrenOfType(Component& component)
+{
+    std::vector<T*> result;
+    for (auto* child : component.getChildren())
+    {
+        if (auto* typed = dynamic_cast<T*>(child))
+        {
+            result.push_back(typed);
+        }
+    }
+    return result;
+}
+
+/// Adds the stages below @p parent that are not below another stage to @p result.
+template <class Stage, class Component>
+void addTopLevelStages(Component& parent, std::vector<Stage*>& result)
+{
+    for (std::size_t i = 0; i < parent.getChildCount(); ++i)
+    {
+        Component& child = parent.getChild(i);
+        if (auto* stage = dynamic_cast<Stage*>(&child))
+        {
+            result.push_back(stage);
+        }
+        else
+        {
+            addTopLevelStages(child, result);
+        }
+    }
+}
+
+/// The assemblies above @p component, the nearest first, for either constness.
+template <class Component>
+[[nodiscard]] std::vector<Component*> parentAssembliesOf(Component& component)
+{
+    std::vector<Component*> result;
+    for (Component* current = component.getParent(); current != nullptr;
+         current            = current->getParent())
+    {
+        if (dynamic_cast<const ComponentAssembly*>(current) != nullptr)
+        {
+            result.push_back(current);
+        }
+    }
+    return result;
 }
 
 /// Axial rotations as angle coordinates (x = rotation about the x axis).
@@ -161,6 +239,11 @@ void RocketComponent::componentChanged(const ComponentChangeEvent& /*event*/)
     update();
 }
 
+void RocketComponent::childAdded(RocketComponent& /*child*/)
+{
+    // Nothing: subclasses that adjust an added child (BodyTube) override it.
+}
+
 void RocketComponent::clearCoordinateCaches() const noexcept
 {
     m_cachedComponentLocations.reset();
@@ -242,7 +325,7 @@ void RocketComponent::setComment(std::string_view comment)
 
 Result<void> RocketComponent::setId(std::string_view newId)
 {
-    const auto parsed = Uuid::parse(newId);
+    const auto parsed = Uuid::javaFromString(newId);
     if (!parsed)
     {
         return std::unexpected(parsed.error());
@@ -289,7 +372,7 @@ void RocketComponent::setOverrideMass(double m)
     {
         return;
     }
-    m_overrideMass = javaMaxZero(m);
+    m_overrideMass = MathUtil::javaMax(m, 0.0);
     if (m_massOverridden)
     {
         fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
@@ -583,7 +666,7 @@ double RocketComponent::getAxialOffset(AxialMethod asMethod) const
 
     if (AxialMethod::ABSOLUTE == asMethod)
     {
-        return getComponentLocations().front().x;
+        return firstLocation(getComponentLocations()).x;
     }
     return QtRocket::getAsOffset(asMethod, m_position.x, getLength(), parentLength);
 }
@@ -610,7 +693,7 @@ void RocketComponent::setAxialOffset(AxialMethod requestedMethod, double request
     }
     else if (AxialMethod::ABSOLUTE == requestedMethod)
     {
-        newX = requestedOffset - m_parent->getComponentLocations().front().x;
+        newX = requestedOffset - firstLocation(m_parent->getComponentLocations()).x;
     }
     else if (isAfter())
     {
@@ -769,6 +852,9 @@ std::vector<Coordinate> RocketComponent::getComponentLocations() const
         const std::size_t             instanceCount     = instanceLocations.size();
         // The parent rotations are applied too.
         const std::vector<Coordinate> parentRotations = m_parent->getComponentAngles();
+        // A parent whose instance offsets and angles differ in number (a broken subclass; Java
+        // runs off the end of the shorter array).
+        QTROCKET_ASSERT(parentRotations.size() == parentCount);
 
         if (parentCount == 1 && instanceCount == 1)
         {
@@ -784,11 +870,11 @@ std::vector<Coordinate> RocketComponent::getComponentLocations() const
             for (std::size_t pi = 0; pi < parentCount; ++pi)
             {
                 const Transformation rotation =
-                    Transformation::rotation(parentRotations.at(pi), m_position);
+                    Transformation::rotation(parentRotations[pi], m_position);
                 for (std::size_t ii = 0; ii < instanceCount; ++ii)
                 {
-                    computedLocations.at(pi + (parentCount * ii)) =
-                        parentPositions.at(pi).add(rotation.transform(instanceLocations.at(ii)));
+                    computedLocations[pi + (parentCount * ii)] =
+                        parentPositions[pi].add(rotation.transform(instanceLocations[ii]));
                 }
             }
         }
@@ -829,8 +915,8 @@ std::vector<Coordinate> RocketComponent::getComponentAngles() const
             {
                 for (std::size_t ii = 0; ii < instanceCount; ++ii)
                 {
-                    computedAngles.at(pi + (parentCount * ii)) =
-                        parentAngles.at(pi).add(instanceAngles.at(ii));
+                    computedAngles[pi + (parentCount * ii)] =
+                        parentAngles[pi].add(instanceAngles[ii]);
                 }
             }
         }
@@ -854,7 +940,7 @@ std::vector<Coordinate> RocketComponent::toRelative(const Coordinate&      c,
                                                     const RocketComponent& dest) const
 {
     const std::vector<Coordinate> destLocs  = dest.getComponentLocations();
-    const Coordinate              sourceLoc = getComponentLocations().front();
+    const Coordinate              sourceLoc = firstLocation(getComponentLocations());
 
     std::vector<Coordinate> result;
     result.reserve(destLocs.size());
@@ -915,8 +1001,7 @@ double RocketComponent::getRotationalInertia() const
 
 // ==================================================================================== tree
 
-void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
-                                  StageTracking tracking)
+void RocketComponent::checkAddable(const RocketComponent* component) const
 {
     if (component == nullptr)
     {
@@ -926,27 +1011,31 @@ void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, st
     {
         bug("component " + component->getComponentName() + " is already in a tree");
     }
-    // No loops in the tree [A -> X -> Y -> B, B.addChild(A)].
-    if (&getRoot() == component.get())
+    // No loops in the tree [A -> X -> Y -> B, B.addChild(A)]; Java compares with equals(), so a
+    // copy of the root with its original id is refused too.
+    if (getRoot().equals(*component))
     {
-        const std::string message = "Component " + component->getComponentName() +
-                                    " is a parent of " + getComponentName() +
-                                    ", attempting to create cycle in tree.";
-        // The component owns this one: destroying it now would destroy this component while
-        // its member function runs, so it is let go (the program is stopping anyway).
-        [[maybe_unused]] const RocketComponent* const leaked = component.release();
-        bug(message);
+        bug("Component " + component->getComponentName() + " is a parent of " + getComponentName() +
+            ", attempting to create cycle in tree.");
     }
     if (!isCompatible(*component))
     {
         bug("Component: " + component->getComponentName() +
             " not currently compatible with component: " + getComponentName());
     }
+}
+
+void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
+                                  StageTracking tracking)
+{
+    // addChild() ran checkAddable() and checkedIndex() before it gave up the component.
+    QTROCKET_ASSERT(component != nullptr && component->m_parent == nullptr);
     QTROCKET_ASSERT(index <= m_children.size());
 
     RocketComponent& added = *component;
     m_children.insert(m_children.begin() + static_cast<std::ptrdiff_t>(index),
                       std::move(component));
+    ++m_childListModCount;
     added.m_parent = this;
 
     added.m_massOverriddenBy =
@@ -990,6 +1079,9 @@ void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, st
     added.checkComponentStructure();
 
     fireAddRemoveEvent(added);
+
+    // Java: a subclass's addChild() override continues after super.addChild().
+    childAdded(added);
 }
 
 std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketComponent* component,
@@ -1004,39 +1096,33 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
 
     std::unique_ptr<RocketComponent> removed = std::move(m_children[*index]);
     m_children.erase(m_children.begin() + static_cast<std::ptrdiff_t>(*index));
+    ++m_childListModCount;
     removed->m_parent = nullptr;
 
-    // Clear an overrider only when it is this component or this component's overrider, so that
-    // an overrider inside the removed subtree is kept.
-    removed->forEach([this](RocketComponent& c) {
-        if (c.m_massOverriddenBy == this || c.m_massOverriddenBy == m_massOverriddenBy)
-        {
-            c.m_massOverriddenBy = nullptr;
-        }
-        if (c.m_cgOverriddenBy == this || c.m_cgOverriddenBy == m_cgOverriddenBy)
-        {
-            c.m_cgOverriddenBy = nullptr;
-        }
-        if (c.m_cdOverriddenBy == this || c.m_cdOverriddenBy == m_cdOverriddenBy)
-        {
-            c.m_cdOverriddenBy = nullptr;
-        }
-    });
+    clearOverriddenByAcross(*removed);
 
-    if (tracking == StageTracking::TRACK)
+    if (Rocket* rocket = findRocket())
     {
-        if (Rocket* rocket = findRocket())
+        if (tracking == StageTracking::TRACK)
         {
             if (const auto* stage = dynamic_cast<const AxialStage*>(removed.get()))
             {
                 rocket->forgetStage(*stage);
             }
             // The removed component's sub-stages too.
-            for (const AxialStage* stage : removed->getSubStages())
+            for (const AxialStage* stage : std::as_const(*removed).getSubStages())
             {
                 rocket->forgetStage(*stage);
             }
         }
+        // Deviation (see StageTracking): whatever the tracking, no entry may keep a removed
+        // stage, which the caller may destroy.
+        std::as_const(*removed).forEach([rocket](const RocketComponent& c) {
+            if (const auto* stage = dynamic_cast<const AxialStage*>(&c))
+            {
+                rocket->forgetStageEntries(*stage);
+            }
+        });
     }
 
     checkComponentStructure();
@@ -1046,6 +1132,39 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
     updateBounds();
 
     return removed;
+}
+
+void RocketComponent::clearOverriddenByAcross(RocketComponent& removed)
+{
+    // Java clears only the pointers of the removed subtree that refer to this component or to
+    // its overrider, both outside the subtree; the rule below includes those (see the class
+    // comment). A target is in the removed subtree when its root is the (detached) removed
+    // component.
+    const auto isInRemoved = [&removed](const RocketComponent& target) {
+        return &target.getRoot() == &removed;
+    };
+    const auto isOutsideRemoved = [&isInRemoved](const RocketComponent& target) {
+        return !isInRemoved(target);
+    };
+    const auto clearWhere = [](RocketComponent& c, const auto& shouldClear) {
+        if (c.m_massOverriddenBy != nullptr && shouldClear(*c.m_massOverriddenBy))
+        {
+            c.m_massOverriddenBy = nullptr;
+        }
+        if (c.m_cgOverriddenBy != nullptr && shouldClear(*c.m_cgOverriddenBy))
+        {
+            c.m_cgOverriddenBy = nullptr;
+        }
+        if (c.m_cdOverriddenBy != nullptr && shouldClear(*c.m_cdOverriddenBy))
+        {
+            c.m_cdOverriddenBy = nullptr;
+        }
+    };
+
+    // The removed subtree keeps the overriders inside it, as in Java.
+    removed.forEach([&](RocketComponent& c) { clearWhere(c, isOutsideRemoved); });
+    // The tree it left forgets the overriders that left with it.
+    getRoot().forEach([&](RocketComponent& c) { clearWhere(c, isInRemoved); });
 }
 
 void RocketComponent::moveChild(const RocketComponent* component, std::size_t index)
@@ -1065,6 +1184,7 @@ void RocketComponent::moveChild(const RocketComponent* component, std::size_t in
     m_children.erase(m_children.begin() + static_cast<std::ptrdiff_t>(*oldIndex));
     const RocketComponent& movedRef = *moved;
     m_children.insert(m_children.begin() + static_cast<std::ptrdiff_t>(index), std::move(moved));
+    ++m_childListModCount;
 
     checkComponentStructure();
     movedRef.checkComponentStructure();
@@ -1312,16 +1432,12 @@ const AxialStage* RocketComponent::findStage() const noexcept
 
 std::vector<AxialStage*> RocketComponent::getSubStages()
 {
-    std::vector<AxialStage*> result;
-    forEach(
-        [&result](RocketComponent& c) {
-            if (auto* stage = dynamic_cast<AxialStage*>(&c))
-            {
-                result.push_back(stage);
-            }
-        },
-        false);
-    return result;
+    return descendantsOfType<AxialStage>(*this);
+}
+
+std::vector<const AxialStage*> RocketComponent::getSubStages() const
+{
+    return descendantsOfType<const AxialStage>(*this);
 }
 
 ComponentAssembly& RocketComponent::getAssembly()
@@ -1370,29 +1486,22 @@ const ComponentAssembly* RocketComponent::findAssembly() const noexcept
 
 std::vector<ComponentAssembly*> RocketComponent::getAllChildAssemblies()
 {
-    std::vector<ComponentAssembly*> result;
-    forEach(
-        [&result](RocketComponent& c) {
-            if (auto* assembly = dynamic_cast<ComponentAssembly*>(&c))
-            {
-                result.push_back(assembly);
-            }
-        },
-        false);
-    return result;
+    return descendantsOfType<ComponentAssembly>(*this);
+}
+
+std::vector<const ComponentAssembly*> RocketComponent::getAllChildAssemblies() const
+{
+    return descendantsOfType<const ComponentAssembly>(*this);
 }
 
 std::vector<ComponentAssembly*> RocketComponent::getDirectChildAssemblies()
 {
-    std::vector<ComponentAssembly*> result;
-    for (const auto& child : m_children)
-    {
-        if (auto* assembly = dynamic_cast<ComponentAssembly*>(child.get()))
-        {
-            result.push_back(assembly);
-        }
-    }
-    return result;
+    return childrenOfType<ComponentAssembly>(*this);
+}
+
+std::vector<const ComponentAssembly*> RocketComponent::getDirectChildAssemblies() const
+{
+    return childrenOfType<const ComponentAssembly>(*this);
 }
 
 std::vector<AxialStage*> RocketComponent::getAllChildStages()
@@ -1400,37 +1509,33 @@ std::vector<AxialStage*> RocketComponent::getAllChildStages()
     return getSubStages();
 }
 
+std::vector<const AxialStage*> RocketComponent::getAllChildStages() const
+{
+    return getSubStages();
+}
+
 std::vector<AxialStage*> RocketComponent::getTopLevelChildStages()
 {
     std::vector<AxialStage*> result;
-    const auto addTopLevelStages = [&result](const auto& self, RocketComponent& parent) -> void {
-        for (const auto& child : parent.m_children)
-        {
-            if (auto* stage = dynamic_cast<AxialStage*>(child.get()))
-            {
-                result.push_back(stage);
-            }
-            else
-            {
-                self(self, *child);
-            }
-        }
-    };
-    addTopLevelStages(addTopLevelStages, *this);
+    addTopLevelStages(*this, result);
+    return result;
+}
+
+std::vector<const AxialStage*> RocketComponent::getTopLevelChildStages() const
+{
+    std::vector<const AxialStage*> result;
+    addTopLevelStages(*this, result);
     return result;
 }
 
 std::vector<RocketComponent*> RocketComponent::getParentAssemblies()
 {
-    std::vector<RocketComponent*> result;
-    for (RocketComponent* current = m_parent; current != nullptr; current = current->m_parent)
-    {
-        if (dynamic_cast<ComponentAssembly*>(current) != nullptr)
-        {
-            result.push_back(current);
-        }
-    }
-    return result;
+    return parentAssembliesOf(*this);
+}
+
+std::vector<const RocketComponent*> RocketComponent::getParentAssemblies() const
+{
+    return parentAssembliesOf(*this);
 }
 
 int RocketComponent::getStageNumber() const
@@ -1471,15 +1576,16 @@ const RocketComponent* RocketComponent::findComponent(const Uuid& idToFind) cons
     return nullptr;
 }
 
-RocketComponent* RocketComponent::getNextComponent() noexcept
+template <class Component>
+Component* RocketComponent::nextComponentOf(Component& component) noexcept
 {
-    if (!m_children.empty())
+    if (!component.m_children.empty())
     {
-        return m_children.front().get();
+        return component.m_children.front().get();
     }
 
-    const RocketComponent* current    = this;
-    RocketComponent*       nextParent = m_parent;
+    const RocketComponent* current    = &component;
+    Component*             nextParent = component.m_parent;
     while (nextParent != nullptr)
     {
         const std::optional<std::size_t> pos = nextParent->getChildPosition(current);
@@ -1488,33 +1594,55 @@ RocketComponent* RocketComponent::getNextComponent() noexcept
             return nextParent->m_children[*pos + 1].get();
         }
         current    = nextParent;
-        nextParent = current->m_parent;
+        nextParent = nextParent->m_parent;
     }
     return nullptr;
 }
 
-RocketComponent* RocketComponent::getPreviousComponent()
+template <class Component>
+Component* RocketComponent::previousComponentOf(Component& component)
 {
-    if (m_parent == nullptr)
+    Component* parent = component.m_parent;
+    if (parent == nullptr)
     {
         return nullptr;
     }
-    const std::optional<std::size_t> pos = m_parent->getChildPosition(this);
+    const std::optional<std::size_t> pos = parent->getChildPosition(&component);
     if (!pos)
     {
-        bug("Inconsistent internal state: " + toDebugName() +
+        bug("Inconsistent internal state: " + component.toDebugName() +
             " is not among its parent's children");
     }
     if (*pos == 0)
     {
-        return m_parent;
+        return parent;
     }
-    RocketComponent* c = m_parent->m_children[*pos - 1].get();
+    Component* c = parent->m_children[*pos - 1].get();
     while (!c->m_children.empty())
     {
         c = c->m_children.back().get();
     }
     return c;
+}
+
+RocketComponent* RocketComponent::getNextComponent() noexcept
+{
+    return nextComponentOf(*this);
+}
+
+const RocketComponent* RocketComponent::getNextComponent() const noexcept
+{
+    return nextComponentOf(*this);
+}
+
+RocketComponent* RocketComponent::getPreviousComponent()
+{
+    return previousComponentOf(*this);
+}
+
+const RocketComponent* RocketComponent::getPreviousComponent() const
+{
+    return previousComponentOf(*this);
 }
 
 RocketComponent::SplitResult RocketComponent::splitInstances(bool freezeRocket)
@@ -1607,13 +1735,21 @@ RocketComponent::BasicIterator<Component>::BasicIterator(Component& start, bool 
     }
     if (includeSelf)
     {
-        m_current = &start;
+        setCurrent(&start);
     }
     else if (!start.m_children.empty())
     {
-        m_stack.emplace_back(&start, std::size_t{1});
-        m_current = start.m_children.front().get();
+        m_stack.push_back(
+            Level{.parent = &start, .next = std::size_t{1}, .modCount = start.m_childListModCount});
+        setCurrent(start.m_children.front().get());
     }
+}
+
+template <class Component>
+void RocketComponent::BasicIterator<Component>::setCurrent(Component* component) noexcept
+{
+    m_current         = component;
+    m_currentModCount = component != nullptr ? component->m_childListModCount : 0;
 }
 
 template <class Component>
@@ -1622,6 +1758,19 @@ void RocketComponent::BasicIterator<Component>::checkTree() const
     if (m_rocket != nullptr && m_rocket->getTreeModId() != m_treeModId)
     {
         bug("Rocket modified while being iterated");
+    }
+    // Outermost first: while a level's child list is unchanged, the child it is visiting (the
+    // next level's component, or the current one) is still alive.
+    for (const Level& level : m_stack)
+    {
+        if (level.parent->m_childListModCount != level.modCount)
+        {
+            bug("Component tree modified while being iterated");
+        }
+    }
+    if (m_current != nullptr && m_current->m_childListModCount != m_currentModCount)
+    {
+        bug("Component tree modified while being iterated");
     }
 }
 
@@ -1649,22 +1798,24 @@ auto RocketComponent::BasicIterator<Component>::operator++() -> BasicIterator&
     if (!m_current->m_children.empty())
     {
         // Descend into the current component's children.
-        m_stack.emplace_back(m_current, std::size_t{1});
-        m_current = m_current->m_children.front().get();
+        m_stack.push_back(Level{.parent   = m_current,
+                                .next     = std::size_t{1},
+                                .modCount = m_current->m_childListModCount});
+        setCurrent(m_current->m_children.front().get());
         return *this;
     }
     while (!m_stack.empty())
     {
-        auto& [parent, next] = m_stack.back();
-        if (next < parent->m_children.size())
+        Level& level = m_stack.back();
+        if (level.next < level.parent->m_children.size())
         {
-            m_current = parent->m_children[next].get();
-            ++next;
+            setCurrent(level.parent->m_children[level.next].get());
+            ++level.next;
             return *this;
         }
         m_stack.pop_back();
     }
-    m_current = nullptr;
+    setCurrent(nullptr);
     return *this;
 }
 
@@ -1793,6 +1944,7 @@ std::vector<std::unique_ptr<RocketComponent>> RocketComponent::copyFrom(
     // The previous children, kept alive by the caller until the event has been delivered.
     std::vector<std::unique_ptr<RocketComponent>> previous = std::move(m_children);
     m_children.clear();
+    ++m_childListModCount;
     for (const auto& child : previous)
     {
         child->m_parent = nullptr;
@@ -1903,9 +2055,11 @@ std::string RocketComponent::toDebugDetail(std::source_location where) const
                    where.function_name());
     std::format_to(std::back_inserter(buf), "      At Component: {}, of class: {} \n", getName(),
                    className(kind()));
-    std::format_to(std::back_inserter(buf), "      position: {:.6f}    at offset: {:.4f} via: {}\n",
-                   m_position.x, m_axialOffset, axialMethodName(m_axialMethod));
-    std::format_to(std::back_inserter(buf), "      length: {:.4f}\n", getLength());
+    std::format_to(std::back_inserter(buf), "      position: {}    at offset: {} via: {}\n",
+                   Strings::formatFixed(m_position.x, 6), Strings::formatFixed(m_axialOffset, 4),
+                   axialMethodName(m_axialMethod));
+    std::format_to(std::back_inserter(buf), "      length: {}\n",
+                   Strings::formatFixed(getLength(), 4));
     return buf;
 }
 
@@ -1942,29 +2096,31 @@ void RocketComponent::toDebugTreeNode(std::string& buffer, const std::string& in
     {
         // Un-instanced components (the usual case). Java prints the offset (a double) and the
         // location through %24s.
-        std::format_to(std::back_inserter(buffer), "{:<40}|  {:5.3f}; {:>24}; {:>24}; ", prefix,
-                       getLength(), Strings::javaDoubleToString(m_axialOffset),
-                       getComponentLocations().front().toString());
-        std::format_to(std::back_inserter(buffer), "(offset: {:4.1f}  via: {} )\n",
-                       getAxialOffset(), axialMethodName(m_axialMethod));
+        std::format_to(std::back_inserter(buffer), "{:<40}|  {}; {:>24}; {:>24}; ", prefix,
+                       javaFixed(getLength(), 3, 5), Strings::javaDoubleToString(m_axialOffset),
+                       firstLocation(getComponentLocations()).toString());
+        std::format_to(std::back_inserter(buffer), "(offset: {}  via: {} )\n",
+                       javaFixed(getAxialOffset(), 1, 4), axialMethodName(m_axialMethod));
     }
     else if (const auto* instanceable = dynamic_cast<const Instanceable*>(this))
     {
         // Instanced components: motor clusters, booster stage clusters.
         std::format_to(std::back_inserter(buffer), "{:<40} (cluster: {} )", prefix,
                        instanceable->getPatternName());
-        std::format_to(std::back_inserter(buffer), "(offset: {:4.1f}  via: {} )\n",
-                       getAxialOffset(), axialMethodName(m_axialMethod));
+        std::format_to(std::back_inserter(buffer), "(offset: {}  via: {} )\n",
+                       javaFixed(getAxialOffset(), 1, 4), axialMethodName(m_axialMethod));
 
         const std::vector<Coordinate> locations = getComponentLocations();
+        // Java: ArrayIndexOutOfBoundsException for fewer locations than instances.
+        QTROCKET_ASSERT(std::cmp_greater_equal(locations.size(), getInstanceCount()));
         for (int instanceNumber = 0; instanceNumber < getInstanceCount(); instanceNumber++)
         {
             const std::string instancePrefix =
                 std::format("{}    [{:2}/{:2}]", indent, instanceNumber + 1, getInstanceCount());
             const auto index = static_cast<std::size_t>(instanceNumber);
-            std::format_to(std::back_inserter(buffer), "{:<40}|  {:5.3f}; {:>24}; {:>24};\n",
-                           instancePrefix, getLength(), Strings::javaDoubleToString(m_axialOffset),
-                           index < locations.size() ? locations[index].toString() : std::string{});
+            std::format_to(std::back_inserter(buffer), "{:<40}|  {}; {:>24}; {:>24};\n",
+                           instancePrefix, javaFixed(getLength(), 3, 5),
+                           Strings::javaDoubleToString(m_axialOffset), locations[index].toString());
         }
     }
     else
@@ -2008,8 +2164,8 @@ double RocketComponent::ringMass(double outerRadius, double innerRadius, double 
                                  double density)
 {
     return std::numbers::pi *
-           javaMaxZero(MathUtil::pow2(outerRadius) - MathUtil::pow2(innerRadius)) * length *
-           density;
+           MathUtil::javaMax(MathUtil::pow2(outerRadius) - MathUtil::pow2(innerRadius), 0.0) *
+           length * density;
 }
 
 double RocketComponent::ringLongitudinalUnitInertia(double outerRadius, double innerRadius,

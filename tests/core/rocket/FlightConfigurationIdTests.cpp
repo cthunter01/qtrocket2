@@ -82,6 +82,12 @@ TEST(FlightConfigurationId, FromString)
               0xFFFFFFFFU);
     // An empty text gives a random id.
     EXPECT_NE(FlightConfigurationId::fromString(""), FlightConfigurationId::fromString(""));
+    // java.util.UUID.fromString() also takes shortened groups; they are parsed, not hashed.
+    EXPECT_EQ(FlightConfigurationId::fromString("1-2-3-4-5").toString(),
+              "00000001-0002-0003-0004-000000000005");
+    // Five groups with an empty one are not a UUID for Java either: hashed.
+    EXPECT_EQ(FlightConfigurationId::fromString("1--3-4-5").key(),
+              Uuid::fromSigned(0, QtRocket::Strings::javaHashCode("1--3-4-5")));
 }
 
 TEST(FlightConfigurationId, EqualityAndOrderFollowTheKey)

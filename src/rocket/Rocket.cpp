@@ -1,7 +1,7 @@
 #include "QtRocket/rocket/Rocket.h"
 
-#include <algorithm>
 #include <cmath>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -206,6 +206,11 @@ void Rocket::forgetStage(const AxialStage& oldStage)
     m_stageMap.erase(oldStage.getStageNumber());
 }
 
+void Rocket::forgetStageEntries(const AxialStage& stage) noexcept
+{
+    std::erase_if(m_stageMap, [&stage](const auto& entry) { return entry.second == &stage; });
+}
+
 bool Rocket::isStageActiveInSelectedConfiguration(int stageNumber) const noexcept
 {
     if (-1 == stageNumber)
@@ -271,7 +276,15 @@ void Rocket::setAxialOffset(double /*requestedOffset*/)
 double Rocket::getLength() const
 {
     // HOOK(rocket-config): getSelectedConfiguration().getLength().
-    return m_length;
+    double length = 0;
+    for (const auto& stage : m_children)
+    {
+        if (stage->isAfter())
+        {
+            length += stage->getLength();
+        }
+    }
+    return length;
 }
 
 double Rocket::getBoundingRadius() const
@@ -281,7 +294,7 @@ double Rocket::getBoundingRadius() const
     {
         if (const auto* assembly = dynamic_cast<const ComponentAssembly*>(comp.get()))
         {
-            bounding = std::max(bounding, assembly->getBoundingRadius());
+            bounding = MathUtil::javaMax(bounding, assembly->getBoundingRadius());
         }
     }
     return bounding;
@@ -359,6 +372,9 @@ void Rocket::fireComponentChangeEvent(const ComponentChangeEvent&               
 
 void Rocket::update()
 {
+    // Deviation: the map is rebuilt from the tree, so that it cannot keep a stage that left the
+    // tree (see the class comment); Java forgets only the tree stages' previous numbers here.
+    m_stageMap.clear();
     updateStageNumbers();
     updateStageMap();
     // HOOK(rocket-config): updateConfigurations() (all of them).

@@ -1,6 +1,8 @@
 #include "QtRocket/rocket/Rocket.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -135,13 +137,35 @@ TEST(Rocket, IsTheOrigin)
 TEST_F(RocketTest, LengthAndBoundingRadius)
 {
     // HOOK(rocket-config): the selected configuration's length; until then the stage lengths.
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.4);
     AxialStage& second = m_rocket.addChild(std::make_unique<AxialStage>());
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.4);
     second.addChild(TestComponent::make(0.2)).setOuterRadius(0.03);
     m_body->setOuterRadius(0.02);
     m_nose->setOuterRadius(0.05);  // not a body tube: not counted
     EXPECT_DOUBLE_EQ(m_stage->getLength(), 0.4);
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.6) << "the second stage counts";
     EXPECT_DOUBLE_EQ(m_rocket.getBoundingRadius(), 0.03);
     EXPECT_DOUBLE_EQ(m_stage->getBoundingRadius(), 0.02);
+
+    // A child's length change reaches the rocket in the same event.
+    m_body->setLength(0.5);
+    EXPECT_DOUBLE_EQ(m_stage->getLength(), 0.6);
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.8);
+
+    // So do removing and adding a stage back.
+    std::unique_ptr<RocketComponent> removed = m_rocket.removeChild(&second);
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.6);
+    m_rocket.addChild(std::move(removed));
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.8);
+}
+
+TEST_F(RocketTest, ANaNRadiusMakesTheBoundingRadiusNaN)
+{
+    // Java's Math.max keeps a NaN, where std::max would drop it.
+    m_body->setOuterRadius(std::numeric_limits<double>::quiet_NaN());
+    EXPECT_TRUE(std::isnan(m_stage->getBoundingRadius()));
+    EXPECT_TRUE(std::isnan(m_rocket.getBoundingRadius()));
 }
 
 // ---- Events ----
@@ -654,6 +678,25 @@ TEST_F(LoadFromTest, RestoresTheSnapshotTree)
     // The snapshot is still usable (Java's is invalidated).
     EXPECT_EQ(m_snapshot->getStage(0)->getChildCount(), 2U);
     EXPECT_EQ(m_snapshot->getListenerCount(), 0U);
+}
+
+TEST_F(LoadFromTest, WhileFrozenTheUndoEventWaitsForTheThaw)
+{
+    m_rocket.freeze();
+    m_rocket.loadFrom(*m_snapshot);  // the replaced components are destroyed here
+    EXPECT_TRUE(m_events.empty());
+    EXPECT_EQ(m_rocket.getChildCount(), 1U);
+
+    m_rocket.thaw();
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type,
+              ComponentChangeEvent::kUndoChange | ComponentChangeEvent::kNonFunctionalChange |
+                  ComponentChangeEvent::kMassChange | ComponentChangeEvent::kAerodynamicChange |
+                  ComponentChangeEvent::kTreeChange);
+    EXPECT_EQ(m_events[0].source, &m_rocket);
+    EXPECT_EQ(m_rocket.getModId(), m_snapshotMod) << "an undo event draws no new ids";
+    EXPECT_EQ(m_rocket.getStageCount(), 1U);
+    EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.4);
 }
 
 TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)

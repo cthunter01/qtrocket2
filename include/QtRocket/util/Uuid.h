@@ -51,6 +51,17 @@ public:
     /// shortened groups java.util.UUID.fromString() tolerates, fails with ErrorCode::PARSE.
     [[nodiscard]] static Result<Uuid> parse(std::string_view text);
 
+    /// java.util.UUID.fromString() (JDK 17), for the places where OpenRocket parses ids with it
+    /// (RocketComponent.setID(String), new FlightConfigurationId(String)): at most 36 characters
+    /// in five dash-separated groups, each a Long.parseLong(group, 16), i.e. an optional '+' and
+    /// one or more hexadecimal digits of either case with a value up to 2^63 - 1, of which the
+    /// low 32, 16, 16, 16 and 48 bits are kept ("1-2-3-4-5" is
+    /// 00000001-0002-0003-0004-000000000005). The canonical form parses as parse() does.
+    /// Anything else fails with ErrorCode::PARSE (Java: IllegalArgumentException).
+    /// Deviation: the digits are ASCII only; Java's Character.digit() also takes other Unicode
+    /// digits and fullwidth letters.
+    [[nodiscard]] static Result<Uuid> javaFromString(std::string_view text);
+
     [[nodiscard]] static constexpr Uuid nil() noexcept { return Uuid{}; }
 
     [[nodiscard]] constexpr std::uint64_t mostSignificantBits() const noexcept

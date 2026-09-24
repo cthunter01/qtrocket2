@@ -18,7 +18,7 @@ FlightConfigurationId FlightConfigurationId::fromString(std::string_view text)
     {
         return FlightConfigurationId{};
     }
-    if (const auto parsed = Uuid::parse(text))
+    if (const auto parsed = Uuid::javaFromString(text))
     {
         return FlightConfigurationId{*parsed};
     }

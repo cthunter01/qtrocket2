@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <numbers>
@@ -26,6 +27,7 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestComponent.h"
 
@@ -43,6 +45,7 @@ using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::LineStyle;
+using QtRocket::ModId;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
@@ -442,6 +445,24 @@ TEST(RocketComponentInstances, DefaultsAreASingleInstance)
     EXPECT_TRUE(coordinatesNear(component.getComponentAngles().at(0), Coordinate{}));
 }
 
+TEST(RocketComponentInstances, InconsistentInstancesAreBugs)
+{
+    // A parent whose instance offsets and angles differ in number (Java runs off the shorter
+    // array).
+    TestComponent  parent;
+    TestComponent& child = parent.addChild(TestComponent::make());
+    parent.setInstances({Coordinate{}, Coordinate{}}, {0.0});
+    EXPECT_THROW(static_cast<void>(child.getComponentLocations()), BugError);
+
+    // Without instances there are no locations, and no first location.
+    TestComponent lonely;
+    lonely.setInstances({}, {});
+    EXPECT_TRUE(lonely.getComponentLocations().empty());
+    EXPECT_TRUE(lonely.getComponentAngles().empty());
+    EXPECT_THROW(static_cast<void>(lonely.getAxialOffset(AxialMethod::ABSOLUTE)), BugError);
+    EXPECT_THROW(static_cast<void>(lonely.toRelative(Coordinate{}, parent)), BugError);
+}
+
 // ---- Tree ownership ----
 
 TEST(RocketComponentTree, AddChildTakesOwnershipAndLinksTheParent)
@@ -483,6 +504,103 @@ TEST(RocketComponentTree, AddChildRejectsIncompatibleAndNull)
     parent.setAcceptsNothing();
     EXPECT_FALSE(parent.allowsChildren());
     EXPECT_FALSE(parent.isCompatible(TestComponent{ComponentKind::PARACHUTE}));
+}
+
+TEST(RocketComponentTree, ARejectedComponentStaysWithTheCaller)
+{
+    TestComponent parent;
+    parent.setAccepted({ComponentKind::PARACHUTE});
+    auto                 incompatible = TestComponent::make();
+    const TestComponent* raw          = incompatible.get();
+    EXPECT_THROW(parent.addChild(std::move(incompatible)), BugError);
+    // NOLINTNEXTLINE(bugprone-use-after-move): addChild() refused it before taking it
+    EXPECT_EQ(incompatible.get(), raw);
+
+    auto chute = TestComponent::make(0.0, ComponentKind::PARACHUTE);
+    EXPECT_THROW(parent.addChild(std::move(chute), 1), BugError);  // index out of range
+    // NOLINTNEXTLINE(bugprone-use-after-move): addChild() refused it before taking it
+    EXPECT_NE(chute, nullptr);
+    EXPECT_EQ(parent.getChildCount(), 0U);
+}
+
+TEST(RocketComponentTree, AddingTheRootBelowItselfIsABug)
+{
+    // Java: IllegalStateException "attempting to create cycle in tree". The root stays with the
+    // caller (nothing leaks).
+    auto           root  = TestComponent::make();
+    TestComponent& child = root->addChild(TestComponent::make());
+    EXPECT_THROW(child.addChild(std::move(root)), BugError);
+    // NOLINTBEGIN(bugprone-use-after-move): addChild() refused the root before taking it
+    ASSERT_NE(root, nullptr);
+    EXPECT_EQ(root->getParent(), nullptr);
+    EXPECT_EQ(child.getParent(), root.get());
+    EXPECT_EQ(child.getChildCount(), 0U);
+
+    // Java compares with equals(): a copy of the root that keeps its id is refused too, and one
+    // with new ids is not.
+    std::unique_ptr<RocketComponent> sameId = root->copyWithOriginalId();
+    EXPECT_THROW(child.addChild(std::move(sameId)), BugError);
+    EXPECT_NE(sameId, nullptr);
+    EXPECT_NO_THROW(child.addChild(root->copyWithNewIds()));
+    EXPECT_EQ(child.getChildCount(), 1U);
+    // NOLINTEND(bugprone-use-after-move)
+}
+
+TEST(RocketComponentTree, ChildAddedRunsAfterEveryAddAndItsEvent)
+{
+    Rocket         rocket;
+    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
+    TestComponent& body  = stage.addChild(TestComponent::make(0.3));
+    rocket.enableEvents();
+
+    std::vector<std::string>            log;
+    std::vector<const RocketComponent*> added;
+    const auto                          connection = ComponentChangeSignal::ScopedConnection{
+        rocket.addComponentChangeListener([&log](const ComponentChangeEvent& e) {
+            if (e.isTreeChange())
+            {
+                log.emplace_back("event");
+            }
+        })};
+    body.setOnChildAdded([&log, &added](RocketComponent& child) {
+        log.emplace_back("hook");
+        added.push_back(&child);
+    });
+
+    // Every add path: at the end, at an index, and without stage tracking.
+    TestComponent& atEnd   = body.addChild(TestComponent::make());
+    TestComponent& atIndex = body.addChild(TestComponent::make(), 0);
+    TestComponent& skipped = body.addChild(TestComponent::make(), StageTracking::SKIP);
+    EXPECT_EQ(added, (std::vector<const RocketComponent*>{&atEnd, &atIndex, &skipped}));
+    EXPECT_EQ(log, (std::vector<std::string>{"event", "hook", "event", "hook", "event", "hook"}));
+}
+
+/// A childAdded() hook that counts its calls in @p count.
+std::function<void(RocketComponent&)> countingHook(int& count)
+{
+    return [&count](RocketComponent& /*added*/) { ++count; };
+}
+
+TEST(RocketComponentTree, ChildAddedRunsOnTheNewParentOnly)
+{
+    TestComponent  parent;  // detached: no events, the hook runs all the same
+    TestComponent& child = parent.addChild(TestComponent::make());
+    int            count = 0;
+    parent.setOnChildAdded(countingHook(count));
+
+    parent.addChild(TestComponent::make());
+    child.addChild(TestComponent::make());  // a grandchild: not the parent's hook
+    EXPECT_EQ(count, 1);
+}
+
+TEST(RocketComponentTree, ChildAddedDoesNotRunForARefusedComponent)
+{
+    TestComponent parent;
+    int           count = 0;
+    parent.setOnChildAdded(countingHook(count));
+    parent.setAcceptsNothing();
+    EXPECT_THROW(parent.addChild(TestComponent::make()), BugError);
+    EXPECT_EQ(count, 0);
 }
 
 TEST(RocketComponentTree, RemoveChildHandsOwnershipBack)
@@ -608,6 +726,42 @@ TEST(RocketComponentTree, RocketStageAndAssemblyLookups)
     EXPECT_EQ(rocket.findStage(), nullptr);
 }
 
+TEST(RocketComponentTree, ConstQueries)
+{
+    Rocket         rocket;
+    AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
+    TestComponent& body    = core.addChild(TestComponent::make());
+    AxialStage&    booster = body.addChild(std::make_unique<AxialStage>());
+    TestComponent& inner   = booster.addChild(TestComponent::make());
+    AxialStage&    upper   = rocket.addChild(std::make_unique<AxialStage>());
+
+    const Rocket& constRocket = rocket;
+    EXPECT_EQ(constRocket.getSubStages(),
+              (std::vector<const AxialStage*>{&core, &booster, &upper}));
+    EXPECT_EQ(constRocket.getAllChildStages(),
+              (std::vector<const AxialStage*>{&core, &booster, &upper}));
+    EXPECT_EQ(constRocket.getTopLevelChildStages(),
+              (std::vector<const AxialStage*>{&core, &upper}));
+    EXPECT_EQ(std::as_const(core).getTopLevelChildStages(),
+              std::vector<const AxialStage*>{&booster});
+    EXPECT_EQ(constRocket.getAllChildAssemblies(),
+              (std::vector<const ComponentAssembly*>{&core, &booster, &upper}));
+    EXPECT_EQ(constRocket.getDirectChildAssemblies(),
+              (std::vector<const ComponentAssembly*>{&core, &upper}));
+    EXPECT_EQ(std::as_const(body).getDirectChildAssemblies(),
+              std::vector<const ComponentAssembly*>{&booster});
+
+    const RocketComponent& constInner = inner;
+    EXPECT_EQ(constInner.getParentAssemblies(),
+              (std::vector<const RocketComponent*>{&booster, &core, &rocket}));
+    EXPECT_EQ(constInner.getNextComponent(), &upper);
+    EXPECT_EQ(constInner.getPreviousComponent(), &booster);
+    EXPECT_EQ(std::as_const(upper).getPreviousComponent(), &inner);
+    EXPECT_EQ(std::as_const(upper).getNextComponent(), nullptr);
+    EXPECT_EQ(constRocket.getNextComponent(), &core);
+    EXPECT_EQ(constRocket.getPreviousComponent(), nullptr);
+}
+
 TEST(RocketComponentTree, StagesBelowAComponent)
 {
     Rocket         rocket;
@@ -695,6 +849,66 @@ TEST(RocketComponentIteration, FailsFastWhenTheRocketTreeChanges)
     EXPECT_THROW(++it, BugError);
 }
 
+TEST(RocketComponentIteration, FailsFastOnADetachedTree)
+{
+    // No rocket, so no tree modification id: the child lists are checked.
+    TestComponent  root;
+    TestComponent& a = root.addChild(TestComponent::make());
+    a.addChild(TestComponent::make());
+    root.addChild(TestComponent::make());
+
+    auto it = root.subtree().begin();
+    ++it;
+    ASSERT_EQ(&*it, &a);
+    static_cast<void>(root.removeChild(&a));  // destroys the current component
+    EXPECT_THROW(++it, BugError);
+    EXPECT_THROW(static_cast<void>(*it), BugError);
+
+    // A change to the children of the current component is caught too.
+    auto again = root.subtree().begin();
+    root.addChild(TestComponent::make());
+    EXPECT_THROW(++again, BugError);
+}
+
+TEST(RocketComponentIteration, FailsFastWithEventsDisabled)
+{
+    Rocket         rocket;  // events disabled: the tree modification id stays
+    AxialStage&    stage  = rocket.addChild(std::make_unique<AxialStage>());
+    TestComponent& body   = stage.addChild(TestComponent::make());
+    const ModId    treeId = rocket.getTreeModId();
+
+    auto it = rocket.subtree().begin();
+    ++it;
+    ++it;
+    ASSERT_EQ(&*it, &body);
+    stage.addChild(TestComponent::make());
+    EXPECT_EQ(rocket.getTreeModId(), treeId);
+    EXPECT_THROW(++it, BugError);
+
+    // Moving a child counts as a change as well.
+    auto moved = rocket.subtree().begin();
+    ++moved;
+    ++moved;
+    stage.moveChild(&body, 1);
+    EXPECT_THROW(static_cast<void>(*moved), BugError);
+}
+
+TEST(RocketComponentIteration, FailsFastAcrossLoadFrom)
+{
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    stage.addChild(TestComponent::make(0.1));
+    rocket.enableEvents();
+    const std::unique_ptr<Rocket> copy = rocket.copyRocketWithOriginalId();
+
+    auto it = rocket.subtree().begin();
+    ++it;  // at the stage, which loadFrom() replaces by a copy
+    rocket.loadFrom(*copy);
+    // An undo restores the tree modification id the iterator saw.
+    EXPECT_EQ(rocket.getTreeModId(), copy->getTreeModId());
+    EXPECT_THROW(++it, BugError);
+}
+
 // ---- Properties ----
 
 TEST(RocketComponentProperties, DefaultValues)
@@ -759,6 +973,12 @@ TEST(RocketComponentProperties, Ids)
     EXPECT_FALSE(failed.has_value());
     EXPECT_EQ(component.getId(), (Uuid{0U, 1U}));
     EXPECT_EQ(component.hashCode(), (Uuid{0U, 1U}).hashCode());
+
+    // java.util.UUID.fromString() takes shortened groups, and so does setId().
+    ASSERT_TRUE(component.setId("1-2-3-4-5").has_value());
+    EXPECT_EQ(component.getId().toString(), "00000001-0002-0003-0004-000000000005");
+    EXPECT_FALSE(component.setId("1-2-3-4").has_value());
+    EXPECT_EQ(component.getId().toString(), "00000001-0002-0003-0004-000000000005");
 }
 
 TEST(RocketComponentProperties, EqualityIsClassAndId)
@@ -974,6 +1194,75 @@ TEST(RocketComponentMass, OverriddenByKeepsOpenRocketsTreeOrderWalk)
     EXPECT_EQ(first.getMassOverriddenBy(), nullptr);
     EXPECT_EQ(inner.getMassOverriddenBy(), &first);
     EXPECT_EQ(second.getMassOverriddenBy(), &first);
+}
+
+TEST(RocketComponentMass, RemovingAnOverriderClearsThePointersLeftInTheTree)
+{
+    // The tree-order walk gives `second` (and its child) the earlier sibling's descendant
+    // `overrider`; once `first` is removed and destroyed they must not refer to it (Java keeps a
+    // stale reference there).
+    TestComponent  root;
+    TestComponent& first       = root.addChild(TestComponent::make());
+    TestComponent& overrider   = first.addChild(TestComponent::make());
+    TestComponent& inner       = overrider.addChild(TestComponent::make());
+    TestComponent& second      = root.addChild(TestComponent::make());
+    TestComponent& secondChild = second.addChild(TestComponent::make());
+    overrider.setMassOverridden(true);
+    overrider.setSubcomponentsOverriddenMass(true);
+    overrider.setCGOverridden(true);
+    overrider.setSubcomponentsOverriddenCG(true);
+    overrider.setCDOverridden(true);
+    overrider.setSubcomponentsOverriddenCD(true);
+    root.setMassOverridden(true);
+    root.setCGOverridden(true);
+    root.setCDOverridden(true);
+    ASSERT_EQ(second.getMassOverriddenBy(), &overrider);
+    ASSERT_EQ(secondChild.getCGOverriddenBy(), &overrider);
+    ASSERT_EQ(second.getCDOverriddenBy(), &overrider);
+
+    std::unique_ptr<RocketComponent> removed = root.removeChild(&first);
+    // Inside the removed subtree the overrider is kept, as in Java.
+    EXPECT_EQ(inner.getMassOverriddenBy(), &overrider);
+    EXPECT_EQ(inner.getCGOverriddenBy(), &overrider);
+    EXPECT_EQ(inner.getCDOverriddenBy(), &overrider);
+    // The tree it left forgets it.
+    EXPECT_EQ(second.getMassOverriddenBy(), nullptr);
+    EXPECT_EQ(second.getCGOverriddenBy(), nullptr);
+    EXPECT_EQ(second.getCDOverriddenBy(), nullptr);
+    EXPECT_EQ(secondChild.getMassOverriddenBy(), nullptr);
+    EXPECT_EQ(secondChild.getCGOverriddenBy(), nullptr);
+    EXPECT_EQ(secondChild.getCDOverriddenBy(), nullptr);
+    removed.reset();
+    EXPECT_EQ(root.getAllChildren(), (std::vector<RocketComponent*>{&second, &secondChild}));
+}
+
+TEST(RocketComponentMass, ARemovedSubtreeForgetsOverridersOutsideIt)
+{
+    // stage[bt1 (overrides its subcomponents){c}, bt2{bt2child}]: the walk gives bt2 and bt2child
+    // bt1 as their overrider.
+    TestComponent  stage;
+    TestComponent& bt1 = stage.addChild(TestComponent::make());
+    bt1.addChild(TestComponent::make());
+    TestComponent& bt2      = stage.addChild(TestComponent::make());
+    TestComponent& bt2child = bt2.addChild(TestComponent::make());
+    bt1.setMassOverridden(true);
+    bt1.setSubcomponentsOverriddenMass(true);
+    stage.setMassOverridden(true);
+    stage.setMassOverridden(false);
+    ASSERT_EQ(bt2.getMassOverriddenBy(), &bt1);
+    ASSERT_EQ(bt2child.getMassOverriddenBy(), &bt1);
+
+    // bt2 is removed and kept (a drag and drop, the clipboard): its pointers to bt1 go.
+    std::unique_ptr<RocketComponent> kept = stage.removeChild(&bt2);
+    EXPECT_EQ(bt2.getMassOverriddenBy(), nullptr);
+    EXPECT_EQ(bt2child.getMassOverriddenBy(), nullptr);
+
+    // bt1 is destroyed and bt2 comes back: nothing refers to bt1.
+    static_cast<void>(stage.removeChild(&bt1));
+    stage.addChild(std::move(kept));
+    EXPECT_EQ(bt2.getMassOverriddenBy(), nullptr);
+    EXPECT_EQ(bt2child.getMassOverriddenBy(), nullptr);
+    EXPECT_EQ(stage.getSectionMass(), 0.0);
 }
 
 TEST(RocketComponentMass, SetSubcomponentsOverriddenSetsAllThree)
@@ -1243,6 +1532,39 @@ TEST(RocketComponentDebug, DebugTree)
     EXPECT_NE(tree.find("(cluster: 2-test )"), std::string::npos) << tree;
     EXPECT_NE(tree.find("[ 2/ 2]"), std::string::npos) << tree;
     EXPECT_NE(tree.find("via: AFTER"), std::string::npos) << tree;
+}
+
+TEST(RocketComponentDebug, DebugNumbersRoundHalfUpAsJava)
+{
+    // Java's %f rounds the decimal digits half-up: %5.3f of 0.0625 is 0.063 (std::format's
+    // half-even gives 0.062), %4.1f of 0.25 is " 0.3" and %.4f of 0.03125 is 0.0313.
+    Rocket         rocket;
+    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
+    TestComponent& body  = stage.addChild(TestComponent::make(0.0625));
+    body.setName("Body");
+    TestComponent& fins = body.addChild(
+        std::make_unique<TestComponent>(ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::TOP, 0.01));
+    rocket.enableEvents();
+    fins.setAxialOffset(0.25);
+
+    std::string bodyLine;
+    body.toDebugTreeNode(bodyLine, "");
+    EXPECT_NE(bodyLine.find("|  0.063; "), std::string::npos) << bodyLine;
+    std::string stageLine;
+    stage.toDebugTreeNode(stageLine, "");
+    EXPECT_NE(stageLine.find("|  0.063; "), std::string::npos) << stageLine;
+    EXPECT_NE(stageLine.find("len: 0.0625 )(offset:  0.0  via: AFTER )"), std::string::npos)
+        << stageLine;
+    std::string finLine;
+    fins.toDebugTreeNode(finLine, "");
+    EXPECT_NE(finLine.find("(offset:  0.3  via: TOP )"), std::string::npos) << finLine;
+
+    TestComponent detached{ComponentKind::BODY_TUBE, AxialMethod::TOP, 0.03125};
+    detached.setAxialOffset(0.03125);
+    const std::string detail = detached.toDebugDetail();
+    EXPECT_NE(detail.find("position: 0.031250    at offset: 0.0313 via: TOP"), std::string::npos)
+        << detail;
+    EXPECT_NE(detail.find("length: 0.0313"), std::string::npos) << detail;
 }
 
 TEST(RocketComponentDebug, RingHelpers)

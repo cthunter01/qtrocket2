@@ -44,10 +44,10 @@ public:
     /// error id, see errorId()).
     constexpr explicit FlightConfigurationId(const Uuid& key) noexcept : m_key(key) { }
 
-    /// Java's new FlightConfigurationId(String): a random key for an empty @p text, the parsed
-    /// key for a canonical UUID, and otherwise new UUID(0, text.hashCode()) (the Java String hash,
-    /// sign-extended). Deviation: java.util.UUID.fromString() also accepts shortened groups such as
-    /// "1-2-3-4-5"; Uuid::parse() does not, so such text is hashed here.
+    /// Java's new FlightConfigurationId(String): a random key for an empty @p text, the key
+    /// java.util.UUID.fromString() parses from it (Uuid::javaFromString(), which also takes
+    /// shortened groups such as "1-2-3-4-5"), and otherwise new UUID(0, text.hashCode()) (the
+    /// Java String hash, sign-extended).
     [[nodiscard]] static FlightConfigurationId fromString(std::string_view text);
 
     /// The id every parameter set keeps its default value under (Java: DEFAULT_VALUE_FCID).

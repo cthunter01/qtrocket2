@@ -1,5 +1,6 @@
 #include "QtRocket/rocket/AxialStage.h"
 
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -14,6 +15,7 @@
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 #include "rocket/TestComponent.h"
 
 namespace
@@ -285,10 +287,46 @@ TEST_F(StageNumberingTest, RemovingAStageForgetsItAndItsSubStages)
     EXPECT_EQ(m_rocket.getStage(1), nullptr);
     EXPECT_EQ(m_rocket.getStage(2), nullptr);
 
-    // Removing without tracking keeps the map as it is.
+    // Removing without tracking still drops the stage from the map (deviation: Java keeps the
+    // entry, a stale but live object there), so that the map never holds a destroyed stage.
     const std::unique_ptr<RocketComponent> payload =
         m_rocket.removeChild(m_payload, RocketComponent::StageTracking::SKIP);
-    EXPECT_EQ(m_rocket.getStageCount(), 1U);
+    EXPECT_EQ(m_rocket.getStageCount(), 0U);
+    EXPECT_TRUE(m_rocket.getStageList().empty());
+}
+
+TEST_F(StageNumberingTest, ASkippedRemovalLeavesNoDanglingStage)
+{
+    // The core body holds the booster stage: removing (and destroying) the body without tracking
+    // drops the booster from the map too.
+    const QtRocket::Uuid boosterId = m_booster->getId();
+    static_cast<void>(m_core->removeChild(std::size_t{0}, RocketComponent::StageTracking::SKIP));
+    EXPECT_EQ(m_rocket.getStageList(), (std::vector<AxialStage*>{m_payload, m_core}));
+    EXPECT_EQ(m_rocket.getStage(boosterId), nullptr);
+
+    static_cast<void>(m_rocket.removeChild(m_core, RocketComponent::StageTracking::SKIP));
+    EXPECT_EQ(m_rocket.getStageList(), std::vector<AxialStage*>{m_payload});
+    EXPECT_EQ(m_rocket.getStage(1), nullptr);
+
+    // A new stage is numbered against the stages that are left.
+    AxialStage& added = m_rocket.addChild(std::make_unique<AxialStage>());
+    EXPECT_EQ(m_rocket.getStageList(), (std::vector<AxialStage*>{m_payload, &added}));
+    EXPECT_EQ(added.getStageNumber(), 1);
+}
+
+TEST(AxialStage, RemovingWithoutTrackingDropsTheStageWithEventsDisabled)
+{
+    // No event, so no update() that would rebuild the map: removeChild() itself drops it.
+    Rocket      rocket;
+    AxialStage& first  = rocket.addChild(std::make_unique<AxialStage>());
+    AxialStage& second = rocket.addChild(std::make_unique<AxialStage>());
+    ASSERT_EQ(rocket.getStageList(), (std::vector<AxialStage*>{&first, &second}));
+    static_cast<void>(rocket.removeChild(&second, RocketComponent::StageTracking::SKIP));
+    EXPECT_EQ(rocket.getStageList(), std::vector<AxialStage*>{&first});
+
+    AxialStage& third = rocket.addChild(std::make_unique<AxialStage>());
+    EXPECT_EQ(third.getStageNumber(), 1);
+    EXPECT_EQ(rocket.getStageList(), (std::vector<AxialStage*>{&first, &third}));
 }
 
 TEST_F(StageNumberingTest, RenamingAStageIsATreeChange)

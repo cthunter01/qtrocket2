@@ -43,9 +43,11 @@ class Rocket;
 ///
 /// Ownership: a component owns its children (std::unique_ptr) and knows its parent through a
 /// non-owning pointer. addChild() takes ownership; removeChild() hands it back, so the caller
-/// (undo, drag and drop, the clipboard) decides whether the component lives on. A component
-/// without a parent is detached (or the root); OpenRocket's REMOVED sentinel is not ported:
-/// findComponent() returns nullptr instead.
+/// (undo, drag and drop, the clipboard) decides whether the component lives on: dropping the
+/// returned pointer destroys the component (removeChild() and splitInstances() are
+/// [[nodiscard]], so that a Java-style call that ignores the result does not compile silently
+/// into a dangling reference). A component without a parent is detached (or the root);
+/// OpenRocket's REMOVED sentinel is not ported: findComponent() returns nullptr instead.
 ///
 /// Changes: setters fire a ComponentChangeEvent through fireComponentChangeEvent(), which goes to
 /// the root when it is a Rocket (see Rocket::fireComponentChangeEvent() for the algorithm) and is
@@ -94,6 +96,21 @@ class Rocket;
 /// - moveChild() checks the index before it takes the child out (Java loses the child on a bad
 ///   index); splitInstances() hands the replaced original back (SplitResult) instead of dropping
 ///   it; indices are std::size_t and getChildPosition() gives nullopt for Java's -1.
+/// - addChild() checks its argument before it takes ownership, so a rejected component (null,
+///   already in a tree, the root of this tree, incompatible) stays with the caller.
+/// - The overriddenBy pointers never outlive their target. Java's removeChild() clears only the
+///   pointers of the removed subtree that refer to the parent or the parent's overrider, and keeps
+///   stale references elsewhere (OpenRocket's tree-order walk, see
+///   updateChildrenMassOverriddenBy(), also hands an overrider to its later siblings). Here
+///   removeChild() also clears every pointer left in the tree that refers into the removed
+///   subtree, and every pointer of the removed subtree that refers outside it; pointers within the
+///   removed subtree are kept, as in Java. Otherwise destroying the removed component would leave
+///   them dangling.
+/// - removeChild() drops the removed stages from the Rocket's stage map by identity whatever the
+///   StageTracking, so that the map never holds a destroyed stage (see StageTracking).
+/// - The subtree() iteration also fails fast on a change of any child list it is walking, in a
+///   detached tree or a rocket with events disabled too (Java checks the rocket's tree
+///   modification id, and each ArrayList iterator its own list).
 /// - The component name is stored only when the user sets one: getName() gives
 ///   getComponentName() otherwise, since a C++ constructor cannot call the subclass's override the
 ///   way Java's does. The result is the same, getComponentName() being constant per class.
@@ -124,7 +141,11 @@ class RocketComponent
 public:
     /// Whether addChild() and removeChild() update the Rocket's stage map when the component is a
     /// stage or holds stages (Java's boolean trackStage; SKIP is for moving detached copies
-    /// around, as the clipboard does).
+    /// around, as the clipboard does). With SKIP, addChild() does not register an added stage,
+    /// and removeChild() does not forget the removed stages by number (Java's forgetStage()).
+    /// Deviation: removeChild() still drops every map entry that holds a removed stage, in both
+    /// modes: Java's SKIP leaves the entry behind, a stale but live object there, which would
+    /// dangle here once the caller destroys the removed component.
     enum class StageTracking
     {
         TRACK,
@@ -142,7 +163,8 @@ public:
 
     /// The result of splitInstances(): the single-instance components now in the tree, and the
     /// original component when it was taken out of the tree (it had more than one instance).
-    struct SplitResult
+    /// Dropping it destroys the original, the object splitInstances() was called on.
+    struct [[nodiscard]] SplitResult
     {
         std::vector<RocketComponent*>    components;
         std::unique_ptr<RocketComponent> original;
@@ -267,8 +289,9 @@ public:
     /// Sets the id. Normally ids are assigned automatically; the loader restores them.
     void setId(const Uuid& newId) noexcept { m_id = newId; }
 
-    /// Parses @p newId and sets it (Java: setID(String)); a malformed id fails with
-    /// ErrorCode::PARSE and changes nothing (Java: IllegalArgumentException).
+    /// Parses @p newId as java.util.UUID.fromString() does (Uuid::javaFromString(), which also
+    /// takes shortened groups such as "1-2-3-4-5") and sets it (Java: setID(String)); a malformed
+    /// id fails with ErrorCode::PARSE and changes nothing (Java: IllegalArgumentException).
     [[nodiscard]] Result<void> setId(std::string_view newId);
 
     /// "name/xxxxxxxx", the name and the first eight characters of the id.
@@ -505,13 +528,15 @@ public:
     /// it. Children inherit this component's overriddenBy pointers; a stage is registered with
     /// the Rocket (unless @p tracking is SKIP or the tree is not in a Rocket). Fires TREE_CHANGE,
     /// with MASS_CHANGE / AERODYNAMIC_CHANGE when the added subtree holds massive / aerodynamic
-    /// components.
-    /// @throws BugError when @p component is null, already has a parent, is the root of this
-    ///         tree (a cycle) or is not compatible (Java: IllegalArgumentException /
-    ///         IllegalStateException).
+    /// components, and then calls childAdded() on this component.
+    /// @throws BugError when @p component is null, already has a parent, equals() the root of
+    ///         this tree (a cycle) or is not compatible (Java: IllegalArgumentException /
+    ///         IllegalStateException). The component is checked before it is taken, so on an
+    ///         error it stays in the caller's pointer.
     template <std::derived_from<RocketComponent> T>
-    T& addChild(std::unique_ptr<T> component, StageTracking tracking = StageTracking::TRACK)
+    T& addChild(std::unique_ptr<T>&& component, StageTracking tracking = StageTracking::TRACK)
     {
+        checkAddable(component.get());
         T* added = component.get();
         insertChild(std::unique_ptr<RocketComponent>{std::move(component)}, m_children.size(),
                     tracking);
@@ -519,28 +544,30 @@ public:
     }
 
     /// As addChild(), inserting at @p index (0 to getChildCount()).
-    /// @throws BugError as addChild(), and when @p index is out of range. A bool index is
-    ///         rejected at compile time, so that Java's addChild(c, trackStage) cannot silently
-    ///         become an index: pass a StageTracking.
+    /// @throws BugError as addChild(), and when @p index is out of range (the component then
+    ///         stays with the caller too). A bool index is rejected at compile time, so that
+    ///         Java's addChild(c, trackStage) cannot silently become an index: pass a
+    ///         StageTracking.
     template <std::derived_from<RocketComponent> T, std::integral Index>
         requires(!std::same_as<Index, bool>)
-    T& addChild(std::unique_ptr<T> component, Index index,
+    T& addChild(std::unique_ptr<T>&& component, Index index,
                 StageTracking tracking = StageTracking::TRACK)
     {
-        T* added = component.get();
-        insertChild(std::unique_ptr<RocketComponent>{std::move(component)}, checkedIndex(index),
-                    tracking);
+        checkAddable(component.get());
+        const std::size_t position = checkedIndex(index);
+        T*                added    = component.get();
+        insertChild(std::unique_ptr<RocketComponent>{std::move(component)}, position, tracking);
         return *added;
     }
 
-    /// Removes the child @p index and returns it, detached (Java: removeChild(int)). A template
-    /// so that removeChild(0) is not ambiguous with the pointer overload (0 is also a null
-    /// pointer constant).
+    /// Removes the child @p index and returns it, detached (Java: removeChild(int)); dropping
+    /// the result destroys it. A template so that removeChild(0) is not ambiguous with the
+    /// pointer overload (0 is also a null pointer constant).
     /// @throws BugError when @p index is out of range.
     template <std::integral Index>
         requires(!std::same_as<Index, bool>)
-    std::unique_ptr<RocketComponent> removeChild(Index         index,
-                                                 StageTracking tracking = StageTracking::TRACK)
+    [[nodiscard]] std::unique_ptr<RocketComponent> removeChild(
+        Index index, StageTracking tracking = StageTracking::TRACK)
     {
         if (std::cmp_less(index, 0) || std::cmp_greater_equal(index, m_children.size()))
         {
@@ -550,11 +577,13 @@ public:
     }
 
     /// Removes @p component when it is a child of this one and returns it, detached; nullptr (and
-    /// nothing done) otherwise. Clears the overriddenBy pointers that pointed at this component
-    /// or its overrider, forgets removed stages in the Rocket (unless SKIP), fires the same event
-    /// as addChild() and updates the bounds.
-    std::unique_ptr<RocketComponent> removeChild(const RocketComponent* component,
-                                                 StageTracking tracking = StageTracking::TRACK);
+    /// nothing done) otherwise. Dropping the result destroys the component (write
+    /// `static_cast<void>(parent.removeChild(c))` to delete it on purpose). Clears every
+    /// overriddenBy pointer between the removed subtree and the rest of the tree, in either
+    /// direction (see the class comment), drops the removed stages from the Rocket's stage map
+    /// (see StageTracking), fires the same event as addChild() and updates the bounds.
+    [[nodiscard]] std::unique_ptr<RocketComponent> removeChild(
+        const RocketComponent* component, StageTracking tracking = StageTracking::TRACK);
 
     /// Moves the child @p component to @p index (counted after its removal); nothing happens when
     /// it is not a child. Updates the bounds and fires as addChild().
@@ -627,7 +656,8 @@ public:
     [[nodiscard]] const AxialStage* findStage() const noexcept;
 
     /// Every stage below this component, in tree order.
-    [[nodiscard]] std::vector<AxialStage*> getSubStages();
+    [[nodiscard]] std::vector<AxialStage*>       getSubStages();
+    [[nodiscard]] std::vector<const AxialStage*> getSubStages() const;
 
     /// The innermost ComponentAssembly (pod set, stage, ...) at or above this component.
     /// @throws BugError when there is none (Java: IllegalStateException).
@@ -639,19 +669,24 @@ public:
     [[nodiscard]] const ComponentAssembly* findAssembly() const noexcept;
 
     /// Every assembly below this component, in tree order.
-    [[nodiscard]] std::vector<ComponentAssembly*> getAllChildAssemblies();
+    [[nodiscard]] std::vector<ComponentAssembly*>       getAllChildAssemblies();
+    [[nodiscard]] std::vector<const ComponentAssembly*> getAllChildAssemblies() const;
 
     /// The assemblies among the direct children.
-    [[nodiscard]] std::vector<ComponentAssembly*> getDirectChildAssemblies();
+    [[nodiscard]] std::vector<ComponentAssembly*>       getDirectChildAssemblies();
+    [[nodiscard]] std::vector<const ComponentAssembly*> getDirectChildAssemblies() const;
 
     /// Every stage below this component, in tree order (the same list as getSubStages()).
-    [[nodiscard]] std::vector<AxialStage*> getAllChildStages();
+    [[nodiscard]] std::vector<AxialStage*>       getAllChildStages();
+    [[nodiscard]] std::vector<const AxialStage*> getAllChildStages() const;
 
     /// The stages below this component that are not below another stage.
-    [[nodiscard]] std::vector<AxialStage*> getTopLevelChildStages();
+    [[nodiscard]] std::vector<AxialStage*>       getTopLevelChildStages();
+    [[nodiscard]] std::vector<const AxialStage*> getTopLevelChildStages() const;
 
     /// Every assembly above this component, the nearest first.
-    [[nodiscard]] std::vector<RocketComponent*> getParentAssemblies();
+    [[nodiscard]] std::vector<RocketComponent*>       getParentAssemblies();
+    [[nodiscard]] std::vector<const RocketComponent*> getParentAssemblies() const;
 
     /// The number of the stage this component belongs to (stages count from zero).
     /// @throws BugError when there is no stage above (see getStage()).
@@ -664,26 +699,33 @@ public:
 
     /// The next component in tree order: the first child, else the next sibling of the nearest
     /// ancestor that has one; nullptr at the end.
-    [[nodiscard]] RocketComponent* getNextComponent() noexcept;
+    [[nodiscard]] RocketComponent*       getNextComponent() noexcept;
+    [[nodiscard]] const RocketComponent* getNextComponent() const noexcept;
 
     /// The previous component in tree order: the last descendant of the previous sibling, else
     /// the parent; nullptr for a root.
-    [[nodiscard]] RocketComponent* getPreviousComponent();
+    /// @throws BugError when the parent does not hold this component (a broken tree).
+    [[nodiscard]] RocketComponent*       getPreviousComponent();
+    [[nodiscard]] const RocketComponent* getPreviousComponent() const;
 
     /// Splits a multi-instance component into single-instance copies, one per instance, in its
     /// place: each copy has an instance count of 1, its angle offset (for an AnglePositionable)
     /// advanced by 2 pi i / count, its name suffixed " #i" and the override mass divided by the
     /// count. The rocket is frozen meanwhile when @p freezeRocket is true. A single-instance
     /// component is left alone. Then fires TREE_CHANGE from this component (which does nothing
-    /// once it has been taken out of the tree, as in Java).
+    /// once it has been taken out of the tree, as in Java). When the component was split, the
+    /// result owns it: dropping the result destroys this component.
     /// @throws BugError when the component is not in a Rocket.
-    SplitResult splitInstances(bool freezeRocket = true);
+    [[nodiscard]] SplitResult splitInstances(bool freezeRocket = true);
 
     // ============================================================================ iteration
 
     /// This subtree in pre-order, this component first when @p includeSelf (Java: iterator()).
-    /// The iteration fails fast: once the rocket's tree changes, using the iterator throws
-    /// BugError (Java: IllegalStateException "Rocket modified while being iterated").
+    /// The iteration fails fast: once the rocket's tree changes, or the child list of any
+    /// component the iteration is inside of (in any tree, events enabled or not), using the
+    /// iterator throws BugError (Java: IllegalStateException "Rocket modified while being
+    /// iterated", or ConcurrentModificationException). The component the iteration started from
+    /// must outlive the iterator.
     [[nodiscard]] BasicRange<RocketComponent>       subtree(bool includeSelf = true);
     [[nodiscard]] BasicRange<const RocketComponent> subtree(bool includeSelf = true) const;
 
@@ -806,6 +848,12 @@ protected:
     /// this version.
     virtual void componentChanged(const ComponentChangeEvent& event);
 
+    /// Called at the very end of every addChild(), on the new parent, after the child has been
+    /// linked and the change event fired (Java: an override of addChild(c, index, trackStage)
+    /// that calls super.addChild() first, as BodyTube's, which gives an added TubeFinSet with
+    /// no thickness yet the tube's). Does nothing unless overridden.
+    virtual void childAdded(RocketComponent& child);
+
     /// Clears the cached absolute locations and angles.
     void clearCoordinateCaches() const noexcept;
 
@@ -921,9 +969,24 @@ private:
         }
     }
 
-    /// The body of every addChild().
+    /// getNextComponent() and getPreviousComponent() for both constnesses (defined in the .cpp).
+    template <class Component>
+    [[nodiscard]] static Component* nextComponentOf(Component& component) noexcept;
+    template <class Component>
+    [[nodiscard]] static Component* previousComponentOf(Component& component);
+
+    /// The argument checks of addChild(), made before it takes ownership.
+    /// @throws BugError when @p component is null, already has a parent, equals() the root of
+    ///         this tree or is not compatible.
+    void checkAddable(const RocketComponent* component) const;
+
+    /// The body of every addChild(), once checkAddable() has passed.
     void insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
                      StageTracking tracking);
+
+    /// Clears the overriddenBy pointers between @p removed (just detached from this component)
+    /// and the tree it left, in both directions.
+    void clearOverriddenByAcross(RocketComponent& removed);
 
     /// Fires TREE_CHANGE plus AERODYNAMIC_CHANGE / MASS_CHANGE for @p component's subtree.
     void fireAddRemoveEvent(const RocketComponent& component);
@@ -944,6 +1007,9 @@ private:
     void remapOverriddenBy(
         const std::vector<std::pair<const RocketComponent*, RocketComponent*>>& copies);
 
+    /// Bumped whenever the child list changes (add, remove, move, copyFrom()), for the
+    /// fail-fast iteration.
+    std::uint64_t                                  m_childListModCount{0};
     mutable double                                 m_overrideCGX{0.0};
     double                                         m_overrideCD{0.0};
     RocketComponent*                               m_massOverriddenBy{nullptr};
@@ -971,7 +1037,8 @@ private:
 
 /// The pre-order iterator of RocketComponent::subtree(), for RocketComponent and
 /// const RocketComponent. A default-constructed iterator is the end. It remembers the rocket's
-/// tree modification id and throws BugError when it is used after the tree changed.
+/// tree modification id and the child list modification counts of the components it is inside
+/// of, and throws BugError when it is used after any of them changed.
 template <class Component>
 class RocketComponent::BasicIterator
 {
@@ -1002,13 +1069,29 @@ public:
     }
 
 private:
+    /// A component whose children are being visited: the index of the next child, and the
+    /// component's child list modification count when the visit began.
+    struct Level
+    {
+        Component*    parent{nullptr};
+        std::size_t   next{0};
+        std::uint64_t modCount{0};
+    };
+
+    /// Makes @p component the current one.
+    void setCurrent(Component* component) noexcept;
+
+    /// @throws BugError when the rocket's tree, or the child list of a component on the stack or
+    ///         of the current one, changed since the iterator reached it.
     void checkTree() const;
 
     Component* m_current{nullptr};
-    /// The components whose children are being visited, each with the index of the next child.
-    std::vector<std::pair<Component*, std::size_t>> m_stack;
-    const Rocket*                                   m_rocket{nullptr};
-    ModId                                           m_treeModId{ModId::invalid()};
+    /// The current component's child list modification count when it became current.
+    std::uint64_t m_currentModCount{0};
+    /// The components whose children are being visited, outermost first.
+    std::vector<Level> m_stack;
+    const Rocket*      m_rocket{nullptr};
+    ModId              m_treeModId{ModId::invalid()};
 };
 
 /// The range RocketComponent::subtree() returns.
