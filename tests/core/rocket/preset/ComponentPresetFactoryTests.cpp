@@ -112,6 +112,13 @@ void expectInvalidPreset(const Outcome& outcome, std::initializer_list<AnyTypedK
     return Material::newMaterial(Material::Type::BULK, "test", 2.0, true);
 }
 
+// Deferred until the concrete components are ported: the ten preset component tests
+// (BodyTubeComponentTests, BulkHeadComponentTests, CenteringRingComponentTests,
+// EngineBlockComponentTests, LaunchLugComponentTests, NoseConeComponentTests,
+// ParachuterComponentTests, StreamerComponentTests, TransitionComponentTests and
+// TubeCouplerComponentTests), which load presets into components, and the mass tests of
+// NoseConePresetTests (see ShapedPresetWithAMassTest).
+
 // ================================================================================ tubes
 // BodyTubePresetTests, TubeCouplerPresetTests, LaunchLugPresetTests, CenteringRingPresetTests
 // and EngineBlockPresetTests are the same tests for five types.
@@ -519,17 +526,6 @@ TEST_F(ComponentPresetFactoryTest, NoseConeMaterial)
     EXPECT_NEAR(2.0, preset->get(ComponentPreset::kMaterial).getDensity(), 0.0005);
 }
 
-TEST_F(ComponentPresetFactoryTest, ShapedPresetsWithAMassWaitForTheirComponents)
-{
-    // Interim: the density of a NOSE_CONE, TRANSITION or RAIL_BUTTON preset needs the
-    // component's volume (NoseConePresetTests.testOverriddenMass, testComputeDensityNoMaterial
-    // and testComputeDensityWithMaterial are ported with NoseCone).
-    TypedPropertyMap props = noseConeSpec();
-    props.put(ComponentPreset::kMass, 0.123);
-    expectInvalidPreset(create(props), {},
-                        {"Mass of a NOSE_CONE preset needs the NOSE_CONE component"});
-}
-
 // =========================================================================== TransitionPresetTests
 
 TEST_F(ComponentPresetFactoryTest, TransitionManufacturerRequired)
@@ -697,7 +693,7 @@ TEST_F(ComponentPresetFactoryTest, StreamerWidthRequired)
     expectInvalidPreset(create(props), {ComponentPreset::kWidth}, {"No Width specified"});
 }
 
-// ========================================================================== rail button, general
+// ============================================================================== rail button
 
 TEST_F(ComponentPresetFactoryTest, RailButtonRequiredFields)
 {
@@ -715,6 +711,78 @@ TEST_F(ComponentPresetFactoryTest, RailButtonRequiredFields)
     props.put(ComponentPreset::kBaseHeight, 0.002);
     EXPECT_TRUE(create(props).has_value());
 }
+
+// ================================================================ shaped presets with a mass
+
+/// A complete spec of the NOSE_CONE, TRANSITION or RAIL_BUTTON @p type: every required key.
+[[nodiscard]] TypedPropertyMap shapedSpec(ComponentPresetType type)
+{
+    if (type == ComponentPresetType::NOSE_CONE)
+    {
+        return noseConeSpec();
+    }
+    TypedPropertyMap props = spec(type);
+    if (type == ComponentPresetType::TRANSITION)
+    {
+        props.put(ComponentPreset::kLength, 2.0);
+        props.put(ComponentPreset::kAftOuterDiameter, 2.0);
+        props.put(ComponentPreset::kForeOuterDiameter, 1.0);
+    }
+    else
+    {
+        props.put(ComponentPreset::kHeight, 0.01);
+        props.put(ComponentPreset::kOuterDiameter, 0.01);
+        props.put(ComponentPreset::kInnerDiameter, 0.005);
+        props.put(ComponentPreset::kFlangeHeight, 0.002);
+        props.put(ComponentPreset::kBaseHeight, 0.002);
+    }
+    return props;
+}
+
+/// The presets whose density OpenRocket derives through their component's getComponentVolume()
+/// (ComponentPresetFactory.makeNoseCone, makeTransition and makeRailButton).
+class ShapedPresetWithAMassTest : public ComponentPresetFactoryTest,
+                                  public ::testing::WithParamInterface<ComponentPresetType>
+{ };
+
+TEST_P(ShapedPresetWithAMassTest, IsAcceptedWithoutAMass)
+{
+    const Outcome preset = create(shapedSpec(GetParam()));
+    ASSERT_TRUE(preset.has_value());
+    EXPECT_FALSE(preset->has(ComponentPreset::kMass));
+}
+
+TEST_P(ShapedPresetWithAMassTest, WaitsForItsComponent)
+{
+    // Interim: the density needs the component's volume, so such a preset is refused, with an
+    // error that names no parameter.
+    // TODO(presets): when NoseCone, Transition and RailButton are ported, derive the
+    // "<Type>Custom" material from mass / getComponentVolume() and port
+    // NoseConePresetTests.testOverriddenMass, testComputeDensityNoMaterial and
+    // testComputeDensityWithMaterial (TransitionPresetTests has the last two commented out; no
+    // RailButton preset test exists).
+    TypedPropertyMap props = shapedSpec(GetParam());
+    props.put(ComponentPreset::kMass, 0.123);
+    const Outcome outcome = create(props);
+    ASSERT_FALSE(outcome.has_value()) << "the preset was accepted";
+    const InvalidPreset& problems = outcome.error();
+    EXPECT_TRUE(problems.invalidParameters.empty());
+    const std::string name(QtRocket::componentPresetTypeName(GetParam()));
+    ASSERT_EQ(problems.errors.size(), 1U);
+    EXPECT_EQ(problems.errors[0], "Mass of a " + name + " preset needs the " + name +
+                                      " component, which is not ported yet");
+    EXPECT_EQ(problems.problemCount(), 1U);
+}
+
+INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, ShapedPresetWithAMassTest,
+                         ::testing::Values(ComponentPresetType::NOSE_CONE,
+                                           ComponentPresetType::TRANSITION,
+                                           ComponentPresetType::RAIL_BUTTON),
+                         [](const ::testing::TestParamInfo<ComponentPresetType>& paramInfo) {
+                             return std::string(QtRocket::componentPresetTypeName(paramInfo.param));
+                         });
+
+// ================================================================================== general
 
 TEST_F(ComponentPresetFactoryTest, TypeMissingStopsAtOnce)
 {

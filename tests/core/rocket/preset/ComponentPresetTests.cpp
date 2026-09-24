@@ -327,6 +327,11 @@ TEST(ComponentPreset, Getters)
     EXPECT_EQ(ring.get(ComponentPreset::kThickness), 0.0045);
 }
 
+/// Whether the part number can be reached through the properties of a @p Preset.
+template <class Preset>
+concept PropertiesPointInto =
+    requires { std::declval<Preset>().getProperties().get(ComponentPreset::kPartNo); };
+
 TEST(ComponentPreset, ATemporaryPresetGivesCopies)
 {
     // The references a preset hands out live as long as the preset; a temporary preset gives
@@ -344,6 +349,10 @@ TEST(ComponentPreset, ATemporaryPresetGivesCopies)
         std::is_same_v<decltype(std::declval<Lvalue>().getProperties()), const TypedPropertyMap&>);
     static_assert(
         std::is_same_v<decltype(std::declval<Temporary>().getProperties()), TypedPropertyMap>);
+    // That copy is a temporary in turn, so what would point into it does not compile.
+    static_assert(PropertiesPointInto<Lvalue>);
+    static_assert(!PropertiesPointInto<Temporary>);
+    static_assert(!PropertiesPointInto<ComponentPreset>);
     // The part number is a copy whatever the preset, as Java's String: a preset reached through a
     // temporary Result's operator-> is an lvalue.
     static_assert(std::is_same_v<decltype(std::declval<Lvalue>().getPartNo()), std::string>);
@@ -361,6 +370,9 @@ TEST(ComponentPreset, ATemporaryPresetGivesCopies)
     EXPECT_EQ(length, 0.3);
     const TypedPropertyMap& properties = make(bodyTubeSpec()).getProperties();
     EXPECT_EQ(properties.size(), 10U);
+    const std::string* bound = properties.get(ComponentPreset::kPartNo);
+    ASSERT_NE(bound, nullptr);
+    EXPECT_EQ(*bound, "BT-20");
 }
 
 TEST(ComponentPreset, MissingKeyIsABug)

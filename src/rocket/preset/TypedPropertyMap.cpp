@@ -46,7 +46,7 @@ struct ValueFormatter
 
 }  // namespace
 
-std::string toString(const TypedValue& value)
+std::string Detail::typedValueToString(const TypedValue& value)
 {
     return std::visit(ValueFormatter{}, value);
 }

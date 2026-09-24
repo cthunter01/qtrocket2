@@ -43,6 +43,10 @@ concept RefusedTypedValue = (std::same_as<T, bool> != std::same_as<std::remove_c
 /// null here: Java's put(key, null) has no counterpart. containsValue(), values() and entrySet()
 /// are replaced by entries(); clone() is the copy constructor. put() returns nothing and remove()
 /// whether there was an entry, where Java returns the previous value (OpenRocket never uses it).
+///
+/// The accessors that point into the map (get(), getValue(), entries()) do not compile on a
+/// temporary map, whose storage would be gone by the end of the full expression: name the map
+/// first.
 class TypedPropertyMap
 {
 public:
@@ -68,11 +72,13 @@ public:
     /// The value of @p key, or nullptr when it has none (get()). The pointer stays valid until
     /// the key is put again, removed or the map changes size.
     template <TypedValueType T>
-    [[nodiscard]] const T* get(const TypedKey<T>& key) const noexcept
+    [[nodiscard]] const T* get(const TypedKey<T>& key) const& noexcept
     {
         const Entry* entry = find(key);
         return entry == nullptr ? nullptr : std::get_if<T>(&entry->value);
     }
+    template <TypedValueType T>
+    [[nodiscard]] const T* get(const TypedKey<T>& key) const&& = delete;
 
     /// Sets the value of @p key (put()): replaced in place when the key is present, appended
     /// otherwise.
@@ -91,11 +97,12 @@ public:
 
     /// The value of @p key whatever its type, or nullptr (get() through a TypedKey<?>, as the
     /// preset table reads its columns).
-    [[nodiscard]] const TypedValue* getValue(const AnyTypedKey& key) const noexcept
+    [[nodiscard]] const TypedValue* getValue(const AnyTypedKey& key) const& noexcept
     {
         const Entry* entry = find(key);
         return entry == nullptr ? nullptr : &entry->value;
     }
+    [[nodiscard]] const TypedValue* getValue(const AnyTypedKey& key) const&& = delete;
 
     /// put() through a key whose type is known at run time only (the .orc column parsers put
     /// through raw TypedKeys): replaced in place when the key is present, appended otherwise.
@@ -116,7 +123,8 @@ public:
     [[nodiscard]] std::vector<AnyTypedKey> keySet() const;
 
     /// The entries, in insertion order (entrySet()).
-    [[nodiscard]] std::span<const Entry> entries() const noexcept { return m_entries; }
+    [[nodiscard]] std::span<const Entry> entries() const& noexcept { return m_entries; }
+    [[nodiscard]] std::span<const Entry> entries() const&& = delete;
 
     /// "TypedPropertyMap: { " followed by "<key> => <value>" for each entry, with no separator
     /// between entries, and "}" (toString()). Each value is written by toString(const
@@ -130,11 +138,27 @@ private:
     std::vector<Entry> m_entries;
 };
 
+namespace Detail
+{
+
+/// toString(const TypedValue&), under a name that argument-dependent lookup never finds.
+[[nodiscard]] std::string typedValueToString(const TypedValue& value);
+
+}  // namespace Detail
+
 /// A value as Java's String.valueOf writes it: "true"/"false", an int in decimal, a double as
 /// Double.toString (Strings::javaDoubleToString), a string as is, a manufacturer as its display
 /// name, a preset type as its name ("BODY_TUBE"), a shape as its English name, a material as
 /// Material::toString() and a finish as toString(Finish). Deviation: Java writes a byte array as
 /// "[B@" and an identity hash, which differs from run to run; this writes "byte[<size>]".
-[[nodiscard]] std::string toString(const TypedValue& value);
+///
+/// Only a TypedValue itself binds here: nothing converts to one on the way, so an int, a string
+/// literal, a Material or a QtRocket enum without a toString() of its own (TransitionShape,
+/// ComponentPresetType) does not compile instead of silently becoming a variant.
+template <std::same_as<TypedValue> V>
+[[nodiscard]] std::string toString(const V& value)
+{
+    return Detail::typedValueToString(value);
+}
 
 }  // namespace QtRocket

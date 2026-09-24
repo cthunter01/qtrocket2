@@ -198,6 +198,12 @@ auto clamp(T x, U min, V max) = delete;
 /// Java's Math.min(double, double): NaN when either value is NaN, and -0.0 is smaller than 0.0.
 [[nodiscard]] double javaMin(double a, double b) noexcept;
 
+/// Java's Math.pow(a, b): std::pow, except that a NaN exponent always gives NaN (C's pow(1, NaN)
+/// is 1) and so does an infinite exponent of 1 or -1 (C's pow(+-1, +-inf) is 1). The other
+/// special cases of the two agree. A finite result may differ from Java's in the last bit, as
+/// every transcendental function between math libraries.
+[[nodiscard]] double javaPow(double a, double b) noexcept;
+
 /// Java's Double.hashCode(double): the bits of Double.doubleToLongBits (every NaN collapsed to
 /// the canonical 0x7ff8000000000000) folded as (int)(bits ^ (bits >>> 32)). Ported hashCode()
 /// methods that hash a double field go through this.

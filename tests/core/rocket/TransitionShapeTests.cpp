@@ -526,17 +526,28 @@ void expectTransitionCase(const TransitionCase& c)
     EXPECT_EQ(defaultParameter(c.shape), c.param);
     const bool exact = c.shape != TransitionShape::POWER && c.shape != TransitionShape::HAACK;
     const std::array<double, 7> xs = sampleXs(c.length);
+    // The cached form, called at the same points in the same order as the harness called
+    // Transition.getRadius(x), solves the clip length once and caches what OpenRocket cached.
+    std::optional<double> cache;
     for (std::size_t i = 0; i < xs.size(); i++)
     {
         SCOPED_TRACE("x=" + std::to_string(xs.at(i)));
-        expectMatch(getTransitionRadius(c.shape, xs.at(i), c.foreRadius, c.aftRadius, c.length,
-                                        c.param, c.clipped),
-                    c.radii.at(i), exact);
+        const double radius = getTransitionRadius(c.shape, xs.at(i), c.foreRadius, c.aftRadius,
+                                                  c.length, c.param, c.clipped);
+        expectMatch(radius, c.radii.at(i), exact);
+        EXPECT_EQ(getTransitionRadius(c.shape, xs.at(i), c.foreRadius, c.aftRadius, c.length,
+                                      c.param, c.clipped, cache),
+                  radius);
     }
+    EXPECT_EQ(cache.has_value(), c.clipLength >= 0);
     if (c.clipLength >= 0)
     {
         expectMatch(calculateClipLength(c.shape, c.foreRadius, c.aftRadius, c.length, c.param),
                     c.clipLength, exact);
+        if (cache.has_value())
+        {
+            expectMatch(*cache, c.clipLength, exact);
+        }
     }
 }
 
@@ -600,6 +611,67 @@ TEST(TransitionShape, ClipLengthEndsForHugeLengths)
     }
 }
 
+TEST(TransitionShape, CachedClipLengthIsUsedAsItIs)
+{
+    // A cached clip length is not solved again, whatever it is (Transition resets its cache when
+    // the component changes, not getRadius).
+    std::optional<double> cache = 1.0;
+    EXPECT_EQ(getTransitionRadius(TransitionShape::ELLIPSOID, 0.4, 0.5, 1.0, 2.0, 0.0, true, cache),
+              getRadius(TransitionShape::ELLIPSOID, 1.0 + 0.4, 1.0, 1.0 + 2.0, 0.0));
+    EXPECT_EQ(cache, 1.0);
+    // A boattail reads the same cache, x mirrored.
+    EXPECT_EQ(getTransitionRadius(TransitionShape::HAACK, 0.5, 1.0, 0.5, 2.0, 0.0, true, cache),
+              getRadius(TransitionShape::HAACK, 1.0 + 1.5, 1.0, 1.0 + 2.0, 0.0));
+    EXPECT_EQ(cache, 1.0);
+    // An empty cache is filled with calculateClipLength() of the sorted radii.
+    cache.reset();
+    const double radius =
+        getTransitionRadius(TransitionShape::POWER, 0.5, 0.6, 0.2, 1.5, 0.5, true, cache);
+    ASSERT_TRUE(cache.has_value());
+    EXPECT_EQ(cache, calculateClipLength(TransitionShape::POWER, 0.2, 0.6, 1.5, 0.5));
+    EXPECT_EQ(radius, getTransitionRadius(TransitionShape::POWER, 0.5, 0.6, 0.2, 1.5, 0.5, true));
+}
+
+TEST(TransitionShape, ClipLengthIsCachedOnlyOnTheClippedPath)
+{
+    // As in Transition.getRadius(x), only a clipped call past the early returns solves it.
+    std::optional<double> cache;
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::ELLIPSOID, -0.1, 0.5, 1.0, 2.0, 0.0, true, cache));
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::ELLIPSOID, 2.0, 0.5, 1.0, 2.0, 0.0, true, cache));
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::ELLIPSOID, 1.0, 0.7, 0.7, 2.0, 0.0, true, cache));
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::ELLIPSOID, 1.0, 0.5, 1.0, 2.0, 0.0, false, cache));
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::OGIVE, 1.0, 0.5, 1.0, 2.0, 1.0, true, cache));
+    EXPECT_FALSE(cache.has_value());
+    // A nose cone (fore radius 0) caches a clip length of 0.
+    static_cast<void>(
+        getTransitionRadius(TransitionShape::HAACK, 1.0, 0.0, 1.0, 2.0, 0.0, true, cache));
+    EXPECT_EQ(cache, 0.0);
+}
+
+TEST(TransitionShape, PowerWithANaNParameterIsNaN)
+{
+    // Math.pow(x, NaN) is NaN for every x, but std::pow(1, NaN) is 1: at x == length std::pow
+    // would give the radius where OpenRocket gives NaN. A NaN shape parameter passes
+    // MathUtil.clamp, so an .ork can carry one.
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    EXPECT_TRUE(std::isnan(getRadius(TransitionShape::POWER, 2.0, 1.0, 2.0, nan)));
+    EXPECT_TRUE(std::isnan(getRadius(TransitionShape::POWER, 1.0, 1.0, 2.0, nan)));
+    EXPECT_TRUE(std::isnan(getRadius(TransitionShape::POWER, 2.0, 1.0, 2.0, inf)));
+    // A clipped POWER transition just ahead of its aft end: (clip + x) / (clip + length) rounds
+    // to 1 there.
+    const double x    = std::nextafter(2.0, 0.0);
+    const double clip = calculateClipLength(TransitionShape::POWER, 0.5, 1.0, 2.0, nan);
+    EXPECT_EQ((clip + x) / (clip + 2.0), 1.0);
+    EXPECT_TRUE(
+        std::isnan(getTransitionRadius(TransitionShape::POWER, x, 0.5, 1.0, 2.0, nan, true)));
+}
+
 TEST(TransitionShape, TransitionRadiusOutsideTheTransition)
 {
     // Ahead of the fore end the fore radius, from the aft end on the aft radius.
@@ -642,10 +714,14 @@ TEST(TransitionShape, BoattailMirrorsTheForwardTransition)
     }
 }
 
-// ---- TransitionTest.java: the shape radii of its component tests (the
-// component state they also check is ported with Transition and NoseCone). A
-// new Transition is clipped and setShapeType() applies the shape's default
-// parameter and clipping.
+// ---- TransitionTest.java: the shape radii of its component tests. A new Transition is clipped
+// and setShapeType() applies the shape's default parameter and clipping.
+//
+// Deferred until Transition, NoseCone and TestRockets are ported:
+// - the component state the six testVerify* tests also check (getLength, getForeRadius,
+//   getAftRadius, getShapeType, getShapeParameter);
+// - testStockIntegration (the Estes Alpha III nose cone: dimensions, shape and aft shoulder);
+// - testZeroLengthTransitionCalculations (calculateProperties() of a zero-length transition).
 
 TEST(TransitionShape, VerifyConicNose)
 {

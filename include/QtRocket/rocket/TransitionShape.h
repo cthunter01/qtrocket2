@@ -133,10 +133,20 @@ inline constexpr double kTransitionClipPrecision = 0.0001;
 /// getRadius(shape, clipLength + x, r2, clipLength + length, param) with clipLength from
 /// calculateClipLength(); for an unclipped one r1 + getRadius(shape, x, r2 - r1, length, param).
 ///
-/// Transition caches the clip length; this function solves it again on every call.
+/// This overload solves the clip length again on every call; Transition caches it with the
+/// overload below.
 [[nodiscard]] double getTransitionRadius(TransitionShape shape, double x, double foreRadius,
                                          double aftRadius, double length, double param,
                                          bool clipped) noexcept;
+
+/// getTransitionRadius() with the clip length cached by the caller, as Transition.getRadius(x)
+/// caches it in its clipLength field (-1 there, nullopt here, until solved; Transition resets it
+/// whenever the component changes). Only a clipped call that gets past the early returns (x
+/// outside the transition, equal radii) reads @p clipLength, and when it is empty solves it with
+/// calculateClipLength() and stores it there first; otherwise the cached value is used as it is.
+[[nodiscard]] double getTransitionRadius(TransitionShape shape, double x, double foreRadius,
+                                         double aftRadius, double length, double param,
+                                         bool clipped, std::optional<double>& clipLength) noexcept;
 
 /// The constant's name, e.g. "HAACK" (Java: name()).
 [[nodiscard]] std::string_view transitionShapeName(TransitionShape shape) noexcept;

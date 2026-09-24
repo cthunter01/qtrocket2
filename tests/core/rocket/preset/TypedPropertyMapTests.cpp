@@ -47,6 +47,37 @@ static_assert(
     std::is_same_v<decltype(std::declval<const TypedPropertyMap&>().get(ComponentPreset::kShape)),
                    const TransitionShape*>);
 
+// get(), getValue() and entries() point into the map: they compile on a named map only, not on
+// a temporary one that is gone by the end of the full expression.
+template <class Map>
+concept CanGet = requires { std::declval<Map>().get(ComponentPreset::kLength); };
+template <class Map>
+concept CanGetValue = requires { std::declval<Map>().getValue(ComponentPreset::kLength); };
+template <class Map>
+concept CanListEntries = requires { std::declval<Map>().entries(); };
+static_assert(CanGet<const TypedPropertyMap&> && CanGet<TypedPropertyMap&>);
+static_assert(!CanGet<TypedPropertyMap> && !CanGet<const TypedPropertyMap>);
+static_assert(CanGetValue<const TypedPropertyMap&> && CanGetValue<TypedPropertyMap&>);
+static_assert(!CanGetValue<TypedPropertyMap> && !CanGetValue<const TypedPropertyMap>);
+static_assert(CanListEntries<const TypedPropertyMap&> && CanListEntries<TypedPropertyMap&>);
+static_assert(!CanListEntries<TypedPropertyMap> && !CanListEntries<const TypedPropertyMap>);
+
+// toString(const TypedValue&) takes a TypedValue itself and nothing that converts to one: it is
+// neither a catch-all for other values nor, through argument-dependent lookup, the toString() of
+// a QtRocket type that has none of its own.
+template <class T>
+concept HasQtRocketToString = requires(const T& value) { QtRocket::toString(value); };
+template <class T>
+concept HasToStringByAdl = requires(const T& value) { toString(value); };
+static_assert(HasQtRocketToString<QtRocket::TypedValue> && HasToStringByAdl<QtRocket::TypedValue>);
+static_assert(HasQtRocketToString<Finish> && HasToStringByAdl<Finish>);
+static_assert(!HasQtRocketToString<int> && !HasQtRocketToString<double>);
+static_assert(!HasQtRocketToString<float> && !HasQtRocketToString<const char*>);
+static_assert(!HasQtRocketToString<std::string>);
+static_assert(!HasQtRocketToString<TransitionShape> && !HasToStringByAdl<TransitionShape>);
+static_assert(!HasQtRocketToString<ComponentPresetType> && !HasToStringByAdl<ComponentPresetType>);
+static_assert(!HasQtRocketToString<Material> && !HasToStringByAdl<Material>);
+
 // put() takes only values of the key's type (or ones that convert to it).
 template <class Key, class Value>
 concept Puttable =

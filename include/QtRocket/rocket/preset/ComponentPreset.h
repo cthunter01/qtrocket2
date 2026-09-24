@@ -31,8 +31,10 @@ class Manufacturer;
 /// kCamelCase here: LENGTH is kLength), whose names are OpenRocket's ("Length", "PartNo", ...).
 ///
 /// The accessors that return a reference into the preset (getDigest(), get(), getProperties())
-/// return a copy when called on a temporary preset. A preset reached through operator-> of a
-/// temporary Result is not a temporary to them: keep the Result while using such a reference.
+/// return a copy when called on a temporary preset. That copy of the properties is a temporary
+/// map in turn, whose pointing accessors (get(), getValue(), entries()) do not compile: bind it
+/// to a variable first. A preset reached through operator-> of a temporary Result is not a
+/// temporary to them: keep the Result while using such a reference.
 ///
 /// Not ported: Java's serialization (writeObject/readObject with MaterialSerializationProxy);
 /// the .orc loaders (Milestone 3) rebuild presets through the factory instead.
@@ -151,7 +153,7 @@ public:
     }
 
     /// The properties, in the order they were put. The reference lives as long as the preset; a
-    /// temporary preset gives a copy.
+    /// temporary preset gives a copy (a temporary map, see TypedPropertyMap).
     [[nodiscard]] const TypedPropertyMap& getProperties() const& noexcept { return m_properties; }
     [[nodiscard]] TypedPropertyMap        getProperties() const&& { return m_properties; }
 

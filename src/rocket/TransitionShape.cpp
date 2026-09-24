@@ -64,7 +64,8 @@ namespace
         }
         return radius;
     }
-    return radius * std::pow(x / length, param);
+    // Math.pow: a NaN parameter is NaN even where x == length (std::pow(1, NaN) is 1)
+    return radius * MathUtil::javaPow(x / length, param);
 }
 
 /// PARABOLIC.getRadius()
@@ -174,6 +175,14 @@ double calculateClipLength(TransitionShape shape, double r1, double r2, double l
 double getTransitionRadius(TransitionShape shape, double x, double foreRadius, double aftRadius,
                            double length, double param, bool clipped) noexcept
 {
+    std::optional<double> clipLength;
+    return getTransitionRadius(shape, x, foreRadius, aftRadius, length, param, clipped, clipLength);
+}
+
+double getTransitionRadius(TransitionShape shape, double x, double foreRadius, double aftRadius,
+                           double length, double param, bool clipped,
+                           std::optional<double>& clipLength) noexcept
+{
     if (x < 0)
     {
         return foreRadius;
@@ -199,8 +208,12 @@ double getTransitionRadius(TransitionShape shape, double x, double foreRadius, d
 
     if (clipped && isClippable(shape))
     {
-        const double clipLength = calculateClipLength(shape, r1, r2, length, param);
-        return getRadius(shape, clipLength + x, r2, clipLength + length, param);
+        // Check clip calculation
+        const double clip =
+            clipLength.has_value()
+                ? *clipLength
+                : clipLength.emplace(calculateClipLength(shape, r1, r2, length, param));
+        return getRadius(shape, clip + x, r2, clip + length, param);
     }
     // Not clipped
     return r1 + getRadius(shape, x, r2 - r1, length, param);
