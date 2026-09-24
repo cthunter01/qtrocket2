@@ -1,10 +1,14 @@
 # Whole check families are enabled; the checks that are mostly noise are turned off.
 # Findings are warnings here (clangd shows them in the editor); the `tidy` preset and CI make them errors.
+# clang-analyzer-optin.core.EnumCastOutOfRange: a bit-flag enum (fast_float::chars_format) combines enumerators into
+# values this checker calls out of range, and a diagnostic placed in that header cannot be NOLINTed from our code.
+# (A comment inside the folded `Checks` block below would be part of the value, not a comment.)
 Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   clang-analyzer-*,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
   concurrency-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-magic-numbers,
