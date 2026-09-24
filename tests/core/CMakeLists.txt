@@ -5,9 +5,12 @@ add_executable(QtRocket_core_tests
     util/BugErrorTests.cpp
     util/ColorTests.cpp
     util/CoordinateTests.cpp
+    util/DecimalFormatTests.cpp
+    util/FloatingDecimalTests.cpp
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp
     util/LineStyleTests.cpp
     util/MathUtilTests.cpp
@@ -24,6 +27,21 @@ add_executable(QtRocket_core_tests
     util/UuidTests.cpp
     util/VersionTests.cpp
     util/WorldCoordinateTests.cpp
+    unit/CaliberUnitTests.cpp
+    unit/DegreeUnitTests.cpp
+    unit/FixedPrecisionUnitTests.cpp
+    unit/FixedUnitGroupTests.cpp
+    unit/FractionalUnitTests.cpp
+    unit/FrequencyUnitTests.cpp
+    unit/GeneralUnitTests.cpp
+    unit/InchUnitTests.cpp
+    unit/PercentageOfLengthUnitTests.cpp
+    unit/RadianUnitTests.cpp
+    unit/TemperatureUnitTests.cpp
+    unit/UnitGroupTests.cpp
+    unit/UnitTests.cpp
+    unit/ValueComparatorTests.cpp
+    unit/ValueTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp
     logging/MessageSetTests.cpp
@@ -34,6 +52,12 @@ add_executable(QtRocket_core_tests
     preferences/DocumentPreferencesTests.cpp
     preferences/InMemoryPreferencesTests.cpp
     preferences/PreferencesTests.cpp
+    material/BuiltinMaterialsTests.cpp
+    material/MaterialDatabaseTests.cpp
+    material/MaterialGroupTests.cpp
+    material/MaterialPreferencesTests.cpp
+    material/MaterialStorageTests.cpp
+    material/MaterialTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )

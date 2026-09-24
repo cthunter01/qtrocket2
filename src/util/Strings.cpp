@@ -24,6 +24,7 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <fast_float/fast_float.h>
 
+#include "QtRocket/util/FloatingDecimal.h"
 #include "QtRocket/util/MathUtil.h"
 
 namespace QtRocket::Strings
@@ -90,72 +91,19 @@ struct Decimal
     return decimal;
 }
 
-/// FloatingDecimal.insignificantDigitsNumber: for 2^p2 the number of times it can be divided by 10
-/// before dropping below 10, i.e. the count of its decimal digits below the leading one.
-constexpr std::array<int, 64> kInsignificantDigitsNumber{
-    0,  0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,
-    6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,  9,  10, 10, 10, 11, 11, 11, 12, 12, 12, 12,
-    13, 13, 13, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 19};
-
-/// FloatingDecimal.insignificantDigitsForPow2.
-[[nodiscard]] int insignificantDigitsForPow2(int p2)
-{
-    if (p2 > 1 && std::cmp_less(p2, kInsignificantDigitsNumber.size()))
-    {
-        return kInsignificantDigitsNumber.at(static_cast<std::size_t>(p2));
-    }
-    return 0;
-}
-
-/// FloatingDecimal.developLongDigits, reached from dtoa's "easy case": the exact digits of an
-/// integer @p value in [1, 2^63), with the low digits that lie below a double's 53 significant
-/// bits rounded away half-up (2^60 = 1152921504606846976 gives "115292150460684698" * 10).
-[[nodiscard]] Decimal exactIntegerDecimal(std::uint64_t value)
-{
-    constexpr int kSignificantBits = 53;  // FloatingDecimal's nSignificantBits of a normal double
-    const int     binExp           = std::bit_width(value) - 1;
-    int           exponent         = 0;
-    const int     insignificant =
-        binExp > kSignificantBits ? insignificantDigitsForPow2(binExp - kSignificantBits - 1) : 0;
-    if (insignificant != 0)
-    {
-        std::uint64_t pow10 = 1;
-        for (int i = 0; i < insignificant; i++)
-        {
-            pow10 *= 10;
-        }
-        const std::uint64_t residue = value % pow10;
-        value /= pow10;
-        exponent += insignificant;
-        if (residue >= pow10 / 2)
-        {
-            ++value;  // round up on the digits discarded
-        }
-    }
-    Decimal decimal;
-    decimal.digits = std::format("{}", value);
-    while (decimal.digits.size() > 1 && decimal.digits.back() == '0')
-    {
-        decimal.digits.pop_back();
-        ++exponent;
-    }
-    decimal.exponent = exponent + static_cast<int>(decimal.digits.size());
-    return decimal;
-}
-
 /// The digits Java's Formatter gets from FloatingDecimal.getBinaryToASCIIConverter(d, false): an
-/// integer below 2^63 exactly, anything else as the shortest digits. Deviation: from 2^63 Java 17
-/// keeps its older digit generation, which can differ from the shortest digits in the last place
-/// at a rounding tie; JDK 21+ (JDK-8300869) uses the shortest digits too.
+/// integer below 2^63 exactly, anything else as the shortest digits. Deviation: from 2^63
+/// upwards, and for subnormals, JDK 17's older digit generation often differs from the shortest
+/// digits, being longer (6.8423234599999996E19 for 6.84232346E19) or not the closest
+/// (-3.8189059803482716E25 where the shortest is ...717E25); JDK 21+ (JDK-8300869) uses the
+/// shortest digits too.
 [[nodiscard]] Decimal javaDecimal(double magnitude)
 {
-    if (magnitude >= 1.0 && magnitude < kTwoPow63)
+    if (magnitude >= 1.0 && magnitude < kTwoPow63 && magnitude == std::trunc(magnitude))
     {
-        const auto integer = static_cast<std::uint64_t>(magnitude);
-        if (static_cast<double>(integer) == magnitude)
-        {
-            return exactIntegerDecimal(integer);
-        }
+        // FloatingDecimal's exact path for integers, the same in both of its modes.
+        FloatingDecimal::BinaryToAscii exact = FloatingDecimal::binaryToAscii(magnitude, false);
+        return Decimal{.digits = std::move(exact.digits), .exponent = exact.decimalExponent};
     }
     return shortestDecimal(magnitude);
 }
@@ -206,9 +154,16 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     return exponent;
 }
 
-/// Java's "%.<precision>f" of a positive finite value, then TextUtil's trimming of the trailing
-/// zeros and a bare decimal point (FormattedFloatingDecimal.fillDecimal + trimTrailingZeros).
-[[nodiscard]] std::string fixedNotation(double magnitude, int precision)
+/// The integer part and the fraction of Java's "%.<precision>f" of a positive finite value, the
+/// fraction padded with zeros to exactly @p precision digits (FormattedFloatingDecimal.fillDecimal
+/// with the Formatter's zero padding).
+struct FixedParts
+{
+    std::string integerPart;
+    std::string fraction;
+};
+
+[[nodiscard]] FixedParts javaFixedParts(double magnitude, int precision)
 {
     Decimal decimal = javaDecimal(magnitude);
     decimal.exponent =
@@ -216,51 +171,76 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     const std::string& digits = decimal.digits;
     const auto         count  = static_cast<int>(digits.size());
 
-    std::string integerPart;
-    std::string fraction;
+    FixedParts parts;
     if (decimal.exponent > 0)
     {
         const auto exponent = static_cast<std::size_t>(decimal.exponent);
         if (count < decimal.exponent)
         {
-            integerPart = digits + std::string(exponent - digits.size(), '0');
+            parts.integerPart = digits + std::string(exponent - digits.size(), '0');
         }
         else
         {
-            integerPart = digits.substr(0, exponent);
-            fraction    = digits.substr(exponent, static_cast<std::size_t>(precision));
+            parts.integerPart = digits.substr(0, exponent);
+            parts.fraction    = digits.substr(exponent, static_cast<std::size_t>(precision));
         }
     }
     else
     {
         const int zeros       = std::min(-decimal.exponent, precision);
         const int significant = std::max(0, std::min(count, precision + decimal.exponent));
-        integerPart           = "0";
-        fraction              = std::string(static_cast<std::size_t>(zeros), '0') +
+        parts.integerPart     = "0";
+        parts.fraction        = std::string(static_cast<std::size_t>(zeros), '0') +
                                 digits.substr(0, static_cast<std::size_t>(significant));
     }
-    while (!fraction.empty() && fraction.back() == '0')
+    parts.fraction.resize(static_cast<std::size_t>(precision), '0');
+    return parts;
+}
+
+/// Java's "%.<precision>f" of a positive finite value, then TextUtil's trimming of the trailing
+/// zeros and a bare decimal point (trimTrailingZeros).
+[[nodiscard]] std::string fixedNotation(double magnitude, int precision)
+{
+    FixedParts parts = javaFixedParts(magnitude, precision);
+    while (!parts.fraction.empty() && parts.fraction.back() == '0')
     {
-        fraction.pop_back();
+        parts.fraction.pop_back();
     }
-    if (fraction.empty())
+    if (parts.fraction.empty())
     {
-        return integerPart;
+        return parts.integerPart;
     }
-    return integerPart + "." + fraction;
+    return parts.integerPart + "." + parts.fraction;
+}
+
+/// Java's "%.<precision>e" of a positive finite value as its parts: exactly precision + 1 digits
+/// d.ddd, rounded half-up, and the decimal exponent (FormattedFloatingDecimal.fillScientific).
+struct ScientificParts
+{
+    std::string digits;
+    int         exponent{};
+};
+
+[[nodiscard]] ScientificParts javaScientificParts(double magnitude, int precision)
+{
+    Decimal decimal            = javaDecimal(magnitude);
+    decimal.exponent           = applyPrecision(decimal.digits, decimal.exponent, precision + 1);
+    const auto      digitCount = static_cast<std::size_t>(precision) + 1;
+    ScientificParts parts;
+    parts.digits = decimal.digits.substr(0, digitCount);
+    parts.digits.resize(digitCount, '0');
+    parts.exponent = decimal.exponent - 1;
+    return parts;
 }
 
 /// Java's "%.<precision>e" of a positive finite value, then TextUtil's trimming of the mantissa's
 /// trailing zeros and its rewriting of the exponent ("e+05" to "e5", "e-05" to "e-5")
-/// (FormattedFloatingDecimal.fillScientific + trimTrailingZeros + reformatExponent).
+/// (trimTrailingZeros + reformatExponent).
 [[nodiscard]] std::string scientificNotation(double magnitude, int precision)
 {
-    Decimal decimal           = javaDecimal(magnitude);
-    decimal.exponent          = applyPrecision(decimal.digits, decimal.exponent, precision + 1);
-    const std::string& digits = decimal.digits;
-
-    std::string mantissa = digits.substr(0, 1);
-    std::string fraction = digits.substr(1, static_cast<std::size_t>(precision));
+    const ScientificParts parts    = javaScientificParts(magnitude, precision);
+    std::string           mantissa = parts.digits.substr(0, 1);
+    std::string           fraction = parts.digits.substr(1);
     while (!fraction.empty() && fraction.back() == '0')
     {
         fraction.pop_back();
@@ -271,9 +251,559 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     }
     // TextUtil never reaches a zero exponent (exponential notation is used only below 0.001 and
     // from 10000); it would print "3.1e" there, this prints "3.1e0".
-    return std::format("{}e{}", mantissa, decimal.exponent - 1);
+    return std::format("{}e{}", mantissa, parts.exponent);
 }
 
+/// U+FFFD, what Java's UTF-8 decoder puts in place of a malformed byte.
+constexpr char32_t kReplacementCharacter = 0xFFFD;
+
+/// Decodes the code point at @p position of UTF-8 @p text and moves @p position past it. A byte
+/// that does not start a well-formed sequence (a stray continuation byte, a truncated or overlong
+/// sequence, an encoded surrogate, a value above U+10FFFF) decodes alone to U+FFFD.
+[[nodiscard]] char32_t decodeCodePoint(std::string_view text, std::size_t& position) noexcept
+{
+    const auto lead = static_cast<unsigned char>(text[position]);
+    if (lead < 0x80)
+    {
+        position++;
+        return lead;
+    }
+    std::size_t   length    = 0;
+    std::uint32_t codePoint = 0;
+    std::uint32_t minimum   = 0;
+    if (lead >= 0xC2 && lead <= 0xDF)
+    {
+        length    = 2;
+        codePoint = lead & 0x1FU;
+        minimum   = 0x80;
+    }
+    else if (lead >= 0xE0 && lead <= 0xEF)
+    {
+        length    = 3;
+        codePoint = lead & 0x0FU;
+        minimum   = 0x800;
+    }
+    else if (lead >= 0xF0 && lead <= 0xF4)
+    {
+        length    = 4;
+        codePoint = lead & 0x07U;
+        minimum   = 0x10000;
+    }
+    bool valid = length != 0 && position + length <= text.size();
+    for (std::size_t k = 1; valid && k < length; k++)
+    {
+        const auto next = static_cast<unsigned char>(text[position + k]);
+        valid           = (next & 0xC0U) == 0x80U;
+        codePoint       = (codePoint << 6U) | (next & 0x3FU);
+    }
+    const bool surrogate = codePoint >= 0xD800 && codePoint <= 0xDFFF;
+    if (!valid || codePoint < minimum || codePoint > 0x10FFFF || surrogate)
+    {
+        position++;
+        return kReplacementCharacter;
+    }
+    position += length;
+    return static_cast<char32_t>(codePoint);
+}
+
+/// The UTF-16 code units of a Java String held as UTF-8, read one at a time.
+class Utf16Reader
+{
+public:
+    explicit Utf16Reader(std::string_view text) noexcept : m_text(text) { }
+
+    [[nodiscard]] bool atEnd() const noexcept
+    {
+        return m_pendingLow == 0 && m_position >= m_text.size();
+    }
+
+    /// The next code unit; only when not atEnd().
+    [[nodiscard]] char16_t next() noexcept
+    {
+        if (m_pendingLow != 0)
+        {
+            const char16_t low = m_pendingLow;
+            m_pendingLow       = 0;
+            return low;
+        }
+        const char32_t codePoint = decodeCodePoint(m_text, m_position);
+        if (codePoint < 0x10000)
+        {
+            return static_cast<char16_t>(codePoint);
+        }
+        const std::uint32_t offset = static_cast<std::uint32_t>(codePoint) - 0x10000U;
+        m_pendingLow               = static_cast<char16_t>(0xDC00U + (offset & 0x3FFU));
+        return static_cast<char16_t>(0xD800U + (offset >> 10U));
+    }
+
+private:
+    std::string_view m_text;
+    std::size_t      m_position{0};
+    char16_t         m_pendingLow{0};  ///< the low surrogate still to return, or 0
+};
+
+/// A run of code points that Java's case operations fold alike: every @p stride-th code point
+/// from @p first to @p last becomes itself plus @p delta.
+struct FoldRange
+{
+    std::uint32_t first;
+    std::uint32_t last;
+    std::uint32_t stride;
+    std::int32_t  delta;
+};
+
+/// Character.toLowerCase(Character.toUpperCase(c)) of JDK 17 for every code point it changes
+/// (1416 of them), in ascending order. Generated from the JDK: two characters are equal ignoring
+/// case in String.equalsIgnoreCase exactly when they fold to the same code point.
+constexpr std::array<FoldRange, 199> kCaseFolds{{
+    {.first = 0x0041, .last = 0x005A, .stride = 1, .delta = 32},
+    {.first = 0x00B5, .last = 0x00B5, .stride = 1, .delta = 775},
+    {.first = 0x00C0, .last = 0x00D6, .stride = 1, .delta = 32},
+    {.first = 0x00D8, .last = 0x00DE, .stride = 1, .delta = 32},
+    {.first = 0x0100, .last = 0x012E, .stride = 2, .delta = 1},
+    {.first = 0x0130, .last = 0x0130, .stride = 1, .delta = -199},
+    {.first = 0x0131, .last = 0x0131, .stride = 1, .delta = -200},
+    {.first = 0x0132, .last = 0x0136, .stride = 2, .delta = 1},
+    {.first = 0x0139, .last = 0x0147, .stride = 2, .delta = 1},
+    {.first = 0x014A, .last = 0x0176, .stride = 2, .delta = 1},
+    {.first = 0x0178, .last = 0x0178, .stride = 1, .delta = -121},
+    {.first = 0x0179, .last = 0x017D, .stride = 2, .delta = 1},
+    {.first = 0x017F, .last = 0x017F, .stride = 1, .delta = -268},
+    {.first = 0x0181, .last = 0x0181, .stride = 1, .delta = 210},
+    {.first = 0x0182, .last = 0x0184, .stride = 2, .delta = 1},
+    {.first = 0x0186, .last = 0x0186, .stride = 1, .delta = 206},
+    {.first = 0x0187, .last = 0x0187, .stride = 1, .delta = 1},
+    {.first = 0x0189, .last = 0x018A, .stride = 1, .delta = 205},
+    {.first = 0x018B, .last = 0x018B, .stride = 1, .delta = 1},
+    {.first = 0x018E, .last = 0x018E, .stride = 1, .delta = 79},
+    {.first = 0x018F, .last = 0x018F, .stride = 1, .delta = 202},
+    {.first = 0x0190, .last = 0x0190, .stride = 1, .delta = 203},
+    {.first = 0x0191, .last = 0x0191, .stride = 1, .delta = 1},
+    {.first = 0x0193, .last = 0x0193, .stride = 1, .delta = 205},
+    {.first = 0x0194, .last = 0x0194, .stride = 1, .delta = 207},
+    {.first = 0x0196, .last = 0x0196, .stride = 1, .delta = 211},
+    {.first = 0x0197, .last = 0x0197, .stride = 1, .delta = 209},
+    {.first = 0x0198, .last = 0x0198, .stride = 1, .delta = 1},
+    {.first = 0x019C, .last = 0x019C, .stride = 1, .delta = 211},
+    {.first = 0x019D, .last = 0x019D, .stride = 1, .delta = 213},
+    {.first = 0x019F, .last = 0x019F, .stride = 1, .delta = 214},
+    {.first = 0x01A0, .last = 0x01A4, .stride = 2, .delta = 1},
+    {.first = 0x01A6, .last = 0x01A6, .stride = 1, .delta = 218},
+    {.first = 0x01A7, .last = 0x01A7, .stride = 1, .delta = 1},
+    {.first = 0x01A9, .last = 0x01A9, .stride = 1, .delta = 218},
+    {.first = 0x01AC, .last = 0x01AC, .stride = 1, .delta = 1},
+    {.first = 0x01AE, .last = 0x01AE, .stride = 1, .delta = 218},
+    {.first = 0x01AF, .last = 0x01AF, .stride = 1, .delta = 1},
+    {.first = 0x01B1, .last = 0x01B2, .stride = 1, .delta = 217},
+    {.first = 0x01B3, .last = 0x01B5, .stride = 2, .delta = 1},
+    {.first = 0x01B7, .last = 0x01B7, .stride = 1, .delta = 219},
+    {.first = 0x01B8, .last = 0x01B8, .stride = 1, .delta = 1},
+    {.first = 0x01BC, .last = 0x01BC, .stride = 1, .delta = 1},
+    {.first = 0x01C4, .last = 0x01C4, .stride = 1, .delta = 2},
+    {.first = 0x01C5, .last = 0x01C5, .stride = 1, .delta = 1},
+    {.first = 0x01C7, .last = 0x01C7, .stride = 1, .delta = 2},
+    {.first = 0x01C8, .last = 0x01C8, .stride = 1, .delta = 1},
+    {.first = 0x01CA, .last = 0x01CA, .stride = 1, .delta = 2},
+    {.first = 0x01CB, .last = 0x01DB, .stride = 2, .delta = 1},
+    {.first = 0x01DE, .last = 0x01EE, .stride = 2, .delta = 1},
+    {.first = 0x01F1, .last = 0x01F1, .stride = 1, .delta = 2},
+    {.first = 0x01F2, .last = 0x01F4, .stride = 2, .delta = 1},
+    {.first = 0x01F6, .last = 0x01F6, .stride = 1, .delta = -97},
+    {.first = 0x01F7, .last = 0x01F7, .stride = 1, .delta = -56},
+    {.first = 0x01F8, .last = 0x021E, .stride = 2, .delta = 1},
+    {.first = 0x0220, .last = 0x0220, .stride = 1, .delta = -130},
+    {.first = 0x0222, .last = 0x0232, .stride = 2, .delta = 1},
+    {.first = 0x023A, .last = 0x023A, .stride = 1, .delta = 10795},
+    {.first = 0x023B, .last = 0x023B, .stride = 1, .delta = 1},
+    {.first = 0x023D, .last = 0x023D, .stride = 1, .delta = -163},
+    {.first = 0x023E, .last = 0x023E, .stride = 1, .delta = 10792},
+    {.first = 0x0241, .last = 0x0241, .stride = 1, .delta = 1},
+    {.first = 0x0243, .last = 0x0243, .stride = 1, .delta = -195},
+    {.first = 0x0244, .last = 0x0244, .stride = 1, .delta = 69},
+    {.first = 0x0245, .last = 0x0245, .stride = 1, .delta = 71},
+    {.first = 0x0246, .last = 0x024E, .stride = 2, .delta = 1},
+    {.first = 0x0345, .last = 0x0345, .stride = 1, .delta = 116},
+    {.first = 0x0370, .last = 0x0372, .stride = 2, .delta = 1},
+    {.first = 0x0376, .last = 0x0376, .stride = 1, .delta = 1},
+    {.first = 0x037F, .last = 0x037F, .stride = 1, .delta = 116},
+    {.first = 0x0386, .last = 0x0386, .stride = 1, .delta = 38},
+    {.first = 0x0388, .last = 0x038A, .stride = 1, .delta = 37},
+    {.first = 0x038C, .last = 0x038C, .stride = 1, .delta = 64},
+    {.first = 0x038E, .last = 0x038F, .stride = 1, .delta = 63},
+    {.first = 0x0391, .last = 0x03A1, .stride = 1, .delta = 32},
+    {.first = 0x03A3, .last = 0x03AB, .stride = 1, .delta = 32},
+    {.first = 0x03C2, .last = 0x03C2, .stride = 1, .delta = 1},
+    {.first = 0x03CF, .last = 0x03CF, .stride = 1, .delta = 8},
+    {.first = 0x03D0, .last = 0x03D0, .stride = 1, .delta = -30},
+    {.first = 0x03D1, .last = 0x03D1, .stride = 1, .delta = -25},
+    {.first = 0x03D5, .last = 0x03D5, .stride = 1, .delta = -15},
+    {.first = 0x03D6, .last = 0x03D6, .stride = 1, .delta = -22},
+    {.first = 0x03D8, .last = 0x03EE, .stride = 2, .delta = 1},
+    {.first = 0x03F0, .last = 0x03F0, .stride = 1, .delta = -54},
+    {.first = 0x03F1, .last = 0x03F1, .stride = 1, .delta = -48},
+    {.first = 0x03F4, .last = 0x03F4, .stride = 1, .delta = -60},
+    {.first = 0x03F5, .last = 0x03F5, .stride = 1, .delta = -64},
+    {.first = 0x03F7, .last = 0x03F7, .stride = 1, .delta = 1},
+    {.first = 0x03F9, .last = 0x03F9, .stride = 1, .delta = -7},
+    {.first = 0x03FA, .last = 0x03FA, .stride = 1, .delta = 1},
+    {.first = 0x03FD, .last = 0x03FF, .stride = 1, .delta = -130},
+    {.first = 0x0400, .last = 0x040F, .stride = 1, .delta = 80},
+    {.first = 0x0410, .last = 0x042F, .stride = 1, .delta = 32},
+    {.first = 0x0460, .last = 0x0480, .stride = 2, .delta = 1},
+    {.first = 0x048A, .last = 0x04BE, .stride = 2, .delta = 1},
+    {.first = 0x04C0, .last = 0x04C0, .stride = 1, .delta = 15},
+    {.first = 0x04C1, .last = 0x04CD, .stride = 2, .delta = 1},
+    {.first = 0x04D0, .last = 0x052E, .stride = 2, .delta = 1},
+    {.first = 0x0531, .last = 0x0556, .stride = 1, .delta = 48},
+    {.first = 0x10A0, .last = 0x10C5, .stride = 1, .delta = 7264},
+    {.first = 0x10C7, .last = 0x10C7, .stride = 1, .delta = 7264},
+    {.first = 0x10CD, .last = 0x10CD, .stride = 1, .delta = 7264},
+    {.first = 0x13A0, .last = 0x13EF, .stride = 1, .delta = 38864},
+    {.first = 0x13F0, .last = 0x13F5, .stride = 1, .delta = 8},
+    {.first = 0x1C80, .last = 0x1C80, .stride = 1, .delta = -6222},
+    {.first = 0x1C81, .last = 0x1C81, .stride = 1, .delta = -6221},
+    {.first = 0x1C82, .last = 0x1C82, .stride = 1, .delta = -6212},
+    {.first = 0x1C83, .last = 0x1C84, .stride = 1, .delta = -6210},
+    {.first = 0x1C85, .last = 0x1C85, .stride = 1, .delta = -6211},
+    {.first = 0x1C86, .last = 0x1C86, .stride = 1, .delta = -6204},
+    {.first = 0x1C87, .last = 0x1C87, .stride = 1, .delta = -6180},
+    {.first = 0x1C88, .last = 0x1C88, .stride = 1, .delta = 35267},
+    {.first = 0x1C90, .last = 0x1CBA, .stride = 1, .delta = -3008},
+    {.first = 0x1CBD, .last = 0x1CBF, .stride = 1, .delta = -3008},
+    {.first = 0x1E00, .last = 0x1E94, .stride = 2, .delta = 1},
+    {.first = 0x1E9B, .last = 0x1E9B, .stride = 1, .delta = -58},
+    {.first = 0x1E9E, .last = 0x1E9E, .stride = 1, .delta = -7615},
+    {.first = 0x1EA0, .last = 0x1EFE, .stride = 2, .delta = 1},
+    {.first = 0x1F08, .last = 0x1F0F, .stride = 1, .delta = -8},
+    {.first = 0x1F18, .last = 0x1F1D, .stride = 1, .delta = -8},
+    {.first = 0x1F28, .last = 0x1F2F, .stride = 1, .delta = -8},
+    {.first = 0x1F38, .last = 0x1F3F, .stride = 1, .delta = -8},
+    {.first = 0x1F48, .last = 0x1F4D, .stride = 1, .delta = -8},
+    {.first = 0x1F59, .last = 0x1F5F, .stride = 2, .delta = -8},
+    {.first = 0x1F68, .last = 0x1F6F, .stride = 1, .delta = -8},
+    {.first = 0x1F88, .last = 0x1F8F, .stride = 1, .delta = -8},
+    {.first = 0x1F98, .last = 0x1F9F, .stride = 1, .delta = -8},
+    {.first = 0x1FA8, .last = 0x1FAF, .stride = 1, .delta = -8},
+    {.first = 0x1FB8, .last = 0x1FB9, .stride = 1, .delta = -8},
+    {.first = 0x1FBA, .last = 0x1FBB, .stride = 1, .delta = -74},
+    {.first = 0x1FBC, .last = 0x1FBC, .stride = 1, .delta = -9},
+    {.first = 0x1FBE, .last = 0x1FBE, .stride = 1, .delta = -7173},
+    {.first = 0x1FC8, .last = 0x1FCB, .stride = 1, .delta = -86},
+    {.first = 0x1FCC, .last = 0x1FCC, .stride = 1, .delta = -9},
+    {.first = 0x1FD8, .last = 0x1FD9, .stride = 1, .delta = -8},
+    {.first = 0x1FDA, .last = 0x1FDB, .stride = 1, .delta = -100},
+    {.first = 0x1FE8, .last = 0x1FE9, .stride = 1, .delta = -8},
+    {.first = 0x1FEA, .last = 0x1FEB, .stride = 1, .delta = -112},
+    {.first = 0x1FEC, .last = 0x1FEC, .stride = 1, .delta = -7},
+    {.first = 0x1FF8, .last = 0x1FF9, .stride = 1, .delta = -128},
+    {.first = 0x1FFA, .last = 0x1FFB, .stride = 1, .delta = -126},
+    {.first = 0x1FFC, .last = 0x1FFC, .stride = 1, .delta = -9},
+    {.first = 0x2126, .last = 0x2126, .stride = 1, .delta = -7517},
+    {.first = 0x212A, .last = 0x212A, .stride = 1, .delta = -8383},
+    {.first = 0x212B, .last = 0x212B, .stride = 1, .delta = -8262},
+    {.first = 0x2132, .last = 0x2132, .stride = 1, .delta = 28},
+    {.first = 0x2160, .last = 0x216F, .stride = 1, .delta = 16},
+    {.first = 0x2183, .last = 0x2183, .stride = 1, .delta = 1},
+    {.first = 0x24B6, .last = 0x24CF, .stride = 1, .delta = 26},
+    {.first = 0x2C00, .last = 0x2C2E, .stride = 1, .delta = 48},
+    {.first = 0x2C60, .last = 0x2C60, .stride = 1, .delta = 1},
+    {.first = 0x2C62, .last = 0x2C62, .stride = 1, .delta = -10743},
+    {.first = 0x2C63, .last = 0x2C63, .stride = 1, .delta = -3814},
+    {.first = 0x2C64, .last = 0x2C64, .stride = 1, .delta = -10727},
+    {.first = 0x2C67, .last = 0x2C6B, .stride = 2, .delta = 1},
+    {.first = 0x2C6D, .last = 0x2C6D, .stride = 1, .delta = -10780},
+    {.first = 0x2C6E, .last = 0x2C6E, .stride = 1, .delta = -10749},
+    {.first = 0x2C6F, .last = 0x2C6F, .stride = 1, .delta = -10783},
+    {.first = 0x2C70, .last = 0x2C70, .stride = 1, .delta = -10782},
+    {.first = 0x2C72, .last = 0x2C72, .stride = 1, .delta = 1},
+    {.first = 0x2C75, .last = 0x2C75, .stride = 1, .delta = 1},
+    {.first = 0x2C7E, .last = 0x2C7F, .stride = 1, .delta = -10815},
+    {.first = 0x2C80, .last = 0x2CE2, .stride = 2, .delta = 1},
+    {.first = 0x2CEB, .last = 0x2CED, .stride = 2, .delta = 1},
+    {.first = 0x2CF2, .last = 0x2CF2, .stride = 1, .delta = 1},
+    {.first = 0xA640, .last = 0xA66C, .stride = 2, .delta = 1},
+    {.first = 0xA680, .last = 0xA69A, .stride = 2, .delta = 1},
+    {.first = 0xA722, .last = 0xA72E, .stride = 2, .delta = 1},
+    {.first = 0xA732, .last = 0xA76E, .stride = 2, .delta = 1},
+    {.first = 0xA779, .last = 0xA77B, .stride = 2, .delta = 1},
+    {.first = 0xA77D, .last = 0xA77D, .stride = 1, .delta = -35332},
+    {.first = 0xA77E, .last = 0xA786, .stride = 2, .delta = 1},
+    {.first = 0xA78B, .last = 0xA78B, .stride = 1, .delta = 1},
+    {.first = 0xA78D, .last = 0xA78D, .stride = 1, .delta = -42280},
+    {.first = 0xA790, .last = 0xA792, .stride = 2, .delta = 1},
+    {.first = 0xA796, .last = 0xA7A8, .stride = 2, .delta = 1},
+    {.first = 0xA7AA, .last = 0xA7AA, .stride = 1, .delta = -42308},
+    {.first = 0xA7AB, .last = 0xA7AB, .stride = 1, .delta = -42319},
+    {.first = 0xA7AC, .last = 0xA7AC, .stride = 1, .delta = -42315},
+    {.first = 0xA7AD, .last = 0xA7AD, .stride = 1, .delta = -42305},
+    {.first = 0xA7AE, .last = 0xA7AE, .stride = 1, .delta = -42308},
+    {.first = 0xA7B0, .last = 0xA7B0, .stride = 1, .delta = -42258},
+    {.first = 0xA7B1, .last = 0xA7B1, .stride = 1, .delta = -42282},
+    {.first = 0xA7B2, .last = 0xA7B2, .stride = 1, .delta = -42261},
+    {.first = 0xA7B3, .last = 0xA7B3, .stride = 1, .delta = 928},
+    {.first = 0xA7B4, .last = 0xA7BE, .stride = 2, .delta = 1},
+    {.first = 0xA7C2, .last = 0xA7C2, .stride = 1, .delta = 1},
+    {.first = 0xA7C4, .last = 0xA7C4, .stride = 1, .delta = -48},
+    {.first = 0xA7C5, .last = 0xA7C5, .stride = 1, .delta = -42307},
+    {.first = 0xA7C6, .last = 0xA7C6, .stride = 1, .delta = -35384},
+    {.first = 0xA7C7, .last = 0xA7C9, .stride = 2, .delta = 1},
+    {.first = 0xA7F5, .last = 0xA7F5, .stride = 1, .delta = 1},
+    {.first = 0xFF21, .last = 0xFF3A, .stride = 1, .delta = 32},
+    {.first = 0x10400, .last = 0x10427, .stride = 1, .delta = 40},
+    {.first = 0x104B0, .last = 0x104D3, .stride = 1, .delta = 40},
+    {.first = 0x10C80, .last = 0x10CB2, .stride = 1, .delta = 64},
+    {.first = 0x118A0, .last = 0x118BF, .stride = 1, .delta = 32},
+    {.first = 0x16E40, .last = 0x16E5F, .stride = 1, .delta = 32},
+    {.first = 0x1E900, .last = 0x1E921, .stride = 1, .delta = 34},
+}};
+
+/// The case fold of @p codePoint (see kCaseFolds).
+[[nodiscard]] std::uint32_t caseFold(char32_t codePoint) noexcept
+{
+    const auto        value = static_cast<std::uint32_t>(codePoint);
+    const auto* const after = std::ranges::upper_bound(kCaseFolds, value, {}, &FoldRange::first);
+    if (after == kCaseFolds.begin())
+    {
+        return value;
+    }
+    const FoldRange& range = *std::prev(after);
+    if (value > range.last || (value - range.first) % range.stride != 0)
+    {
+        return value;
+    }
+    return static_cast<std::uint32_t>(static_cast<std::int32_t>(value) + range.delta);
+}
+
+/// The value of a hexadecimal digit, or -1.
+[[nodiscard]] int hexDigitValue(char c) noexcept
+{
+    if (c >= '0' && c <= '9')
+    {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f')
+    {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F')
+    {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+/// Whether @p text is empty or one of Java's float-literal suffixes f, F, d, D.
+[[nodiscard]] bool isEmptyOrFloatSuffix(std::string_view text) noexcept
+{
+    return text.empty() || (text.size() == 1 &&
+                            (text[0] == 'f' || text[0] == 'F' || text[0] == 'd' || text[0] == 'D'));
+}
+
+/// mantissa * 2^exponent rounded to the nearest double, ties to even; @p sticky says that nonzero
+/// bits below the mantissa were dropped. Beyond the double range the result is an infinity, and
+/// below half the smallest subnormal a zero.
+[[nodiscard]] double roundBinary(std::uint64_t mantissa, std::int64_t exponent,
+                                 bool sticky) noexcept
+{
+    if (mantissa == 0)
+    {
+        return 0.0;
+    }
+    constexpr std::int64_t kPrecision         = 53;
+    constexpr std::int64_t kMinNormalExponent = -1022;
+    constexpr std::int64_t kMaxExponent       = 1023;
+    constexpr std::int64_t kSubnormalBits     = 1075;  // bits from 2^-1 down to 2^-1074, plus one
+    const auto             width              = static_cast<std::int64_t>(std::bit_width(mantissa));
+    const std::int64_t     topExponent        = exponent + width - 1;
+    if (topExponent > kMaxExponent)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+    // The significant bits the result has room for: 53, or fewer for a subnormal.
+    const std::int64_t precision =
+        topExponent >= kMinNormalExponent ? kPrecision : topExponent + kSubnormalBits;
+    if (precision < 0)
+    {
+        return 0.0;
+    }
+    const std::int64_t shift = width - precision;  // the low bits to round away
+    if (shift <= 0)
+    {
+        return std::ldexp(static_cast<double>(mantissa), static_cast<int>(exponent));
+    }
+    const auto          bits = static_cast<unsigned int>(shift);
+    const std::uint64_t kept = bits >= 64U ? 0U : mantissa >> bits;
+    const std::uint64_t dropped =
+        bits >= 64U ? mantissa : mantissa & ((std::uint64_t{1} << bits) - 1U);
+    const std::uint64_t half = std::uint64_t{1} << (bits - 1U);
+    const bool roundUp       = dropped > half || (dropped == half && (sticky || (kept & 1U) != 0));
+    const std::uint64_t rounded = roundUp ? kept + 1U : kept;
+    return std::ldexp(static_cast<double>(rounded), static_cast<int>(exponent + shift));
+}
+
+/// The significand of a hexadecimal float: its leading significant bits (at most 64; the ones
+/// beyond only set the sticky bit) and the power of two that scales them.
+struct HexSignificand
+{
+    std::uint64_t mantissa{0};
+    bool          sticky{false};
+    std::int64_t  scale{0};
+    std::size_t   length{0};  ///< the characters read
+};
+
+/// Reads hexadecimal digits with an optional point, at least one digit, from the start of
+/// @p text; nullopt for a second point or no digit.
+[[nodiscard]] std::optional<HexSignificand> readHexSignificand(std::string_view text) noexcept
+{
+    constexpr std::uint64_t kRoom = std::uint64_t{1} << 60U;
+    HexSignificand          significand;
+    bool                    anyDigit = false;
+    bool                    point    = false;
+    for (; significand.length < text.size(); significand.length++)
+    {
+        const char c = text[significand.length];
+        if (c == '.')
+        {
+            if (point)
+            {
+                return std::nullopt;
+            }
+            point = true;
+            continue;
+        }
+        const int digit = hexDigitValue(c);
+        if (digit < 0)
+        {
+            break;
+        }
+        anyDigit = true;
+        if (significand.mantissa >= kRoom)
+        {
+            significand.sticky = significand.sticky || digit != 0;
+            significand.scale += point ? 0 : 4;
+            continue;
+        }
+        significand.mantissa = (significand.mantissa << 4U) | static_cast<std::uint64_t>(digit);
+        significand.scale -= point ? 4 : 0;
+    }
+    if (!anyDigit)
+    {
+        return std::nullopt;
+    }
+    return significand;
+}
+
+/// A decimal exponent as Integer.parseInt reads it: the value, clamped past the int range.
+struct DecimalExponent
+{
+    std::int64_t value{0};
+    bool         overflows{false};  ///< beyond the int range, where parseInt fails
+    std::size_t  length{0};         ///< the characters read
+};
+
+/// Reads an optional sign and at least one decimal digit from the start of @p text.
+[[nodiscard]] std::optional<DecimalExponent> readDecimalExponent(std::string_view text) noexcept
+{
+    constexpr std::int64_t kIntMax = std::numeric_limits<int>::max();
+    DecimalExponent        exponent;
+    bool                   negative = false;
+    if (!text.empty() && (text[0] == '+' || text[0] == '-'))
+    {
+        negative        = text[0] == '-';
+        exponent.length = 1;
+    }
+    const std::size_t digitsStart = exponent.length;
+    for (; exponent.length < text.size() && isAsciiDigit(text[exponent.length]); exponent.length++)
+    {
+        exponent.value = (exponent.value * 10) + (text[exponent.length] - '0');
+        if (exponent.value > kIntMax)
+        {
+            exponent.overflows = true;
+            exponent.value     = kIntMax;
+        }
+    }
+    if (exponent.length == digitsStart)
+    {
+        return std::nullopt;
+    }
+    if (negative)
+    {
+        exponent.value = -exponent.value;
+    }
+    return exponent;
+}
+
+/// FloatingDecimal.parseHexString for what follows the sign and "0x": hexadecimal digits with an
+/// optional point, a binary exponent [pP][+-]?digits and an optional float suffix, all of it;
+/// the magnitude, or nullopt.
+[[nodiscard]] std::optional<double> parseJavaHexMagnitude(std::string_view text) noexcept
+{
+    const std::optional<HexSignificand> significand = readHexSignificand(text);
+    if (!significand.has_value())
+    {
+        return std::nullopt;
+    }
+    const std::size_t p = significand->length;
+    if (p >= text.size() || (text[p] != 'p' && text[p] != 'P'))
+    {
+        return std::nullopt;
+    }
+    const std::optional<DecimalExponent> exponent = readDecimalExponent(text.substr(p + 1));
+    if (!exponent.has_value() || !isEmptyOrFloatSuffix(text.substr(p + 1 + exponent->length)))
+    {
+        return std::nullopt;
+    }
+    if (significand->mantissa == 0)
+    {
+        return 0.0;
+    }
+    if (exponent->overflows)
+    {
+        // Integer.parseInt fails: the exponent's sign alone decides
+        return exponent->value < 0 ? 0.0 : std::numeric_limits<double>::infinity();
+    }
+    return roundBinary(significand->mantissa, exponent->value + significand->scale,
+                       significand->sticky);
+}
+
+/// The length of FloatingDecimal.readJavaFormatString's decimal number at the start of @p text:
+/// digits with an optional point (at least one digit) and an optional exponent [eE][+-]?digits;
+/// nullopt when there is none.
+[[nodiscard]] std::optional<std::size_t> decimalNumberLength(std::string_view text) noexcept
+{
+    std::size_t i        = 0;
+    bool        anyDigit = false;
+    bool        point    = false;
+    for (; i < text.size() && (isAsciiDigit(text[i]) || text[i] == '.'); i++)
+    {
+        if (text[i] == '.')
+        {
+            if (point)
+            {
+                return std::nullopt;
+            }
+            point = true;
+        }
+        else
+        {
+            anyDigit = true;
+        }
+    }
+    if (!anyDigit)
+    {
+        return std::nullopt;
+    }
+    if (i < text.size() && (text[i] == 'e' || text[i] == 'E'))
+    {
+        const std::optional<DecimalExponent> exponent = readDecimalExponent(text.substr(i + 1));
+        if (!exponent.has_value())
+        {
+            return std::nullopt;
+        }
+        i += 1 + exponent->length;
+    }
+    return i;
+}
 }  // namespace
 
 std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation)
@@ -308,6 +838,95 @@ std::string doubleToString(double value, int decimalPlaces)
 std::string doubleToString(double value)
 {
     return doubleToString(value, kDefaultDecimalPlaces, true);
+}
+
+std::string formatFixed(double value, int precision)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    const int   digits = std::max(0, precision);
+    FixedParts  parts  = javaFixedParts(std::abs(value), digits);
+    std::string text   = std::move(parts.integerPart);
+    if (digits > 0)
+    {
+        text += ".";
+        text += parts.fraction;
+    }
+    // The Formatter prints the sign of a negative zero and of digits that round to zero.
+    return std::signbit(value) ? "-" + text : text;
+}
+
+std::string formatScientific(double value, int precision)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    const int             digits = std::max(0, precision);
+    const ScientificParts parts  = javaScientificParts(std::abs(value), digits);
+    std::string           text   = parts.digits.substr(0, 1);
+    if (digits > 0)
+    {
+        text += ".";
+        text += parts.digits.substr(1);
+    }
+    text += std::format("e{}{:02}", parts.exponent < 0 ? '-' : '+', std::abs(parts.exponent));
+    return std::signbit(value) ? "-" + text : text;
+}
+
+std::string javaDoubleToString(double value)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    if (value == 0)
+    {
+        return std::signbit(value) ? "-0.0" : "0.0";
+    }
+    const double       magnitude = std::abs(value);
+    const Decimal      decimal   = javaDecimal(magnitude);
+    const std::string& digits    = decimal.digits;
+    const auto         count     = static_cast<int>(digits.size());
+
+    std::string text;
+    if (magnitude >= 0.001 && magnitude < 10000000.0)
+    {
+        if (decimal.exponent <= 0)
+        {
+            text = "0." + std::string(static_cast<std::size_t>(-decimal.exponent), '0') + digits;
+        }
+        else if (decimal.exponent >= count)
+        {
+            text = digits + std::string(static_cast<std::size_t>(decimal.exponent - count), '0') +
+                   ".0";
+        }
+        else
+        {
+            const auto point = static_cast<std::size_t>(decimal.exponent);
+            text             = digits.substr(0, point) + "." + digits.substr(point);
+        }
+    }
+    else
+    {
+        text = digits.substr(0, 1) + "." + (count > 1 ? digits.substr(1) : std::string("0")) + "E" +
+               std::format("{}", decimal.exponent - 1);
+    }
+    return std::signbit(value) ? "-" + text : text;
 }
 
 std::optional<double> parseDouble(std::string_view text) noexcept
@@ -358,6 +977,59 @@ std::optional<double> parseDouble(std::string_view text) noexcept
     return negative ? -value : value;
 }
 
+std::optional<double> javaParseDouble(std::string_view text) noexcept
+{
+    text = trim(text);
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+    bool negative = false;
+    if (text.front() == '+' || text.front() == '-')
+    {
+        negative = text.front() == '-';
+        text.remove_prefix(1);
+    }
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+    std::optional<double> magnitude;
+    if (text.front() == 'N')
+    {
+        if (text != "NaN")
+        {
+            return std::nullopt;
+        }
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (text.front() == 'I')
+    {
+        if (text != "Infinity")
+        {
+            return std::nullopt;
+        }
+        magnitude = std::numeric_limits<double>::infinity();
+    }
+    else if (text.size() > 1 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+    {
+        magnitude = parseJavaHexMagnitude(text.substr(2));
+    }
+    else if (const std::optional<std::size_t> length = decimalNumberLength(text);
+             length.has_value() && isEmptyOrFloatSuffix(text.substr(*length)))
+    {
+        // parseDouble() reads such a number correctly rounded, underflow included; its only
+        // refusal left is an overflow, which Java makes an infinity.
+        magnitude =
+            parseDouble(text.substr(0, *length)).value_or(std::numeric_limits<double>::infinity());
+    }
+    if (!magnitude.has_value())
+    {
+        return std::nullopt;
+    }
+    return negative ? -*magnitude : *magnitude;
+}
+
 std::optional<int> parseInt(std::string_view text) noexcept
 {
     // Integer.parseInt: one optional sign, then digits only.
@@ -396,7 +1068,7 @@ std::optional<double> convertToDouble(std::string_view text)
         std::erase(integerPart, '.');
         input = integerPart + input.substr(separator);
     }
-    return parseDouble(input);
+    return javaParseDouble(input);
 }
 
 std::string_view trim(std::string_view text) noexcept
@@ -428,6 +1100,73 @@ std::string toLower(std::string_view text)
 bool equalsIgnoreAsciiCase(std::string_view a, std::string_view b) noexcept
 {
     return std::ranges::equal(a, b, {}, asciiLower, asciiLower);
+}
+
+std::u32string toCodePoints(std::string_view text)
+{
+    std::u32string codePoints;
+    codePoints.reserve(text.size());
+    std::size_t position = 0;
+    while (position < text.size())
+    {
+        codePoints.push_back(decodeCodePoint(text, position));
+    }
+    return codePoints;
+}
+
+bool javaEqualsIgnoreCase(std::string_view a, std::string_view b) noexcept
+{
+    // Java's case mappings keep a character within its plane, so equal lengths in code points
+    // and in UTF-16 code units come to the same here.
+    std::size_t i = 0;
+    std::size_t j = 0;
+    while (i < a.size() && j < b.size())
+    {
+        const char32_t x = decodeCodePoint(a, i);
+        const char32_t y = decodeCodePoint(b, j);
+        if (x != y && caseFold(x) != caseFold(y))
+        {
+            return false;
+        }
+    }
+    return i == a.size() && j == b.size();
+}
+
+int javaCompareTo(std::string_view a, std::string_view b) noexcept
+{
+    Utf16Reader x(a);
+    Utf16Reader y(b);
+    while (!x.atEnd() && !y.atEnd())
+    {
+        const char16_t c1 = x.next();
+        const char16_t c2 = y.next();
+        if (c1 != c2)
+        {
+            return static_cast<int>(c1) - static_cast<int>(c2);
+        }
+    }
+    // len1 - len2, counted from the end of the common part
+    int difference = 0;
+    for (; !x.atEnd(); difference++)
+    {
+        static_cast<void>(x.next());
+    }
+    for (; !y.atEnd(); difference--)
+    {
+        static_cast<void>(y.next());
+    }
+    return difference;
+}
+
+int javaHashCode(std::string_view text) noexcept
+{
+    std::uint32_t hash = 0;
+    Utf16Reader   reader(text);
+    while (!reader.atEnd())
+    {
+        hash = (31U * hash) + static_cast<std::uint32_t>(reader.next());
+    }
+    return static_cast<int>(hash);
 }
 
 std::vector<std::string> split(std::string_view text, char separator)

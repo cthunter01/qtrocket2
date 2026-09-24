@@ -1,8 +1,10 @@
 #include "QtRocket/util/MathUtil.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <limits>
 #include <numbers>
@@ -268,6 +270,76 @@ double interpolate(std::span<const double> domain, std::span<const double> range
     }
 
     return range[left] + ((t - domain[left]) * deltay / deltax);
+}
+
+int javaDoubleCompare(double a, double b) noexcept
+{
+    if (javaDoubleLess(a, b))
+    {
+        return -1;
+    }
+    if (javaDoubleLess(b, a))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+double signum(double d) noexcept
+{
+    if (d > 0)
+    {
+        return 1.0;
+    }
+    if (d < 0)
+    {
+        return -1.0;
+    }
+    return d;  // a zero of either sign, or NaN
+}
+
+std::int64_t javaLongCast(double a) noexcept
+{
+    if (std::isnan(a))
+    {
+        return 0;
+    }
+    constexpr double kTwoPow63 = 9223372036854775808.0;
+    if (a >= kTwoPow63)
+    {
+        return std::numeric_limits<std::int64_t>::max();
+    }
+    if (a <= -kTwoPow63)
+    {
+        return std::numeric_limits<std::int64_t>::min();
+    }
+    return static_cast<std::int64_t>(a);
+}
+
+std::int64_t javaRound(double a) noexcept
+{
+    // Math.round as JDK 8+ implements it: the significand is shifted so that one bit of fraction
+    // remains, then floor(a + 1/2) is formed exactly in integer arithmetic.
+    constexpr std::int64_t kExpBitMask       = 0x7FF0000000000000LL;
+    constexpr std::int64_t kSignifBitMask    = 0x000FFFFFFFFFFFFFLL;
+    constexpr int          kSignificandWidth = 53;
+    constexpr int          kExpBias          = 1023;
+
+    const auto         longBits  = std::bit_cast<std::int64_t>(a);
+    const std::int64_t biasedExp = (longBits & kExpBitMask) >> (kSignificandWidth - 1);
+    const std::int64_t shift     = (kSignificandWidth - 2 + kExpBias) - biasedExp;
+    if ((shift & -64) == 0)
+    {
+        // a is finite and 2^-64 <= ulp(a) < 1: r is a / ulp(a).
+        std::int64_t r = (longBits & kSignifBitMask) | (kSignifBitMask + 1);
+        if (longBits < 0)
+        {
+            r = -r;
+        }
+        return ((r >> shift) + 1) >> 1;
+    }
+    // |a| < 2^-11 (rounds to 0), an integer already, an infinity or NaN.
+    return javaLongCast(a);
 }
 
 }  // namespace QtRocket::MathUtil

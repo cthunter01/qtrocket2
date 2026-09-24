@@ -15,10 +15,15 @@
 
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/unit/DegreeUnit.h"
+#include "QtRocket/unit/GeneralUnit.h"
+#include "QtRocket/unit/Unit.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Signal.h"
+#include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
@@ -28,9 +33,16 @@ using QtRocket::BugError;
 using QtRocket::Color;
 using QtRocket::ComponentClassChain;
 using QtRocket::ComponentDefaults;
+using QtRocket::DegreeUnit;
+using QtRocket::GeneralUnit;
 using QtRocket::InMemoryPreferences;
 using QtRocket::LineStyle;
 using QtRocket::Preferences;
+using QtRocket::Unit;
+using QtRocket::unitGroup;
+using QtRocket::UnitGroup;
+using QtRocket::UnitGroupId;
+using QtRocket::Test::DefaultUnitsGuard;
 
 constexpr double kPi  = std::numbers::pi;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -45,6 +57,26 @@ constexpr std::array<std::string_view, 4> kMassComponentChain{
 constexpr std::array<std::string_view, 4> kTrapezoidFinSetChain{
     "TrapezoidFinSet", "FinSet", "ExternalComponent", "RocketComponent"};
 constexpr std::array<std::string_view, 2> kStageChain{"AxialStage", "RocketComponent"};
+
+/// The default unit index of every process-wide unit group, in UnitGroupId order.
+std::vector<int> defaultUnitIndices()
+{
+    std::vector<int> indices;
+    indices.reserve(QtRocket::kAllUnitGroupIds.size());
+    for (const UnitGroupId id : QtRocket::kAllUnitGroupIds)
+    {
+        indices.push_back(unitGroup(id).getDefaultUnitIndex());
+    }
+    return indices;
+}
+
+/// The unit of the process-wide group @p id named @p name, which must exist.
+const Unit& groupUnit(UnitGroupId id, std::string_view name)
+{
+    const Unit* const unit = unitGroup(id).getUnit(name);
+    QTROCKET_ASSERT(unit != nullptr);
+    return *unit;
+}
 
 /// Counts the emissions of changed().
 class ChangeCounter
@@ -1413,6 +1445,141 @@ TEST(Preferences, MultiLevelWindCsvImportRoundTrip)
     EXPECT_EQ(prefs.getMultiLevelWindCsvImportStddevColumn(), "sd");
     EXPECT_EQ(prefs.getMultiLevelWindCsvImportStddevColumnIndex(), 7);
     EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportStddevColumnIndex), "7");
+}
+
+TEST(Preferences, MultiLevelWindCsvImportUnitsDefaultToSiUnitsAndDegrees)
+{
+    const DefaultUnitsGuard   defaults;
+    const InMemoryPreferences prefs;
+    // The fallbacks are fixed units, whatever default unit the user chose for the group.
+    UnitGroup::setDefaultImperialUnits();
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportAltitudeUnit(),
+              &unitGroup(UnitGroupId::DISTANCE).getSIUnit());
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportAltitudeUnit().getUnit(), "m");
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportSpeedUnit(),
+              &unitGroup(UnitGroupId::WINDSPEED).getSIUnit());
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportSpeedUnit().getUnit(), "m/s");
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportStddevUnit(),
+              &unitGroup(UnitGroupId::WINDSPEED).getSIUnit());
+    // Java: new DegreeUnit(), which equals the ANGLE group's first unit.
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportDirectionUnit(), DegreeUnit{});
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportDirectionUnit(),
+              &unitGroup(UnitGroupId::ANGLE).getUnit(0));
+}
+
+TEST(Preferences, MultiLevelWindCsvImportUnitsAreStoredByName)
+{
+    InMemoryPreferences prefs;
+    prefs.setMultiLevelWindCsvImportAltitudeUnit(groupUnit(UnitGroupId::DISTANCE, "ft"));
+    prefs.setMultiLevelWindCsvImportSpeedUnit(groupUnit(UnitGroupId::WINDSPEED, "kt"));
+    prefs.setMultiLevelWindCsvImportDirectionUnit(groupUnit(UnitGroupId::ANGLE, "rad"));
+    prefs.setMultiLevelWindCsvImportStddevUnit(groupUnit(UnitGroupId::WINDSPEED, "mph"));
+
+    EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportAltitudeUnit), "ft");
+    EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportSpeedUnit), "kt");
+    EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportDirectionUnit), "rad");
+    EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportStddevUnit), "mph");
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportAltitudeUnit(),
+              &groupUnit(UnitGroupId::DISTANCE, "ft"));
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportSpeedUnit(),
+              &groupUnit(UnitGroupId::WINDSPEED, "kt"));
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportDirectionUnit(),
+              &groupUnit(UnitGroupId::ANGLE, "rad"));
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportStddevUnit(),
+              &groupUnit(UnitGroupId::WINDSPEED, "mph"));
+
+    // Any unit is stored by its name (Unit.toString()); the getter finds it in its own group.
+    prefs.setMultiLevelWindCsvImportAltitudeUnit(GeneralUnit(1609.344, "mi"));
+    EXPECT_EQ(prefs.get(Keys::kMultiLevelWindCsvImportAltitudeUnit), "mi");
+    EXPECT_EQ(&prefs.getMultiLevelWindCsvImportAltitudeUnit(),
+              &groupUnit(UnitGroupId::DISTANCE, "mi"));
+}
+
+TEST(Preferences, MultiLevelWindCsvImportUnitsFallBackOnUnknownNames)
+{
+    // Deviation: Java's UnitGroup.getUnit throws IllegalArgumentException for these.
+    InMemoryPreferences prefs;
+    prefs.put(Keys::kMultiLevelWindCsvImportAltitudeUnit, "km/h");  // another group's unit
+    prefs.put(Keys::kMultiLevelWindCsvImportSpeedUnit, "KT");       // names match exactly
+    prefs.put(Keys::kMultiLevelWindCsvImportDirectionUnit, "deg");
+    prefs.put(Keys::kMultiLevelWindCsvImportStddevUnit, "");
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportAltitudeUnit().getUnit(), "m");
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportSpeedUnit().getUnit(), "m/s");
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportDirectionUnit(), DegreeUnit{});
+    EXPECT_EQ(prefs.getMultiLevelWindCsvImportStddevUnit().getUnit(), "m/s");
+}
+
+// ------------------------------------------------------------------ default units
+
+TEST(Preferences, StoreDefaultUnitsWritesEveryGroupWithAChoice)
+{
+    const DefaultUnitsGuard defaults;
+    InMemoryPreferences     prefs;
+    UnitGroup::setDefaultMetricUnits();
+    prefs.storeDefaultUnits();
+    const Preferences* const units = prefs.findNode(Keys::kUnitsNode);
+    ASSERT_NE(units, nullptr);
+    EXPECT_EQ(units->get("LENGTH"), "cm");
+    EXPECT_EQ(units->get("MOTOR_DIMENSIONS"), "mm");
+    EXPECT_EQ(units->get("VELOCITY"), "m/s");
+    EXPECT_EQ(units->get("ANGLE"), "°");
+    EXPECT_EQ(units->get("FLIGHT_TIME"), "s");  // UNITS_LONG_TIME's key
+    EXPECT_EQ(units->get("TEMPERATURE"), "°C");
+    EXPECT_EQ(units->get("STABILITY"), "cal");
+    // The 41 groups of UnitGroup.UNITS less the five with a single unit (NONE, SHORT_TIME,
+    // COEFFICIENT, MOMENTUM, SCALING); SHAPE_PARAMETER and STABILITY_CALIBERS are not in the map.
+    EXPECT_EQ(units->keys().size(), 36U);
+    EXPECT_EQ(units->get("NONE"), std::nullopt);
+    EXPECT_EQ(units->get("SHORT_TIME"), std::nullopt);
+    EXPECT_EQ(units->get("SHAPE_PARAMETER"), std::nullopt);
+    EXPECT_EQ(units->get("STABILITY_CALIBERS"), std::nullopt);
+    EXPECT_EQ(units->get("LONG_TIME"), std::nullopt);
+
+    // Storing again overwrites.
+    UnitGroup::setDefaultImperialUnits();
+    prefs.storeDefaultUnits();
+    EXPECT_EQ(units->get("LENGTH"), "in");
+    EXPECT_EQ(units->get("WINDSPEED"), "mph");
+    EXPECT_EQ(units->get("TEMPERATURE"), "°F");
+    EXPECT_EQ(units->keys().size(), 36U);
+}
+
+TEST(Preferences, LoadDefaultUnitsAppliesTheStoredNames)
+{
+    const DefaultUnitsGuard defaults;
+    InMemoryPreferences     prefs;
+    prefs.loadDefaultUnits();  // nothing stored: nothing changes, and no node is created
+    EXPECT_EQ(prefs.findNode(Keys::kUnitsNode), nullptr);
+    EXPECT_EQ(unitGroup(UnitGroupId::LENGTH).getDefaultUnit().getUnit(), "cm");
+
+    Preferences& units = prefs.getNode(Keys::kUnitsNode);
+    units.put("LENGTH", "in");
+    units.put("FLIGHT_TIME", "min");
+    units.put("ANGLE", "rad");
+    units.put("VELOCITY", "furlong/fortnight");  // not a unit of the group: skipped
+    units.put("MASS", "OZ");                     // names match exactly: skipped
+    units.put("LONG_TIME", "min");               // not a key of UnitGroup.UNITS: skipped
+    units.put("SPEED", "m/s");                   // no such group: skipped
+    prefs.loadDefaultUnits();
+    EXPECT_EQ(unitGroup(UnitGroupId::LENGTH).getDefaultUnit().getUnit(), "in");
+    EXPECT_EQ(unitGroup(UnitGroupId::LONG_TIME).getDefaultUnit().getUnit(), "min");
+    EXPECT_EQ(unitGroup(UnitGroupId::ANGLE).getDefaultUnit().getUnit(), "rad");
+    EXPECT_EQ(unitGroup(UnitGroupId::VELOCITY).getDefaultUnit().getUnit(), "m/s");
+    EXPECT_EQ(unitGroup(UnitGroupId::MASS).getDefaultUnit().getUnit(), "g");
+}
+
+TEST(Preferences, DefaultUnitsRoundTripThroughTheStore)
+{
+    const DefaultUnitsGuard defaults;
+    InMemoryPreferences     prefs;
+    UnitGroup::setDefaultImperialUnits();
+    const std::vector<int> imperial = defaultUnitIndices();
+    prefs.storeDefaultUnits();
+
+    UnitGroup::resetDefaultUnits();
+    EXPECT_NE(defaultUnitIndices(), imperial);
+    prefs.loadDefaultUnits();
+    EXPECT_EQ(defaultUnitIndices(), imperial);
 }
 
 // ----------------------------------------------------------------- change signal

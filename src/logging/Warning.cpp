@@ -2,12 +2,10 @@
 
 #include <bit>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <limits>
 #include <memory>
-#include <numbers>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -15,6 +13,7 @@
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket
@@ -32,119 +31,15 @@ constexpr std::string_view kDrogueLowSpeedText    = "Drogue deployment at low sp
 constexpr std::string_view kDrogueNoMainText = "Drogue configured but no main parachute present";
 constexpr std::string_view kEventAfterLandingText = "Flight Event occurred after landing: ";
 
-/// Java's "0.00E0" DecimalFormat: two decimals, the exponent without sign or padding ("1.23E6").
-std::string formatExponential(double value)
-{
-    const std::string text     = std::format("{:.2e}", value);  // "1.23e+06", "-1.23e-07"
-    const std::size_t at       = text.find('e');
-    std::string_view  exponent = std::string_view{text}.substr(at + 1);
-    const bool        negative = exponent.starts_with('-');
-    exponent.remove_prefix(1);  // the sign
-    while (exponent.size() > 1 && exponent.starts_with('0'))
-    {
-        exponent.remove_prefix(1);
-    }
-    return std::format("{}E{}{}", std::string_view{text}.substr(0, at), negative ? "-" : "",
-                       exponent);
-}
-
-/// Java's Unit.roundForDecimalFormat(): three significant digits and at most three decimals.
-double roundForDecimalFormat(double value)
-{
-    const double sign = value < 0.0 ? -1.0 : 1.0;  // Math.signum; the caller excludes 0
-    double       val  = std::abs(value);
-    double       mul  = 1.0;
-    while (val < 100.0 && mul < 1000.0)
-    {
-        mul *= 10.0;
-        val *= 10.0;
-    }
-    return (std::rint(val) / mul) * sign;
-}
-
-/// Java's "0.0##" DecimalFormat: one to three decimals.
-std::string formatDecimal(double value)
-{
-    std::string text = std::format("{:.3f}", value);
-    while (text.ends_with('0') && !text.ends_with(".0"))
-    {
-        text.pop_back();
-    }
-    return text;
-}
-
-/// Java's DecimalFormat output for an infinity: the infinity symbol with the sign in front.
-std::string formatInfinity(double value)
-{
-    return value < 0.0 ? "-∞" : "∞";
-}
-
-/// Java's Unit.toString() for a unit with multiplier 1: exponential above a million, whole
-/// numbers from 100 up, "0" at or below 0.0005, three significant digits in between.
-std::string formatGeneral(double value)
-{
-    if (std::isinf(value))
-    {
-        return formatInfinity(value);
-    }
-    if (std::abs(value) > 1.0e6)
-    {
-        return formatExponential(value);
-    }
-    if (std::abs(value) >= 100.0)
-    {
-        return std::format("{:.0f}", value);
-    }
-    if (std::abs(value) <= 0.0005)
-    {
-        return "0";
-    }
-    const double rounded = roundForDecimalFormat(value);
-    if (std::abs(rounded - std::floor(rounded)) < 0.0001)
-    {
-        return std::format("{:.0f}", rounded);
-    }
-    return formatDecimal(rounded);
-}
-
-/// UNITS_VELOCITY.toStringUnit() with the default unit m/s: "38.3 m/s"; "N/A" for NaN.
-/// TODO(units): format through UnitGroup
-std::string formatVelocity(double value)
-{
-    if (std::isnan(value))
-    {
-        return "N/A";
-    }
-    return formatGeneral(value) + " m/s";
-}
-
-/// UNITS_ANGLE.toStringUnit() with the default unit degrees: DegreeUnit formats with "0.#" and
-/// no space before the sign, so 0.3 rad gives "17.2°".
-/// TODO(units): format through UnitGroup
-std::string formatDegrees(double radians)
-{
-    const double degrees = radians / (std::numbers::pi / 180.0);
-    if (std::isinf(degrees))
-    {
-        return formatInfinity(degrees) + "°";
-    }
-    std::string text = std::format("{:.1f}", degrees);
-    if (text.ends_with(".0"))
-    {
-        text.resize(text.size() - 2);
-    }
-    text += "°";
-    return text;
-}
-
-/// The text of the four deployment-speed warnings: the speed in brackets unless it is NaN.
+/// The text of the four deployment-speed warnings: the speed in brackets, in the user's default
+/// velocity unit (UnitGroup.UNITS_VELOCITY.toStringUnit), unless it is NaN.
 std::string speedDescription(std::string_view text, double speed)
 {
     if (std::isnan(speed))
     {
         return std::string{text};
     }
-    return std::format("{} ({})", text, formatVelocity(speed));
+    return std::format("{} ({})", text, unitGroup(UnitGroupId::VELOCITY).toStringUnit(speed));
 }
 
 /// Java's Double.doubleToLongBits() equality: NaN equals NaN, and -0.0 differs from 0.0.
@@ -182,7 +77,8 @@ std::string Warning::LargeAOA::messageDescription() const
     {
         return std::format("{}.", kLargeAoaText);
     }
-    return std::format("{} ({})", kLargeAoaText, formatDegrees(m_aoa));
+    // UnitGroup.UNITS_ANGLE.toStringUnit: the user's default angle unit ("17.2°" in degrees).
+    return std::format("{} ({})", kLargeAoaText, unitGroup(UnitGroupId::ANGLE).toStringUnit(m_aoa));
 }
 
 bool Warning::LargeAOA::replaceBy(const Message& other) const

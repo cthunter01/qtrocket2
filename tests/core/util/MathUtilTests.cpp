@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <numbers>
 #include <random>
@@ -496,6 +497,82 @@ TEST(MathUtil, MapCoordinateEdgeCases)
     EXPECT_TRUE(MathUtil::map(10.0, 0.0, 5.0, a, b) == Coordinate(8, 11, -2, 13));
     EXPECT_THROW(static_cast<void>(MathUtil::map(6.0, 1.0, std::nextafter(1.0, 2.0), a, b)),
                  BugError);
+}
+
+// ---- QtRocket additions: Java's Math.round and its narrowing casts (values pinned on JDK 17) ----
+
+TEST(MathUtil, JavaRoundMatchesMathRound)
+{
+    EXPECT_EQ(MathUtil::javaRound(2.5), 3);
+    EXPECT_EQ(MathUtil::javaRound(-2.5), -2);
+    EXPECT_EQ(MathUtil::javaRound(-0.5), 0);
+    EXPECT_EQ(MathUtil::javaRound(0.5), 1);
+    EXPECT_EQ(MathUtil::javaRound(1.5), 2);
+    EXPECT_EQ(MathUtil::javaRound(1.7), 2);
+    EXPECT_EQ(MathUtil::javaRound(-1.7), -2);
+    EXPECT_EQ(MathUtil::javaRound(10.5), 11);  // 1.05 * 10, which FixedPrecisionUnit rounds to 1.1
+    EXPECT_EQ(MathUtil::javaRound(0.0), 0);
+    EXPECT_EQ(MathUtil::javaRound(-0.0), 0);
+    // floor(a + 0.5) would give 1 here: the sum rounds up to 1.0 in double arithmetic.
+    EXPECT_EQ(MathUtil::javaRound(0.49999999999999994), 0);
+    EXPECT_EQ(MathUtil::javaRound(4503599627370497.0), 4503599627370497LL);  // 2^52 + 1
+    EXPECT_EQ(MathUtil::javaRound(1e18), 1000000000000000000LL);
+    EXPECT_EQ(MathUtil::javaRound(1e-300), 0);
+    EXPECT_EQ(MathUtil::javaRound(-1e-300), 0);
+    EXPECT_EQ(MathUtil::javaRound(kNaN), 0);
+    EXPECT_EQ(MathUtil::javaRound(kInf), std::numeric_limits<std::int64_t>::max());
+    EXPECT_EQ(MathUtil::javaRound(-kInf), std::numeric_limits<std::int64_t>::min());
+    EXPECT_EQ(MathUtil::javaRound(1e300), std::numeric_limits<std::int64_t>::max());
+    EXPECT_EQ(MathUtil::javaRound(-1e300), std::numeric_limits<std::int64_t>::min());
+}
+
+TEST(MathUtil, JavaCastsTruncateAndSaturate)
+{
+    EXPECT_EQ(MathUtil::javaIntCast(3.99), 3);
+    EXPECT_EQ(MathUtil::javaIntCast(-3.99), -3);
+    EXPECT_EQ(MathUtil::javaIntCast(0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(-0.0), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(2700.0 * 1000), 2700000);
+    EXPECT_EQ(MathUtil::javaIntCast(kNaN), 0);
+    EXPECT_EQ(MathUtil::javaIntCast(kInf), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-kInf), std::numeric_limits<int>::min());
+    EXPECT_EQ(MathUtil::javaIntCast(3e9), std::numeric_limits<int>::max());
+    EXPECT_EQ(MathUtil::javaIntCast(-3e9), std::numeric_limits<int>::min());
+    EXPECT_EQ(MathUtil::javaIntCast(2147483647.9), 2147483647);
+    EXPECT_EQ(MathUtil::javaIntCast(-2147483648.9), std::numeric_limits<int>::min());
+
+    EXPECT_EQ(MathUtil::javaLongCast(-1.5), -1);
+    EXPECT_EQ(MathUtil::javaLongCast(kNaN), 0);
+    EXPECT_EQ(MathUtil::javaLongCast(9.3e18), std::numeric_limits<std::int64_t>::max());
+    EXPECT_EQ(MathUtil::javaLongCast(-9.3e18), std::numeric_limits<std::int64_t>::min());
+    EXPECT_EQ(MathUtil::javaLongCast(1e18), 1000000000000000000LL);
+}
+
+TEST(MathUtil, JavaDoubleCompareIsJavasTotalOrder)
+{
+    EXPECT_EQ(MathUtil::javaDoubleCompare(1.0, 2.0), -1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(2.0, 1.0), 1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(1.5, 1.5), 0);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(-0.0, 0.0), -1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(0.0, -0.0), 1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(-0.0, -0.0), 0);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(kNaN, kInf), 1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(kInf, kNaN), -1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(kNaN, kNaN), 0);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(-kInf, kNaN), -1);
+    EXPECT_EQ(MathUtil::javaDoubleCompare(-kInf, -1e308), -1);
+}
+
+TEST(MathUtil, SignumIsJavasMathSignum)
+{
+    EXPECT_EQ(MathUtil::signum(5.5), 1.0);
+    EXPECT_EQ(MathUtil::signum(-1e-300), -1.0);
+    EXPECT_EQ(MathUtil::signum(kInf), 1.0);
+    EXPECT_EQ(MathUtil::signum(-kInf), -1.0);
+    EXPECT_EQ(MathUtil::signum(0.0), 0.0);
+    EXPECT_FALSE(std::signbit(MathUtil::signum(0.0)));
+    EXPECT_TRUE(std::signbit(MathUtil::signum(-0.0)));
+    EXPECT_TRUE(std::isnan(MathUtil::signum(kNaN)));
 }
 
 }  // namespace

@@ -17,6 +17,8 @@
 namespace QtRocket
 {
 
+class Unit;
+
 /// A component class and its ancestors, nearest first, by simple class name, e.g. {"BodyTube",
 /// "SymmetricComponent", "BodyComponent", "ExternalComponent", "RocketComponent"}. The per-class
 /// lookups (default colour, line style, material) walk it the way ApplicationPreferences.get()
@@ -83,20 +85,22 @@ using ComponentDefaults = std::span<const std::pair<std::string_view, std::strin
 ///   ported as the ...Name() pairs on the enum constant names; getEnum()/putEnum() as
 ///   getEnumName()/putEnumName().
 /// - getDefaultComponentMaterial(Class, Material.Type)/setDefaultComponentMaterial(Class,
-/// Material):
-///   the string halves are getDefaultComponentMaterialString()/setDefaultComponentMaterialString();
-///   the Material parsing, type check and the three built-in fallbacks (Databases.findMaterial of
-///   "Elastic cord (round 2 mm, 1/16 in)", "Ripstop nylon", "Cardboard") are the material group's.
-/// - addUserMaterial(Material), getUserMaterials(), removeUserMaterial(Material),
-///   setComponentFavorite(ComponentPreset, Type, boolean), getComponentFavorites(Type): abstract in
-///   Java, typed on Material and ComponentPreset.
+///   Material) and the user material store addUserMaterial(Material), getUserMaterials(),
+///   removeUserMaterial(Material) (abstract in Java, implemented by SwingPreferences): typed on
+///   Material, and material/ sits above preferences/, so they are free functions taking a
+///   Preferences in QtRocket/material/MaterialPreferences.h, with the Material parsing, the type
+///   check and the three built-in fallbacks. The string halves of the first pair stay here as
+///   getDefaultComponentMaterialString()/setDefaultComponentMaterialString().
+/// - setComponentFavorite(ComponentPreset, Type, boolean), getComponentFavorites(Type): abstract in
+///   Java, typed on ComponentPreset.
 /// - getUITheme()/setUITheme(Object): the GUI's.
 /// - saveOBJExportOptions(OBJExportOptions)/loadOBJExportOptions(Rocket): typed on the OBJ export
 ///   options and Rocket; the node and key names are in PreferenceKeys (kObj...).
-/// - getMultiLevelWindCsvImport{Altitude,Speed,Direction,Stddev}Unit()/set...Unit(Unit): typed on
-///   Unit and UnitGroup; the keys are in PreferenceKeys.
 /// - getCheckUpdates()'s and getCheckBetaUpdates()'s defaults come from OpenRocket's
 ///   build.properties (both true); here they are the literals.
+///
+/// Ported from SwingPreferences because the CLI needs them as much as the GUI: the default unit
+/// storage, loadDefaultUnits()/storeDefaultUnits().
 class Preferences
 {
 public:
@@ -228,6 +232,19 @@ public:
 
     [[nodiscard]] bool isDisplaySecondaryStability() const;
     void               setDisplaySecondaryStability(bool check);
+
+    /// SwingPreferences.loadDefaultUnits(): for every key of the "units" node (kUnitsNode) that is
+    /// the name of a group in OpenRocket's UnitGroup.UNITS map (unitGroupName(), which also names
+    /// SHAPE_PARAMETER and STABILITY_CALIBERS, two groups the map lacks and this skips), makes the
+    /// unit named by the stored text the default unit of that process-wide group. Other keys, and
+    /// unit names the group lacks, are skipped (Java ignores the IllegalArgumentException). It
+    /// changes the process-wide groups, so it is for the GUI thread only (see UnitGroup). Unlike
+    /// Java's node(), it does not create the node.
+    void loadDefaultUnits() const;
+    /// SwingPreferences.storeDefaultUnits(): stores the name of the default unit of every
+    /// process-wide group of the UNITS map that has at least two units, under the group's name in
+    /// the "units" node, e.g. "LENGTH" -> "cm".
+    void storeDefaultUnits();
 
     /// The stored directory, or nullopt when none is stored (Java: getDefaultDirectory(), a
     /// File; ported with std::filesystem::path).
@@ -484,18 +501,37 @@ public:
     void                      setMultiLevelWindCsvImportAltitudeColumn(std::string_view columnName);
     [[nodiscard]] int         getMultiLevelWindCsvImportAltitudeColumnIndex() const;
     void                      setMultiLevelWindCsvImportAltitudeColumnIndex(int columnIndex);
+    /// The unit of the altitude column: the unit of the process-wide DISTANCE group named by the
+    /// stored text (exactly, as UnitGroup.getUnit(String)), or the group's SI unit, m, when none
+    /// is stored. Deviation: a stored name the group lacks also gives the SI unit, where Java's
+    /// UnitGroup.getUnit throws IllegalArgumentException; the text is user data. The four unit
+    /// getters return a unit of a process-wide group, which lives as long as the program.
+    [[nodiscard]] const Unit& getMultiLevelWindCsvImportAltitudeUnit() const;
+    /// Stores the unit's name (Java: Unit.toString()). The four unit setters store any unit; the
+    /// getters only find the names their group has.
+    void                      setMultiLevelWindCsvImportAltitudeUnit(const Unit& unit);
     [[nodiscard]] std::string getMultiLevelWindCsvImportSpeedColumn() const;
     void                      setMultiLevelWindCsvImportSpeedColumn(std::string_view columnName);
     [[nodiscard]] int         getMultiLevelWindCsvImportSpeedColumnIndex() const;
     void                      setMultiLevelWindCsvImportSpeedColumnIndex(int columnIndex);
+    /// The WINDSPEED group's unit named by the stored text, else its SI unit, m/s.
+    [[nodiscard]] const Unit& getMultiLevelWindCsvImportSpeedUnit() const;
+    void                      setMultiLevelWindCsvImportSpeedUnit(const Unit& unit);
     [[nodiscard]] std::string getMultiLevelWindCsvImportDirectionColumn() const;
     void              setMultiLevelWindCsvImportDirectionColumn(std::string_view columnName);
     [[nodiscard]] int getMultiLevelWindCsvImportDirectionColumnIndex() const;
     void              setMultiLevelWindCsvImportDirectionColumnIndex(int columnIndex);
+    /// The ANGLE group's unit named by the stored text, else degrees: the group's DegreeUnit,
+    /// where Java returns a new DegreeUnit(), which equals it.
+    [[nodiscard]] const Unit& getMultiLevelWindCsvImportDirectionUnit() const;
+    void                      setMultiLevelWindCsvImportDirectionUnit(const Unit& unit);
     [[nodiscard]] std::string getMultiLevelWindCsvImportStddevColumn() const;
     void                      setMultiLevelWindCsvImportStddevColumn(std::string_view columnName);
     [[nodiscard]] int         getMultiLevelWindCsvImportStddevColumnIndex() const;
     void                      setMultiLevelWindCsvImportStddevColumnIndex(int columnIndex);
+    /// The WINDSPEED group's unit named by the stored text, else its SI unit, m/s.
+    [[nodiscard]] const Unit& getMultiLevelWindCsvImportStddevUnit() const;
+    void                      setMultiLevelWindCsvImportStddevUnit(const Unit& unit);
 
     // ------------------------------------------------------------------------ constants
 
