@@ -9,12 +9,15 @@ QtRocket_configure_target(QtRocket_core)
 
 # Subsystems, in dependency order (each may include only the ones before it). unit/ comes before
 # logging/, a deviation from the plan's util -> logging -> unit order: OpenRocket's Warning formats
-# its speeds and angles through UnitGroup, and unit/ needs nothing from logging/.
+# its speeds and angles through UnitGroup, and unit/ needs nothing from logging/. motor/ comes
+# before rocket/, another deviation: motor mounts and motor configurations hold motors, and the
+# motor classes need nothing from the rocket model.
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(logging)
 add_subdirectory(preferences)
 add_subdirectory(material)
+add_subdirectory(motor)
 add_subdirectory(file)
 
 add_subdirectory(cli)

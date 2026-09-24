@@ -4,6 +4,7 @@
 #include <compare>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -194,6 +195,24 @@ TEST(Uuid, OrdersLikeJavaUtilUuid)
     std::vector<Uuid> ids = {two, one, negativeLeast, negativeMost};
     std::ranges::sort(ids);
     EXPECT_EQ(ids, (std::vector<Uuid>{negativeMost, negativeLeast, one, two}));
+}
+
+TEST(Uuid, JavaHashCodeMatchesJavaUtilUuid)
+{
+    // Values from java.util.UUID.hashCode().
+    EXPECT_EQ(Uuid::parse(kSample)->javaHashCode(), 1256478162);
+    EXPECT_EQ(Uuid::parse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")->javaHashCode(), 963287497);
+    // The halves are xor-ed, then the upper and lower 32 bits of that.
+    EXPECT_EQ(Uuid::nil().javaHashCode(), 0);
+    EXPECT_EQ(Uuid(1, 0).javaHashCode(), 1);
+    EXPECT_EQ(Uuid(0, 1).javaHashCode(), 1);
+    EXPECT_EQ(Uuid(1, 1).javaHashCode(), 0);
+    EXPECT_EQ(Uuid(0x100000000ULL, 0).javaHashCode(), 1);
+    EXPECT_EQ(Uuid(0x8000000000000000ULL, 0).javaHashCode(),
+              std::numeric_limits<std::int32_t>::min());
+    EXPECT_EQ(Uuid(0xFFFFFFFFFFFFFFFFULL, 0).javaHashCode(), 0);
+    EXPECT_EQ(Uuid(0xFFFFFFFF00000000ULL, 0).javaHashCode(), -1);
+    static_assert(Uuid(0, 7).javaHashCode() == 7);
 }
 
 TEST(Uuid, HashesConsistentlyWithEquality)

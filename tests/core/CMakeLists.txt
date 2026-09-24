@@ -58,6 +58,16 @@ add_executable(QtRocket_core_tests
     material/MaterialPreferencesTests.cpp
     material/MaterialStorageTests.cpp
     material/MaterialTests.cpp
+    motor/CaseInfoTests.cpp
+    motor/DesignationComparatorTests.cpp
+    motor/IgnitionEventTests.cpp
+    motor/ManufacturerTests.cpp
+    motor/MotorConfigurationIdTests.cpp
+    motor/MotorDigestTests.cpp
+    motor/MotorTests.cpp
+    motor/ThrustCurveMotorSetDatabaseTests.cpp
+    motor/ThrustCurveMotorSetTests.cpp
+    motor/ThrustCurveMotorTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )
