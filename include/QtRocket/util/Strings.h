@@ -163,6 +163,32 @@ std::string_view trim(const String&& text) = delete;
 /// String.length(): the number of UTF-16 code units (a code point above U+FFFF counts twice).
 [[nodiscard]] std::size_t javaLength(std::string_view text) noexcept;
 
+/// The code point at @p position of UTF-8 @p text, read as toCodePoints() reads it (a byte that
+/// does not start a well-formed sequence reads alone as U+FFFD), and moves @p position past it.
+/// @p position must be below text.size().
+[[nodiscard]] char32_t nextCodePoint(std::string_view text, std::size_t& position) noexcept;
+
+/// Character.isLetterOrDigit(codePoint) of JDK 17 (Unicode 13.0): true for the general categories
+/// Lu, Ll, Lt, Lm, Lo and Nd. "ª", "µ" and "º" are letters; "²" (No), "Ⅰ" (Nl), "×" (Sm), the
+/// no-break space and U+FFFD are neither letters nor digits.
+[[nodiscard]] bool javaIsLetterOrDigit(char32_t codePoint) noexcept;
+
+/// Character.getType(codePoint) == NON_SPACING_MARK (general category Mn) of JDK 17, such as the
+/// combining acute accent U+0301.
+[[nodiscard]] bool javaIsNonSpacingMark(char32_t codePoint) noexcept;
+
+/// Whether Java's regex boundary \b matches at @p index (0 to size()) of the text whose code
+/// points are @p codePoints, as JDK 17's Pattern (without UNICODE_CHARACTER_CLASS) decides it for
+/// a matcher over the whole text: exactly one of the code points before and at @p index is a
+/// word character. A word character is '_', a letter or digit (javaIsLetterOrDigit()), or a
+/// non-spacing mark whose nearest preceding code point that is not one is a letter or digit ('_'
+/// is no such base). Java looks for that base over UTF-16 code units, so a code point above
+/// U+FFFF met on the way (the non-spacing mark before @p index itself included) ends the search
+/// without a base. Note that \b is not \w's boundary: "×", "—", "·" and the no-break space end a
+/// word, while "é" and "µ" do not.
+[[nodiscard]] bool javaRegexWordBoundary(std::u32string_view codePoints,
+                                         std::size_t         index) noexcept;
+
 /// Collator.getInstance(Locale.US).compare(a, b) with the strength set to PRIMARY, which
 /// OpenRocket sorts manufacturer names and motor designations with: -1, 0 or 1. Case and accents
 /// are ignored ("AeroTech" equals "aerotech", "été" equals "ete"), expansions apply ("Æ" equals

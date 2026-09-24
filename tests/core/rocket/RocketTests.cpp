@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -11,20 +12,30 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DesignType.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/ReferenceType.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestMotorMount.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -37,12 +48,15 @@ using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::DesignType;
+using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::ModId;
 using QtRocket::ReferenceType;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
+using QtRocket::Test::TestMotorMount;
 
 /// A received event: its type and source.
 struct Received
@@ -60,7 +74,7 @@ protected:
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
         m_nose  = &m_stage->addChild(TestComponent::make(0.1, ComponentKind::NOSE_CONE));
-        m_body  = &m_stage->addChild(TestComponent::make(0.3));
+        m_body  = &m_stage->addChild(TestBodyComponent::make(0.3, 0.0));
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener([this](const ComponentChangeEvent& e) {
             m_events.push_back({.type = e.getType(), .source = e.getSource()});
@@ -136,11 +150,11 @@ TEST(Rocket, IsTheOrigin)
 
 TEST_F(RocketTest, LengthAndBoundingRadius)
 {
-    // HOOK(rocket-config): the selected configuration's length; until then the stage lengths.
+    // The selected configuration's length: the x extent of its active components' bounds.
     EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.4);
     AxialStage& second = m_rocket.addChild(std::make_unique<AxialStage>());
     EXPECT_DOUBLE_EQ(m_rocket.getLength(), 0.4);
-    second.addChild(TestComponent::make(0.2)).setOuterRadius(0.03);
+    second.addChild(TestBodyComponent::make(0.2, 0.03));
     m_body->setOuterRadius(0.02);
     m_nose->setOuterRadius(0.05);  // not a body tube: not counted
     EXPECT_DOUBLE_EQ(m_stage->getLength(), 0.4);
@@ -440,12 +454,34 @@ TEST_F(RocketTest, ChangeListenerIdentityIsItsConnection)
 
 TEST_F(RocketTest, EventsForSpecificConfigurations)
 {
-    // rocket-config will update only these configurations; the event itself is the same.
-    const std::vector<FlightConfigurationId> ids{FlightConfigurationId{}};
+    const FlightConfigurationId a;
+    const FlightConfigurationId b;
+    m_rocket.createFlightConfiguration(a);
+    m_rocket.createFlightConfiguration(b);
+    m_events.clear();
+    const ModId aBefore       = m_rocket.getFlightConfiguration(a).getModId();
+    const ModId bBefore       = m_rocket.getFlightConfiguration(b).getModId();
+    const ModId defaultBefore = m_rocket.getEmptyConfiguration().getModId();
+
+    // Only the configurations given draw new ids; the event itself is the same.
+    const std::vector<FlightConfigurationId> ids{a};
     m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange, ids);
     ASSERT_EQ(m_events.size(), 1U);
     EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kMotorChange);
     EXPECT_EQ(m_events[0].source, &m_rocket);
+    EXPECT_NE(m_rocket.getFlightConfiguration(a).getModId(), aBefore);
+    EXPECT_EQ(m_rocket.getFlightConfiguration(b).getModId(), bBefore);
+    EXPECT_EQ(m_rocket.getEmptyConfiguration().getModId(), defaultBefore);
+
+    // Without ids, every configuration.
+    m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
+    EXPECT_NE(m_rocket.getFlightConfiguration(b).getModId(), bBefore);
+    EXPECT_NE(m_rocket.getEmptyConfiguration().getModId(), defaultBefore);
+
+    // A non-functional change draws none.
+    const ModId bNow = m_rocket.getFlightConfiguration(b).getModId();
+    m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange, b);
+    EXPECT_EQ(m_rocket.getFlightConfiguration(b).getModId(), bNow);
 }
 
 // ---- Metadata ----
@@ -549,13 +585,439 @@ TEST_F(RocketTest, TrackStage)
     EXPECT_EQ(m_rocket.getStageCount(), 1U);
 }
 
-TEST_F(RocketTest, ActivenessHook)
+TEST_F(RocketTest, ActivenessInTheSelectedConfiguration)
 {
-    EXPECT_TRUE(m_rocket.isStageActiveInSelectedConfiguration(-1));
-    EXPECT_TRUE(m_rocket.isStageActiveInSelectedConfiguration(0));
-    EXPECT_FALSE(m_rocket.isStageActiveInSelectedConfiguration(1));
-    EXPECT_TRUE(m_rocket.isComponentActiveInSelectedConfiguration(*m_body));
-    EXPECT_TRUE(m_rocket.isComponentActiveInSelectedConfiguration(m_rocket));
+    const FlightConfiguration& selected = m_rocket.getSelectedConfiguration();
+    EXPECT_TRUE(selected.isStageActive(-1));
+    EXPECT_TRUE(selected.isStageActive(0));
+    EXPECT_FALSE(selected.isStageActive(1));
+    EXPECT_TRUE(selected.isComponentActive(*m_body));
+    EXPECT_TRUE(selected.isComponentActive(m_rocket));
+    EXPECT_TRUE(m_stage->isStageActive());
+}
+
+TEST_F(RocketTest, AnInactiveSiblingIsSkippedByAfter)
+{
+    // setAfter() places a component after the previous sibling active in the selected
+    // configuration: a stage whose flag is cleared no longer takes room.
+    AxialStage& second = m_rocket.addChild(std::make_unique<AxialStage>());
+    second.addChild(TestBodyComponent::make(0.2, 0.01));
+    EXPECT_DOUBLE_EQ(second.getPosition().x, 0.4);
+    m_rocket.getSelectedConfiguration().setStageActive(0, false);
+    m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kAeromassChange);
+    EXPECT_DOUBLE_EQ(second.getPosition().x, 0.0);
+}
+
+// ---- Flight configurations ----
+
+TEST_F(RocketTest, TheDefaultConfigurationIsSelected)
+{
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &m_rocket.getEmptyConfiguration());
+    EXPECT_TRUE(m_rocket.getSelectedConfiguration().getId().isDefaultId());
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration().getRocket(), &m_rocket);
+    EXPECT_EQ(m_rocket.getConfigurationCount(), 0);
+    EXPECT_EQ(&m_rocket.getFlightConfigurations().getDefault(), &m_rocket.getEmptyConfiguration());
+}
+
+TEST_F(RocketTest, CreateFlightConfiguration)
+{
+    const FlightConfigurationId a;
+    FlightConfiguration&        config = m_rocket.createFlightConfiguration(a);
+    EXPECT_EQ(config.getId(), a);
+    EXPECT_EQ(&config.getRocket(), &m_rocket);
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kTreeChange);
+
+    // Again: the same configuration, no event.
+    EXPECT_EQ(&m_rocket.createFlightConfiguration(a), &config);
+    EXPECT_EQ(m_events.size(), 1U);
+
+    // The error id gives the default.
+    EXPECT_EQ(&m_rocket.createFlightConfiguration(FlightConfigurationId::errorId()),
+              &m_rocket.getEmptyConfiguration());
+
+    // Java's null id: a new random one.
+    FlightConfiguration& fresh = m_rocket.createFlightConfiguration();
+    EXPECT_NE(fresh.getId(), a);
+    EXPECT_EQ(m_rocket.getIds(), (std::vector<FlightConfigurationId>{a, fresh.getId()}));
+    EXPECT_EQ(m_rocket.getConfigurationCount(), 2);
+    EXPECT_EQ(m_rocket.getFlightConfigurationId(1), fresh.getId());
+    EXPECT_THROW(static_cast<void>(m_rocket.getFlightConfigurationId(2)), BugError);
+    EXPECT_THROW(static_cast<void>(m_rocket.getFlightConfigurationId(-1)), BugError);
+    EXPECT_EQ(&m_rocket.getFlightConfigurationByIndex(0), &config);
+    EXPECT_EQ(&m_rocket.getFlightConfigurationByIndex(0, true), &m_rocket.getEmptyConfiguration());
+    EXPECT_EQ(&m_rocket.getFlightConfigurationByIndex(1, true), &config);
+
+    EXPECT_TRUE(m_rocket.containsFlightConfigurationId(a));
+    EXPECT_TRUE(m_rocket.containsFlightConfigurationId(FlightConfigurationId::defaultValueId()));
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(FlightConfigurationId::errorId()));
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(FlightConfigurationId{}));
+    EXPECT_EQ(&m_rocket.getFlightConfiguration(FlightConfigurationId{}),
+              &m_rocket.getEmptyConfiguration())
+        << "an unknown id gives the default";
+}
+
+TEST_F(RocketTest, SelectConfiguration)
+{
+    const FlightConfigurationId a;
+    FlightConfiguration&        config = m_rocket.createFlightConfiguration(a);
+    m_events.clear();
+
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &config);
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kNonFunctionalChange);
+
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(m_events.size(), 1U) << "already selected: no event";
+
+    // An unknown id selects the default.
+    m_rocket.setSelectedConfiguration(FlightConfigurationId{});
+    EXPECT_TRUE(m_rocket.getSelectedConfiguration().getId().isDefaultId());
+}
+
+TEST_F(RocketTest, RemoveFlightConfiguration)
+{
+    TestMotorMount&             mount = m_stage->addChild(TestMotorMount::make(0.1, 0.01));
+    const FlightConfigurationId a;
+    m_rocket.createFlightConfiguration(a);
+    mount.addMotor(a, QtRocket::Test::motorD21());
+    m_stage->getSeparationConfigurations().set(a, QtRocket::StageSeparationConfiguration{});
+    m_rocket.setSelectedConfiguration(a);
+    m_events.clear();
+
+    m_rocket.removeFlightConfiguration(a);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(a));
+    EXPECT_TRUE(m_rocket.getSelectedConfiguration().getId().isDefaultId()) << "the default again";
+    EXPECT_FALSE(mount.hasMotor()) << "the components forget the id";
+    EXPECT_FALSE(m_stage->getSeparationConfigurations().containsId(a));
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kNonFunctionalChange);
+
+    // The error id is ignored; the default cannot be removed.
+    m_rocket.removeFlightConfiguration(FlightConfigurationId::errorId());
+    EXPECT_EQ(m_events.size(), 1U);
+    m_rocket.removeFlightConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_TRUE(m_rocket.containsFlightConfigurationId(FlightConfigurationId::defaultValueId()));
+}
+
+TEST_F(RocketTest, SetFlightConfiguration)
+{
+    const FlightConfigurationId a;
+    m_rocket.setFlightConfiguration(a, FlightConfiguration{m_rocket, a});
+    EXPECT_TRUE(m_rocket.containsFlightConfigurationId(a));
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kNonFunctionalChange);
+
+    // The mapping exists: nothing happens.
+    const FlightConfiguration* stored = &m_rocket.getFlightConfiguration(a);
+    m_rocket.setFlightConfiguration(a, FlightConfiguration{m_rocket, a});
+    EXPECT_EQ(&m_rocket.getFlightConfiguration(a), stored);
+    EXPECT_EQ(m_events.size(), 1U);
+
+    // The error id is refused.
+    m_rocket.setFlightConfiguration(FlightConfigurationId::errorId(),
+                                    FlightConfiguration{m_rocket, FlightConfigurationId{}});
+    EXPECT_EQ(m_events.size(), 1U);
+
+    // Java's null configuration removes it.
+    m_rocket.setFlightConfiguration(a, std::nullopt);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(a));
+    EXPECT_EQ(m_events.size(), 2U);
+}
+
+TEST_F(RocketTest, SetFlightConfigurationRefusesAMismatchedConfiguration)
+{
+    // Stored under another id, the configuration would be selected and found by the wrong key.
+    const FlightConfigurationId key;
+    EXPECT_THROW(m_rocket.setFlightConfiguration(
+                     key, FlightConfiguration{m_rocket, FlightConfigurationId{}}),
+                 BugError);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(key));
+
+    // A configuration of another rocket would refer to that rocket's components.
+    Rocket other;
+    EXPECT_THROW(m_rocket.setFlightConfiguration(key, FlightConfiguration{other, key}), BugError);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(key));
+    EXPECT_TRUE(m_events.empty());
+}
+
+TEST_F(RocketTest, ASelectionDroppedFromTheSetIsOrphaned)
+{
+    const FlightConfigurationId a;
+    m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    m_events.clear();
+
+    // Java keeps the dropped object selected; the default stands in for it here.
+    m_rocket.setFlightConfiguration(a, std::nullopt);
+    EXPECT_FALSE(m_rocket.containsFlightConfigurationId(a));
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &m_rocket.getEmptyConfiguration());
+    EXPECT_EQ(m_events.size(), 1U);
+
+    // Made again, the configuration is not the selected one, and selecting its id does nothing,
+    // since the dropped object has that id.
+    FlightConfiguration& again = m_rocket.createFlightConfiguration(a);
+    EXPECT_NE(&m_rocket.getSelectedConfiguration(), &again);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_TRUE(m_events.empty());
+    EXPECT_NE(&m_rocket.getSelectedConfiguration(), &again);
+
+    // Java's equals() compares ids: the dump and a copy see the new configuration as selected.
+    const QtRocket::InMemoryPreferences prefs;
+    EXPECT_NE(m_rocket.toDebugConfigs(prefs).find("=>" + a.toShortKey()), std::string::npos);
+    const std::unique_ptr<Rocket> copy = m_rocket.copyRocketWithOriginalId();
+    EXPECT_EQ(&copy->getSelectedConfiguration(), &copy->getFlightConfiguration(a));
+
+    // Selecting the default moves away from the dropped object: an event.
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &m_rocket.getEmptyConfiguration());
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(m_events.size(), 2U);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &again);
+}
+
+TEST_F(RocketTest, RemovingAnOrphanedSelectionSelectsTheDefault)
+{
+    const FlightConfigurationId a;
+    m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.setFlightConfiguration(a, std::nullopt);
+
+    // Java compares the selected object's id with the removed one.
+    m_rocket.removeFlightConfiguration(a);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_TRUE(m_events.empty()) << "the default is selected already";
+    FlightConfiguration& again = m_rocket.createFlightConfiguration(a);
+    m_rocket.setSelectedConfiguration(a);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &again);
+}
+
+TEST_F(RocketTest, DroppingAnotherConfigurationKeepsTheSelection)
+{
+    const FlightConfigurationId a;
+    const FlightConfigurationId b;
+    FlightConfiguration&        selected = m_rocket.createFlightConfiguration(a);
+    m_rocket.createFlightConfiguration(b);
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.setFlightConfiguration(b, std::nullopt);
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &selected);
+
+    // The default cannot be dropped, so it cannot be orphaned.
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    m_rocket.setFlightConfiguration(FlightConfigurationId::defaultValueId(), std::nullopt);
+    m_events.clear();
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    EXPECT_TRUE(m_events.empty());
+}
+
+TEST_F(RocketTest, TheConfigurationSetDumpsTheNames)
+{
+    // FlightConfigurableParameterSet.toDebug() on the rocket's set: the class name and each
+    // configuration's toString(), its name.
+    const QtRocket::InMemoryPreferences prefs;
+    const FlightConfigurationId         a;
+    m_rocket.createFlightConfiguration(a).setName("Alpha");
+    const FlightConfigurationId b;
+    m_rocket.createFlightConfiguration(b);
+    EXPECT_EQ(m_rocket.getFlightConfigurations().toDebug(prefs),
+              "====== Dumping ConfigurationSet<FlightConfiguration> (2 configurations)\n"
+              "    [" +
+                  std::format("{:<12}", a.toShortKey()) + "]: Alpha\n    [" +
+                  std::format("{:<12}", b.toShortKey()) + "]: [No motors]\n");
+}
+
+TEST_F(RocketTest, ToDebugConfigs)
+{
+    const QtRocket::InMemoryPreferences prefs;
+    const FlightConfigurationId         a;
+    m_rocket.createFlightConfiguration(a).setName("Alpha");
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.setName("Test");
+    EXPECT_EQ(m_rocket.toDebugConfigs(prefs),
+              "====== Dumping 1 Configurations from rocket: Test ======\n"
+              "    [  DefaultKey]: [{motors}]\n"
+              "    [" +
+                  std::format("{:>12}", "=>" + a.toShortKey()) + "]: Alpha\n");
+}
+
+/// RocketTest.testCopyIndependence: the copy's configurations are new objects of the copy with
+/// the same ids and names.
+TEST(RocketCopy, CopyIndependence)
+{
+    const QtRocket::Test::TestEstesAlphaIII rkt1;
+    const QtRocket::InMemoryPreferences     prefs;
+    FlightConfiguration                     config1{*rkt1.rocket, FlightConfigurationId{}};
+    config1.setName("Test config 1");
+    const FlightConfigurationId id1       = config1.getId();
+    const int                   instance1 = config1.getConfigurationInstanceId();
+    rkt1.rocket->setFlightConfiguration(id1, std::move(config1));
+    rkt1.rocket->setSelectedConfiguration(id1);
+    FlightConfiguration         config2{*rkt1.rocket, FlightConfigurationId{}};
+    const FlightConfigurationId id2       = config2.getId();
+    const int                   instance2 = config2.getConfigurationInstanceId();
+    rkt1.rocket->setFlightConfiguration(id2, std::move(config2));
+
+    const std::unique_ptr<Rocket> rkt2 = rkt1.rocket->copyRocketWithOriginalId();
+
+    const FlightConfiguration& config4 = rkt2->getSelectedConfiguration();
+    EXPECT_EQ(id1.key(), config4.getId().key()) << "fcids should match";
+    EXPECT_EQ(rkt1.rocket->getFlightConfiguration(id1).getName(prefs), config4.getName(prefs));
+    EXPECT_EQ("Test config 1", config4.getName(prefs));
+    EXPECT_NE(instance1, config4.getConfigurationInstanceId());
+    EXPECT_EQ(&config4.getRocket(), rkt2.get());
+
+    const FlightConfiguration& config5 = rkt2->getFlightConfiguration(id2);
+    EXPECT_EQ(id2, config5.getId());
+    EXPECT_NE(instance2, config5.getConfigurationInstanceId());
+    EXPECT_EQ(&config5.getRocket(), rkt2.get());
+}
+
+/// The positions of RocketTest.testEstesAlphaIII on the test double, and the bounds' x extent.
+/// Deferred until the concrete components exist: the launch lug's radial offset (y = -0.015),
+/// the y and z extents of the bounds (they need the real fin shapes), and the centering rings'
+/// return from one instance to two (the double does not keep the instance separation).
+TEST(RocketEstesAlphaIII, ComponentLocations)
+{
+    const QtRocket::Test::TestEstesAlphaIII rocket;
+    const RocketComponent&                  stage = rocket.rocket->getChild(0);
+
+    const RocketComponent& nose = stage.getChild(0);
+    EXPECT_EQ(nose.getComponentLocations().at(0), (Coordinate{0, 0, 0})) << nose.getName();
+    const RocketComponent& body = stage.getChild(1);
+    EXPECT_EQ(body.getComponentLocations().at(0), (Coordinate{0.07, 0, 0})) << body.getName();
+
+    const RocketComponent& fins = body.getChild(0);
+    EXPECT_EQ(fins.getInstanceCount(), 3) << fins.getName();
+    EXPECT_EQ(fins.getComponentLocations().at(0), (Coordinate{0.22, 0.012, 0})) << "fin #1";
+
+    const RocketComponent& lugs = body.getChild(1);
+    EXPECT_EQ(lugs.getInstanceCount(), 1) << lugs.getName();
+    EXPECT_NEAR(lugs.getComponentLocations().at(0).x, 0.181, 1e-8) << lugs.getName();
+
+    const RocketComponent& mmt = body.getChild(2);
+    EXPECT_EQ(mmt.getComponentLocations().at(0), (Coordinate{0.203, 0, 0})) << mmt.getName();
+    const RocketComponent& block = mmt.getChild(0);
+    EXPECT_EQ(block.getComponentLocations().at(0), (Coordinate{0.203, 0, 0})) << block.getName();
+
+    const RocketComponent& chute = body.getChild(3);
+    EXPECT_EQ(chute.getComponentLocations().at(0), (Coordinate{0.098, 0, 0})) << chute.getName();
+
+    TestComponent& ring = *rocket.rings;
+    EXPECT_EQ(ring.getInstanceCount(), 2) << ring.getName();
+    const std::vector<Coordinate> ringLocations = ring.getComponentLocations();
+    EXPECT_EQ(ringLocations.at(0), (Coordinate{0.21, 0, 0})) << "first instance";
+    EXPECT_EQ(ringLocations.at(1), (Coordinate{0.245, 0, 0})) << "second instance";
+    // A single instance follows a different code path.
+    ring.setInstanceCount(1);
+    const Coordinate single = ring.getComponentLocations().at(0);
+    EXPECT_NEAR(single.x, 0.21, 1e-8);
+    EXPECT_NEAR(single.y, 0.0, 1e-8);
+    EXPECT_NEAR(single.z, 0.0, 1e-8);
+    EXPECT_EQ(single, (Coordinate{0.21, 0, 0}));
+
+    const QtRocket::BoundingBox bounds = rocket.rocket->getBoundingBox();
+    EXPECT_NEAR(bounds.min().x, 0.0, 1e-8);
+    EXPECT_NEAR(bounds.max().x, 0.27, 1e-8);
+}
+
+/// The positions of RocketTest.testBeta on the test double, and the bounds' x extent (the y and z
+/// extents need the real fin shapes).
+TEST(RocketBeta, ComponentLocations)
+{
+    const QtRocket::Test::TestBeta beta;
+    const RocketComponent&         body = *beta.boosterBody;
+    EXPECT_EQ(body.getComponentLocations().at(0), (Coordinate{0.27, 0, 0}));
+    EXPECT_EQ(body.getChild(0).getComponentLocations().at(0), (Coordinate{0.255, 0, 0}))
+        << "the coupler";
+    EXPECT_EQ(body.getChild(1).getInstanceCount(), 3);
+    EXPECT_EQ(body.getChild(1).getComponentLocations().at(0), (Coordinate{0.28, 0.012, 0}))
+        << "the fins";
+    EXPECT_EQ(body.getChild(2).getComponentLocations().at(0), (Coordinate{0.285, 0, 0}))
+        << "the motor mount";
+
+    const QtRocket::BoundingBox bounds = beta.rocket->getBoundingBox();
+    EXPECT_NEAR(bounds.min().x, 0.0, 1e-8);
+    EXPECT_NEAR(bounds.max().x, 0.335, 1e-8);
+}
+
+/// Whether @p c sits at @p offset in its parent and at @p location in the rocket (x only).
+::testing::AssertionResult isAt(const RocketComponent& c, double offset, double location)
+{
+    if (std::abs(offset - c.getPosition().x) > 1e-8)
+    {
+        return ::testing::AssertionFailure() << c.getName() << " offset " << c.getPosition().x;
+    }
+    const double x = c.getComponentLocations().at(0).x;
+    if (std::abs(location - x) > 1e-8)
+    {
+        return ::testing::AssertionFailure() << c.getName() << " location " << x;
+    }
+    return ::testing::AssertionSuccess();
+}
+
+/// The positions of RocketTest.testFalcon9HComponentLocations on the test double, and the
+/// bounds' x extent (the y and z extents need the real fin shapes).
+TEST(RocketFalcon9Heavy, PayloadStageLocations)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    EXPECT_TRUE(isAt(*f9h.payloadNose, 0.0, 0.0));
+    EXPECT_TRUE(isAt(*f9h.payloadBody, 0.118, 0.118));
+    EXPECT_TRUE(isAt(*f9h.payloadTransition, 0.250, 0.250));
+    EXPECT_TRUE(isAt(*f9h.upperStageBody, 0.264, 0.264));
+    EXPECT_TRUE(isAt(*f9h.parachute, 0.0775, 0.3415));
+    EXPECT_TRUE(isAt(*f9h.shockCord, 0.155, 0.419));
+    EXPECT_TRUE(isAt(*f9h.interstage, 0.444, 0.444));
+}
+
+TEST(RocketFalcon9Heavy, CoreAndBoosterLocations)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    EXPECT_TRUE(isAt(*f9h.coreBody, 0.0, 0.564));
+
+    const QtRocket::ParallelStage& boosters = *f9h.boosterStage;
+    EXPECT_EQ(QtRocket::RadiusMethod::SURFACE, boosters.getRadiusMethod());
+    EXPECT_EQ(QtRocket::AngleMethod::RELATIVE, boosters.getAngleMethod());
+    EXPECT_NEAR(-0.08, boosters.getPosition().x, 1e-8);
+    EXPECT_NEAR(0.0, boosters.getPosition().y, 1e-8);
+    const std::vector<Coordinate> offsets = boosters.getInstanceOffsets();
+    EXPECT_NEAR(0.0, offsets.at(0).x, 1e-8);
+    EXPECT_NEAR(0.077, offsets.at(0).y, 1e-8);
+    EXPECT_NEAR(-0.077, offsets.at(1).y, 1e-8);
+    EXPECT_NEAR(0.0, offsets.at(0).z, 1e-8);
+    const std::vector<Coordinate> locations = boosters.getComponentLocations();
+    EXPECT_NEAR(0.484, locations.at(0).x, 1e-8);
+    EXPECT_NEAR(0.077, locations.at(0).y, 1e-8);
+    EXPECT_NEAR(-0.077, locations.at(1).y, 1e-8);
+
+    EXPECT_TRUE(isAt(*f9h.boosterNose, 0.0, 0.484));
+    EXPECT_TRUE(isAt(*f9h.boosterBody, 0.08, 0.564));
+    EXPECT_TRUE(isAt(*f9h.boosterMotorTubes, 0.65, 1.214));
+    EXPECT_TRUE(isAt(*f9h.boosterFins, 0.480, 1.044));
+
+    const std::string           tree   = f9h.rocket->toDebugTree();
+    const QtRocket::BoundingBox bounds = f9h.rocket->getBoundingBox();
+    EXPECT_NEAR(0.0, bounds.min().x, 1e-8) << tree;
+    EXPECT_NEAR(1.364, bounds.max().x, 1e-8) << tree;
+}
+
+TEST(RocketFalcon9Heavy, DebugTreeShowsTheMountedMotors)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    const std::string                      tree = f9h.rocket->toDebugTree();
+    EXPECT_NE(tree.find("  Mounted: M1350"), std::string::npos) << tree;
+    EXPECT_NE(tree.find("  Mounted: G77"), std::string::npos) << tree;
+    EXPECT_NE(tree.find("Thrust: "), std::string::npos) << tree;
+
+    // Another configuration has no motors.
+    f9h.rocket->setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    const std::string empty = f9h.rocket->toDebugTree();
+    EXPECT_NE(empty.find("[X] This Instance doesn't have any motors for the active configuration."),
+              std::string::npos)
+        << empty;
 }
 
 // ---- Copies and undo ----
@@ -604,6 +1066,66 @@ TEST_F(RocketTest, CopyWithOriginalIdRebuildsTheStageMap)
     ASSERT_NE(freshRocket.getStage(0), nullptr);
     EXPECT_NE(freshRocket.getStage(0)->getId(), m_stage->getId());
     EXPECT_EQ(freshRocket.getStage(0)->getParent(), &freshRocket);
+}
+
+TEST_F(RocketTest, CopyRebuildsTheConfigurationsForTheCopy)
+{
+    const QtRocket::InMemoryPreferences prefs;
+    const FlightConfigurationId         a;
+    FlightConfiguration&                config = m_rocket.createFlightConfiguration(a);
+    config.setName("Alpha");
+    AxialStage& second = m_rocket.addChild(std::make_unique<AxialStage>());
+    second.addChild(TestBodyComponent::make(0.1, 0.01));
+    config.setStageActive(1, false);
+    m_rocket.setSelectedConfiguration(a);
+    m_rocket.getEmptyConfiguration().setStageActive(0, false);
+
+    const std::unique_ptr<Rocket> copy = m_rocket.copyRocketWithOriginalId();
+    EXPECT_EQ(copy->getIds(), m_rocket.getIds());
+    const FlightConfiguration& copied = copy->getFlightConfiguration(a);
+    EXPECT_NE(&copied, &config);
+    EXPECT_EQ(&copied.getRocket(), copy.get());
+    EXPECT_EQ(copied.getNameRaw(prefs), "Alpha");
+    EXPECT_TRUE(copied.isStageActive(0));
+    EXPECT_FALSE(copied.isStageActive(1));
+    EXPECT_EQ(&copy->getSelectedConfiguration(), &copied) << "the selected id is kept";
+    // The default is a new one (Java: new FlightConfiguration(copy)): its flags are not copied.
+    EXPECT_TRUE(copy->getEmptyConfiguration().isStageActive(0));
+    EXPECT_EQ(&copy->getEmptyConfiguration().getRocket(), copy.get());
+    // The instances are the copy's components.
+    EXPECT_TRUE(copied.getActiveInstances().containsKey(*copy->getStage(0)));
+    EXPECT_FALSE(copied.getActiveInstances().containsKey(*m_stage));
+    EXPECT_DOUBLE_EQ(copy->getLength(), 0.4);
+}
+
+TEST_F(RocketTest, LoadFromRebuildsTheConfigurations)
+{
+    const QtRocket::InMemoryPreferences prefs;
+    const FlightConfigurationId         a;
+    m_rocket.createFlightConfiguration(a).setName("Alpha");
+    m_rocket.getFlightConfiguration(a).setStageActive(0, false);
+    m_rocket.setSelectedConfiguration(a);
+    const std::unique_ptr<Rocket> snapshot = m_rocket.copyRocketWithOriginalId();
+
+    // Changes after the snapshot.
+    m_rocket.removeFlightConfiguration(a);
+    const FlightConfigurationId b;
+    m_rocket.createFlightConfiguration(b);
+    m_rocket.getEmptyConfiguration().setStageActive(0, false);
+
+    m_rocket.loadFrom(*snapshot);
+    EXPECT_EQ(m_rocket.getIds(), std::vector<FlightConfigurationId>{a});
+    const FlightConfiguration& restored = m_rocket.getFlightConfiguration(a);
+    EXPECT_EQ(&restored.getRocket(), &m_rocket);
+    EXPECT_EQ(restored.getNameRaw(prefs), "Alpha");
+    EXPECT_FALSE(restored.isStageActive(0));
+    EXPECT_EQ(&m_rocket.getSelectedConfiguration(), &restored);
+    // As in Java, the default keeps its own activeness.
+    EXPECT_FALSE(m_rocket.getEmptyConfiguration().isStageActive(0));
+    // The configurations refer to the loaded components only (the stage is inactive in both).
+    EXPECT_EQ(restored.getActiveInstances().keys(), std::vector<RocketComponent*>{&m_rocket});
+    EXPECT_EQ(m_rocket.getEmptyConfiguration().getActiveInstances().keys(),
+              std::vector<RocketComponent*>{&m_rocket});
 }
 
 /// A RocketTest whose rocket is changed after a snapshot: the name and mass of the body, the

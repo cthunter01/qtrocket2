@@ -13,16 +13,15 @@
 namespace QtRocket
 {
 
+class FlightConfiguration;
+
 /// A stage on the rocket's centerline (OpenRocket's AxialStage), and the base of the booster
 /// sets (ParallelStage). A stage holds body components, is always positioned AFTER the previous
 /// stage, has a stage number kept by the Rocket (0 for the topmost) and a separation
 /// configuration per flight configuration.
 ///
-/// Deferred to rocket-config (they need FlightConfiguration):
-/// - isStageActive(FlightConfiguration) and isLaunchStage(FlightConfiguration) (the bottom core
-///   stage of the configuration, Rocket.getBottomCoreStage()).
-/// - getSeparationConfiguration(): the separation of the selected configuration, which it makes
-///   distinct from the default by storing a copy under the selected id when needed.
+/// Deviation: isLaunchStage() is false when no core stage is active in the configuration (Java:
+/// NullPointerException).
 ///
 /// Not ported: getRelativeToStage(), unused in OpenRocket, whose Java version decrements the
 /// stored stage number as a side effect; the multi-edit config listener overrides
@@ -66,10 +65,23 @@ public:
     void copyFlightConfiguration(const FlightConfigurationId& oldConfigId,
                                  const FlightConfigurationId& newConfigId) override;
 
+    /// The separation of the rocket's selected configuration, for editing: when the selected
+    /// configuration (other than the default one) uses the default separation, a copy of it is
+    /// stored for the configuration first, so that editing it leaves the default alone.
+    /// @throws BugError when the stage is not in a Rocket.
+    [[nodiscard]] StageSeparationConfiguration& getSeparationConfiguration();
+
     /// Whether this stage is active in the rocket's selected configuration.
-    /// HOOK(rocket-config): through Rocket::isStageActiveInSelectedConfiguration().
     /// @throws BugError when the stage is not in a Rocket.
     [[nodiscard]] bool isStageActive() const;
+
+    /// Whether this stage is active in @p config.
+    [[nodiscard]] bool isStageActive(const FlightConfiguration& config) const;
+
+    /// Whether this stage is the launch stage of @p config: the bottom active core stage
+    /// (Rocket::getBottomCoreStage()); a booster set overrides it.
+    /// @throws BugError when the stage is not in a Rocket.
+    [[nodiscard]] virtual bool isLaunchStage(const FlightConfiguration& config) const;
 
     /// The stage number (Java: the field the Rocket assigns).
     [[nodiscard]] int getStageNumber() const override;

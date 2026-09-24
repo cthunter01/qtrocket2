@@ -10,6 +10,7 @@
 
 #include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -54,9 +55,34 @@ void AxialStage::copyFlightConfiguration(const FlightConfigurationId& oldConfigI
     m_separations.copyFlightConfiguration(oldConfigId, newConfigId);
 }
 
+StageSeparationConfiguration& AxialStage::getSeparationConfiguration()
+{
+    const FlightConfigurationId   selectedId = getRocket().getSelectedConfiguration().getId();
+    StageSeparationConfiguration* sepConfig  = &m_separations.get(selectedId);
+    // So that the configuration is distinct and the default is not modified.
+    if (sepConfig == &m_separations.getDefault() && !selectedId.isDefaultId())
+    {
+        m_separations.set(selectedId, sepConfig->copy(selectedId));
+        sepConfig = &m_separations.get(selectedId);
+    }
+    return *sepConfig;
+}
+
 bool AxialStage::isStageActive() const
 {
-    return getRocket().isStageActiveInSelectedConfiguration(getStageNumber());
+    return getRocket().getSelectedConfiguration().isStageActive(getStageNumber());
+}
+
+bool AxialStage::isStageActive(const FlightConfiguration& config) const
+{
+    return config.isStageActive(getStageNumber());
+}
+
+bool AxialStage::isLaunchStage(const FlightConfiguration& config) const
+{
+    const AxialStage* bottom = getRocket().getBottomCoreStage(config);
+    // Java: NullPointerException when no core stage is active.
+    return bottom != nullptr && bottom->equals(*this);
 }
 
 int AxialStage::getStageNumber() const

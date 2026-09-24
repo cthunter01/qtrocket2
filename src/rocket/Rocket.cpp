@@ -1,10 +1,16 @@
 #include "QtRocket/rocket/Rocket.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <format>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -15,11 +21,17 @@
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DesignType.h"
+#include "QtRocket/rocket/FlightConfigurableComponent.h"
+#include "QtRocket/rocket/FlightConfigurableParameterSet.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/ReferenceType.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/AxialPositionable.h"
+#include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
@@ -34,10 +46,11 @@ Rocket::Rocket()
     m_massModId(m_modId),
     m_aeroModId(m_modId),
     m_treeModId(m_modId),
-    m_functionalModId(m_modId)
+    m_functionalModId(m_modId),
+    // The default configuration, the default of the set and the selected one; it reads the
+    // (empty) stage map and tree, which are initialised before it.
+    m_configSet(FlightConfiguration{*this, FlightConfigurationId::defaultValueId()})
 {
-    // HOOK(rocket-config): Java creates the default FlightConfiguration here, the default of the
-    // configuration set and the selected configuration.
 }
 
 Rocket::Rocket(const Rocket& other, CopyKey /*key*/)
@@ -57,10 +70,12 @@ Rocket::Rocket(const Rocket& other, CopyKey /*key*/)
     m_revision(other.m_revision),
     m_designType(other.m_designType),
     m_kitName(other.m_kitName),
-    m_perfectFinish(other.m_perfectFinish)
+    m_perfectFinish(other.m_perfectFinish),
+    m_configSet(FlightConfiguration{*this, FlightConfigurationId::defaultValueId()}),
+    m_selectedConfigurationId(other.m_selectedConfigurationId)
 {
-    // Not copied: the listeners, the freeze state and the stage map (rebuilt by
-    // copyWithOriginalId() once the children exist).
+    // Not copied: the listeners, the freeze state, the stage map and the configurations (rebuilt
+    // by copyWithOriginalId() once the children exist).
 }
 
 Rocket::~Rocket() = default;
@@ -211,21 +226,29 @@ void Rocket::forgetStageEntries(const AxialStage& stage) noexcept
     std::erase_if(m_stageMap, [&stage](const auto& entry) { return entry.second == &stage; });
 }
 
-bool Rocket::isStageActiveInSelectedConfiguration(int stageNumber) const noexcept
+AxialStage* Rocket::getTopmostStage(const FlightConfiguration& config) const
 {
-    if (-1 == stageNumber)
+    for (AxialStage* stage : getStageList())
     {
-        return true;
+        if (config.isStageActive(stage->getStageNumber()))
+        {
+            return stage;
+        }
     }
-    // HOOK(rocket-config): FlightConfiguration also requires the stage's flag in the
-    // configuration to be set; stages with no children are inactive.
-    const AxialStage* stage = getStage(stageNumber);
-    return stage != nullptr && stage->getChildCount() > 0;
+    return nullptr;
 }
 
-bool Rocket::isComponentActiveInSelectedConfiguration(const RocketComponent& component) const
+AxialStage* Rocket::getBottomCoreStage(const FlightConfiguration& config) const
 {
-    return isStageActiveInSelectedConfiguration(component.getStageNumber());
+    for (const auto& child : std::views::reverse(m_children))
+    {
+        auto* stage = dynamic_cast<AxialStage*>(child.get());
+        if (stage != nullptr && config.isStageActive(stage->getStageNumber()))
+        {
+            return stage;
+        }
+    }
+    return nullptr;
 }
 
 void Rocket::updateStageNumbers()
@@ -275,16 +298,12 @@ void Rocket::setAxialOffset(double /*requestedOffset*/)
 
 double Rocket::getLength() const
 {
-    // HOOK(rocket-config): getSelectedConfiguration().getLength().
-    double length = 0;
-    for (const auto& stage : m_children)
-    {
-        if (stage->isAfter())
-        {
-            length += stage->getLength();
-        }
-    }
-    return length;
+    return getSelectedConfiguration().getLength();
+}
+
+BoundingBox Rocket::getBoundingBox() const
+{
+    return getSelectedConfiguration().getBoundingBoxAerodynamic();
 }
 
 double Rocket::getBoundingRadius() const
@@ -300,6 +319,221 @@ double Rocket::getBoundingRadius() const
     return bounding;
 }
 
+// ================================================================== flight configurations
+
+FlightConfiguration& Rocket::getSelectedConfiguration()
+{
+    return m_selectionOrphaned ? m_configSet.getDefault()
+                               : m_configSet.get(m_selectedConfigurationId);
+}
+
+const FlightConfiguration& Rocket::getSelectedConfiguration() const
+{
+    return m_selectionOrphaned ? m_configSet.getDefault()
+                               : m_configSet.get(m_selectedConfigurationId);
+}
+
+void Rocket::setSelectedConfiguration(const FlightConfigurationId& selectId)
+{
+    // Java compares with the selected object's id, also when that object has left the set.
+    if (selectId == m_selectedConfigurationId)
+    {
+        // The configuration is already selected: no event.
+        return;
+    }
+    m_selectedConfigurationId = m_configSet.get(selectId).getId();
+    m_selectionOrphaned       = false;
+    fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+int Rocket::getConfigurationCount() const noexcept
+{
+    return static_cast<int>(m_configSet.size());
+}
+
+int Rocket::getFlightConfigurationCount() const noexcept
+{
+    return static_cast<int>(m_configSet.size());
+}
+
+std::vector<FlightConfigurationId> Rocket::getIds() const
+{
+    return m_configSet.getIds();
+}
+
+FlightConfigurationId Rocket::getFlightConfigurationId(int configIndex) const
+{
+    const std::vector<FlightConfigurationId> idList = m_configSet.getIds();
+    if (configIndex < 0 || std::cmp_greater_equal(configIndex, idList.size()))
+    {
+        bug(std::format("flight configuration index {} out of range ({} configurations)",
+                        configIndex, idList.size()));
+    }
+    return idList[static_cast<std::size_t>(configIndex)];
+}
+
+void Rocket::removeFlightConfiguration(const FlightConfigurationId& fcid)
+{
+    if (fcid.hasError())
+    {
+        return;
+    }
+    if (m_selectedConfigurationId == fcid)
+    {
+        m_selectedConfigurationId = FlightConfigurationId::defaultValueId();
+        m_selectionOrphaned       = false;
+    }
+
+    // Every component configuration tied to this id goes too.
+    forEach([&fcid](RocketComponent& comp) {
+        if (auto* configurable = dynamic_cast<FlightConfigurableComponent*>(&comp))
+        {
+            configurable->reset(fcid);
+        }
+    });
+
+    m_configSet.reset(fcid);
+    fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+bool Rocket::containsFlightConfigurationId(const FlightConfigurationId& id) const
+{
+    if (id.hasError())
+    {
+        return false;
+    }
+    return m_configSet.containsId(id);
+}
+
+bool Rocket::hasMotors(const FlightConfigurationId& fcid) const
+{
+    if (fcid.hasError())
+    {
+        return false;
+    }
+    bool found = false;
+    forEach([&fcid, &found](const RocketComponent& c) {
+        const auto* mount = dynamic_cast<const MotorMount*>(&c);
+        if (mount != nullptr && mount->isMotorMount() &&
+            mount->getMotorConfig(fcid).getMotor() != nullptr)
+        {
+            found = true;
+        }
+    });
+    return found;
+}
+
+FlightConfiguration& Rocket::createFlightConfiguration(const FlightConfigurationId& fcid)
+{
+    if (fcid.hasError())
+    {
+        return m_configSet.getDefault();
+    }
+    if (m_configSet.containsId(fcid))
+    {
+        return m_configSet.get(fcid);
+    }
+    m_configSet.set(fcid, FlightConfiguration{*this, fcid});
+    fireComponentChangeEvent(ComponentChangeEvent::kTreeChange);
+    return m_configSet.get(fcid);
+}
+
+FlightConfiguration& Rocket::createFlightConfiguration()
+{
+    // Java's null id: a configuration with a fresh random id.
+    const FlightConfigurationId fcid;
+    m_configSet.set(fcid, FlightConfiguration{*this, fcid});
+    fireComponentChangeEvent(ComponentChangeEvent::kTreeChange);
+    return m_configSet.get(fcid);
+}
+
+FlightConfiguration& Rocket::getFlightConfiguration(const FlightConfigurationId& fcid)
+{
+    return m_configSet.get(fcid);
+}
+
+const FlightConfiguration& Rocket::getFlightConfiguration(const FlightConfigurationId& fcid) const
+{
+    return m_configSet.get(fcid);
+}
+
+FlightConfiguration& Rocket::getFlightConfigurationByIndex(int configIndex, bool allowDefault)
+{
+    if (allowDefault)
+    {
+        if (0 == configIndex)
+        {
+            return m_configSet.getDefault();
+        }
+        --configIndex;
+    }
+    return m_configSet.get(getFlightConfigurationId(configIndex));
+}
+
+void Rocket::setFlightConfiguration(const FlightConfigurationId&       fcid,
+                                    std::optional<FlightConfiguration> newConfig)
+{
+    if (fcid.hasError())
+    {
+        // Java logs "attempt to set a 'fcid = config' with a error fcid.  Ignored."
+        return;
+    }
+    if (!newConfig)
+    {
+        m_configSet.reset(fcid);
+        if (fcid == m_selectedConfigurationId && !m_configSet.containsId(fcid))
+        {
+            // Java keeps the removed configuration selected (see the class comment).
+            m_selectionOrphaned = true;
+        }
+    }
+    else if (fcid == m_configSet.get(fcid).getFlightConfigurationId())
+    {
+        // This mapping already exists: no event.
+        return;
+    }
+    else
+    {
+        // OpenRocket's only caller (FlightConfigurationPanel) passes a configuration of this
+        // rocket stored under its own id; anything else would be selected and found by the wrong
+        // key, or refer to another rocket's components.
+        QTROCKET_ASSERT(newConfig->getId() == fcid);
+        QTROCKET_ASSERT(&newConfig->getRocket() == this);
+        m_configSet.set(fcid, std::move(*newConfig));
+    }
+    fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+FlightConfiguration& Rocket::getEmptyConfiguration() noexcept
+{
+    return m_configSet.getDefault();
+}
+
+const FlightConfiguration& Rocket::getEmptyConfiguration() const noexcept
+{
+    return m_configSet.getDefault();
+}
+
+std::string Rocket::toDebugConfigs(const Preferences& preferences) const
+{
+    std::string buffer;
+    std::format_to(std::back_inserter(buffer),
+                   "====== Dumping {} Configurations from rocket: {} ======\n",
+                   getConfigurationCount(), getName());
+    for (const FlightConfiguration& config : m_configSet.values())
+    {
+        std::string shortKey = config.getId().toShortKey();
+        // Java's equals(): the same id, also for a selection that has left the set.
+        if (config.getId() == m_selectedConfigurationId)
+        {
+            shortKey.insert(0, "=>");
+        }
+        std::format_to(std::back_inserter(buffer), "    [{:>12}]: {}\n", shortKey,
+                       config.getNameRaw(preferences));
+    }
+    return buffer;
+}
+
 // ================================================================================= events
 
 ComponentChangeSignal::Connection Rocket::addComponentChangeListener(
@@ -311,6 +545,11 @@ ComponentChangeSignal::Connection Rocket::addComponentChangeListener(
 void Rocket::fireComponentChangeEvent(int type, std::span<const FlightConfigurationId> ids)
 {
     fireComponentChangeEvent(ComponentChangeEvent{this, type}, ids);
+}
+
+void Rocket::fireComponentChangeEvent(int type, const FlightConfigurationId& id)
+{
+    fireComponentChangeEvent(type, std::span<const FlightConfigurationId>{&id, 1});
 }
 
 void Rocket::fireComponentChangeEvent(const ComponentChangeEvent& event)
@@ -345,8 +584,7 @@ void Rocket::fireComponentChangeEvent(const ComponentChangeEvent&               
         if (event.isFunctionalChange())
         {
             m_functionalModId = m_modId;
-            // HOOK(rocket-config): updateConfigurationsModID(ids): updateModID() on the
-            // configurations in ids (all of them without ids).
+            updateConfigurationsModId(ids);
         }
     }
 
@@ -363,9 +601,7 @@ void Rocket::fireComponentChangeEvent(const ComponentChangeEvent&               
     {
         component.componentChanged(event);
     }
-    // HOOK(rocket-config): updateConfigurations(ids): update() on the configurations in ids (all
-    // of them without ids), which rebuilds their instance maps.
-    static_cast<void>(ids);
+    updateConfigurations(ids);
 
     m_listeners.emit(event);
 }
@@ -377,7 +613,37 @@ void Rocket::update()
     m_stageMap.clear();
     updateStageNumbers();
     updateStageMap();
-    // HOOK(rocket-config): updateConfigurations() (all of them).
+    updateConfigurations(std::nullopt);
+}
+
+void Rocket::updateConfigurationsModId(std::optional<std::span<const FlightConfigurationId>> ids)
+{
+    for (FlightConfiguration& config : m_configSet.values())
+    {
+        if (!ids || std::ranges::find(*ids, config.getId()) != ids->end())
+        {
+            config.updateModId();
+        }
+    }
+}
+
+void Rocket::updateConfigurations(std::optional<std::span<const FlightConfigurationId>> ids)
+{
+    for (FlightConfiguration& config : m_configSet.values())
+    {
+        if (!ids || std::ranges::find(*ids, config.getId()) != ids->end())
+        {
+            config.update();
+        }
+    }
+}
+
+void Rocket::forgetComponents(const RocketComponent& removed)
+{
+    for (FlightConfiguration& config : m_configSet.values())
+    {
+        config.forgetComponents(removed);
+    }
 }
 
 void Rocket::enableEvents()
@@ -454,11 +720,29 @@ std::unique_ptr<RocketComponent> Rocket::copyWithOriginalId() const
         bug("Stage not found in copy");
     }
 
-    // HOOK(rocket-config): the configuration set is rebuilt for the copy: a new default
-    // FlightConfiguration(copy), then for every id a FlightConfiguration(copy, id) with the
-    // original's raw name and stage activeness; the selected configuration is the copy's
-    // configuration of the selected id.
+    // The flight configurations refer to the copy: a new default (it has different semantics),
+    // then a new configuration for every id.
+    copyRocket.m_configSet = FlightConfigurableParameterSet<FlightConfiguration>{
+        FlightConfiguration{copyRocket, FlightConfigurationId::defaultValueId()}};
+    copyRocket.rebuildConfigurations(m_configSet);
+    // Java looks up the selected object's id, also when that object has left the set.
+    copyRocket.m_selectedConfigurationId =
+        copyRocket.m_configSet.get(m_selectedConfigurationId).getId();
+    copyRocket.m_selectionOrphaned = false;
     return copy;
+}
+
+void Rocket::rebuildConfigurations(
+    const FlightConfigurableParameterSet<FlightConfiguration>& source)
+{
+    for (const FlightConfigurationId& configId : source.getIds())
+    {
+        const FlightConfiguration& sourceConfig = source.get(configId);
+        FlightConfiguration        newConfig{*this, configId};
+        newConfig.setNameRaw(sourceConfig.getStoredName());
+        newConfig.copyStageActiveness(sourceConfig);
+        m_configSet.set(configId, std::move(newConfig));
+    }
 }
 
 std::unique_ptr<Rocket> Rocket::copyRocketWithOriginalId() const
@@ -492,10 +776,15 @@ void Rocket::loadFrom(const Rocket& source)
     m_customReferenceLength = source.m_customReferenceLength;
     rebuildStageMap(source);
 
-    // HOOK(rocket-config): the configuration set is reset to a new default FlightConfiguration
-    // (this), then for every id of the source's set a FlightConfiguration(this, id) with the
-    // source's stage activeness and raw name; the selected configuration is this rocket's
-    // configuration of the source's selected id.
+    // The configurations refer to this rocket. Java's setDefault(new FlightConfiguration(this))
+    // keeps the default (it equals the new one), and the source's default id is skipped by set():
+    // the default keeps its own activeness and name. Deviation: the default is updated for the
+    // loaded tree here, so that it refers to no replaced component even with events disabled.
+    m_configSet.reset();
+    m_configSet.getDefault().update();
+    rebuildConfigurations(source.m_configSet);
+    m_selectedConfigurationId = m_configSet.get(source.m_selectedConfigurationId).getId();
+    m_selectionOrphaned       = false;
 
     m_perfectFinish = source.m_perfectFinish;
 

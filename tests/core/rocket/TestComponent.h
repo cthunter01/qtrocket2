@@ -31,14 +31,16 @@ namespace QtRocket::Test
 /// an InsideColorComponent, like a body tube.
 ///
 /// Setters of physical values fire AEROMASS_CHANGE, as a real component's do. componentChanged()
-/// counts its calls.
+/// counts its calls. TestBodyComponent (TestBodyComponent.h) and TestMotorMount (TestMotorMount.h)
+/// derive from it; a derived class overrides cloneShallow(). TestRockets.h builds OpenRocket's
+/// test rockets from them.
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
-class TestComponent final : public RocketComponent,
-                            public virtual Coaxial,
-                            public virtual RadiusPositionable,
-                            public virtual AnglePositionable,
-                            public virtual Instanceable,
-                            public InsideColorComponent
+class TestComponent : public RocketComponent,
+                      public virtual Coaxial,
+                      public virtual RadiusPositionable,
+                      public virtual AnglePositionable,
+                      public virtual Instanceable,
+                      public InsideColorComponent
 {
 public:
     using RocketComponent::getRadiusOffset;

@@ -131,11 +131,6 @@ class Rocket;
 ///   ComponentPreset.LENGTH into the length), and getPresetType(). The preset pointer is kept
 ///   (getPresetComponent(), clearPreset(), setIgnorePresetClearing(), and the protected
 ///   setPresetComponent() for loadPreset()).
-///
-/// Deferred to rocket-config (they need FlightConfiguration or MotorMount/MotorConfiguration):
-/// - toDebugMountNode() and its call in toDebugTreeNode() for an active motor mount.
-/// - setAfter()'s activeness test of the previous sibling reads
-///   Rocket::isComponentActiveInSelectedConfiguration(), an interim hook (see there).
 class RocketComponent
 {
 public:
@@ -462,10 +457,11 @@ public:
     /// root.
     [[nodiscard]] const Coordinate& getPosition() const noexcept { return m_position; }
 
-    /// Places the component directly after its previous active sibling (at 0 when it is the
-    /// first child, or no earlier sibling is active), and switches it to AFTER with offset 0.
-    /// Does nothing without a parent. Public because assemblies call it on their children (Java:
-    /// protected, reachable in the package).
+    /// Places the component directly after its previous sibling active in the rocket's selected
+    /// configuration (at 0 when it is the first child, or no earlier sibling is active), and
+    /// switches it to AFTER with offset 0. Does nothing without a parent. In a tree that is not in
+    /// a Rocket every sibling counts as active (Java's getRocket() would throw). Public because
+    /// assemblies call it on their children (Java: protected, reachable in the package).
     void setAfter();
 
     // ============================================================================ instances
@@ -581,7 +577,8 @@ public:
     /// `static_cast<void>(parent.removeChild(c))` to delete it on purpose). Clears every
     /// overriddenBy pointer between the removed subtree and the rest of the tree, in either
     /// direction (see the class comment), drops the removed stages from the Rocket's stage map
-    /// (see StageTracking), fires the same event as addChild() and updates the bounds.
+    /// (see StageTracking) and the removed components from its flight configurations (see
+    /// FlightConfiguration), fires the same event as addChild() and updates the bounds.
     [[nodiscard]] std::unique_ptr<RocketComponent> removeChild(
         const RocketComponent* component, StageTracking tracking = StageTracking::TRACK);
 
@@ -814,10 +811,18 @@ public:
     /// "....".
     void toDebugTreeHelper(std::string& buffer, const std::string& indent) const;
 
-    /// Appends this component's line(s) of toDebugTree().
+    /// Appends this component's line(s) of toDebugTree(), followed by toDebugMountNode() for a
+    /// motor mount that acts as one.
     /// @throws BugError for a multi-instance component that is not an Instanceable (a developer
     ///         error, as in Java).
     virtual void toDebugTreeNode(std::string& buffer, const std::string& indent) const;
+
+    /// Appends the motor of the rocket's selected configuration in this motor mount: its
+    /// designation and maximum thrust, then its length and relative and absolute position; or a
+    /// line saying there is none.
+    /// @throws BugError when this component is not a MotorMount (Java: ClassCastException) or not
+    ///         in a Rocket.
+    void toDebugMountNode(std::string& buffer, const std::string& indent) const;
 
     // ========================================================================= maintenance
 
