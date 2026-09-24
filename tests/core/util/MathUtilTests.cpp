@@ -575,4 +575,44 @@ TEST(MathUtil, SignumIsJavasMathSignum)
     EXPECT_TRUE(std::isnan(MathUtil::signum(kNaN)));
 }
 
+TEST(MathUtil, JavaMaxIsJavasMathMax)
+{
+    EXPECT_EQ(MathUtil::javaMax(1.0, 2.0), 2.0);
+    EXPECT_EQ(MathUtil::javaMax(2.0, 1.0), 2.0);
+    EXPECT_EQ(MathUtil::javaMax(-kInf, -1e308), -1e308);
+    // Either NaN wins, unlike MathUtil::max.
+    EXPECT_TRUE(std::isnan(MathUtil::javaMax(kNaN, 1.0)));
+    EXPECT_TRUE(std::isnan(MathUtil::javaMax(1.0, kNaN)));
+    // 0.0 is larger than -0.0 whichever comes first (Math.max(-0.0, 0.0) printed 0.0 on JDK 17).
+    EXPECT_FALSE(std::signbit(MathUtil::javaMax(-0.0, 0.0)));
+    EXPECT_FALSE(std::signbit(MathUtil::javaMax(0.0, -0.0)));
+    EXPECT_TRUE(std::signbit(MathUtil::javaMax(-0.0, -0.0)));
+}
+
+TEST(MathUtil, JavaDoubleHashCodeIsJavasDoubleHashCode)
+{
+    // Double.hashCode on JDK 17.
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(0.0), 0);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(-0.0), std::numeric_limits<int>::min());
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(kNaN), 2146959360);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(-kNaN), 2146959360);  // every NaN is canonical
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(1.5), 1073217536);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(kPi), 340593891);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(-2.75e300), 1674591282);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(kInf), 2146435072);
+    EXPECT_EQ(MathUtil::javaDoubleHashCode(9.807), 1522279256);
+}
+
+TEST(MathUtil, JavaHashCombineWrapsAsJavaInt)
+{
+    EXPECT_EQ(MathUtil::javaHashCombine(1, 0), 31);
+    EXPECT_EQ(MathUtil::javaHashCombine(17, 5), 532);
+    // Integer.MAX_VALUE * 31 + 0 and -5 * 31 + 1 in Java.
+    EXPECT_EQ(MathUtil::javaHashCombine(std::numeric_limits<int>::max(), 0), 2147483617);
+    EXPECT_EQ(MathUtil::javaHashCombine(-5, 1), -154);
+    EXPECT_EQ(MathUtil::javaHashCombine(std::numeric_limits<int>::min(), -1),
+              std::numeric_limits<int>::max());
+    static_assert(MathUtil::javaHashCombine(2, 3) == 65);
+}
+
 }  // namespace

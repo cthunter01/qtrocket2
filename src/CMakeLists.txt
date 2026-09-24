@@ -15,6 +15,9 @@ add_subdirectory(unit)
 add_subdirectory(logging)
 add_subdirectory(preferences)
 add_subdirectory(material)
+# models/ and mass/ follow rocket/ (after motor/) once those groups land.
+add_subdirectory(models)
+add_subdirectory(mass)
 add_subdirectory(file)
 
 add_subdirectory(cli)
