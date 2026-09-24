@@ -578,6 +578,33 @@ constexpr std::array<FoldRange, 199> kCaseFolds{{
     return static_cast<std::uint32_t>(static_cast<std::int32_t>(value) + range.delta);
 }
 
+/// Appends @p codePoint (at most U+10FFFF, not a surrogate) to @p out as UTF-8.
+void appendUtf8(std::string& out, std::uint32_t codePoint)
+{
+    if (codePoint < 0x80)
+    {
+        out.push_back(static_cast<char>(codePoint));
+    }
+    else if (codePoint < 0x800)
+    {
+        out.push_back(static_cast<char>(0xC0U | (codePoint >> 6U)));
+        out.push_back(static_cast<char>(0x80U | (codePoint & 0x3FU)));
+    }
+    else if (codePoint < 0x10000)
+    {
+        out.push_back(static_cast<char>(0xE0U | (codePoint >> 12U)));
+        out.push_back(static_cast<char>(0x80U | ((codePoint >> 6U) & 0x3FU)));
+        out.push_back(static_cast<char>(0x80U | (codePoint & 0x3FU)));
+    }
+    else
+    {
+        out.push_back(static_cast<char>(0xF0U | (codePoint >> 18U)));
+        out.push_back(static_cast<char>(0x80U | ((codePoint >> 12U) & 0x3FU)));
+        out.push_back(static_cast<char>(0x80U | ((codePoint >> 6U) & 0x3FU)));
+        out.push_back(static_cast<char>(0x80U | (codePoint & 0x3FU)));
+    }
+}
+
 /// The value of a hexadecimal digit, or -1.
 [[nodiscard]] int hexDigitValue(char c) noexcept
 {
@@ -1339,6 +1366,18 @@ bool javaEqualsIgnoreCase(std::string_view a, std::string_view b) noexcept
         }
     }
     return i == a.size() && j == b.size();
+}
+
+std::string javaCaseFold(std::string_view text)
+{
+    std::string folded;
+    folded.reserve(text.size());
+    std::size_t position = 0;
+    while (position < text.size())
+    {
+        appendUtf8(folded, caseFold(decodeCodePoint(text, position)));
+    }
+    return folded;
 }
 
 int javaCompareTo(std::string_view a, std::string_view b) noexcept

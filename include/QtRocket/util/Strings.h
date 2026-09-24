@@ -143,6 +143,15 @@ std::string_view trim(const String&& text) = delete;
 /// Kelvin sign (U+212A) with "k", the long s (U+017F) with "s", U+0130 and U+0131 with "i".
 [[nodiscard]] bool javaEqualsIgnoreCase(std::string_view a, std::string_view b) noexcept;
 
+/// The case fold javaEqualsIgnoreCase() compares: every code point of @p text replaced by
+/// Character.toLowerCase(Character.toUpperCase(c)), as UTF-8 (a malformed byte becomes U+FFFD).
+/// Two strings are javaEqualsIgnoreCase() exactly when their folds are equal, so the fold keys
+/// hash codes and maps that must agree with it. It is String.toLowerCase(Locale.ENGLISH) except
+/// for the lower-case letters that fold to another one (the micro sign U+00B5 gives U+03BC, the
+/// long s U+017F gives "s", final sigma U+03C2 gives U+03C3) and for toLowerCase's special cases
+/// (U+0130 gives "i", not "i" U+0307; a final capital sigma gives U+03C3, not U+03C2).
+[[nodiscard]] std::string javaCaseFold(std::string_view text);
+
 /// String.compareTo: the difference of the first differing UTF-16 code units, else of the
 /// lengths in code units. This orders a code point above U+FFFF (a surrogate pair, D800-DFFF)
 /// before U+E000-U+FFFF, where the UTF-8 bytes order it after.
