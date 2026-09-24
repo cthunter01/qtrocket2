@@ -31,6 +31,9 @@ add_executable(QtRocket_core_tests
     logging/SimulationAbortTests.cpp
     logging/WarningSetTests.cpp
     logging/WarningTests.cpp
+    preferences/DocumentPreferencesTests.cpp
+    preferences/InMemoryPreferencesTests.cpp
+    preferences/PreferencesTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )

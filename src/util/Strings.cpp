@@ -447,6 +447,21 @@ std::vector<std::string> split(std::string_view text, char separator)
     }
 }
 
+std::vector<std::string> splitJava(std::string_view text, char separator)
+{
+    // String.split: no match, the input itself; otherwise the fields without the trailing empties.
+    if (!text.contains(separator))
+    {
+        return {std::string(text)};
+    }
+    std::vector<std::string> parts = split(text, separator);
+    while (!parts.empty() && parts.back().empty())
+    {
+        parts.pop_back();
+    }
+    return parts;
+}
+
 std::string hexString(std::span<const std::byte> bytes)
 {
     constexpr std::string_view kHex = "0123456789abcdef";

@@ -31,6 +31,10 @@ inline constexpr std::array<LineStyle, 4> kAllLineStyles{LineStyle::SOLID, LineS
 /// The .ork spelling: the lower-cased enum name ("solid", "dashed", "dotted", "dashdot").
 [[nodiscard]] std::string_view toString(LineStyle style) noexcept;
 
+/// Java's LineStyle.name(): the enum constant's name ("SOLID", "DASHED", "DOTTED", "DASHDOT"),
+/// which is how the preference store spells a style.
+[[nodiscard]] std::string_view lineStyleName(LineStyle style) noexcept;
+
 /// The style whose name is @p text, trimmed and compared without regard to ASCII case, so the .ork
 /// spelling "dashdot" and the preference spelling "DASHDOT" both match. Anything else is nullopt.
 [[nodiscard]] std::optional<LineStyle> lineStyleFromString(std::string_view text) noexcept;
