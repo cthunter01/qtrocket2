@@ -794,4 +794,130 @@ TEST(Strings, CharsAreUtf8)
     }
 }
 
+// ---- QtRocket additions: Java's Formatter "%.Nf" / "%.Ne" and Double.toString, pinned on JDK 17
+
+TEST(Strings, FormatFixedRoundsHalfUpOnJavaDigits)
+{
+    EXPECT_EQ(Strings::formatFixed(0.25, 1), "0.3");  // C's printf gives "0.2"
+    EXPECT_EQ(Strings::formatFixed(0.35, 1), "0.4");  // the exact value is below the tie
+    EXPECT_EQ(Strings::formatFixed(0.45, 1), "0.5");
+    EXPECT_EQ(Strings::formatFixed(1.05, 1), "1.1");
+    EXPECT_EQ(Strings::formatFixed(1.015, 1), "1.0");
+    EXPECT_EQ(Strings::formatFixed(1.005, 2), "1.01");
+    EXPECT_EQ(Strings::formatFixed(2.675, 2), "2.68");
+    EXPECT_EQ(Strings::formatFixed(0.125, 2), "0.13");
+    EXPECT_EQ(Strings::formatFixed(12.3456785, 5), "12.34568");
+    EXPECT_EQ(Strings::formatFixed(0.0005, 3), "0.001");
+    EXPECT_EQ(Strings::formatFixed(0.0015, 3), "0.002");
+    EXPECT_EQ(Strings::formatFixed(99.95, 1), "100.0");
+    EXPECT_EQ(Strings::formatFixed(0.95, 1), "1.0");
+    EXPECT_EQ(Strings::formatFixed(0.5, 0), "1");
+    EXPECT_EQ(Strings::formatFixed(1.5, 0), "2");
+    EXPECT_EQ(Strings::formatFixed(2.5, 0), "3");
+    EXPECT_EQ(Strings::formatFixed(-0.5, 0), "-1");
+    EXPECT_EQ(Strings::formatFixed(9.5, 0), "10");
+    EXPECT_EQ(Strings::formatFixed(0.49999999999999994, 0), "0");
+    EXPECT_EQ(Strings::formatFixed(0.49999999999999994, 1), "0.5");
+
+    // Trailing zeros and the sign are kept, even for digits that round to zero.
+    EXPECT_EQ(Strings::formatFixed(1.0, 1), "1.0");
+    EXPECT_EQ(Strings::formatFixed(1.5, 2), "1.50");
+    EXPECT_EQ(Strings::formatFixed(0.0, 3), "0.000");
+    EXPECT_EQ(Strings::formatFixed(0.0, 0), "0");
+    EXPECT_EQ(Strings::formatFixed(-0.0, 1), "-0.0");
+    EXPECT_EQ(Strings::formatFixed(-0.04, 1), "-0.0");
+    EXPECT_EQ(Strings::formatFixed(-0.04, 0), "-0");
+    EXPECT_EQ(Strings::formatFixed(1e-5, 5), "0.00001");
+    EXPECT_EQ(Strings::formatFixed(1e-5, 2), "0.00");
+    EXPECT_EQ(Strings::formatFixed(1e-7, 1), "0.0");
+    EXPECT_EQ(Strings::formatFixed(1e7, 1), "10000000.0");
+    EXPECT_EQ(Strings::formatFixed(1e20, 1), "100000000000000000000.0");
+    EXPECT_EQ(Strings::formatFixed(1e20, 0), "100000000000000000000");
+    EXPECT_EQ(Strings::formatFixed(123456789.123, 2), "123456789.12");
+    EXPECT_EQ(Strings::formatFixed(101325.0, 2), "101325.00");
+    EXPECT_EQ(Strings::formatFixed(-12.3456789, 1), "-12.3");
+    EXPECT_EQ(Strings::formatFixed(4.9e-324, 3), "0.000");
+    EXPECT_EQ(Strings::formatFixed(1.5, -2), "2");  // a negative precision counts as 0
+    // Above 2^63 the digits are the shortest ones: 1e20 / 0.001 is the double 1e23, which JDK 17
+    // prints as "99999999999999990000000" (JDK-4511638) and JDK 19+ as here.
+    EXPECT_EQ(Strings::formatFixed(9.999999999999999e22, 0), "100000000000000000000000");
+
+    EXPECT_EQ(Strings::formatFixed(kNaN, 1), "NaN");
+    EXPECT_EQ(Strings::formatFixed(kInf, 1), "Infinity");
+    EXPECT_EQ(Strings::formatFixed(-kInf, 0), "-Infinity");
+}
+
+TEST(Strings, FormatScientificMatchesJavaFormatter)
+{
+    EXPECT_EQ(Strings::formatScientific(1234567.89, 2), "1.23e+06");
+    EXPECT_EQ(Strings::formatScientific(1235000.0, 2), "1.24e+06");
+    EXPECT_EQ(Strings::formatScientific(1245000.0, 2), "1.25e+06");  // half-up, not to even
+    EXPECT_EQ(Strings::formatScientific(1225000.0, 2), "1.23e+06");
+    EXPECT_EQ(Strings::formatScientific(0.1235, 2), "1.24e-01");
+    EXPECT_EQ(Strings::formatScientific(9995000.0, 2), "1.00e+07");
+    EXPECT_EQ(Strings::formatScientific(9.999999999999999e22, 2), "1.00e+23");
+    EXPECT_EQ(Strings::formatScientific(0.024, 2), "2.40e-02");
+    EXPECT_EQ(Strings::formatScientific(-0.0004, 2), "-4.00e-04");
+    EXPECT_EQ(Strings::formatScientific(1e100, 2), "1.00e+100");
+    EXPECT_EQ(Strings::formatScientific(1e-320, 2), "1.00e-320");
+    EXPECT_EQ(Strings::formatScientific(0.0, 2), "0.00e+00");
+    EXPECT_EQ(Strings::formatScientific(0.0, 0), "0e+00");
+    EXPECT_EQ(Strings::formatScientific(-0.0, 1), "-0.0e+00");
+    EXPECT_EQ(Strings::formatScientific(12345.0, 0), "1e+04");
+    EXPECT_EQ(Strings::formatScientific(2.5, 3), "2.500e+00");
+    EXPECT_EQ(Strings::formatScientific(kNaN, 2), "NaN");
+    EXPECT_EQ(Strings::formatScientific(kInf, 2), "Infinity");
+    EXPECT_EQ(Strings::formatScientific(-kInf, 2), "-Infinity");
+}
+
+TEST(Strings, JavaDoubleToStringMatchesJdk)
+{
+    EXPECT_EQ(Strings::javaDoubleToString(1.0), "1.0");
+    EXPECT_EQ(Strings::javaDoubleToString(980.0), "980.0");
+    EXPECT_EQ(Strings::javaDoubleToString(-314.0), "-314.0");
+    EXPECT_EQ(Strings::javaDoubleToString(100.0), "100.0");
+    EXPECT_EQ(Strings::javaDoubleToString(1234.5), "1234.5");
+    EXPECT_EQ(Strings::javaDoubleToString(0.0125), "0.0125");
+    EXPECT_EQ(Strings::javaDoubleToString(0.001), "0.001");
+    EXPECT_EQ(Strings::javaDoubleToString(0.002), "0.002");
+    EXPECT_EQ(Strings::javaDoubleToString(123456.789), "123456.789");
+    EXPECT_EQ(Strings::javaDoubleToString(1.0e6), "1000000.0");
+    EXPECT_EQ(Strings::javaDoubleToString(9999999.0), "9999999.0");
+    EXPECT_EQ(Strings::javaDoubleToString(1000999.0), "1000999.0");
+    EXPECT_EQ(Strings::javaDoubleToString(6.89475729e6), "6894757.29");
+    EXPECT_EQ(Strings::javaDoubleToString(1.35581795), "1.35581795");
+    EXPECT_EQ(Strings::javaDoubleToString(0.1 + 0.2), "0.30000000000000004");
+    EXPECT_EQ(Strings::javaDoubleToString(1.0 / 3.0), "0.3333333333333333");
+
+    EXPECT_EQ(Strings::javaDoubleToString(1e7), "1.0E7");
+    EXPECT_EQ(Strings::javaDoubleToString(123456789.0), "1.23456789E8");
+    EXPECT_EQ(Strings::javaDoubleToString(0.0003), "3.0E-4");
+    EXPECT_EQ(Strings::javaDoubleToString(0.0001), "1.0E-4");
+    EXPECT_EQ(Strings::javaDoubleToString(1e-5), "1.0E-5");
+    EXPECT_EQ(Strings::javaDoubleToString(1.0e-10), "1.0E-10");
+    EXPECT_EQ(Strings::javaDoubleToString(0.00014808), "1.4808E-4");
+    EXPECT_EQ(Strings::javaDoubleToString(1.7e9), "1.7E9");
+    EXPECT_EQ(Strings::javaDoubleToString(0.946e9), "9.46E8");
+    EXPECT_EQ(Strings::javaDoubleToString(26.0e9), "2.6E10");
+    EXPECT_EQ(Strings::javaDoubleToString(1e16), "1.0E16");
+    EXPECT_EQ(Strings::javaDoubleToString(1e21), "1.0E21");
+    EXPECT_EQ(Strings::javaDoubleToString(1.0E22), "1.0E22");
+    EXPECT_EQ(Strings::javaDoubleToString(9.223372036854776E18), "9.223372036854776E18");
+    EXPECT_EQ(Strings::javaDoubleToString(123456789012345680.0), "1.2345678901234568E17");
+    EXPECT_EQ(Strings::javaDoubleToString(9007199254740994.0), "9.007199254740994E15");
+    // Integers between 2^53 and 2^63 take Java's exact digits: 2^60 has 18 significant ones.
+    EXPECT_EQ(Strings::javaDoubleToString(1152921504606846976.0), "1.15292150460684698E18");
+    EXPECT_EQ(Strings::javaDoubleToString(std::numeric_limits<double>::max()),
+              "1.7976931348623157E308");
+    EXPECT_EQ(Strings::javaDoubleToString(std::numeric_limits<double>::min()),
+              "2.2250738585072014E-308");
+    EXPECT_EQ(Strings::javaDoubleToString(1.5e-323), "1.5E-323");
+
+    EXPECT_EQ(Strings::javaDoubleToString(0.0), "0.0");
+    EXPECT_EQ(Strings::javaDoubleToString(-0.0), "-0.0");
+    EXPECT_EQ(Strings::javaDoubleToString(kNaN), "NaN");
+    EXPECT_EQ(Strings::javaDoubleToString(kInf), "Infinity");
+    EXPECT_EQ(Strings::javaDoubleToString(-kInf), "-Infinity");
+}
+
 }  // namespace

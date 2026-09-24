@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstdint>
 #include <numbers>
 #include <span>
 
@@ -164,6 +165,28 @@ auto clamp(T x, U min, V max) = delete;
 {
     return rad * 180 / std::numbers::pi;
 }
+
+/// Java's Math.round(double): floor(a + 0.5) computed exactly on the bits (so 0.49999999999999994
+/// gives 0 where floor(a + 0.5) gives 1, and ties go toward positive infinity: 2.5 gives 3 and
+/// -2.5 gives -2), then narrowed as javaLongCast(). FixedPrecisionUnit and the motor digest round
+/// with it; std::nearbyint is Java's Math.rint (half to even).
+[[nodiscard]] std::int64_t javaRound(double a) noexcept;
+
+/// Java's (int) narrowing of a double: truncated toward zero, NaN as 0, and anything beyond the
+/// int range saturated to the nearest limit (C++ leaves those conversions undefined).
+[[nodiscard]] int javaIntCast(double a) noexcept;
+
+/// Java's (long) narrowing of a double: as javaIntCast() with the 64-bit limits.
+[[nodiscard]] std::int64_t javaLongCast(double a) noexcept;
+
+/// Java's Double.compare: -1, 0 or 1 with the total order -0.0 < 0.0 and every NaN equal to
+/// every other NaN and greater than everything else (median() sorts by it; Value.compareTo uses
+/// it).
+[[nodiscard]] int javaDoubleCompare(double a, double b) noexcept;
+
+/// Java's Math.signum: 1.0 for a positive value, -1.0 for a negative one, and a zero or NaN
+/// unchanged (the sign of zero included); unlike sign(), which never returns zero.
+[[nodiscard]] double signum(double d) noexcept;
 
 }  // namespace MathUtil
 

@@ -40,6 +40,31 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// doubleToString(value, kDefaultDecimalPlaces, true).
 [[nodiscard]] std::string doubleToString(double value);
 
+/// Java's String.format(Locale.ENGLISH, "%.<precision>f", value), which FixedPrecisionUnit
+/// formats with: the value's decimal digits, taken as doubleToString() takes them, rounded half-up
+/// to @p precision decimals and written in full, trailing zeros included ("1.50"; "0" for
+/// precision 0; "100000000000000000000.0" for 1e20). NaN gives "NaN" and the infinities
+/// "Infinity" / "-Infinity"; a negative value keeps its sign even when its digits round to zero
+/// ("-0.0"), as does a negative zero. A negative @p precision counts as 0.
+[[nodiscard]] std::string formatFixed(double value, int precision);
+
+/// Java's String.format(Locale.ENGLISH, "%.<precision>e", value): one leading digit, a point and
+/// exactly @p precision decimals (no point for precision 0), "e", the exponent's sign and at
+/// least two exponent digits ("1.25e+06", "5e-04", "1.00e+100"), the digits rounded half-up as
+/// formatFixed() rounds them. NaN, the infinities and the sign are as in formatFixed().
+[[nodiscard]] std::string formatScientific(double value, int precision);
+
+/// Java's Double.toString(value), the form a double takes in a string concatenation
+/// (Material.toStorableString, Tick.toString): "NaN", "Infinity", "-Infinity", "0.0", "-0.0"; a
+/// magnitude from 0.001 up to but excluding 1e7 as integer digits, a point and at least one
+/// fraction digit ("980.0", "0.001", "123456.789"); anything else as one digit, a point, at least
+/// one fraction digit, "E" and the exponent ("1.0E7", "3.0E-4", "2.6E10"). The digits are the
+/// ones doubleToString() takes from Java, so an integer between 2^53 and 2^63 keeps Java's exact
+/// digits (2^60 is "1.15292150460684698E18"). Deviation: the handful of values that JDK 17 prints
+/// with an extra digit (JDK-4511638: 1e23 as "9.999999999999999E22", Double.MIN_VALUE as
+/// "4.9E-324") print here in their shortest form, as JDK 19+ does ("1.0E23", "5.0E-324").
+[[nodiscard]] std::string javaDoubleToString(double value);
+
 /// Parses what Java's Double.parseDouble accepts of the values OpenRocket writes: an optional
 /// sign, decimal digits with an optional fraction and exponent ("1.5", ".5", "5.", "1e-5",
 /// "-2.5E3"), "NaN", "Infinity" and OpenRocket's own "Inf", each with an optional sign, and

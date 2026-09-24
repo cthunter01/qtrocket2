@@ -207,9 +207,16 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     return exponent;
 }
 
-/// Java's "%.<precision>f" of a positive finite value, then TextUtil's trimming of the trailing
-/// zeros and a bare decimal point (FormattedFloatingDecimal.fillDecimal + trimTrailingZeros).
-[[nodiscard]] std::string fixedNotation(double magnitude, int precision)
+/// The integer part and the fraction of Java's "%.<precision>f" of a positive finite value, the
+/// fraction padded with zeros to exactly @p precision digits (FormattedFloatingDecimal.fillDecimal
+/// with the Formatter's zero padding).
+struct FixedParts
+{
+    std::string integerPart;
+    std::string fraction;
+};
+
+[[nodiscard]] FixedParts javaFixedParts(double magnitude, int precision)
 {
     Decimal decimal = javaDecimal(magnitude);
     decimal.exponent =
@@ -217,51 +224,76 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     const std::string& digits = decimal.digits;
     const auto         count  = static_cast<int>(digits.size());
 
-    std::string integerPart;
-    std::string fraction;
+    FixedParts parts;
     if (decimal.exponent > 0)
     {
         const auto exponent = static_cast<std::size_t>(decimal.exponent);
         if (count < decimal.exponent)
         {
-            integerPart = digits + std::string(exponent - digits.size(), '0');
+            parts.integerPart = digits + std::string(exponent - digits.size(), '0');
         }
         else
         {
-            integerPart = digits.substr(0, exponent);
-            fraction    = digits.substr(exponent, static_cast<std::size_t>(precision));
+            parts.integerPart = digits.substr(0, exponent);
+            parts.fraction    = digits.substr(exponent, static_cast<std::size_t>(precision));
         }
     }
     else
     {
         const int zeros       = std::min(-decimal.exponent, precision);
         const int significant = std::max(0, std::min(count, precision + decimal.exponent));
-        integerPart           = "0";
-        fraction              = std::string(static_cast<std::size_t>(zeros), '0') +
+        parts.integerPart     = "0";
+        parts.fraction        = std::string(static_cast<std::size_t>(zeros), '0') +
                                 digits.substr(0, static_cast<std::size_t>(significant));
     }
-    while (!fraction.empty() && fraction.back() == '0')
+    parts.fraction.resize(static_cast<std::size_t>(precision), '0');
+    return parts;
+}
+
+/// Java's "%.<precision>f" of a positive finite value, then TextUtil's trimming of the trailing
+/// zeros and a bare decimal point (trimTrailingZeros).
+[[nodiscard]] std::string fixedNotation(double magnitude, int precision)
+{
+    FixedParts parts = javaFixedParts(magnitude, precision);
+    while (!parts.fraction.empty() && parts.fraction.back() == '0')
     {
-        fraction.pop_back();
+        parts.fraction.pop_back();
     }
-    if (fraction.empty())
+    if (parts.fraction.empty())
     {
-        return integerPart;
+        return parts.integerPart;
     }
-    return integerPart + "." + fraction;
+    return parts.integerPart + "." + parts.fraction;
+}
+
+/// Java's "%.<precision>e" of a positive finite value as its parts: exactly precision + 1 digits
+/// d.ddd, rounded half-up, and the decimal exponent (FormattedFloatingDecimal.fillScientific).
+struct ScientificParts
+{
+    std::string digits;
+    int         exponent{};
+};
+
+[[nodiscard]] ScientificParts javaScientificParts(double magnitude, int precision)
+{
+    Decimal decimal            = javaDecimal(magnitude);
+    decimal.exponent           = applyPrecision(decimal.digits, decimal.exponent, precision + 1);
+    const auto      digitCount = static_cast<std::size_t>(precision) + 1;
+    ScientificParts parts;
+    parts.digits = decimal.digits.substr(0, digitCount);
+    parts.digits.resize(digitCount, '0');
+    parts.exponent = decimal.exponent - 1;
+    return parts;
 }
 
 /// Java's "%.<precision>e" of a positive finite value, then TextUtil's trimming of the mantissa's
 /// trailing zeros and its rewriting of the exponent ("e+05" to "e5", "e-05" to "e-5")
-/// (FormattedFloatingDecimal.fillScientific + trimTrailingZeros + reformatExponent).
+/// (trimTrailingZeros + reformatExponent).
 [[nodiscard]] std::string scientificNotation(double magnitude, int precision)
 {
-    Decimal decimal           = javaDecimal(magnitude);
-    decimal.exponent          = applyPrecision(decimal.digits, decimal.exponent, precision + 1);
-    const std::string& digits = decimal.digits;
-
-    std::string mantissa = digits.substr(0, 1);
-    std::string fraction = digits.substr(1, static_cast<std::size_t>(precision));
+    const ScientificParts parts    = javaScientificParts(magnitude, precision);
+    std::string           mantissa = parts.digits.substr(0, 1);
+    std::string           fraction = parts.digits.substr(1);
     while (!fraction.empty() && fraction.back() == '0')
     {
         fraction.pop_back();
@@ -272,7 +304,7 @@ constexpr std::array<int, 64> kInsignificantDigitsNumber{
     }
     // TextUtil never reaches a zero exponent (exponential notation is used only below 0.001 and
     // from 10000); it would print "3.1e" there, this prints "3.1e0".
-    return std::format("{}e{}", mantissa, decimal.exponent - 1);
+    return std::format("{}e{}", mantissa, parts.exponent);
 }
 
 }  // namespace
@@ -309,6 +341,95 @@ std::string doubleToString(double value, int decimalPlaces)
 std::string doubleToString(double value)
 {
     return doubleToString(value, kDefaultDecimalPlaces, true);
+}
+
+std::string formatFixed(double value, int precision)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    const int   digits = std::max(0, precision);
+    FixedParts  parts  = javaFixedParts(std::abs(value), digits);
+    std::string text   = std::move(parts.integerPart);
+    if (digits > 0)
+    {
+        text += ".";
+        text += parts.fraction;
+    }
+    // The Formatter prints the sign of a negative zero and of digits that round to zero.
+    return std::signbit(value) ? "-" + text : text;
+}
+
+std::string formatScientific(double value, int precision)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    const int             digits = std::max(0, precision);
+    const ScientificParts parts  = javaScientificParts(std::abs(value), digits);
+    std::string           text   = parts.digits.substr(0, 1);
+    if (digits > 0)
+    {
+        text += ".";
+        text += parts.digits.substr(1);
+    }
+    text += std::format("e{}{:02}", parts.exponent < 0 ? '-' : '+', std::abs(parts.exponent));
+    return std::signbit(value) ? "-" + text : text;
+}
+
+std::string javaDoubleToString(double value)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value < 0 ? "-Infinity" : "Infinity";
+    }
+    if (value == 0)
+    {
+        return std::signbit(value) ? "-0.0" : "0.0";
+    }
+    const double       magnitude = std::abs(value);
+    const Decimal      decimal   = javaDecimal(magnitude);
+    const std::string& digits    = decimal.digits;
+    const auto         count     = static_cast<int>(digits.size());
+
+    std::string text;
+    if (magnitude >= 0.001 && magnitude < 10000000.0)
+    {
+        if (decimal.exponent <= 0)
+        {
+            text = "0." + std::string(static_cast<std::size_t>(-decimal.exponent), '0') + digits;
+        }
+        else if (decimal.exponent >= count)
+        {
+            text = digits + std::string(static_cast<std::size_t>(decimal.exponent - count), '0') +
+                   ".0";
+        }
+        else
+        {
+            const auto point = static_cast<std::size_t>(decimal.exponent);
+            text             = digits.substr(0, point) + "." + digits.substr(point);
+        }
+    }
+    else
+    {
+        text = digits.substr(0, 1) + "." + (count > 1 ? digits.substr(1) : std::string("0")) + "E" +
+               std::format("{}", decimal.exponent - 1);
+    }
+    return std::signbit(value) ? "-" + text : text;
 }
 
 std::optional<double> parseDouble(std::string_view text) noexcept

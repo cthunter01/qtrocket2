@@ -26,6 +26,16 @@ add_executable(QtRocket_core_tests
     logging/SimulationAbortTests.cpp
     logging/WarningSetTests.cpp
     logging/WarningTests.cpp
+    unit/FixedPrecisionUnitTests.cpp
+    unit/FractionalUnitTests.cpp
+    unit/UnitGroupTests.cpp
+    unit/UnitTests.cpp
+    unit/ValueTests.cpp
+    material/BuiltinMaterialsTests.cpp
+    material/MaterialDatabaseTests.cpp
+    material/MaterialGroupTests.cpp
+    material/MaterialStorageTests.cpp
+    material/MaterialTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )

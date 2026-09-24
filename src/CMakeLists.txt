@@ -10,6 +10,8 @@ QtRocket_configure_target(QtRocket_core)
 # Subsystems, in dependency order (each may include only the ones before it).
 add_subdirectory(util)
 add_subdirectory(logging)
+add_subdirectory(unit)
+add_subdirectory(material)
 add_subdirectory(file)
 
 add_subdirectory(cli)
