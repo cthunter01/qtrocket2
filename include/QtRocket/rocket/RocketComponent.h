@@ -126,11 +126,14 @@ class Rocket;
 ///   Here the stored value is returned and kept; it only matters to the GUI, since the saver
 ///   writes the override CD only when it is overridden.
 ///
-/// Deferred to the preset group (they need the ComponentPreset type):
+/// Deferred to the concrete components, which override them (the ComponentPreset type is in
+/// rocket/preset/ComponentPreset.h; the extra parameters serve Parachute, whose .ork setter
+/// passes allowAutoRadius = false):
 /// - loadPreset(preset, params...) and loadFromPreset(preset, params...) (the base version copies
-///   ComponentPreset.LENGTH into the length), and getPresetType(). The preset pointer is kept
-///   (getPresetComponent(), clearPreset(), setIgnorePresetClearing(), and the protected
-///   setPresetComponent() for loadPreset()).
+///   ComponentPreset.LENGTH into the length), and getPresetType() (presetTypeOf(kind()) answers
+///   it for every concrete class). The preset pointer is kept (getPresetComponent(),
+///   clearPreset(), setIgnorePresetClearing(), and the protected setPresetComponent() for
+///   loadPreset()).
 ///
 /// Deferred to rocket-config (they need FlightConfiguration or MotorMount/MotorConfiguration):
 /// - toDebugMountNode() and its call in toDebugTreeNode() for an active motor mount.
@@ -884,7 +887,7 @@ protected:
     /// @throws BugError when this component has a parent.
     virtual std::vector<std::unique_ptr<RocketComponent>> copyFrom(const RocketComponent& source);
 
-    /// Stores the preset without firing (for loadPreset(), deferred to the preset group).
+    /// Stores the preset without firing (for loadPreset(), deferred to the concrete components).
     void setPresetComponent(const ComponentPreset* preset) noexcept { m_presetComponent = preset; }
 
     /// A detailed multi-line dump: " >> Dumping Detailed Information from: <caller>" and the

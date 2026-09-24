@@ -937,6 +937,23 @@ TEST(Strings, JavaLengthCountsUtf16CodeUnits)
     EXPECT_EQ(Strings::javaLength("\xFF"), 1U);
 }
 
+TEST(Strings, ToUtf16GivesJavaCodeUnits)
+{
+    EXPECT_EQ(Strings::toUtf16(""), u"");
+    EXPECT_EQ(Strings::toUtf16("abc"), u"abc");
+    EXPECT_EQ(Strings::toUtf16("µm été 一"), u"µm été 一");
+    // A code point above U+FFFF becomes its surrogate pair.
+    const std::u16string rocket = Strings::toUtf16("\U0001F680");
+    ASSERT_EQ(rocket.size(), 2U);
+    EXPECT_EQ(rocket[0], u'\xD83D');
+    EXPECT_EQ(rocket[1], u'\xDE80');
+    // A malformed byte reads as U+FFFD; the length always matches javaLength().
+    EXPECT_EQ(Strings::toUtf16("a\xFF"
+                               "b"),
+              u"a�b");
+    EXPECT_EQ(Strings::toUtf16("x\U0001F600y").size(), Strings::javaLength("x\U0001F600y"));
+}
+
 TEST(Strings, JavaPrimaryCollatorCompareMatchesJava)
 {
     // Collator.getInstance(Locale.US) at PRIMARY strength, pinned from JDK 17.

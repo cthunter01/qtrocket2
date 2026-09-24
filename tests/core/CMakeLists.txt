@@ -73,14 +73,20 @@ add_executable(QtRocket_core_tests
     rocket/AppearanceTests.cpp
     rocket/AxialMethodTests.cpp
     rocket/AxialStageTests.cpp
+    rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
+    rocket/FinishTests.cpp
     rocket/FlightConfigurableParameterSetTests.cpp
     rocket/FlightConfigurationIdTests.cpp
     rocket/InsideColorComponentTests.cpp
+    rocket/preset/ComponentPresetFactoryTests.cpp
+    rocket/preset/ComponentPresetTests.cpp
+    rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
+    rocket/TransitionShapeTests.cpp
     models/AtmosphericConditionsTests.cpp
     models/ConstantGravityModelTests.cpp
     models/ExtendedIsaModelTests.cpp
