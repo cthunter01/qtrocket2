@@ -190,12 +190,27 @@ auto clamp(T x, U min, V max) = delete;
 /// unchanged (the sign of zero included); unlike sign(), which never returns zero.
 [[nodiscard]] double signum(double d) noexcept;
 
-/// Java's Math.max(double, double): NaN when either value is NaN (unlike max() above and
-/// std::max, which drop a NaN), and 0.0 is larger than -0.0.
+/// Java's Math.max(double, double): NaN when either value is NaN, 0.0 for a mix of 0.0 and -0.0,
+/// otherwise the larger value. Unlike max() above (OpenRocket's MathUtil.max, which skips a NaN)
+/// and std::max (which keeps the first of two zeros, and the first argument when it is NaN).
 [[nodiscard]] double javaMax(double a, double b) noexcept;
 
 /// Java's Math.min(double, double): NaN when either value is NaN, and -0.0 is smaller than 0.0.
 [[nodiscard]] double javaMin(double a, double b) noexcept;
+
+/// Java's Double.hashCode(double): the bits of Double.doubleToLongBits (every NaN collapsed to
+/// the canonical 0x7ff8000000000000) folded as (int)(bits ^ (bits >>> 32)). Ported hashCode()
+/// methods that hash a double field go through this.
+[[nodiscard]] int javaDoubleHashCode(double value) noexcept;
+
+/// 31 * hash + value in Java's wrapping int arithmetic: the step of Arrays.hashCode and
+/// Objects.hash (which start from 1) and of most hand-written hashCode() methods.
+[[nodiscard]] constexpr int javaHashCombine(int hash, int value) noexcept
+{
+    const std::uint32_t result =
+        (31U * static_cast<std::uint32_t>(hash)) + static_cast<std::uint32_t>(value);
+    return static_cast<int>(result);  // modular since C++20, as Java's int overflow
+}
 
 }  // namespace MathUtil
 

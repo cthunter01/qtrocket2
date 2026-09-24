@@ -300,30 +300,37 @@ double signum(double d) noexcept
 
 double javaMax(double a, double b) noexcept
 {
-    if (std::isnan(a) || std::isnan(b))
+    if (std::isnan(a))
     {
-        return std::numeric_limits<double>::quiet_NaN();
+        return a;
     }
-    if (a == 0.0 && b == 0.0)
+    if (a == 0.0 && b == 0.0 && std::signbit(a))
     {
-        // Equal zeros: the positive one, if any, is the larger.
-        return std::signbit(a) ? b : a;
+        return b;  // max(-0.0, +-0.0) is the second zero, so +0.0 wins over -0.0
     }
-    return (a >= b) ? a : b;
+    return (a >= b) ? a : b;  // a NaN b fails the comparison and comes back
 }
 
 double javaMin(double a, double b) noexcept
 {
-    if (std::isnan(a) || std::isnan(b))
+    if (std::isnan(a))
     {
-        return std::numeric_limits<double>::quiet_NaN();
+        return a;
     }
-    if (a == 0.0 && b == 0.0)
+    if (a == 0.0 && b == 0.0 && std::signbit(b))
     {
-        // Equal zeros: the negative one, if any, is the smaller.
-        return std::signbit(a) ? a : b;
+        return b;  // min(+-0.0, -0.0) is the second zero, so -0.0 wins over 0.0
     }
-    return (a <= b) ? a : b;
+    return (a <= b) ? a : b;  // a NaN b fails the comparison and comes back
+}
+
+int javaDoubleHashCode(double value) noexcept
+{
+    constexpr std::uint64_t kCanonicalNaN = 0x7ff8000000000000ULL;
+    const std::uint64_t     bits =
+        std::isnan(value) ? kCanonicalNaN : std::bit_cast<std::uint64_t>(value);
+    // (int) of a long keeps the low 32 bits; the conversion to int is modular (C++20).
+    return static_cast<int>(static_cast<std::uint32_t>(bits ^ (bits >> 32U)));
 }
 
 std::int64_t javaLongCast(double a) noexcept

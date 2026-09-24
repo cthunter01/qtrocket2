@@ -80,6 +80,16 @@ add_executable(QtRocket_core_tests
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
+    models/AtmosphericConditionsTests.cpp
+    models/ConstantGravityModelTests.cpp
+    models/ExtendedIsaModelTests.cpp
+    models/GravityModelTypeTests.cpp
+    models/InterpolatingAtmosphericModelTests.cpp
+    models/MultiLevelPinkNoiseWindModelTests.cpp
+    models/PinkNoiseWindModelTests.cpp
+    models/WgsGravityModelTests.cpp
+    models/WindModelTypeTests.cpp
+    mass/RigidBodyTests.cpp
     file/GzipStreamTests.cpp
     file/ZipArchiveTests.cpp
 )
