@@ -72,15 +72,17 @@ void loadDefaultComponentMaterials(Preferences& preferences, const MaterialStora
 
 /// SwingPreferences.getUserMaterials(): every stored material that parses, as a user-defined
 /// material (Material::fromStorableString(text, true, storage)), in key order; strings that do
-/// not parse are skipped (Java logs them). Java collects them in a HashSet, so a material equal to
-/// an earlier one (Material::operator==) with the same Material::hashCode() is dropped; that
-/// keeps two materials that are equal but hash differently, exactly as Java's set does. Does not
-/// create the node.
+/// not parse are skipped (Java logs them). Java collects them in a HashSet, so a material with
+/// the same Material::hashCode() as an earlier one that equals it is dropped: HashSet.add tests
+/// newMaterial.equals(earlier) (newMaterial == earlier here, the tolerance relative to the earlier
+/// one), and two materials that are equal but hash differently are both kept, exactly as Java's
+/// set does. Does not create the node.
 [[nodiscard]] std::vector<Material> getUserMaterials(const Preferences&     preferences,
                                                      const MaterialStorage& storage);
 
 /// SwingPreferences.addUserMaterial(): nothing when getUserMaterials() already holds a material
-/// equal to @p material (with the same hash code, as HashSet.contains); otherwise stores its
+/// that @p material equals (with the same hash code, as HashSet.contains tests
+/// material.equals(element)); otherwise stores its
 /// storable string under the first key "material<i>" (i = 0, 1, ...) that holds nothing.
 void addUserMaterial(Preferences& preferences, const Material& material,
                      const MaterialStorage& storage);

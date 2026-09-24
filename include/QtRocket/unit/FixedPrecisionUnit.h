@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,6 +24,7 @@ public:
     /// @throws BugError when @p multiplier is 0
     FixedPrecisionUnit(std::string unit, double precision, double multiplier,
                        bool displayTrailingZeros);
+    ~FixedPrecisionUnit() override = default;
 
     [[nodiscard]] double getPrecision() const noexcept { return m_precision; }
     /// The number of decimals shown, derived from the precision.
@@ -45,9 +45,16 @@ public:
     /// "N/A" here, though toStringUnit() still returns "N/A" for it.
     [[nodiscard]] std::string toString(double value) const override;
 
-    [[nodiscard]] std::vector<Tick>     getTicks(double start, double end, double minor,
-                                                 double major) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] std::vector<Tick> getTicks(double start, double end, double minor,
+                                             double major) const override;
+
+protected:
+    /// Copying is for subclasses only, so that a subclass (a CaliberUnit, say) cannot be sliced
+    /// into a plain FixedPrecisionUnit by accident.
+    FixedPrecisionUnit(const FixedPrecisionUnit&)            = default;
+    FixedPrecisionUnit& operator=(const FixedPrecisionUnit&) = default;
+    FixedPrecisionUnit(FixedPrecisionUnit&&)                 = default;
+    FixedPrecisionUnit& operator=(FixedPrecisionUnit&&)      = default;
 
 private:
     double        m_precision;

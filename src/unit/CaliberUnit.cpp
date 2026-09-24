@@ -1,11 +1,9 @@
 #include "QtRocket/unit/CaliberUnit.h"
 
 #include <functional>
-#include <memory>
 #include <utility>
 
 #include "QtRocket/unit/GeneralUnit.h"
-#include "QtRocket/unit/Unit.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"
 
@@ -43,11 +41,6 @@ double CaliberUnit::fromUnit(double value) const
 double CaliberUnit::toUnit(double value) const
 {
     return value / getReferenceLength();
-}
-
-std::unique_ptr<Unit> CaliberUnit::clone() const
-{
-    return std::make_unique<CaliberUnit>(*this);
 }
 
 }  // namespace QtRocket

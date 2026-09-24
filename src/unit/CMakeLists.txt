@@ -2,6 +2,7 @@ target_sources(QtRocket_core PRIVATE
     CaliberUnit.cpp
     DegreeUnit.cpp
     FixedPrecisionUnit.cpp
+    FixedUnitGroup.cpp
     FractionalUnit.cpp
     FrequencyUnit.cpp
     GeneralUnit.cpp

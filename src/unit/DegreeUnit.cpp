@@ -1,12 +1,10 @@
 #include "QtRocket/unit/DegreeUnit.h"
 
 #include <cmath>
-#include <memory>
 #include <numbers>
 #include <string>
 
 #include "QtRocket/unit/GeneralUnit.h"
-#include "QtRocket/unit/Unit.h"
 #include "QtRocket/util/Chars.h"
 #include "QtRocket/util/DecimalFormat.h"
 
@@ -30,11 +28,6 @@ std::string DegreeUnit::toString(double value) const
     const double               val = toUnit(value);
     static const DecimalFormat kFormat("0.#");
     return kFormat.format(val);
-}
-
-std::unique_ptr<Unit> DegreeUnit::clone() const
-{
-    return std::make_unique<DegreeUnit>(*this);
 }
 
 }  // namespace QtRocket

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
-#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -106,13 +104,15 @@ public:
     /// group; whether the material is user-defined or a document material does not count.
     [[nodiscard]] bool operator==(const Material& other) const noexcept;
 
-    /// Material.compareTo: by name (as std::string compares), then by density, the difference
-    /// times 1000 truncated to an int as Java does, so densities within 0.001 compare equal.
-    /// Negative, zero or positive; MaterialDatabase orders by it.
+    /// Material.compareTo: by name (String.compareTo, Strings::javaCompareTo), then by density,
+    /// the difference times 1000 truncated to an int as Java does, so densities within 0.001
+    /// compare equal. Negative, zero or positive; MaterialDatabase orders by it.
     [[nodiscard]] int compareTo(const Material& other) const noexcept;
 
     /// Material.hashCode: name.hashCode() + (int)(density * 1000) + (int)(shear * 1e-9) in
-    /// Java's wrapping int arithmetic, with Java's String.hashCode of the name.
+    /// Java's wrapping int arithmetic, with Java's String.hashCode of the name. There is no
+    /// std::hash<Material>: equality allows a tolerance (and is not transitive), so equal
+    /// materials can hash apart and an unordered container of them would break its contract.
     [[nodiscard]] int hashCode() const noexcept;
 
     /// The preference and .ork document form, "TYPE|name|density|shearModulus|GroupString"
@@ -125,8 +125,11 @@ public:
     /// a number is the group). An unknown group leaves the group unset (OpenRocket logs and goes
     /// on), so the material gets CUSTOM or OTHER; the legacy group "ThreadsLines" resolves to
     /// OTHER without a MaterialStorage to look the material up in. The result is not a document
-    /// material. Fails (ErrorCode::PARSE, OpenRocket's IllegalArgumentException) for fewer than
-    /// three fields, an unknown type, a CUSTOM type or an unparsable density.
+    /// material. The numbers are read as Double.parseDouble reads them
+    /// (Strings::javaParseDouble: "1e999" is an infinity, "1.5d" is 1.5, "Inf" is not a number),
+    /// which also decides whether a fourth field is the shear modulus or the group. Fails
+    /// (ErrorCode::PARSE, OpenRocket's IllegalArgumentException) for fewer than three fields, an
+    /// unknown type, a CUSTOM type or an unparsable density.
     [[nodiscard]] static Result<Material> fromStorableString(std::string_view str,
                                                              bool             userDefined);
     /// As above, resolving "ThreadsLines" through
@@ -165,14 +168,3 @@ private:
 [[nodiscard]] UnitGroupId unitGroupId(Material::Type type) noexcept;
 
 }  // namespace QtRocket
-
-/// Material.hashCode(), so that equal materials hash alike as far as Java's own hash does (its
-/// truncation can split materials that equals() accepts, exactly as in OpenRocket).
-template <>
-struct std::hash<QtRocket::Material>
-{
-    [[nodiscard]] std::size_t operator()(const QtRocket::Material& material) const noexcept
-    {
-        return static_cast<std::size_t>(static_cast<unsigned int>(material.hashCode()));
-    }
-};

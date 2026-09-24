@@ -217,13 +217,6 @@ constexpr Color kAwtGray{128, 128, 128};
     return std::ranges::find(names, name) != names.end();
 }
 
-/// Whether @p id is in OpenRocket's UnitGroup.UNITS map, whose keys name the groups in the "units"
-/// node: every group but SHAPE_PARAMETER and STABILITY_CALIBERS.
-[[nodiscard]] constexpr bool isInUnitsMap(UnitGroupId id) noexcept
-{
-    return id != UnitGroupId::SHAPE_PARAMETER && id != UnitGroupId::STABILITY_CALIBERS;
-}
-
 /// The multi-level wind CSV unit getters: the unit of the process-wide group @p id named exactly
 /// by @p stored, or nullptr when nothing is stored or the group has no such unit (Java throws
 /// IllegalArgumentException for the latter; see the header).
@@ -625,7 +618,7 @@ void Preferences::loadDefaultUnits() const
         if (unitName.has_value())
         {
             // False for a name the group lacks, which Java ignores as well.
-            unitGroup(*id).setDefaultUnit(std::string_view{*unitName});
+            static_cast<void>(unitGroup(*id).setDefaultUnit(std::string_view{*unitName}));
         }
     }
 }

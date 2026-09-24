@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 
 #include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/Unit.h"
@@ -13,7 +12,7 @@ namespace QtRocket
 /// PercentageOfLengthUnit), the secondary stability unit. As CaliberUnit, the reference length
 /// comes from a provider evaluated on every conversion, or is a constant, until the rocket model
 /// exists (OpenRocket reads FlightConfiguration.getLengthAerodynamic()).
-class PercentageOfLengthUnit : public GeneralUnit
+class PercentageOfLengthUnit final : public GeneralUnit
 {
 public:
     /// No reference length (OpenRocket's `new PercentageOfLengthUnit((Rocket) null)`, the
@@ -37,8 +36,7 @@ public:
     /// value * reference * multiplier. @throws BugError without a reference.
     [[nodiscard]] double fromUnit(double value) const override;
     /// value / reference / multiplier. @throws BugError without a reference.
-    [[nodiscard]] double                toUnit(double value) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] double toUnit(double value) const override;
 
 private:
     std::function<double()> m_referenceLengthProvider;

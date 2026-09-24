@@ -11,11 +11,10 @@
 #include <utility>
 #include <vector>
 
-#include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/Tick.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/unit/Value.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Chars.h"
 #include "QtRocket/util/DecimalFormat.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
@@ -23,10 +22,48 @@
 namespace QtRocket
 {
 
+namespace
+{
+
+/// Java's (int) narrowing of a long: the low 32 bits.
+[[nodiscard]] int javaLongToInt(std::int64_t value) noexcept
+{
+    return static_cast<int>(static_cast<std::uint32_t>(value));
+}
+
+/// Java's int multiplication, which wraps (a C++ int overflow would be undefined).
+[[nodiscard]] int javaIntMultiply(int a, int b) noexcept
+{
+    return static_cast<int>(static_cast<std::uint32_t>(a) * static_cast<std::uint32_t>(b));
+}
+
+/// Java's int addition, which wraps.
+[[nodiscard]] int javaIntAdd(int a, int b) noexcept
+{
+    return static_cast<int>(static_cast<std::uint32_t>(a) + static_cast<std::uint32_t>(b));
+}
+
+/// Java's int remainder: a zero divisor throws (ArithmeticException, a BugError here, where C++
+/// would trap), and INT_MIN % -1 is 0 (C++ overflows).
+[[nodiscard]] int javaIntRemainder(int dividend, int divisor)
+{
+    if (divisor == 0)
+    {
+        bug("/ by zero");
+    }
+    if (divisor == -1)
+    {
+        return 0;
+    }
+    return dividend % divisor;
+}
+
+}  // namespace
+
 const Unit& Unit::noUnit()
 {
-    static const GeneralUnit kNoUnit(1, std::string(Chars::kZwsp), 2);
-    return kNoUnit;
+    // UNITS_NONE holds Unit.NOUNIT itself, so the two are one object here too.
+    return unitGroup(UnitGroupId::NONE).getUnit(0);
 }
 
 Unit::Unit(double multiplier, std::string unit) : m_multiplier(multiplier), m_unit(std::move(unit))
@@ -118,7 +155,7 @@ std::string Unit::toStringUnit(double value) const
     return s;
 }
 
-Value Unit::toValue(double value) const
+Value Unit::toValue(double value) const&
 {
     return {value, *this};
 }
@@ -137,11 +174,7 @@ std::vector<Tick> Unit::decimalTicks(double start, double end, double minor, dou
                         Strings::javaDoubleToString(minor), Strings::javaDoubleToString(major)));
     }
 
-    std::vector<Tick> ticks;
-
-    int    mod2    = 0;  // Moduli for minor-notable, major-nonnotable, major-notable
-    int    mod3    = 0;
-    int    mod4    = 0;
+    int    mod2    = 0;  // Modulus for minor-notable (major ones in ticksAtMinorSteps)
     double minstep = 0;
 
     // Find the smallest possible step size
@@ -167,8 +200,19 @@ std::vector<Tick> Unit::decimalTicks(double start, double end, double minor, dou
         mod2    = 10;  // Changed later if clashes with major ticks
     }
 
+    return ticksAtMinorSteps(start, end, major, minstep, mod2);
+}
+
+std::vector<Tick> Unit::ticksAtMinorSteps(double start, double end, double major, double minstep,
+                                          int mod2) const
+{
+    std::vector<Tick> ticks;
+
+    int mod3 = 0;  // Moduli for major-nonnotable and major-notable
+    int mod4 = 0;
+
     // Find step size for major ticks; Java narrows Math.round's long to an int here
-    one = 1;
+    double one = 1;
     while (one > major)
     {
         one /= 10;
@@ -181,15 +225,14 @@ std::vector<Tick> Unit::decimalTicks(double start, double end, double minor, dou
     {
         // major step is round-five, major-notable is next round-ten
         const double majorstep = one / 2;
-        mod3 =
-            static_cast<int>(static_cast<std::uint32_t>(MathUtil::javaRound(majorstep / minstep)));
-        mod4 = mod3 * 2;
+        mod3                   = javaLongToInt(MathUtil::javaRound(majorstep / minstep));
+        mod4                   = javaIntMultiply(mod3, 2);
     }
     else
     {
         // major step is round-ten, major-notable is next round-ten
-        mod3 = static_cast<int>(static_cast<std::uint32_t>(MathUtil::javaRound(one / minstep)));
-        mod4 = mod3 * 10;
+        mod3 = javaLongToInt(MathUtil::javaRound(one / minstep));
+        mod4 = javaIntMultiply(mod3, 10);
     }
     // Check for clashes between minor-notable and major-nonnotable
     if (mod3 == mod2)
@@ -211,17 +254,17 @@ std::vector<Tick> Unit::decimalTicks(double start, double end, double minor, dou
         const double unitValue = pos * minstep;
         const double value     = fromUnit(unitValue);
 
-        if (pos % mod4 == 0)
+        if (javaIntRemainder(pos, mod4) == 0)
         {
             ticks.push_back(
                 {.value = value, .unitValue = unitValue, .major = true, .notable = true});
         }
-        else if (pos % mod3 == 0)
+        else if (javaIntRemainder(pos, mod3) == 0)
         {
             ticks.push_back(
                 {.value = value, .unitValue = unitValue, .major = true, .notable = false});
         }
-        else if (pos % mod2 == 0)
+        else if (javaIntRemainder(pos, mod2) == 0)
         {
             ticks.push_back(
                 {.value = value, .unitValue = unitValue, .major = false, .notable = true});
@@ -232,7 +275,8 @@ std::vector<Tick> Unit::decimalTicks(double start, double end, double minor, dou
                 {.value = value, .unitValue = unitValue, .major = false, .notable = false});
         }
 
-        pos++;
+        // pos++, wrapping at INT_MAX as Java does (Java then never leaves the loop either)
+        pos = javaIntAdd(pos, 1);
     }
 
     return ticks;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 
 #include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/Unit.h"
@@ -15,7 +14,7 @@ namespace QtRocket
 /// comes from a provider function that is evaluated on every conversion, or is a constant.
 /// (CaliberUnit.calculateCaliber, which walks the rocket's SymmetricComponents and falls back to
 /// kDefaultCaliber below 0.1 mm, arrives with the rocket model as such a provider.)
-class CaliberUnit : public GeneralUnit
+class CaliberUnit final : public GeneralUnit
 {
 public:
     /// The caliber assumed when a rocket has no symmetric component (0.01 m).
@@ -43,8 +42,7 @@ public:
     /// value * reference. @throws BugError without a reference.
     [[nodiscard]] double fromUnit(double value) const override;
     /// value / reference. @throws BugError without a reference.
-    [[nodiscard]] double                toUnit(double value) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] double toUnit(double value) const override;
 
 private:
     std::function<double()> m_referenceLengthProvider;

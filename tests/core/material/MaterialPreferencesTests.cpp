@@ -1,6 +1,7 @@
 #include "QtRocket/material/MaterialPreferences.h"
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -298,6 +299,46 @@ TEST_F(MaterialPreferencesTest, AddUserMaterialChecksLikeHashSetContains)
     const Preferences* const node = m_prefs.findNode(Keys::kUserMaterialsNode);
     ASSERT_NE(node, nullptr);
     EXPECT_EQ(node->keys().size(), 2U);
+}
+
+/// 1000.0 and the double just past MathUtil.equals' tolerance of it: Java's
+/// thousand.equals(edge) is false and edge.equals(thousand) true, and both hash alike.
+Material thousand()
+{
+    return Material::newMaterial(Type::BULK, "X", 1000.0, true);
+}
+
+Material pastTheEdge()
+{
+    return Material::newMaterial(Type::BULK, "X", std::bit_cast<double>(0x408f4000053e2d63ULL),
+                                 true);
+}
+
+TEST_F(MaterialPreferencesTest, HashSetTestsTheNewMaterialsEquals)
+{
+    ASSERT_EQ(thousand().hashCode(), pastTheEdge().hashCode());
+    Preferences& node = m_prefs.getNode(Keys::kUserMaterialsNode);
+    // HashSet.add(material1) tests material1.equals(material0): true here, so it is dropped.
+    node.put("material0", thousand().toStorableString());
+    node.put("material1", pastTheEdge().toStorableString());
+    EXPECT_EQ(getUserMaterials(m_prefs, m_storage).size(), 1U);
+    // The other way round it is false, and both are kept.
+    node.put("material0", pastTheEdge().toStorableString());
+    node.put("material1", thousand().toStorableString());
+    EXPECT_EQ(getUserMaterials(m_prefs, m_storage).size(), 2U);
+}
+
+TEST_F(MaterialPreferencesTest, AddUserMaterialTestsTheNewMaterialsEquals)
+{
+    // HashSet.contains(material) tests material.equals(stored).
+    addUserMaterial(m_prefs, pastTheEdge(), m_storage);
+    addUserMaterial(m_prefs, thousand(), m_storage);
+    EXPECT_EQ(userMaterialEntry("material1"), "BULK|X|1000.0|0.0|Custom");
+
+    InMemoryPreferences other;
+    addUserMaterial(other, thousand(), m_storage);
+    addUserMaterial(other, pastTheEdge(), m_storage);
+    EXPECT_EQ(other.getInNode(Keys::kUserMaterialsNode, "material1"), std::nullopt);
 }
 
 TEST_F(MaterialPreferencesTest, RemoveUserMaterialRemovesEveryEqualEntry)

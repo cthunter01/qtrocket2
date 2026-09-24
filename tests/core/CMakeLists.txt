@@ -10,6 +10,7 @@ add_executable(QtRocket_core_tests
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp
     util/LineStyleTests.cpp
     util/MathUtilTests.cpp
@@ -26,10 +27,20 @@ add_executable(QtRocket_core_tests
     util/UuidTests.cpp
     util/VersionTests.cpp
     util/WorldCoordinateTests.cpp
+    unit/CaliberUnitTests.cpp
+    unit/DegreeUnitTests.cpp
     unit/FixedPrecisionUnitTests.cpp
+    unit/FixedUnitGroupTests.cpp
     unit/FractionalUnitTests.cpp
+    unit/FrequencyUnitTests.cpp
+    unit/GeneralUnitTests.cpp
+    unit/InchUnitTests.cpp
+    unit/PercentageOfLengthUnitTests.cpp
+    unit/RadianUnitTests.cpp
+    unit/TemperatureUnitTests.cpp
     unit/UnitGroupTests.cpp
     unit/UnitTests.cpp
+    unit/ValueComparatorTests.cpp
     unit/ValueTests.cpp
     logging/ErrorMessageTests.cpp
     logging/MessagePriorityTests.cpp

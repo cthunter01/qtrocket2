@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <span>
+#include <string>
 #include <string_view>
 
 #include "QtRocket/material/Material.h"
@@ -22,12 +23,22 @@ struct BuiltinMaterial
     MaterialGroup    group;
 };
 
-/// The built-in materials in Databases.java's order: 32 bulk, 8 surface and 42 line materials.
-/// The names are the English message texts, which are the table's own names.
+/// The built-in materials in Databases.java's order: 32 bulk, 8 surface and 42 line materials,
+/// with the names Databases.java passes to the translator (which gives each of them back
+/// unchanged in English).
 [[nodiscard]] std::span<const BuiltinMaterial> builtinMaterials() noexcept;
 
-/// The material of a row: not user-defined, not a document material.
+/// The material of a row: its name through translatedMaterialName(), not user-defined, not a
+/// document material.
 [[nodiscard]] Material toMaterial(const BuiltinMaterial& row);
+
+/// Translator.get("material", baseName) with OpenRocket's English messages, which Databases
+/// applies to every material name it creates or looks up: the "material.<key>" message for the
+/// key L10N::normalize(baseName) ("PLA - 100% infill" for "PLA", "Paper (office)" for
+/// "paper office", "Crêpe paper" for "CREPE PAPER"), or @p baseName itself when there is no
+/// such message. OpenRocket has 49 of them; QtRocket shows English only, so the lookup always
+/// uses these.
+[[nodiscard]] std::string translatedMaterialName(std::string_view baseName);
 
 /// Databases' static initialiser without the user materials and the preference listener (those
 /// are addUserMaterials() and storeUserMaterialChanges() in MaterialPreferences.h): adds every

@@ -9,6 +9,7 @@ target_sources(QtRocket_core PRIVATE
     FloatingDecimal.cpp
     GeodeticComputationStrategy.cpp
     Geometry2D.cpp
+    L10N.cpp
     LinearInterpolator.cpp
     LineStyle.cpp
     MathUtil.cpp

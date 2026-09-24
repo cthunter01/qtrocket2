@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -33,6 +32,7 @@ public:
     ///         positive (OpenRocket asserts them, which its runtime does not check)
     GeneralUnit(double multiplier, std::string unit, int significantNumbers, int decimalRounding,
                 double stepValue);
+    ~GeneralUnit() override = default;
 
     [[nodiscard]] int    getSignificantNumbers() const noexcept { return m_significantNumbers; }
     [[nodiscard]] int    getDecimalRounding() const noexcept { return m_decimalRounding; }
@@ -41,12 +41,19 @@ public:
     /// Below 10^(significantNumbers - 1): to the closest 1/decimalRounding (half to even).
     /// Otherwise to significantNumbers significant digits. Deviation: OpenRocket loops forever
     /// on an infinite value; it is returned unchanged here.
-    [[nodiscard]] double                round(double value) const override;
-    [[nodiscard]] double                getNextValue(double value) const override;
-    [[nodiscard]] double                getPreviousValue(double value) const override;
-    [[nodiscard]] std::vector<Tick>     getTicks(double start, double end, double minor,
-                                                 double major) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] double            round(double value) const override;
+    [[nodiscard]] double            getNextValue(double value) const override;
+    [[nodiscard]] double            getPreviousValue(double value) const override;
+    [[nodiscard]] std::vector<Tick> getTicks(double start, double end, double minor,
+                                             double major) const override;
+
+protected:
+    /// Copying is for subclasses only, so that a subclass (a CaliberUnit, say) cannot be sliced
+    /// into a plain GeneralUnit by accident.
+    GeneralUnit(const GeneralUnit&)            = default;
+    GeneralUnit& operator=(const GeneralUnit&) = default;
+    GeneralUnit(GeneralUnit&&)                 = default;
+    GeneralUnit& operator=(GeneralUnit&&)      = default;
 
 private:
     int    m_significantNumbers;

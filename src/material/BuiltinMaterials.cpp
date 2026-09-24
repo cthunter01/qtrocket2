@@ -1,5 +1,6 @@
 #include "QtRocket/material/BuiltinMaterials.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <span>
@@ -9,6 +10,7 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialGroup.h"
 #include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/util/L10N.h"
 
 namespace QtRocket
 {
@@ -150,6 +152,65 @@ constexpr std::array<BuiltinMaterial, 82> kBuiltinMaterials{{
         MaterialGroup::ELASTICS),
 }};
 
+struct MaterialMessage
+{
+    std::string_view key;   ///< the message key without its "material." prefix
+    std::string_view name;  ///< the English text
+};
+
+/// The "material.*" messages of OpenRocket's English messages.properties, in key order.
+constexpr std::array<MaterialMessage, 49> kMaterialMessages{{
+    {.key = "abs", .name = "ABS - 100% infill"},
+    {.key = "acrylic", .name = "Acrylic"},
+    {.key = "aluminum", .name = "Aluminum"},
+    {.key = "balsa", .name = "Balsa"},
+    {.key = "basswood", .name = "Basswood"},
+    {.key = "birch", .name = "Birch"},
+    {.key = "blue_tube", .name = "Blue tube"},
+    {.key = "braided_nylon_2_mm_1_16_in", .name = "Braided nylon (2 mm, 1/16 in)"},
+    {.key = "braided_nylon_3_mm_1_8_in", .name = "Braided nylon (3 mm, 1/8 in)"},
+    {.key = "brass", .name = "Brass"},
+    {.key = "carbon_fiber", .name = "Carbon fiber"},
+    {.key = "cardboard", .name = "Cardboard"},
+    {.key = "cellophane", .name = "Cellophane"},
+    {.key = "cork", .name = "Cork"},
+    {.key = "crepe_paper", .name = "Cr\xC3\xAApe paper"},
+    {.key = "delrin", .name = "Delrin"},
+    {.key = "depron_xps", .name = "Depron (XPS)"},
+    {.key = "elastic_cord_flat_12_mm_1_2_in", .name = "Elastic cord (flat 12 mm, 1/2 in)"},
+    {.key = "elastic_cord_flat_19_mm_3_4_in", .name = "Elastic cord (flat 19 mm, 3/4 in)"},
+    {.key = "elastic_cord_flat_25_mm_1_in", .name = "Elastic cord (flat 25 mm, 1 in)"},
+    {.key = "elastic_cord_flat_6_mm_1_4_in", .name = "Elastic cord (flat 6 mm, 1/4 in)"},
+    {.key = "elastic_cord_round_2_mm_1_16_in", .name = "Elastic cord (round 2 mm, 1/16 in)"},
+    {.key = "fiberglass", .name = "Fiberglass"},
+    {.key = "kraft_phenolic", .name = "Kraft phenolic"},
+    {.key = "maple", .name = "Maple"},
+    {.key = "mylar", .name = "Mylar"},
+    {.key = "nylon", .name = "Nylon"},
+    {.key = "paper_office", .name = "Paper (office)"},
+    {.key = "petg", .name = "PETG - 100% infill"},
+    {.key = "pine", .name = "Pine"},
+    {.key = "pla", .name = "PLA - 100% infill"},
+    {.key = "plywood_birch", .name = "Plywood (birch)"},
+    {.key = "polycarbonate_lexan", .name = "Polycarbonate (Lexan)"},
+    {.key = "polyethylene_heavy", .name = "Polyethylene (heavy)"},
+    {.key = "polyethylene_thin", .name = "Polyethylene (thin)"},
+    {.key = "polystyrene", .name = "Polystyrene"},
+    {.key = "pvc", .name = "PVC"},
+    {.key = "quantum_tubing", .name = "Quantum tubing"},
+    {.key = "ripstop_nylon", .name = "Ripstop nylon"},
+    {.key = "silk", .name = "Silk"},
+    {.key = "spruce", .name = "Spruce"},
+    {.key = "steel", .name = "Steel"},
+    {.key = "styrofoam_blue_foam_xps", .name = "Styrofoam \"Blue foam\" (XPS)"},
+    {.key = "styrofoam_generic_eps", .name = "Styrofoam (generic EPS)"},
+    {.key = "thread_heavy_duty", .name = "Thread (heavy-duty)"},
+    {.key = "titanium", .name = "Titanium"},
+    {.key = "tubular_nylon_11_mm_7_16_in", .name = "Tubular nylon (11 mm, 7/16 in)"},
+    {.key = "tubular_nylon_14_mm_9_16_in", .name = "Tubular nylon (14 mm, 9/16 in)"},
+    {.key = "tubular_nylon_25_mm_1_in", .name = "Tubular nylon (25 mm, 1 in)"},
+}};
+
 }  // namespace
 
 std::span<const BuiltinMaterial> builtinMaterials() noexcept
@@ -159,8 +220,20 @@ std::span<const BuiltinMaterial> builtinMaterials() noexcept
 
 Material toMaterial(const BuiltinMaterial& row)
 {
-    return Material::newMaterial(row.type, std::string(row.name), row.density,
+    // Databases.newMaterial translates the name
+    return Material::newMaterial(row.type, translatedMaterialName(row.name), row.density,
                                  row.inPlaneShearModulus, row.group, false);
+}
+
+std::string translatedMaterialName(std::string_view baseName)
+{
+    const std::string key = L10N::normalize(baseName);
+    const auto* found = std::ranges::lower_bound(kMaterialMessages, key, {}, &MaterialMessage::key);
+    if (found != kMaterialMessages.end() && found->key == key)
+    {
+        return std::string(found->name);
+    }
+    return std::string(baseName);
 }
 
 std::size_t addBuiltinMaterials(MaterialStorage& storage)

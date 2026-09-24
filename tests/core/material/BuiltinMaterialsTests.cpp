@@ -273,4 +273,33 @@ TEST(BuiltinMaterials, AreNotAnnouncedAsUserMaterials)
     EXPECT_EQ(userAdded, 0);
 }
 
+TEST(BuiltinMaterials, TranslatingABuiltInNameGivesItBack)
+{
+    // Databases translates every built-in name, which English gives back unchanged.
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        EXPECT_EQ(QtRocket::translatedMaterialName(row.name), row.name);
+    }
+}
+
+TEST(BuiltinMaterials, TranslatedNamesAreOpenRocketsEnglishMessages)
+{
+    using QtRocket::translatedMaterialName;
+    // A name is looked up by its L10N key ("material." + L10N.normalize(name)).
+    EXPECT_EQ(translatedMaterialName("PLA"), "PLA - 100% infill");
+    EXPECT_EQ(translatedMaterialName("abs"), "ABS - 100% infill");
+    EXPECT_EQ(translatedMaterialName("paper office"), "Paper (office)");
+    EXPECT_EQ(translatedMaterialName("CR\u00CAPE PAPER"), "Cr\u00EApe paper");
+    EXPECT_EQ(translatedMaterialName("Braided Nylon 3mm 1/8 in"), "Braided Nylon 3mm 1/8 in");
+    EXPECT_EQ(translatedMaterialName("braided nylon 3 mm 1 8 in"), "Braided nylon (3 mm, 1/8 in)");
+}
+
+TEST(BuiltinMaterials, NamesWithoutAMessageStayAsTheyAre)
+{
+    using QtRocket::translatedMaterialName;
+    EXPECT_EQ(translatedMaterialName("ASA - 100% infill"), "ASA - 100% infill");
+    EXPECT_EQ(translatedMaterialName(" Unobtainium "), " Unobtainium ");
+    EXPECT_EQ(translatedMaterialName(""), "");
+}
+
 }  // namespace

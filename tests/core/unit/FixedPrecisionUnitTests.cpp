@@ -3,13 +3,11 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
-#include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/unit/Tick.h"
-#include "QtRocket/unit/Unit.h"
 #include "QtRocket/util/BugError.h"
 
 namespace
@@ -18,7 +16,6 @@ namespace
 using QtRocket::BugError;
 using QtRocket::FixedPrecisionUnit;
 using QtRocket::Tick;
-using QtRocket::Unit;
 
 constexpr double kEpsilon = 1e-8;
 constexpr double kNaN     = std::numeric_limits<double>::quiet_NaN();
@@ -409,8 +406,8 @@ TEST_F(FixedPrecisionUnitTest, RoundIsJavasMathRound)
 
 void expectTick(const Tick& tick, double value, bool major, bool notable)
 {
-    EXPECT_DOUBLE_EQ(tick.value, value);
-    EXPECT_DOUBLE_EQ(tick.unitValue, value);
+    EXPECT_EQ(tick.value, value);
+    EXPECT_EQ(tick.unitValue, value);
     EXPECT_EQ(tick.major, major);
     EXPECT_EQ(tick.notable, notable);
 }
@@ -428,12 +425,8 @@ TEST_F(FixedPrecisionUnitTest, TicksAreGeneralUnitsTicks)
     EXPECT_THROW(static_cast<void>(unit.getTicks(0, 1, 0.5, 0.25)), BugError);
 }
 
-TEST_F(FixedPrecisionUnitTest, CloneAndEquality)
+TEST_F(FixedPrecisionUnitTest, Equality)
 {
-    const std::unique_ptr<Unit> copy = m_unitNoTrailing.clone();
-    ASSERT_NE(dynamic_cast<const FixedPrecisionUnit*>(copy.get()), nullptr);
-    EXPECT_EQ(copy->toString(1.0), "1");
-    EXPECT_TRUE(copy->equals(m_unitNoTrailing));
     // Only the class, multiplier and name count, as in Unit.equals.
     EXPECT_TRUE(m_unitPoint1.equals(m_unitPoint25));
     EXPECT_FALSE(m_unitPoint1.equals(m_unitWithMultiplier));

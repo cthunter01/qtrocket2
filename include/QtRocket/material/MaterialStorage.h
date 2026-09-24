@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string_view>
@@ -38,6 +39,10 @@ public:
     /// Databases.getDatabase: the database of @p type.
     /// @throws BugError for CUSTOM, which has none (OpenRocket:
     /// IllegalArgumentException)
+    ///
+    /// The databases are handed out by reference for adding and removing; the storage listens to
+    /// them for as long as it lives. Moving a database out (MaterialDatabase's move constructor)
+    /// takes its materials only and leaves the storage's database empty and still listened to.
     [[nodiscard]] MaterialDatabase&       database(Material::Type type);
     [[nodiscard]] const MaterialDatabase& database(Material::Type type) const;
     [[nodiscard]] MaterialDatabase&       bulkMaterials() noexcept { return m_bulk; }
@@ -47,29 +52,32 @@ public:
     [[nodiscard]] MaterialDatabase&       lineMaterials() noexcept { return m_line; }
     [[nodiscard]] const MaterialDatabase& lineMaterials() const noexcept { return m_line; }
 
-    /// Databases.findMaterial(type, name, density, shearModulus, group): a copy of the first
-    /// material of @p type whose name matches @p name ignoring ASCII case and whose density and
-    /// shear modulus match within MathUtil::equals (the group is not compared, for files older
-    /// than OpenRocket 24.12), or a new user-defined document material with the given fields
-    /// when there is none. This is how the .ork loader resolves a component's material.
+    /// Databases.findMaterial(type, baseName, density, shearModulus, group): the name is first
+    /// translated (translatedMaterialName(): "PLA" becomes "PLA - 100% infill", " aluminum"
+    /// becomes "Aluminum"); then a copy of the first material of @p type whose name equals it
+    /// ignoring case (String.equalsIgnoreCase, Strings::javaEqualsIgnoreCase) and whose density
+    /// and shear modulus match within MathUtil::equals (the group is not compared, for files
+    /// older than OpenRocket 24.12), or else a new user-defined document material with the
+    /// translated name and the given fields. This is how the .ork loader resolves a component's
+    /// material.
     /// @throws BugError for the CUSTOM type
-    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name, double density,
-                                        double                       inPlaneShearModulus,
+    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view baseName,
+                                        double density, double inPlaneShearModulus,
                                         std::optional<MaterialGroup> group) const;
-    /// Databases.findMaterial(type, name, density, group): as above, matching by name and density
-    /// only (the older lookup); the fallback material has shear modulus 0.
+    /// Databases.findMaterial(type, baseName, density, group): as above, matching by name and
+    /// density only (the older lookup); the fallback material has shear modulus 0.
     /// @throws BugError for the CUSTOM type
-    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name, double density,
-                                        std::optional<MaterialGroup> group) const;
-    /// findMaterial(type, name, density, nullopt).
+    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view baseName,
+                                        double density, std::optional<MaterialGroup> group) const;
+    /// findMaterial(type, baseName, density, nullopt).
     /// @throws BugError for the CUSTOM type
-    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view name,
+    [[nodiscard]] Material findMaterial(Material::Type type, std::string_view baseName,
                                         double density) const;
-    /// Databases.findMaterial(type, name): a copy of the first material of @p type whose name
-    /// matches ignoring ASCII case, or nullopt (OpenRocket: null).
+    /// Databases.findMaterial(type, baseName): a copy of the first material of @p type whose
+    /// name equals the translated name ignoring case, as above, or nullopt (OpenRocket: null).
     /// @throws BugError for the CUSTOM type
     [[nodiscard]] std::optional<Material> findMaterial(Material::Type   type,
-                                                       std::string_view name) const;
+                                                       std::string_view baseName) const;
 
     /// Databases.addMaterial: adds to the database of the material's type; true when added.
     /// @throws BugError for a CUSTOM material
@@ -88,7 +96,8 @@ public:
 
     /// MaterialGroup.loadFromDatabaseStringWithBackwardCompatibility: "ThreadsLines", the
     /// pre-24.12 name of what became ELASTICS, KEVLARS and NYLONS, is resolved by looking the
-    /// material up in the database of @p type by name (ignoring ASCII case) and density
+    /// material up in the database of @p type by name (String.equalsIgnoreCase, untranslated)
+    /// and density
     /// (MathUtil::equals): the material's group when it is one of those three, OTHER otherwise
     /// (also for the CUSTOM type, whose lookup OpenRocket lets fail). Any other name goes through
     /// materialGroupFromDatabaseString(): nullopt when unknown.
@@ -102,11 +111,18 @@ public:
     Signal<const Material&> userMaterialRemoved;
 
 private:
-    void listenTo(MaterialDatabase& database);
+    using Connection = Signal<const Material&, const MaterialDatabase&>::ScopedConnection;
+
+    /// Forwards a user-defined material added to @p database to userMaterialAdded.
+    [[nodiscard]] Connection forwardAdded(MaterialDatabase& database);
+    /// Forwards a material removed from @p database to userMaterialRemoved.
+    [[nodiscard]] Connection forwardRemoved(MaterialDatabase& database);
 
     MaterialDatabase m_bulk;
     MaterialDatabase m_surface;
     MaterialDatabase m_line;
+    /// The storage's listeners on the three databases, cut when the storage is destroyed.
+    std::array<Connection, 6> m_connections;
 };
 
 }  // namespace QtRocket

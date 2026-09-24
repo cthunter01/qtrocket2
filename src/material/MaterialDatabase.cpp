@@ -12,6 +12,11 @@
 namespace QtRocket
 {
 
+MaterialDatabase::MaterialDatabase(MaterialDatabase&& other) noexcept
+  : m_list(std::exchange(other.m_list, {}))
+{
+}
+
 bool MaterialDatabase::add(const Material& material)
 {
     // Collections.binarySearch: the index of an element comparing equal, or -(insertion point + 1)
@@ -52,14 +57,19 @@ bool MaterialDatabase::add(const Material& material)
     }
     const auto position = std::next(m_list.begin(), index);
     m_list.insert(position, material);
-    materialAdded.emit(m_list[static_cast<std::size_t>(index)], *this);
+    // Java passes the element object, which a listener cannot invalidate; a reference into the
+    // list (or @p material, which may alias it) would dangle once a slot changes the database.
+    const Material added = m_list[static_cast<std::size_t>(index)];
+    materialAdded.emit(added, *this);
     return true;
 }
 
 bool MaterialDatabase::addAll(const MaterialDatabase& other)
 {
     bool modified = false;
-    for (const Material& material : other)
+    // A snapshot: a slot may change either database while the materials are added.
+    const std::vector<Material> materials(other.begin(), other.end());
+    for (const Material& material : materials)
     {
         if (add(material))
         {
@@ -73,7 +83,7 @@ bool MaterialDatabase::remove(const Material& material)
 {
     for (auto it = m_list.begin(); it != m_list.end(); ++it)
     {
-        if (*it == material)
+        if (material == *it)
         {
             const Material removed = std::move(*it);
             m_list.erase(it);
@@ -82,6 +92,16 @@ bool MaterialDatabase::remove(const Material& material)
         }
     }
     return false;
+}
+
+void MaterialDatabase::clear()
+{
+    while (!m_list.empty())
+    {
+        const Material removed = std::move(m_list.front());
+        m_list.erase(m_list.begin());
+        materialRemoved.emit(removed, *this);
+    }
 }
 
 bool MaterialDatabase::contains(const Material& material) const noexcept
@@ -93,7 +113,7 @@ int MaterialDatabase::indexOf(const Material& material) const noexcept
 {
     for (std::size_t i = 0; i < m_list.size(); i++)
     {
-        if (m_list[i] == material)
+        if (material == m_list[i])
         {
             return static_cast<int>(i);
         }

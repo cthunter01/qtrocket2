@@ -29,11 +29,12 @@ namespace Keys = PreferenceKeys;
 /// The prefix of the keys addUserMaterial() stores under ("material0", "material1", ...).
 constexpr std::string_view kUserMaterialKeyPrefix = "material";
 
-/// HashSet<Material>.contains: a material with the same hashCode() that equals() @p material.
+/// HashSet<Material>.contains: a material with the same hashCode() that @p material equals()
+/// (HashMap's key.equals(k): the probe's equals, whose tolerance is relative to the element).
 [[nodiscard]] bool javaSetContains(const std::vector<Material>& materials, const Material& material)
 {
     return std::ranges::any_of(materials, [&material](const Material& element) {
-        return element.hashCode() == material.hashCode() && element == material;
+        return element.hashCode() == material.hashCode() && material == element;
     });
 }
 

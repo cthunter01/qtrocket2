@@ -5,38 +5,44 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
+#include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialDatabase.h"
 #include "QtRocket/material/MaterialGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
 
+// Databases adds its storage listener to the line, surface and bulk databases, in that order.
 MaterialStorage::MaterialStorage()
+  : m_connections{forwardAdded(m_line),      forwardRemoved(m_line), forwardAdded(m_surface),
+                  forwardRemoved(m_surface), forwardAdded(m_bulk),   forwardRemoved(m_bulk)}
 {
-    // Databases adds its storage listener to the line, surface and bulk databases.
-    listenTo(m_line);
-    listenTo(m_surface);
-    listenTo(m_bulk);
 }
 
-void MaterialStorage::listenTo(MaterialDatabase& database)
+MaterialStorage::Connection MaterialStorage::forwardAdded(MaterialDatabase& database)
 {
-    database.materialAdded.connect(
+    return Connection{database.materialAdded.connect(
         [this](const Material& material, const MaterialDatabase& /*source*/) {
             if (material.isUserDefined())
             {
                 userMaterialAdded.emit(material);
             }
-        });
-    database.materialRemoved.connect(
+        })};
+}
+
+MaterialStorage::Connection MaterialStorage::forwardRemoved(MaterialDatabase& database)
+{
+    return Connection{database.materialRemoved.connect(
         [this](const Material& material, const MaterialDatabase& /*source*/) {
             userMaterialRemoved.emit(material);
-        });
+        })};
 }
 
 MaterialDatabase& MaterialStorage::database(Material::Type type)
@@ -71,54 +77,60 @@ const MaterialDatabase& MaterialStorage::database(Material::Type type) const
     bug(std::format("Illegal material type: {}", toString(type)));
 }
 
-Material MaterialStorage::findMaterial(Material::Type type, std::string_view name, double density,
-                                       double                       inPlaneShearModulus,
+Material MaterialStorage::findMaterial(Material::Type type, std::string_view baseName,
+                                       double density, double inPlaneShearModulus,
                                        std::optional<MaterialGroup> group) const
 {
-    const MaterialDatabase& db = database(type);
+    const MaterialDatabase& db   = database(type);
+    std::string             name = translatedMaterialName(baseName);
+
     for (const Material& m : db)
     {
         // Material group comparison is omitted to keep compatibility with files pre OR 24.12
-        if (Strings::equalsIgnoreAsciiCase(m.getName(), name) &&
+        if (Strings::javaEqualsIgnoreCase(m.getName(), name) &&
             MathUtil::equals(m.getDensity(), density) &&
             MathUtil::equals(m.getInPlaneShearModulus(), inPlaneShearModulus))
         {
             return m;
         }
     }
-    return Material::newMaterial(type, std::string(name), density, inPlaneShearModulus, group, true,
+    return Material::newMaterial(type, std::move(name), density, inPlaneShearModulus, group, true,
                                  true);
 }
 
-Material MaterialStorage::findMaterial(Material::Type type, std::string_view name, double density,
-                                       std::optional<MaterialGroup> group) const
+Material MaterialStorage::findMaterial(Material::Type type, std::string_view baseName,
+                                       double density, std::optional<MaterialGroup> group) const
 {
-    const MaterialDatabase& db = database(type);
+    const MaterialDatabase& db   = database(type);
+    std::string             name = translatedMaterialName(baseName);
+
     for (const Material& m : db)
     {
         // Backward-compatible lookup: match by name and density only.
-        if (Strings::equalsIgnoreAsciiCase(m.getName(), name) &&
+        if (Strings::javaEqualsIgnoreCase(m.getName(), name) &&
             MathUtil::equals(m.getDensity(), density))
         {
             return m;
         }
     }
-    return Material::newMaterial(type, std::string(name), density, 0.0, group, true, true);
+    return Material::newMaterial(type, std::move(name), density, 0.0, group, true, true);
 }
 
-Material MaterialStorage::findMaterial(Material::Type type, std::string_view name,
+Material MaterialStorage::findMaterial(Material::Type type, std::string_view baseName,
                                        double density) const
 {
-    return findMaterial(type, name, density, std::nullopt);
+    return findMaterial(type, baseName, density, std::nullopt);
 }
 
 std::optional<Material> MaterialStorage::findMaterial(Material::Type   type,
-                                                      std::string_view name) const
+                                                      std::string_view baseName) const
 {
-    const MaterialDatabase& db = database(type);
+    const MaterialDatabase& db   = database(type);
+    const std::string       name = translatedMaterialName(baseName);
+
     for (const Material& m : db)
     {
-        if (Strings::equalsIgnoreAsciiCase(m.getName(), name))
+        if (Strings::javaEqualsIgnoreCase(m.getName(), name))
         {
             return m;
         }
@@ -167,7 +179,7 @@ std::optional<MaterialGroup> MaterialStorage::materialGroupFromLegacyDatabaseStr
             // Search the database for the material by name and density
             for (const Material& m : database(type))
             {
-                if (Strings::equalsIgnoreAsciiCase(m.getName(), materialName) &&
+                if (Strings::javaEqualsIgnoreCase(m.getName(), materialName) &&
                     MathUtil::equals(m.getDensity(), density))
                 {
                     const MaterialGroup foundGroup = m.getGroup();

@@ -3,9 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <format>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -121,14 +119,7 @@ std::vector<Tick> FractionalUnit::getTicks(double start, double end, double mino
                         Strings::javaDoubleToString(minor), Strings::javaDoubleToString(major)));
     }
 
-    std::vector<Tick> ticks;
-
-    int    mod2    = 0;  // Moduli for minor-notable, major-nonnotable, major-notable
-    int    mod3    = 0;
-    int    mod4    = 0;
-    double minstep = 0;
-
-    // Find the smallest possible step size
+    // Find the smallest possible step size: a halving of one unit
     double one = 1;
     while (one > minor)
     {
@@ -138,78 +129,10 @@ std::vector<Tick> FractionalUnit::getTicks(double start, double end, double mino
     {
         one *= 2;
     }
-    minstep = one;
-    mod2    = 16;
+    const double minstep = one;
+    const int    mod2 = 16;  // minor-notable modulus, changed later if it clashes with major ticks
 
-    // Find step size for major ticks; Java narrows Math.round's long to an int here
-    one = 1;
-    while (one > major)
-    {
-        one /= 10;
-    }
-    while (one < major)
-    {
-        one *= 10;
-    }
-    if (one / 2 >= major)
-    {
-        // major step is round-five, major-notable is next round-ten
-        const double majorstep = one / 2;
-        mod3 =
-            static_cast<int>(static_cast<std::uint32_t>(MathUtil::javaRound(majorstep / minstep)));
-        mod4 = mod3 * 2;
-    }
-    else
-    {
-        // major step is round-ten, major-notable is next round-ten
-        mod3 = static_cast<int>(static_cast<std::uint32_t>(MathUtil::javaRound(one / minstep)));
-        mod4 = mod3 * 10;
-    }
-    // Check for clashes between minor-notable and major-nonnotable
-    if (mod3 == mod2)
-    {
-        if (mod2 == 2)
-        {
-            mod2 = 1;  // Every minor tick is notable
-        }
-        else
-        {
-            mod2 = 5;  // Every fifth minor tick is notable
-        }
-    }
-
-    // Calculate starting position
-    int pos = MathUtil::javaIntCast(std::ceil(start / minstep));
-    while (pos * minstep <= end)
-    {
-        const double unitValue = pos * minstep;
-        const double value     = fromUnit(unitValue);
-
-        if (pos % mod4 == 0)
-        {
-            ticks.push_back(
-                {.value = value, .unitValue = unitValue, .major = true, .notable = true});
-        }
-        else if (pos % mod3 == 0)
-        {
-            ticks.push_back(
-                {.value = value, .unitValue = unitValue, .major = true, .notable = false});
-        }
-        else if (pos % mod2 == 0)
-        {
-            ticks.push_back(
-                {.value = value, .unitValue = unitValue, .major = false, .notable = true});
-        }
-        else
-        {
-            ticks.push_back(
-                {.value = value, .unitValue = unitValue, .major = false, .notable = false});
-        }
-
-        pos++;
-    }
-
-    return ticks;
+    return ticksAtMinorSteps(start, end, major, minstep, mod2);
 }
 
 std::string FractionalUnit::toString(double value) const
@@ -266,11 +189,6 @@ std::string FractionalUnit::toStringUnit(double value) const
     std::string s = toString(value);
     s += " " + m_unitLabel;
     return s;
-}
-
-std::unique_ptr<Unit> FractionalUnit::clone() const
-{
-    return std::make_unique<FractionalUnit>(*this);
 }
 
 }  // namespace QtRocket

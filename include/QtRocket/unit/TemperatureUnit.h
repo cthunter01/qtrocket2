@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "QtRocket/unit/FixedPrecisionUnit.h"
@@ -12,7 +11,7 @@ namespace QtRocket
 /// A temperature scale with an offset (OpenRocket's TemperatureUnit): degrees Celsius are
 /// TemperatureUnit(1, 273.15, 0.01, "°C"), Fahrenheit TemperatureUnit(5/9, 459.67, 0.01,
 /// "°F"). No space is put between the value and the unit name.
-class TemperatureUnit : public FixedPrecisionUnit
+class TemperatureUnit final : public FixedPrecisionUnit
 {
 public:
     /// @param multiplier kelvins per degree of this scale
@@ -26,8 +25,7 @@ public:
     /// value / multiplier - addition.
     [[nodiscard]] double toUnit(double value) const override;
     /// (value + addition) * multiplier.
-    [[nodiscard]] double                fromUnit(double value) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] double fromUnit(double value) const override;
 
 private:
     double m_addition;

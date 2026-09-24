@@ -1,14 +1,18 @@
 #include "QtRocket/unit/UnitGroup.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <functional>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <numbers>
 #include <optional>
 #include <set>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -38,7 +42,6 @@ using QtRocket::CaliberUnit;
 using QtRocket::DegreeUnit;
 using QtRocket::ErrorCode;
 using QtRocket::FixedPrecisionUnit;
-using QtRocket::FixedUnitGroup;
 using QtRocket::FractionalUnit;
 using QtRocket::FrequencyUnit;
 using QtRocket::GeneralUnit;
@@ -492,6 +495,15 @@ TEST_F(UnitGroupTest, NamesRoundTripAndUseTheJavaMapKeys)
     EXPECT_EQ(unitGroupFromName(" LENGTH"), std::nullopt);
 }
 
+TEST_F(UnitGroupTest, EveryGroupButTwoIsInTheUnitsMap)
+{
+    // UnitGroup.UNITS has 41 keys: SHAPE_PARAMETER and STABILITY_CALIBERS are not among them.
+    EXPECT_FALSE(QtRocket::isInUnitsMap(UnitGroupId::SHAPE_PARAMETER));
+    EXPECT_FALSE(QtRocket::isInUnitsMap(UnitGroupId::STABILITY_CALIBERS));
+    EXPECT_EQ(std::ranges::count_if(kAllUnitGroupIds, QtRocket::isInUnitsMap), 41);
+    static_assert(QtRocket::isInUnitsMap(UnitGroupId::LENGTH));
+}
+
 TEST_F(UnitGroupTest, SiUnitSymbolsMapAsSIUNITS)
 {
     EXPECT_EQ(unitGroupFromSiUnit("m"), UnitGroupId::ALL_LENGTHS);
@@ -747,7 +759,7 @@ TEST_F(UnitGroupTest, FromStringParsesValueAndOptionalUnit)
     EXPECT_DOUBLE_EQ(length.fromString("12.5 mm").value(), 0.0125);
     EXPECT_DOUBLE_EQ(length.fromString("12.5mm").value(), 0.0125);
     EXPECT_DOUBLE_EQ(length.fromString("12,5 mm").value(), 0.0125);        // a comma is accepted
-    EXPECT_DOUBLE_EQ(length.fromString("  12.5   MM  ").value(), 0.0125);  // any ASCII case
+    EXPECT_DOUBLE_EQ(length.fromString("  12.5   MM  ").value(), 0.0125);  // ignoring case
     EXPECT_DOUBLE_EQ(length.fromString("3").value(), 0.03);                // the default unit
     EXPECT_DOUBLE_EQ(length.fromString("-5 cm").value(), -0.05);
     EXPECT_DOUBLE_EQ(length.fromString("2 in").value(), 0.0508);
@@ -760,6 +772,69 @@ TEST_F(UnitGroupTest, FromStringParsesValueAndOptionalUnit)
                                  "12.5 mm km", "- 5 cm", "--5"});
     EXPECT_EQ(length.fromString("abc").error().message, "string did not match required pattern");
     EXPECT_EQ(length.fromString("12 furlong").error().message, "unknown unit furlong");
+}
+
+TEST_F(UnitGroupTest, FromStringMatchesUnitsAsJavasEqualsIgnoreCase)
+{
+    // String.equalsIgnoreCase compares characters after toUpperCase and toLowerCase, which also
+    // folds a few non-ASCII letters into the units' names. Pinned on JDK 17.
+    const UnitGroup& roughness = unitGroup(UnitGroupId::ROUGHNESS);               // default µm
+    EXPECT_EQ(roughness.fromString("5 \u00B5m").value(), 4.9999999999999996E-6);  // micro sign
+    EXPECT_EQ(roughness.fromString("5 \u03BCm").value(), 4.9999999999999996E-6);  // Greek mu
+    EXPECT_EQ(roughness.fromString("5 \u039CM").value(), 4.9999999999999996E-6);  // capital mu
+    const UnitGroup& mass = unitGroup(UnitGroupId::MASS);
+    EXPECT_EQ(mass.fromString("5 Kg").value(), 5.0);
+    EXPECT_EQ(mass.fromString("5 \u212Ag").value(), 5.0);  // the Kelvin sign
+    EXPECT_EQ(unitGroup(UnitGroupId::SHORT_TIME).fromString("5 \u017F").value(), 5.0);  // long s
+    const UnitGroup& length = unitGroup(UnitGroupId::LENGTH);
+    EXPECT_DOUBLE_EQ(length.fromString("5 \u0130n").value(), 0.127);  // dotted capital I
+    EXPECT_DOUBLE_EQ(length.fromString("5 \u0131n").value(), 0.127);  // dotless small i
+    EXPECT_FALSE(length.fromString("5 \u00EDn").has_value());         // í is no i
+
+    // Double.parseDouble gives an infinity for digits beyond the double range.
+    const std::string huge = "1" + std::string(309, '0');
+    EXPECT_EQ(length.fromString(huge + " mm").value(), std::numeric_limits<double>::infinity());
+    EXPECT_EQ(length.fromString("-" + huge).value(), -std::numeric_limits<double>::infinity());
+
+    // The caliber and percentage placeholders cannot convert: a bug, not a parse failure.
+    EXPECT_THROW(
+        static_cast<void>(unitGroup(UnitGroupId::STABILITY).fromString("5 cal").has_value()),
+        BugError);
+    EXPECT_THROW(static_cast<void>(
+                     unitGroup(UnitGroupId::SECONDARY_STABILITY).fromString("5 %").has_value()),
+                 BugError);
+    EXPECT_DOUBLE_EQ(unitGroup(UnitGroupId::STABILITY).fromString("5 mm").value(), 0.005);
+}
+
+TEST_F(UnitGroupTest, DefaultUnitsMayBeReadWhileTheGuiThreadChangesThem)
+{
+    // The GUI thread switches between the metric and imperial defaults while another thread
+    // formats with the default velocity unit: each read sees one default or the other (the
+    // tsan preset checks that this is not a data race).
+    std::atomic<bool> done{false};
+    std::thread       gui([&done] {
+        for (int i = 0; i < 2000; i++)
+        {
+            if (i % 2 == 0)
+            {
+                UnitGroup::setDefaultMetricUnits();
+            }
+            else
+            {
+                UnitGroup::setDefaultImperialUnits();
+            }
+        }
+        done.store(true);
+    });
+    const UnitGroup&  velocity = unitGroup(UnitGroupId::VELOCITY);
+    int               reads    = 0;
+    while (!done.load() || reads < 100)
+    {
+        const std::string text = velocity.toStringUnit(10.0);
+        EXPECT_TRUE(text == "10 m/s" || text == "32.8 ft/s") << text;
+        reads++;
+    }
+    gui.join();
 }
 
 TEST_F(UnitGroupTest, EqualityComparesTheUnitLists)
@@ -807,9 +882,9 @@ TEST_F(UnitGroupTest, StabilityUnitGroupBindsAReferenceLength)
     EXPECT_EQ(&group->getPercentageOfLengthUnit(), &group->getUnit(5));
     EXPECT_DOUBLE_EQ(group->getPercentageOfLengthUnit().toUnit(0.025), 50.0);
     EXPECT_EQ(group->getPercentageOfLengthUnit().toStringUnit(0.025), "50 %");
-    // The other units are clones of UNITS_STABILITY's, not the same objects.
-    EXPECT_NE(&group->getUnit(0), &stability.getUnit(0));
-    EXPECT_TRUE(group->getUnit(0).equals(stability.getUnit(0)));
+    // The other units are UNITS_STABILITY's own objects (units.addAll).
+    EXPECT_EQ(&group->getUnit(0), &stability.getUnit(0));
+    EXPECT_EQ(&group->getUnit(3), &stability.getUnit(3));
     EXPECT_EQ(group->getUnit(3).toString(0.0254), "1");
     // The placeholders of UNITS_STABILITY are untouched.
     EXPECT_FALSE(dynamic_cast<const CaliberUnit&>(stability.getUnit(4)).hasReference());
@@ -875,28 +950,6 @@ TEST_F(UnitGroupTest, SecondaryStabilityProvidersAreReadOnEveryConversion)
     EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "50 %");
     reference = 0.4;
     EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "25 %");
-}
-
-TEST_F(UnitGroupTest, FixedUnitGroupIsOneArbitraryUnit)
-{
-    const FixedUnitGroup furlongs("furlong");
-    EXPECT_EQ(furlongs.getUnitString(), "furlong");
-    EXPECT_EQ(furlongs.getUnitCount(), 1);
-    EXPECT_EQ(furlongs.getDefaultUnit().getUnit(), "furlong");
-    EXPECT_EQ(furlongs.getDefaultUnit().getMultiplier(), 1.0);
-    EXPECT_EQ(&furlongs.getSIUnit(), &furlongs.getDefaultUnit());
-    EXPECT_EQ(&furlongs.getUnit(0), &furlongs.getDefaultUnit());
-    EXPECT_NE(dynamic_cast<const GeneralUnit*>(&furlongs.getDefaultUnit()), nullptr);
-    EXPECT_TRUE(furlongs.contains(GeneralUnit(1, "furlong")));
-    EXPECT_TRUE(furlongs.contains(GeneralUnit(3, "anything")));  // every unit
-    EXPECT_TRUE(furlongs.contains(DegreeUnit()));
-    EXPECT_EQ(furlongs.toString(), "FixedUnitGroup:furlong");
-    EXPECT_EQ(furlongs.toString(2.5), "2.5");
-    EXPECT_EQ(furlongs.toStringUnit(2.5), "2.5 furlong");
-    EXPECT_DOUBLE_EQ(furlongs.fromString("7 furlong").value(), 7.0);
-    EXPECT_FALSE(furlongs.equals(unitGroup(UnitGroupId::SHORT_TIME)));
-    EXPECT_TRUE(furlongs.equals(FixedUnitGroup("furlong")));
-    EXPECT_THROW(static_cast<void>(furlongs.getUnit(1)), BugError);
 }
 
 }  // namespace

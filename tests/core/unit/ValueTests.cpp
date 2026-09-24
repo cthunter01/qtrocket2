@@ -1,11 +1,7 @@
 #include "QtRocket/unit/Value.h"
 
-#include <algorithm>
-#include <cmath>
-#include <compare>
-#include <functional>
 #include <limits>
-#include <vector>
+#include <memory>
 
 #include <gtest/gtest.h>
 
@@ -98,48 +94,70 @@ TEST(Value, EqualsNeedsTheSameUnitObject)
     EXPECT_FALSE(a == d);
     EXPECT_FALSE(a == e);
     EXPECT_TRUE(a != e);
-    EXPECT_EQ(std::hash<Value>{}(a), std::hash<Value>{}(b));
-    EXPECT_NE(std::hash<Value>{}(a), std::hash<Value>{}(d));
-    // equals never holds for NaN (MathUtil::equals), while compareTo puts equal NaNs together.
+    EXPECT_EQ(a.hash(), b.hash());
+    EXPECT_NE(a.hash(), d.hash());
+    // equals never holds between two NaN values (MathUtil::equals), while compareTo puts equal
+    // NaNs together; a Value is always equal to itself (Java's this == obj shortcut).
     const Value nan1(kNaN, mm);
     const Value nan2(kNaN, mm);
     EXPECT_FALSE(nan1 == nan2);
     EXPECT_EQ(nan1.compareTo(nan2), 0);
+    const Value& sameObject = nan1;
+    EXPECT_TRUE(nan1 == sameObject);
 }
 
-TEST(Value, OrderingComparesUnitNameThenUnitValue)
+TEST(Value, UnitsSharedBetweenGroupsGiveEqualValues)
+{
+    // A StabilityUnitGroup shares UNITS_STABILITY's plain units (units.addAll), so Values in its
+    // millimetres equal Values in UNITS_STABILITY's; its own caliber unit is another object.
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> stability =
+        UnitGroup::stabilityUnits(0.05);
+    const UnitGroup& source = unitGroup(UnitGroupId::STABILITY);
+    EXPECT_EQ(&stability->getUnit(0), &source.getUnit(0));
+    EXPECT_TRUE(Value(0.01, stability->getUnit(0)) == Value(0.01, source.getUnit(0)));
+    EXPECT_NE(&stability->getUnit(4), &source.getUnit(4));
+    EXPECT_FALSE(Value(0.01, stability->getUnit(4)) == Value(0.01, source.getUnit(4)));
+
+    // A Value of the dimensionless unit equals one of UNITS_NONE, the same object.
+    EXPECT_TRUE(Value(2.0, Unit::noUnit()) == Value(2.0, unitGroup(UnitGroupId::NONE)));
+}
+
+TEST(Value, CompareToOrdersByUnitNameThenUnitValue)
 {
     const GeneralUnit cm(0.01, "cm");
     const GeneralUnit m(1, "m");
     const GeneralUnit mm(0.001, "mm");
 
     // "cm" < "m" < "mm" by name, whatever the values.
-    EXPECT_TRUE(Value(100.0, cm) < Value(0.001, m));
-    EXPECT_TRUE(Value(100.0, m) < Value(0.001, mm));
-    EXPECT_TRUE((Value(1.0, cm) <=> Value(1.0, m)) == std::weak_ordering::less);
+    EXPECT_LT(Value(100.0, cm).compareTo(Value(0.001, m)), 0);
+    EXPECT_LT(Value(100.0, m).compareTo(Value(0.001, mm)), 0);
+    EXPECT_GT(Value(1.0, m).compareTo(Value(1.0, cm)), 0);
 
     // The same unit name: by the value in that unit.
-    EXPECT_TRUE(Value(0.1, cm) < Value(0.2, cm));
-    EXPECT_TRUE(Value(0.2, cm) > Value(0.1, cm));
-    EXPECT_TRUE((Value(0.1, cm) <=> Value(0.1, cm)) == std::weak_ordering::equivalent);
+    EXPECT_LT(Value(0.1, cm).compareTo(Value(0.2, cm)), 0);
+    EXPECT_GT(Value(0.2, cm).compareTo(Value(0.1, cm)), 0);
+    EXPECT_EQ(Value(0.1, cm).compareTo(Value(0.1, cm)), 0);
     // Double.compare's order: -0.0 below 0.0 and NaN above everything.
-    EXPECT_TRUE(Value(-0.0, cm) < Value(0.0, cm));
-    EXPECT_TRUE(Value(1e300, cm) < Value(kNaN, cm));
-    EXPECT_TRUE(Value(kNaN, cm) > Value(1e300, cm));
-    EXPECT_TRUE((Value(kNaN, cm) <=> Value(kNaN, cm)) == std::weak_ordering::equivalent);
+    EXPECT_LT(Value(-0.0, cm).compareTo(Value(0.0, cm)), 0);
+    EXPECT_LT(Value(1e300, cm).compareTo(Value(kNaN, cm)), 0);
+    EXPECT_GT(Value(kNaN, cm).compareTo(Value(1e300, cm)), 0);
+    EXPECT_EQ(Value(kNaN, cm).compareTo(Value(kNaN, cm)), 0);
 
-    // Different Unit objects with the same name order by value (ValueComparator semantics).
+    // Different Unit objects with the same name order by value.
     const GeneralUnit cmToo(0.01, "cm");
-    EXPECT_TRUE(Value(0.1, cm) < Value(0.2, cmToo));
+    EXPECT_LT(Value(0.1, cm).compareTo(Value(0.2, cmToo)), 0);
     EXPECT_EQ(Value(0.1, cm).compareTo(Value(0.1, cmToo)), 0);
+}
 
-    std::vector<Value> sorted{Value(0.3, cm), Value(0.1, m), Value(0.1, cm), Value(kNaN, cm)};
-    std::ranges::sort(sorted);
-    EXPECT_EQ(sorted[0].getValue(), 0.1);
-    EXPECT_EQ(&sorted[0].getUnit(), &cm);
-    EXPECT_EQ(sorted[1].getValue(), 0.3);
-    EXPECT_TRUE(std::isnan(sorted[2].getValue()));
-    EXPECT_EQ(&sorted[3].getUnit(), &m);
+TEST(Value, UnitNamesCompareAsJavaStrings)
+{
+    // String.compareTo compares UTF-16 code units: a name with a character above U+FFFF (a
+    // surrogate pair, D800-DFFF) sorts before one with U+FF4D (fullwidth m), where UTF-8 bytes
+    // would sort it after. The difference is that of the first differing code units.
+    const GeneralUnit astral(1, "\U0001D40C");  // MATHEMATICAL BOLD CAPITAL M
+    const GeneralUnit fullwidth(1, "\uFF4D");
+    EXPECT_EQ(Value(1.0, astral).compareTo(Value(1.0, fullwidth)), 0xD835 - 0xFF4D);
+    EXPECT_GT(Value(1.0, fullwidth).compareTo(Value(1.0, astral)), 0);
 }
 
 }  // namespace

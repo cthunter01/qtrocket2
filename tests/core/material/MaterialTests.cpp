@@ -1,7 +1,6 @@
 #include "QtRocket/material/Material.h"
 
-#include <cstddef>
-#include <functional>
+#include <cmath>
 #include <limits>
 #include <optional>
 #include <string>
@@ -329,13 +328,27 @@ TEST(Material, HashCodeIsJavas)
     EXPECT_EQ(Material::newMaterial(Type::BULK, "", 0.0, true).hashCode(), 0);
     EXPECT_EQ(Material::newMaterial(Type::BULK, "a|b", 0.0, true).hashCode(), 97159);
     EXPECT_EQ(Material::newMaterial(Type::BULK, "🚀 rocket", 0.0, true).hashCode(), -1391342671);
-    // The flags, type and group do not take part; std::hash follows hashCode.
+    // Surrogate pairs count as two UTF-16 code units, as in Java.
+    EXPECT_EQ(Material::newMaterial(Type::BULK, "\U0001D40C", 1, true).hashCode(), 1773151);
+    EXPECT_EQ(Material::newMaterial(Type::BULK, "\uFF4D", 1, true).hashCode(), 66357);
+    // The flags, type and group do not take part.
     EXPECT_EQ(Material::newMaterial(Type::LINE, "Aluminum", 2700, 26.0e9, MaterialGroup::WOODS,
                                     true, true)
                   .hashCode(),
               aluminum.hashCode());
-    EXPECT_EQ(std::hash<Material>{}(aluminum),
-              static_cast<std::size_t>(static_cast<unsigned int>(2135883802)));
+}
+
+TEST(Material, CompareToOrdersNamesAsJavaStrings)
+{
+    // String.compareTo compares UTF-16 code units: a character above U+FFFF (a surrogate pair,
+    // D800-DFFF) sorts before U+FF4D, where the UTF-8 bytes would sort it after. Pinned on JDK 17.
+    const Material astral    = Material::newMaterial(Type::BULK, "\U0001D40C", 1, true);
+    const Material fullwidth = Material::newMaterial(Type::BULK, "\uFF4D", 1, true);
+    EXPECT_EQ(astral.compareTo(fullwidth), -10008);
+    EXPECT_EQ(fullwidth.compareTo(astral), 10008);
+    EXPECT_EQ(Material::newMaterial(Type::BULK, "ab", 1, true)
+                  .compareTo(Material::newMaterial(Type::BULK, "abcd", 1, true)),
+              -2);
 }
 
 TEST(Material, StorableStringFormat)
@@ -457,6 +470,43 @@ TEST(Material, FromStorableStringParsesEveryFormat)
     EXPECT_EQ(
         Material::fromStorableString("BULK|Aluminum|2700|0.0|Nonsense", false, storage)->getGroup(),
         MaterialGroup::OTHER);
+}
+
+/// Material.fromStorableString(text, false), which must succeed.
+Material parseStorable(std::string_view text)
+{
+    const Result<Material> parsed = Material::fromStorableString(text, false);
+    QTROCKET_ASSERT(parsed.has_value());  // a typo in the test itself
+    return *parsed;
+}
+
+// The numbers are read as Double.parseDouble reads them. Every result pinned on JDK 17.
+
+TEST(Material, FromStorableStringReadsDensitiesAsDoubleParseDouble)
+{
+    constexpr double kInfinity = std::numeric_limits<double>::infinity();
+    EXPECT_EQ(parseStorable("BULK|x|1e999|0.0|Woods").getDensity(), kInfinity);  // overflow
+    EXPECT_EQ(parseStorable("BULK|x|-1e999|Woods").getDensity(), -kInfinity);
+    EXPECT_EQ(parseStorable("BULK|x|1e-400|0|Woods").getDensity(), 0.0);  // underflow
+    EXPECT_EQ(parseStorable("BULK|x|1.5d|Woods").getDensity(), 1.5);      // a float suffix
+    EXPECT_EQ(parseStorable("BULK|x|0x1.8p1|Woods").getDensity(), 3.0);   // hexadecimal
+    EXPECT_EQ(parseStorable("BULK|x|.5|0|Woods").getDensity(), 0.5);
+    EXPECT_EQ(parseStorable("BULK|x|5.|0|Woods").getDensity(), 5.0);
+    EXPECT_TRUE(std::isnan(parseStorable("BULK|x|+NaN|0|Woods").getDensity()));
+    EXPECT_FALSE(Material::fromStorableString("BULK|x|Inf|Woods", false).has_value());
+}
+
+TEST(Material, FromStorableStringTellsShearModulusFromGroupAsDoubleParseDouble)
+{
+    constexpr double kInfinity = std::numeric_limits<double>::infinity();
+    EXPECT_EQ(parseStorable("BULK|x|1.5d|Woods").getGroup(), MaterialGroup::WOODS);
+    EXPECT_EQ(parseStorable("BULK|x|170|1e999|Woods").getInPlaneShearModulus(), kInfinity);
+    EXPECT_EQ(parseStorable("BULK|x|170|2e9f|Woods").getInPlaneShearModulus(), 2e9);
+    EXPECT_EQ(parseStorable("BULK|x|170|2e9f|Woods").getGroup(), MaterialGroup::WOODS);
+    EXPECT_EQ(parseStorable("BULK|x|170|Infinity").getInPlaneShearModulus(), kInfinity);
+    // "Inf" is not a Java number: a group name here (an unknown one).
+    EXPECT_EQ(parseStorable("BULK|x|170|Inf|Woods").getInPlaneShearModulus(), 0.0);
+    EXPECT_EQ(parseStorable("BULK|x|170|Inf|Woods").getGroup(), MaterialGroup::OTHER);
 }
 
 TEST(Material, FromStorableStringRejectsMalformedStrings)

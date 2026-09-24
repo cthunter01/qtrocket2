@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -14,7 +13,7 @@ namespace QtRocket
 /// 64ths: "7 ⁷⁄₈" for 7 7/8, with superscript numerator, the fraction slash
 /// (Chars::kFraction) and subscript denominator. A value farther than @p epsilon from a
 /// representable fraction is shown as a decimal instead.
-class FractionalUnit : public Unit
+class FractionalUnit final : public Unit
 {
 public:
     /// Epsilon 0.1 / fractionBase.
@@ -41,6 +40,8 @@ public:
     /// The previous multiple of the increment below value - epsilon.
     [[nodiscard]] double getPreviousValue(double value) const override;
     /// Ticks at the halvings of one unit fitting @p minor, major ticks at decimal steps.
+    /// @throws BugError as Unit::getTicks, also when the major/minor step ratio is a multiple
+    ///         of 2^31, which Java's int arithmetic wraps to a zero modulus (ArithmeticException)
     [[nodiscard]] std::vector<Tick> getTicks(double start, double end, double minor,
                                              double major) const override;
 
@@ -50,8 +51,6 @@ public:
     [[nodiscard]] std::string toString(double value) const override;
     /// toString() and the unit label, always separated by a space; "N/A" for NaN.
     [[nodiscard]] std::string toStringUnit(double value) const override;
-
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
 
 private:
     [[nodiscard]] static double roundTo(double value, double fraction) noexcept;

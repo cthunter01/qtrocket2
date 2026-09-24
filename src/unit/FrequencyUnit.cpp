@@ -1,11 +1,9 @@
 #include "QtRocket/unit/FrequencyUnit.h"
 
-#include <memory>
 #include <string>
 #include <utility>
 
 #include "QtRocket/unit/GeneralUnit.h"
-#include "QtRocket/unit/Unit.h"
 
 namespace QtRocket
 {
@@ -25,11 +23,6 @@ double FrequencyUnit::fromUnit(double value) const
 {
     const double hz = value * getMultiplier();
     return 1 / hz;
-}
-
-std::unique_ptr<Unit> FrequencyUnit::clone() const
-{
-    return std::make_unique<FrequencyUnit>(*this);
 }
 
 }  // namespace QtRocket

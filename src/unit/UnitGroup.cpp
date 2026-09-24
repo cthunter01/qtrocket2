@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <format>
 #include <functional>
@@ -237,7 +238,8 @@ void addUnits(UnitGroup& group, UnitGroupId id)
     switch (id)
     {
         case UnitGroupId::NONE:
-            group.addUnit(Unit::noUnit().clone());
+            // Unit.NOUNIT, which Unit::noUnit() returns from here
+            group.addUnit(std::make_unique<GeneralUnit>(1, std::string(Chars::kZwsp), 2));
             return;
 
         case UnitGroupId::ENERGY:
@@ -536,8 +538,11 @@ struct Registry
 
 [[nodiscard]] Registry& registry()
 {
-    static Registry s_registry;
-    return s_registry;
+    // Never destroyed, as OpenRocket's static groups are not: a unit or Value taken from them
+    // stays valid during static destruction and on threads still running at exit. (A static
+    // pointer keeps it reachable, so LeakSanitizer does not report it.)
+    static Registry* const kRegistry = std::make_unique<Registry>().release();
+    return *kRegistry;
 }
 
 void setDefault(UnitGroupId id, std::string_view name)
@@ -692,7 +697,8 @@ std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::secondaryStabilityUnit
 void UnitGroup::addUnit(std::unique_ptr<Unit> unit)
 {
     QTROCKET_ASSERT(unit != nullptr);
-    m_units.push_back(std::move(unit));
+    m_units.push_back(unit.get());
+    m_ownedUnits.push_back(std::move(unit));
 }
 
 int UnitGroup::getUnitCount() const
@@ -702,9 +708,11 @@ int UnitGroup::getUnitCount() const
 
 const Unit& UnitGroup::getDefaultUnit() const
 {
+    // One read of the index, which another thread may be changing
+    const int index = m_defaultUnit.load(std::memory_order_relaxed);
     // OpenRocket: List.get's IndexOutOfBoundsException for a group without units
-    QTROCKET_ASSERT(std::cmp_less(m_defaultUnit, m_units.size()));
-    return *m_units[static_cast<std::size_t>(m_defaultUnit)];
+    QTROCKET_ASSERT(index >= 0 && std::cmp_less(index, m_units.size()));
+    return *m_units[static_cast<std::size_t>(index)];
 }
 
 void UnitGroup::setDefaultUnit(int n)
@@ -713,7 +721,7 @@ void UnitGroup::setDefaultUnit(int n)
     {
         bug(std::format("index out of range: {}", n));
     }
-    m_defaultUnit = n;
+    m_defaultUnit.store(n, std::memory_order_relaxed);
 }
 
 bool UnitGroup::setDefaultUnit(std::string_view name)
@@ -731,7 +739,7 @@ bool UnitGroup::setDefaultUnit(std::string_view name)
 
 const Unit& UnitGroup::getSIUnit() const
 {
-    for (const auto& u : m_units)
+    for (const Unit* u : m_units)
     {
         if (u->getMultiplier() == 1)
         {
@@ -743,12 +751,13 @@ const Unit& UnitGroup::getSIUnit() const
 
 const Unit* UnitGroup::findApproximate(std::string_view str) const
 {
+    // After "\\W" is removed only ASCII remains, so ASCII case is all equalsIgnoreCase can fold
     const std::string wanted = wordCharacters(str);
-    for (const auto& u : m_units)
+    for (const Unit* u : m_units)
     {
         if (Strings::equalsIgnoreAsciiCase(wanted, wordCharacters(u->getUnit())))
         {
-            return u.get();
+            return u;
         }
     }
     return nullptr;
@@ -756,11 +765,11 @@ const Unit* UnitGroup::findApproximate(std::string_view str) const
 
 const Unit* UnitGroup::getUnit(std::string_view name) const
 {
-    for (const auto& unit : m_units)
+    for (const Unit* unit : m_units)
     {
         if (unit->getUnit() == name)
         {
-            return unit.get();
+            return unit;
         }
     }
     return nullptr;
@@ -795,13 +804,7 @@ bool UnitGroup::contains(const Unit& u) const
 
 std::vector<const Unit*> UnitGroup::getUnits() const
 {
-    std::vector<const Unit*> units;
-    units.reserve(m_units.size());
-    for (const auto& u : m_units)
-    {
-        units.push_back(u.get());
-    }
-    return units;
+    return m_units;
 }
 
 double UnitGroup::fromUnit(double value) const
@@ -819,7 +822,7 @@ std::string UnitGroup::toStringUnit(double value) const
     return getDefaultUnit().toStringUnit(value);
 }
 
-Value UnitGroup::toValue(double value) const
+Value UnitGroup::toValue(double value) const&
 {
     return getDefaultUnit().toValue(value);
 }
@@ -862,9 +865,9 @@ Result<double> UnitGroup::fromString(std::string_view str) const
     {
         return getDefaultUnit().fromUnit(*parsed);
     }
-    for (const auto& u : m_units)
+    for (const Unit* u : m_units)
     {
-        if (Strings::equalsIgnoreAsciiCase(unit, u->getUnit()))
+        if (Strings::javaEqualsIgnoreCase(unit, u->getUnit()))
         {
             return u->fromUnit(*parsed);
         }
@@ -891,7 +894,7 @@ bool UnitGroup::equals(const UnitGroup& other) const
 std::size_t UnitGroup::hash() const
 {
     std::size_t code = 0;
-    for (const auto& u : m_units)
+    for (const Unit* u : m_units)
     {
         code = code + u->hash();
     }
@@ -916,31 +919,28 @@ UnitGroup::StabilityUnitGroup::StabilityUnitGroup(
 UnitGroup::StabilityUnitGroup::StabilityUnitGroup(
     UnitGroup& stabilityUnit, std::unique_ptr<CaliberUnit> caliberUnit,
     std::unique_ptr<PercentageOfLengthUnit> percentageOfLengthUnit)
-  : m_stabilityUnit(&stabilityUnit)
+  : m_stabilityUnit(&stabilityUnit),
+    m_caliberUnit(std::move(caliberUnit)),
+    m_percentageOfLengthUnit(std::move(percentageOfLengthUnit))
 {
-    for (const auto& unit : stabilityUnit.m_units)
+    // units.addAll(stabilityUnit.units), then every caliber and percentage unit replaced
+    for (const Unit* unit : stabilityUnit.m_units)
     {
-        if (caliberUnit != nullptr && dynamic_cast<const CaliberUnit*>(unit.get()) != nullptr)
+        if (dynamic_cast<const CaliberUnit*>(unit) != nullptr)
         {
-            m_units.push_back(std::move(caliberUnit));
+            m_units.push_back(m_caliberUnit.get());
         }
-        else if (percentageOfLengthUnit != nullptr &&
-                 dynamic_cast<const PercentageOfLengthUnit*>(unit.get()) != nullptr)
+        else if (dynamic_cast<const PercentageOfLengthUnit*>(unit) != nullptr)
         {
-            m_percentageOfLengthUnit = percentageOfLengthUnit.get();
-            m_units.push_back(std::move(percentageOfLengthUnit));
+            m_units.push_back(m_percentageOfLengthUnit.get());
         }
         else
         {
-            m_units.push_back(unit->clone());
+            m_units.push_back(unit);
         }
     }
-    if (m_percentageOfLengthUnit == nullptr)
-    {
-        m_detachedPercentageOfLengthUnit = std::move(percentageOfLengthUnit);
-        m_percentageOfLengthUnit         = m_detachedPercentageOfLengthUnit.get();
-    }
-    m_defaultUnit = stabilityUnit.m_defaultUnit;
+    m_defaultUnit.store(stabilityUnit.m_defaultUnit.load(std::memory_order_relaxed),
+                        std::memory_order_relaxed);
 }
 
 void UnitGroup::StabilityUnitGroup::setDefaultUnit(int n)
@@ -952,23 +952,6 @@ void UnitGroup::StabilityUnitGroup::setDefaultUnit(int n)
 std::string UnitGroup::StabilityUnitGroup::toString() const
 {
     return "StabilityUnitGroup:" + getSIUnit().getUnit();
-}
-
-// ---- FixedUnitGroup ----
-
-FixedUnitGroup::FixedUnitGroup(std::string unitString) : m_unitString(std::move(unitString))
-{
-    addUnit(general(1, m_unitString));
-}
-
-bool FixedUnitGroup::contains(const Unit& /*u*/) const
-{
-    return true;
-}
-
-std::string FixedUnitGroup::toString() const
-{
-    return "FixedUnitGroup:" + getSIUnit().getUnit();
 }
 
 // ---- registry ----

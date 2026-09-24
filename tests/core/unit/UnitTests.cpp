@@ -1,26 +1,15 @@
 #include "QtRocket/unit/Unit.h"
 
-#include <cmath>
-#include <cstddef>
-#include <functional>
 #include <limits>
-#include <memory>
-#include <numbers>
+#include <locale>
 #include <string>
-#include <string_view>
-#include <vector>
 
 #include <gtest/gtest.h>
 
-#include "QtRocket/unit/CaliberUnit.h"
-#include "QtRocket/unit/DegreeUnit.h"
 #include "QtRocket/unit/FixedPrecisionUnit.h"
 #include "QtRocket/unit/FrequencyUnit.h"
 #include "QtRocket/unit/GeneralUnit.h"
 #include "QtRocket/unit/InchUnit.h"
-#include "QtRocket/unit/PercentageOfLengthUnit.h"
-#include "QtRocket/unit/RadianUnit.h"
-#include "QtRocket/unit/TemperatureUnit.h"
 #include "QtRocket/unit/Tick.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/unit/Value.h"
@@ -30,15 +19,10 @@ namespace
 {
 
 using QtRocket::BugError;
-using QtRocket::CaliberUnit;
-using QtRocket::DegreeUnit;
 using QtRocket::FixedPrecisionUnit;
 using QtRocket::FrequencyUnit;
 using QtRocket::GeneralUnit;
 using QtRocket::InchUnit;
-using QtRocket::PercentageOfLengthUnit;
-using QtRocket::RadianUnit;
-using QtRocket::TemperatureUnit;
 using QtRocket::Tick;
 using QtRocket::Unit;
 using QtRocket::unitGroup;
@@ -211,8 +195,56 @@ TEST(UnitToString, NegativeToString)
     EXPECT_EQ("-1.23E7", Unit::noUnit().toString(-12345678.9));
 }
 
-// testLocaleChangeAfterUnitInitialization has no counterpart: the formatting never consults a
-// locale here, which the "-0.001" case above already pins.
+/// A German-style number format (decimal comma, point grouping) that needs no installed locale.
+/// Constructed with refs = 1, so no std::locale ever deletes it.
+class CommaDecimalPoint : public std::numpunct<char>
+{
+public:
+    CommaDecimalPoint() : std::numpunct<char>(1) { }
+
+protected:
+    [[nodiscard]] char        do_decimal_point() const override { return ','; }
+    [[nodiscard]] char        do_thousands_sep() const override { return '.'; }
+    [[nodiscard]] std::string do_grouping() const override { return "\3"; }
+};
+
+/// Makes a comma-decimal locale the global C++ locale until destroyed.
+class CommaDecimalGlobalLocale
+{
+public:
+    CommaDecimalGlobalLocale()
+      : m_previous(std::locale::global(std::locale(std::locale::classic(), &facet())))
+    {
+    }
+    ~CommaDecimalGlobalLocale() { std::locale::global(m_previous); }
+    CommaDecimalGlobalLocale(const CommaDecimalGlobalLocale&)            = delete;
+    CommaDecimalGlobalLocale& operator=(const CommaDecimalGlobalLocale&) = delete;
+    CommaDecimalGlobalLocale(CommaDecimalGlobalLocale&&)                 = delete;
+    CommaDecimalGlobalLocale& operator=(CommaDecimalGlobalLocale&&)      = delete;
+
+private:
+    [[nodiscard]] static CommaDecimalPoint& facet()
+    {
+        static CommaDecimalPoint s_facet;
+        return s_facet;
+    }
+
+    std::locale m_previous;
+};
+
+// testLocaleChangeAfterUnitInitialization: OpenRocket formats with the default locale, so under
+// Locale.GERMANY it gives "-0,001". Deviation: QtRocket always writes a point, whatever the
+// process locale, which this pins.
+TEST(UnitToString, LocaleChangeAfterUnitInitialization)
+{
+    EXPECT_EQ(Unit::noUnit().toString(-0.00051), "-0.001");
+    const CommaDecimalGlobalLocale german;
+    EXPECT_EQ(Unit::noUnit().toString(-0.00051), "-0.001");
+    EXPECT_EQ(Unit::noUnit().toString(1234.5), "1234");
+    EXPECT_EQ(Unit::noUnit().toString(1.5e7), "1.50E7");
+    EXPECT_EQ(unitGroup(UnitGroupId::LENGTH).getUnit("mm")->toStringUnit(0.0125), "12.5 mm");
+    EXPECT_EQ(FixedPrecisionUnit("u", 0.01).toString(1.5), "1.50");
+}
 
 // ---- QtRocket additions ----
 
@@ -324,6 +356,14 @@ TEST(Unit, NoUnitProperties)
     EXPECT_EQ(&Unit::noUnit(), &none);  // one instance
     EXPECT_NE(dynamic_cast<const GeneralUnit*>(&none), nullptr);
     EXPECT_EQ(dynamic_cast<const GeneralUnit&>(none).getSignificantNumbers(), 2);
+
+    // UNITS_NONE holds Unit.NOUNIT itself, which a group without a unit of multiplier 1 falls
+    // back to as its SI unit, so Values made from them are equal.
+    EXPECT_EQ(&unitGroup(UnitGroupId::NONE).getDefaultUnit(), &none);
+    EXPECT_EQ(&unitGroup(UnitGroupId::NONE).getUnit(0), &none);
+    const QtRocket::UnitGroup noUnits;
+    EXPECT_EQ(&noUnits.getSIUnit(), &none);
+    EXPECT_TRUE(QtRocket::Value(1.0, none) == unitGroup(UnitGroupId::NONE).toValue(1.0));
 }
 
 TEST(Unit, ToStringUnitAndConversions)
@@ -372,20 +412,6 @@ TEST(Unit, EqualsAndHashFollowUnitJava)
     EXPECT_NE(m1.hash(), mm.hash());
 }
 
-TEST(Unit, CloneKeepsTheDynamicType)
-{
-    const InchUnit              inch(0.0254, "in", 0.5);
-    const std::unique_ptr<Unit> copy = inch.clone();
-    ASSERT_NE(dynamic_cast<const InchUnit*>(copy.get()), nullptr);
-    EXPECT_TRUE(copy->equals(inch));
-    EXPECT_EQ(copy->getNextValue(1.0), 1.5);
-
-    const TemperatureUnit       celsius(1, 273.15, 0.01, "°C");
-    const std::unique_ptr<Unit> celsiusCopy = celsius.clone();
-    ASSERT_NE(dynamic_cast<const TemperatureUnit*>(celsiusCopy.get()), nullptr);
-    EXPECT_EQ(celsiusCopy->toStringUnit(283.15), "10.00°C");
-}
-
 TEST(Tick, ToStringWritesJavaDoubles)
 {
     EXPECT_EQ((Tick{.value = 1.5, .unitValue = 150, .major = true, .notable = false}).toString(),
@@ -396,528 +422,6 @@ TEST(Tick, ToStringWritesJavaDoubles)
               "Tick[value=-2.0,major,notable]");
     EXPECT_EQ((Tick{.value = kNaN, .unitValue = 0, .major = false, .notable = false}).toString(),
               "Tick[value=NaN,minor]");
-}
-
-// ---- GeneralUnit ----
-
-TEST(GeneralUnit, RoundMatchesOpenRocket)
-{
-    const GeneralUnit g2(1, "u");              // 2 significant digits, tenths
-    const GeneralUnit g3(1, "u", 3, 100);      // 3 significant digits, hundredths
-    const GeneralUnit g1(1, "u", 1, 10, 0.1);  // 1 significant digit
-    EXPECT_EQ(g2.getSignificantNumbers(), 2);
-    EXPECT_EQ(g2.getDecimalRounding(), 10);
-    EXPECT_EQ(g2.getStepValue(), 1.0);
-    EXPECT_EQ(g1.getStepValue(), 0.1);
-
-    EXPECT_DOUBLE_EQ(g2.round(0.04), 0.0);
-    EXPECT_DOUBLE_EQ(g3.round(0.04), 0.04);
-    EXPECT_DOUBLE_EQ(g2.round(0.05), 0.0);  // half to even
-    EXPECT_DOUBLE_EQ(g2.round(0.15), 0.2);
-    EXPECT_DOUBLE_EQ(g2.round(0.25), 0.2);
-    EXPECT_DOUBLE_EQ(g2.round(0.35), 0.4);
-    EXPECT_DOUBLE_EQ(g2.round(9.94), 9.9);
-    EXPECT_DOUBLE_EQ(g3.round(9.94), 9.94);
-    EXPECT_DOUBLE_EQ(g1.round(9.94), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(9.95), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(10.0), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(10.4), 10.0);
-    EXPECT_DOUBLE_EQ(g3.round(10.4), 10.4);
-    EXPECT_DOUBLE_EQ(g1.round(10.4), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(10.5), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(11.5), 12.0);
-    EXPECT_DOUBLE_EQ(g1.round(11.5), 10.0);
-    EXPECT_DOUBLE_EQ(g2.round(99.0), 99.0);
-    EXPECT_DOUBLE_EQ(g1.round(99.0), 100.0);
-    EXPECT_DOUBLE_EQ(g2.round(99.5), 100.0);
-    EXPECT_DOUBLE_EQ(g3.round(99.5), 99.5);
-    EXPECT_DOUBLE_EQ(g2.round(101.0), 100.0);
-    EXPECT_DOUBLE_EQ(g3.round(101.0), 101.0);
-    EXPECT_DOUBLE_EQ(g2.round(105.0), 100.0);
-    EXPECT_DOUBLE_EQ(g2.round(115.0), 120.0);
-    EXPECT_DOUBLE_EQ(g1.round(115.0), 100.0);
-    EXPECT_DOUBLE_EQ(g1.round(150.0), 200.0);
-    EXPECT_DOUBLE_EQ(g2.round(999.0), 1000.0);
-    EXPECT_DOUBLE_EQ(g3.round(999.0), 999.0);
-    EXPECT_DOUBLE_EQ(g2.round(1049.0), 1000.0);
-    EXPECT_DOUBLE_EQ(g3.round(1049.0), 1050.0);
-    EXPECT_DOUBLE_EQ(g2.round(1050.0), 1000.0);
-    EXPECT_DOUBLE_EQ(g2.round(1051.0), 1100.0);
-    EXPECT_DOUBLE_EQ(g3.round(1051.0), 1050.0);
-    EXPECT_DOUBLE_EQ(g2.round(12345.0), 12000.0);
-    EXPECT_DOUBLE_EQ(g3.round(12345.0), 12300.0);
-    EXPECT_DOUBLE_EQ(g1.round(12345.0), 10000.0);
-    EXPECT_DOUBLE_EQ(g2.round(15000.0), 15000.0);
-    EXPECT_DOUBLE_EQ(g1.round(15000.0), 20000.0);
-    EXPECT_DOUBLE_EQ(g1.round(25000.0), 20000.0);
-    EXPECT_DOUBLE_EQ(g2.round(-0.05), -0.0);
-    EXPECT_DOUBLE_EQ(g3.round(-0.05), -0.05);
-    EXPECT_DOUBLE_EQ(g2.round(-1.25), -1.2);
-    EXPECT_DOUBLE_EQ(g2.round(-105.0), -105.0);  // negatives never reach the significant path
-    EXPECT_DOUBLE_EQ(g2.round(0.0), 0.0);
-    EXPECT_TRUE(std::isnan(g2.round(kNaN)));
-    // Deviation: OpenRocket never returns for an infinity.
-    EXPECT_EQ(g2.round(kInf), kInf);
-    EXPECT_EQ(g2.round(-kInf), -kInf);
-}
-
-TEST(GeneralUnit, NextAndPreviousStepByOne)
-{
-    const GeneralUnit g(1, "u");
-    EXPECT_EQ(g.getNextValue(2.5), 3.5);
-    EXPECT_EQ(g.getPreviousValue(2.5), 1.5);
-}
-
-TEST(GeneralUnit, RejectsNonPositiveSignificantNumbersAndRounding)
-{
-    EXPECT_THROW(GeneralUnit(1, "u", 0), BugError);
-    EXPECT_THROW(GeneralUnit(1, "u", 2, 0), BugError);
-    EXPECT_THROW(GeneralUnit(1, "u", -1, 10), BugError);
-}
-
-// ---- getTicks (GeneralUnit and FractionalUnit share the test helper) ----
-
-void expectTick(const Tick& actual, const Tick& expected, std::size_t index)
-{
-    EXPECT_DOUBLE_EQ(actual.value, expected.value) << "tick " << index;
-    EXPECT_DOUBLE_EQ(actual.unitValue, expected.unitValue) << "tick " << index;
-    EXPECT_EQ(actual.major, expected.major) << "tick " << index;
-    EXPECT_EQ(actual.notable, expected.notable) << "tick " << index;
-}
-
-void expectTicks(const std::vector<Tick>& actual, const std::vector<Tick>& expected)
-{
-    ASSERT_EQ(actual.size(), expected.size());
-    for (std::size_t i = 0; i < expected.size(); i++)
-    {
-        expectTick(actual[i], expected[i], i);
-    }
-}
-
-/// GeneralUnit.main's printTicks(0, 100, 1, 10): every tenth major, every fifth notable.
-void expectTicksToAHundred(const std::vector<Tick>& hundred)
-{
-    ASSERT_EQ(hundred.size(), 101U);
-    for (std::size_t i = 0; i < hundred.size(); i++)
-    {
-        EXPECT_DOUBLE_EQ(hundred[i].value, static_cast<double>(i));
-        EXPECT_EQ(hundred[i].major, i % 10 == 0) << i;
-        EXPECT_EQ(hundred[i].notable, i % 100 == 0 || (i % 10 != 0 && i % 5 == 0)) << i;
-    }
-}
-
-Tick tick(double value, double unitValue, bool major, bool notable)
-{
-    return {.value = value, .unitValue = unitValue, .major = major, .notable = notable};
-}
-
-TEST(GeneralUnit, TicksMatchOpenRocket)
-{
-    const Unit& none = Unit::noUnit();
-
-    expectTicksToAHundred(none.getTicks(0, 100, 1, 10));
-
-    // printTicks(4.7, 11.0, 0.15, 0.7)
-    expectTicks(
-        none.getTicks(4.7, 11.0, 0.15, 0.7),
-        {tick(5.0, 5.0, true, false), tick(5.5, 5.5, false, true), tick(6.0, 6.0, true, false),
-         tick(6.5, 6.5, false, true), tick(7.0, 7.0, true, false), tick(7.5, 7.5, false, true),
-         tick(8.0, 8.0, true, false), tick(8.5, 8.5, false, true), tick(9.0, 9.0, true, false),
-         tick(9.5, 9.5, false, true), tick(10.0, 10.0, true, true), tick(10.5, 10.5, false, true),
-         tick(11.0, 11.0, true, false)});
-
-    expectTicks(
-        none.getTicks(0, 5, 0.5, 1),
-        {tick(0.0, 0.0, true, true), tick(0.5, 0.5, false, true), tick(1.0, 1.0, true, false),
-         tick(1.5, 1.5, false, true), tick(2.0, 2.0, true, false), tick(2.5, 2.5, false, true),
-         tick(3.0, 3.0, true, false), tick(3.5, 3.5, false, true), tick(4.0, 4.0, true, false),
-         tick(4.5, 4.5, false, true), tick(5.0, 5.0, true, false)});
-
-    // The positions are pos * minstep in double arithmetic, so 3 * 0.1 is 0.30000000000000004.
-    expectTicks(
-        none.getTicks(0, 1, 0.1, 0.5),
-        {tick(0.0, 0.0, true, true), tick(0.1, 0.1, false, false), tick(0.2, 0.2, false, false),
-         tick(0.30000000000000004, 0.30000000000000004, false, false), tick(0.4, 0.4, false, false),
-         tick(0.5, 0.5, true, false), tick(0.6000000000000001, 0.6000000000000001, false, false),
-         tick(0.7000000000000001, 0.7000000000000001, false, false), tick(0.8, 0.8, false, false),
-         tick(0.9, 0.9, false, false), tick(1.0, 1.0, true, true)});
-
-    expectTicks(
-        none.getTicks(-1, 1, 0.25, 0.5),
-        {tick(-1.0, -1.0, true, true), tick(-0.5, -0.5, true, false), tick(0.0, 0.0, true, true),
-         tick(0.5, 0.5, true, false), tick(1.0, 1.0, true, true)});
-
-    expectTicks(
-        none.getTicks(0, 10, 3, 7),
-        {tick(0.0, 0.0, true, true), tick(5.0, 5.0, false, true), tick(10.0, 10.0, true, false)});
-
-    expectTicks(
-        none.getTicks(0.35, 2.7, 0.2, 1.0),
-        {tick(0.5, 0.5, false, true), tick(1.0, 1.0, true, false), tick(1.5, 1.5, false, true),
-         tick(2.0, 2.0, true, false), tick(2.5, 2.5, false, true)});
-
-    EXPECT_TRUE(none.getTicks(5, 1, 0.5, 1).empty());  // start beyond end
-
-    // The distances are converted to the unit; the SI values come back through fromUnit.
-    const GeneralUnit cm(0.01, "cm");
-    expectTicks(
-        cm.getTicks(0, 0.1, 0.01, 0.05),
-        {tick(0.0, 0.0, true, true), tick(0.01, 1.0, false, false), tick(0.02, 2.0, false, false),
-         tick(0.03, 3.0, false, false), tick(0.04, 4.0, false, false), tick(0.05, 5.0, true, false),
-         tick(0.06, 6.0, false, false), tick(0.07, 7.0, false, false),
-         tick(0.08, 8.0, false, false), tick(0.09, 9.0, false, false),
-         tick(0.1, 10.0, true, true)});
-    expectTicks(cm.getTicks(0.003, 0.021, 0.002, 0.01),
-                {tick(0.005, 0.5, false, true), tick(0.01, 1.0, true, false),
-                 tick(0.015, 1.5, false, true), tick(0.02, 2.0, true, false)});
-}
-
-TEST(GeneralUnit, TicksRejectBadDistances)
-{
-    const Unit& none = Unit::noUnit();
-    EXPECT_THROW(static_cast<void>(none.getTicks(0, 1, 0, 1)), BugError);
-    EXPECT_THROW(static_cast<void>(none.getTicks(0, 1, 0.5, 0.25)), BugError);
-    EXPECT_THROW(static_cast<void>(none.getTicks(0, 1, -1, 1)), BugError);
-    EXPECT_THROW(static_cast<void>(none.getTicks(0, 1, 1, -1)), BugError);
-    try
-    {
-        static_cast<void>(none.getTicks(0, 1, 0, 1));
-        FAIL();
-    }
-    catch (const BugError& e)
-    {
-        EXPECT_TRUE(std::string_view(e.what()).starts_with(
-            "BUG: getTicks called with minor=0.0 major=1.0 ("));
-    }
-}
-
-// ---- InchUnit ----
-
-TEST(InchUnit, KeepsThreeDecimals)
-{
-    const InchUnit inch(0.0254, "in", 1);
-    EXPECT_EQ(inch.getPrecision(), 1.0);
-    EXPECT_EQ(inch.toString(25.125 * 25.4 / 1000), "25.125");
-    EXPECT_EQ(inch.toStringUnit(25.125 * 25.4 / 1000), "25.125 in");
-    EXPECT_EQ(inch.toString(0.0254 * 0.0005), "0");
-    EXPECT_EQ(inch.toString(0.0254 * 1.0005), "1");
-    EXPECT_EQ(inch.toString(0.0254 * 2.00049), "2");
-    EXPECT_EQ(inch.toString(0.0254 * 99.9995), "100");
-    EXPECT_EQ(inch.toString(0.0254 * 100), "100");
-    EXPECT_EQ(inch.toString(0.0254 * 0.0004), "0");
-    EXPECT_EQ(inch.toString(1e-9), "0");
-    EXPECT_EQ(inch.toString(0.0254 * 1.0004), "1");
-    EXPECT_EQ(inch.toString(0.0254 * 1.00051), "1.001");
-    EXPECT_EQ(inch.toString(0.0254 * 0.00051), "0.001");
-    EXPECT_EQ(inch.toString(0.0254 * 0.0006), "0.001");
-    EXPECT_EQ(inch.toString(0.0254 * 12.3456), "12.346");
-    EXPECT_EQ(inch.toString(0.0254 * 12.3455), "12.346");
-    EXPECT_EQ(inch.toString(0.0254 * 12.3445), "12.344");
-    EXPECT_EQ(inch.toString(0.0254 * 1e7), "1.00E7");
-    EXPECT_EQ(inch.toString(kNaN), "N/A");
-    EXPECT_EQ(inch.toString(0.0254 * 1e-3), "0.001");
-    EXPECT_EQ(inch.toString(0.0254 * 0.9995), "1");
-    EXPECT_EQ(inch.toString(0.0254 * 0.99949), "0.999");
-    EXPECT_EQ(inch.toStringUnit(0.0254 * 0.99949), "0.999 in");
-}
-
-TEST(InchUnit, StepsByPrecisionAndRoundsAsGeneralUnit)
-{
-    const InchUnit inch(0.0254, "in", 1);
-    const InchUnit inchDefault(0.0254, "in");
-    EXPECT_DOUBLE_EQ(inch.getNextValue(2.5), 3.5);
-    EXPECT_DOUBLE_EQ(inch.getPreviousValue(2.5), 1.5);
-    EXPECT_DOUBLE_EQ(inchDefault.getNextValue(2.5), 3.5);
-    EXPECT_DOUBLE_EQ(InchUnit(0.0254, "in", 0.125).getNextValue(2.5), 2.625);
-    EXPECT_DOUBLE_EQ(inch.round(2.55), 2.6);
-    EXPECT_DOUBLE_EQ(inch.round(12.5), 12.0);
-    EXPECT_DOUBLE_EQ(inch.round(125.0), 120.0);
-}
-
-TEST(InchUnit, TiesMatchOpenRocket)
-{
-    const InchUnit inch(0.0254, "in", 1);
-    EXPECT_EQ(inch.toString(0.0254 * 2.0005), "2.001");
-    EXPECT_EQ(inch.toString(0.0254 * 0.0015), "0.002");
-    EXPECT_EQ(inch.toString(-0.0254 * 0.0005), "0");
-    EXPECT_EQ(inch.round(2.25), 2.2);
-    EXPECT_EQ(inch.round(2.35), 2.4);
-    EXPECT_EQ(inch.getPreviousValue(-0.5), -1.5);
-}
-
-// ---- CaliberUnit and PercentageOfLengthUnit ----
-
-TEST(CaliberUnit, ConstantReference)
-{
-    const CaliberUnit cal(0.05);
-    EXPECT_EQ(cal.getUnit(), "cal");
-    EXPECT_EQ(cal.getMultiplier(), 1.0);
-    EXPECT_TRUE(cal.hasReference());
-    EXPECT_DOUBLE_EQ(cal.getReferenceLength(), 0.05);
-    EXPECT_DOUBLE_EQ(cal.toUnit(0.1), 2.0);
-    EXPECT_DOUBLE_EQ(cal.fromUnit(2.0), 0.1);
-    EXPECT_EQ(cal.toString(0.1), "2");
-    EXPECT_EQ(cal.toStringUnit(0.125), "2.5 cal");
-    EXPECT_EQ(CaliberUnit::kDefaultCaliber, 0.01);
-}
-
-TEST(CaliberUnit, ProviderIsReadOnEveryConversion)
-{
-    double            reference = 0.1;
-    const CaliberUnit cal([&reference] { return reference; });
-    EXPECT_TRUE(cal.hasReference());
-    EXPECT_DOUBLE_EQ(cal.toUnit(0.2), 2.0);
-    reference = 0.4;
-    EXPECT_DOUBLE_EQ(cal.toUnit(0.2), 0.5);
-    EXPECT_DOUBLE_EQ(cal.fromUnit(0.5), 0.2);
-
-    // A clone keeps reading the same provider.
-    const std::unique_ptr<Unit> copy = cal.clone();
-    reference                        = 0.8;
-    EXPECT_DOUBLE_EQ(copy->toUnit(0.2), 0.25);
-}
-
-TEST(CaliberUnit, WithoutReferenceConvertingIsABug)
-{
-    const CaliberUnit placeholder;
-    EXPECT_FALSE(placeholder.hasReference());
-    EXPECT_THROW(static_cast<void>(placeholder.toUnit(1.0)), BugError);
-    EXPECT_THROW(static_cast<void>(placeholder.fromUnit(1.0)), BugError);
-    EXPECT_THROW(static_cast<void>(placeholder.toString(1.0)), BugError);
-    EXPECT_FALSE(CaliberUnit(std::function<double()>{}).hasReference());
-    EXPECT_THROW(CaliberUnit(0.0), BugError);
-    EXPECT_THROW(CaliberUnit(-1.0), BugError);
-    // Two placeholders are equal, as are a placeholder and a bound unit: only the class, the
-    // multiplier and the name count.
-    EXPECT_TRUE(placeholder.equals(CaliberUnit(0.05)));
-}
-
-TEST(PercentageOfLengthUnit, ScalesByReferenceAndPercent)
-{
-    const PercentageOfLengthUnit percent(2.0);
-    EXPECT_EQ(percent.getUnit(), "%");
-    EXPECT_EQ(percent.getMultiplier(), 0.01);
-    EXPECT_DOUBLE_EQ(percent.getReferenceLength(), 2.0);
-    EXPECT_DOUBLE_EQ(percent.toUnit(0.5), 25.0);
-    EXPECT_DOUBLE_EQ(percent.fromUnit(25.0), 0.5);
-    EXPECT_EQ(percent.toStringUnit(0.5), "25 %");
-
-    const PercentageOfLengthUnit placeholder;
-    EXPECT_FALSE(placeholder.hasReference());
-    EXPECT_THROW(static_cast<void>(placeholder.toUnit(1.0)), BugError);
-    EXPECT_THROW(PercentageOfLengthUnit(0.0), BugError);
-    EXPECT_THROW(PercentageOfLengthUnit(-0.5), BugError);
-}
-
-TEST(PercentageOfLengthUnit, ProviderIsReadOnEveryConversion)
-{
-    double                       reference = 1.0;
-    const PercentageOfLengthUnit dynamic([&reference] { return reference; });
-    EXPECT_DOUBLE_EQ(dynamic.toUnit(0.5), 50.0);
-    reference = 4.0;
-    EXPECT_DOUBLE_EQ(dynamic.toUnit(0.5), 12.5);
-}
-
-// ---- TemperatureUnit ----
-
-TEST(TemperatureUnit, CelsiusAndFahrenheit)
-{
-    const TemperatureUnit celsius(1, 273.15, 0.01, "°C");
-    const TemperatureUnit fahrenheit(5.0 / 9.0, 459.67, 0.01, "°F");
-    EXPECT_FALSE(celsius.hasSpace());
-    EXPECT_EQ(celsius.getUnit(), "°C");
-    EXPECT_EQ(celsius.getAddition(), 273.15);
-    EXPECT_EQ(fahrenheit.getPrecision(), 0.01);
-
-    EXPECT_DOUBLE_EQ(celsius.toUnit(273.15), 0.0);
-    EXPECT_DOUBLE_EQ(celsius.fromUnit(273.15), 546.3);
-    EXPECT_EQ(celsius.toString(273.15), "0.00");
-    EXPECT_EQ(celsius.toStringUnit(273.15), "0.00°C");
-    EXPECT_DOUBLE_EQ(fahrenheit.toUnit(273.15), 31.999999999999943);
-    EXPECT_DOUBLE_EQ(fahrenheit.fromUnit(273.15), 407.1222222222222);
-    EXPECT_EQ(fahrenheit.toString(273.15), "32.00");
-    EXPECT_EQ(fahrenheit.toStringUnit(273.15), "32.00°F");
-    EXPECT_DOUBLE_EQ(celsius.toUnit(283.15), 10.0);
-    EXPECT_EQ(celsius.toStringUnit(283.15), "10.00°C");
-    EXPECT_DOUBLE_EQ(fahrenheit.toUnit(283.15), 49.99999999999994);
-    EXPECT_EQ(fahrenheit.toStringUnit(283.15), "50.00°F");
-    EXPECT_DOUBLE_EQ(celsius.toUnit(0.0), -273.15);
-    EXPECT_DOUBLE_EQ(celsius.fromUnit(0.0), 273.15);
-    EXPECT_EQ(celsius.toStringUnit(0.0), "-273.15°C");
-    EXPECT_DOUBLE_EQ(fahrenheit.toUnit(0.0), -459.67);
-    EXPECT_DOUBLE_EQ(fahrenheit.fromUnit(0.0), 255.37222222222223);
-    EXPECT_EQ(fahrenheit.toStringUnit(0.0), "-459.67°F");
-    EXPECT_DOUBLE_EQ(celsius.toUnit(300.0), 26.850000000000023);
-    EXPECT_EQ(celsius.toString(300.0), "26.85");
-    EXPECT_DOUBLE_EQ(fahrenheit.toUnit(300.0), 80.32999999999998);
-    EXPECT_EQ(fahrenheit.toString(300.0), "80.33");
-    EXPECT_TRUE(std::isnan(celsius.toUnit(kNaN)));
-    EXPECT_EQ(celsius.toString(kNaN), "NaN");
-    EXPECT_EQ(celsius.toStringUnit(kNaN), "N/A");
-    EXPECT_EQ(fahrenheit.toString(283.153), "50.01");
-    EXPECT_EQ(fahrenheit.toStringUnit(310.928), "100.00°F");
-    EXPECT_EQ(celsius.toStringUnit(310.928), "37.78°C");
-    EXPECT_EQ(celsius.toStringUnit(-1.0), "-274.15°C");
-    EXPECT_EQ(fahrenheit.toStringUnit(-1.0), "-461.47°F");
-    EXPECT_DOUBLE_EQ(fahrenheit.fromUnit(-1.0), 254.8166666666667);
-}
-
-TEST(TemperatureUnit, RoundingTiesAreJavasMathRound)
-{
-    const TemperatureUnit celsius(1, 273.15, 0.01, "C");
-    const TemperatureUnit fahrenheit(5.0 / 9.0, 459.67, 0.01, "F");
-    EXPECT_EQ(celsius.round(0.005), 0.01);
-    EXPECT_EQ(celsius.round(-0.005), 0.0);
-    EXPECT_FALSE(std::signbit(celsius.round(-0.005)));
-    EXPECT_EQ(celsius.round(1.005), 1.0);
-    EXPECT_EQ(celsius.round(-2.675), -2.67);
-    EXPECT_EQ(celsius.getNextValue(0.005), 0.02);
-    EXPECT_EQ(celsius.getPreviousValue(0.005), 0.0);
-    EXPECT_EQ(celsius.getNextValue(-1.015), -1.0);
-    EXPECT_EQ(celsius.getPreviousValue(-1.015), -1.02);
-    EXPECT_EQ(fahrenheit.round(98.605), 98.61);
-    EXPECT_EQ(fahrenheit.getNextValue(-40.005), -40.0);
-}
-
-// ---- DegreeUnit and RadianUnit ----
-
-TEST(DegreeUnit, FormatsWithOneDecimalAndNoSpace)
-{
-    const DegreeUnit degree;
-    constexpr double kPi = std::numbers::pi;
-    EXPECT_FALSE(degree.hasSpace());
-    EXPECT_EQ(degree.getUnit(), "°");
-    EXPECT_DOUBLE_EQ(degree.getMultiplier(), 0.017453292519943295);
-
-    EXPECT_EQ(degree.toString(0.0), "0");
-    EXPECT_EQ(degree.toStringUnit(0.0), "0°");
-    EXPECT_EQ(degree.toString(kPi / 4), "45");
-    EXPECT_EQ(degree.toStringUnit(kPi / 2), "90°");
-    EXPECT_EQ(degree.toString(kPi), "180");
-    EXPECT_EQ(degree.toString(-kPi / 180 * 0.04), "-0");
-    EXPECT_EQ(degree.toStringUnit(-kPi / 180 * 0.04), "-0°");
-    EXPECT_EQ(degree.toString(kPi / 180 * 45.25), "45.2");
-    EXPECT_EQ(degree.toString(kPi / 180 * 45.35), "45.4");
-    EXPECT_EQ(degree.toString(kNaN), "NaN");
-    EXPECT_EQ(degree.toStringUnit(kNaN), "N/A");
-    EXPECT_EQ(degree.toString(kPi / 180 * 1e7), "10000000");
-    EXPECT_EQ(degree.toString(kInf), "∞");
-    EXPECT_EQ(degree.toStringUnit(kInf), "∞°");
-    EXPECT_EQ(degree.toString(-0.0), "-0");
-    EXPECT_EQ(degree.toString(1.0), "57.3");
-    EXPECT_EQ(degree.toString(2.5), "143.2");
-    EXPECT_EQ(degree.toString(0.05), "2.9");
-    EXPECT_EQ(degree.toString(-0.04), "-2.3");
-    EXPECT_EQ(degree.toString(kPi / 180 * 0.05), "0.1");
-    EXPECT_EQ(degree.toString(kPi / 180 * 12.34), "12.3");
-    EXPECT_EQ(degree.toString(1e-9), "0");
-    EXPECT_EQ(degree.toString(123.456), "7073.5");
-
-    EXPECT_DOUBLE_EQ(degree.round(0.7853981633974483), 1.0);
-    EXPECT_DOUBLE_EQ(degree.round(2.5), 2.0);
-    EXPECT_DOUBLE_EQ(degree.round(-0.04), -0.0);
-    EXPECT_DOUBLE_EQ(degree.round(174532.92519943297), 174533.0);
-    EXPECT_TRUE(std::isnan(degree.round(kNaN)));
-    EXPECT_EQ(degree.round(kInf), kInf);
-}
-
-TEST(DegreeUnit, LargeMagnitudesTiesAndZerosMatchOpenRocket)
-{
-    const DegreeUnit degree;
-    EXPECT_EQ(degree.toString(-2.594816859051859e+23), "-14867205463306412000000000");
-    EXPECT_EQ(degree.toString(793017819599871232.0), "45436574141739516000");
-    EXPECT_EQ(degree.toString(4.7636871895947546e+23), "27293917088431583000000000");
-    EXPECT_EQ(degree.toString(-1e-300), "-0");
-    EXPECT_EQ(degree.toString(0.0043633231299858239), "0.2");
-    EXPECT_EQ(degree.toString(-0.0026179938779914941), "-0.1");
-}
-
-TEST(RadianUnit, FormatsWithExactlyOneDecimal)
-{
-    const RadianUnit radian;
-    constexpr double kPi = std::numbers::pi;
-    EXPECT_TRUE(radian.hasSpace());
-    EXPECT_EQ(radian.getUnit(), "rad");
-    EXPECT_EQ(radian.getMultiplier(), 1.0);
-
-    EXPECT_EQ(radian.toString(0.0), "0.0");
-    EXPECT_EQ(radian.toStringUnit(0.0), "0.0 rad");
-    EXPECT_EQ(radian.toString(kPi / 4), "0.8");
-    EXPECT_EQ(radian.toString(kPi / 2), "1.6");
-    EXPECT_EQ(radian.toString(kPi), "3.1");
-    EXPECT_EQ(radian.toString(-6.981317007977319E-4), "-0.0");
-    EXPECT_EQ(radian.toStringUnit(-6.981317007977319E-4), "-0.0 rad");
-    EXPECT_EQ(radian.toString(kNaN), "NaN");
-    EXPECT_EQ(radian.toStringUnit(kNaN), "N/A");
-    EXPECT_EQ(radian.toString(174532.92519943297), "174532.9");
-    EXPECT_EQ(radian.toString(kInf), "∞");
-    EXPECT_EQ(radian.toStringUnit(kInf), "∞ rad");
-    EXPECT_EQ(radian.toString(-0.0), "-0.0");
-    EXPECT_EQ(radian.toString(1.0), "1.0");
-    EXPECT_EQ(radian.toString(2.5), "2.5");
-    EXPECT_EQ(radian.toString(0.05), "0.1");
-    EXPECT_EQ(radian.toString(0.15), "0.1");
-    EXPECT_EQ(radian.toString(0.25), "0.2");
-    EXPECT_EQ(radian.toString(-0.04), "-0.0");
-    EXPECT_EQ(radian.toString(123.456), "123.5");
-
-    EXPECT_DOUBLE_EQ(radian.round(0.7853981633974483), 0.8);
-    EXPECT_DOUBLE_EQ(radian.round(1.5707963267948966), 1.6);
-    EXPECT_DOUBLE_EQ(radian.round(0.05), 0.0);
-    EXPECT_DOUBLE_EQ(radian.round(0.15), 0.2);
-    EXPECT_DOUBLE_EQ(radian.round(0.25), 0.2);
-    EXPECT_DOUBLE_EQ(radian.round(123.456), 123.5);
-    EXPECT_TRUE(std::isnan(radian.round(kNaN)));
-}
-
-TEST(RadianUnit, LargeMagnitudesTiesAndZerosMatchOpenRocket)
-{
-    const RadianUnit radian;
-    EXPECT_EQ(radian.toString(0x1p69), "590295810358705650000.0");
-    EXPECT_EQ(radian.toString(1e23), "99999999999999990000000.0");
-    EXPECT_EQ(radian.toString(8.41e21), "8409999999999999000000.0");
-    EXPECT_EQ(radian.toString(0.35), "0.3");
-    EXPECT_EQ(radian.toString(0.45), "0.5");
-    EXPECT_EQ(radian.toString(-0.05), "-0.1");
-    EXPECT_EQ(radian.toString(-1e-300), "-0.0");
-    EXPECT_EQ(radian.toString(9.95), "9.9");
-    EXPECT_EQ(radian.toString(-99.95), "-100.0");
-}
-
-// ---- FrequencyUnit ----
-
-TEST(FrequencyUnit, InvertsThePeriod)
-{
-    const FrequencyUnit hz(1, "Hz");
-    const FrequencyUnit mhz(0.001, "mHz");
-    const FrequencyUnit khz(1000, "kHz");
-
-    EXPECT_DOUBLE_EQ(hz.toUnit(0.5), 2.0);
-    EXPECT_DOUBLE_EQ(hz.fromUnit(0.5), 2.0);
-    EXPECT_EQ(hz.toString(0.5), "2");
-    EXPECT_DOUBLE_EQ(mhz.toUnit(0.5), 2000.0);
-    EXPECT_EQ(mhz.toString(0.5), "2000");
-    EXPECT_DOUBLE_EQ(khz.toUnit(0.5), 0.002);
-    EXPECT_EQ(khz.toString(0.5), "0.002");
-    EXPECT_DOUBLE_EQ(hz.toUnit(2.0), 0.5);
-    EXPECT_EQ(hz.toString(2.0), "0.5");
-    EXPECT_DOUBLE_EQ(khz.toUnit(2.0), 5.0E-4);
-    EXPECT_EQ(khz.toString(2.0), "0");
-    EXPECT_EQ(hz.toUnit(0.0), kInf);
-    EXPECT_EQ(hz.toString(0.0), "∞");
-    EXPECT_EQ(hz.toUnit(kInf), 0.0);
-    EXPECT_EQ(hz.toString(kInf), "0");
-    EXPECT_TRUE(std::isnan(hz.toUnit(kNaN)));
-    EXPECT_EQ(hz.toString(kNaN), "N/A");
-    EXPECT_DOUBLE_EQ(hz.toUnit(0.001), 1000.0);
-    EXPECT_EQ(mhz.toString(0.001), "1000000");
-    EXPECT_EQ(khz.toString(0.001), "1");
-    EXPECT_EQ(hz.toString(1000.0), "0.001");
-    EXPECT_DOUBLE_EQ(khz.toUnit(1000.0), 1.0E-6);
-    EXPECT_EQ(khz.toString(1000.0), "0");
-    EXPECT_DOUBLE_EQ(hz.toUnit(-0.5), -2.0);
-    EXPECT_EQ(hz.toString(-0.5), "-2");
-    EXPECT_EQ(khz.toString(-0.5), "-0.002");
 }
 
 }  // namespace

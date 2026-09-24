@@ -1,6 +1,5 @@
 #include "QtRocket/unit/Value.h"
 
-#include <compare>
 #include <cstddef>
 #include <functional>
 #include <string>
@@ -8,6 +7,7 @@
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -28,6 +28,10 @@ std::string Value::toString() const
 
 bool Value::operator==(const Value& other) const noexcept
 {
+    if (this == &other)
+    {
+        return true;
+    }
     if (m_unit != other.m_unit)
     {
         return false;
@@ -37,7 +41,7 @@ bool Value::operator==(const Value& other) const noexcept
 
 int Value::compareTo(const Value& other) const
 {
-    const int n = m_unit->getUnit().compare(other.m_unit->getUnit());
+    const int n = Strings::javaCompareTo(m_unit->getUnit(), other.m_unit->getUnit());
     if (n != 0)
     {
         return n;
@@ -45,28 +49,14 @@ int Value::compareTo(const Value& other) const
     return MathUtil::javaDoubleCompare(getUnitValue(), other.getUnitValue());
 }
 
-std::weak_ordering Value::operator<=>(const Value& other) const
-{
-    const int c = compareTo(other);
-    if (c < 0)
-    {
-        return std::weak_ordering::less;
-    }
-    if (c > 0)
-    {
-        return std::weak_ordering::greater;
-    }
-    return std::weak_ordering::equivalent;
-}
-
-}  // namespace QtRocket
-
-std::size_t std::hash<QtRocket::Value>::operator()(const QtRocket::Value& value) const noexcept
+std::size_t Value::hash() const noexcept
 {
     // Value.hashCode: 31 * (31 * 1 + unit.hashCode()) + Double.hashCode(value).
     constexpr std::size_t kPrime = 31;
     std::size_t           result = 1;
-    result                       = (kPrime * result) + value.getUnit().hash();
-    result                       = (kPrime * result) + std::hash<double>{}(value.getValue());
+    result                       = (kPrime * result) + m_unit->hash();
+    result                       = (kPrime * result) + std::hash<double>{}(m_value);
     return result;
 }
+
+}  // namespace QtRocket

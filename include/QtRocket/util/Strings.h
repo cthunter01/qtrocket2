@@ -29,9 +29,10 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// rounded half-up to @p decimalPlaces decimals, trailing zeros are dropped, and when
 /// @p exponentialNotation is set a magnitude below 0.001 or of 10000 and above is written as
 /// mantissa + "e" + exponent ("3.142e-5", "3.1e4"). A negative @p decimalPlaces counts as 0.
-/// Deviation: from 2^63 (9.2e18) upwards OpenRocket on JDK 17 still generates digits with an
-/// older algorithm that can differ from the shortest digits in the last place at a rounding tie
-/// ("8.638e20" for 8.6385e20, here "8.639e20"); JDK 21+ (JDK-8300869) prints what this does.
+/// Deviation: from 2^63 (9.2e18) upwards, and for subnormals, OpenRocket on JDK 17 still takes
+/// its digits from FloatingDecimal's older algorithm, which often differ from the shortest ones:
+/// longer, or not the closest ("8.638e20" for 8.6385e20, here "8.639e20"). The shortest digits
+/// are what JDK 21+ (JDK-8300869) prints.
 [[nodiscard]] std::string doubleToString(double value, int decimalPlaces, bool exponentialNotation);
 
 /// doubleToString(value, decimalPlaces, true).
@@ -45,7 +46,9 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// to @p precision decimals and written in full, trailing zeros included ("1.50"; "0" for
 /// precision 0; "100000000000000000000.0" for 1e20). NaN gives "NaN" and the infinities
 /// "Infinity" / "-Infinity"; a negative value keeps its sign even when its digits round to zero
-/// ("-0.0"), as does a negative zero. A negative @p precision counts as 0.
+/// ("-0.0"), as does a negative zero. A negative @p precision counts as 0. Deviation: the digits
+/// of a value from 2^63 up are the shortest ones, as in doubleToString(), so "%.0f" of
+/// 6.84232346E19 is "68423234600000000000" here and "68423234599999996000" on JDK 17.
 [[nodiscard]] std::string formatFixed(double value, int precision);
 
 /// Java's String.format(Locale.ENGLISH, "%.<precision>e", value): one leading digit, a point and
@@ -60,9 +63,12 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// fraction digit ("980.0", "0.001", "123456.789"); anything else as one digit, a point, at least
 /// one fraction digit, "E" and the exponent ("1.0E7", "3.0E-4", "2.6E10"). The digits are the
 /// ones doubleToString() takes from Java, so an integer between 2^53 and 2^63 keeps Java's exact
-/// digits (2^60 is "1.15292150460684698E18"). Deviation: the handful of values that JDK 17 prints
-/// with an extra digit (JDK-4511638: 1e23 as "9.999999999999999E22", Double.MIN_VALUE as
-/// "4.9E-324") print here in their shortest form, as JDK 19+ does ("1.0E23", "5.0E-324").
+/// digits (2^60 is "1.15292150460684698E18"). Deviation: from 2^63 upwards, and for subnormals,
+/// JDK 17's FloatingDecimal digits often differ from the shortest ones (JDK-4511638), being
+/// longer (6.8423234599999996E19 for 6.84232346E19, 9.999999999999999E22 for 1e23, 4.9E-324 for
+/// Double.MIN_VALUE) or not the closest (-3.8189059803482716E25 where the shortest is
+/// -3.8189059803482717E25). This prints the shortest digits, as JDK 19+ does; both forms read
+/// back as the same double.
 [[nodiscard]] std::string javaDoubleToString(double value);
 
 /// Parses what Java's Double.parseDouble accepts of the values OpenRocket writes: an optional
@@ -74,13 +80,24 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// above the largest double ("1e999") gives nullopt where Java gives an infinity.
 [[nodiscard]] std::optional<double> parseDouble(std::string_view text) noexcept;
 
+/// Java's Double.parseDouble exactly: whitespace (characters at or below U+0020) trimmed at
+/// either end, an optional sign, then "NaN", "Infinity", a decimal number (digits with an
+/// optional point and fraction, at least one digit, and an optional exponent: "1.5", ".5", "5.",
+/// "-2.5E3", "1e+05") or a hexadecimal one with a binary exponent ("0x1.8p1", "0X.8P-3"), either
+/// number optionally followed by one of f, F, d, D ("1.5d", which parses as a double all the
+/// same). The result is correctly rounded; a magnitude above the largest double gives an
+/// infinity and one below the smallest subnormal a zero, each with the sign. Anything else,
+/// OpenRocket's "Inf" included, gives nullopt (Java's NumberFormatException).
+[[nodiscard]] std::optional<double> javaParseDouble(std::string_view text) noexcept;
+
 /// Parses a decimal integer as Java's Integer.parseInt does: an optional sign and digits only, no
 /// whitespace, and nullopt when the value does not fit an int.
 [[nodiscard]] std::optional<int> parseInt(std::string_view text) noexcept;
 
 /// StringUtils.convertToDouble: parses a number written with either a dot or a comma as the
 /// decimal separator, taking the last of them as the separator and the others as thousands
-/// separators ("1.500,61" and "1,500.61" both give 1500.61). Fails like parseDouble().
+/// separators ("1.500,61" and "1,500.61" both give 1500.61), then parses the result with
+/// javaParseDouble() (Double.parseDouble), so it fails the same way.
 [[nodiscard]] std::optional<double> convertToDouble(std::string_view text);
 
 /// Java's String.trim(): @p text without leading and trailing characters at or below U+0020. The
@@ -98,8 +115,31 @@ std::string_view trim(const String&& text) = delete;
 [[nodiscard]] std::string toLower(std::string_view text);
 
 /// True when @p a and @p b are the same once ASCII letters are lower-cased as toLower() does;
-/// every other byte must match exactly (Java's equalsIgnoreCase also folds non-ASCII letters).
+/// every other byte must match exactly (Java's equalsIgnoreCase also folds non-ASCII letters;
+/// see javaEqualsIgnoreCase()).
 [[nodiscard]] bool equalsIgnoreAsciiCase(std::string_view a, std::string_view b) noexcept;
+
+// The Java String operations below read UTF-8 text as the String it stands for: its code points,
+// and for compareTo and hashCode their UTF-16 code units (a code point above U+FFFF is a
+// surrogate pair). A byte that does not start a well-formed UTF-8 sequence reads as U+FFFD, as
+// Java's decoder replaces it.
+
+/// The code points of UTF-8 @p text, what String.codePoints() gives for the String.
+[[nodiscard]] std::u32string toCodePoints(std::string_view text);
+
+/// String.equalsIgnoreCase: the same length, and every pair of characters equal after
+/// Character.toUpperCase and then Character.toLowerCase (JDK 17's Unicode 13 case data). Beyond
+/// ASCII this matches "µm" with "μm" (U+00B5 and U+03BC), "Ölpapier" with "ölpapier", and the
+/// Kelvin sign (U+212A) with "k", the long s (U+017F) with "s", U+0130 and U+0131 with "i".
+[[nodiscard]] bool javaEqualsIgnoreCase(std::string_view a, std::string_view b) noexcept;
+
+/// String.compareTo: the difference of the first differing UTF-16 code units, else of the
+/// lengths in code units. This orders a code point above U+FFFF (a surrogate pair, D800-DFFF)
+/// before U+E000-U+FFFF, where the UTF-8 bytes order it after.
+[[nodiscard]] int javaCompareTo(std::string_view a, std::string_view b) noexcept;
+
+/// String.hashCode: h = 31 * h + unit over the UTF-16 code units, wrapping as a Java int.
+[[nodiscard]] int javaHashCode(std::string_view text) noexcept;
 
 /// Splits at every @p separator, keeping empty fields: "a,,b" gives {"a", "", "b"} and "" gives
 /// {""}.

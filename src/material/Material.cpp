@@ -24,57 +24,6 @@ namespace QtRocket
 namespace
 {
 
-/// Java's String.hashCode of the UTF-16 form of UTF-8 @p text: h = 31 * h + unit over the code
-/// units, wrapping as a Java int. A byte that does not start a well-formed sequence counts as
-/// one unit.
-[[nodiscard]] int javaStringHashCode(std::string_view text) noexcept
-{
-    std::uint32_t hash = 0;
-    std::size_t   i    = 0;
-    while (i < text.size())
-    {
-        const auto    lead      = static_cast<unsigned char>(text[i]);
-        std::uint32_t codePoint = lead;
-        std::size_t   length    = 1;
-        if (lead >= 0xF0)
-        {
-            length    = 4;
-            codePoint = lead & 0x07U;
-        }
-        else if (lead >= 0xE0)
-        {
-            length    = 3;
-            codePoint = lead & 0x0FU;
-        }
-        else if (lead >= 0xC0)
-        {
-            length    = 2;
-            codePoint = lead & 0x1FU;
-        }
-        if (i + length > text.size())
-        {
-            length    = 1;
-            codePoint = lead;
-        }
-        for (std::size_t k = 1; k < length; k++)
-        {
-            codePoint = (codePoint << 6U) | (static_cast<unsigned char>(text[i + k]) & 0x3FU);
-        }
-        i += length;
-        if (codePoint >= 0x10000)
-        {
-            const std::uint32_t offset = codePoint - 0x10000;
-            hash                       = (31U * hash) + (0xD800U + (offset >> 10U));
-            hash                       = (31U * hash) + (0xDC00U + (offset & 0x3FFU));
-        }
-        else
-        {
-            hash = (31U * hash) + codePoint;
-        }
-    }
-    return static_cast<int>(hash);
-}
-
 /// String.split("\\|", 5): at most five fields, the last one keeping any further separators,
 /// and trailing empty fields kept (the limit is positive).
 [[nodiscard]] std::vector<std::string_view> splitStorable(std::string_view str)
@@ -197,7 +146,7 @@ bool Material::operator==(const Material& other) const noexcept
 
 int Material::compareTo(const Material& other) const noexcept
 {
-    const int c = m_name.compare(other.m_name);
+    const int c = Strings::javaCompareTo(m_name, other.m_name);
     if (c != 0)
     {
         return c;
@@ -209,7 +158,7 @@ int Material::hashCode() const noexcept
 {
     // The three terms are added with Java's wrapping int arithmetic.
     const auto sum =
-        static_cast<std::uint32_t>(javaStringHashCode(m_name)) +
+        static_cast<std::uint32_t>(Strings::javaHashCode(m_name)) +
         static_cast<std::uint32_t>(MathUtil::javaIntCast(m_density * 1000)) +
         static_cast<std::uint32_t>(MathUtil::javaIntCast(m_inPlaneShearModulus * 1e-9));
     return static_cast<int>(sum);
@@ -258,7 +207,7 @@ Result<Material> Material::fromStorableString(std::string_view str, bool userDef
 
     const std::string_view name = split[1];
 
-    const std::optional<double> density = Strings::parseDouble(split[2]);
+    const std::optional<double> density = Strings::javaParseDouble(split[2]);
     if (!density)
     {
         return fail(ErrorCode::PARSE, std::format("Illegal material string: {}", str));
@@ -287,7 +236,7 @@ Result<Material> Material::fromStorableString(std::string_view str, bool userDef
     // new format has 5 fields (type|name|density|inPlaneShearModulus|group)
     if (split.size() >= 4)
     {
-        if (const std::optional<double> shear = Strings::parseDouble(split[3]))
+        if (const std::optional<double> shear = Strings::javaParseDouble(split[3]))
         {
             inPlaneShearModulus = *shear;
             if (split.size() == 5)

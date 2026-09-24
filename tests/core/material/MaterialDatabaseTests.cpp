@@ -1,8 +1,11 @@
 #include "QtRocket/material/MaterialDatabase.h"
 
+#include <bit>
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -276,6 +279,183 @@ TEST(MaterialDatabase, AddAllAndMoves)
     const MaterialDatabase moved = std::move(second);
     EXPECT_EQ(moved.size(), 3U);
     EXPECT_EQ(moved.get(2).getName(), "Delrin");
+}
+
+/// 1000.0 and the double just past MathUtil.equals' tolerance of it: equals(1000.0, edge) holds
+/// and equals(edge, 1000.0) does not, so Material equality depends on the operand order
+/// (Java: thousand.equals(edge) is false, edge.equals(thousand) true).
+Material thousand()
+{
+    return Material::newMaterial(Type::BULK, "X", 1000.0, true);
+}
+
+Material pastTheEdge()
+{
+    return Material::newMaterial(Type::BULK, "X", std::bit_cast<double>(0x408f4000053e2d63ULL),
+                                 true);
+}
+
+TEST(MaterialDatabase, LookupsTestTheArgumentsEqualsAsJavaDoes)
+{
+    ASSERT_FALSE(thousand() == pastTheEdge());
+    ASSERT_TRUE(pastTheEdge() == thousand());
+
+    // ArrayList.indexOf and contains, and AbstractCollection.remove, call arg.equals(element).
+    MaterialDatabase holdsThousand;
+    holdsThousand.add(thousand());
+    EXPECT_EQ(holdsThousand.indexOf(pastTheEdge()), 0);
+    EXPECT_TRUE(holdsThousand.contains(pastTheEdge()));
+    EXPECT_FALSE(holdsThousand.add(pastTheEdge()));  // already there, for Java
+    EXPECT_EQ(holdsThousand.size(), 1U);
+    EXPECT_TRUE(holdsThousand.remove(pastTheEdge()));
+    EXPECT_TRUE(holdsThousand.empty());
+
+    MaterialDatabase holdsEdge;
+    holdsEdge.add(pastTheEdge());
+    EXPECT_EQ(holdsEdge.indexOf(thousand()), -1);
+    EXPECT_FALSE(holdsEdge.contains(thousand()));
+    EXPECT_FALSE(holdsEdge.remove(thousand()));
+    EXPECT_TRUE(holdsEdge.add(thousand()));  // a new material, for Java
+    EXPECT_EQ(holdsEdge.size(), 2U);
+}
+
+TEST(MaterialDatabase, ASlotMayChangeTheDatabaseItListensTo)
+{
+    // Every slot receives the material that was added, even after an earlier slot has made the
+    // list reallocate or shift (Java passes the element object itself). Run it under the asan
+    // preset: a reference into the list would be read after it was freed.
+    MaterialDatabase         database;
+    std::vector<std::string> heard;
+    bool                     reentered = false;
+    database.materialAdded.connect(
+        [&database, &reentered](const Material&, const MaterialDatabase&) {
+            if (!reentered)
+            {
+                reentered = true;
+                for (int i = 0; i < 64; i++)
+                {
+                    database.add(bulk("Aaa" + std::to_string(100 + i), 1));
+                }
+            }
+        });
+    database.materialAdded.connect(
+        [&heard](const Material& m, const MaterialDatabase&) { heard.push_back(m.getName()); });
+    EXPECT_TRUE(database.add(bulk("Mmm", 1)));
+    EXPECT_EQ(database.size(), 65U);
+    // The second slot heard the 64 nested additions first, then the outer one, intact.
+    ASSERT_EQ(heard.size(), 65U);
+    EXPECT_EQ(heard.back(), "Mmm");
+}
+
+TEST(MaterialDatabase, ASlotMayShiftTheMaterialAnotherSlotReceives)
+{
+    // Without a reallocation: an addition before the outer material shifts it in the list, and
+    // a later slot must still receive the outer one.
+    MaterialDatabase shifting;
+    for (const char* name : {"Bbb", "Ccc", "Fff", "Ggg", "Zzz"})
+    {
+        shifting.add(bulk(name, 1));
+    }
+    bool                     shifted = false;
+    std::vector<std::string> names;
+    shifting.materialAdded.connect([&shifting, &shifted](const Material&, const MaterialDatabase&) {
+        if (!shifted)
+        {
+            shifted = true;
+            shifting.add(bulk("Aaa", 1));
+        }
+    });
+    shifting.materialAdded.connect(
+        [&names](const Material& m, const MaterialDatabase&) { names.push_back(m.getName()); });
+    shifting.add(bulk("Mmm", 1));
+    EXPECT_EQ(names, (std::vector<std::string>{"Aaa", "Mmm"}));
+}
+
+TEST(MaterialDatabase, AddAllTakesTheSourceAsItWasWhenCalled)
+{
+    MaterialDatabase source;
+    source.add(bulk("Balsa", 170));
+    source.add(bulk("Cork", 240));
+    source.add(bulk("Pine", 530));
+    MaterialDatabase target;
+    // A slot that empties the source while its materials are being added.
+    target.materialAdded.connect(
+        [&source](const Material& m, const MaterialDatabase&) { source.remove(m); });
+    EXPECT_TRUE(target.addAll(source));
+    EXPECT_EQ(target.size(), 3U);
+    EXPECT_TRUE(source.empty());
+}
+
+TEST(MaterialDatabase, ClearRemovesEveryMaterialWithASignalEach)
+{
+    MaterialDatabase db;
+    db.add(bulk("Pine", 530));
+    db.add(bulk("Balsa", 170));
+    db.add(bulk("Cork", 240));
+    std::vector<std::string> removed;
+    std::vector<std::size_t> sizes;
+    db.materialRemoved.connect([&removed, &sizes](const Material& m, const MaterialDatabase& from) {
+        removed.push_back(m.getName());
+        sizes.push_back(from.size());
+    });
+    db.clear();
+    EXPECT_TRUE(db.empty());
+    // In order, each after its removal (AbstractCollection.clear through the iterator).
+    EXPECT_EQ(removed, (std::vector<std::string>{"Balsa", "Cork", "Pine"}));
+    EXPECT_EQ(sizes, (std::vector<std::size_t>{2, 1, 0}));
+    db.clear();
+    EXPECT_EQ(removed.size(), 3U);
+}
+
+TEST(MaterialDatabase, MovingTakesTheMaterialsButNotTheListeners)
+{
+    static_assert(!std::is_move_assignable_v<MaterialDatabase>);
+    static_assert(!std::is_copy_constructible_v<MaterialDatabase>);
+
+    MaterialDatabase source;
+    int              heard = 0;
+    source.materialAdded.connect([&heard](const Material&, const MaterialDatabase&) { ++heard; });
+    source.add(bulk("Balsa", 170));
+    ASSERT_EQ(heard, 1);
+
+    MaterialDatabase moved = std::move(source);
+    EXPECT_EQ(moved.size(), 1U);
+    EXPECT_EQ(moved.get(0).getName(), "Balsa");
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): left empty on purpose
+    EXPECT_TRUE(source.empty());
+    moved.add(bulk("Cork", 240));
+    EXPECT_EQ(heard, 1);  // the listener stayed with the source
+    source.add(bulk("Pine", 530));
+    EXPECT_EQ(heard, 2);
+}
+
+TEST(MaterialDatabase, AStoragesDatabaseMovedOutStaysListenedTo)
+{
+    auto                     storage = std::make_unique<MaterialStorage>();
+    std::vector<std::string> stored;
+    storage->userMaterialAdded.connect(
+        [&stored](const Material& m) { stored.push_back(m.getName()); });
+    addBuiltinMaterials(*storage);
+
+    MaterialDatabase stolen = std::move(storage->bulkMaterials());
+    EXPECT_EQ(stolen.size(), 32U);
+    EXPECT_TRUE(storage->bulkMaterials().empty());
+    // The storage still hears its own database, and not the one moved out.
+    EXPECT_TRUE(storage->addMaterial(Material::newMaterial(Type::BULK, "Mine", 1.0, true)));
+    EXPECT_EQ(stored, (std::vector<std::string>{"Mine"}));
+    EXPECT_TRUE(stolen.add(Material::newMaterial(Type::BULK, "Other", 2.0, true)));
+    EXPECT_EQ(stored.size(), 1U);
+}
+
+TEST(MaterialDatabase, AStoragesDatabaseMovedOutOutlivesTheStorage)
+{
+    auto             storage = std::make_unique<MaterialStorage>();
+    MaterialDatabase stolen  = std::move(storage->bulkMaterials());
+    // Nothing of the storage is left in the moved-out database once the storage is gone (run
+    // under the asan preset).
+    storage.reset();
+    EXPECT_TRUE(stolen.add(Material::newMaterial(Type::BULK, "Third", 3.0, true)));
+    EXPECT_EQ(stolen.size(), 1U);
 }
 
 }  // namespace

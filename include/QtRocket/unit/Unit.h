@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -15,7 +14,8 @@ class Value;
 /// A unit of measure (OpenRocket's Unit): the scale between the unit and SI, and the rules for
 /// formatting, rounding and stepping values shown in that unit. Units are immutable; the
 /// subclasses (GeneralUnit, FixedPrecisionUnit, FractionalUnit, ...) differ in how they convert,
-/// round and format. A UnitGroup owns its units and a Value refers to one.
+/// round and format. A UnitGroup holds its units (a StabilityUnitGroup shares the plain ones with
+/// the group it was made from, as in OpenRocket) and a Value refers to one.
 ///
 /// toString(double) reproduces OpenRocket's DecimalFormat output digit for digit (see
 /// QtRocket::DecimalFormat, which keeps java.text.DecimalFormat's digits and tie rules) with a
@@ -58,7 +58,9 @@ public:
     [[nodiscard]] virtual std::string toStringUnit(double value) const;
 
     /// A Value of @p value (SI) in this unit; the Value refers to this unit, which must outlive it.
-    [[nodiscard]] Value toValue(double value) const;
+    /// A temporary unit would be gone before the Value is used, so that overload is deleted.
+    [[nodiscard]] Value toValue(double value) const&;
+    [[nodiscard]] Value toValue(double value) const&& = delete;
 
     /// Rounds a value in this unit to a precision suitable for rough valuing (about two
     /// significant digits).
@@ -71,13 +73,10 @@ public:
     /// The ticks of an axis from @p start to @p end (SI units); @p minor and @p major are the
     /// smallest distances between minor and between major ticks, in SI units.
     /// @throws BugError when a distance is not positive or major is below minor
-    ///         (OpenRocket: IllegalArgumentException).
+    ///         (OpenRocket: IllegalArgumentException), or when Java's int arithmetic on the step
+    ///         ratios gives a zero modulus, as for a NaN major (OpenRocket: ArithmeticException)
     [[nodiscard]] virtual std::vector<Tick> getTicks(double start, double end, double minor,
                                                      double major) const = 0;
-
-    /// A copy of this unit with its dynamic type. OpenRocket shares Unit objects between unit
-    /// groups; here every UnitGroup owns its units, so a StabilityUnitGroup clones them.
-    [[nodiscard]] virtual std::unique_ptr<Unit> clone() const = 0;
 
     /// Unit.equals: the same class, multiplier and unit name, nothing else (two GeneralUnits that
     /// round differently are equal).
@@ -104,8 +103,21 @@ protected:
     /// GeneralUnit.getTicks, which FixedPrecisionUnit copies verbatim: ticks at the steps of a
     /// decimal scale (round tens and fives) fitting @p minor and @p major, the major and notable
     /// ones chosen by the position's remainder modulo the step ratios.
+    /// @throws BugError when a distance is not positive or major is below minor
+    ///         (IllegalArgumentException), or when a step ratio narrows to a zero modulus, as a
+    ///         NaN major does (ArithmeticException "/ by zero")
     [[nodiscard]] std::vector<Tick> decimalTicks(double start, double end, double minor,
                                                  double major) const;
+
+    /// The part of getTicks that GeneralUnit and FractionalUnit share once the minor step is
+    /// known: the major step (a round ten or five fitting @p major), the moduli that pick the
+    /// major and notable ticks, and the ticks at every multiple of @p minstep from @p start to
+    /// @p end. Everything is in this unit (@p mod2 is the minor-notable modulus). The moduli use
+    /// Java's int arithmetic: Math.round's long narrowed to an int, products that wrap, and a
+    /// remainder where INT_MIN % -1 is 0.
+    /// @throws BugError when a modulus is 0 at a tick (ArithmeticException "/ by zero")
+    [[nodiscard]] std::vector<Tick> ticksAtMinorSteps(double start, double end, double major,
+                                                      double minstep, int mod2) const;
 
 private:
     double      m_multiplier;

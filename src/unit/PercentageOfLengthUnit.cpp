@@ -1,11 +1,9 @@
 #include "QtRocket/unit/PercentageOfLengthUnit.h"
 
 #include <functional>
-#include <memory>
 #include <utility>
 
 #include "QtRocket/unit/GeneralUnit.h"
-#include "QtRocket/unit/Unit.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"
 
@@ -43,11 +41,6 @@ double PercentageOfLengthUnit::fromUnit(double value) const
 double PercentageOfLengthUnit::toUnit(double value) const
 {
     return value / getReferenceLength() / getMultiplier();
-}
-
-std::unique_ptr<Unit> PercentageOfLengthUnit::clone() const
-{
-    return std::make_unique<PercentageOfLengthUnit>(*this);
 }
 
 }  // namespace QtRocket

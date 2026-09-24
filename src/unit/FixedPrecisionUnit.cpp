@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -98,11 +97,6 @@ std::vector<Tick> FixedPrecisionUnit::getTicks(double start, double end, double 
 {
     // OpenRocket copies GeneralUnit.getTicks here verbatim.
     return decimalTicks(start, end, minor, major);
-}
-
-std::unique_ptr<Unit> FixedPrecisionUnit::clone() const
-{
-    return std::make_unique<FixedPrecisionUnit>(*this);
 }
 
 }  // namespace QtRocket

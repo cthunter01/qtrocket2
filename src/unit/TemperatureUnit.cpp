@@ -1,11 +1,9 @@
 #include "QtRocket/unit/TemperatureUnit.h"
 
-#include <memory>
 #include <string>
 #include <utility>
 
 #include "QtRocket/unit/FixedPrecisionUnit.h"
-#include "QtRocket/unit/Unit.h"
 
 namespace QtRocket
 {
@@ -29,11 +27,6 @@ double TemperatureUnit::toUnit(double value) const
 double TemperatureUnit::fromUnit(double value) const
 {
     return (value + m_addition) * getMultiplier();
-}
-
-std::unique_ptr<Unit> TemperatureUnit::clone() const
-{
-    return std::make_unique<TemperatureUnit>(*this);
 }
 
 }  // namespace QtRocket

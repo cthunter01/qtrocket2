@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "QtRocket/unit/GeneralUnit.h"
@@ -11,7 +10,7 @@ namespace QtRocket
 
 /// Inches (OpenRocket's InchUnit): a GeneralUnit that always keeps three decimals in
 /// toString() ("25.125") and steps by a fixed precision.
-class InchUnit : public GeneralUnit
+class InchUnit final : public GeneralUnit
 {
 public:
     /// Precision 1 inch.
@@ -21,9 +20,8 @@ public:
 
     [[nodiscard]] double getPrecision() const noexcept { return m_precision; }
 
-    [[nodiscard]] double                getNextValue(double value) const override;
-    [[nodiscard]] double                getPreviousValue(double value) const override;
-    [[nodiscard]] std::unique_ptr<Unit> clone() const override;
+    [[nodiscard]] double getNextValue(double value) const override;
+    [[nodiscard]] double getPreviousValue(double value) const override;
 
 protected:
     /// Rounds to three decimals, half to even.

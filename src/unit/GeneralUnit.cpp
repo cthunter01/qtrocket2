@@ -1,7 +1,6 @@
 #include "QtRocket/unit/GeneralUnit.h"
 
 #include <cmath>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -83,11 +82,6 @@ double GeneralUnit::getNextValue(double value) const
 double GeneralUnit::getPreviousValue(double value) const
 {
     return value - 1;
-}
-
-std::unique_ptr<Unit> GeneralUnit::clone() const
-{
-    return std::make_unique<GeneralUnit>(*this);
 }
 
 }  // namespace QtRocket

@@ -74,7 +74,7 @@ TEST_F(MaterialStorageTest, DatabasesByType)
     EXPECT_EQ(m_storage.totalMaterialCount(), 82U);
 }
 
-TEST_F(MaterialStorageTest, FindByNameIgnoresAsciiCase)
+TEST_F(MaterialStorageTest, FindByNameIgnoresCase)
 {
     const Material aluminum = orNotFound(m_storage.findMaterial(Type::BULK, "aluminum"));
     EXPECT_EQ(aluminum.getName(), "Aluminum");
@@ -86,10 +86,14 @@ TEST_F(MaterialStorageTest, FindByNameIgnoresAsciiCase)
     EXPECT_TRUE(m_storage.findMaterial(Type::SURFACE, "RIPSTOP NYLON").has_value());
     EXPECT_TRUE(
         m_storage.findMaterial(Type::LINE, "kevlar thread 138  (0.4 mm, 1/64 in)").has_value());
-    // The type is part of the lookup, and the name is not translated or trimmed.
+    // The type is part of the lookup.
     EXPECT_EQ(m_storage.findMaterial(Type::SURFACE, "Aluminum"), std::nullopt);
-    EXPECT_EQ(m_storage.findMaterial(Type::BULK, " Aluminum"), std::nullopt);
     EXPECT_EQ(m_storage.findMaterial(Type::BULK, "Unobtainium"), std::nullopt);
+    // String.equalsIgnoreCase also folds letters beyond ASCII.
+    EXPECT_TRUE(
+        m_storage.addMaterial(Material::newMaterial(Type::BULK, "\u00D6lpapier", 900, true)));
+    EXPECT_EQ(orNotFound(m_storage.findMaterial(Type::BULK, "\u00F6LPAPIER")).getName(),
+              "\u00D6lpapier");
     EXPECT_THROW(static_cast<void>(m_storage.findMaterial(Type::CUSTOM, "Aluminum")), BugError);
     // The result is a copy: changing it does not change the database.
     Material copy = orNotFound(m_storage.findMaterial(Type::BULK, "Aluminum"));
@@ -135,6 +139,62 @@ TEST_F(MaterialStorageTest, FindByNameAndDensityOrFallBackToACustomMaterial)
     EXPECT_EQ(m_storage.findMaterial(Type::LINE, "Unknownium", 0.0042).getGroup(),
               MaterialGroup::CUSTOM);
     EXPECT_THROW(static_cast<void>(m_storage.findMaterial(Type::CUSTOM, "x", 1.0)), BugError);
+}
+
+// Databases.findMaterial first looks the name up among the "material.*" messages by its L10N key,
+// so these find the built-in materials. Pinned on JDK 17 with OpenRocket's English messages.
+
+TEST_F(MaterialStorageTest, FindTranslatesTheNameAsOpenRocketDoes)
+{
+    const auto name = [this](Type type, const char* baseName) {
+        return orNotFound(m_storage.findMaterial(type, baseName)).getName();
+    };
+    EXPECT_EQ(name(Type::BULK, "PLA"), "PLA - 100% infill");
+    EXPECT_EQ(name(Type::BULK, "petg"), "PETG - 100% infill");
+    EXPECT_EQ(name(Type::BULK, "Paper office"), "Paper (office)");
+    EXPECT_EQ(name(Type::BULK, "carbon  fiber"), "Carbon fiber");
+    EXPECT_EQ(name(Type::BULK, " Aluminum"), "Aluminum");
+}
+
+TEST_F(MaterialStorageTest, FindTranslatesAccentsAndPunctuation)
+{
+    const auto name = [this](Type type, const char* baseName) {
+        return orNotFound(m_storage.findMaterial(type, baseName)).getName();
+    };
+    EXPECT_EQ(name(Type::SURFACE, "crepe paper"), "Cr\u00EApe paper");
+    EXPECT_EQ(name(Type::SURFACE, "CR\u00CAPE PAPER"), "Cr\u00EApe paper");
+    EXPECT_EQ(name(Type::LINE, "Elastic cord round 2 mm 1 16 in"),
+              "Elastic cord (round 2 mm, 1/16 in)");
+    EXPECT_EQ(name(Type::BULK, "Styrofoam \"Blue foam\" (XPS)"), "Styrofoam \"Blue foam\" (XPS)");
+}
+
+TEST_F(MaterialStorageTest, FindKeepsNamesWithoutAMessage)
+{
+    EXPECT_TRUE(m_storage.findMaterial(Type::BULK, "ASA - 100% infill").has_value());
+    EXPECT_TRUE(
+        m_storage.findMaterial(Type::LINE, "Kevlar thread 138  (0.4 mm, 1/64 in)").has_value());
+    EXPECT_EQ(m_storage.findMaterial(Type::BULK, "Unobtainium", 5).getName(), "Unobtainium");
+}
+
+TEST_F(MaterialStorageTest, FindByDensityTranslatesToo)
+{
+    const Material abs = m_storage.findMaterial(Type::BULK, "ABS", 1050);
+    EXPECT_EQ(abs.getName(), "ABS - 100% infill");
+    EXPECT_EQ(abs.getInPlaneShearModulus(), 0.875e9);
+    EXPECT_FALSE(abs.isUserDefined());
+}
+
+TEST_F(MaterialStorageTest, TheFallbackTakesTheTranslatedName)
+{
+    const Material heavier = m_storage.findMaterial(Type::BULK, "ALUMINUM", 2710);
+    EXPECT_EQ(heavier.getName(), "Aluminum");
+    EXPECT_EQ(heavier.getDensity(), 2710);
+    EXPECT_TRUE(heavier.isUserDefined());
+    const Material stiffer =
+        m_storage.findMaterial(Type::BULK, "aluminum", 2700, 1, MaterialGroup::WOODS);
+    EXPECT_EQ(stiffer.getName(), "Aluminum");
+    EXPECT_EQ(stiffer.getInPlaneShearModulus(), 1.0);
+    EXPECT_EQ(stiffer.getGroup(), MaterialGroup::WOODS);
 }
 
 TEST_F(MaterialStorageTest, FindWithShearModulus)

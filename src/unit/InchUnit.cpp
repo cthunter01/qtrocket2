@@ -1,12 +1,10 @@
 #include "QtRocket/unit/InchUnit.h"
 
 #include <cmath>
-#include <memory>
 #include <string>
 #include <utility>
 
 #include "QtRocket/unit/GeneralUnit.h"
-#include "QtRocket/unit/Unit.h"
 
 namespace QtRocket
 {
@@ -35,11 +33,6 @@ double InchUnit::getNextValue(double value) const
 double InchUnit::getPreviousValue(double value) const
 {
     return value - m_precision;
-}
-
-std::unique_ptr<Unit> InchUnit::clone() const
-{
-    return std::make_unique<InchUnit>(*this);
 }
 
 }  // namespace QtRocket

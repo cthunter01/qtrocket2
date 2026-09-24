@@ -1,17 +1,19 @@
 #include "QtRocket/unit/FractionalUnit.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
-#include <memory>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/unit/Tick.h"
-#include "QtRocket/unit/Unit.h"
 #include "QtRocket/util/BugError.h"
 
 namespace
@@ -20,7 +22,6 @@ namespace
 using QtRocket::BugError;
 using QtRocket::FractionalUnit;
 using QtRocket::Tick;
-using QtRocket::Unit;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -401,7 +402,9 @@ TEST(FractionalUnit, RoundNextAndPreviousSweep)
     EXPECT_DOUBLE_EQ(testUnit.round(-0.7), -0.75);
     EXPECT_DOUBLE_EQ(testUnit.round(0.9375), 1.0);
     EXPECT_DOUBLE_EQ(testUnit.round(1234.567), 1234.5);
-    EXPECT_DOUBLE_EQ(testUnit.round(-0.0), 0.0);
+    // -0.0 - IEEEremainder(-0.0, 0.25) is +0.0 in Java too.
+    EXPECT_EQ(std::bit_cast<std::uint64_t>(testUnit.round(-0.0)),
+              std::bit_cast<std::uint64_t>(0.0));
     EXPECT_DOUBLE_EQ(testUnit.round(5.03), 5.0);
 
     EXPECT_DOUBLE_EQ(testUnit.getNextValue(-0.024), 0.5);
@@ -429,8 +432,8 @@ TEST(FractionalUnit, RoundNextAndPreviousSweep)
 /// with mod3 (both 16).
 void expectThirtySecondTick(const Tick& tick, std::size_t i)
 {
-    EXPECT_DOUBLE_EQ(tick.value, static_cast<double>(i) / 32.0) << i;
-    EXPECT_DOUBLE_EQ(tick.unitValue, static_cast<double>(i) / 32.0) << i;
+    EXPECT_EQ(tick.value, static_cast<double>(i) / 32.0) << i;
+    EXPECT_EQ(tick.unitValue, static_cast<double>(i) / 32.0) << i;
     EXPECT_EQ(tick.major, i % 16 == 0) << i;
     EXPECT_EQ(tick.notable, i % 32 == 0 || (i % 16 != 0 && i % 5 == 0)) << i;
 }
@@ -450,7 +453,7 @@ void expectHalvesTicks(const std::vector<Tick>& ticks)
     ASSERT_EQ(ticks.size(), 7U);
     for (std::size_t i = 0; i < ticks.size(); i++)
     {
-        EXPECT_DOUBLE_EQ(ticks[i].value, 0.5 * static_cast<double>(i)) << i;
+        EXPECT_EQ(ticks[i].value, 0.5 * static_cast<double>(i)) << i;
         EXPECT_EQ(ticks[i].major, i == 0) << i;
         EXPECT_EQ(ticks[i].notable, i == 0) << i;
     }
@@ -464,7 +467,7 @@ void expectEighthsAroundZeroTicks(const std::vector<Tick>& ticks)
     ASSERT_EQ(ticks.size(), kMajor.size());
     for (std::size_t i = 0; i < ticks.size(); i++)
     {
-        EXPECT_DOUBLE_EQ(ticks[i].value, -0.5 + (0.125 * static_cast<double>(i))) << i;
+        EXPECT_EQ(ticks[i].value, -0.5 + (0.125 * static_cast<double>(i))) << i;
         EXPECT_EQ(ticks[i].major, kMajor.at(i)) << i;
         EXPECT_EQ(ticks[i].notable, kNotable.at(i)) << i;
     }
@@ -486,37 +489,126 @@ TEST(FractionalUnit, InchTicksAreSiValuesOfTheInchPositions)
     const FractionalUnit    inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
     const std::vector<Tick> inches = inchUnit.getTicks(0, 0.0254 * 2, 0.0254 / 16, 0.0254 / 2);
     ASSERT_EQ(inches.size(), 33U);
-    EXPECT_DOUBLE_EQ(inches[3].value, 0.004762499999999999);
-    EXPECT_DOUBLE_EQ(inches[3].unitValue, 0.1875);
-    EXPECT_DOUBLE_EQ(inches[8].value, 0.0127);
+    EXPECT_EQ(inches[3].value, 0.004762499999999999);
+    EXPECT_EQ(inches[3].unitValue, 0.1875);
+    EXPECT_EQ(inches[8].value, 0.0127);
     EXPECT_TRUE(inches[8].major);
     EXPECT_FALSE(inches[8].notable);
-    EXPECT_DOUBLE_EQ(inches[16].value, 0.0254);
+    EXPECT_EQ(inches[16].value, 0.0254);
     EXPECT_TRUE(inches[16].major);
     EXPECT_TRUE(inches[16].notable);
-    EXPECT_DOUBLE_EQ(inches[24].value, 0.038099999999999995);
+    EXPECT_EQ(inches[24].value, 0.038099999999999995);
     EXPECT_FALSE(inches[5].major);
     EXPECT_FALSE(inches[5].notable);
 
     const std::vector<Tick> partial = inchUnit.getTicks(0.01, 0.05, 0.005, 0.02);
     ASSERT_EQ(partial.size(), 6U);
-    EXPECT_DOUBLE_EQ(partial[0].unitValue, 0.5);
-    EXPECT_DOUBLE_EQ(partial[5].unitValue, 1.75);
+    EXPECT_EQ(partial[0].unitValue, 0.5);
+    EXPECT_EQ(partial[5].unitValue, 1.75);
     EXPECT_TRUE(partial[2].major);
     EXPECT_FALSE(partial[2].notable);
 }
 
-TEST(FractionalUnit, CloneAndEquality)
+TEST(FractionalUnit, Equality)
 {
-    const FractionalUnit        testUnit(1, "unit", "unit", 4, 0.5);
-    const FractionalUnit        testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
-    const FractionalUnit        inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
-    const std::unique_ptr<Unit> copy = inchUnit.clone();
-    ASSERT_NE(dynamic_cast<const FractionalUnit*>(copy.get()), nullptr);
-    EXPECT_EQ(copy->toStringUnit(0.0254), "1 in");
-    EXPECT_TRUE(copy->equals(inchUnit));
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    const FractionalUnit testUnitApprox(1, "unit", "unit", 16, 0.5, 0.02);
+    const FractionalUnit inchUnit(0.0254, "in/64", "in", 64, 1.0 / 16.0);
+    const FractionalUnit inchUnitToo(0.0254, "in/64", "in", 64, 1.0 / 16.0);
+    EXPECT_TRUE(inchUnitToo.equals(inchUnit));
     EXPECT_FALSE(testUnit.equals(inchUnit));
     EXPECT_TRUE(testUnit.equals(testUnitApprox));  // same class, multiplier and name
+}
+
+/// The ticks as one character each: 'N' major and notable, 'M' major, 'n' notable, '.' minor.
+std::string tickPattern(const std::vector<Tick>& ticks)
+{
+    std::string pattern;
+    for (const Tick& t : ticks)
+    {
+        if (t.major)
+        {
+            pattern += t.notable ? 'N' : 'M';
+        }
+        else
+        {
+            pattern += t.notable ? 'n' : '.';
+        }
+    }
+    return pattern;
+}
+
+// Java narrows the step ratios to int and multiplies and takes remainders with int arithmetic,
+// which wraps. Every result below was produced by OpenRocket's FractionalUnit on JDK 17.
+
+TEST(FractionalUnit, TicksWrapTheMajorNotableModulusAsJavaDoes)
+{
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    // minstep 2^-31 and a round-five major step of 0.5: mod3 = 2^30, and mod3 * 2 wraps to
+    // INT_MIN (a C++ int overflow would be undefined).
+    const std::vector<Tick> ticks = testUnit.getTicks(0, 1e-8, 4.6e-10, 0.3);
+    EXPECT_EQ(tickPattern(ticks), "N...............n.....");
+    EXPECT_EQ(ticks[1].value, 4.6566128730773926E-10);
+    EXPECT_EQ(ticks[21].value, 9.778887033462524E-9);
+    EXPECT_EQ(ticks[21].unitValue, 9.778887033462524E-9);
+
+    // A NaN major leaves the major step at one unit, which is not a zero modulus here.
+    EXPECT_EQ(tickPattern(testUnit.getTicks(0, 1, 1.0 / 32.0, kNaN)),
+              "N...............n...............M");
+}
+
+TEST(FractionalUnit, TicksWithAZeroModulusThrowAsJavasDivisionByZero)
+{
+    const FractionalUnit testUnit(1, "unit", "unit", 4, 0.5);
+    // major/minstep = 2^33: mod3 narrows to 0. Java throws ArithmeticException ("/ by zero") at
+    // the first tick, where a C++ % would trap.
+    EXPECT_THROW(static_cast<void>(testUnit.getTicks(0, 5e-9, 1e-10, 1)), BugError);
+    // major/minstep = 2^31: mod3 is INT_MIN, and mod3 * 10 wraps to 0.
+    try
+    {
+        static_cast<void>(testUnit.getTicks(0, 2e-9, 4e-10, 1));
+        FAIL() << "no BugError";
+    }
+    catch (const BugError& e)
+    {
+        EXPECT_TRUE(std::string_view(e.what()).starts_with("BUG: / by zero ("));
+    }
+    // With no tick to place nothing is divided.
+    EXPECT_TRUE(testUnit.getTicks(1, 0, 1e-10, 1).empty());
+}
+
+TEST(FractionalUnit, OtherFractionBasesMatchOpenRocket)
+{
+    // Multi-digit denominators, and OpenRocket's reduction, which only halves while the base is
+    // above 2 and the numerator even (25/50 for 1.5 in hundredths, 1/1 for 2/3 in thirds).
+    const FractionalUnit hundredths(1, "u", "u", 100, 0.01);
+    EXPECT_EQ(hundredths.toString(0.37), "³⁷⁄₁₀₀");
+    EXPECT_EQ(hundredths.toStringUnit(0.37), "³⁷⁄₁₀₀ u");
+    EXPECT_EQ(hundredths.toString(1.5), "1 ²⁵⁄₅₀");
+    EXPECT_EQ(hundredths.toString(2.25), "2 ²⁵⁄₁₀₀");
+    EXPECT_EQ(hundredths.toString(-0.07), "-⁷⁄₁₀₀");
+    EXPECT_EQ(hundredths.toString(12.99), "12 ⁹⁹⁄₁₀₀");
+    EXPECT_EQ(hundredths.toString(0.375), "0.375");
+    EXPECT_EQ(hundredths.toString(3.141), "3 ⁷⁄₅₀");
+
+    const FractionalUnit thirds(1, "u", "u", 3, 1.0 / 3);
+    EXPECT_EQ(thirds.toString(1.0 / 3), "¹⁄₃");
+    EXPECT_EQ(thirds.toString(2.0 / 3), "¹⁄₁");
+    EXPECT_EQ(thirds.toString(1 + (2.0 / 3)), "1 ¹⁄₁");
+    EXPECT_EQ(thirds.toString(-1.0 / 3), "-¹⁄₃");
+    EXPECT_EQ(thirds.toString(0.5), "0.5");
+    EXPECT_EQ(thirds.toString(5), "5");
+
+    const FractionalUnit twelfths(0.0254, "in/12", "in", 12, 1.0 / 12);
+    EXPECT_EQ(twelfths.toStringUnit(0.0254 * 5 / 12), "⁵⁄₁₂ in");
+    EXPECT_EQ(twelfths.toString(0.0254 * 6 / 12), "³⁄₆");
+    EXPECT_EQ(twelfths.toString(0.0254 * (2 + (8.0 / 12))), "2 ¹⁄₁");
+    EXPECT_EQ(twelfths.toString(0.0254 * 10.5 / 12), "0.875");
+
+    const FractionalUnit thousandths(1, "u", "u", 1000, 0.001);
+    EXPECT_EQ(thousandths.toString(0.125), "¹²⁵⁄₁₀₀₀");
+    EXPECT_EQ(thousandths.toString(0.999), "⁹⁹⁹⁄₁₀₀₀");
+    EXPECT_EQ(thousandths.toString(7.017), "7 ¹⁷⁄₁₀₀₀");
 }
 
 }  // namespace
