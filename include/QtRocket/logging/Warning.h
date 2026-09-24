@@ -275,8 +275,9 @@ private:
 /// Priority HIGH. Two of these are equal when every field, the sources and the priority match;
 /// NaN fields compare equal to NaN (Java: Double.doubleToLongBits()).
 ///
-/// Extension point: OpenRocket stores Motor.Type. motor/ does not exist yet, so the type is the
-/// name of that enum constant ("SINGLE", "RELOAD", "HYBRID" or "UNKNOWN") until motor/ lands.
+/// OpenRocket stores Motor.Type. logging/ sits below motor/, so the type is the name of that enum
+/// constant ("SINGLE", "RELOAD", "HYBRID" or "UNKNOWN"), as QtRocket::enumName(Motor::Type) gives
+/// it and motorTypeFromEnumName() reads it back.
 class Warning::MissingMotor final : public Warning
 {
 public:

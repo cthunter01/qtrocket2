@@ -527,6 +527,21 @@ TEST(ThrustCurveMotor, NegativeMassReportsTheFirstEqualPoint)
     EXPECT_EQ(buildError(builder), "Negative mass -0.1at time=1.0");
 }
 
+TEST(ThrustCurveMotor, NegativeMassOfAPointEqualToNone)
+{
+    // A point with an infinite mass or coordinate equals no point, itself included (MathUtil's
+    // equals is false for two equal infinities), so OpenRocket's indexOf finds none and indexing
+    // the time array throws; here the message names the point's own time.
+    constexpr double          kInf    = std::numeric_limits<double>::infinity();
+    ThrustCurveMotor::Builder builder = simpleBuilder({0, 1}, {0, 1});
+    builder.setCGPoints({Coordinate(0.01, 0, 0, 0.1), Coordinate(0.01, 0, 0, -kInf)});
+    EXPECT_EQ(buildError(builder), "Negative mass -Infinityat time=1.0");
+    builder.setCGPoints({Coordinate(0.01, kInf, 0, 0.1), Coordinate(0.01, kInf, 0, -0.1)});
+    EXPECT_EQ(buildError(builder), "Negative mass -0.1at time=1.0");
+    builder.setCGPoints({Coordinate(0.01, 0, -kInf, -0.1), Coordinate(0.01, 0, 0, 0.1)});
+    EXPECT_EQ(buildError(builder), "Negative mass -0.1at time=0.0");
+}
+
 TEST(ThrustCurveMotor, BuilderCanBuildAgain)
 {
     ThrustCurveMotor::Builder builder = a8Builder();

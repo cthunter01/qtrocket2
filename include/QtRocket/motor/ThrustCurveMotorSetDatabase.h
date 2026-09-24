@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -17,6 +18,10 @@ class ThrustCurveMotor;
 /// The motor database: ThrustCurveMotorSets, each grouping the curves of one motor, in the order
 /// they were created (OpenRocket's ThrustCurveMotorSetDatabase). It is filled once while loading
 /// and only read afterwards, so a loaded database can be shared between threads.
+///
+/// A set keeps its identity while the database grows, as OpenRocket's heap objects do: a
+/// reference or pointer to one of getMotorSets() stays valid, and names the same set, across
+/// addMotor() for as long as the database lives (iterators into getMotorSets() do not).
 class ThrustCurveMotorSetDatabase final : public MotorDatabase
 {
 public:
@@ -40,8 +45,9 @@ public:
         std::optional<std::string_view> manufacturer, std::optional<std::string_view> designation,
         double diameter, double length) const;
 
-    /// Every motor set (getMotorSets()).
-    [[nodiscard]] const std::vector<ThrustCurveMotorSet>& getMotorSets() const noexcept
+    /// Every motor set (getMotorSets()); references to the sets survive addMotor(), see the
+    /// class comment.
+    [[nodiscard]] const std::deque<ThrustCurveMotorSet>& getMotorSets() const noexcept
     {
         return m_motorSets;
     }
@@ -52,7 +58,8 @@ public:
     void addMotor(std::shared_ptr<const ThrustCurveMotor> motor);
 
 private:
-    std::vector<ThrustCurveMotorSet> m_motorSets;
+    /// A deque, whose push_back never moves the sets already there.
+    std::deque<ThrustCurveMotorSet> m_motorSets;
 };
 
 }  // namespace QtRocket

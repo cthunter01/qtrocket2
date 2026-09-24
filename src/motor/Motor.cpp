@@ -81,4 +81,32 @@ std::optional<Motor::Type> motorTypeFromOrkName(std::string_view name) noexcept
     return std::nullopt;
 }
 
+std::string_view enumName(Motor::Type type) noexcept
+{
+    switch (type)
+    {
+        case Motor::Type::SINGLE:
+            return "SINGLE";
+        case Motor::Type::RELOAD:
+            return "RELOAD";
+        case Motor::Type::HYBRID:
+            return "HYBRID";
+        case Motor::Type::UNKNOWN:
+            return "UNKNOWN";
+    }
+    return "UNKNOWN";
+}
+
+std::optional<Motor::Type> motorTypeFromEnumName(std::string_view name) noexcept
+{
+    for (const Motor::Type type : Motor::kAllTypes)
+    {
+        if (enumName(type) == name)
+        {
+            return type;
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace QtRocket

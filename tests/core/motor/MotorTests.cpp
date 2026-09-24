@@ -19,6 +19,7 @@ using QtRocket::Coordinate;
 using QtRocket::InMemoryPreferences;
 using QtRocket::Manufacturer;
 using QtRocket::Motor;
+using QtRocket::motorTypeFromEnumName;
 using QtRocket::motorTypeFromOrkName;
 using QtRocket::ThrustCurveMotor;
 
@@ -82,6 +83,28 @@ TEST(Motor, UnknownOrkNamesGiveNothing)
     EXPECT_EQ(motorTypeFromOrkName(" single"), std::nullopt);
     EXPECT_EQ(motorTypeFromOrkName("Single-use"), std::nullopt);
     EXPECT_EQ(motorTypeFromOrkName(""), std::nullopt);
+}
+
+TEST(Motor, EnumNamesAreTheConstantNames)
+{
+    EXPECT_EQ(enumName(Motor::Type::SINGLE), "SINGLE");
+    EXPECT_EQ(enumName(Motor::Type::RELOAD), "RELOAD");
+    EXPECT_EQ(enumName(Motor::Type::HYBRID), "HYBRID");
+    EXPECT_EQ(enumName(Motor::Type::UNKNOWN), "UNKNOWN");
+
+    for (const Motor::Type type : Motor::kAllTypes)
+    {
+        EXPECT_EQ(motorTypeFromEnumName(enumName(type)), type);
+    }
+}
+
+TEST(Motor, UnknownEnumNamesGiveNothing)
+{
+    // Type.valueOf compares exactly (and throws for these).
+    EXPECT_EQ(motorTypeFromEnumName("single"), std::nullopt);
+    EXPECT_EQ(motorTypeFromEnumName("Single-use"), std::nullopt);
+    EXPECT_EQ(motorTypeFromEnumName("SINGLE "), std::nullopt);
+    EXPECT_EQ(motorTypeFromEnumName(""), std::nullopt);
 }
 
 TEST(Motor, Constants)

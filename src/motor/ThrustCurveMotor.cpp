@@ -247,8 +247,9 @@ constexpr double kSnapDistance = 0.0001;
 [[nodiscard]] std::optional<std::string> checkCg(std::span<const Coordinate> cg,
                                                  std::span<const double> time, double length)
 {
-    for (const Coordinate& c : cg)
+    for (std::size_t i = 0; i < cg.size(); i++)
     {
+        const Coordinate& c = cg[i];
         if (c.isNaN())
         {
             return "Invalid CG " + javaCoordinateString(c);
@@ -269,7 +270,11 @@ constexpr double kSnapDistance = 0.0001;
             // of Coordinate's equality), so possibly an earlier one.
             const auto first =
                 std::ranges::find_if(cg, [&c](const Coordinate& other) { return other == c; });
-            const auto index = static_cast<std::size_t>(std::distance(cg.begin(), first));
+            // Deviation: a point with an infinite coordinate or mass equals no point, not even
+            // itself, so OpenRocket's indexOf gives -1 and time[-1] throws; the point's own index
+            // is used instead.
+            const std::size_t index =
+                first == cg.end() ? i : static_cast<std::size_t>(std::distance(cg.begin(), first));
             return std::format("Negative mass {}at time={}", Strings::javaDoubleToString(c.weight),
                                Strings::javaDoubleToString(time[index]));
         }

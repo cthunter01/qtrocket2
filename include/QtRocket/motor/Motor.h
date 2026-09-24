@@ -154,4 +154,12 @@ protected:
 /// an unknown name (OpenRocket then warns and ignores the element).
 [[nodiscard]] std::optional<Motor::Type> motorTypeFromOrkName(std::string_view name) noexcept;
 
+/// The name of the enum constant (Type.name()): "SINGLE", "RELOAD", "HYBRID" or "UNKNOWN". This
+/// is how logging's Warning::MissingMotor stores the type, since logging/ sits below motor/.
+[[nodiscard]] std::string_view enumName(Motor::Type type) noexcept;
+
+/// The motor type whose enumName() is @p name, compared exactly (Type.valueOf()); nullopt for an
+/// unknown name, where OpenRocket throws IllegalArgumentException.
+[[nodiscard]] std::optional<Motor::Type> motorTypeFromEnumName(std::string_view name) noexcept;
+
 }  // namespace QtRocket

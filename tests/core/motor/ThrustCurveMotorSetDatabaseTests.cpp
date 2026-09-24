@@ -1,6 +1,8 @@
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 
 #include <cstddef>
+#include <deque>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -121,7 +123,7 @@ protected:
 
 TEST_F(ThrustCurveMotorSetDatabaseTest, SetsMatchOpenRocket)
 {
-    const std::vector<ThrustCurveMotorSet>& sets = m_database.getMotorSets();
+    const std::deque<ThrustCurveMotorSet>& sets = m_database.getMotorSets();
     ASSERT_EQ(sets.size(), 4U);
     EXPECT_EQ(sets.at(0).toString(), "ThrustCurveMotorSet[AeroTech F12, type=Hybrid, count=3]");
     EXPECT_EQ(sets.at(1).toString(), "ThrustCurveMotorSet[Estes C6-5, type=Single-use, count=2]");
@@ -229,6 +231,34 @@ TEST(ThrustCurveMotorSetDatabase, AddsToTheLastMatchingSet)
     EXPECT_EQ(database.getMotorSets().at(1).getMotors(), (std::vector<MotorPtr>{other}));
 
     EXPECT_THROW(database.addMotor(nullptr), BugError);
+}
+
+TEST(ThrustCurveMotorSetDatabase, SetsKeepTheirIdentityAsTheDatabaseGrows)
+{
+    ThrustCurveMotorSetDatabase database;
+    const MotorPtr first = harnessMotor("Estes", "B6-4", "B6", Motor::Type::SINGLE, {4}, 0.018,
+                                        0.07, {0, 0.2, 0.8}, {0, 12, 0}, "b1", "");
+    database.addMotor(first);
+    const ThrustCurveMotorSet& firstSet = database.getMotorSets().front();
+
+    // Each of these starts a set of its own.
+    constexpr int kOtherSets = 100;
+    for (int i = 0; i < kOtherSets; i++)
+    {
+        database.addMotor(harnessMotor("Quest", std::format("C{}-4", i), std::format("C{}", i),
+                                       Motor::Type::SINGLE, {4}, 0.018, 0.07, {0, 0.2, 0.8},
+                                       {0, 12, 0}, std::format("q{}", i), ""));
+    }
+    ASSERT_EQ(database.getMotorSets().size(), 1U + kOtherSets);
+    EXPECT_EQ(&database.getMotorSets().front(), &firstSet);
+    EXPECT_EQ(firstSet.getMotors(), (std::vector<MotorPtr>{first}));
+
+    // A motor of the first set still goes to that same object.
+    const MotorPtr again = harnessMotor("Estes", "B6-4", "B6", Motor::Type::SINGLE, {6}, 0.018,
+                                        0.07, {0, 0.3, 0.8}, {0, 11, 0}, "b2", "");
+    database.addMotor(again);
+    EXPECT_EQ(firstSet.getMotors(), (std::vector<MotorPtr>{first, again}));
+    EXPECT_EQ(firstSet.getDelays(), (std::vector<double>{4, 6}));
 }
 
 }  // namespace

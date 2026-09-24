@@ -23,9 +23,12 @@ namespace QtRocket
 class ManufacturerRegistry
 {
 public:
+    /// The registry, which is never destroyed (as under the JVM): motors in other statics hold
+    /// pointers to its manufacturers and may still use them while statics are destroyed at exit.
     [[nodiscard]] static ManufacturerRegistry& instance()
     {
-        static ManufacturerRegistry s_registry;
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+        static ManufacturerRegistry& s_registry = *new ManufacturerRegistry;
         return s_registry;
     }
 
@@ -128,24 +131,25 @@ private:
     }
 
     /// Registers a new manufacturer under each of its search strings. A search string that is
-    /// already taken is a bug in the built-in list (OpenRocket: IllegalStateException).
+    /// already taken is a bug in the built-in list (OpenRocket: IllegalStateException). The
+    /// registry owns the manufacturer before any search string refers to it, so a throw leaves
+    /// no dangling entry.
     const Manufacturer& add(std::string displayName, std::string simpleName, Motor::Type type,
                             const std::vector<std::string>& alternateNames)
     {
-        auto manufacturer =
+        const Manufacturer& manufacturer = *m_manufacturers.emplace_back(
             std::make_unique<const Manufacturer>(Manufacturer::PassKey{}, std::move(displayName),
-                                                 std::move(simpleName), type, alternateNames);
-        for (const std::string& search : manufacturer->getSearchNames())
+                                                 std::move(simpleName), type, alternateNames));
+        for (const std::string& search : manufacturer.getSearchNames())
         {
-            const auto [previous, inserted] = m_bySearchName.emplace(search, manufacturer.get());
+            const auto [previous, inserted] = m_bySearchName.emplace(search, &manufacturer);
             if (!inserted)
             {
                 bug(std::format("Manufacturer name clash between manufacturers {} and {} name {}",
-                                previous->second->toString(), manufacturer->toString(), search));
+                                previous->second->toString(), manufacturer.toString(), search));
             }
         }
-        m_manufacturers.push_back(std::move(manufacturer));
-        return *m_manufacturers.back();
+        return manufacturer;
     }
 
     std::mutex                                              m_mutex;

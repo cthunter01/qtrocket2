@@ -16,7 +16,9 @@ class ManufacturerRegistry;
 /// registry and are compared by identity: getManufacturer() returns the same object for every
 /// name that denotes it, so `&a == &b` is OpenRocket's `a == b`. The registry starts with
 /// OpenRocket's 22 built-in manufacturers and their aliases; a name that matches none of them
-/// registers a new manufacturer, which lives, like the built-in ones, until the program ends.
+/// registers a new manufacturer, which lives, like the built-in ones, until the program ends:
+/// the registry is never destroyed, so a manufacturer stays valid even while other statics are
+/// destroyed at exit.
 ///
 /// Names are matched by their search string (see searchString()): "AT/RCS", "at-rcs" and
 /// " At rcs " all denote AeroTech, while "aero tech" does not.

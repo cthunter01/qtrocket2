@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "QtRocket/util/Strings.h"
 
@@ -19,7 +20,7 @@ struct Designation
 {
     std::string_view divisor;       ///< group 2: "2" for "1/2A", empty without a fraction
     std::string_view impulseClass;  ///< group 3: the class letter
-    int              thrust{};      ///< group 4 without its commas
+    std::string      thrust;        ///< group 4 without its commas and leading zeros
     std::string_view extra;         ///< group 5: whatever follows the thrust
 };
 
@@ -87,19 +88,15 @@ constexpr std::array<std::string_view, 6> kLineTerminators{
     std::string digits;
     for (const char c : text.substr(thrustStart, position - thrustStart))
     {
-        if (c != ',')
+        if (c != ',' && (c != '0' || !digits.empty()))
         {
             digits.push_back(c);
         }
     }
-    // Integer.parseInt: no digits at all, or more than an int holds, throws in OpenRocket.
-    const std::optional<int> thrust = Strings::parseInt(digits);
-    if (!thrust.has_value())
-    {
-        return std::nullopt;
-    }
-    return Designation{
-        .divisor = divisor, .impulseClass = impulseClass, .thrust = *thrust, .extra = *extra};
+    return Designation{.divisor      = divisor,
+                       .impulseClass = impulseClass,
+                       .thrust       = std::move(digits),
+                       .extra        = *extra};
 }
 
 /// OpenRocket's pattern `^([0-9]+-?|1/([1-8]))?([a-zA-Z])([0-9,]+)(.*?)$` applied to @p text.
@@ -140,6 +137,34 @@ constexpr std::array<std::string_view, 6> kLineTerminators{
     return designation.divisor.empty() ? "1" : designation.divisor;
 }
 
+/// Compares two thrusts given as digits without leading zeros (empty for zero): their difference
+/// when both fit an int, as Integer.parseInt gives them in OpenRocket, else -1, 0 or 1 by value.
+/// Deviation: Integer.parseInt throws in OpenRocket on a thrust with no digits ("A,") or beyond
+/// the int range, aborting the sort; here the no-digit thrust counts as zero and the large one by
+/// its value.
+[[nodiscard]] int compareThrust(std::string_view t1, std::string_view t2) noexcept
+{
+    const std::optional<int> a1 = t1.empty() ? std::optional<int>{0} : Strings::parseInt(t1);
+    const std::optional<int> a2 = t2.empty() ? std::optional<int>{0} : Strings::parseInt(t2);
+    if (a1.has_value() && a2.has_value())
+    {
+        // Both are non-negative, so the difference cannot overflow.
+        return *a1 - *a2;
+    }
+    // Without leading zeros the longer number is the larger, and equally long ones compare
+    // digit by digit.
+    if (t1.size() != t2.size())
+    {
+        return t1.size() < t2.size() ? -1 : 1;
+    }
+    const int value = t1.compare(t2);
+    if (value == 0)
+    {
+        return 0;
+    }
+    return value < 0 ? -1 : 1;
+}
+
 /// The comparison of two designations that both have the pattern's form.
 [[nodiscard]] int compareMatched(const Designation& m1, const Designation& m2)
 {
@@ -160,10 +185,11 @@ constexpr std::array<std::string_view, 6> kLineTerminators{
         return value;
     }
 
-    // 2. Average thrust (both are non-negative, so the difference cannot overflow)
-    if (m1.thrust != m2.thrust)
+    // 2. Average thrust
+    const int thrustValue = compareThrust(m1.thrust, m2.thrust);
+    if (thrustValue != 0)
     {
-        return m1.thrust - m2.thrust;
+        return thrustValue;
     }
 
     // 3. Extra modifier

@@ -17,14 +17,16 @@ namespace QtRocket
 /// which must not contain a line break ('.' does not match one; a single line break at the very
 /// end is allowed by '$' and not part of the rest).
 ///
-/// Deviation: where OpenRocket's Integer.parseInt throws on a thrust with no digits ("A,") or
-/// beyond the int range, aborting the sort, such a designation counts here as one that does not
-/// have the form.
+/// Deviation: OpenRocket parses the thrusts with Integer.parseInt only when both designations have
+/// the form, and then throws on a thrust with no digits ("A,") or beyond the int range, aborting
+/// the sort. Here a thrust with no digits counts as zero, and when one is beyond the int range the
+/// two compare by value, giving -1, 0 or 1. A designation of the form sorts before one without it
+/// whatever its thrust, as in OpenRocket.
 class DesignationComparator
 {
 public:
     /// Negative, zero or positive as @p a sorts before, with or after @p b; for two designations
-    /// of the same class the difference of their thrusts.
+    /// of the same class the difference of their thrusts when both fit an int.
     [[nodiscard]] static int compare(std::string_view a, std::string_view b);
 
     /// compare(a, b) < 0: a strict weak ordering for std::sort.

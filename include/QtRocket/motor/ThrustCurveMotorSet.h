@@ -42,7 +42,9 @@ public:
     /// ignoring case (Java's equalsIgnoreCase).
     [[nodiscard]] bool matches(const ThrustCurveMotor& motor) const;
 
-    /// The motors in display order (getMotors()).
+    /// The motors in display order (getMotors()). This is the set's own list, not a snapshot as
+    /// OpenRocket's clone is: addMotor() can re-sort or replace its elements and invalidates
+    /// references and iterators into it, so copy it to keep the motors across a change.
     [[nodiscard]] const std::vector<std::shared_ptr<const ThrustCurveMotor>>& getMotors()
         const noexcept
     {

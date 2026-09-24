@@ -66,15 +66,50 @@ TEST(DesignationComparator, ComparisonsMatchOpenRocket)
     EXPECT_EQ(compare("A8-3\n", "A8-3"), 0);
 }
 
-TEST(DesignationComparator, UnparsableThrustCountsAsNotMatching)
+TEST(DesignationComparator, UnparsableThrustAgainstANonDesignation)
 {
-    // OpenRocket's Integer.parseInt throws for these; here they sort as non-designations.
-    EXPECT_EQ(compare("A,", "A1"), 1);
-    EXPECT_EQ(compare("A1", "A,"), -1);
+    // OpenRocket parses the thrusts only when both designations have the form: when one lacks it,
+    // the other sorts first whatever its thrust (values pinned by running OpenRocket).
+    EXPECT_EQ(compare("O,", "Micro Maxx"), -1);
+    EXPECT_EQ(compare("O99999999999", "Micro Maxx"), -1);
+    EXPECT_EQ(compare("Micro Maxx", "O99999999999"), 1);
+    EXPECT_EQ(compare("B", "H,"), 1);
+    EXPECT_EQ(compare("H,", "B"), -1);
+    EXPECT_EQ(compare("1/2b", "404-H,-12"), 1);
+    EXPECT_EQ(compare("K2147483647", "A"), -1);
+}
+
+TEST(DesignationComparator, UnparsableThrustsCompareByValue)
+{
+    // OpenRocket's Integer.parseInt throws for these; here a thrust without digits is zero and
+    // one beyond the int range compares by its value.
+    EXPECT_EQ(compare("A,", "A1"), -1);
+    EXPECT_EQ(compare("A1", "A,"), 1);
+    EXPECT_EQ(compare("A,", "A0"), 0);
+    EXPECT_EQ(compare("A,", "a,,"), 0);
     EXPECT_EQ(compare("K99999999999", "K1"), 1);
-    // The largest int still parses.
-    EXPECT_GT(compare("K2147483647", "K1"), 0);
-    EXPECT_LT(compare("K2147483647", "A"), 0);
+    EXPECT_EQ(compare("K1", "K99999999999"), -1);
+    EXPECT_EQ(compare("K99999999999", "K2147483648"), 1);
+    EXPECT_EQ(compare("K2147483648", "K2147483647"), 1);
+    EXPECT_EQ(compare("K2147483647", "K2147483648"), -1);
+    EXPECT_EQ(compare("K99999999999", "K099,999,999,999"), 0);
+    EXPECT_EQ(compare("K99999999999T", "K99999999999"), 1);
+    // The class still comes first.
+    EXPECT_EQ(compare("A99999999999", "B1"), -1);
+    // Leading zeros do not count, as for Integer.parseInt.
+    EXPECT_EQ(compare("K0000000000001", "K2"), -1);
+    // The largest int still parses, and the difference comes back.
+    EXPECT_EQ(compare("K2147483647", "K1"), 2147483646);
+}
+
+TEST(DesignationComparator, UnparsableThrustsSortConsistently)
+{
+    std::vector<std::string> designations{"K99999999999", "K1", "Micro",      "K,",
+                                          "K2147483648",  "B,", "K2147483647"};
+    std::ranges::stable_sort(designations, DesignationComparator{});
+    const std::vector<std::string> expected{"B,",          "K,",           "K1",   "K2147483647",
+                                            "K2147483648", "K99999999999", "Micro"};
+    EXPECT_EQ(designations, expected);
 }
 
 TEST(DesignationComparator, FractionsOfTheAClass)
