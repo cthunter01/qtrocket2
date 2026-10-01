@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <span>
 #include <string_view>
 
 namespace QtRocket
@@ -85,6 +86,14 @@ inline constexpr std::array<ComponentKind, 22> kAllComponentKinds{
 /// The Java class name of the kind (getClass().getSimpleName()), e.g. "BodyTube", as the debug
 /// strings print it.
 [[nodiscard]] std::string_view className(ComponentKind kind) noexcept;
+
+/// The Java class of the kind and its superclasses up to RocketComponent, nearest first, by
+/// simple name: the walk ApplicationPreferences.get() makes along Class.getSuperclass(), e.g.
+/// {"NoseCone", "Transition", "SymmetricComponent", "BodyComponent", "ExternalComponent",
+/// "RocketComponent"} for NOSE_CONE. It is the ComponentClassChain (preferences/Preferences.h)
+/// that the per-class preference lookups take: Preferences::getDefaultColor() and
+/// getDefaultLineStyle(), and getDefaultComponentMaterial() (material/MaterialPreferences.h).
+[[nodiscard]] std::span<const std::string_view> componentClassChain(ComponentKind kind) noexcept;
 
 /// The translation key of the component's name (the key getComponentName() looks up in
 /// OpenRocket), e.g. "BodyTube.BodyTube", "Stage.Stage", "Rocket.compname.Rocket".

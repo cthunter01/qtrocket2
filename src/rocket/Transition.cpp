@@ -24,7 +24,7 @@ Transition::Transition()
 
 std::unique_ptr<RocketComponent> Transition::cloneShallow() const
 {
-    return std::make_unique<Transition>(*this);
+    return std::make_unique<Transition>(CopyKey{}, *this);
 }
 
 // ================================================================================= length
@@ -518,8 +518,12 @@ double Transition::getRadius(double x) const
     {
         return getAftRadius();
     }
-    return getTransitionRadius(m_type, x, getForeRadius(), getAftRadius(), m_length,
-                               m_shapeParameter, isClipped(), m_clipLength);
+    // Fore before aft, as Java evaluates them (both may refresh automatic radii; the order of
+    // function arguments is unspecified in C++).
+    const double r1 = getForeRadius();
+    const double r2 = getAftRadius();
+    return getTransitionRadius(m_type, x, r1, r2, m_length, m_shapeParameter, isClipped(),
+                               m_clipLength);
 }
 
 double Transition::getInnerRadius(double x) const

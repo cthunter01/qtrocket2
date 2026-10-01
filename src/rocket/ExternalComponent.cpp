@@ -7,7 +7,10 @@
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialPreferences.h"
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
+#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
@@ -81,6 +84,13 @@ void ExternalComponent::setMaterial(const Material& mat)
     fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
 }
 
+void ExternalComponent::applyDefaultMaterial(const Preferences&     preferences,
+                                             const MaterialStorage& storage)
+{
+    m_material = getDefaultComponentMaterial(preferences, componentClassChain(kind()),
+                                             Material::Type::BULK, storage);
+}
+
 std::vector<Material> ExternalComponent::getAllMaterials() const
 {
     std::vector<Material> materials = RocketComponent::getAllMaterials();
@@ -125,9 +135,13 @@ std::vector<std::unique_ptr<RocketComponent>> ExternalComponent::copyFrom(
     {
         bug("ExternalComponent::copyFrom(): the source is not an ExternalComponent");
     }
-    m_finish   = src->m_finish;
-    m_material = src->m_material;
-    return RocketComponent::copyFrom(source);
+    // Java assigns the two fields first; assigning them once RocketComponent::copyFrom() has
+    // succeeded leaves this component unchanged when it throws (RocketComponent's part neither
+    // reads nor resets them).
+    std::vector<std::unique_ptr<RocketComponent>> previous = RocketComponent::copyFrom(source);
+    m_finish                                               = src->m_finish;
+    m_material                                             = src->m_material;
+    return previous;
 }
 
 }  // namespace QtRocket

@@ -11,6 +11,7 @@
 namespace QtRocket
 {
 
+class ClusterConfiguration;
 class FlightConfigurationId;
 class MotorConfiguration;
 class MotorConfigurationSet;
@@ -34,10 +35,6 @@ class Preferences;
 /// - getMotorPosition() throws BugError where Java throws IllegalArgumentException (asking for
 ///   the position of a motor that does not exist is a programming error).
 /// - toMotorDebug() takes the Preferences that choose the motor name (see Motor::getMotorName()).
-///
-/// Deferred to the rocket components group: getClusterConfiguration(), which needs
-/// ClusterConfiguration (a body tube answers SINGLE, an inner tube its cluster). The callers in
-/// this group only need the motor count, which getMotorCount() gives.
 class MotorMount : public virtual FlightConfigurableComponent
 {
 public:
@@ -82,6 +79,10 @@ public:
     /// @throws BugError when @p newMotorConfig belongs to another mount.
     virtual void setMotorConfig(std::optional<MotorConfiguration> newMotorConfig,
                                 const FlightConfigurationId&      fcid) = 0;
+
+    /// The cluster layout of the mount's motors: ClusterConfiguration::single() for a body tube,
+    /// an inner tube's own cluster (Clusterable declares it too).
+    [[nodiscard]] virtual const ClusterConfiguration& getClusterConfiguration() const = 0;
 
     /// The number of motors the mount holds in a configuration (the size of its cluster).
     [[nodiscard]] virtual int getMotorCount() const = 0;

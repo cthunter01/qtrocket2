@@ -337,7 +337,7 @@ TEST(BodyTube, AnAutomaticTubeAloneOffersNothing)
     EXPECT_TRUE(tube.usesNextCompAutomatic());
 }
 
-TEST(BodyTube, ACopyDoesNotReferToTheOriginalsNeighbours)
+TEST(BodyTube, ARocketCopyDoesNotReferToTheOriginalsNeighbours)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
@@ -355,6 +355,43 @@ TEST(BodyTube, ACopyDoesNotReferToTheOriginalsNeighbours)
     // Reading the radius takes it from the copy's own neighbour.
     EXPECT_EQ(copiedTube.getOuterRadius(), 0.03);
     EXPECT_TRUE(copiedTube.usesPreviousCompAutomatic());
+}
+
+TEST(BodyTube, APastedCopyRefersToTheOriginalsReferenceComponent)
+{
+    // Java's clone keeps the reference to the very component the original took its radius from,
+    // so a copy pasted next to that component takes its radius from it before the copy's radius
+    // was ever read.
+    Rocket rocket;
+    auto&  stage  = rocket.addChild(std::make_unique<AxialStage>());
+    auto&  nose   = stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.1, 0.02));
+    const auto& a = stage.addChild(std::make_unique<BodyTube>());
+    rocket.enableEvents();
+    EXPECT_EQ(a.getOuterRadius(), 0.02) << "a takes its radius from the nose cone";
+
+    // Copy and paste (Java's copy()) between the nose cone and the original.
+    auto& b = dynamic_cast<BodyTube&>(stage.addChild(a.copyWithNewIds(), 1));
+    EXPECT_TRUE(b.usesPreviousCompAutomatic());
+    EXPECT_FALSE(nose.canUseNextCompAutomatic());
+
+    // So the nose cone's aft radius cannot become automatic: it stays fixed at 0.02.
+    nose.setAftRadiusAutomatic(true, true);
+    EXPECT_FALSE(nose.isAftRadiusAutomatic());
+    EXPECT_EQ(nose.getAftRadius(), 0.02);
+    EXPECT_EQ(b.getOuterRadius(), 0.02);
+    EXPECT_EQ(a.getOuterRadius(), 0.02);
+}
+
+TEST(BodyTube, ACopyHasItsOwnIdentity)
+{
+    const BodyTube tube(0.1, 0.01);
+    const BodyTube other(0.1, 0.01);
+    EXPECT_NE(tube.getIdentity(), other.getIdentity());
+
+    // Java's object identity: a copy with the original id is still another object.
+    const std::unique_ptr<RocketComponent> copy = tube.copyWithOriginalId();
+    EXPECT_EQ(copy->getId(), tube.getId());
+    EXPECT_NE(dynamic_cast<const SymmetricComponent&>(*copy).getIdentity(), tube.getIdentity());
 }
 
 TEST(BodyTube, Compatibility)
@@ -413,7 +450,10 @@ TEST_F(BodyTubeMountTest, ANewTubeIsNoMotorMount)
     EXPECT_FALSE(m_tube->isMotorMount());
     EXPECT_FALSE(m_tube->hasMotor());
     EXPECT_EQ(m_tube->getMotorCount(), 1);
-    EXPECT_EQ(&BodyTube::getClusterConfiguration(), &ClusterConfiguration::single());
+    EXPECT_EQ(&m_tube->getClusterConfiguration(), &ClusterConfiguration::single());
+    const MotorMount& mount = *m_tube;
+    EXPECT_EQ(&mount.getClusterConfiguration(), &ClusterConfiguration::single())
+        << "MotorMount's virtual";
     EXPECT_EQ(m_tube->getMotorCountIncludingAssemblyCopies(), 1);
     EXPECT_EQ(m_tube->getInstanceCount(), 1);
 }
@@ -467,6 +507,23 @@ TEST(BodyTube, MotorsCountTheAssemblyInstances)
     const auto& pods = boosters.addChild(std::make_unique<BodyTube>(0.3, 0.01));
     rocket.enableEvents();
     EXPECT_EQ(pods.getMotorCountIncludingAssemblyCopies(), 3);
+}
+
+TEST(BodyTube, TheAssemblyMotorCountWrapsAroundAsJavasInt)
+{
+    // Not in OpenRocket's tests: the instance counts have no upper bound, and Java's int
+    // multiplication wraps around (where a C++ signed overflow would be undefined).
+    Rocket rocket;
+    auto&  stage    = rocket.addChild(std::make_unique<AxialStage>());
+    auto&  core     = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
+    auto&  boosters = core.addChild(std::make_unique<ParallelStage>());
+    boosters.setInstanceCount(70000);
+    auto& boosterTube = boosters.addChild(std::make_unique<BodyTube>(0.3, 0.01));
+    auto& pods        = boosterTube.addChild(std::make_unique<PodSet>());
+    pods.setInstanceCount(70000);
+    const auto& podTube = pods.addChild(std::make_unique<BodyTube>(0.1, 0.005));
+    // 70000 * 70000 = 4 900 000 000, which is 605 032 704 modulo 2^32.
+    EXPECT_EQ(podTube.getMotorCountIncludingAssemblyCopies(), 605032704);
 }
 
 TEST(BodyTube, CopiesHaveTheirOwnMotorConfigurations)

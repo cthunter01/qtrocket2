@@ -1249,6 +1249,7 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
 /// reference component. RocketTest.testAutoSizeNextComponent depends on that side effect, so
 /// BodyBeta carries the two lugs of TestRockets.makeBeta() as this stand-in until LaunchLug is
 /// ported.
+/// HOOK(launch-lug): replace with the real LaunchLug once it is ported.
 class LaunchLugStandIn : public TestComponent
 {
 public:
@@ -1282,6 +1283,10 @@ protected:
 /// 0.012 and 0.01 m), with the launch lugs as LaunchLugStandIn. The other internal components and
 /// the fins are left out: the automatic radii read only the body components and the assemblies.
 /// TEST_FCID_1 is selected, with every stage active.
+/// TODO(launch-lug, internal-components, fin-sets): rebuild RocketAutoSize on the full
+/// TestRockets.makeBeta() once LaunchLug, TubeCoupler (whose automatic outer radius reads the body
+/// tube), InnerTube, the Alpha III internals and the trapezoidal fin set are ported; this omits
+/// them all.
 struct BodyBeta
 {
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();

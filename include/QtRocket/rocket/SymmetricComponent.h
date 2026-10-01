@@ -12,6 +12,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/ModId.h"
 
 namespace QtRocket
 {
@@ -193,6 +194,15 @@ public:
     /// Whether the component takes its automatic diameter from the next symmetric component.
     [[nodiscard]] virtual bool usesNextCompAutomatic() const = 0;
 
+    // ---- identity
+
+    /// This object's identity, for comparing with a reference kept to it (Java's ==, which
+    /// BodyTube's automatic radius applies to the component it took its radius from): a ModId
+    /// drawn by every constructor, the copy constructor included (a copy is another object), so
+    /// that no other object ever has it, even after this one is destroyed. Not the component id
+    /// (getId()), which a copy with the original id shares.
+    [[nodiscard]] ModId getIdentity() const noexcept { return m_identity.id; }
+
 protected:
     /// A component positioned AFTER (BodyComponent's constructor), hollow, kDefaultThickness.
     SymmetricComponent();
@@ -260,6 +270,22 @@ private:
     /// The cached CG, calculated when needed (getSymmetricComponentCG(); Transition's includes
     /// its shoulders).
     [[nodiscard]] Coordinate getSymmetricComponentCG() const;
+
+    /// getIdentity(): a ModId drawn afresh on construction and on copy construction.
+    struct Identity
+    {
+        Identity() noexcept = default;
+        /// A copy is another object: it draws its own id rather than copying @p other's.
+        Identity(const Identity& /*other*/) noexcept { }
+        Identity(Identity&&)                 = delete;
+        Identity& operator=(const Identity&) = delete;
+        Identity& operator=(Identity&&)      = delete;
+        ~Identity()                          = default;
+
+        ModId id;
+    };
+
+    Identity m_identity;
 
     mutable double m_wetArea{std::numeric_limits<double>::quiet_NaN()};
     mutable double m_planArea{std::numeric_limits<double>::quiet_NaN()};

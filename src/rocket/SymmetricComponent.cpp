@@ -156,16 +156,21 @@ double SymmetricComponent::getInnerRadius() const
 
 // ============================================================================ the profile
 
+// The fore radius is read before the aft one in a statement of its own, as Java evaluates them:
+// both may refresh automatic radii, and C++ leaves the order of function arguments unspecified.
+
 double SymmetricComponent::getMaxRadius() const
 {
-    return MathUtil::max(getForeRadius(), getAftRadius());
+    const double fore = getForeRadius();
+    return MathUtil::max(fore, getAftRadius());
 }
 
 double SymmetricComponent::getThickness() const
 {
     if (m_filled)
     {
-        return MathUtil::javaMax(getForeRadius(), getAftRadius());
+        const double fore = getForeRadius();
+        return MathUtil::javaMax(fore, getAftRadius());
     }
     return m_thickness;
 }
@@ -211,7 +216,8 @@ BoundingBox SymmetricComponent::getInstanceBoundingBox() const
 
     instanceBounds.update(Coordinate{getLength(), 0, 0});
 
-    const double r = MathUtil::javaMax(getForeRadius(), getAftRadius());
+    const double fore = getForeRadius();  // before the aft radius (see getMaxRadius())
+    const double r    = MathUtil::javaMax(fore, getAftRadius());
     instanceBounds.update(Coordinate{0, r, r});
     instanceBounds.update(Coordinate{0, -r, -r});
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <span>
 #include <string_view>
 
 namespace QtRocket
@@ -173,6 +174,117 @@ constexpr std::array<KindInfo, kAllComponentKinds.size()> kKinds{{
 static_assert(std::ranges::all_of(kAllComponentKinds,
                                   [](ComponentKind kind) { return info(kind).kind == kind; }));
 
+// The superclass walks of componentClassChain(), from the class declarations of OpenRocket's
+// rocketcomponent package.
+constexpr std::array<std::string_view, 3> kRocketChain{"Rocket", "ComponentAssembly",
+                                                       "RocketComponent"};
+constexpr std::array<std::string_view, 3> kAxialStageChain{"AxialStage", "ComponentAssembly",
+                                                           "RocketComponent"};
+constexpr std::array<std::string_view, 4> kParallelStageChain{
+    "ParallelStage", "AxialStage", "ComponentAssembly", "RocketComponent"};
+constexpr std::array<std::string_view, 3> kPodSetChain{"PodSet", "ComponentAssembly",
+                                                       "RocketComponent"};
+constexpr std::array<std::string_view, 5> kBodyTubeChain{
+    "BodyTube", "SymmetricComponent", "BodyComponent", "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 5> kTransitionChain{
+    "Transition", "SymmetricComponent", "BodyComponent", "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 6> kNoseConeChain{"NoseCone",           "Transition",
+                                                         "SymmetricComponent", "BodyComponent",
+                                                         "ExternalComponent",  "RocketComponent"};
+constexpr std::array<std::string_view, 4> kTrapezoidFinSetChain{
+    "TrapezoidFinSet", "FinSet", "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kEllipticalFinSetChain{
+    "EllipticalFinSet", "FinSet", "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kFreeformFinSetChain{
+    "FreeformFinSet", "FinSet", "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kTubeFinSetChain{"TubeFinSet", "Tube",
+                                                           "ExternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kLaunchLugChain{"LaunchLug", "Tube", "ExternalComponent",
+                                                          "RocketComponent"};
+constexpr std::array<std::string_view, 3> kRailButtonChain{"RailButton", "ExternalComponent",
+                                                           "RocketComponent"};
+constexpr std::array<std::string_view, 6> kInnerTubeChain{
+    "InnerTube",           "ThicknessRingComponent", "RingComponent",
+    "StructuralComponent", "InternalComponent",      "RocketComponent"};
+constexpr std::array<std::string_view, 6> kTubeCouplerChain{
+    "TubeCoupler",         "ThicknessRingComponent", "RingComponent",
+    "StructuralComponent", "InternalComponent",      "RocketComponent"};
+constexpr std::array<std::string_view, 6> kEngineBlockChain{
+    "EngineBlock",         "ThicknessRingComponent", "RingComponent",
+    "StructuralComponent", "InternalComponent",      "RocketComponent"};
+constexpr std::array<std::string_view, 6> kCenteringRingChain{
+    "CenteringRing",       "RadiusRingComponent", "RingComponent",
+    "StructuralComponent", "InternalComponent",   "RocketComponent"};
+constexpr std::array<std::string_view, 6> kBulkheadChain{"Bulkhead",          "RadiusRingComponent",
+                                                         "RingComponent",     "StructuralComponent",
+                                                         "InternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kMassComponentChain{
+    "MassComponent", "MassObject", "InternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 4> kShockCordChain{"ShockCord", "MassObject",
+                                                          "InternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 5> kParachuteChain{
+    "Parachute", "RecoveryDevice", "MassObject", "InternalComponent", "RocketComponent"};
+constexpr std::array<std::string_view, 5> kStreamerChain{"Streamer", "RecoveryDevice", "MassObject",
+                                                         "InternalComponent", "RocketComponent"};
+
+[[nodiscard]] constexpr std::span<const std::string_view> classChain(ComponentKind kind) noexcept
+{
+    switch (kind)
+    {
+        case ComponentKind::ROCKET:
+            return kRocketChain;
+        case ComponentKind::AXIAL_STAGE:
+            return kAxialStageChain;
+        case ComponentKind::PARALLEL_STAGE:
+            return kParallelStageChain;
+        case ComponentKind::POD_SET:
+            return kPodSetChain;
+        case ComponentKind::BODY_TUBE:
+            return kBodyTubeChain;
+        case ComponentKind::TRANSITION:
+            return kTransitionChain;
+        case ComponentKind::NOSE_CONE:
+            return kNoseConeChain;
+        case ComponentKind::TRAPEZOID_FIN_SET:
+            return kTrapezoidFinSetChain;
+        case ComponentKind::ELLIPTICAL_FIN_SET:
+            return kEllipticalFinSetChain;
+        case ComponentKind::FREEFORM_FIN_SET:
+            return kFreeformFinSetChain;
+        case ComponentKind::TUBE_FIN_SET:
+            return kTubeFinSetChain;
+        case ComponentKind::LAUNCH_LUG:
+            return kLaunchLugChain;
+        case ComponentKind::RAIL_BUTTON:
+            return kRailButtonChain;
+        case ComponentKind::INNER_TUBE:
+            return kInnerTubeChain;
+        case ComponentKind::TUBE_COUPLER:
+            return kTubeCouplerChain;
+        case ComponentKind::ENGINE_BLOCK:
+            return kEngineBlockChain;
+        case ComponentKind::CENTERING_RING:
+            return kCenteringRingChain;
+        case ComponentKind::BULKHEAD:
+            return kBulkheadChain;
+        case ComponentKind::MASS_COMPONENT:
+            return kMassComponentChain;
+        case ComponentKind::SHOCK_CORD:
+            return kShockCordChain;
+        case ComponentKind::PARACHUTE:
+            return kParachuteChain;
+        case ComponentKind::STREAMER:
+            return kStreamerChain;
+    }
+    return kRocketChain;  // not reached: every kind has a chain
+}
+
+// Every chain starts with the kind's class and ends with RocketComponent.
+static_assert(std::ranges::all_of(kAllComponentKinds, [](ComponentKind kind) {
+    const std::span<const std::string_view> chain = classChain(kind);
+    return chain.front() == info(kind).className && chain.back() == "RocketComponent";
+}));
+
 }  // namespace
 
 std::string_view xmlName(ComponentKind kind) noexcept
@@ -204,6 +316,11 @@ std::string_view componentKindName(ComponentKind kind) noexcept
 std::string_view className(ComponentKind kind) noexcept
 {
     return info(kind).className;
+}
+
+std::span<const std::string_view> componentClassChain(ComponentKind kind) noexcept
+{
+    return classChain(kind);
 }
 
 std::string_view displayKey(ComponentKind kind) noexcept

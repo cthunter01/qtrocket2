@@ -19,7 +19,7 @@
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
-#include "QtRocket/util/Uuid.h"
+#include "QtRocket/util/ModId.h"
 
 namespace QtRocket
 {
@@ -38,9 +38,11 @@ class Preferences;
 ///
 /// The automatic radius remembers the component it was last taken from (Java's refComp), which
 /// usesPreviousCompAutomatic() and usesNextCompAutomatic() compare with the current neighbours.
-/// Java keeps an object reference there; this keeps the component's id, so that it never refers
-/// to a destroyed component, and a copy (whose reference in Java still points into the original
-/// tree, so that it matches no component of the copy) keeps a reference that matches nothing.
+/// Java keeps an object reference there; this keeps the component's identity
+/// (SymmetricComponent::getIdentity()), which compares like the reference but never refers to a
+/// destroyed component. A copy keeps the original's reference, as Java's clone does: it matches
+/// the very component the original took its radius from (a copy pasted into the same tree, next
+/// to it) and none of that component's copies (a copy of the whole rocket).
 ///
 /// Deviations from OpenRocket:
 /// - setMotorConfig() takes a std::optional (see MotorMount); getMotorPosition() throws BugError
@@ -83,7 +85,7 @@ public:
     BodyTube(double length, double radius, double thickness);
 
     /// A copy whose motor configurations belong to the copy (Java's copyWithOriginalID()), with
-    /// a reference component that matches no component (see the class comment).
+    /// the original's reference component (see the class comment).
     BodyTube(const BodyTube& other);
 
     BodyTube& operator=(const BodyTube&) = delete;
@@ -226,9 +228,8 @@ public:
 
     [[nodiscard]] std::string toMotorDebug(const Preferences& preferences) const override;
 
-    /// A single motor: ClusterConfiguration::single() (static: a body tube is never clustered;
-    /// MotorMount does not declare it yet, see there).
-    [[nodiscard]] static const ClusterConfiguration& getClusterConfiguration() noexcept;
+    /// A single motor: ClusterConfiguration::single() (a body tube is never clustered).
+    [[nodiscard]] const ClusterConfiguration& getClusterConfiguration() const override;
 
     // ---- FlightConfigurableComponent
 
@@ -244,14 +245,6 @@ protected:
     [[nodiscard]] std::unique_ptr<RocketComponent> cloneShallow() const override;
 
 private:
-    /// What refComp refers to.
-    enum class Reference
-    {
-        NONE,       ///< null: no automatic radius taken yet
-        COMPONENT,  ///< the component with id m_refCompId
-        FOREIGN,    ///< a component of the tree this one was copied from (matches nothing)
-    };
-
     /// The automatic outer radius: the previous component's front offer, unless it takes its own
     /// radius from this one; then the next component's rear offer, likewise; else kDefaultRadius.
     /// Remembers the component it consulted last.
@@ -263,10 +256,10 @@ private:
     MotorConfigurationSet m_motors;
     mutable double        m_outerRadius{0};
     double                m_overhang{0};
-    mutable Uuid          m_refCompId;
-    mutable Reference     m_refComp{Reference::NONE};
-    bool                  m_autoRadius{false};
-    bool                  m_isActingMount{false};
+    /// The identity of Java's refComp; nullopt for null (no automatic radius taken yet).
+    mutable std::optional<ModId> m_refComp;
+    bool                         m_autoRadius{false};
+    bool                         m_isActingMount{false};
 };
 
 }  // namespace QtRocket

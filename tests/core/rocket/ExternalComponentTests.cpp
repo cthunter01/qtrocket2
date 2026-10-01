@@ -7,9 +7,12 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Coaxial.h"
@@ -206,6 +209,90 @@ TEST(ExternalComponent, CopyFromCopiesTheMaterialAndFinish)
     // Only an external component can be the source.
     const AxialStage stage;
     EXPECT_THROW(static_cast<void>(target.loadFields(stage)), BugError);
+}
+
+TEST(ExternalComponent, AFailedCopyFromLeavesTheMaterialAndFinish)
+{
+    BodyTube source(0.3, 0.02);
+    source.setFinish(Finish::MIRROR);
+    source.setMaterial(Material::newMaterial(Material::Type::BULK, "glass", 2500.0, true));
+
+    // copyFrom() is for a root component only: a parented target throws, unchanged.
+    AxialStage    stage;
+    LoadableTube& target = stage.addChild(std::make_unique<LoadableTube>(0.1, 0.01));
+    EXPECT_THROW(static_cast<void>(target.loadFields(source)), BugError);
+    EXPECT_EQ(target.getMaterial(), ExternalComponent::defaultMaterial());
+    EXPECT_EQ(target.getFinish(), Finish::NORMAL);
+    EXPECT_EQ(target.getLength(), 0.1);
+}
+
+/// The built-in materials and preferences holding OpenRocket's start-up component defaults
+/// (SwingPreferences.loadDefaultComponentMaterials(): NoseCone Polystyrene, FinSet Balsa).
+class DefaultMaterialTest : public ::testing::Test
+{
+protected:
+    DefaultMaterialTest()
+    {
+        QtRocket::addBuiltinMaterials(m_storage);
+        QtRocket::loadDefaultComponentMaterials(m_prefs, m_storage);
+    }
+
+    QtRocket::InMemoryPreferences m_prefs;
+    QtRocket::MaterialStorage     m_storage;
+};
+
+TEST_F(DefaultMaterialTest, ApplyDefaultMaterialTakesThePerClassDefault)
+{
+    NoseCone   nose;
+    BodyTube   tube;
+    Transition transition;
+    nose.applyDefaultMaterial(m_prefs, m_storage);
+    tube.applyDefaultMaterial(m_prefs, m_storage);
+    transition.applyDefaultMaterial(m_prefs, m_storage);
+    EXPECT_EQ(nose.getMaterial().getName(), "Polystyrene");
+    EXPECT_EQ(tube.getMaterial().getName(), "Cardboard") << "the built-in fallback";
+    EXPECT_EQ(transition.getMaterial().getName(), "Cardboard");
+
+    // A default for a superclass reaches every class below it, unless a nearer class has one.
+    const std::optional<Material> found = m_storage.findMaterial(Material::Type::BULK, "Balsa");
+    ASSERT_TRUE(found.has_value());
+    const Material balsa =
+        found.value_or(Material::newMaterial(Material::Type::BULK, "<not found>", 0, true));
+    QtRocket::setDefaultComponentMaterial(m_prefs, "SymmetricComponent", balsa);
+    nose.applyDefaultMaterial(m_prefs, m_storage);
+    tube.applyDefaultMaterial(m_prefs, m_storage);
+    transition.applyDefaultMaterial(m_prefs, m_storage);
+    EXPECT_EQ(nose.getMaterial().getName(), "Polystyrene") << "NoseCone's own default first";
+    EXPECT_EQ(tube.getMaterial(), balsa);
+    EXPECT_EQ(transition.getMaterial(), balsa);
+}
+
+TEST_F(DefaultMaterialTest, ApplyDefaultMaterialFiresNothingAndKeepsThePreset)
+{
+    // As Java's constructor assigns the field: no event, no clearPreset().
+    TypedPropertyMap presetspec;
+    presetspec.put(ComponentPreset::kType, ComponentPresetType::NOSE_CONE);
+    presetspec.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("manufacturer"));
+    presetspec.put(ComponentPreset::kPartNo, "partno");
+    presetspec.put(ComponentPreset::kLength, 0.1);
+    presetspec.put(ComponentPreset::kShape, TransitionShape::OGIVE);
+    presetspec.put(ComponentPreset::kAftOuterDiameter, 0.05);
+    const auto preset = ComponentPresetFactory::create(presetspec, m_storage);
+    ASSERT_TRUE(preset.has_value());
+
+    Rocket rocket;
+    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
+    auto&  nose  = stage.addChild(std::make_unique<NoseCone>());
+    nose.loadPreset(&*preset);
+    rocket.enableEvents();
+    int                                           count = 0;
+    const ComponentChangeSignal::ScopedConnection connection{
+        rocket.addComponentChangeListener([&count](const ComponentChangeEvent&) { ++count; })};
+
+    nose.applyDefaultMaterial(m_prefs, m_storage);
+    EXPECT_EQ(nose.getMaterial().getName(), "Polystyrene");
+    EXPECT_EQ(count, 0);
+    EXPECT_EQ(nose.getPresetComponent(), &*preset);
 }
 
 TEST(ExternalComponent, TubeIsACoaxialExternalComponent)

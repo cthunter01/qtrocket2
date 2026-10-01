@@ -8,8 +8,10 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -17,6 +19,7 @@
 
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
@@ -1840,6 +1843,74 @@ TEST(ComponentKind, CategoriesFollowTheJavaHierarchy)
     EXPECT_TRUE(QtRocket::isMassObject(ComponentKind::STREAMER));
     EXPECT_TRUE(QtRocket::isRecoveryDevice(ComponentKind::PARACHUTE));
     EXPECT_FALSE(QtRocket::isRecoveryDevice(ComponentKind::SHOCK_CORD));
+}
+
+TEST(ComponentKind, ClassChainsWalkTheJavaSuperclasses)
+{
+    using Chain = std::vector<std::string_view>;
+    const std::vector<std::pair<ComponentKind, Chain>> expected{
+        {ComponentKind::ROCKET, {"Rocket", "ComponentAssembly", "RocketComponent"}},
+        {ComponentKind::PARALLEL_STAGE,
+         {"ParallelStage", "AxialStage", "ComponentAssembly", "RocketComponent"}},
+        {ComponentKind::BODY_TUBE,
+         {"BodyTube", "SymmetricComponent", "BodyComponent", "ExternalComponent",
+          "RocketComponent"}},
+        {ComponentKind::NOSE_CONE,
+         {"NoseCone", "Transition", "SymmetricComponent", "BodyComponent", "ExternalComponent",
+          "RocketComponent"}},
+        {ComponentKind::ELLIPTICAL_FIN_SET,
+         {"EllipticalFinSet", "FinSet", "ExternalComponent", "RocketComponent"}},
+        {ComponentKind::LAUNCH_LUG, {"LaunchLug", "Tube", "ExternalComponent", "RocketComponent"}},
+        {ComponentKind::RAIL_BUTTON, {"RailButton", "ExternalComponent", "RocketComponent"}},
+        {ComponentKind::TUBE_COUPLER,
+         {"TubeCoupler", "ThicknessRingComponent", "RingComponent", "StructuralComponent",
+          "InternalComponent", "RocketComponent"}},
+        {ComponentKind::BULKHEAD,
+         {"Bulkhead", "RadiusRingComponent", "RingComponent", "StructuralComponent",
+          "InternalComponent", "RocketComponent"}},
+        {ComponentKind::SHOCK_CORD,
+         {"ShockCord", "MassObject", "InternalComponent", "RocketComponent"}},
+        {ComponentKind::STREAMER,
+         {"Streamer", "RecoveryDevice", "MassObject", "InternalComponent", "RocketComponent"}},
+    };
+    for (const auto& [kind, names] : expected)
+    {
+        EXPECT_TRUE(std::ranges::equal(QtRocket::componentClassChain(kind), names))
+            << QtRocket::componentKindName(kind);
+    }
+}
+
+TEST(ComponentKind, EveryClassChainRunsFromTheClassToRocketComponent)
+{
+    for (const ComponentKind kind : QtRocket::kAllComponentKinds)
+    {
+        const std::span<const std::string_view> chain = QtRocket::componentClassChain(kind);
+        ASSERT_GE(chain.size(), 3U) << QtRocket::componentKindName(kind);
+        EXPECT_EQ(chain.front(), QtRocket::className(kind));
+        EXPECT_EQ(chain.back(), "RocketComponent");
+    }
+}
+
+TEST(ComponentKind, ClassChainsFeedThePerClassPreferences)
+{
+    // The default colour and line style tables are keyed on superclasses: the walk must reach
+    // them.
+    const QtRocket::InMemoryPreferences prefs;
+    EXPECT_EQ(prefs.getDefaultColor(QtRocket::componentClassChain(ComponentKind::NOSE_CONE)),
+              Color(0, 0, 240))
+        << "BodyComponent";
+    EXPECT_EQ(prefs.getDefaultColor(QtRocket::componentClassChain(ComponentKind::STREAMER)),
+              Color(255, 0, 0))
+        << "RecoveryDevice before MassObject";
+    EXPECT_EQ(prefs.getDefaultColor(QtRocket::componentClassChain(ComponentKind::BULKHEAD)),
+              Color(170, 0, 100))
+        << "InternalComponent";
+    EXPECT_EQ(prefs.getDefaultLineStyle(QtRocket::componentClassChain(ComponentKind::PARACHUTE)),
+              LineStyle::DASHED)
+        << "MassObject";
+    EXPECT_EQ(prefs.getDefaultLineStyle(QtRocket::componentClassChain(ComponentKind::BODY_TUBE)),
+              LineStyle::SOLID)
+        << "RocketComponent";
 }
 
 }  // namespace

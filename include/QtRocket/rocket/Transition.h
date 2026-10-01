@@ -33,12 +33,22 @@ class ComponentPreset;
 /// cap in its longitudinal inertia); the wetted and planform areas and the full volume are the
 /// transition's alone.
 ///
+/// The copy constructor is protected, so that a NoseCone cannot be sliced into a Transition by
+/// copying it: copies are made by copyWithOriginalId() and copyWithNewIds() (cloneShallow()).
+///
 /// Deviations from OpenRocket: setShapeType() takes an enum, which cannot be null (Java throws
 /// IllegalArgumentException for null); the multi-edit config listeners are not ported (see
 /// RocketComponent).
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
 class Transition : public SymmetricComponent, public InsideColorComponent
 {
+    /// The key to the copying constructor that cloneShallow() calls through std::make_unique,
+    /// which cannot reach the protected copy constructor; only Transition can make one.
+    struct CopyKey
+    {
+        explicit CopyKey() = default;
+    };
+
 public:
     using RocketComponent::isCompatible;
     using SymmetricComponent::getInnerRadius;
@@ -50,6 +60,14 @@ public:
     /// A conical transition, kDefaultRadius * 3 long, both radii automatic (kDefaultRadius until
     /// a neighbour gives them), clipped, no shoulders.
     Transition();
+
+    /// A copy of @p other (cloneShallow()); the CopyKey keeps it private to Transition.
+    Transition(CopyKey /*key*/, const Transition& other) : Transition(other) { }
+
+    Transition& operator=(const Transition&) = delete;
+    Transition(Transition&&)                 = delete;
+    Transition& operator=(Transition&&)      = delete;
+    ~Transition() override                   = default;
 
     [[nodiscard]] ComponentKind kind() const noexcept override { return ComponentKind::TRANSITION; }
 
@@ -228,6 +246,10 @@ public:
     [[nodiscard]] bool isCompatible(ComponentKind kind) const override;
 
 protected:
+    /// A member-wise copy, for cloneShallow() and NoseCone's copy constructor (protected: see the
+    /// class comment).
+    Transition(const Transition& other) = default;
+
     /// The radius the previous symmetric component offers (its getFrontAutoRadius(), which may be
     /// -1), or kDefaultRadius without one.
     [[nodiscard]] double getAutoForeRadius() const;

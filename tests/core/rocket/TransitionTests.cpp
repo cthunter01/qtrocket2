@@ -1,7 +1,9 @@
 #include "QtRocket/rocket/Transition.h"
 
 #include <cmath>
+#include <limits>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -15,7 +17,9 @@
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Finish.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/ReferenceType.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
@@ -43,6 +47,7 @@ using QtRocket::Finish;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::NoseCone;
+using QtRocket::ReferenceType;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::SymmetricComponent;
@@ -762,6 +767,70 @@ TEST(Transition, CopiesKeepTheShapeAndShoulders)
     const std::unique_ptr<RocketComponent> fresh = transition.copyWithNewIds();
     EXPECT_NE(fresh->getId(), transition.getId());
     EXPECT_EQ(fresh->kind(), ComponentKind::TRANSITION);
+}
+
+TEST(Transition, ANoseConeCannotBeSlicedIntoATransition)
+{
+    // The copy constructor is protected; copies come from cloneShallow(), which keeps the class.
+    static_assert(!std::is_copy_constructible_v<Transition>);
+    static_assert(std::is_copy_constructible_v<NoseCone>);
+
+    NoseCone nose(TransitionShape::OGIVE, 0.1, 0.02);
+    nose.setFlipped(true);
+    const std::unique_ptr<RocketComponent> copy = nose.copyWithOriginalId();
+    EXPECT_EQ(copy->kind(), ComponentKind::NOSE_CONE);
+    const auto& copiedNose = dynamic_cast<const NoseCone&>(*copy);
+    EXPECT_TRUE(copiedNose.isFlipped());
+    EXPECT_EQ(copiedNose.getForeRadius(), 0.02);
+    EXPECT_EQ(copiedNose.getAftRadius(), 0.0);
+}
+
+/// A rocket with one stage holding a transition with fixed radii 0.02 (fore) and 0.04 (aft).
+class TransitionInStageTest : public ::testing::Test
+{
+protected:
+    TransitionInStageTest()
+    {
+        m_stage      = &m_rocket.addChild(std::make_unique<AxialStage>());
+        m_transition = &m_stage->addChild(std::make_unique<Transition>());
+        m_transition->setForeRadius(0.02);
+        m_transition->setAftRadius(0.04);
+        m_rocket.enableEvents();
+    }
+
+    Rocket      m_rocket;
+    AxialStage* m_stage{nullptr};
+    Transition* m_transition{nullptr};
+};
+
+TEST_F(TransitionInStageTest, BoundingRadiusAndReferenceLengthReadTheRadii)
+{
+    EXPECT_EQ(m_stage->getBoundingRadius(), 0.04);
+    EXPECT_EQ(m_rocket.getReferenceType(), ReferenceType::MAXIMUM);
+    EXPECT_EQ(m_rocket.getSelectedConfiguration().getReferenceLength(), 0.08);
+    m_rocket.setReferenceType(ReferenceType::NOSECONE);
+    EXPECT_EQ(m_rocket.getSelectedConfiguration().getReferenceLength(), 0.04);
+
+    // A nose cone is a transition.
+    m_stage->addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.1, 0.05), 0);
+    EXPECT_EQ(m_stage->getBoundingRadius(), 0.05);
+    EXPECT_EQ(m_rocket.getSelectedConfiguration().getReferenceLength(), 0.1)
+        << "the nose cone's aft radius: its fore radius is 0";
+}
+
+TEST_F(TransitionInStageTest, ANaNLengthKeepsTheRadii)
+{
+    // Java's setLength() keeps a NaN (Math.max), and the bounding radius and the reference
+    // length read the fore and aft radii, not the profile at the ends (which is NaN then).
+    m_transition->setLength(std::numeric_limits<double>::quiet_NaN());
+    ASSERT_TRUE(std::isnan(m_transition->getLength()));
+    EXPECT_EQ(m_stage->getBoundingRadius(), 0.04);
+    EXPECT_EQ(
+        QtRocket::getReferenceLength(ReferenceType::MAXIMUM, m_rocket.getSelectedConfiguration()),
+        0.08);
+    EXPECT_EQ(
+        QtRocket::getReferenceLength(ReferenceType::NOSECONE, m_rocket.getSelectedConfiguration()),
+        0.04);
 }
 
 }  // namespace

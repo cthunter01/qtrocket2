@@ -40,10 +40,10 @@ inline constexpr std::array<ReferenceType, 3> kAllReferenceTypes{
 /// - MAXIMUM: twice the largest fore or aft radius of all of them (Java's Math.max, so a NaN
 ///   radius gives NaN), or Rocket::kDefaultReferenceLength when that is below 0.001 m.
 /// - CUSTOM: the rocket's custom reference length.
-/// HOOK(rocket-components): a symmetric component is a component of a body component kind that
-/// is a RadialParent, its fore radius getOuterRadius(-1) and its aft radius
-/// getOuterRadius(getLength()) (SymmetricComponent's getRadius() gives exactly the fore radius
-/// before the component and the aft radius at its end), until SymmetricComponent exists.
+/// The radii are SymmetricComponent::getForeRadius() and getAftRadius(), read in Java's order. A
+/// component of a body kind that is a RadialParent but not a SymmetricComponent (only the test
+/// fixtures' TestBodyComponent is one) counts too, with getOuterRadius(-1) and
+/// getOuterRadius(getLength()) as its radii (HOOK(test-fixtures), see ReferenceType.cpp).
 [[nodiscard]] double getReferenceLength(ReferenceType type, const FlightConfiguration& config);
 
 }  // namespace QtRocket

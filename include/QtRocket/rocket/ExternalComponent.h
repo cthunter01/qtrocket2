@@ -12,6 +12,8 @@ namespace QtRocket
 {
 
 class ComponentPreset;
+class MaterialStorage;
+class Preferences;
 
 /// A component with a well-defined physical appearance that affects the aerodynamics
 /// (OpenRocket's ExternalComponent): body components, fin sets, launch lugs, rail buttons and
@@ -25,8 +27,8 @@ class ComponentPreset;
 ///   Java's constructor asks the global application preferences
 ///   (getDefaultComponentMaterial(getClass(), BULK)), which there is no global for here; with
 ///   OpenRocket's test preferences that is Cardboard too, so the golden data and the ported tests
-///   agree. The GUI applies the user's per-class default (material/MaterialPreferences.h) to a
-///   component it creates.
+///   agree. Whoever creates a component for the user (the GUI) calls applyDefaultMaterial() on
+///   it right away, which completes Java's constructor with the user's per-class default.
 /// - setMaterial() and loadFromPreset() do not register a document material with the document's
 ///   preferences: rocket/ cannot see the document (see the HOOK in ExternalComponent.cpp).
 /// - setMaterial() of a material that is not BULK throws BugError (Java:
@@ -57,6 +59,14 @@ public:
     /// MASS_CHANGE.
     /// @throws BugError when @p mat is not a BULK material (Java: IllegalArgumentException).
     void setMaterial(const Material& mat);
+
+    /// The rest of Java's constructor: the material becomes the preferences' default for the
+    /// component's class, getDefaultComponentMaterial(preferences, componentClassChain(kind()),
+    /// BULK, storage) (material/MaterialPreferences.h), e.g. "Polystyrene" for a nose cone after
+    /// loadDefaultComponentMaterials(). Assigned directly, as the constructor does: no event, and
+    /// the preset is kept. @p storage must hold the built-in materials (see
+    /// getDefaultComponentMaterial()).
+    void applyDefaultMaterial(const Preferences& preferences, const MaterialStorage& storage);
 
     /// The materials of the base class (none) followed by this component's material.
     [[nodiscard]] std::vector<Material> getAllMaterials() const override;

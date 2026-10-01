@@ -1,5 +1,6 @@
 #include "QtRocket/rocket/BodyTube.h"
 
+#include <cstdint>
 #include <memory>
 #include <numbers>
 #include <optional>
@@ -26,6 +27,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/ModId.h"
 
 namespace QtRocket
 {
@@ -71,9 +73,9 @@ BodyTube::BodyTube(const BodyTube& other)
     m_motors(other.m_motors, *this),
     m_outerRadius(other.m_outerRadius),
     m_overhang(other.m_overhang),
-    m_refCompId(other.m_refCompId),
-    // Java's clone keeps a reference into the original tree, which matches no component here.
-    m_refComp(other.m_refComp == Reference::NONE ? Reference::NONE : Reference::FOREIGN),
+    // Java's clone keeps the reference to the original's reference component (see the class
+    // comment).
+    m_refComp(other.m_refComp),
     m_autoRadius(other.m_autoRadius),
     m_isActingMount(other.m_isActingMount)
 {
@@ -103,9 +105,8 @@ double BodyTube::getAutoOuterRadius() const
     // Don't use the radius of a component who already has its auto diameter enabled
     if (c != nullptr && !c->usesNextCompAutomatic())
     {
-        r           = c->getFrontAutoRadius();
-        m_refComp   = Reference::COMPONENT;
-        m_refCompId = c->getId();
+        r         = c->getFrontAutoRadius();
+        m_refComp = c->getIdentity();
     }
     if (r < 0)
     {
@@ -113,9 +114,8 @@ double BodyTube::getAutoOuterRadius() const
         // Don't use the radius of a component who already has its auto diameter enabled
         if (c != nullptr && !c->usesPreviousCompAutomatic())
         {
-            r           = c->getRearAutoRadius();
-            m_refComp   = Reference::COMPONENT;
-            m_refCompId = c->getId();
+            r         = c->getRearAutoRadius();
+            m_refComp = c->getIdentity();
         }
     }
     if (r < 0)
@@ -127,16 +127,11 @@ double BodyTube::getAutoOuterRadius() const
 
 bool BodyTube::isReferenceComponent(const SymmetricComponent* component) const noexcept
 {
-    switch (m_refComp)
+    if (!m_refComp.has_value())
     {
-        case Reference::NONE:
-            return component == nullptr;
-        case Reference::COMPONENT:
-            return component != nullptr && component->getId() == m_refCompId;
-        case Reference::FOREIGN:
-            return false;
+        return component == nullptr;
     }
-    return false;
+    return component != nullptr && component->getIdentity() == *m_refComp;
 }
 
 void BodyTube::setOuterRadius(double radius)
@@ -435,15 +430,16 @@ int BodyTube::getMotorCount() const
 int BodyTube::getMotorCountIncludingAssemblyCopies() const
 {
     // Get the parent assemblies of the motor mount, and multiply the data by the number of
-    // instances
-    int multiplier = 1;
+    // instances. (Java's int products wrap around on overflow, where a signed overflow is
+    // undefined in C++: this multiplies modulo 2^32 and converts back, which is modular too.)
+    std::uint32_t multiplier = 1;
     for (const RocketComponent* parent : getParentAssemblies())
     {
-        multiplier *= parent->getInstanceCount();
+        multiplier *= static_cast<std::uint32_t>(parent->getInstanceCount());
     }
 
-    const int count = getMotorCount();
-    return count * multiplier;
+    const auto count = static_cast<std::uint32_t>(getMotorCount());
+    return static_cast<int>(count * multiplier);
 }
 
 double BodyTube::getMotorMountDiameter() const
@@ -477,7 +473,7 @@ std::string BodyTube::toMotorDebug(const Preferences& preferences) const
     return m_motors.toDebug(preferences);
 }
 
-const ClusterConfiguration& BodyTube::getClusterConfiguration() noexcept
+const ClusterConfiguration& BodyTube::getClusterConfiguration() const
 {
     return ClusterConfiguration::single();
 }
