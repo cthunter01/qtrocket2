@@ -171,6 +171,21 @@ auto clamp(T x, U min, V max) = delete;
     return rad * 180 / std::numbers::pi;
 }
 
+/// Java's Math.toRadians (JDK 9 and later): @p deg times the constant 0.017453292519943295, which
+/// is not always the same double as deg2rad()'s deg * pi / 180 (1e-300 differs in the last bit).
+[[nodiscard]] constexpr double javaToRadians(double deg) noexcept
+{
+    return deg * 0.017453292519943295;
+}
+
+/// Java's Math.toDegrees (JDK 9 and later): @p rad times the constant 57.29577951308232, which is
+/// not always the same double as rad2deg()'s rad * 180 / pi (120 gives 6875.493541569878 here and
+/// 6875.493541569879 there).
+[[nodiscard]] constexpr double javaToDegrees(double rad) noexcept
+{
+    return rad * 57.29577951308232;
+}
+
 /// Java's Math.round(double): floor(a + 0.5) computed exactly on the bits (so 0.49999999999999994
 /// gives 0 where floor(a + 0.5) gives 1, and ties go toward positive infinity: 2.5 gives 3 and
 /// -2.5 gives -2), then narrowed as javaLongCast(). FixedPrecisionUnit and the motor digest round

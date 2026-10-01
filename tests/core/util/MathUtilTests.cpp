@@ -663,4 +663,20 @@ TEST(MathUtil, JavaHashCombineWrapsAsJavaInt)
     static_assert(MathUtil::javaHashCombine(2, 3) == 65);
 }
 
+TEST(MathUtil, JavaToRadiansAndToDegreesMatchJavaBitForBit)
+{
+    // Math.toRadians / Math.toDegrees on JDK 17 (a multiplication by a constant).
+    EXPECT_EQ(MathUtil::javaToRadians(10.0), 0.17453292519943295);
+    EXPECT_EQ(MathUtil::javaToRadians(120.0), 2.0943951023931953);
+    EXPECT_EQ(MathUtil::javaToRadians(1e-300), 1.7453292519943295e-302);
+    EXPECT_EQ(MathUtil::javaToDegrees(10.0), 572.9577951308232);
+    EXPECT_EQ(MathUtil::javaToDegrees(120.0), 6875.493541569878);
+    EXPECT_EQ(MathUtil::javaToDegrees(7.5), 429.7183463481174);
+    // Where deg2rad() and rad2deg() (x * pi / 180, x * 180 / pi) differ from Java.
+    EXPECT_NE(MathUtil::deg2rad(1e-300), MathUtil::javaToRadians(1e-300));
+    EXPECT_NE(MathUtil::rad2deg(120.0), MathUtil::javaToDegrees(120.0));
+    EXPECT_TRUE(std::isnan(MathUtil::javaToDegrees(kNaN)));
+    static_assert(MathUtil::javaToRadians(0.0) == 0.0);
+}
+
 }  // namespace
