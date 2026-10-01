@@ -105,7 +105,12 @@ add_executable(QtRocket_core_tests
     models/PinkNoiseWindModelTests.cpp
     models/WgsGravityModelTests.cpp
     models/WindModelTypeTests.cpp
+    mass/CMAnalysisEntryTests.cpp
+    mass/MassCalculationTests.cpp
+    mass/MassCalculatorTests.cpp
+    mass/MotorClusterStateTests.cpp
     mass/RigidBodyTests.cpp
+    mass/ThrustStateTests.cpp
     simulation/DataBranchTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
