@@ -43,6 +43,38 @@ inline constexpr std::array<ThrustState, 4> kAllThrustStates{
     return "Armed";
 }
 
+/// The name of the enum constant (Java: name()): "SPENT", "DELAYING", "THRUSTING" or "ARMED".
+[[nodiscard]] constexpr std::string_view enumName(ThrustState state) noexcept
+{
+    switch (state)
+    {
+        case ThrustState::SPENT:
+            return "SPENT";
+        case ThrustState::DELAYING:
+            return "DELAYING";
+        case ThrustState::THRUSTING:
+            return "THRUSTING";
+        case ThrustState::ARMED:
+            break;
+    }
+    return "ARMED";
+}
+
+/// The state whose enumName() is @p name, compared exactly (ThrustState.valueOf()); nullopt for
+/// an unknown name, where Java throws IllegalArgumentException.
+[[nodiscard]] constexpr std::optional<ThrustState> thrustStateFromEnumName(
+    std::string_view name) noexcept
+{
+    for (const ThrustState state : kAllThrustStates)
+    {
+        if (enumName(state) == name)
+        {
+            return state;
+        }
+    }
+    return std::nullopt;
+}
+
 /// The long description (getDescription()), Java's text verbatim (DELAYING's starts with a
 /// space).
 [[nodiscard]] constexpr std::string_view description(ThrustState state) noexcept

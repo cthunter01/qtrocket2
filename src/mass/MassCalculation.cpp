@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <optional>
 #include <span>
@@ -50,6 +51,14 @@ void MassCalculation::merge(const MassCalculation& other)
 {
     // Adjust Center-of-mass
     addMass(other.getCM());
+    if (&other == this)
+    {
+        // Java's bodies.addAll(bodies) appends a copy; inserting a vector's own range into it is
+        // undefined.
+        const std::vector<RigidBody> bodies = m_bodies;
+        m_bodies.insert(m_bodies.end(), bodies.begin(), bodies.end());
+        return;
+    }
     m_bodies.insert(m_bodies.end(), other.m_bodies.begin(), other.m_bodies.end());
 }
 
@@ -342,6 +351,8 @@ MassCalculation& MassCalculation::calculateMotors()
     {
         for (const MotorClusterState* motorState : *m_activeMotors)
         {
+            // Java: a NullPointerException.
+            QTROCKET_ASSERT(motorState != nullptr);
             calculateMotorInstances(motorState->getConfig(), motorState);
         }
     }
@@ -424,6 +435,11 @@ bool MassCalculation::operator==(const MassCalculation& other) const noexcept
     }
     return m_centerOfMass == other.m_centerOfMass && *m_config == *other.m_config &&
            m_simulationTime == other.m_simulationTime && m_type == other.m_type;
+}
+
+std::int32_t MassCalculation::hashCode() const noexcept
+{
+    return MathUtil::javaIntCast((m_centerOfMass.x + m_centerOfMass.y + m_centerOfMass.z) * 100000);
 }
 
 std::string MassCalculation::toCMDebug() const

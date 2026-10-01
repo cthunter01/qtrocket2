@@ -2,10 +2,14 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "QtRocket/mass/CMAnalysisEntry.h"
@@ -64,7 +68,10 @@ class RocketComponent;
 /// average CG of its clusters.
 ///
 /// The configuration, the motor states, the components and the analysis map are referred to,
-/// not owned: they must outlive the calculation, and the configuration must be up to date.
+/// not owned: they must outlive the calculation, and the configuration must be up to date. The
+/// constructor therefore rejects a temporary configuration, root or container of motor states
+/// (Java keeps a strong reference to them); MassCalculator's entry points, whose calculation ends
+/// with the call, take temporaries.
 ///
 /// Deviations from OpenRocket:
 /// - Java's fields are package-private and MassCalculator reads them; here they have getters.
@@ -74,7 +81,9 @@ class RocketComponent;
 /// - The debug `prefix` field (only read by commented-out prints) and the unused Type(double)
 ///   constructor are not ported.
 /// - The motor states are a span of pointers; nullopt is Java's null list (a static
-///   calculation, which takes the configuration's active motors).
+///   calculation, which takes the configuration's active motors). A null pointer in it is a
+///   BugError (Java: NullPointerException).
+/// - Java's hashCode() is hashCode() and the std::hash specialisation below.
 class MassCalculation
 {
 public:
@@ -123,9 +132,31 @@ public:
                     const RocketComponent& root, const Transformation& transform,
                     CMAnalysisMap* analysisMap);
 
+    /// Rejected: the calculation would keep a reference to the temporary configuration.
+    MassCalculation(Type type, const FlightConfiguration&& config, double time,
+                    std::optional<std::span<const MotorClusterState* const>> activeMotors,
+                    const RocketComponent& root, const Transformation& transform,
+                    CMAnalysisMap* analysisMap) = delete;
+
+    /// Rejected: the calculation would keep a reference to the temporary root.
+    MassCalculation(Type type, const FlightConfiguration& config, double time,
+                    std::optional<std::span<const MotorClusterState* const>> activeMotors,
+                    const RocketComponent&& root, const Transformation& transform,
+                    CMAnalysisMap* analysisMap) = delete;
+
+    /// Rejected: the calculation would keep a span into the temporary container of motor states
+    /// (such as a std::vector returned by value). A span or an lvalue container is taken.
+    template <typename Motors>
+        requires(!std::is_lvalue_reference_v<Motors> && std::ranges::range<Motors> &&
+                 !std::ranges::borrowed_range<Motors>)
+    MassCalculation(Type type, const FlightConfiguration& config, double time,
+                    Motors&& activeMotors, const RocketComponent& root,
+                    const Transformation& transform, CMAnalysisMap* analysisMap) = delete;
+
     // ------------------------------------------------------------------- accumulation
 
-    /// Adds @p other's centre of mass (addMass()) and bodies to this calculation.
+    /// Adds @p other's centre of mass (addMass()) and bodies to this calculation. Merging a
+    /// calculation into itself doubles its mass and its bodies, as Java's does.
     void merge(const MassCalculation& other);
 
     /// Adds a body for calculateMomentOfInertia().
@@ -146,6 +177,10 @@ public:
     /// analysis map, over the subtree of @p root placed by @p transform.
     [[nodiscard]] MassCalculation copy(const RocketComponent& root,
                                        const Transformation&  transform) const;
+
+    /// Rejected: the copy would keep a reference to the temporary root.
+    [[nodiscard]] MassCalculation copy(const RocketComponent&& root,
+                                       const Transformation&   transform) const = delete;
 
     // ---------------------------------------------------------------------- results
 
@@ -215,6 +250,11 @@ public:
     /// id, the same time (==) and the same type.
     [[nodiscard]] bool operator==(const MassCalculation& other) const noexcept;
 
+    /// Java's hashCode(): the centre of mass's, (int)((x + y + z) * 100000) (the partner of
+    /// operator==, which compares the centres of mass with a tolerance, so equal calculations
+    /// can still hash differently across a bucket edge, as in Java).
+    [[nodiscard]] std::int32_t hashCode() const noexcept;
+
     /// "cm= <mass>g@[<x>,<y>,<z>]" with six decimals each (Java's "%.6f" in an English locale).
     [[nodiscard]] std::string toCMDebug() const;
 
@@ -269,3 +309,14 @@ private:
 [[nodiscard]] std::string_view name(MassCalculation::Type type) noexcept;
 
 }  // namespace QtRocket
+
+/// Java's hashCode() (MassCalculation::hashCode()).
+template <>
+struct std::hash<QtRocket::MassCalculation>
+{
+    [[nodiscard]] std::size_t operator()(
+        const QtRocket::MassCalculation& calculation) const noexcept
+    {
+        return static_cast<std::size_t>(calculation.hashCode());
+    }
+};

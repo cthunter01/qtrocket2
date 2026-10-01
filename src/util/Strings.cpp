@@ -1833,6 +1833,14 @@ std::size_t javaLength(std::string_view text) noexcept
     return length;
 }
 
+std::string javaPadLeft(std::string_view text, std::size_t width)
+{
+    const std::size_t length = javaLength(text);
+    std::string       padded(length < width ? width - length : 0, ' ');
+    padded += text;
+    return padded;
+}
+
 char32_t nextCodePoint(std::string_view text, std::size_t& position) noexcept
 {
     return decodeCodePoint(text, position);

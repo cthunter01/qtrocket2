@@ -3,11 +3,9 @@
 #include <optional>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "QtRocket/mass/CMAnalysisEntry.h"
 #include "QtRocket/mass/MassCalculation.h"
-#include "QtRocket/mass/MotorClusterState.h"
 #include "QtRocket/mass/RigidBody.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -52,20 +50,6 @@ RigidBody MassCalculator::calculate(MassCalculation::Type type, const FlightConf
         nullptr};
     calculation.calculateAssembly();
     return calculation.calculateMomentOfInertia();
-}
-
-RigidBody MassCalculator::calculate(MassCalculation::Type type, const FlightConfiguration& config,
-                                    double                             simulationTime,
-                                    std::span<const MotorClusterState> activeMotors)
-{
-    std::vector<const MotorClusterState*> pointers;
-    pointers.reserve(activeMotors.size());
-    for (const MotorClusterState& state : activeMotors)
-    {
-        pointers.push_back(&state);
-    }
-    return calculate(type, config, simulationTime,
-                     std::span<const MotorClusterState* const>{pointers});
 }
 
 RigidBody MassCalculator::calculate(MassCalculation::Type type, const FlightConfiguration& config,

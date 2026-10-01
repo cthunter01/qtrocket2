@@ -32,6 +32,27 @@ TEST(ThrustState, NamesAndDescriptions)
     EXPECT_EQ(description(ThrustState::ARMED), "Armed, but not yet lit.");
 }
 
+TEST(ThrustState, EnumNames)
+{
+    EXPECT_EQ(enumName(ThrustState::SPENT), "SPENT");
+    EXPECT_EQ(enumName(ThrustState::DELAYING), "DELAYING");
+    EXPECT_EQ(enumName(ThrustState::THRUSTING), "THRUSTING");
+    EXPECT_EQ(enumName(ThrustState::ARMED), "ARMED");
+}
+
+TEST(ThrustState, ValueOfTakesTheExactEnumName)
+{
+    for (const ThrustState state : kAllThrustStates)
+    {
+        EXPECT_EQ(QtRocket::thrustStateFromEnumName(enumName(state)), std::optional{state});
+    }
+    // valueOf compares exactly: the short name and other case are unknown.
+    EXPECT_EQ(QtRocket::thrustStateFromEnumName("Spent"), std::nullopt);
+    EXPECT_EQ(QtRocket::thrustStateFromEnumName("armed"), std::nullopt);
+    EXPECT_EQ(QtRocket::thrustStateFromEnumName(""), std::nullopt);
+    static_assert(QtRocket::thrustStateFromEnumName("DELAYING") == ThrustState::DELAYING);
+}
+
 TEST(ThrustState, NextFollowsTheBurnSequence)
 {
     EXPECT_EQ(nextState(ThrustState::ARMED), std::optional{ThrustState::THRUSTING});

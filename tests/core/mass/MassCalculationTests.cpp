@@ -1,9 +1,14 @@
 #include "QtRocket/mass/MassCalculation.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <numbers>
 #include <optional>
 #include <span>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -264,6 +269,127 @@ TEST_F(MassCalculationTest, EqualityAndDebugString)
     EXPECT_EQ(a.toCMDebug(), "cm= 0.016400g@[0.123457,-0.500000,0.000000]");
     EXPECT_EQ(a.toString(), a.toCMDebug());
 }
+
+TEST_F(MassCalculationTest, EqualityComparesTheTimeAndTheConfigurationToo)
+{
+    const MassCalculation launch = calculation(Type::LAUNCH);
+
+    // Another time.
+    const MassCalculation later{
+        Type::LAUNCH, config(), 1.0, std::nullopt, m_rocket, Transformation::kIdentity, nullptr};
+    EXPECT_FALSE(launch == later);
+    EXPECT_FALSE(later == launch);
+
+    // Another configuration: Java's FlightConfiguration.equals compares the ids.
+    const FlightConfigurationId otherId = QtRocket::Test::testFcid(1);
+    m_rocket.createFlightConfiguration(otherId);
+    const MassCalculation other{Type::LAUNCH,
+                                m_rocket.getFlightConfiguration(otherId),
+                                Motor::kPseudoTimeLaunch,
+                                std::nullopt,
+                                m_rocket,
+                                Transformation::kIdentity,
+                                nullptr};
+    EXPECT_FALSE(launch == other);
+
+    // The root, the transformation and the bodies do not count.
+    MassCalculation moved = launch.copy(*m_body, Transformation::translation(1.0, 0.0, 0.0));
+    moved.addInertia(RigidBody{Coordinate{0.0, 0.0, 0.0, 1.0}, 1.0, 1.0});
+    EXPECT_TRUE(launch == moved);
+}
+
+TEST_F(MassCalculationTest, HashCodeIsTheCentersOfMass)
+{
+    MassCalculation calc = calculation(Type::LAUNCH);
+    EXPECT_EQ(calc.hashCode(), 0);
+
+    // Java: (int)((x + y + z) * 100000) of the centre of mass; the weight does not count.
+    calc.setCM(Coordinate{0.25, -0.5, 0.125, 3.0});
+    EXPECT_EQ(calc.hashCode(), -12500);
+    EXPECT_EQ(calc.hashCode(), static_cast<std::int32_t>(std::hash<Coordinate>{}(calc.getCM())));
+    calc.setMass(7.0);
+    EXPECT_EQ(calc.hashCode(), -12500);
+    EXPECT_EQ(std::hash<MassCalculation>{}(calc), static_cast<std::size_t>(calc.hashCode()));
+}
+
+TEST_F(MassCalculationTest, EqualCalculationsHashAlike)
+{
+    MassCalculation calc = calculation(Type::LAUNCH);
+    calc.setCM(Coordinate{0.25, -0.5, 0.125, 7.0});
+    const MassCalculation same = [&] {
+        MassCalculation result = calculation(Type::LAUNCH);
+        result.setCM(Coordinate{0.25, -0.5, 0.125, 7.0});
+        return result;
+    }();
+    ASSERT_TRUE(calc == same);
+    EXPECT_EQ(calc.hashCode(), same.hashCode());
+
+    // A NaN centre gives Java's (int) NaN, 0.
+    calc.setCM(Coordinate::kNaN);
+    EXPECT_EQ(calc.hashCode(), 0);
+}
+
+TEST_F(MassCalculationTest, MergingACalculationIntoItselfDoublesIt)
+{
+    MassCalculation calc = calculation(Type::STRUCTURE);
+    calc.addMass(Coordinate{0.5, 0.0, 0.0, 1.0});
+    calc.addInertia(RigidBody{Coordinate{0.5, 0.0, 0.0, 1.0}, 0.1, 0.2});
+    calc.addInertia(RigidBody{Coordinate{0.5, 0.0, 0.0, 0.5}, 0.3, 0.4});
+
+    // Java: addMass(this.centerOfMass) averages the centre with itself, and
+    // bodies.addAll(bodies) appends a copy of the list.
+    calc.merge(calc);
+    EXPECT_TRUE(calc.getCM().exactlyEquals(Coordinate{0.5, 0.0, 0.0, 2.0}));
+    ASSERT_EQ(calc.size(), 4U);
+    EXPECT_EQ(calc.getBodies()[2].getIxx(), 0.1);
+    EXPECT_EQ(calc.getBodies()[3].getIyy(), 0.4);
+}
+
+/// The calculation keeps references to its configuration, root and motor states, so the
+/// constructor rejects temporaries of them (and copy() a temporary root); spans and lvalues pass.
+using Motors     = std::optional<std::span<const MotorClusterState* const>>;
+using PointerVec = std::vector<const MotorClusterState*>;
+static_assert(std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                      Motors, const QtRocket::RocketComponent&,
+                                      const Transformation&, CMAnalysisMap*>);
+static_assert(std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                      std::nullopt_t, const QtRocket::RocketComponent&,
+                                      const Transformation&, CMAnalysisMap*>);
+static_assert(std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                      PointerVec&, const QtRocket::RocketComponent&,
+                                      const Transformation&, CMAnalysisMap*>);
+static_assert(std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                      const PointerVec&, const QtRocket::RocketComponent&,
+                                      const Transformation&, CMAnalysisMap*>);
+static_assert(std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                      std::span<const MotorClusterState* const>,
+                                      const QtRocket::RocketComponent&, const Transformation&,
+                                      CMAnalysisMap*>);
+static_assert(!std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                       PointerVec, const QtRocket::RocketComponent&,
+                                       const Transformation&, CMAnalysisMap*>);
+static_assert(!std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                                       const PointerVec, const QtRocket::RocketComponent&,
+                                       const Transformation&, CMAnalysisMap*>);
+static_assert(
+    !std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double,
+                             std::vector<MotorClusterState*>, const QtRocket::RocketComponent&,
+                             const Transformation&, CMAnalysisMap*>);
+static_assert(!std::is_constructible_v<MassCalculation, Type, FlightConfiguration, double, Motors,
+                                       const QtRocket::RocketComponent&, const Transformation&,
+                                       CMAnalysisMap*>);
+static_assert(
+    !std::is_constructible_v<MassCalculation, Type, const FlightConfiguration&, double, Motors,
+                             TestComponent, const Transformation&, CMAnalysisMap*>);
+
+/// Whether copy() takes a root of type @p Root.
+template <typename Root>
+concept CopyTakes = requires(const MassCalculation& calc, Root&& root) {
+    calc.copy(std::forward<Root>(root), Transformation::kIdentity);
+};
+static_assert(CopyTakes<const QtRocket::RocketComponent&>);
+static_assert(CopyTakes<TestComponent&>);
+static_assert(!CopyTakes<TestComponent>);
 
 // ============================================================================== calculation
 

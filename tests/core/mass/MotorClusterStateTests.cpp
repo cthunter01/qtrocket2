@@ -22,6 +22,7 @@
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Strings.h"
 #include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
@@ -164,6 +165,28 @@ TEST_F(MotorClusterStateTest, MotorTimeFollowsJavasMathMax)
     EXPECT_EQ(state.getMotorTime(kInfinity), kInfinity);
 }
 
+TEST_F(MotorClusterStateTest, MotorTimeEdgeCasesFollowJava)
+{
+    constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
+    // Before ignite() the ignition time is +infinity: +infinity - +infinity is NaN, and Java's
+    // Math.max(NaN, 0.0) keeps the NaN.
+    MotorClusterState state{config()};
+    EXPECT_TRUE(std::isnan(state.getMotorTime(kInfinity)));
+    EXPECT_EQ(state.getMotorTime(-kInfinity), 0.0);
+
+    // ignite(NaN) lights the motors at a NaN time (Java has no check): every motor time is NaN.
+    state.ignite(kNaN);
+    EXPECT_EQ(state.getState(), ThrustState::THRUSTING);
+    EXPECT_TRUE(std::isnan(state.getIgnitionTime()));
+    EXPECT_TRUE(std::isnan(state.getMotorTime(1.0)));
+    EXPECT_TRUE(std::isnan(state.getMotorTime(kInfinity)));
+
+    // A later ignition is still ignored: the state is no longer ARMED.
+    state.ignite(1.0);
+    EXPECT_TRUE(std::isnan(state.getIgnitionTime()));
+}
+
 TEST_F(MotorClusterStateTest, ThrustScalesWithTheMotorCount)
 {
     m_mount->setInstances({Coordinate{0, 0.01, 0}, Coordinate{0, -0.01, 0}}, {0, 0});
@@ -271,6 +294,24 @@ TEST_F(MotorClusterStateTest, DescriptionAndString)
     EXPECT_EQ(state.toDescription(),
               std::string(32 - debugName.size(), ' ') + debugName + " /   A8 - Thrusting");
     EXPECT_EQ(state.toString(), "A8");
+}
+
+TEST_F(MotorClusterStateTest, DescriptionPadsToUtf16CodeUnitsAsJava)
+{
+    // Java's String.format("%32s") counts UTF-16 code units: "\u63A8\u8FDB\u5668/" plus the
+    // 8-character id prefix is 12 units, so 20 spaces (std::format's display width would
+    // count each wide character twice and give 17).
+    m_mount->setName("\u63A8\u8FDB\u5668");
+    const MotorClusterState state{config()};
+    const std::string       debugName = m_mount->getDebugName();
+    ASSERT_EQ(QtRocket::Strings::javaLength(debugName), 12U);
+    EXPECT_EQ(state.toDescription(), std::string(20, ' ') + debugName + " /   A8 - Armed");
+
+    // A name longer than the width is not cut.
+    const std::string longName(40, 'x');
+    m_mount->setName(longName);
+    const MotorClusterState longState{config()};
+    EXPECT_EQ(longState.toDescription(), m_mount->getDebugName() + " /   A8 - Armed");
 }
 
 TEST_F(MotorClusterStateTest, NonConstMountIsTheMountsComponent)

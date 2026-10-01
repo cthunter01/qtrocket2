@@ -182,6 +182,12 @@ std::string_view trim(const String&& text) = delete;
 /// String.length(): the number of UTF-16 code units (a code point above U+FFFF counts twice).
 [[nodiscard]] std::size_t javaLength(std::string_view text) noexcept;
 
+/// Java's String.format("%<width>s", text): @p text right-aligned in @p width UTF-16 code units
+/// (javaLength()), so padded with width - javaLength(text) spaces in front, and unchanged when it
+/// is at least that long. std::format's "{:>N}" pads to an estimated display width instead, in
+/// which an East Asian wide character or an emoji counts as two columns.
+[[nodiscard]] std::string javaPadLeft(std::string_view text, std::size_t width);
+
 /// The code point at @p position of UTF-8 @p text, read as toCodePoints() reads it (a byte that
 /// does not start a well-formed sequence reads alone as U+FFFD), and moves @p position past it.
 /// @p position must be below text.size().

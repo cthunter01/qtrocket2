@@ -12,6 +12,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -114,8 +115,10 @@ void MotorClusterState::reset() noexcept
 
 std::string MotorClusterState::toDescription() const
 {
-    return std::format("{:>32} / {:>4} - {}", asComponent(getMount()).getDebugName(),
-                       m_motor->getDesignation(), name(m_currentState));
+    // Java's "%32s / %4s - %s" pads to UTF-16 code units, not to std::format's display width.
+    return std::format("{} / {} - {}",
+                       Strings::javaPadLeft(asComponent(getMount()).getDebugName(), 32),
+                       Strings::javaPadLeft(m_motor->getDesignation(), 4), name(m_currentState));
 }
 
 }  // namespace QtRocket

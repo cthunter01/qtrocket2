@@ -26,7 +26,11 @@ class MotorClusterState;
 ///
 /// The in-flight calculation (Java: calculate(Type, SimulationStatus) and
 /// calculateMotor(SimulationStatus)) takes what it read from the status: the configuration, the
-/// simulation time and the active motor states (SimulationStatus.getActiveMotors()).
+/// simulation time and the active motor states (SimulationStatus.getActiveMotors()) as pointers,
+/// which a std::vector of const or non-const MotorClusterState pointers converts to. The
+/// simulation's SimulationStatus wrappers call these entry points, which accept temporaries (such
+/// as getActiveMotors() returned by value), since their calculation ends with the call; a
+/// MassCalculation built directly keeps references and rejects temporaries.
 class MassCalculator
 {
 public:
@@ -59,13 +63,6 @@ public:
     [[nodiscard]] static RigidBody calculate(
         MassCalculation::Type type, const FlightConfiguration& config, double simulationTime,
         std::span<const MotorClusterState* const> activeMotors);
-
-    /// As calculate(type, config, simulationTime, span of pointers), for motor states held in
-    /// one contiguous range.
-    [[nodiscard]] static RigidBody calculate(MassCalculation::Type              type,
-                                             const FlightConfiguration&         config,
-                                             double                             simulationTime,
-                                             std::span<const MotorClusterState> activeMotors);
 
     /// A static calculation of @p type with the configuration's active motors at @p time (a
     /// motor pseudo-time).

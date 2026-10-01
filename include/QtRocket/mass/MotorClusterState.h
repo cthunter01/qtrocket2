@@ -27,6 +27,15 @@ class MotorMount;
 /// (Java had a commented-out warning there). The times are +infinity until the event happens
 /// (reset()).
 ///
+/// Identity: Java shares each state object among its holders. SimulationStatus's copy
+/// constructor (a new branch at stage separation) adds the parent's states to the new branch, and
+/// the copied event queue's IGNITION, BURNOUT and EJECTION_CHARGE events carry those same
+/// objects, so burnOut() and expend() on a state are seen by every branch and every queued event.
+/// A state here is a copyable value, but the simulation must not copy states per branch: it keeps
+/// each one at a stable address shared between the branches as Java shares it (for example
+/// std::vector<std::shared_ptr<MotorClusterState>> in SimulationStatus, with a flight event's data
+/// a non-owning pointer into it), and passes MassCalculator pointers to them.
+///
 /// Placement: OpenRocket keeps this class in its simulation package. It lives in mass/ here
 /// because MassCalculation needs it and simulation/ builds on mass/ (simulation/ includes mass/,
 /// never the reverse); it needs only motor/ and rocket/.
@@ -34,7 +43,9 @@ class MotorMount;
 /// Deviations from OpenRocket:
 /// - The motor configuration is copied (Java keeps a reference to the mount's object):
 ///   FlightConfiguration::getAllMotors() hands out copies that its next update replaces. The
-///   copy refers to the same mount, which must outlive this state.
+///   copy refers to the same mount, which must outlive this state. A later edit of the mount's
+///   configuration (by a simulation listener, say) is therefore not seen by isPlugged(),
+///   getEjectionDelay() or getIgnitionEvent(), where Java reads the live object.
 /// - testForIgnition(FlightConfiguration, FlightEvent) is not here: it needs the simulation's
 ///   FlightEvent, which lives above mass/. The simulation ports it next to its event handling
 ///   from getIgnitionEvent() and getMount() (the rules are in IgnitionEvent.h).
@@ -154,7 +165,7 @@ public:
     void reset() noexcept;
 
     /// "<mount debug name, right-aligned in 32> / <designation, right-aligned in 4> - <state>"
-    /// (Java's "%32s / %4s - %s").
+    /// (Java's "%32s / %4s - %s"; the widths count UTF-16 code units, as Java's do).
     [[nodiscard]] std::string toDescription() const;
 
     /// The motor's designation (Java: toString()).

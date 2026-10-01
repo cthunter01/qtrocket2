@@ -40,6 +40,7 @@
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
@@ -461,7 +462,9 @@ std::unique_ptr<TestBodyComponent> makeTube(double length, double radius, double
     return tube;
 }
 
-/// The motor states SimulationStatus makes: one per motor of @p config (populateMotors()).
+/// One motor state per motor of @p config, as SimulationStatus.populateMotors() makes them. (A
+/// simulation keeps its states at stable, shared addresses, see MotorClusterState; a vector of
+/// values is enough for these tests, which pass pointers to them through activeMotors().)
 std::vector<MotorClusterState> motorStates(const FlightConfiguration& config)
 {
     std::vector<MotorClusterState> states;
@@ -485,6 +488,16 @@ std::vector<const MotorClusterState*> activeMotors(const FlightConfiguration&   
         }
     }
     return active;
+}
+
+/// Expects @p actual to be @p expected bit for bit: the centre of mass and the inertias.
+void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
+                           const std::string& what)
+{
+    EXPECT_TRUE(actual.getCM().exactlyEquals(expected.getCM())) << what;
+    EXPECT_EQ(actual.getIxx(), expected.getIxx()) << what;
+    EXPECT_EQ(actual.getIyy(), expected.getIyy()) << what;
+    EXPECT_EQ(actual.getIzz(), expected.getIzz()) << what;
 }
 
 // ======================================================= golden comparisons through test doubles
@@ -814,7 +827,7 @@ TEST(MassCalculator, AlphaIIIMotorSimulationMass)
     const Motor&       activeMotor    = *alpha.inner->getMotorConfig(config.getId()).getMotor();
     const std::string& desig          = activeMotor.getDesignation();
 
-    // What a SimulationStatus of the configuration holds: one state per motor.
+    // One state per motor of the configuration, as a SimulationStatus makes them.
     std::vector<MotorClusterState> states = motorStates(config);
     ASSERT_EQ(states.size(), 1U);
 
@@ -1444,11 +1457,16 @@ TEST(MassCalculator, EmptyStages)
     sustainerRef.setMassOverridden(true);
     sustainerRef.setOverrideMass(rocketDryMassRef);
 
-    ASSERT_EQ(&alpha.rocket->getChild(1), static_cast<RocketComponent*>(alpha.stage));
-    AxialStage& sustainer = *alpha.stage;
-    sustainer.setSubcomponentsOverriddenMass(true);
-    sustainer.setMassOverridden(true);
-    sustainer.setOverrideMass(rocketDryMass);
+    // Java's rocket.getChild(0): the empty stage added at the front, which is inactive (it has
+    // no children), so its override is ignored.
+    auto* const sustainer = dynamic_cast<AxialStage*>(&alpha.rocket->getChild(0));
+    ASSERT_NE(sustainer, nullptr);
+    ASSERT_NE(sustainer, alpha.stage);
+    ASSERT_EQ(sustainer->getChildCount(), 0U);
+    EXPECT_FALSE(config.isComponentActive(*sustainer));
+    sustainer->setSubcomponentsOverriddenMass(true);
+    sustainer->setMassOverridden(true);
+    sustainer->setOverrideMass(rocketDryMass);
 
     const RigidBody overrideStructureRef = MassCalculator::calculateStructure(configRef);
     const RigidBody overrideStructure    = MassCalculator::calculateStructure(config);
@@ -1461,6 +1479,20 @@ TEST(MassCalculator, EmptyStages)
     EXPECT_NEAR(overrideStructureRef.getLongitudinalInertia(),
                 overrideStructure.getLongitudinalInertia(), kEpsilon)
         << "Empty Stages Rocket Longitudinal MOI calculated incorrectly: ";
+
+    // Addition: the same override on the real (Alpha III) stage of the rocket with the empty
+    // stages also gives the reference result.
+    sustainer->setMassOverridden(false);
+    ASSERT_EQ(&alpha.rocket->getChild(1), static_cast<RocketComponent*>(alpha.stage));
+    alpha.stage->setSubcomponentsOverriddenMass(true);
+    alpha.stage->setMassOverridden(true);
+    alpha.stage->setOverrideMass(rocketDryMass);
+    const RigidBody stageOverride = MassCalculator::calculateStructure(config);
+    EXPECT_EQ(overrideStructureRef.getCM(), stageOverride.getCM());
+    EXPECT_NEAR(overrideStructureRef.getRotationalInertia(), stageOverride.getRotationalInertia(),
+                kEpsilon);
+    EXPECT_NEAR(overrideStructureRef.getLongitudinalInertia(),
+                stageOverride.getLongitudinalInertia(), kEpsilon);
 }
 
 TEST(MassCalculator, DisabledStageMassAndCG)
@@ -1733,9 +1765,8 @@ TEST_F(MassCalculatorRocketTest, LaunchInFlightAddsTheBurningMotorToTheStructure
     for (const double time : {0.0, 1.0, 2.5})
     {
         const double    motorTime = QtRocket::MathUtil::javaMax(time - 0.5, 0.0);
-        const RigidBody launch =
-            MassCalculator::calculate(MassCalculation::Type::LAUNCH, config(), time,
-                                      std::span<const MotorClusterState>{states});
+        const RigidBody launch = MassCalculator::calculate(MassCalculation::Type::LAUNCH, config(),
+                                                           time, activeMotors(config(), states));
         EXPECT_DOUBLE_EQ(launch.getMass(), structure + motor->getTotalMass(motorTime)) << time;
     }
 }
@@ -1752,6 +1783,126 @@ TEST_F(MassCalculatorRocketTest, UnlitOrAbsentMotorStates)
 
     // No motor states at all: no motors.
     EXPECT_EQ(MassCalculator::calculateMotor(config(), 1.0, {}).getMass(), 0.0);
+}
+
+TEST_F(MassCalculatorRocketTest, BurnoutInFlightTakesTheCasingWhateverTheMotorTime)
+{
+    const std::shared_ptr<const ThrustCurveMotor> motor = addA8();
+    const RigidBody structure     = MassCalculator::calculateStructure(config());
+    const RigidBody staticBurnout = MassCalculator::calculateBurnout(config());
+
+    // Java's includesMotorCasing && !includesPropellant branch: the casing at
+    // Motor.PSEUDO_TIME_BURNOUT, never at a state's motor time.
+    const double casingMass = motor->getTotalMass(Motor::kPseudoTimeBurnout);
+    const double casingX    = kMotorX + motor->getCMx(Motor::kPseudoTimeBurnout);
+    EXPECT_DOUBLE_EQ(casingMass, motor->getBurnoutMass());
+    EXPECT_DOUBLE_EQ(staticBurnout.getMass(), structure.getMass() + casingMass);
+    EXPECT_NEAR(staticBurnout.getCM().x,
+                ((structure.getMass() * structure.getCM().x) + (casingMass * casingX)) /
+                    staticBurnout.getMass(),
+                1e-15);
+
+    // In flight, lit or not, at any time: bit for bit the static burnout calculation.
+    const std::vector<MotorClusterState> unlit = motorStates(config());
+    const std::vector<MotorClusterState> lit   = [&] {
+        std::vector<MotorClusterState> states = motorStates(config());
+        for (MotorClusterState& state : states)
+        {
+            state.ignite(0.0);
+        }
+        return states;
+    }();
+    ASSERT_EQ(lit.size(), 1U);
+    for (const double time : {0.0, 0.3, 5.0})
+    {
+        expectIdenticalBodies(MassCalculator::calculate(MassCalculation::Type::BURNOUT, config(),
+                                                        time, activeMotors(config(), unlit)),
+                              staticBurnout, std::format("unlit at {}", time));
+        expectIdenticalBodies(MassCalculator::calculate(MassCalculation::Type::BURNOUT, config(),
+                                                        time, activeMotors(config(), lit)),
+                              staticBurnout, std::format("lit at {}", time));
+    }
+}
+
+TEST_F(MassCalculatorRocketTest, NullMotorStateIsABug)
+{
+    addA8();
+    const std::vector<const MotorClusterState*> states{nullptr};
+    EXPECT_THROW(static_cast<void>(MassCalculator::calculateMotor(config(), 0.5, states)),
+                 QtRocket::BugError);
+    EXPECT_THROW(static_cast<void>(MassCalculator::calculate(MassCalculation::Type::LAUNCH,
+                                                             config(), 0.5, states)),
+                 QtRocket::BugError);
+    // STRUCTURE has no motor pass, so it never reads the states.
+    EXPECT_NO_THROW(static_cast<void>(
+        MassCalculator::calculate(MassCalculation::Type::STRUCTURE, config(), 0.5, states)));
+}
+
+TEST_F(MassCalculatorRocketTest, MotorsOfOneDesignationShareOneAnalysisRow)
+{
+    addA8();
+    // A second mount at the body's front with another A8.
+    TestMotorMount& front = m_body->addChild(
+        TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE, AxialMethod::TOP));
+    front.setAxialOffset(AxialMethod::TOP, 0.0);
+    front.setMotorMount(true);
+    front.addMotor(m_fcid, QtRocket::Test::motorA8());
+    config().update();
+
+    const double    m      = 0.0164;
+    const double    rearX  = kMotorX + 0.035;
+    const double    frontX = (0.1 - 0.07) + 0.035;
+    const RigidBody motors = MassCalculator::calculateMotor(config());
+    ASSERT_NEAR(motors.getMass(), 2 * m, 1e-15);
+
+    // Java keys a motor's row by the hash of its designation: both clusters share one row, with
+    // the mass of one motor (the first cluster's) and the average CG of both clusters.
+    const CMAnalysisMap    analysis = MassCalculator::getCMAnalysis(config());
+    const CMAnalysisEntry& row =
+        analysis.at(CMAnalysisEntry::keyOf(*front.getMotorConfig(m_fcid).getMotor()));
+    EXPECT_EQ(row.name, "A8");
+    EXPECT_DOUBLE_EQ(row.eachMass, m);
+    EXPECT_DOUBLE_EQ(row.totalCM.weight, 2 * m);
+    EXPECT_NEAR(row.totalCM.x, (rearX + frontX) / 2, 1e-15);
+    EXPECT_NEAR(row.totalCM.x, motors.getCM().x, 1e-15);
+    // Rows: the rocket, the stage, the body, the two mounts and one for both motors.
+    EXPECT_EQ(analysis.size(), 6U);
+
+    // The stage's row holds the structure and both motors.
+    const RigidBody        structure = MassCalculator::calculateStructure(config());
+    const CMAnalysisEntry& stageRow  = analysis.at(CMAnalysisEntry::keyOf(*m_stage));
+    EXPECT_NEAR(stageRow.totalCM.weight, structure.getMass() + (2 * m), 1e-15);
+}
+
+TEST_F(MassCalculatorRocketTest, AnalysisRowOfAnAssemblyWhoseOverrideCoversItsSubcomponents)
+{
+    const std::shared_ptr<const ThrustCurveMotor> motor = addA8();
+    m_stage->setMassOverridden(true);
+    m_stage->setSubcomponentsOverriddenMass(true);
+    m_stage->setOverrideMass(1.0);
+
+    const CMAnalysisMap analysis = MassCalculator::getCMAnalysis(config());
+
+    // The structure pass gives the stage's row the override mass at its children's CG (a stage
+    // is not massive); the motor pass then adds the motor below it, which the override does not
+    // cover.
+    const double           structureX = ((0.2 * 0.25) + (0.05 * 0.45)) / 0.25;
+    const double           m          = motor->getTotalMass(Motor::kPseudoTimeLaunch);
+    const double           motorX     = kMotorX + motor->getCMx(Motor::kPseudoTimeLaunch);
+    const CMAnalysisEntry& stageRow   = analysis.at(CMAnalysisEntry::keyOf(*m_stage));
+    EXPECT_NEAR(stageRow.totalCM.weight, 1.0 + m, 1e-15);
+    EXPECT_NEAR(stageRow.eachMass, 1.0 + m, 1e-15);
+    EXPECT_NEAR(stageRow.totalCM.x, ((1.0 * structureX) + (m * motorX)) / (1.0 + m), 1e-15);
+
+    // The physical components' rows keep their own masses: the override is the stage's.
+    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_body)).eachMass, 0.2);
+    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_mount)).eachMass, 0.05);
+
+    // The rocket's row is the whole launch calculation.
+    const RigidBody        launch    = MassCalculator::calculateLaunch(config());
+    const CMAnalysisEntry& rocketRow = analysis.at(CMAnalysisEntry::keyOf(m_rocket));
+    EXPECT_TRUE(rocketRow.totalCM.exactlyEquals(launch.getCM()));
+    EXPECT_NEAR(launch.getMass(), 1.0 + m, 1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, MotorOfAnInactiveMountAddsNothing)
@@ -1867,6 +2018,44 @@ TEST(MassCalculatorParallelStage, InactiveCoreStageStillCarriesActiveBoosters)
     EXPECT_NEAR(both.getCM().y, 0.0, 1e-15);
 }
 
+TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
+{
+    GoldenFalcon9Heavy   f9h;
+    FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
+    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    const RigidBody boosters = MassCalculator::calculateStructure(config);
+
+    // Mass and CG overrides on the core stage that cover its subcomponents, the boosters
+    // included.
+    AxialStage& core = *f9h.coreStage;
+    core.setMassOverridden(true);
+    core.setSubcomponentsOverriddenMass(true);
+    core.setOverrideMass(10.0);
+    core.setCGOverridden(true);
+    core.setSubcomponentsOverriddenCG(true);
+    core.setOverrideCGX(0.0);
+
+    // Core inactive, boosters active: Java applies the overrides of active components only
+    // (MassCalculation.java's isComponentActive() branch), so the boosters keep their own mass.
+    config.setAllStages();
+    config.setStageActive(kFalcon9hPayloadStageNumber, false);
+    config.setStageActive(kFalcon9hCoreStageNumber, false, false);
+    ASSERT_TRUE(config.isStageActive(kFalcon9hBoosterStageNumber));
+    const RigidBody onlyBoosters = MassCalculator::calculateStructure(config);
+    EXPECT_NEAR(onlyBoosters.getMass(), boosters.getMass(), 1e-15);
+    EXPECT_NEAR(onlyBoosters.getCM().x, boosters.getCM().x, 1e-15);
+    EXPECT_NEAR(onlyBoosters.getIxx(), boosters.getIxx(), 1e-15);
+    EXPECT_NEAR(onlyBoosters.getIyy(), boosters.getIyy(), 1e-15);
+
+    // Core active as well: the override replaces the mass of the core and the boosters, all at
+    // the core stage's front (its position in the rocket).
+    config.setStageActive(kFalcon9hCoreStageNumber, true, true);
+    const RigidBody overridden = MassCalculator::calculateStructure(config);
+    EXPECT_NEAR(overridden.getMass(), 10.0, 1e-12);
+    EXPECT_NEAR(overridden.getCM().x, core.getPosition().x, 1e-12);
+    EXPECT_NEAR(overridden.getCM().y, 0.0, 1e-12);
+}
+
 TEST(MassCalculatorParallelStage, BoosterMotorsAreOneClusterPerBooster)
 {
     GoldenFalcon9Heavy   f9h;
@@ -1918,11 +2107,27 @@ TEST(MassCalculatorTypes, StaticCalculateMatchesTheNamedEntryPoints)
     const std::vector<MotorClusterState> states = motorStates(config);
     EXPECT_TRUE(same(MassCalculator::calculateLaunch(config),
                      MassCalculator::calculate(MassCalculation::Type::LAUNCH, config, 0.0,
-                                               std::span<const MotorClusterState>{states})));
+                                               activeMotors(config, states))));
     // STRUCTURE ignores the motor states.
     EXPECT_TRUE(same(MassCalculator::calculateStructure(config),
                      MassCalculator::calculate(MassCalculation::Type::STRUCTURE, config, 0.0,
-                                               std::span<const MotorClusterState>{states})));
+                                               activeMotors(config, states))));
+}
+
+TEST(MassCalculatorTypes, AnEmptyListOfMotorStatesMeansNoMotors)
+{
+    GoldenAlphaIII             alpha;
+    const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(1));
+
+    // Unlike a static calculation, which takes the configuration's active motors. The empty
+    // motor pass is still merged (x * m / m), so the CG is compared with a tolerance.
+    const RigidBody structure = MassCalculator::calculateStructure(config);
+    const RigidBody noMotors =
+        MassCalculator::calculate(MassCalculation::Type::LAUNCH, config, 0.0, {});
+    EXPECT_GT(MassCalculator::calculateLaunch(config).getMass(), structure.getMass());
+    EXPECT_EQ(noMotors.getMass(), structure.getMass());
+    EXPECT_NEAR(noMotors.getCM().x, structure.getCM().x, 1e-15);
+    EXPECT_NEAR(noMotors.getIyy(), structure.getIyy(), 1e-15);
 }
 
 TEST(MassCalculatorTypes, LaunchIsStructurePlusMotorAndBurnoutIsBetween)
