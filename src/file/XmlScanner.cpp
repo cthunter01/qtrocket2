@@ -230,7 +230,8 @@ constexpr std::string_view kCantBindXmlns =
 constexpr std::string_view kVersionRequired     = "The version is required in the XML declaration.";
 constexpr std::string_view kXmlDeclUnterminated = "The XML declaration must end with \"?>\".";
 
-/// Ends the scan: the first fatal error, as Xerces throws it.
+/// Ends the scan: the first fatal error, as Xerces throws it. Not a std::exception: scan() catches
+/// it and it never leaves this file.
 struct Stop
 {
     Error error;
@@ -238,6 +239,7 @@ struct Stop
 
 [[noreturn]] void stop(ErrorCode code, std::string message)
 {
+    // NOLINTNEXTLINE(bugprone-std-exception-baseclass)
     throw Stop{fail(code, std::move(message)).error()};
 }
 
@@ -581,14 +583,14 @@ private:
     [[nodiscard]] bool detectVersion()
     {
         std::size_t position = 0;
-        const auto  at       = [this, &position]() -> char32_t {
+        const auto  at       = [this, &position] -> char32_t {
             if (position >= m_chars.size())
             {
                 fatal(std::string(kPrematureEof));
             }
             return m_chars[position];
         };
-        const auto skipDeclSpaces = [&]() {
+        const auto skipDeclSpaces = [&] {
             bool skipped = false;
             while (isSpace(at()))
             {
@@ -619,7 +621,7 @@ private:
         skipDeclSpaces();
         // scanChar(): the quote, whatever it is, three characters and one more, with "\r\n" and
         // "\r" read as "\n"
-        const auto scanChar = [&]() {
+        const auto scanChar = [&] {
             char32_t c = at();
             position++;
             if (c == U'\r')

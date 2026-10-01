@@ -159,7 +159,7 @@ void writeEngine(std::string& sb, const ThrustCurveMotor& motor)
     sb += " code=\"" + escapeXmlAttr(motor.getDesignation()) + "\"";
     sb += " Type=\"";
     sb += motorTypeString(motor.getMotorType());
-    sb += "\"";
+    sb += '"';
     appendNumber(sb, "dia", diameterMM);
     appendNumber(sb, "len", lengthMM);
     appendNumber(sb, "initWt", initWtGrams);

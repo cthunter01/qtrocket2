@@ -246,8 +246,8 @@ TEST_F(PinkNoiseWindModelTest, Equality)
 
 TEST_F(PinkNoiseWindModelTest, ChangeListeners)
 {
-    bool listenerCalled = false;
-    auto connection     = m_model.changed().connect([&listenerCalled] { listenerCalled = true; });
+    bool       listenerCalled = false;
+    const auto connection = m_model.changed().connect([&listenerCalled] { listenerCalled = true; });
 
     m_model.setAverage(10.0);
     EXPECT_TRUE(listenerCalled);

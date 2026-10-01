@@ -152,7 +152,7 @@ void createDatabase(const std::filesystem::path& file, const std::string& motorR
     return contents.error().message;
 }
 
-[[nodiscard]] MotorPtr build(ThrustCurveMotor::Builder& builder)
+[[nodiscard]] MotorPtr build(const ThrustCurveMotor::Builder& builder)
 {
     return std::make_shared<const ThrustCurveMotor>(builder.build().value());
 }
@@ -973,7 +973,7 @@ TEST(SqliteMotorDatabaseReader, WritesTheMetadataAndTotals)
     EXPECT_EQ(query(dbFile, "SELECT value FROM meta WHERE key = 'motor_count'"), "1");
     const std::string generatedAt =
         query(dbFile, "SELECT value FROM meta WHERE key = 'generated_at'").value_or("");
-    EXPECT_TRUE(generatedAt.ends_with("Z") && generatedAt.size() >= 20 && generatedAt[10] == 'T')
+    EXPECT_TRUE(generatedAt.ends_with('Z') && generatedAt.size() >= 20 && generatedAt[10] == 'T')
         << generatedAt;
     EXPECT_TRUE(query(dbFile, "SELECT value FROM meta WHERE key = 'database_version'").has_value());
     EXPECT_EQ(query(dbFile, "SELECT COUNT(*) FROM motors"), "1");

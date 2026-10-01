@@ -1306,7 +1306,7 @@ std::string FlightConfiguration::toStageListDetail(const Preferences& preference
         appendRow(flags.stageId.toString(), flags.active ? " on" : "off",
                   stage != nullptr ? stage->getName() : std::string{"null"});
     }
-    buffer += "\n";
+    buffer += '\n';
     return buffer;
 }
 
@@ -1323,7 +1323,7 @@ std::string FlightConfiguration::toMotorDetail(const Preferences& preferences) c
         buffer += std::string{"    ("} + (active ? "active" : "      ") + ")" +
                   curConfig.toDebugDetail(preferences) + "\n";
     }
-    buffer += "\n";
+    buffer += '\n';
     return buffer;
 }
 

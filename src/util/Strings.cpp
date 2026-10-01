@@ -1390,7 +1390,7 @@ std::string formatFixed(double value, int precision)
     std::string text   = std::move(parts.integerPart);
     if (digits > 0)
     {
-        text += ".";
+        text += '.';
         text += parts.fraction;
     }
     // The Formatter prints the sign of a negative zero and of digits that round to zero.
@@ -1412,7 +1412,7 @@ std::string formatScientific(double value, int precision)
     std::string           text   = parts.digits.substr(0, 1);
     if (digits > 0)
     {
-        text += ".";
+        text += '.';
         text += parts.digits.substr(1);
     }
     text += std::format("e{}{:02}", parts.exponent < 0 ? '-' : '+', std::abs(parts.exponent));

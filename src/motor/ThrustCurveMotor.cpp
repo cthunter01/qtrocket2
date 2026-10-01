@@ -107,7 +107,7 @@ constexpr double kSnapDistance = 0.0001;
         }
         out += Strings::javaDoubleToString(values[i]);
     }
-    out += "]";
+    out += ']';
     return out;
 }
 

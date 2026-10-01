@@ -149,7 +149,7 @@ std::string Unit::toStringUnit(double value) const
     std::string s = toString(value);
     if (hasSpace())
     {
-        s += " ";
+        s += ' ';
     }
     s += m_unit;
     return s;

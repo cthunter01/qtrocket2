@@ -381,8 +381,8 @@ TEST_F(RocketTest, TreeChangesFireWithMassAndAeroOfTheSubtree)
 
 TEST_F(RocketTest, ListenersAreRemovedWithTheirConnection)
 {
-    int  count = 0;
-    auto connection =
+    int        count = 0;
+    const auto connection =
         m_rocket.addComponentChangeListener([&count](const ComponentChangeEvent&) { ++count; });
     m_body->setMass(1.0);
     EXPECT_EQ(count, 1);
@@ -394,8 +394,8 @@ TEST_F(RocketTest, ListenersAreRemovedWithTheirConnection)
 
 TEST_F(RocketTest, AComponentAddsItsListenerToItsRocket)
 {
-    int  count = 0;
-    auto fromChild =
+    int        count = 0;
+    const auto fromChild =
         m_body->addComponentChangeListener([&count](const ComponentChangeEvent&) { ++count; });
     m_nose->setMass(1.0);
     EXPECT_EQ(count, 1);
@@ -439,9 +439,11 @@ TEST_F(RocketTest, ChangeListenerIdentityIsItsConnection)
 {
     // Java's adapters were equal when they wrapped the same listener, so that removing one
     // removed "the" listener; here each connection is a listener of its own.
-    int  count  = 0;
-    auto first  = m_body->addChangeListener([&count](const ComponentChangeEvent&) { ++count; });
-    auto second = m_body->addChangeListener([&count](const ComponentChangeEvent&) { ++count; });
+    int        count = 0;
+    const auto first =
+        m_body->addChangeListener([&count](const ComponentChangeEvent&) { ++count; });
+    const auto second =
+        m_body->addChangeListener([&count](const ComponentChangeEvent&) { ++count; });
     EXPECT_EQ(first, first);
     EXPECT_FALSE(first == second);
     m_body->setMass(1.0);

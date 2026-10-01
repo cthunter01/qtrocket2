@@ -129,7 +129,9 @@ public:
     }
 
     /// Replaces this branch with @p other, its immutability and ModId included.
-    /// @throws BugError when this branch is immutable
+    /// @throws BugError when this branch is immutable (deliberately, as Java does, so the move can
+    /// throw)
+    // NOLINTNEXTLINE(bugprone-unsafe-to-allow-exceptions)
     DataBranch& operator=(DataBranch&& other) noexcept(false)
     {
         m_mutable.check();

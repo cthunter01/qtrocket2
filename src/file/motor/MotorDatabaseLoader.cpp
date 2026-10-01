@@ -83,7 +83,7 @@ void collectFiles(const std::filesystem::path& directory,
     std::filesystem::directory_iterator iterator(directory, error);
     for (; !error && iterator != std::filesystem::directory_iterator(); iterator.increment(error))
     {
-        if (!utf8(iterator->path().filename()).starts_with("."))
+        if (!utf8(iterator->path().filename()).starts_with('.'))
         {
             entries.push_back(iterator->path());
         }

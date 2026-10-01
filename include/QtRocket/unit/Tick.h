@@ -26,7 +26,7 @@ struct Tick
         {
             text += ",notable";
         }
-        text += "]";
+        text += ']';
         return text;
     }
 };

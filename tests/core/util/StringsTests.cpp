@@ -129,7 +129,7 @@ TEST(Strings, AsciiBytes)
     // Java's US-ASCII encoder replaces each unmappable code point with one '?'.
     EXPECT_EQ(Strings::asciiBytes(std::string("a") + std::string(Chars::kDegree) + "b"),
               bytesOf("a?b"));
-    EXPECT_EQ(Strings::asciiBytes(std::string(Chars::kFraction)), bytesOf("?"));
+    EXPECT_EQ(Strings::asciiBytes(Chars::kFraction), bytesOf("?"));
 }
 
 TEST(Strings, HexString)
@@ -947,7 +947,9 @@ TEST(Strings, TrimRejectsTemporaryStrings)
     static_assert(Trimmable<decltype("x")>);  // a string literal
     static_assert(Trimmable<const char*>);
     EXPECT_EQ(Strings::trim(std::string_view(" x ")), "x");
-    EXPECT_TRUE(Strings::isEmpty(std::string("  ")));  // returns a bool, so a temporary is safe
+    // The point is the temporary std::string: isEmpty returns a bool, so nothing dangles.
+    // NOLINTNEXTLINE(performance-string-view-conversions)
+    EXPECT_TRUE(Strings::isEmpty(std::string("  ")));
 }
 
 TEST(Strings, ToLower)

@@ -213,7 +213,7 @@ TEST(ThrustCurveMotorSet, EmptySet)
 
 TEST(ThrustCurveMotorSet, DuplicateDigestKeepsTheBetterDescription)
 {
-    auto withDescription = [](std::string digest, std::string description) {
+    const auto withDescription = [](std::string digest, std::string description) {
         return share(harnessBuilder("A", "F12", "F12", Motor::Type::SINGLE, {}, {0, 1, 2},
                                     {0, 1, 0}, std::move(digest), std::move(description)));
     };

@@ -87,7 +87,7 @@ std::string TypedPropertyMap::toString() const
         std::format_to(std::back_inserter(out), "{} => {}", entry.key.toString(),
                        QtRocket::toString(entry.value));
     }
-    out += "}";
+    out += '}';
     return out;
 }
 

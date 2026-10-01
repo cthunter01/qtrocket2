@@ -46,7 +46,7 @@ public:
         entry += describe(attributes);
         entry += " [";
         entry += content;
-        entry += "]";
+        entry += ']';
         log.push_back(std::move(entry));
         return {};
     }
@@ -66,9 +66,9 @@ private:
         std::string text;
         for (const auto& [name, value] : attributes)
         {
-            text += " ";
+            text += ' ';
             text += name;
-            text += "=";
+            text += '=';
             text += value;
         }
         return text;

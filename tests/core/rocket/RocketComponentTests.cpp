@@ -836,11 +836,11 @@ TEST(RocketComponentIteration, IteratorOperations)
 {
     TestComponent  root;
     TestComponent& a     = root.addChild(TestComponent::make());
-    auto           range = root.subtree();
+    const auto     range = root.subtree();
     auto           it    = range.begin();
     EXPECT_EQ(&*it, &root);
     EXPECT_EQ(it->getParent(), nullptr);
-    auto previous = it++;
+    const auto previous = it++;
     EXPECT_EQ(&*previous, &root);
     EXPECT_EQ(&*it, &a);
     ++it;

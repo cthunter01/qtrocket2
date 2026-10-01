@@ -1671,7 +1671,7 @@ Result<void> SqliteMotorDatabaseReader::writeDatabase(
     {
         return begun;
     }
-    const auto write = [&connection, motors]() -> Result<void> {
+    const auto write = [&connection, motors] -> Result<void> {
         for (const std::string_view sql : kSchemaStatements)
         {
             if (Result<void> created = connection->execute(std::string(sql)); !created)
