@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
@@ -46,7 +47,38 @@ void setBuiltinDefault(Preferences& preferences, std::string_view className,
                                 storage.findMaterial(Material::Type::BULK, materialName));
 }
 
+/// The name of the built-in default material of @p type (StaticFieldHolder.DEFAULT_*).
+/// @throws BugError for CUSTOM (Java: IllegalArgumentException "Unknown material type").
+[[nodiscard]] std::string_view fallbackMaterialName(Material::Type type)
+{
+    switch (type)
+    {
+        case Material::Type::LINE:
+            return kDefaultLineMaterialName;
+        case Material::Type::SURFACE:
+            return kDefaultSurfaceMaterialName;
+        case Material::Type::BULK:
+            return kDefaultBulkMaterialName;
+        case Material::Type::CUSTOM:
+            break;
+    }
+    bug(std::format("Unknown material type: {}", toString(type)));
+}
+
 }  // namespace
+
+Material builtinDefaultComponentMaterial(Material::Type type)
+{
+    const std::string_view name = fallbackMaterialName(type);
+    for (const BuiltinMaterial& row : builtinMaterials())
+    {
+        if (row.type == type && row.name == name)
+        {
+            return toMaterial(row);
+        }
+    }
+    bug(std::format("no built-in {} material \"{}\"", toString(type), name));
+}
 
 Material getDefaultComponentMaterial(const Preferences& preferences, ComponentClassChain classChain,
                                      Material::Type type, const MaterialStorage& storage)
@@ -62,21 +94,7 @@ Material getDefaultComponentMaterial(const Preferences& preferences, ComponentCl
         }
     }
 
-    std::string_view fallback;
-    switch (type)
-    {
-        case Material::Type::LINE:
-            fallback = kDefaultLineMaterialName;
-            break;
-        case Material::Type::SURFACE:
-            fallback = kDefaultSurfaceMaterialName;
-            break;
-        case Material::Type::BULK:
-            fallback = kDefaultBulkMaterialName;
-            break;
-        case Material::Type::CUSTOM:
-            bug(std::format("Unknown material type: {}", toString(type)));
-    }
+    const std::string_view fallback = fallbackMaterialName(type);
     if (std::optional<Material> material = storage.findMaterial(type, fallback);
         material.has_value())
     {

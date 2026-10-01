@@ -960,8 +960,9 @@ protected:
 
     // The fields are ordered by alignment to keep the object compact.
 
-    /// The characteristic length (Java: protected field length).
-    double m_length{0.0};
+    /// The characteristic length (Java: protected field length); mutable because
+    /// MassObject::getLength() refreshes it, as Java's getter writes the field.
+    mutable double m_length{0.0};
     /// The offset for m_axialMethod (Java: axialOffset).
     double m_axialOffset{0.0};
     /// The override mass (Java: overrideMass); mutable because getOverrideMass() refreshes it.

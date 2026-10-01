@@ -1,11 +1,15 @@
 #include "goldens/GoldenData.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstddef>
 #include <expected>
 #include <filesystem>
 #include <format>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -15,6 +19,7 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/file/GzipStream.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
@@ -438,6 +443,116 @@ const nlohmann::json* aeroResults(const nlohmann::json& aero, std::size_t index)
         return nullptr;
     }
     return &referenced;
+}
+
+// ================================================================================ GoldenCheck
+
+GoldenCheck::GoldenCheck(const nlohmann::json& golden, double relativeTolerance) noexcept
+  : m_golden(&golden), m_relativeTolerance(relativeTolerance)
+{
+}
+
+const nlohmann::json* GoldenCheck::find(std::string_view pointer) const
+{
+    const nlohmann::json::json_pointer path{std::string{pointer}};
+    if (!m_golden->contains(path))
+    {
+        return nullptr;
+    }
+    return &m_golden->at(path);
+}
+
+bool GoldenCheck::matches(double actual, const nlohmann::json& expected) const
+{
+    const std::optional<double> value = goldenNumber(expected);
+    if (!value)
+    {
+        return false;
+    }
+    if (std::isnan(*value) || std::isnan(actual))
+    {
+        return std::isnan(*value) && std::isnan(actual);
+    }
+    if (*value == actual)
+    {
+        return true;  // equal infinities included
+    }
+    const double tolerance =
+        (m_relativeTolerance * std::max(std::abs(*value), std::abs(actual))) + 1e-18;
+    return std::abs(actual - *value) <= tolerance;
+}
+
+void GoldenCheck::fail(std::string_view pointer, std::string_view actual,
+                       const nlohmann::json* golden)
+{
+    m_failures.push_back(std::format("{}: {} differs from the golden {}", pointer, actual,
+                                     golden == nullptr ? std::string{"(none)"} : golden->dump()));
+}
+
+void GoldenCheck::number(std::string_view pointer, double actual)
+{
+    const nlohmann::json* golden = find(pointer);
+    if (golden == nullptr || !matches(actual, *golden))
+    {
+        fail(pointer, std::format("{:.17g}", actual), golden);
+    }
+}
+
+void GoldenCheck::coordinate(std::string_view pointer, const Coordinate& actual)
+{
+    const nlohmann::json*       golden = find(pointer);
+    const std::array<double, 4> values{actual.x, actual.y, actual.z, actual.weight};
+    bool ok = golden != nullptr && golden->is_array() && golden->size() >= 3 &&
+              golden->size() <= values.size();
+    for (std::size_t i = 0; ok && i < golden->size(); ++i)
+    {
+        ok = matches(values.at(i), golden->at(i));
+    }
+    if (!ok)
+    {
+        fail(pointer, actual.toPreciseString(), golden);
+    }
+}
+
+void GoldenCheck::coordinates(std::string_view pointer, std::span<const Coordinate> actual)
+{
+    const nlohmann::json* golden = find(pointer);
+    if (golden == nullptr || !golden->is_array() || golden->size() != actual.size())
+    {
+        fail(pointer, std::format("{} coordinates", actual.size()), golden);
+        return;
+    }
+    for (std::size_t i = 0; i < actual.size(); ++i)
+    {
+        coordinate(std::format("{}/{}", pointer, i), actual[i]);
+    }
+}
+
+void GoldenCheck::string(std::string_view pointer, std::string_view actual)
+{
+    const nlohmann::json* golden = find(pointer);
+    if (golden == nullptr || !golden->is_string() || golden->get<std::string>() != actual)
+    {
+        fail(pointer, std::format("\"{}\"", actual), golden);
+    }
+}
+
+void GoldenCheck::boolean(std::string_view pointer, bool actual)
+{
+    const nlohmann::json* golden = find(pointer);
+    if (golden == nullptr || !golden->is_boolean() || golden->get<bool>() != actual)
+    {
+        fail(pointer, actual ? "true" : "false", golden);
+    }
+}
+
+void GoldenCheck::integer(std::string_view pointer, long long actual)
+{
+    const nlohmann::json* golden = find(pointer);
+    if (golden == nullptr || !golden->is_number_integer() || golden->get<long long>() != actual)
+    {
+        fail(pointer, std::to_string(actual), golden);
+    }
 }
 
 }  // namespace QtRocket::Test

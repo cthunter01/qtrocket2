@@ -23,6 +23,7 @@
 #include <pugixml.hpp>
 
 #include "QtRocket/file/GzipStream.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
@@ -510,6 +511,35 @@ TEST(GoldenData, GoldenNumberRejectsOtherValues)
     EXPECT_FALSE(QtRocket::Test::goldenNumber(json(nullptr)).has_value());
     EXPECT_FALSE(QtRocket::Test::goldenNumber(json(true)).has_value());
     EXPECT_FALSE(QtRocket::Test::goldenNumber(json::array({1.0})).has_value());
+}
+
+TEST(GoldenData, GoldenCheckCollectsMismatches)
+{
+    const json golden = json::parse(
+        R"({"a": 1.0, "b": [1, 2, 3, 4], "c": [[0, 0, 0]], "s": "x", "t": true, "n": 3,
+            "d": {"e": "NaN"}})");
+    QtRocket::Test::GoldenCheck check{golden};
+    check.number("/a", 1.0 + 1e-15);  // within the relative 1e-12
+    check.coordinate("/b", QtRocket::Coordinate{1, 2, 3, 4});
+    check.coordinates("/c", std::vector{QtRocket::Coordinate{0, 0, 0}});
+    check.string("/s", "x");
+    check.boolean("/t", true);
+    check.integer("/n", 3);
+    check.number("/d/e", std::numeric_limits<double>::quiet_NaN());
+    EXPECT_EQ(check.failures(), std::vector<std::string>{});
+
+    check.number("/a", 1.001);
+    check.number("/missing", 0);
+    check.coordinate("/b", QtRocket::Coordinate{1, 2, 3, 5});
+    check.coordinates("/c", {});
+    check.string("/s", "y");
+    check.boolean("/t", false);
+    check.integer("/n", 4);
+    check.number("/s", 1);  // not a number
+    ASSERT_EQ(check.failures().size(), 8U);
+    EXPECT_EQ(check.failures().front(), "/a: 1.0009999999999999 differs from the golden 1.0");
+    EXPECT_EQ(check.failures()[1], "/missing: 0 differs from the golden (none)");
+    EXPECT_EQ(check.failures()[4], "/s: \"y\" differs from the golden \"x\"");
 }
 
 TEST(GoldenData, ParsesCsv)

@@ -32,6 +32,15 @@ inline constexpr std::string_view kDefaultLineMaterialName = "Elastic cord (roun
 inline constexpr std::string_view kDefaultSurfaceMaterialName = "Ripstop nylon";
 inline constexpr std::string_view kDefaultBulkMaterialName    = "Cardboard";
 
+/// The built-in material of @p type that getDefaultComponentMaterial() falls back on (named
+/// kDefaultLineMaterialName, kDefaultSurfaceMaterialName or kDefaultBulkMaterialName), made from
+/// the built-in table (BuiltinMaterials.h) without a MaterialStorage. It is what a new rocket
+/// component starts with: OpenRocket's constructors read the application preferences, which
+/// rocket/ has no access to, and getDefaultComponentMaterial() gives this material whenever the
+/// preferences store no default for the component's class.
+/// @throws BugError for the CUSTOM type (getDefaultComponentMaterial() has no fallback for it).
+[[nodiscard]] Material builtinDefaultComponentMaterial(Material::Type type);
+
 /// ApplicationPreferences.getDefaultComponentMaterial(Class, Material.Type): the first material
 /// stored along @p classChain in the "componentMaterials" node
 /// (Preferences::getDefaultComponentMaterialString()), parsed as a material that is not

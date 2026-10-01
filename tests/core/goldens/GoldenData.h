@@ -7,12 +7,14 @@
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <nlohmann/json_fwd.hpp>
 
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket::Test
@@ -104,5 +106,56 @@ struct GoldenManifest
 /// its motors), that configuration's entry. Null when @p index is out of range or the reference
 /// is broken.
 [[nodiscard]] const nlohmann::json* aeroResults(const nlohmann::json& aero, std::size_t index);
+
+/// Compares computed values with the entries of a golden JSON object (a component of a
+/// geometry.json, say) and collects the mismatches, so that a test reports them all at once with
+/// EXPECT_EQ(check.failures(), std::vector<std::string>{}). The comparisons are plain code, which
+/// keeps them out of the test's cognitive complexity. Entries are addressed by JSON pointer
+/// ("/componentMass", "/details/radius"); a missing entry, or one of the wrong type, is a
+/// mismatch. Numbers (goldenNumber()) match within the relative tolerance, plus 1e-18 absolute
+/// so that zeros compare; NaN matches NaN.
+class GoldenCheck
+{
+public:
+    /// Checks against @p golden, which must outlive this object.
+    explicit GoldenCheck(const nlohmann::json& golden, double relativeTolerance = 1e-12) noexcept;
+
+    /// @p actual against the golden number at @p pointer.
+    void number(std::string_view pointer, double actual);
+
+    /// @p actual against the golden [x, y, z] or [x, y, z, weight] at @p pointer.
+    void coordinate(std::string_view pointer, const Coordinate& actual);
+
+    /// @p actual against the golden list of coordinates at @p pointer: the same length, and
+    /// each element as coordinate().
+    void coordinates(std::string_view pointer, std::span<const Coordinate> actual);
+
+    /// @p actual against the golden string at @p pointer.
+    void string(std::string_view pointer, std::string_view actual);
+
+    /// @p actual against the golden boolean at @p pointer.
+    void boolean(std::string_view pointer, bool actual);
+
+    /// @p actual against the golden integer at @p pointer.
+    void integer(std::string_view pointer, long long actual);
+
+    /// The mismatches found so far, one line each: "<pointer>: <actual> differs from the golden
+    /// <golden>".
+    [[nodiscard]] const std::vector<std::string>& failures() const noexcept { return m_failures; }
+
+private:
+    /// The entry at @p pointer, or null when there is none.
+    [[nodiscard]] const nlohmann::json* find(std::string_view pointer) const;
+
+    /// Whether @p actual matches @p expected (a golden number entry).
+    [[nodiscard]] bool matches(double actual, const nlohmann::json& expected) const;
+
+    /// Records a mismatch at @p pointer.
+    void fail(std::string_view pointer, std::string_view actual, const nlohmann::json* golden);
+
+    const nlohmann::json*    m_golden;
+    double                   m_relativeTolerance;
+    std::vector<std::string> m_failures;
+};
 
 }  // namespace QtRocket::Test

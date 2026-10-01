@@ -2,6 +2,8 @@ target_sources(QtRocket_core PRIVATE
     Appearance.cpp
     AppearanceBuilder.cpp
     AxialStage.cpp
+    Bulkhead.cpp
+    CenteringRing.cpp
     ClusterConfiguration.cpp
     ComponentAssembly.cpp
     ComponentChangeEvent.cpp
@@ -9,15 +11,21 @@ target_sources(QtRocket_core PRIVATE
     Decal.cpp
     DeploymentConfiguration.cpp
     DesignType.cpp
+    EngineBlock.cpp
     Finish.cpp
     FlightConfiguration.cpp
     FlightConfigurationId.cpp
+    InnerTube.cpp
     InsideColorComponent.cpp
     InsideColorComponentHandler.cpp
     InstanceContext.cpp
     InstanceMap.cpp
+    InternalComponent.cpp
+    MassComponent.cpp
+    MassObject.cpp
     MotorConfiguration.cpp
     MotorConfigurationSet.cpp
+    Parachute.cpp
     ParallelStage.cpp
     PodSet.cpp
     position/AngleMethod.cpp
@@ -27,10 +35,18 @@ target_sources(QtRocket_core PRIVATE
     preset/ComponentPresetFactory.cpp
     preset/ComponentPresetType.cpp
     preset/TypedPropertyMap.cpp
+    RadiusRingComponent.cpp
+    RecoveryDevice.cpp
     ReferenceType.cpp
+    RingComponent.cpp
     Rocket.cpp
     RocketComponent.cpp
     RocketUtils.cpp
+    ShockCord.cpp
     StageSeparationConfiguration.cpp
+    Streamer.cpp
+    StructuralComponent.cpp
+    ThicknessRingComponent.cpp
     TransitionShape.cpp
+    TubeCoupler.cpp
 )

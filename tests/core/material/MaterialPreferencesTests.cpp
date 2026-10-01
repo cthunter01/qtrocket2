@@ -191,6 +191,39 @@ TEST_F(MaterialPreferencesTest, DefaultMaterialOfCustomTypeIsABug)
                  BugError);
 }
 
+/// Whether @p a and @p b are the same material in every field, the flags included.
+[[nodiscard]] bool identical(const Material& a, const Material& b)
+{
+    return a == b && a.getName() == b.getName() && a.getDensity() == b.getDensity() &&
+           a.getGroup() == b.getGroup() && a.isUserDefined() == b.isUserDefined() &&
+           a.isDocumentMaterial() == b.isDocumentMaterial();
+}
+
+TEST_F(MaterialPreferencesTest, BuiltinDefaultComponentMaterialIsTheFallback)
+{
+    // What getDefaultComponentMaterial() gives when nothing is stored, without a storage.
+    const Material bulk = QtRocket::builtinDefaultComponentMaterial(Type::BULK);
+    EXPECT_TRUE(identical(
+        bulk, getDefaultComponentMaterial(m_prefs, kShockCordChain, Type::BULK, m_storage)));
+    const Material surface = QtRocket::builtinDefaultComponentMaterial(Type::SURFACE);
+    EXPECT_TRUE(identical(
+        surface, getDefaultComponentMaterial(m_prefs, kShockCordChain, Type::SURFACE, m_storage)));
+    const Material line = QtRocket::builtinDefaultComponentMaterial(Type::LINE);
+    EXPECT_TRUE(identical(
+        line, getDefaultComponentMaterial(m_prefs, kShockCordChain, Type::LINE, m_storage)));
+    EXPECT_FALSE(bulk.isUserDefined());
+    EXPECT_FALSE(bulk.isDocumentMaterial());
+
+    EXPECT_EQ(bulk.getName(), "Cardboard");
+    EXPECT_EQ(bulk.getDensity(), 680.0);
+    EXPECT_EQ(surface.getName(), "Ripstop nylon");
+    EXPECT_EQ(surface.getDensity(), 0.067);
+    EXPECT_EQ(line.getName(), "Elastic cord (round 2 mm, 1/16 in)");
+    EXPECT_EQ(line.getDensity(), 0.0018);
+    EXPECT_THROW(static_cast<void>(QtRocket::builtinDefaultComponentMaterial(Type::CUSTOM)),
+                 BugError);
+}
+
 TEST(MaterialPreferences, DefaultMaterialNeedsTheBuiltInMaterials)
 {
     const InMemoryPreferences prefs;
