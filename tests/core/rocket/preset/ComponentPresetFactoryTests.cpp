@@ -15,6 +15,7 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
@@ -112,12 +113,12 @@ void expectInvalidPreset(const Outcome& outcome, std::initializer_list<AnyTypedK
     return Material::newMaterial(Material::Type::BULK, "test", 2.0, true);
 }
 
-// Deferred until the concrete components are ported: the ten preset component tests
-// (BodyTubeComponentTests, BulkHeadComponentTests, CenteringRingComponentTests,
-// EngineBlockComponentTests, LaunchLugComponentTests, NoseConeComponentTests,
-// ParachuterComponentTests, StreamerComponentTests, TransitionComponentTests and
-// TubeCouplerComponentTests), which load presets into components, and the mass tests of
-// NoseConePresetTests (see ShapedPresetWithAMassTest).
+// The preset component tests, which load presets into components, are ported with their
+// components: BodyTubeComponentTests, NoseConeComponentTests and TransitionComponentTests in
+// tests/core/rocket/BodyTubeTests.cpp, NoseConeTests.cpp and TransitionTests.cpp. Deferred until
+// their components are ported: BulkHeadComponentTests, CenteringRingComponentTests,
+// EngineBlockComponentTests, LaunchLugComponentTests, ParachuterComponentTests,
+// StreamerComponentTests and TubeCouplerComponentTests.
 
 // ================================================================================ tubes
 // BodyTubePresetTests, TubeCouplerPresetTests, LaunchLugPresetTests, CenteringRingPresetTests
@@ -526,6 +527,84 @@ TEST_F(ComponentPresetFactoryTest, NoseConeMaterial)
     EXPECT_NEAR(2.0, preset->get(ComponentPreset::kMaterial).getDensity(), 0.0005);
 }
 
+TEST_F(ComponentPresetFactoryTest, NoseConeOverriddenMass)
+{
+    TypedPropertyMap props = noseConeSpec();
+    props.put(ComponentPreset::kFilled, true);
+    props.put(ComponentPreset::kMass, 0.123);  // Override calculated mass
+
+    const Outcome preset = create(props);
+    ASSERT_TRUE(preset.has_value());
+    EXPECT_NEAR(0.123, preset->get(ComponentPreset::kMass), 0.0001);
+}
+
+/// The density NoseConePresetTests expects of a filled cone of length 2 and base radius 1 with a
+/// mass of 100.
+[[nodiscard]] double filledConeDensity()
+{
+    // constants put into the presetspec above.
+    double volume = std::numbers::pi;  // base area
+    volume *= 2.0 / 3.0;               // times height / one third
+    return 100.0 / volume;
+}
+
+TEST_F(ComponentPresetFactoryTest, NoseConeComputeDensityNoMaterial)
+{
+    TypedPropertyMap props = noseConeSpec();
+    props.put(ComponentPreset::kFilled, true);
+    props.put(ComponentPreset::kMass, 100.0);
+
+    const Outcome preset = create(props);
+    ASSERT_TRUE(preset.has_value());
+
+    const double density = filledConeDensity();
+    // note - epsilon is 1% of the simple computation of density
+    EXPECT_NEAR(density, preset->get(ComponentPreset::kMaterial).getDensity(), 0.01 * density);
+    // The integration of a cone is exact up to rounding, and the material is a new custom one.
+    EXPECT_NEAR(density, preset->get(ComponentPreset::kMaterial).getDensity(), 1e-12 * density);
+    EXPECT_EQ(preset->get(ComponentPreset::kMaterial).getName(), "NoseConeCustom");
+    EXPECT_EQ(preset->get(ComponentPreset::kMaterial).getType(), Material::Type::BULK);
+}
+
+TEST_F(ComponentPresetFactoryTest, NoseConeComputeDensityWithMaterial)
+{
+    TypedPropertyMap props = noseConeSpec();
+    props.put(ComponentPreset::kFilled, true);
+    props.put(ComponentPreset::kMass, 100.0);
+    props.put(ComponentPreset::kMaterial, testMaterial());
+
+    const Outcome preset = create(props);
+    ASSERT_TRUE(preset.has_value());
+
+    const double density = filledConeDensity();
+    // note - epsilon is 1% of the simple computation of density
+    EXPECT_NEAR(density, preset->get(ComponentPreset::kMaterial).getDensity(), 0.01 * density);
+    EXPECT_EQ(preset->get(ComponentPreset::kMaterial).getName(), "test");
+}
+
+TEST_F(ComponentPresetFactoryTest, NoseConeDensityCountsTheShoulderAndTheWall)
+{
+    // Not in OpenRocket's tests: the volume is the loaded nose cone's, with its wall thickness
+    // (not filled) and its shoulder.
+    TypedPropertyMap props = noseConeSpec();
+    props.put(ComponentPreset::kThickness, 0.1);
+    props.put(ComponentPreset::kAftShoulderLength, 0.5);
+    props.put(ComponentPreset::kAftShoulderDiameter, 1.8);
+    props.put(ComponentPreset::kMass, 1.0);
+
+    const Outcome preset = create(props);
+    ASSERT_TRUE(preset.has_value());
+
+    TypedPropertyMap withoutMass = props;
+    ASSERT_TRUE(withoutMass.remove(ComponentPreset::kMass));
+    const Outcome massless = create(withoutMass);
+    ASSERT_TRUE(massless.has_value());
+    QtRocket::NoseCone noseCone;
+    noseCone.loadPreset(&*massless);
+    EXPECT_DOUBLE_EQ(preset->get(ComponentPreset::kMaterial).getDensity(),
+                     1.0 / noseCone.getComponentVolume());
+}
+
 // =========================================================================== TransitionPresetTests
 
 TEST_F(ComponentPresetFactoryTest, TransitionManufacturerRequired)
@@ -589,6 +668,27 @@ TEST_F(ComponentPresetFactoryTest, TransitionMaterial)
     ASSERT_TRUE(preset.has_value());
     EXPECT_EQ(preset->get(ComponentPreset::kMaterial).getName(), "test");
     EXPECT_NEAR(2.0, preset->get(ComponentPreset::kMaterial).getDensity(), 0.0005);
+}
+
+TEST_F(ComponentPresetFactoryTest, TransitionComputeDensity)
+{
+    // TransitionPresetTests has its density tests commented out; makeTransition() derives the
+    // density as makeNoseCone() does, over the volume of the transition loaded from the preset.
+    TypedPropertyMap props = spec(ComponentPresetType::TRANSITION);
+    props.put(ComponentPreset::kLength, 2.0);
+    props.put(ComponentPreset::kShape, TransitionShape::CONICAL);
+    props.put(ComponentPreset::kAftOuterDiameter, 2.0);
+    props.put(ComponentPreset::kForeOuterDiameter, 1.0);
+    props.put(ComponentPreset::kFilled, true);
+    props.put(ComponentPreset::kMass, 100.0);
+    const Outcome preset = create(props);
+    ASSERT_TRUE(preset.has_value());
+
+    // A filled conical frustum, integrated exactly up to rounding.
+    const double volume  = std::numbers::pi * 2.0 * ((0.5 * 0.5) + (0.5 * 1.0) + (1.0 * 1.0)) / 3.0;
+    const double density = 100.0 / volume;
+    EXPECT_NEAR(density, preset->get(ComponentPreset::kMaterial).getDensity(), 1e-12 * density);
+    EXPECT_EQ(preset->get(ComponentPreset::kMaterial).getName(), "TransitionCustom");
 }
 
 TEST_F(ComponentPresetFactoryTest, TransitionShapeIsOptional)
@@ -752,32 +852,55 @@ TEST_P(ShapedPresetWithAMassTest, IsAcceptedWithoutAMass)
     EXPECT_FALSE(preset->has(ComponentPreset::kMass));
 }
 
-TEST_P(ShapedPresetWithAMassTest, WaitsForItsComponent)
+INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, ShapedPresetWithAMassTest,
+                         ::testing::Values(ComponentPresetType::NOSE_CONE,
+                                           ComponentPresetType::TRANSITION,
+                                           ComponentPresetType::RAIL_BUTTON),
+                         [](const ::testing::TestParamInfo<ComponentPresetType>& paramInfo) {
+                             return std::string(QtRocket::componentPresetTypeName(paramInfo.param));
+                         });
+
+TEST_F(ComponentPresetFactoryTest, RailButtonMassWaitsForItsComponent)
 {
-    // Interim: the density needs the component's volume, so such a preset is refused, with an
-    // error that names no parameter.
-    // TODO(presets): when NoseCone, Transition and RailButton are ported, derive the
-    // "<Type>Custom" material from mass / getComponentVolume() and port
-    // NoseConePresetTests.testOverriddenMass, testComputeDensityNoMaterial and
-    // testComputeDensityWithMaterial (TransitionPresetTests has the last two commented out; no
-    // RailButton preset test exists).
-    TypedPropertyMap props = shapedSpec(GetParam());
+    // Interim: the density needs RailButton's volume, so such a preset is refused, with an error
+    // that names no parameter.
+    // TODO(presets): when RailButton is ported, derive the "RailButtonCustom" material from
+    // mass / getComponentVolume() (no RailButton preset test exists in OpenRocket).
+    TypedPropertyMap props = shapedSpec(ComponentPresetType::RAIL_BUTTON);
     props.put(ComponentPreset::kMass, 0.123);
     const Outcome outcome = create(props);
     ASSERT_FALSE(outcome.has_value()) << "the preset was accepted";
     const InvalidPreset& problems = outcome.error();
     EXPECT_TRUE(problems.invalidParameters.empty());
-    const std::string name(QtRocket::componentPresetTypeName(GetParam()));
     ASSERT_EQ(problems.errors.size(), 1U);
-    EXPECT_EQ(problems.errors[0], "Mass of a " + name + " preset needs the " + name +
-                                      " component, which is not ported yet");
+    EXPECT_EQ(problems.errors[0],
+              "Mass of a RAIL_BUTTON preset needs the RAIL_BUTTON component, which is not ported "
+              "yet");
     EXPECT_EQ(problems.problemCount(), 1U);
 }
 
-INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, ShapedPresetWithAMassTest,
+/// The presets whose mass becomes a density over the volume of their component (NoseCone,
+/// Transition).
+class DensityFromComponentVolumeTest : public ComponentPresetFactoryTest,
+                                       public ::testing::WithParamInterface<ComponentPresetType>
+{ };
+
+TEST_P(DensityFromComponentVolumeTest, MassBecomesACustomMaterial)
+{
+    TypedPropertyMap props = shapedSpec(GetParam());
+    props.put(ComponentPreset::kMass, 0.123);
+    const Outcome outcome = create(props);
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(outcome->get(ComponentPreset::kMass), 0.123) << "the mass is kept";
+    const Material& material = outcome->get(ComponentPreset::kMaterial);
+    EXPECT_EQ(material.getName(),
+              GetParam() == ComponentPresetType::NOSE_CONE ? "NoseConeCustom" : "TransitionCustom");
+    EXPECT_GT(material.getDensity(), 0.0);
+}
+
+INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, DensityFromComponentVolumeTest,
                          ::testing::Values(ComponentPresetType::NOSE_CONE,
-                                           ComponentPresetType::TRANSITION,
-                                           ComponentPresetType::RAIL_BUTTON),
+                                           ComponentPresetType::TRANSITION),
                          [](const ::testing::TestParamInfo<ComponentPresetType>& paramInfo) {
                              return std::string(QtRocket::componentPresetTypeName(paramInfo.param));
                          });

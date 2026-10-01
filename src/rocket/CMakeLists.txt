@@ -2,6 +2,7 @@ target_sources(QtRocket_core PRIVATE
     Appearance.cpp
     AppearanceBuilder.cpp
     AxialStage.cpp
+    BodyTube.cpp
     ClusterConfiguration.cpp
     ComponentAssembly.cpp
     ComponentChangeEvent.cpp
@@ -9,6 +10,7 @@ target_sources(QtRocket_core PRIVATE
     Decal.cpp
     DeploymentConfiguration.cpp
     DesignType.cpp
+    ExternalComponent.cpp
     Finish.cpp
     FlightConfiguration.cpp
     FlightConfigurationId.cpp
@@ -18,6 +20,7 @@ target_sources(QtRocket_core PRIVATE
     InstanceMap.cpp
     MotorConfiguration.cpp
     MotorConfigurationSet.cpp
+    NoseCone.cpp
     ParallelStage.cpp
     PodSet.cpp
     position/AngleMethod.cpp
@@ -32,5 +35,7 @@ target_sources(QtRocket_core PRIVATE
     RocketComponent.cpp
     RocketUtils.cpp
     StageSeparationConfiguration.cpp
+    SymmetricComponent.cpp
+    Transition.cpp
     TransitionShape.cpp
 )
