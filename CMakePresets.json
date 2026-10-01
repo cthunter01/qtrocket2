@@ -162,7 +162,7 @@
     { "name": "asan", "configurePreset": "asan" },
     { "name": "tsan", "configurePreset": "tsan" },
     { "name": "coverage", "configurePreset": "coverage", "targets": ["coverage"] },
-    { "name": "tidy", "configurePreset": "tidy" },
+    { "name": "tidy", "configurePreset": "tidy", "nativeToolOptions": ["-k", "0"] },
     { "name": "ci-gcc", "configurePreset": "ci-gcc", "nativeToolOptions": ["-k", "0"] },
     { "name": "ci-clang", "configurePreset": "ci-clang", "nativeToolOptions": ["-k", "0"] },
     { "name": "ci-msvc", "configurePreset": "ci-msvc", "nativeToolOptions": ["-k", "0"] },

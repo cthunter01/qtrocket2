@@ -2,6 +2,8 @@
 # Findings are warnings here (clangd shows them in the editor); the `tidy` preset and CI make them errors.
 # clang-analyzer-optin.core.EnumCastOutOfRange: a bit-flag enum (fast_float::chars_format) combines enumerators into
 # values this checker calls out of range, and a diagnostic placed in that header cannot be NOLINTed from our code.
+# readability-trailing-comma (new in LLVM 23): style only, and a trailing comma makes clang-format reflow every
+# multi-line braced list (a short list then takes one line per element), so adopting it would reformat many files.
 # (A comment inside the folded `Checks` block below would be part of the value, not a comment.)
 Checks: >
   -*,
@@ -25,7 +27,8 @@ Checks: >
   -portability-avoid-pragma-once,
   readability-*,
   -readability-identifier-length,
-  -readability-magic-numbers
+  -readability-magic-numbers,
+  -readability-trailing-comma
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '(include|src|tests)/'
