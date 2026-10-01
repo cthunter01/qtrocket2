@@ -142,7 +142,10 @@ QtRocket_configure_target(QtRocket_core_tests)
 
 include(GoogleTest)
 # PRE_TEST: list the tests when ctest runs, not at build time (the binary may be sanitized or cross-compiled).
+# DISCOVERY_TIMEOUT: listing takes well under a second, but a sanitized binary on a loaded CI runner can exceed the
+# 5 s default.
 # The golden tests (the suites of the *_golden_tests.cpp files, whose names contain "Golden") carry the ctest label
 # "golden", so that `ctest -L golden` re-runs them after a change to the physics or the file formats.
-gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST TEST_FILTER "-*Golden*.*")
-gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST TEST_FILTER "*Golden*.*" PROPERTIES LABELS golden)
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*")
+gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
+    PROPERTIES LABELS golden)
