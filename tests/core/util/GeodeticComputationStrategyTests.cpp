@@ -617,8 +617,8 @@ TEST(GeodeticComputationStrategy, NaNLocationErrorNamesTheInputs)
     EXPECT_NE(what.find("addCoordinate resulted in NaN location:  location="), std::string::npos)
         << what;
     EXPECT_NE(what.find("WorldCoordinate[lat=0, lon=0, alt=0]"), std::string::npos) << what;
-    // The delta's NaN is the constant quiet NaN, formatted as it is.
-    EXPECT_NE(what.find("delta=(nan,0.00000,0.00000)"), std::string::npos) << what;
+    // The delta is written by Coordinate::toString(), which spells NaN as Java does.
+    EXPECT_NE(what.find("delta=(NaN,0.00000,0.00000)"), std::string::npos) << what;
     // The new latitude and longitude are computed NaNs, whose spelling may carry a sign.
     EXPECT_TRUE(isNaNAfter(what, " newLat=")) << what;
     EXPECT_TRUE(isNaNAfter(what, " newLon=")) << what;

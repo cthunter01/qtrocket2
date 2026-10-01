@@ -25,12 +25,20 @@ class WarningSet;
 /// angle of attack that rises from 1 at 0 degrees to 1.3 at 17 degrees and falls to 0 at 90,
 /// mirrored (and negated) beyond 90 degrees.
 ///
-/// newInstance() shares the (immutable) table.
+/// The (immutable) table is shared: by newInstance(), and with the caller through the
+/// shared_ptr constructor, as Java's SimulationOptions hands its one MachAoALookup object to the
+/// calculator of every simulation.
 class LookupTableDragCalculator final : public DragCalculator
 {
 public:
-    /// A calculator for @p table, which must have a "cd" column.
+    /// A calculator for @p table, which must have a "cd" column (a convenience for the shared_ptr
+    /// constructor, with a table of its own).
     explicit LookupTableDragCalculator(MachAoALookup table);
+
+    /// A calculator that shares @p table, which must have a "cd" column (Java: new
+    /// LookupTableDragCalculator(table) with the caller's object).
+    /// @throws BugError when @p table is null.
+    explicit LookupTableDragCalculator(std::shared_ptr<const MachAoALookup> table);
 
     /// A calculator for the CSV table in @p csvPath (a "mach" and a "cd" column, optionally
     /// "aoa"); see CsvMachAoALookup::fromCsv() for the failures (Java's constructor throws).
@@ -56,6 +64,12 @@ public:
 
     /// The table.
     [[nodiscard]] const MachAoALookup& getTable() const noexcept { return *m_table; }
+
+    /// The table, shared (never null).
+    [[nodiscard]] std::shared_ptr<const MachAoALookup> getTableShared() const noexcept
+    {
+        return m_table;
+    }
 
 private:
     std::shared_ptr<const MachAoALookup> m_table;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <list>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -23,17 +24,31 @@ class RocketComponent;
 /// Keys compare by identity: OpenRocket compares components with equals() (the same class and
 /// id), which within one component tree is the same thing. A key is a non-owning pointer, valid
 /// while its component is in its tree; a null key is allowed (Java's HashMap takes one too). The
-/// forces are held by value. References and pointers to them stay valid until the next put() of a
-/// new key.
+/// forces are held by value, one list node per entry as in Java's LinkedHashMap: references,
+/// pointers and iterators to an entry stay valid until that key is removed or the map is cleared,
+/// assigned to or destroyed (put() of another key never moves an entry; a moved-to map takes the
+/// entries over, and the moved-from map is empty). The key cannot be changed through an entry
+/// (Java's Map.Entry has no setKey()), the forces can.
 class ForceMap
 {
 public:
-    using Entry         = std::pair<const RocketComponent*, AerodynamicForces>;
-    using Iterator      = std::vector<Entry>::iterator;
-    using ConstIterator = std::vector<Entry>::const_iterator;
+    using Entry         = std::pair<const RocketComponent* const, AerodynamicForces>;
+    using Iterator      = std::list<Entry>::iterator;
+    using ConstIterator = std::list<Entry>::const_iterator;
+
+    ForceMap() = default;
+
+    /// A copy of the entries, in order.
+    ForceMap(const ForceMap& other);
+    /// Replaces the entries by a copy of @p other's (unchanged when the copy fails).
+    ForceMap& operator=(const ForceMap& other);
+    ForceMap(ForceMap&& other) noexcept;
+    ForceMap& operator=(ForceMap&& other) noexcept;
+    ~ForceMap() = default;
 
     /// Stores @p forces under @p key: an existing key keeps its place and gets the new forces
-    /// (Java: LinkedHashMap.put()), a new key goes last. Returns the stored forces.
+    /// (Java: LinkedHashMap.put()), a new key goes last. Returns the stored forces. Nothing
+    /// changes when it throws (std::bad_alloc).
     AerodynamicForces& put(const RocketComponent* key, const AerodynamicForces& forces);
 
     /// The forces of @p key, or nullptr when it is not in the map (Java: get() returning null).
@@ -69,8 +84,8 @@ public:
     [[nodiscard]] ConstIterator end() const noexcept { return m_entries.end(); }
 
 private:
-    std::vector<Entry>                                      m_entries;
-    std::unordered_map<const RocketComponent*, std::size_t> m_index;
+    std::list<Entry>                                     m_entries;
+    std::unordered_map<const RocketComponent*, Iterator> m_index;
 };
 
 }  // namespace QtRocket

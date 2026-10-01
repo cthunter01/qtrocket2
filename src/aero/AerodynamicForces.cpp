@@ -260,7 +260,7 @@ void AerodynamicForces::reset()
     setYawDampingMoment(kNaN);
 }
 
-AerodynamicForces& AerodynamicForces::zero()
+AerodynamicForces& AerodynamicForces::zero() &
 {
     // component untouched
     setAxisymmetric(true);
@@ -279,7 +279,13 @@ AerodynamicForces& AerodynamicForces::zero()
     return *this;
 }
 
-AerodynamicForces& AerodynamicForces::merge(const AerodynamicForces& other)
+AerodynamicForces AerodynamicForces::zero() &&
+{
+    zero();        // *this is an lvalue here: the & overload
+    return *this;  // a copy: the class is trivially copyable
+}
+
+AerodynamicForces& AerodynamicForces::merge(const AerodynamicForces& other) &
 {
     m_cpCNa      = m_cpCNa.add(other.m_cpCNa);
     m_cn         = m_cn + other.getCN();
@@ -291,6 +297,12 @@ AerodynamicForces& AerodynamicForces::merge(const AerodynamicForces& other)
     m_crollForce = m_crollForce + other.getCrollForce();
     m_modId      = ModId{};
     return *this;
+}
+
+AerodynamicForces AerodynamicForces::merge(const AerodynamicForces& other) &&
+{
+    merge(other);  // *this is an lvalue here: the & overload
+    return *this;  // a copy: the class is trivially copyable
 }
 
 bool AerodynamicForces::operator==(const AerodynamicForces& other) const

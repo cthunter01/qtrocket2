@@ -82,23 +82,41 @@ FlightConditions& FlightConditions::operator=(const FlightConditions& other)
     return *this;
 }
 
+FlightConditions& FlightConditions::operator=(FlightConditions&& other) noexcept
+{
+    // Like the copy assignment, the values only: m_changed (this object's own connections) is
+    // left alone, where a defaulted move would take the source's connections instead.
+    if (this != &other)
+    {
+        m_thrustingNozzleExitAreas = std::move(other.m_thrustingNozzleExitAreas);
+        other.m_thrustingNozzleExitAreas.clear();
+        copyScalarsFrom(other);
+    }
+    return *this;
+}
+
 void FlightConditions::copyValuesFrom(const FlightConditions& other)
 {
-    m_refLength                = other.m_refLength;
-    m_refArea                  = other.m_refArea;
     m_thrustingNozzleExitAreas = other.m_thrustingNozzleExitAreas;
-    m_aoa                      = other.m_aoa;
-    m_sinAOA                   = other.m_sinAOA;
-    m_sincAOA                  = other.m_sincAOA;
-    m_theta                    = other.m_theta;
-    m_mach                     = other.m_mach;
-    m_beta                     = other.m_beta;
-    m_rollRate                 = other.m_rollRate;
-    m_pitchRate                = other.m_pitchRate;
-    m_yawRate                  = other.m_yawRate;
-    m_pitchCenter              = other.m_pitchCenter;
-    m_atmosphericConditions    = other.m_atmosphericConditions;
-    m_modId                    = other.m_modId;
+    copyScalarsFrom(other);
+}
+
+void FlightConditions::copyScalarsFrom(const FlightConditions& other) noexcept
+{
+    m_refLength             = other.m_refLength;
+    m_refArea               = other.m_refArea;
+    m_aoa                   = other.m_aoa;
+    m_sinAOA                = other.m_sinAOA;
+    m_sincAOA               = other.m_sincAOA;
+    m_theta                 = other.m_theta;
+    m_mach                  = other.m_mach;
+    m_beta                  = other.m_beta;
+    m_rollRate              = other.m_rollRate;
+    m_pitchRate             = other.m_pitchRate;
+    m_yawRate               = other.m_yawRate;
+    m_pitchCenter           = other.m_pitchCenter;
+    m_atmosphericConditions = other.m_atmosphericConditions;
+    m_modId                 = other.m_modId;
 }
 
 void FlightConditions::setReference(const FlightConfiguration& config)

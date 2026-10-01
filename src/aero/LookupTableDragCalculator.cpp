@@ -15,6 +15,7 @@
 #include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 #include "QtRocket/aero/lookup/MachAoALookup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/PolyInterpolator.h"
@@ -71,8 +72,14 @@ void zeroDrag(ForceMap& forces)
 }  // namespace
 
 LookupTableDragCalculator::LookupTableDragCalculator(MachAoALookup table)
-  : m_table(std::make_shared<const MachAoALookup>(std::move(table)))
+  : LookupTableDragCalculator(std::make_shared<const MachAoALookup>(std::move(table)))
 {
+}
+
+LookupTableDragCalculator::LookupTableDragCalculator(std::shared_ptr<const MachAoALookup> table)
+  : m_table(std::move(table))
+{
+    QTROCKET_ASSERT(m_table != nullptr);
 }
 
 Result<LookupTableDragCalculator> LookupTableDragCalculator::fromCsv(

@@ -20,6 +20,7 @@
 #include "QtRocket/rocket/InstanceMap.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
@@ -38,8 +39,15 @@ constexpr std::string_view kColumnCp = "cp";
 }  // namespace
 
 LookupTableStabilityCalculator::LookupTableStabilityCalculator(MachAoALookup table)
-  : m_table(std::make_shared<const MachAoALookup>(std::move(table)))
+  : LookupTableStabilityCalculator(std::make_shared<const MachAoALookup>(std::move(table)))
 {
+}
+
+LookupTableStabilityCalculator::LookupTableStabilityCalculator(
+    std::shared_ptr<const MachAoALookup> table)
+  : m_table(std::move(table))
+{
+    QTROCKET_ASSERT(m_table != nullptr);
     // We'll assume anything with an angle of attack greater than the greatest defined AOA value
     // is stalled.
     if (m_table->hasAoA())

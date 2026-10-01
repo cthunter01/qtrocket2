@@ -32,9 +32,16 @@ class FlightConfiguration;
 /// length and area only when exactly equal.
 ///
 /// Copying: a copy is Java's clone(): every value (the modification id included), a copy of the
-/// nozzle areas and of the atmospheric conditions, and no connections to changed(). Copy
-/// assignment copies the values and keeps the target's own connections, firing nothing. Moving
-/// takes the connections along.
+/// nozzle areas and of the atmospheric conditions, and no connections to changed(). Assignment,
+/// copy and move alike, replaces the values and keeps the target's own connections, firing
+/// nothing, so `conditions = other.clone()` (Java's reassignment of a reference, as the simulation
+/// steppers do) never disconnects a listener; a moved-from object keeps its values but no nozzle
+/// areas. Move construction takes the source's connections along.
+///
+/// The nozzle exit areas' assemblies are non-owning pointers, valid while each assembly is in its
+/// component tree (Java's map holds strong references): operator==, hashCode() and
+/// getThrustingNozzleExitArea(assembly) dereference them, so a copy must not be compared, hashed or
+/// searched once the rocket it was filled from is gone.
 ///
 /// Deviations from OpenRocket:
 /// - Java's addChangeListener() puts a new listener first, so listeners run newest first;
@@ -52,7 +59,8 @@ class FlightConditions
 {
 public:
     /// The nozzle exit area in m^2 of the motors thrusting into one component assembly's terminal
-    /// base wake (Java: an entry of Map<ComponentAssembly, Double>).
+    /// base wake (Java: an entry of Map<ComponentAssembly, Double>). The assembly is a non-owning
+    /// pointer, valid while it is in its component tree.
     using NozzleExitArea = std::pair<const ComponentAssembly*, double>;
 
     /// Reference length 1 m (area pi/4), angle of attack, theta and rates 0, Mach 0.3, pitch
@@ -64,10 +72,12 @@ public:
     explicit FlightConditions(const FlightConfiguration& config);
 
     FlightConditions(const FlightConditions& other);
+    /// Replaces the values; the connections stay (see the class comment).
     FlightConditions& operator=(const FlightConditions& other);
-    FlightConditions(FlightConditions&& other) noexcept            = default;
-    FlightConditions& operator=(FlightConditions&& other) noexcept = default;
-    ~FlightConditions()                                            = default;
+    FlightConditions(FlightConditions&& other) noexcept = default;
+    /// Replaces the values; the connections stay (see the class comment).
+    FlightConditions& operator=(FlightConditions&& other) noexcept;
+    ~FlightConditions() = default;
 
     /// Java's clone(): a copy (see the class comment).
     [[nodiscard]] FlightConditions clone() const { return *this; }
@@ -89,6 +99,8 @@ public:
     /// each booster and each pod set have a wake of their own, so a motor cannot reduce an
     /// unrelated base). Zero areas are dropped. Nothing happens when the result equals the
     /// current areas (the same assemblies, by RocketComponent::equals(), with the same areas).
+    /// The assemblies are kept as non-owning pointers: each must stay in its component tree for
+    /// as long as these conditions (or a copy) are compared, hashed or searched.
     /// @throws BugError for a null assembly, an assembly given twice, or an area that is negative
     ///         or not finite (Java: IllegalArgumentException; Java's map cannot hold a key
     ///         twice); the current areas are then kept.
@@ -178,7 +190,9 @@ public:
     /// Java's toString(): "FlightConditions[aoa=<deg>°,theta=<deg>°,mach=<M>,
     /// thrustingNozzleExitArea=<m^2>,rollRate=<r>,pitchRate=<r>,yawRate=<r>,refLength=<m>,
     /// pitchCenter=<Coordinate>,atmosphericConditions=<AtmosphericConditions>]" with 2, 2, 3, 6,
-    /// 2, 2, 2 and 3 decimals (Java's %.2f, ... in an English locale, Strings::formatFixed).
+    /// 2, 2, 2 and 3 decimals (Java's %.2f, ... in an English locale, Strings::formatFixed), the
+    /// pitch centre as Coordinate::toString() and the atmospheric conditions as
+    /// AtmosphericConditions::toString() write them.
     [[nodiscard]] std::string toString() const;
 
     /// Java's equals(): the reference length, angle of attack, theta, Mach number and rates
@@ -204,6 +218,9 @@ private:
 
     /// Copies every value of @p other (not the connections).
     void copyValuesFrom(const FlightConditions& other);
+
+    /// Copies every value of @p other but the nozzle areas (not the connections).
+    void copyScalarsFrom(const FlightConditions& other) noexcept;
 
     double                      m_refLength{1.0};
     double                      m_refArea{std::numbers::pi * 0.25};

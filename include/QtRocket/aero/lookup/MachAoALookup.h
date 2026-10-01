@@ -136,7 +136,9 @@ public:
     /// Adds a row: @p aoaDegrees is nullopt for a table without angles of attack (Java: null),
     /// and every row must agree on that ("Inconsistent AoA usage across data rows"). @p values
     /// must hold every value column, by its exact name or one that normalises to it ("Value for
-    /// column '<column>' missing"); other entries are ignored.
+    /// column '<column>' missing"); other entries are ignored. Deviation: when no name is exact
+    /// and several normalise to the column, the first in name order is taken (Java: the first in
+    /// its HashMap's order, which follows the names' hash codes).
     Builder& addData(double mach, std::optional<double> aoaDegrees, const Values& values);
 
     /// Adds a drag row. The builder must be for exactly the column "cd" ("Builder configured for

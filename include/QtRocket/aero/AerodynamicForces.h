@@ -126,13 +126,20 @@ public:
 
     /// Sets every coefficient to 0 (CP and CNa to Coordinate::kNul, the pressure, base, friction
     /// and override CDs excepted, as in Java) and the forces axisymmetric; the component stays.
-    /// Returns *this, for Java's `new AerodynamicForces().zero()` idiom.
-    AerodynamicForces& zero();
+    /// Returns *this.
+    AerodynamicForces& zero() &;
+
+    /// zero() on a temporary, returned by value: Java's `new AerodynamicForces().zero()` idiom is
+    /// `AerodynamicForces{}.zero()`, and a reference can never be bound to the dead temporary.
+    [[nodiscard]] AerodynamicForces zero() &&;
 
     /// Adds @p other's CP moment (cpCNa, weights summed), CN, Cm, Cside, Cyaw, Croll, CrollDamp and
     /// CrollForce to these; the drag, damping moments, component and axisymmetric flag stay.
     /// Returns *this.
-    AerodynamicForces& merge(const AerodynamicForces& other);
+    AerodynamicForces& merge(const AerodynamicForces& other) &;
+
+    /// merge() on a temporary, returned by value (as zero() &&).
+    [[nodiscard]] AerodynamicForces merge(const AerodynamicForces& other) &&;
 
     /// The id of the current state (Monitorable).
     [[nodiscard]] ModId modId() const noexcept { return m_modId; }
@@ -149,9 +156,9 @@ public:
     [[nodiscard]] int hashCode() const;
 
     /// Java's toString(): "AerodynamicForces[" then "component:<name>," with a component,
-    /// "cp:<Coordinate::toString()>,", and "CN:", "Cm:", "Cside:", "Cyaw:", "Croll:", "CDaxial:",
-    /// "CD:" with each value that is not NaN (Java's Double.toString), the last comma dropped,
-    /// and "]".
+    /// "cp:<Coordinate::toString()>," (Java's %.5f), and "CN:", "Cm:", "Cside:", "Cyaw:",
+    /// "Croll:", "CDaxial:", "CD:" with each value that is not NaN (Java's Double.toString), the
+    /// last comma dropped, and "]".
     [[nodiscard]] std::string toString() const;
 
 private:

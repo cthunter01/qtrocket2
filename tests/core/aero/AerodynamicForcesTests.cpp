@@ -3,6 +3,8 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <type_traits>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -260,6 +262,43 @@ TEST(AerodynamicForces, MergeAddsTheCpMomentsAndTheNonAxialCoefficients)
     EXPECT_EQ(fresh.getCP().x, 1.25);  // the moments start at zero
 }
 
+// On an lvalue, zero() and merge() return *this; on a temporary, a value, so that Java's
+// `new AerodynamicForces().zero()` idiom cannot leave a reference to a dead temporary.
+static_assert(
+    std::is_same_v<decltype(std::declval<AerodynamicForces&>().zero()), AerodynamicForces&>);
+static_assert(std::is_same_v<decltype(AerodynamicForces{}.zero()), AerodynamicForces>);
+static_assert(std::is_same_v<decltype(std::declval<AerodynamicForces&>().merge(
+                                 std::declval<const AerodynamicForces&>())),
+                             AerodynamicForces&>);
+static_assert(
+    std::is_same_v<decltype(AerodynamicForces{}.merge(std::declval<const AerodynamicForces&>())),
+                   AerodynamicForces>);
+
+TEST(AerodynamicForces, ZeroAndMergeOnATemporaryGiveAValue)
+{
+    TestComponent           component;
+    const AerodynamicForces zeroed = AerodynamicForces{}.zero();
+    EXPECT_EQ(zeroed.getCN(), 0);
+    EXPECT_EQ(zeroed.getCD(), 0);
+    EXPECT_TRUE(zeroed.getCP().exactlyEquals(Coordinate::kZero));
+    EXPECT_NE(zeroed.modId(), ModId::invalid());
+
+    // Bound to a const reference, the value lives as long as the reference.
+    const AerodynamicForces& bound = AerodynamicForces{}.zero();
+    EXPECT_EQ(bound.getCm(), 0);
+
+    AerodynamicForces part;
+    part.zero();
+    part.setComponent(&component);
+    part.setCP(Coordinate{0.5, 0, 0, 2});
+    part.setCN(0.25);
+    const AerodynamicForces merged = AerodynamicForces{}.zero().merge(part);
+    EXPECT_EQ(merged.getCN(), 0.25);
+    EXPECT_EQ(merged.getCP().x, 0.5);
+    EXPECT_EQ(merged.getCP().weight, 2);
+    EXPECT_EQ(merged.getComponent(), nullptr);  // merge() keeps the target's component
+}
+
 TEST(AerodynamicForces, ComponentWithoutOverridesUsesTheStoredDrag)
 {
     const OverrideRocket r;
@@ -477,6 +516,11 @@ TEST(AerodynamicForces, ToStringIsJavas)
     other.setCDaxial(-0.75);
     EXPECT_EQ(other.toString(),
               "AerodynamicForces[cp:(0.10000,0.20000,0.30000,w=0.70000),CDaxial:-0.75,CD:1.5]");
+
+    // The CP rounds as Java's %.5f does: 0.123455's decimal digits half up.
+    AerodynamicForces rounded;
+    rounded.setCP(Coordinate{0.123455, 0, 0, 1});
+    EXPECT_EQ(rounded.toString(), "AerodynamicForces[cp:(0.12346,0.00000,0.00000,w=1.00000)]");
 
     // The component is printed by its name (Java's RocketComponent.toString()).
     const OverrideRocket r;

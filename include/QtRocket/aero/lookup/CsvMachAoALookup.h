@@ -21,9 +21,10 @@
 /// (Strings::javaParseDouble).
 ///
 /// Failures (Java: IllegalArgumentException, UncheckedIOException) are a Result: ErrorCode::IO
-/// when the file cannot be read or is not valid UTF-8 ("Failed to read lookup table from
-/// <path>"), ErrorCode::PARSE for the content with Java's messages, and the Builder's errors
-/// (ErrorCode::INVALID_ARGUMENT, such as "No lookup data added" for a header without rows).
+/// when the file cannot be read (a directory included) or is not valid UTF-8 ("Failed to read
+/// lookup table from <path>", the path in UTF-8), ErrorCode::PARSE for the content with Java's
+/// messages, and the Builder's errors (ErrorCode::INVALID_ARGUMENT, such as "No lookup data added"
+/// for a header without rows).
 namespace QtRocket::CsvMachAoALookup
 {
 

@@ -27,12 +27,20 @@ class WarningSet;
 /// geometry is checked.
 ///
 /// The stall angle is the table's largest angle of attack (Java's Math.toRadians), or +inf for a
-/// table without angles of attack. newInstance() shares the (immutable) table.
+/// table without angles of attack. The (immutable) table is shared: by newInstance(), and with
+/// the caller through the shared_ptr constructor, as Java's SimulationOptions hands its one
+/// MachAoALookup object to the calculator of every simulation.
 class LookupTableStabilityCalculator final : public StabilityCalculator
 {
 public:
-    /// A calculator for @p table, which must have "cn", "cm" and "cp" columns.
+    /// A calculator for @p table, which must have "cn", "cm" and "cp" columns (a convenience for
+    /// the shared_ptr constructor, with a table of its own).
     explicit LookupTableStabilityCalculator(MachAoALookup table);
+
+    /// A calculator that shares @p table, which must have "cn", "cm" and "cp" columns (Java: new
+    /// LookupTableStabilityCalculator(table) with the caller's object).
+    /// @throws BugError when @p table is null.
+    explicit LookupTableStabilityCalculator(std::shared_ptr<const MachAoALookup> table);
 
     /// A calculator for the CSV table in @p csvPath ("mach", "cn", "cm" and "cp" columns,
     /// optionally "aoa"); see CsvMachAoALookup::fromCsv() for the failures (Java's constructor
@@ -77,6 +85,12 @@ public:
 
     /// The table.
     [[nodiscard]] const MachAoALookup& getTable() const noexcept { return *m_table; }
+
+    /// The table, shared (never null).
+    [[nodiscard]] std::shared_ptr<const MachAoALookup> getTableShared() const noexcept
+    {
+        return m_table;
+    }
 
 private:
     std::shared_ptr<const MachAoALookup> m_table;

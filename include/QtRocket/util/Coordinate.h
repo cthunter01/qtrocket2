@@ -26,7 +26,6 @@ namespace QtRocket
 /// - MutableCoordinate and clone() are not ported: this is a value type, so a copy is a clone.
 /// - The openrocket.debug.coordinatecount instantiation counter (a debug log line every N
 ///   constructions) is dropped on purpose.
-/// - toString() and toPreciseString() round, and spell NaN and infinity, differently; see there.
 ///
 /// Arithmetic that needs no <cmath> is constexpr. add() sums the weights (joining two masses),
 /// sub() keeps this coordinate's weight, and the operators below follow the same rules.
@@ -213,16 +212,15 @@ public:
         return x == other.x && y == other.y && z == other.z && weight == other.weight;
     }
 
-    /// "(x,y,z)" or "(x,y,z,w=weight)" when weighted, five decimals each (Java's %.5f).
-    /// Deviation: std::format rounds the exact binary value half to even, while Java's Formatter
-    /// rounds the shortest round-trip decimal half up, so 0.015625 prints as 0.01562 here and as
-    /// 0.01563 in Java. NaN and infinity print as nan and inf (Java: NaN and Infinity), and a NaN
-    /// with its sign bit set (what x86 makes of 0.0/0.0) prints as -nan. These strings are for
-    /// people and exception messages only; nothing written to a file goes through them.
+    /// "(x,y,z)" or "(x,y,z,w=weight)" when weighted, five decimals each, as Java's %.5f writes
+    /// them (Strings::formatFixed): the shortest decimal digits rounded half up, so 0.015625 is
+    /// 0.01563, and NaN and infinity spelled NaN and Infinity. These strings are for people and
+    /// messages only (they appear in the toString() of FlightConditions, AerodynamicForces and
+    /// others); nothing written to a file goes through them.
     [[nodiscard]] std::string toString() const;
 
-    /// "cm= <weight>g @[x,y,z]" with eight decimals (Java's %.8f), for checking calculations by
-    /// hand. Rounds and spells NaN and infinity as toString() does.
+    /// "cm= <weight>g @[x,y,z]" with eight decimals (Java's %.8f, as toString() writes them), for
+    /// checking calculations by hand.
     [[nodiscard]] std::string toPreciseString() const;
 };
 

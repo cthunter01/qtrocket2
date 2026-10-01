@@ -584,13 +584,60 @@ TEST(FlightConditions, CopyKeepsTheValuesAndIdButNotTheConnections)
     EXPECT_EQ(originalChanges.count(), 0);
 }
 
-TEST(FlightConditions, MoveTakesTheConnectionsAlong)
+TEST(FlightConditions, MoveConstructionTakesTheConnectionsAlong)
 {
     FlightConditions   original;
     const EventCounter changes{original};
     FlightConditions   moved{std::move(original)};
     moved.setMach(0.9);
     EXPECT_EQ(changes.count(), 1);
+}
+
+TEST(FlightConditions, AssigningAMovedValueKeepsTheTargetsConnections)
+{
+    // `conditions = other.clone()` is the C++ form of Java's reference reassignment (the
+    // simulation steppers' store.flightConditions = c): the listeners of the target stay, as with
+    // the copy assignment, and nothing fires.
+    FlightConditions source;
+    source.setAOA(0.3);
+    source.setMach(1.4);
+    AxialStage stage;
+    source.setThrustingNozzleExitAreas(Areas{{&stage, 0.25}});
+    const EventCounter sourceChanges{source};
+
+    FlightConditions   target;
+    const EventCounter targetChanges{target};
+    target = source.clone();
+    EXPECT_EQ(target, source);
+    EXPECT_EQ(target.modId(), source.modId());
+    EXPECT_EQ(target.getThrustingNozzleExitArea(stage), 0.25);
+    EXPECT_EQ(targetChanges.count(), 0);
+    target.setMach(0.9);
+    EXPECT_EQ(targetChanges.count(), 1);
+    EXPECT_EQ(sourceChanges.count(), 0);
+
+    // Moving a named object: the same, and the source keeps its connections, its other values and
+    // no nozzle areas.
+    FlightConditions   other;
+    const EventCounter otherChanges{other};
+    other = std::move(source);
+    EXPECT_EQ(other.getMach(), 1.4);
+    EXPECT_EQ(other.getThrustingNozzleExitArea(), 0.25);
+    other.setMach(0.5);
+    EXPECT_EQ(otherChanges.count(), 1);
+    EXPECT_EQ(sourceChanges.count(), 0);
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_TRUE(source.getThrustingNozzleExitAreas().empty());
+    EXPECT_EQ(source.getMach(), 1.4);
+    source.setMach(2.0);
+    EXPECT_EQ(sourceChanges.count(), 1);
+    EXPECT_EQ(otherChanges.count(), 1);
+
+    // Self-assignment changes nothing.
+    FlightConditions& self = other;
+    other                  = std::move(self);
+    EXPECT_EQ(other.getMach(), 0.5);
+    EXPECT_EQ(other.getThrustingNozzleExitArea(), 0.25);
 }
 
 TEST_F(FlightConditionsTest, NozzleAreasDropZerosAndSumInOrder)
@@ -697,6 +744,14 @@ TEST(FlightConditions, ToStringIsJavas)
               "FlightConditions[aoa=30.00°,theta=60.00°,mach=0.700,"
               "thrustingNozzleExitArea=0.000350,rollRate=3.00,pitchRate=-1.25,yawRate=0.50,"
               "refLength=0.025,pitchCenter=(0.50000,0.25000,-0.12500),"
+              "atmosphericConditions=AtmosphericConditions[T=280.00,P=90000.00]]");
+
+    // The pitch centre rounds as Java's %.5f does (pinned with OpenRocket on JDK 17).
+    conditions.setPitchCenter(Coordinate{0.015625, 5e-6, -1.49999e-5});
+    EXPECT_EQ(conditions.toString(),
+              "FlightConditions[aoa=30.00°,theta=60.00°,mach=0.700,"
+              "thrustingNozzleExitArea=0.000350,rollRate=3.00,pitchRate=-1.25,yawRate=0.50,"
+              "refLength=0.025,pitchCenter=(0.01563,0.00001,-0.00001),"
               "atmosphericConditions=AtmosphericConditions[T=280.00,P=90000.00]]");
 }
 

@@ -152,7 +152,8 @@ TEST(AbstractAerodynamicCalculator, WorstCpWorksOnACopyOfTheConditions)
     FlightConditions conditions;
     conditions.setMach(0.6);
     conditions.setTheta(0.4);
-    (void)calculator.getWorstCP(r.config, conditions, nullptr);
+    calculator.getWorstCP(r.config, conditions,
+                          nullptr);  // for the theta alone, as OpenRocket does
     EXPECT_EQ(conditions.getMach(), 0.6);
     EXPECT_EQ(conditions.getTheta(), 0.0);  // the first of equal CPs
 }
@@ -163,7 +164,7 @@ TEST(AbstractAerodynamicCalculator, WorstCpPassesTheWarningsOn)
     ThetaCalculator  calculator{[](double /*theta*/) { return Coordinate{0.5, 0, 0, 1}; }};
     FlightConditions conditions;
     WarningSet       warnings;
-    (void)calculator.getWorstCP(r.config, conditions, &warnings);
+    calculator.getWorstCP(r.config, conditions, &warnings);
     EXPECT_EQ(warnings.size(), 1U);  // the warnings went to the caller's set (one kind)
     EXPECT_TRUE(calculator.ignoreWarningSet().empty());
 }

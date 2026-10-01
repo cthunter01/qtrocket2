@@ -23,7 +23,9 @@
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/MathUtil.h"
 #include "TestTempDir.h"
 
@@ -31,6 +33,7 @@ namespace
 {
 
 using QtRocket::AerodynamicForces;
+using QtRocket::BugError;
 using QtRocket::DragCalculator;
 using QtRocket::ErrorCode;
 using QtRocket::FlightConditions;
@@ -282,6 +285,34 @@ TEST(LookupTableDragCalculator, NewInstance)
     EXPECT_EQ(&sameType->getTable(), &calculator.getTable());  // the table is shared
 }
 
+TEST(LookupTableDragCalculator, SharesTheCallersTable)
+{
+    // Java's SimulationOptions passes its one MachAoALookup object to every calculator.
+    const std::shared_ptr<const MachAoALookup> table = std::make_shared<const MachAoALookup>(
+        *MachAoALookup::dragBuilder().addDragData(0, 0.25).addDragData(2, 0.75).build());
+    const LookupTableDragCalculator first{table};
+    const LookupTableDragCalculator second{table};
+    EXPECT_EQ(&first.getTable(), table.get());
+    EXPECT_EQ(&second.getTable(), table.get());
+    EXPECT_EQ(first.getTableShared(), table);
+
+    const std::unique_ptr<DragCalculator> newInstance = first.newInstance();
+    const auto* sameType = dynamic_cast<const LookupTableDragCalculator*>(newInstance.get());
+    ASSERT_NE(sameType, nullptr);
+    EXPECT_EQ(&sameType->getTable(), table.get());
+
+    // The by-value constructor gives the calculator a table of its own.
+    const LookupTableDragCalculator own{*table};
+    EXPECT_NE(&own.getTable(), table.get());
+    EXPECT_EQ(own.getTable().interpolate(1, 0, "cd"), 0.5);
+}
+
+TEST(LookupTableDragCalculator, ANullTableIsABug)
+{
+    const std::shared_ptr<const MachAoALookup> none;
+    EXPECT_THROW(LookupTableDragCalculator{none}, BugError);
+}
+
 TEST(LookupTableDragCalculator, VoidAerodynamicCache)
 {
     const TempDir             dir;
@@ -405,6 +436,14 @@ TEST(LookupTableDragCalculator, FromCsvReadsTheTableOrReportsTheFailure)
     const auto missing = LookupTableDragCalculator::fromCsv(dir.resolve("missing.csv"));
     ASSERT_FALSE(missing.has_value());
     EXPECT_EQ(missing.error().code, ErrorCode::IO);
+
+    // A directory (e.g. an .ork's <draglookupcsv file=".">) is an IO error as well, never an
+    // exception (Java: UncheckedIOException, which the .ork loader turns into a warning).
+    const auto directory = LookupTableDragCalculator::fromCsv(dir.path());
+    ASSERT_FALSE(directory.has_value());
+    EXPECT_EQ(directory.error().code, ErrorCode::IO);
+    EXPECT_EQ(directory.error().message,
+              "Failed to read lookup table from " + QtRocket::pathToUtf8(dir.path()));
 
     const auto noCd = LookupTableDragCalculator::fromCsv(dir.write("cn.csv", "mach,cn\n0,1\n"));
     ASSERT_FALSE(noCd.has_value());

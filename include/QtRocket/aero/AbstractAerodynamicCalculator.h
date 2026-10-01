@@ -29,10 +29,9 @@ public:
     /// and returns the CP with the smallest x among those with a weight (CNa) above
     /// MathUtil::kEpsilon, or (Double.MAX_VALUE, 0, 0, 0) when there is none. The theta that gave
     /// it (as the copy stored it, see FlightConditions::setTheta()) is set in @p conditions, 0 when
-    /// there was none.
-    [[nodiscard]] Coordinate getWorstCP(const FlightConfiguration& configuration,
-                                        FlightConditions&          conditions,
-                                        WarningSet*                warnings) override;
+    /// there was none; a caller may use the call for that alone and drop the CP.
+    Coordinate getWorstCP(const FlightConfiguration& configuration, FlightConditions& conditions,
+                          WarningSet* warnings) override;
 
 protected:
     AbstractAerodynamicCalculator() = default;

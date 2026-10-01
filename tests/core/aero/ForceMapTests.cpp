@@ -1,5 +1,10 @@
 #include "QtRocket/aero/ForceMap.h"
 
+#include <array>
+#include <cstddef>
+#include <iterator>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -108,6 +113,103 @@ TEST(ForceMap, RemoveKeepsTheOthersInOrder)
     map.clear();
     EXPECT_TRUE(map.empty());
     EXPECT_EQ(map.get(&b), nullptr);
+}
+
+// Java's Map.Entry has no setKey(): the key cannot be reassigned through an entry, which would
+// leave the index pointing at the wrong entry. The forces can be modified (through a mutable map).
+template <class EntryRef>
+concept KeyAssignable = requires(EntryRef entry, const RocketComponent* key) { entry.first = key; };
+template <class EntryRef>
+concept ForcesAssignable =
+    requires(EntryRef entry, const AerodynamicForces& forces) { entry.second = forces; };
+
+static_assert(std::is_same_v<std::iter_reference_t<ForceMap::Iterator>, ForceMap::Entry&>);
+static_assert(
+    std::is_same_v<std::iter_reference_t<ForceMap::ConstIterator>, const ForceMap::Entry&>);
+static_assert(!KeyAssignable<std::iter_reference_t<ForceMap::Iterator>>);
+static_assert(!KeyAssignable<std::iter_reference_t<ForceMap::ConstIterator>>);
+static_assert(ForcesAssignable<std::iter_reference_t<ForceMap::Iterator>>);
+static_assert(!ForcesAssignable<std::iter_reference_t<ForceMap::ConstIterator>>);
+// The concepts do detect an assignable key: the vector-backed entry type this replaced had one.
+static_assert(KeyAssignable<std::pair<const RocketComponent*, AerodynamicForces>&>);
+
+TEST(ForceMap, ReferencesStayValidWhenOtherKeysArePut)
+{
+    // One node per entry, as in Java's LinkedHashMap: putting more keys never moves an entry.
+    const std::array<TestComponent, 32> components;
+    ForceMap                            map;
+    AerodynamicForces&                  first = map.put(components.data(), forcesWithCN(1));
+    for (std::size_t i = 1; i < components.size(); ++i)
+    {
+        map.put(&components.at(i), forcesWithCN(static_cast<double>(i)));
+    }
+    EXPECT_EQ(&first, map.get(components.data()));
+    first.setCm(0.5);
+    EXPECT_EQ(map.get(components.data())->getCm(), 0.5);
+
+    // Removing another key leaves it in place as well.
+    EXPECT_TRUE(map.remove(&components[1]));
+    EXPECT_EQ(&first, map.get(components.data()));
+    EXPECT_EQ(map.size(), components.size() - 1);
+    EXPECT_EQ(map.get(&components[2])->getCN(), 2);
+}
+
+TEST(ForceMap, ACopyIsIndependentAndIndexesItsOwnEntries)
+{
+    const TestComponent a;
+    const TestComponent b;
+    ForceMap            original;
+    original.put(&a, forcesWithCN(1));
+    original.put(&b, forcesWithCN(2));
+
+    ForceMap copy{original};
+    EXPECT_EQ(copy.keys(), (Keys{&a, &b}));
+    EXPECT_NE(copy.get(&a), original.get(&a));  // the copy's own entry, not the original's
+    copy.get(&a)->setCN(10);
+    EXPECT_EQ(original.get(&a)->getCN(), 1);
+    EXPECT_EQ(copy.get(&a)->getCN(), 10);
+
+    ForceMap assigned;
+    assigned.put(&b, forcesWithCN(5));
+    assigned = original;
+    EXPECT_EQ(assigned.keys(), (Keys{&a, &b}));
+    EXPECT_NE(assigned.get(&b), original.get(&b));
+    EXPECT_EQ(assigned.get(&b)->getCN(), 2);
+    EXPECT_TRUE(assigned.remove(&a));
+    EXPECT_EQ(original.keys(), (Keys{&a, &b}));
+
+    const ForceMap& self = assigned;
+    assigned             = self;
+    EXPECT_EQ(assigned.keys(), Keys{&b});
+}
+
+TEST(ForceMap, MovingTakesTheEntriesAlongAndEmptiesTheSource)
+{
+    const TestComponent a;
+    const TestComponent b;
+    ForceMap            source;
+    AerodynamicForces&  forcesOfA = source.put(&a, forcesWithCN(1));
+
+    ForceMap moved{std::move(source)};
+    EXPECT_EQ(moved.get(&a), &forcesOfA);  // the entry itself moved along
+    EXPECT_EQ(moved.keys(), Keys{&a});
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_TRUE(source.empty());
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move): the index was emptied along with the list
+    EXPECT_EQ(source.get(&a), nullptr);
+    source.put(&b, forcesWithCN(2));  // the moved-from map is usable again
+    EXPECT_EQ(source.keys(), Keys{&b});
+
+    ForceMap target;
+    target.put(&b, forcesWithCN(3));
+    target = std::move(moved);
+    EXPECT_EQ(target.get(&a), &forcesOfA);
+    EXPECT_EQ(target.get(&b), nullptr);
+    EXPECT_EQ(target.keys(), Keys{&a});
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_TRUE(moved.empty());
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move): the index was emptied along with the list
+    EXPECT_EQ(moved.get(&a), nullptr);
 }
 
 TEST(StabilityForceBreakdown, HoldsTheTwoMaps)

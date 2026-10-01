@@ -1,5 +1,6 @@
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -8,6 +9,7 @@
 
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "TestTempDir.h"
 
 namespace
@@ -179,12 +181,34 @@ TEST(CsvMachAoALookup, UnreadableFilesAreIoErrors)
     ASSERT_FALSE(missing.has_value());
     EXPECT_EQ(missing.error().code, ErrorCode::IO);
     EXPECT_EQ(missing.error().message,
-              "Failed to read lookup table from " + dir.resolve("none.csv").string());
+              "Failed to read lookup table from " + QtRocket::pathToUtf8(dir.resolve("none.csv")));
 
     const auto invalidUtf8 =
         CsvMachAoALookup::fromCsv(dir.write("latin1.csv", "mach,cd\n0,1 \xE9\n"), cdColumns());
     ASSERT_FALSE(invalidUtf8.has_value());
     EXPECT_EQ(invalidUtf8.error().code, ErrorCode::IO);
+}
+
+TEST(CsvMachAoALookup, ADirectoryIsAnIoError)
+{
+    // Java: UncheckedIOException "Failed to read lookup table from <path>" (the cause an
+    // IOException "Is a directory"); never an exception or a parse error here, on any platform.
+    const TempDir dir;
+    const auto    table = CsvMachAoALookup::fromCsv(dir.path(), cdColumns());
+    ASSERT_FALSE(table.has_value());
+    EXPECT_EQ(table.error().code, ErrorCode::IO);
+    EXPECT_EQ(table.error().message,
+              "Failed to read lookup table from " + QtRocket::pathToUtf8(dir.path()));
+}
+
+TEST(CsvMachAoALookup, TheIoErrorNamesThePathInUtf8)
+{
+    const TempDir               dir;
+    const std::filesystem::path missing = dir.resolve(std::filesystem::path{u8"tabl\u00E9.csv"});
+    const auto                  table   = CsvMachAoALookup::fromCsv(missing, cdColumns());
+    ASSERT_FALSE(table.has_value());
+    EXPECT_EQ(table.error().code, ErrorCode::IO);
+    EXPECT_TRUE(table.error().message.ends_with("tabl\xC3\xA9.csv")) << table.error().message;
 }
 
 }  // namespace

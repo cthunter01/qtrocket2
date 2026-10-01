@@ -25,8 +25,10 @@
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/MathUtil.h"
 #include "TestTempDir.h"
 #include "rocket/TestBodyComponent.h"
@@ -37,6 +39,7 @@ namespace
 
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
+using QtRocket::BugError;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::ErrorCode;
@@ -242,6 +245,38 @@ TEST(LookupTableStabilityCalculator, NewInstance)
     EXPECT_EQ(sameType->getStallAngle(), calculator.getStallAngle());
 }
 
+TEST(LookupTableStabilityCalculator, SharesTheCallersTable)
+{
+    // Java's SimulationOptions passes its one MachAoALookup object to every calculator.
+    const std::shared_ptr<const MachAoALookup> table =
+        std::make_shared<const MachAoALookup>(*MachAoALookup::stabilityBuilder()
+                                                   .addStabilityData(0, 0, 1, 2, 3)
+                                                   .addStabilityData(0, 20, 2, 3, 4)
+                                                   .build());
+    const LookupTableStabilityCalculator first{table};
+    const LookupTableStabilityCalculator second{table};
+    EXPECT_EQ(&first.getTable(), table.get());
+    EXPECT_EQ(&second.getTable(), table.get());
+    EXPECT_EQ(first.getTableShared(), table);
+    EXPECT_EQ(first.getStallAngle(), MathUtil::javaToRadians(20));
+
+    const std::unique_ptr<StabilityCalculator> newInstance = first.newInstance();
+    const auto* sameType = dynamic_cast<const LookupTableStabilityCalculator*>(newInstance.get());
+    ASSERT_NE(sameType, nullptr);
+    EXPECT_EQ(&sameType->getTable(), table.get());
+
+    // The by-value constructor gives the calculator a table of its own.
+    const LookupTableStabilityCalculator own{*table};
+    EXPECT_NE(&own.getTable(), table.get());
+    EXPECT_EQ(own.getStallAngle(), first.getStallAngle());
+}
+
+TEST(LookupTableStabilityCalculator, ANullTableIsABug)
+{
+    const std::shared_ptr<const MachAoALookup> none;
+    EXPECT_THROW(LookupTableStabilityCalculator{none}, BugError);
+}
+
 TEST(LookupTableStabilityCalculator, VoidAerodynamicCache)
 {
     const TempDir                  dir;
@@ -391,6 +426,12 @@ TEST(LookupTableStabilityCalculator, FromCsvReadsTheTableOrReportsTheFailure)
     ASSERT_TRUE(calculator.has_value()) << calculator.error().toString();
     EXPECT_EQ(calculator->getStallAngle(), MathUtil::javaToRadians(20));
     EXPECT_EQ(calculator->getTable().getValueColumns(), stabilityColumns());
+
+    const auto directory = LookupTableStabilityCalculator::fromCsv(dir.path());
+    ASSERT_FALSE(directory.has_value());
+    EXPECT_EQ(directory.error().code, ErrorCode::IO);
+    EXPECT_EQ(directory.error().message,
+              "Failed to read lookup table from " + QtRocket::pathToUtf8(dir.path()));
 
     const auto broken =
         LookupTableStabilityCalculator::fromCsv(dir.write("broken.csv", "mach,cn,cm\n0,1,2\n"));

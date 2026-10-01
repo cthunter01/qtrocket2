@@ -55,10 +55,10 @@ public:
                                                     WarningSet*                warnings) = 0;
 
     /// The worst (foremost) CP over every lateral wind direction; the theta that gives it is set
-    /// in @p conditions.
-    [[nodiscard]] virtual Coordinate getWorstCP(const FlightConfiguration& configuration,
-                                                FlightConditions&          conditions,
-                                                WarningSet*                warnings) = 0;
+    /// in @p conditions. Not [[nodiscard]]: a caller may want only that side effect (OpenRocket's
+    /// component analysis calls it to set the worst theta and drops the CP).
+    virtual Coordinate getWorstCP(const FlightConfiguration& configuration,
+                                  FlightConditions& conditions, WarningSet* warnings) = 0;
 
     /// A new, independent calculator of the same type (Java: newInstance()).
     [[nodiscard]] virtual std::unique_ptr<AerodynamicCalculator> newInstance() const = 0;
