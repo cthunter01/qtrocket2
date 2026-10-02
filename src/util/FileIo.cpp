@@ -19,10 +19,19 @@ namespace QtRocket
 
 Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
 {
+    // Refused up front (the error_code overload never throws): libstdc++'s filebuf opens a
+    // directory and then throws from underflow() (EISDIR), libc++'s reads it as empty and MSVC's
+    // fails to open it.
+    std::error_code directoryError;
+    if (std::filesystem::is_directory(path, directoryError))
+    {
+        return fail(ErrorCode::IO,
+                    std::format("cannot read '{}': is a directory", pathToUtf8(path)));
+    }
     std::ifstream in(path, std::ios::binary);
     if (!in)
     {
-        return fail(ErrorCode::IO, std::format("cannot open '{}' for reading", path.string()));
+        return fail(ErrorCode::IO, std::format("cannot open '{}' for reading", pathToUtf8(path)));
     }
     std::vector<std::byte> bytes;
     std::error_code        ec;
@@ -32,14 +41,22 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
         bytes.reserve(static_cast<std::size_t>(size));
     }
     // istreambuf_iterator yields chars; std::byte is the same width, so a plain transform copies
-    // it.
-    for (std::istreambuf_iterator<char> it(in), end; it != end; ++it)
+    // it. The iterator calls the filebuf directly, so a read error that libstdc++'s underflow()
+    // throws (EIO, ...) reaches here instead of setting the stream state.
+    try
     {
-        bytes.push_back(static_cast<std::byte>(*it));
+        for (std::istreambuf_iterator<char> it(in), end; it != end; ++it)
+        {
+            bytes.push_back(static_cast<std::byte>(*it));
+        }
+    }
+    catch (const std::ios_base::failure&)
+    {
+        return fail(ErrorCode::IO, std::format("error while reading '{}'", pathToUtf8(path)));
     }
     if (in.bad())
     {
-        return fail(ErrorCode::IO, std::format("error while reading '{}'", path.string()));
+        return fail(ErrorCode::IO, std::format("error while reading '{}'", pathToUtf8(path)));
     }
     return bytes;
 }
@@ -55,7 +72,7 @@ Result<void> writeFile(const std::filesystem::path& path, std::span<const std::b
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out)
     {
-        return fail(ErrorCode::IO, std::format("cannot open '{}' for writing", path.string()));
+        return fail(ErrorCode::IO, std::format("cannot open '{}' for writing", pathToUtf8(path)));
     }
     for (const std::byte b : data)
     {
@@ -64,7 +81,7 @@ Result<void> writeFile(const std::filesystem::path& path, std::span<const std::b
     out.flush();
     if (!out)
     {
-        return fail(ErrorCode::IO, std::format("error while writing '{}'", path.string()));
+        return fail(ErrorCode::IO, std::format("error while writing '{}'", pathToUtf8(path)));
     }
     return {};
 }
@@ -72,6 +89,12 @@ Result<void> writeFile(const std::filesystem::path& path, std::span<const std::b
 Result<void> writeTextFile(const std::filesystem::path& path, std::string_view text)
 {
     return writeFile(path, stringToBytes(text));
+}
+
+std::string pathToUtf8(const std::filesystem::path& path)
+{
+    const std::u8string text = path.u8string();
+    return {text.begin(), text.end()};
 }
 
 std::string bytesToString(std::span<const std::byte> bytes)

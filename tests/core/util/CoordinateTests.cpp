@@ -319,21 +319,24 @@ TEST(Coordinate, ToString)
               "cm= 4.00000000g @[1.00000000,2.00000000,3.00000000]");
 }
 
-TEST(Coordinate, ToStringDeviatesFromJavaAsDocumented)
+TEST(Coordinate, ToStringRoundsAndSpellsAsJava)
 {
-    // 0.015625 (2^-6) is an exact tie at five decimals: std::format rounds it half to even,
-    // Java's Formatter half up ("(0.01563,0.00000,0.00000)").
-    EXPECT_EQ(Coordinate(0.015625, 0, 0).toString(), "(0.01562,0.00000,0.00000)");
+    // 0.015625 (2^-6) is an exact tie at five decimals: Java's Formatter rounds its shortest
+    // decimal digits half up (std::format's {:.5f} would round half to even, "0.01562").
+    EXPECT_EQ(Coordinate(0.015625, 0, 0).toString(), "(0.01563,0.00000,0.00000)");
     EXPECT_EQ(Coordinate(0.015625, 0, 0, 0.015625).toString(),
-              "(0.01562,0.00000,0.00000,w=0.01562)");
+              "(0.01563,0.00000,0.00000,w=0.01563)");
     EXPECT_EQ(Coordinate(0, 0, 0, 0.001953125).toPreciseString(),
-              "cm= 0.00195312g @[0.00000000,0.00000000,0.00000000]");
-    // NaN and infinity: nan/inf, where Java prints NaN/Infinity. kNaN's weight is NaN, which is
-    // not "weighted", so the three-field form.
-    EXPECT_EQ(Coordinate::kNaN.toString(), "(nan,nan,nan)");
-    EXPECT_EQ(Coordinate(kInf, 0, 0).toString(), "(inf,0.00000,0.00000)");
-    EXPECT_EQ(Coordinate(-kInf, 0, 0, 1).toString(), "(-inf,0.00000,0.00000,w=1.00000)");
-    EXPECT_EQ(Coordinate::kNaN.toPreciseString(), "cm= nang @[nan,nan,nan]");
+              "cm= 0.00195313g @[0.00000000,0.00000000,0.00000000]");
+    // 0.123455 is 0.12345499999999999... in binary; Java rounds its digits "0.123455" half up.
+    EXPECT_EQ(Coordinate(0.123455, 5e-6, -1.49999e-5).toString(), "(0.12346,0.00001,-0.00001)");
+    // NaN and infinity as Java spells them. kNaN's weight is NaN, which is not "weighted", so the
+    // three-field form.
+    EXPECT_EQ(Coordinate::kNaN.toString(), "(NaN,NaN,NaN)");
+    EXPECT_EQ(Coordinate(kInf, 0, 0).toString(), "(Infinity,0.00000,0.00000)");
+    EXPECT_EQ(Coordinate(-kInf, 0, 0, 1).toString(), "(-Infinity,0.00000,0.00000,w=1.00000)");
+    EXPECT_EQ(Coordinate::kNaN.toPreciseString(), "cm= NaNg @[NaN,NaN,NaN]");
+    EXPECT_EQ(Coordinate(-0.0, 0, 0).toString(), "(-0.00000,0.00000,0.00000)");
 }
 
 TEST(Coordinate, StreamInsertionWritesToString)

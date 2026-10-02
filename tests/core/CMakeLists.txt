@@ -6,6 +6,7 @@ add_executable(QtRocket_core_tests
     util/ColorTests.cpp
     util/CoordinateTests.cpp
     util/DecimalFormatTests.cpp
+    util/FileIoTests.cpp
     util/FloatingDecimalTests.cpp
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
@@ -132,6 +133,17 @@ add_executable(QtRocket_core_tests
     mass/MotorClusterStateTests.cpp
     mass/RigidBodyTests.cpp
     mass/ThrustStateTests.cpp
+    aero/AbstractAerodynamicCalculatorTests.cpp
+    aero/AerodynamicForcesTests.cpp
+    aero/ComponentAssemblyCalcTests.cpp
+    aero/CsvMachAoALookupTests.cpp
+    aero/FlightConditionsTests.cpp
+    aero/ForceMapTests.cpp
+    aero/LookupTableDragCalculatorTests.cpp
+    aero/LookupTableStabilityCalculatorTests.cpp
+    aero/MachAoALookupTests.cpp
+    aero/Naca1307FinBodyInterferenceTests.cpp
+    aero/RocketComponentCalcTests.cpp
     simulation/DataBranchTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp

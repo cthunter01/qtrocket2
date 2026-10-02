@@ -9,6 +9,7 @@
 
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -59,17 +60,23 @@ bool Coordinate::operator==(const Coordinate& other) const noexcept
 
 std::string Coordinate::toString() const
 {
-    // The header lists how this differs from Java's %.5f (rounding, nan/inf spelling).
+    // Java's String.format("%.5f"): Strings::formatFixed (std::format's {:.5f} rounds the binary
+    // value half to even and spells NaN "nan").
     if (isWeighted())
     {
-        return std::format("({:.5f},{:.5f},{:.5f},w={:.5f})", x, y, z, weight);
+        return std::format("({},{},{},w={})", Strings::formatFixed(x, 5),
+                           Strings::formatFixed(y, 5), Strings::formatFixed(z, 5),
+                           Strings::formatFixed(weight, 5));
     }
-    return std::format("({:.5f},{:.5f},{:.5f})", x, y, z);
+    return std::format("({},{},{})", Strings::formatFixed(x, 5), Strings::formatFixed(y, 5),
+                       Strings::formatFixed(z, 5));
 }
 
 std::string Coordinate::toPreciseString() const
 {
-    return std::format("cm= {:.8f}g @[{:.8f},{:.8f},{:.8f}]", weight, x, y, z);
+    return std::format("cm= {}g @[{},{},{}]", Strings::formatFixed(weight, 8),
+                       Strings::formatFixed(x, 8), Strings::formatFixed(y, 8),
+                       Strings::formatFixed(z, 8));
 }
 
 std::ostream& operator<<(std::ostream& os, const Coordinate& c)

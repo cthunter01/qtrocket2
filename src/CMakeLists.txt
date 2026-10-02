@@ -23,6 +23,7 @@ add_subdirectory(motor)
 add_subdirectory(rocket)
 add_subdirectory(models)
 add_subdirectory(mass)
+add_subdirectory(aero)
 add_subdirectory(simulation)
 add_subdirectory(file)
 
