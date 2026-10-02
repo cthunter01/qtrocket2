@@ -1004,6 +1004,22 @@ TEST(Strings, JavaLengthCountsUtf16CodeUnits)
     EXPECT_EQ(Strings::javaLength("\xFF"), 1U);
 }
 
+TEST(Strings, JavaPadLeftPadsToUtf16CodeUnits)
+{
+    EXPECT_EQ(Strings::javaPadLeft("A8", 4), "  A8");
+    EXPECT_EQ(Strings::javaPadLeft("", 3), "   ");
+    EXPECT_EQ(Strings::javaPadLeft("abcd", 4), "abcd");
+    // Longer than the width: unchanged, never cut.
+    EXPECT_EQ(Strings::javaPadLeft("abcdef", 4), "abcdef");
+    EXPECT_EQ(Strings::javaPadLeft("abc", 0), "abc");
+    // Java's String.format("[%32s]", "\u63A8\u8FDB\u5668/abcdef12") gives 20 spaces: 12 code
+    // units, where std::format's display width counts each wide character twice.
+    EXPECT_EQ(Strings::javaPadLeft("\u63A8\u8FDB\u5668/abcdef12", 32),
+              std::string(20, ' ') + "\u63A8\u8FDB\u5668/abcdef12");
+    // A code point above U+FFFF is two units, as String.length() counts it.
+    EXPECT_EQ(Strings::javaPadLeft("\U0001F600", 4), "  \U0001F600");
+}
+
 TEST(Strings, NextCodePointReadsOneCodePoint)
 {
     const std::string_view text     = "a\u00E9\U0001F680\xC3}";

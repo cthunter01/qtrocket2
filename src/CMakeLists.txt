@@ -11,7 +11,9 @@ QtRocket_configure_target(QtRocket_core)
 # logging/, a deviation from the plan's util -> logging -> unit order: OpenRocket's Warning formats
 # its speeds and angles through UnitGroup, and unit/ needs nothing from logging/. motor/ comes
 # before rocket/, another deviation: motor mounts and motor configurations hold motors, and the
-# motor classes need nothing from the rocket model.
+# motor classes need nothing from the rocket model. MotorClusterState and ThrustState, which
+# OpenRocket keeps in its simulation package, live in mass/: MassCalculation needs them, and
+# simulation/ builds on mass/ (its steppers call MassCalculator), never the reverse.
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(logging)
