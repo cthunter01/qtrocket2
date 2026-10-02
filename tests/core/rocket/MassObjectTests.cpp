@@ -4,7 +4,6 @@
 
 #include "QtRocket/rocket/MassObject.h"
 
-#include <filesystem>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -13,7 +12,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/rocket/AxialStage.h"
@@ -27,10 +25,12 @@
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Streamer.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
+#include "rocket/InternalTestSupport.h"
 #include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 
@@ -52,6 +52,9 @@ using QtRocket::Rocket;
 using QtRocket::ShockCord;
 using QtRocket::Streamer;
 using QtRocket::Test::GoldenCheck;
+using QtRocket::Test::goldenGeometryComponentOrFail;
+using QtRocket::Test::noGoldenMismatches;
+using QtRocket::Test::OneStage;
 using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
 
@@ -200,6 +203,44 @@ TEST(MassObject, AutomaticRadiusOfEachParentKind)
     EXPECT_EQ(detached.getAutoRadius(), 0.0125);
 }
 
+/// Whether a mass component in a stand-in parent of @p kind (a TestComponent: a Coaxial, but
+/// neither a RadialParent nor a RingComponent) refuses getMaxParentRadius() with a BugError.
+[[nodiscard]] bool refusesTheParent(ComponentKind kind)
+{
+    auto        parent = TestComponent::make(0.1, kind);
+    const auto& mc     = parent->addChild(std::make_unique<MassComponent>());
+    try
+    {
+        static_cast<void>(mc.getMaxParentRadius());
+    }
+    catch (const QtRocket::BugError&)
+    {
+        return true;
+    }
+    return false;
+}
+
+TEST(MassObject, MaxParentRadiusRefusesAMisbuiltParent)
+{
+    // Java tests the parent's class: a nose cone or transition that is not a RadialParent, or a
+    // ring component that is not a RingComponent, is a programming error, not a radius of 0.
+    // The kinds accepted, by name (a string: GCC's -O3 -Wnull-dereference misfires on a vector
+    // filled in this loop).
+    std::string accepted;
+    for (const ComponentKind kind :
+         {ComponentKind::NOSE_CONE, ComponentKind::TRANSITION, ComponentKind::INNER_TUBE,
+          ComponentKind::TUBE_COUPLER, ComponentKind::CENTERING_RING, ComponentKind::BULKHEAD,
+          ComponentKind::ENGINE_BLOCK})
+    {
+        if (!refusesTheParent(kind))
+        {
+            accepted += QtRocket::componentKindName(kind);
+            accepted += ' ';
+        }
+    }
+    EXPECT_EQ(accepted, "");
+}
+
 TEST(MassObject, GetLengthReadsTheStoredRadiusUntilGetRadiusRefreshesIt)
 {
     // As in Java, getLength() divides the volume by the stored radius; getRadius() stores the
@@ -291,29 +332,9 @@ TEST(MassObject, SettersFireOnChange)
 
 // ===================================================================== goldens
 
-/// The component at @p path of the golden geometry of test rocket @p input.
-[[nodiscard]] json goldenComponent(std::string_view input, std::string_view path)
-{
-    const QtRocket::Result<json> geometry =
-        QtRocket::Test::loadGoldenJson(std::filesystem::path{std::string{input}} / "geometry.json");
-    if (!geometry)
-    {
-        ADD_FAILURE() << "cannot read the geometry of " << input;
-        return json{};
-    }
-    for (const json& component : geometry->at("components"))
-    {
-        if (component.at("path").get<std::string>() == path)
-        {
-            return component;
-        }
-    }
-    ADD_FAILURE() << "no component " << path << " in " << input;
-    return json{};
-}
-
 /// The mismatches between @p object and its golden entry; the radius is read first, as the
-/// harness settles it.
+/// harness settles it. The placement is relative to the parent, which the tests build with
+/// OpenRocket's dimensions.
 [[nodiscard]] std::vector<std::string> goldenMismatches(const MassObject& object,
                                                         const json&       golden)
 {
@@ -321,28 +342,32 @@ TEST(MassObject, SettersFireOnChange)
     check.number("/details/radius", object.getRadius());
     check.string("/name", object.getName());
     check.number("/length", object.getLength());
+    check.string("/axialMethod", QtRocket::axialMethodName(object.getAxialMethod()));
+    check.number("/axialOffset", object.getAxialOffset());
+    check.coordinate("/position", object.getPosition());
     check.number("/componentMass", object.getComponentMass());
     check.coordinate("/componentCG", object.getComponentCG());
     check.number("/longitudinalUnitInertia", object.getLongitudinalUnitInertia());
     check.number("/rotationalUnitInertia", object.getRotationalUnitInertia());
     check.number("/mass", object.getMass());
+    check.number("/sectionMass", object.getSectionMass());
     check.coordinate("/cg", object.getCG());
     check.number("/longitudinalInertia", object.getLongitudinalInertia());
     check.number("/rotationalInertia", object.getRotationalInertia());
     check.number("/details/radialPosition", object.getRadialPosition());
     check.number("/details/radialDirection", object.getRadialDirection());
+    check.string("/details/radiusMethod", QtRocket::radiusMethodName(object.getRadiusMethod()));
+    check.number("/details/radiusOffset", object.getRadiusOffset());
+    check.number("/details/angleOffset", object.getAngleOffset());
+    check.boolean("/details/motorMount", object.isMotorMount());
     check.boolean("/isAerodynamic", object.isAerodynamic());
     check.boolean("/isMassive", object.isMassive());
     check.coordinates("/componentBounds", object.getComponentBounds());
     check.integer("/instanceCount", object.getInstanceCount());
     check.coordinates("/instanceOffsets", object.getInstanceOffsets());
+    check.numbers("/instanceAngles", object.getInstanceAngles());
+    check.coordinates("/instanceLocations", object.getInstanceLocations());
     return check.failures();
-}
-
-/// No mismatch.
-[[nodiscard]] std::vector<std::string> none()
-{
-    return {};
 }
 
 TEST(MassObjectGolden, EstesAlphaIIIParachute)
@@ -363,8 +388,8 @@ TEST(MassObjectGolden, EstesAlphaIIIParachute)
     const Parachute& added = body.addChild(std::move(chute));
     rocket.enableEvents();
 
-    const json golden = goldenComponent("testrocket-estes-alpha-iii", "/0/1/3");
-    EXPECT_EQ(goldenMismatches(added, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/3");
+    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
     GoldenCheck check{golden};
     check.number("/details/diameter", added.getDiameter());
     check.number("/details/cd", added.getCD());
@@ -373,42 +398,95 @@ TEST(MassObjectGolden, EstesAlphaIIIParachute)
     check.string("/details/material/name", added.getMaterial().getName());
     check.number("/details/material/density", added.getMaterial().getDensity());
     check.coordinates("/componentLocations", added.getComponentLocations());
-    EXPECT_EQ(check.failures(), none());
+    check.coordinates("/componentAngles", added.getComponentAngles());
+    check.integer("/stageNumber", added.getStageNumber());
+    EXPECT_EQ(check.failures(), noGoldenMismatches());
 }
 
 TEST(MassObjectGolden, Falcon9HeavyShockCord)
 {
-    // TestRockets.makeFalcon9Heavy(): a shock cord at BOTTOM 0 with a cord length of 0.4 m.
+    // TestRockets.makeFalcon9Heavy(): a shock cord at BOTTOM 0 with a cord length of 0.4 m, in
+    // the upper stage body (BodyTube(0.18, 0.0385, 0.001)).
+    OneStage rocket;
+    auto&    body = rocket.stage->addChild(TestBodyComponent::make(0.18, 0.0385));
+    body.setInnerRadius(0.0385 - 0.001);
     auto cord = std::make_unique<ShockCord>();
     cord->setName("Shock Cord");
     cord->setAxialMethod(AxialMethod::BOTTOM);
     cord->setAxialOffset(0.0);
     cord->setCordLength(0.4);
+    const ShockCord& added = body.addChild(std::move(cord));
+    rocket.rocket.enableEvents();
 
-    const json golden = goldenComponent("testrocket-falcon-9-heavy", "/0/3/1");
-    EXPECT_EQ(goldenMismatches(*cord, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-falcon-9-heavy", "/0/3/1");
+    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
     GoldenCheck check{golden};
-    check.number("/details/cordLength", cord->getCordLength());
-    check.string("/details/material/name", cord->getMaterial().getName());
-    check.number("/details/material/density", cord->getMaterial().getDensity());
-    EXPECT_EQ(check.failures(), none());
+    check.number("/details/cordLength", added.getCordLength());
+    check.string("/details/material/name", added.getMaterial().getName());
+    check.number("/details/material/density", added.getMaterial().getDensity());
+    EXPECT_EQ(check.failures(), noGoldenMismatches());
 }
 
 TEST(MassObjectGolden, IsoHaisuMassComponents)
 {
-    // TestRockets.makeIsoHaisu(): mass components made with (length, radius, mass).
-    const MassComponent parachute{0.05, 0.05, 0.280};
-    EXPECT_EQ(goldenMismatches(parachute, goldenComponent("testrocket-iso-haisu", "/0/1/2")),
-              none());
-    const MassComponent cord{0.05, 0.05, 0.125};
-    EXPECT_EQ(goldenMismatches(cord, goldenComponent("testrocket-iso-haisu", "/0/1/3")), none());
-    const MassComponent payload{0.40, 0.07, 1.500};
-    EXPECT_EQ(goldenMismatches(payload, goldenComponent("testrocket-iso-haisu", "/0/1/4")), none());
-    const MassComponent parachute2{0.1, 0.05, 0.028};
-    EXPECT_EQ(goldenMismatches(parachute2, goldenComponent("testrocket-iso-haisu", "/0/2/1")),
-              none());
-    const MassComponent cord2{0.1, 0.05, 0.125};
-    EXPECT_EQ(goldenMismatches(cord2, goldenComponent("testrocket-iso-haisu", "/0/2/3")), none());
+    // TestRockets.makeIsoHaisu(): mass components made with (length, radius, mass), positioned
+    // TOP in the first two body tubes (BodyTube(0.505, 0.07, 0.005) and (0.605, 0.07, 0.005)).
+    struct Mass
+    {
+        double           length;
+        double           radius;
+        double           mass;
+        double           offset;
+        int              tube;
+        std::string_view path;
+    };
+    constexpr double kR = 0.07;
+    for (const Mass& m : {Mass{.length = 0.05,
+                               .radius = 0.05,
+                               .mass   = 0.280,
+                               .offset = 0.2,
+                               .tube   = 0,
+                               .path   = "/0/1/2"},
+                          Mass{.length = 0.05,
+                               .radius = 0.05,
+                               .mass   = 0.125,
+                               .offset = 0.2,
+                               .tube   = 0,
+                               .path   = "/0/1/3"},
+                          Mass{.length = 0.40,
+                               .radius = kR,
+                               .mass   = 1.500,
+                               .offset = 0.25,
+                               .tube   = 0,
+                               .path   = "/0/1/4"},
+                          Mass{.length = 0.1,
+                               .radius = 0.05,
+                               .mass   = 0.028,
+                               .offset = 0.14,
+                               .tube   = 1,
+                               .path   = "/0/2/1"},
+                          Mass{.length = 0.1,
+                               .radius = 0.05,
+                               .mass   = 0.125,
+                               .offset = 0.19,
+                               .tube   = 1,
+                               .path   = "/0/2/3"}})
+    {
+        OneStage rocket;
+        auto&    body =
+            rocket.stage->addChild(TestBodyComponent::make(m.tube == 0 ? 0.505 : 0.605, kR));
+        body.setInnerRadius(kR - 0.005);
+        auto mass = std::make_unique<MassComponent>(m.length, m.radius, m.mass);
+        mass->setAxialMethod(AxialMethod::TOP);
+        mass->setAxialOffset(m.offset);
+        const MassComponent& added = body.addChild(std::move(mass));
+        rocket.rocket.enableEvents();
+
+        EXPECT_EQ(
+            goldenMismatches(added, goldenGeometryComponentOrFail("testrocket-iso-haisu", m.path)),
+            noGoldenMismatches())
+            << m.path;
+    }
 }
 
 }  // namespace

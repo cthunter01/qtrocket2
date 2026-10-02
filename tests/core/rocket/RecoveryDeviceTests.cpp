@@ -26,6 +26,7 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 #include "rocket/TestBodyComponent.h"
 #include "rocket/TestRockets.h"
@@ -53,8 +54,8 @@ using QtRocket::TypedPropertyMap;
 using QtRocket::Test::TestBodyComponent;
 using DeployEvent = DeploymentConfiguration::DeployEvent;
 
-/// A streamer preset (strip 1 m by 0.1 m) with @p material.
-[[nodiscard]] ComponentPreset streamerPreset(const Material& material)
+/// The properties of a streamer preset (strip 1 m by 0.1 m) without a material.
+[[nodiscard]] TypedPropertyMap streamerProps()
 {
     TypedPropertyMap props;
     props.put(ComponentPreset::kType, ComponentPresetType::STREAMER);
@@ -62,9 +63,22 @@ using DeployEvent = DeploymentConfiguration::DeployEvent;
     props.put(ComponentPreset::kPartNo, "partno");
     props.put(ComponentPreset::kLength, 1.0);
     props.put(ComponentPreset::kWidth, 0.1);
-    props.put(ComponentPreset::kMaterial, material);
+    return props;
+}
+
+/// The factory's preset of @p props (with an empty material storage).
+[[nodiscard]] ComponentPreset makePreset(const TypedPropertyMap& props)
+{
     const QtRocket::MaterialStorage materials;
     return ComponentPresetFactory::create(props, materials).value();
+}
+
+/// A streamer preset (strip 1 m by 0.1 m) with @p material.
+[[nodiscard]] ComponentPreset streamerPreset(const Material& material)
+{
+    TypedPropertyMap props = streamerProps();
+    props.put(ComponentPreset::kMaterial, material);
+    return makePreset(props);
 }
 
 /// A rocket with a stage holding a body tube stand-in with a parachute; events enabled and
@@ -245,12 +259,71 @@ TEST(RecoveryDevice, PresetMaterialNeedsALongEnoughDescription)
 
 TEST(RecoveryDevice, PresetMaterialMustBeASurfaceMaterial)
 {
-    // Java: ClassCastException from the cast to Material.Surface.
-    const ComponentPreset preset =
-        streamerPreset(Material::newMaterial(Material::Type::BULK, "Some bulk material", 1, true));
+    // Java accepts the preset and loading it throws a ClassCastException (the cast to
+    // Material.Surface); here the factory refuses it, a recoverable error (see
+    // ComponentPresetFactory), so loadFromPreset() can rely on the type.
+    TypedPropertyMap props = streamerProps();
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::BULK, "Some bulk material", 1, true));
+    const QtRocket::MaterialStorage         materials;
+    const QtRocket::Result<ComponentPreset> preset =
+        ComponentPresetFactory::create(props, materials);
+    ASSERT_FALSE(preset.has_value());
+    EXPECT_TRUE(preset.error().message.contains(
+        R"(Material "Some bulk material" is not a SURFACE material)"))
+        << preset.error().message;
+}
+
+TEST(RecoveryDevice, PresetWithoutAMaterialLeavesTheDefaultMaterial)
+{
+    // Java's defaultMaterial, which its constructor reads from the preferences.
     Streamer streamer;
-    EXPECT_THROW(streamer.loadPreset(&preset), BugError);
-    EXPECT_EQ(streamer.getPresetComponent(), nullptr);
+    EXPECT_EQ(streamer.getDefaultMaterial().getName(), "Ripstop nylon");
+    EXPECT_EQ(streamer.getDefaultMaterial(), streamer.getMaterial());
+    EXPECT_THROW(
+        streamer.setDefaultMaterial(Material::newMaterial(Material::Type::BULK, "b", 1.0, true)),
+        BugError);
+    EXPECT_THROW(
+        streamer.setDefaultMaterial(Material::newMaterial(Material::Type::LINE, "l", 1.0, true)),
+        BugError);
+
+    const Material mylar = Material::newMaterial(Material::Type::SURFACE, "Mylar", 0.021, true);
+    streamer.setDefaultMaterial(mylar);
+    EXPECT_EQ(streamer.getDefaultMaterial(), mylar);
+    EXPECT_EQ(streamer.getMaterial().getName(), "Ripstop nylon");  // the material stays
+
+    // A preset without a MATERIAL, and one whose material's description is too short.
+    const ComponentPreset without = makePreset(streamerProps());
+    streamer.setMaterial(Material::newMaterial(Material::Type::SURFACE, "Silk", 0.05, true));
+    streamer.loadPreset(&without);
+    EXPECT_EQ(streamer.getMaterial(), mylar);
+    const ComponentPreset unnamed =
+        streamerPreset(Material::newMaterial(Material::Type::SURFACE, "", 0.001, true));
+    streamer.setMaterial(Material::newMaterial(Material::Type::SURFACE, "Silk", 0.05, true));
+    streamer.loadPreset(&unnamed);
+    EXPECT_EQ(streamer.getMaterial(), mylar);
+
+    // A copy keeps it, as Java's clone keeps the final field.
+    const std::unique_ptr<Streamer> copy =
+        QtRocket::componentCast<Streamer>(streamer.copyWithNewIds());
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->getDefaultMaterial(), mylar);
+}
+
+TEST_F(RecoveryDeviceTest, SetDefaultMaterialFiresNothingAndKeepsThePreset)
+{
+    const ComponentPreset preset =
+        streamerPreset(Material::newMaterial(Material::Type::SURFACE, "Silk (preset)", 0.05, true));
+    Streamer& streamer = m_chute->getParent()->addChild(std::make_unique<Streamer>());
+    streamer.loadPreset(&preset);
+    m_types.clear();
+    streamer.setDefaultMaterial(
+        Material::newMaterial(Material::Type::SURFACE, "Mylar", 0.021, true));
+    m_chute->setDefaultMaterial(
+        Material::newMaterial(Material::Type::SURFACE, "Mylar", 0.021, true));
+    EXPECT_TRUE(m_types.empty());
+    EXPECT_EQ(streamer.getPresetComponent(), &preset);
+    EXPECT_EQ(streamer.getMaterial().getName(), "Silk (preset)");
 }
 
 }  // namespace

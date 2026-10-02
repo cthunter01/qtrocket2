@@ -133,7 +133,8 @@ class Rocket;
 /// presetTypeOf(kind()) does not already answer it. Java's two loadFromPreset overloads (with and
 /// without the Object... params) are one here, with PresetLoadOptions for the params; in Java a
 /// component that overrides only the one-argument form is skipped when params are passed, which
-/// only the Parachute setter does, and Parachute overrides both.
+/// only the .ork loader's Parachute setter does, and Parachute overrides both. loadPreset()
+/// therefore takes options for a parachute only.
 class RocketComponent
 {
 public:
@@ -168,7 +169,8 @@ public:
         std::unique_ptr<RocketComponent> original;
     };
 
-    /// The extra parameters of loadPreset() (Java's Object... params, which only Parachute reads).
+    /// The extra parameters of loadPreset() (Java's Object... params, which only Parachute reads
+    /// and only a parachute is given).
     struct PresetLoadOptions
     {
         /// Whether a parachute preset with a packed length and diameter may make the radius
@@ -322,7 +324,9 @@ public:
     /// throws, the rocket is thawed, the preset is not stored, no NONFUNCTIONAL_CHANGE fires and
     /// the exception propagates. The component keeps a pointer to @p preset (presets are owned
     /// by their database). Java's loop over the config listeners is not ported (see above).
-    /// @throws BugError when the Rocket is already frozen (see Rocket::freeze()).
+    /// @throws BugError when the Rocket is already frozen (see Rocket::freeze()), and when
+    ///         @p options are given (allowAutoRadius set) to a component that is not a PARACHUTE
+    ///         (Java would skip the overrides of one-argument loadFromPreset(); see above).
     void loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options = {});
 
     /// The preset type that suits this component (getPresetType()), nullopt when it takes no

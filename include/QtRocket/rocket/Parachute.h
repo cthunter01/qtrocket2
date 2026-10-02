@@ -20,10 +20,15 @@ class ComponentPreset;
 /// coefficient is the stored one (kDefaultCd unless a preset or setCD() changed it; OpenRocket
 /// has no better estimate).
 ///
-/// A new parachute has a diameter of 0.3 m, six 0.3 m lines (automatic, so 0.45 m) of the
-/// built-in default line material, "Elastic cord (round 2 mm, 1/16 in)" (see StructuralComponent
-/// for why the preferences are not consulted), which is also the line material a preset without
-/// a usable LINE_MATERIAL leaves. It holds no children.
+/// A new parachute has a diameter of 0.3 m and six 0.3 m lines (automatic, so 0.45 m) of the
+/// built-in default line material, "Elastic cord (round 2 mm, 1/16 in)", which it keeps as its
+/// default line material (getDefaultLineMaterial()), the one a preset without a usable
+/// LINE_MATERIAL leaves. Deviation: Java's constructor reads both from the application
+/// preferences (getDefaultComponentMaterial(Parachute.class, LINE), the Parachute class chain)
+/// and keeps the default in a final field; rocket/ has no access to the preferences (see
+/// StructuralComponent), so whoever creates a parachute for the user applies that material with
+/// setDefaultLineMaterial() and setLineMaterial() (and the canopy's as RecoveryDevice says). It
+/// holds no children.
 ///
 /// Presets: loadFromPreset() is Java's two overloads in one; PresetLoadOptions::allowAutoRadius
 /// is Java's params[0] (true when not given), which the .ork loader passes as false.
@@ -98,6 +103,19 @@ public:
     ///         "Attempted to set non-line material").
     void setLineMaterial(const Material& material);
 
+    /// The line material a preset without a usable LINE_MATERIAL leaves (Java:
+    /// DEFAULT_LINE_MATERIAL).
+    [[nodiscard]] const Material& getDefaultLineMaterial() const noexcept
+    {
+        return m_defaultLineMaterial;
+    }
+
+    /// Sets the default line material (Java sets its final field in the constructor, from the
+    /// preferences): fires nothing and leaves the current line material and the preset alone.
+    /// Copies keep it, as Java's clone keeps the field.
+    /// @throws BugError when @p material is not a LINE material.
+    void setDefaultLineMaterial(const Material& material);
+
     /// The materials of the base class followed by the line material.
     [[nodiscard]] std::vector<Material> getAllMaterials() const override;
 
@@ -118,13 +136,16 @@ protected:
     /// the component name); the DIAMETER, a CD (making the drag coefficient manual; without one
     /// it becomes automatic and kDefaultCd), the LINE_COUNT and the LINE_LENGTH (the line length
     /// becomes manual either way) when positive, else the defaults; the LINE_MATERIAL when its
-    /// toString() is longer than 12 characters, else the default line material; a positive
+    /// toString() is longer than 12 characters, else getDefaultLineMaterial(); a positive
     /// PACKED_LENGTH through setLength() and a positive PACKED_DIAMETER through setRadius()
     /// (both fire); an automatic radius when the preset has both packed dimensions, the length
     /// and radius are positive and @p options allow it (allowAutoRadius, true when not given);
     /// and a positive MASS as the override mass (mass overridden), else no mass override (the
     /// override mass 0). Like Java, it stores the mass override directly, without updating the
     /// children's overriddenBy pointers (a parachute has no children).
+    /// @throws BugError when that LINE_MATERIAL is not a LINE material (Java stores any material;
+    ///         ComponentPresetFactory refuses such a preset, so only a preset made otherwise has
+    ///         one).
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
 private:
@@ -132,6 +153,7 @@ private:
     [[nodiscard]] double getAutoLineLength() const;
 
     double         m_diameter{kDefaultDiameter};
+    Material       m_defaultLineMaterial;
     Material       m_lineMaterial;
     int            m_lineCount{kDefaultLineCount};
     mutable double m_lineLength{kDefaultLineLength};

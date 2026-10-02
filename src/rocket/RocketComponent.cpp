@@ -358,6 +358,10 @@ void RocketComponent::clearPreset()
 
 void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options)
 {
+    // Java dispatches to the two-argument loadFromPreset() only when params are given, which
+    // skips the classes that override only the one-argument form; its callers pass params to
+    // parachutes alone, so the single loadFromPreset() here is exact only for them.
+    QTROCKET_ASSERT(!options.allowAutoRadius.has_value() || kind() == ComponentKind::PARACHUTE);
     if (m_presetComponent == preset)
     {
         return;

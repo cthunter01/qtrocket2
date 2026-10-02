@@ -79,7 +79,8 @@ protected:
     /// strip length from LENGTH and the width from WIDTH, an automatic drag coefficient set to
     /// the estimate (getComponentCD()), and the packed length set to the strip width. Fires
     /// AEROMASS_CHANGE. Java overrides only the one-argument loadFromPreset(), so with
-    /// parameters (which only a parachute's preset gets) it would skip this; see RocketComponent.
+    /// parameters it would skip this; only a parachute's preset gets them, and loadPreset()
+    /// refuses them for any other component (see RocketComponent).
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
 private:

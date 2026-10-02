@@ -33,6 +33,25 @@ inline constexpr int kGoldenSchemaVersion = 1;
 /// Parses golden JSON text (ErrorCode::PARSE when it is not JSON).
 [[nodiscard]] Result<nlohmann::json> parseGoldenJson(std::string_view text);
 
+/// The entry of the component at @p path ("/0/1/2", the child indices from the rocket) in the
+/// golden geometry of input @p input (<input>/geometry.json). Each geometry file is read and
+/// parsed once per test run and kept, so the entry lives as long as the process. Fails as
+/// loadGoldenJson() does, and with ErrorCode::NOT_FOUND when the file has no such component.
+[[nodiscard]] Result<const nlohmann::json*> goldenGeometryComponent(std::string_view input,
+                                                                    std::string_view path);
+
+/// goldenGeometryComponent() for a test: the entry, or, after reporting why there is none as a
+/// test failure (ADD_FAILURE()), an empty object, against which every GoldenCheck fails.
+[[nodiscard]] const nlohmann::json& goldenGeometryComponentOrFail(std::string_view input,
+                                                                  std::string_view path);
+
+/// No mismatch: what GoldenCheck::failures() is when everything matches, for
+/// EXPECT_EQ(check.failures(), noGoldenMismatches()).
+[[nodiscard]] inline std::vector<std::string> noGoldenMismatches()
+{
+    return {};
+}
+
 /// A number as the golden files store it: a JSON number, or one of the strings "NaN",
 /// "Infinity" and "-Infinity" for the values JSON cannot represent. nullopt for anything else.
 [[nodiscard]] std::optional<double> goldenNumber(const nlohmann::json& value);
@@ -113,7 +132,7 @@ struct GoldenManifest
 /// keeps them out of the test's cognitive complexity. Entries are addressed by JSON pointer
 /// ("/componentMass", "/details/radius"); a missing entry, or one of the wrong type, is a
 /// mismatch. Numbers (goldenNumber()) match within the relative tolerance, plus 1e-18 absolute
-/// so that zeros compare; NaN matches NaN.
+/// so that zeros compare; NaN matches NaN only and an infinity the same infinity only.
 class GoldenCheck
 {
 public:
@@ -122,6 +141,10 @@ public:
 
     /// @p actual against the golden number at @p pointer.
     void number(std::string_view pointer, double actual);
+
+    /// @p actual against the golden list of numbers at @p pointer: the same length, and each
+    /// element as number().
+    void numbers(std::string_view pointer, std::span<const double> actual);
 
     /// @p actual against the golden [x, y, z] or [x, y, z, weight] at @p pointer.
     void coordinate(std::string_view pointer, const Coordinate& actual);

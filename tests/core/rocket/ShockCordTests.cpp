@@ -17,6 +17,7 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
 #include "rocket/TestBodyComponent.h"
@@ -94,6 +95,28 @@ TEST_F(ShockCordTest, AutomaticLengthFollowsTheRocket)
     EXPECT_NEAR(m_cord->getCordLength(), 4.5, kEpsilon);
     // The mass follows the cord length.
     EXPECT_NEAR(m_cord->getComponentMass(), m_cord->getMaterial().getDensity() * 4.5, 1e-15);
+}
+
+TEST_F(ShockCordTest, AutomaticLengthFollowsEveryChangeOfTheRocketLength)
+{
+    // Java reads getRocket().getLength() at every call: a resized body, an added stage and a
+    // removed body all show at once.
+    auto& stage = dynamic_cast<AxialStage&>(m_rocket.getChild(0));
+    auto& body  = dynamic_cast<TestBodyComponent&>(stage.getChild(0));
+    body.setLength(2.0);
+    EXPECT_EQ(m_rocket.getLength(), 2.0);
+    EXPECT_NEAR(m_cord->getCordLength(), 6.0, kEpsilon);
+
+    auto& booster     = m_rocket.addChild(std::make_unique<AxialStage>());
+    auto& boosterBody = booster.addChild(TestBodyComponent::make(0.5, 0.05));
+    EXPECT_NEAR(m_cord->getCordLength(), 7.5, kEpsilon);
+    static_cast<void>(booster.removeChild(&boosterBody));
+    EXPECT_NEAR(m_cord->getCordLength(), 6.0, kEpsilon);
+
+    // A cord taken out of the rocket keeps the last length it computed.
+    const std::unique_ptr<QtRocket::RocketComponent> detached = body.removeChild(m_cord);
+    ASSERT_NE(detached, nullptr);
+    EXPECT_NEAR(m_cord->getCordLength(), 6.0, kEpsilon);
 }
 
 TEST(ShockCord, Defaults)

@@ -879,9 +879,10 @@ TEST(RocketCopy, CopyIndependence)
 }
 
 /// The positions of RocketTest.testEstesAlphaIII on the test double, and the bounds' x extent.
-/// Deferred until the concrete components exist: the launch lug's radial offset (y = -0.015),
-/// the y and z extents of the bounds (they need the real fin shapes), and the centering rings'
-/// return from one instance to two (the double does not keep the instance separation).
+/// The centering rings' return from one instance to two (the double does not keep the instance
+/// separation) is CenteringRing.EstesAlphaIIICenteringRingLocations, on the real CenteringRing.
+/// Deferred until the fins and the launch lug exist: the launch lug's radial offset
+/// (y = -0.015) and the y and z extents of the bounds (they need the real fin shapes).
 TEST(RocketEstesAlphaIII, ComponentLocations)
 {
     const QtRocket::Test::TestEstesAlphaIII rocket;

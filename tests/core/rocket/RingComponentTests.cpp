@@ -1,13 +1,13 @@
-// Tests of the ring component layers: InternalComponent, StructuralComponent, RingComponent,
-// ThicknessRingComponent and RadiusRingComponent, through their concrete classes, and the
-// golden geometry of the ring components of OpenRocket's test rockets (the RingComponentGolden
-// suite, labelled "golden"). OpenRocket has no JUnit test of these layers of their own.
+// RingComponent, through its concrete classes: the length, the radial position, the bounds, the
+// mass and CG of the instances, the automatic outer radius and copies; and the golden geometry of
+// the ring components of OpenRocket's test rockets (the RingComponentGolden suite, labelled
+// "golden"). OpenRocket has no JUnit test of the class of its own. InternalComponent,
+// StructuralComponent, ThicknessRingComponent and RadiusRingComponent have their own files.
 
 #include "QtRocket/rocket/RingComponent.h"
 
 #include <cmath>
 #include <cstddef>
-#include <filesystem>
 #include <format>
 #include <memory>
 #include <numbers>
@@ -17,11 +17,9 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/material/Material.h"
-#include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/Bulkhead.h"
@@ -31,20 +29,20 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/LineInstanceable.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
-#include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "QtRocket/util/Error.h"
-#include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
+#include "rocket/InternalTestSupport.h"
 #include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 
@@ -60,21 +58,22 @@ using QtRocket::Bulkhead;
 using QtRocket::CenteringRing;
 using QtRocket::ClusterConfiguration;
 using QtRocket::ComponentChangeEvent;
-using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
-using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
 using QtRocket::Coordinate;
 using QtRocket::EngineBlock;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
-using QtRocket::Material;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::TubeCoupler;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Test::GoldenCheck;
+using QtRocket::Test::goldenGeometryComponentOrFail;
+using QtRocket::Test::makeFactoryPreset;
+using QtRocket::Test::noGoldenMismatches;
+using QtRocket::Test::OneStage;
 using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
 
@@ -111,132 +110,8 @@ private:
     double m_aft;
 };
 
-/// A rocket with a stage holding a body tube stand-in (0.3 m long, outer radius 0.025 m, inner
-/// radius 0.024 m); events enabled and recorded.
-class RingEventsTest : public ::testing::Test
-{
-protected:
-    RingEventsTest()
-    {
-        m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body  = &m_stage->addChild(TestBodyComponent::make(0.3, 0.025));
-        m_body->setInnerRadius(0.024);
-        m_rocket.enableEvents();
-        m_connection = m_rocket.addComponentChangeListener(
-            [this](const ComponentChangeEvent& e) { m_types.push_back(e.getType()); });
-    }
-
-    Rocket                                  m_rocket;
-    AxialStage*                             m_stage{nullptr};
-    TestBodyComponent*                      m_body{nullptr};
-    std::vector<int>                        m_types;
-    ComponentChangeSignal::ScopedConnection m_connection;
-};
-
-/// A rocket with one stage; the test adds the bodies and enables the events.
-struct OneStage
-{
-    Rocket      rocket;
-    AxialStage* stage{&rocket.addChild(std::make_unique<AxialStage>())};
-};
-
-/// A preset made by the factory (with an empty material storage, as the Java tests' Databases
-/// hold no material they would find).
-[[nodiscard]] ComponentPreset makePreset(const TypedPropertyMap& props)
-{
-    const QtRocket::MaterialStorage materials;
-    return ComponentPresetFactory::create(props, materials).value();
-}
-
-// ================================================================== InternalComponent
-
-TEST(InternalComponent, IsMassiveButNotAerodynamicAndPositionedBottom)
-{
-    const EngineBlock block;
-    EXPECT_FALSE(block.isAerodynamic());
-    EXPECT_TRUE(block.isMassive());
-    EXPECT_EQ(block.getAxialMethod(), AxialMethod::BOTTOM);
-    EXPECT_EQ(block.getAxialOffset(), 0.0);
-    EXPECT_FALSE(block.isAfter());
-}
-
-TEST_F(RingEventsTest, SetAxialMethodAlwaysFiresNonFunctional)
-{
-    auto& block = m_body->addChild(std::make_unique<EngineBlock>());
-    m_types.clear();
-    block.setAxialMethod(AxialMethod::TOP);
-    block.setAxialMethod(AxialMethod::TOP);  // unchanged: fires all the same, as Java
-    EXPECT_EQ(m_types, std::vector<int>(2, ComponentChangeEvent::kNonFunctionalChange));
-    EXPECT_EQ(block.getAxialMethod(), AxialMethod::TOP);
-    // The position is kept: a BOTTOM block of length 0.005 at the end of a 0.3 m body.
-    EXPECT_NEAR(block.getAxialOffset(), 0.295, kEpsilon);
-
-    m_types.clear();
-    block.setAxialOffset(0.1);
-    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kAeromassChange});
-    EXPECT_NEAR(block.getPosition().x, 0.1, kEpsilon);
-
-    EXPECT_NEAR(block.getAxialOffset(AxialMethod::BOTTOM), 0.1 + 0.005 - 0.3, kEpsilon);
-}
-
-// ================================================================= StructuralComponent
-
-TEST(StructuralComponent, DefaultMaterialIsCardboard)
-{
-    const InnerTube tube;
-    EXPECT_EQ(tube.getMaterial().getName(), "Cardboard");
-    EXPECT_EQ(tube.getMaterial().getType(), Material::Type::BULK);
-    EXPECT_EQ(tube.getMaterial().getDensity(), 680.0);
-    EXPECT_FALSE(tube.getMaterial().isUserDefined());
-
-    const std::vector<Material> materials = tube.getAllMaterials();
-    ASSERT_EQ(materials.size(), 1U);
-    EXPECT_EQ(materials.front(), tube.getMaterial());
-}
-
-TEST(StructuralComponent, SetMaterialRejectsNonBulkMaterials)
-{
-    CenteringRing ring;
-    EXPECT_THROW(ring.setMaterial(Material::newMaterial(Material::Type::SURFACE, "s", 1.0, true)),
-                 BugError);
-    EXPECT_THROW(ring.setMaterial(Material::newMaterial(Material::Type::LINE, "l", 1.0, true)),
-                 BugError);
-    EXPECT_EQ(ring.getMaterial().getName(), "Cardboard");
-}
-
-TEST_F(RingEventsTest, SetMaterialFiresAndClearsThePresetOnlyOnChange)
-{
-    auto& ring = m_body->addChild(std::make_unique<CenteringRing>());
-    m_types.clear();
-    ring.setMaterial(ring.getMaterial());  // equal: nothing
-    EXPECT_TRUE(m_types.empty());
-
-    const Material balsa = Material::newMaterial(Material::Type::BULK, "Balsa", 170, false);
-    ring.setMaterial(balsa);
-    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kMassChange});
-    EXPECT_EQ(ring.getMaterial(), balsa);
-    EXPECT_EQ(ring.getMaterial().getName(), "Balsa");
-}
-
-TEST(StructuralComponent, PresetMaterialIsLoaded)
-{
-    TypedPropertyMap props;
-    props.put(ComponentPreset::kType, ComponentPresetType::ENGINE_BLOCK);
-    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("manufacturer"));
-    props.put(ComponentPreset::kPartNo, "partno");
-    props.put(ComponentPreset::kLength, 0.01);
-    props.put(ComponentPreset::kOuterDiameter, 0.02);
-    props.put(ComponentPreset::kInnerDiameter, 0.01);
-    props.put(ComponentPreset::kMaterial,
-              Material::newMaterial(Material::Type::BULK, "Plywood (birch)", 630, false));
-    const ComponentPreset preset = makePreset(props);
-
-    EngineBlock block;
-    block.loadPreset(&preset);
-    EXPECT_EQ(block.getMaterial().getName(), "Plywood (birch)");
-    EXPECT_EQ(block.getMaterial().getDensity(), 630.0);
-    EXPECT_EQ(block.getPresetComponent(), &preset);
-}
+class RingComponentEvents : public QtRocket::Test::RingEventsFixture
+{ };
 
 // ======================================================================= RingComponent
 
@@ -249,7 +124,7 @@ TEST(RingComponent, SetLengthClampsAndClearsThePreset)
     props.put(ComponentPreset::kLength, 0.01);
     props.put(ComponentPreset::kOuterDiameter, 0.02);
     props.put(ComponentPreset::kInnerDiameter, 0.01);
-    const ComponentPreset preset = makePreset(props);
+    const ComponentPreset preset = makeFactoryPreset(props);
 
     EngineBlock block;
     block.loadPreset(&preset);
@@ -287,7 +162,7 @@ TEST(RingComponent, RadialPositionAndDirectionGiveTheShift)
     EXPECT_NEAR(ring.getRadialShiftZ(), 0.004, kEpsilon);
 }
 
-TEST_F(RingEventsTest, RadialSettersFireMassChangesOnChangeOnly)
+TEST_F(RingComponentEvents, RadialSettersFireMassChangesOnChangeOnly)
 {
     auto& ring = m_body->addChild(std::make_unique<CenteringRing>());
     m_types.clear();
@@ -392,13 +267,52 @@ TEST(RingComponent, AutomaticOuterRadiusTakesTheSmallerParentRadius)
 
 TEST(RingComponent, AutomaticOuterRadiusNeedsARadialParent)
 {
-    // TestComponent is not a RadialParent: the stored radius (0 for a new block) stays.
-    auto        parent = TestComponent::make(0.5);
+    // A mass component is not a RadialParent, in Java as here: the stored radius (0 for a new
+    // block) stays.
+    auto        parent = TestComponent::make(0.5, ComponentKind::MASS_COMPONENT);
     const auto& block  = parent->addChild(std::make_unique<EngineBlock>());
     EXPECT_TRUE(block.isOuterRadiusAutomatic());
     EXPECT_EQ(block.getOuterRadius(), 0.0);
     const EngineBlock detached;
     EXPECT_EQ(detached.getOuterRadius(), 0.0);
+}
+
+/// Whether a new @p Ring in a stand-in parent of @p kind (a TestComponent, which is not a
+/// RadialParent) refuses to compute its automatic outer radius with a BugError.
+template <class Ring>
+[[nodiscard]] bool refusesTheParent(ComponentKind kind)
+{
+    auto        parent = TestComponent::make(0.5, kind);
+    const auto& ring   = parent->addChild(std::make_unique<Ring>());
+    try
+    {
+        static_cast<void>(ring.getOuterRadius());
+    }
+    catch (const BugError&)
+    {
+        return true;
+    }
+    return false;
+}
+
+TEST(RingComponent, AutomaticOuterRadiusRefusesAMisbuiltParent)
+{
+    // Java's body tubes, nose cones, transitions, inner tubes and couplers are all RadialParents:
+    // a parent of such a kind that is not one is a programming error, not a radius of 0.
+    // The kinds accepted, by name (a string: GCC's -O3 -Wnull-dereference misfires on a vector
+    // filled in this loop).
+    std::string accepted;
+    for (const ComponentKind kind :
+         {ComponentKind::BODY_TUBE, ComponentKind::NOSE_CONE, ComponentKind::TRANSITION,
+          ComponentKind::INNER_TUBE, ComponentKind::TUBE_COUPLER})
+    {
+        if (!refusesTheParent<EngineBlock>(kind) || !refusesTheParent<Bulkhead>(kind))
+        {
+            accepted += QtRocket::componentKindName(kind);
+            accepted += ' ';
+        }
+    }
+    EXPECT_EQ(accepted, "");
 }
 
 TEST(RingComponent, RadiusRingAutomaticOuterRadius)
@@ -414,7 +328,7 @@ TEST(RingComponent, RadiusRingAutomaticOuterRadius)
     EXPECT_NEAR(bulk.getThickness(), bulk.getOuterRadius(), kEpsilon);
 }
 
-TEST_F(RingEventsTest, SetOuterRadiusAutomaticFiresOnChange)
+TEST_F(RingComponentEvents, SetOuterRadiusAutomaticFiresOnChange)
 {
     auto& block = m_body->addChild(std::make_unique<EngineBlock>());
     EXPECT_EQ(block.getOuterRadius(), 0.024);  // the body's inner radius, stored
@@ -424,146 +338,6 @@ TEST_F(RingEventsTest, SetOuterRadiusAutomaticFiresOnChange)
     block.setOuterRadiusAutomatic(false);
     EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kMassChange});
     EXPECT_EQ(block.getOuterRadius(), 0.024);  // stored by the automatic read
-}
-
-// ============================================================== ThicknessRingComponent
-
-TEST(ThicknessRingComponent, OuterRadiusCutsTheThickness)
-{
-    EngineBlock block;
-    block.setOuterRadius(0.02);
-    block.setThickness(0.015);
-    EXPECT_EQ(block.getThickness(), 0.015);
-    block.setOuterRadius(0.01);  // the thickness is cut to the radius
-    EXPECT_EQ(block.getThickness(), 0.01);
-    EXPECT_EQ(block.getInnerRadius(), 0.0);
-    block.setOuterRadius(-1.0);
-    EXPECT_EQ(block.getOuterRadius(), 0.0);
-    EXPECT_FALSE(block.isOuterRadiusAutomatic());
-}
-
-TEST(ThicknessRingComponent, ThicknessIsClampedToTheOuterRadius)
-{
-    EngineBlock block;
-    block.setOuterRadius(0.02);
-    block.setThickness(0.05);
-    EXPECT_EQ(block.getThickness(), 0.02);
-    EXPECT_EQ(block.getInnerRadius(), 0.0);
-    block.setThickness(-0.05);
-    EXPECT_EQ(block.getThickness(), 0.0);
-    EXPECT_EQ(block.getInnerRadius(), 0.02);
-
-    block.setInnerRadius(0.015);
-    EXPECT_NEAR(block.getThickness(), 0.005, kEpsilon);
-    block.setInnerRadius(-1.0);  // becomes 0: the full thickness
-    EXPECT_EQ(block.getThickness(), 0.02);
-}
-
-TEST(ThicknessRingComponent, ANewBlockOrCouplerHasNoThickness)
-{
-    // The constructors set the thickness while the automatic outer radius is still 0.
-    const EngineBlock block;
-    EXPECT_EQ(block.getThickness(), 0.0);
-    const TubeCoupler coupler;
-    EXPECT_EQ(coupler.getThickness(), 0.0);
-}
-
-TEST(ThicknessRingComponent, SetOuterRadiusAgainOnlyClearsAnAutomaticRadius)
-{
-    TypedPropertyMap props;
-    props.put(ComponentPreset::kType, ComponentPresetType::ENGINE_BLOCK);
-    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("manufacturer"));
-    props.put(ComponentPreset::kPartNo, "partno");
-    props.put(ComponentPreset::kLength, 0.01);
-    props.put(ComponentPreset::kOuterDiameter, 0.02);
-    props.put(ComponentPreset::kInnerDiameter, 0.01);
-    const ComponentPreset preset = makePreset(props);
-
-    EngineBlock block;
-    block.loadPreset(&preset);
-    EXPECT_FALSE(block.isOuterRadiusAutomatic());
-    EXPECT_FALSE(block.isInnerRadiusAutomatic());
-    block.setOuterRadius(0.01);  // equal and manual: nothing
-    block.setThickness(0.005);   // equal: nothing
-    EXPECT_EQ(block.getPresetComponent(), &preset);
-    block.setInnerRadius(0.004);
-    EXPECT_EQ(block.getPresetComponent(), nullptr);
-}
-
-// ================================================================= RadiusRingComponent
-
-TEST(RadiusRingComponent, RadiiPushEachOther)
-{
-    CenteringRing ring;
-    ring.setOuterRadius(0.02);
-    ring.setInnerRadius(0.01);
-    EXPECT_FALSE(ring.isOuterRadiusAutomatic());
-    EXPECT_FALSE(ring.isInnerRadiusAutomatic());
-    EXPECT_EQ(ring.getThickness(), 0.01);
-
-    ring.setOuterRadius(0.005);  // below the inner radius: it follows
-    EXPECT_EQ(ring.getInnerRadius(), 0.005);
-    EXPECT_EQ(ring.getThickness(), 0.0);
-
-    ring.setInnerRadius(0.03);  // beyond the outer radius: it follows
-    EXPECT_EQ(ring.getOuterRadius(), 0.03);
-    ring.setInnerRadius(-1.0);
-    EXPECT_EQ(ring.getInnerRadius(), 0.0);
-
-    ring.setThickness(0.01);
-    EXPECT_NEAR(ring.getInnerRadius(), 0.02, kEpsilon);
-    ring.setThickness(1.0);  // clamped to the outer radius
-    EXPECT_EQ(ring.getInnerRadius(), 0.0);
-}
-
-TEST(RadiusRingComponent, LineInstances)
-{
-    CenteringRing ring;
-    EXPECT_EQ(ring.getInstanceCount(), 1);
-    EXPECT_EQ(ring.getPatternName(), "1-Line");
-    ring.setInstanceCount(0);   // ignored
-    ring.setInstanceCount(-2);  // ignored
-    EXPECT_EQ(ring.getInstanceCount(), 1);
-    ring.setInstanceCount(3);
-    ring.setInstanceSeparation(0.04);
-    EXPECT_EQ(ring.getPatternName(), "3-Line");
-    const std::vector<Coordinate> offsets = ring.getInstanceOffsets();
-    ASSERT_EQ(offsets.size(), 3U);
-    EXPECT_TRUE(offsets[0].exactlyEquals(Coordinate{0, 0, 0}));
-    EXPECT_TRUE(offsets[1].exactlyEquals(Coordinate{0.04, 0, 0}));
-    EXPECT_TRUE(offsets[2].exactlyEquals(Coordinate{0.08, 0, 0}));
-    EXPECT_EQ(ring.getInstanceLocations().size(), 3U);
-}
-
-TEST_F(RingEventsTest, LineInstanceSettersFireAeromassOnChange)
-{
-    auto& ring = m_body->addChild(std::make_unique<Bulkhead>());
-    m_types.clear();
-    ring.setInstanceCount(1);         // unchanged
-    ring.setInstanceSeparation(0.0);  // unchanged
-    EXPECT_TRUE(m_types.empty());
-    ring.setInstanceCount(2);
-    ring.setInstanceSeparation(0.01);
-    EXPECT_EQ(m_types, std::vector<int>(2, ComponentChangeEvent::kAeromassChange));
-}
-
-TEST(RadiusRingComponent, PresetMakesBothRadiiManual)
-{
-    TypedPropertyMap props;
-    props.put(ComponentPreset::kType, ComponentPresetType::BULK_HEAD);
-    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("manufacturer"));
-    props.put(ComponentPreset::kPartNo, "partno");
-    props.put(ComponentPreset::kLength, 0.003);
-    props.put(ComponentPreset::kOuterDiameter, 0.05);
-    const ComponentPreset preset = makePreset(props);
-
-    CenteringRing ring;
-    ASSERT_TRUE(ring.isInnerRadiusAutomatic());
-    ring.loadPreset(&preset);
-    EXPECT_FALSE(ring.isOuterRadiusAutomatic());
-    EXPECT_FALSE(ring.isInnerRadiusAutomatic());  // even without an inner diameter
-    EXPECT_EQ(ring.getOuterRadius(), 0.025);
-    EXPECT_EQ(ring.getLength(), 0.003);
 }
 
 // ======================================================================= copies
@@ -597,30 +371,10 @@ TEST(RingComponent, CopiesKeepTheRingFields)
 
 // ===================================================================== goldens
 
-/// The component at @p path of the golden geometry of test rocket @p input.
-[[nodiscard]] json goldenComponent(std::string_view input, std::string_view path)
-{
-    const QtRocket::Result<json> geometry =
-        QtRocket::Test::loadGoldenJson(std::filesystem::path{std::string{input}} / "geometry.json");
-    if (!geometry)
-    {
-        ADD_FAILURE() << "cannot read the geometry of " << input;
-        return json{};
-    }
-    for (const json& component : geometry->at("components"))
-    {
-        if (component.at("path").get<std::string>() == path)
-        {
-            return component;
-        }
-    }
-    ADD_FAILURE() << "no component " << path << " in " << input;
-    return json{};
-}
-
 /// The mismatches between @p ring and its golden entry: the ring details (radii, thickness,
 /// material, radial position, instance box) first, as the harness settles the automatic radii
-/// that way, then the geometry and mass properties every component has.
+/// that way, then the geometry, placement and mass properties every component has. The
+/// placement is relative to the parent, which the tests build with OpenRocket's dimensions.
 [[nodiscard]] std::vector<std::string> goldenMismatches(const QtRocket::RingComponent& ring,
                                                         const json&                    golden)
 {
@@ -632,17 +386,29 @@ TEST(RingComponent, CopiesKeepTheRingFields)
     check.number("/details/material/density", ring.getMaterial().getDensity());
     check.number("/details/radialPosition", ring.getRadialPosition());
     check.number("/details/radialDirection", ring.getRadialDirection());
+    check.string("/details/radiusMethod", QtRocket::radiusMethodName(ring.getRadiusMethod()));
+    check.number("/details/radiusOffset", ring.getRadiusOffset());
+    check.number("/details/angleOffset", ring.getAngleOffset());
+    check.boolean("/details/motorMount", ring.isMotorMount());
+    if (const auto* line = dynamic_cast<const QtRocket::LineInstanceable*>(&ring))
+    {
+        check.number("/details/instanceSeparation", line->getInstanceSeparation());
+    }
     const BoundingBox box = ring.getInstanceBoundingBox();
     check.coordinate("/details/instanceBoundingBox/min", box.min());
     check.coordinate("/details/instanceBoundingBox/max", box.max());
 
     check.string("/name", ring.getName());
     check.number("/length", ring.getLength());
+    check.string("/axialMethod", QtRocket::axialMethodName(ring.getAxialMethod()));
+    check.number("/axialOffset", ring.getAxialOffset());
+    check.coordinate("/position", ring.getPosition());
     check.number("/componentMass", ring.getComponentMass());
     check.coordinate("/componentCG", ring.getComponentCG());
     check.number("/longitudinalUnitInertia", ring.getLongitudinalUnitInertia());
     check.number("/rotationalUnitInertia", ring.getRotationalUnitInertia());
     check.number("/mass", ring.getMass());
+    check.number("/sectionMass", ring.getSectionMass());
     check.coordinate("/cg", ring.getCG());
     check.number("/longitudinalInertia", ring.getLongitudinalInertia());
     check.number("/rotationalInertia", ring.getRotationalInertia());
@@ -651,15 +417,21 @@ TEST(RingComponent, CopiesKeepTheRingFields)
     check.coordinates("/componentBounds", ring.getComponentBounds());
     check.integer("/instanceCount", ring.getInstanceCount());
     check.coordinates("/instanceOffsets", ring.getInstanceOffsets());
+    check.numbers("/instanceAngles", ring.getInstanceAngles());
+    check.coordinates("/instanceLocations", ring.getInstanceLocations());
     return check.failures();
 }
 
-/// The mismatches between the absolute locations of @p component and its golden ones.
+/// The mismatches between the absolute placement of @p component (its locations and angles in
+/// the rocket, its stage) and its golden one; only a test that builds the whole stage can
+/// compare it.
 [[nodiscard]] std::vector<std::string> goldenLocationMismatches(const RocketComponent& component,
                                                                 const json&            golden)
 {
     GoldenCheck check{golden};
     check.coordinates("/componentLocations", component.getComponentLocations());
+    check.coordinates("/componentAngles", component.getComponentAngles());
+    check.integer("/stageNumber", component.getStageNumber());
     return check.failures();
 }
 
@@ -674,12 +446,6 @@ TEST(RingComponent, CopiesKeepTheRingFields)
     check.number("/details/clusterScale", tube.getClusterScale());
     check.number("/details/clusterRotation", tube.getClusterRotation());
     return check.failures();
-}
-
-/// No mismatch.
-[[nodiscard]] std::vector<std::string> none()
-{
-    return {};
 }
 
 /// TestRockets.makeEstesAlphaIII() as far as the ring components go: the stage holds a nose
@@ -735,30 +501,27 @@ struct AlphaIIIRings
 TEST(RingComponentGolden, EstesAlphaIIIMotorMountTube)
 {
     const AlphaIIIRings alpha;
-    const json          golden = goldenComponent("testrocket-estes-alpha-iii", "/0/1/2");
-    EXPECT_EQ(goldenMismatches(*alpha.inner, golden), none());
-    EXPECT_EQ(goldenLocationMismatches(*alpha.inner, golden), none());
-    EXPECT_EQ(goldenMountMismatches(*alpha.inner, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/2");
+    EXPECT_EQ(goldenMismatches(*alpha.inner, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*alpha.inner, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(*alpha.inner, golden), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, EstesAlphaIIIEngineBlock)
 {
     const AlphaIIIRings alpha;
-    const json          golden = goldenComponent("testrocket-estes-alpha-iii", "/0/1/2/0");
-    EXPECT_EQ(goldenMismatches(*alpha.block, golden), none());
-    EXPECT_EQ(goldenLocationMismatches(*alpha.block, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/2/0");
+    EXPECT_EQ(goldenMismatches(*alpha.block, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*alpha.block, golden), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, EstesAlphaIIICenteringRings)
 {
     // Automatic outer radius from the body tube, automatic inner radius from the inner tube.
     const AlphaIIIRings alpha;
-    const json          golden = goldenComponent("testrocket-estes-alpha-iii", "/0/1/4");
-    EXPECT_EQ(goldenMismatches(*alpha.rings, golden), none());
-    EXPECT_EQ(goldenLocationMismatches(*alpha.rings, golden), none());
-    GoldenCheck separation{golden};
-    separation.number("/details/instanceSeparation", alpha.rings->getInstanceSeparation());
-    EXPECT_EQ(separation.failures(), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/4");
+    EXPECT_EQ(goldenMismatches(*alpha.rings, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*alpha.rings, golden), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, BetaCoupler)
@@ -778,8 +541,8 @@ TEST(RingComponentGolden, BetaCoupler)
     const TubeCoupler& added = body.addChild(std::move(coupler));
     rocket.rocket.enableEvents();
 
-    const json golden = goldenComponent("testrocket-beta", "/1/0/0");
-    EXPECT_EQ(goldenMismatches(added, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-beta", "/1/0/0");
+    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
 }
 
 /// TestRockets.makeIsoHaisu()'s second and third body tubes (BodyTube(length, 0.07, 0.005)
@@ -847,24 +610,22 @@ struct IsoHaisuRings
 TEST(RingComponentGolden, IsoHaisuCouplerAndBulkhead)
 {
     const IsoHaisuRings iso;
-    const json          coupler = goldenComponent("testrocket-iso-haisu", "/0/2/0");
-    EXPECT_EQ(goldenMismatches(*iso.coupler, coupler), none());
-    const json bulkhead = goldenComponent("testrocket-iso-haisu", "/0/2/2");
-    EXPECT_EQ(goldenMismatches(*iso.bulk, bulkhead), none());
-    GoldenCheck separation{bulkhead};
-    separation.number("/details/instanceSeparation", iso.bulk->getInstanceSeparation());
-    EXPECT_EQ(separation.failures(), none());
+    const json&         coupler = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/0");
+    EXPECT_EQ(goldenMismatches(*iso.coupler, coupler), noGoldenMismatches());
+    const json& bulkhead = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/2");
+    EXPECT_EQ(goldenMismatches(*iso.bulk, bulkhead), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, IsoHaisuInnerTubeAndCenteringRings)
 {
     const IsoHaisuRings iso;
-    const json          inner = goldenComponent("testrocket-iso-haisu", "/0/3/0");
-    EXPECT_EQ(goldenMismatches(*iso.inner, inner), none());
+    const json&         inner = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/3/0");
+    EXPECT_EQ(goldenMismatches(*iso.inner, inner), noGoldenMismatches());
     for (std::size_t i = 0; i < iso.centers.size(); ++i)
     {
-        const json center = goldenComponent("testrocket-iso-haisu", std::format("/0/3/{}", i + 1));
-        EXPECT_EQ(goldenMismatches(*iso.centers[i], center), none());
+        const json& center =
+            goldenGeometryComponentOrFail("testrocket-iso-haisu", std::format("/0/3/{}", i + 1));
+        EXPECT_EQ(goldenMismatches(*iso.centers[i], center), noGoldenMismatches());
     }
 }
 
@@ -886,9 +647,9 @@ TEST(RingComponentGolden, Falcon9HeavyBoosterMotorTubes)
     added.setMotorMount(true);  // TestRockets gives it a motor, which makes it a mount
     rocket.rocket.enableEvents();
 
-    const json golden = goldenComponent("testrocket-falcon-9-heavy", "/1/0/0/1/0");
-    EXPECT_EQ(goldenMismatches(added, golden), none());
-    EXPECT_EQ(goldenMountMismatches(added, golden), none());
+    const json& golden = goldenGeometryComponentOrFail("testrocket-falcon-9-heavy", "/1/0/0/1/0");
+    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(added, golden), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, ClusterPodsInnerTubes)
@@ -906,9 +667,9 @@ TEST(RingComponentGolden, ClusterPodsInnerTubes)
         added.setMotorMount(true);  // as TestRockets does
         rocket.rocket.enableEvents();
 
-        const json golden = goldenComponent("testrocket-cluster-pods", path);
-        EXPECT_EQ(goldenMismatches(added, golden), none());
-        EXPECT_EQ(goldenMountMismatches(added, golden), none());
+        const json& golden = goldenGeometryComponentOrFail("testrocket-cluster-pods", path);
+        EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
+        EXPECT_EQ(goldenMountMismatches(added, golden), noGoldenMismatches());
     }
 }
 

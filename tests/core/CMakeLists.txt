@@ -87,6 +87,7 @@ add_executable(QtRocket_core_tests
     rocket/InnerTubeTests.cpp
     rocket/InsideColorComponentTests.cpp
     rocket/InstanceMapTests.cpp
+    rocket/InternalComponentTests.cpp
     rocket/MassComponentTests.cpp
     rocket/MassObjectTests.cpp
     rocket/MotorConfigurationSetTests.cpp
@@ -99,6 +100,7 @@ add_executable(QtRocket_core_tests
     rocket/preset/ComponentPresetTypeTests.cpp
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
+    rocket/RadiusRingComponentTests.cpp
     rocket/RecoveryDeviceTests.cpp
     rocket/RingComponentTests.cpp
     rocket/RocketComponentTests.cpp
@@ -106,6 +108,8 @@ add_executable(QtRocket_core_tests
     rocket/ShockCordTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
     rocket/StreamerTests.cpp
+    rocket/StructuralComponentTests.cpp
+    rocket/ThicknessRingComponentTests.cpp
     rocket/TransitionShapeTests.cpp
     rocket/TubeCouplerTests.cpp
     models/AtmosphericConditionsTests.cpp

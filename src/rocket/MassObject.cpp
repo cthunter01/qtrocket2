@@ -10,6 +10,7 @@
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 
@@ -100,31 +101,32 @@ double MassObject::getMaxParentRadius() const
     {
         return 0;
     }
+    // Java tests the parent's class (instanceof), which cannot fail; here the kind tells the
+    // class, and a component of that kind without the interface is a programming error (a
+    // stand-in or a body class that misses it), not a parent of radius 0.
     const ComponentKind parentKind = m_parent->kind();
     if (parentKind == ComponentKind::NOSE_CONE || parentKind == ComponentKind::TRANSITION)
     {
         // HOOK(rocket-components): NoseCone.getBaseRadius() and the larger of
         // Transition.getForeRadius() and getAftRadius(), through RadialParent until Transition
         // exists (see the header).
-        if (const auto* radial = dynamic_cast<const RadialParent*>(m_parent))
-        {
-            const double foreRadius = radial->getOuterRadius(-1.0);
-            const double aftRadius  = radial->getOuterRadius(radial->getLength());
-            return MathUtil::javaMax(foreRadius, aftRadius);
-        }
-        return 0;
+        const auto* radial = dynamic_cast<const RadialParent*>(m_parent);
+        QTROCKET_ASSERT(radial != nullptr);
+        const double foreRadius = radial->getOuterRadius(-1.0);
+        const double aftRadius  = radial->getOuterRadius(radial->getLength());
+        return MathUtil::javaMax(foreRadius, aftRadius);
     }
     if (isBodyComponent(parentKind))
     {
         // A body tube: BodyComponent.getInnerRadius().
-        if (const auto* body = dynamic_cast<const Coaxial*>(m_parent))
-        {
-            return body->getInnerRadius();
-        }
-        return 0;
+        const auto* body = dynamic_cast<const Coaxial*>(m_parent);
+        QTROCKET_ASSERT(body != nullptr);
+        return body->getInnerRadius();
     }
-    if (const auto* ring = dynamic_cast<const RingComponent*>(m_parent))
+    if (isRingComponent(parentKind))
     {
+        const auto* ring = dynamic_cast<const RingComponent*>(m_parent);
+        QTROCKET_ASSERT(ring != nullptr);
         return ring->getInnerRadius();
     }
     return 0;

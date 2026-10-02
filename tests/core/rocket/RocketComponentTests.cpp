@@ -1229,7 +1229,7 @@ TEST(RocketComponentPresets, OptionsReachLoadFromPreset)
     const ComponentPreset            first  = bodyTubePreset(0.3, "BT-20");
     const ComponentPreset            second = bodyTubePreset(0.4, "BT-50");
     std::vector<std::optional<bool>> seen;
-    TestComponent                    component;
+    TestComponent                    component(ComponentKind::PARACHUTE);
     component.setOnLoadFromPreset([&seen](const ComponentPreset& /*preset*/,
                                           const RocketComponent::PresetLoadOptions& options) {
         seen.push_back(options.allowAutoRadius);
@@ -1237,6 +1237,18 @@ TEST(RocketComponentPresets, OptionsReachLoadFromPreset)
     component.loadPreset(&first);
     component.loadPreset(&second, {.allowAutoRadius = false});
     EXPECT_EQ(seen, (std::vector<std::optional<bool>>{std::nullopt, false}));
+}
+
+TEST(RocketComponentPresets, OptionsAreForParachutesOnly)
+{
+    // Java passes params to a parachute only; for another component they would skip the
+    // overrides of the one-argument loadFromPreset(), which the single C++ method cannot.
+    const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
+    TestComponent         component(ComponentKind::BODY_TUBE);
+    EXPECT_THROW(component.loadPreset(&preset, {.allowAutoRadius = true}), BugError);
+    EXPECT_EQ(component.getPresetComponent(), nullptr);
+    component.loadPreset(&preset, {});
+    EXPECT_EQ(component.getPresetComponent(), &preset);
 }
 
 TEST(RocketComponentPresets, PresetTypeFollowsTheKind)

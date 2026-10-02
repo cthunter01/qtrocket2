@@ -24,6 +24,7 @@
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 #include "rocket/TestBodyComponent.h"
 
 namespace
@@ -316,6 +317,52 @@ TEST(Parachute, PresetSubstitutesDefaultsForMissingValues)
     EXPECT_EQ(chute.getMaterial().getName(), "Ripstop nylon");  // no MATERIAL
     EXPECT_FALSE(chute.isMassOverridden());
     EXPECT_EQ(chute.getOverrideMass(), chute.getComponentMass());
+}
+
+TEST(Parachute, PresetWithoutALineMaterialLeavesTheDefaultLineMaterial)
+{
+    // Java's DEFAULT_LINE_MATERIAL and defaultMaterial, which its constructors read from the
+    // preferences.
+    Parachute chute;
+    EXPECT_EQ(chute.getDefaultLineMaterial().getName(), "Elastic cord (round 2 mm, 1/16 in)");
+    EXPECT_EQ(chute.getDefaultLineMaterial(), chute.getLineMaterial());
+    EXPECT_THROW(chute.setDefaultLineMaterial(
+                     Material::newMaterial(Material::Type::SURFACE, "s", 1.0, true)),
+                 BugError);
+    EXPECT_THROW(
+        chute.setDefaultLineMaterial(Material::newMaterial(Material::Type::BULK, "b", 1.0, true)),
+        BugError);
+
+    const Material kevlar = Material::newMaterial(Material::Type::LINE, "Kevlar", 0.003, true);
+    const Material silk   = Material::newMaterial(Material::Type::SURFACE, "Silk", 0.05, true);
+    chute.setDefaultLineMaterial(kevlar);
+    chute.setDefaultMaterial(silk);
+    EXPECT_EQ(chute.getDefaultLineMaterial(), kevlar);
+    EXPECT_EQ(chute.getLineMaterial().getName(), "Elastic cord (round 2 mm, 1/16 in)");
+
+    // Neither MATERIAL nor LINE_MATERIAL: both defaults.
+    const ComponentPreset preset = makePreset(parachuteProps(1.0, 6, 1.0));
+    chute.loadPreset(&preset);
+    EXPECT_EQ(chute.getLineMaterial(), kevlar);
+    EXPECT_EQ(chute.getMaterial(), silk);
+    EXPECT_EQ(chute.getPresetComponent(), &preset);
+
+    // A line material whose description is too short counts as none.
+    const Material unnamedLine = Material::newMaterial(Material::Type::LINE, "", 0.001, true);
+    ASSERT_LE(QtRocket::Strings::javaLength(unnamedLine.toString()), 12U);
+    TypedPropertyMap shortName = parachuteProps(1.0, 6, 1.0);
+    shortName.put(ComponentPreset::kLineMaterial, unnamedLine);
+    const ComponentPreset unnamed = makePreset(shortName);
+    chute.setLineMaterial(Material::newMaterial(Material::Type::LINE, "Nylon", 0.002, true));
+    chute.loadPreset(&unnamed);
+    EXPECT_EQ(chute.getLineMaterial(), kevlar);
+
+    // A copy keeps it, as Java's clone keeps the final field.
+    const std::unique_ptr<Parachute> copy =
+        QtRocket::componentCast<Parachute>(chute.copyWithNewIds());
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->getDefaultLineMaterial(), kevlar);
+    EXPECT_EQ(copy->getDefaultMaterial(), silk);
 }
 
 TEST(Parachute, PresetValues)

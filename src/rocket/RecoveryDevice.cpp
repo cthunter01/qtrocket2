@@ -18,7 +18,8 @@ namespace QtRocket
 {
 
 RecoveryDevice::RecoveryDevice()
-  : m_material(builtinDefaultComponentMaterial(Material::Type::SURFACE)),
+  : m_defaultMaterial(builtinDefaultComponentMaterial(Material::Type::SURFACE)),
+    m_material(m_defaultMaterial),
     m_deploymentConfigurations(DeploymentConfiguration{})
 {
 }
@@ -86,6 +87,15 @@ void RecoveryDevice::setMaterial(const Material& material)
     fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
 }
 
+void RecoveryDevice::setDefaultMaterial(const Material& material)
+{
+    if (material.getType() != Material::Type::SURFACE)
+    {
+        bug("Attempted to set non-surface default material " + material.toString());
+    }
+    m_defaultMaterial = material;
+}
+
 std::vector<Material> RecoveryDevice::getAllMaterials() const
 {
     std::vector<Material> materials = MassObject::getAllMaterials();
@@ -131,12 +141,12 @@ void RecoveryDevice::loadFromPreset(const ComponentPreset& preset, const PresetL
         }
         else
         {
-            m_material = builtinDefaultComponentMaterial(Material::Type::SURFACE);
+            m_material = m_defaultMaterial;
         }
     }
     else
     {
-        m_material = builtinDefaultComponentMaterial(Material::Type::SURFACE);
+        m_material = m_defaultMaterial;
     }
 
     fireComponentChangeEvent(ComponentChangeEvent::kBothChange);

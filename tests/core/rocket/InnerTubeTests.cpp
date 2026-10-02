@@ -463,6 +463,71 @@ TEST(InnerTube, MakeIndividualClusterComponent)
     }
 }
 
+/// Whether @p child is the split tube of @p cluster's member at @p location named @p name
+/// (isSplitTube()) and sits in the rocket where that member was.
+[[nodiscard]] ::testing::AssertionResult isSplitInPlace(const RocketComponent& child,
+                                                        const InnerTube&       cluster,
+                                                        const Coordinate&      location,
+                                                        const std::string&     name)
+{
+    const auto* split = dynamic_cast<const InnerTube*>(&child);
+    if (split == nullptr)
+    {
+        return ::testing::AssertionFailure() << name << " is not an inner tube";
+    }
+    if (!isSplitTube(*split, cluster, location, name))
+    {
+        return isSplitTube(*split, cluster, location, name);  // the same failure, with its message
+    }
+    const std::vector<Coordinate> locations = split->getComponentLocations();
+    if (locations.size() != 1U || std::abs(locations.front().x - location.x) > kEpsilon ||
+        std::abs(locations.front().y - location.y) > kEpsilon ||
+        std::abs(locations.front().z - location.z) > kEpsilon)
+    {
+        return ::testing::AssertionFailure() << name << " is not where its cluster member was";
+    }
+    return ::testing::AssertionSuccess();
+}
+
+TEST(InnerTube, SplitClusterAsTheGuiDoes)
+{
+    // InnerTubeConfig's "Split cluster" (splitAction()): the locations are read, the cluster is
+    // removed from its parent, and the copies are made from the removed tube, which the caller
+    // keeps alive meanwhile, and inserted where it was.
+    Rocket rocket;
+    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
+    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    body.addChild(std::make_unique<EngineBlock>());
+    auto& tube = body.addChild(std::make_unique<InnerTube>());
+    tube.setName("MMT");
+    tube.setOuterRadius(0.009);
+    tube.setClusterConfiguration(layout("3-ring"));
+    tube.setClusterRotation(0.3);
+    tube.addChild(std::make_unique<EngineBlock>());
+    rocket.enableEvents();
+
+    const std::vector<Coordinate> locations = tube.getComponentLocations();
+    ASSERT_EQ(body.getChildPosition(&tube), std::optional<std::size_t>{1});
+    const std::size_t                index = body.getChildPosition(&tube).value_or(0);
+    const std::unique_ptr<InnerTube> removed =
+        QtRocket::componentCast<InnerTube>(body.removeChild(index));
+    ASSERT_NE(removed, nullptr);
+    for (std::size_t i = 0; i < locations.size(); ++i)
+    {
+        body.addChild(
+            InnerTube::makeIndividualClusterComponent(
+                locations[i], removed->getName() + " #" + std::to_string(i + 1), *removed),
+            index + i);
+    }
+
+    ASSERT_EQ(body.getChildCount(), 4U);
+    for (std::size_t i = 0; i < locations.size(); ++i)
+    {
+        EXPECT_TRUE(isSplitInPlace(body.getChild(index + i), *removed, locations[i],
+                                   "MMT #" + std::to_string(i + 1)));
+    }
+}
+
 // ================================================================================= presets
 
 /// A BT-20 body tube preset (0.2 m long, outer diameter 24.7 mm, inner 23.7 mm).

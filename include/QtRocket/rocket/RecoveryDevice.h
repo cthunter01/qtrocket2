@@ -24,10 +24,15 @@ class FlightConfigurationId;
 /// getter does, so the field is mutable. When to deploy is a DeploymentConfiguration per flight
 /// configuration. A drogue flag is kept for the simulation's warnings.
 ///
-/// A new device is made of the built-in default surface material, "Ripstop nylon" (see
-/// StructuralComponent for why the preferences are not consulted); that is also the material a
-/// preset without a usable MATERIAL leaves (Java: defaultMaterial). HOOK(document): Java adds a
-/// document material set from a preset to the document's preferences (see StructuralComponent).
+/// A new device is made of the built-in default surface material, "Ripstop nylon", and keeps it
+/// as its default material (getDefaultMaterial()), the one a preset without a usable MATERIAL
+/// leaves. Deviation: Java's constructor reads both from the application preferences
+/// (getDefaultComponentMaterial(RecoveryDevice.class, SURFACE), the RecoveryDevice class chain
+/// for a parachute and a streamer alike) and keeps the default in a final field; rocket/ has no
+/// access to the preferences (see StructuralComponent), so whoever creates a device for the user
+/// applies that material with setDefaultMaterial() and setMaterial(). HOOK(document): Java adds
+/// a document material set from a preset to the document's preferences (see
+/// StructuralComponent).
 ///
 /// Not ported: the multi-edit config listener overrides (addConfigListener() and friends), by
 /// decision (see RocketComponent).
@@ -70,6 +75,16 @@ public:
     ///         IllegalArgumentException "Attempted to set non-surface material").
     void setMaterial(const Material& material);
 
+    /// The surface material a preset without a usable MATERIAL leaves (Java: defaultMaterial).
+    [[nodiscard]] const Material& getDefaultMaterial() const noexcept { return m_defaultMaterial; }
+
+    /// Sets the default material (Java sets its final field in the constructor, from the
+    /// preferences): fires nothing and leaves the current material and the preset alone. Copies
+    /// keep it, as Java's clone keeps the field.
+    /// @throws BugError when @p material is not a SURFACE material (Java's cast to
+    ///         Material.Surface).
+    void setDefaultMaterial(const Material& material);
+
     /// The materials of the base class followed by the surface material.
     [[nodiscard]] std::vector<Material> getAllMaterials() const override;
 
@@ -96,15 +111,17 @@ public:
     [[nodiscard]] double getComponentMass() const override;
 
 protected:
-    /// A device of the built-in default surface material, with the default deployment
-    /// (DeploymentConfiguration{}), an automatic drag coefficient (kInitialCd,
-    /// Parachute::kDefaultCd, until computed) and no drogue flag.
+    /// A device of the built-in default surface material (its default material too), with the
+    /// default deployment (DeploymentConfiguration{}), an automatic drag coefficient
+    /// (kInitialCd, Parachute::kDefaultCd, until computed) and no drogue flag.
     RecoveryDevice();
 
     /// The base class's values, then the material: the preset's MATERIAL when it has one whose
     /// toString() is longer than 12 characters (Java's String.length(); "NEED a better way to
-    /// set preset if field is empty"), else the default surface material. Fires AEROMASS_CHANGE.
-    /// @throws BugError when that MATERIAL is not a SURFACE material (Java: ClassCastException).
+    /// set preset if field is empty"), else getDefaultMaterial(). Fires AEROMASS_CHANGE.
+    /// @throws BugError when that MATERIAL is not a SURFACE material (Java: ClassCastException;
+    ///         ComponentPresetFactory refuses such a preset, so only a preset made otherwise has
+    ///         one).
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
     /// The stored drag coefficient of a new device (Java initialises it with Parachute.DEFAULT_CD;
@@ -118,6 +135,7 @@ protected:
 
 private:
     bool                                                    m_drogue{false};
+    Material                                                m_defaultMaterial;
     Material                                                m_material;
     FlightConfigurableParameterSet<DeploymentConfiguration> m_deploymentConfigurations;
 };

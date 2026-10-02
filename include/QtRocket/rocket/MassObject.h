@@ -53,6 +53,9 @@ public:
     /// is getOuterRadius(-1) and the aft radius getOuterRadius(getLength()) (Transition's
     /// getRadius() gives exactly those), and a nose cone's base radius is the larger of the two
     /// (its tip radius is 0); a body tube's inner radius is Coaxial::getInnerRadius().
+    /// @throws BugError when the parent's kind() names one of those classes but the parent is
+    ///         not a RadialParent (nose cone, transition), a Coaxial (body tube) or a
+    ///         RingComponent (ring kinds): Java's instanceof tests cannot fail that way.
     [[nodiscard]] double getMaxParentRadius() const;
 
     /// Sets the packed radius (negative values become 0), makes it manual and recomputes the

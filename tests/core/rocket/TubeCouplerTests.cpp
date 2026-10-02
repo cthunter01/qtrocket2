@@ -59,12 +59,14 @@ protected:
     ComponentPreset m_preset{couplerPreset()};
 };
 
+// Java: testComponentType
 TEST_F(TubeCouplerComponentTest, ComponentType)
 {
     const TubeCoupler tc;
     EXPECT_EQ(tc.getPresetType(), ComponentPresetType::TUBE_COUPLER);
 }
 
+// Java: testLoadFromPresetIsSane
 TEST_F(TubeCouplerComponentTest, LoadFromPresetIsSane)
 {
     TubeCoupler tc;
@@ -81,6 +83,7 @@ TEST_F(TubeCouplerComponentTest, LoadFromPresetIsSane)
     EXPECT_NEAR(tc.getMass(), 100.0, 0.05);
 }
 
+// Java: changeODClearsPreset
 TEST_F(TubeCouplerComponentTest, ChangeODClearsPreset)
 {
     TubeCoupler tc;
@@ -89,6 +92,7 @@ TEST_F(TubeCouplerComponentTest, ChangeODClearsPreset)
     EXPECT_EQ(tc.getPresetComponent(), nullptr);
 }
 
+// Java: changeIDClearsPreset
 TEST_F(TubeCouplerComponentTest, ChangeIDClearsPreset)
 {
     TubeCoupler tc;
@@ -97,6 +101,7 @@ TEST_F(TubeCouplerComponentTest, ChangeIDClearsPreset)
     EXPECT_EQ(tc.getPresetComponent(), nullptr);
 }
 
+// Java: changeThicknessClearsPreset
 TEST_F(TubeCouplerComponentTest, ChangeThicknessClearsPreset)
 {
     TubeCoupler tc;
@@ -105,6 +110,7 @@ TEST_F(TubeCouplerComponentTest, ChangeThicknessClearsPreset)
     EXPECT_EQ(tc.getPresetComponent(), nullptr);
 }
 
+// Java: changeMaterialClearsPreset
 TEST_F(TubeCouplerComponentTest, ChangeMaterialClearsPreset)
 {
     TubeCoupler tc;
@@ -113,6 +119,7 @@ TEST_F(TubeCouplerComponentTest, ChangeMaterialClearsPreset)
     EXPECT_EQ(tc.getPresetComponent(), nullptr);
 }
 
+// Java: changeLengthLeavesPreset (commented out in Java)
 TEST_F(TubeCouplerComponentTest, ChangeLengthClearsPreset)
 {
     // Java's changeLengthLeavesPreset is commented out ("test fails"): RingComponent's

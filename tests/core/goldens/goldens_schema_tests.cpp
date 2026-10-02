@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -540,6 +541,76 @@ TEST(GoldenData, GoldenCheckCollectsMismatches)
     EXPECT_EQ(check.failures().front(), "/a: 1.0009999999999999 differs from the golden 1.0");
     EXPECT_EQ(check.failures()[1], "/missing: 0 differs from the golden (none)");
     EXPECT_EQ(check.failures()[4], "/s: \"y\" differs from the golden \"x\"");
+}
+
+TEST(GoldenData, GoldenCheckComparesListsOfNumbers)
+{
+    const json                  golden = json::parse(R"({"v": [0.0, 1.5, "NaN"], "s": "x"})");
+    QtRocket::Test::GoldenCheck check{golden};
+    check.numbers("/v", std::vector{0.0, 1.5, std::numeric_limits<double>::quiet_NaN()});
+    EXPECT_EQ(check.failures(), std::vector<std::string>{});
+
+    check.numbers("/v", std::vector{0.0, 1.5});
+    check.numbers("/v", std::vector{0.0, 1.0, 0.0});
+    check.numbers("/s", std::vector{1.0});
+    ASSERT_EQ(check.failures().size(), 4U);
+    EXPECT_EQ(check.failures()[0], R"(/v: 2 numbers differs from the golden [0.0,1.5,"NaN"])");
+    EXPECT_EQ(check.failures()[1], "/v/1: 1 differs from the golden 1.5");
+    EXPECT_EQ(check.failures()[2], R"(/v/2: 0 differs from the golden "NaN")");
+    EXPECT_EQ(check.failures()[3], R"(/s: 1 numbers differs from the golden "x")");
+}
+
+TEST(GoldenData, GoldenGeometryComponentFindsTheEntry)
+{
+    const auto tube =
+        QtRocket::Test::goldenGeometryComponent("testrocket-estes-alpha-iii", "/0/1/2");
+    ASSERT_TRUE(tube.has_value()) << tube.error().toString();
+    EXPECT_EQ((*tube)->at("name").get<std::string>(), "Motor Mount Tube");
+    // The second lookup reads the cached file: the same entry.
+    const auto again =
+        QtRocket::Test::goldenGeometryComponent("testrocket-estes-alpha-iii", "/0/1/2");
+    ASSERT_TRUE(again.has_value());
+    EXPECT_EQ(*again, *tube);
+
+    const auto missing =
+        QtRocket::Test::goldenGeometryComponent("testrocket-estes-alpha-iii", "/9");
+    ASSERT_FALSE(missing.has_value());
+    EXPECT_EQ(missing.error().code, QtRocket::ErrorCode::NOT_FOUND);
+    EXPECT_EQ(missing.error().message,
+              "testrocket-estes-alpha-iii/geometry.json has no component /9");
+    const auto noInput = QtRocket::Test::goldenGeometryComponent("no-such-input", "/0");
+    ASSERT_FALSE(noInput.has_value());
+    EXPECT_EQ(noInput.error().code, QtRocket::ErrorCode::IO);
+
+    // The reporting variant: the entry, or a test failure and an empty object.
+    EXPECT_EQ(
+        &QtRocket::Test::goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/2"),
+        *tube);
+    EXPECT_NONFATAL_FAILURE(EXPECT_TRUE(QtRocket::Test::goldenGeometryComponentOrFail(
+                                            "testrocket-estes-alpha-iii", "/9")
+                                            .empty()),
+                            "has no component /9");
+}
+
+TEST(GoldenData, GoldenCheckMatchesInfinitiesExactly)
+{
+    // An infinity would make the relative tolerance infinite: it matches the same infinity only.
+    const json       golden = json::parse(R"({"a": 1.0, "inf": "Infinity", "minf": "-Infinity"})");
+    constexpr double kInf   = std::numeric_limits<double>::infinity();
+    QtRocket::Test::GoldenCheck check{golden};
+    check.number("/inf", kInf);
+    check.number("/minf", -kInf);
+    EXPECT_EQ(check.failures(), std::vector<std::string>{});
+
+    check.number("/a", kInf);
+    check.number("/a", -kInf);
+    check.number("/inf", 1.0);
+    check.number("/minf", kInf);
+    check.number("/inf", std::numeric_limits<double>::max());
+    ASSERT_EQ(check.failures().size(), 5U);
+    EXPECT_EQ(check.failures().front(), "/a: inf differs from the golden 1.0");
+    EXPECT_EQ(check.failures()[2], "/inf: 1 differs from the golden \"Infinity\"");
+    EXPECT_EQ(check.failures()[3], "/minf: inf differs from the golden \"-Infinity\"");
 }
 
 TEST(GoldenData, ParsesCsv)

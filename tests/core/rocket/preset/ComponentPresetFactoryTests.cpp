@@ -112,12 +112,12 @@ void expectInvalidPreset(const Outcome& outcome, std::initializer_list<AnyTypedK
     return Material::newMaterial(Material::Type::BULK, "test", 2.0, true);
 }
 
-// Deferred until the concrete components are ported: the ten preset component tests
-// (BodyTubeComponentTests, BulkHeadComponentTests, CenteringRingComponentTests,
-// EngineBlockComponentTests, LaunchLugComponentTests, NoseConeComponentTests,
-// ParachuterComponentTests, StreamerComponentTests, TransitionComponentTests and
-// TubeCouplerComponentTests), which load presets into components, and the mass tests of
-// NoseConePresetTests (see ShapedPresetWithAMassTest).
+// The preset component tests, which load presets into components, are with the components'
+// tests (BulkheadTests.cpp, CenteringRingTests.cpp, EngineBlockTests.cpp, ParachuteTests.cpp,
+// StreamerTests.cpp and TubeCouplerTests.cpp). Deferred until the concrete components are
+// ported: BodyTubeComponentTests, LaunchLugComponentTests, NoseConeComponentTests and
+// TransitionComponentTests, and the mass tests of NoseConePresetTests (see
+// ShapedPresetWithAMassTest).
 
 // ================================================================================ tubes
 // BodyTubePresetTests, TubeCouplerPresetTests, LaunchLugPresetTests, CenteringRingPresetTests
@@ -660,6 +660,27 @@ TEST_F(ComponentPresetFactoryTest, ParachuteMassIsKept)
     EXPECT_FALSE(preset->has(ComponentPreset::kMaterial));
 }
 
+TEST_F(ComponentPresetFactoryTest, ParachuteMaterialsMustHaveTheirTypes)
+{
+    // No Java counterpart: OpenRocket accepts any material here (see the header).
+    TypedPropertyMap props = spec(ComponentPresetType::PARACHUTE);
+    props.put(ComponentPreset::kDiameter, 2.0);
+    props.put(ComponentPreset::kLineCount, 6);
+    props.put(ComponentPreset::kLineLength, 1.5);
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::SURFACE, "Silk", 0.05, true));
+    props.put(ComponentPreset::kLineMaterial,
+              Material::newMaterial(Material::Type::LINE, "Kevlar", 0.003, true));
+    EXPECT_TRUE(create(props).has_value());
+
+    props.put(ComponentPreset::kMaterial, testMaterial());
+    props.put(ComponentPreset::kLineMaterial,
+              Material::newMaterial(Material::Type::SURFACE, "Silk", 0.05, true));
+    expectInvalidPreset(create(props), {ComponentPreset::kMaterial, ComponentPreset::kLineMaterial},
+                        {R"(Material "test" is not a SURFACE material)",
+                         R"(LineMaterial "Silk" is not a LINE material)"});
+}
+
 // ============================================================================ StreamerPresetTests
 
 TEST_F(ComponentPresetFactoryTest, StreamerManufacturerRequired)
@@ -691,6 +712,24 @@ TEST_F(ComponentPresetFactoryTest, StreamerWidthRequired)
     TypedPropertyMap props = spec(ComponentPresetType::STREAMER);
     props.put(ComponentPreset::kLength, 2.0);
     expectInvalidPreset(create(props), {ComponentPreset::kWidth}, {"No Width specified"});
+}
+
+TEST_F(ComponentPresetFactoryTest, StreamerMaterialMustBeASurfaceMaterial)
+{
+    // No Java counterpart: OpenRocket accepts the preset and its loading throws a
+    // ClassCastException. A streamer's line material is not checked (Streamer ignores it).
+    TypedPropertyMap props = spec(ComponentPresetType::STREAMER);
+    props.put(ComponentPreset::kLength, 2.0);
+    props.put(ComponentPreset::kWidth, 0.1);
+    props.put(ComponentPreset::kLineMaterial, testMaterial());
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::LINE, "Kevlar", 0.003, true));
+    expectInvalidPreset(create(props), {ComponentPreset::kMaterial},
+                        {R"(Material "Kevlar" is not a SURFACE material)"});
+
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::SURFACE, "Mylar", 0.021, true));
+    EXPECT_TRUE(create(props).has_value());
 }
 
 // ============================================================================== rail button

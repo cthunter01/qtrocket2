@@ -37,7 +37,9 @@ template <class T>
 
 }  // namespace
 
-Parachute::Parachute() : m_lineMaterial(builtinDefaultComponentMaterial(Material::Type::LINE))
+Parachute::Parachute()
+  : m_defaultLineMaterial(builtinDefaultComponentMaterial(Material::Type::LINE)),
+    m_lineMaterial(m_defaultLineMaterial)
 {
     setDisplayOrderSide(11);  // Order for displaying the component in the 2D side view
     setDisplayOrderBack(9);   // Order for displaying the component in the 2D back view
@@ -169,6 +171,15 @@ void Parachute::setLineMaterial(const Material& material)
     }
 }
 
+void Parachute::setDefaultLineMaterial(const Material& material)
+{
+    if (material.getType() != Material::Type::LINE)
+    {
+        bug("Attempted to set non-line default material " + material.toString());
+    }
+    m_defaultLineMaterial = material;
+}
+
 std::vector<Material> Parachute::getAllMaterials() const
 {
     std::vector<Material> materials = RecoveryDevice::getAllMaterials();
@@ -224,13 +235,20 @@ void Parachute::loadFromPreset(const ComponentPreset& preset, const PresetLoadOp
     if (preset.has(ComponentPreset::kLineMaterial) &&
         Strings::javaLength(preset.get(ComponentPreset::kLineMaterial).toString()) > 12)
     {
-        m_lineMaterial = preset.get(ComponentPreset::kLineMaterial);
+        const Material& material = preset.get(ComponentPreset::kLineMaterial);
+        // Java's field takes any material; ComponentPresetFactory refuses a preset whose line
+        // material is not a LINE one, so this guards setLineMaterial()'s invariant.
+        if (material.getType() != Material::Type::LINE)
+        {
+            bug("Attempted to load non-line material " + material.toString());
+        }
+        m_lineMaterial = material;
         // HOOK(document): a document material goes to the document's preferences (see
         // StructuralComponent).
     }
     else
     {
-        m_lineMaterial = builtinDefaultComponentMaterial(Material::Type::LINE);
+        m_lineMaterial = m_defaultLineMaterial;
     }
 
     // The packed length:

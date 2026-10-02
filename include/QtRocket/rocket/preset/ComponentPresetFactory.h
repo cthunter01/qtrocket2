@@ -36,6 +36,11 @@ class MaterialStorage;
 ///   heights. For these three a mass becomes a material over the volume of the component loaded
 ///   from the preset (NoseCone, Transition, RailButton.getComponentVolume()).
 /// - STREAMER: a length and a width. PARACHUTE: a diameter, a line count and a line length.
+///   Deviation: the MATERIAL of either, when given, must be a SURFACE material and a parachute's
+///   LINE_MATERIAL a LINE one ('Material "<name>" is not a SURFACE material'). OpenRocket
+///   accepts any (its .orc reader takes the type from the file), and loading such a preset into
+///   the component throws a ClassCastException or keeps a line material of the wrong type; here
+///   the file's error is a recoverable one and RecoveryDevice and Parachute can rely on the types.
 ///
 /// The properties are not otherwise checked: a negative or NaN dimension passes, as in
 /// OpenRocket. Only the density conversion reads the other properties (a material's name).
