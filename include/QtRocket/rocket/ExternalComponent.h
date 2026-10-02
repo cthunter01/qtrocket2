@@ -38,7 +38,8 @@ class ExternalComponent : public RocketComponent
 {
 public:
     /// The material a new external component starts with: the built-in bulk "Cardboard"
-    /// (ApplicationPreferences' DEFAULT_BULK_MATERIAL, kDefaultBulkMaterialName).
+    /// (ApplicationPreferences' DEFAULT_BULK_MATERIAL), builtinDefaultComponentMaterial(BULK)
+    /// made once.
     [[nodiscard]] static const Material& defaultMaterial();
 
     /// The volume of the component's material, from which its mass is computed.

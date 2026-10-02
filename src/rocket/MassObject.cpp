@@ -6,9 +6,11 @@
 #include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
@@ -104,12 +106,19 @@ double MassObject::getMaxParentRadius() const
     // Java tests the parent's class (instanceof), which cannot fail; here the kind tells the
     // class, and a component of that kind without the interface is a programming error (a
     // stand-in or a body class that misses it), not a parent of radius 0.
+    if (const auto* noseCone = dynamic_cast<const NoseCone*>(m_parent))
+    {
+        return noseCone->getBaseRadius();
+    }
+    if (const auto* transition = dynamic_cast<const Transition*>(m_parent))
+    {
+        return MathUtil::javaMax(transition->getForeRadius(), transition->getAftRadius());
+    }
     const ComponentKind parentKind = m_parent->kind();
     if (parentKind == ComponentKind::NOSE_CONE || parentKind == ComponentKind::TRANSITION)
     {
-        // HOOK(rocket-components): NoseCone.getBaseRadius() and the larger of
-        // Transition.getForeRadius() and getAftRadius(), through RadialParent until Transition
-        // exists (see the header).
+        // HOOK(test-fixtures): a nose cone or transition stand-in (TestBodyComponent), read
+        // through RadialParent as ReferenceType does (see the header).
         const auto* radial = dynamic_cast<const RadialParent*>(m_parent);
         QTROCKET_ASSERT(radial != nullptr);
         const double foreRadius = radial->getOuterRadius(-1.0);

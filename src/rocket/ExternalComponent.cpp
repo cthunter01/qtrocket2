@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/material/MaterialStorage.h"
@@ -20,27 +19,9 @@
 namespace QtRocket
 {
 
-namespace
-{
-
-/// The built-in bulk material named kDefaultBulkMaterialName.
-[[nodiscard]] Material makeDefaultMaterial()
-{
-    for (const BuiltinMaterial& row : builtinMaterials())
-    {
-        if (row.type == Material::Type::BULK && row.name == kDefaultBulkMaterialName)
-        {
-            return toMaterial(row);
-        }
-    }
-    bug("the built-in material table has no " + std::string(kDefaultBulkMaterialName));
-}
-
-}  // namespace
-
 const Material& ExternalComponent::defaultMaterial()
 {
-    static const Material kDefault = makeDefaultMaterial();
+    static const Material kDefault = builtinDefaultComponentMaterial(Material::Type::BULK);
     return kDefault;
 }
 

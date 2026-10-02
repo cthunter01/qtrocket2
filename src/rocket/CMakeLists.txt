@@ -12,8 +12,8 @@ target_sources(QtRocket_core PRIVATE
     Decal.cpp
     DeploymentConfiguration.cpp
     DesignType.cpp
-    ExternalComponent.cpp
     EngineBlock.cpp
+    ExternalComponent.cpp
     Finish.cpp
     FlightConfiguration.cpp
     FlightConfigurationId.cpp
@@ -47,11 +47,11 @@ target_sources(QtRocket_core PRIVATE
     RocketUtils.cpp
     ShockCord.cpp
     StageSeparationConfiguration.cpp
-    SymmetricComponent.cpp
-    Transition.cpp
     Streamer.cpp
     StructuralComponent.cpp
+    SymmetricComponent.cpp
     ThicknessRingComponent.cpp
+    Transition.cpp
     TransitionShape.cpp
     TubeCoupler.cpp
 )

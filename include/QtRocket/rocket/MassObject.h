@@ -48,11 +48,11 @@ public:
 
     /// The radius of the space the parent offers: the base radius of a nose cone, the larger
     /// radius of a transition, the inner radius of a body tube or a ring component, else 0.
-    /// HOOK(rocket-components): until NoseCone and Transition exist, a nose cone's or
-    /// transition's radii are read through RadialParent as ReferenceType does: the fore radius
-    /// is getOuterRadius(-1) and the aft radius getOuterRadius(getLength()) (Transition's
-    /// getRadius() gives exactly those), and a nose cone's base radius is the larger of the two
-    /// (its tip radius is 0); a body tube's inner radius is Coaxial::getInnerRadius().
+    /// A body tube's inner radius is Coaxial::getInnerRadius(). HOOK(test-fixtures): a parent of
+    /// kind NOSE_CONE or TRANSITION that is not a NoseCone or Transition (the TestBodyComponent
+    /// stand-in) is read through RadialParent as ReferenceType does: the fore radius is
+    /// getOuterRadius(-1), the aft radius getOuterRadius(getLength()), and a nose cone's base
+    /// radius the larger of the two (its tip radius is 0).
     /// @throws BugError when the parent's kind() names one of those classes but the parent is
     ///         not a RadialParent (nose cone, transition), a Coaxial (body tube) or a
     ///         RingComponent (ring kinds): Java's instanceof tests cannot fail that way.

@@ -15,15 +15,19 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MassComponent.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Streamer.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
@@ -40,6 +44,7 @@ namespace
 using nlohmann::json;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
@@ -47,10 +52,13 @@ using QtRocket::Coordinate;
 using QtRocket::InnerTube;
 using QtRocket::MassComponent;
 using QtRocket::MassObject;
+using QtRocket::NoseCone;
 using QtRocket::Parachute;
 using QtRocket::Rocket;
 using QtRocket::ShockCord;
 using QtRocket::Streamer;
+using QtRocket::Transition;
+using QtRocket::TransitionShape;
 using QtRocket::Test::GoldenCheck;
 using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::noGoldenMismatches;
@@ -201,6 +209,31 @@ TEST(MassObject, AutomaticRadiusOfEachParentKind)
     const MassComponent detached;
     EXPECT_EQ(detached.getMaxParentRadius(), 0.0);
     EXPECT_EQ(detached.getAutoRadius(), 0.0125);
+}
+
+// The real body components take Java's path (NoseCone.getBaseRadius(), Transition's fore and aft
+// radii, BodyComponent.getInnerRadius()), not the RadialParent reading of the stand-ins above.
+TEST(MassObject, AutomaticRadiusInsideRealBodyComponents)
+{
+    auto        nose   = std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.2, 0.03);
+    const auto& inNose = nose->addChild(std::make_unique<MassComponent>());
+    EXPECT_EQ(inNose.getMaxParentRadius(), 0.03);
+    nose->setFlipped(true);  // a tail cone: the base is now at the front
+    EXPECT_EQ(nose->getBaseRadius(), 0.03);
+    EXPECT_EQ(inNose.getMaxParentRadius(), 0.03);
+
+    auto transition = std::make_unique<Transition>();
+    transition->setForeRadius(0.02);
+    transition->setAftRadius(0.035);
+    const auto& inTransition = transition->addChild(std::make_unique<MassComponent>());
+    EXPECT_EQ(inTransition.getMaxParentRadius(), 0.035);
+    transition->setForeRadius(0.04);
+    EXPECT_EQ(inTransition.getMaxParentRadius(), 0.04);
+
+    auto        body   = std::make_unique<BodyTube>(0.5, 0.03, 0.002);
+    const auto& inBody = body->addChild(std::make_unique<MassComponent>());
+    EXPECT_EQ(inBody.getMaxParentRadius(), body->getInnerRadius());
+    EXPECT_EQ(inBody.getAutoRadius(), body->getInnerRadius());
 }
 
 /// Whether a mass component in a stand-in parent of @p kind (a TestComponent: a Coaxial, but

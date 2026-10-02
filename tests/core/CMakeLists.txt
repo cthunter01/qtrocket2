@@ -76,13 +76,13 @@ add_executable(QtRocket_core_tests
     rocket/AxialMethodTests.cpp
     rocket/AxialStageTests.cpp
     rocket/BodyTubeTests.cpp
+    rocket/BulkheadTests.cpp
+    rocket/CenteringRingTests.cpp
     rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
     rocket/DeploymentConfigurationTests.cpp
-    rocket/ExternalComponentTests.cpp
-    rocket/BulkheadTests.cpp
-    rocket/CenteringRingTests.cpp
     rocket/EngineBlockTests.cpp
+    rocket/ExternalComponentTests.cpp
     rocket/FinishTests.cpp
     rocket/FlightConfigurableParameterSetTests.cpp
     rocket/FlightConfigurationIdTests.cpp
@@ -111,12 +111,12 @@ add_executable(QtRocket_core_tests
     rocket/RocketTests.cpp
     rocket/ShockCordTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
-    rocket/SymmetricComponentTests.cpp
-    rocket/TransitionShapeTests.cpp
-    rocket/TransitionTests.cpp
     rocket/StreamerTests.cpp
     rocket/StructuralComponentTests.cpp
+    rocket/SymmetricComponentTests.cpp
     rocket/ThicknessRingComponentTests.cpp
+    rocket/TransitionShapeTests.cpp
+    rocket/TransitionTests.cpp
     rocket/TubeCouplerTests.cpp
     models/AtmosphericConditionsTests.cpp
     models/ConstantGravityModelTests.cpp
