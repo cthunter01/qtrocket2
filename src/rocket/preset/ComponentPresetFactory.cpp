@@ -3,6 +3,7 @@
 #include <concepts>
 #include <cstddef>
 #include <expected>
+#include <format>
 #include <initializer_list>
 #include <numbers>
 #include <optional>
@@ -142,10 +143,16 @@ public:
         }
     }
 
-    /// makeStreamer() and makeParachute()
-    void makeRecoveryDevice(std::initializer_list<AnyTypedKey> requiredKeys)
+    /// makeStreamer() and makeParachute(), and the material types (no Java counterpart): the
+    /// MATERIAL must be a SURFACE material and a parachute's LINE_MATERIAL a LINE one.
+    void makeRecoveryDevice(std::initializer_list<AnyTypedKey> requiredKeys, bool hasLines)
     {
         checkRequiredFields(requiredKeys);
+        checkMaterialType(Preset::kMaterial, Material::Type::SURFACE);
+        if (hasLines)
+        {
+            checkMaterialType(Preset::kLineMaterial, Material::Type::LINE);
+        }
     }
 
 private:
@@ -173,6 +180,18 @@ private:
                 addInvalidParameter(m_problems, key,
                                     "No " + std::string(key.getName()) + " specified");
             }
+        }
+    }
+
+    /// '<key> "<material name>" is not a <type> material' when @p key holds a material of
+    /// another type than @p type.
+    void checkMaterialType(const TypedKey<Material>& key, Material::Type type)
+    {
+        if (has(key) && value(key).getType() != type)
+        {
+            addInvalidParameter(m_problems, key,
+                                std::format(R"({} "{}" is not a {} material)", key.getName(),
+                                            value(key).getName(), toString(type)));
         }
     }
 
@@ -357,11 +376,11 @@ ComponentPresetFactory::tryCreate(const TypedPropertyMap& props, const MaterialS
             builder.makeRailButton();
             break;
         case ComponentPresetType::STREAMER:
-            builder.makeRecoveryDevice({Preset::kLength, Preset::kWidth});
+            builder.makeRecoveryDevice({Preset::kLength, Preset::kWidth}, false);
             break;
         case ComponentPresetType::PARACHUTE:
-            builder.makeRecoveryDevice(
-                {Preset::kDiameter, Preset::kLineCount, Preset::kLineLength});
+            builder.makeRecoveryDevice({Preset::kDiameter, Preset::kLineCount, Preset::kLineLength},
+                                       true);
             break;
     }
 

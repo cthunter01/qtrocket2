@@ -30,6 +30,11 @@
 
 /// The test motors and rockets of OpenRocket's TestRockets, built from the test doubles
 /// (TestComponent, TestBodyComponent, TestMotorMount) until the concrete components are ported.
+/// The internal components stay doubles too, although their classes exist (InnerTube,
+/// EngineBlock, CenteringRing, TubeCoupler, Parachute, ShockCord): the tests of these rockets
+/// drive the doubles' API (TestMotorMount's motors and instances, TestComponent's instances), so
+/// the rockets switch to the real classes all at once, with the body components and fins (tier
+/// 6); the internal components' own golden tests build them for real meanwhile.
 namespace QtRocket::Test
 {
 
