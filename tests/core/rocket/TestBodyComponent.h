@@ -21,9 +21,9 @@ namespace QtRocket::Test
 /// transition): it is BoxBounded, as OpenRocket's SymmetricComponent, so that FlightConfiguration
 /// transforms its bounds with each instance, and a RadialParent with a fore and an aft radius
 /// (both the outer radius unless set), which is how ReferenceType and
-/// ComponentAssembly::getBoundingRadius() read a symmetric component until SymmetricComponent
-/// exists. Its instance box is SymmetricComponent's: from (0, -r, -r) to (length, r, r) with r
-/// the larger of the two radii.
+/// ComponentAssembly::getBoundingRadius() read a body component that is not a SymmetricComponent
+/// (HOOK(test-fixtures) there: this stand-in is the only one). Its instance box is
+/// SymmetricComponent's: from (0, -r, -r) to (length, r, r) with r the larger of the two radii.
 class TestBodyComponent : public TestComponent,
                           public virtual BoxBounded,
                           public virtual RadialParent

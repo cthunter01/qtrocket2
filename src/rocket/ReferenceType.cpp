@@ -8,6 +8,7 @@
 #include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
@@ -17,29 +18,63 @@ namespace QtRocket
 namespace
 {
 
-/// The fore and aft radii of a symmetric component.
-struct SymmetricRadii
+/// A symmetric component's fore and aft radii (Java: instanceof SymmetricComponent,
+/// getForeRadius(), getAftRadius()), each read when asked, as Java reads them: reading an
+/// automatic radius refreshes it, and NOSECONE reads the aft radius only when the fore radius is
+/// too small.
+class SymmetricRadii
 {
-    double fore;
-    double aft;
-};
+public:
+    /// @p component's radii when it is a SymmetricComponent, or a stand-in for one (see
+    /// standInOf()); nullopt for any other component.
+    [[nodiscard]] static std::optional<SymmetricRadii> of(const RocketComponent& component)
+    {
+        if (const auto* symmetric = dynamic_cast<const SymmetricComponent*>(&component))
+        {
+            return SymmetricRadii{symmetric, nullptr};
+        }
+        if (const RadialParent* standIn = standInOf(component))
+        {
+            return SymmetricRadii{nullptr, standIn};
+        }
+        return std::nullopt;
+    }
 
-/// @p component's radii when it is a symmetric component (Java: instanceof SymmetricComponent,
-/// getForeRadius(), getAftRadius()); see the HOOK in the header.
-[[nodiscard]] std::optional<SymmetricRadii> symmetricRadii(const RocketComponent& component)
-{
-    if (!isBodyComponent(component.kind()))
+    [[nodiscard]] double fore() const
     {
-        return std::nullopt;
+        return m_symmetric != nullptr ? m_symmetric->getForeRadius()
+                                      : m_standIn->getOuterRadius(-1.0);
     }
-    const auto* radial = dynamic_cast<const RadialParent*>(&component);
-    if (radial == nullptr)
+
+    [[nodiscard]] double aft() const
     {
-        return std::nullopt;
+        return m_symmetric != nullptr ? m_symmetric->getAftRadius()
+                                      : m_standIn->getOuterRadius(m_standIn->getLength());
     }
-    return SymmetricRadii{.fore = radial->getOuterRadius(-1.0),
-                          .aft  = radial->getOuterRadius(radial->getLength())};
-}
+
+private:
+    SymmetricRadii(const SymmetricComponent* symmetric, const RadialParent* standIn)
+      : m_symmetric(symmetric), m_standIn(standIn)
+    {
+    }
+
+    /// A component of a body kind that is a RadialParent but not a SymmetricComponent: no class
+    /// of the library is one, but the test fixtures' TestBodyComponent is, whose fore radius is
+    /// getOuterRadius(-1) and aft radius getOuterRadius(getLength()).
+    /// HOOK(test-fixtures): remove once TestRockets and the other fixtures build their bodies from
+    /// the real components.
+    [[nodiscard]] static const RadialParent* standInOf(const RocketComponent& component)
+    {
+        if (!isBodyComponent(component.kind()))
+        {
+            return nullptr;
+        }
+        return dynamic_cast<const RadialParent*>(&component);
+    }
+
+    const SymmetricComponent* m_symmetric;
+    const RadialParent*       m_standIn;
+};
 
 }  // namespace
 
@@ -90,15 +125,15 @@ double getReferenceLength(ReferenceType type, const FlightConfiguration& config)
         case ReferenceType::NOSECONE:
             for (const RocketComponent* c : config.getActiveComponents())
             {
-                if (const std::optional<SymmetricRadii> radii = symmetricRadii(*c))
+                if (const std::optional<SymmetricRadii> s = SymmetricRadii::of(*c))
                 {
-                    if (radii->fore >= 0.0005)
+                    if (s->fore() >= 0.0005)
                     {
-                        return radii->fore * 2;
+                        return s->fore() * 2;
                     }
-                    if (radii->aft >= 0.0005)
+                    if (s->aft() >= 0.0005)
                     {
-                        return radii->aft * 2;
+                        return s->aft() * 2;
                     }
                 }
             }
@@ -108,10 +143,10 @@ double getReferenceLength(ReferenceType type, const FlightConfiguration& config)
             double r = 0;
             for (const RocketComponent* c : config.getActiveComponents())
             {
-                if (const std::optional<SymmetricRadii> radii = symmetricRadii(*c))
+                if (const std::optional<SymmetricRadii> s = SymmetricRadii::of(*c))
                 {
-                    r = MathUtil::javaMax(r, radii->fore);
-                    r = MathUtil::javaMax(r, radii->aft);
+                    r = MathUtil::javaMax(r, s->fore());
+                    r = MathUtil::javaMax(r, s->aft());
                 }
             }
             r *= 2;

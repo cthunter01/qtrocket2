@@ -74,9 +74,11 @@ add_executable(QtRocket_core_tests
     rocket/AppearanceTests.cpp
     rocket/AxialMethodTests.cpp
     rocket/AxialStageTests.cpp
+    rocket/BodyTubeTests.cpp
     rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
     rocket/DeploymentConfigurationTests.cpp
+    rocket/ExternalComponentTests.cpp
     rocket/FinishTests.cpp
     rocket/FlightConfigurableParameterSetTests.cpp
     rocket/FlightConfigurationIdTests.cpp
@@ -85,6 +87,7 @@ add_executable(QtRocket_core_tests
     rocket/InstanceMapTests.cpp
     rocket/MotorConfigurationSetTests.cpp
     rocket/MotorConfigurationTests.cpp
+    rocket/NoseConeTests.cpp
     rocket/ParallelStageTests.cpp
     rocket/PodSetTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
@@ -95,7 +98,9 @@ add_executable(QtRocket_core_tests
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
+    rocket/SymmetricComponentTests.cpp
     rocket/TransitionShapeTests.cpp
+    rocket/TransitionTests.cpp
     models/AtmosphericConditionsTests.cpp
     models/ConstantGravityModelTests.cpp
     models/ExtendedIsaModelTests.cpp
@@ -124,6 +129,7 @@ add_executable(QtRocket_core_tests
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
     file/ZipInputStreamTests.cpp
+    goldens/body_geometry_golden_tests.cpp
     goldens/GoldenData.cpp
     goldens/goldens_schema_tests.cpp
     goldens/motors_golden_tests.cpp

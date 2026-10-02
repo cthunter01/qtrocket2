@@ -33,8 +33,10 @@ class MaterialStorage;
 ///   the solid cylinder (the inner diameter counts when given).
 /// - NOSE_CONE: a length, a shape and an aft outer diameter. TRANSITION: a length, an aft and a
 ///   fore outer diameter. RAIL_BUTTON: a height, outer and inner diameters, flange and base
-///   heights. For these three a mass becomes a material over the volume of the component loaded
-///   from the preset (NoseCone, Transition, RailButton.getComponentVolume()).
+///   heights. For these three a mass becomes a material (the given material's name, or
+///   "NoseConeCustom", "TransitionCustom") with density mass / volume, the volume of a new
+///   component of the type with the preset's properties loaded (NoseCone, Transition,
+///   RailButton.getComponentVolume()).
 /// - STREAMER: a length and a width. PARACHUTE: a diameter, a line count and a line length.
 ///
 /// The properties are not otherwise checked: a negative or NaN dimension passes, as in
@@ -45,10 +47,9 @@ class MaterialStorage;
 /// BugException out of create(); here the problems collected so far are returned, and they
 /// already name the missing key ("No Length specified").
 ///
-/// Deferred to the rocket components (they need NoseCone, Transition and RailButton, which are
-/// not ported yet): the density of a NOSE_CONE, TRANSITION or RAIL_BUTTON preset with a mass.
-/// Until then such a preset is refused with the problem "Mass of a <TYPE> preset needs the
-/// <TYPE> component, which is not ported yet".
+/// Deferred to the rocket components (it needs RailButton, which is not ported yet): the density
+/// of a RAIL_BUTTON preset with a mass. Until then such a preset is refused with the problem
+/// "Mass of a RAIL_BUTTON preset needs the RAIL_BUTTON component, which is not ported yet".
 class ComponentPresetFactory
 {
 public:

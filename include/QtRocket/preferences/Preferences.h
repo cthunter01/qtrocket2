@@ -22,8 +22,8 @@ class Unit;
 /// A component class and its ancestors, nearest first, by simple class name, e.g. {"BodyTube",
 /// "SymmetricComponent", "BodyComponent", "ExternalComponent", "RocketComponent"}. The per-class
 /// lookups (default colour, line style, material) walk it the way ApplicationPreferences.get()
-/// walks Class.getSuperclass() up to RocketComponent; the rocket group builds one per component
-/// kind.
+/// walks Class.getSuperclass() up to RocketComponent; componentClassChain() (rocket/
+/// ComponentKind.h) gives the chain of each component kind.
 using ComponentClassChain = std::span<const std::string_view>;
 
 /// A table of (component class simple name, value) fallbacks consulted after the store: Java's

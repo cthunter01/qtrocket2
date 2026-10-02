@@ -1,5 +1,6 @@
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 
+#include <concepts>
 #include <cstddef>
 #include <expected>
 #include <initializer_list>
@@ -12,6 +13,8 @@
 
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
@@ -105,16 +108,35 @@ public:
         return true;
     }
 
-    /// makeNoseCone(), makeTransition() and makeRailButton() without their density step.
-    void makeShaped(ComponentPresetType type, std::initializer_list<AnyTypedKey> requiredKeys)
+    /// makeNoseCone() and makeTransition(): a mass becomes a material over
+    /// @p componentVolume(properties), the volume of a component of the preset's type with the
+    /// properties loaded (Java loads the preset being made into a new NoseCone or Transition).
+    template <std::invocable<const TypedPropertyMap&> ComponentVolume>
+    void makeShaped(std::initializer_list<AnyTypedKey> requiredKeys,
+                    std::string_view defaultMaterialName, const ComponentVolume& componentVolume)
     {
         checkRequiredFields(requiredKeys);
 
         if (has(Preset::kMass))
         {
-            // Deferred to the rocket components: Java loads the preset into a NoseCone,
-            // Transition or RailButton and divides the mass by its getComponentVolume().
-            const std::string name(componentPresetTypeName(type));
+            // compute a density for this component
+            const double mass    = value(Preset::kMass);
+            const double density = mass / componentVolume(m_properties);
+            putMaterial(materialName(defaultMaterialName), density);
+        }
+    }
+
+    /// makeRailButton() without its density step.
+    void makeRailButton()
+    {
+        checkRequiredFields({Preset::kHeight, Preset::kOuterDiameter, Preset::kInnerDiameter,
+                             Preset::kFlangeHeight, Preset::kBaseHeight});
+
+        if (has(Preset::kMass))
+        {
+            // Deferred to the rocket components: Java loads the preset into a RailButton and
+            // divides the mass by its getComponentVolume().
+            const std::string name(componentPresetTypeName(ComponentPresetType::RAIL_BUTTON));
             m_problems.errors.push_back("Mass of a " + name + " preset needs the " + name +
                                         " component, which is not ported yet");
         }
@@ -280,6 +302,23 @@ ComponentPresetFactory::tryCreate(const TypedPropertyMap& props, const MaterialS
         return std::unexpected(std::move(problems));
     }
 
+    // The volume of a new NoseCone or Transition with the properties loaded as a preset (lambdas
+    // here, where the preset's private constructor is accessible).
+    const auto noseConeVolume = [](const TypedPropertyMap& properties) {
+        ComponentPreset preset;
+        preset.putAll(properties);
+        NoseCone noseCone;
+        noseCone.loadPreset(&preset);
+        return noseCone.getComponentVolume();
+    };
+    const auto transitionVolume = [](const TypedPropertyMap& properties) {
+        ComponentPreset preset;
+        preset.putAll(properties);
+        Transition transition;
+        transition.loadPreset(&preset);
+        return transition.getComponentVolume();
+    };
+
     // Should check for various bits of each of the types.
     PresetBuilder builder(props, std::move(problems), materials);
     bool          complete = true;
@@ -289,11 +328,13 @@ ComponentPresetFactory::tryCreate(const TypedPropertyMap& props, const MaterialS
             complete = builder.makeTube("TubeCustom");
             break;
         case ComponentPresetType::NOSE_CONE:
-            builder.makeShaped(*type, {Preset::kLength, Preset::kShape, Preset::kAftOuterDiameter});
+            builder.makeShaped({Preset::kLength, Preset::kShape, Preset::kAftOuterDiameter},
+                               "NoseConeCustom", noseConeVolume);
             break;
         case ComponentPresetType::TRANSITION:
             builder.makeShaped(
-                *type, {Preset::kLength, Preset::kAftOuterDiameter, Preset::kForeOuterDiameter});
+                {Preset::kLength, Preset::kAftOuterDiameter, Preset::kForeOuterDiameter},
+                "TransitionCustom", transitionVolume);
             break;
         case ComponentPresetType::BULK_HEAD:
             complete = builder.makeBulkHead();
@@ -313,9 +354,7 @@ ComponentPresetFactory::tryCreate(const TypedPropertyMap& props, const MaterialS
             complete = builder.makeTube("TubeCustom");
             break;
         case ComponentPresetType::RAIL_BUTTON:
-            builder.makeShaped(*type,
-                               {Preset::kHeight, Preset::kOuterDiameter, Preset::kInnerDiameter,
-                                Preset::kFlangeHeight, Preset::kBaseHeight});
+            builder.makeRailButton();
             break;
         case ComponentPresetType::STREAMER:
             builder.makeRecoveryDevice({Preset::kLength, Preset::kWidth});

@@ -717,11 +717,9 @@ TEST(TransitionShape, BoattailMirrorsTheForwardTransition)
 // ---- TransitionTest.java: the shape radii of its component tests. A new Transition is clipped
 // and setShapeType() applies the shape's default parameter and clipping.
 //
-// Deferred until Transition, NoseCone and TestRockets are ported:
-// - the component state the six testVerify* tests also check (getLength, getForeRadius,
-//   getAftRadius, getShapeType, getShapeParameter);
-// - testStockIntegration (the Estes Alpha III nose cone: dimensions, shape and aft shoulder);
-// - testZeroLengthTransitionCalculations (calculateProperties() of a zero-length transition).
+// The complete TransitionTest (the component state the six testVerify* tests also check,
+// testStockIntegration and testZeroLengthTransitionCalculations) is ported on the components in
+// TransitionTests.cpp.
 
 TEST(TransitionShape, VerifyConicNose)
 {

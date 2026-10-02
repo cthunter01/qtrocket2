@@ -7,6 +7,7 @@
 
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/rocket/BoxBounded.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -139,6 +140,20 @@ public:
             m_motors.set(fcid, std::move(*newMotorConfig));
         }
         m_isActingMount = true;
+    }
+
+    /// The first layout of ClusterConfiguration::configurations() with getMotorCount() members,
+    /// else single().
+    [[nodiscard]] const ClusterConfiguration& getClusterConfiguration() const override
+    {
+        for (const ClusterConfiguration& cluster : ClusterConfiguration::configurations())
+        {
+            if (cluster.getClusterCount() == m_motorCount)
+            {
+                return cluster;
+            }
+        }
+        return ClusterConfiguration::single();
     }
 
     [[nodiscard]] int getMotorCount() const override { return m_motorCount; }
