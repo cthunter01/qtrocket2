@@ -977,12 +977,15 @@ TEST_F(ComponentPresetFactoryTest, RailButtonMassWithoutTheRequiredFieldsReports
 
 /// One rail button of OpenRocket's bundled component database
 /// (datafiles/components/internal/RailButton_Database.orc), with the values its loader hands the
-/// factory (the file's inches and grams in SI units) and what OpenRocket makes of them: the
-/// density of the material, the volume of a RailButton with the preset loaded, and its mass (the
-/// button's, the screw's and the nut's).
+/// factory (the file's manufacturer, part number and description; its inches and grams in SI
+/// units) and what OpenRocket makes of them: the density of the material, the volume of a
+/// RailButton with the preset loaded, its mass (the button's, the screw's and the nut's), and
+/// the digest of the preset.
 struct BundledRailButton
 {
+    std::string_view manufacturer;
     std::string_view partNo;
+    std::string_view description;
     std::string_view materialName;
     double           outerDiameter;
     double           innerDiameter;
@@ -996,10 +999,17 @@ struct BundledRailButton
     double           density;
     double           volume;
     double           totalMass;
+    std::string_view digest;
 };
 
+constexpr std::string_view kBinderDesign = "Binder Design-Rail Button Supply House";
+constexpr std::string_view kRailButtons  = "Rail-Buttons.com";
+constexpr std::string_view kWildman      = "Wildman Rocketry";
+
 constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
-    {.partNo        = "Std 1010 RB",
+    {.manufacturer  = kBinderDesign,
+     .partNo        = "Std 1010 RB",
+     .description   = "Standard 1010 Rail Button, Countersunk 8-32 Screw, and T-Nut",
      .materialName  = "Delrin",
      .outerDiameter = 0.011112499999999999,
      .innerDiameter = 0.0058039,
@@ -1012,8 +1022,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0010249999999999999,
      .density       = 964.3031373843921,
      .volume        = 4.6147314340077E-7,
-     .totalMass     = 0.002865},
-    {.partNo        = "Std 1515 RB",
+     .totalMass     = 0.002865,
+     .digest        = "b98091c05ff7076f2518ebcd304daab7"},
+    {.manufacturer  = kBinderDesign,
+     .partNo        = "Std 1515 RB",
+     .description   = "Standard 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
      .materialName  = "Delrin",
      .outerDiameter = 0.015747999999999998,
      .innerDiameter = 0.007607299999999999,
@@ -1026,8 +1039,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.002675,
      .density       = 998.5274976789511,
      .volume        = 1.4671603970900662E-6,
-     .totalMass     = 0.007505000000000001},
-    {.partNo        = "RB-Micro",
+     .totalMass     = 0.007505000000000001,
+     .digest        = "a738c3c07e37716f856efa4429922a34"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB-Micro",
+     .description   = "2 Piece Micro Rail Button with 2-56 Screw  (10mm Rail)",
      .materialName  = "Nylon",
      .outerDiameter = 0.004191,
      .innerDiameter = 0.0030353,
@@ -1040,8 +1056,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0,
      .density       = 212.73036595434928,
      .volume        = 4.700786347608664E-8,
-     .totalMass     = 5.0E-5},
-    {.partNo        = "1PMB",
+     .totalMass     = 5.0E-5,
+     .digest        = "3b34718b356236806fe0fa3d75e4fcfd"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "1PMB",
+     .description   = "1 Piece Mini Rail Button with Countersunk 6-32 Screw",
      .materialName  = "Delrin",
      .outerDiameter = 0.0063246,
      .innerDiameter = 0.0049022,
@@ -1054,8 +1073,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0,
      .density       = 734.7547784740698,
      .volume        = 1.2248984645858438E-7,
-     .totalMass     = 5.05E-4},
-    {.partNo        = "RB-10-D",
+     .totalMass     = 5.05E-4,
+     .digest        = "c85574d97a3f84f10bd994e3a4df8407"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB-10-D",
+     .description   = "3 Piece 1010 Rail Button with 8-32 Screw",
      .materialName  = "Delrin",
      .outerDiameter = 0.0070612,
      .innerDiameter = 0.0039115999999999995,
@@ -1068,8 +1090,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0,
      .density       = 1263.441086779584,
      .volume        = 2.414042120297211E-7,
-     .totalMass     = 0.00202},
-    {.partNo        = "1P1010DLX",
+     .totalMass     = 0.00202,
+     .digest        = "04216650db516d1f28e4680615250f6e"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "1P1010DLX",
+     .description   = "1 Piece 1010 Rail Button with Countersunk 8-32 Screw",
      .materialName  = "Delrin",
      .outerDiameter = 0.0094615,
      .innerDiameter = 0.0062992,
@@ -1082,8 +1107,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0,
      .density       = 806.986459971087,
      .volume        = 3.965370125435129E-7,
-     .totalMass     = 0.0015550000000000002},
-    {.partNo        = "RB1515S",
+     .totalMass     = 0.0015550000000000002,
+     .digest        = "874b5832ce64fe0a612ba5042558bc61"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB1515S",
+     .description   = "1 Piece 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
      .materialName  = "Delrin",
      .outerDiameter = 0.012445999999999999,
      .innerDiameter = 0.007365999999999999,
@@ -1096,8 +1124,11 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.0,
      .density       = 997.0129438821765,
      .volume        = 1.3590595872545955E-6,
-     .totalMass     = 0.0040750000000000005},
-    {.partNo        = "2052-LG",
+     .totalMass     = 0.0040750000000000005,
+     .digest        = "30ddc4df54063b9aacb3b58b916581c4"},
+    {.manufacturer  = kWildman,
+     .partNo        = "2052-LG",
+     .description   = "1 Piece 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
      .materialName  = "Delrin",
      .outerDiameter = 0.0157734,
      .innerDiameter = 0.007823199999999999,
@@ -1110,17 +1141,22 @@ constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
      .nutMass       = 0.002195,
      .density       = 1178.7278102349876,
      .volume        = 2.7275168805587673E-6,
-     .totalMass     = 0.009205000000000001},
+     .totalMass     = 0.009205000000000001,
+     .digest        = "0f5a44778735e75f4f5e22184b5e1c9a"},
 }};
 
 /// The properties OpenRocket's .orc loader hands the factory for @p row
-/// (RailButtonDTO.asComponentPreset): the material the file names for it (Delrin 1420 kg/m3 or
-/// Nylon 1150 kg/m3), the masses and the dimensions.
+/// (RailButtonDTO.asComponentPreset), in its order: not legacy, the manufacturer, the part number,
+/// the description, the material the file names for it (Delrin 1420 kg/m3 or Nylon 1150 kg/m3),
+/// the masses and the dimensions. The file's <Finish> is not read, and its empty
+/// <DragCoefficient> gives no CD.
 [[nodiscard]] TypedPropertyMap bundledRailButtonSpec(const BundledRailButton& row)
 {
     TypedPropertyMap props;
-    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("Rail-Buttons.com"));
+    props.put(ComponentPreset::kLegacy, false);
+    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer(row.manufacturer));
     props.put(ComponentPreset::kPartNo, std::string(row.partNo));
+    props.put(ComponentPreset::kDescription, std::string(row.description));
     props.put(ComponentPreset::kMaterial,
               Material::newMaterial(Material::Type::BULK, std::string(row.materialName),
                                     row.materialName == "Nylon" ? 1150.0 : 1420.0, false));
@@ -1147,6 +1183,15 @@ void expectOpenRocketsMaterial(const BundledRailButton& row, const Outcome& pres
     EXPECT_TRUE(material.isUserDefined());
 }
 
+/// Checks the manufacturer and the digest of the preset the factory made of @p row against
+/// OpenRocket's. The digest covers every property but LEGACY, the computed density among them.
+void expectOpenRocketsDigest(const BundledRailButton& row, const Outcome& preset)
+{
+    ASSERT_TRUE(preset.has_value());
+    EXPECT_EQ(preset->getManufacturer().getDisplayName(), row.manufacturer);
+    EXPECT_EQ(preset->getDigest(), row.digest);
+}
+
 /// Checks a RailButton with the preset the factory made of @p row loaded against OpenRocket's.
 void expectOpenRocketsRailButton(const BundledRailButton& row, const Outcome& preset)
 {
@@ -1169,6 +1214,7 @@ TEST_F(ComponentPresetFactoryTest, BundledRailButtonsGetOpenRocketsDensities)
         SCOPED_TRACE(std::string(row.partNo));
         const Outcome preset = create(bundledRailButtonSpec(row));
         expectOpenRocketsMaterial(row, preset);
+        expectOpenRocketsDigest(row, preset);
         expectOpenRocketsRailButton(row, preset);
     }
 }

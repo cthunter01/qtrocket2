@@ -17,6 +17,7 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -38,6 +39,7 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/Finish.h"
+#include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/LineInstanceable.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/NoseCone.h"
@@ -74,6 +76,7 @@ using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
 using QtRocket::Coordinate;
 using QtRocket::Finish;
+using QtRocket::LaunchLug;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::NoseCone;
@@ -87,11 +90,12 @@ using QtRocket::TypedPropertyMap;
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
 
 /// The event types of the setters: AEROMASS_CHANGE, AERODYNAMIC_CHANGE, MASS_CHANGE and
-/// NONFUNCTIONAL_CHANGE.
+/// NONFUNCTIONAL_CHANGE; and TREE_CHANGE, which adding and removing children fire.
 constexpr int kBoth          = ComponentChangeEvent::kBothChange;
 constexpr int kAerodynamic   = ComponentChangeEvent::kAerodynamicChange;
 constexpr int kMass          = ComponentChangeEvent::kMassChange;
 constexpr int kNonFunctional = ComponentChangeEvent::kNonFunctionalChange;
+constexpr int kTree          = ComponentChangeEvent::kTreeChange;
 
 using Events = std::vector<int>;
 
@@ -289,6 +293,17 @@ public:
             m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
         }
     }
+
+    void name(std::string_view field, std::string_view expected, std::string_view actual)
+    {
+        if (expected != actual)
+        {
+            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
+        }
+    }
+
+    /// Something that kept a value from being compared.
+    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
 
     void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
     {
@@ -826,13 +841,18 @@ TEST(RailButton, IsMadeOfTheBuiltInDelrin)
 {
     const RailButton button;
     const Material&  delrin = button.getMaterial();
-    EXPECT_EQ(delrin, RailButton::defaultRailButtonMaterial());
+    EXPECT_EQ(delrin, RailButton::defaultMaterial());
     EXPECT_EQ(delrin.getType(), Material::Type::BULK);
     EXPECT_EQ(delrin.getName(), "Delrin");
     EXPECT_EQ(delrin.getDensity(), 1420.0);
     EXPECT_EQ(delrin.getGroup(), QtRocket::MaterialGroup::PLASTICS);
     EXPECT_FALSE(delrin.isUserDefined());
     EXPECT_FALSE(delrin.isDocumentMaterial());
+
+    // RailButton::defaultMaterial() hides ExternalComponent's, the Cardboard the other external
+    // components start with.
+    EXPECT_EQ(QtRocket::ExternalComponent::defaultMaterial().getName(), "Cardboard");
+    EXPECT_NE(RailButton::defaultMaterial(), QtRocket::ExternalComponent::defaultMaterial());
 
     // The other constructors too.
     EXPECT_EQ(RailButton(0.02, 0.015).getMaterial(), delrin);
@@ -857,13 +877,13 @@ TEST(RailButton, ApplyDefaultMaterialEndsWithDelrin)
     button.setMaterial(balsa);
     QtRocket::ExternalComponent& external = button;
     external.applyDefaultMaterial(prefs, storage);
-    EXPECT_EQ(button.getMaterial(), RailButton::defaultRailButtonMaterial());
+    EXPECT_EQ(button.getMaterial(), RailButton::defaultMaterial());
 
     // Without a Delrin in the storage (Java: a NullPointerException), the built-in one.
     button.setMaterial(balsa);
-    EXPECT_TRUE(storage.removeMaterial(RailButton::defaultRailButtonMaterial()));
+    EXPECT_TRUE(storage.removeMaterial(RailButton::defaultMaterial()));
     button.applyDefaultMaterial(prefs, storage);
-    EXPECT_EQ(button.getMaterial(), RailButton::defaultRailButtonMaterial());
+    EXPECT_EQ(button.getMaterial(), RailButton::defaultMaterial());
 }
 
 TEST(RailButton, TwoArgumentConstructor)
@@ -885,6 +905,18 @@ TEST(RailButton, FiveArgumentConstructor)
     EXPECT_EQ(differences(pinsCtor5negative(), RailButton(0.012, 0.006, 0.01, 0.002, -0.02)), "");
     // A flange taller than the button is stored as given and makes the base height negative.
     EXPECT_EQ(differences(pinsCtor5tallFlange(), RailButton(0.012, 0.006, 0.01, 0.02, 0.0)), "");
+}
+
+TEST(RailButton, FiveArgumentConstructorSetsTheSeparationThroughItsSetter)
+{
+    // Java: setInstanceSeparation(od * 2), which returns early when the value equals the initial
+    // 0 (MathUtil.equals: below 5e-9), so a button narrower than 2.5 nm keeps a separation of 0.
+    EXPECT_EQ(RailButton(2.4e-9, 0.008, 0.01, 0.002, 0.003).getInstanceSeparation(), 0.0);
+    EXPECT_EQ(RailButton(2.6e-9, 0.008, 0.01, 0.002, 0.003).getInstanceSeparation(), 5.2e-9);
+    EXPECT_EQ(RailButton(0, 0, 0, 0, 0).getInstanceSeparation(), 0.0);
+    // Otherwise two diameters, whatever their sign.
+    EXPECT_EQ(RailButton(0.012, 0.008, 0.01, 0.002, 0.003).getInstanceSeparation(), 0.024);
+    EXPECT_EQ(RailButton(-0.012, 0.008, 0.01, 0.002, 0.003).getInstanceSeparation(), -0.024);
 }
 
 TEST(RailButton, HasTheInterfacesOfJava)
@@ -1152,6 +1184,379 @@ TEST_F(RailButtonOnBody, AxialPositionAndMaterial)
     EXPECT_TRUE(matches(0.003593196611025579, m_button->getComponentMass()));
 }
 
+// ========================================================================= positioned AFTER
+
+/// The new button of the fixture positioned AFTER a new launch lug that was inserted before it:
+/// directly behind the lug, which sits in the middle of the body (0.135 ... 0.165 m).
+[[nodiscard]] Pins pinsAfter()
+{
+    return Pins{
+        .instanceCount      = 1,
+        .outerDiameter      = 0.0097,
+        .innerDiameter      = 0.008,
+        .totalHeight        = 0.0097,
+        .flangeHeight       = 0.002,
+        .baseHeight         = 0.002,
+        .innerHeight        = 0.0057,
+        .screwHeight        = 0.0,
+        .maxBaseHeight      = 0.0077,
+        .maxFlangeHeight    = 0.0077,
+        .minTotalHeight     = 0.004,
+        .angleOffset        = std::numbers::pi,
+        .instanceSeparation = 0.0582,
+        .axialOffset        = 0.0,
+        .position           = Coordinate{0.165, 0.0, 0.0, 0.0},
+        .componentVolume    = 5.821057027836528E-7,
+        .componentMass      = 8.265900979527869E-4,
+        .componentCG        = Coordinate{0.0, -0.02985, 3.65557069545485E-18, 8.265900979527869E-4},
+        .componentBounds    = {Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0097, -0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, -0.00485, 0.0}},
+        .boxMin             = Coordinate{-0.00485, -0.0097, -0.00485, 0.0},
+        .boxMax             = Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+        .instanceOffsets    = {Coordinate{0.0, -0.025, 3.061616997868383E-18, 0.0}},
+        .componentLocations = {
+            Coordinate{0.23500000000000001, -0.025, 3.061616997868383E-18, 0.0}}};
+}
+
+/// pinsAfter() once the lug has been moved 50 mm aft (0.185 ... 0.215 m).
+[[nodiscard]] Pins pinsAfterMoved()
+{
+    return Pins{
+        .instanceCount      = 1,
+        .outerDiameter      = 0.0097,
+        .innerDiameter      = 0.008,
+        .totalHeight        = 0.0097,
+        .flangeHeight       = 0.002,
+        .baseHeight         = 0.002,
+        .innerHeight        = 0.0057,
+        .screwHeight        = 0.0,
+        .maxBaseHeight      = 0.0077,
+        .maxFlangeHeight    = 0.0077,
+        .minTotalHeight     = 0.004,
+        .angleOffset        = std::numbers::pi,
+        .instanceSeparation = 0.0582,
+        .axialOffset        = 0.0,
+        .position           = Coordinate{0.215, 0.0, 0.0, 0.0},
+        .componentVolume    = 5.821057027836528E-7,
+        .componentMass      = 8.265900979527869E-4,
+        .componentCG        = Coordinate{0.0, -0.02985, 3.65557069545485E-18, 8.265900979527869E-4},
+        .componentBounds    = {Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0097, -0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, -0.00485, 0.0}},
+        .boxMin             = Coordinate{-0.00485, -0.0097, -0.00485, 0.0},
+        .boxMax             = Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+        .instanceOffsets    = {Coordinate{0.0, -0.025, 3.061616997868383E-18, 0.0}},
+        .componentLocations = {
+            Coordinate{0.28500000000000003, -0.025, 3.061616997868383E-18, 0.0}}};
+}
+
+TEST_F(RailButtonOnBody, PositionedAfterItFollowsItsPreviousSibling)
+{
+    // RailButton does not override isAfter() (LaunchLug and TubeFinSet do, to false), so AFTER
+    // means for it what it means for a body component: directly behind the sibling before it.
+    LaunchLug& sibling = m_body->addChild(std::make_unique<LaunchLug>(), 0);
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+    EXPECT_EQ(sibling.getPosition().x, 0.135);
+    EXPECT_EQ(m_button->getPosition().x, 0.15);
+
+    m_button->setAxialMethod(AxialMethod::AFTER);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_TRUE(m_button->isAfter());
+    EXPECT_EQ(m_button->getAxialMethod(), AxialMethod::AFTER);
+    EXPECT_EQ(m_button->getPosition().x, sibling.getPosition().x + sibling.getLength());
+    EXPECT_EQ(differences(pinsAfter(), *m_button), "");
+    m_button->setAxialMethod(AxialMethod::AFTER);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional}) << "also for the method in force";
+
+    // The offset of a component that is "after" stays 0.
+    m_button->setAxialOffset(0.05);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_EQ(differences(pinsAfter(), *m_button), "");
+
+    // The button follows the sibling as that moves or changes its length.
+    sibling.setAxialOffset(0.05);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_EQ(differences(pinsAfterMoved(), *m_button), "");
+    sibling.setLength(0.04);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_TRUE(matches(0.18, sibling.getPosition().x)) << sibling.getPosition().x;
+    EXPECT_TRUE(matches(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
+
+    // Described from the top of the body again, it stays where it is.
+    m_button->setAxialMethod(AxialMethod::TOP);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_FALSE(m_button->isAfter());
+    EXPECT_TRUE(matches(0.22, m_button->getAxialOffset())) << m_button->getAxialOffset();
+    EXPECT_TRUE(matches(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
+}
+
+TEST_F(RailButtonOnBody, PositionedAfterAsTheFirstChildItIsAtTheTopOfTheBody)
+{
+    m_button->setAxialMethod(AxialMethod::AFTER);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_TRUE(m_button->isAfter());
+    EXPECT_EQ(m_button->getAxialOffset(), 0.0);
+    EXPECT_EQ(m_button->getPosition(), (Coordinate{0, 0, 0}));
+    EXPECT_TRUE(matches(0.07, m_button->getComponentLocations().at(0).x));
+
+    // MIDDLE describes the same place, and its offset moves the button again.
+    m_button->setAxialMethod(AxialMethod::MIDDLE);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_FALSE(m_button->isAfter());
+    EXPECT_EQ(m_button->getAxialOffset(), -0.15);
+    EXPECT_EQ(m_button->getPosition().x, 0.0);
+    m_button->setAxialOffset(0.0);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_EQ(m_button->getPosition().x, 0.15);
+}
+
+TEST(RailButton, PositionedAfterBeforeEventsAreEnabledItMovesOnceTheyAre)
+{
+    // setAxialMethod() only re-expresses the offset (the position less the body's length); it is
+    // the event reaching the button that puts it behind its sibling. Java's values.
+    Rocket      rocket;
+    auto&       stage   = rocket.addChild(std::make_unique<AxialStage>());
+    auto&       body    = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.002));
+    const auto& sibling = body.addChild(std::make_unique<LaunchLug>());
+    auto&       button  = body.addChild(std::make_unique<RailButton>());
+
+    button.setAxialMethod(AxialMethod::AFTER);
+    EXPECT_TRUE(button.isAfter());
+    EXPECT_EQ(button.getAxialOffset(), -0.3);
+    EXPECT_EQ(button.getPosition().x, 0.0);
+
+    rocket.enableEvents();
+    EXPECT_EQ(sibling.getPosition().x, 0.135);
+    EXPECT_EQ(button.getAxialOffset(), 0.0);
+    EXPECT_EQ(button.getPosition().x, 0.165);
+    Differences d;
+    d.coordinates("componentLocations", {Coordinate{0.165, -0.025, 3.061616997868383E-18, 0.0}},
+                  button.getComponentLocations());
+    EXPECT_EQ(d.text(), "");
+}
+
+// ============================================================================ copy and split
+
+/// A copy of the fixture's button: detached, so its locations are its instance offsets and its CG
+/// is the button's own height off the axis, but with the radial distance of the original.
+[[nodiscard]] Pins pinsCopyOnBody()
+{
+    return Pins{.instanceCount      = 1,
+                .outerDiameter      = 0.0097,
+                .innerDiameter      = 0.008,
+                .totalHeight        = 0.0097,
+                .flangeHeight       = 0.002,
+                .baseHeight         = 0.002,
+                .innerHeight        = 0.0057,
+                .screwHeight        = 0.0,
+                .maxBaseHeight      = 0.0077,
+                .maxFlangeHeight    = 0.0077,
+                .minTotalHeight     = 0.004,
+                .angleOffset        = std::numbers::pi,
+                .instanceSeparation = 0.0582,
+                .axialOffset        = 0.0,
+                .position           = Coordinate{0.15, 0.0, 0.0, 0.0},
+                .componentVolume    = 5.821057027836528E-7,
+                .componentMass      = 8.265900979527869E-4,
+                .componentCG        = Coordinate{0.0, -0.004849999999999999, 5.939536975864662E-19,
+                                                 8.265900979527869E-4},
+                .componentBounds    = {Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+                                       Coordinate{0.00485, 0.0097, -0.00485, 0.0},
+                                       Coordinate{0.00485, 0.0, 0.00485, 0.0},
+                                       Coordinate{0.00485, 0.0, -0.00485, 0.0},
+                                       Coordinate{-0.00485, 0.0, 0.00485, 0.0},
+                                       Coordinate{-0.00485, 0.0, -0.00485, 0.0},
+                                       Coordinate{-0.00485, 0.0097, 0.00485, 0.0},
+                                       Coordinate{-0.00485, 0.0097, -0.00485, 0.0}},
+                .boxMin             = Coordinate{-0.00485, -0.0097, -0.00485, 0.0},
+                .boxMax             = Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+                .instanceOffsets    = {Coordinate{0.0, -0.025, 3.061616997868383E-18, 0.0}},
+                .componentLocations = {Coordinate{0.0, -0.025, 3.061616997868383E-18, 0.0}}};
+}
+
+/// pinsCopyOnBody() of two instances 0.1 m apart at the angle 1.
+[[nodiscard]] Pins pinsCopyOnBodyTurned()
+{
+    return Pins{
+        .instanceCount      = 2,
+        .outerDiameter      = 0.0097,
+        .innerDiameter      = 0.008,
+        .totalHeight        = 0.0097,
+        .flangeHeight       = 0.002,
+        .baseHeight         = 0.002,
+        .innerHeight        = 0.0057,
+        .screwHeight        = 0.0,
+        .maxBaseHeight      = 0.0077,
+        .maxFlangeHeight    = 0.0077,
+        .minTotalHeight     = 0.004,
+        .angleOffset        = 1.0,
+        .instanceSeparation = 0.1,
+        .axialOffset        = 0.0,
+        .position           = Coordinate{0.15, 0.0, 0.0, 0.0},
+        .componentVolume    = 1.1642114055673056E-6,
+        .componentMass      = 0.0016531801959055739,
+        .componentCG =
+            Coordinate{0.05, 0.0026204661834604774, 0.004081134276318297, 0.0016531801959055739},
+        .componentBounds    = {Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0097, -0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0, -0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, 0.00485, 0.0},
+                               Coordinate{-0.00485, 0.0097, -0.00485, 0.0}},
+        .boxMin             = Coordinate{-0.00485, -0.0097, -0.00485, 0.0},
+        .boxMax             = Coordinate{0.00485, 0.0097, 0.00485, 0.0},
+        .instanceOffsets    = {Coordinate{0.0, 0.013507557646703494, 0.021036774620197415, 0.0},
+                               Coordinate{0.1, 0.013507557646703494, 0.021036774620197415, 0.0}},
+        .componentLocations = {Coordinate{0.0, 0.013507557646703494, 0.021036774620197415, 0.0},
+                               Coordinate{0.1, 0.013507557646703494, 0.021036774620197415, 0.0}}};
+}
+
+TEST_F(RailButtonOnBody, ACopyKeepsTheRadialDistanceOfItsOriginal)
+{
+    // Only componentChanged() writes the radial distance; a copy carries it along although it
+    // has no body of its own.
+    const std::unique_ptr<RailButton> copy =
+        QtRocket::componentCast<RailButton>(m_button->copyWithNewIds());
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->getParent(), nullptr);
+    EXPECT_EQ(differences(pinsCopyOnBody(), *copy), "");
+
+    m_button->setInstanceSeparation(0.1);
+    m_button->setInstanceCount(2);
+    m_button->setAngleOffset(1.0);
+    const std::unique_ptr<RailButton> turned =
+        QtRocket::componentCast<RailButton>(m_button->copyWithOriginalId());
+    ASSERT_NE(turned, nullptr);
+    EXPECT_EQ(differences(pinsCopyOnBodyTurned(), *turned), "");
+    Differences d;
+    d.coordinates("copy.instanceOffsets", m_button->getInstanceOffsets(),
+                  turned->getInstanceOffsets());
+    EXPECT_EQ(d.text(), "");
+}
+
+/// What OpenRocket answers for one of the buttons splitInstances() leaves on the body.
+struct SplitPins
+{
+    std::string_view name;
+    double           angleOffset{};
+    double           mass{};
+    Coordinate       instanceOffset;
+    Coordinate       componentLocation;
+};
+
+/// The differences between the single buttons @p split left on @p body, in the place of the
+/// original, and Java's @p expected; empty when there are none.
+[[nodiscard]] std::string splitDifferences(std::span<const SplitPins>          expected,
+                                           const RocketComponent::SplitResult& split,
+                                           const BodyTube&                     body)
+{
+    Differences d;
+    if (split.components.size() != expected.size() || body.getChildCount() != expected.size())
+    {
+        d.problem(std::format("expected {} buttons, got {} of {} children", expected.size(),
+                              split.components.size(), body.getChildCount()));
+        return d.text();
+    }
+    for (std::size_t i = 0; i < expected.size(); i++)
+    {
+        const auto* button = dynamic_cast<const RailButton*>(split.components[i]);
+        if (button == nullptr || button != &body.getChild(i))
+        {
+            d.problem(std::format("[{}] is not the rail button at that index of the body", i));
+            continue;
+        }
+        const SplitPins& pins = expected[i];
+        d.name(std::format("[{}].name", i), pins.name, button->getName());
+        d.number(std::format("[{}].instanceCount", i), 1, button->getInstanceCount());
+        d.number(std::format("[{}].angleOffset", i), pins.angleOffset, button->getAngleOffset());
+        d.number(std::format("[{}].mass", i), pins.mass, button->getMass());
+        d.number(std::format("[{}].axialOffset", i), 0.0, button->getAxialOffset());
+        d.coordinate(std::format("[{}].position", i), Coordinate{0.15, 0.0, 0.0, 0.0},
+                     button->getPosition());
+        d.coordinates(std::format("[{}].instanceOffsets", i), {pins.instanceOffset},
+                      button->getInstanceOffsets());
+        d.coordinates(std::format("[{}].componentLocations", i), {pins.componentLocation},
+                      button->getComponentLocations());
+    }
+    return d.text();
+}
+
+TEST_F(RailButtonOnBody, SplitInstancesClampsTheAnglesOfTheSingleButtons)
+{
+    m_button->setInstanceSeparation(0.1);
+    m_button->setInstanceCount(2);
+    m_button->setAngleOffset(1.0);
+    m_button->setMassOverridden(true);
+    m_button->setOverrideMass(0.01);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = m_button->splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth}) << "one event, as the rocket thaws";
+    EXPECT_EQ(split.original.get(), m_button) << "the original is out of the tree";
+    EXPECT_EQ(m_button->getParent(), nullptr);
+
+    // The second button's angle, 1 + pi, is clamped to pi (a tube fin set reduces its angle
+    // instead), and each button gets its share of the override mass. Java's values.
+    const std::vector<SplitPins> expected{
+        {.name              = "Rail Button #1",
+         .angleOffset       = 1.0,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, 0.013507557646703494, 0.021036774620197415, 0.0},
+         .componentLocation = Coordinate{0.22, 0.013507557646703494, 0.021036774620197415, 0.0}},
+        {.name              = "Rail Button #2",
+         .angleOffset       = std::numbers::pi,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, -0.025, 3.061616997868383E-18, 0.0},
+         .componentLocation = Coordinate{0.22, -0.025, 3.061616997868383E-18, 0.0}}};
+    EXPECT_EQ(splitDifferences(expected, split, *m_body), "");
+    EXPECT_EQ(m_body->getChild(1).getOverrideMass(), 0.005);
+    EXPECT_TRUE(m_body->getChild(1).isMassOverridden());
+}
+
+TEST_F(RailButtonOnBody, SplitInstancesOfThreeButtons)
+{
+    m_button->setInstanceCount(3);
+    m_button->setAngleOffset(-2.0);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = m_button->splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+
+    // -2, -2 + 2 pi / 3 and -2 + 4 pi / 3, none of them clamped; without a mass override each
+    // button has the mass of one. Java's values.
+    const std::vector<SplitPins> expected{
+        {.name              = "Rail Button #1",
+         .angleOffset       = -2.0,
+         .mass              = 8.265900979527869E-4,
+         .instanceOffset    = Coordinate{0.0, -0.01040367091367856, -0.022732435670642044, 0.0},
+         .componentLocation = Coordinate{0.22, -0.01040367091367856, -0.022732435670642044, 0.0}},
+        {.name              = "Rail Button #2",
+         .angleOffset       = 0.09439510239319526,
+         .mass              = 8.265900979527869E-4,
+         .instanceOffset    = Coordinate{0.0, 0.024888702237510833, 0.0023563745314621213, 0.0},
+         .componentLocation = Coordinate{0.22, 0.024888702237510833, 0.0023563745314621213, 0.0}},
+        {.name              = "Rail Button #3",
+         .angleOffset       = 2.1887902047863905,
+         .mass              = 8.265900979527869E-4,
+         .instanceOffset    = Coordinate{0.0, -0.014485031323832262, 0.020376061139179922, 0.0},
+         .componentLocation = Coordinate{0.22, -0.014485031323832262, 0.020376061139179922, 0.0}}};
+    EXPECT_EQ(splitDifferences(expected, split, *m_body), "");
+    EXPECT_FALSE(m_body->getChild(0).isMassOverridden());
+}
+
 // =================================================================================== presets
 
 /// A RAIL_BUTTON preset: 10 mm high and wide with a 5 mm core, a 2 mm flange and base, and a
@@ -1236,7 +1641,7 @@ TEST(RailButtonPreset, WithoutAMassNothingIsOverridden)
     button.loadPreset(&preset);
     EXPECT_FALSE(button.isMassOverridden());
     EXPECT_FALSE(button.isCDOverridden());
-    EXPECT_EQ(button.getMaterial(), RailButton::defaultRailButtonMaterial());
+    EXPECT_EQ(button.getMaterial(), RailButton::defaultMaterial());
     EXPECT_EQ(button.getOuterDiameter(), 0.01);
 }
 

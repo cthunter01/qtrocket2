@@ -9,8 +9,10 @@
 // from the design's re-saved file <input>/resave/rocket.ork: a rail button's diameters and
 // heights, and whether a tube fin set's radius is automatic. Compared: the volume, the mass, the
 // CG, both unit inertias, the component bounds, the instance bounding box, the instance offsets
-// and angles, the position in the parent with the instance locations, and the mass, CG and
-// inertias with the overrides applied.
+// and angles, the position in the parent with the instance locations, the angle and radius
+// methods with the radius offset (which the rebuild never sets: the classes' own answers), the
+// instance separation of the lugs and buttons, and the mass, CG and inertias with the overrides
+// applied.
 //
 // The 18 launch lugs, 5 rail buttons and 1 tube fin set of the 29 inputs all sit on body tubes
 // (no other component accepts them); AttachmentGeometryGoldenCoverage counts the compared ones.
@@ -46,7 +48,9 @@
 #include "QtRocket/rocket/RailButton.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/TubeFinSet.h"
+#include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
@@ -124,6 +128,15 @@ public:
         if (expected != actual)
         {
             add(field, expected, actual);
+        }
+    }
+
+    /// @p actual the same text as @p expected (the name of an enum constant).
+    void same(std::string_view field, std::string_view expected, std::string_view actual)
+    {
+        if (expected != actual)
+        {
+            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
         }
     }
 
@@ -506,7 +519,7 @@ void applyCommon(ExternalComponent& component, const json& expected, Mismatches&
 // ================================================================================= comparing
 
 /// Compares what every attachment has with the golden @p expected entry: the volume, mass, CG,
-/// unit inertias, bounds, instances and position of @p actual.
+/// unit inertias, bounds, instances, position and angle and radius methods of @p actual.
 template <class Component>
 void compareAttachment(Mismatches& m, const json& expected, const Component& actual)
 {
@@ -539,6 +552,15 @@ void compareAttachment(Mismatches& m, const json& expected, const Component& act
     m.angles("instanceAngles", expected.at("instanceAngles"), actual.getInstanceAngles());
     m.positions("instanceLocations", expected.at("instanceLocations"),
                 actual.getInstanceLocations());
+
+    // How the component is placed around the axis. The rebuild sets none of these: a launch lug's
+    // and a rail button's angle method is always RELATIVE, a tube fin set's is FIXED unless it
+    // is set, and none of the three has a radius method or offset of its own.
+    m.same("angleMethod", details.at("angleMethod").get<std::string>(),
+           QtRocket::angleMethodName(actual.getAngleMethod()));
+    m.same("radiusMethod", details.at("radiusMethod").get<std::string>(),
+           QtRocket::radiusMethodName(actual.getRadiusMethod()));
+    m.exact("radiusOffset", number(details.at("radiusOffset")), actual.getRadiusOffset());
 
     // With the overrides applied.
     m.relative("mass", number(expected.at("mass")), actual.getMass());
@@ -574,6 +596,8 @@ void compareOne(const Input& input, const json& expected, Mismatches& m, Counts&
         rocket.enableEvents();
         compareAttachment(m, expected, lug);
         m.absolute("innerRadius", number(details.at("innerRadius")), lug.getInnerRadius());
+        m.exact("instanceSeparation", number(details.at("instanceSeparation")),
+                lug.getInstanceSeparation());
         compared.launchLugs++;
     }
     else if (type == "RailButton")
@@ -581,6 +605,8 @@ void compareOne(const Input& input, const json& expected, Mismatches& m, Counts&
         const RailButton& button = addRailButton(body, expected, input.resave, m);
         rocket.enableEvents();
         compareAttachment(m, expected, button);
+        m.exact("instanceSeparation", number(details.at("instanceSeparation")),
+                button.getInstanceSeparation());
         compared.railButtons++;
     }
     else

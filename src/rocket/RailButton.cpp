@@ -65,7 +65,7 @@ static_assert(kTwoThirdsFloat == 0.6666666865348816);
 
 }  // namespace
 
-const Material& RailButton::defaultRailButtonMaterial()
+const Material& RailButton::defaultMaterial()
 {
     static const Material kDelrin = builtinDelrin();
     return kDelrin;
@@ -76,7 +76,7 @@ RailButton::RailButton() : ExternalComponent(AxialMethod::MIDDLE)
     // The dimensions and the instance separation are the member initialisers: Java's
     // setBaseHeight(0.002) and setInstanceSeparation(6 outer diameters) store just those values,
     // and their events, like setMaterial()'s, have nobody to go to from a constructor.
-    m_material = defaultRailButtonMaterial();
+    m_material = defaultMaterial();
     setDisplayOrderSide(14);  // Order for displaying the component in the 2D side view
     setDisplayOrderBack(11);  // Order for displaying the component in the 2D back view
 }
@@ -99,7 +99,7 @@ RailButton::RailButton(double od, double id, double ht, double flangeHeight, dou
     // (MathUtil::equals) leaves it.
     m_instanceSeparation(MathUtil::equals(0.0, od * 2) ? 0.0 : od * 2)
 {
-    m_material = defaultRailButtonMaterial();
+    m_material = defaultMaterial();
     setDisplayOrderSide(14);  // Order for displaying the component in the 2D side view
     setDisplayOrderBack(11);  // Order for displaying the component in the 2D back view
 }
@@ -116,7 +116,7 @@ void RailButton::applyDefaultMaterial(const Preferences&     preferences,
     const std::optional<Material> delrin =
         storage.findMaterial(Material::Type::BULK, kDefaultMaterialName);
     // Java: a NullPointerException without one, which its databases always hold.
-    m_material = delrin.has_value() ? *delrin : defaultRailButtonMaterial();
+    m_material = delrin.has_value() ? *delrin : defaultMaterial();
 }
 
 // ============================================================================= dimensions

@@ -23,6 +23,7 @@
 #include <format>
 #include <memory>
 #include <numbers>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -49,6 +50,7 @@
 #include "QtRocket/rocket/LineInstanceable.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/RailButton.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
@@ -88,6 +90,7 @@ using QtRocket::LaunchLug;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::NoseCone;
+using QtRocket::RailButton;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Transition;
@@ -97,10 +100,12 @@ using QtRocket::TypedPropertyMap;
 /// LaunchLugTest.EPSILON (MathUtil.EPSILON).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
 
-/// The event types of the setters: AEROMASS_CHANGE, AERODYNAMIC_CHANGE and NONFUNCTIONAL_CHANGE.
+/// The event types of the setters: AEROMASS_CHANGE, AERODYNAMIC_CHANGE and NONFUNCTIONAL_CHANGE;
+/// and TREE_CHANGE, which adding and removing children fire.
 constexpr int kBoth          = ComponentChangeEvent::kBothChange;
 constexpr int kAerodynamic   = ComponentChangeEvent::kAerodynamicChange;
 constexpr int kNonFunctional = ComponentChangeEvent::kNonFunctionalChange;
+constexpr int kTree          = ComponentChangeEvent::kTreeChange;
 
 using Events = std::vector<int>;
 
@@ -495,6 +500,17 @@ public:
         }
     }
 
+    void name(std::string_view field, std::string_view expected, std::string_view actual)
+    {
+        if (expected != actual)
+        {
+            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
+        }
+    }
+
+    /// Something that kept a value from being compared.
+    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
+
     void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
     {
         number(std::format("{}.x", field), expected.x, actual.x);
@@ -834,6 +850,138 @@ struct Pins
         .componentLocations = {Coordinate{0.0, 0.0, 0.0, 0.0}, Coordinate{0.1, 0.0, 0.0, 0.0}}};
 }
 
+/// The Alpha III lug with the axial method AFTER: where it was, the offset measured from the end
+/// of the body.
+[[nodiscard]] Pins pinsAfter()
+{
+    return Pins{
+        .instanceCount      = 1,
+        .outerRadius        = 0.003,
+        .innerRadius        = 0.002,
+        .thickness          = 0.001,
+        .angleOffset        = std::numbers::pi,
+        .instanceSeparation = 0.06,
+        .length             = 0.05,
+        .axialOffset        = -0.08900000000000001,
+        .position           = Coordinate{0.111, 0.0, 0.0, 0.0},
+        .componentVolume    = 7.853981633974483E-7,
+        .componentMass      = 5.340707511102649E-4,
+        .componentCG = Coordinate{0.025, -0.015, 1.8369701987210296E-18, 5.340707511102649E-4},
+        .longitudinalUnitInertia = 2.1158333333333337E-4,
+        .rotationalUnitInertia   = 6.5000000000000004E-6,
+        .componentBounds = {Coordinate{0.0, -0.003, -0.003, 0.0},
+                            Coordinate{0.0, 0.003, -0.003, 0.0}, Coordinate{0.0, 0.003, 0.003, 0.0},
+                            Coordinate{0.0, -0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, 0.003, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.003, -0.003, 0.0},
+        .boxMax          = Coordinate{0.05, 0.003, 0.003, 0.0},
+        .instanceOffsets = {Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0}},
+        .componentLocations = {Coordinate{0.181, -0.015, 1.8369701987210296E-18, 0.0}}};
+}
+
+/// pinsAfter() with the offset -0.05: 50 mm ahead of the end of the body.
+[[nodiscard]] Pins pinsAfterOffset()
+{
+    return Pins{
+        .instanceCount      = 1,
+        .outerRadius        = 0.003,
+        .innerRadius        = 0.002,
+        .thickness          = 0.001,
+        .angleOffset        = std::numbers::pi,
+        .instanceSeparation = 0.06,
+        .length             = 0.05,
+        .axialOffset        = -0.05,
+        .position           = Coordinate{0.15000000000000002, 0.0, 0.0, 0.0},
+        .componentVolume    = 7.853981633974483E-7,
+        .componentMass      = 5.340707511102649E-4,
+        .componentCG = Coordinate{0.025, -0.015, 1.8369701987210296E-18, 5.340707511102649E-4},
+        .longitudinalUnitInertia = 2.1158333333333337E-4,
+        .rotationalUnitInertia   = 6.5000000000000004E-6,
+        .componentBounds = {Coordinate{0.0, -0.003, -0.003, 0.0},
+                            Coordinate{0.0, 0.003, -0.003, 0.0}, Coordinate{0.0, 0.003, 0.003, 0.0},
+                            Coordinate{0.0, -0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, 0.003, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.003, -0.003, 0.0},
+        .boxMax          = Coordinate{0.05, 0.003, 0.003, 0.0},
+        .instanceOffsets = {Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0}},
+        .componentLocations = {
+            Coordinate{0.22000000000000003, -0.015, 1.8369701987210296E-18, 0.0}}};
+}
+
+/// A copy of the Alpha III lug: detached, so its locations are its instance offsets and its CG is
+/// the lug's own radius off the axis, but with the radial offset of the original.
+[[nodiscard]] Pins pinsCopyOnBody()
+{
+    return Pins{
+        .instanceCount      = 1,
+        .outerRadius        = 0.003,
+        .innerRadius        = 0.002,
+        .thickness          = 0.001,
+        .angleOffset        = std::numbers::pi,
+        .instanceSeparation = 0.06,
+        .length             = 0.05,
+        .axialOffset        = 0.111,
+        .position           = Coordinate{0.111, 0.0, 0.0, 0.0},
+        .componentVolume    = 7.853981633974483E-7,
+        .componentMass      = 5.340707511102649E-4,
+        .componentCG = Coordinate{0.025, -0.003, 3.6739403974420597E-19, 5.340707511102649E-4},
+        .longitudinalUnitInertia = 2.1158333333333337E-4,
+        .rotationalUnitInertia   = 6.5000000000000004E-6,
+        .componentBounds = {Coordinate{0.0, -0.003, -0.003, 0.0},
+                            Coordinate{0.0, 0.003, -0.003, 0.0}, Coordinate{0.0, 0.003, 0.003, 0.0},
+                            Coordinate{0.0, -0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, 0.003, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.003, -0.003, 0.0},
+        .boxMax          = Coordinate{0.05, 0.003, 0.003, 0.0},
+        .instanceOffsets = {Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0}},
+        .componentLocations = {Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0}}};
+}
+
+/// pinsCopyOnBody() of three instances 50 mm apart at the angle -1.
+[[nodiscard]] Pins pinsCopyOnBodyTurned()
+{
+    return Pins{
+        .instanceCount           = 3,
+        .outerRadius             = 0.003,
+        .innerRadius             = 0.002,
+        .thickness               = 0.001,
+        .angleOffset             = -1.0,
+        .instanceSeparation      = 0.05,
+        .length                  = 0.05,
+        .axialOffset             = 0.111,
+        .position                = Coordinate{0.111, 0.0, 0.0, 0.0},
+        .componentVolume         = 2.3561944901923448E-6,
+        .componentMass           = 0.0016022122533307945,
+        .componentCG             = Coordinate{0.07500000000000001, 0.0016209069176044194,
+                                              -0.0025244129544236896, 0.0016022122533307945},
+        .longitudinalUnitInertia = 2.1158333333333337E-4,
+        .rotationalUnitInertia   = 6.5000000000000004E-6,
+        .componentBounds = {Coordinate{0.0, -0.003, -0.003, 0.0},
+                            Coordinate{0.0, 0.003, -0.003, 0.0}, Coordinate{0.0, 0.003, 0.003, 0.0},
+                            Coordinate{0.0, -0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, -0.003, 0.0},
+                            Coordinate{0.05, 0.003, 0.003, 0.0},
+                            Coordinate{0.05, -0.003, 0.003, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.003, -0.003, 0.0},
+        .boxMax          = Coordinate{0.05, 0.003, 0.003, 0.0},
+        .instanceOffsets = {Coordinate{0.0, 0.008104534588022096, -0.012622064772118448, 0.0},
+                            Coordinate{0.05, 0.008104534588022096, -0.012622064772118448, 0.0},
+                            Coordinate{0.1, 0.008104534588022096, -0.012622064772118448, 0.0}},
+        .componentLocations = {Coordinate{0.0, 0.008104534588022096, -0.012622064772118448, 0.0},
+                               Coordinate{0.05, 0.008104534588022096, -0.012622064772118448, 0.0},
+                               Coordinate{0.1, 0.008104534588022096, -0.012622064772118448, 0.0}}};
+}
+
 // ================================================================================ detached
 
 TEST(LaunchLug, Defaults)
@@ -1121,6 +1269,168 @@ TEST_F(LaunchLugOnBody, LengthAndAxialPosition)
     lug().setAxialOffset(-0.02);
     EXPECT_EQ(takeEvents(), Events{kBoth});
     EXPECT_EQ(differences(pinsOverhang(), lug()), "");
+}
+
+TEST_F(LaunchLugOnBody, AfterIsOnlyAnotherWayToDescribeThePosition)
+{
+    // LaunchLug::isAfter() is always false, so a lug whose axial method is AFTER is not put
+    // behind its previous sibling (a rail button is): its offset is measured from the end of the
+    // body, and it stays where it is.
+    m_alpha.body->addChild(std::make_unique<RailButton>(), 0);
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+
+    lug().setAxialMethod(AxialMethod::AFTER);
+    EXPECT_EQ(takeEvents(), Events{});
+    EXPECT_EQ(lug().getAxialMethod(), AxialMethod::AFTER);
+    EXPECT_FALSE(lug().isAfter());
+    EXPECT_EQ(lug().getAxialOffset(), lug().getPosition().x - m_alpha.body->getLength());
+    EXPECT_EQ(differences(pinsAfter(), lug()), "");
+
+    lug().setAxialOffset(-0.05);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_EQ(differences(pinsAfterOffset(), lug()), "");
+
+    lug().setAxialMethod(AxialMethod::TOP);
+    EXPECT_EQ(takeEvents(), Events{});
+    EXPECT_TRUE(matches(0.15, lug().getAxialOffset())) << lug().getAxialOffset();
+    EXPECT_TRUE(matches(0.15, lug().getPosition().x)) << lug().getPosition().x;
+}
+
+TEST_F(LaunchLugOnBody, ACopyKeepsTheRadialOffsetOfItsOriginal)
+{
+    // Only componentChanged() writes the radial offset; a copy carries it along although it has
+    // no body of its own.
+    const std::unique_ptr<LaunchLug> copy =
+        QtRocket::componentCast<LaunchLug>(lug().copyWithNewIds());
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->getParent(), nullptr);
+    EXPECT_EQ(differences(pinsCopyOnBody(), *copy), "");
+
+    lug().setInstanceSeparation(0.05);
+    lug().setInstanceCount(3);
+    lug().setAngleOffset(-1);
+    const std::unique_ptr<LaunchLug> turned =
+        QtRocket::componentCast<LaunchLug>(lug().copyWithOriginalId());
+    ASSERT_NE(turned, nullptr);
+    EXPECT_EQ(differences(pinsCopyOnBodyTurned(), *turned), "");
+    Differences d;
+    d.coordinates("copy.instanceOffsets", lug().getInstanceOffsets(), turned->getInstanceOffsets());
+    EXPECT_EQ(d.text(), "");
+}
+
+/// What OpenRocket answers for one of the lugs splitInstances() leaves on the body.
+struct SplitPins
+{
+    std::string_view name;
+    double           angleOffset{};
+    double           mass{};
+    Coordinate       instanceOffset;
+    Coordinate       componentLocation;
+};
+
+/// The differences between the single lugs @p split left on @p body, in the place of the
+/// original, and Java's @p expected; empty when there are none.
+[[nodiscard]] std::string splitDifferences(std::span<const SplitPins>          expected,
+                                           const RocketComponent::SplitResult& split,
+                                           const BodyTube&                     body)
+{
+    Differences d;
+    if (split.components.size() != expected.size() || body.getChildCount() != expected.size())
+    {
+        d.problem(std::format("expected {} lugs, got {} of {} children", expected.size(),
+                              split.components.size(), body.getChildCount()));
+        return d.text();
+    }
+    for (std::size_t i = 0; i < expected.size(); i++)
+    {
+        const auto* single = dynamic_cast<const LaunchLug*>(split.components[i]);
+        if (single == nullptr || single != &body.getChild(i))
+        {
+            d.problem(std::format("[{}] is not the launch lug at that index of the body", i));
+            continue;
+        }
+        const SplitPins& pins = expected[i];
+        d.name(std::format("[{}].name", i), pins.name, single->getName());
+        d.number(std::format("[{}].instanceCount", i), 1, single->getInstanceCount());
+        d.number(std::format("[{}].angleOffset", i), pins.angleOffset, single->getAngleOffset());
+        d.number(std::format("[{}].mass", i), pins.mass, single->getMass());
+        d.number(std::format("[{}].axialOffset", i), 0.111, single->getAxialOffset());
+        d.number(std::format("[{}].instanceSeparation", i), 0.05, single->getInstanceSeparation());
+        d.coordinate(std::format("[{}].position", i), Coordinate{0.111, 0.0, 0.0, 0.0},
+                     single->getPosition());
+        d.coordinates(std::format("[{}].instanceOffsets", i), {pins.instanceOffset},
+                      single->getInstanceOffsets());
+        d.coordinates(std::format("[{}].componentLocations", i), {pins.componentLocation},
+                      single->getComponentLocations());
+    }
+    return d.text();
+}
+
+TEST_F(LaunchLugOnBody, SplitInstancesLeavesEveryLugAtTheFirstOnesPlace)
+{
+    lug().setInstanceSeparation(0.05);
+    lug().setInstanceCount(3);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = lug().splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth}) << "one event, as the rocket thaws";
+    EXPECT_EQ(split.original.get(), &lug()) << "the original is out of the tree";
+    EXPECT_EQ(lug().getParent(), nullptr);
+
+    // As in OpenRocket, the split turns the copies around the axis instead of moving them along
+    // it, and a lug's angle is clamped: pi + 2 pi i / 3 stays pi, so the three single lugs
+    // coincide with the first instance. Java's values.
+    const SplitPins first{
+        .name              = "Launch Lugs #1",
+        .angleOffset       = std::numbers::pi,
+        .mass              = 5.340707511102649E-4,
+        .instanceOffset    = Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0},
+        .componentLocation = Coordinate{0.181, -0.015, 1.8369701987210296E-18, 0.0}};
+    std::vector<SplitPins> expected{first, first, first};
+    expected[1].name = "Launch Lugs #2";
+    expected[2].name = "Launch Lugs #3";
+    EXPECT_EQ(splitDifferences(expected, split, *m_alpha.body), "");
+    EXPECT_FALSE(m_alpha.body->getChild(0).isMassOverridden());
+}
+
+TEST_F(LaunchLugOnBody, SplitInstancesClampsTheAnglesOfTheSingleLugs)
+{
+    lug().setInstanceSeparation(0.05);
+    lug().setInstanceCount(4);
+    lug().setAngleOffset(-1);
+    lug().setMassOverridden(true);
+    lug().setOverrideMass(0.02);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = lug().splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+
+    // -1, -1 + pi / 2, -1 + pi and -1 + 3 pi / 2, which is clamped to pi (a tube fin set reduces
+    // its angle instead); each lug gets its share of the override mass. Java's values.
+    const std::vector<SplitPins> expected{
+        {.name              = "Launch Lugs #1",
+         .angleOffset       = -1.0,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, 0.008104534588022096, -0.012622064772118448, 0.0},
+         .componentLocation = Coordinate{0.181, 0.008104534588022096, -0.012622064772118448, 0.0}},
+        {.name              = "Launch Lugs #2",
+         .angleOffset       = 0.5707963267948966,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, 0.012622064772118448, 0.008104534588022095, 0.0},
+         .componentLocation = Coordinate{0.181, 0.012622064772118448, 0.008104534588022095, 0.0}},
+        {.name              = "Launch Lugs #3",
+         .angleOffset       = 2.141592653589793,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, -0.008104534588022095, 0.01262206477211845, 0.0},
+         .componentLocation = Coordinate{0.181, -0.008104534588022095, 0.01262206477211845, 0.0}},
+        {.name              = "Launch Lugs #4",
+         .angleOffset       = std::numbers::pi,
+         .mass              = 0.005,
+         .instanceOffset    = Coordinate{0.0, -0.015, 1.8369701987210296E-18, 0.0},
+         .componentLocation = Coordinate{0.181, -0.015, 1.8369701987210296E-18, 0.0}}};
+    EXPECT_EQ(splitDifferences(expected, split, *m_alpha.body), "");
+    EXPECT_EQ(m_alpha.body->getChild(3).getOverrideMass(), 0.005);
+    EXPECT_TRUE(m_alpha.body->getChild(3).isMassOverridden());
 }
 
 TEST_F(LaunchLugOnBody, PresetEvents)

@@ -56,6 +56,12 @@ class Preferences;
 /// button. The CG reads the parent itself (a symmetric component, else radius 0) at x = the
 /// button's axial offset.
 ///
+/// A rail button whose axial method is AFTER follows its previous sibling, as Java's does:
+/// RailButton does not override isAfter() (LaunchLug and TubeFinSet do, to false), so
+/// RocketComponent::setAfter() places it, on the event setAxialMethod() fires and on every later
+/// one: its reference point at the end of the sibling before it (at the top of the parent when
+/// it is the first child) and an axial offset of 0, which setAxialOffset() cannot change.
+///
 /// A rail button takes RAIL_BUTTON presets and holds no children.
 ///
 /// Kept as OpenRocket has them: both unit inertias are 0; the instance bounding box spans the
@@ -64,9 +70,9 @@ class Preferences;
 /// head with Java's float constant 2.0f / 3.
 ///
 /// Deviations from OpenRocket:
-/// - The default material is the built-in "Delrin" (defaultRailButtonMaterial()), taken from the
-///   built-in material table. Java looks "Delrin" up in the global material databases, which hold
-///   the user's materials too. applyDefaultMaterial(), which completes Java's constructor for the
+/// - The default material is the built-in "Delrin" (defaultMaterial()), taken from the built-in
+///   material table. Java looks "Delrin" up in the global material databases, which hold the
+///   user's materials too. applyDefaultMaterial(), which completes Java's constructor for the
 ///   other external components, ends with the Delrin of the given storage here, as Java's
 ///   constructor sets it after the preferences' default: a new rail button is made of Delrin
 ///   whatever the preferences say.
@@ -85,8 +91,10 @@ public:
     using RocketComponent::isCompatible;
 
     /// The material of a new rail button: the built-in bulk "Delrin" (Java:
-    /// Databases.findMaterial(BULK, "Delrin")), made once from the built-in table.
-    [[nodiscard]] static const Material& defaultRailButtonMaterial();
+    /// Databases.findMaterial(BULK, "Delrin")), made once from the built-in table. It hides
+    /// ExternalComponent::defaultMaterial() ("Cardboard"), which Java's RailButton constructors
+    /// replace, so that RailButton::defaultMaterial() is what a new rail button is made of.
+    [[nodiscard]] static const Material& defaultMaterial();
 
     /// A button with outer diameter and total height 9.7 mm, inner diameter 8 mm, flange and
     /// base heights 2 mm and no screw; positioned at the MIDDLE of its parent, at the angle pi;
@@ -231,7 +239,7 @@ public:
     /// Java's constructor after ExternalComponent's: the preferences' default
     /// (ExternalComponent::applyDefaultMaterial()) is replaced by "Delrin" looked up among the
     /// bulk materials of @p storage (Databases.findMaterial(BULK, "Delrin")), or
-    /// defaultRailButtonMaterial() when @p storage has none.
+    /// defaultMaterial() when @p storage has none.
     void applyDefaultMaterial(const Preferences&     preferences,
                               const MaterialStorage& storage) override;
 

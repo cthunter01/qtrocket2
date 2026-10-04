@@ -19,6 +19,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -100,9 +101,11 @@ using QtRocket::TypedPropertyMap;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
-/// The event types of the setters: AEROMASS_CHANGE and NONFUNCTIONAL_CHANGE.
+/// The event types of the setters: AEROMASS_CHANGE and NONFUNCTIONAL_CHANGE; and TREE_CHANGE,
+/// which adding and removing children fire.
 constexpr int kBoth          = ComponentChangeEvent::kBothChange;
 constexpr int kNonFunctional = ComponentChangeEvent::kNonFunctionalChange;
+constexpr int kTree          = ComponentChangeEvent::kTreeChange;
 
 using Events = std::vector<int>;
 
@@ -147,6 +150,17 @@ public:
             m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
         }
     }
+
+    void name(std::string_view field, std::string_view expected, std::string_view actual)
+    {
+        if (expected != actual)
+        {
+            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
+        }
+    }
+
+    /// Something that kept a value from being compared.
+    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
 
     void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
     {
@@ -698,6 +712,88 @@ struct Pins
                                Coordinate{0.0, 0.0, 0.0, 0.0}}};
 }
 
+/// The "manual" tubes with the axial method AFTER: where they were, the offset measured from the
+/// end of the body (and the longitudinal unit inertia following the stored offset).
+[[nodiscard]] Pins pinsAfter()
+{
+    return Pins{
+        .finCount                = 4,
+        .autoRadius              = false,
+        .outerRadius             = 0.01,
+        .innerRadius             = 0.009000000000000001,
+        .thickness               = 0.001,
+        .bodyRadius              = 0.025,
+        .tubeSeparation          = 0.10071067811865472,
+        .boundingRadius          = 0.035,
+        .finRotation             = 1.5707963267948966,
+        .angleOffset             = 1.0471975511965976,
+        .length                  = 0.08,
+        .axialOffset             = -0.1,
+        .position                = Coordinate{0.19999999999999998, 0.0, 0.0, 0.0},
+        .componentVolume         = 1.910088333382593E-5,
+        .componentMass           = 0.012988600667001632,
+        .componentCG             = Coordinate{0.04, 0.0, 0.0, 0.012988600667001632},
+        .longitudinalUnitInertia = 0.04231433333333334,
+        .rotationalUnitInertia   = 0.100762,
+        .componentBounds = {Coordinate{0.0, -0.07, -0.07, 0.0}, Coordinate{0.0, 0.07, -0.07, 0.0},
+                            Coordinate{0.0, 0.07, 0.07, 0.0}, Coordinate{0.0, -0.07, 0.07, 0.0},
+                            Coordinate{0.08, -0.07, -0.07, 0.0}, Coordinate{0.08, 0.07, -0.07, 0.0},
+                            Coordinate{0.08, 0.07, 0.07, 0.0}, Coordinate{0.08, -0.07, 0.07, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.01, -0.01, 0.0},
+        .boxMax          = Coordinate{0.08, 0.01, 0.01, 0.0},
+        .instanceAngles  = {1.0471975511965976, 2.617993877991494, 4.1887902047863905,
+                            5.759586531581287},
+        .instanceOffsets = {Coordinate{0.0, 0.012500000000000004, 0.021650635094610966, 0.0},
+                            Coordinate{0.0, -0.021650635094610963, 0.01250000000000001, 0.0},
+                            Coordinate{0.0, -0.012500000000000011, -0.02165063509461096, 0.0},
+                            Coordinate{0.0, 0.02165063509461096, -0.012500000000000011, 0.0}},
+        .componentLocations = {
+            Coordinate{0.19999999999999998, 0.012500000000000004, 0.021650635094610966, 0.0},
+            Coordinate{0.19999999999999998, -0.021650635094610963, 0.01250000000000001, 0.0},
+            Coordinate{0.19999999999999998, -0.012500000000000011, -0.02165063509461096, 0.0},
+            Coordinate{0.19999999999999998, 0.02165063509461096, -0.012500000000000011, 0.0}}};
+}
+
+/// pinsAfter() with the offset -0.15: the tubes start 150 mm ahead of the end of the body.
+[[nodiscard]] Pins pinsAfterOffset()
+{
+    return Pins{
+        .finCount                = 4,
+        .autoRadius              = false,
+        .outerRadius             = 0.01,
+        .innerRadius             = 0.009000000000000001,
+        .thickness               = 0.001,
+        .bodyRadius              = 0.025,
+        .tubeSeparation          = 0.10071067811865472,
+        .boundingRadius          = 0.035,
+        .finRotation             = 1.5707963267948966,
+        .angleOffset             = 1.0471975511965976,
+        .length                  = 0.08,
+        .axialOffset             = -0.15,
+        .position                = Coordinate{0.15, 0.0, 0.0, 0.0},
+        .componentVolume         = 1.910088333382593E-5,
+        .componentMass           = 0.012988600667001632,
+        .componentCG             = Coordinate{0.04, 0.0, 0.0, 0.012988600667001632},
+        .longitudinalUnitInertia = 0.09231433333333333,
+        .rotationalUnitInertia   = 0.100762,
+        .componentBounds = {Coordinate{0.0, -0.07, -0.07, 0.0}, Coordinate{0.0, 0.07, -0.07, 0.0},
+                            Coordinate{0.0, 0.07, 0.07, 0.0}, Coordinate{0.0, -0.07, 0.07, 0.0},
+                            Coordinate{0.08, -0.07, -0.07, 0.0}, Coordinate{0.08, 0.07, -0.07, 0.0},
+                            Coordinate{0.08, 0.07, 0.07, 0.0}, Coordinate{0.08, -0.07, 0.07, 0.0}},
+        .boxMin          = Coordinate{0.0, -0.01, -0.01, 0.0},
+        .boxMax          = Coordinate{0.08, 0.01, 0.01, 0.0},
+        .instanceAngles  = {1.0471975511965976, 2.617993877991494, 4.1887902047863905,
+                            5.759586531581287},
+        .instanceOffsets = {Coordinate{0.0, 0.012500000000000004, 0.021650635094610966, 0.0},
+                            Coordinate{0.0, -0.021650635094610963, 0.01250000000000001, 0.0},
+                            Coordinate{0.0, -0.012500000000000011, -0.02165063509461096, 0.0},
+                            Coordinate{0.0, 0.02165063509461096, -0.012500000000000011, 0.0}},
+        .componentLocations = {Coordinate{0.15, 0.012500000000000004, 0.021650635094610966, 0.0},
+                               Coordinate{0.15, -0.021650635094610963, 0.01250000000000001, 0.0},
+                               Coordinate{0.15, -0.012500000000000011, -0.02165063509461096, 0.0},
+                               Coordinate{0.15, 0.02165063509461096, -0.012500000000000011, 0.0}}};
+}
+
 // ================================================================================ detached
 
 TEST(TubeFinSet, Defaults)
@@ -928,6 +1024,33 @@ TEST_F(TubeFinSetOnBody, AxialMethodKeepsThePositionAndFiresANonFunctionalChange
         << m_fins->getLongitudinalUnitInertia();
 }
 
+TEST_F(TubeFinSetOnBody, AfterIsOnlyAnotherWayToDescribeThePosition)
+{
+    // TubeFinSet::isAfter() is always false, so a tube fin set whose axial method is AFTER is not
+    // put behind its previous sibling (a rail button is): its offset is measured from the end of
+    // the body, and it stays where it is.
+    makeManual();
+    m_body->addChild(std::make_unique<QtRocket::LaunchLug>(), 0);
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+
+    m_fins->setAxialMethod(AxialMethod::AFTER);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_EQ(m_fins->getAxialMethod(), AxialMethod::AFTER);
+    EXPECT_FALSE(m_fins->isAfter());
+    EXPECT_EQ(m_fins->getAxialOffset(), m_fins->getPosition().x - m_body->getLength());
+    EXPECT_EQ(differences(pinsAfter(), *m_fins), "");
+
+    m_fins->setAxialOffset(-0.15);
+    EXPECT_EQ(takeEvents(), Events{kBoth});
+    EXPECT_EQ(differences(pinsAfterOffset(), *m_fins), "");
+
+    m_fins->setAxialMethod(AxialMethod::BOTTOM);
+    EXPECT_EQ(takeEvents(), Events{kNonFunctional});
+    EXPECT_TRUE(matches(-0.06999999999999998, m_fins->getAxialOffset()))
+        << m_fins->getAxialOffset();
+    EXPECT_TRUE(matches(0.15, m_fins->getPosition().x)) << m_fins->getPosition().x;
+}
+
 TEST_F(TubeFinSetOnBody, ASingleTubeSitsBesideTheBody)
 {
     makeManual();
@@ -1150,6 +1273,169 @@ TEST_F(TubeFinSetOnBody, RotationTransformations)
     EXPECT_TRUE(matches(std::sin(0.5), turned.z));
 }
 
+// ===================================================================================== split
+
+/// What OpenRocket answers for one of the tube fin sets splitInstances() leaves on the body.
+struct SplitPins
+{
+    std::string_view name;
+    double           angleOffset{};
+    double           outerRadius{};
+    double           mass{};
+    double           instanceAngle{};
+    Coordinate       instanceOffset;
+    Coordinate       componentCG;
+};
+
+/// The differences between the single tubes @p split left on @p body, in the place of the
+/// original, and Java's @p expected; empty when there are none. Every tube keeps the position of
+/// the set, 0.2 m from the top of the body, and its @p axialOffset.
+[[nodiscard]] std::string splitDifferences(std::span<const SplitPins>          expected,
+                                           const RocketComponent::SplitResult& split,
+                                           const BodyTube& body, double axialOffset)
+{
+    Differences d;
+    if (split.components.size() != expected.size() || body.getChildCount() != expected.size())
+    {
+        d.problem(std::format("expected {} tube fin sets, got {} of {} children", expected.size(),
+                              split.components.size(), body.getChildCount()));
+        return d.text();
+    }
+    const double x = 0.19999999999999998;
+    for (std::size_t i = 0; i < expected.size(); i++)
+    {
+        const auto* single = dynamic_cast<const TubeFinSet*>(split.components[i]);
+        if (single == nullptr || single != &body.getChild(i))
+        {
+            d.problem(std::format("[{}] is not the tube fin set at that index of the body", i));
+            continue;
+        }
+        const SplitPins& pins = expected[i];
+        d.name(std::format("[{}].name", i), pins.name, single->getName());
+        d.integer(std::format("[{}].finCount", i), 1, single->getFinCount());
+        d.number(std::format("[{}].angleOffset", i), pins.angleOffset, single->getAngleOffset());
+        d.number(std::format("[{}].outerRadius", i), pins.outerRadius, single->getOuterRadius());
+        d.number(std::format("[{}].mass", i), pins.mass, single->getMass());
+        d.number(std::format("[{}].axialOffset", i), axialOffset, single->getAxialOffset());
+        d.coordinate(std::format("[{}].position", i), Coordinate{x, 0.0, 0.0, 0.0},
+                     single->getPosition());
+        d.numbers(std::format("[{}].instanceAngles", i), {pins.instanceAngle},
+                  single->getInstanceAngles());
+        d.coordinates(std::format("[{}].instanceOffsets", i), {pins.instanceOffset},
+                      single->getInstanceOffsets());
+        d.coordinates(std::format("[{}].componentLocations", i),
+                      {Coordinate{x, pins.instanceOffset.y, pins.instanceOffset.z, 0.0}},
+                      single->getComponentLocations());
+        d.coordinate(std::format("[{}].componentCG", i), pins.componentCG,
+                     single->getComponentCG());
+    }
+    return d.text();
+}
+
+TEST_F(TubeFinSetOnBody, SplitInstancesLeavesSingleTubesAroundTheBody)
+{
+    m_fins->setFinCount(3);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = m_fins->splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth}) << "one event, as the rocket thaws";
+    EXPECT_EQ(split.original.get(), m_fins) << "the original is out of the tree";
+    EXPECT_EQ(m_fins->getParent(), nullptr);
+
+    // setInstanceCount(1) is setFinCount(1), and the angles 2 pi i / 3 are reduced to -pi ... pi
+    // (a launch lug and a rail button clamp theirs). A single automatic tube is as wide as the
+    // body, and its CG is beside the body. Java's values.
+    const double                 mass = 0.020508316842634204;
+    const std::vector<SplitPins> expected{
+        {.name           = "Tube Fin Set #1",
+         .angleOffset    = 0.0,
+         .outerRadius    = 0.025,
+         .mass           = mass,
+         .instanceAngle  = 0.0,
+         .instanceOffset = Coordinate{0.0, 0.025, 0.0, 0.0},
+         .componentCG    = Coordinate{0.05, 0.05, 0.0, mass}},
+        {.name           = "Tube Fin Set #2",
+         .angleOffset    = 2.0943951023931953,
+         .outerRadius    = 0.025,
+         .mass           = mass,
+         .instanceAngle  = 2.0943951023931953,
+         .instanceOffset = Coordinate{0.0, -0.012499999999999995, 0.02165063509461097, 0.0},
+         .componentCG    = Coordinate{0.05, -0.02499999999999999, 0.04330127018922194, mass}},
+        {.name           = "Tube Fin Set #3",
+         .angleOffset    = -2.0943951023931957,
+         .outerRadius    = 0.025,
+         .mass           = mass,
+         .instanceAngle  = 4.1887902047863905,
+         .instanceOffset = Coordinate{0.0, -0.012500000000000011, -0.02165063509461096, 0.0},
+         .componentCG    = Coordinate{0.05, -0.025000000000000012, -0.043301270189221926, mass}}};
+    EXPECT_EQ(splitDifferences(expected, split, *m_body, 0.0), "");
+    const auto* last = dynamic_cast<const TubeFinSet*>(&m_body->getChild(2));
+    ASSERT_NE(last, nullptr);
+    EXPECT_TRUE(last->isOuterRadiusAutomatic());
+    EXPECT_EQ(last->getThickness(), 0.002);
+    EXPECT_FALSE(last->isMassOverridden());
+}
+
+TEST_F(TubeFinSetOnBody, SplitInstancesSharesOutTheOverrideMass)
+{
+    makeManual();
+    m_fins->setMassOverridden(true);
+    m_fins->setOverrideMass(0.2);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = m_fins->splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
+
+    // Four manual tubes from the base rotation pi / 3 on. Java's values.
+    const double                 mass = 0.003247150166750408;
+    const std::vector<SplitPins> expected{
+        {.name           = "Tube Fin Set #1",
+         .angleOffset    = 1.0471975511965976,
+         .outerRadius    = 0.01,
+         .mass           = 0.05,
+         .instanceAngle  = 1.0471975511965976,
+         .instanceOffset = Coordinate{0.0, 0.012500000000000004, 0.021650635094610966, 0.0},
+         .componentCG    = Coordinate{0.04, 0.017500000000000005, 0.030310889132455353, mass}},
+        {.name           = "Tube Fin Set #2",
+         .angleOffset    = 2.617993877991494,
+         .outerRadius    = 0.01,
+         .mass           = 0.05,
+         .instanceAngle  = 2.617993877991494,
+         .instanceOffset = Coordinate{0.0, -0.021650635094610963, 0.01250000000000001, 0.0},
+         .componentCG    = Coordinate{0.04, -0.03031088913245535, 0.017500000000000012, mass}},
+        {.name           = "Tube Fin Set #3",
+         .angleOffset    = -2.0943951023931957,
+         .outerRadius    = 0.01,
+         .mass           = 0.05,
+         .instanceAngle  = 4.1887902047863905,
+         .instanceOffset = Coordinate{0.0, -0.012500000000000011, -0.02165063509461096, 0.0},
+         .componentCG    = Coordinate{0.04, -0.01750000000000001, -0.03031088913245535, mass}},
+        {.name           = "Tube Fin Set #4",
+         .angleOffset    = -0.5235987755982991,
+         .outerRadius    = 0.01,
+         .mass           = 0.05,
+         .instanceAngle  = 5.759586531581287,
+         .instanceOffset = Coordinate{0.0, 0.02165063509461096, -0.012500000000000011, 0.0},
+         .componentCG    = Coordinate{0.04, 0.03031088913245535, -0.01750000000000001, mass}}};
+    EXPECT_EQ(splitDifferences(expected, split, *m_body, -0.02), "");
+    EXPECT_EQ(m_body->getChild(3).getOverrideMass(), 0.05);
+    EXPECT_TRUE(m_body->getChild(3).isMassOverridden());
+}
+
+TEST_F(TubeFinSetOnBody, SplitInstancesOfASingleTubeLeavesIt)
+{
+    m_fins->setFinCount(1);
+    static_cast<void>(takeEvents());
+
+    const RocketComponent::SplitResult split = m_fins->splitInstances();
+    EXPECT_EQ(takeEvents(), Events{kTree});
+    EXPECT_EQ(split.original, nullptr);
+    ASSERT_EQ(split.components.size(), 1U);
+    EXPECT_EQ(split.components.front(), m_fins);
+    EXPECT_EQ(m_body->getChildCount(), 1U);
+    EXPECT_EQ(m_fins->getName(), "Tube Fin Set");
+}
+
 // =================================================================================== presets
 
 /// A BODY_TUBE preset 2 m long with outer diameter 2 m, inner diameter 1 m and mass 100 kg (the
@@ -1257,7 +1543,9 @@ TEST_F(TubeFinSetOnBody, LoadingAPresetFiresOnlyTheNonFunctionalChange)
 // ====================================================================================== mass
 
 // MassCalculatorTest.testTubeFinMass. Its rocket is OpenRocketDocumentFactory.createNewRocket():
-// a Rocket with one AxialStage.
+// a Rocket with one AxialStage whose stages are all active, in a document, and the document's
+// constructor enables the rocket's events. So the tube fin set is added to a live rocket: the
+// add event and the event of BodyTube::addChild()'s thickness reach it.
 TEST(TubeFinSetMass, TubeFinMass)
 {
     constexpr double kEpsilon = 0.00000001;  // MassCalculatorTest.EPSILON
@@ -1265,6 +1553,7 @@ TEST(TubeFinSetMass, TubeFinMass)
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
     rocket.getSelectedConfiguration().setAllStages();
+    rocket.enableEvents();
     auto& bodyTube = stage.addChild(std::make_unique<BodyTube>());
     auto  newFins  = std::make_unique<TubeFinSet>();
     newFins->setOuterRadius(0.04);
@@ -1279,6 +1568,10 @@ TEST(TubeFinSetMass, TubeFinMass)
     // Java's full values (the JUnit literals are rounded).
     EXPECT_TRUE(matches(1.4702653618800244E-4, tubeFinSet.getComponentVolume()));
     EXPECT_TRUE(matches(0.09997804460784167, tubeFinSet.getComponentMass()));
+    // The events placed the set at the bottom of the 0.2 m body tube (without them it stays at
+    // 0), and it kept the thickness it was given.
+    EXPECT_EQ(tubeFinSet.getPosition(), (Coordinate{0.1, 0.0, 0.0}));
+    EXPECT_EQ(tubeFinSet.getThickness(), 0.002);
 
     tubeFinSet.setInstanceCount(4);
 
@@ -1348,7 +1641,7 @@ TEST_F(TubeFinSetOnBody, TheHookFiresTheSettersEventAfterTheTreeChange)
 {
     m_body->addChild(std::make_unique<TubeFinSet>());
     // addChild()'s own event (the tree, mass and aerodynamics), then setThickness()'s.
-    EXPECT_EQ(takeEvents(), (Events{ComponentChangeEvent::kTreeChange | kBoth, kBoth}));
+    EXPECT_EQ(takeEvents(), (Events{kTree | kBoth, kBoth}));
 
     // Removed and added again, the thickness is set already: only the tree change.
     std::unique_ptr<RocketComponent> removed = m_body->removeChild(m_fins);
@@ -1356,7 +1649,7 @@ TEST_F(TubeFinSetOnBody, TheHookFiresTheSettersEventAfterTheTreeChange)
     static_cast<void>(takeEvents());
     m_fins = nullptr;
     m_body->addChild(std::move(removed));
-    EXPECT_EQ(takeEvents(), Events{ComponentChangeEvent::kTreeChange | kBoth});
+    EXPECT_EQ(takeEvents(), Events{kTree | kBoth});
 }
 
 // ====================================================================================== copy

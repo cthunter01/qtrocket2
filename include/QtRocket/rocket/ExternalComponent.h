@@ -28,7 +28,9 @@ class Preferences;
 ///   (getDefaultComponentMaterial(getClass(), BULK)), which there is no global for here; with
 ///   OpenRocket's test preferences that is Cardboard too, so the golden data and the ported tests
 ///   agree. Whoever creates a component for the user (the GUI) calls applyDefaultMaterial() on
-///   it right away, which completes Java's constructor with the user's per-class default.
+///   it right away, which completes Java's constructor with the user's per-class default. The
+///   exception is RailButton, which starts with RailButton::defaultMaterial() ("Delrin"), as its
+///   Java constructor sets it after ExternalComponent's.
 /// - setMaterial() and loadFromPreset() do not register a document material with the document's
 ///   preferences: rocket/ cannot see the document (see the HOOK in ExternalComponent.cpp).
 /// - setMaterial() of a material that is not BULK throws BugError (Java:
@@ -39,7 +41,8 @@ class ExternalComponent : public RocketComponent
 public:
     /// The material a new external component starts with: the built-in bulk "Cardboard"
     /// (ApplicationPreferences' DEFAULT_BULK_MATERIAL), builtinDefaultComponentMaterial(BULK)
-    /// made once.
+    /// made once. A class whose Java constructor sets another material hides this function with
+    /// its own, so that T::defaultMaterial() is what a new T is made of: RailButton ("Delrin").
     [[nodiscard]] static const Material& defaultMaterial();
 
     /// The volume of the component's material, from which its mass is computed.
@@ -66,8 +69,9 @@ public:
     /// BULK, storage) (material/MaterialPreferences.h), e.g. "Polystyrene" for a nose cone after
     /// loadDefaultComponentMaterials(). Assigned directly, as the constructor does: no event, and
     /// the preset is kept. @p storage must hold the built-in materials (see
-    /// getDefaultComponentMaterial()). Virtual for the classes whose own Java constructor sets
-    /// another material afterwards (RailButton: always "Delrin").
+    /// getDefaultComponentMaterial()). Virtual for the classes whose Java constructor takes more
+    /// than the component's material from the preferences (FinSet: the fillet material too) or
+    /// sets another material afterwards (RailButton: always "Delrin").
     virtual void applyDefaultMaterial(const Preferences&     preferences,
                                       const MaterialStorage& storage);
 
