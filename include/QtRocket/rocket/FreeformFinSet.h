@@ -35,16 +35,23 @@ namespace QtRocket
 ///
 /// Errors: OpenRocket's checked IllegalFinPointException becomes a Result<void> failure with the
 /// same message (ErrorCode::INVALID_ARGUMENT): an index out of range in addPoint(), removePoint()
-/// and setPoint(). setPoints() never fails; it reverts as described.
+/// and setPoint(). setPoints() never fails; it reverts as described. It throws BugError for an
+/// empty list (Java: an unchecked IndexOutOfBoundsException), so a caller that passes on user
+/// data must check for one first: the file loaders (OpenRocket's FinSetPointHandler.endHandler()
+/// and RockSim's FinSetHandler.asOpenRocket(), which hand over whatever points they could
+/// parse, possibly none) report an empty list as a warning and keep the default outline.
 ///
 /// Deviations from OpenRocket:
-/// - Point indices are std::size_t, so removePoint()'s "index out of range" covers indices beyond
-///   the last point only (Java's int can be negative).
+/// - Point indices are std::size_t (Java: int). Java's negative indices have no counterpart; an
+///   index converted from one (static_cast<std::size_t>(-1)) lies beyond the last point and
+///   fails with the message Java gives for the negative index.
 /// - The setPoints() overloads for an array and for an ArrayList are one function taking a span;
 ///   the points are copied (Java keeps and modifies the caller's ArrayList). An empty list throws
 ///   BugError (Java: IndexOutOfBoundsException).
 /// - convertFinSet() returns a ConversionResult that says who owns the new and the replaced fin
-///   set (Java returns the new one and leaves the old one to the garbage collector).
+///   set (Java returns the new one and leaves the old one to the garbage collector). When the
+///   conversion fails with an exception, the fin set goes back to its place in the tree (Java
+///   leaves it detached); see convertFinSet().
 /// - copyWithOriginalID(), which copies the point list, is the implicit copy constructor.
 /// - The multi-edit config listeners (and getConfigListenerPointIdx()) are not ported, by
 ///   decision, nor is the logging of a detected intersection.
@@ -58,7 +65,9 @@ public:
     struct [[nodiscard]] ConversionResult
     {
         /// The new freeform fin set: in the tree in the converted fin set's place, or, when
-        /// that one was detached, owned by @c detached.
+        /// that one was detached, owned by @c detached. Not an owner: the pointer is valid only
+        /// while the tree, or @c detached, keeps the fin set alive, so keep the result (never
+        /// `convertFinSet(x).freeform` for a detached fin set).
         FreeformFinSet* freeform{nullptr};
         /// The new fin set when the converted one had no parent; null when the parent owns it.
         std::unique_ptr<FreeformFinSet> detached;
@@ -84,19 +93,27 @@ public:
     /// "Freeform Fin Set 2"). With @p freezeRocket the rocket (when @p finset is in one) is
     /// frozen meanwhile, so that one combined event fires at the end. @p finset must not be used
     /// afterwards, except through the result.
-    /// @throws BugError when the rocket is already frozen (see Rocket::freeze()).
+    ///
+    /// When an exception stops the conversion before the new fin set is in the tree (a BugError,
+    /// e.g. for an axial offset that is NaN), @p finset is put back where it was, the rocket is
+    /// thawed and the exception goes on: the tree and @p finset are as before, though the events
+    /// of taking it out and putting it back fire. (Java leaves it detached.) An exception thrown
+    /// once the new fin set is in the tree (by a change listener, when the events are
+    /// dispatched) leaves the conversion done, and @p finset destroyed with the lost result.
+    /// @throws BugError when the rocket is already frozen (see Rocket::freeze()); nothing has
+    ///         changed then.
     static ConversionResult convertFinSet(FinSet& finset, bool freezeRocket = true);
 
     /// Inserts a point at @p location before the point @p index and fires NONFUNCTIONAL_CHANGE;
     /// the point is not checked.
     /// Fails ("Cannot add new point before the first or after the last point") unless
-    /// 1 <= @p index <= getPointCount() - 1.
+    /// 1 <= @p index <= getPointCount() - 1; nothing changes then, whatever the index.
     [[nodiscard]] Result<void> addPoint(std::size_t index, Point2D location);
 
     /// Removes the point @p index, unless the outline would then intersect itself, and fires
     /// AEROMASS_CHANGE (in both cases).
     /// Fails for the first or the last point ("cannot remove first or last point") and beyond
-    /// the last one ("index out of range").
+    /// the last one ("index out of range"); nothing changes then, whatever the index.
     [[nodiscard]] Result<void> removePoint(std::size_t index);
 
     [[nodiscard]] std::size_t getPointCount() const noexcept { return m_points.size(); }
@@ -105,7 +122,8 @@ public:
     /// kSnapLargerThan and then clamped by update(@p validateFinTab). An outline that intersects
     /// itself is given up for the previous points and length. Fires AEROMASS_CHANGE (in both
     /// cases).
-    /// @throws BugError when @p newPoints is empty.
+    /// @throws BugError when @p newPoints is empty: check user data (the points of a file)
+    ///         before passing it on, see the class comment.
     void setPoints(std::span<const Coordinate> newPoints, bool validateFinTab = true);
 
     /// Moves the point @p index to (@p xRequest, @p yRequest), limited to kSnapLargerThan (the

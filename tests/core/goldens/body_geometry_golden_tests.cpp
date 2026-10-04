@@ -36,6 +36,8 @@
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Error.h"
 #include "goldens/GoldenBodies.h"
+#include "goldens/GoldenGeometry.h"
+#include "goldens/GoldenMismatches.h"
 
 namespace
 {

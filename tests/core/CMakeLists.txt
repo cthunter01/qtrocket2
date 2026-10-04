@@ -84,6 +84,7 @@ add_executable(QtRocket_core_tests
     rocket/EllipticalFinSetTests.cpp
     rocket/EngineBlockTests.cpp
     rocket/ExternalComponentTests.cpp
+    rocket/fin_placement_tests.cpp
     rocket/FinishTests.cpp
     rocket/FinSetTests.cpp
     rocket/FlightConfigurableParameterSetTests.cpp
@@ -170,6 +171,8 @@ add_executable(QtRocket_core_tests
     goldens/fin_geometry_golden_tests.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
+    goldens/GoldenGeometry.cpp
+    goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
     goldens/motors_golden_tests.cpp
 )

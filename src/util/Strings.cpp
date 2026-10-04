@@ -109,6 +109,14 @@ struct Decimal
     return shortestDecimal(magnitude);
 }
 
+/// The digits Java's Formatter gets from FloatingDecimal.getBinaryToASCIIConverter(d, false) on
+/// JDK 17, for every value: FloatingDecimal's own digit generation, not the shortest digits.
+[[nodiscard]] Decimal jdk17Decimal(double magnitude)
+{
+    FloatingDecimal::BinaryToAscii converted = FloatingDecimal::binaryToAscii(magnitude, false);
+    return Decimal{.digits = std::move(converted.digits), .exponent = converted.decimalExponent};
+}
+
 /// FormattedFloatingDecimal.applyPrecision: keeps @p keep significant digits, rounding half-up on
 /// the decimal digits (so 1.0005 to three decimals is "1.001", where C's printf, which rounds the
 /// exact binary value, gives "1.000"). The digits beyond @p keep become zeros. Returns the
@@ -164,9 +172,8 @@ struct FixedParts
     std::string fraction;
 };
 
-[[nodiscard]] FixedParts javaFixedParts(double magnitude, int precision)
+[[nodiscard]] FixedParts javaFixedParts(Decimal decimal, int precision)
 {
-    Decimal decimal = javaDecimal(magnitude);
     decimal.exponent =
         applyPrecision(decimal.digits, decimal.exponent, decimal.exponent + precision);
     const std::string& digits = decimal.digits;
@@ -198,6 +205,23 @@ struct FixedParts
     return parts;
 }
 
+[[nodiscard]] FixedParts javaFixedParts(double magnitude, int precision)
+{
+    return javaFixedParts(javaDecimal(magnitude), precision);
+}
+
+/// The parts as text: the integer part, and for a @p precision above 0 a point and the fraction.
+[[nodiscard]] std::string fixedText(FixedParts parts, int precision)
+{
+    std::string text = std::move(parts.integerPart);
+    if (precision > 0)
+    {
+        text += '.';
+        text += parts.fraction;
+    }
+    return text;
+}
+
 /// Java's "%.<precision>f" of a positive finite value, then TextUtil's trimming of the trailing
 /// zeros and a bare decimal point (trimTrailingZeros).
 [[nodiscard]] std::string fixedNotation(double magnitude, int precision)
@@ -222,9 +246,8 @@ struct ScientificParts
     int         exponent{};
 };
 
-[[nodiscard]] ScientificParts javaScientificParts(double magnitude, int precision)
+[[nodiscard]] ScientificParts javaScientificParts(Decimal decimal, int precision)
 {
-    Decimal decimal            = javaDecimal(magnitude);
     decimal.exponent           = applyPrecision(decimal.digits, decimal.exponent, precision + 1);
     const auto      digitCount = static_cast<std::size_t>(precision) + 1;
     ScientificParts parts;
@@ -232,6 +255,25 @@ struct ScientificParts
     parts.digits.resize(digitCount, '0');
     parts.exponent = decimal.exponent - 1;
     return parts;
+}
+
+[[nodiscard]] ScientificParts javaScientificParts(double magnitude, int precision)
+{
+    return javaScientificParts(javaDecimal(magnitude), precision);
+}
+
+/// The parts as text: the leading digit, for a @p precision above 0 a point and the other digits,
+/// "e", the exponent's sign and at least two exponent digits.
+[[nodiscard]] std::string scientificText(const ScientificParts& parts, int precision)
+{
+    std::string text = parts.digits.substr(0, 1);
+    if (precision > 0)
+    {
+        text += '.';
+        text += parts.digits.substr(1);
+    }
+    text += std::format("e{}{:02}", parts.exponent < 0 ? '-' : '+', std::abs(parts.exponent));
+    return text;
 }
 
 /// Java's "%.<precision>e" of a positive finite value, then TextUtil's trimming of the mantissa's
@@ -1385,14 +1427,8 @@ std::string formatFixed(double value, int precision)
     {
         return value < 0 ? "-Infinity" : "Infinity";
     }
-    const int   digits = std::max(0, precision);
-    FixedParts  parts  = javaFixedParts(std::abs(value), digits);
-    std::string text   = std::move(parts.integerPart);
-    if (digits > 0)
-    {
-        text += '.';
-        text += parts.fraction;
-    }
+    const int         digits = std::max(0, precision);
+    const std::string text   = fixedText(javaFixedParts(std::abs(value), digits), digits);
     // The Formatter prints the sign of a negative zero and of digits that round to zero.
     return std::signbit(value) ? "-" + text : text;
 }
@@ -1407,15 +1443,8 @@ std::string formatScientific(double value, int precision)
     {
         return value < 0 ? "-Infinity" : "Infinity";
     }
-    const int             digits = std::max(0, precision);
-    const ScientificParts parts  = javaScientificParts(std::abs(value), digits);
-    std::string           text   = parts.digits.substr(0, 1);
-    if (digits > 0)
-    {
-        text += '.';
-        text += parts.digits.substr(1);
-    }
-    text += std::format("e{}{:02}", parts.exponent < 0 ? '-' : '+', std::abs(parts.exponent));
+    const int         digits = std::max(0, precision);
+    const std::string text   = scientificText(javaScientificParts(std::abs(value), digits), digits);
     return std::signbit(value) ? "-" + text : text;
 }
 
@@ -1431,14 +1460,19 @@ std::string formatGeneral(double value, int precision)
     {
         return formatFixed(value, significant - 1);
     }
-    // The exponent of the value once rounded to the significant digits decides the notation
-    // (FormattedFloatingDecimal's GENERAL form).
-    const int exponent = javaScientificParts(std::abs(value), significant - 1).exponent;
-    if (exponent < -4 || exponent >= significant)
-    {
-        return formatScientific(value, significant - 1);
-    }
-    return formatFixed(value, significant - 1 - exponent);
+    // FormattedFloatingDecimal's GENERAL form: the digits are rounded to the significant ones
+    // once, and the exponent of the rounded value decides the notation. The digits are JDK 17's
+    // own (see Strings.h), which the two notations then only lay out: their rounding, at the
+    // same digit, finds nothing left to round.
+    Decimal decimal              = jdk17Decimal(std::abs(value));
+    decimal.exponent             = applyPrecision(decimal.digits, decimal.exponent, significant);
+    const int         exponent   = decimal.exponent - 1;
+    const bool        scientific = exponent < -4 || exponent >= significant;
+    const int         decimals   = scientific ? significant - 1 : significant - 1 - exponent;
+    const std::string text =
+        scientific ? scientificText(javaScientificParts(std::move(decimal), decimals), decimals)
+                   : fixedText(javaFixedParts(std::move(decimal), decimals), decimals);
+    return std::signbit(value) ? "-" + text : text;
 }
 
 std::string javaDoubleToString(double value)

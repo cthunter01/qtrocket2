@@ -314,7 +314,9 @@ public:
     void setFilletRadius(double r);
 
     /// The material and the fillet material become the preferences' default for the component's
-    /// class (see the class comment and ExternalComponent::applyDefaultMaterial()); no event.
+    /// class (see the class comment and ExternalComponent::applyDefaultMaterial()); no event. The
+    /// cached area, volume and CG are cleared, so the mass getters follow the new materials at
+    /// once (Java's constructor assigns them before anything is cached).
     void applyDefaultMaterial(const Preferences&     preferences,
                               const MaterialStorage& storage) override;
 

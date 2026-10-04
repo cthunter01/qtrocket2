@@ -423,6 +423,13 @@ void FinSet::applyDefaultMaterial(const Preferences& preferences, const Material
     ExternalComponent::applyDefaultMaterial(preferences, storage);
     m_filletMaterial = getDefaultComponentMaterial(preferences, componentClassChain(kind()),
                                                    Material::Type::BULK, storage);
+
+    // Java's constructor assigns the materials while the cached mass values are still NaN. Here
+    // a mass getter may have run since the fin set was made, and no event follows to clear what
+    // it cached.
+    m_singlePlanformArea = kNaN;
+    m_centerOfMass       = Coordinate::kNaN;
+    m_totalVolume        = kNaN;
 }
 
 Coordinate FinSet::calculateFilletCrossSection(double filletRadius, double bodyRadius)

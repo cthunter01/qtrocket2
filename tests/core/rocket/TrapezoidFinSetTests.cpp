@@ -52,11 +52,17 @@ constexpr double kEpsilon = 1.0E-8;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 /// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: here the public setAxialMethod() and setAxialOffset(), which end in the same place.
+/// call: it stores the method and the offset and moves the component without firing an event,
+/// so in a rocket nothing is updated or cleared (a freeform outline is not clamped again, the
+/// cached area and CG stay). Here the public setAxialMethod() and setAxialOffset() with the
+/// component's events bypassed meanwhile, which does exactly that.
 void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
 {
+    const bool bypass = component.isBypassComponentChangeEvent();
+    component.setBypassChangeEvent(true);
     component.setAxialMethod(method);
     component.setAxialOffset(offset);
+    component.setBypassChangeEvent(bypass);
 }
 
 /// TrapezoidFinSetTest.createSimpleTrapezoidalFin(): a rocket with one stage, a body tube (0.2 m

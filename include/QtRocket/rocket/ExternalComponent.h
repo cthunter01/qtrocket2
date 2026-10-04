@@ -67,7 +67,8 @@ public:
     /// loadDefaultComponentMaterials(). Assigned directly, as the constructor does: no event, and
     /// the preset is kept. @p storage must hold the built-in materials (see
     /// getDefaultComponentMaterial()). Virtual for the classes whose Java constructor takes more
-    /// than the component's material from the preferences (FinSet: the fillet material too).
+    /// than the component's material from the preferences (FinSet: the fillet material too) or
+    /// sets another material afterwards (RailButton: always "Delrin").
     virtual void applyDefaultMaterial(const Preferences&     preferences,
                                       const MaterialStorage& storage);
 

@@ -1445,7 +1445,7 @@ TEST(Strings, FormatGeneralMatchesJavaFormatter)
     EXPECT_EQ(Strings::formatGeneral(-1.5e-7, 4), "-1.500e-07");
     EXPECT_EQ(Strings::formatGeneral(1.0e10, 4), "1.000e+10");
     EXPECT_EQ(Strings::formatGeneral(123456789.0, 4), "1.235e+08");
-    // Half-up on the shortest digits.
+    // Half-up on the decimal digits, not on the binary value (0.12355 is below the tie there).
     EXPECT_EQ(Strings::formatGeneral(0.12345, 4), "0.1235");
     EXPECT_EQ(Strings::formatGeneral(0.12355, 4), "0.1236");
 
@@ -1468,6 +1468,37 @@ TEST(Strings, FormatGeneralMatchesJavaFormatter)
     EXPECT_EQ(Strings::formatGeneral(kNaN, 4), "NaN");
     EXPECT_EQ(Strings::formatGeneral(kInf, 4), "Infinity");
     EXPECT_EQ(Strings::formatGeneral(-kInf, 4), "-Infinity");
+}
+
+// Pinned with String.format("%.<p>g", v) on JDK 17, whose digits are FloatingDecimal's and not
+// the shortest ones: they differ for subnormals and, for some values, from 15 digits on.
+TEST(Strings, FormatGeneralTakesJdk17sDigits)
+{
+    // Double.MIN_VALUE: "4.9E-324" for FloatingDecimal, 5e-324 as the shortest digits.
+    constexpr double kMinValue = std::numeric_limits<double>::denorm_min();
+    EXPECT_EQ(Strings::formatGeneral(kMinValue, 1), "5e-324");
+    EXPECT_EQ(Strings::formatGeneral(kMinValue, 2), "4.9e-324");
+    EXPECT_EQ(Strings::formatGeneral(kMinValue, 4), "4.900e-324");
+    EXPECT_EQ(Strings::formatGeneral(-kMinValue, 4), "-4.900e-324");
+    EXPECT_EQ(Strings::formatGeneral(16 * kMinValue, 4), "7.900e-323");
+    EXPECT_EQ(Strings::formatGeneral(32 * kMinValue, 3), "1.58e-322");
+
+    // A power of two, whose shortest digits (7.120236347223045e-307) round the other way.
+    EXPECT_EQ(Strings::formatGeneral(0x1p-1017, 4), "7.120e-307");
+    EXPECT_EQ(Strings::formatGeneral(0x1p-1017, 15), "7.12023634722304e-307");
+    EXPECT_EQ(Strings::formatGeneral(0x1p-1017, 16), "7.120236347223044e-307");
+    EXPECT_EQ(Strings::formatGeneral(0x1p-1017, 17), "7.1202363472230444e-307");
+    EXPECT_EQ(Strings::formatGeneral(0x1p69, 17), "5.9029581035870565e+20");
+    EXPECT_EQ(Strings::formatGeneral(1e23, 17), "9.9999999999999990e+22");
+    EXPECT_EQ(Strings::formatGeneral(1e23, 4), "1.000e+23");
+
+    EXPECT_EQ(Strings::formatGeneral(std::numeric_limits<double>::min(), 4), "2.225e-308");
+    EXPECT_EQ(Strings::formatGeneral(std::numeric_limits<double>::max(), 4), "1.798e+308");
+    EXPECT_EQ(Strings::formatGeneral(std::numeric_limits<double>::max(), 17),
+              "1.7976931348623157e+308");
+    EXPECT_EQ(Strings::formatGeneral(0.1, 17), "0.10000000000000000");
+    EXPECT_EQ(Strings::formatGeneral(0.30000000000000004, 17), "0.30000000000000004");
+    EXPECT_EQ(Strings::formatGeneral(0.5, 1), "0.5");
 }
 
 TEST(Strings, JavaDoubleToStringMatchesJdk)

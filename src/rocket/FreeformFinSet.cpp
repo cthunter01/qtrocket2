@@ -62,17 +62,21 @@ std::unique_ptr<RocketComponent> FreeformFinSet::cloneShallow() const
 FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, bool freezeRocket)
 {
     Rocket* const rocket = freezeRocket ? dynamic_cast<Rocket*>(&finset.getRoot()) : nullptr;
-
-    ConversionResult result;
     if (rocket != nullptr)
     {
         rocket->freeze();
     }
+
+    ConversionResult       result;
+    RocketComponent* const parent   = finset.getParent();
+    std::size_t            position = 0;
+    // Made before anything changes (Java makes it once the fin set is out of the tree; the
+    // constructor has no side effects), so that the handler below can tell whether the tree has
+    // taken it: addChild() empties the pointer only when it does.
+    auto freeform = std::make_unique<FreeformFinSet>();
     try
     {
         // Get fin set position and remove fin set
-        RocketComponent* const parent   = finset.getParent();
-        std::size_t            position = 0;
         if (parent != nullptr)
         {
             const std::optional<std::size_t> found = parent->getChildPosition(&finset);
@@ -86,7 +90,6 @@ FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, b
 
         // Create the freeform fin set
         const std::vector<Coordinate> finPoints = finset.getFinPoints();
-        auto                          freeform  = std::make_unique<FreeformFinSet>();
         freeform->setPoints(finPoints);
         freeform->setAxialOffset(finset.getAxialMethod(), finset.getAxialOffset());
 
@@ -96,18 +99,25 @@ FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, b
         adoptNameAndAppearance(finset, *freeform);
 
         // Add freeform fin set to parent
-        result.freeform = freeform.get();
         if (parent != nullptr)
         {
-            parent->addChild(std::move(freeform), position);
+            result.freeform = &parent->addChild(std::move(freeform), position);
         }
         else
         {
+            result.freeform = freeform.get();
             result.detached = std::move(freeform);
         }
     }
     catch (...)
     {
+        // Deviation: Java leaves the fin set it took out detached, a live object its caller still
+        // holds. Here the result owns it and is lost with the exception, so it goes back to its
+        // place unless the new fin set already has it.
+        if (parent != nullptr && result.original != nullptr && freeform != nullptr)
+        {
+            parent->addChild(std::move(result.original), position);
+        }
         if (rocket != nullptr)
         {
             rocket->thaw();
@@ -124,7 +134,8 @@ FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, b
 
 Result<void> FreeformFinSet::addPoint(std::size_t index, Point2D location)
 {
-    if (index < 1 || index + 1 > m_points.size())
+    // (Not index + 1 > size: that wraps for the largest index, which is what a -1 becomes.)
+    if (index < 1 || index >= m_points.size())
     {
         return fail(ErrorCode::INVALID_ARGUMENT,
                     "Cannot add new point before the first or after the last point");
@@ -141,11 +152,12 @@ Result<void> FreeformFinSet::addPoint(std::size_t index, Point2D location)
 
 Result<void> FreeformFinSet::removePoint(std::size_t index)
 {
-    if (index == 0 || index + 1 == m_points.size())
+    // The point list is never empty (see setPoints()), so size() - 1 is the last index.
+    if (index == 0 || index == m_points.size() - 1)
     {
         return fail(ErrorCode::INVALID_ARGUMENT, "cannot remove first or last point");
     }
-    if (index + 1 > m_points.size())
+    if (index >= m_points.size())
     {
         return fail(ErrorCode::INVALID_ARGUMENT, "index out of range");
     }

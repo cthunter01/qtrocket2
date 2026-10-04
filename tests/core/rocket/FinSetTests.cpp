@@ -93,11 +93,17 @@ constexpr double kPinned = 1e-14;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 /// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: here the public setAxialMethod() and setAxialOffset(), which end in the same place.
+/// call: it stores the method and the offset and moves the component without firing an event,
+/// so in a rocket nothing is updated or cleared (a freeform outline is not clamped again, the
+/// cached area and CG stay). Here the public setAxialMethod() and setAxialOffset() with the
+/// component's events bypassed meanwhile, which does exactly that.
 void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
 {
+    const bool bypass = component.isBypassComponentChangeEvent();
+    component.setBypassChangeEvent(true);
     component.setAxialMethod(method);
     component.setAxialOffset(offset);
+    component.setBypassChangeEvent(bypass);
 }
 
 /// @p actual within @p tolerance of @p expected in x, y, z and the weight.
@@ -478,6 +484,7 @@ TEST(FinCrossSection, NamesAndRelativeVolumes)
     EXPECT_EQ(FinSet::CrossSection::AIRFOIL, FinCrossSection::AIRFOIL);
 }
 
+// Pinned with OpenRocket (ProbeFix S8): DocumentConfig.findEnum(text, FinSet.CrossSection.class).
 TEST(FinCrossSection, FromOrkNameMatchesAsTheLoaderDoes)
 {
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("square"), FinCrossSection::SQUARE);
@@ -485,10 +492,21 @@ TEST(FinCrossSection, FromOrkNameMatchesAsTheLoaderDoes)
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("airfoil"), FinCrossSection::AIRFOIL);
     // DocumentConfig.findEnum() trims the text and compares exactly.
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("  airfoil \n"), FinCrossSection::AIRFOIL);
+    EXPECT_EQ(QtRocket::finCrossSectionFromOrkName(" square"), FinCrossSection::SQUARE);
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("Airfoil"), std::nullopt);
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("ROUNDED"), std::nullopt);
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName(""), std::nullopt);
     EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("round"), std::nullopt);
+    EXPECT_EQ(QtRocket::finCrossSectionFromOrkName("air_foil"), std::nullopt);
+}
+
+TEST(FinCrossSection, TheLoaderReadsWhatTheSaverWrites)
+{
+    for (const FinCrossSection crossSection : QtRocket::kAllFinCrossSections)
+    {
+        EXPECT_EQ(QtRocket::finCrossSectionFromOrkName(QtRocket::orkName(crossSection)),
+                  crossSection);
+    }
 }
 
 // ============================================================================= a new fin set
@@ -928,12 +946,25 @@ TEST_F(FinSetOnAlpha, ApplyDefaultMaterialSetsTheFilletMaterialToo)
     QtRocket::addBuiltinMaterials(storage);
     QtRocket::loadDefaultComponentMaterials(prefs, storage);
 
+    // The mass of the fins and of 3 mm fillets is computed, and so cached, before the materials
+    // change (the values are pinned with OpenRocket, ProbeFix S7).
+    m_fins->setFilletRadius(0.003);
+    static_cast<void>(takeEvents());
+    EXPECT_EQ(m_fins->getMaterial().getName(), "Cardboard");
+    EXPECT_NEAR(m_fins->getComponentMass(), 0.013338573570469348, kPinned);
+
     QtRocket::ExternalComponent& external = *m_fins;
     external.applyDefaultMaterial(prefs, storage);
     EXPECT_EQ(m_fins->getMaterial().getName(), "Balsa");
     EXPECT_EQ(m_fins->getFilletMaterial().getName(), "Balsa");
     EXPECT_EQ(m_fins->getFilletMaterial(), m_fins->getMaterial());
     EXPECT_TRUE(takeEvents().empty()) << "assigned as the constructor does";
+
+    // No event follows, yet the mass is that of the new materials at once.
+    EXPECT_NEAR(m_fins->getComponentMass(), 0.003334643392617337, kPinned);
+    expectNear(Coordinate{0.029486236829137525, 0.0, 0.0, 0.003334643392617337},
+               m_fins->getComponentCG(), kPinned, "CG in balsa");
+    EXPECT_NEAR(m_fins->getPlanformArea(), 0.002, 1e-17);
 
     // A default for the concrete class comes first, for both.
     const Material custom =
@@ -942,6 +973,8 @@ TEST_F(FinSetOnAlpha, ApplyDefaultMaterialSetsTheFilletMaterialToo)
     m_fins->applyDefaultMaterial(prefs, storage);
     EXPECT_EQ(m_fins->getMaterial().getName(), "Plywood (test)");
     EXPECT_EQ(m_fins->getFilletMaterial().getName(), "Plywood (test)");
+    EXPECT_NEAR(m_fins->getComponentMass(), 0.012357796102052482, kPinned);
+    EXPECT_TRUE(takeEvents().empty());
     EllipticalFinSet other;
     other.applyDefaultMaterial(prefs, storage);
     EXPECT_EQ(other.getMaterial().getName(), "Balsa");

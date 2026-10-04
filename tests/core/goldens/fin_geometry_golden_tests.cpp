@@ -20,6 +20,18 @@
 //   The rebuilt body starts at x = 0 rather than at its place in the rocket, so that bound is
 //   compared with each side's own location taken off.
 //
+// The cross-section's name in the re-saved design (<crosssection>) is compared too: it must be
+// what the saver's orkName() gives and read back through finCrossSectionFromOrkName().
+//
+// What this cannot rebuild, and reports instead of comparing (no golden input holds either):
+// - a fin set positioned ABSOLUTE, whose offset counts from the tip of the rocket, the body being
+//   rebuilt at x = 0;
+// - a canted freeform fin set: its recorded finPoints (and the points of the re-saved design)
+//   have their ends on the canted root, so they are not the outline the fin set was given.
+// The golden inputs also hold no fin set with fillets, positioned MIDDLE or with an angle method
+// other than RELATIVE. tests/core/rocket/fin_placement_tests.cpp and FinSetTests.cpp pin those
+// cases with OpenRocket.
+//
 // Tolerances (plan section 6.4): geometry and mass relative 1e-9; positions and CGs absolute
 // 1e-9 m.
 
@@ -56,6 +68,8 @@
 #include "QtRocket/util/FileIo.h"
 #include "goldens/GoldenBodies.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenGeometry.h"
+#include "goldens/GoldenMismatches.h"
 
 namespace
 {
@@ -202,6 +216,14 @@ void loadResave(const std::string& name, pugi::xml_document& document,
     }
 }
 
+/// The element of the component with the id @p id in the re-saved design; an empty node when it
+/// is not in the file.
+[[nodiscard]] pugi::xml_node savedComponent(const pugi::xml_document& resave, const std::string& id)
+{
+    return resave.find_node(
+        [&id](const pugi::xml_node& node) { return id == node.child_value("id"); });
+}
+
 /// The tab offset method of the fin set with the id @p id in the re-saved design: the last
 /// <tabposition relativeto="..."> that names an axial method (the saver writes the pre-1.1
 /// front/center/end form first), or nullopt when the fin set has none (it has no tab) or is not
@@ -209,8 +231,7 @@ void loadResave(const std::string& name, pugi::xml_document& document,
 [[nodiscard]] std::optional<AxialMethod> savedTabOffsetMethod(const pugi::xml_document& resave,
                                                               const std::string&        id)
 {
-    const pugi::xml_node finSet = resave.find_node(
-        [&id](const pugi::xml_node& node) { return id == node.child_value("id"); });
+    const pugi::xml_node       finSet = savedComponent(resave, id);
     std::optional<AxialMethod> method;
     for (const pugi::xml_node& position : finSet.children("tabposition"))
     {
@@ -298,6 +319,19 @@ void loadResave(const std::string& name, pugi::xml_document& document,
     if (!made || !axialMethod)
     {
         m.note("the fin set cannot be rebuilt");
+        return {};
+    }
+    // What this harness cannot rebuild (see the top of the file): reported, never skipped.
+    if (*axialMethod == AxialMethod::ABSOLUTE)
+    {
+        m.note(
+            "positioned ABSOLUTE: the offset counts from the tip of the rocket, and the body "
+            "is rebuilt at x = 0");
+        return {};
+    }
+    if (made->kind() == QtRocket::ComponentKind::FREEFORM_FIN_SET && made->getCantAngle() != 0)
+    {
+        m.note("a canted freeform fin set: its finPoints are not the outline it was given");
         return {};
     }
 
@@ -420,6 +454,26 @@ void compareSettings(GoldenMismatches& m, const json& expected, const FinSet& fi
     }
 }
 
+/// The cross-section as OpenRocket's re-save of the design spells it (<crosssection>), against
+/// the name the saver writes for the rebuilt fin set's and what the loader reads the text as.
+void compareSavedCrossSection(GoldenMismatches& m, const pugi::xml_document& resave,
+                              const json& expected, const FinSet& fins)
+{
+    const pugi::xml_node saved = savedComponent(resave, expected.at("id").get<std::string>());
+    if (!saved)
+    {
+        m.note("the fin set is not in the re-saved design");
+        return;
+    }
+    const std::string_view text = saved.child_value("crosssection");
+    m.text("crosssection of the re-saved design", text, QtRocket::orkName(fins.getCrossSection()));
+    if (QtRocket::finCrossSectionFromOrkName(text) != fins.getCrossSection())
+    {
+        m.note(
+            std::format("<crosssection>{}</crosssection> is not read as the cross-section", text));
+    }
+}
+
 /// The geometry and mass properties of @p fins against the golden @p expected entry.
 void compareFinSet(GoldenMismatches& m, const json& expected, const FinSet& fins)
 {
@@ -497,6 +551,7 @@ void count(FinCounts& counts, std::string_view type)
         return m.report();
     }
     compareFinSet(m, component, *rebuilt.fins);
+    compareSavedCrossSection(m, resave, component, *rebuilt.fins);
     compared = true;
     return m.report();
 }

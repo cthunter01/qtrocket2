@@ -1,6 +1,9 @@
 #include "QtRocket/rocket/FreeformFinSet.h"
 
+#include <array>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -74,12 +77,32 @@ constexpr double kEpsilon = 1.0E-6;
 constexpr double kTenthF       = static_cast<double>(0.1F);
 constexpr double kThreeTenthsF = static_cast<double>(0.3F);
 
+/// Indices far beyond every point list: the largest index, and what Java's negative ints (-1 for
+/// "no point", -2, Integer.MIN_VALUE) become as a std::size_t.
+constexpr std::array<std::size_t, 4> kIndicesFromNegatives{
+    std::numeric_limits<std::size_t>::max(), static_cast<std::size_t>(-1),
+    static_cast<std::size_t>(-2), static_cast<std::size_t>(std::numeric_limits<int>::min())};
+
+/// @p result is the failure OpenRocket's IllegalFinPointException(@p message) becomes.
+void expectIllegalFinPoint(const Result<void>& result, std::string_view message, std::size_t index)
+{
+    ASSERT_FALSE(result.has_value()) << "index " << index;
+    EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT) << "index " << index;
+    EXPECT_EQ(result.error().message, message) << "index " << index;
+}
+
 /// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: here the public setAxialMethod() and setAxialOffset(), which end in the same place.
+/// call: it stores the method and the offset and moves the component without firing an event,
+/// so in a rocket nothing is updated or cleared (a freeform outline is not clamped again, the
+/// cached area and CG stay). Here the public setAxialMethod() and setAxialOffset() with the
+/// component's events bypassed meanwhile, which does exactly that.
 void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
 {
+    const bool bypass = component.isBypassComponentChangeEvent();
+    component.setBypassChangeEvent(true);
     component.setAxialMethod(method);
     component.setAxialOffset(offset);
+    component.setBypassChangeEvent(bypass);
 }
 
 /// @p actual has the (x, y) points @p expected, each within @p tolerance.
@@ -617,7 +640,13 @@ void expectInitialTailConeFin(const FreeformFinSet& fins, const Transition& tail
     EXPECT_NEAR(0.8, tailCone.getRadius(fins.getAxialFront()), kEpsilon);
 }
 
-TEST_F(TemplateRocket, SetFirstPointPositionedTop)
+// testSetFirstPoint, testSetLastPoint and testGenerateBodyPointsWhenFinOutsideParentBounds run
+// their cases one after the other on the same fin set, as the blocks of the JUnit methods do:
+// each case starts from what the earlier ones left behind (the axial method and offset, the
+// clamped points). The assertions stay in the test bodies: a helper function may hold only a
+// handful of assertion macros before clang-tidy's cognitive-complexity limit.
+
+TEST_F(TemplateRocket, SetFirstPoint)
 {
     // more transitions trigger more complicated positioning math:
     FreeformFinSet&               fins          = createFinOnConicalTransition();
@@ -626,163 +655,152 @@ TEST_F(TemplateRocket, SetFirstPointPositionedTop)
     // assert pre-conditions:
     expectInitialTailConeFin(fins, *m_tailCone, initialPoints);
 
-    // case 1:
-    setAxialOffset(fins, AxialMethod::TOP, 0.1);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.1, fins.getAxialOffset(), kEpsilon);
+    {  // case 1:
+        setAxialOffset(fins, AxialMethod::TOP, 0.1);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.1, fins.getAxialOffset(), kEpsilon);
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, 0.2, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, 0.2, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    EXPECT_NEAR(0.3, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.2, fins.getLength(), kEpsilon);
+        EXPECT_NEAR(0.3, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.2, fins.getLength(), kEpsilon);
 
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
 
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    // middle point:
-    EXPECT_NEAR(0.2, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.3, postPoints[1].y, kEpsilon);
+        // middle point:
+        EXPECT_NEAR(0.2, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.3, postPoints[1].y, kEpsilon);
 
-    // final point
-    EXPECT_NEAR(0.2, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.1, postPoints[2].y, kEpsilon);
+        // final point
+        EXPECT_NEAR(0.2, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.1, postPoints[2].y, kEpsilon);
+    }
+    {  // case 2:
+        setAxialOffset(fins, AxialMethod::TOP, 0.1);
+        fins.setPoints(initialPoints);
 
-    // case 2:
-    setAxialOffset(fins, AxialMethod::TOP, 0.1);
-    fins.setPoints(initialPoints);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, -0.2, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, -0.2, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        EXPECT_NEAR(-0.1, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
 
-    EXPECT_NEAR(-0.1, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(-0.1, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.6, fins.getLength(), kEpsilon);
 
-    EXPECT_NEAR(-0.1, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.6, fins.getLength(), kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        EXPECT_NEAR(0.6, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.15, postPoints[1].y, kEpsilon);
 
-    EXPECT_NEAR(0.6, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.15, postPoints[1].y, kEpsilon);
+        EXPECT_NEAR(0.6, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
+    }
+    {  // case 3:
+        setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.0, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
 
-    EXPECT_NEAR(0.6, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
+
+        EXPECT_NEAR(0.05, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
+
+        EXPECT_NEAR(0.4, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.8, fins.getFinFront().y, kEpsilon);
+
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
+
+        // mid-point
+        EXPECT_NEAR(0.3, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.25, postPoints[1].y, kEpsilon);
+
+        EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
+    }
+    {  // case 4:
+        setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
+
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
+
+        EXPECT_NEAR(0.2, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.9, fins.getFinFront().y, kEpsilon);
+
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
+
+        // mid point
+        EXPECT_NEAR(0.5, postPoints[1].x, kEpsilon);
+
+        EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
+
+        EXPECT_NEAR(-0.05, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
+    }
+    {  // case 5:
+        setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
+
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
+
+        EXPECT_NEAR(0.7, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.65, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.0, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
+
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
+
+        // mid-point
+        EXPECT_NEAR(0.3, postPoints[1].x, kEpsilon);
+
+        EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
+    }
+    {  // case 6:
+        setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
+
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
+        // ^^^^ function under test ^^^^
+
+        EXPECT_NEAR(0.5, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.75, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
+
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(3U, postPoints.size());
+
+        EXPECT_NEAR(0.5, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.15, postPoints[1].y, kEpsilon);
+
+        EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
+    }
 }
 
-TEST_F(TemplateRocket, SetFirstPointPositionedMiddle)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
-
-    // case 3:
-    setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.0, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
-
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
-
-    EXPECT_NEAR(0.05, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
-
-    EXPECT_NEAR(0.4, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.8, fins.getFinFront().y, kEpsilon);
-
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
-
-    // mid-point
-    EXPECT_NEAR(0.3, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.25, postPoints[1].y, kEpsilon);
-
-    EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
-
-    // case 4:
-    setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
-
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
-
-    EXPECT_NEAR(0.2, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.9, fins.getFinFront().y, kEpsilon);
-
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
-
-    // mid point
-    EXPECT_NEAR(0.5, postPoints[1].x, kEpsilon);
-
-    EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
-
-    EXPECT_NEAR(-0.05, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
-}
-
-TEST_F(TemplateRocket, SetFirstPointPositionedBottom)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
-
-    // case 5:
-    setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
-
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
-
-    EXPECT_NEAR(0.7, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.65, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.0, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
-
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
-
-    // mid-point
-    EXPECT_NEAR(0.3, postPoints[1].x, kEpsilon);
-
-    EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
-
-    // case 6:
-    setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
-
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
-    // ^^^^ function under test ^^^^
-
-    EXPECT_NEAR(0.5, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.75, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
-
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(3U, postPoints.size());
-
-    EXPECT_NEAR(0.5, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.15, postPoints[1].y, kEpsilon);
-
-    EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
-}
-
-TEST_F(TemplateRocket, SetLastPointPositionedTop)
+TEST_F(TemplateRocket, SetLastPoint)
 {
     FreeformFinSet&               fins          = createFinOnConicalTransition();
     const std::vector<Coordinate> initialPoints = fins.getFinPoints();
@@ -793,167 +811,150 @@ TEST_F(TemplateRocket, SetLastPointPositionedTop)
     // assert pre-conditions:
     expectInitialTailConeFin(fins, *m_tailCone, initialPoints);
 
-    // case 1:
-    setAxialOffset(fins, AxialMethod::TOP, 0.1);
-    fins.setPoints(initialPoints);
+    {  // case 1:
+        setAxialOffset(fins, AxialMethod::TOP, 0.1);
+        fins.setPoints(initialPoints);
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.2, yf - kThreeTenthsF).has_value());
-    // ^^^^ function under test ^^^^
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.2, yf - kThreeTenthsF).has_value());
+        // ^^^^ function under test ^^^^
 
-    EXPECT_NEAR(0.1, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.95, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.6, fins.getLength(), kEpsilon);
+        EXPECT_NEAR(0.1, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.95, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.6, fins.getLength(), kEpsilon);
 
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    // middle point:
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
+        // middle point:
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-    // last point:
-    EXPECT_NEAR(0.6, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.3, postPoints[2].y, kEpsilon);
+        // last point:
+        EXPECT_NEAR(0.6, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.3, postPoints[2].y, kEpsilon);
+    }
+    {  // case 2:
+        setAxialOffset(fins, AxialMethod::TOP, 0.1);
+        fins.setPoints(initialPoints);
 
-    // case 2:
-    setAxialOffset(fins, AxialMethod::TOP, 0.1);
-    fins.setPoints(initialPoints);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.2, yf + kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.2, yf + kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        EXPECT_NEAR(0.1, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.95, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.2, fins.getLength(), kEpsilon);
 
-    EXPECT_NEAR(0.1, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.95, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.2, fins.getLength(), kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        // middle point:
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-    // middle point:
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
+        // last point:
+        EXPECT_NEAR(0.2, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.1, postPoints[2].y, kEpsilon);
+    }
+    {  // case 3:
+        setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
 
-    // last point:
-    EXPECT_NEAR(0.2, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.1, postPoints[2].y, kEpsilon);
-}
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.1, yf + kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-TEST_F(TemplateRocket, SetLastPointPositionedMiddle)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
-    const std::size_t             lastIndex     = initialPoints.size() - 1;
-    const double                  xf            = initialPoints[lastIndex].x;
-    const double                  yf            = initialPoints[lastIndex].y;
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
+        EXPECT_NEAR(0.05, fins.getAxialOffset(), kEpsilon);
 
-    // case 3:
-    setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.1, yf + kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        // mid-point
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
-    EXPECT_NEAR(0.05, fins.getAxialOffset(), kEpsilon);
+        // last point
+        EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
+    }
+    {  // case 4:
+        setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
 
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.1, yf + kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    // mid-point
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
+        EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
+        EXPECT_NEAR(-0.05, fins.getAxialOffset(), kEpsilon);
 
-    // last point
-    EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.25, postPoints[2].y, kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    // case 4:
-    setAxialOffset(fins, AxialMethod::MIDDLE, 0.0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
+        // mid point
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.1, yf + kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        // last point
+        EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
+    }
+    {  // case 5:
+        setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
+        fins.setPoints(initialPoints);
 
-    EXPECT_NEAR(0.3, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.85, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
-    EXPECT_NEAR(-0.05, fins.getAxialOffset(), kEpsilon);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.1, yf + kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.7, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.1, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
 
-    // mid point
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    // last point
-    EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
-}
+        // mid-point
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-TEST_F(TemplateRocket, SetLastPointPositionedBottom)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
-    const std::size_t             lastIndex     = initialPoints.size() - 1;
-    const double                  xf            = initialPoints[lastIndex].x;
-    const double                  yf            = initialPoints[lastIndex].y;
+        // pseudo last point
+        EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.2, postPoints[2].y, kEpsilon);
+    }
+    {  // case 6:
+        setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
+        fins.setPoints(initialPoints);
 
-    // case 5:
-    setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
-    fins.setPoints(initialPoints);
+        // vvvv function under test vvvv
+        EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.1, yf + kTenthF).has_value());
+        // ^^^^ function under test ^^^^
 
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf + 0.1, yf + kTenthF).has_value());
-    // ^^^^ function under test ^^^^
+        EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.7, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(-0.1, fins.getAxialOffset(), kEpsilon);
+        EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
 
-    EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.7, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(0.1, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.5, fins.getLength(), kEpsilon);
+        const std::vector<Coordinate> postPoints = fins.getFinPoints();
+        ASSERT_EQ(postPoints.size(), 3U);
 
-    std::vector<Coordinate> postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
+        // mid-point
+        EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
+        EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
 
-    // mid-point
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
-
-    // pseudo last point
-    EXPECT_NEAR(0.5, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.2, postPoints[2].y, kEpsilon);
-
-    // case 6:
-    setAxialOffset(fins, AxialMethod::BOTTOM, 0.0);
-    fins.setPoints(initialPoints);
-
-    // vvvv function under test vvvv
-    EXPECT_TRUE(fins.setPoint(lastIndex, xf - 0.1, yf + kTenthF).has_value());
-    // ^^^^ function under test ^^^^
-
-    EXPECT_NEAR(0.6, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.7, fins.getFinFront().y, kEpsilon);
-    EXPECT_NEAR(-0.1, fins.getAxialOffset(), kEpsilon);
-    EXPECT_NEAR(0.3, fins.getLength(), kEpsilon);
-
-    postPoints = fins.getFinPoints();
-    ASSERT_EQ(postPoints.size(), 3U);
-
-    // mid-point
-    EXPECT_NEAR(0.4, postPoints[1].x, kEpsilon);
-    EXPECT_NEAR(0.2, postPoints[1].y, kEpsilon);
-
-    // last point
-    EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
-    EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
+        // last point
+        EXPECT_NEAR(0.3, postPoints[2].x, kEpsilon);
+        EXPECT_NEAR(-0.15, postPoints[2].y, kEpsilon);
+    }
 }
 
 TEST_F(TemplateRocket, SetInteriorPoint)
@@ -1301,8 +1302,12 @@ TEST_F(TemplateRocket, ForIntersectionAtFirstLast)
         fins.getFinPoints(), kEpsilon, "incorrect body points! ");
 }
 
-// The geometric half of testWildmanVindicatorShape; its second half (FinSetCalc's CP) waits for
+// The geometric half of testWildmanVindicatorShape; its second half waits for
 // aero/barrowman/FinSetCalc.
+// HOOK(fin-set-calc): add the second half: the fin set on a BodyTube(0.1, 0.1), then
+// FinSetCalc(fins).calculateNonaxialForces(FlightConditions(null), transform, forces, warnings)
+// with the transform {{1, 0, 0}, {0, 0, -1}, {0, 1, 1}} of FreeformFinSetTest.java:1370, and
+// forces.getCP().x == 0.023409 +- 1e-4.
 TEST(FreeformFinSet, WildmanVindicatorShape)
 {
     // This fin shape is similar to the aft fins on the Wildman Vindicator.
@@ -1334,6 +1339,8 @@ TEST(FreeformFinSet, WildmanVindicatorShape)
 // The set-up of testFinsOnTransitions with the outlines it gives (pinned with OpenRocket,
 // ProbeFins2); the mean aerodynamic chords the JUnit test asserts wait for
 // aero/barrowman/FinSetCalc.
+// HOOK(fin-set-calc): add the JUnit assertions: FinSetCalc(fins).getMACLength() == 0.075 +- 1e-6
+// after test 1 and == 0.05053191489361704 +- 1e-6 after test 2 (a new FinSetCalc for each).
 TEST(FreeformFinSet, FinsOnTransitionsOutlines)
 {
     // Rocket consisting of just a transition and a freeform fin set (its events stay disabled,
@@ -1474,100 +1481,89 @@ TEST_F(TemplateRocket, GenerateBodyPointsOnEllipsoidNose)
     expectRootPointOnNose(*m_nose, finFront, rootPoints[88], 0.704);
 }
 
-TEST_F(TemplateRocket, GenerateBodyPointsWhenFirstPointIsAheadOfTheParent)
+TEST_F(TemplateRocket, GenerateBodyPointsWhenFinOutsideParentBounds)
 {
     FreeformFinSet&               fins          = createFinOnConicalTransition();
     const std::vector<Coordinate> initialPoints = fins.getFinPoints();
 
     EXPECT_NEAR(1.0, m_tailCone->getLength(), kEpsilon);
 
-    // move first point out of bounds, keep last point in bounds
-    setAxialOffset(fins, AxialMethod::TOP, 0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.0, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
+    {  // move first point out of bounds, keep last point in bounds
+        setAxialOffset(fins, AxialMethod::TOP, 0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.0, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
 
-    // Move first point
-    EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
+        // Move first point
+        EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
 
-    expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}, Coordinate{0.5, -0.2}},
-                     fins.getRootPoints(), kEpsilon, "incorrect body points! ");
+        expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}, Coordinate{0.5, -0.2}},
+                         fins.getRootPoints(), kEpsilon, "incorrect body points! ");
 
-    EXPECT_NEAR(0.306, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+        EXPECT_NEAR(0.306, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+    }
+    {  // move both first and last point out of bounds to the left
+        setAxialOffset(fins, AxialMethod::TOP, 0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0.0, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
 
-    // move both first and last point out of bounds to the left
-    setAxialOffset(fins, AxialMethod::TOP, 0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0.0, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(1.0, fins.getFinFront().y, kEpsilon);
+        // Move first and last point
+        EXPECT_TRUE(fins.setPoint(0, -0.2, kTenthF).has_value());
+        EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 0.1, kTenthF).has_value());
 
-    // Move first and last point
-    EXPECT_TRUE(fins.setPoint(0, -0.2, kTenthF).has_value());
-    EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 0.1, kTenthF).has_value());
+        expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}}, fins.getRootPoints(),
+                         kEpsilon, "incorrect body points! ");
 
-    expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}}, fins.getRootPoints(), kEpsilon,
-                     "incorrect body points! ");
+        EXPECT_NEAR(0.034, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+    }
+    {  // move last point out of bounds, keep first point in bounds
+        fins.setPoints(initialPoints);
+        setAxialOffset(fins, AxialMethod::BOTTOM, fins.getLength());
+        EXPECT_NEAR(1.0, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.5, fins.getFinFront().y, kEpsilon);
 
-    EXPECT_NEAR(0.034, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
-}
+        // Move first point
+        EXPECT_TRUE(fins.setPoint(0, -static_cast<double>(0.1F), kTenthF).has_value());
+        EXPECT_TRUE(
+            fins.setPoint(fins.getPointCount() - 1, static_cast<double>(0.2F), 0.0).has_value());
 
-TEST_F(TemplateRocket, GenerateBodyPointsWhenLastPointIsBehindTheParent)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
+        expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, -0.05}, Coordinate{0.2, -0.05}},
+                         fins.getRootPoints(), kEpsilon, "incorrect body points! ");
 
-    // move last point out of bounds, keep first point in bounds
-    fins.setPoints(initialPoints);
-    setAxialOffset(fins, AxialMethod::BOTTOM, fins.getLength());
-    EXPECT_NEAR(1.0, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.5, fins.getFinFront().y, kEpsilon);
+        EXPECT_NEAR(0.102, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+    }
+    {  // move both first and last point out of bounds to the right
+        fins.setPoints(initialPoints);
+        setAxialOffset(fins, AxialMethod::BOTTOM, fins.getLength());
+        EXPECT_NEAR(1.0, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(0.5, fins.getFinFront().y, kEpsilon);
 
-    // Move first point
-    EXPECT_TRUE(fins.setPoint(0, -static_cast<double>(0.1F), kTenthF).has_value());
-    EXPECT_TRUE(
-        fins.setPoint(fins.getPointCount() - 1, static_cast<double>(0.2F), 0.0).has_value());
+        // Move first and last point
+        EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
+        EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 0.2, kTenthF).has_value());
 
-    expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, -0.05}, Coordinate{0.2, -0.05}},
-                     fins.getRootPoints(), kEpsilon, "incorrect body points! ");
+        expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.2, 0.0}}, fins.getRootPoints(),
+                         kEpsilon, "incorrect body points! ");
 
-    EXPECT_NEAR(0.102, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+        EXPECT_NEAR(0.068, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+    }
+    {  // move first point out of bounds to the left, and last point out of bounds to the right
+        setAxialOffset(fins, AxialMethod::TOP, 0);
+        fins.setPoints(initialPoints);
+        EXPECT_NEAR(0, fins.getFinFront().x, kEpsilon);
+        EXPECT_NEAR(1, fins.getFinFront().y, kEpsilon);
 
-    // move both first and last point out of bounds to the right
-    fins.setPoints(initialPoints);
-    setAxialOffset(fins, AxialMethod::BOTTOM, fins.getLength());
-    EXPECT_NEAR(1.0, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(0.5, fins.getFinFront().y, kEpsilon);
+        // Move first and last point
+        EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
+        EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 1.2, -kTenthF).has_value());
 
-    // Move first and last point
-    EXPECT_TRUE(fins.setPoint(0, 0.1, kTenthF).has_value());
-    EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 0.2, kTenthF).has_value());
+        expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}, Coordinate{1.1, -0.5},
+                          Coordinate{1.2, -0.5}},
+                         fins.getRootPoints(), kEpsilon, "incorrect body points! ");
 
-    expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.2, 0.0}}, fins.getRootPoints(), kEpsilon,
-                     "incorrect body points! ");
-
-    EXPECT_NEAR(0.068, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
-}
-
-TEST_F(TemplateRocket, GenerateBodyPointsWhenFinOverhangsBothEndsOfTheParent)
-{
-    FreeformFinSet&               fins          = createFinOnConicalTransition();
-    const std::vector<Coordinate> initialPoints = fins.getFinPoints();
-
-    // move first point out of bounds to the left, and last point out of bounds to the right
-    setAxialOffset(fins, AxialMethod::TOP, 0);
-    fins.setPoints(initialPoints);
-    EXPECT_NEAR(0, fins.getFinFront().x, kEpsilon);
-    EXPECT_NEAR(1, fins.getFinFront().y, kEpsilon);
-
-    // Move first and last point
-    EXPECT_TRUE(fins.setPoint(0, -0.1, kTenthF).has_value());
-    EXPECT_TRUE(fins.setPoint(fins.getPointCount() - 1, 1.2, -kTenthF).has_value());
-
-    expectPointsNear(
-        {Coordinate{0.0, 0.0}, Coordinate{0.1, 0.0}, Coordinate{1.1, -0.5}, Coordinate{1.2, -0.5}},
-        fins.getRootPoints(), kEpsilon, "incorrect body points! ");
-
-    EXPECT_NEAR(0.833, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+        EXPECT_NEAR(0.833, fins.getMass(), kEpsilon) << "incorrect fin mass! ";
+    }
 }
 
 TEST_F(TemplateRocket, FreeFormCMWithNegativeY)
@@ -1719,6 +1715,19 @@ TEST_F(TemplateRocket, AddPointChecksTheIndex)
     EXPECT_EQ(fin.getPointCount(), 4U);
     EXPECT_TRUE(takeEvents().empty());
 
+    // An index that was negative before it became a std::size_t fails with the message Java
+    // gives for the negative index, and nothing is touched (pinned with OpenRocket, ProbeFix S1).
+    const std::vector<Coordinate> before = fin.getFinPoints();
+    for (const std::size_t index : kIndicesFromNegatives)
+    {
+        expectIllegalFinPoint(fin.addPoint(index, Point2D{0.1, 0.1}),
+                              "Cannot add new point before the first or after the last point",
+                              index);
+    }
+    EXPECT_EQ(fin.getPointCount(), 4U);
+    expectPointsNear(before, fin.getFinPoints(), 0.0, "after the rejected additions");
+    EXPECT_TRUE(takeEvents().empty());
+
     // Before the last point is the last place a point can go.
     EXPECT_TRUE(fin.addPoint(3, Point2D{1.0, 0.5}).has_value());
     EXPECT_TRUE(fin.addPoint(1, Point2D{0.25, 0.5}).has_value());
@@ -1751,6 +1760,14 @@ TEST(FreeformFinSet, RemovePointChecksTheIndexAndTheOutline)
     ASSERT_FALSE(beyond.has_value());
     EXPECT_EQ(beyond.error().message, "index out of range");
     EXPECT_EQ(fins.getPointCount(), 5U);
+
+    // As Java's negative indices (ProbeFix S1): out of range, and nothing is touched.
+    for (const std::size_t index : kIndicesFromNegatives)
+    {
+        expectIllegalFinPoint(fins.removePoint(index), "index out of range", index);
+    }
+    EXPECT_EQ(fins.getPointCount(), 5U);
+    expectPointsNear(points, fins.getFinPoints(), 0.0, "after the rejected indices");
 
     // Without point 3 the outline would cross itself: the points stay.
     EXPECT_TRUE(fins.removePoint(3).has_value());
@@ -1870,6 +1887,31 @@ TEST(FreeformFinSet, SetPointsOfOnePointOrNone)
     EXPECT_EQ(fins.getPointCount(), 1U);
 }
 
+TEST(FreeformFinSet, IndexChecksOnAnOutlineOfOnePoint)
+{
+    // Pinned with OpenRocket (ProbeFix S1): the only point is the first and the last.
+    FreeformFinSet                fins;
+    const std::vector<Coordinate> single{Coordinate{0.3, 0.2}};
+    fins.setPoints(single);
+    ASSERT_EQ(fins.getPointCount(), 1U);
+
+    constexpr std::string_view kAddMessage =
+        "Cannot add new point before the first or after the last point";
+    for (const std::size_t index : {std::size_t{0}, std::size_t{1}, std::size_t{2}})
+    {
+        expectIllegalFinPoint(fins.addPoint(index, Point2D{0.1, 0.1}), kAddMessage, index);
+    }
+    expectIllegalFinPoint(fins.removePoint(0), "cannot remove first or last point", 0);
+    expectIllegalFinPoint(fins.removePoint(1), "index out of range", 1);
+    expectIllegalFinPoint(fins.removePoint(2), "index out of range", 2);
+    for (const std::size_t index : kIndicesFromNegatives)
+    {
+        expectIllegalFinPoint(fins.addPoint(index, Point2D{0.1, 0.1}), kAddMessage, index);
+        expectIllegalFinPoint(fins.removePoint(index), "index out of range", index);
+    }
+    EXPECT_EQ(fins.getPointCount(), 1U);
+}
+
 TEST(FreeformFinSet, SpanCountsALastPointBelowTheRoot)
 {
     // Pinned with OpenRocket (ProbeFins S7).
@@ -1938,6 +1980,15 @@ TEST_F(TemplateRocket, SetPointChecksTheIndex)
     ASSERT_FALSE(beyond.has_value());
     EXPECT_EQ(beyond.error().code, ErrorCode::INVALID_ARGUMENT);
     EXPECT_EQ(beyond.error().message, "index out of range");
+    EXPECT_TRUE(takeEvents().empty());
+
+    // As Java's negative indices (ProbeFix S1): out of range, and nothing is touched.
+    const std::vector<Coordinate> before = fins.getFinPoints();
+    for (const std::size_t index : kIndicesFromNegatives)
+    {
+        expectIllegalFinPoint(fins.setPoint(index, 0.5, 0.5), "index out of range", index);
+    }
+    expectPointsNear(before, fins.getFinPoints(), 0.0, "after the rejected indices");
     EXPECT_TRUE(takeEvents().empty());
 
     // A point put where it already is fires nothing.
@@ -2195,6 +2246,138 @@ TEST_F(ConvertInRocket, TheLastChildStaysTheLast)
     ASSERT_TRUE(result.freeform->getAppearance().has_value());
     EXPECT_EQ(result.freeform->getAppearance(), m_extra->getAppearance());
     EXPECT_NEAR(result.freeform->getLength(), 0.05, 1e-15);
+}
+
+TEST_F(ConvertInRocket, AFrozenRocketIsABugAndNothingChanges)
+{
+    m_rocket.freeze();
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(*m_fins)), BugError);
+
+    // Still frozen by its owner, and the fin set where it was.
+    EXPECT_TRUE(m_rocket.isFrozen());
+    ASSERT_EQ(m_body->getChildCount(), 2U);
+    EXPECT_EQ(&m_body->getChild(0), m_fins);
+    EXPECT_EQ(m_fins->getParent(), m_body);
+    m_rocket.thaw();
+    EXPECT_TRUE(m_types.empty());
+
+    // Without freezing, the conversion goes ahead inside the caller's freeze.
+    m_rocket.freeze();
+    const FreeformFinSet::ConversionResult result = FreeformFinSet::convertFinSet(*m_fins, false);
+    EXPECT_EQ(&m_body->getChild(0), result.freeform);
+    EXPECT_TRUE(m_types.empty());
+    m_rocket.thaw();
+    EXPECT_EQ(m_types.size(), 1U);
+}
+
+/// A rocket (events disabled, as a freshly made one) whose tube carries a freeform fin set
+/// between two others; the freeform one is positioned TOP and has had its first point set to
+/// x = NaN, which OpenRocket accepts and which leaves it with an axial offset of NaN.
+class ConvertFailure : public ::testing::Test
+{
+protected:
+    ConvertFailure()
+    {
+        auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
+        m_tube      = &stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
+        m_first     = &m_tube->addChild(std::make_unique<TrapezoidFinSet>());
+        m_fins      = &m_tube->addChild(std::make_unique<FreeformFinSet>());
+        m_last      = &m_tube->addChild(std::make_unique<EllipticalFinSet>());
+        m_fins->setAxialMethod(AxialMethod::TOP);
+        m_fins->setName("Freeform Fin Set of mine");
+    }
+
+    /// The tube's children, in order.
+    [[nodiscard]] std::vector<const RocketComponent*> children() const
+    {
+        std::vector<const RocketComponent*> children;
+        children.reserve(m_tube->getChildCount());
+        for (std::size_t i = 0; i < m_tube->getChildCount(); ++i)
+        {
+            children.push_back(&m_tube->getChild(i));
+        }
+        return children;
+    }
+
+    /// The fin set is where it was, alive and unchanged, and the rocket is not frozen.
+    void expectFinSetBackInPlace() const
+    {
+        EXPECT_EQ(children(), (std::vector<const RocketComponent*>{m_first, m_fins, m_last}));
+        EXPECT_EQ(m_fins->getParent(), m_tube);
+        EXPECT_FALSE(m_rocket.isFrozen());
+        EXPECT_EQ(m_fins->getName(), "Freeform Fin Set of mine");
+        EXPECT_EQ(m_fins->getPointCount(), 4U);
+        EXPECT_TRUE(std::isnan(m_fins->getAxialOffset()));
+    }
+
+    Rocket            m_rocket;
+    BodyTube*         m_tube{nullptr};
+    TrapezoidFinSet*  m_first{nullptr};
+    FreeformFinSet*   m_fins{nullptr};
+    EllipticalFinSet* m_last{nullptr};
+};
+
+// OpenRocket (ProbeFix S2): the conversion throws a BugException ("setAxialOffset is broken --
+// attempted to update as NaN") and leaves the fin set out of the tree, a detached object its
+// caller still holds. Here it would die with the lost result, so it is put back instead.
+TEST_F(ConvertFailure, AFailedConversionPutsTheFinSetBack)
+{
+    EXPECT_TRUE(m_fins->setPoint(0, std::numeric_limits<double>::quiet_NaN(), 0.0).has_value());
+    ASSERT_TRUE(std::isnan(m_fins->getAxialOffset()));
+    ASSERT_TRUE(std::isnan(m_fins->getPosition().x));
+
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(*m_fins)), BugError);
+    expectFinSetBackInPlace();
+
+    // The same without freezing the rocket.
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(*m_fins, false)), BugError);
+    expectFinSetBackInPlace();
+
+    // Its neighbours still convert, each in its place.
+    const FreeformFinSet::ConversionResult first = FreeformFinSet::convertFinSet(*m_first);
+    const FreeformFinSet::ConversionResult last  = FreeformFinSet::convertFinSet(*m_last);
+    EXPECT_EQ(children(),
+              (std::vector<const RocketComponent*>{first.freeform, m_fins, last.freeform}));
+}
+
+/// A fin set without an outline, which no freeform fin set can take over (setPoints() refuses
+/// an empty list): converting it fails once it is out of the tree.
+class FinSetWithoutPoints : public TrapezoidFinSet
+{
+public:
+    [[nodiscard]] std::vector<Coordinate> getFinPoints() const override { return {}; }
+};
+
+TEST_F(ConvertInRocket, AFailedConversionFiresTheTreeEventsOnly)
+{
+    FinSetWithoutPoints& broken = m_body->addChild(std::make_unique<FinSetWithoutPoints>(), 1);
+    m_types.clear();
+
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(broken)), BugError);
+    ASSERT_EQ(m_body->getChildCount(), 3U);
+    EXPECT_EQ(&m_body->getChild(0), m_fins);
+    EXPECT_EQ(&m_body->getChild(1), &broken);
+    EXPECT_EQ(&m_body->getChild(2), m_extra);
+    EXPECT_EQ(broken.getParent(), m_body);
+    EXPECT_FALSE(m_rocket.isFrozen());
+    // Taken out and put back while the rocket was frozen: one combined event.
+    ASSERT_EQ(m_types.size(), 1U);
+    EXPECT_NE(m_types.front() & ComponentChangeEvent::kTreeChange, 0);
+
+    // Without freezing: one event for each.
+    m_types.clear();
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(broken, false)), BugError);
+    EXPECT_EQ(&m_body->getChild(1), &broken);
+    EXPECT_EQ(m_types.size(), 2U);
+}
+
+TEST(FreeformFinSet, AFailedConversionOfADetachedFinSetLeavesItAlone)
+{
+    // Nothing was taken out of a tree, so there is nothing to put back.
+    FinSetWithoutPoints lone;
+    EXPECT_THROW(static_cast<void>(FreeformFinSet::convertFinSet(lone)), BugError);
+    EXPECT_EQ(lone.getParent(), nullptr);
+    EXPECT_EQ(lone.getFinCount(), 3);
 }
 
 TEST(FreeformFinSet, ConvertADetachedDefaultFinSet)
