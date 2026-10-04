@@ -362,7 +362,7 @@ void compareOne(const json& geometry, const pugi::xml_document& resave, const js
         const LaunchLug& lug = addLaunchLug(body, expected, m);
         rocket.enableEvents();
         compareAttachment(m, expected, lug);
-        m.absolute("innerRadius", goldenValue(details.at("innerRadius")), lug.getInnerRadius());
+        m.relative("innerRadius", goldenValue(details.at("innerRadius")), lug.getInnerRadius());
         m.exact("instanceSeparation", goldenValue(details.at("instanceSeparation")),
                 lug.getInstanceSeparation());
         compared.launchLugs++;
@@ -381,10 +381,10 @@ void compareOne(const json& geometry, const pugi::xml_document& resave, const js
         const TubeFinSet& fins = addTubeFinSet(body, expected, resave, m);
         rocket.enableEvents();
         compareAttachment(m, expected, fins);
-        m.absolute("outerRadius", goldenValue(details.at("outerRadius")), fins.getOuterRadius());
-        m.absolute("innerRadius", goldenValue(details.at("innerRadius")), fins.getInnerRadius());
-        m.absolute("thickness", goldenValue(details.at("thickness")), fins.getThickness());
-        m.absolute("bodyRadius", goldenValue(details.at("bodyRadius")), fins.getBodyRadius());
+        m.relative("outerRadius", goldenValue(details.at("outerRadius")), fins.getOuterRadius());
+        m.relative("innerRadius", goldenValue(details.at("innerRadius")), fins.getInnerRadius());
+        m.relative("thickness", goldenValue(details.at("thickness")), fins.getThickness());
+        m.relative("bodyRadius", goldenValue(details.at("bodyRadius")), fins.getBodyRadius());
         compared.tubeFinSets++;
     }
 }

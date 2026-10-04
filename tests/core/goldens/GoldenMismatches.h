@@ -35,8 +35,8 @@ public:
     /// for 0); two NaNs match.
     void relative(std::string_view field, double expected, double actual);
 
-    /// @p actual within kGoldenAbsolute of @p expected (a length or a position in m, an angle
-    /// in rad).
+    /// @p actual within kGoldenAbsolute of @p expected (a position or an offset in m, an angle
+    /// in rad; a dimension, such as a radius, a chord or a wall, is a geometry value: relative()).
     void absolute(std::string_view field, double expected, double actual);
 
     /// @p actual exactly @p expected: a value a component was given must come back unchanged.

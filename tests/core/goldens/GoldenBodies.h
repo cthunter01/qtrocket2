@@ -2,8 +2,9 @@
 
 // Rebuilding a body component (a BodyTube, a NoseCone or a Transition) from its entry in the
 // geometry golden data, for the golden tests of the bodies themselves and of what stands on them
-// (body_geometry_golden_tests.cpp, fin_geometry_golden_tests.cpp). Test-only. The entries are
-// read with GoldenGeometry.h and compared with GoldenMismatches.h.
+// (body_geometry_golden_tests.cpp, fin_geometry_golden_tests.cpp,
+// attachment_geometry_golden_tests.cpp). Test-only. The entries are read with GoldenGeometry.h
+// and compared with GoldenMismatches.h.
 
 #include <memory>
 

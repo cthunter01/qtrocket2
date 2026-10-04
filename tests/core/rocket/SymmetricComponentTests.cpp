@@ -1057,13 +1057,15 @@ TEST(SymmetricComponent, PreviousSymmetricComponentInlineComponentAssembly)
     EXPECT_EQ(coreBody->getPreviousSymmetricComponent(), interstage);
 
     // Add a booster inside the pod set
-    auto& insideBooster = podSetBody->addChild(std::make_unique<ParallelStage>());
-    insideBooster.setName("Inside Booster");
-    insideBooster.setInstanceCount(1);
-    insideBooster.setRadius(RadiusMethod::FREE, 0);
+    auto newInsideBooster = std::make_unique<ParallelStage>();
+    newInsideBooster->setName("Inside Booster");
+    newInsideBooster->setInstanceCount(1);
+    newInsideBooster->setRadius(RadiusMethod::FREE, 0);
+    auto& insideBooster = podSetBody->addChild(std::move(newInsideBooster));
     setAxialOffset(insideBooster, AxialMethod::BOTTOM, 0);
-    auto& insideBoosterBody = insideBooster.addChild(std::make_unique<BodyTube>(0.2, 0.06, 0.001));
-    insideBoosterBody.setName("Inside Booster Body");
+    auto newInsideBoosterBody = std::make_unique<BodyTube>(0.2, 0.06, 0.001);
+    newInsideBoosterBody->setName("Inside Booster Body");
+    auto& insideBoosterBody = insideBooster.addChild(std::move(newInsideBoosterBody));
 
     // Case 1: inside booster is larger than pod set and flush to its end (both are at the back
     // of the core stage)
@@ -1245,13 +1247,15 @@ TEST(SymmetricComponent, NextSymmetricComponentInlineComponentAssembly)
     EXPECT_EQ(coreBody->getNextSymmetricComponent(), lastStageBody);
 
     // Add a booster inside the pod set
-    auto& insideBooster = podSetBody->addChild(std::make_unique<ParallelStage>());
-    insideBooster.setName("Inside Booster");
-    insideBooster.setInstanceCount(1);
-    insideBooster.setRadius(RadiusMethod::FREE, 0);
+    auto newInsideBooster = std::make_unique<ParallelStage>();
+    newInsideBooster->setName("Inside Booster");
+    newInsideBooster->setInstanceCount(1);
+    newInsideBooster->setRadius(RadiusMethod::FREE, 0);
+    auto& insideBooster = podSetBody->addChild(std::move(newInsideBooster));
     setAxialOffset(insideBooster, AxialMethod::TOP, 0);
-    auto& insideBoosterBody = insideBooster.addChild(std::make_unique<BodyTube>(0.2, 0.06, 0.001));
-    insideBoosterBody.setName("Inside Booster Body");
+    auto newInsideBoosterBody = std::make_unique<BodyTube>(0.2, 0.06, 0.001);
+    newInsideBoosterBody->setName("Inside Booster Body");
+    auto& insideBoosterBody = insideBooster.addChild(std::move(newInsideBoosterBody));
 
     // Case 1: inside booster is larger than pod set and flush to its front (both are at the
     // front of the core stage)

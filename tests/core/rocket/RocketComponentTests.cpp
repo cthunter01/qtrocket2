@@ -46,6 +46,7 @@
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/FailingListener.h"
 #include "rocket/TestComponent.h"
 
 namespace
@@ -76,6 +77,7 @@ using QtRocket::RocketComponent;
 using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Uuid;
+using QtRocket::Test::FailingListener;
 using QtRocket::Test::TestComponent;
 using StageTracking = RocketComponent::StageTracking;
 
@@ -1567,6 +1569,60 @@ TEST(RocketComponentSplit, ASingleInstanceIsLeftAlone)
     EXPECT_EQ(same.components, std::vector<RocketComponent*>{&single});
     EXPECT_EQ(same.original, nullptr);
     EXPECT_EQ(single.getParent(), &stage);
+}
+
+/// An exception a change listener throws at the final thaw leaves the split done: the copies are
+/// in the tree, the rocket is thawed, and the original, which the lost result owned, is gone
+/// (splitInstances() documents it; OpenRocket leaves the original detached, alive through the
+/// caller's reference).
+TEST(RocketComponentSplit, AThrowingListenerLeavesTheSplitDoneWithoutTheOriginal)
+{
+    Rocket         rocket;
+    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&      body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
+    TestComponent& fins  = body.addChild(TestComponent::make(0.05));
+    fins.setName("Fins");
+    fins.setInstances({Coordinate{}, Coordinate{}, Coordinate{}}, {0, 0, 0});
+    rocket.enableEvents();
+    const Uuid originalId = fins.getId();
+
+    const FailingListener listener(rocket, body, true);
+    EXPECT_THROW(static_cast<void>(fins.splitInstances()), std::runtime_error);
+
+    // One event, the thaw's, with the three copies in the body; `fins` no longer exists.
+    EXPECT_EQ(listener.childCounts, std::vector<std::size_t>{3});
+    EXPECT_FALSE(rocket.isFrozen());
+    EXPECT_EQ(rocket.findComponent(originalId), nullptr);
+    ASSERT_EQ(body.getChildCount(), 3U);
+    EXPECT_EQ(body.getChild(0).getName(), "Fins #1");
+    EXPECT_EQ(body.getChild(1).getName(), "Fins #2");
+    EXPECT_EQ(body.getChild(2).getName(), "Fins #3");
+    EXPECT_EQ(body.getChild(0).getInstanceCount(), 1);
+    EXPECT_EQ(body.getChild(2).getInstanceCount(), 1);
+}
+
+/// Without the freeze, the listener already hears of the original leaving: when it throws
+/// there, removeChild() puts the original back and nothing is split.
+TEST(RocketComponentSplit, AThrowingListenerWithoutFreezeLeavesTheTreeAsItWas)
+{
+    Rocket         rocket;
+    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&      body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
+    TestComponent& fins  = body.addChild(TestComponent::make(0.05));
+    fins.setName("Fins");
+    fins.setInstances({Coordinate{}, Coordinate{}, Coordinate{}}, {0, 0, 0});
+    rocket.enableEvents();
+
+    const FailingListener listener(rocket, body, false);
+    EXPECT_THROW(static_cast<void>(fins.splitInstances(false)), std::runtime_error);
+
+    // Heard: the original leaving, and its return.
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{0, 1}));
+    ASSERT_EQ(body.getChildCount(), 1U);
+    EXPECT_EQ(&body.getChild(0), &fins);
+    EXPECT_EQ(fins.getParent(), &body);
+    EXPECT_EQ(fins.getName(), "Fins");
+    EXPECT_EQ(fins.getInstanceCount(), 3);
 }
 
 // ---- Structure and debug ----

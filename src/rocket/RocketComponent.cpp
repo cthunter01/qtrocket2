@@ -1163,6 +1163,14 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
     }
     component->checkComponentStructure();
 
+    // What the configurations would lose should the removal fail (see the handler below); taken
+    // before the child leaves the list, so that nothing can throw between the two.
+    std::vector<Rocket::StageActiveness> activeness;
+    if (const Rocket* rocket = findRocket())
+    {
+        activeness = rocket->stageActivenessIn(*component);
+    }
+
     std::unique_ptr<RocketComponent> removed = std::move(m_children[*index]);
     m_children.erase(m_children.begin() + static_cast<std::ptrdiff_t>(*index));
     ++m_childListModCount;
@@ -1175,13 +1183,18 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
     catch (...)
     {
         // A change listener threw (or a structure check failed): the caller will not get the
-        // removed child, so it goes back to its place (see the class comment). The rocket's
-        // stage map and configurations are rebuilt whatever its events, then the listeners
-        // hear of the tree change; should that throw as well, the child is in the tree already.
-        const RocketComponent& restored = linkChild(std::move(removed), *index, tracking);
+        // removed child, so it goes back to its place (see the class comment), or to the end of
+        // the list when the listener has made the list shorter than that. The rocket's stage map
+        // and configurations are rebuilt whatever its events: the failed event may already have
+        // made the configurations drop the flags of the removed stages, so those get the
+        // activeness they had. Then the listeners hear of the tree change; should that throw as
+        // well, the child is in the tree already.
+        const RocketComponent& restored =
+            linkChild(std::move(removed), std::min(*index, m_children.size()), tracking);
         if (Rocket* rocket = findRocket())
         {
             rocket->update();
+            rocket->restoreStageActiveness(activeness);
         }
         fireAddRemoveEvent(restored);
         updateBounds();

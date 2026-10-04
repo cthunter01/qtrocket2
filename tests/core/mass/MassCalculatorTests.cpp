@@ -27,6 +27,7 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
@@ -103,11 +104,6 @@ using Json = nlohmann::json;
 
 // tolerance for compared double test results (MassCalculatorTest.EPSILON, MathUtil's precision)
 constexpr double kEpsilon = 0.00000001;
-
-/// TestRockets.FALCON_9H_*_STAGE_NUMBER.
-constexpr int kFalcon9hPayloadStageNumber = 0;
-constexpr int kFalcon9hCoreStageNumber    = 1;
-constexpr int kFalcon9hBoosterStageNumber = 2;
 
 // ================================================================================ golden data
 
@@ -221,14 +217,19 @@ void expectRigidBody(const RigidBody& actual, const Json& expected, const std::s
 }
 
 /// The key of the golden CM analysis row @p row: a motor's designation hash, else the key of
-/// the component at its path.
-std::int32_t analysisKey(Rocket& rocket, const Json& row)
+/// the component at its path. Expects the row's kind to fit its path: a "motor" has none, the
+/// rocket's row is the "total" and every other row a "component".
+std::int32_t analysisKey(Rocket& rocket, const Json& row, const std::string& what)
 {
-    if (row.at("kind").get<std::string>() == "motor")
+    const auto kind = row.at("kind").get<std::string>();
+    if (kind == "motor")
     {
+        EXPECT_TRUE(row.at("path").is_null()) << what;
         return QtRocket::Strings::javaHashCode(row.at("name").get<std::string>());
     }
-    return CMAnalysisEntry::keyOf(componentAt(rocket, row.at("path").get<std::string>()));
+    const auto path = row.at("path").get<std::string>();
+    EXPECT_EQ(kind, path == "/" ? "total" : "component") << what;
+    return CMAnalysisEntry::keyOf(componentAt(rocket, path));
 }
 
 /// Expects @p analysis to hold exactly the golden CM analysis @p rows.
@@ -240,7 +241,7 @@ void expectGoldenAnalysis(Rocket& rocket, const CMAnalysisMap& analysis, const J
     {
         const auto         rowName = row.at("name").get<std::string>();
         const std::string  what    = std::format("{} analysis {}", configName, rowName);
-        const std::int32_t key     = analysisKey(rocket, row);
+        const std::int32_t key     = analysisKey(rocket, row, what);
         keys.insert(key);
         const auto entry = analysis.find(key);
         ASSERT_TRUE(entry != analysis.end()) << what;
@@ -250,40 +251,68 @@ void expectGoldenAnalysis(Rocket& rocket, const CMAnalysisMap& analysis, const J
                               what + " totalCM");
     }
     EXPECT_EQ(analysis.size(), keys.size()) << configName;
+    // The rows end with the rocket's.
+    ASSERT_FALSE(rows.empty()) << configName;
+    EXPECT_EQ(rows.back().at("kind").get<std::string>(), "total") << configName;
+}
+
+/// Expects the four rigid bodies and the CM analysis of @p config to be the @p golden
+/// configuration's.
+void expectGoldenBodies(Rocket& rocket, const FlightConfiguration& config, const Json& golden,
+                        const std::string& name)
+{
+    expectRigidBody(MassCalculator::calculateStructure(config), golden.at("structure"),
+                    name + " structure");
+    expectRigidBody(MassCalculator::calculateLaunch(config), golden.at("launch"), name + " launch");
+    expectRigidBody(MassCalculator::calculateBurnout(config), golden.at("burnout"),
+                    name + " burnout");
+    expectRigidBody(MassCalculator::calculateMotor(config), golden.at("motor"), name + " motor");
+    expectGoldenAnalysis(rocket, MassCalculator::getCMAnalysis(config), golden.at("cmAnalysis"),
+                         name);
+}
+
+/// Expects the header of the @p golden configuration to be that of @p config: the default flag,
+/// the name and, unless @p randomConfigurationId says that the maker draws it, the id.
+void expectGoldenHeader(const FlightConfiguration& config, const Json& golden,
+                        bool randomConfigurationId)
+{
+    const QtRocket::InMemoryPreferences preferences;
+    const auto                          name = golden.at("name").get<std::string>();
+    EXPECT_EQ(config.getId().isDefaultId(), golden.at("isDefault").get<bool>()) << name;
+    if (config.getId().isDefaultId() || !randomConfigurationId)
+    {
+        EXPECT_EQ(config.getId().toString(), golden.at("id").get<std::string>()) << name;
+    }
+    EXPECT_EQ(config.getName(preferences), name);
 }
 
 /// Expects the mass calculations of every flight configuration of @p rocket to give the golden
-/// values of @p mass: the four rigid bodies and the CM analysis rows. Each configuration is
-/// selected while it is calculated, as the golden harness does. A configuration is found by its
-/// index (the default first), since two makers draw their configuration's id at random. Returns
-/// the number of configurations compared.
-int expectGoldenMass(Rocket& rocket, const Json& mass)
+/// values of @p mass: the header (see expectGoldenHeader()), the four rigid bodies and the CM
+/// analysis rows. Each configuration is selected while it is calculated, as the golden harness
+/// does. The golden configurations are the rocket's, in order (the default first): each `index`
+/// is its place in the list, so none is compared twice. Returns the number of configurations
+/// compared.
+int expectGoldenMass(Rocket& rocket, const Json& mass, bool randomConfigurationId)
 {
     const FlightConfigurationId selected = rocket.getSelectedConfiguration().getId();
     int                         compared = 0;
+    int                         position = 0;
     for (const Json& golden : mass.at("configurations"))
     {
         const auto name  = golden.at("name").get<std::string>();
         const int  index = golden.at("index").get<int>();
+        EXPECT_EQ(index, position) << name << ": the golden configurations are in order";
+        position++;
         if (index < 0 || index > rocket.getConfigurationCount())
         {
             ADD_FAILURE() << "the rocket has no configuration " << index << " (" << name << ")";
             continue;
         }
         FlightConfiguration& config = rocket.getFlightConfigurationByIndex(index, true);
-        EXPECT_EQ(config.getId().isDefaultId(), golden.at("isDefault").get<bool>()) << name;
         rocket.setSelectedConfiguration(config.getId());
 
-        expectRigidBody(MassCalculator::calculateStructure(config), golden.at("structure"),
-                        name + " structure");
-        expectRigidBody(MassCalculator::calculateLaunch(config), golden.at("launch"),
-                        name + " launch");
-        expectRigidBody(MassCalculator::calculateBurnout(config), golden.at("burnout"),
-                        name + " burnout");
-        expectRigidBody(MassCalculator::calculateMotor(config), golden.at("motor"),
-                        name + " motor");
-        expectGoldenAnalysis(rocket, MassCalculator::getCMAnalysis(config), golden.at("cmAnalysis"),
-                             name);
+        expectGoldenHeader(config, golden, randomConfigurationId);
+        expectGoldenBodies(rocket, config, golden, name);
         compared++;
     }
     rocket.setSelectedConfiguration(selected);
@@ -333,9 +362,11 @@ void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
 // ======================================================================== golden comparisons
 //
 // The thirteen test rockets, built from the real components (TestRockets.h): every component's
-// locations and every configuration's STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies and CM
-// analysis rows are compared with tests/data/goldens/testrocket-<name>/mass.json. The number of
-// configurations compared is taken from the golden file: none is skipped.
+// locations and every configuration's header (index, default flag, name and id; not an id a
+// maker draws at random), STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies and CM analysis rows
+// are compared with tests/data/goldens/testrocket-<name>/mass.json. The number of configurations
+// compared is taken from the golden file: none is skipped, and none is compared twice. (The
+// file's "schema", "schemaVersion" and "input" are checked by goldens_schema_tests.cpp.)
 
 /// One test rocket of TestRockets.h against its golden mass data.
 class MassCalculatorGolden : public ::testing::TestWithParam<TestRocketMaker>
@@ -348,7 +379,7 @@ TEST_P(MassCalculatorGolden, RigidBodiesAndCMAnalysis)
     const Json                    mass   = loadGolden(input, "mass.json");
 
     expectGoldenLocations(*rocket, loadGolden(input, "geometry.json"));
-    const int compared = expectGoldenMass(*rocket, mass);
+    const int compared = expectGoldenMass(*rocket, mass, GetParam().randomConfigurationId);
     EXPECT_EQ(compared, static_cast<int>(mass.at("configurations").size()));
     EXPECT_EQ(rocket->getConfigurationCount() + 1, compared)
         << "the rocket has a configuration the golden file does not hold";
@@ -1175,7 +1206,7 @@ TEST(MassCalculator, Falcon9HBoosterStructureCM)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const Coordinate actualCM = MassCalculator::calculateStructure(config).getCM();
 
@@ -1191,7 +1222,7 @@ TEST(MassCalculator, Falcon9HBoosterLaunchCM)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody actualBoosterLaunchData = MassCalculator::calculateLaunch(config);
 
@@ -1211,7 +1242,7 @@ TEST(MassCalculator, Falcon9HBoosterSpentCM)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     // Validate Booster Launch Mass
     const Coordinate spentCM = MassCalculator::calculateBurnout(config).getCM();
@@ -1229,7 +1260,7 @@ TEST(MassCalculator, Falcon9HBoosterMotorCM)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody  actualPropellant = MassCalculator::calculateMotor(config);
     const Coordinate actCM            = actualPropellant.getCM();
@@ -1253,7 +1284,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterMotorLaunchMOIs)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody actualInertia = MassCalculator::calculateMotor(config);
 
@@ -1267,7 +1298,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterSpentMOIs)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody spent = MassCalculator::calculateBurnout(config);
 
@@ -1281,7 +1312,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterLaunchMOIs)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody launchData = MassCalculator::calculateLaunch(config);
 
@@ -1296,7 +1327,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterStageMassOverride)
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     f9h.rocket->setSelectedConfiguration(config.getId());
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     ParallelStage& boosters     = *f9h.boosterStage;
     const double   overrideMass = 0.5;
@@ -1370,7 +1401,7 @@ TEST(MassCalculator, Falcon9HeavyComponentCMxOverride)
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     f9h.rocket->setSelectedConfiguration(config.getId());
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     f9h.boosterNose->setCGOverridden(true);
     f9h.boosterNose->setOverrideCGX(0.22);
@@ -1585,8 +1616,8 @@ TEST(MassCalculator, DisabledStageMassAndCG)
     const double    cmxAll    = allActive.getCM().x;
 
     // Disable booster (also disable core since it is a child stage)
-    config.setStageActive(kFalcon9hCoreStageNumber, false);
-    config.setStageActive(kFalcon9hBoosterStageNumber, false);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, false);
+    config.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, false);
 
     // All hardcoded values are pulled from Falcon9HPayloadStructureCM
     const RigidBody noBooster = MassCalculator::calculateStructure(config);
@@ -1596,7 +1627,7 @@ TEST(MassCalculator, DisabledStageMassAndCG)
         << "CG with core+booster disabled should match standalone payload CG";
 
     // Disable core stage too (only payload remains)
-    config.setStageActive(kFalcon9hCoreStageNumber, false);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, false);
 
     const RigidBody payloadOnly = MassCalculator::calculateStructure(config);
     EXPECT_NEAR(0.11628853296935873, payloadOnly.getMass(), kEpsilon)
@@ -1643,7 +1674,7 @@ TEST(MassCache, CMCache)
 
     // A stage flag change of the configuration: a new configuration modification id.
     const ModId configModId = config.getModId();
-    config.setOnlyStage(kFalcon9hPayloadStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kPayloadStageNumber);
     EXPECT_NE(config.getModId(), configModId);
     const RigidBody payload = MassCalculator::calculateLaunch(config);
     EXPECT_NEAR(payload.getMass(), 0.11628853296935873 + 0.1, kEpsilon);
@@ -2121,24 +2152,24 @@ TEST(MassCalculatorParallelStage, InactiveCoreStageStillCarriesActiveBoosters)
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
 
     const RigidBody boosters = [&] {
-        config.setOnlyStage(kFalcon9hBoosterStageNumber);
+        config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
         return MassCalculator::calculateStructure(config);
     }();
     const RigidBody core = [&] {
-        config.setOnlyStage(kFalcon9hCoreStageNumber);
+        config.setOnlyStage(TestFalcon9Heavy::kCoreStageNumber);
         return MassCalculator::calculateStructure(config);
     }();
 
     // The walk descends into the inactive core body to reach the active boosters.
     config.setAllStages();
-    config.setStageActive(kFalcon9hPayloadStageNumber, false);
-    config.setStageActive(kFalcon9hCoreStageNumber, false, false);
-    ASSERT_TRUE(config.isStageActive(kFalcon9hBoosterStageNumber));
+    config.setStageActive(TestFalcon9Heavy::kPayloadStageNumber, false);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, false, false);
+    ASSERT_TRUE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
     const RigidBody onlyBoosters = MassCalculator::calculateStructure(config);
     EXPECT_NEAR(onlyBoosters.getMass(), boosters.getMass(), 1e-15);
 
     // Core and boosters together.
-    config.setStageActive(kFalcon9hCoreStageNumber, true, true);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, true, true);
     const RigidBody both = MassCalculator::calculateStructure(config);
     EXPECT_NEAR(both.getMass(), boosters.getMass() + core.getMass(), 1e-15);
     EXPECT_NEAR(both.getCM().x,
@@ -2153,7 +2184,7 @@ TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
     const RigidBody boosters = MassCalculator::calculateStructure(config);
 
     // Mass and CG overrides on the core stage that cover its subcomponents, the boosters
@@ -2169,9 +2200,9 @@ TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
     // Core inactive, boosters active: Java applies the overrides of active components only
     // (MassCalculation.java's isComponentActive() branch), so the boosters keep their own mass.
     config.setAllStages();
-    config.setStageActive(kFalcon9hPayloadStageNumber, false);
-    config.setStageActive(kFalcon9hCoreStageNumber, false, false);
-    ASSERT_TRUE(config.isStageActive(kFalcon9hBoosterStageNumber));
+    config.setStageActive(TestFalcon9Heavy::kPayloadStageNumber, false);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, false, false);
+    ASSERT_TRUE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
     const RigidBody onlyBoosters = MassCalculator::calculateStructure(config);
     EXPECT_NEAR(onlyBoosters.getMass(), boosters.getMass(), 1e-15);
     EXPECT_NEAR(onlyBoosters.getCM().x, boosters.getCM().x, 1e-15);
@@ -2180,7 +2211,7 @@ TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
 
     // Core active as well: the override replaces the mass of the core and the boosters, all at
     // the core stage's front (its position in the rocket).
-    config.setStageActive(kFalcon9hCoreStageNumber, true, true);
+    config.setStageActive(TestFalcon9Heavy::kCoreStageNumber, true, true);
     const RigidBody overridden = MassCalculator::calculateStructure(config);
     EXPECT_NEAR(overridden.getMass(), 10.0, 1e-12);
     EXPECT_NEAR(overridden.getCM().x, core.getPosition().x, 1e-12);
@@ -2191,7 +2222,7 @@ TEST(MassCalculatorParallelStage, BoosterMotorsAreOneClusterPerBooster)
 {
     TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
-    config.setOnlyStage(kFalcon9hBoosterStageNumber);
+    config.setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
 
     const RigidBody motors  = MassCalculator::calculateMotor(config);
     const Motor&    g77     = *f9h.boosterMotorTubes->getMotorConfig(f9h.fcid).getMotor();

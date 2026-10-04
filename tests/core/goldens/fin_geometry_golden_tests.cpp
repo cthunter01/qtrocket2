@@ -373,10 +373,10 @@ void compareSettings(GoldenMismatches& m, const json& expected, const FinSet& fi
     m.text("radiusMethod", details.at("radiusMethod").get<std::string>(),
            QtRocket::radiusMethodName(fins.getRadiusMethod()));
     m.absolute("radiusOffset", goldenValue(details.at("radiusOffset")), fins.getRadiusOffset());
-    m.absolute("tabHeight", goldenValue(details.at("tabHeight")), fins.getTabHeight());
-    m.absolute("tabLength", goldenValue(details.at("tabLength")), fins.getTabLength());
+    m.relative("tabHeight", goldenValue(details.at("tabHeight")), fins.getTabHeight());
+    m.relative("tabLength", goldenValue(details.at("tabLength")), fins.getTabLength());
     m.absolute("tabOffset", goldenValue(details.at("tabOffset")), fins.getTabOffset());
-    m.absolute("filletRadius", goldenValue(details.at("filletRadius")), fins.getFilletRadius());
+    m.relative("filletRadius", goldenValue(details.at("filletRadius")), fins.getFilletRadius());
     m.text("material", details.at("material").at("name").get<std::string>(),
            fins.getMaterial().getName());
     m.text("filletMaterial", details.at("filletMaterial").at("name").get<std::string>(),
@@ -426,7 +426,7 @@ void compareFinSet(GoldenMismatches& m, const json& expected, const FinSet& fins
     m.positions("rootPoints", details.at("rootPoints"), fins.getRootPoints());
     m.positions("tabPoints", details.at("tabPoints"), fins.getTabPoints());
     m.relative("span", goldenValue(details.at("span")), fins.getSpan());
-    m.absolute("bodyRadius", goldenValue(details.at("bodyRadius")), fins.getBodyRadius());
+    m.relative("bodyRadius", goldenValue(details.at("bodyRadius")), fins.getBodyRadius());
     m.relative("planformArea", goldenValue(details.at("planformArea")), fins.getPlanformArea());
     m.relative("componentVolume", goldenValue(details.at("componentVolume")),
                fins.getComponentVolume());

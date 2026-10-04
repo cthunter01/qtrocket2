@@ -113,11 +113,15 @@ class Rocket;
 ///   removal. In Java the exception leaves the child removed (parent null, the stages forgotten,
 ///   the parent's bounds not updated) and alive through the caller's reference. Here the caller
 ///   gets the removed child as the return value, which an exception keeps from it, so the child
-///   would be destroyed under the caller's pointers; instead it is linked in again at its index,
-///   the rocket's stage map and flight configurations are rebuilt, a second tree change event
-///   tells the listeners (if that one throws too, its exception is the one that leaves) and the
-///   first exception is rethrown. The overriddenBy pointers that the rest of the tree had into
-///   the removed subtree stay cleared.
+///   would be destroyed under the caller's pointers; instead it is linked in again at its index
+///   (at the end of the child list when a listener has made the list shorter than that), the
+///   rocket's stage map and flight configurations are rebuilt, the removed stages get back the
+///   activeness they had in every configuration (a configuration forgets the flag of a stage that
+///   leaves, and a returning stage would be active everywhere), a second tree change event tells
+///   the listeners (if that one throws too, its exception is the one that leaves) and the first
+///   exception is rethrown. The overriddenBy pointers that the rest of the tree had into the
+///   removed subtree stay cleared. splitInstances() gives no such guarantee once the original is
+///   out of the tree (see there).
 /// - The subtree() iteration also fails fast on a change of any child list it is walking, in a
 ///   detached tree or a rocket with events disabled too (Java checks the rocket's tree
 ///   modification id, and each ArrayList iterator its own list).
@@ -620,8 +624,9 @@ public:
     /// (see StageTracking) and the removed components from its flight configurations (see
     /// FlightConfiguration), fires the same event as addChild() and updates the bounds.
     /// When a change listener throws, the exception passes through and the component is a child
-    /// again, at its index (see the class comment): it is either returned or still in the tree,
-    /// never destroyed.
+    /// again, at its index or, when the listener has shortened the child list below it, at the
+    /// end (see the class comment), and its stages are as active in every flight configuration
+    /// as they were: it is either returned or still in the tree, never destroyed.
     [[nodiscard]] std::unique_ptr<RocketComponent> removeChild(
         const RocketComponent* component, StageTracking tracking = StageTracking::TRACK);
 
@@ -755,6 +760,13 @@ public:
     /// component is left alone. Then fires TREE_CHANGE from this component (which does nothing
     /// once it has been taken out of the tree, as in Java). When the component was split, the
     /// result owns it: dropping the result destroys this component.
+    ///
+    /// An exception thrown once this component is out of the tree (by a change listener: at the
+    /// final thaw, or without @p freezeRocket when a copy is added) leaves the split done as far
+    /// as it got, the rocket thawed, and this component destroyed with the lost result (Java
+    /// leaves it detached, alive through the caller's reference). Without @p freezeRocket, a
+    /// listener that throws while this component is taken out leaves the tree as it was (see
+    /// removeChild()).
     /// @throws BugError when the component is not in a Rocket.
     [[nodiscard]] SplitResult splitInstances(bool freezeRocket = true);
 

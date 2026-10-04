@@ -646,6 +646,60 @@ void Rocket::forgetComponents(const RocketComponent& removed)
     }
 }
 
+std::vector<Rocket::StageActiveness> Rocket::stageActivenessIn(const RocketComponent& root) const
+{
+    std::vector<Uuid> stageIds;
+    root.forEach([&stageIds](const RocketComponent& component) {
+        if (dynamic_cast<const AxialStage*>(&component) != nullptr)
+        {
+            stageIds.push_back(component.getId());
+        }
+    });
+
+    std::vector<StageActiveness> saved;
+    if (stageIds.empty())
+    {
+        return saved;
+    }
+    for (const FlightConfiguration& config : m_configSet.values())
+    {
+        for (const auto& entry : config.m_stages)
+        {
+            if (std::ranges::find(stageIds, entry.second.stageId) != stageIds.end())
+            {
+                saved.push_back(StageActiveness{.fcid    = config.getId(),
+                                                .stageId = entry.second.stageId,
+                                                .active  = entry.second.active});
+            }
+        }
+    }
+    return saved;
+}
+
+void Rocket::restoreStageActiveness(std::span<const StageActiveness> saved)
+{
+    if (saved.empty())
+    {
+        return;
+    }
+    // By id, not through getFlightConfiguration(), which gives the default for an id that has
+    // left the set.
+    for (FlightConfiguration& config : m_configSet.values())
+    {
+        for (auto& entry : config.m_stages)
+        {
+            for (const StageActiveness& flag : saved)
+            {
+                if (flag.fcid == config.getId() && flag.stageId == entry.second.stageId)
+                {
+                    entry.second.active = flag.active;
+                }
+            }
+        }
+        config.update();
+    }
+}
+
 void Rocket::enableEvents()
 {
     enableEvents(true);

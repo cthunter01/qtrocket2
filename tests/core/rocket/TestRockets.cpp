@@ -3,6 +3,7 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <format>
 #include <memory>
 #include <numbers>
 #include <ostream>
@@ -145,6 +146,21 @@ MotorConfiguration& addMotor(MotorMount& mount, const FlightConfigurationId& fci
 
 // ============================================================================ test rockets
 
+namespace
+{
+
+/// Removes the child @p child from @p parent and hands it to the caller, with its own type: the
+/// C++ form of Java's removeChild(), after which the maker goes on using its reference.
+template <std::derived_from<RocketComponent> Component>
+[[nodiscard]] std::unique_ptr<Component> takeChild(RocketComponent& parent, Component& child)
+{
+    std::unique_ptr<RocketComponent> removed = parent.removeChild(&child);
+    QTROCKET_ASSERT(removed.get() == &child);
+    return std::unique_ptr<Component>{dynamic_cast<Component*>(removed.release())};
+}
+
+}  // namespace
+
 FlightConfigurationId testFcid(int n)
 {
     static constexpr std::array<std::string_view, 5> kKeys{
@@ -285,6 +301,32 @@ void TestEstesAlphaIII::addRecoveryAndRings()
     centerings->setInstanceCount(2);
     centerings->setInstanceSeparation(0.035);
     rings = &body->addChild(std::move(centerings));
+}
+
+// ------------------------------------------------------------------------ splitRocketFins
+
+std::unique_ptr<TrapezoidFinSet> splitRocketFins(BodyTube& body, TrapezoidFinSet& fins,
+                                                 int finCount)
+{
+    // actually remove the fins
+    std::unique_ptr<TrapezoidFinSet> templateFins = takeChild(body, fins);
+
+    templateFins->setFinCount(1);
+    // and manually add in the equivalent the others
+    for (int finNumber = 1; finNumber < finCount; ++finNumber)
+    {
+        const double rootChord = templateFins->getRootChord();
+        const double tipChord  = templateFins->getTipChord();
+        const double sweep     = templateFins->getSweep();
+        const double height    = templateFins->getHeight();
+        auto singleFin = std::make_unique<TrapezoidFinSet>(1, rootChord, tipChord, sweep, height);
+        singleFin->setAngleOffset(((finNumber * std::numbers::pi) * 2.0) / finCount);
+        singleFin->setThickness(templateFins->getThickness());
+        singleFin->setAxialMethod(templateFins->getAxialMethod());
+        singleFin->setName(std::format("Single Fin #{}", finNumber));
+        body.addChild(std::move(singleFin));
+    }
+    return templateFins;
 }
 
 // ------------------------------------------------------------------------------- makeBeta
@@ -1006,21 +1048,6 @@ TestEndPlateRocket::TestEndPlateRocket()
 }
 
 // -------------------------------------------------------------- makeEstesAlphaIIIWithPods
-
-namespace
-{
-
-/// Removes the child @p child from @p parent and hands it to the caller, with its own type: the
-/// C++ form of Java's removeChild(), after which the maker goes on using its reference.
-template <std::derived_from<RocketComponent> Component>
-[[nodiscard]] std::unique_ptr<Component> takeChild(RocketComponent& parent, Component& child)
-{
-    std::unique_ptr<RocketComponent> removed = parent.removeChild(&child);
-    QTROCKET_ASSERT(removed.get() == &child);
-    return std::unique_ptr<Component>{dynamic_cast<Component*>(removed.release())};
-}
-
-}  // namespace
 
 TestEstesAlphaIIIWithPods::TestEstesAlphaIIIWithPods()
 {

@@ -1,10 +1,12 @@
 // The fixtures of tests/core/rocket/TestRockets.h against OpenRocket's TestRockets.java, for what
 // the golden files do not hold: the automatic radius flags the Java makers leave, the data of the
-// test motors, the separation settings of the stages, and the modification ids drawn while a
-// rocket is built (the events it fires). The expected listings and numbers are the output of a
-// Java program run on the thirteen makers (and on makeFalcon9Heavy() followed by addCoreFins())
-// with OpenRocket's compiled core (JDK 17), which prints the same lines as the functions below.
-// TestRocketsGolden (tests/core/goldens/test_rockets_golden_tests.cpp) compares everything else.
+// test motors, the separation settings of every stage and the deployment settings of every
+// recovery device in every configuration, and the modification ids drawn while a rocket is built
+// (the events it fires). The expected listings and numbers are the output of Java programs run
+// on the thirteen makers (and on makeFalcon9Heavy() followed by addCoreFins(), and
+// makeEstesAlphaIII() followed by splitRocketFins()) with OpenRocket's compiled core (JDK 17),
+// which print the same lines as the functions below. TestRocketsGolden
+// (tests/core/goldens/test_rockets_golden_tests.cpp) compares everything else.
 
 #include <algorithm>
 #include <array>
@@ -12,14 +14,17 @@
 #include <cstdint>
 #include <format>
 #include <iterator>
+#include <memory>
 #include <ostream>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/material/Material.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
@@ -27,10 +32,13 @@
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/DeploymentConfiguration.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MassObject.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -137,8 +145,7 @@ using QtRocket::Test::TestSimple2Stage;
 /// TEST_FCID_4, FALCON_9H_FCID_1) rather than one a maker draws at random.
 [[nodiscard]] bool isConstantId(const FlightConfigurationId& id)
 {
-    if (id.isDefaultId() ||
-        id == FlightConfigurationId::fromString("test_config #1: [ M1350, G77]"))
+    if (id.isDefaultId() || id == FlightConfigurationId::fromString(TestFalcon9Heavy::kFcid1))
     {
         return true;
     }
@@ -255,6 +262,34 @@ using QtRocket::Test::TestSimple2Stage;
                 QtRocket::separationEventName(separation.getSeparationEvent()),
                 javaDoubleToString(separation.getSeparationDelay()),
                 stage->getSeparationConfigurations().isDefault(id)));
+        }
+    }
+    return lines;
+}
+
+/// One line per recovery device of @p rocket and configuration (the default first, then in
+/// creation order; the devices in tree order): the deployment event, delay and altitude of the
+/// device in it, and whether its deployment set holds the default object under that id.
+[[nodiscard]] std::vector<std::string> deploymentLines(const Rocket& rocket)
+{
+    std::vector<std::string> lines;
+    for (const FlightConfigurationId& id : configurationIds(rocket))
+    {
+        for (const RocketComponent& component : rocket.subtree())
+        {
+            const auto* device = dynamic_cast<const QtRocket::RecoveryDevice*>(&component);
+            if (device == nullptr)
+            {
+                continue;
+            }
+            const QtRocket::DeploymentConfiguration& deployment =
+                device->getDeploymentConfigurations().get(id);
+            lines.push_back(std::format("DEPLOYMENT {} {} {}/{}/{} default={}", idName(rocket, id),
+                                        goldenPathOf(component),
+                                        QtRocket::deployEventName(deployment.getDeployEvent()),
+                                        javaDoubleToString(deployment.getDeployDelay()),
+                                        javaDoubleToString(deployment.getDeployAltitude()),
+                                        device->getDeploymentConfigurations().isDefault(id)));
         }
     }
     return lines;
@@ -687,9 +722,82 @@ TEST(TestRocketsFixture, ClusterPodsMotorsAreOpenRockets)
 
 // ================================================================================ separation
 
+/// The key of the default configuration id.
+constexpr std::string_view kDefaultIdKey = "ffffffff-f4f2-f1f0-0000-00000000162c";
+
+/// The Java program's lines "<what> <id> <path> <setting> default=<bool>" for a rocket whose
+/// components at @p paths, in tree order, all keep the default @p setting in the default
+/// configuration and in the configurations @p ids: a parameter set answers isDefault(fcid) for
+/// the default id only, as in Java.
+[[nodiscard]] std::string defaultLines(std::string_view what, std::string_view setting,
+                                       std::span<const std::string_view> ids,
+                                       std::span<const std::string_view> paths)
+{
+    std::string lines;
+    for (const std::string_view path : paths)
+    {
+        lines += std::format("{} {} {} {} default=true\n", what, kDefaultIdKey, path, setting);
+    }
+    for (const std::string_view id : ids)
+    {
+        for (const std::string_view path : paths)
+        {
+            lines += std::format("{} {} {} {} default=false\n", what, id, path, setting);
+        }
+    }
+    return lines;
+}
+
+/// defaultLines() for the stages at @p stagePaths, which all keep the default separation: at
+/// the EJECTION charge, without delay.
+[[nodiscard]] std::string defaultSeparations(std::span<const std::string_view> ids,
+                                             std::span<const std::string_view> stagePaths)
+{
+    return defaultLines("SEPARATION", "EJECTION/0.0", ids, stagePaths);
+}
+
+/// defaultSeparations() for a rocket whose only stage is child 0 of the rocket.
+[[nodiscard]] std::string oneStageDefaultSeparations(std::span<const std::string_view> ids)
+{
+    static constexpr std::array<std::string_view, 1> kStage{"/0"};
+    return defaultSeparations(ids, kStage);
+}
+
+/// No maker of the Estes Alpha III family sets a separation: the one stage keeps the default in
+/// the default and the five test configurations.
+TEST(TestRocketsFixture, EstesAlphaIIISeparationsAreOpenRockets)
+{
+    const std::string expected = oneStageDefaultSeparations(kFcidKeys);
+    EXPECT_EQ(joined(separationLines(*TestEstesAlphaIII{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestEstesAlphaIIIWithPods{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestEstesAlphaIIIWithMotorPods{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestEstesAlphaIIIWithSecondMotor{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestEstesAlphaIIIWithInlinePod{}.rocket)), expected);
+}
+
+TEST(TestRocketsFixture, TwoStageRocketsSeparationsAreOpenRockets)
+{
+    static constexpr std::array<std::string_view, 2> kStages{"/0", "/1"};
+    EXPECT_EQ(joined(separationLines(*TestBeta{}.rocket)), defaultSeparations(kFcidKeys, kStages));
+    // makeSimple2Stage() has TEST_FCID_0 only.
+    EXPECT_EQ(joined(separationLines(*TestSimple2Stage{}.rocket)),
+              defaultSeparations(std::span{kFcidKeys}.first(1), kStages));
+}
+
+/// The rockets without a flight configuration but the default.
+TEST(TestRocketsFixture, RocketsWithoutConfigurationsSeparationsAreOpenRockets)
+{
+    const std::string expected = oneStageDefaultSeparations({});
+    EXPECT_EQ(expected,
+              "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /0 EJECTION/0.0 "
+              "default=true\n");
+    EXPECT_EQ(joined(separationLines(*TestBigBlue{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestIsoHaisu{}.rocket)), expected);
+    EXPECT_EQ(joined(separationLines(*TestEndPlateRocket{}.rocket)), expected);
+}
+
 /// makeMultiStageEventTestRocket() is the one maker that sets a separation: its side boosters
-/// leave at their BURNOUT in its configuration. Every other stage keeps the default (EJECTION);
-/// a separation set answers isDefault(fcid) for the default id only, as in Java.
+/// leave at their BURNOUT in its configuration. Every other stage keeps the default (EJECTION).
 TEST(TestRocketsFixture, MultiStageEventTestRocketSeparationsAreOpenRockets)
 {
     const TestMultiStageEventTestRocket events;
@@ -702,17 +810,197 @@ TEST(TestRocketsFixture, MultiStageEventTestRocketSeparationsAreOpenRockets)
               "SEPARATION <config 0> /1/0/1 BURNOUT/0.0 default=false\n");
 }
 
+/// The Java program's lines for the Falcon 9 Heavy, with or without addCoreFins().
+constexpr std::string_view kFalcon9HeavySeparations =
+    "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /0 EJECTION/0.0 default=true\n"
+    "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /1 EJECTION/0.0 default=true\n"
+    "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /1/0/0 EJECTION/0.0 default=true\n"
+    "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /0 EJECTION/0.0 default=false\n"
+    "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /1 EJECTION/0.0 default=false\n"
+    "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /1/0/0 EJECTION/0.0 default=false\n";
+
 TEST(TestRocketsFixture, Falcon9HeavySeparationsAreOpenRockets)
 {
     const TestFalcon9Heavy f9h;
-    EXPECT_EQ(joined(separationLines(*f9h.rocket)),
-              "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /0 EJECTION/0.0 default=true\n"
-              "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /1 EJECTION/0.0 default=true\n"
-              "SEPARATION ffffffff-f4f2-f1f0-0000-00000000162c /1/0/0 EJECTION/0.0 default=true\n"
-              "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /0 EJECTION/0.0 default=false\n"
-              "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /1 EJECTION/0.0 default=false\n"
-              "SEPARATION 00000000-0000-0000-0000-00007cc3bbaa /1/0/0 EJECTION/0.0 "
+    EXPECT_EQ(joined(separationLines(*f9h.rocket)), kFalcon9HeavySeparations);
+
+    static_cast<void>(QtRocket::Test::addCoreFins(*f9h.rocket));
+    EXPECT_EQ(joined(separationLines(*f9h.rocket)), kFalcon9HeavySeparations);
+}
+
+TEST(TestRocketsFixture, ClusterPodsSeparationsAreOpenRockets)
+{
+    // The id of the configuration is random: the listing names it by its index.
+    static constexpr std::array<std::string_view, 1> kIds{"<config 0>"};
+    static constexpr std::array<std::string_view, 2> kStages{"/0", "/0/0/1"};
+    const TestClusterPods                            cluster;
+    EXPECT_EQ(joined(separationLines(*cluster.rocket)), defaultSeparations(kIds, kStages));
+}
+
+// ================================================================================ deployment
+
+/// defaultLines() for the recovery devices at @p devicePaths, which all keep the default
+/// deployment: at the EJECTION charge, without delay (and 200 m, the altitude of the ALTITUDE
+/// event).
+[[nodiscard]] std::string defaultDeployments(std::span<const std::string_view> ids,
+                                             std::span<const std::string_view> devicePaths)
+{
+    return defaultLines("DEPLOYMENT", "EJECTION/0.0/200.0", ids, devicePaths);
+}
+
+/// defaultDeployments() for the parachute of an Estes Alpha III at @p path, in the five test
+/// configurations.
+[[nodiscard]] std::string alphaDeployments(std::string_view path)
+{
+    const std::array<std::string_view, 1> device{path};
+    return defaultDeployments(kFcidKeys, device);
+}
+
+/// No maker sets a deployment: every recovery device keeps the default in every configuration.
+/// The Alpha III's parachute is child 3 of its body tube, child 2 once the fins have left the
+/// tube (the variant with pods).
+TEST(TestRocketsFixture, EstesAlphaIIIDeploymentsAreOpenRockets)
+{
+    EXPECT_EQ(joined(deploymentLines(*TestEstesAlphaIII{}.rocket)), alphaDeployments("/0/1/3"));
+    EXPECT_EQ(joined(deploymentLines(*TestBeta{}.rocket)), alphaDeployments("/0/1/3"));
+    EXPECT_EQ(joined(deploymentLines(*TestEstesAlphaIIIWithPods{}.rocket)),
+              alphaDeployments("/0/1/2"));
+    EXPECT_EQ(joined(deploymentLines(*TestEstesAlphaIIIWithMotorPods{}.rocket)),
+              alphaDeployments("/0/1/3"));
+    EXPECT_EQ(joined(deploymentLines(*TestEstesAlphaIIIWithSecondMotor{}.rocket)),
+              alphaDeployments("/0/1/3"));
+    EXPECT_EQ(joined(deploymentLines(*TestEstesAlphaIIIWithInlinePod{}.rocket)),
+              alphaDeployments("/0/1/0/1/3"));
+}
+
+TEST(TestRocketsFixture, Falcon9HeavyDeploymentsAreOpenRockets)
+{
+    // The parachute of the upper stage body; the shock cord is no recovery device.
+    const TestFalcon9Heavy f9h;
+    EXPECT_EQ(joined(deploymentLines(*f9h.rocket)),
+              "DEPLOYMENT ffffffff-f4f2-f1f0-0000-00000000162c /0/3/0 EJECTION/0.0/200.0 "
+              "default=true\n"
+              "DEPLOYMENT 00000000-0000-0000-0000-00007cc3bbaa /0/3/0 EJECTION/0.0/200.0 "
               "default=false\n");
+}
+
+TEST(TestRocketsFixture, MultiStageEventTestRocketDeploymentsAreOpenRockets)
+{
+    // The sustainer's parachute and the side boosters'.
+    static constexpr std::array<std::string_view, 1> kIds{"<config 0>"};
+    static constexpr std::array<std::string_view, 2> kChutes{"/0/1/0", "/1/0/1/1/0"};
+    const TestMultiStageEventTestRocket              events;
+    EXPECT_EQ(joined(deploymentLines(*events.rocket)), defaultDeployments(kIds, kChutes));
+}
+
+TEST(TestRocketsFixture, RocketsWithoutRecoveryDevices)
+{
+    EXPECT_TRUE(deploymentLines(*TestSimple2Stage{}.rocket).empty());
+    EXPECT_TRUE(deploymentLines(*TestBigBlue{}.rocket).empty());
+    EXPECT_TRUE(deploymentLines(*TestIsoHaisu{}.rocket).empty());
+    EXPECT_TRUE(deploymentLines(*TestEndPlateRocket{}.rocket).empty());
+    EXPECT_TRUE(deploymentLines(*TestClusterPods{}.rocket).empty());
+}
+
+// ========================================================================= splitRocketFins
+
+/// The Java program's text for the fin set @p fins: its count, angle, thickness, position,
+/// shape, material and cross-section.
+[[nodiscard]] std::string finText(const QtRocket::TrapezoidFinSet& fins)
+{
+    return std::format(
+        "count={} angle={} thickness={} method={} offset={} root={} tip={} sweep={} height={} "
+        "material={} cross={}",
+        fins.getFinCount(), javaDoubleToString(fins.getAngleOffset()),
+        javaDoubleToString(fins.getThickness()), QtRocket::axialMethodName(fins.getAxialMethod()),
+        javaDoubleToString(fins.getAxialOffset()), javaDoubleToString(fins.getRootChord()),
+        javaDoubleToString(fins.getTipChord()), javaDoubleToString(fins.getSweep()),
+        javaDoubleToString(fins.getHeight()), fins.getMaterial().getName(),
+        QtRocket::finCrossSectionName(fins.getCrossSection()));
+}
+
+/// One line per component of @p rocket, in tree order: its path, class and name, and finText()
+/// for a trapezoidal fin set.
+[[nodiscard]] std::vector<std::string> finLines(const Rocket& rocket)
+{
+    std::vector<std::string> lines;
+    for (const RocketComponent& component : rocket.subtree())
+    {
+        std::string line = std::format("{} {} \"{}\"", goldenPathOf(component),
+                                       QtRocket::className(component.kind()), component.getName());
+        if (const auto* fins = dynamic_cast<const QtRocket::TrapezoidFinSet*>(&component))
+        {
+            line += ' ' + finText(*fins);
+        }
+        lines.push_back(std::move(line));
+    }
+    return lines;
+}
+
+/// The Java program's lines for the Estes Alpha III once splitRocketFins() has taken its fin set
+/// out of the body tube: the other children moved up by one.
+constexpr std::string_view kAlphaWithoutFins =
+    "/ Rocket \"Estes Alpha III / Code Verification Rocket\"\n"
+    "/0 AxialStage \"Stage\"\n"
+    "/0/0 NoseCone \"Nose Cone\"\n"
+    "/0/1 BodyTube \"Body Tube\"\n"
+    "/0/1/0 LaunchLug \"Launch Lugs\"\n"
+    "/0/1/1 InnerTube \"Motor Mount Tube\"\n"
+    "/0/1/1/0 EngineBlock \"Engine Block\"\n"
+    "/0/1/2 Parachute \"Parachute\"\n"
+    "/0/1/3 CenteringRing \"Centering Rings\"\n";
+
+/// The Java program's text for a single fin of the Alpha III turned by the angle {}: what the
+/// new fins have, and the fin set taken out (at angle 0.0).
+constexpr std::string_view kAlphaSingleFin =
+    "count=1 angle={} thickness=0.0032 method=BOTTOM offset=0.0 root=0.05 tip=0.03 sweep=0.02 "
+    "height=0.05 material=Cardboard cross=SQUARE";
+
+/// The Java program's line for the new single fin number @p number, child @p child of the body
+/// tube, at @p angle.
+[[nodiscard]] std::string singleFinLine(int child, int number, std::string_view angle)
+{
+    return std::format("/0/1/{} TrapezoidFinSet \"Single Fin #{}\" ", child, number) +
+           std::format(kAlphaSingleFin, angle) + '\n';
+}
+
+/// TestRockets.splitRocketFins() on the Alpha III's three fins: two new single fins at the end
+/// of the body tube, at a third and two thirds of a turn (the latter reduced to (-pi, pi]). The
+/// fin set taken out, now a single fin, is not put back (so the body tube has two fins).
+TEST(TestRocketsFixture, SplitRocketFinsLeavesOpenRocketsSingleFins)
+{
+    const TestEstesAlphaIII                          alpha;
+    const std::unique_ptr<QtRocket::TrapezoidFinSet> taken =
+        QtRocket::Test::splitRocketFins(*alpha.body, *alpha.fins, 3);
+
+    EXPECT_EQ(joined(finLines(*alpha.rocket)), std::string{kAlphaWithoutFins} +
+                                                   singleFinLine(4, 1, "2.0943951023931953") +
+                                                   singleFinLine(5, 2, "-2.0943951023931957"));
+
+    ASSERT_EQ(taken.get(), alpha.fins);
+    EXPECT_EQ(taken->getParent(), nullptr);
+    EXPECT_EQ(taken->getName(), "3 Fin Set");
+    EXPECT_EQ(finText(*taken), std::format(kAlphaSingleFin, "0.0"));
+}
+
+/// The same with four fins, as BarrowmanCalculatorTest.testCpSplitQuadrupleFin does it: the
+/// count is set to 4 first, and three new single fins follow at quarter turns.
+TEST(TestRocketsFixture, SplitRocketFinsOfFourLeavesOpenRocketsSingleFins)
+{
+    const TestEstesAlphaIII alpha;
+    alpha.fins->setFinCount(4);
+    const std::unique_ptr<QtRocket::TrapezoidFinSet> taken =
+        QtRocket::Test::splitRocketFins(*alpha.body, *alpha.fins, 4);
+
+    EXPECT_EQ(joined(finLines(*alpha.rocket)), std::string{kAlphaWithoutFins} +
+                                                   singleFinLine(4, 1, "1.5707963267948966") +
+                                                   singleFinLine(5, 2, "3.141592653589793") +
+                                                   singleFinLine(6, 3, "-1.5707963267948966"));
+
+    ASSERT_EQ(taken.get(), alpha.fins);
+    EXPECT_EQ(taken->getParent(), nullptr);
+    EXPECT_EQ(taken->getName(), "3 Fin Set");
+    EXPECT_EQ(finText(*taken), std::format(kAlphaSingleFin, "0.0"));
 }
 
 // ======================================================================= modification ids
@@ -852,6 +1140,40 @@ TEST(TestRocketsFixture, AddCoreFinsDrawsOpenRocketsModificationIds)
     EXPECT_EQ(
         trace,
         fromJava({.drawn = 15, .mod = 13, .mass = 13, .aero = 13, .tree = 13, .functional = 13},
+                 symmetric));
+}
+
+/// Splits the fins of the Estes Alpha III @p rocket into @p finCount single fins as
+/// BarrowmanCalculatorTest does: the body tube is child 1 of the stage, the fin set its child 0.
+void splitAlphaFins(Rocket& rocket, int finCount, bool setCountFirst)
+{
+    auto& body = dynamic_cast<QtRocket::BodyTube&>(rocket.getChild(0).getChild(1));
+    auto& fins = dynamic_cast<QtRocket::TrapezoidFinSet&>(body.getChild(0));
+    if (setCountFirst)
+    {
+        fins.setFinCount(finCount);
+    }
+    static_cast<void>(QtRocket::Test::splitRocketFins(body, fins, finCount));
+}
+
+/// TestRockets.splitRocketFins() on the Alpha III fires the events of removeChild(), of
+/// setFinCount() on the detached fin set (none) and, per new fin, of addChild() (the setters of
+/// a fin not yet in the tree fire nothing).
+TEST(TestRocketsFixture, SplitRocketFinsDrawsOpenRocketsModificationIds)
+{
+    std::int64_t     symmetric = 0;
+    const ModIdTrace three     = drawnBy<TestEstesAlphaIII>(
+        symmetric, [](Rocket& rocket) { splitAlphaFins(rocket, 3, false); });
+    EXPECT_EQ(
+        three,
+        fromJava({.drawn = 36, .mod = 30, .mass = 30, .aero = 30, .tree = 30, .functional = 30},
+                 symmetric));
+
+    const ModIdTrace four = drawnBy<TestEstesAlphaIII>(
+        symmetric, [](Rocket& rocket) { splitAlphaFins(rocket, 4, true); });
+    EXPECT_EQ(
+        four,
+        fromJava({.drawn = 50, .mod = 44, .mass = 44, .aero = 44, .tree = 44, .functional = 44},
                  symmetric));
 }
 

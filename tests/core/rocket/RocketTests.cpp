@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <format>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -48,6 +49,7 @@
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/AxialOffsetSupport.h"
+#include "rocket/FailingListener.h"
 #include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
@@ -80,6 +82,7 @@ using QtRocket::ShockCord;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TubeCoupler;
+using QtRocket::Test::FailingListener;
 using QtRocket::Test::TestComponent;
 
 /// A received event: its type and source.
@@ -1232,31 +1235,39 @@ TEST(RocketEstesAlphaIII, UuidSearch)
 
 // ------------------------------------------------- removeChild() and a listener that throws
 
-/// A change listener of @p rocket that records how many children @p watched has at every event
-/// and throws std::runtime_error at its first event, or at every event.
-struct FailingListener
+/// An action for a FailingListener that takes the launch lug and the parachute of @p alpha out of
+/// its body tube, into @p taken.
+[[nodiscard]] std::function<void()> lugAndChuteTaker(
+    const QtRocket::Test::TestEstesAlphaIII&       alpha,
+    std::vector<std::unique_ptr<RocketComponent>>& taken)
 {
-    std::vector<std::size_t>                childCounts;
-    bool                                    always{false};
-    ComponentChangeSignal::ScopedConnection connection;
+    return [&alpha, &taken] {
+        taken.push_back(alpha.body->removeChild(alpha.lug));
+        taken.push_back(alpha.body->removeChild(alpha.chute));
+    };
+}
 
-    FailingListener(Rocket& rocket, const RocketComponent& watched, bool failAlways)
-      : always(failAlways),
-        connection(rocket.addComponentChangeListener(
-            [this, &watched](const ComponentChangeEvent&) { heard(watched); }))
-    {
-    }
+/// An action for a FailingListener that adds a tube coupler as the first child of @p body and
+/// notes it in @p added.
+[[nodiscard]] std::function<void()> couplerAdder(BodyTube& body, const TubeCoupler*& added)
+{
+    return [&body, &added] { added = &body.addChild(std::make_unique<TubeCoupler>(), 0); };
+}
 
-private:
-    void heard(const RocketComponent& watched)
-    {
-        childCounts.push_back(watched.getChildCount());
-        if (always || childCounts.size() == 1)
-        {
-            throw std::runtime_error("the listener failed");
-        }
-    }
-};
+/// An action for a FailingListener that takes @p child out of @p parent, into @p taken.
+[[nodiscard]] std::function<void()> childTaker(RocketComponent&       parent,
+                                               const RocketComponent& child,
+                                               std::vector<std::unique_ptr<RocketComponent>>& taken)
+{
+    return [&parent, &child, &taken] { taken.push_back(parent.removeChild(&child)); };
+}
+
+/// An action for a FailingListener that removes the flight configuration @p id of @p rocket.
+[[nodiscard]] std::function<void()> configurationRemover(Rocket&                      rocket,
+                                                         const FlightConfigurationId& id)
+{
+    return [&rocket, id] { rocket.removeFlightConfiguration(id); };
+}
 
 /// A listener that throws while removeChild() announces the removal keeps the caller from
 /// getting the removed child: it is then a child again, at its index, with its subtree and its
@@ -1313,8 +1324,60 @@ TEST(RocketRemoveChild, AListenerThatKeepsThrowingStillLeavesTheChildInTheTree)
     EXPECT_EQ(alpha.fins->getFinCount(), 3);
 }
 
-/// The same for a stage that carries a booster set: the stage map, the stage numbers and the
-/// configurations are as before the failed removal.
+/// A listener may change the parent's child list before it throws. When the list has become
+/// shorter than the index of the removed child, the child comes back at the end.
+TEST(RocketRemoveChild, AListenerThatShortensTheChildListStillLeavesTheChildInTheTree)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    Rocket&                                 rocket = *alpha.rocket;
+    BodyTube&                               body   = *alpha.body;
+    // The fins, the lug, the motor mount, the parachute and the rings.
+    ASSERT_EQ(body.getChildPosition(alpha.rings), std::optional<std::size_t>{4});
+
+    std::vector<std::unique_ptr<RocketComponent>> taken;
+    const FailingListener listener(rocket, body, false, lugAndChuteTaker(alpha, taken));
+    EXPECT_THROW(static_cast<void>(body.removeChild(alpha.rings)), std::runtime_error);
+
+    // Heard: the removal (four children), then the return of the rings to a list of two.
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{4, 3}));
+    // The listener's own removals went through; the rings follow the fins and the motor mount.
+    ASSERT_EQ(taken.size(), 2U);
+    EXPECT_EQ(taken[0].get(), alpha.lug);
+    EXPECT_EQ(taken[1].get(), alpha.chute);
+    EXPECT_EQ(body.getChildCount(), 3U);
+    EXPECT_EQ(body.getChildPosition(alpha.fins), std::optional<std::size_t>{0});
+    EXPECT_EQ(body.getChildPosition(alpha.inner), std::optional<std::size_t>{1});
+    EXPECT_EQ(body.getChildPosition(alpha.rings), std::optional<std::size_t>{2});
+    EXPECT_EQ(alpha.rings->getParent(), &body);
+    EXPECT_EQ(rocket.findComponent(alpha.rings->getId()), alpha.rings);
+    EXPECT_EQ(alpha.rings->getInstanceCount(), 2);
+}
+
+/// A listener that makes the child list longer before it throws: the child comes back at the
+/// index it had.
+TEST(RocketRemoveChild, AListenerThatLengthensTheChildListLeavesTheChildAtItsIndex)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    Rocket&                                 rocket = *alpha.rocket;
+    BodyTube&                               body   = *alpha.body;
+    ASSERT_EQ(body.getChildPosition(alpha.lug), std::optional<std::size_t>{1});
+
+    const TubeCoupler*    added = nullptr;
+    const FailingListener listener(rocket, body, false, couplerAdder(body, added));
+    EXPECT_THROW(static_cast<void>(body.removeChild(alpha.lug)), std::runtime_error);
+
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{4, 6}));
+    // The coupler, the lug, then the fins and the other three.
+    EXPECT_EQ(body.getChildCount(), 6U);
+    EXPECT_EQ(body.getChildPosition(added), std::optional<std::size_t>{0});
+    EXPECT_EQ(body.getChildPosition(alpha.lug), std::optional<std::size_t>{1});
+    EXPECT_EQ(body.getChildPosition(alpha.fins), std::optional<std::size_t>{2});
+    EXPECT_EQ(alpha.lug->getParent(), &body);
+}
+
+/// The same for a stage that carries a booster set: the stage map and the stage numbers are as
+/// before the failed removal, and so are the configurations of a rocket whose stages are all
+/// active (a stage that returns is active, as in OpenRocket).
 TEST(RocketRemoveChild, AThrowingListenerLeavesTheStagesTracked)
 {
     const QtRocket::Test::TestFalcon9Heavy f9h;
@@ -1339,6 +1402,197 @@ TEST(RocketRemoveChild, AThrowingListenerLeavesTheStagesTracked)
     EXPECT_TRUE(config.isStageActive(2));
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2);
     EXPECT_EQ(config.getActiveMotors().size(), 2U);
+}
+
+/// "0+ 1- 2-": the stages of @p config by number, each with whether it is active.
+[[nodiscard]] std::string stageActiveness(const FlightConfiguration& config)
+{
+    std::string text;
+    for (int stage = 0; stage < config.getStageCount(); stage++)
+    {
+        text += std::format("{}{}{}", text.empty() ? "" : " ", stage,
+                            config.isStageActive(stage) ? '+' : '-');
+    }
+    return text;
+}
+
+/// A configuration forgets the flag of a stage that leaves the rocket (the failed event has
+/// already told the configurations), and a stage that arrives is active in every configuration.
+/// The stages a failed removal puts back are as active as they were, in the selected and in
+/// every other configuration, and so are their components and motors. (OpenRocket leaves the
+/// stage removed; adding it again would make it active everywhere.)
+TEST(RocketRemoveChild, AThrowingListenerKeepsTheActivenessOfARemovedStage)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    Rocket&                                rocket = *f9h.rocket;
+
+    // Selected: the payload stage only. A second configuration without the core stage and its
+    // boosters; a third without the core stage but with the boosters.
+    FlightConfiguration& selected = rocket.getSelectedConfiguration();
+    selected.setOnlyStage(QtRocket::Test::TestFalcon9Heavy::kPayloadStageNumber);
+    FlightConfiguration& second = rocket.createFlightConfiguration(QtRocket::Test::testFcid(3));
+    second.setStageActive(QtRocket::Test::TestFalcon9Heavy::kCoreStageNumber, false);
+    FlightConfiguration& third = rocket.createFlightConfiguration(QtRocket::Test::testFcid(4));
+    third.setStageActive(QtRocket::Test::TestFalcon9Heavy::kCoreStageNumber, false, false);
+    ASSERT_EQ(stageActiveness(selected), "0+ 1- 2-");
+    ASSERT_EQ(stageActiveness(second), "0+ 1- 2-");
+    ASSERT_EQ(stageActiveness(third), "0+ 1- 2+");
+    ASSERT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+ 2+");
+    ASSERT_TRUE(selected.getActiveMotors().empty());
+
+    const FailingListener listener(rocket, rocket, false);
+    EXPECT_THROW(static_cast<void>(rocket.removeChild(f9h.coreStage)), std::runtime_error);
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{1, 2}));
+    ASSERT_EQ(rocket.getStage(1), f9h.coreStage);
+    ASSERT_EQ(rocket.getStage(2), f9h.boosterStage);
+
+    EXPECT_EQ(stageActiveness(selected), "0+ 1- 2-");
+    EXPECT_EQ(stageActiveness(second), "0+ 1- 2-");
+    EXPECT_EQ(stageActiveness(third), "0+ 1- 2+");
+    EXPECT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+ 2+");
+
+    EXPECT_FALSE(selected.getActiveInstances().containsKey(*f9h.coreBody));
+    EXPECT_FALSE(selected.getActiveInstances().containsKey(*f9h.boosterBody));
+    EXPECT_TRUE(selected.getActiveMotors().empty());
+    EXPECT_FALSE(second.getActiveInstances().containsKey(*f9h.coreBody));
+    EXPECT_FALSE(second.getActiveInstances().containsKey(*f9h.boosterBody));
+    EXPECT_FALSE(third.getActiveInstances().containsKey(*f9h.coreBody));
+    EXPECT_EQ(third.getActiveInstances().count(*f9h.boosterBody), 2);
+    EXPECT_EQ(rocket.getEmptyConfiguration().getActiveInstances().count(*f9h.boosterBody), 2);
+}
+
+/// The same when the removed child is no stage but carries one: the core body with its booster
+/// set, switched off in the selected configuration.
+TEST(RocketRemoveChild, AThrowingListenerKeepsTheActivenessOfAStageInTheRemovedSubtree)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    Rocket&                                rocket   = *f9h.rocket;
+    FlightConfiguration&                   selected = rocket.getSelectedConfiguration();
+    selected.setStageActive(QtRocket::Test::TestFalcon9Heavy::kBoosterStageNumber, false);
+    ASSERT_EQ(stageActiveness(selected), "0+ 1+ 2-");
+    ASSERT_EQ(selected.getActiveMotors().size(), 1U);
+
+    const FailingListener listener(rocket, *f9h.coreStage, false);
+    EXPECT_THROW(static_cast<void>(f9h.coreStage->removeChild(f9h.coreBody)), std::runtime_error);
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{0, 1}));
+    ASSERT_EQ(f9h.coreBody->getParent(), f9h.coreStage);
+    ASSERT_EQ(rocket.getStage(2), f9h.boosterStage);
+
+    EXPECT_EQ(stageActiveness(selected), "0+ 1+ 2-");
+    EXPECT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+ 2+");
+    EXPECT_EQ(selected.getActiveInstances().count(*f9h.coreBody), 1);
+    EXPECT_FALSE(selected.getActiveInstances().containsKey(*f9h.boosterBody));
+    // The core's M1350, not the boosters' G77s.
+    EXPECT_EQ(selected.getActiveMotors().size(), 1U);
+}
+
+/// With StageTracking::SKIP the child that comes back is not registered by number either; the
+/// rocket's stage map is rebuilt from the tree all the same, and the activeness is kept.
+TEST(RocketRemoveChild, AThrowingListenerLeavesTheStagesTrackedWithoutStageTracking)
+{
+    const QtRocket::Test::TestBeta beta;
+    Rocket&                        rocket = *beta.rocket;
+    FlightConfiguration&           config = rocket.getSelectedConfiguration();
+    config.setOnlyStage(0);
+    ASSERT_EQ(stageActiveness(config), "0+ 1-");
+
+    const FailingListener listener(rocket, rocket, false);
+    EXPECT_THROW(static_cast<void>(
+                     rocket.removeChild(beta.boosterStage, RocketComponent::StageTracking::SKIP)),
+                 std::runtime_error);
+
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{1, 2}));
+    EXPECT_EQ(rocket.getStageCount(), 2U);
+    EXPECT_EQ(rocket.getStage(0), beta.stage);
+    EXPECT_EQ(rocket.getStage(1), beta.boosterStage);
+    EXPECT_EQ(beta.boosterStage->getStageNumber(), 1);
+    EXPECT_EQ(stageActiveness(config), "0+ 1-");
+    EXPECT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+");
+    EXPECT_FALSE(config.getActiveInstances().containsKey(*beta.boosterBody));
+}
+
+/// What comes back is the stage's flag, not FlightConfiguration::isStageActive(), which is false
+/// for a stage without children whatever its flag: an empty stage whose removal failed flies as
+/// soon as it holds a component.
+TEST(RocketRemoveChild, AThrowingListenerKeepsTheFlagOfAnEmptyStage)
+{
+    const QtRocket::Test::TestSimple2Stage simple;
+    Rocket&                                rocket = *simple.rocket;
+    AxialStage&                            empty  = rocket.addChild(std::make_unique<AxialStage>());
+    FlightConfiguration&                   config = rocket.getSelectedConfiguration();
+    config.setStageActive(1, false);
+    ASSERT_EQ(stageActiveness(config), "0+ 1- 2-");
+
+    const FailingListener listener(rocket, rocket, false);
+    EXPECT_THROW(static_cast<void>(rocket.removeChild(&empty)), std::runtime_error);
+    ASSERT_EQ(rocket.getStage(2), &empty);
+    EXPECT_EQ(stageActiveness(config), "0+ 1- 2-");
+
+    empty.addChild(std::make_unique<BodyTube>(0.1, 0.01));
+    EXPECT_EQ(stageActiveness(config), "0+ 1- 2+");
+}
+
+/// A listener that removes a flight configuration before it throws: the flags saved for that
+/// configuration go nowhere (not into the default configuration, which the rocket gives for an
+/// id it no longer has), and the configurations that remain keep theirs.
+TEST(RocketRemoveChild, AListenerThatRemovesAConfigurationLeavesTheOthersAsTheyWere)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    Rocket&                                rocket   = *f9h.rocket;
+    FlightConfiguration&                   selected = rocket.getSelectedConfiguration();
+    selected.setStageActive(QtRocket::Test::TestFalcon9Heavy::kBoosterStageNumber, false);
+    const FlightConfigurationId extraId = QtRocket::Test::testFcid(3);
+    rocket.createFlightConfiguration(extraId).setOnlyStage(
+        QtRocket::Test::TestFalcon9Heavy::kPayloadStageNumber);
+    ASSERT_EQ(rocket.getConfigurationCount(), 2);
+    ASSERT_EQ(stageActiveness(selected), "0+ 1+ 2-");
+    ASSERT_EQ(stageActiveness(rocket.getFlightConfiguration(extraId)), "0+ 1- 2-");
+    ASSERT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+ 2+");
+
+    const FailingListener listener(rocket, rocket, false, configurationRemover(rocket, extraId));
+    EXPECT_THROW(static_cast<void>(rocket.removeChild(f9h.coreStage)), std::runtime_error);
+
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{1, 2}));
+    EXPECT_EQ(rocket.getConfigurationCount(), 1);
+    EXPECT_FALSE(rocket.containsFlightConfigurationId(extraId));
+    ASSERT_EQ(rocket.getStage(1), f9h.coreStage);
+    ASSERT_EQ(rocket.getStage(2), f9h.boosterStage);
+    EXPECT_EQ(stageActiveness(selected), "0+ 1+ 2-");
+    EXPECT_EQ(stageActiveness(rocket.getEmptyConfiguration()), "0+ 1+ 2+");
+    EXPECT_EQ(selected.getActiveInstances().count(*f9h.coreBody), 1);
+    EXPECT_FALSE(selected.getActiveInstances().containsKey(*f9h.boosterBody));
+    EXPECT_EQ(selected.getActiveMotors().size(), 1U);
+}
+
+/// A listener that takes the parent itself out of the rocket before it throws: the child comes
+/// back under the parent, which the listener now owns, and no second event reaches the rocket,
+/// whose configurations hold neither of them.
+TEST(RocketRemoveChild, AListenerThatDetachesTheParentLeavesTheChildUnderIt)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    Rocket&                                 rocket = *alpha.rocket;
+    BodyTube&                               body   = *alpha.body;
+
+    std::vector<std::unique_ptr<RocketComponent>> taken;
+    const FailingListener listener(rocket, body, false, childTaker(*alpha.stage, body, taken));
+    EXPECT_THROW(static_cast<void>(body.removeChild(alpha.fins)), std::runtime_error);
+
+    // Heard: the removal of the fins only.
+    EXPECT_EQ(listener.childCounts, std::vector<std::size_t>{4});
+    ASSERT_EQ(taken.size(), 1U);
+    EXPECT_EQ(taken[0].get(), &body);
+    EXPECT_EQ(body.getParent(), nullptr);
+    EXPECT_EQ(alpha.stage->getChildCount(), 1U);
+    EXPECT_EQ(body.getChildCount(), 5U);
+    EXPECT_EQ(body.getChildPosition(alpha.fins), std::optional<std::size_t>{0});
+    EXPECT_EQ(alpha.fins->getParent(), &body);
+    EXPECT_EQ(alpha.fins->getFinCount(), 3);
+    EXPECT_EQ(rocket.findComponent(alpha.fins->getId()), nullptr);
+
+    const FlightConfiguration& config = rocket.getSelectedConfiguration();
+    EXPECT_FALSE(config.getActiveInstances().containsKey(body));
+    EXPECT_FALSE(config.getActiveInstances().containsKey(*alpha.fins));
+    EXPECT_TRUE(config.getActiveMotors().empty());
 }
 
 /// RocketTest.testBeta: the locations of the booster's components and the bounds.

@@ -12,12 +12,14 @@
 //   fixture that drifts from it shows here. Every entry of "details" has to be compared: one
 //   that no comparison reads is reported.
 // - Every flight configuration is compared with it selected, as the harness dumps it: its id,
-//   name, stages, motors, reference values, lengths, bounds, active components and, for every
-//   instance of every active component, its number, its location and the transformations of the
-//   instance and of its parent instance. Two makers (makeMultiStageEventTestRocket() and
-//   makeClusterPods()) give their configuration a new random id, which is then not compared.
+//   name, stages, motors, reference values, lengths, bounds, active components, the components
+//   of its instance map and, for every instance of each of them, its number, its location and the
+//   transformations of the instance and of its parent instance. Two makers
+//   (makeMultiStageEventTestRocket() and makeClusterPods()) give their configuration a new
+//   random id, which is then not compared.
 // - Not compared: a component's id (a random UUID) and "loadWarnings" (the .ork loader's, empty
-//   for a rocket that was built).
+//   for a rocket that was built). The file's "schema", "schemaVersion" and "input" are checked by
+//   goldens_schema_tests.cpp.
 //
 // The numbers of components and configurations compared are taken from each golden file: a rocket
 // that skips one, or has one more, fails.
@@ -228,7 +230,10 @@ public:
         }
     }
 
-    /// A radius, a length, an offset or an angle: within kAbsolute.
+    /// A dimension (a radius, a length, a chord, a wall): a geometry value, within kRelative.
+    void length(std::string_view key, double actual) { relative(key, actual); }
+
+    /// An offset, a position or an angle: within kAbsolute.
     void absolute(std::string_view key, double actual)
     {
         if (const json* expected = read(key))
@@ -353,7 +358,7 @@ void compareCommonDetails(Details& d, const RocketComponent& actual)
     }
     if (const auto* line = dynamic_cast<const QtRocket::LineInstanceable*>(&actual))
     {
-        d.absolute("instanceSeparation", line->getInstanceSeparation());
+        d.length("instanceSeparation", line->getInstanceSeparation());
     }
 }
 
@@ -365,11 +370,11 @@ void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
     d.relative("fullVolume", actual.getFullVolume());
     d.relative("componentWetArea", actual.getComponentWetArea());
     d.relative("componentPlanformArea", actual.getComponentPlanformArea());
-    d.absolute("foreRadius", actual.getForeRadius());
-    d.absolute("aftRadius", actual.getAftRadius());
-    d.absolute("maxRadius", actual.getMaxRadius());
-    d.absolute("innerRadius", actual.getInnerRadius());
-    d.absolute("thickness", actual.getThickness());
+    d.length("foreRadius", actual.getForeRadius());
+    d.length("aftRadius", actual.getAftRadius());
+    d.length("maxRadius", actual.getMaxRadius());
+    d.length("innerRadius", actual.getInnerRadius());
+    d.length("thickness", actual.getThickness());
     d.boolean("filled", actual.isFilled());
     d.text("finish", QtRocket::finishName(actual.getFinish()));
     d.material("material", actual.getMaterial());
@@ -379,18 +384,18 @@ void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
         d.text("shapeType", QtRocket::transitionShapeName(transition->getShapeType()));
         d.absolute("shapeParameter", transition->getShapeParameter());
         d.boolean("clipped", transition->isClipped());
-        d.absolute("foreShoulderRadius", transition->getForeShoulderRadius());
-        d.absolute("foreShoulderLength", transition->getForeShoulderLength());
-        d.absolute("foreShoulderThickness", transition->getForeShoulderThickness());
+        d.length("foreShoulderRadius", transition->getForeShoulderRadius());
+        d.length("foreShoulderLength", transition->getForeShoulderLength());
+        d.length("foreShoulderThickness", transition->getForeShoulderThickness());
         d.boolean("foreShoulderCapped", transition->isForeShoulderCapped());
-        d.absolute("aftShoulderRadius", transition->getAftShoulderRadius());
-        d.absolute("aftShoulderLength", transition->getAftShoulderLength());
-        d.absolute("aftShoulderThickness", transition->getAftShoulderThickness());
+        d.length("aftShoulderRadius", transition->getAftShoulderRadius());
+        d.length("aftShoulderLength", transition->getAftShoulderLength());
+        d.length("aftShoulderThickness", transition->getAftShoulderThickness());
         d.boolean("aftShoulderCapped", transition->isAftShoulderCapped());
     }
     if (const auto* tube = dynamic_cast<const QtRocket::BodyTube*>(&actual))
     {
-        d.absolute("outerRadius", tube->getOuterRadius());
+        d.length("outerRadius", tube->getOuterRadius());
         d.absolute("motorOverhang", tube->getMotorOverhang());
         d.text("clusterConfiguration", tube->getClusterConfiguration().getXmlName());
     }
@@ -400,9 +405,9 @@ void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
 /// material; an inner tube's mount and cluster settings.
 void compareRingDetails(Details& d, const QtRocket::RingComponent& actual)
 {
-    d.absolute("outerRadius", actual.getOuterRadius());
-    d.absolute("innerRadius", actual.getInnerRadius());
-    d.absolute("thickness", actual.getThickness());
+    d.length("outerRadius", actual.getOuterRadius());
+    d.length("innerRadius", actual.getInnerRadius());
+    d.length("thickness", actual.getThickness());
     d.absolute("radialPosition", actual.getRadialPosition());
     d.absolute("radialDirection", actual.getRadialDirection());
     d.material("material", actual.getMaterial());
@@ -418,20 +423,20 @@ void compareRingDetails(Details& d, const QtRocket::RingComponent& actual)
 /// A parachute or a shock cord: its packed radius and radial position, and what the class adds.
 void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
 {
-    d.absolute("radius", actual.getRadius());
+    d.length("radius", actual.getRadius());
     d.absolute("radialPosition", actual.getRadialPosition());
     d.absolute("radialDirection", actual.getRadialDirection());
     if (const auto* chute = dynamic_cast<const QtRocket::Parachute*>(&actual))
     {
-        d.absolute("diameter", chute->getDiameter());
+        d.length("diameter", chute->getDiameter());
         d.relative("cd", chute->getCD());
         d.integer("lineCount", chute->getLineCount());
-        d.absolute("lineLength", chute->getLineLength());
+        d.length("lineLength", chute->getLineLength());
         d.material("material", chute->getMaterial());
     }
     if (const auto* cord = dynamic_cast<const QtRocket::ShockCord*>(&actual))
     {
-        d.absolute("cordLength", cord->getCordLength());
+        d.length("cordLength", cord->getCordLength());
         d.material("material", cord->getMaterial());
     }
 }
@@ -441,27 +446,27 @@ void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
 void compareFinSetDetails(Details& d, const QtRocket::FinSet& actual)
 {
     d.relative("planformArea", actual.getPlanformArea());
-    d.absolute("thickness", actual.getThickness());
-    d.absolute("bodyRadius", actual.getBodyRadius());
+    d.length("thickness", actual.getThickness());
+    d.length("bodyRadius", actual.getBodyRadius());
     d.integer("finCount", actual.getFinCount());
     d.absolute("cantAngle", actual.getCantAngle());
     d.absolute("baseRotation", actual.getBaseRotation());
     d.text("crossSection", QtRocket::finCrossSectionName(actual.getCrossSection()));
-    d.absolute("span", actual.getSpan());
-    d.absolute("tabHeight", actual.getTabHeight());
-    d.absolute("tabLength", actual.getTabLength());
+    d.length("span", actual.getSpan());
+    d.length("tabHeight", actual.getTabHeight());
+    d.length("tabLength", actual.getTabLength());
     d.absolute("tabOffset", actual.getTabOffset());
-    d.absolute("filletRadius", actual.getFilletRadius());
+    d.length("filletRadius", actual.getFilletRadius());
     d.material("filletMaterial", actual.getFilletMaterial());
     d.points("finPoints", actual.getFinPoints());
     d.points("rootPoints", actual.getRootPoints());
     d.points("tabPoints", actual.getTabPoints());
     if (const auto* trapezoid = dynamic_cast<const QtRocket::TrapezoidFinSet*>(&actual))
     {
-        d.absolute("rootChord", trapezoid->getRootChord());
-        d.absolute("tipChord", trapezoid->getTipChord());
-        d.absolute("height", trapezoid->getHeight());
-        d.absolute("sweep", trapezoid->getSweep());
+        d.length("rootChord", trapezoid->getRootChord());
+        d.length("tipChord", trapezoid->getTipChord());
+        d.length("height", trapezoid->getHeight());
+        d.length("sweep", trapezoid->getSweep());
         d.absolute("sweepAngle", trapezoid->getSweepAngle());
     }
 }
@@ -478,9 +483,9 @@ void compareExternalDetails(Details& d, const QtRocket::ExternalComponent& actua
     }
     if (const auto* lug = dynamic_cast<const QtRocket::LaunchLug*>(&actual))
     {
-        d.absolute("outerRadius", lug->getOuterRadius());
-        d.absolute("innerRadius", lug->getInnerRadius());
-        d.absolute("thickness", lug->getThickness());
+        d.length("outerRadius", lug->getOuterRadius());
+        d.length("innerRadius", lug->getInnerRadius());
+        d.length("thickness", lug->getThickness());
     }
 }
 
@@ -509,7 +514,7 @@ void compareDetails(Mismatches& m, const json& expected, const RocketComponent& 
     if (const auto* rocket = dynamic_cast<const Rocket*>(&actual))
     {
         d.text("referenceType", QtRocket::referenceTypeName(rocket->getReferenceType()));
-        d.absolute("customReferenceLength", rocket->getCustomReferenceLength());
+        d.length("customReferenceLength", rocket->getCustomReferenceLength());
         d.boolean("perfectFinish", rocket->isPerfectFinish());
     }
     d.unread();
@@ -676,6 +681,40 @@ void compareInstanceContexts(Mismatches& m, const std::string& path, const json&
     }
 }
 
+/// @p paths as one text, separated by spaces.
+[[nodiscard]] std::string joinedPaths(std::span<const std::string> paths)
+{
+    std::string text;
+    for (const std::string& path : paths)
+    {
+        text += text.empty() ? "" : " ";
+        text += path;
+    }
+    return text;
+}
+
+/// Compares the keys of the instance map of @p config with the golden `instances` entries
+/// (OpenRocket's key set, in tree order): the same components in the same order, so that the map
+/// holds no component beyond them and no golden entry is missing or repeated.
+void compareInstanceKeys(Mismatches& m, const json& expected, const FlightConfiguration& config)
+{
+    std::vector<std::string> expectedKeys;
+    for (const json& entry : expected.at("instances"))
+    {
+        expectedKeys.push_back(entry.at("path").get<std::string>());
+    }
+    std::vector<std::string> keys;
+    for (const RocketComponent* key : config.getActiveInstances().keys())
+    {
+        keys.push_back(goldenPathOf(*key));
+    }
+    if (keys != expectedKeys)
+    {
+        m.note(std::format("instances: expected the components [{}], got [{}]",
+                           joinedPaths(expectedKeys), joinedPaths(keys)));
+    }
+}
+
 /// Compares the active components of @p config and their instances.
 void compareActiveInstances(Mismatches& m, const json& expected, const Rocket& rocket,
                             const FlightConfiguration& config)
@@ -696,6 +735,7 @@ void compareActiveInstances(Mismatches& m, const json& expected, const Rocket& r
                            expectedActive.size(), active.size()));
     }
 
+    compareInstanceKeys(m, expected, config);
     for (const json& entry : expected.at("instances"))
     {
         const auto             path      = entry.at("path").get<std::string>();

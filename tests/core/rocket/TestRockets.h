@@ -49,8 +49,7 @@
 /// OpenRocket does not promise the same rocket from one version to the next). Not ported either:
 /// the makers that return an OpenRocketDocument (makeTestRocket_v100() ... and
 /// makeTestRocket_for_estimateFileSize(), with getTestMotor(), which only they use) and
-/// dumpRocket(), which wait for the document and file tiers; and splitRocketFins(), which only
-/// BarrowmanCalculatorTest calls (the aero tier).
+/// dumpRocket(), which wait for the document and file tiers.
 namespace QtRocket::Test
 {
 
@@ -129,6 +128,15 @@ private:
     /// The parachute and the centering rings.
     void addRecoveryAndRings();
 };
+
+/// TestRockets.splitRocketFins(): takes @p fins out of @p body, makes it a single fin, and adds
+/// @p finCount - 1 new single fins to @p body, "Single Fin #1" ...: each with the chords, the
+/// sweep, the height, the thickness and the axial method of @p fins, turned by
+/// 2 pi n / @p finCount. As in Java, the fin set taken out is not put back, so @p body ends with
+/// @p finCount - 1 fins (BarrowmanCalculatorTest, the one caller, expects the CP of the whole
+/// set all the same). It is returned: Java's caller keeps its reference to it.
+[[nodiscard]] std::unique_ptr<TrapezoidFinSet> splitRocketFins(BodyTube&        body,
+                                                               TrapezoidFinSet& fins, int finCount);
 
 /// TestRockets.makeBeta(): the Estes Alpha III as the sustainer, plus a booster stage with a
 /// body tube (0.06 m, the sustainer's radius and wall) holding a coupler, the booster fins, a
@@ -224,9 +232,17 @@ private:
 /// active.
 struct TestFalcon9Heavy
 {
+    /// TestRockets.FALCON_9H_FCID_1: the key of the rocket's flight configuration.
+    static constexpr std::string_view kFcid1 = "test_config #1: [ M1350, G77]";
+    /// TestRockets.FALCON_9H_PAYLOAD_STAGE_NUMBER, FALCON_9H_CORE_STAGE_NUMBER and
+    /// FALCON_9H_BOOSTER_STAGE_NUMBER.
+    static constexpr int kPayloadStageNumber = 0;
+    static constexpr int kCoreStageNumber    = 1;
+    static constexpr int kBoosterStageNumber = 2;
+
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
-    /// TestRockets.FALCON_9H_FCID_1.
-    FlightConfigurationId fcid{FlightConfigurationId::fromString("test_config #1: [ M1350, G77]")};
+    /// The configuration of FALCON_9H_FCID_1.
+    FlightConfigurationId fcid{FlightConfigurationId::fromString(kFcid1)};
     AxialStage*           payloadStage{nullptr};
     NoseCone*             payloadNose{nullptr};
     BodyTube*             payloadBody{nullptr};
