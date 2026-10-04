@@ -66,8 +66,10 @@ public:
     /// BULK, storage) (material/MaterialPreferences.h), e.g. "Polystyrene" for a nose cone after
     /// loadDefaultComponentMaterials(). Assigned directly, as the constructor does: no event, and
     /// the preset is kept. @p storage must hold the built-in materials (see
-    /// getDefaultComponentMaterial()).
-    void applyDefaultMaterial(const Preferences& preferences, const MaterialStorage& storage);
+    /// getDefaultComponentMaterial()). Virtual for the classes whose own Java constructor sets
+    /// another material afterwards (RailButton: always "Delrin").
+    virtual void applyDefaultMaterial(const Preferences&     preferences,
+                                      const MaterialStorage& storage);
 
     /// The materials of the base class (none) followed by this component's material.
     [[nodiscard]] std::vector<Material> getAllMaterials() const override;

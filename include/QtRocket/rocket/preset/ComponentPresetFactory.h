@@ -34,9 +34,10 @@ class MaterialStorage;
 /// - NOSE_CONE: a length, a shape and an aft outer diameter. TRANSITION: a length, an aft and a
 ///   fore outer diameter. RAIL_BUTTON: a height, outer and inner diameters, flange and base
 ///   heights. For these three a mass becomes a material (the given material's name, or
-///   "NoseConeCustom", "TransitionCustom") with density mass / volume, the volume of a new
-///   component of the type with the preset's properties loaded (NoseCone, Transition,
-///   RailButton.getComponentVolume()).
+///   "NoseConeCustom", "TransitionCustom", "RailButtonCustom") with density mass / volume, the
+///   volume of a new component of the type with the preset's properties loaded (NoseCone,
+///   Transition, RailButton.getComponentVolume()). The rail button's MASS is that of the button
+///   alone: its SCREW_MASS and NUT_MASS do not enter the density.
 /// - STREAMER: a length and a width. PARACHUTE: a diameter, a line count and a line length.
 ///   Deviation: the MATERIAL of either, when given, must be a SURFACE material and a parachute's
 ///   LINE_MATERIAL a LINE one ('Material "<name>" is not a SURFACE material'). OpenRocket
@@ -51,10 +52,6 @@ class MaterialStorage;
 /// bulkhead with a mass, whose length or outer diameter is missing), its get() throws a
 /// BugException out of create(); here the problems collected so far are returned, and they
 /// already name the missing key ("No Length specified").
-///
-/// Deferred to the rocket components (it needs RailButton, which is not ported yet): the density
-/// of a RAIL_BUTTON preset with a mass. Until then such a preset is refused with the problem
-/// "Mass of a RAIL_BUTTON preset needs the RAIL_BUTTON component, which is not ported yet".
 class ComponentPresetFactory
 {
 public:

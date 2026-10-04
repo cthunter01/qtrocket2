@@ -52,7 +52,7 @@ class Preferences;
 /// - The multi-edit config listeners (addConfigListener() and friends, which also link the default
 ///   motor configurations) are not ported (see RocketComponent).
 /// - Java's addChild() override, which gives a TubeFinSet added without a thickness the tube's,
-///   waits for TubeFinSet (see the HOOK in BodyTube.cpp).
+///   is childAdded() (see RocketComponent::childAdded()).
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
 class BodyTube : public SymmetricComponent,
                  public virtual MotorMount,
@@ -243,6 +243,10 @@ protected:
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
     [[nodiscard]] std::unique_ptr<RocketComponent> cloneShallow() const override;
+
+    /// Java's addChild() override: a TubeFinSet added while its thickness is still NaN (a new
+    /// one) gets this tube's getThickness(), through TubeFinSet::setThickness().
+    void childAdded(RocketComponent& child) override;
 
 private:
     /// The automatic outer radius: the previous component's front offer, unless it takes its own

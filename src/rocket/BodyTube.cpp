@@ -1,5 +1,6 @@
 #include "QtRocket/rocket/BodyTube.h"
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <numbers>
@@ -22,6 +23,7 @@
 #include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
@@ -478,7 +480,15 @@ const ClusterConfiguration& BodyTube::getClusterConfiguration() const
     return ClusterConfiguration::single();
 }
 
-// HOOK(tube-fin-set): Java's BodyTube.addChild() gives a TubeFinSet added with a NaN thickness
-// the tube's getThickness(); with TubeFinSet ported, override childAdded() here to do that.
+void BodyTube::childAdded(RocketComponent& child)
+{
+    // The first time a TubeFinSet is added to the component tree, it inherits the tube thickness
+    // from the parent body tube.
+    auto* finset = dynamic_cast<TubeFinSet*>(&child);
+    if (finset != nullptr && std::isnan(finset->getThickness()))
+    {
+        finset->setThickness(getThickness());
+    }
+}
 
 }  // namespace QtRocket
