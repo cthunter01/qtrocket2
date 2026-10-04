@@ -13,6 +13,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurableComponent.h"
@@ -28,13 +29,13 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -51,7 +52,6 @@ using QtRocket::RecoveryDevice;
 using QtRocket::Rocket;
 using QtRocket::Streamer;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 using DeployEvent = DeploymentConfiguration::DeployEvent;
 
 /// The properties of a streamer preset (strip 1 m by 0.1 m) without a material.
@@ -81,15 +81,14 @@ using DeployEvent = DeploymentConfiguration::DeployEvent;
     return makePreset(props);
 }
 
-/// A rocket with a stage holding a body tube stand-in with a parachute; events enabled and
-/// recorded.
+/// A rocket with a stage holding a body tube with a parachute; events enabled and recorded.
 class RecoveryDeviceTest : public ::testing::Test
 {
 protected:
     RecoveryDeviceTest()
     {
         auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        auto& body  = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+        auto& body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
         m_chute     = &body.addChild(std::make_unique<Parachute>());
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(

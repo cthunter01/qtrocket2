@@ -13,6 +13,7 @@
 
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Parachute.h"
@@ -20,12 +21,12 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -34,7 +35,6 @@ using QtRocket::Material;
 using QtRocket::Parachute;
 using QtRocket::Rocket;
 using QtRocket::ShockCord;
-using QtRocket::Test::TestBodyComponent;
 
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
 
@@ -46,9 +46,11 @@ protected:
     ShockCordTest()
     {
         auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
+        m_rocket.getSelectedConfiguration().setAllStages();
         m_rocket.enableEvents();
-        auto body = TestBodyComponent::make(0.0, 0.05);  // a BodyTube stand-in
+        auto body = std::make_unique<BodyTube>();
         body->setLength(1.0);
+        body->setOuterRadius(0.05);
         auto& added = stage.addChild(std::move(body));
         added.addChild(std::make_unique<Parachute>());
         m_cord = &added.addChild(std::make_unique<ShockCord>());
@@ -90,7 +92,7 @@ TEST_F(ShockCordTest, ShockCordLengthManualDisablesAutomatic)
 TEST_F(ShockCordTest, AutomaticLengthFollowsTheRocket)
 {
     auto& stage = dynamic_cast<AxialStage&>(m_rocket.getChild(0));
-    stage.addChild(TestBodyComponent::make(0.5, 0.05));
+    stage.addChild(std::make_unique<BodyTube>(0.5, 0.05));
     EXPECT_EQ(m_rocket.getLength(), 1.5);
     EXPECT_NEAR(m_cord->getCordLength(), 4.5, kEpsilon);
     // The mass follows the cord length.
@@ -102,13 +104,13 @@ TEST_F(ShockCordTest, AutomaticLengthFollowsEveryChangeOfTheRocketLength)
     // Java reads getRocket().getLength() at every call: a resized body, an added stage and a
     // removed body all show at once.
     auto& stage = dynamic_cast<AxialStage&>(m_rocket.getChild(0));
-    auto& body  = dynamic_cast<TestBodyComponent&>(stage.getChild(0));
+    auto& body  = dynamic_cast<BodyTube&>(stage.getChild(0));
     body.setLength(2.0);
     EXPECT_EQ(m_rocket.getLength(), 2.0);
     EXPECT_NEAR(m_cord->getCordLength(), 6.0, kEpsilon);
 
     auto& booster     = m_rocket.addChild(std::make_unique<AxialStage>());
-    auto& boosterBody = booster.addChild(TestBodyComponent::make(0.5, 0.05));
+    auto& boosterBody = booster.addChild(std::make_unique<BodyTube>(0.5, 0.05));
     EXPECT_NEAR(m_cord->getCordLength(), 7.5, kEpsilon);
     static_cast<void>(booster.removeChild(&boosterBody));
     EXPECT_NEAR(m_cord->getCordLength(), 6.0, kEpsilon);

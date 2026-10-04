@@ -12,27 +12,26 @@
 
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace QtRocket::Test
 {
 
-/// A rocket with a stage holding a body tube stand-in (0.3 m long, outer radius 0.025 m, inner
-/// radius 0.024 m); events enabled and recorded. Each test file derives a fixture of its own
-/// name from it.
+/// A rocket with a stage holding a body tube (0.3 m long, outer radius 0.025 m, inner radius
+/// 0.024 m); events enabled and recorded. Each test file derives a fixture of its own name from
+/// it.
 class RingEventsFixture : public ::testing::Test
 {
 protected:
     RingEventsFixture()
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body  = &m_stage->addChild(TestBodyComponent::make(0.3, 0.025));
-        m_body->setInnerRadius(0.024);
+        m_body  = &m_stage->addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.001));
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(
             [this](const ComponentChangeEvent& e) { m_types.push_back(e.getType()); });
@@ -40,7 +39,7 @@ protected:
 
     Rocket                                  m_rocket;
     AxialStage*                             m_stage{nullptr};
-    TestBodyComponent*                      m_body{nullptr};
+    BodyTube*                               m_body{nullptr};
     std::vector<int>                        m_types;
     ComponentChangeSignal::ScopedConnection m_connection;
 };

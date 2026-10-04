@@ -4,6 +4,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -12,30 +13,29 @@
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/AxialStage.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
-#include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
-using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
-using QtRocket::ComponentKind;
-using QtRocket::Coordinate;
+using QtRocket::ClusterConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::IgnitionEvent;
+using QtRocket::InnerTube;
 using QtRocket::Motor;
 using QtRocket::MotorClusterState;
 using QtRocket::MotorConfiguration;
@@ -45,12 +45,22 @@ using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::ThrustCurveMotor;
 using QtRocket::ThrustState;
-using QtRocket::Test::TestMotorMount;
 
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 
-/// A rocket with one stage holding a motor mount (0.07 m) with an A8 motor (ejection delay 3 s)
-/// in one flight configuration; events enabled.
+/// The cluster layout named @p xmlName ("double", "3-ring", ...).
+[[nodiscard]] const ClusterConfiguration& cluster(std::string_view xmlName)
+{
+    const ClusterConfiguration* found = ClusterConfiguration::fromXmlName(xmlName);
+    if (found == nullptr)
+    {
+        QtRocket::bug("no cluster layout " + std::string{xmlName});
+    }
+    return *found;
+}
+
+/// A rocket with one stage holding a body tube (0.07 m) that is a motor mount with an A8 motor
+/// (ejection delay 3 s) in one flight configuration; events enabled.
 class MotorClusterStateTest : public ::testing::Test
 {
 protected:
@@ -58,11 +68,11 @@ protected:
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
         m_stage->setName("Stage");
-        m_mount = &m_stage->addChild(TestMotorMount::make(0.07, 0.009));
+        m_mount = &m_stage->addChild(std::make_unique<BodyTube>(0.07, 0.009));
         m_mount->setName("Mount");
         m_mount->setMotorMount(true);
         m_motor = QtRocket::Test::motorA8();
-        m_mount->addMotor(m_fcid, m_motor, 3.0);
+        QtRocket::Test::addMotor(*m_mount, m_fcid, m_motor, 3.0);
         m_rocket.createFlightConfiguration(m_fcid);
         m_rocket.enableEvents();
     }
@@ -72,7 +82,7 @@ protected:
     Rocket                                  m_rocket;
     FlightConfigurationId                   m_fcid{QtRocket::Test::testFcid(0)};
     AxialStage*                             m_stage{nullptr};
-    TestMotorMount*                         m_mount{nullptr};
+    BodyTube*                               m_mount{nullptr};
     std::shared_ptr<const ThrustCurveMotor> m_motor;
 };
 
@@ -122,12 +132,13 @@ TEST_F(MotorClusterStateTest, MotorCountCountsEveryAbsoluteInstanceOfTheMount)
     auto& pods = m_mount->addChild(std::make_unique<PodSet>());
     pods.setInstanceCount(2);
     pods.setRadius(RadiusMethod::FREE, 0.05);
-    auto& podMount = pods.addChild(TestMotorMount::make(0.07, 0.009));
-    podMount.setInstances(
-        {Coordinate{0, 0.01, 0}, Coordinate{0, -0.005, 0.0087}, Coordinate{0, -0.005, -0.0087}},
-        {0, 0, 0});
+    auto& podBody  = pods.addChild(std::make_unique<BodyTube>(0.2, 0.04));
+    auto& podMount = podBody.addChild(std::make_unique<InnerTube>());
+    podMount.setOuterRadius(0.015);
+    podMount.setClusterConfiguration(cluster("3-ring"));
     podMount.setMotorMount(true);
-    podMount.addMotor(m_fcid, QtRocket::Test::motorG77());
+    QtRocket::Test::addMotor(podMount, m_fcid, QtRocket::Test::motorG77());
+    ASSERT_EQ(podMount.getInstanceCount(), 3);
 
     const MotorClusterState state{podMount.getMotorConfig(m_fcid)};
     EXPECT_EQ(state.getMotorCount(), 6);
@@ -189,8 +200,12 @@ TEST_F(MotorClusterStateTest, MotorTimeEdgeCasesFollowJava)
 
 TEST_F(MotorClusterStateTest, ThrustScalesWithTheMotorCount)
 {
-    m_mount->setInstances({Coordinate{0, 0.01, 0}, Coordinate{0, -0.01, 0}}, {0, 0});
-    MotorClusterState state{config()};
+    // A cluster of two inner tubes in the body, each with an A8.
+    auto& pair = m_mount->addChild(std::make_unique<InnerTube>());
+    pair.setClusterConfiguration(cluster("double"));
+    pair.setMotorMount(true);
+    QtRocket::Test::addMotor(pair, m_fcid, m_motor, 3.0);
+    MotorClusterState state{pair.getMotorConfig(m_fcid)};
     ASSERT_EQ(state.getMotorCount(), 2);
     state.ignite(0.0);
     EXPECT_EQ(state.getThrust(0.25), 2 * m_motor->getThrust(0.25));

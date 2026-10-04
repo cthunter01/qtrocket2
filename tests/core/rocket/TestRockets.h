@@ -1,66 +1,86 @@
 #pragma once
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <memory>
-#include <numbers>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "QtRocket/material/Material.h"
+#include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/CenteringRing.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/ShockCord.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
-#include "rocket/TestMotorMount.h"
 
-/// The test motors and rockets of OpenRocket's TestRockets, built from the test doubles
-/// (TestComponent, TestBodyComponent, TestMotorMount) until the concrete components are ported.
-/// The internal components stay doubles too, although their classes exist (InnerTube,
-/// EngineBlock, CenteringRing, TubeCoupler, Parachute, ShockCord): the tests of these rockets
-/// drive the doubles' API (TestMotorMount's motors and instances, TestComponent's instances), so
-/// the rockets switch to the real classes all at once, with the body components and fins (tier
-/// 6); the internal components' own golden tests build them for real meanwhile.
+/// The test motors and rockets of OpenRocket's TestRockets (core/src/main/java/.../util/
+/// TestRockets.java), built call for call as the Java makers build them, from the real
+/// components: NoseCone, BodyTube, Transition, InnerTube, EngineBlock, CenteringRing,
+/// TubeCoupler, Parachute, ShockCord and the real MotorMount API.
+///
+/// The fin sets and the launch lugs are not ported yet. Each is a TestComponent double of its
+/// kind (TRAPEZOID_FIN_SET, LAUNCH_LUG) that carries what OpenRocket computes for the Java
+/// component: its mass, CG, unit inertias, instance offsets and instance angles, copied from
+/// tests/data/goldens/testrocket-*/geometry.json. A double has no shape: its bounds are the
+/// segment from its front to its end, so the y and z extents of a rocket's bounding box, and
+/// anything else that depends on the fin or lug geometry, are not OpenRocket's.
+/// HOOK(fins-lugs): tier 6b replaces the doubles with TrapezoidFinSet and LaunchLug.
 namespace QtRocket::Test
 {
 
 // ============================================================================ test motors
 
-/// A single-use motor with a triangular thrust curve over {0, 1, 2} s, built as TestRockets'
-/// generateMotor_*() do.
+/// A single-use motor whose CG stays at half its @p length, built as TestRockets'
+/// generateMotor_*() do: the thrust curve @p thrust over @p time, with the masses @p masses.
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> makeTestMotor(
-    const std::string& manufacturer, const std::string& designation, const std::string& caseInfo,
-    std::vector<double> delays, double diameter, double length, double peakThrust,
-    double launchMass, double midMass, double burnoutMass)
+    const std::string& manufacturer, const std::string& designation, const std::string& description,
+    const std::string& caseInfo, std::vector<double> delays, double diameter, double length,
+    std::vector<double> time, std::vector<double> thrust, const std::vector<double>& masses)
 {
+    std::vector<Coordinate> cg;
+    cg.reserve(masses.size());
+    for (const double mass : masses)
+    {
+        cg.emplace_back(length / 2, 0, 0, mass);
+    }
     ThrustCurveMotor::Builder builder;
     builder.setManufacturer(Manufacturer::getManufacturer(manufacturer))
         .setDesignation(designation)
-        .setDescription("Desc")
+        .setDescription(description)
         .setCaseInfo(caseInfo)
         .setMotorType(Motor::Type::SINGLE)
         .setStandardDelays(std::move(delays))
         .setDiameter(diameter)
         .setLength(length)
-        .setTimePoints({0, 1, 2})
-        .setThrustPoints({0, peakThrust, 0})
-        .setCGPoints({Coordinate{length / 2, 0, 0, launchMass},
-                      Coordinate{length / 2, 0, 0, midMass},
-                      Coordinate{length / 2, 0, 0, burnoutMass}})
+        .setTimePoints(std::move(time))
+        .setThrustPoints(std::move(thrust))
+        .setCGPoints(std::move(cg))
         .setDigest("digest " + designation + " test");
     auto built = builder.build();
     if (!built)
@@ -73,43 +93,58 @@ namespace QtRocket::Test
 /// TestRockets.generateMotor_M1350_75mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorM1350()
 {
-    return makeTestMotor("AeroTech", "M1350", "SU 75/512", {}, 0.075, 0.622, 1357, 4.808, 3.389,
-                         1.970);
+    return makeTestMotor("AeroTech", "M1350", "Desc", "SU 75/512", {}, 0.075, 0.622, {0, 1, 2},
+                         {0, 1357, 0}, {4.808, 3.389, 1.970});
 }
 
 /// TestRockets.generateMotor_G77_29mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorG77()
 {
-    return makeTestMotor("AeroTech", "G77", "SU 29/180", {4, 7, 10}, 0.029, 0.124, 20, 0.123,
-                         0.0935, 0.064);
+    return makeTestMotor("AeroTech", "G77", "Desc", "SU 29/180", {4, 7, 10}, 0.029, 0.124,
+                         {0, 1, 2}, {0, 20, 0}, {0.123, 0.0935, 0.064});
 }
 
-/// TestRockets.generateMotor_A8_18mm() (triangular curve).
+/// TestRockets.generateMotor_A8_18mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorA8()
 {
-    return makeTestMotor("Estes", "A8", "SU 18.0x70.0", {0, 3, 5}, 0.018, 0.070, 9, 0.0164, 0.0145,
-                         0.0131);
+    return makeTestMotor("Estes", "A8", " SU Black Powder", "SU 18.0x70.0", {0, 3, 5}, 0.018, 0.070,
+                         {0, 1, 2}, {0, 9, 0}, {0.0164, 0.0145, 0.0131});
 }
 
 /// TestRockets.generateMotor_B4_18mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorB4()
 {
-    return makeTestMotor("Estes", "B4", "SU 18.0x70.0", {0, 3, 5}, 0.018, 0.070, 11.4, 0.0195,
-                         0.0155, 0.013);
+    return makeTestMotor("Estes", "B4", " SU Black Powder", "SU 18.0x70.0", {0, 3, 5}, 0.018, 0.070,
+                         {0, 1, 2}, {0, 11.4, 0}, {0.0195, 0.0155, 0.013});
 }
 
-/// TestRockets.generateMotor_C6_18mm() (with a triangular curve instead of the five points).
+/// TestRockets.generateMotor_C6_18mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorC6()
 {
-    return makeTestMotor("Estes", "C6", "SU 18.0x70.0", {0, 3, 5, 7}, 0.018, 0.070, 12, 0.0227,
-                         0.0165, 0.0102);
+    return makeTestMotor("Estes", "C6", " SU Black Powder", "SU 18.0x70.0", {0, 3, 5, 7}, 0.018,
+                         0.070, {0, 0.2, 0.4, 2.0, 2.1}, {0, 12, 5, 5, 0},
+                         {0.0227, 0.0165, 0.0165, 0.013, 0.012});
 }
 
 /// TestRockets.generateMotor_D21_18mm().
 [[nodiscard]] inline std::shared_ptr<const ThrustCurveMotor> motorD21()
 {
-    return makeTestMotor("AeroTech", "D21", "SU 18.0x70.0", {}, 0.018, 0.070, 32, 0.025, 0.020,
-                         0.0154);
+    return makeTestMotor("AeroTech", "D21", "Desc", "SU 18.0x70.0", {}, 0.018, 0.070, {0, 1, 2},
+                         {0, 32, 0}, {0.025, 0.020, 0.0154});
+}
+
+/// Gives @p mount a motor configuration for @p fcid with @p motor and @p ejectionDelay, as
+/// TestRockets does (new MotorConfiguration(mount, fcid), setMotor(), setEjectionDelay(),
+/// mount.setMotorConfig()), which also makes the mount act as one. Returns the stored
+/// configuration.
+inline MotorConfiguration& addMotor(MotorMount& mount, const FlightConfigurationId& fcid,
+                                    std::shared_ptr<const Motor> motor, double ejectionDelay = 0.0)
+{
+    MotorConfiguration config{mount, fcid};
+    config.setMotor(std::move(motor));
+    config.setEjectionDelay(ejectionDelay);
+    mount.setMotorConfig(std::move(config), fcid);
+    return mount.getMotorConfig(fcid);
 }
 
 // ============================================================================ test rockets
@@ -124,51 +159,112 @@ namespace QtRocket::Test
     return FlightConfigurationId::fromString(kKeys.at(static_cast<std::size_t>(n)));
 }
 
-/// A component that is not aerodynamic (an internal one), of @p kind, @p length, positioned by
-/// @p method at @p offset.
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeInternal(ComponentKind kind, double length,
-                                                                 AxialMethod method, double offset)
+/// What OpenRocket computes for a fin set or a launch lug of the test rockets (the component's
+/// entry in geometry.json): the values a double carries.
+struct DoubleProperties
 {
-    auto component = TestComponent::make(length, kind, method);
-    component->setAerodynamic(false);
-    component->setAxialOffset(method, offset);
+    double                  length;                   ///< "length"
+    double                  mass;                     ///< "componentMass"
+    Coordinate              cg;                       ///< "componentCG", without the weight
+    double                  longitudinalUnitInertia;  ///< "longitudinalUnitInertia"
+    double                  rotationalUnitInertia;    ///< "rotationalUnitInertia"
+    std::vector<Coordinate> instanceOffsets;          ///< "instanceOffsets"
+    std::vector<double>     instanceAngles;           ///< "instanceAngles"
+};
+
+/// A TestComponent of @p kind positioned by @p method that carries @p properties.
+// HOOK(fins-lugs): tier 6b replaces this double with the real class
+[[nodiscard]] inline std::unique_ptr<TestComponent> makeDouble(ComponentKind           kind,
+                                                               AxialMethod             method,
+                                                               const DoubleProperties& properties)
+{
+    auto component = TestComponent::make(properties.length, kind, method);
+    component->setMass(properties.mass);
+    component->setCG(properties.cg);
+    component->setUnitInertias(properties.longitudinalUnitInertia,
+                               properties.rotationalUnitInertia);
+    component->setInstances(properties.instanceOffsets, properties.instanceAngles);
     return component;
 }
 
-/// A fin set of @p count fins of root chord @p rootChord on a body of radius @p bodyRadius,
-/// positioned BOTTOM (the fins' instance offsets are on the body's surface, at 2 pi i / count).
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeFins(int count, double rootChord,
-                                                             double bodyRadius)
+/// The angles of the three fins of every fin set of the test rockets (geometry.json's
+/// "instanceAngles": 0, 2 pi / 3, 4 pi / 3).
+inline constexpr std::array<double, 3> kThreeFinAngles{0.0, 2.0943951023931953, 4.1887902047863905};
+
+/// TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05) with thickness 0.0032 on a body of radius 0.012 m,
+/// positioned BOTTOM: the "3 Fin Set" of the Estes Alpha III (geometry.json "/0/1/0") and, with
+/// @p cgX from "/1/0/1", the "Booster Fins" of the Beta. Its instance offsets are on the body's
+/// surface.
+// HOOK(fins-lugs): tier 6b replaces this double with the real class
+[[nodiscard]] inline std::unique_ptr<TestComponent> makeAlphaFins(double cgX = 0.029583333333333336)
 {
-    auto fins =
-        TestComponent::make(rootChord, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM);
-    std::vector<Coordinate> offsets;
-    std::vector<double>     angles;
-    for (int i = 0; i < count; i++)
-    {
-        const double angle = 2 * std::numbers::pi * i / count;
-        offsets.emplace_back(0, bodyRadius * std::cos(angle), bodyRadius * std::sin(angle));
-        angles.push_back(angle);
-    }
-    fins->setInstances(std::move(offsets), std::move(angles));
-    return fins;
+    return makeDouble(
+        ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM,
+        {.length                  = 0.05,
+         .mass                    = 0.013056,
+         .cg                      = Coordinate{cgX, 0.0, 0.0},
+         .longitudinalUnitInertia = 0.0008403281572999748,
+         .rotationalUnitInertia   = 0.0013473229812666163,
+         .instanceOffsets         = {Coordinate{0.0, 0.012, 0.0},
+                                     Coordinate{0.0, -0.0059999999999999975, 0.010392304845413265},
+                                     Coordinate{0.0, -0.006000000000000005, -0.01039230484541326}},
+         .instanceAngles = std::vector<double>(kThreeFinAngles.begin(), kThreeFinAngles.end())});
 }
 
-/// TestRockets.makeEstesAlphaIII() from test doubles, with the same dimensions: a stage with a
-/// nose cone (0.07 m, radius 0.012 m) and a body tube (0.2 m) holding fins, a launch lug, a motor
-/// mount inner tube (with an engine block, and a motor in each of the five test
-/// configurations), a parachute and two centering rings. Events are enabled.
+/// LaunchLug() with length 0.050, setOuterRadius(0.0022) and setInnerRadius(0.0020) (which makes
+/// the radii 0.003 and 0.002 m) on a body of radius 0.012 m, positioned TOP: the "Launch Lugs"
+/// of the Estes Alpha III (geometry.json "/0/1/1") and of the Beta's booster ("/1/0/3"). The lug
+/// sits on the body's surface opposite the y axis, 0.015 m from the axis, which both its
+/// instance offset and its CG hold.
+// HOOK(fins-lugs): tier 6b replaces this double with the real class
+[[nodiscard]] inline std::unique_ptr<TestComponent> makeAlphaLug()
+{
+    return makeDouble(ComponentKind::LAUNCH_LUG, AxialMethod::TOP,
+                      {.length                  = 0.05,
+                       .mass                    = 0.0005340707511102649,
+                       .cg                      = Coordinate{0.025, -0.015, 1.8369701987210296e-18},
+                       .longitudinalUnitInertia = 0.00021158333333333337,
+                       .rotationalUnitInertia   = 6.5000000000000004e-06,
+                       .instanceOffsets         = {Coordinate{0.0, -0.015, 1.8369701987210296e-18}},
+                       .instanceAngles          = {0.0}});
+}
+
+/// TrapezoidFinSet() with 3 fins, thickness 0.003, a ROUNDED cross section, root chord 0.32, tip
+/// chord 0.12, height 0.10 and sweep 0.18 on a body of radius 0.0385 m, positioned BOTTOM: the
+/// "Booster Fins" of the Falcon 9 Heavy (geometry.json "/1/0/0/1/1").
+// HOOK(fins-lugs): tier 6b replaces this double with the real class
+[[nodiscard]] inline std::unique_ptr<TestComponent> makeFalconBoosterFins()
+{
+    return makeDouble(
+        ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM,
+        {.length                  = 0.32,
+         .mass                    = 0.13329359999999998,
+         .cg                      = Coordinate{0.19393939393939394, 0.0, 0.0},
+         .longitudinalUnitInertia = 0.009349750680358534,
+         .rotationalUnitInertia   = 0.0069661680273837385,
+         .instanceOffsets         = {Coordinate{0.0, 0.0385, 0.0},
+                                     Coordinate{0.0, -0.019249999999999993, 0.03334197804570089},
+                                     Coordinate{0.0, -0.019250000000000017, -0.033341978045700875}},
+         .instanceAngles = std::vector<double>(kThreeFinAngles.begin(), kThreeFinAngles.end())});
+}
+
+/// TestRockets.makeEstesAlphaIII(): a stage with an ogive nose cone (0.07 m, base radius
+/// 0.012 m, an aft shoulder) and a body tube (0.2 m, wall 0.3 mm) holding the fins, a launch
+/// lug, a motor mount inner tube (with an engine block, and a motor in each of the five test
+/// configurations), a parachute whose mass is overridden and two centering rings. The default
+/// configuration stays selected; events are enabled.
 struct TestEstesAlphaIII
 {
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
     AxialStage*             stage{nullptr};
-    TestBodyComponent*      nose{nullptr};
-    TestBodyComponent*      body{nullptr};
-    TestComponent*          fins{nullptr};
-    TestComponent*          lug{nullptr};
-    TestMotorMount*         inner{nullptr};
-    TestComponent*          chute{nullptr};
-    TestComponent*          rings{nullptr};
+    NoseCone*               nose{nullptr};
+    BodyTube*               body{nullptr};
+    TestComponent*          fins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
+    TestComponent*          lug{nullptr};   // HOOK(fins-lugs): LaunchLug
+    InnerTube*              inner{nullptr};
+    EngineBlock*            block{nullptr};
+    Parachute*              chute{nullptr};
+    CenteringRing*          rings{nullptr};
 
     TestEstesAlphaIII()
     {
@@ -176,214 +272,434 @@ struct TestEstesAlphaIII
         {
             rocket->createFlightConfiguration(testFcid(i));
         }
+
         rocket->setName("Estes Alpha III / Code Verification Rocket");
-        stage = &rocket->addChild(std::make_unique<AxialStage>());
-        stage->setName("Stage");
+        auto newStage = std::make_unique<AxialStage>();
+        newStage->setName("Stage");
+        stage = &rocket->addChild(std::move(newStage));
 
-        nose = &stage->addChild(TestBodyComponent::make(0.07, 0.012, ComponentKind::NOSE_CONE));
-        nose->setForeAftRadii(0, 0.012);
-        nose->setName("Nose Cone");
+        const double noseconeLength = 0.07;
+        const double noseconeRadius = 0.012;
+        auto         nosecone =
+            std::make_unique<NoseCone>(TransitionShape::OGIVE, noseconeLength, noseconeRadius);
+        nosecone->setAftShoulderLength(0.02);
+        // A thickness of 0 (setAftShoulderLength() changed it).
+        nosecone->setAftShoulderThickness(0);
+        nosecone->setAftShoulderRadius(0.011);
+        nosecone->setName("Nose Cone");
+        nose = &stage->addChild(std::move(nosecone));
 
-        body = &stage->addChild(TestBodyComponent::make(0.20, 0.012));
-        body->setInnerRadius(0.012 - 0.0003);
-        body->setName("Body Tube");
+        const double bodytubeLength    = 0.20;
+        const double bodytubeRadius    = 0.012;
+        const double bodytubeThickness = 0.0003;
+        auto         bodytube =
+            std::make_unique<BodyTube>(bodytubeLength, bodytubeRadius, bodytubeThickness);
+        bodytube->setName("Body Tube");
+        body = &stage->addChild(std::move(bodytube));
 
-        fins = &body->addChild(makeFins(3, 0.05, 0.012));
-        fins->setName("3 Fin Set");
+        addFinsLugAndMotorMount();
+        addRecoveryAndRings();
 
-        lug =
-            &body->addChild(TestComponent::make(0.05, ComponentKind::LAUNCH_LUG, AxialMethod::TOP));
-        lug->setAxialOffset(AxialMethod::TOP, 0.111);
-        lug->setName("Launch Lugs");
+        const Material material = builtinDefaultComponentMaterial(Material::Type::BULK);
+        nose->setMaterial(material);
+        body->setMaterial(material);
+        // HOOK(fins-lugs): finset.setMaterial(material) (the double carries the mass).
 
-        inner = &body->addChild(
-            TestMotorMount::make(0.07, 0.009, ComponentKind::INNER_TUBE, AxialMethod::TOP));
-        inner->setAxialOffset(AxialMethod::TOP, 0.133);
-        inner->setInnerRadius(0.009 - 0.0003);
-        inner->setAerodynamic(false);
-        inner->setMotorMount(true);
-        inner->setName("Motor Mount Tube");
-        inner->addChild(makeInternal(ComponentKind::ENGINE_BLOCK, 0.005, AxialMethod::TOP, 0.0))
-            .setName("Engine Block");
-        inner->addMotor(testFcid(0), motorA8(), 0.0);
-        inner->addMotor(testFcid(1), motorB4(), 3.0);
-        inner->addMotor(testFcid(2), motorC6(), 3.0);
-        inner->addMotor(testFcid(3), motorC6(), 5.0);
-        inner->addMotor(testFcid(4), motorC6(), 7.0);
-
-        chute =
-            &body->addChild(makeInternal(ComponentKind::PARACHUTE, 0.025, AxialMethod::TOP, 0.028));
-        chute->setName("Parachute");
-
-        rings = &body->addChild(
-            makeInternal(ComponentKind::CENTERING_RING, 0.006, AxialMethod::TOP, 0.14));
-        rings->setInstances({Coordinate{0, 0, 0}, Coordinate{0.035, 0, 0}}, {0, 0});
-        rings->setName("Centering Rings");
-
+        // The default configuration of the rocket stays as it was initialised.
         rocket->enableEvents();
+    }
+
+private:
+    /// The fin set, the launch lug and the motor mount with its engine block and motors.
+    void addFinsLugAndMotorMount()
+    {
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class
+        // (TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05), thickness 0.0032, BOTTOM).
+        auto finset = makeAlphaFins();
+        finset->setName("3 Fin Set");
+        fins = &body->addChild(std::move(finset));
+
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class (LaunchLug(), TOP
+        // 0.111, length 0.050, setOuterRadius(0.0022), setInnerRadius(0.0020)).
+        auto launchLug = makeAlphaLug();
+        launchLug->setName("Launch Lugs");
+        launchLug->setAxialOffset(AxialMethod::TOP, 0.111);
+        lug = &body->addChild(std::move(launchLug));
+
+        auto innerTube = std::make_unique<InnerTube>();
+        innerTube->setAxialMethod(AxialMethod::TOP);
+        innerTube->setAxialOffset(0.133);
+        innerTube->setLength(0.07);
+        innerTube->setOuterRadius(0.009);
+        innerTube->setThickness(0.0003);
+        innerTube->setMotorMount(true);
+        innerTube->setName("Motor Mount Tube");
+        inner = &body->addChild(std::move(innerTube));
+
+        auto thrustBlock = std::make_unique<EngineBlock>();
+        thrustBlock->setAxialMethod(AxialMethod::TOP);
+        thrustBlock->setAxialOffset(0.0);
+        thrustBlock->setLength(0.005);
+        thrustBlock->setOuterRadius(0.009);
+        thrustBlock->setThickness(0.0008);
+        thrustBlock->setName("Engine Block");
+        block = &inner->addChild(std::move(thrustBlock));
+        inner->setMotorMount(true);
+
+        {
+            MotorConfiguration motorConfig{*inner, testFcid(0)};
+            motorConfig.setMotor(motorA8());
+            motorConfig.setEjectionDelay(0.0);
+            inner->setMotorConfig(std::move(motorConfig), testFcid(0));
+        }
+        {
+            MotorConfiguration motorConfig{*inner, testFcid(1)};
+            motorConfig.setMotor(motorB4());
+            motorConfig.setEjectionDelay(3.0);
+            inner->setMotorConfig(std::move(motorConfig), testFcid(1));
+        }
+        addC6(testFcid(2), 3.0);
+        addC6(testFcid(3), 5.0);
+        addC6(testFcid(4), 7.0);
+    }
+
+    /// A C6 with @p ejectionDelay in the motor mount for @p fcid (the delay is set first, as in
+    /// Java).
+    void addC6(const FlightConfigurationId& fcid, double ejectionDelay) const
+    {
+        MotorConfiguration motorConfig{*inner, fcid};
+        motorConfig.setEjectionDelay(ejectionDelay);
+        motorConfig.setMotor(motorC6());
+        inner->setMotorConfig(std::move(motorConfig), fcid);
+    }
+
+    /// The parachute and the centering rings.
+    void addRecoveryAndRings()
+    {
+        auto parachute = std::make_unique<Parachute>();
+        parachute->setAxialMethod(AxialMethod::TOP);
+        parachute->setName("Parachute");
+        parachute->setAxialOffset(0.028);
+        parachute->setOverrideMass(0.002);
+        parachute->setMassOverridden(true);
+        chute = &body->addChild(std::move(parachute));
+
+        // "bulkhead x2"
+        auto centerings = std::make_unique<CenteringRing>();
+        centerings->setName("Centering Rings");
+        centerings->setAxialMethod(AxialMethod::TOP);
+        centerings->setAxialOffset(0.14);
+        centerings->setLength(0.006);
+        centerings->setInstanceCount(2);
+        centerings->setInstanceSeparation(0.035);
+        rings = &body->addChild(std::move(centerings));
     }
 };
 
-/// TestRockets.makeBeta() from test doubles: the Estes Alpha III as the sustainer, plus a booster
-/// stage with a body tube (0.06 m, radius 0.012 m) holding a coupler, fins, a motor mount (a
-/// motor in TEST_FCID_1) and a launch lug, and a tail cone (0.005 m, radii 0.012 and 0.01 m).
-/// TEST_FCID_1 is selected, with every stage active.
+/// TestRockets.makeBeta(): the Estes Alpha III as the sustainer, plus a booster stage with a
+/// body tube (0.06 m, the sustainer's radius and wall) holding a coupler, the booster fins, a
+/// motor mount (a D21 in TEST_FCID_1) and a launch lug, and a tail cone (0.005 m, radii 0.012
+/// and 0.01 m). TEST_FCID_1 is selected, with every stage active.
 struct TestBeta : TestEstesAlphaIII
 {
-    AxialStage*        boosterStage{nullptr};
-    TestBodyComponent* boosterBody{nullptr};
-    TestMotorMount*    boosterMmt{nullptr};
-    TestBodyComponent* boosterTail{nullptr};
+    AxialStage*    boosterStage{nullptr};
+    BodyTube*      boosterBody{nullptr};
+    TubeCoupler*   coupler{nullptr};
+    TestComponent* boosterFins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
+    InnerTube*     boosterMmt{nullptr};
+    TestComponent* boosterLug{nullptr};  // HOOK(fins-lugs): LaunchLug
+    Transition*    boosterTail{nullptr};
 
     TestBeta()
     {
         rocket->setName("Kit-bash Beta");
+
         stage->setName("Sustainer Stage");
         body->setName("Sustainer Body Tube");
+        const double sustainerRadius    = body->getAftRadius();
+        const double sustainerThickness = body->getThickness();
 
-        boosterStage = &rocket->addChild(std::make_unique<AxialStage>());
-        boosterStage->setName("Booster Stage");
+        auto newBoosterStage = std::make_unique<AxialStage>();
+        newBoosterStage->setName("Booster Stage");
+        boosterStage = &rocket->addChild(std::move(newBoosterStage));
 
-        boosterBody = &boosterStage->addChild(TestBodyComponent::make(0.06, 0.012));
-        boosterBody->setInnerRadius(0.012 - 0.0003);
-        boosterBody->setName("Booster Body");
-        boosterBody
-            ->addChild(makeInternal(ComponentKind::TUBE_COUPLER, 0.03, AxialMethod::TOP, -0.015))
-            .setName("Coupler");
-        boosterBody->addChild(makeFins(3, 0.05, 0.012)).setName("Booster Fins");
+        auto newBoosterBody = std::make_unique<BodyTube>(0.06, sustainerRadius, sustainerThickness);
+        newBoosterBody->setName("Booster Body");
+        boosterBody = &boosterStage->addChild(std::move(newBoosterBody));
 
-        boosterMmt = &boosterBody->addChild(
-            TestMotorMount::make(0.05, 0.019 / 2, ComponentKind::INNER_TUBE, AxialMethod::BOTTOM));
-        boosterMmt->setAxialOffset(AxialMethod::BOTTOM, 0.005);
-        boosterMmt->setInnerRadius(0.018 / 2);
-        boosterMmt->setAerodynamic(false);
-        boosterMmt->setMotorMount(true);
-        boosterMmt->setName("Booster MMT");
-        boosterMmt->addMotor(testFcid(1), motorD21());
+        addBoosterInternals(sustainerThickness);
 
-        TestComponent& boosterLug = boosterBody->addChild(
-            TestComponent::make(0.05, ComponentKind::LAUNCH_LUG, AxialMethod::TOP));
-        boosterLug.setName("Launch Lugs");
-
-        boosterTail = &boosterStage->addChild(
-            TestBodyComponent::make(0.005, 0.012, ComponentKind::TRANSITION));
-        boosterTail->setForeAftRadii(0.012, 0.01);
-        boosterTail->setName("Booster Tail Cone");
+        // Tail Cone
+        auto tail = std::make_unique<Transition>();
+        tail->setForeRadius(0.012);
+        tail->setAftRadius(0.01);
+        tail->setLength(0.005);
+        tail->setName("Booster Tail Cone");
+        boosterTail = &boosterStage->addChild(std::move(tail));
 
         rocket->setSelectedConfiguration(testFcid(1));
         rocket->getSelectedConfiguration().setAllStages();
         rocket->enableEvents();
     }
+
+private:
+    /// The coupler, the fins, the motor mount and the launch lug of the booster body.
+    void addBoosterInternals(double sustainerThickness)
+    {
+        auto newCoupler = std::make_unique<TubeCoupler>();
+        newCoupler->setName("Coupler");
+        newCoupler->setOuterRadiusAutomatic(true);
+        newCoupler->setThickness(sustainerThickness);
+        newCoupler->setLength(0.03);
+        newCoupler->setAxialMethod(AxialMethod::TOP);
+        newCoupler->setAxialOffset(-0.015);
+        coupler = &boosterBody->addChild(std::move(newCoupler));
+
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class
+        // (TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05), thickness 0.0032, BOTTOM 0.0).
+        auto finset = makeAlphaFins(0.02958333333333333);
+        finset->setName("Booster Fins");
+        finset->setAxialOffset(AxialMethod::BOTTOM, 0.0);
+        boosterFins = &boosterBody->addChild(std::move(finset));
+
+        // Motor mount
+        auto mmt = std::make_unique<InnerTube>();
+        mmt->setName("Booster MMT");
+        mmt->setAxialOffset(0.005);
+        mmt->setAxialMethod(AxialMethod::BOTTOM);
+        mmt->setOuterRadius(0.019 / 2);
+        mmt->setInnerRadius(0.018 / 2);
+        mmt->setLength(0.05);
+        mmt->setMotorMount(true);
+        {
+            MotorConfiguration motorConfig{*mmt, testFcid(1)};
+            motorConfig.setMotor(motorD21());
+            mmt->setMotorConfig(std::move(motorConfig), testFcid(1));
+        }
+        boosterMmt = &boosterBody->addChild(std::move(mmt));
+
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class (LaunchLug(), TOP
+        // 0.0, length 0.050, setOuterRadius(0.0022), setInnerRadius(0.0020)).
+        auto launchLug = makeAlphaLug();
+        launchLug->setName("Launch Lugs");
+        launchLug->setAxialOffset(AxialMethod::TOP, 0.0);
+        boosterLug = &boosterBody->addChild(std::move(launchLug));
+    }
 };
 
-/// TestRockets.makeFalcon9Heavy() from test doubles, with the same dimensions: a payload stage
-/// (nose 0.118 m, fairing body 0.132 m, transition 0.014 m, upper stage body 0.18 m with a
-/// parachute and a shock cord, interstage 0.12 m) and a core stage whose body (0.8 m, radius
+/// TestRockets.makeSimple2Stage(): two stages, each holding a body tube 0.1 m long with radius
+/// 0.01 m and a 1 mm wall; TEST_FCID_0 selected with every stage active.
+struct TestSimple2Stage
+{
+    std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
+    AxialStage*             sustainerStage{nullptr};
+    BodyTube*               sustainerBody{nullptr};
+    AxialStage*             boosterStage{nullptr};
+    BodyTube*               boosterBody{nullptr};
+
+    TestSimple2Stage()
+    {
+        rocket->createFlightConfiguration(testFcid(0));
+        rocket->setName("Simple 2-Stage Rocket");
+
+        const double bodytubeLength    = 0.10;
+        const double bodytubeRadius    = 0.01;
+        const double bodytubeThickness = 0.001;
+        {
+            auto stage = std::make_unique<AxialStage>();
+            stage->setName("Sustainer Stage");
+            sustainerStage = &rocket->addChild(std::move(stage));
+
+            auto bodytube =
+                std::make_unique<BodyTube>(bodytubeLength, bodytubeRadius, bodytubeThickness);
+            bodytube->setName("Sustainer Body Tube");
+            sustainerBody = &sustainerStage->addChild(std::move(bodytube));
+        }
+        {
+            auto stage = std::make_unique<AxialStage>();
+            stage->setName("Booster Stage");
+            boosterStage = &rocket->addChild(std::move(stage));
+
+            auto bodytube =
+                std::make_unique<BodyTube>(bodytubeLength, bodytubeRadius, bodytubeThickness);
+            bodytube->setName("Booster Body Tube");
+            boosterBody = &boosterStage->addChild(std::move(bodytube));
+        }
+
+        rocket->setSelectedConfiguration(testFcid(0));
+        rocket->getSelectedConfiguration().setAllStages();
+
+        rocket->enableEvents();
+    }
+};
+
+/// TestRockets.makeFalcon9Heavy(): a payload stage (a power-series nose 0.118 m, the fairing body
+/// 0.132 m, a transition 0.014 m with automatic radii, the upper stage body 0.18 m with a
+/// parachute and a shock cord, the interstage 0.12 m) and a core stage whose body (0.8 m, radius
 /// 0.0385 m, an M1350 motor) holds a two-booster set on its surface; each booster has a nose
-/// (0.08 m) and a body (0.8 m) holding a 4-motor cluster of inner tubes (G77 motors, overhang
-/// 0.01234 m) and three fins. Its configuration is selected, with every stage active.
+/// (0.08 m) and a body (0.8 m, automatic radius) holding a 4-ring cluster of inner tubes (G77
+/// motors, overhang 0.01234 m) and three fins. Its configuration is selected, with every stage
+/// active.
 struct TestFalcon9Heavy
 {
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
+    /// TestRockets.FALCON_9H_FCID_1.
     FlightConfigurationId fcid{FlightConfigurationId::fromString("test_config #1: [ M1350, G77]")};
     AxialStage*           payloadStage{nullptr};
-    TestBodyComponent*    payloadNose{nullptr};
-    TestBodyComponent*    payloadBody{nullptr};
-    TestBodyComponent*    payloadTransition{nullptr};
-    TestBodyComponent*    upperStageBody{nullptr};
-    TestComponent*        parachute{nullptr};
-    TestComponent*        shockCord{nullptr};
-    TestBodyComponent*    interstage{nullptr};
+    NoseCone*             payloadNose{nullptr};
+    BodyTube*             payloadBody{nullptr};
+    Transition*           payloadTransition{nullptr};
+    BodyTube*             upperStageBody{nullptr};
+    Parachute*            parachute{nullptr};
+    ShockCord*            shockCord{nullptr};
+    BodyTube*             interstage{nullptr};
     AxialStage*           coreStage{nullptr};
-    TestMotorMount*       coreBody{nullptr};
+    BodyTube*             coreBody{nullptr};
     ParallelStage*        boosterStage{nullptr};
-    TestBodyComponent*    boosterNose{nullptr};
-    TestBodyComponent*    boosterBody{nullptr};
-    TestMotorMount*       boosterMotorTubes{nullptr};
-    TestComponent*        boosterFins{nullptr};
+    NoseCone*             boosterNose{nullptr};
+    BodyTube*             boosterBody{nullptr};
+    InnerTube*            boosterMotorTubes{nullptr};
+    TestComponent*        boosterFins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
 
     TestFalcon9Heavy()
     {
         rocket->setName("Falcon9H Scale Rocket");
+
         rocket->createFlightConfiguration(fcid);
         rocket->setSelectedConfiguration(fcid);
 
-        // ====== Payload Stage ======
-        payloadStage = &rocket->addChild(std::make_unique<AxialStage>());
-        payloadStage->setName("Payload Fairing Stage");
+        addPayloadStage();
+        addCoreStage();
+        addBoosterStage();
 
-        payloadNose = &payloadStage->addChild(
-            TestBodyComponent::make(0.118, 0.052, ComponentKind::NOSE_CONE));
-        payloadNose->setForeAftRadii(0, 0.052);
-        payloadNose->setName("PL Fairing Nose");
+        rocket->enableEvents();
+        rocket->setSelectedConfiguration(fcid);
+        rocket->getFlightConfiguration(fcid).setAllStages();
+    }
 
-        payloadBody = &payloadStage->addChild(TestBodyComponent::make(0.132, 0.052));
-        payloadBody->setName("PL Fairing Body");
+private:
+    // ====== Payload Stage ======
+    void addPayloadStage()
+    {
+        auto stage = std::make_unique<AxialStage>();
+        stage->setName("Payload Fairing Stage");
+        payloadStage = &rocket->addChild(std::move(stage));
 
-        payloadTransition = &payloadStage->addChild(
-            TestBodyComponent::make(0.014, 0.052, ComponentKind::TRANSITION));
-        payloadTransition->setForeAftRadii(0.052, 0.0385);
-        payloadTransition->setName("PL Fairing Transition");
+        auto fairingNose = std::make_unique<NoseCone>(TransitionShape::POWER, 0.118, 0.052);
+        fairingNose->setName("PL Fairing Nose");
+        fairingNose->setThickness(0.001);
+        fairingNose->setShapeParameter(0.5);
+        fairingNose->setAftShoulderRadius(0.051);
+        fairingNose->setAftShoulderLength(0.02);
+        fairingNose->setAftShoulderThickness(0.001);
+        fairingNose->setAftShoulderCapped(false);
+        payloadNose = &payloadStage->addChild(std::move(fairingNose));
 
-        upperStageBody = &payloadStage->addChild(TestBodyComponent::make(0.18, 0.0385));
-        upperStageBody->setName("Upper Stage Body");
-        parachute = &upperStageBody->addChild(
-            makeInternal(ComponentKind::PARACHUTE, 0.025, AxialMethod::MIDDLE, 0.0));
-        parachute->setName("Parachute");
-        shockCord = &upperStageBody->addChild(
-            makeInternal(ComponentKind::SHOCK_CORD, 0.025, AxialMethod::BOTTOM, 0.0));
-        shockCord->setName("Shock Cord");
+        auto fairingBody = std::make_unique<BodyTube>(0.132, 0.052, 0.001);
+        fairingBody->setName("PL Fairing Body");
+        payloadBody = &payloadStage->addChild(std::move(fairingBody));
 
-        interstage = &payloadStage->addChild(TestBodyComponent::make(0.12, 0.0385));
-        interstage->setName("Interstage");
+        auto fairingTail = std::make_unique<Transition>();
+        fairingTail->setName("PL Fairing Transition");
+        fairingTail->setLength(0.014);
+        fairingTail->setThickness(0.002);
+        fairingTail->setForeRadiusAutomatic(true);
+        fairingTail->setAftRadiusAutomatic(true);
+        payloadTransition = &payloadStage->addChild(std::move(fairingTail));
 
-        // ====== Core Stage ======
-        coreStage = &rocket->addChild(std::make_unique<AxialStage>());
-        coreStage->setName("Core Stage");
+        auto upperBody = std::make_unique<BodyTube>(0.18, 0.0385, 0.001);
+        upperBody->setName("Upper Stage Body");
+        upperStageBody = &payloadStage->addChild(std::move(upperBody));
 
-        coreBody = &coreStage->addChild(TestMotorMount::make(0.8, 0.0385));
-        coreBody->setInnerRadius(0.0385 - 0.001);
-        coreBody->setName("Core Stage Body");
+        // Parachute
+        auto upperChute = std::make_unique<Parachute>();
+        upperChute->setName("Parachute");
+        upperChute->setAxialMethod(AxialMethod::MIDDLE);
+        upperChute->setAxialOffset(0.0);
+        upperChute->setDiameter(0.3);
+        upperChute->setLineCount(6);
+        upperChute->setLineLength(0.3);
+        parachute = &upperStageBody->addChild(std::move(upperChute));
+
+        // Cord
+        auto cord = std::make_unique<ShockCord>();
+        cord->setName("Shock Cord");
+        cord->setAxialMethod(AxialMethod::BOTTOM);
+        cord->setAxialOffset(0.0);
+        cord->setCordLength(0.4);
+        shockCord = &upperStageBody->addChild(std::move(cord));
+
+        auto interstageBody = std::make_unique<BodyTube>(0.12, 0.0385, 0.001);
+        interstageBody->setName("Interstage");
+        interstage = &payloadStage->addChild(std::move(interstageBody));
+    }
+
+    // ====== Core Stage ======
+    void addCoreStage()
+    {
+        auto stage = std::make_unique<AxialStage>();
+        stage->setName("Core Stage");
+        coreStage = &rocket->addChild(std::move(stage));
+
+        // 74 mm inner dia
+        auto body = std::make_unique<BodyTube>(0.8, 0.0385, 0.001);
+        body->setName("Core Stage Body");
+        body->setMotorMount(true);
+        coreBody = &coreStage->addChild(std::move(body));
+
+        MotorConfiguration coreMotorConfig{*coreBody, fcid};
+        coreMotorConfig.setMotor(motorM1350());
         coreBody->setMotorMount(true);
-        coreBody->addMotor(fcid, motorM1350());
+        coreBody->setMotorConfig(std::move(coreMotorConfig), fcid);
+    }
 
-        // ====== Booster Stage Set ======
-        boosterStage = &coreBody->addChild(std::make_unique<ParallelStage>());
-        boosterStage->setName("Booster Stage");
+    // ====== Booster Stage Set ======
+    void addBoosterStage()
+    {
+        auto boosters = std::make_unique<ParallelStage>();
+        boosters->setName("Booster Stage");
+        boosterStage = &coreBody->addChild(std::move(boosters));
         boosterStage->setAxialMethod(AxialMethod::BOTTOM);
         boosterStage->setAxialOffset(0.0);
         boosterStage->setInstanceCount(2);
         boosterStage->setRadius(RadiusMethod::SURFACE, 0.0);
         boosterStage->setAngleMethod(AngleMethod::RELATIVE);
 
-        boosterNose = &boosterStage->addChild(
-            TestBodyComponent::make(0.08, 0.0385, ComponentKind::NOSE_CONE));
-        boosterNose->setForeAftRadii(0, 0.0385);
-        boosterNose->setName("Booster Nose");
+        auto boosterCone = std::make_unique<NoseCone>(TransitionShape::POWER, 0.08, 0.0385);
+        boosterCone->setShapeParameter(0.5);
+        boosterCone->setName("Booster Nose");
+        boosterCone->setThickness(0.002);
+        boosterCone->setAftShoulderRadius(0.0375);
+        boosterCone->setAftShoulderLength(0.02);
+        boosterCone->setAftShoulderThickness(0.001);
+        boosterCone->setAftShoulderCapped(false);
+        boosterNose = &boosterStage->addChild(std::move(boosterCone));
 
-        boosterBody = &boosterStage->addChild(TestBodyComponent::make(0.8, 0.0385));
-        boosterBody->setName("Booster Body");
+        auto body = std::make_unique<BodyTube>(0.8, 0.0385, 0.001);
+        body->setName("Booster Body");
+        body->setOuterRadiusAutomatic(true);
+        boosterBody = &boosterStage->addChild(std::move(body));
 
-        boosterMotorTubes = &boosterBody->addChild(
-            TestMotorMount::make(0.15, 0.015, ComponentKind::INNER_TUBE, AxialMethod::BOTTOM));
-        boosterMotorTubes->setName("Booster Motor Tubes");
-        boosterMotorTubes->setInnerRadius(0.015 - 0.0005);
-        boosterMotorTubes->setAerodynamic(false);
-        // The 4-ring cluster of 29 mm tubes (ClusterConfiguration.CONFIGURATIONS[5], scale 1).
-        boosterMotorTubes->setInstances(
-            {Coordinate{0, -0.015, 0.015}, Coordinate{0, 0.015, 0.015},
-             Coordinate{0, 0.015, -0.015}, Coordinate{0, -0.015, -0.015}},
-            {0, 0, 0, 0});
-        boosterMotorTubes->setMotorCount(4);
-        boosterMotorTubes->addMotor(fcid, motorG77());
+        auto motorTubes = std::make_unique<InnerTube>();
+        motorTubes->setName("Booster Motor Tubes");
+        motorTubes->setLength(0.15);
+        motorTubes->setOuterRadius(0.015);  // => 29mm motors
+        motorTubes->setThickness(0.0005);
+        motorTubes->setClusterConfiguration(ClusterConfiguration::configurations()[5]);  // 4-ring
+        motorTubes->setClusterScale(1.0);
+        boosterMotorTubes = &boosterBody->addChild(std::move(motorTubes));
+
+        MotorConfiguration boosterMotorConfig{*boosterMotorTubes, fcid};
+        boosterMotorConfig.setMotor(motorG77());
+        boosterMotorTubes->setMotorConfig(std::move(boosterMotorConfig), fcid);
         boosterMotorTubes->setMotorOverhang(0.01234);
 
-        boosterFins = &boosterBody->addChild(makeFins(3, 0.32, 0.0385));
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class (TrapezoidFinSet(),
+        // added first, then 3 fins, thickness 0.003, ROUNDED, root chord 0.32, tip chord 0.12,
+        // height 0.10, sweep 0.18, BOTTOM 0.0).
+        boosterFins = &boosterBody->addChild(makeFalconBoosterFins());
         boosterFins->setName("Booster Fins");
-
-        rocket->enableEvents();
-        rocket->setSelectedConfiguration(fcid);
-        rocket->getFlightConfiguration(fcid).setAllStages();
+        boosterFins->setAxialOffset(AxialMethod::BOTTOM, 0.0);
     }
 };
 

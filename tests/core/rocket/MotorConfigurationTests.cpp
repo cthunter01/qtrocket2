@@ -11,27 +11,30 @@
 #include "QtRocket/motor/MotorConfigurationId.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Inertia.h"
 #include "QtRocket/util/ModId.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
+using QtRocket::BodyTube;
 using QtRocket::BugError;
-using QtRocket::ComponentKind;
+using QtRocket::ClusterConfiguration;
 using QtRocket::Coordinate;
 using QtRocket::ErrorCode;
 using QtRocket::FlightConfigurationId;
 using QtRocket::IgnitionEvent;
 using QtRocket::InMemoryPreferences;
+using QtRocket::InnerTube;
 using QtRocket::Motor;
 using QtRocket::MotorConfiguration;
 using QtRocket::MotorConfigurationId;
@@ -40,26 +43,31 @@ using QtRocket::Test::motorC6;
 using QtRocket::Test::motorD21;
 using QtRocket::Test::motorG77;
 using QtRocket::Test::motorM1350;
-using QtRocket::Test::TestMotorMount;
 
-/// A body tube mount (0.3 m, radius 0.02 m, overhang 0.01 m) and an inner tube mount.
+/// A body tube mount (0.3 m, radius 0.02 m, overhang 0.01 m) and an inner tube mount with a
+/// cluster of three.
 class MotorConfigurationTest : public ::testing::Test
 {
 protected:
     MotorConfigurationTest()
     {
-        m_mount = TestMotorMount::make(0.3, 0.02);
         m_mount->setInnerRadius(0.019);
         m_mount->setMotorOverhang(0.01);
         m_mount->setName("Mount");
-        m_inner = TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE);
-        m_inner->setMotorCount(3);
+        m_inner->setLength(0.1);
+        m_inner->setOuterRadius(0.01);
+        const ClusterConfiguration* threeRing = ClusterConfiguration::fromXmlName("3-ring");
+        if (threeRing == nullptr)
+        {
+            QtRocket::bug("no 3-ring cluster layout");
+        }
+        m_inner->setClusterConfiguration(*threeRing);
     }
 
-    std::unique_ptr<TestMotorMount> m_mount;
-    std::unique_ptr<TestMotorMount> m_inner;
-    FlightConfigurationId           m_fcid;
-    InMemoryPreferences             m_preferences;
+    std::unique_ptr<BodyTube>  m_mount = std::make_unique<BodyTube>(0.3, 0.02);
+    std::unique_ptr<InnerTube> m_inner = std::make_unique<InnerTube>();
+    FlightConfigurationId      m_fcid;
+    InMemoryPreferences        m_preferences;
 };
 
 TEST_F(MotorConfigurationTest, NewConfigurationIsEmptyAndAutomatic)
@@ -279,8 +287,11 @@ TEST_F(MotorConfigurationTest, MotorCountIsTheClusterOfAnInnerTube)
     const MotorConfiguration inInner{*m_inner, m_fcid};
     EXPECT_EQ(inInner.getMotorCount(), 3);
     const MotorConfiguration inBody{*m_mount, m_fcid};
-    m_mount->setMotorCount(5);
     EXPECT_EQ(inBody.getMotorCount(), 1) << "only an inner tube is a cluster";
+
+    // The count follows the inner tube's cluster.
+    m_inner->setClusterConfiguration(ClusterConfiguration::single());
+    EXPECT_EQ(inInner.getMotorCount(), 1);
 }
 
 TEST_F(MotorConfigurationTest, Descriptions)

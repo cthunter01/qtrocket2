@@ -3,13 +3,12 @@
 #include <cmath>
 #include <vector>
 
-#include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/NoseCone.h"
-#include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
@@ -99,45 +98,31 @@ double MassObject::getAutoRadius() const
 
 double MassObject::getMaxParentRadius() const
 {
-    if (m_parent == nullptr)
-    {
-        return 0;
-    }
-    // Java tests the parent's class (instanceof), which cannot fail; here the kind tells the
-    // class, and a component of that kind without the interface is a programming error (a
-    // stand-in or a body class that misses it), not a parent of radius 0.
     if (const auto* noseCone = dynamic_cast<const NoseCone*>(m_parent))
     {
         return noseCone->getBaseRadius();
     }
     if (const auto* transition = dynamic_cast<const Transition*>(m_parent))
     {
-        return MathUtil::javaMax(transition->getForeRadius(), transition->getAftRadius());
-    }
-    const ComponentKind parentKind = m_parent->kind();
-    if (parentKind == ComponentKind::NOSE_CONE || parentKind == ComponentKind::TRANSITION)
-    {
-        // HOOK(test-fixtures): a nose cone or transition stand-in (TestBodyComponent), read
-        // through RadialParent as ReferenceType does (see the header).
-        const auto* radial = dynamic_cast<const RadialParent*>(m_parent);
-        QTROCKET_ASSERT(radial != nullptr);
-        const double foreRadius = radial->getOuterRadius(-1.0);
-        const double aftRadius  = radial->getOuterRadius(radial->getLength());
+        // Fore before aft, as Java reads them (reading an automatic radius refreshes it).
+        const double foreRadius = transition->getForeRadius();
+        const double aftRadius  = transition->getAftRadius();
         return MathUtil::javaMax(foreRadius, aftRadius);
     }
-    if (isBodyComponent(parentKind))
+    if (const auto* body = dynamic_cast<const SymmetricComponent*>(m_parent))
     {
-        // A body tube: BodyComponent.getInnerRadius().
-        const auto* body = dynamic_cast<const Coaxial*>(m_parent);
-        QTROCKET_ASSERT(body != nullptr);
+        // Java: instanceof BodyComponent, whose getInnerRadius() a body tube overrides.
         return body->getInnerRadius();
     }
-    if (isRingComponent(parentKind))
+    if (const auto* ring = dynamic_cast<const RingComponent*>(m_parent))
     {
-        const auto* ring = dynamic_cast<const RingComponent*>(m_parent);
-        QTROCKET_ASSERT(ring != nullptr);
         return ring->getInnerRadius();
     }
+    // Java tests the parent's class (instanceof), which cannot miss a body or ring component;
+    // here a parent whose kind() names one of those classes but that is not of the class is a
+    // programming error, not a parent of radius 0.
+    QTROCKET_ASSERT(m_parent == nullptr ||
+                    !(isBodyComponent(m_parent->kind()) || isRingComponent(m_parent->kind())));
     return 0;
 }
 

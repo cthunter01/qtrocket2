@@ -13,9 +13,12 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
@@ -23,14 +26,14 @@
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestBodyComponent.h"
-#include "rocket/TestMotorMount.h"
+#include "rocket/TestComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::CenteringRing;
 using QtRocket::ComponentKind;
@@ -41,10 +44,11 @@ using QtRocket::Coordinate;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
+using QtRocket::NoseCone;
 using QtRocket::Rocket;
+using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
-using QtRocket::Test::TestMotorMount;
+using QtRocket::Test::TestComponent;
 
 constexpr double kEpsilon = 1e-12;
 
@@ -156,15 +160,15 @@ TEST(CenteringRing, HoldsNoChildren)
     EXPECT_THROW(cr.addChild(std::make_unique<CenteringRing>()), BugError);
 }
 
-/// A rocket with a stage holding a body tube stand-in (0.5 m long, radius 0.03 m, inner radius
-/// 0.029 m) with an inner tube of outer radius 0.012 m from 0.2 to 0.4 m; events enabled.
+/// A rocket with a stage holding a body tube (0.5 m long, radius 0.03 m, inner radius 0.029 m)
+/// with an inner tube of outer radius 0.012 m from 0.2 to 0.4 m; events enabled.
 class CenteringRingTest : public ::testing::Test
 {
 protected:
     CenteringRingTest()
     {
         auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body      = &stage.addChild(TestBodyComponent::make(0.5, 0.03));
+        m_body      = &stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
         m_body->setInnerRadius(0.029);
         m_tube = &m_body->addChild(std::make_unique<InnerTube>());
         m_tube->setLength(0.2);
@@ -176,10 +180,10 @@ protected:
         m_rocket.enableEvents();
     }
 
-    Rocket             m_rocket;
-    TestBodyComponent* m_body{nullptr};
-    InnerTube*         m_tube{nullptr};
-    CenteringRing*     m_ring{nullptr};
+    Rocket         m_rocket;
+    BodyTube*      m_body{nullptr};
+    InnerTube*     m_tube{nullptr};
+    CenteringRing* m_ring{nullptr};
 };
 
 TEST_F(CenteringRingTest, InnerRadiusFollowsTheOverlappingInnerTube)
@@ -221,8 +225,9 @@ TEST_F(CenteringRingTest, OnlyRealInnerTubesCount)
     // A component of the INNER_TUBE kind that is not an InnerTube (Java: instanceof) is ignored.
     m_ring->setAxialOffset(0.3);
     static_cast<void>(m_body->removeChild(m_tube));
-    auto& fake = m_body->addChild(
-        TestMotorMount::make(0.2, 0.012, ComponentKind::INNER_TUBE, AxialMethod::TOP));
+    auto& fake =
+        m_body->addChild(TestComponent::make(0.2, ComponentKind::INNER_TUBE, AxialMethod::TOP));
+    fake.setOuterRadius(0.012);
     fake.setAxialOffset(AxialMethod::TOP, 0.2);
     EXPECT_EQ(m_ring->getInnerRadius(), 0.0);
 }
@@ -257,8 +262,8 @@ TEST(CenteringRing, EstesAlphaIIICenteringRingLocations)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestBodyComponent::make(0.07, 0.012, ComponentKind::NOSE_CONE));
-    auto& body = stage.addChild(TestBodyComponent::make(0.20, 0.012));
+    stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
+    auto& body = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
     auto  ring = std::make_unique<CenteringRing>();
     ring->setName("Centering Rings");
     ring->setAxialMethod(AxialMethod::TOP);

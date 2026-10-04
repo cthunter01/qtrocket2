@@ -22,6 +22,7 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/CenteringRing.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
@@ -30,8 +31,11 @@
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/LineInstanceable.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
@@ -43,7 +47,6 @@
 #include "QtRocket/util/Coordinate.h"
 #include "goldens/GoldenData.h"
 #include "rocket/InternalTestSupport.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 
 namespace
@@ -52,6 +55,7 @@ namespace
 using nlohmann::json;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
 using QtRocket::BugError;
 using QtRocket::Bulkhead;
@@ -65,8 +69,11 @@ using QtRocket::Coordinate;
 using QtRocket::EngineBlock;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
+using QtRocket::NoseCone;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::Transition;
+using QtRocket::TransitionShape;
 using QtRocket::TubeCoupler;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Test::GoldenCheck;
@@ -74,41 +81,24 @@ using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::makeFactoryPreset;
 using QtRocket::Test::noGoldenMismatches;
 using QtRocket::Test::OneStage;
-using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
 
 constexpr double kEpsilon = 1e-12;
 
-/// A body (a BODY_TUBE stand-in) whose inner radius changes linearly along its length, from
-/// @p fore at x = 0 to @p aft at its end, so that the automatic outer radius has to take the
-/// smaller of the two ends.
-class TaperedBody : public TestBodyComponent
+/// A body whose inner radius changes linearly along its length, from @p fore at x = 0 to @p aft
+/// at its end, so that the automatic outer radius has to take the smaller of the two ends: a
+/// conical transition with a wall of 2 mm.
+[[nodiscard]] std::unique_ptr<Transition> taperedBody(double length, double fore, double aft)
 {
-public:
-    using TestBodyComponent::getInnerRadius;
-
-    TaperedBody(double length, double fore, double aft)
-      : TestBodyComponent(ComponentKind::BODY_TUBE, AxialMethod::AFTER, length),
-        m_fore(fore),
-        m_aft(aft)
-    {
-    }
-
-    [[nodiscard]] double getInnerRadius(double x) const override
-    {
-        return m_fore + ((m_aft - m_fore) * x / getLength());
-    }
-
-protected:
-    [[nodiscard]] std::unique_ptr<RocketComponent> cloneShallow() const override
-    {
-        return std::make_unique<TaperedBody>(*this);
-    }
-
-private:
-    double m_fore;
-    double m_aft;
-};
+    constexpr double kWall = 0.002;
+    auto             body  = std::make_unique<Transition>();
+    body->setShapeType(TransitionShape::CONICAL);
+    body->setLength(length);
+    body->setForeRadius(fore + kWall);
+    body->setAftRadius(aft + kWall);
+    body->setThickness(kWall);
+    return body;
+}
 
 class RingComponentEvents : public QtRocket::Test::RingEventsFixture
 { };
@@ -244,8 +234,8 @@ TEST(RingComponent, AutomaticOuterRadiusTakesTheSmallerParentRadius)
 {
     // In a rocket, so that every move reaches componentChanged() (which clears the cached
     // locations toRelative() reads).
-    OneStage     rocket;
-    TaperedBody& body = rocket.stage->addChild(std::make_unique<TaperedBody>(1.0, 0.01, 0.02));
+    OneStage    rocket;
+    Transition& body = rocket.stage->addChild(taperedBody(1.0, 0.01, 0.02));
     rocket.rocket.enableEvents();
     auto& block = body.addChild(std::make_unique<EngineBlock>());
     block.setLength(0.1);
@@ -317,8 +307,8 @@ TEST(RingComponent, AutomaticOuterRadiusRefusesAMisbuiltParent)
 
 TEST(RingComponent, RadiusRingAutomaticOuterRadius)
 {
-    OneStage     rocket;
-    TaperedBody& body = rocket.stage->addChild(std::make_unique<TaperedBody>(1.0, 0.03, 0.02));
+    OneStage    rocket;
+    Transition& body = rocket.stage->addChild(taperedBody(1.0, 0.03, 0.02));
     rocket.rocket.enableEvents();
     auto& bulk = body.addChild(std::make_unique<Bulkhead>());
     bulk.setAxialMethod(AxialMethod::TOP);
@@ -448,9 +438,9 @@ TEST(RingComponent, CopiesKeepTheRingFields)
     return check.failures();
 }
 
-/// TestRockets.makeEstesAlphaIII() as far as the ring components go: the stage holds a nose
-/// cone and a body tube stand-in (OpenRocket's dimensions), the body the real inner tube (with
-/// its engine block) and centering rings, built as OpenRocket's factory builds them.
+/// TestRockets.makeEstesAlphaIII() as far as the ring components go: the stage holds the nose
+/// cone and the body tube, the body the inner tube (with its engine block) and the centering
+/// rings, built as OpenRocket's factory builds them.
 struct AlphaIIIRings
 {
     Rocket         rocket;
@@ -462,9 +452,8 @@ struct AlphaIIIRings
     {
         rocket.setName("Estes Alpha III / Code Verification Rocket");
         auto& stage = rocket.addChild(std::make_unique<AxialStage>());
-        stage.addChild(TestBodyComponent::make(0.07, 0.012, ComponentKind::NOSE_CONE));
-        auto& body = stage.addChild(TestBodyComponent::make(0.20, 0.012));
-        body.setInnerRadius(0.012 - 0.0003);
+        stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
+        auto& body = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
 
         auto tube = std::make_unique<InnerTube>();
         tube->setAxialMethod(AxialMethod::TOP);
@@ -528,10 +517,9 @@ TEST(RingComponentGolden, BetaCoupler)
 {
     // TestRockets.makeBeta(): the booster body (BodyTube(0.06, 0.012, 0.0003)) and its coupler,
     // whose thickness the constructor-time clamp keeps at 0 (so it weighs nothing).
-    OneStage           rocket;
-    TestBodyComponent& body = rocket.stage->addChild(TestBodyComponent::make(0.06, 0.012));
-    body.setInnerRadius(0.012 - 0.0003);
-    auto coupler = std::make_unique<TubeCoupler>();
+    OneStage  rocket;
+    BodyTube& body    = rocket.stage->addChild(std::make_unique<BodyTube>(0.06, 0.012, 0.0003));
+    auto      coupler = std::make_unique<TubeCoupler>();
     coupler->setName("Coupler");
     coupler->setOuterRadiusAutomatic(true);
     coupler->setThickness(0.0003);
@@ -545,23 +533,20 @@ TEST(RingComponentGolden, BetaCoupler)
     EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
 }
 
-/// TestRockets.makeIsoHaisu()'s second and third body tubes (BodyTube(length, 0.07, 0.005)
-/// stand-ins) with their coupler, bulkhead, inner tube and centering rings.
+/// TestRockets.makeIsoHaisu()'s second and third body tubes (BodyTube(length, 0.07, 0.005))
+/// with their coupler, bulkhead, inner tube and centering rings.
 struct IsoHaisuRings
 {
-    OneStage           rocket;
-    TestBodyComponent* tube2{&rocket.stage->addChild(TestBodyComponent::make(0.605, 0.07))};
-    TestBodyComponent* tube3{&rocket.stage->addChild(TestBodyComponent::make(1.065, 0.07))};
-    TubeCoupler*       coupler{nullptr};
-    Bulkhead*          bulk{nullptr};
-    InnerTube*         inner{nullptr};
+    OneStage     rocket;
+    BodyTube*    tube2{&rocket.stage->addChild(std::make_unique<BodyTube>(0.605, 0.07, 0.005))};
+    BodyTube*    tube3{&rocket.stage->addChild(std::make_unique<BodyTube>(1.065, 0.07, 0.005))};
+    TubeCoupler* coupler{nullptr};
+    Bulkhead*    bulk{nullptr};
+    InnerTube*   inner{nullptr};
     std::vector<CenteringRing*> centers;
 
     IsoHaisuRings()
     {
-        tube2->setInnerRadius(0.07 - 0.005);
-        tube3->setInnerRadius(0.07 - 0.005);
-
         auto tubeCoupler = std::make_unique<TubeCoupler>();
         tubeCoupler->setOuterRadiusAutomatic(true);
         tubeCoupler->setLength(0.28);
@@ -632,10 +617,9 @@ TEST(RingComponentGolden, IsoHaisuInnerTubeAndCenteringRings)
 TEST(RingComponentGolden, Falcon9HeavyBoosterMotorTubes)
 {
     // A 4-ring cluster in a booster body (BodyTube(0.8, 0.0385, 0.001)).
-    OneStage           rocket;
-    TestBodyComponent& body = rocket.stage->addChild(TestBodyComponent::make(0.8, 0.0385));
-    body.setInnerRadius(0.0385 - 0.001);
-    auto tubes = std::make_unique<InnerTube>();
+    OneStage  rocket;
+    BodyTube& body  = rocket.stage->addChild(std::make_unique<BodyTube>(0.8, 0.0385, 0.001));
+    auto      tubes = std::make_unique<InnerTube>();
     tubes->setName("Booster Motor Tubes");
     tubes->setLength(0.15);
     tubes->setOuterRadius(0.015);
@@ -658,9 +642,9 @@ TEST(RingComponentGolden, ClusterPodsInnerTubes)
     // cluster in the sustainer and a 4-row cluster in each side booster.
     for (const auto& [path, layout] : {std::pair{"/0/0/0", 1}, std::pair{"/0/0/1/0/0", 3}})
     {
-        OneStage           rocket;
-        TestBodyComponent& body = rocket.stage->addChild(TestBodyComponent::make(0.2, 0.0254));
-        auto               tube = std::make_unique<InnerTube>();
+        OneStage  rocket;
+        BodyTube& body = rocket.stage->addChild(std::make_unique<BodyTube>());
+        auto      tube = std::make_unique<InnerTube>();
         tube->setClusterConfiguration(
             ClusterConfiguration::configurations()[static_cast<std::size_t>(layout)]);
         InnerTube& added = body.addChild(std::move(tube));

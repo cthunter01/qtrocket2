@@ -6,7 +6,6 @@
 #include <filesystem>
 #include <format>
 #include <memory>
-#include <numbers>
 #include <optional>
 #include <set>
 #include <span>
@@ -24,19 +23,27 @@
 #include "QtRocket/mass/MassCalculation.h"
 #include "QtRocket/mass/MotorClusterState.h"
 #include "QtRocket/mass/RigidBody.h"
-#include "QtRocket/motor/Manufacturer.h"
+#include "QtRocket/material/Material.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ShockCord.h"
+#include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
@@ -46,9 +53,7 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "goldens/GoldenData.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -57,31 +62,40 @@ namespace
 using QtRocket::AngleMethod;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
+using QtRocket::ClusterConfiguration;
 using QtRocket::CMAnalysisEntry;
 using QtRocket::CMAnalysisMap;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
+using QtRocket::InnerTube;
 using QtRocket::MassCalculation;
 using QtRocket::MassCalculator;
+using QtRocket::MassComponent;
 using QtRocket::ModId;
 using QtRocket::Motor;
 using QtRocket::MotorClusterState;
 using QtRocket::MotorConfiguration;
+using QtRocket::NoseCone;
+using QtRocket::Parachute;
 using QtRocket::ParallelStage;
 using QtRocket::PodSet;
 using QtRocket::RadiusMethod;
 using QtRocket::RigidBody;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::ShockCord;
 using QtRocket::ThrustCurveMotor;
-using QtRocket::Test::TestBodyComponent;
+using QtRocket::Transition;
+using QtRocket::Test::addMotor;
+using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::testFcid;
-using QtRocket::Test::TestMotorMount;
+using QtRocket::Test::TestSimple2Stage;
 using Json = nlohmann::json;
 
 // tolerance for compared double test results (MassCalculatorTest.EPSILON, MathUtil's precision)
@@ -160,72 +174,6 @@ std::vector<Coordinate> coordinates(const Json& values)
     return result;
 }
 
-/// The golden vector of numbers @p values.
-std::vector<double> numbers(const Json& values)
-{
-    std::vector<double> result;
-    for (const Json& value : values)
-    {
-        result.push_back(number(value));
-    }
-    return result;
-}
-
-/// Gives @p testDouble the mass properties (component mass, CG, unit inertias, massiveness) and
-/// the instances of the golden component @p golden.
-void applyGoldenDouble(TestComponent& testDouble, const Json& golden)
-{
-    testDouble.setMass(number(golden.at("componentMass")));
-    testDouble.setCG(coordinate(golden.at("componentCG")).setWeight(0));
-    testDouble.setUnitInertias(number(golden.at("longitudinalUnitInertia")),
-                               number(golden.at("rotationalUnitInertia")));
-    testDouble.setMassive(golden.at("isMassive").get<bool>());
-    testDouble.setInstances(coordinates(golden.at("instanceOffsets")),
-                            numbers(golden.at("instanceAngles")));
-}
-
-/// Gives @p component the mass and CG overrides of the golden @p overrides.
-void applyGoldenOverrides(RocketComponent& component, const Json& overrides)
-{
-    if (overrides.at("massOverridden").get<bool>())
-    {
-        component.setMassOverridden(true);
-        component.setOverrideMass(number(overrides.at("overrideMass")));
-    }
-    if (overrides.at("cgOverridden").get<bool>())
-    {
-        component.setCGOverridden(true);
-        component.setOverrideCGX(number(overrides.at("overrideCGX")));
-    }
-    component.setSubcomponentsOverriddenMass(
-        overrides.at("subcomponentsOverriddenMass").get<bool>());
-    component.setSubcomponentsOverriddenCG(overrides.at("subcomponentsOverriddenCG").get<bool>());
-}
-
-/// Gives every test double of @p rocket the mass properties, the instances and the overrides
-/// of the OpenRocket component at the same path in @p geometry, so that the doubles stand in for
-/// OpenRocket's concrete components. The assemblies are the real classes (massless in
-/// OpenRocket too); they only take the overrides.
-void applyGoldenMassProperties(Rocket& rocket, const Json& geometry)
-{
-    for (const Json& golden : geometry.at("components"))
-    {
-        const auto       path      = golden.at("path").get<std::string>();
-        RocketComponent& component = componentAt(rocket, path);
-        if (auto* const testDouble = dynamic_cast<TestComponent*>(&component))
-        {
-            applyGoldenDouble(*testDouble, golden);
-        }
-        else
-        {
-            EXPECT_TRUE(QtRocket::isAssembly(component.kind()) &&
-                        number(golden.at("componentMass")) == 0.0)
-                << path;
-        }
-        applyGoldenOverrides(component, golden.at("overrides"));
-    }
-}
-
 /// Expects @p actual within 1e-12 of @p expected in x, y and z.
 void expectLocation(const Coordinate& actual, const Coordinate& expected, const std::string& what)
 {
@@ -235,7 +183,7 @@ void expectLocation(const Coordinate& actual, const Coordinate& expected, const 
 }
 
 /// Expects every component of @p rocket at the absolute locations its OpenRocket counterpart
-/// has in @p geometry, so that the doubles reproduce OpenRocket's geometry.
+/// has in @p geometry.
 void expectGoldenLocations(Rocket& rocket, const Json& geometry)
 {
     for (const Json& golden : geometry.at("components"))
@@ -343,124 +291,7 @@ void expectGoldenMass(Rocket& rocket, const Json& mass)
     rocket.setSelectedConfiguration(selected);
 }
 
-// ============================================================================ test rockets
-
-/// TestRockets.generateMotor_C6_18mm() exactly (TestRockets.h's motorC6() is a triangular
-/// approximation with another burnout mass): the golden comparisons need Java's burnout data.
-std::shared_ptr<const ThrustCurveMotor> javaMotorC6()
-{
-    ThrustCurveMotor::Builder builder;
-    builder.setManufacturer(QtRocket::Manufacturer::getManufacturer("Estes"))
-        .setDesignation("C6")
-        .setDescription("Desc")
-        .setCaseInfo("SU 18.0x70.0")
-        .setMotorType(Motor::Type::SINGLE)
-        .setStandardDelays({0, 3, 5, 7})
-        .setDiameter(0.018)
-        .setLength(0.070)
-        .setTimePoints({0, 0.2, 0.4, 2.0, 2.1})
-        .setThrustPoints({0, 12, 5, 5, 0})
-        .setCGPoints({Coordinate{0.035, 0, 0, 0.0227}, Coordinate{0.035, 0, 0, 0.0165},
-                      Coordinate{0.035, 0, 0, 0.0165}, Coordinate{0.035, 0, 0, 0.013},
-                      Coordinate{0.035, 0, 0, 0.012}})
-        .setDigest("digest C6 test");
-    auto built = builder.build();
-    if (!built)
-    {
-        throw std::runtime_error(built.error().toString());
-    }
-    return std::make_shared<const ThrustCurveMotor>(std::move(*built));
-}
-
-/// Puts Java's C6 into the three C6 configurations of an Alpha III motor mount.
-void useJavaC6(TestMotorMount& mount)
-{
-    const std::shared_ptr<const ThrustCurveMotor> c6 = javaMotorC6();
-    mount.addMotor(testFcid(2), c6, 3.0);
-    mount.addMotor(testFcid(3), c6, 5.0);
-    mount.addMotor(testFcid(4), c6, 7.0);
-}
-
-/// The Estes Alpha III with OpenRocket's mass properties.
-struct GoldenAlphaIII : TestEstesAlphaIII
-{
-    GoldenAlphaIII()
-    {
-        applyGoldenMassProperties(*rocket,
-                                  loadGolden("testrocket-estes-alpha-iii", "geometry.json"));
-        useJavaC6(*inner);
-    }
-};
-
-/// The Beta with OpenRocket's mass properties.
-struct GoldenBeta : QtRocket::Test::TestBeta
-{
-    GoldenBeta()
-    {
-        applyGoldenMassProperties(*rocket, loadGolden("testrocket-beta", "geometry.json"));
-        useJavaC6(*inner);
-    }
-};
-
-/// The Falcon 9 Heavy with OpenRocket's mass properties.
-struct GoldenFalcon9Heavy : TestFalcon9Heavy
-{
-    GoldenFalcon9Heavy()
-    {
-        applyGoldenMassProperties(*rocket,
-                                  loadGolden("testrocket-falcon-9-heavy", "geometry.json"));
-    }
-};
-
-/// TestRockets.makeSimple2Stage() from test doubles: two stages, each with a body tube (0.1 m,
-/// radius 0.01 m, wall 0.001 m), with OpenRocket's mass properties; TEST_FCID_0 selected with
-/// every stage active.
-struct GoldenSimple2Stage
-{
-    std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
-    AxialStage*             sustainerStage{nullptr};
-    TestBodyComponent*      sustainerBody{nullptr};
-    AxialStage*             boosterStage{nullptr};
-    TestBodyComponent*      boosterBody{nullptr};
-
-    GoldenSimple2Stage()
-    {
-        rocket->createFlightConfiguration(testFcid(0));
-        rocket->setName("Simple 2-Stage Rocket");
-
-        sustainerStage = &rocket->addChild(std::make_unique<AxialStage>());
-        sustainerStage->setName("Sustainer Stage");
-        sustainerBody = &sustainerStage->addChild(TestBodyComponent::make(0.10, 0.01));
-        sustainerBody->setInnerRadius(0.009);
-        sustainerBody->setName("Sustainer Body Tube");
-
-        boosterStage = &rocket->addChild(std::make_unique<AxialStage>());
-        boosterStage->setName("Booster Stage");
-        boosterBody = &boosterStage->addChild(TestBodyComponent::make(0.10, 0.01));
-        boosterBody->setInnerRadius(0.009);
-        boosterBody->setName("Booster Body Tube");
-
-        rocket->setSelectedConfiguration(testFcid(0));
-        rocket->getSelectedConfiguration().setAllStages();
-        rocket->enableEvents();
-
-        applyGoldenMassProperties(*rocket,
-                                  loadGolden("testrocket-simple-2-stage", "geometry.json"));
-    }
-};
-
-/// A body tube double of @p length with BodyTube's CG (the middle) and the mass of a cardboard
-/// tube (680 kg/m^3) of outer radius @p radius and wall @p thickness.
-std::unique_ptr<TestBodyComponent> makeTube(double length, double radius, double thickness)
-{
-    auto         tube    = TestBodyComponent::make(length, radius);
-    const double inner   = radius - thickness;
-    const double density = 680;
-    tube->setInnerRadius(inner);
-    tube->setMass(std::numbers::pi * ((radius * radius) - (inner * inner)) * length * density);
-    tube->setCG(Coordinate{length / 2});
-    return tube;
-}
+// ============================================================================ motor states
 
 /// One motor state per motor of @p config, as SimulationStatus.populateMotors() makes them. (A
 /// simulation keeps its states at stable, shared addresses, see MotorClusterState; a vector of
@@ -500,37 +331,45 @@ void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
     EXPECT_EQ(actual.getIzz(), expected.getIzz()) << what;
 }
 
-// ======================================================= golden comparisons through test doubles
+// ======================================================================== golden comparisons
+//
+// The test rockets are built from the real components; only their fin sets and launch lugs are
+// doubles that carry OpenRocket's mass properties (HOOK(fins-lugs), see TestRockets.h).
 
 TEST(MassCalculatorGolden, EstesAlphaIII)
 {
-    GoldenAlphaIII alpha;
+    TestEstesAlphaIII alpha;
     expectGoldenLocations(*alpha.rocket, loadGolden("testrocket-estes-alpha-iii", "geometry.json"));
     expectGoldenMass(*alpha.rocket, loadGolden("testrocket-estes-alpha-iii", "mass.json"));
 }
 
 TEST(MassCalculatorGolden, Beta)
 {
-    GoldenBeta beta;
+    TestBeta beta;
     expectGoldenLocations(*beta.rocket, loadGolden("testrocket-beta", "geometry.json"));
     expectGoldenMass(*beta.rocket, loadGolden("testrocket-beta", "mass.json"));
 }
 
 TEST(MassCalculatorGolden, Falcon9Heavy)
 {
-    GoldenFalcon9Heavy f9h;
+    TestFalcon9Heavy f9h;
     expectGoldenLocations(*f9h.rocket, loadGolden("testrocket-falcon-9-heavy", "geometry.json"));
     expectGoldenMass(*f9h.rocket, loadGolden("testrocket-falcon-9-heavy", "mass.json"));
 }
 
 TEST(MassCalculatorGolden, Simple2Stage)
 {
-    GoldenSimple2Stage simple;
+    TestSimple2Stage simple;
     expectGoldenLocations(*simple.rocket, loadGolden("testrocket-simple-2-stage", "geometry.json"));
     expectGoldenMass(*simple.rocket, loadGolden("testrocket-simple-2-stage", "mass.json"));
 }
 
 // ================================================================ ported from MassCalculatorTest
+//
+// HOOK(fins-lugs): the totals of the Estes Alpha III, the Beta and the Falcon 9 Heavy boosters
+// below include their fin sets and launch lugs, which are doubles that carry OpenRocket's mass,
+// CG and unit inertias (TestRockets.h). The expectations are OpenRocket's and stay as they are
+// when tier 6b computes those values with TrapezoidFinSet and LaunchLug.
 
 TEST(MassCalculator, EmptyRocket)
 {
@@ -564,15 +403,14 @@ TEST(MassCalculator, StageOverride)
     config.setAllStages();
     rocket.enableEvents();
 
-    // BodyTubes whose mass is overridden: only their CG (the middle) matters.
-    auto tube1 = TestBodyComponent::make(1.0, 0.01);
-    tube1->setCG(Coordinate{0.5});
+    auto tube1 = std::make_unique<BodyTube>();
+    tube1->setLength(1.0);
     tube1->setMassOverridden(true);
     tube1->setOverrideMass(1.0);
     stage.addChild(std::move(tube1));
 
-    auto tube2 = TestBodyComponent::make(2.0, 0.01);
-    tube2->setCG(Coordinate{1.0});
+    auto tube2 = std::make_unique<BodyTube>();
+    tube2->setLength(2.0);
     tube2->setMassOverridden(true);
     tube2->setOverrideMass(2.0);
     stage.addChild(std::move(tube2));
@@ -624,7 +462,7 @@ TEST(MassCalculator, StageOverride)
 
 TEST(MassCalculator, AlphaIIIStructure)
 {
-    GoldenAlphaIII       alpha;
+    TestEstesAlphaIII    alpha;
     FlightConfiguration& config = alpha.rocket->getEmptyConfiguration();
     config.setAllStages();
 
@@ -675,7 +513,7 @@ TEST(MassCalculator, AlphaIIIStructure)
 
 TEST(MassCalculator, SubcomponentMassOverrideScalesInertia)
 {
-    GoldenAlphaIII       alpha;
+    TestEstesAlphaIII    alpha;
     FlightConfiguration& config = alpha.rocket->getEmptyConfiguration();
     config.setAllStages();
 
@@ -709,7 +547,7 @@ TEST(MassCalculator, SubcomponentMassOverrideScalesInertia)
 
 TEST(MassCalculator, AlphaIIILaunchMass)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(0));
 
     const Motor&       activeMotor = *alpha.inner->getMotorConfig(config.getId()).getMotor();
@@ -739,7 +577,7 @@ TEST(MassCalculator, AlphaIIILaunchMass)
 
 TEST(MassCalculator, AlphaIIIStageAnalysisIncludesMotorMass)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(0));
 
     const CMAnalysisMap    analysis    = MassCalculator::getCMAnalysis(config);
@@ -758,7 +596,7 @@ TEST(MassCalculator, AlphaIIIStageAnalysisIncludesMotorMass)
 
 TEST(MassCalculator, AlphaIIIMotorMass)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(0));
     const Motor&       activeMotor    = *alpha.inner->getMotorConfig(config.getId()).getMotor();
     const std::string& desig          = activeMotor.getDesignation();
@@ -781,20 +619,25 @@ TEST(MassCalculator, AlphaIIIMotorMass)
     EXPECT_EQ(expCM, actualMotorData.getCM()) << "Simple Rocket CM is incorrect: ";
 }
 
-/// Records calls made by the former recursive motor-mass tree walk (Java: CountingMassComponent).
-class CountingMassComponent final : public TestComponent
+/// Records calls made by the former recursive motor-mass tree walk (Java: CountingMassComponent,
+/// a MassComponent).
+class CountingMassComponent final : public MassComponent
 {
 public:
-    CountingMassComponent() : TestComponent(ComponentKind::MASS_COMPONENT) { }
-
     [[nodiscard]] std::vector<Coordinate> getInstanceLocations() const override
     {
         ++m_instanceLocationCalls;
-        return TestComponent::getInstanceLocations();
+        return MassComponent::getInstanceLocations();
     }
 
     [[nodiscard]] int getInstanceLocationCalls() const noexcept { return m_instanceLocationCalls; }
     void              resetInstanceLocationCalls() noexcept { m_instanceLocationCalls = 0; }
+
+protected:
+    [[nodiscard]] std::unique_ptr<RocketComponent> cloneShallow() const override
+    {
+        return std::make_unique<CountingMassComponent>(*this);
+    }
 
 private:
     mutable int m_instanceLocationCalls{0};
@@ -802,7 +645,7 @@ private:
 
 TEST(MassCalculator, MotorMassSkipsNonMotorTreeTraversal)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(0));
     auto& nonMotorComponent = alpha.body->addChild(std::make_unique<CountingMassComponent>());
 
@@ -822,7 +665,7 @@ TEST(MassCalculator, MotorMassSkipsNonMotorTreeTraversal)
 
 TEST(MassCalculator, AlphaIIIMotorSimulationMass)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(0));
     const Motor&       activeMotor    = *alpha.inner->getMotorConfig(config.getId()).getMotor();
     const std::string& desig          = activeMotor.getDesignation();
@@ -849,15 +692,16 @@ TEST(MassCalculator, AlphaIIIMotorSimulationMass)
 
 TEST(MassCalculator, SimulationMotorMassUsesEachMountIgnitionTime)
 {
-    GoldenAlphaIII                     alpha;
-    TestMotorMount&                    firstMount = *alpha.inner;
+    TestEstesAlphaIII                  alpha;
+    InnerTube&                         firstMount = *alpha.inner;
     FlightConfiguration&               config = alpha.rocket->getFlightConfiguration(testFcid(0));
     const FlightConfigurationId&       fcid   = config.getId();
     const std::shared_ptr<const Motor> sharedMotor = firstMount.getMotorConfig(fcid).getMotor();
 
-    auto& secondMount = alpha.body->addChild(std::make_unique<TestMotorMount>(
-        ComponentKind::INNER_TUBE, AxialMethod::TOP, firstMount.getLength()));
-    secondMount.setMotorMount(true);
+    auto newMount = std::make_unique<InnerTube>();
+    newMount->setLength(firstMount.getLength());
+    newMount->setMotorMount(true);
+    InnerTube&         secondMount = alpha.body->addChild(std::move(newMount));
     MotorConfiguration secondConfig{secondMount, fcid};
     secondConfig.setMotor(sharedMotor);
     secondMount.setMotorConfig(std::move(secondConfig), fcid);
@@ -883,7 +727,7 @@ TEST(MassCalculator, SimulationMotorMassUsesEachMountIgnitionTime)
 
 TEST(MassCalculator, StageCMxOverride)
 {
-    GoldenSimple2Stage         simple;
+    TestSimple2Stage           simple;
     AxialStage&                boosterStage = *simple.boosterStage;
     const FlightConfiguration& config       = simple.rocket->getSelectedConfiguration();
 
@@ -914,9 +758,9 @@ TEST(MassCalculator, StageCMxOverride)
 
 TEST(MassCalculator, SingleStageMassOverride)
 {
-    GoldenSimple2Stage   simple;
+    TestSimple2Stage     simple;
     AxialStage&          sustainerStage = *simple.sustainerStage;
-    TestBodyComponent&   sustainerBody  = *simple.sustainerBody;
+    const BodyTube&      sustainerBody  = *simple.sustainerBody;
     FlightConfiguration& config         = simple.rocket->getSelectedConfiguration();
     config.setOnlyStage(0);
 
@@ -946,10 +790,10 @@ TEST(MassCalculator, SingleStageMassOverride)
 
 TEST(MassCalculator, DoubleStageMassOverride)
 {
-    GoldenSimple2Stage         simple;
-    const TestBodyComponent&   sustainerBody = *simple.sustainerBody;
+    TestSimple2Stage           simple;
+    const BodyTube&            sustainerBody = *simple.sustainerBody;
     AxialStage&                boosterStage  = *simple.boosterStage;
-    const TestBodyComponent&   boosterBody   = *simple.boosterBody;
+    const BodyTube&            boosterBody   = *simple.boosterBody;
     const FlightConfiguration& config        = simple.rocket->getSelectedConfiguration();
 
     const double expSingleBodyMass = 0.0040589377;
@@ -981,9 +825,9 @@ TEST(MassCalculator, DoubleStageMassOverride)
 
 TEST(MassCalculator, ComponentCMxOverride)
 {
-    GoldenSimple2Stage         simple;
-    const TestBodyComponent&   sustainerBody = *simple.sustainerBody;
-    TestBodyComponent&         boosterBody   = *simple.boosterBody;
+    TestSimple2Stage           simple;
+    const BodyTube&            sustainerBody = *simple.sustainerBody;
+    BodyTube&                  boosterBody   = *simple.boosterBody;
     const FlightConfiguration& config        = simple.rocket->getSelectedConfiguration();
 
     {  // [0] verify / document structure
@@ -1013,9 +857,9 @@ TEST(MassCalculator, ComponentCMxOverride)
 
 TEST(MassCalculator, ComponentMassOverride)
 {
-    GoldenSimple2Stage         simple;
-    const TestBodyComponent&   sustainerBody = *simple.sustainerBody;
-    TestBodyComponent&         boosterBody   = *simple.boosterBody;
+    TestSimple2Stage           simple;
+    const BodyTube&            sustainerBody = *simple.sustainerBody;
+    BodyTube&                  boosterBody   = *simple.boosterBody;
     const FlightConfiguration& config        = simple.rocket->getSelectedConfiguration();
 
     const double expSingleBodyMass = 0.0040589377;
@@ -1064,9 +908,171 @@ TEST(MassCalculator, ComponentMassOverride)
     }
 }
 
+/// The child @p index of @p parent as a @p Component (Java's cast, which asserts the class).
+/// @throws std::bad_cast when the child is of another class.
+template <class Component>
+[[nodiscard]] const Component& childAs(const RocketComponent& parent, std::size_t index)
+{
+    return dynamic_cast<const Component&>(parent.getChild(index));
+}
+
+/// MassCalculatorTest.testFalcon9HComponentMasses, the payload stage.
+TEST(MassCalculator, Falcon9HComponentMassesOfThePayloadStage)
+{
+    const TestFalcon9Heavy f9h;
+    const RocketComponent& payloadStage = f9h.rocket->getChild(0);
+
+    EXPECT_NEAR(0.02255114133733203, childAs<NoseCone>(payloadStage, 0).getComponentMass(),
+                kEpsilon)
+        << "P/L NoseCone mass calculated incorrectly: ";
+    EXPECT_NEAR(0.02904490372, childAs<BodyTube>(payloadStage, 1).getComponentMass(), kEpsilon)
+        << "P/L Body mass calculated incorrectly: ";
+    EXPECT_NEAR(0.007289284477103441, childAs<Transition>(payloadStage, 2).getComponentMass(),
+                kEpsilon)
+        << "P/L Transition mass calculated incorrectly: ";
+
+    const auto& upperBody = childAs<BodyTube>(payloadStage, 3);
+    EXPECT_NEAR(0.029224351500753608, upperBody.getComponentMass(), kEpsilon)
+        << "P/L Upper Stage Body mass calculated incorrectly: ";
+    {
+        const auto& chute = childAs<Parachute>(upperBody, 0);
+        EXPECT_NEAR(0.0079759509252, chute.getComponentMass(), kEpsilon) << chute.getName();
+        const auto& cord = childAs<ShockCord>(upperBody, 1);
+        EXPECT_NEAR(0.00072, cord.getComponentMass(), kEpsilon) << cord.getName();
+    }
+
+    const auto& interstage = childAs<BodyTube>(payloadStage, 4);
+    EXPECT_NEAR(0.01948290100050243, interstage.getComponentMass(), kEpsilon)
+        << interstage.getName();
+}
+
+/// MassCalculatorTest.testFalcon9HComponentMasses, the core stage and the booster set.
+TEST(MassCalculator, Falcon9HComponentMassesOfTheCoreAndBoosters)
+{
+    const TestFalcon9Heavy f9h;
+    const RocketComponent& coreStage = f9h.rocket->getChild(1);
+
+    const auto& coreBody = childAs<BodyTube>(coreStage, 0);
+    EXPECT_NEAR(0.1298860066700161, coreBody.getComponentMass(), kEpsilon) << coreBody.getName();
+
+    const auto& boosters = childAs<ParallelStage>(coreBody, 0);
+    const auto& nose     = childAs<NoseCone>(boosters, 0);
+    EXPECT_NEAR(0.02109368568877191, nose.getComponentMass(), kEpsilon) << nose.getName();
+    const auto& body = childAs<BodyTube>(boosters, 1);
+    EXPECT_NEAR(0.129886006, body.getComponentMass(), kEpsilon) << body.getName();
+    const auto& mmt = childAs<InnerTube>(body, 0);
+    EXPECT_NEAR(0.01890610458, mmt.getComponentMass(), kEpsilon) << mmt.getName();
+
+    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's mass.
+    const RocketComponent& boosterFins = body.getChild(1);
+    EXPECT_NEAR(0.13329359999999998, boosterFins.getComponentMass(), kEpsilon)
+        << boosterFins.getName();
+}
+
+/// MassCalculatorTest.testFalcon9HComponentCM, the payload stage.
+TEST(MassCalculator, Falcon9HComponentCMOfThePayloadStage)
+{
+    const TestFalcon9Heavy f9h;
+    const RocketComponent& payloadStage = f9h.rocket->getChild(0);
+
+    EXPECT_NEAR(0.08079767055284799, childAs<NoseCone>(payloadStage, 0).getComponentCG().x,
+                kEpsilon)
+        << "P/L NoseCone CMx calculated incorrectly: ";
+    EXPECT_NEAR(0.066, childAs<BodyTube>(payloadStage, 1).getComponentCG().x, kEpsilon)
+        << "P/L Body CMx calculated incorrectly: ";
+    EXPECT_NEAR(0.006640909510057012, childAs<Transition>(payloadStage, 2).getComponentCG().x,
+                kEpsilon)
+        << "P/L Transition CMx calculated incorrectly: ";
+
+    const auto& upperBody = childAs<BodyTube>(payloadStage, 3);
+    EXPECT_NEAR(0.09, upperBody.getComponentCG().x, kEpsilon)
+        << "P/L Upper Stage Body CMx calculated incorrectly: ";
+    EXPECT_NEAR(0.0125, childAs<Parachute>(upperBody, 0).getComponentCG().x, kEpsilon)
+        << "Parachute CMx calculated incorrectly: ";
+    EXPECT_NEAR(0.0125, childAs<ShockCord>(upperBody, 1).getComponentCG().x, kEpsilon)
+        << "Shock Cord CMx calculated incorrectly: ";
+
+    EXPECT_NEAR(0.06, childAs<BodyTube>(payloadStage, 4).getComponentCG().x, kEpsilon)
+        << "Interstage CMx calculated incorrectly: ";
+}
+
+/// MassCalculatorTest.testFalcon9HComponentCM, the core stage and the booster set.
+TEST(MassCalculator, Falcon9HComponentCMOfTheCoreAndBoosters)
+{
+    const TestFalcon9Heavy f9h;
+    const RocketComponent& coreStage = f9h.rocket->getChild(1);
+
+    const auto& coreBody = childAs<BodyTube>(coreStage, 0);
+    EXPECT_NEAR(0.4, coreBody.getComponentCG().x, kEpsilon)
+        << "Core Body CMx calculated incorrectly: ";
+
+    const auto& boosters = childAs<ParallelStage>(coreBody, 0);
+    EXPECT_NEAR(0.05383295859557998, childAs<NoseCone>(boosters, 0).getComponentCG().x, kEpsilon)
+        << "Booster Nose CMx calculated incorrectly: ";
+    const auto& body = childAs<BodyTube>(boosters, 1);
+    EXPECT_NEAR(0.4, body.getComponentCG().x, kEpsilon)
+        << "BoosterBody CMx calculated incorrectly: ";
+    EXPECT_NEAR(0.075, childAs<InnerTube>(body, 0).getComponentCG().x, kEpsilon)
+        << " Motor Mount Tube CMx calculated incorrectly: ";
+
+    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's CG.
+    EXPECT_NEAR(0.19393939, body.getChild(1).getComponentCG().x, kEpsilon)
+        << "Core Fins CMx calculated incorrectly: ";
+}
+
+/// Expects the rotational and the longitudinal inertia of @p component.
+void expectInertias(const RocketComponent& component, double rotational, double longitudinal)
+{
+    EXPECT_NEAR(rotational, component.getRotationalInertia(), kEpsilon)
+        << component.getName() << " Rotational MOI calculated incorrectly: ";
+    EXPECT_NEAR(longitudinal, component.getLongitudinalInertia(), kEpsilon)
+        << component.getName() << " Longitudinal MOI calculated incorrectly: ";
+}
+
+/// MassCalculatorTest.testFalcon9HComponentMOI, the payload stage.
+TEST(MassCalculator, Falcon9HComponentMOIOfThePayloadStage)
+{
+    const TestFalcon9Heavy f9h;
+    f9h.rocket->setSelectedConfiguration(
+        f9h.rocket->getEmptyConfiguration().getFlightConfigurationId());
+    const RocketComponent& payloadStage = f9h.rocket->getChild(0);
+
+    expectInertias(childAs<NoseCone>(payloadStage, 0), 3.937551444398643E-5, 4.983150394809428E-5);
+    expectInertias(childAs<BodyTube>(payloadStage, 1), 7.70416e-5, 8.06940e-5);
+    expectInertias(childAs<Transition>(payloadStage, 2), 1.43691e-5, 7.30265e-6);
+
+    const RocketComponent& upperBody = payloadStage.getChild(3);
+    expectInertias(upperBody, 4.22073e-5, 0.0001);
+    expectInertias(upperBody.getChild(0), 6.23121e-7, 7.26975e-7);
+    expectInertias(upperBody.getChild(1), 5.625e-8, 6.5625e-8);
+
+    expectInertias(payloadStage.getChild(4), 2.81382e-5, 3.74486e-5);
+}
+
+/// MassCalculatorTest.testFalcon9HComponentMOI, the core stage and the booster set.
+TEST(MassCalculator, Falcon9HComponentMOIOfTheCoreAndBoosters)
+{
+    const TestFalcon9Heavy f9h;
+    f9h.rocket->setSelectedConfiguration(
+        f9h.rocket->getEmptyConfiguration().getFlightConfigurationId());
+    const RocketComponent& coreStage = f9h.rocket->getChild(1);
+
+    const auto& coreBody = childAs<BodyTube>(coreStage, 0);
+    expectInertias(coreBody, 0.000187588, 0.00702105);
+
+    const auto& boosters = childAs<ParallelStage>(coreBody, 0);
+    expectInertias(childAs<NoseCone>(boosters, 0), 1.9052671920796627E-5, 2.2559876786981176E-5);
+    const auto& boosterBody = childAs<BodyTube>(boosters, 1);
+    expectInertias(boosterBody, 1.875878651e-4, 0.00702104762);
+    expectInertias(boosterBody.getChild(0), 4.11444e-6, 3.75062e-5);
+
+    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's unit inertias.
+    expectInertias(boosterBody.getChild(1), 0.000928545614574877, 0.001246261927287438);
+}
+
 TEST(MassCalculator, Falcon9HPayloadStructureCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
 
     // validate payload stage
@@ -1084,7 +1090,7 @@ TEST(MassCalculator, Falcon9HPayloadStructureCM)
 
 TEST(MassCalculator, Falcon9HCoreStructureCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     config.setOnlyStage(f9h.coreStage->getStageNumber());
 
@@ -1098,7 +1104,7 @@ TEST(MassCalculator, Falcon9HCoreStructureCM)
 
 TEST(MassCalculator, Falcon9HCoreMotorLaunchCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(f9h.coreStage->getStageNumber());
 
@@ -1118,7 +1124,7 @@ TEST(MassCalculator, Falcon9HCoreMotorLaunchCM)
 
 TEST(MassCalculator, Falcon9HCoreMotorLaunchMOIs)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(1);
 
@@ -1133,7 +1139,7 @@ TEST(MassCalculator, Falcon9HCoreMotorLaunchMOIs)
 
 TEST(MassCalculator, Falcon9HBoosterStructureCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1149,7 +1155,7 @@ TEST(MassCalculator, Falcon9HBoosterStructureCM)
 
 TEST(MassCalculator, Falcon9HBoosterLaunchCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1169,7 +1175,7 @@ TEST(MassCalculator, Falcon9HBoosterLaunchCM)
 
 TEST(MassCalculator, Falcon9HBoosterSpentCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1187,7 +1193,7 @@ TEST(MassCalculator, Falcon9HBoosterSpentCM)
 
 TEST(MassCalculator, Falcon9HBoosterMotorCM)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1211,7 +1217,7 @@ TEST(MassCalculator, Falcon9HBoosterMotorCM)
 
 TEST(MassCalculator, Falcon9HeavyBoosterMotorLaunchMOIs)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1225,7 +1231,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterMotorLaunchMOIs)
 
 TEST(MassCalculator, Falcon9HeavyBoosterSpentMOIs)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1239,7 +1245,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterSpentMOIs)
 
 TEST(MassCalculator, Falcon9HeavyBoosterLaunchMOIs)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -1253,7 +1259,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterLaunchMOIs)
 
 TEST(MassCalculator, Falcon9HeavyBoosterStageMassOverride)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     f9h.rocket->setSelectedConfiguration(config.getId());
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
@@ -1290,7 +1296,7 @@ TEST(MassCalculator, Falcon9HeavyBoosterStageMassOverride)
 
 TEST(MassCalculator, Falcon9HeavyComponentMassOverride)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     f9h.rocket->setSelectedConfiguration(config.getId());
     config.setOnlyStage(f9h.boosterStage->getStageNumber());
@@ -1327,7 +1333,7 @@ TEST(MassCalculator, Falcon9HeavyComponentMassOverride)
 
 TEST(MassCalculator, Falcon9HeavyComponentCMxOverride)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     f9h.rocket->setSelectedConfiguration(config.getId());
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
@@ -1372,12 +1378,15 @@ TEST(MassCalculator, SimplePhantomPodRocket)
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
     stage.setName("Primary Stage");
 
-    TestBodyComponent& primaryBody = stage.addChild(makeTube(0.4, 0.02, 0.001));
-    primaryBody.setName("Primary Body");
+    auto newPrimaryBody = std::make_unique<BodyTube>(0.4, 0.02);
+    newPrimaryBody->setThickness(0.001);
+    newPrimaryBody->setName("Primary Body");
+    BodyTube& primaryBody = stage.addChild(std::move(newPrimaryBody));
 
-    PodSet& pods = primaryBody.addChild(std::make_unique<PodSet>());
-    pods.setName("Pods");
-    pods.setInstanceCount(2);
+    auto newPods = std::make_unique<PodSet>();
+    newPods->setName("Pods");
+    newPods->setInstanceCount(2);
+    PodSet& pods = primaryBody.addChild(std::move(newPods));
     pods.setAxialMethod(AxialMethod::BOTTOM);
     pods.setAxialOffset(0.0);
     pods.setAngleMethod(AngleMethod::RELATIVE);
@@ -1385,11 +1394,14 @@ TEST(MassCalculator, SimplePhantomPodRocket)
     pods.setRadiusMethod(RadiusMethod::FREE);
     pods.setRadiusOffset(0.04);
 
-    TestBodyComponent& podBody = pods.addChild(makeTube(0.0, 0.02, 0.001));
-    podBody.setName("Primary Body");
+    auto newPodBody = std::make_unique<BodyTube>(0.0, 0.02);
+    newPodBody->setThickness(0.001);
+    newPodBody->setName("Primary Body");
+    BodyTube& podBody = pods.addChild(std::move(newPodBody));
 
-    // TrapezoidFinSet(1 fin, root 0.05, tip 0.05, sweep 0, height 0.001): a rectangle whose CG
-    // is in the middle of the root chord; its mass is overridden.
+    // HOOK(fins-lugs): tier 6b replaces this double with the real class: TrapezoidFinSet(1 fin,
+    // root 0.05, tip 0.05, sweep 0, height 0.001) with thickness 0.01, a rectangle whose CG is
+    // in the middle of the root chord; its mass is overridden.
     auto fins = TestComponent::make(0.05, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM);
     fins->setName("podFins");
     fins->setCG(Coordinate{0.025});
@@ -1418,7 +1430,7 @@ TEST(MassCalculator, SimplePhantomPodRocket)
 
 TEST(MassCalculator, EmptyStages)
 {
-    GoldenAlphaIII       reference;  // Reference rocket
+    TestEstesAlphaIII    reference;  // Reference rocket
     FlightConfiguration& configRef = reference.rocket->getEmptyConfiguration();
     configRef.setAllStages();
 
@@ -1426,7 +1438,7 @@ TEST(MassCalculator, EmptyStages)
     const double     rocketDryMassRef = structureRef.getCM().weight;
     const Coordinate rocketDryCMRef   = structureRef.getCM();
 
-    GoldenAlphaIII alpha;
+    TestEstesAlphaIII alpha;
     alpha.rocket->addChild(std::make_unique<AxialStage>(), 0);  // the front of the rocket
     alpha.rocket->addChild(std::make_unique<AxialStage>());     // the rear of the rocket
     FlightConfiguration& config = alpha.rocket->getEmptyConfiguration();
@@ -1495,9 +1507,43 @@ TEST(MassCalculator, EmptyStages)
                 stageOverride.getLongitudinalInertia(), kEpsilon);
 }
 
+TEST(MassCalculator, StructureMass)
+{
+    // OpenRocketDocumentFactory.createNewRocket(): a rocket with one stage, every stage active;
+    // the document it is made for enables the events.
+    Rocket rocket;
+    auto   sustainer = std::make_unique<AxialStage>();
+    sustainer->setName("Sustainer");
+    rocket.addChild(std::move(sustainer));
+    rocket.getSelectedConfiguration().setAllStages();
+    rocket.enableEvents();
+
+    AxialStage* stage = rocket.getStage(0);
+    ASSERT_NE(stage, nullptr);
+    stage->addChild(std::make_unique<NoseCone>());
+    BodyTube& bodyTube      = stage->addChild(std::make_unique<BodyTube>());
+    auto      massComponent = std::make_unique<MassComponent>();
+    massComponent->setComponentMass(0.01);
+    bodyTube.addChild(std::move(massComponent));
+
+    EXPECT_NEAR(0.041016634, bodyTube.getMass(), kEpsilon);
+    EXPECT_NEAR(0.051016634, bodyTube.getSectionMass(), kEpsilon);
+
+    bodyTube.setMassOverridden(true);
+    bodyTube.setOverrideMass(0.02);
+
+    EXPECT_NEAR(0.02, bodyTube.getMass(), kEpsilon);
+    EXPECT_NEAR(0.03, bodyTube.getSectionMass(), kEpsilon);
+
+    bodyTube.setSubcomponentsOverriddenMass(true);
+
+    EXPECT_NEAR(0.02, bodyTube.getMass(), kEpsilon);
+    EXPECT_NEAR(0.02, bodyTube.getSectionMass(), kEpsilon);
+}
+
 TEST(MassCalculator, DisabledStageMassAndCG)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     config.setAllStages();
 
@@ -1543,7 +1589,7 @@ TEST(MassCalculator, DisabledStageMassAndCG)
 /// change of the rocket (a new mass modification id) or of the configuration shows at once.
 TEST(MassCache, CMCache)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
 
     const RigidBody first  = MassCalculator::calculateLaunch(config);
@@ -1554,9 +1600,11 @@ TEST(MassCache, CMCache)
     EXPECT_EQ(MassCalculator::modId(), ModId::zero());
     EXPECT_EQ(MassCalculator::getModId(), ModId::zero());
 
-    // A mass change of a component: a new mass modification id, and a new result.
+    // A mass change of a component (the parachute becomes 0.1 kg heavier): a new mass
+    // modification id, and a new result.
     const ModId massModId = f9h.rocket->getMassModId();
-    f9h.parachute->setMass(f9h.parachute->getComponentMass() + 0.1);
+    f9h.parachute->setOverrideMass(f9h.parachute->getComponentMass() + 0.1);
+    f9h.parachute->setMassOverridden(true);
     EXPECT_NE(f9h.rocket->getMassModId(), massModId);
     const RigidBody heavier = MassCalculator::calculateLaunch(config);
     EXPECT_NEAR(heavier.getMass(), first.getMass() + 0.1, 1e-12);
@@ -1575,37 +1623,69 @@ TEST(MassCache, CMCache)
 
 // ============================================================================ further cases
 
-/// A rocket with one stage holding a body (a double of 0.5 m, 0.2 kg, CG at its middle, unit
-/// inertias 0.01 longitudinal, 0.002 rotational) that holds a motor mount (0.1 m, starting
-/// 0.4 m from the body's front, 0.05 kg, CG at its middle); events enabled.
+/// A rocket with one stage holding a body tube (0.5 m, radius 0.03 m) that holds an inner tube
+/// motor mount (0.1 m, radius 0.01 m, starting 0.4 m from the body's front); events enabled. The
+/// expectations are written with the two tubes' own mass properties: each has its CG in its
+/// middle (0.25 m and 0.45 m from the nose) and both are on the axis.
 class MassCalculatorRocketTest : public ::testing::Test
 {
 protected:
+    /// The x of the body tube's CG and of the motor mount's.
+    static constexpr double kBodyX  = 0.25;
+    static constexpr double kMountX = 0.45;
+
     MassCalculatorRocketTest()
     {
         m_rocket.createFlightConfiguration(m_fcid);
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body  = &m_stage->addChild(TestBodyComponent::make(0.5, 0.03));
-        m_body->setMass(0.2);
-        m_body->setCG(Coordinate{0.25});
-        m_body->setUnitInertias(0.01, 0.002);
-        m_mount = &m_body->addChild(
-            TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE, AxialMethod::TOP));
-        m_mount->setAxialOffset(AxialMethod::TOP, 0.4);
-        m_mount->setMass(0.05);
-        m_mount->setCG(Coordinate{0.05});
-        m_mount->setMotorMount(true);
+        m_body  = &m_stage->addChild(std::make_unique<BodyTube>(0.5, 0.03));
+        m_mount = &m_body->addChild(makeMount(0.4));
         m_rocket.setSelectedConfiguration(m_fcid);
         m_rocket.enableEvents();
     }
 
+    /// An inner tube motor mount 0.1 m long of outer radius 0.01 m, @p offset from the front of
+    /// its parent.
+    [[nodiscard]] static std::unique_ptr<InnerTube> makeMount(double offset)
+    {
+        auto mount = std::make_unique<InnerTube>();
+        mount->setAxialMethod(AxialMethod::TOP);
+        mount->setAxialOffset(offset);
+        mount->setLength(0.1);
+        mount->setOuterRadius(0.01);
+        mount->setMotorMount(true);
+        return mount;
+    }
+
     [[nodiscard]] FlightConfiguration& config() { return m_rocket.getFlightConfiguration(m_fcid); }
+
+    /// The mass of the body tube alone.
+    [[nodiscard]] double bodyMass() const { return m_body->getComponentMass(); }
+
+    /// The mass of the motor mount tube alone.
+    [[nodiscard]] double mountMass() const { return m_mount->getComponentMass(); }
+
+    /// The mass of the structure: both tubes.
+    [[nodiscard]] double structureMass() const { return bodyMass() + mountMass(); }
+
+    /// The x of the structure's CG.
+    [[nodiscard]] double structureCmx() const
+    {
+        return ((bodyMass() * kBodyX) + (mountMass() * kMountX)) / structureMass();
+    }
+
+    /// The rotational inertia of the structure: both tubes are on the axis.
+    [[nodiscard]] double structureIxx() const
+    {
+        return (m_body->getRotationalUnitInertia() * bodyMass()) +
+               (m_mount->getRotationalUnitInertia() * mountMass());
+    }
 
     /// Puts an A8 into the mount and returns it.
     std::shared_ptr<const ThrustCurveMotor> addA8()
     {
         std::shared_ptr<const ThrustCurveMotor> motor = QtRocket::Test::motorA8();
-        m_mount->addMotor(m_fcid, motor);
+        addMotor(*m_mount, m_fcid, motor);
         config().update();
         return motor;
     }
@@ -1616,21 +1696,27 @@ protected:
     Rocket                m_rocket;
     FlightConfigurationId m_fcid{testFcid(0)};
     AxialStage*           m_stage{nullptr};
-    TestBodyComponent*    m_body{nullptr};
-    TestMotorMount*       m_mount{nullptr};
+    BodyTube*             m_body{nullptr};
+    InnerTube*            m_mount{nullptr};
 };
 
 TEST_F(MassCalculatorRocketTest, StructureAddsComponentsAndParallelAxisTerms)
 {
+    ASSERT_GT(bodyMass(), 0.0);
+    ASSERT_GT(mountMass(), 0.0);
+    EXPECT_DOUBLE_EQ(m_body->getComponentCG().x, kBodyX);
+    EXPECT_DOUBLE_EQ(m_mount->getPosition().x + m_mount->getComponentCG().x, kMountX);
+
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    // Body: 0.2 kg at 0.25; mount: 0.05 kg at 0.45.
-    EXPECT_DOUBLE_EQ(structure.getMass(), 0.25);
-    const double cmx = ((0.2 * 0.25) + (0.05 * 0.45)) / 0.25;
-    EXPECT_DOUBLE_EQ(structure.getCM().x, cmx);
-    // Ixx: only the body has a rotational unit inertia; Iyy: its own plus both offsets.
-    EXPECT_DOUBLE_EQ(structure.getIxx(), 0.002 * 0.2);
-    const double iyy =
-        (0.01 * 0.2) + (0.2 * (0.25 - cmx) * (0.25 - cmx)) + (0.05 * (0.45 - cmx) * (0.45 - cmx));
+    EXPECT_NEAR(structure.getMass(), structureMass(), 1e-15);
+    const double cmx = structureCmx();
+    EXPECT_NEAR(structure.getCM().x, cmx, 1e-15);
+    // Ixx: each tube's rotational unit inertia times its mass; Iyy: their own plus both offsets.
+    EXPECT_NEAR(structure.getIxx(), structureIxx(), 1e-15);
+    const double iyy = (m_body->getLongitudinalUnitInertia() * bodyMass()) +
+                       (m_mount->getLongitudinalUnitInertia() * mountMass()) +
+                       (bodyMass() * (kBodyX - cmx) * (kBodyX - cmx)) +
+                       (mountMass() * (kMountX - cmx) * (kMountX - cmx));
     EXPECT_NEAR(structure.getIyy(), iyy, 1e-15);
     EXPECT_EQ(structure.getIzz(), structure.getIyy());
 }
@@ -1640,34 +1726,44 @@ TEST_F(MassCalculatorRocketTest, MassOverrideOfThisComponentOnlyScalesItsOwnIner
     m_body->setMassOverridden(true);
     m_body->setOverrideMass(0.4);
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    EXPECT_DOUBLE_EQ(structure.getMass(), 0.45);
+    EXPECT_NEAR(structure.getMass(), 0.4 + mountMass(), 1e-15);
     // The body's own inertia follows the override mass (0.4), the mount keeps its mass.
-    EXPECT_DOUBLE_EQ(structure.getIxx(), 0.002 * 0.4);
+    EXPECT_NEAR(structure.getIxx(),
+                (m_body->getRotationalUnitInertia() * 0.4) +
+                    (m_mount->getRotationalUnitInertia() * mountMass()),
+                1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, SubcomponentMassOverrideScalesTheWholeSubtree)
 {
-    m_mount->setUnitInertias(0.003, 0.001);
     const RigidBody before = MassCalculator::calculateStructure(config());
 
     m_body->setMassOverridden(true);
     m_body->setSubcomponentsOverriddenMass(true);
-    m_body->setOverrideMass(0.5);  // twice the geometric 0.25 kg of the subtree
+    m_body->setOverrideMass(2 * structureMass());  // twice the geometric mass of the subtree
     const RigidBody after = MassCalculator::calculateStructure(config());
 
     // The whole override mass sits at the (massive) body's own CG, as in Java; the subtree's
     // bodies keep their places with twice their mass and inertia.
-    EXPECT_DOUBLE_EQ(after.getMass(), 0.5);
-    EXPECT_DOUBLE_EQ(after.getCM().x, 0.25);
+    EXPECT_NEAR(after.getMass(), 2 * structureMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(after.getCM().x, kBodyX);
     EXPECT_NEAR(after.getIxx(), 2 * before.getIxx(), 1e-15);
-    // Body: 0.4 kg (0.01 unit) at the CM; mount: 0.1 kg (0.003 unit) 0.2 m behind it.
-    EXPECT_NEAR(after.getIyy(), (0.01 * 0.4) + (0.003 * 0.1) + (0.1 * 0.2 * 0.2), 1e-15);
+    // The body at the CM; the mount 0.2 m behind it.
+    EXPECT_NEAR(
+        after.getIyy(),
+        2 * ((m_body->getLongitudinalUnitInertia() * bodyMass()) +
+             (m_mount->getLongitudinalUnitInertia() * mountMass()) + (mountMass() * 0.2 * 0.2)),
+        1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, SubcomponentMassOverrideOfAMasslessSubtreeDropsItsInertia)
 {
-    m_body->setMass(0.0);
-    m_mount->setMass(0.0);
+    // Both tubes of a material without density.
+    const QtRocket::Material massless =
+        QtRocket::Material::newMaterial(QtRocket::Material::Type::BULK, "Massless", 0.0, true);
+    m_body->setMaterial(massless);
+    m_mount->setMaterial(massless);
+    ASSERT_EQ(structureMass(), 0.0);
     m_body->setMassOverridden(true);
     m_body->setSubcomponentsOverriddenMass(true);
     m_body->setOverrideMass(0.3);
@@ -1675,20 +1771,21 @@ TEST_F(MassCalculatorRocketTest, SubcomponentMassOverrideOfAMasslessSubtreeDrops
 
     // No geometric mass to rescale: the scale is 0, so the override mass carries no inertia.
     EXPECT_DOUBLE_EQ(structure.getMass(), 0.3);
-    EXPECT_DOUBLE_EQ(structure.getCM().x, 0.25);
+    EXPECT_DOUBLE_EQ(structure.getCM().x, kBodyX);
     EXPECT_EQ(structure.getIxx(), 0.0);
     EXPECT_EQ(structure.getIyy(), 0.0);
 }
 
 TEST_F(MassCalculatorRocketTest, MassOverrideOfANonMassiveComponentTakesItsChildrensCG)
 {
-    m_body->setMassive(false);
-    m_body->setMassOverridden(true);
-    m_body->setOverrideMass(1.0);
+    // A stage is not massive: its override mass sits at its children's CG, and they add their
+    // own masses there.
+    ASSERT_FALSE(m_stage->isMassive());
+    m_stage->setMassOverridden(true);
+    m_stage->setOverrideMass(1.0);
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    // The body's 1 kg sits at its child's CG (0.45), and the mount adds its 0.05 kg there too.
-    EXPECT_DOUBLE_EQ(structure.getMass(), 1.05);
-    EXPECT_DOUBLE_EQ(structure.getCM().x, 0.45);
+    EXPECT_NEAR(structure.getMass(), 1.0 + structureMass(), 1e-15);
+    EXPECT_NEAR(structure.getCM().x, structureCmx(), 1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, CGOverrideIsMeasuredFromTheComponentsFront)
@@ -1697,7 +1794,8 @@ TEST_F(MassCalculatorRocketTest, CGOverrideIsMeasuredFromTheComponentsFront)
     m_mount->setOverrideCGX(0.0);
     const RigidBody structure = MassCalculator::calculateStructure(config());
     // The mount's CG moves to its front, 0.4 m.
-    EXPECT_DOUBLE_EQ(structure.getCM().x, ((0.2 * 0.25) + (0.05 * 0.4)) / 0.25);
+    EXPECT_NEAR(structure.getCM().x,
+                ((bodyMass() * kBodyX) + (mountMass() * 0.4)) / structureMass(), 1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, SubcomponentCGOverrideMovesTheChildrenToo)
@@ -1705,12 +1803,13 @@ TEST_F(MassCalculatorRocketTest, SubcomponentCGOverrideMovesTheChildrenToo)
     m_body->setCGOverridden(true);
     m_body->setOverrideCGX(0.1);
     const RigidBody own = MassCalculator::calculateStructure(config());
-    EXPECT_DOUBLE_EQ(own.getCM().x, ((0.2 * 0.1) + (0.05 * 0.45)) / 0.25);
+    EXPECT_NEAR(own.getCM().x, ((bodyMass() * 0.1) + (mountMass() * kMountX)) / structureMass(),
+                1e-15);
 
     m_body->setSubcomponentsOverriddenCG(true);
     const RigidBody all = MassCalculator::calculateStructure(config());
     EXPECT_DOUBLE_EQ(all.getCM().x, 0.1);
-    EXPECT_DOUBLE_EQ(all.getMass(), 0.25);
+    EXPECT_NEAR(all.getMass(), structureMass(), 1e-15);
 }
 
 TEST_F(MassCalculatorRocketTest, MotorMassAtLaunch)
@@ -1842,11 +1941,8 @@ TEST_F(MassCalculatorRocketTest, MotorsOfOneDesignationShareOneAnalysisRow)
 {
     addA8();
     // A second mount at the body's front with another A8.
-    TestMotorMount& front = m_body->addChild(
-        TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE, AxialMethod::TOP));
-    front.setAxialOffset(AxialMethod::TOP, 0.0);
-    front.setMotorMount(true);
-    front.addMotor(m_fcid, QtRocket::Test::motorA8());
+    InnerTube& front = m_body->addChild(makeMount(0.0));
+    addMotor(front, m_fcid, QtRocket::Test::motorA8());
     config().update();
 
     const double    m      = 0.0164;
@@ -1886,7 +1982,7 @@ TEST_F(MassCalculatorRocketTest, AnalysisRowOfAnAssemblyWhoseOverrideCoversItsSu
     // The structure pass gives the stage's row the override mass at its children's CG (a stage
     // is not massive); the motor pass then adds the motor below it, which the override does not
     // cover.
-    const double           structureX = ((0.2 * 0.25) + (0.05 * 0.45)) / 0.25;
+    const double           structureX = structureCmx();
     const double           m          = motor->getTotalMass(Motor::kPseudoTimeLaunch);
     const double           motorX     = kMotorX + motor->getCMx(Motor::kPseudoTimeLaunch);
     const CMAnalysisEntry& stageRow   = analysis.at(CMAnalysisEntry::keyOf(*m_stage));
@@ -1895,8 +1991,8 @@ TEST_F(MassCalculatorRocketTest, AnalysisRowOfAnAssemblyWhoseOverrideCoversItsSu
     EXPECT_NEAR(stageRow.totalCM.x, ((1.0 * structureX) + (m * motorX)) / (1.0 + m), 1e-15);
 
     // The physical components' rows keep their own masses: the override is the stage's.
-    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_body)).eachMass, 0.2);
-    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_mount)).eachMass, 0.05);
+    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_body)).eachMass, bodyMass());
+    EXPECT_DOUBLE_EQ(analysis.at(CMAnalysisEntry::keyOf(*m_mount)).eachMass, mountMass());
 
     // The rocket's row is the whole launch calculation.
     const RigidBody        launch    = MassCalculator::calculateLaunch(config());
@@ -1907,7 +2003,7 @@ TEST_F(MassCalculatorRocketTest, AnalysisRowOfAnAssemblyWhoseOverrideCoversItsSu
 
 TEST_F(MassCalculatorRocketTest, MotorOfAnInactiveMountAddsNothing)
 {
-    m_mount->addMotor(m_fcid, QtRocket::Test::motorA8());
+    addMotor(*m_mount, m_fcid, QtRocket::Test::motorA8());
     config().update();
     const std::vector<MotorClusterState> states = motorStates(config());
     ASSERT_EQ(states.size(), 1U);
@@ -1922,13 +2018,15 @@ TEST_F(MassCalculatorRocketTest, MotorOfAnInactiveMountAddsNothing)
 
 TEST_F(MassCalculatorRocketTest, ClusterAddsTheOffsetsToTheAxialInertiaOnly)
 {
-    const double r = 0.02;
-    m_mount->setInstances(
-        {Coordinate{0, r, 0}, Coordinate{0, 0, r}, Coordinate{0, -r, 0}, Coordinate{0, 0, -r}},
-        {0, 0, 0, 0});
-    m_mount->setMotorCount(4);
-    m_mount->addMotor(m_fcid, QtRocket::Test::motorA8());
+    // A cluster of four inner tubes on a ring.
+    m_mount->setClusterConfiguration(ClusterConfiguration::configurations()[5]);
+    ASSERT_EQ(m_mount->getClusterConfiguration().getXmlName(), "4-ring");
+    addMotor(*m_mount, m_fcid, QtRocket::Test::motorA8());
     config().update();
+    const std::vector<Coordinate> offsets = m_mount->getInstanceOffsets();
+    ASSERT_EQ(offsets.size(), 4U);
+    const double r2 = (offsets[0].y * offsets[0].y) + (offsets[0].z * offsets[0].z);
+    ASSERT_GT(r2, 0.0);
 
     const MotorConfiguration& motorConfig = m_mount->getMotorConfig(m_fcid);
     const RigidBody           motors      = MassCalculator::calculateMotor(config());
@@ -1937,7 +2035,7 @@ TEST_F(MassCalculatorRocketTest, ClusterAddsTheOffsetsToTheAxialInertiaOnly)
     EXPECT_DOUBLE_EQ(motors.getCM().y, 0.0);
     EXPECT_DOUBLE_EQ(motors.getCM().z, 0.0);
     // Ixx: 4 m (unit Ixx + r^2); Iyy: 4 m unit Iyy, without the radial offsets (as Java).
-    EXPECT_NEAR(motors.getIxx(), 4 * m * (motorConfig.getUnitRotationalInertia() + (r * r)), 1e-15);
+    EXPECT_NEAR(motors.getIxx(), 4 * m * (motorConfig.getUnitRotationalInertia() + r2), 1e-15);
     EXPECT_NEAR(motors.getIyy(), 4 * m * motorConfig.getUnitLongitudinalInertia(), 1e-15);
 
     // The CM analysis gives the motor's row the mass of one motor and the cluster's CG.
@@ -1954,20 +2052,23 @@ TEST_F(MassCalculatorRocketTest, PodSetInstancesPlaceTheirSubtreeAndMotors)
     PodSet& pods = m_body->addChild(std::make_unique<PodSet>());
     pods.setInstanceCount(3);
     pods.setRadius(RadiusMethod::FREE, 0.1);
-    TestMotorMount& podMount = pods.addChild(TestMotorMount::make(0.1, 0.01));
-    podMount.setMass(0.03);
-    podMount.setCG(Coordinate{0.05});
+    BodyTube& podMount = pods.addChild(std::make_unique<BodyTube>(0.1, 0.01, 0.0005));
     podMount.setMotorMount(true);
-    podMount.addMotor(m_fcid, QtRocket::Test::motorA8());
+    addMotor(podMount, m_fcid, QtRocket::Test::motorA8());
     config().update();
+    const double podMass = podMount.getComponentMass();
+    ASSERT_GT(podMass, 0.0);
 
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    EXPECT_NEAR(structure.getMass(), 0.25 + (3 * 0.03), 1e-15);
+    EXPECT_NEAR(structure.getMass(), structureMass() + (3 * podMass), 1e-15);
     // Three pods 120 degrees apart: the CG stays on the axis.
     EXPECT_NEAR(structure.getCM().y, 0.0, 1e-15);
     EXPECT_NEAR(structure.getCM().z, 0.0, 1e-15);
-    // Each pod adds m d^2 about the axis.
-    EXPECT_NEAR(structure.getIxx(), (0.002 * 0.2) + (3 * 0.03 * 0.1 * 0.1), 1e-15);
+    // Each pod adds its own inertia and m d^2 about the axis.
+    EXPECT_NEAR(
+        structure.getIxx(),
+        structureIxx() + (3 * podMass * (podMount.getRotationalUnitInertia() + (0.1 * 0.1))),
+        1e-15);
 
     // One cluster per pod, each on its pod's axis.
     const RigidBody motors = MassCalculator::calculateMotor(config());
@@ -1980,13 +2081,13 @@ TEST_F(MassCalculatorRocketTest, PodSetInstancesPlaceTheirSubtreeAndMotors)
     // The pod set's CM analysis row holds its pods and their motors, per pod.
     const CMAnalysisMap    analysis = MassCalculator::getCMAnalysis(config());
     const CMAnalysisEntry& podRow   = analysis.at(CMAnalysisEntry::keyOf(pods));
-    EXPECT_NEAR(podRow.totalCM.weight, 3 * (0.03 + 0.0164), 1e-15);
-    EXPECT_NEAR(podRow.eachMass, 0.03 + 0.0164, 1e-15);
+    EXPECT_NEAR(podRow.totalCM.weight, 3 * (podMass + 0.0164), 1e-15);
+    EXPECT_NEAR(podRow.eachMass, podMass + 0.0164, 1e-15);
 }
 
 TEST(MassCalculatorParallelStage, InactiveCoreStageStillCarriesActiveBoosters)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
 
     const RigidBody boosters = [&] {
@@ -2020,7 +2121,7 @@ TEST(MassCalculatorParallelStage, InactiveCoreStageStillCarriesActiveBoosters)
 
 TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getEmptyConfiguration();
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
     const RigidBody boosters = MassCalculator::calculateStructure(config);
@@ -2058,7 +2159,7 @@ TEST(MassCalculatorParallelStage, OverrideOfAnInactiveCoreStageIsIgnored)
 
 TEST(MassCalculatorParallelStage, BoosterMotorsAreOneClusterPerBooster)
 {
-    GoldenFalcon9Heavy   f9h;
+    TestFalcon9Heavy     f9h;
     FlightConfiguration& config = f9h.rocket->getFlightConfiguration(f9h.fcid);
     config.setOnlyStage(kFalcon9hBoosterStageNumber);
 
@@ -2083,7 +2184,7 @@ TEST(MassCalculatorParallelStage, BoosterMotorsAreOneClusterPerBooster)
 
 TEST(MassCalculatorTypes, StaticCalculateMatchesTheNamedEntryPoints)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(1));
 
     const auto same = [](const RigidBody& a, const RigidBody& b) {
@@ -2116,7 +2217,7 @@ TEST(MassCalculatorTypes, StaticCalculateMatchesTheNamedEntryPoints)
 
 TEST(MassCalculatorTypes, AnEmptyListOfMotorStatesMeansNoMotors)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(1));
 
     // Unlike a static calculation, which takes the configuration's active motors. The empty
@@ -2132,7 +2233,7 @@ TEST(MassCalculatorTypes, AnEmptyListOfMotorStatesMeansNoMotors)
 
 TEST(MassCalculatorTypes, LaunchIsStructurePlusMotorAndBurnoutIsBetween)
 {
-    GoldenAlphaIII             alpha;
+    TestEstesAlphaIII          alpha;
     const FlightConfiguration& config = alpha.rocket->getFlightConfiguration(testFcid(2));
 
     const RigidBody structure = MassCalculator::calculateStructure(config);

@@ -35,7 +35,6 @@
 #include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
 #include "rocket/InternalTestSupport.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
 
 namespace
@@ -63,7 +62,6 @@ using QtRocket::Test::GoldenCheck;
 using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::noGoldenMismatches;
 using QtRocket::Test::OneStage;
-using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
 
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
@@ -108,7 +106,8 @@ TEST_P(MassObjectAutoRadiusTest, AutoRadius)
     EXPECT_NEAR(0.05, mo.getComponentCG().x, kEpsilon) << " No auto incorrect CG";
 
     // Test auto
-    auto parent = TestBodyComponent::make(0.0, 0.05);  // a BodyTube stand-in
+    auto parent = std::make_unique<BodyTube>();
+    parent->setOuterRadius(0.05);
     parent->setInnerRadius(0.05);
     parent->addChild(std::move(owned));
     mo.setRadiusAutomatic(true);
@@ -162,8 +161,9 @@ TEST(MassObject, SettersClampAndKeepTheVolume)
 
     // A stored radius of 0: the automatic length keeps the stored length.
     mc.setLength(0.2);
-    auto parent = TestBodyComponent::make(0.5, 0.03);
+    auto parent = std::make_unique<BodyTube>(0.5, 0.03);
     parent->setInnerRadius(0.0);
+    ASSERT_EQ(parent->getInnerRadius(), 0.0);
     auto& added = parent->addChild(std::make_unique<MassComponent>());
     added.setRadius(0.0);
     added.setLength(0.2);
@@ -174,26 +174,31 @@ TEST(MassObject, SettersClampAndKeepTheVolume)
 
 TEST(MassObject, AutomaticRadiusOfEachParentKind)
 {
-    // A body tube: its inner radius (Coaxial).
-    auto        body = TestBodyComponent::make(0.5, 0.03);
+    // A body tube: its inner radius (BodyComponent.getInnerRadius()).
+    auto        body = std::make_unique<BodyTube>(0.5, 0.03);
     const auto& mc   = body->addChild(std::make_unique<MassComponent>());
     body->setInnerRadius(0.028);
     EXPECT_EQ(mc.getMaxParentRadius(), 0.028);
+    body->setFilled(true);
+    EXPECT_EQ(mc.getMaxParentRadius(), 0.0);
 
     // A transition: the larger of the fore and aft radii.
-    auto transition = TestBodyComponent::make(0.1, 0.03, ComponentKind::TRANSITION);
-    transition->setForeAftRadii(0.02, 0.035);
+    auto transition = std::make_unique<Transition>();
+    transition->setLength(0.1);
+    transition->setForeRadius(0.02);
+    transition->setAftRadius(0.035);
     const auto& inTransition = transition->addChild(std::make_unique<MassComponent>());
     EXPECT_EQ(inTransition.getMaxParentRadius(), 0.035);
-    transition->setForeAftRadii(0.04, 0.035);
+    transition->setForeRadius(0.04);
     EXPECT_EQ(inTransition.getMaxParentRadius(), 0.04);
 
     // A nose cone: the base radius.
-    auto nose = TestBodyComponent::make(0.1, 0.03, ComponentKind::NOSE_CONE);
-    nose->setForeAftRadii(0.0, 0.03);
+    auto        nose   = std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.1, 0.03);
     const auto& inNose = nose->addChild(std::make_unique<MassComponent>());
     EXPECT_EQ(inNose.getMaxParentRadius(), 0.03);
-    nose->setForeAftRadii(0.03, 0.0);  // a flipped nose cone
+    nose->setFlipped(true);  // a tail cone: the base is now at the front
+    EXPECT_EQ(nose->getForeRadius(), 0.03);
+    EXPECT_EQ(nose->getAftRadius(), 0.0);
     EXPECT_EQ(inNose.getMaxParentRadius(), 0.03);
 
     // A ring component: its inner radius.
@@ -211,9 +216,9 @@ TEST(MassObject, AutomaticRadiusOfEachParentKind)
     EXPECT_EQ(detached.getAutoRadius(), 0.0125);
 }
 
-// The real body components take Java's path (NoseCone.getBaseRadius(), Transition's fore and aft
-// radii, BodyComponent.getInnerRadius()), not the RadialParent reading of the stand-ins above.
-TEST(MassObject, AutomaticRadiusInsideRealBodyComponents)
+// Java's path: NoseCone.getBaseRadius(), Transition's fore and aft radii,
+// BodyComponent.getInnerRadius().
+TEST(MassObject, AutomaticRadiusInsideBodyComponents)
 {
     auto        nose   = std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.2, 0.03);
     const auto& inNose = nose->addChild(std::make_unique<MassComponent>());
@@ -236,8 +241,8 @@ TEST(MassObject, AutomaticRadiusInsideRealBodyComponents)
     EXPECT_EQ(inBody.getAutoRadius(), body->getInnerRadius());
 }
 
-/// Whether a mass component in a stand-in parent of @p kind (a TestComponent: a Coaxial, but
-/// neither a RadialParent nor a RingComponent) refuses getMaxParentRadius() with a BugError.
+/// Whether a mass component in a TestComponent parent of @p kind (a Coaxial, but neither a
+/// SymmetricComponent nor a RingComponent) refuses getMaxParentRadius() with a BugError.
 [[nodiscard]] bool refusesTheParent(ComponentKind kind)
 {
     auto        parent = TestComponent::make(0.1, kind);
@@ -255,15 +260,15 @@ TEST(MassObject, AutomaticRadiusInsideRealBodyComponents)
 
 TEST(MassObject, MaxParentRadiusRefusesAMisbuiltParent)
 {
-    // Java tests the parent's class: a nose cone or transition that is not a RadialParent, or a
+    // Java tests the parent's class: a body component that is not a SymmetricComponent, or a
     // ring component that is not a RingComponent, is a programming error, not a radius of 0.
     // The kinds accepted, by name (a string: GCC's -O3 -Wnull-dereference misfires on a vector
     // filled in this loop).
     std::string accepted;
     for (const ComponentKind kind :
-         {ComponentKind::NOSE_CONE, ComponentKind::TRANSITION, ComponentKind::INNER_TUBE,
-          ComponentKind::TUBE_COUPLER, ComponentKind::CENTERING_RING, ComponentKind::BULKHEAD,
-          ComponentKind::ENGINE_BLOCK})
+         {ComponentKind::BODY_TUBE, ComponentKind::NOSE_CONE, ComponentKind::TRANSITION,
+          ComponentKind::INNER_TUBE, ComponentKind::TUBE_COUPLER, ComponentKind::CENTERING_RING,
+          ComponentKind::BULKHEAD, ComponentKind::ENGINE_BLOCK})
     {
         if (!refusesTheParent(kind))
         {
@@ -278,7 +283,7 @@ TEST(MassObject, GetLengthReadsTheStoredRadiusUntilGetRadiusRefreshesIt)
 {
     // As in Java, getLength() divides the volume by the stored radius; getRadius() stores the
     // automatic radius first.
-    auto  body = TestBodyComponent::make(0.5, 0.05);
+    auto  body = std::make_unique<BodyTube>(0.5, 0.05);
     auto& mc   = body->addChild(std::make_unique<MassComponent>(0.1, 0.1, 1.0));
     body->setInnerRadius(0.05);
     mc.setRadiusAutomatic(true);
@@ -287,6 +292,7 @@ TEST(MassObject, GetLengthReadsTheStoredRadiusUntilGetRadiusRefreshesIt)
     EXPECT_NEAR(mc.getLength(), 0.4, kEpsilon);
 
     // Inertias and bounds read the radius first.
+    body->setOuterRadius(0.1);
     body->setInnerRadius(0.1);
     EXPECT_NEAR(mc.getLongitudinalUnitInertia(), ((3 * 0.01) + 0.01) / 12, kEpsilon);
     EXPECT_NEAR(mc.getRotationalUnitInertia(), 0.01 / 2, kEpsilon);
@@ -335,7 +341,7 @@ TEST(MassObject, SettersFireOnChange)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
     auto&  mc    = body.addChild(std::make_unique<MassComponent>());
     rocket.enableEvents();
     std::vector<int>                              types;
@@ -409,10 +415,9 @@ TEST(MassObjectGolden, EstesAlphaIIIParachute)
     // with an override mass of 2 g.
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestBodyComponent::make(0.07, 0.012, ComponentKind::NOSE_CONE));
-    auto& body = stage.addChild(TestBodyComponent::make(0.20, 0.012));
-    body.setInnerRadius(0.012 - 0.0003);
-    auto chute = std::make_unique<Parachute>();
+    stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
+    auto& body  = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
+    auto  chute = std::make_unique<Parachute>();
     chute->setAxialMethod(AxialMethod::TOP);
     chute->setName("Parachute");
     chute->setAxialOffset(0.028);
@@ -441,9 +446,8 @@ TEST(MassObjectGolden, Falcon9HeavyShockCord)
     // TestRockets.makeFalcon9Heavy(): a shock cord at BOTTOM 0 with a cord length of 0.4 m, in
     // the upper stage body (BodyTube(0.18, 0.0385, 0.001)).
     OneStage rocket;
-    auto&    body = rocket.stage->addChild(TestBodyComponent::make(0.18, 0.0385));
-    body.setInnerRadius(0.0385 - 0.001);
-    auto cord = std::make_unique<ShockCord>();
+    auto&    body = rocket.stage->addChild(std::make_unique<BodyTube>(0.18, 0.0385, 0.001));
+    auto     cord = std::make_unique<ShockCord>();
     cord->setName("Shock Cord");
     cord->setAxialMethod(AxialMethod::BOTTOM);
     cord->setAxialOffset(0.0);
@@ -506,9 +510,8 @@ TEST(MassObjectGolden, IsoHaisuMassComponents)
                                .path   = "/0/2/3"}})
     {
         OneStage rocket;
-        auto&    body =
-            rocket.stage->addChild(TestBodyComponent::make(m.tube == 0 ? 0.505 : 0.605, kR));
-        body.setInnerRadius(kR - 0.005);
+        auto&    body = rocket.stage->addChild(
+            std::make_unique<BodyTube>(m.tube == 0 ? 0.505 : 0.605, kR, 0.005));
         auto mass = std::make_unique<MassComponent>(m.length, m.radius, m.mass);
         mass->setAxialMethod(AxialMethod::TOP);
         mass->setAxialOffset(m.offset);

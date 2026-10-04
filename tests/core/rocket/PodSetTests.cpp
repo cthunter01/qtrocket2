@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -20,7 +21,6 @@
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
@@ -28,6 +28,7 @@ namespace
 using QtRocket::AngleMethod;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -38,7 +39,6 @@ using QtRocket::PodSet;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
-using QtRocket::Test::TestBodyComponent;
 
 constexpr double kEpsilon = 1e-9;
 
@@ -50,9 +50,9 @@ protected:
     PodSetTest()
     {
         m_stage   = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body    = &m_stage->addChild(TestBodyComponent::make(0.5, 0.05));
+        m_body    = &m_stage->addChild(std::make_unique<BodyTube>(0.5, 0.05));
         m_pods    = &m_body->addChild(std::make_unique<PodSet>());
-        m_podBody = &m_pods->addChild(TestBodyComponent::make(0.2, 0.02));
+        m_podBody = &m_pods->addChild(std::make_unique<BodyTube>(0.2, 0.02));
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(
             [this](const ComponentChangeEvent& e) { m_lastType = e.getType(); });
@@ -60,9 +60,9 @@ protected:
 
     Rocket                                  m_rocket;
     AxialStage*                             m_stage{nullptr};
-    TestBodyComponent*                      m_body{nullptr};
+    BodyTube*                               m_body{nullptr};
     PodSet*                                 m_pods{nullptr};
-    TestBodyComponent*                      m_podBody{nullptr};
+    BodyTube*                               m_podBody{nullptr};
     int                                     m_lastType{0};
     ComponentChangeSignal::ScopedConnection m_connection;
 };
@@ -202,8 +202,7 @@ TEST_F(PodSetTest, AxialPositioning)
 
 TEST_F(PodSetTest, RelativeToStage)
 {
-    auto&   innerBody = m_podBody->addChild(TestBodyComponent::make(0.1, 0.01));
-    PodSet& inner     = innerBody.addChild(std::make_unique<PodSet>());
+    const PodSet& inner = m_podBody->addChild(std::make_unique<PodSet>());
     EXPECT_EQ(inner.getRelativeToStage(), -1) << "the parent is not a pod set";
     EXPECT_EQ(m_pods->getRelativeToStage(), -1);
     // A pod set is relative to a stage only inside a pod set, which accepts body components only.

@@ -20,42 +20,44 @@
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/AxialStage.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/MathUtil.h"
 #include "TestTempDir.h"
-#include "rocket/TestBodyComponent.h"
-#include "rocket/TestComponent.h"
 
 namespace
 {
 
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
-using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::ErrorCode;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
+using QtRocket::InnerTube;
 using QtRocket::LookupTableStabilityCalculator;
 using QtRocket::MachAoALookup;
+using QtRocket::NoseCone;
 using QtRocket::PodSet;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::StabilityCalculator;
 using QtRocket::StabilityForceBreakdown;
+using QtRocket::TransitionShape;
 using QtRocket::WarningSet;
 using QtRocket::Test::TempDir;
-using QtRocket::Test::TestBodyComponent;
-using QtRocket::Test::TestComponent;
 namespace CsvMachAoALookup = QtRocket::CsvMachAoALookup;
 namespace MathUtil         = QtRocket::MathUtil;
 
@@ -346,18 +348,18 @@ TEST(LookupTableStabilityCalculator, CoefficientsAndStallAngleAreJavas)
 /// and the force analysis of a lookup calculator at Mach 1.
 struct PodRocket
 {
-    Rocket             rocket;
-    AxialStage&        stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestBodyComponent& nose =
-        stage.addChild(TestBodyComponent::make(0.1, 0.02, ComponentKind::NOSE_CONE));
-    TestBodyComponent& body    = stage.addChild(TestBodyComponent::make(0.5, 0.02));
-    TestComponent&     inner   = body.addChild(TestComponent::make(0.1, ComponentKind::INNER_TUBE));
-    PodSet&            pods    = body.addChild(std::make_unique<PodSet>());
-    TestBodyComponent& podBody = pods.addChild(TestBodyComponent::make(0.2, 0.01));
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    NoseCone&  nose = stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.1, 0.02));
+    BodyTube&  body = stage.addChild(std::make_unique<BodyTube>(0.5, 0.02));
+    InnerTube& inner   = body.addChild(std::make_unique<InnerTube>());
+    PodSet&    pods    = body.addChild(std::make_unique<PodSet>());
+    BodyTube&  podBody = pods.addChild(std::make_unique<BodyTube>(0.2, 0.01));
 
     PodRocket()
     {
-        inner.setAerodynamic(false);
+        // The inner tube is active but not aerodynamic: the analysis leaves it out.
+        EXPECT_FALSE(inner.isAerodynamic());
         rocket.enableEvents();
     }
 

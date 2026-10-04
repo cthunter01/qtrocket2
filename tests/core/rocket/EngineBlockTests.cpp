@@ -11,6 +11,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -20,13 +21,13 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
@@ -38,7 +39,6 @@ using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::Rocket;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 /// EngineBlockComponentTests.createPreset(): an engine block preset 2 m long, 2 m outer and 1 m
 /// inner diameter, of mass 100 kg.
@@ -159,7 +159,7 @@ TEST(EngineBlock, FitsTheMotorMount)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     auto&  inner = body.addChild(std::make_unique<InnerTube>());
     auto&  eb    = inner.addChild(std::make_unique<EngineBlock>());
     rocket.enableEvents();

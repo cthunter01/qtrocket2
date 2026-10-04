@@ -24,16 +24,22 @@
 namespace QtRocket::Test
 {
 
-/// A concrete RocketComponent for the tests of the component model, standing in for the
-/// concrete components that later groups port: its kind, mass, CG, length, radii, instances and
+/// A concrete RocketComponent for the tests of the generic component model (the tree, the
+/// events, the positioning, the instancing): its kind, mass, CG, length, radii, instances and
 /// compatibility are all settable. It implements the interfaces the base classes look for
-/// (Coaxial for a BODY_TUBE parent, RadiusPositionable, AnglePositionable, Instanceable) and is
-/// an InsideColorComponent, like a body tube.
+/// (Coaxial, RadiusPositionable, AnglePositionable, Instanceable) and is an InsideColorComponent,
+/// like a body tube.
+///
+/// It is not a stand-in for a body: it is not a SymmetricComponent, so the reference length, an
+/// assembly's bounding radius and the automatic radii do not read it, and a ring component or a
+/// mass object refuses it as a parent of a body or ring kind (BugError). Only
+/// QtRocket::getRadius(RadiusMethod, ...) reads the outer radius of one of kind BODY_TUBE,
+/// through Coaxial. Tests that need a body, a motor mount or an internal component build the real
+/// classes (BodyTube, NoseCone, Transition, InnerTube, ...). TestRockets.h uses it for the fin
+/// sets and launch lugs that are not ported yet (HOOK(fins-lugs)).
 ///
 /// Setters of physical values fire AEROMASS_CHANGE, as a real component's do. componentChanged()
-/// counts its calls. TestBodyComponent (TestBodyComponent.h) and TestMotorMount (TestMotorMount.h)
-/// derive from it; a derived class overrides cloneShallow(). TestRockets.h builds OpenRocket's
-/// test rockets from them.
+/// counts its calls. A derived class overrides cloneShallow().
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
 class TestComponent : public RocketComponent,
                       public virtual Coaxial,
