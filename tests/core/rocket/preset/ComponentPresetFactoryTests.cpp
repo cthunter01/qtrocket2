@@ -1,6 +1,7 @@
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <expected>
 #include <initializer_list>
@@ -16,6 +17,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/RailButton.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
@@ -118,8 +120,8 @@ void expectInvalidPreset(const Outcome& outcome, std::initializer_list<AnyTypedK
 // NoseConeTests.cpp and TransitionTests.cpp; BulkHeadComponentTests, CenteringRingComponentTests,
 // EngineBlockComponentTests, ParachuterComponentTests, StreamerComponentTests and
 // TubeCouplerComponentTests in BulkheadTests.cpp, CenteringRingTests.cpp, EngineBlockTests.cpp,
-// ParachuteTests.cpp, StreamerTests.cpp and TubeCouplerTests.cpp. Deferred until LaunchLug is
-// ported: LaunchLugComponentTests.
+// ParachuteTests.cpp, StreamerTests.cpp and TubeCouplerTests.cpp; LaunchLugComponentTests in
+// LaunchLugTests.cpp.
 
 // ================================================================================ tubes
 // BodyTubePresetTests, TubeCouplerPresetTests, LaunchLugPresetTests, CenteringRingPresetTests
@@ -879,6 +881,20 @@ TEST_F(ComponentPresetFactoryTest, RailButtonRequiredFields)
     return props;
 }
 
+/// The material name a shaped preset's mass gives without a material.
+[[nodiscard]] std::string_view customShapedMaterialName(ComponentPresetType type)
+{
+    switch (type)
+    {
+        case ComponentPresetType::NOSE_CONE:
+            return "NoseConeCustom";
+        case ComponentPresetType::TRANSITION:
+            return "TransitionCustom";
+        default:
+            return "RailButtonCustom";
+    }
+}
+
 /// The presets whose density OpenRocket derives through their component's getComponentVolume()
 /// (ComponentPresetFactory.makeNoseCone, makeTransition and makeRailButton).
 class ShapedPresetWithAMassTest : public ComponentPresetFactoryTest,
@@ -900,27 +916,311 @@ INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, ShapedPresetWithAMassTest,
                              return std::string(QtRocket::componentPresetTypeName(paramInfo.param));
                          });
 
-TEST_F(ComponentPresetFactoryTest, RailButtonMassWaitsForItsComponent)
+TEST_F(ComponentPresetFactoryTest, RailButtonMassBecomesADensityOverTheButtonsVolume)
 {
-    // Interim: the density needs RailButton's volume, so such a preset is refused, with an error
-    // that names no parameter.
-    // TODO(presets): when RailButton is ported, derive the "RailButtonCustom" material from
-    // mass / getComponentVolume() (no RailButton preset test exists in OpenRocket).
+    // ComponentPresetFactory.makeRailButton: the mass over the volume of a new RailButton with
+    // the preset loaded. The density, the flags and the digest are OpenRocket's own (computed
+    // with a Java program on OpenRocket's classes).
     TypedPropertyMap props = shapedSpec(ComponentPresetType::RAIL_BUTTON);
+    props.put(ComponentPreset::kMass, 0.123);
+    const Outcome outcome = create(props);
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(outcome->get(ComponentPreset::kMass), 0.123) << "the mass is kept";
+    const Material& material = outcome->get(ComponentPreset::kMaterial);
+    EXPECT_EQ(material.getName(), "RailButtonCustom");
+    EXPECT_EQ(material.getType(), Material::Type::BULK);
+    EXPECT_DOUBLE_EQ(material.getDensity(), 284742.6618225909);
+    // A material the storage does not know: a new user-defined document material.
+    EXPECT_TRUE(material.isUserDefined());
+    EXPECT_TRUE(material.isDocumentMaterial());
+    EXPECT_EQ(outcome->getDigest(), "d26b187acc69fe5f758af8cdcfc3105e");
+}
+
+TEST_F(ComponentPresetFactoryTest, RailButtonDensityCountsTheScrewHeadButNotItsMass)
+{
+    // The screw height adds the screw head's volume; the screw's and the nut's masses, which a
+    // RailButton adds to its override mass, do not enter the density. A given material keeps
+    // its name.
+    TypedPropertyMap props = shapedSpec(ComponentPresetType::RAIL_BUTTON);
+    props.put(ComponentPreset::kMass, 0.123);
+    props.put(ComponentPreset::kScrewHeight, 0.003);
+    props.put(ComponentPreset::kScrewMass, 0.001);
+    props.put(ComponentPreset::kNutMass, 0.002);
+    props.put(ComponentPreset::kCd, 0.7);
+    props.put(ComponentPreset::kMaterial, testMaterial());
+    const Outcome outcome = create(props);
+    ASSERT_TRUE(outcome.has_value());
+    const Material& material = outcome->get(ComponentPreset::kMaterial);
+    EXPECT_EQ(material.getName(), "test");
+    EXPECT_DOUBLE_EQ(material.getDensity(), 208811.28367708367);
+}
+
+TEST_F(ComponentPresetFactoryTest, RailButtonMassWithoutTheRequiredFieldsReportsOnlyThem)
+{
+    // The density is still computed (over the default button's volume), as in OpenRocket, and
+    // adds no problem of its own.
+    TypedPropertyMap props = spec(ComponentPresetType::RAIL_BUTTON);
     props.put(ComponentPreset::kMass, 0.123);
     const Outcome outcome = create(props);
     ASSERT_FALSE(outcome.has_value()) << "the preset was accepted";
     const InvalidPreset& problems = outcome.error();
-    EXPECT_TRUE(problems.invalidParameters.empty());
-    ASSERT_EQ(problems.errors.size(), 1U);
-    EXPECT_EQ(problems.errors[0],
-              "Mass of a RAIL_BUTTON preset needs the RAIL_BUTTON component, which is not ported "
-              "yet");
-    EXPECT_EQ(problems.problemCount(), 1U);
+    EXPECT_EQ(problems.errors,
+              (std::vector<std::string>{"No Height specified", "No OuterDiameter specified",
+                                        "No InnerDiameter specified", "No FlangeHeight specified",
+                                        "No BaseHeight specified"}));
+    EXPECT_EQ(
+        problems.invalidParameters,
+        (std::vector<AnyTypedKey>{ComponentPreset::kHeight, ComponentPreset::kOuterDiameter,
+                                  ComponentPreset::kInnerDiameter, ComponentPreset::kFlangeHeight,
+                                  ComponentPreset::kBaseHeight}));
+}
+
+/// One rail button of OpenRocket's bundled component database
+/// (datafiles/components/internal/RailButton_Database.orc), with the values its loader hands the
+/// factory (the file's manufacturer, part number and description; its inches and grams in SI
+/// units) and what OpenRocket makes of them: the density of the material, the volume of a
+/// RailButton with the preset loaded, its mass (the button's, the screw's and the nut's), and
+/// the digest of the preset.
+struct BundledRailButton
+{
+    std::string_view manufacturer;
+    std::string_view partNo;
+    std::string_view description;
+    std::string_view materialName;
+    double           outerDiameter;
+    double           innerDiameter;
+    double           height;
+    double           baseHeight;
+    double           flangeHeight;
+    double           screwHeight;
+    double           mass;
+    double           screwMass;
+    double           nutMass;
+    double           density;
+    double           volume;
+    double           totalMass;
+    std::string_view digest;
+};
+
+constexpr std::string_view kBinderDesign = "Binder Design-Rail Button Supply House";
+constexpr std::string_view kRailButtons  = "Rail-Buttons.com";
+constexpr std::string_view kWildman      = "Wildman Rocketry";
+
+constexpr std::array<BundledRailButton, 8> kBundledRailButtons{{
+    {.manufacturer  = kBinderDesign,
+     .partNo        = "Std 1010 RB",
+     .description   = "Standard 1010 Rail Button, Countersunk 8-32 Screw, and T-Nut",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.011112499999999999,
+     .innerDiameter = 0.0058039,
+     .height        = 0.007556499999999999,
+     .baseHeight    = 0.0018541999999999999,
+     .flangeHeight  = 0.0018541999999999999,
+     .screwHeight   = 0.0,
+     .mass          = 4.4500000000000003E-4,
+     .screwMass     = 0.001395,
+     .nutMass       = 0.0010249999999999999,
+     .density       = 964.3031373843921,
+     .volume        = 4.6147314340077E-7,
+     .totalMass     = 0.002865,
+     .digest        = "b98091c05ff7076f2518ebcd304daab7"},
+    {.manufacturer  = kBinderDesign,
+     .partNo        = "Std 1515 RB",
+     .description   = "Standard 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.015747999999999998,
+     .innerDiameter = 0.007607299999999999,
+     .height        = 0.0114173,
+     .baseHeight    = 0.003175,
+     .flangeHeight  = 0.003175,
+     .screwHeight   = 0.0,
+     .mass          = 0.0014650000000000002,
+     .screwMass     = 0.0033650000000000004,
+     .nutMass       = 0.002675,
+     .density       = 998.5274976789511,
+     .volume        = 1.4671603970900662E-6,
+     .totalMass     = 0.007505000000000001,
+     .digest        = "a738c3c07e37716f856efa4429922a34"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB-Micro",
+     .description   = "2 Piece Micro Rail Button with 2-56 Screw  (10mm Rail)",
+     .materialName  = "Nylon",
+     .outerDiameter = 0.004191,
+     .innerDiameter = 0.0030353,
+     .height        = 0.0040513,
+     .baseHeight    = 0.0010414,
+     .flangeHeight  = 0.0,
+     .screwHeight   = 0.0011811,
+     .mass          = 1.0E-5,
+     .screwMass     = 4.0E-5,
+     .nutMass       = 0.0,
+     .density       = 212.73036595434928,
+     .volume        = 4.700786347608664E-8,
+     .totalMass     = 5.0E-5,
+     .digest        = "3b34718b356236806fe0fa3d75e4fcfd"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "1PMB",
+     .description   = "1 Piece Mini Rail Button with Countersunk 6-32 Screw",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.0063246,
+     .innerDiameter = 0.0049022,
+     .height        = 0.005207,
+     .baseHeight    = 9.651999999999999E-4,
+     .flangeHeight  = 9.651999999999999E-4,
+     .screwHeight   = 0.0,
+     .mass          = 8.999999999999999E-5,
+     .screwMass     = 4.15E-4,
+     .nutMass       = 0.0,
+     .density       = 734.7547784740698,
+     .volume        = 1.2248984645858438E-7,
+     .totalMass     = 5.05E-4,
+     .digest        = "c85574d97a3f84f10bd994e3a4df8407"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB-10-D",
+     .description   = "3 Piece 1010 Rail Button with 8-32 Screw",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.0070612,
+     .innerDiameter = 0.0039115999999999995,
+     .height        = 0.006858,
+     .baseHeight    = 0.001524,
+     .flangeHeight  = 0.001524,
+     .screwHeight   = 0.002921,
+     .mass          = 3.05E-4,
+     .screwMass     = 0.0017150000000000002,
+     .nutMass       = 0.0,
+     .density       = 1263.441086779584,
+     .volume        = 2.414042120297211E-7,
+     .totalMass     = 0.00202,
+     .digest        = "04216650db516d1f28e4680615250f6e"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "1P1010DLX",
+     .description   = "1 Piece 1010 Rail Button with Countersunk 8-32 Screw",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.0094615,
+     .innerDiameter = 0.0062992,
+     .height        = 0.0077469999999999995,
+     .baseHeight    = 0.0019812,
+     .flangeHeight  = 0.0019812,
+     .screwHeight   = 0.0,
+     .mass          = 3.2E-4,
+     .screwMass     = 0.0012350000000000002,
+     .nutMass       = 0.0,
+     .density       = 806.986459971087,
+     .volume        = 3.965370125435129E-7,
+     .totalMass     = 0.0015550000000000002,
+     .digest        = "874b5832ce64fe0a612ba5042558bc61"},
+    {.manufacturer  = kRailButtons,
+     .partNo        = "RB1515S",
+     .description   = "1 Piece 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.012445999999999999,
+     .innerDiameter = 0.007365999999999999,
+     .height        = 0.014224,
+     .baseHeight    = 0.004762499999999999,
+     .flangeHeight  = 0.004762499999999999,
+     .screwHeight   = 0.0,
+     .mass          = 0.001355,
+     .screwMass     = 0.00272,
+     .nutMass       = 0.0,
+     .density       = 997.0129438821765,
+     .volume        = 1.3590595872545955E-6,
+     .totalMass     = 0.0040750000000000005,
+     .digest        = "30ddc4df54063b9aacb3b58b916581c4"},
+    {.manufacturer  = kWildman,
+     .partNo        = "2052-LG",
+     .description   = "1 Piece 1515 Rail Button, Countersunk 10-32 Screw, and T-Nut",
+     .materialName  = "Delrin",
+     .outerDiameter = 0.0157734,
+     .innerDiameter = 0.007823199999999999,
+     .height        = 0.0173863,
+     .baseHeight    = 0.0085852,
+     .flangeHeight  = 0.0042545000000000005,
+     .screwHeight   = 0.0,
+     .mass          = 0.003215,
+     .screwMass     = 0.003795,
+     .nutMass       = 0.002195,
+     .density       = 1178.7278102349876,
+     .volume        = 2.7275168805587673E-6,
+     .totalMass     = 0.009205000000000001,
+     .digest        = "0f5a44778735e75f4f5e22184b5e1c9a"},
+}};
+
+/// The properties OpenRocket's .orc loader hands the factory for @p row
+/// (RailButtonDTO.asComponentPreset), in its order: not legacy, the manufacturer, the part number,
+/// the description, the material the file names for it (Delrin 1420 kg/m3 or Nylon 1150 kg/m3),
+/// the masses and the dimensions. The file's <Finish> is not read, and its empty
+/// <DragCoefficient> gives no CD.
+[[nodiscard]] TypedPropertyMap bundledRailButtonSpec(const BundledRailButton& row)
+{
+    TypedPropertyMap props;
+    props.put(ComponentPreset::kLegacy, false);
+    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer(row.manufacturer));
+    props.put(ComponentPreset::kPartNo, std::string(row.partNo));
+    props.put(ComponentPreset::kDescription, std::string(row.description));
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::BULK, std::string(row.materialName),
+                                    row.materialName == "Nylon" ? 1150.0 : 1420.0, false));
+    props.put(ComponentPreset::kMass, row.mass);
+    props.put(ComponentPreset::kInnerDiameter, row.innerDiameter);
+    props.put(ComponentPreset::kOuterDiameter, row.outerDiameter);
+    props.put(ComponentPreset::kHeight, row.height);
+    props.put(ComponentPreset::kBaseHeight, row.baseHeight);
+    props.put(ComponentPreset::kFlangeHeight, row.flangeHeight);
+    props.put(ComponentPreset::kScrewHeight, row.screwHeight);
+    props.put(ComponentPreset::kScrewMass, row.screwMass);
+    props.put(ComponentPreset::kNutMass, row.nutMass);
+    props.put(ComponentPreset::kType, ComponentPresetType::RAIL_BUTTON);
+    return props;
+}
+
+/// Checks the material of the preset the factory made of @p row against OpenRocket's.
+void expectOpenRocketsMaterial(const BundledRailButton& row, const Outcome& preset)
+{
+    ASSERT_TRUE(preset.has_value());
+    const Material& material = preset->get(ComponentPreset::kMaterial);
+    EXPECT_EQ(material.getName(), row.materialName);
+    EXPECT_DOUBLE_EQ(material.getDensity(), row.density);
+    EXPECT_TRUE(material.isUserDefined());
+}
+
+/// Checks the manufacturer and the digest of the preset the factory made of @p row against
+/// OpenRocket's. The digest covers every property but LEGACY, the computed density among them.
+void expectOpenRocketsDigest(const BundledRailButton& row, const Outcome& preset)
+{
+    ASSERT_TRUE(preset.has_value());
+    EXPECT_EQ(preset->getManufacturer().getDisplayName(), row.manufacturer);
+    EXPECT_EQ(preset->getDigest(), row.digest);
+}
+
+/// Checks a RailButton with the preset the factory made of @p row loaded against OpenRocket's.
+void expectOpenRocketsRailButton(const BundledRailButton& row, const Outcome& preset)
+{
+    ASSERT_TRUE(preset.has_value());
+    QtRocket::RailButton button;
+    button.loadPreset(&*preset);
+    EXPECT_DOUBLE_EQ(button.getComponentVolume(), row.volume);
+    EXPECT_DOUBLE_EQ(button.getComponentMass(), row.mass);
+    EXPECT_TRUE(button.isMassOverridden());
+    EXPECT_DOUBLE_EQ(button.getMass(), row.totalMass);
+}
+
+TEST_F(ComponentPresetFactoryTest, BundledRailButtonsGetOpenRocketsDensities)
+{
+    // The mass replaces the density of the material the file names, so the built-in material of
+    // that name no longer matches and the preset gets a user-defined material of the same name.
+    QtRocket::addBuiltinMaterials(m_materials);
+    for (const BundledRailButton& row : kBundledRailButtons)
+    {
+        SCOPED_TRACE(std::string(row.partNo));
+        const Outcome preset = create(bundledRailButtonSpec(row));
+        expectOpenRocketsMaterial(row, preset);
+        expectOpenRocketsDigest(row, preset);
+        expectOpenRocketsRailButton(row, preset);
+    }
 }
 
 /// The presets whose mass becomes a density over the volume of their component (NoseCone,
-/// Transition).
+/// Transition, RailButton).
 class DensityFromComponentVolumeTest : public ComponentPresetFactoryTest,
                                        public ::testing::WithParamInterface<ComponentPresetType>
 { };
@@ -933,14 +1233,14 @@ TEST_P(DensityFromComponentVolumeTest, MassBecomesACustomMaterial)
     ASSERT_TRUE(outcome.has_value());
     EXPECT_EQ(outcome->get(ComponentPreset::kMass), 0.123) << "the mass is kept";
     const Material& material = outcome->get(ComponentPreset::kMaterial);
-    EXPECT_EQ(material.getName(),
-              GetParam() == ComponentPresetType::NOSE_CONE ? "NoseConeCustom" : "TransitionCustom");
+    EXPECT_EQ(material.getName(), customShapedMaterialName(GetParam()));
     EXPECT_GT(material.getDensity(), 0.0);
 }
 
 INSTANTIATE_TEST_SUITE_P(ComponentPresetFactory, DensityFromComponentVolumeTest,
                          ::testing::Values(ComponentPresetType::NOSE_CONE,
-                                           ComponentPresetType::TRANSITION),
+                                           ComponentPresetType::TRANSITION,
+                                           ComponentPresetType::RAIL_BUTTON),
                          [](const ::testing::TestParamInfo<ComponentPresetType>& paramInfo) {
                              return std::string(QtRocket::componentPresetTypeName(paramInfo.param));
                          });

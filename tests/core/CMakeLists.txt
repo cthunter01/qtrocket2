@@ -95,6 +95,7 @@ add_executable(QtRocket_core_tests
     rocket/InsideColorComponentTests.cpp
     rocket/InstanceMapTests.cpp
     rocket/InternalComponentTests.cpp
+    rocket/LaunchLugTests.cpp
     rocket/MassComponentTests.cpp
     rocket/MassObjectTests.cpp
     rocket/MotorConfigurationSetTests.cpp
@@ -109,6 +110,7 @@ add_executable(QtRocket_core_tests
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RadiusRingComponentTests.cpp
+    rocket/RailButtonTests.cpp
     rocket/RecoveryDeviceTests.cpp
     rocket/RingComponentTests.cpp
     rocket/RocketComponentTests.cpp
@@ -123,6 +125,7 @@ add_executable(QtRocket_core_tests
     rocket/TransitionTests.cpp
     rocket/TrapezoidFinSetTests.cpp
     rocket/TubeCouplerTests.cpp
+    rocket/TubeFinSetTests.cpp
     models/AtmosphericConditionsTests.cpp
     models/ConstantGravityModelTests.cpp
     models/ExtendedIsaModelTests.cpp
@@ -167,6 +170,7 @@ add_executable(QtRocket_core_tests
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
     file/ZipInputStreamTests.cpp
+    goldens/attachment_geometry_golden_tests.cpp
     goldens/body_geometry_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
     goldens/GoldenBodies.cpp

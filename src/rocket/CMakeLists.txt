@@ -26,6 +26,7 @@ target_sources(QtRocket_core PRIVATE
     InstanceContext.cpp
     InstanceMap.cpp
     InternalComponent.cpp
+    LaunchLug.cpp
     MassComponent.cpp
     MassObject.cpp
     MotorConfiguration.cpp
@@ -42,6 +43,7 @@ target_sources(QtRocket_core PRIVATE
     preset/ComponentPresetType.cpp
     preset/TypedPropertyMap.cpp
     RadiusRingComponent.cpp
+    RailButton.cpp
     RecoveryDevice.cpp
     ReferenceType.cpp
     RingComponent.cpp
@@ -58,4 +60,5 @@ target_sources(QtRocket_core PRIVATE
     TransitionShape.cpp
     TrapezoidFinSet.cpp
     TubeCoupler.cpp
+    TubeFinSet.cpp
 )
