@@ -14,7 +14,6 @@
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
-#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
@@ -22,25 +21,23 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
-#include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
 
-using QtRocket::AngleMethod;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
-using QtRocket::FlightConfigurationId;
 using QtRocket::Material;
 using QtRocket::NoseCone;
 using QtRocket::ParallelStage;
@@ -53,6 +50,7 @@ using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::MathUtil::pow2;
 using QtRocket::Test::TestComponent;
+using QtRocket::Test::TestFalcon9Heavy;
 
 /// SymmetricComponentVolumeTest's tolerance (MathUtil.EPSILON * 1000).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon * 1000;
@@ -860,152 +858,48 @@ TEST(SymmetricComponentVolume, TransitionVsTubeHollow)
 
 // ====================================================================== SymmetricComponentTest
 
-/// TestRockets.makeFalcon9Heavy() with the real body components (nose cones, body tubes, the
-/// fairing transition) and test doubles for the rest (parachute, shock cord, motor tubes, fins);
-/// the motors are left out, since the neighbour searches look only at the body components and
-/// the assemblies. Events are enabled.
-struct Falcon9Heavy
-{
-    std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
-    AxialStage*             payloadStage{nullptr};
-    NoseCone*               payloadFairingNoseCone{nullptr};
-    BodyTube*               payloadBody{nullptr};
-    Transition*             payloadFairingTail{nullptr};
-    BodyTube*               upperStageBody{nullptr};
-    BodyTube*               interstageBody{nullptr};
-    AxialStage*             coreStage{nullptr};
-    BodyTube*               coreBody{nullptr};
-    ParallelStage*          boosterStage{nullptr};
-    NoseCone*               boosterCone{nullptr};
-    BodyTube*               boosterBody{nullptr};
-
-    Falcon9Heavy()
-    {
-        rocket->setName("Falcon9H Scale Rocket");
-        const FlightConfigurationId fcid =
-            FlightConfigurationId::fromString("test_config #1: [ M1350, G77]");
-        rocket->createFlightConfiguration(fcid);
-        rocket->setSelectedConfiguration(fcid);
-
-        // ====== Payload Stage ======
-        payloadStage = &rocket->addChild(std::make_unique<AxialStage>());
-        payloadStage->setName("Payload Fairing Stage");
-
-        auto nose = std::make_unique<NoseCone>(TransitionShape::POWER, 0.118, 0.052);
-        nose->setName("PL Fairing Nose");
-        nose->setThickness(0.001);
-        nose->setShapeParameter(0.5);
-        nose->setAftShoulderRadius(0.051);
-        nose->setAftShoulderLength(0.02);
-        nose->setAftShoulderThickness(0.001);
-        nose->setAftShoulderCapped(false);
-        payloadFairingNoseCone = &payloadStage->addChild(std::move(nose));
-
-        payloadBody = &payloadStage->addChild(std::make_unique<BodyTube>(0.132, 0.052, 0.001));
-        payloadBody->setName("PL Fairing Body");
-
-        auto tail = std::make_unique<Transition>();
-        tail->setName("PL Fairing Transition");
-        tail->setLength(0.014);
-        tail->setThickness(0.002);
-        tail->setForeRadiusAutomatic(true);
-        tail->setAftRadiusAutomatic(true);
-        payloadFairingTail = &payloadStage->addChild(std::move(tail));
-
-        upperStageBody = &payloadStage->addChild(std::make_unique<BodyTube>(0.18, 0.0385, 0.001));
-        upperStageBody->setName("Upper Stage Body");
-        auto chute = TestComponent::make(0.025, ComponentKind::PARACHUTE, AxialMethod::MIDDLE);
-        chute->setAerodynamic(false);
-        upperStageBody->addChild(std::move(chute)).setName("Parachute");
-        auto cord = TestComponent::make(0.025, ComponentKind::SHOCK_CORD, AxialMethod::BOTTOM);
-        cord->setAerodynamic(false);
-        upperStageBody->addChild(std::move(cord)).setName("Shock Cord");
-
-        interstageBody = &payloadStage->addChild(std::make_unique<BodyTube>(0.12, 0.0385, 0.001));
-        interstageBody->setName("Interstage");
-
-        // ====== Core Stage ======
-        coreStage = &rocket->addChild(std::make_unique<AxialStage>());
-        coreStage->setName("Core Stage");
-
-        coreBody = &coreStage->addChild(std::make_unique<BodyTube>(0.8, 0.0385, 0.001));
-        coreBody->setName("Core Stage Body");
-        coreBody->setMotorMount(true);
-
-        // ====== Booster Stage Set ======
-        boosterStage = &coreBody->addChild(std::make_unique<ParallelStage>());
-        boosterStage->setName("Booster Stage");
-        boosterStage->setAxialMethod(AxialMethod::BOTTOM);
-        boosterStage->setAxialOffset(0.0);
-        boosterStage->setInstanceCount(2);
-        boosterStage->setRadius(RadiusMethod::SURFACE, 0.0);
-        boosterStage->setAngleMethod(AngleMethod::RELATIVE);
-
-        auto cone = std::make_unique<NoseCone>(TransitionShape::POWER, 0.08, 0.0385);
-        cone->setShapeParameter(0.5);
-        cone->setName("Booster Nose");
-        cone->setThickness(0.002);
-        cone->setAftShoulderRadius(0.0375);
-        cone->setAftShoulderLength(0.02);
-        cone->setAftShoulderThickness(0.001);
-        cone->setAftShoulderCapped(false);
-        boosterCone = &boosterStage->addChild(std::move(cone));
-
-        boosterBody = &boosterStage->addChild(std::make_unique<BodyTube>(0.8, 0.0385, 0.001));
-        boosterBody->setName("Booster Body");
-        boosterBody->setOuterRadiusAutomatic(true);
-        auto motorTubes = TestComponent::make(0.15, ComponentKind::INNER_TUBE, AxialMethod::BOTTOM);
-        motorTubes->setAerodynamic(false);
-        boosterBody->addChild(std::move(motorTubes)).setName("Booster Motor Tubes");
-        boosterBody
-            ->addChild(
-                TestComponent::make(0.32, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM))
-            .setName("Booster Fins");
-
-        rocket->enableEvents();
-        rocket->setSelectedConfiguration(fcid);
-    }
-};
+// SymmetricComponentTest runs on TestRockets.makeFalcon9Heavy(): the shared TestFalcon9Heavy
+// (TestRockets.h).
 
 TEST(SymmetricComponent, PreviousSymmetricComponent)
 {
-    const Falcon9Heavy f9h;
+    const TestFalcon9Heavy f9h;
 
-    EXPECT_EQ(f9h.payloadFairingNoseCone->getPreviousSymmetricComponent(), nullptr);
-    EXPECT_EQ(f9h.payloadBody->getPreviousSymmetricComponent(), f9h.payloadFairingNoseCone);
-    EXPECT_EQ(f9h.payloadFairingTail->getPreviousSymmetricComponent(), f9h.payloadBody);
-    EXPECT_EQ(f9h.upperStageBody->getPreviousSymmetricComponent(), f9h.payloadFairingTail);
-    EXPECT_EQ(f9h.interstageBody->getPreviousSymmetricComponent(), f9h.upperStageBody);
+    EXPECT_EQ(f9h.payloadNose->getPreviousSymmetricComponent(), nullptr);
+    EXPECT_EQ(f9h.payloadBody->getPreviousSymmetricComponent(), f9h.payloadNose);
+    EXPECT_EQ(f9h.payloadTransition->getPreviousSymmetricComponent(), f9h.payloadBody);
+    EXPECT_EQ(f9h.upperStageBody->getPreviousSymmetricComponent(), f9h.payloadTransition);
+    EXPECT_EQ(f9h.interstage->getPreviousSymmetricComponent(), f9h.upperStageBody);
 
-    EXPECT_EQ(f9h.coreBody->getPreviousSymmetricComponent(), f9h.interstageBody);
+    EXPECT_EQ(f9h.coreBody->getPreviousSymmetricComponent(), f9h.interstage);
 
-    EXPECT_EQ(f9h.boosterCone->getPreviousSymmetricComponent(), nullptr);
-    EXPECT_EQ(f9h.boosterBody->getPreviousSymmetricComponent(), f9h.boosterCone);
+    EXPECT_EQ(f9h.boosterNose->getPreviousSymmetricComponent(), nullptr);
+    EXPECT_EQ(f9h.boosterBody->getPreviousSymmetricComponent(), f9h.boosterNose);
 }
 
 TEST(SymmetricComponent, NextSymmetricComponent)
 {
-    const Falcon9Heavy f9h;
+    const TestFalcon9Heavy f9h;
 
-    EXPECT_EQ(f9h.payloadFairingNoseCone->getNextSymmetricComponent(), f9h.payloadBody);
-    EXPECT_EQ(f9h.payloadBody->getNextSymmetricComponent(), f9h.payloadFairingTail);
-    EXPECT_EQ(f9h.payloadFairingTail->getNextSymmetricComponent(), f9h.upperStageBody);
-    EXPECT_EQ(f9h.upperStageBody->getNextSymmetricComponent(), f9h.interstageBody);
+    EXPECT_EQ(f9h.payloadNose->getNextSymmetricComponent(), f9h.payloadBody);
+    EXPECT_EQ(f9h.payloadBody->getNextSymmetricComponent(), f9h.payloadTransition);
+    EXPECT_EQ(f9h.payloadTransition->getNextSymmetricComponent(), f9h.upperStageBody);
+    EXPECT_EQ(f9h.upperStageBody->getNextSymmetricComponent(), f9h.interstage);
 
-    EXPECT_EQ(f9h.interstageBody->getNextSymmetricComponent(), f9h.coreBody);
+    EXPECT_EQ(f9h.interstage->getNextSymmetricComponent(), f9h.coreBody);
     EXPECT_EQ(f9h.coreBody->getNextSymmetricComponent(), nullptr);
 
-    EXPECT_EQ(f9h.boosterCone->getNextSymmetricComponent(), f9h.boosterBody);
+    EXPECT_EQ(f9h.boosterNose->getNextSymmetricComponent(), f9h.boosterBody);
     EXPECT_EQ(f9h.boosterBody->getNextSymmetricComponent(), nullptr);
 }
 
 TEST(SymmetricComponent, NeighboursThroughConstAndMutableAccessAgree)
 {
-    const Falcon9Heavy        f9h;
-    const SymmetricComponent& constTail = *f9h.payloadFairingTail;
-    EXPECT_EQ(f9h.payloadFairingTail->getPreviousSymmetricComponent(),
+    const TestFalcon9Heavy    f9h;
+    const SymmetricComponent& constTail = *f9h.payloadTransition;
+    EXPECT_EQ(f9h.payloadTransition->getPreviousSymmetricComponent(),
               constTail.getPreviousSymmetricComponent());
-    EXPECT_EQ(f9h.payloadFairingTail->getNextSymmetricComponent(),
+    EXPECT_EQ(f9h.payloadTransition->getNextSymmetricComponent(),
               constTail.getNextSymmetricComponent());
 }
 
@@ -1013,7 +907,7 @@ TEST(SymmetricComponent, NeighboursThroughConstAndMutableAccessAgree)
 /// reduced to one booster off the axis, a last stage (a body tube 0.2 m, radius 0.05 m), and a
 /// pod set of one pod on the core body's axis (FREE radius 0) holding a nose cone (0.1 m, base
 /// radius 0.05 m) and a body (0.2 m, radius 0.05 m, with fins), in the order @p coneFirst gives.
-struct InlineAssemblyRocket : Falcon9Heavy
+struct InlineAssemblyRocket : TestFalcon9Heavy
 {
     PodSet*   podSet{nullptr};
     NoseCone* podSetCone{nullptr};
@@ -1037,6 +931,7 @@ struct InlineAssemblyRocket : Falcon9Heavy
         cone->setBaseRadius(0.05);
         auto body = std::make_unique<BodyTube>(0.2, 0.05, 0.001);
         body->setName("Pod Set Body");
+        // HOOK(fins-lugs): tier 6b replaces this double with the real class (TrapezoidFinSet()).
         body->addChild(
             TestComponent::make(0.05, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM));
         if (coneFirst)
@@ -1064,20 +959,20 @@ TEST(SymmetricComponent, PreviousSymmetricComponentInlineComponentAssembly)
 {
     const InlineAssemblyRocket r(true);
     BodyTube* const            coreBody      = r.coreBody;
-    BodyTube* const            interstage    = r.interstageBody;
+    BodyTube* const            interstage    = r.interstage;
     NoseCone* const            podSetCone    = r.podSetCone;
     BodyTube* const            podSetBody    = r.podSetBody;
     BodyTube* const            lastStageBody = r.lastStageBody;
     PodSet* const              podSet        = r.podSet;
 
-    EXPECT_EQ(r.payloadFairingNoseCone->getPreviousSymmetricComponent(), nullptr);
-    EXPECT_EQ(r.payloadBody->getPreviousSymmetricComponent(), r.payloadFairingNoseCone);
-    EXPECT_EQ(r.payloadFairingTail->getPreviousSymmetricComponent(), r.payloadBody);
-    EXPECT_EQ(r.upperStageBody->getPreviousSymmetricComponent(), r.payloadFairingTail);
+    EXPECT_EQ(r.payloadNose->getPreviousSymmetricComponent(), nullptr);
+    EXPECT_EQ(r.payloadBody->getPreviousSymmetricComponent(), r.payloadNose);
+    EXPECT_EQ(r.payloadTransition->getPreviousSymmetricComponent(), r.payloadBody);
+    EXPECT_EQ(r.upperStageBody->getPreviousSymmetricComponent(), r.payloadTransition);
     EXPECT_EQ(interstage->getPreviousSymmetricComponent(), r.upperStageBody);
 
-    EXPECT_EQ(r.boosterCone->getPreviousSymmetricComponent(), nullptr);
-    EXPECT_EQ(r.boosterBody->getPreviousSymmetricComponent(), r.boosterCone);
+    EXPECT_EQ(r.boosterNose->getPreviousSymmetricComponent(), nullptr);
+    EXPECT_EQ(r.boosterBody->getPreviousSymmetricComponent(), r.boosterNose);
 
     // case 1: pod set is larger, and at the back of the core stage
     EXPECT_EQ(lastStageBody->getPreviousSymmetricComponent(), podSetBody);
@@ -1253,19 +1148,19 @@ TEST(SymmetricComponent, NextSymmetricComponentInlineComponentAssembly)
 {
     const InlineAssemblyRocket r(false);
     BodyTube* const            coreBody      = r.coreBody;
-    BodyTube* const            interstage    = r.interstageBody;
+    BodyTube* const            interstage    = r.interstage;
     NoseCone* const            podSetCone    = r.podSetCone;
     BodyTube* const            podSetBody    = r.podSetBody;
     BodyTube* const            lastStageBody = r.lastStageBody;
     PodSet* const              podSet        = r.podSet;
 
-    EXPECT_EQ(r.payloadFairingNoseCone->getNextSymmetricComponent(), r.payloadBody);
-    EXPECT_EQ(r.payloadBody->getNextSymmetricComponent(), r.payloadFairingTail);
-    EXPECT_EQ(r.payloadFairingTail->getNextSymmetricComponent(), r.upperStageBody);
+    EXPECT_EQ(r.payloadNose->getNextSymmetricComponent(), r.payloadBody);
+    EXPECT_EQ(r.payloadBody->getNextSymmetricComponent(), r.payloadTransition);
+    EXPECT_EQ(r.payloadTransition->getNextSymmetricComponent(), r.upperStageBody);
     EXPECT_EQ(r.upperStageBody->getNextSymmetricComponent(), interstage);
 
     EXPECT_EQ(lastStageBody->getNextSymmetricComponent(), nullptr);
-    EXPECT_EQ(r.boosterCone->getNextSymmetricComponent(), r.boosterBody);
+    EXPECT_EQ(r.boosterNose->getNextSymmetricComponent(), r.boosterBody);
 
     // case 1: pod set is larger, and at the front of the core stage
     EXPECT_EQ(interstage->getNextSymmetricComponent(), podSetBody);

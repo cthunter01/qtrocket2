@@ -6,24 +6,24 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/motor/Motor.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::CMAnalysisEntry;
 using QtRocket::Coordinate;
 using QtRocket::Motor;
-using QtRocket::Test::TestComponent;
 
 TEST(CMAnalysisEntry, ComponentRowStartsWithoutMass)
 {
-    TestComponent component;
+    BodyTube component;
     component.setName("Body");
     const CMAnalysisEntry entry{component};
 
@@ -36,7 +36,7 @@ TEST(CMAnalysisEntry, ComponentRowStartsWithoutMass)
 
 TEST(CMAnalysisEntry, ComponentRowWithoutNameUsesTheComponentName)
 {
-    const TestComponent   component;
+    const BodyTube        component;
     const CMAnalysisEntry entry{component};
     EXPECT_EQ(entry.name, component.getName());
     EXPECT_EQ(entry.name, "Body Tube");
@@ -61,7 +61,7 @@ TEST(CMAnalysisEntry, NullMotorIsABug)
 
 TEST(CMAnalysisEntry, KeysAreJavasHashCodes)
 {
-    const TestComponent component;
+    const BodyTube component;
     EXPECT_EQ(CMAnalysisEntry::keyOf(component), component.hashCode());
 
     const std::shared_ptr<const Motor> motor = QtRocket::Test::motorM1350();
@@ -72,8 +72,8 @@ TEST(CMAnalysisEntry, KeysAreJavasHashCodes)
 
 TEST(CMAnalysisEntry, EachMassIsTheFirstValueOnly)
 {
-    const TestComponent component;
-    CMAnalysisEntry     entry{component};
+    const BodyTube  component;
+    CMAnalysisEntry entry{component};
 
     entry.updateEachMass(0.25);
     EXPECT_EQ(entry.eachMass, 0.25);
@@ -83,8 +83,8 @@ TEST(CMAnalysisEntry, EachMassIsTheFirstValueOnly)
 
 TEST(CMAnalysisEntry, AverageCMStartsAtTheFirstValueThenAverages)
 {
-    const TestComponent component;
-    CMAnalysisEntry     entry{component};
+    const BodyTube  component;
+    CMAnalysisEntry entry{component};
 
     entry.updateAverageCM(Coordinate{1.0, 0.0, 0.0, 2.0});
     EXPECT_TRUE(entry.totalCM.exactlyEquals(Coordinate{1.0, 0.0, 0.0, 2.0}));
@@ -99,8 +99,8 @@ TEST(CMAnalysisEntry, AverageCMStartsAtTheFirstValueThenAverages)
 
 TEST(CMAnalysisEntry, AverageCMRestartsFromAPartlyNaNTotal)
 {
-    const TestComponent component;
-    CMAnalysisEntry     entry{component};
+    const BodyTube  component;
+    CMAnalysisEntry entry{component};
     entry.totalCM = Coordinate{1.0, std::nan(""), 0.0, 1.0};
 
     entry.updateAverageCM(Coordinate{5.0, 0.0, 0.0, 1.0});
@@ -109,8 +109,8 @@ TEST(CMAnalysisEntry, AverageCMRestartsFromAPartlyNaNTotal)
 
 TEST(CMAnalysisEntry, AssemblyMassIsTheAggregatePerInstance)
 {
-    const TestComponent component;
-    CMAnalysisEntry     entry{component};
+    const BodyTube  component;
+    CMAnalysisEntry entry{component};
 
     // The structure pass of a two-instance assembly...
     entry.updateAssemblyMass(Coordinate{1.0, 0.0, 0.0, 4.0}, 2);

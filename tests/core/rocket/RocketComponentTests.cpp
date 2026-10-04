@@ -22,10 +22,18 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/MassComponent.h"
+#include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
@@ -36,7 +44,6 @@
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/LineStyle.h"
-#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestComponent.h"
@@ -47,6 +54,7 @@ namespace
 using QtRocket::Appearance;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::Color;
 using QtRocket::ComponentAssembly;
@@ -60,16 +68,18 @@ using QtRocket::Coordinate;
 using QtRocket::LineStyle;
 using QtRocket::Manufacturer;
 using QtRocket::ModId;
+using QtRocket::NoseCone;
+using QtRocket::ParallelStage;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Uuid;
 using QtRocket::Test::TestComponent;
 using StageTracking = RocketComponent::StageTracking;
 
-constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
-constexpr double kPi      = std::numbers::pi;
+constexpr double kPi = std::numbers::pi;
 
 ::testing::AssertionResult coordinatesNear(const Coordinate& actual, const Coordinate& expected,
                                            double tolerance = 1e-12)
@@ -84,205 +94,51 @@ constexpr double kPi      = std::numbers::pi;
            << actual.toPreciseString() << " is not " << expected.toPreciseString();
 }
 
-/// One case of RocketTest.testChangeAxialMethod: position the fins with the begin method and
-/// offset, switch to the end method, and expect the end offset and position.
-struct AxialPositionTestCase
-{
-    AxialMethod beginMethod;
-    double      beginOffset;
-    AxialMethod endMethod;
-    double      endOffset;
-    double      endPosition;
-};
-
-::testing::AssertionResult repositions(TestComponent& fins, const AxialPositionTestCase& cur)
-{
-    fins.setAxialOffset(cur.beginMethod, cur.beginOffset);
-    if (fins.getAxialMethod() != cur.beginMethod)
-    {
-        return ::testing::AssertionFailure() << "incorrect start axial-position-method";
-    }
-    if (std::abs(cur.beginOffset - fins.getAxialOffset()) > kEpsilon)
-    {
-        return ::testing::AssertionFailure() << "incorrect start axial-position-value";
-    }
-    fins.setAxialMethod(cur.endMethod);
-    if (std::abs(cur.endOffset - fins.getAxialOffset()) > kEpsilon)
-    {
-        return ::testing::AssertionFailure()
-               << "offset doesn't match: " << fins.getAxialOffset() << " != " << cur.endOffset;
-    }
-    if (std::abs(cur.endPosition - fins.getPosition().x) > kEpsilon)
-    {
-        return ::testing::AssertionFailure()
-               << "position doesn't match: " << fins.getPosition().x << " != " << cur.endPosition;
-    }
-    return ::testing::AssertionSuccess();
-}
-
-/// The shape of TestRockets.makeEstesAlphaIII() that RocketTest's positioning tests use: a stage
-/// holding a nose cone (0.07 m) and a body tube (0.2 m, radius 0.012 m) that carries a fin set
-/// (root chord 0.05 m) at the bottom, whose first fin sits on the body's surface.
+/// The bodies of TestRockets.makeEstesAlphaIII(): a stage holding a nose cone (0.07 m) and a body
+/// tube (0.2 m, radius 0.012 m), and in the body tube a generic part 0.05 m long positioned at
+/// its bottom, which the positioning tests move. RocketTest's own positioning tests
+/// (testChangeAxialMethod and its neighbours) run on the whole rocket, in RocketTests.cpp.
 class EstesTreeTest : public ::testing::Test
 {
 protected:
     EstesTreeTest()
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_nose  = &m_stage->addChild(TestComponent::make(0.07, ComponentKind::NOSE_CONE));
-        m_body  = &m_stage->addChild(TestComponent::make(0.2, ComponentKind::BODY_TUBE));
-        m_body->setOuterRadius(0.012);
-        m_fins = &m_body->addChild(std::make_unique<TestComponent>(ComponentKind::TRAPEZOID_FIN_SET,
+        m_nose =
+            &m_stage->addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
+        m_body = &m_stage->addChild(std::make_unique<BodyTube>(0.2, 0.012));
+        m_part = &m_body->addChild(std::make_unique<TestComponent>(ComponentKind::MASS_COMPONENT,
                                                                    AxialMethod::BOTTOM, 0.05));
-        m_fins->setInstances({Coordinate{0.0, 0.012, 0.0}}, {0.0});
         m_rocket.enableEvents();
     }
 
     Rocket         m_rocket;
     AxialStage*    m_stage{nullptr};
-    TestComponent* m_nose{nullptr};
-    TestComponent* m_body{nullptr};
-    TestComponent* m_fins{nullptr};
+    NoseCone*      m_nose{nullptr};
+    BodyTube*      m_body{nullptr};
+    TestComponent* m_part{nullptr};
 };
-
-// ---- Ported from RocketTest.java (the parts that need no concrete component) ----
-
-TEST_F(EstesTreeTest, ComponentLocations)
-{
-    EXPECT_TRUE(coordinatesNear(m_nose->getComponentLocations().at(0), Coordinate{0, 0, 0}));
-    EXPECT_TRUE(coordinatesNear(m_body->getComponentLocations().at(0), Coordinate{0.07, 0, 0}));
-    EXPECT_EQ(m_fins->getComponentLocations().at(0), (Coordinate{0.22, 0.012, 0}));
-}
-
-TEST_F(EstesTreeTest, ChangeAxialMethod)
-{
-    // Verify the construction.
-    EXPECT_NEAR(0.20, m_body->getLength(), kEpsilon) << "incorrect body length";
-    EXPECT_NEAR(0.05, m_fins->getLength(), kEpsilon) << "incorrect fin length";
-    EXPECT_EQ(m_fins->getComponentLocations().at(0), (Coordinate{0.22, 0.012, 0}));
-
-    using enum AxialMethod;
-    const std::vector<AxialPositionTestCase> allTestCases{
-        {.beginMethod = BOTTOM,
-         .beginOffset = 0.0,
-         .endMethod   = TOP,
-         .endOffset   = 0.15,
-         .endPosition = 0.15},
-        {.beginMethod = TOP,
-         .beginOffset = 0.0,
-         .endMethod   = BOTTOM,
-         .endOffset   = -0.15,
-         .endPosition = 0.0},
-        {.beginMethod = BOTTOM,
-         .beginOffset = -0.03,
-         .endMethod   = TOP,
-         .endOffset   = 0.12,
-         .endPosition = 0.12},
-        {.beginMethod = BOTTOM,
-         .beginOffset = 0.03,
-         .endMethod   = TOP,
-         .endOffset   = 0.18,
-         .endPosition = 0.18},
-        {.beginMethod = BOTTOM,
-         .beginOffset = 0.03,
-         .endMethod   = MIDDLE,
-         .endOffset   = 0.105,
-         .endPosition = 0.18},
-        {.beginMethod = MIDDLE,
-         .beginOffset = 0.0,
-         .endMethod   = TOP,
-         .endOffset   = 0.075,
-         .endPosition = 0.075},
-        {.beginMethod = MIDDLE,
-         .beginOffset = 0.0,
-         .endMethod   = BOTTOM,
-         .endOffset   = -0.075,
-         .endPosition = 0.075},
-        {.beginMethod = MIDDLE,
-         .beginOffset = 0.005,
-         .endMethod   = TOP,
-         .endOffset   = 0.08,
-         .endPosition = 0.08},
-    };
-
-    for (std::size_t caseIndex = 0; caseIndex < allTestCases.size(); ++caseIndex)
-    {
-        EXPECT_TRUE(repositions(*m_fins, allTestCases[caseIndex])) << "Test Case # " << caseIndex;
-    }
-}
-
-TEST_F(EstesTreeTest, ComponentLocationCacheInvalidatesOnMove)
-{
-    // Warm the caches before moving the fin set, so that the checks cover invalidation too.
-    const Coordinate initialAbsolute = m_fins->getComponentLocations().at(0);
-    const Coordinate initialRelative = m_fins->toRelative(Coordinate::kNul, *m_body).at(0);
-
-    m_fins->setAxialMethod(AxialMethod::TOP);
-    m_fins->setAxialOffset(0.16);
-
-    const Coordinate movedAbsolute = m_fins->getComponentLocations().at(0);
-    const Coordinate movedRelative = m_fins->toRelative(Coordinate::kNul, *m_body).at(0);
-
-    EXPECT_NE(initialAbsolute, movedAbsolute)
-        << "Absolute component location cache was not invalidated";
-    EXPECT_EQ((Coordinate{0.23, 0.012, 0}), movedAbsolute)
-        << "Absolute component location is incorrect";
-
-    EXPECT_NE(initialRelative, movedRelative)
-        << "Relative component location cache was not invalidated";
-    EXPECT_EQ((Coordinate{0.16, 0.012, 0}), movedRelative)
-        << "Relative component location is incorrect";
-}
-
-TEST_F(EstesTreeTest, RemoveReadjustLocation)
-{
-    EXPECT_NEAR(m_body->getComponentLocations().at(0).x, 0.07, kEpsilon);
-
-    // Removing the nose cone moves the body tube up.
-    const std::unique_ptr<RocketComponent> nose = m_stage->removeChild(0);
-    ASSERT_EQ(nose.get(), m_nose);
-
-    EXPECT_NEAR(m_body->getComponentLocations().at(0).x, 0.0, kEpsilon);
-}
-
-// ---- Ported from UUIDSearchTest.java ----
-
-TEST_F(EstesTreeTest, UuidSearch)
-{
-    // Searching for the nose cone by its id finds it.
-    const Uuid noseConeId = m_nose->getId();
-    EXPECT_EQ(m_nose, m_rocket.findComponent(noseConeId)) << "UUID search didn't find NoseCone";
-
-    // Once removed, it is not found any more (Java: REMOVED).
-    const std::unique_ptr<RocketComponent> removed =
-        m_stage->removeChild(m_nose, StageTracking::SKIP);
-    ASSERT_NE(removed, nullptr) << "failed to remove NoseCone";
-    EXPECT_EQ(m_rocket.findComponent(noseConeId), nullptr);
-
-    // The nil id is not found.
-    EXPECT_EQ(m_rocket.findComponent(Uuid{0U, 0U}), nullptr);
-}
 
 // ---- Positions ----
 
 TEST_F(EstesTreeTest, EveryAxialMethodPositionsAsItsArithmetic)
 {
-    m_fins->setAxialOffset(AxialMethod::TOP, 0.03);
-    EXPECT_DOUBLE_EQ(m_fins->getPosition().x, 0.03);
-    m_fins->setAxialOffset(AxialMethod::MIDDLE, 0.03);
-    EXPECT_DOUBLE_EQ(m_fins->getPosition().x, 0.03 + ((0.2 - 0.05) / 2));
-    m_fins->setAxialOffset(AxialMethod::BOTTOM, 0.03);
-    EXPECT_DOUBLE_EQ(m_fins->getPosition().x, 0.03 + (0.2 - 0.05));
+    m_part->setAxialOffset(AxialMethod::TOP, 0.03);
+    EXPECT_DOUBLE_EQ(m_part->getPosition().x, 0.03);
+    m_part->setAxialOffset(AxialMethod::MIDDLE, 0.03);
+    EXPECT_DOUBLE_EQ(m_part->getPosition().x, 0.03 + ((0.2 - 0.05) / 2));
+    m_part->setAxialOffset(AxialMethod::BOTTOM, 0.03);
+    EXPECT_DOUBLE_EQ(m_part->getPosition().x, 0.03 + (0.2 - 0.05));
     // ABSOLUTE is from the rocket's tip: the body starts at 0.07.
-    m_fins->setAxialOffset(AxialMethod::ABSOLUTE, 0.25);
-    EXPECT_DOUBLE_EQ(m_fins->getPosition().x, 0.25 - 0.07);
-    EXPECT_EQ(m_fins->getAxialMethod(), AxialMethod::ABSOLUTE);
-    EXPECT_EQ(m_fins->getAxialOffset(), 0.25);
+    m_part->setAxialOffset(AxialMethod::ABSOLUTE, 0.25);
+    EXPECT_DOUBLE_EQ(m_part->getPosition().x, 0.25 - 0.07);
+    EXPECT_EQ(m_part->getAxialMethod(), AxialMethod::ABSOLUTE);
+    EXPECT_EQ(m_part->getAxialOffset(), 0.25);
     // Asking for another method's offset changes nothing.
-    EXPECT_DOUBLE_EQ(m_fins->getAxialOffset(AxialMethod::TOP), 0.18);
-    EXPECT_DOUBLE_EQ(m_fins->getAxialOffset(AxialMethod::BOTTOM), 0.18 + (0.05 - 0.2));
-    EXPECT_EQ(m_fins->getAxialMethod(), AxialMethod::ABSOLUTE);
-    EXPECT_DOUBLE_EQ(m_fins->getAxialFront(), 0.18);
+    EXPECT_DOUBLE_EQ(m_part->getAxialOffset(AxialMethod::TOP), 0.18);
+    EXPECT_DOUBLE_EQ(m_part->getAxialOffset(AxialMethod::BOTTOM), 0.18 + (0.05 - 0.2));
+    EXPECT_EQ(m_part->getAxialMethod(), AxialMethod::ABSOLUTE);
+    EXPECT_DOUBLE_EQ(m_part->getAxialFront(), 0.18);
 }
 
 TEST_F(EstesTreeTest, AfterFromAnotherMethodUsesTheParentLengthUntilTheNextUpdate)
@@ -290,21 +146,21 @@ TEST_F(EstesTreeTest, AfterFromAnotherMethodUsesTheParentLengthUntilTheNextUpdat
     // Java tests isAfter() on the current method: a component switched to AFTER through the
     // two-argument setter is first placed parent length + offset, then setAfter() on the next
     // update.
-    m_fins->setAxialOffset(AxialMethod::AFTER, 0.01);
-    EXPECT_DOUBLE_EQ(m_fins->getPosition().x, 0.21);
-    m_fins->setAxialOffset(0.01);             // fires, which updates every component
-    EXPECT_EQ(m_fins->getPosition().x, 0.0);  // the first child of the body
-    EXPECT_EQ(m_fins->getAxialOffset(), 0.0);
+    m_part->setAxialOffset(AxialMethod::AFTER, 0.01);
+    EXPECT_DOUBLE_EQ(m_part->getPosition().x, 0.21);
+    m_part->setAxialOffset(0.01);             // fires, which updates every component
+    EXPECT_EQ(m_part->getPosition().x, 0.0);  // the first child of the body
+    EXPECT_EQ(m_part->getAxialOffset(), 0.0);
 }
 
 TEST_F(EstesTreeTest, SmallPositionsSnapToZeroAndNaNIsABug)
 {
-    m_fins->setAxialOffset(AxialMethod::TOP, 5e-7);
-    EXPECT_EQ(m_fins->getPosition().x, 0.0);
-    EXPECT_EQ(m_fins->getAxialOffset(), 5e-7);
-    m_fins->setAxialOffset(AxialMethod::TOP, 2e-6);
-    EXPECT_EQ(m_fins->getPosition().x, 2e-6);
-    EXPECT_THROW(m_fins->setAxialOffset(AxialMethod::TOP, std::numeric_limits<double>::quiet_NaN()),
+    m_part->setAxialOffset(AxialMethod::TOP, 5e-7);
+    EXPECT_EQ(m_part->getPosition().x, 0.0);
+    EXPECT_EQ(m_part->getAxialOffset(), 5e-7);
+    m_part->setAxialOffset(AxialMethod::TOP, 2e-6);
+    EXPECT_EQ(m_part->getPosition().x, 2e-6);
+    EXPECT_THROW(m_part->setAxialOffset(AxialMethod::TOP, std::numeric_limits<double>::quiet_NaN()),
                  BugError);
 }
 
@@ -312,10 +168,9 @@ TEST_F(EstesTreeTest, AfterSkipsEmptyStages)
 {
     // A second stage after an empty one: the empty stage is inactive, so the reference point
     // restarts at 0.
-    AxialStage&    empty = m_rocket.addChild(std::make_unique<AxialStage>());
-    AxialStage&    third = m_rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& tube  = third.addChild(TestComponent::make(0.3));
-    static_cast<void>(tube);
+    AxialStage& empty = m_rocket.addChild(std::make_unique<AxialStage>());
+    AxialStage& third = m_rocket.addChild(std::make_unique<AxialStage>());
+    third.addChild(std::make_unique<BodyTube>(0.3, 0.012));
     // The third stage follows the first (0.27 long): the empty one in between is skipped.
     EXPECT_DOUBLE_EQ(empty.getPosition().x, 0.27);
     EXPECT_DOUBLE_EQ(third.getPosition().x, 0.27);
@@ -327,7 +182,7 @@ TEST_F(EstesTreeTest, AfterSkipsEmptyStages)
 
 TEST(RocketComponentPosition, DetachedComponentTakesTheOffsetAsPosition)
 {
-    TestComponent lonely{ComponentKind::BODY_TUBE, AxialMethod::TOP, 0.1};
+    TestComponent lonely{ComponentKind::MASS_COMPONENT, AxialMethod::TOP, 0.1};
     lonely.setAxialOffset(AxialMethod::MIDDLE, 0.4);
     EXPECT_EQ(lonely.getPosition().x, 0.4);
     lonely.setAfter();  // nothing without a parent
@@ -336,8 +191,9 @@ TEST(RocketComponentPosition, DetachedComponentTakesTheOffsetAsPosition)
 
 TEST(RocketComponentPosition, RadiusOffsetInAnotherMethod)
 {
-    TestComponent body{ComponentKind::BODY_TUBE};
-    body.setOuterRadius(0.05);
+    // A radius-positionable component (a TestComponent of kind POD_SET, with a bounding radius
+    // of its own) on a body tube of radius 0.05 m.
+    BodyTube       body{0.3, 0.05};
     TestComponent& pod = body.addChild(TestComponent::make(0.1, ComponentKind::POD_SET));
     pod.setBoundingRadius(0.01);
     pod.setRadius(RadiusMethod::RELATIVE, 0.02);
@@ -362,20 +218,20 @@ protected:
     InstanceTreeTest()
     {
         AxialStage& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body            = &stage.addChild(TestComponent::make(0.3));
+        m_body            = &stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
         m_pod             = &m_body->addChild(
             std::make_unique<TestComponent>(ComponentKind::POD_SET, AxialMethod::TOP));
         m_pod->setAxialOffset(AxialMethod::TOP, 0.1);
         m_pod->setInstances({Coordinate{0, 0.1, 0}, Coordinate{0, -0.1, 0}}, {0.0, kPi});
         m_leaf = &m_pod->addChild(
-            std::make_unique<TestComponent>(ComponentKind::BODY_TUBE, AxialMethod::TOP));
+            std::make_unique<TestComponent>(ComponentKind::MASS_COMPONENT, AxialMethod::TOP));
         m_leaf->setAxialOffset(AxialMethod::TOP, 0.05);
         m_leaf->setInstances({Coordinate{0, 0.01, 0}, Coordinate{0, 0, 0.02}}, {0.0, 0.0});
         m_rocket.enableEvents();
     }
 
     Rocket         m_rocket;
-    TestComponent* m_body{nullptr};
+    BodyTube*      m_body{nullptr};
     TestComponent* m_pod{nullptr};
     TestComponent* m_leaf{nullptr};
 };
@@ -564,8 +420,9 @@ TEST(RocketComponentTree, AddingTheRootBelowItselfIsABug)
 TEST(RocketComponentTree, ChildAddedRunsAfterEveryAddAndItsEvent)
 {
     Rocket         rocket;
-    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make(0.3));
+    AxialStage&    stage  = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&      body   = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
+    TestComponent& holder = body.addChild(TestComponent::make(0.3));
     rocket.enableEvents();
 
     std::vector<std::string>            log;
@@ -577,15 +434,15 @@ TEST(RocketComponentTree, ChildAddedRunsAfterEveryAddAndItsEvent)
                 log.emplace_back("event");
             }
         })};
-    body.setOnChildAdded([&log, &added](RocketComponent& child) {
+    holder.setOnChildAdded([&log, &added](RocketComponent& child) {
         log.emplace_back("hook");
         added.push_back(&child);
     });
 
     // Every add path: at the end, at an index, and without stage tracking.
-    TestComponent& atEnd   = body.addChild(TestComponent::make());
-    TestComponent& atIndex = body.addChild(TestComponent::make(), 0);
-    TestComponent& skipped = body.addChild(TestComponent::make(), StageTracking::SKIP);
+    TestComponent& atEnd   = holder.addChild(TestComponent::make());
+    TestComponent& atIndex = holder.addChild(TestComponent::make(), 0);
+    TestComponent& skipped = holder.addChild(TestComponent::make(), StageTracking::SKIP);
     EXPECT_EQ(added, (std::vector<const RocketComponent*>{&atEnd, &atIndex, &skipped}));
     EXPECT_EQ(log, (std::vector<std::string>{"event", "hook", "event", "hook", "event", "hook"}));
 }
@@ -714,8 +571,8 @@ TEST(RocketComponentTree, RocketStageAndAssemblyLookups)
 {
     Rocket         rocket;
     AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make());
-    TestComponent& inner = body.addChild(TestComponent::make(0.0, ComponentKind::INNER_TUBE));
+    BodyTube&      body  = stage.addChild(std::make_unique<BodyTube>());
+    TestComponent& inner = body.addChild(TestComponent::make());
 
     EXPECT_EQ(&inner.getRocket(), &rocket);
     EXPECT_EQ(inner.findRocket(), &rocket);
@@ -743,11 +600,13 @@ TEST(RocketComponentTree, RocketStageAndAssemblyLookups)
 
 TEST(RocketComponentTree, ConstQueries)
 {
+    // A core stage whose body tube carries a booster set (a stage below a component), then an
+    // upper stage.
     Rocket         rocket;
     AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body    = core.addChild(TestComponent::make());
-    AxialStage&    booster = body.addChild(std::make_unique<AxialStage>());
-    TestComponent& inner   = booster.addChild(TestComponent::make());
+    BodyTube&      body    = core.addChild(std::make_unique<BodyTube>());
+    ParallelStage& booster = body.addChild(std::make_unique<ParallelStage>());
+    BodyTube&      inner   = booster.addChild(std::make_unique<BodyTube>());
     AxialStage&    upper   = rocket.addChild(std::make_unique<AxialStage>());
 
     const Rocket& constRocket = rocket;
@@ -781,9 +640,9 @@ TEST(RocketComponentTree, StagesBelowAComponent)
 {
     Rocket         rocket;
     AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body    = core.addChild(TestComponent::make());
-    AxialStage&    booster = body.addChild(std::make_unique<AxialStage>());
-    booster.addChild(TestComponent::make());
+    BodyTube&      body    = core.addChild(std::make_unique<BodyTube>());
+    ParallelStage& booster = body.addChild(std::make_unique<ParallelStage>());
+    booster.addChild(std::make_unique<BodyTube>());
     AxialStage& upper = rocket.addChild(std::make_unique<AxialStage>());
 
     EXPECT_EQ(rocket.getSubStages(), (std::vector<AxialStage*>{&core, &booster, &upper}));
@@ -855,12 +714,12 @@ TEST(RocketComponentIteration, FailsFastWhenTheRocketTreeChanges)
 {
     Rocket      rocket;
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestComponent::make());
+    stage.addChild(std::make_unique<BodyTube>());
     rocket.enableEvents();
 
     auto it = rocket.subtree().begin();
     ++it;
-    stage.addChild(TestComponent::make());  // a tree change
+    stage.addChild(std::make_unique<BodyTube>());  // a tree change
     EXPECT_THROW(++it, BugError);
 }
 
@@ -887,16 +746,16 @@ TEST(RocketComponentIteration, FailsFastOnADetachedTree)
 
 TEST(RocketComponentIteration, FailsFastWithEventsDisabled)
 {
-    Rocket         rocket;  // events disabled: the tree modification id stays
-    AxialStage&    stage  = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body   = stage.addChild(TestComponent::make());
-    const ModId    treeId = rocket.getTreeModId();
+    Rocket      rocket;  // events disabled: the tree modification id stays
+    AxialStage& stage  = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   body   = stage.addChild(std::make_unique<BodyTube>());
+    const ModId treeId = rocket.getTreeModId();
 
     auto it = rocket.subtree().begin();
     ++it;
     ++it;
     ASSERT_EQ(&*it, &body);
-    stage.addChild(TestComponent::make());
+    stage.addChild(std::make_unique<BodyTube>());
     EXPECT_EQ(rocket.getTreeModId(), treeId);
     EXPECT_THROW(++it, BugError);
 
@@ -912,7 +771,7 @@ TEST(RocketComponentIteration, FailsFastAcrossLoadFrom)
 {
     Rocket      rocket;
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestComponent::make(0.1));
+    stage.addChild(std::make_unique<BodyTube>(0.1, 0.025));
     rocket.enableEvents();
     const std::unique_ptr<Rocket> copy = rocket.copyRocketWithOriginalId();
 
@@ -929,9 +788,9 @@ TEST(RocketComponentIteration, FailsFastAcrossLoadFrom)
 TEST(RocketComponentProperties, DefaultValues)
 {
     const TestComponent component;
-    EXPECT_EQ(component.getName(), "Body Tube");
-    EXPECT_EQ(component.toString(), "Body Tube");
-    EXPECT_EQ(component.getComponentName(), "Body Tube");
+    EXPECT_EQ(component.getName(), "Mass Component");
+    EXPECT_EQ(component.toString(), "Mass Component");
+    EXPECT_EQ(component.getComponentName(), "Mass Component");
     EXPECT_EQ(component.getComment(), "");
     EXPECT_FALSE(component.getColor().has_value());
     EXPECT_FALSE(component.getLineStyle().has_value());
@@ -959,16 +818,19 @@ TEST(RocketComponentProperties, Names)
     // A blank name restores the component name (Java's \s: space, tab, newline, vertical tab,
     // form feed, carriage return).
     component.setName(" \t\n\x0B\f\r");
-    EXPECT_EQ(component.getName(), "Body Tube");
+    EXPECT_EQ(component.getName(), "Mass Component");
     component.setName("x");
     component.setName("");
-    EXPECT_EQ(component.getName(), "Body Tube");
+    EXPECT_EQ(component.getName(), "Mass Component");
     // Other characters are kept.
     component.setName("\xC2\xA0");
     EXPECT_EQ(component.getName(), "\xC2\xA0");
 
-    const TestComponent nose{ComponentKind::NOSE_CONE};
-    EXPECT_EQ(nose.getName(), "Nose Cone");
+    // The default name is the component name of the kind.
+    const TestComponent chute{ComponentKind::PARACHUTE};
+    EXPECT_EQ(chute.getName(), "Parachute");
+    EXPECT_EQ(NoseCone{}.getName(), "Nose Cone");
+    EXPECT_EQ(BodyTube{}.getName(), "Body Tube");
     EXPECT_EQ(Rocket{}.getName(), "Rocket");
     EXPECT_EQ(AxialStage{}.getName(), "Stage");
 }
@@ -979,8 +841,8 @@ TEST(RocketComponentProperties, Ids)
     const Uuid    id{0x123e4567e89b12d3ULL, 0xa456426614174000ULL};
     component.setId(id);
     EXPECT_EQ(component.getId(), id);
-    EXPECT_EQ(component.getDebugName(), "Body Tube/123e4567");
-    EXPECT_EQ(component.toDebugName(), "Body Tube<BodyTube>(123e4567)");
+    EXPECT_EQ(component.getDebugName(), "Mass Component/123e4567");
+    EXPECT_EQ(component.toDebugName(), "Mass Component<MassComponent>(123e4567)");
 
     ASSERT_TRUE(component.setId("00000000-0000-0000-0000-000000000001").has_value());
     EXPECT_EQ(component.getId(), (Uuid{0U, 1U}));
@@ -1009,14 +871,16 @@ TEST(RocketComponentProperties, EqualityIsClassAndId)
     EXPECT_FALSE(a.equals(stage));
 }
 
-/// A rocket with one stage and one body tube, events enabled, recording the event types.
+/// A rocket with one stage and one body tube holding a generic component (m_body, the component
+/// the tests drive), events enabled, recording the event types.
 class PropertyEventsTest : public ::testing::Test
 {
 protected:
     PropertyEventsTest()
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body  = &m_stage->addChild(TestComponent::make(0.1));
+        m_tube  = &m_stage->addChild(std::make_unique<BodyTube>(0.5, 0.025));
+        m_body  = &m_tube->addChild(TestComponent::make(0.1));
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(
             [this](const ComponentChangeEvent& e) { m_types.push_back(e.getType()); });
@@ -1024,6 +888,7 @@ protected:
 
     Rocket                                  m_rocket;
     AxialStage*                             m_stage{nullptr};
+    BodyTube*                               m_tube{nullptr};
     TestComponent*                          m_body{nullptr};
     std::vector<int>                        m_types;
     ComponentChangeSignal::ScopedConnection m_connection;
@@ -1247,7 +1112,7 @@ TEST(RocketComponentPresets, OptionsAreForParachutesOnly)
     // Java passes params to a parachute only; for another component they would skip the
     // overrides of the one-argument loadFromPreset(), which the single C++ method cannot.
     const ComponentPreset preset = bodyTubePreset(0.3, "BT-20");
-    TestComponent         component(ComponentKind::BODY_TUBE);
+    TestComponent         component(ComponentKind::INNER_TUBE);
     EXPECT_THROW(component.loadPreset(&preset, {.allowAutoRadius = true}), BugError);
     EXPECT_EQ(component.getPresetComponent(), nullptr);
     component.loadPreset(&preset, {});
@@ -1256,14 +1121,19 @@ TEST(RocketComponentPresets, OptionsAreForParachutesOnly)
 
 TEST(RocketComponentPresets, PresetTypeFollowsTheKind)
 {
-    // RocketComponent.getPresetType() and the overrides of the concrete classes.
-    EXPECT_EQ(TestComponent(ComponentKind::BODY_TUBE).getPresetType(),
-              ComponentPresetType::BODY_TUBE);
+    // RocketComponent.getPresetType() and the overrides of the concrete classes: the base
+    // answer follows the kind, and the real classes give the same.
     EXPECT_EQ(TestComponent(ComponentKind::INNER_TUBE).getPresetType(),
               ComponentPresetType::BODY_TUBE);
     EXPECT_EQ(TestComponent(ComponentKind::BULKHEAD).getPresetType(),
               ComponentPresetType::BULK_HEAD);
     EXPECT_EQ(TestComponent(ComponentKind::MASS_COMPONENT).getPresetType(), std::nullopt);
+    EXPECT_EQ(BodyTube().getPresetType(), ComponentPresetType::BODY_TUBE);
+    EXPECT_EQ(NoseCone().getPresetType(), ComponentPresetType::NOSE_CONE);
+    EXPECT_EQ(QtRocket::Transition().getPresetType(), ComponentPresetType::TRANSITION);
+    EXPECT_EQ(QtRocket::InnerTube().getPresetType(), ComponentPresetType::BODY_TUBE);
+    EXPECT_EQ(QtRocket::Bulkhead().getPresetType(), ComponentPresetType::BULK_HEAD);
+    EXPECT_EQ(QtRocket::MassComponent().getPresetType(), std::nullopt);
     EXPECT_EQ(Rocket().getPresetType(), std::nullopt);
     EXPECT_EQ(AxialStage().getPresetType(), std::nullopt);
 }
@@ -1477,9 +1347,9 @@ TEST(RocketComponentMass, SetSubcomponentsOverriddenSetsAllThree)
 
 TEST(RocketComponentMass, OverrideEventsDependOnTheOverrideState)
 {
-    Rocket         rocket;
-    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make(0.1));
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   body  = stage.addChild(std::make_unique<BodyTube>(0.1, 0.025));
     rocket.enableEvents();
     std::vector<int> types;
     const auto       connection =
@@ -1521,7 +1391,7 @@ TEST(RocketComponentMass, OverrideEventsDependOnTheOverrideState)
 
 TEST(RocketComponentCopy, CopyWithOriginalIdKeepsIdsAndFields)
 {
-    TestComponent  root{ComponentKind::BODY_TUBE, AxialMethod::TOP, 0.3};
+    TestComponent  root{ComponentKind::MASS_COMPONENT, AxialMethod::TOP, 0.3};
     TestComponent& child = root.addChild(TestComponent::make(0.1));
     child.addChild(TestComponent::make(0.02));
     root.setName("Root");
@@ -1597,7 +1467,7 @@ TEST(RocketComponentCopy, CopyFromLoadsFieldsAndReturnsTheOldChildren)
     TestComponent  target;
     TestComponent& oldChild = target.addChild(TestComponent::make());
 
-    TestComponent source{ComponentKind::BODY_TUBE, AxialMethod::MIDDLE, 0.4};
+    TestComponent source{ComponentKind::MASS_COMPONENT, AxialMethod::MIDDLE, 0.4};
     source.setName("Source");
     source.addChild(TestComponent::make(0.1));
     source.getInsideColorComponentHandler().setEdgesSameAsInside(true);
@@ -1664,7 +1534,7 @@ TEST(RocketComponentSplit, SplitsIntoSingleInstances)
 {
     Rocket         rocket;
     AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make(0.3));
+    BodyTube&      body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     TestComponent& fins  = body.addChild(TestComponent::make(0.05));
     body.addChild(TestComponent::make(0.01));
     fins.setName("Fins");
@@ -1688,9 +1558,9 @@ TEST(RocketComponentSplit, SplitsIntoSingleInstances)
 
 TEST(RocketComponentSplit, ASingleInstanceIsLeftAlone)
 {
-    Rocket         rocket;
-    AxialStage&    stage  = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& single = stage.addChild(TestComponent::make(0.3));
+    Rocket      rocket;
+    AxialStage& stage  = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   single = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     rocket.enableEvents();
 
     const RocketComponent::SplitResult same = single.splitInstances(false);
@@ -1707,20 +1577,21 @@ TEST(RocketComponentDebug, DebugStrings)
     TestComponent& child = root.addChild(TestComponent::make());
     child.setName("child");
     const std::string text = root.toDebugString();
-    EXPECT_TRUE(text.starts_with("BodyTube@")) << text;
-    EXPECT_NE(text.find("[\"Body Tube\"; BodyTube@"), std::string::npos) << text;
+    EXPECT_TRUE(text.starts_with("MassComponent@")) << text;
+    EXPECT_NE(text.find("[\"Mass Component\"; MassComponent@"), std::string::npos) << text;
     EXPECT_NE(text.find("[\"child\"]]"), std::string::npos) << text;
 
     const std::string detail = root.toDebugDetail();
-    EXPECT_NE(detail.find("At Component: Body Tube, of class: BodyTube"), std::string::npos);
+    EXPECT_NE(detail.find("At Component: Mass Component, of class: MassComponent"),
+              std::string::npos);
     EXPECT_NE(detail.find("via: AFTER"), std::string::npos);
 }
 
 TEST(RocketComponentDebug, DebugTree)
 {
-    Rocket         rocket;
-    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make(0.3));
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     body.setName("Body");
     TestComponent& fins = body.addChild(TestComponent::make(0.05));
     fins.setInstances({Coordinate{}, Coordinate{}}, {0, 1});
@@ -1739,14 +1610,14 @@ TEST(RocketComponentDebug, DebugNumbersRoundHalfUpAsJava)
 {
     // Java's %f rounds the decimal digits half-up: %5.3f of 0.0625 is 0.063 (std::format's
     // half-even gives 0.062), %4.1f of 0.25 is " 0.3" and %.4f of 0.03125 is 0.0313.
-    Rocket         rocket;
-    AxialStage&    stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body  = stage.addChild(TestComponent::make(0.0625));
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   body  = stage.addChild(std::make_unique<BodyTube>(0.0625, 0.025));
     body.setName("Body");
-    TestComponent& fins = body.addChild(
-        std::make_unique<TestComponent>(ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::TOP, 0.01));
+    TestComponent& part = body.addChild(
+        std::make_unique<TestComponent>(ComponentKind::MASS_COMPONENT, AxialMethod::TOP, 0.01));
     rocket.enableEvents();
-    fins.setAxialOffset(0.25);
+    part.setAxialOffset(0.25);
 
     std::string bodyLine;
     body.toDebugTreeNode(bodyLine, "");
@@ -1756,11 +1627,11 @@ TEST(RocketComponentDebug, DebugNumbersRoundHalfUpAsJava)
     EXPECT_NE(stageLine.find("|  0.063; "), std::string::npos) << stageLine;
     EXPECT_NE(stageLine.find("len: 0.0625 )(offset:  0.0  via: AFTER )"), std::string::npos)
         << stageLine;
-    std::string finLine;
-    fins.toDebugTreeNode(finLine, "");
-    EXPECT_NE(finLine.find("(offset:  0.3  via: TOP )"), std::string::npos) << finLine;
+    std::string partLine;
+    part.toDebugTreeNode(partLine, "");
+    EXPECT_NE(partLine.find("(offset:  0.3  via: TOP )"), std::string::npos) << partLine;
 
-    TestComponent detached{ComponentKind::BODY_TUBE, AxialMethod::TOP, 0.03125};
+    TestComponent detached{ComponentKind::MASS_COMPONENT, AxialMethod::TOP, 0.03125};
     detached.setAxialOffset(0.03125);
     const std::string detail = detached.toDebugDetail();
     EXPECT_NE(detail.find("position: 0.031250    at offset: 0.0313 via: TOP"), std::string::npos)

@@ -11,6 +11,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/RadialParent.h"
@@ -19,12 +20,12 @@
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetFactory;
@@ -35,7 +36,6 @@ using QtRocket::RadialParent;
 using QtRocket::Rocket;
 using QtRocket::TubeCoupler;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 /// TubeCouplerComponentTests.createPreset(): a coupler preset 2 m long, 2 m outer and 1 m inner
 /// diameter, of mass 100 kg.
@@ -162,8 +162,8 @@ TEST(TubeCoupler, TakesTheBodyTubesInnerRadius)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
-    body.setInnerRadius(0.0245);
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.0005));
+    ASSERT_EQ(body.getInnerRadius(), 0.0245);
     auto& tc = body.addChild(std::make_unique<TubeCoupler>());
     rocket.enableEvents();
 
@@ -181,7 +181,8 @@ TEST(TubeCoupler, TakesTheBodyTubesInnerRadius)
     // A manual radius stops following the body.
     tc.setOuterRadius(0.02);
     EXPECT_FALSE(tc.isOuterRadiusAutomatic());
-    body.setInnerRadius(0.0240);
+    body.setThickness(0.001);
+    ASSERT_EQ(body.getInnerRadius(), 0.024);
     EXPECT_EQ(tc.getOuterRadius(), 0.02);
     tc.setOuterRadiusAutomatic(true);
     EXPECT_EQ(tc.getOuterRadius(), 0.024);

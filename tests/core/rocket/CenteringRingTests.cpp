@@ -1,11 +1,10 @@
-// CenteringRingComponentTests.java (core/src/test/.../preset), ported, the centering ring part
-// of RocketTest.testEstesAlphaIII, and the ring's automatic radii.
+// CenteringRingComponentTests.java (core/src/test/.../preset), ported, and the ring's automatic
+// radii. The centering ring part of RocketTest.testEstesAlphaIII is in RocketTests.cpp
+// (RocketEstesAlphaIII.CenteringRingLocations), on the whole rocket.
 
 #include "QtRocket/rocket/CenteringRing.h"
 
 #include <memory>
-#include <utility>
-#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -13,6 +12,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -22,29 +22,26 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Coordinate.h"
-#include "rocket/TestBodyComponent.h"
-#include "rocket/TestMotorMount.h"
+#include "rocket/TestComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::CenteringRing;
 using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
-using QtRocket::Coordinate;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::Rocket;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
-using QtRocket::Test::TestMotorMount;
+using QtRocket::Test::TestComponent;
 
 constexpr double kEpsilon = 1e-12;
 
@@ -156,15 +153,15 @@ TEST(CenteringRing, HoldsNoChildren)
     EXPECT_THROW(cr.addChild(std::make_unique<CenteringRing>()), BugError);
 }
 
-/// A rocket with a stage holding a body tube stand-in (0.5 m long, radius 0.03 m, inner radius
-/// 0.029 m) with an inner tube of outer radius 0.012 m from 0.2 to 0.4 m; events enabled.
+/// A rocket with a stage holding a body tube (0.5 m long, radius 0.03 m, inner radius 0.029 m)
+/// with an inner tube of outer radius 0.012 m from 0.2 to 0.4 m; events enabled.
 class CenteringRingTest : public ::testing::Test
 {
 protected:
     CenteringRingTest()
     {
         auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body      = &stage.addChild(TestBodyComponent::make(0.5, 0.03));
+        m_body      = &stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
         m_body->setInnerRadius(0.029);
         m_tube = &m_body->addChild(std::make_unique<InnerTube>());
         m_tube->setLength(0.2);
@@ -176,10 +173,10 @@ protected:
         m_rocket.enableEvents();
     }
 
-    Rocket             m_rocket;
-    TestBodyComponent* m_body{nullptr};
-    InnerTube*         m_tube{nullptr};
-    CenteringRing*     m_ring{nullptr};
+    Rocket         m_rocket;
+    BodyTube*      m_body{nullptr};
+    InnerTube*     m_tube{nullptr};
+    CenteringRing* m_ring{nullptr};
 };
 
 TEST_F(CenteringRingTest, InnerRadiusFollowsTheOverlappingInnerTube)
@@ -221,8 +218,9 @@ TEST_F(CenteringRingTest, OnlyRealInnerTubesCount)
     // A component of the INNER_TUBE kind that is not an InnerTube (Java: instanceof) is ignored.
     m_ring->setAxialOffset(0.3);
     static_cast<void>(m_body->removeChild(m_tube));
-    auto& fake = m_body->addChild(
-        TestMotorMount::make(0.2, 0.012, ComponentKind::INNER_TUBE, AxialMethod::TOP));
+    auto& fake =
+        m_body->addChild(TestComponent::make(0.2, ComponentKind::INNER_TUBE, AxialMethod::TOP));
+    fake.setOuterRadius(0.012);
     fake.setAxialOffset(AxialMethod::TOP, 0.2);
     EXPECT_EQ(m_ring->getInnerRadius(), 0.0);
 }
@@ -249,41 +247,6 @@ TEST_F(CenteringRingTest, SetInnerRadiusMakesItManual)
     EXPECT_EQ(m_ring->getInnerRadius(), 0.005);
     m_ring->setInnerRadiusAutomatic(true);
     EXPECT_EQ(m_ring->getInnerRadius(), 0.012);
-}
-
-/// RocketTest.testEstesAlphaIII, the centering rings: two rings 6 mm long at TOP 0.14 m, 0.035 m
-/// apart, in the Alpha III's body tube (0.2 m after a 0.07 m nose cone).
-TEST(CenteringRing, EstesAlphaIIICenteringRingLocations)
-{
-    Rocket rocket;
-    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestBodyComponent::make(0.07, 0.012, ComponentKind::NOSE_CONE));
-    auto& body = stage.addChild(TestBodyComponent::make(0.20, 0.012));
-    auto  ring = std::make_unique<CenteringRing>();
-    ring->setName("Centering Rings");
-    ring->setAxialMethod(AxialMethod::TOP);
-    ring->setAxialOffset(0.14);
-    ring->setLength(0.006);
-    ring->setInstanceCount(2);
-    ring->setInstanceSeparation(0.035);
-    CenteringRing& rings = body.addChild(std::move(ring));
-    rocket.enableEvents();
-
-    EXPECT_EQ(rings.getInstanceCount(), 2) << rings.getName() << " not instanced correctly";
-    // Singleton instances follow different code paths.
-    rings.setInstanceCount(1);
-    const Coordinate single = rings.getComponentLocations().at(0);
-    EXPECT_NEAR(single.x, 0.21, 1e-8) << " position x fail";
-    EXPECT_NEAR(single.y, 0.0, 1e-8) << " position y fail";
-    EXPECT_NEAR(single.z, 0.0, 1e-8) << " position z fail";
-    EXPECT_EQ(single, (Coordinate{0.21, 0, 0})) << rings.getName() << " not positioned correctly";
-
-    rings.setInstanceCount(2);
-    const std::vector<Coordinate> locations = rings.getComponentLocations();
-    ASSERT_EQ(locations.size(), 2U);
-    EXPECT_EQ(locations[0], (Coordinate{0.21, 0, 0})) << "first instance";
-    EXPECT_EQ(rings.getInstanceCount(), 2) << rings.getName() << " not instanced correctly";
-    EXPECT_EQ(locations[1], (Coordinate{0.245, 0, 0})) << "second instance";
 }
 
 }  // namespace

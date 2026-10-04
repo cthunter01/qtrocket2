@@ -14,6 +14,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -25,12 +26,12 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -44,7 +45,6 @@ using QtRocket::Parachute;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
 
@@ -254,7 +254,7 @@ TEST(Parachute, SettersFire)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
     auto&  chute = body.addChild(std::make_unique<Parachute>());
     rocket.enableEvents();
     std::vector<int>                              types;
@@ -433,8 +433,9 @@ TEST(Parachute, PresetFitsThePackIntoTheBody)
 
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
     body.setInnerRadius(0.029);
+    ASSERT_EQ(body.getInnerRadius(), 0.029);
     auto& chute = body.addChild(std::make_unique<Parachute>());
     rocket.enableEvents();
     chute.loadPreset(&preset);

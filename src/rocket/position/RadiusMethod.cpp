@@ -3,8 +3,7 @@
 #include <optional>
 #include <string_view>
 
-#include "QtRocket/rocket/Coaxial.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/position/RadiusPositionable.h"
 #include "QtRocket/util/Strings.h"
@@ -16,13 +15,9 @@ namespace
 {
 
 /// @p parent as a body tube (Java: parentComponent instanceof BodyTube), else null.
-[[nodiscard]] const Coaxial* asBodyTube(const RocketComponent* parent)
+[[nodiscard]] const BodyTube* asBodyTube(const RocketComponent* parent)
 {
-    if (parent != nullptr && parent->kind() == ComponentKind::BODY_TUBE)
-    {
-        return dynamic_cast<const Coaxial*>(parent);
-    }
-    return nullptr;
+    return dynamic_cast<const BodyTube*>(parent);
 }
 
 }  // namespace
@@ -40,7 +35,7 @@ double getRadius(RadiusMethod method, const RocketComponent* parentComponent,
         case RadiusMethod::SURFACE:
         {
             double radius = (method == RadiusMethod::RELATIVE) ? requestedOffset : 0.0;
-            if (const Coaxial* tube = asBodyTube(parentComponent))
+            if (const BodyTube* tube = asBodyTube(parentComponent))
             {
                 radius += tube->getOuterRadius();
             }
@@ -67,7 +62,7 @@ double getAsOffset(RadiusMethod method, const RocketComponent* parentComponent,
         case RadiusMethod::RELATIVE:
         {
             double offset = radius;
-            if (const Coaxial* tube = asBodyTube(parentComponent))
+            if (const BodyTube* tube = asBodyTube(parentComponent))
             {
                 offset -= tube->getOuterRadius();
             }

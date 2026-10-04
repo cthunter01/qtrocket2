@@ -120,6 +120,7 @@ add_executable(QtRocket_core_tests
     rocket/StreamerTests.cpp
     rocket/StructuralComponentTests.cpp
     rocket/SymmetricComponentTests.cpp
+    rocket/test_rockets_tests.cpp
     rocket/ThicknessRingComponentTests.cpp
     rocket/TransitionShapeTests.cpp
     rocket/TransitionTests.cpp
@@ -179,6 +180,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
     goldens/motors_golden_tests.cpp
+    goldens/test_rockets_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # The third-party canary tests use the libraries directly; everything else goes through QtRocket::core, except

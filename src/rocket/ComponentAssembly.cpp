@@ -3,10 +3,8 @@
 #include <vector>
 
 #include "QtRocket/rocket/BodyTube.h"
-#include "QtRocket/rocket/Coaxial.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
-#include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
@@ -17,38 +15,6 @@
 
 namespace QtRocket
 {
-
-namespace
-{
-
-/// getBoundingRadius() of a component of a body kind that is not a BodyTube or a Transition: no
-/// class of the library is one, but the test fixtures' stand-ins are (tests/core/rocket/
-/// TestBodyComponent.h): a BODY_TUBE counts with its Coaxial outer radius, a TRANSITION or
-/// NOSE_CONE with the larger of its RadialParent radii before its front and at its end. 0 for
-/// anything else, as in Java.
-/// HOOK(test-fixtures): remove once TestRockets and the other fixtures build their bodies from
-/// the real components.
-[[nodiscard]] double standInBodyRadius(const RocketComponent& comp)
-{
-    if (comp.kind() == ComponentKind::BODY_TUBE)
-    {
-        if (const auto* tube = dynamic_cast<const Coaxial*>(&comp))
-        {
-            return tube->getOuterRadius();
-        }
-    }
-    else if (comp.kind() == ComponentKind::TRANSITION || comp.kind() == ComponentKind::NOSE_CONE)
-    {
-        if (const auto* trans = dynamic_cast<const RadialParent*>(&comp))
-        {
-            return MathUtil::javaMax(trans->getOuterRadius(-1.0),
-                                     trans->getOuterRadius(trans->getLength()));
-        }
-    }
-    return 0;
-}
-
-}  // namespace
 
 ComponentAssembly::ComponentAssembly(AxialMethod axialMethod) : RocketComponent(axialMethod) { }
 
@@ -107,10 +73,6 @@ double ComponentAssembly::getBoundingRadius() const
             // Fore before aft, as Java reads them (reading an automatic radius refreshes it).
             const double fore = trans->getForeRadius();
             thisRadius        = MathUtil::javaMax(fore, trans->getAftRadius());
-        }
-        else
-        {
-            thisRadius = standInBodyRadius(*comp);
         }
 
         // Java's Math.max: a NaN radius makes the result NaN.

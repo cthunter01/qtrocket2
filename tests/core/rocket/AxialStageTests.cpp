@@ -7,17 +7,23 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/Parachute.h"
+#include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/rocket/Streamer.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Uuid.h"
-#include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -25,15 +31,21 @@ namespace
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::ComponentKind;
 using QtRocket::FlightConfigurationId;
+using QtRocket::InnerTube;
+using QtRocket::NoseCone;
+using QtRocket::Parachute;
+using QtRocket::ParallelStage;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::ShockCord;
 using QtRocket::StageSeparationConfiguration;
-using QtRocket::Test::TestComponent;
+using QtRocket::Streamer;
 using SeparationEvent = StageSeparationConfiguration::SeparationEvent;
 
 TEST(AxialStage, Defaults)
@@ -67,7 +79,8 @@ TEST(AxialStage, AcceptsBodyComponentsOnly)
     EXPECT_FALSE(stage.isCompatible(ComponentKind::INNER_TUBE));
     EXPECT_FALSE(stage.isCompatible(ComponentKind::AXIAL_STAGE));
     EXPECT_FALSE(stage.isCompatible(ComponentKind::PARALLEL_STAGE));
-    EXPECT_TRUE(stage.isCompatible(TestComponent{ComponentKind::NOSE_CONE}));
+    EXPECT_TRUE(stage.isCompatible(NoseCone{}));
+    EXPECT_FALSE(stage.isCompatible(InnerTube{}));
 }
 
 TEST(AxialStage, IsAlwaysPositionedAfter)
@@ -141,7 +154,7 @@ TEST(AxialStage, ActiveWhileItHasChildren)
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
     rocket.enableEvents();
     EXPECT_FALSE(stage.isStageActive()) << "a stage without children is inactive";
-    stage.addChild(TestComponent::make(0.1));
+    stage.addChild(std::make_unique<BodyTube>(0.1, 0.02));
     EXPECT_TRUE(stage.isStageActive());
     EXPECT_TRUE(stage.isStageActive(rocket.getSelectedConfiguration()));
 
@@ -154,7 +167,7 @@ TEST(AxialStage, TheFlagsWaitForAnUpdateWhileEventsAreDisabled)
     // As in Java, the selected configuration learns of a new stage on the next update.
     Rocket      rocket;
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestComponent::make(0.1));
+    stage.addChild(std::make_unique<BodyTube>(0.1, 0.02));
     EXPECT_FALSE(stage.isStageActive()) << "no flag yet";
     rocket.enableEvents();
     EXPECT_TRUE(stage.isStageActive());
@@ -164,7 +177,7 @@ TEST(AxialStage, SeparationOfTheSelectedConfiguration)
 {
     Rocket      rocket;
     AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(TestComponent::make(0.1));
+    stage.addChild(std::make_unique<BodyTube>(0.1, 0.02));
     rocket.enableEvents();
 
     // In the default configuration it is the default.
@@ -187,7 +200,7 @@ TEST(AxialStage, SeparationOfTheSelectedConfiguration)
 
 // ---- Ported from AxialStageTest.java, on TestRockets.makeFalcon9Heavy()'s shape ----
 
-/// The selected configuration and a second one of the Falcon 9 Heavy test double.
+/// The selected configuration and a second one of TestRockets.makeFalcon9Heavy().
 class DisableStageTest : public ::testing::Test
 {
 protected:
@@ -339,19 +352,23 @@ TEST(AxialStage, RecoveryDevicesOfItsOwn)
 {
     Rocket         rocket;
     AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body    = core.addChild(TestComponent::make(0.3));
-    AxialStage&    booster = body.addChild(std::make_unique<AxialStage>());
-    TestComponent& pod     = booster.addChild(TestComponent::make(0.2));
+    BodyTube&      body    = core.addChild(std::make_unique<BodyTube>(0.3, 0.02));
+    ParallelStage& booster = body.addChild(std::make_unique<ParallelStage>());
+    BodyTube&      pod     = booster.addChild(std::make_unique<BodyTube>(0.2, 0.01));
+    EXPECT_FALSE(core.hasRecoveryDevice());
+    EXPECT_FALSE(booster.hasRecoveryDevice());
+
+    // A shock cord is not a recovery device.
+    body.addChild(std::make_unique<ShockCord>());
     EXPECT_FALSE(core.hasRecoveryDevice());
 
     // A parachute in the booster belongs to the booster only.
-    pod.addChild(TestComponent::make(0.05, ComponentKind::PARACHUTE));
+    pod.addChild(std::make_unique<Parachute>());
     EXPECT_FALSE(core.hasRecoveryDevice());
     EXPECT_TRUE(booster.hasRecoveryDevice());
 
-    body.addChild(TestComponent::make(0.05, ComponentKind::STREAMER));
+    body.addChild(std::make_unique<Streamer>());
     EXPECT_TRUE(core.hasRecoveryDevice());
-    body.addChild(TestComponent::make(0.05, ComponentKind::SHOCK_CORD));
 }
 
 TEST(AxialStage, UpperStage)
@@ -359,8 +376,8 @@ TEST(AxialStage, UpperStage)
     Rocket         rocket;
     AxialStage&    payload = rocket.addChild(std::make_unique<AxialStage>());
     AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent& body    = core.addChild(TestComponent::make(0.3));
-    AxialStage&    booster = body.addChild(std::make_unique<AxialStage>());
+    BodyTube&      body    = core.addChild(std::make_unique<BodyTube>(0.3, 0.02));
+    ParallelStage& booster = body.addChild(std::make_unique<ParallelStage>());
 
     EXPECT_EQ(payload.getUpperStage(), nullptr);
     EXPECT_EQ(core.getUpperStage(), &payload);
@@ -374,9 +391,9 @@ TEST(AxialStage, StagesFollowEachOther)
     Rocket      rocket;
     AxialStage& first  = rocket.addChild(std::make_unique<AxialStage>());
     AxialStage& second = rocket.addChild(std::make_unique<AxialStage>());
-    first.addChild(TestComponent::make(0.1));
-    first.addChild(TestComponent::make(0.25));
-    second.addChild(TestComponent::make(0.4));
+    first.addChild(std::make_unique<BodyTube>(0.1, 0.02));
+    first.addChild(std::make_unique<BodyTube>(0.25, 0.02));
+    second.addChild(std::make_unique<BodyTube>(0.4, 0.02));
     rocket.enableEvents();
 
     EXPECT_DOUBLE_EQ(first.getLength(), 0.35);
@@ -388,7 +405,7 @@ TEST(AxialStage, StagesFollowEachOther)
 }
 
 /// The stages of TestRockets.makeFalcon9Heavy() that AxialStageTest moves around: a payload stage
-/// and a core stage whose body holds a booster stage.
+/// and a core stage whose body tube holds a booster set.
 class StageNumberingTest : public ::testing::Test
 {
 protected:
@@ -396,20 +413,20 @@ protected:
     {
         m_payload = &m_rocket.addChild(std::make_unique<AxialStage>());
         m_payload->setName("Payload");
-        m_payload->addChild(TestComponent::make(0.4));
+        m_payload->addChild(std::make_unique<BodyTube>(0.4, 0.05));
         m_core = &m_rocket.addChild(std::make_unique<AxialStage>());
         m_core->setName("Core");
-        TestComponent& coreBody = m_core->addChild(TestComponent::make(0.8));
-        m_booster               = &coreBody.addChild(std::make_unique<AxialStage>());
+        BodyTube& coreBody = m_core->addChild(std::make_unique<BodyTube>(0.8, 0.04));
+        m_booster          = &coreBody.addChild(std::make_unique<ParallelStage>());
         m_booster->setName("Boosters");
-        m_booster->addChild(TestComponent::make(0.6));
+        m_booster->addChild(std::make_unique<BodyTube>(0.6, 0.04));
         m_rocket.enableEvents();
     }
 
-    Rocket      m_rocket;
-    AxialStage* m_payload{nullptr};
-    AxialStage* m_core{nullptr};
-    AxialStage* m_booster{nullptr};
+    Rocket         m_rocket;
+    AxialStage*    m_payload{nullptr};
+    AxialStage*    m_core{nullptr};
+    ParallelStage* m_booster{nullptr};
 };
 
 TEST_F(StageNumberingTest, StagesAreNumberedInTreeOrder)

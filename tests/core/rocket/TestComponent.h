@@ -24,16 +24,32 @@
 namespace QtRocket::Test
 {
 
-/// A concrete RocketComponent for the tests of the component model, standing in for the
-/// concrete components that later groups port: its kind, mass, CG, length, radii, instances and
+/// A concrete RocketComponent for the tests of the generic component model (the tree, the
+/// events, the positioning, the instancing): its kind, mass, CG, length, radii, instances and
 /// compatibility are all settable. It implements the interfaces the base classes look for
-/// (Coaxial for a BODY_TUBE parent, RadiusPositionable, AnglePositionable, Instanceable) and is
-/// an InsideColorComponent, like a body tube.
+/// (Coaxial, RadiusPositionable, AnglePositionable, Instanceable) and is an InsideColorComponent.
+///
+/// It is never a stand-in for a body. Its default kind is MASS_COMPONENT, an internal component
+/// that a real BodyTube accepts as a child: a test that needs a generic component inside a
+/// rocket puts it in a real BodyTube of a real AxialStage (a stage accepts body components only),
+/// and a test that needs a body, a motor mount or an internal component builds the real class
+/// (BodyTube, NoseCone, Transition, InnerTube, ...).
+///
+/// The library decides by a component's class wherever Java uses instanceof, so a TestComponent
+/// that reports a body or ring kind is still none of those classes: the reference length, an
+/// assembly's bounding radius, the automatic radii, a ring's or a mass object's parent radius
+/// and RadiusMethod's parent tube radius do not read it. The only TestComponents of kind
+/// BODY_TUBE, NOSE_CONE or TRANSITION are the ones in the tests that prove exactly that (class
+/// against kind): RocketTest.OnlyBodyTubesAndTransitionsGiveTheBoundingRadius,
+/// ConfigurationTest.OnlySymmetricComponentsGiveTheReferenceLength,
+/// MassObject.TheParentClassDecidesNotItsKind, RingComponent.TheParentClassDecidesNotItsKind
+/// and RadiusMethodTest.OnlyABodyTubeGivesTheParentRadius.
+///
+/// TestRockets.h uses it for the fin sets and launch lugs that are not ported yet
+/// (HOOK(fins-lugs)).
 ///
 /// Setters of physical values fire AEROMASS_CHANGE, as a real component's do. componentChanged()
-/// counts its calls. TestBodyComponent (TestBodyComponent.h) and TestMotorMount (TestMotorMount.h)
-/// derive from it; a derived class overrides cloneShallow(). TestRockets.h builds OpenRocket's
-/// test rockets from them.
+/// counts its calls. A derived class overrides cloneShallow().
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
 class TestComponent : public RocketComponent,
                       public virtual Coaxial,
@@ -47,9 +63,9 @@ public:
     using RocketComponent::isCompatible;
     using RocketComponent::setAxialOffset;  // the protected (method, offset) overload too
 
-    /// A component of @p kind (a body tube by default) positioned by @p method, of length
-    /// @p length.
-    explicit TestComponent(ComponentKind kind = ComponentKind::BODY_TUBE,
+    /// A component of @p kind (a mass component by default, see the class comment) positioned by
+    /// @p method, of length @p length.
+    explicit TestComponent(ComponentKind kind = ComponentKind::MASS_COMPONENT,
                            AxialMethod method = AxialMethod::AFTER, double length = 0.0)
       : RocketComponent(method), m_kind(kind)
     {
@@ -58,7 +74,7 @@ public:
 
     /// A new TestComponent in a std::unique_ptr, for addChild().
     [[nodiscard]] static std::unique_ptr<TestComponent> make(
-        double length = 0.0, ComponentKind kind = ComponentKind::BODY_TUBE,
+        double length = 0.0, ComponentKind kind = ComponentKind::MASS_COMPONENT,
         AxialMethod method = AxialMethod::AFTER)
     {
         return std::make_unique<TestComponent>(kind, method, length);

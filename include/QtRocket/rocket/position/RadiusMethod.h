@@ -20,10 +20,10 @@ class RocketComponent;
 /// | RELATIVE | offset + parent tube radius + own bounding radius| radius - both            |
 /// | SURFACE  | parent tube radius + own bounding radius         | 0                        |
 ///
-/// "Parent tube radius" is the parent's outer radius when the parent is a body tube (Java:
-/// parentComponent instanceof BodyTube, answered here with ComponentKind::BODY_TUBE and the
-/// Coaxial interface), else 0; "own bounding radius" is the component's getBoundingRadius() when
-/// it is a RadiusPositionable, else 0. A null parent counts as "not a body tube".
+/// "Parent tube radius" is the parent's outer radius (BodyTube::getOuterRadius(), which
+/// refreshes an automatic radius) when the parent is a BodyTube (Java: parentComponent
+/// instanceof BodyTube), else 0; "own bounding radius" is the component's getBoundingRadius()
+/// when it is a RadiusPositionable, else 0. A null parent counts as "not a body tube".
 enum class RadiusMethod
 {
     COAXIAL,   ///< same axis as the target component

@@ -14,6 +14,7 @@
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/MotorConfigurationId.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfigurableParameterSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
@@ -21,12 +22,12 @@
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
+using QtRocket::BodyTube;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::FlightConfigurableParameterSet;
 using QtRocket::FlightConfigurationId;
@@ -36,9 +37,9 @@ using QtRocket::MotorConfiguration;
 using QtRocket::MotorConfigurationId;
 using QtRocket::MotorConfigurationSet;
 using QtRocket::MotorMount;
+using QtRocket::Test::addMotor;
 using QtRocket::Test::motorC6;
 using QtRocket::Test::motorD21;
-using QtRocket::Test::TestMotorMount;
 
 // A mount's set is rebuilt for a copied mount; it is never copied or moved on its own, and its
 // default cannot be replaced.
@@ -52,8 +53,8 @@ static_assert(CanSetDefault<FlightConfigurableParameterSet<MotorConfiguration>>)
 
 TEST(MotorConfigurationSet, DefaultIsAnEmptyConfigurationOfTheMount)
 {
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
-    const MotorConfigurationSet&          set   = mount->getMotorConfigurationSet();
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    const MotorConfigurationSet&    set   = mount->getMotorConfigurationSet();
     EXPECT_EQ(set.size(), 0U);
     EXPECT_TRUE(set.getDefault().isEmpty());
     EXPECT_EQ(&set.getDefault().getMount(), static_cast<const MotorMount*>(mount.get()));
@@ -68,7 +69,7 @@ TEST(MotorConfigurationSet, DefaultIsAnEmptyConfigurationOfTheMount)
 
 TEST(MotorConfigurationSet, TheDefaultCannotChangeThroughTheBaseClass)
 {
-    const std::unique_ptr<TestMotorMount>               mount  = TestMotorMount::make(0.2, 0.01);
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
     FlightConfigurableParameterSet<MotorConfiguration>& base   = mount->getMotorConfigurationSet();
     const MotorConfiguration*                           before = &base.getDefault();
 
@@ -86,7 +87,7 @@ TEST(MotorConfigurationSet, TheDefaultCannotChangeThroughTheBaseClass)
 
 /// Checks that @p copied is @p original made anew for @p target.
 void expectCopiedFor(const MotorConfiguration& copied, const MotorConfiguration& original,
-                     const TestMotorMount& target)
+                     const BodyTube& target)
 {
     EXPECT_EQ(&copied.getMount(), static_cast<const MotorMount*>(&target));
     EXPECT_EQ(copied.getFcid(), original.getFcid());
@@ -98,15 +99,15 @@ void expectCopiedFor(const MotorConfiguration& copied, const MotorConfiguration&
 
 TEST(MotorConfigurationSet, CopyForANewMountRebuildsEveryOverride)
 {
-    const std::unique_ptr<TestMotorMount> source = TestMotorMount::make(0.2, 0.01);
-    const FlightConfigurationId           a;
-    const FlightConfigurationId           b;
-    source->addMotor(a, motorC6(), 5).setIgnitionEvent(IgnitionEvent::LAUNCH);
-    source->addMotor(b, motorD21(), 3);
+    const std::unique_ptr<BodyTube> source = std::make_unique<BodyTube>(0.2, 0.01);
+    const FlightConfigurationId     a;
+    const FlightConfigurationId     b;
+    addMotor(*source, a, motorC6(), 5).setIgnitionEvent(IgnitionEvent::LAUNCH);
+    addMotor(*source, b, motorD21(), 3);
     source->getDefaultMotorConfig().setIgnitionEvent(IgnitionEvent::NEVER);
 
-    const std::unique_ptr<TestMotorMount> target = TestMotorMount::make(0.2, 0.01);
-    const MotorConfigurationSet           copy{source->getMotorConfigurationSet(), *target};
+    const std::unique_ptr<BodyTube> target = std::make_unique<BodyTube>(0.2, 0.01);
+    const MotorConfigurationSet     copy{source->getMotorConfigurationSet(), *target};
 
     EXPECT_EQ(copy.getIds(), (std::vector<FlightConfigurationId>{a, b}));
     expectCopiedFor(copy.get(a), source->getMotorConfig(a), *target);
@@ -118,13 +119,13 @@ TEST(MotorConfigurationSet, CopyForANewMountRebuildsEveryOverride)
 
 TEST(MotorConfigurationSet, CopiedMountsOwnTheirConfigurations)
 {
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
-    const FlightConfigurationId           fcid;
-    mount->addMotor(fcid, motorC6(), 5);
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    const FlightConfigurationId     fcid;
+    addMotor(*mount, fcid, motorC6(), 5);
     mount->setMotorOverhang(0.02);
 
     const std::unique_ptr<QtRocket::RocketComponent> copy = mount->copyWithOriginalId();
-    const auto& copiedMount = dynamic_cast<const TestMotorMount&>(*copy);
+    const auto& copiedMount                               = dynamic_cast<const BodyTube&>(*copy);
     EXPECT_EQ(&copiedMount.getMotorConfig(fcid).getMount(),
               static_cast<const MotorMount*>(&copiedMount));
     EXPECT_EQ(copiedMount.getMotorConfig(fcid).getMid(), mount->getMotorConfig(fcid).getMid())
@@ -133,7 +134,7 @@ TEST(MotorConfigurationSet, CopiedMountsOwnTheirConfigurations)
     EXPECT_EQ(copiedMount.getMotorOverhang(), 0.02);
 
     const std::unique_ptr<QtRocket::RocketComponent> fresh = mount->copyWithNewIds();
-    const auto& freshMount = dynamic_cast<const TestMotorMount&>(*fresh);
+    const auto& freshMount                                 = dynamic_cast<const BodyTube&>(*fresh);
     EXPECT_EQ(&freshMount.getMotorConfig(fcid).getMount(),
               static_cast<const MotorMount*>(&freshMount));
     // As in Java, the mids were derived before the new ids were drawn.
@@ -142,10 +143,10 @@ TEST(MotorConfigurationSet, CopiedMountsOwnTheirConfigurations)
 
 TEST(MotorConfigurationSet, SetRemoveAndResetOnTheMount)
 {
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
-    const FlightConfigurationId           fcid;
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    const FlightConfigurationId     fcid;
     EXPECT_FALSE(mount->isMotorMount());
-    mount->addMotor(fcid, motorC6());
+    addMotor(*mount, fcid, motorC6());
     EXPECT_TRUE(mount->isMotorMount()) << "setMotorConfig() makes the component a mount";
     EXPECT_TRUE(mount->hasMotor());
     EXPECT_FALSE(mount->getMotorConfig(fcid).isEmpty());
@@ -154,21 +155,21 @@ TEST(MotorConfigurationSet, SetRemoveAndResetOnTheMount)
     EXPECT_FALSE(mount->hasMotor());
     EXPECT_TRUE(mount->getMotorConfig(fcid).isEmpty()) << "back to the default";
 
-    mount->addMotor(fcid, motorC6());
+    addMotor(*mount, fcid, motorC6());
     mount->reset(fcid);
     EXPECT_FALSE(mount->hasMotor());
 
     // A configuration of another mount is refused.
-    const std::unique_ptr<TestMotorMount> other = TestMotorMount::make(0.2, 0.01);
+    const std::unique_ptr<BodyTube> other = std::make_unique<BodyTube>(0.2, 0.01);
     EXPECT_THROW(mount->setMotorConfig(MotorConfiguration{*other, fcid}, fcid), QtRocket::BugError);
 }
 
 TEST(MotorConfigurationSet, CopyFlightConfigurationCopiesTheMotor)
 {
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
-    const FlightConfigurationId           a;
-    const FlightConfigurationId           b;
-    mount->addMotor(a, motorD21(), 3);
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    const FlightConfigurationId     a;
+    const FlightConfigurationId     b;
+    addMotor(*mount, a, motorD21(), 3);
     mount->copyFlightConfiguration(a, b);
     EXPECT_EQ(mount->getMotorConfig(b).getMotor(), mount->getMotorConfig(a).getMotor());
     EXPECT_EQ(mount->getMotorConfig(b).getFcid(), b);
@@ -178,10 +179,10 @@ TEST(MotorConfigurationSet, CopyFlightConfigurationCopiesTheMotor)
 
 TEST(MotorConfigurationSet, ToDebug)
 {
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
     mount->setName("Tube");
     const FlightConfigurationId fcid;
-    mount->addMotor(fcid, motorD21(), 3);
+    addMotor(*mount, fcid, motorD21(), 3);
     const InMemoryPreferences preferences;
 
     const MotorConfiguration& defaults = mount->getDefaultMotorConfig();
@@ -205,9 +206,9 @@ TEST(MotorConfigurationSet, IsAFlightConfigurableParameterSet)
 {
     static_assert(std::derived_from<MotorConfigurationSet,
                                     FlightConfigurableParameterSet<MotorConfiguration>>);
-    const std::unique_ptr<TestMotorMount> mount = TestMotorMount::make(0.2, 0.01);
-    const FlightConfigurationId           fcid;
-    mount->addMotor(fcid, motorD21());
+    const std::unique_ptr<BodyTube> mount = std::make_unique<BodyTube>(0.2, 0.01);
+    const FlightConfigurationId     fcid;
+    addMotor(*mount, fcid, motorD21());
     // isDefault(E) compares mids, as Java's equals() does.
     EXPECT_FALSE(mount->getMotorConfigurationSet().isDefault(mount->getMotorConfig(fcid)));
     EXPECT_TRUE(mount->getMotorConfigurationSet().isDefault(mount->getDefaultMotorConfig()));

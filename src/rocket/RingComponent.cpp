@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "QtRocket/rocket/ComponentChangeEvent.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/RadialParent.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BoundingBox.h"
@@ -18,14 +17,6 @@ namespace QtRocket
 
 namespace
 {
-
-/// Whether OpenRocket's class of @p kind implements RadialParent: the symmetric components
-/// (body tube, nose cone, transition), InnerTube and TubeCoupler.
-[[nodiscard]] constexpr bool isRadialParentKind(ComponentKind kind) noexcept
-{
-    return isBodyComponent(kind) || kind == ComponentKind::INNER_TUBE ||
-           kind == ComponentKind::TUBE_COUPLER;
-}
 
 /// The x of the first coordinate of @p coordinates (Java: toRelative(...)[0].getX()).
 [[nodiscard]] double firstX(const std::vector<Coordinate>& coordinates)
@@ -59,13 +50,10 @@ void RingComponent::setInnerRadiusAutomatic(bool automatic)
 
 std::optional<double> RingComponent::parentInnerRadius() const
 {
+    // Java: getParent() instanceof RadialParent (false without a parent).
     const auto* radialParent = dynamic_cast<const RadialParent*>(m_parent);
     if (radialParent == nullptr)
     {
-        // Java's RadialParents are the symmetric components, inner tubes and tube couplers: a
-        // parent of one of those kinds that is not one is a programming error, which Java's
-        // instanceof cannot meet.
-        QTROCKET_ASSERT(m_parent == nullptr || !isRadialParentKind(m_parent->kind()));
         return std::nullopt;
     }
     double pos1 = firstX(toRelative(Coordinate::kNul, *m_parent));

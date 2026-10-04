@@ -12,6 +12,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
@@ -19,12 +20,12 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::Bulkhead;
 using QtRocket::ComponentKind;
@@ -35,7 +36,6 @@ using QtRocket::Manufacturer;
 using QtRocket::Material;
 using QtRocket::Rocket;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 /// BulkHeadComponentTests.createPreset(): a bulkhead preset 2 m long, 2 m in diameter, of mass
 /// 100 kg.
@@ -158,8 +158,8 @@ TEST(Bulkhead, FillsTheBodyTube)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
-    body.setInnerRadius(0.024);
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.001));
+    ASSERT_EQ(body.getInnerRadius(), 0.024);
     const auto& bt = body.addChild(std::make_unique<Bulkhead>());
     rocket.enableEvents();
     EXPECT_EQ(bt.getOuterRadius(), 0.024);

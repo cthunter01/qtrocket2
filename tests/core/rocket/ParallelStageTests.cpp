@@ -5,21 +5,25 @@
 #include <memory>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -28,15 +32,18 @@ namespace
 using QtRocket::AngleMethod;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::FlightConfiguration;
+using QtRocket::NoseCone;
 using QtRocket::ParallelStage;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
-using QtRocket::Test::TestBodyComponent;
+using QtRocket::Transition;
+using QtRocket::TransitionShape;
 using QtRocket::Test::TestFalcon9Heavy;
 
 // ParallelStageTest's tolerance.
@@ -50,24 +57,27 @@ void setAxialOffset(RocketComponent& component, AxialMethod method, double offse
     component.setAxialOffset(offset);
 }
 
-/// ParallelStageTest.createExtraBooster(): a three-booster set with a nose cone (2 m, radius
-/// 0.8 m), a body (2 m, radius 0.8 m) and a tail (1 m, radii 1 and 0.5 m), at a free radius of
-/// 0.18 m.
+/// ParallelStageTest.createExtraBooster(): a three-booster set with a conical nose cone (2 m,
+/// radius 0.8 m), a body tube (2 m, radius 0.8 m, wall 0.01 m) and a tail (1 m, radii 1 and
+/// 0.5 m), at a free radius of 0.18 m.
 std::unique_ptr<ParallelStage> createExtraBooster()
 {
     const double tubeRadius = 0.8;
 
     auto strapon = std::make_unique<ParallelStage>();
     strapon->setName("Booster Stage");
-    TestBodyComponent& boosterNose =
-        strapon->addChild(TestBodyComponent::make(2.0, tubeRadius, ComponentKind::NOSE_CONE));
-    boosterNose.setForeAftRadii(0, tubeRadius);
-    boosterNose.setName("Booster Nosecone");
-    strapon->addChild(TestBodyComponent::make(2.0, tubeRadius)).setName("Booster Body ");
-    TestBodyComponent& boosterTail =
-        strapon->addChild(TestBodyComponent::make(1.0, 1.0, ComponentKind::TRANSITION));
-    boosterTail.setForeAftRadii(1.0, 0.5);
-    boosterTail.setName("Booster Tail");
+    auto boosterNose = std::make_unique<NoseCone>(TransitionShape::CONICAL, 2.0, tubeRadius);
+    boosterNose->setName("Booster Nosecone");
+    strapon->addChild(std::move(boosterNose));
+    auto boosterBody = std::make_unique<BodyTube>(2.0, tubeRadius, 0.01);
+    boosterBody->setName("Booster Body ");
+    strapon->addChild(std::move(boosterBody));
+    auto boosterTail = std::make_unique<Transition>();
+    boosterTail->setName("Booster Tail");
+    boosterTail->setForeRadius(1.0);
+    boosterTail->setAftRadius(0.5);
+    boosterTail->setLength(1.0);
+    strapon->addChild(std::move(boosterTail));
 
     strapon->setInstanceCount(3);
     strapon->setRadiusMethod(RadiusMethod::FREE);
@@ -131,7 +141,7 @@ TEST(ParallelStageTest, CreateCoreStage)
     EXPECT_NEAR(payloadLength, expectedPayloadLength, kEpsilon);
 
     const AxialStage& coreStage = *f9h.coreStage;
-    EXPECT_NEAR(coreStage.getLength(), 0.8, kEpsilon) << "createTestRocket failed: @ Core size";
+    EXPECT_EQ(coreStage.getLength(), 0.8) << "createTestRocket failed: @ Core size";
 
     const double expectedCoreStageX = payloadLength;
     EXPECT_NEAR(expectedCoreStageX, 0.564, kEpsilon);
@@ -444,7 +454,7 @@ TEST(ParallelStageTest, OutsideStageRepositionTopAfterAdd)
 TEST(ParallelStageTest, StageInitializationMethodValueOrder)
 {
     const TestFalcon9Heavy f9h;
-    TestBodyComponent&     coreBody = *f9h.coreBody;
+    BodyTube&              coreBody = *f9h.coreBody;
 
     ParallelStage& boosterA = coreBody.addChild(createExtraBooster());
     boosterA.setName("Booster A Stage");
@@ -468,7 +478,7 @@ TEST(ParallelStageTest, StageNumbering)
     const TestFalcon9Heavy f9h;
     Rocket&                rocket   = *f9h.rocket;
     FlightConfiguration&   config   = rocket.getSelectedConfiguration();
-    TestBodyComponent&     coreBody = *f9h.coreBody;
+    BodyTube&              coreBody = *f9h.coreBody;
     ParallelStage&         boosterA = *f9h.boosterStage;
 
     ParallelStage& boosterB = coreBody.addChild(createExtraBooster());

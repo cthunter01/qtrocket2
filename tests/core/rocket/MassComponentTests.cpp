@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Parachute.h"
@@ -21,12 +22,12 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -35,7 +36,6 @@ using QtRocket::MassComponent;
 using QtRocket::Parachute;
 using QtRocket::PodSet;
 using QtRocket::Rocket;
-using QtRocket::Test::TestBodyComponent;
 using Type = MassComponent::MassComponentType;
 
 TEST(MassComponent, Defaults)
@@ -106,7 +106,7 @@ TEST(MassComponent, SettersFireOnChange)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
     auto&  mc    = body.addChild(std::make_unique<MassComponent>());
     rocket.enableEvents();
     std::vector<int>                              types;

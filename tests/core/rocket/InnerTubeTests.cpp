@@ -16,6 +16,7 @@
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/CenteringRing.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
@@ -38,7 +39,6 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Strings.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -46,6 +46,7 @@ namespace
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::Bulkhead;
 using QtRocket::CenteringRing;
@@ -69,7 +70,6 @@ using QtRocket::RadialParent;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 constexpr double kEpsilon = 1e-12;
 
@@ -85,24 +85,23 @@ constexpr double kEpsilon = 1e-12;
     return *found;
 }
 
-/// A rocket with a stage holding a body tube stand-in (0.3 m long, radius 0.025 m, inner radius
-/// 0.024 m) with an inner tube; events enabled and recorded.
+/// A rocket with a stage holding a body tube (0.3 m long, radius 0.025 m, inner radius 0.024 m)
+/// with an inner tube; events enabled and recorded.
 class InnerTubeTest : public ::testing::Test
 {
 protected:
     InnerTubeTest()
     {
         auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body      = &stage.addChild(TestBodyComponent::make(0.3, 0.025));
-        m_body->setInnerRadius(0.024);
-        m_tube = &m_body->addChild(std::make_unique<InnerTube>());
+        m_body      = &stage.addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.001));
+        m_tube      = &m_body->addChild(std::make_unique<InnerTube>());
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(
             [this](const ComponentChangeEvent& e) { m_types.push_back(e.getType()); });
     }
 
     Rocket                                  m_rocket;
-    TestBodyComponent*                      m_body{nullptr};
+    BodyTube*                               m_body{nullptr};
     InnerTube*                              m_tube{nullptr};
     std::vector<int>                        m_types;
     ComponentChangeSignal::ScopedConnection m_connection;
@@ -173,7 +172,7 @@ TEST(InnerTube, ARingInsideTakesItsInnerRadius)
 {
     Rocket      rocket;
     auto&       stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&       body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    auto&       body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     auto&       tube  = body.addChild(std::make_unique<InnerTube>());
     const auto& block = tube.addChild(std::make_unique<EngineBlock>());
     rocket.enableEvents();
@@ -343,10 +342,10 @@ TEST(InnerTube, MotorCountIncludesTheAssemblyCopies)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     auto&  pods  = body.addChild(std::make_unique<PodSet>());
     pods.setInstanceCount(3);
-    auto& podBody = pods.addChild(TestBodyComponent::make(0.2, 0.02));
+    auto& podBody = pods.addChild(std::make_unique<BodyTube>(0.2, 0.02));
     auto& tube    = podBody.addChild(std::make_unique<InnerTube>());
     tube.setClusterConfiguration(layout("double"));
     rocket.enableEvents();
@@ -441,7 +440,7 @@ TEST(InnerTube, MakeIndividualClusterComponent)
 {
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     auto&  tube  = body.addChild(std::make_unique<InnerTube>());
     tube.setName("MMT");
     tube.setOuterRadius(0.009);
@@ -496,7 +495,7 @@ TEST(InnerTube, SplitClusterAsTheGuiDoes)
     // keeps alive meanwhile, and inserted where it was.
     Rocket rocket;
     auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body  = stage.addChild(TestBodyComponent::make(0.3, 0.025));
+    auto&  body  = stage.addChild(std::make_unique<BodyTube>(0.3, 0.025));
     body.addChild(std::make_unique<EngineBlock>());
     auto& tube = body.addChild(std::make_unique<InnerTube>());
     tube.setName("MMT");

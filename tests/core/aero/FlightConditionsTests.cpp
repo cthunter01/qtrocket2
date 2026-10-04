@@ -12,6 +12,7 @@
 
 #include "QtRocket/models/AtmosphericConditions.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -20,13 +21,13 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
 #include "QtRocket/util/Signal.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AtmosphericConditions;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentAssembly;
 using QtRocket::Coordinate;
@@ -34,7 +35,6 @@ using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::ModId;
 using QtRocket::Rocket;
-using QtRocket::Test::TestBodyComponent;
 
 using Areas = std::vector<FlightConditions::NozzleExitArea>;
 
@@ -52,7 +52,7 @@ protected:
     FlightConditionsTest()
     {
         m_stage    = &m_rocket->addChild(std::make_unique<AxialStage>());
-        m_bodyTube = &m_stage->addChild(TestBodyComponent::make(1.0, 0.05));
+        m_bodyTube = &m_stage->addChild(std::make_unique<BodyTube>(1.0, 0.05));
         m_rocket->enableEvents();
         m_config     = std::make_unique<FlightConfiguration>(*m_rocket);
         m_conditions = FlightConditions{*m_config};
@@ -63,7 +63,7 @@ protected:
 
     std::unique_ptr<Rocket>              m_rocket = std::make_unique<Rocket>();
     AxialStage*                          m_stage{nullptr};
-    TestBodyComponent*                   m_bodyTube{nullptr};
+    BodyTube*                            m_bodyTube{nullptr};
     std::unique_ptr<FlightConfiguration> m_config;
     FlightConditions                     m_conditions;
 };

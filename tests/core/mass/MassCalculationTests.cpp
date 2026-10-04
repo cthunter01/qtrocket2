@@ -19,16 +19,16 @@
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Transformation.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -36,12 +36,14 @@ namespace
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::CMAnalysisEntry;
 using QtRocket::CMAnalysisMap;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
+using QtRocket::InnerTube;
 using QtRocket::MassCalculation;
 using QtRocket::Motor;
 using QtRocket::MotorClusterState;
@@ -49,38 +51,57 @@ using QtRocket::RigidBody;
 using QtRocket::Rocket;
 using QtRocket::ThrustCurveMotor;
 using QtRocket::Transformation;
-using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
-using QtRocket::Test::TestMotorMount;
 using Type = QtRocket::MassCalculation::Type;
 
-/// A rocket with a stage holding a body (0.5 m) that holds a motor mount (0.1 m, 0.4 m from the
-/// body's front) with an A8 in one flight configuration, and a child of the body with two
-/// instances at +-0.02 m in y; events enabled.
+/// A rocket with a stage holding a body tube (0.5 m, radius 0.03 m) that holds an inner tube
+/// motor mount (0.1 m, 0.4 m from the body's front) with an A8 in one flight configuration, and
+/// a child of the body with two instances at +-0.02 m in y (a TestComponent of a prescribed
+/// mass: a generic instanced component, not a double of any OpenRocket class, so it stays when
+/// the fin sets and launch lugs are ported); events enabled.
 class MassCalculationTest : public ::testing::Test
 {
 protected:
+    /// The mass of the two-instance child, both instances together.
+    static constexpr double kPairMass = 0.01;
+
     MassCalculationTest()
     {
         m_rocket.createFlightConfiguration(m_fcid);
-        m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_body  = &m_stage->addChild(TestBodyComponent::make(0.5, 0.03));
-        m_body->setMass(0.2);
-        m_body->setCG(Coordinate{0.25});
-        m_mount = &m_body->addChild(
-            TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE, AxialMethod::TOP));
-        m_mount->setAxialOffset(AxialMethod::TOP, 0.4);
-        m_mount->setMotorMount(true);
+        m_stage    = &m_rocket.addChild(std::make_unique<AxialStage>());
+        m_body     = &m_stage->addChild(std::make_unique<BodyTube>(0.5, 0.03));
+        auto mount = std::make_unique<InnerTube>();
+        mount->setAxialMethod(AxialMethod::TOP);
+        mount->setAxialOffset(0.4);
+        mount->setLength(0.1);
+        mount->setOuterRadius(0.01);
+        mount->setMotorMount(true);
+        m_mount = &m_body->addChild(std::move(mount));
         m_motor = QtRocket::Test::motorA8();
-        m_mount->addMotor(m_fcid, m_motor);
+        QtRocket::Test::addMotor(*m_mount, m_fcid, m_motor);
         m_pair = &m_body->addChild(
-            TestComponent::make(0.05, ComponentKind::LAUNCH_LUG, AxialMethod::TOP));
+            TestComponent::make(0.05, ComponentKind::MASS_COMPONENT, AxialMethod::TOP));
         m_pair->setAxialOffset(AxialMethod::TOP, 0.1);
         m_pair->setInstances({Coordinate{0, 0.02, 0}, Coordinate{0, -0.02, 0}}, {0, 0});
-        m_pair->setMass(0.01);  // both instances together
+        m_pair->setMass(kPairMass);
         m_pair->setCG(Coordinate{0.025});
         m_rocket.setSelectedConfiguration(m_fcid);
         m_rocket.enableEvents();
+    }
+
+    /// The mass of the body tube alone (its CG is its middle, 0.25 m).
+    [[nodiscard]] double bodyMass() const { return m_body->getComponentMass(); }
+
+    /// The mass of the motor mount tube alone (its CG is its middle, 0.45 m from the nose).
+    [[nodiscard]] double mountMass() const { return m_mount->getComponentMass(); }
+
+    /// The mass of the structure: the body, the mount and the pair.
+    [[nodiscard]] double structureMass() const { return bodyMass() + mountMass() + kPairMass; }
+
+    /// The x of the structure's CG (the pair's own CG, 0.1 + 0.025, holds both instances).
+    [[nodiscard]] double structureCmx() const
+    {
+        return ((bodyMass() * 0.25) + (mountMass() * 0.45) + (kPairMass * 0.125)) / structureMass();
     }
 
     [[nodiscard]] FlightConfiguration& config() { return m_rocket.getFlightConfiguration(m_fcid); }
@@ -95,8 +116,8 @@ protected:
     Rocket                                  m_rocket;
     FlightConfigurationId                   m_fcid{QtRocket::Test::testFcid(0)};
     AxialStage*                             m_stage{nullptr};
-    TestBodyComponent*                      m_body{nullptr};
-    TestMotorMount*                         m_mount{nullptr};
+    BodyTube*                               m_body{nullptr};
+    InnerTube*                              m_mount{nullptr};
     TestComponent*                          m_pair{nullptr};
     std::shared_ptr<const ThrustCurveMotor> m_motor;
 };
@@ -398,10 +419,14 @@ TEST_F(MassCalculationTest, StructurePlacesChildInstancesThroughTheTransforms)
     MassCalculation calc = calculation(Type::STRUCTURE);
     calc.calculateStructure();
 
-    // Body 0.2 kg at 0.25, the pair 0.01 kg at 0.1 + 0.025 (its own CG holds both instances);
-    // the mount has no mass. Bodies: rocket, stage, body, mount, pair.
-    EXPECT_DOUBLE_EQ(calc.getMass(), 0.21);
-    EXPECT_DOUBLE_EQ(calc.getCM().x, ((0.2 * 0.25) + (0.01 * 0.125)) / 0.21);
+    // The body tube at 0.25, the mount at 0.4 + 0.05, the pair at 0.1 + 0.025 (its own CG holds
+    // both instances). Bodies: rocket, stage, body, mount, pair.
+    ASSERT_GT(bodyMass(), 0.0);
+    ASSERT_GT(mountMass(), 0.0);
+    EXPECT_DOUBLE_EQ(calc.getMass(), structureMass());
+    EXPECT_DOUBLE_EQ(calc.getCM().x, structureCmx());
+    EXPECT_NEAR(calc.getCM().y, 0.0, 1e-15);
+    EXPECT_NEAR(calc.getCM().z, 0.0, 1e-15);
     EXPECT_EQ(calc.size(), 5U);
 }
 
@@ -420,10 +445,10 @@ TEST_F(MassCalculationTest, ChildrenFollowTheirParentsInstancesAndAngles)
     // The child's CG (0.01 in y) sits at y = 0.02 + 0.01 for instance 0 and, rotated by 90
     // degrees about x, at y = 0.02, z = 0.01 for instance 1: 0.5 kg each.
     const double childX     = 0.1 + 0.0;  // the pair's front plus the child's position (AFTER)
-    const double totalMass  = 0.2 + 0.01 + (2 * 0.5);
+    const double totalMass  = structureMass() + (2 * 0.5);
     const double expectedY  = ((0.5 * 0.03) + (0.5 * 0.02)) / totalMass;
     const double expectedZ  = (0.5 * 0.01) / totalMass;
-    const double expectedCx = ((0.2 * 0.25) + (0.01 * 0.125) + (1.0 * childX)) / totalMass;
+    const double expectedCx = ((structureMass() * structureCmx()) + (1.0 * childX)) / totalMass;
     EXPECT_NEAR(structure.getMass(), totalMass, 1e-15);
     EXPECT_NEAR(structure.getCM().x, expectedCx, 1e-15);
     EXPECT_NEAR(structure.getCM().y, expectedY, 1e-15);
@@ -511,12 +536,16 @@ TEST_F(MassCalculationTest, AnalysisRowsForComponentsAssembliesAndMotors)
     EXPECT_EQ(map.size(), 6U);
 
     const CMAnalysisEntry& pair = map.at(CMAnalysisEntry::keyOf(*m_pair));
-    EXPECT_DOUBLE_EQ(pair.eachMass, 0.01);
+    EXPECT_DOUBLE_EQ(pair.eachMass, kPairMass);
     EXPECT_DOUBLE_EQ(pair.totalCM.x, 0.125);
 
     const CMAnalysisEntry& body = map.at(CMAnalysisEntry::keyOf(*m_body));
-    EXPECT_DOUBLE_EQ(body.eachMass, 0.2);  // the body alone, not its children
+    EXPECT_DOUBLE_EQ(body.eachMass, bodyMass());  // the body alone, not its children
     EXPECT_DOUBLE_EQ(body.totalCM.x, 0.25);
+
+    const CMAnalysisEntry& mount = map.at(CMAnalysisEntry::keyOf(*m_mount));
+    EXPECT_DOUBLE_EQ(mount.eachMass, mountMass());  // the tube alone, not its motor
+    EXPECT_DOUBLE_EQ(mount.totalCM.x, 0.45);
 
     const CMAnalysisEntry& motor = map.at(CMAnalysisEntry::keyOf(*m_motor));
     EXPECT_EQ(motor.getMotor(), m_motor.get());
@@ -524,8 +553,8 @@ TEST_F(MassCalculationTest, AnalysisRowsForComponentsAssembliesAndMotors)
 
     // The stage holds its structure and the motor below it.
     const CMAnalysisEntry& stage = map.at(CMAnalysisEntry::keyOf(*m_stage));
-    EXPECT_DOUBLE_EQ(stage.totalCM.weight, 0.21 + 0.0164);
-    EXPECT_DOUBLE_EQ(stage.eachMass, 0.21 + 0.0164);
+    EXPECT_DOUBLE_EQ(stage.totalCM.weight, structureMass() + 0.0164);
+    EXPECT_DOUBLE_EQ(stage.eachMass, structureMass() + 0.0164);
     EXPECT_NEAR(stage.totalCM.x, calc.getCM().x, 1e-15);
 
     // Without a map nothing is recorded, and STRUCTURE records no motors.

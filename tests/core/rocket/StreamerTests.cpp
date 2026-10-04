@@ -12,6 +12,7 @@
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Parachute.h"
@@ -21,12 +22,12 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
-#include "rocket/TestBodyComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
@@ -40,7 +41,6 @@ using QtRocket::Parachute;
 using QtRocket::Rocket;
 using QtRocket::Streamer;
 using QtRocket::TypedPropertyMap;
-using QtRocket::Test::TestBodyComponent;
 
 /// OpenRocket's estimate, written out: 0.034 * ((density + 0.025) / 0.105) * (L + 1) / L, at
 /// most 0.4.
@@ -201,7 +201,7 @@ TEST(Streamer, SettersFire)
 {
     Rocket rocket;
     auto&  stage    = rocket.addChild(std::make_unique<AxialStage>());
-    auto&  body     = stage.addChild(TestBodyComponent::make(0.5, 0.03));
+    auto&  body     = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
     auto&  streamer = body.addChild(std::make_unique<Streamer>());
     rocket.enableEvents();
     std::vector<int>                              types;

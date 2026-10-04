@@ -21,9 +21,12 @@
 
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
 #include "QtRocket/rocket/InstanceMap.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
@@ -35,15 +38,14 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/RocketUtils.h"
+#include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/ModId.h"
-#include "rocket/TestBodyComponent.h"
 #include "rocket/TestComponent.h"
-#include "rocket/TestMotorMount.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -51,14 +53,17 @@ namespace
 
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
 using QtRocket::BugError;
+using QtRocket::ClusterConfiguration;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::InMemoryPreferences;
+using QtRocket::InnerTube;
 using QtRocket::InstanceContext;
 using QtRocket::InstanceMap;
 using QtRocket::ModId;
@@ -70,14 +75,14 @@ using QtRocket::RadiusMethod;
 using QtRocket::ReferenceType;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::Transition;
+using QtRocket::Test::addMotor;
 using QtRocket::Test::motorC6;
 using QtRocket::Test::motorD21;
 using QtRocket::Test::TestBeta;
-using QtRocket::Test::TestBodyComponent;
 using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
-using QtRocket::Test::TestMotorMount;
 
 // FlightConfigurationTest's tolerance: MathUtil.EPSILON * 1000.
 constexpr double kEpsilon = 1e-8 * 1e3;
@@ -216,7 +221,7 @@ TEST(FlightConfigurationTest, MotorConfigurations)
 {
     const TestEstesAlphaIII rkt;
     const auto&             smmt =
-        dynamic_cast<const TestMotorMount&>(rkt.rocket->getChild(0).getChild(1).getChild(2));
+        dynamic_cast<const InnerTube&>(rkt.rocket->getChild(0).getChild(1).getChild(2));
     EXPECT_EQ(smmt.getMotorConfigurationSet().size(), 5U)
         << "number of motor configurations doesn't match.";
 }
@@ -392,7 +397,7 @@ TEST(FlightConfigurationTest, IterateComponents)
         EXPECT_TRUE(near(boosterStage1Context.getLocation(), Coordinate{0.484, -0.077, 0.0}));
 
         {  // Booster Body
-            const TestBodyComponent&               boosterBody = *f9h.boosterBody;
+            const BodyTube&                        boosterBody = *f9h.boosterBody;
             const std::span<const InstanceContext> boosterBodyContextList =
                 instances.getInstanceContexts(boosterBody);
             ASSERT_EQ(boosterBodyContextList.size(), 2U);
@@ -415,6 +420,8 @@ TEST(FlightConfigurationTest, IterateComponents)
                 EXPECT_TRUE(isMotorTube(mmtContextList[7], 3, Coordinate{1.214, -0.062, 0.015}));
             }
             {  // Booster::Fins::Instances ( x2 x3)
+                // HOOK(fins-lugs): the fins are a double that carries OpenRocket's instance
+                // offsets and angles; tier 6b's TrapezoidFinSet computes them.
                 const std::span<const InstanceContext> finContextList =
                     instances.getInstanceContexts(*f9h.boosterFins);
                 ASSERT_EQ(6U, finContextList.size());
@@ -802,26 +809,26 @@ TEST(FlightConfigurationTest, Clone)
 
 // ================================================================= QtRocket's own cases
 
-/// A rocket of two stages, each with a body tube (0.3 m and 0.2 m, radius 0.02 m); events
-/// enabled.
+/// A rocket of two stages, each with a body tube (0.3 m and 0.2 m, radius 0.02 m), the lower
+/// one a motor mount; events enabled.
 class ConfigurationTest : public ::testing::Test
 {
 protected:
     ConfigurationTest()
     {
         m_top     = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_topBody = &m_top->addChild(TestBodyComponent::make(0.3, 0.02));
+        m_topBody = &m_top->addChild(std::make_unique<BodyTube>(0.3, 0.02));
         m_bottom  = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_mount   = &m_bottom->addChild(TestMotorMount::make(0.2, 0.02));
+        m_mount   = &m_bottom->addChild(std::make_unique<BodyTube>(0.2, 0.02));
         m_mount->setMotorMount(true);
         m_rocket.enableEvents();
     }
 
     Rocket              m_rocket;
     AxialStage*         m_top{nullptr};
-    TestBodyComponent*  m_topBody{nullptr};
+    BodyTube*           m_topBody{nullptr};
     AxialStage*         m_bottom{nullptr};
-    TestMotorMount*     m_mount{nullptr};
+    BodyTube*           m_mount{nullptr};
     InMemoryPreferences m_prefs;
 };
 
@@ -890,7 +897,7 @@ TEST_F(ConfigurationTest, AStageWithoutChildrenIsInactive)
     EXPECT_EQ(config.getStageCount(), 3);
     EXPECT_FALSE(config.isStageActive(empty.getStageNumber()));
     EXPECT_FALSE(empty.isStageActive());
-    empty.addChild(TestBodyComponent::make(0.1, 0.02));
+    empty.addChild(std::make_unique<BodyTube>(0.1, 0.02));
     EXPECT_TRUE(config.isStageActive(empty.getStageNumber()));
     EXPECT_TRUE(empty.isStageActive());
     EXPECT_TRUE(empty.isStageActive(config));
@@ -910,7 +917,7 @@ TEST_F(ConfigurationTest, FlagsFollowTheirStageById)
 TEST_F(ConfigurationTest, SubStagesFollowTheirStage)
 {
     ParallelStage& boosters = m_mount->addChild(std::make_unique<ParallelStage>());
-    boosters.addChild(TestBodyComponent::make(0.1, 0.01));
+    boosters.addChild(std::make_unique<BodyTube>(0.1, 0.01));
     FlightConfiguration& config = m_rocket.getSelectedConfiguration();
     ASSERT_EQ(boosters.getStageNumber(), 2);
 
@@ -1018,7 +1025,7 @@ TEST_F(ConfigurationTest, AConfigurationCanBeMoveAssigned)
 
 TEST_F(ConfigurationTest, ActiveComponentsAreBreadthFirstOverTheActiveStages)
 {
-    TestBodyComponent&   inner  = m_topBody->addChild(TestBodyComponent::make(0.05, 0.01));
+    InnerTube&           inner  = m_topBody->addChild(std::make_unique<InnerTube>());
     FlightConfiguration& config = m_rocket.getSelectedConfiguration();
     // Both stages first, then their children, then the grandchildren (Java's queue).
     EXPECT_EQ(config.getActiveComponents(),
@@ -1031,7 +1038,7 @@ TEST_F(ConfigurationTest, MotorsFollowTheMountsAndStages)
     FlightConfiguration&        config = m_rocket.createFlightConfiguration(fcid);
     EXPECT_FALSE(config.hasMotors());
 
-    m_mount->addMotor(fcid, motorD21(), 3);
+    addMotor(*m_mount, fcid, motorD21(), 3);
     m_rocket.fireComponentChangeEvent(QtRocket::MotorConfigurationSet::kDefaultMotorEventType);
     ASSERT_TRUE(config.hasMotors());
     ASSERT_EQ(config.getAllMotors().size(), 1U);
@@ -1080,7 +1087,7 @@ TEST_F(ConfigurationTest, CopyCopiesTheMotorsIntoTheMounts)
 {
     const FlightConfigurationId source;
     FlightConfiguration&        config = m_rocket.createFlightConfiguration(source);
-    m_mount->addMotor(source, motorD21(), 3).setIgnitionDelay(1);
+    addMotor(*m_mount, source, motorD21(), 3).setIgnitionDelay(1);
     m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
     config.setName("Named");
     config.setStageActive(0, false, false);
@@ -1152,16 +1159,15 @@ TEST_F(ConfigurationTest, NameSubstitutionDetails)
 {
     const FlightConfigurationId fcid;
     FlightConfiguration&        config = m_rocket.createFlightConfiguration(fcid);
-    m_mount->addMotor(fcid, motorC6(), 5);
-    TestMotorMount& second =
-        m_topBody->addChild(TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE));
-    second.setMotorCount(2);
-    second.addMotor(fcid, motorD21(), 3);
-    TestMotorMount& third =
-        m_topBody->addChild(TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE));
-    third.addMotor(fcid, motorC6(), 3);
-    TestMotorMount& empty =
-        m_topBody->addChild(TestMotorMount::make(0.1, 0.01, ComponentKind::INNER_TUBE));
+    addMotor(*m_mount, fcid, motorC6(), 5);
+    // A cluster of two inner tubes (ClusterConfiguration "double").
+    InnerTube& second = m_topBody->addChild(std::make_unique<InnerTube>());
+    second.setClusterConfiguration(ClusterConfiguration::configurations()[1]);
+    ASSERT_EQ(second.getMotorCount(), 2);
+    addMotor(second, fcid, motorD21(), 3);
+    InnerTube& third = m_topBody->addChild(std::make_unique<InnerTube>());
+    addMotor(third, fcid, motorC6(), 3);
+    InnerTube& empty = m_topBody->addChild(std::make_unique<InnerTube>());
     empty.setMotorMount(true);
     m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
 
@@ -1250,14 +1256,20 @@ TEST_F(ConfigurationTest, LengthAndBounds)
     EXPECT_TRUE(near(box.max(), Coordinate{0.5, 0.02, 0.02}, 1e-12));
     EXPECT_EQ(config.getBounds(), box.toCollection());
 
-    // A non-aerodynamic component counts in the bounds only (the lengths are cached until the
-    // rocket changes).
-    m_mount->setAerodynamic(false);
-    m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kAerodynamicChange);
-    EXPECT_NEAR(config.getLengthAerodynamic(), 0.3, 1e-12);
+    // A non-aerodynamic component counts in the bounds only: an inner tube that sticks 0.05 m
+    // out of the aft end (as the Estes Alpha III's motor mount does).
+    InnerTube& tube = m_mount->addChild(std::make_unique<InnerTube>());
+    tube.setLength(0.1);
+    tube.setAxialMethod(AxialMethod::BOTTOM);
+    tube.setAxialOffset(0.05);
+    EXPECT_NEAR(config.getLengthAerodynamic(), 0.5, 1e-12);
+    EXPECT_NEAR(config.getLength(), 0.55, 1e-12);
+    EXPECT_NEAR(m_rocket.getLength(), 0.55, 1e-12);
+    EXPECT_NEAR(QtRocket::RocketUtils::getLength(m_rocket), 0.5, 1e-12)
+        << "getBounds() is the aerodynamic box";
+    EXPECT_NEAR(m_rocket.getBoundingBox().max().x, 0.5, 1e-12) << "the aerodynamic box";
+    static_cast<void>(m_mount->removeChild(&tube));
     EXPECT_NEAR(config.getLength(), 0.5, 1e-12);
-    m_mount->setAerodynamic(true);
-    m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kAerodynamicChange);
 
     // The length follows the tree.
     m_topBody->setLength(0.4);
@@ -1308,10 +1320,17 @@ TEST_F(ConfigurationTest, ReferenceLength)
     m_rocket.setReferenceType(ReferenceType::NOSECONE);
     EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.04) << "the first body's fore radius";
 
-    m_topBody->setForeAftRadii(0.0001, 0.025);
+    // A transition in front of the top body whose fore radius is too small to count.
+    auto front = std::make_unique<Transition>();
+    front->setLength(0.1);
+    front->setForeRadius(0.0001);
+    front->setAftRadius(0.025);
+    Transition& transition = m_top->addChild(std::move(front), 0);
     EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.05) << "else its aft radius";
-    m_topBody->setForeAftRadii(0.0001, 0.0001);
-    EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.06) << "else the next body";
+    transition.setAftRadius(0.0001);
+    EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.04) << "else the next body";
+    m_topBody->setOuterRadius(0.0004);
+    EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.06) << "else the body after that";
 
     m_rocket.setCustomReferenceLength(0.123);
     m_rocket.setReferenceType(ReferenceType::CUSTOM);
@@ -1327,11 +1346,28 @@ TEST_F(ConfigurationTest, ReferenceLength)
                      Rocket::kDefaultReferenceLength);
 }
 
+TEST_F(ConfigurationTest, OnlySymmetricComponentsGiveTheReferenceLength)
+{
+    // Java: instanceof SymmetricComponent. A component of a body kind that is not one (a
+    // TestComponent) does not count, whatever its radius.
+    FlightConfiguration& config = m_rocket.getSelectedConfiguration();
+    TestComponent& wide = m_top->addChild(TestComponent::make(0.1, ComponentKind::BODY_TUBE), 0);
+    wide.setOuterRadius(0.5);
+    ASSERT_EQ(config.getActiveComponents().at(2), &wide);
+    EXPECT_DOUBLE_EQ(config.getReferenceLength(), 0.04);
+    EXPECT_DOUBLE_EQ(QtRocket::getReferenceLength(ReferenceType::MAXIMUM, config), 0.04);
+    EXPECT_DOUBLE_EQ(QtRocket::getReferenceLength(ReferenceType::NOSECONE, config), 0.04);
+
+    // An internal component does not count either.
+    m_topBody->addChild(std::make_unique<InnerTube>()).setOuterRadius(0.3);
+    EXPECT_DOUBLE_EQ(QtRocket::getReferenceLength(ReferenceType::MAXIMUM, config), 0.04);
+}
+
 TEST_F(ConfigurationTest, RemovedComponentsLeaveTheConfigurationsAtOnce)
 {
     const FlightConfigurationId fcid;
     FlightConfiguration&        config = m_rocket.createFlightConfiguration(fcid);
-    m_mount->addMotor(fcid, motorD21());
+    addMotor(*m_mount, fcid, motorD21());
     m_rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
     ASSERT_TRUE(config.hasMotors());
 
@@ -1443,7 +1479,7 @@ TEST(FlightConfigurationRemoval, TheBoosterSetLeavesEveryConfiguration)
     Rocket&                     rocket = *f9h.rocket;
     const FlightConfigurationId other;
     rocket.createFlightConfiguration(other).setOnlyStage(f9h.coreStage->getStageNumber());
-    f9h.boosterMotorTubes->addMotor(other, motorD21());
+    addMotor(*f9h.boosterMotorTubes, other, motorD21());
     rocket.fireComponentChangeEvent(ComponentChangeEvent::kMotorChange);
     ASSERT_TRUE(rocket.getFlightConfiguration(f9h.fcid).getActiveInstances().containsKey(
         *f9h.boosterMotorTubes));
@@ -1505,6 +1541,7 @@ TEST(FlightConfigurationRemoval, AMountUnderAComponentThatStaysLeaves)
     const FlightConfiguration& config = rocket.getFlightConfiguration(f9h.fcid);
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2)
         << "its parent keeps its instances";
+    // HOOK(fins-lugs): the fins are a double carrying OpenRocket's three instances.
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterFins), 6) << "3 fins per booster";
     EXPECT_EQ(config.getAllMotors().size(), 1U);
     EXPECT_EQ(config.getActiveMotors().size(), 1U);
@@ -1603,11 +1640,11 @@ protected:
     NestedInstancesTest()
     {
         AxialStage& core = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_coreBody       = &core.addChild(TestBodyComponent::make(1.0, 0.05));
+        m_coreBody       = &core.addChild(std::make_unique<BodyTube>(1.0, 0.05));
         m_boosters       = &m_coreBody->addChild(std::make_unique<ParallelStage>(3));
-        m_boosterBody    = &m_boosters->addChild(TestBodyComponent::make(0.6, 0.03));
+        m_boosterBody    = &m_boosters->addChild(std::make_unique<BodyTube>(0.6, 0.03));
         m_pods           = &m_boosterBody->addChild(std::make_unique<PodSet>());
-        m_podBody        = &m_pods->addChild(TestBodyComponent::make(0.2, 0.01));
+        m_podBody        = &m_pods->addChild(std::make_unique<BodyTube>(0.2, 0.01));
         m_rocket.enableEvents();
         m_boosters->setRadius(RadiusMethod::FREE, 0.2);
         m_boosters->setAngleOffset(0.3);
@@ -1615,12 +1652,12 @@ protected:
         m_pods->setAngleOffset(0.1);
     }
 
-    Rocket             m_rocket;
-    TestBodyComponent* m_coreBody{nullptr};
-    ParallelStage*     m_boosters{nullptr};
-    TestBodyComponent* m_boosterBody{nullptr};
-    PodSet*            m_pods{nullptr};
-    TestBodyComponent* m_podBody{nullptr};
+    Rocket         m_rocket;
+    BodyTube*      m_coreBody{nullptr};
+    ParallelStage* m_boosters{nullptr};
+    BodyTube*      m_boosterBody{nullptr};
+    PodSet*        m_pods{nullptr};
+    BodyTube*      m_podBody{nullptr};
 };
 
 TEST_F(NestedInstancesTest, CountsMultiply)

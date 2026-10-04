@@ -2,33 +2,43 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <optional>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/PodSet.h"
+#include "QtRocket/rocket/Transition.h"
 #include "rocket/TestComponent.h"
 
 namespace
 {
 
+using QtRocket::BodyTube;
 using QtRocket::ComponentKind;
+using QtRocket::InnerTube;
+using QtRocket::PodSet;
 using QtRocket::RadiusMethod;
+using QtRocket::Transition;
 using QtRocket::Test::TestComponent;
 
+/// A body tube of radius 0.05 m, an inner tube of radius 0.02 m and a pod set whose bounding
+/// radius is 0.01 m (the radius of the body tube it holds).
 class RadiusMethodTest : public ::testing::Test
 {
 protected:
     RadiusMethodTest()
     {
-        m_bodyTube.setOuterRadius(0.05);
         m_innerTube.setOuterRadius(0.02);
-        m_pod.setBoundingRadius(0.01);
+        m_pod.addChild(std::make_unique<BodyTube>(0.1, 0.01));
     }
 
-    TestComponent m_bodyTube{ComponentKind::BODY_TUBE};
-    TestComponent m_innerTube{ComponentKind::INNER_TUBE};  // a Coaxial, but not a body tube
-    TestComponent m_pod{ComponentKind::POD_SET};
+    BodyTube  m_bodyTube{0.3, 0.05};
+    InnerTube m_innerTube;  // a Coaxial with an outer radius, but not a body tube
+    PodSet    m_pod;
 };
 
 TEST_F(RadiusMethodTest, CoaxialIsAlwaysOnTheAxis)
@@ -62,6 +72,34 @@ TEST_F(RadiusMethodTest, SurfaceIgnoresTheOffset)
     EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::SURFACE, &m_bodyTube, &m_pod, 0.3), 0.06);
     EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::SURFACE, nullptr, nullptr, 0.3), 0.0);
     EXPECT_EQ(getAsOffset(RadiusMethod::SURFACE, &m_bodyTube, &m_pod, 0.06), 0.0);
+}
+
+TEST_F(RadiusMethodTest, OnlyABodyTubeGivesTheParentRadius)
+{
+    // Java: parentComponent instanceof BodyTube. A component that only reports the kind BODY_TUBE
+    // (a TestComponent, a Coaxial with an outer radius) is not one, and neither is another
+    // symmetric component.
+    TestComponent lookalike{ComponentKind::BODY_TUBE};
+    lookalike.setOuterRadius(0.05);
+    EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::RELATIVE, &lookalike, &m_pod, 0.1), 0.11);
+    EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::SURFACE, &lookalike, &m_pod, 0.3), 0.01);
+    EXPECT_DOUBLE_EQ(getAsOffset(RadiusMethod::RELATIVE, &lookalike, &m_pod, 0.11), 0.1);
+
+    Transition transition;
+    transition.setForeRadius(0.05);
+    transition.setAftRadius(0.05);
+    EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::RELATIVE, &transition, &m_pod, 0.1), 0.11);
+    EXPECT_DOUBLE_EQ(getRadius(RadiusMethod::SURFACE, &transition, &m_pod, 0.3), 0.01);
+}
+
+TEST_F(RadiusMethodTest, AnAutomaticBodyTubeRadiusIsReadThroughItsGetter)
+{
+    // BodyTube.getOuterRadius() resolves an automatic radius; without a neighbour to take it
+    // from, that is the default radius.
+    m_bodyTube.setOuterRadiusAutomatic(true);
+    const double automatic = m_bodyTube.getOuterRadius();
+    EXPECT_EQ(getRadius(RadiusMethod::SURFACE, &m_bodyTube, nullptr, 0.0), automatic);
+    EXPECT_EQ(getAsOffset(RadiusMethod::RELATIVE, &m_bodyTube, nullptr, 0.2), 0.2 - automatic);
 }
 
 TEST_F(RadiusMethodTest, RelativeKeepsANegativeZeroOffset)
