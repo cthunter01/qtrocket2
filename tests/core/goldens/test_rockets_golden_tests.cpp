@@ -3,21 +3,18 @@
 // call for call from the real components) compared with what OpenRocket computes for the Java
 // rockets, in tests/data/goldens/testrocket-<name>/geometry.json (tools/openrocket-goldens).
 //
-// - Every component that is a real class is compared: its class, name, placement, mass
-//   properties (with and without the overrides), bounds and instances, and its "details": what
-//   the public getters of its Java class return (shape, radii, shoulders, wall, finish, material,
-//   radial and angular position, motor mount and cluster settings, recovery device dimensions,
-//   the rocket's reference type). These are the constructor arguments and setter values of
-//   TestRockets.java, so a fixture that drifts from it shows here. Every entry of "details" has
-//   to be compared: one that no comparison reads is reported.
-// - The fin sets and launch lugs are doubles that carry OpenRocket's values (HOOK(fins-lugs),
-//   see TestRockets.h). They are counted apart: what they carry (placement, mass properties,
-//   instances) is checked against the same entries, so that a wrong constant shows here, but a
-//   double has no shape, so its bounds and its details are not compared.
+// - Every component is compared: its class, name, placement, mass properties (with and without
+//   the overrides), bounds and instances, and its "details": what the public getters of its Java
+//   class return (shape, radii, shoulders, wall, finish, material, radial and angular position,
+//   motor mount and cluster settings, recovery device dimensions, a fin set's dimensions,
+//   cross-section, tab, fillets and outlines, a launch lug's radii, the rocket's reference
+//   type). These are the constructor arguments and setter values of TestRockets.java, so a
+//   fixture that drifts from it shows here. Every entry of "details" has to be compared: one
+//   that no comparison reads is reported.
 // - Every flight configuration is compared with it selected, as the harness dumps it: its id,
-//   name, stages, motors, reference values, lengths, active components and instances. A rocket
-//   with doubles is compared in the x extent of its bounds only (the y and z extents are the
-//   fins' and lugs'), and the instances of its doubles are left out.
+//   name, stages, motors, reference values, lengths, bounds, active components and, for every
+//   instance of every active component, its number, its location and the transformations of the
+//   instance and of its parent instance.
 //
 // Tolerances (plan section 6.4): geometry and mass relative 1e-9; positions and CGs absolute
 // 1e-9 m.
@@ -42,18 +39,23 @@
 
 #include "QtRocket/material/Material.h"
 #include "QtRocket/motor/IgnitionEvent.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
+#include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/BoxBounded.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/ExternalComponent.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
+#include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/LineInstanceable.h"
 #include "QtRocket/rocket/MassObject.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
@@ -67,6 +69,7 @@
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AnglePositionable.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
@@ -75,8 +78,8 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
+#include "QtRocket/util/Transformation.h"
 #include "goldens/GoldenData.h"
-#include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -92,8 +95,8 @@ using QtRocket::MotorConfiguration;
 using QtRocket::MotorMount;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::Transformation;
 using QtRocket::Test::TestBeta;
-using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::TestSimple2Stage;
@@ -191,6 +194,24 @@ public:
         }
     }
 
+    /// A transformation: each element of its matrix (the golden "rotation", 9 numbers, rows
+    /// first) and each of x, y and z of its translation within kAbsolute.
+    void transformation(std::string_view field, const json& expected, const Transformation& actual)
+    {
+        const json& rotation = expected.at("rotation");
+        for (std::size_t row = 0; row < 3; row++)
+        {
+            for (std::size_t column = 0; column < 3; column++)
+            {
+                absolute(std::format("{}.rotation[{}][{}]", field, row, column),
+                         number(rotation.at((row * 3) + column)),
+                         actual.matrix().at(row).at(column));
+            }
+        }
+        position(std::format("{}.translation", field), coordinate(expected.at("translation")),
+                 actual.translationVector());
+    }
+
     void text(std::string_view field, std::string_view expected, std::string_view actual)
     {
         if (expected != actual)
@@ -263,13 +284,6 @@ private:
         start     = end + 1;
     }
     return component;
-}
-
-/// Whether @p component is one of the doubles that stand for a fin set or a launch lug.
-// HOOK(fins-lugs): no component is a double once tier 6b has replaced them.
-[[nodiscard]] bool isDouble(const RocketComponent& component)
-{
-    return dynamic_cast<const TestComponent*>(&component) != nullptr;
 }
 
 /// Compares the class, the name and the placement of @p actual with the golden @p expected.
@@ -435,6 +449,15 @@ public:
         }
     }
 
+    /// A list of points (an outline): as many, each within kAbsolute.
+    void points(std::string_view key, std::span<const Coordinate> actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->positions(field(key), *expected, actual);
+        }
+    }
+
     /// Reports every entry of the golden details that no comparison read.
     void unread() const
     {
@@ -573,12 +596,64 @@ void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
     }
 }
 
+/// A fin set: its fins (count, thickness, cross-section, cant, base rotation), its tab and
+/// fillets, its areas and outlines, and the dimensions of a trapezoidal one.
+void compareFinSetDetails(Details& d, const QtRocket::FinSet& actual)
+{
+    d.relative("planformArea", actual.getPlanformArea());
+    d.absolute("thickness", actual.getThickness());
+    d.absolute("bodyRadius", actual.getBodyRadius());
+    d.integer("finCount", actual.getFinCount());
+    d.absolute("cantAngle", actual.getCantAngle());
+    d.absolute("baseRotation", actual.getBaseRotation());
+    d.text("crossSection", QtRocket::finCrossSectionName(actual.getCrossSection()));
+    d.absolute("span", actual.getSpan());
+    d.absolute("tabHeight", actual.getTabHeight());
+    d.absolute("tabLength", actual.getTabLength());
+    d.absolute("tabOffset", actual.getTabOffset());
+    d.absolute("filletRadius", actual.getFilletRadius());
+    d.material("filletMaterial", actual.getFilletMaterial());
+    d.points("finPoints", actual.getFinPoints());
+    d.points("rootPoints", actual.getRootPoints());
+    d.points("tabPoints", actual.getTabPoints());
+    if (const auto* trapezoid = dynamic_cast<const QtRocket::TrapezoidFinSet*>(&actual))
+    {
+        d.absolute("rootChord", trapezoid->getRootChord());
+        d.absolute("tipChord", trapezoid->getTipChord());
+        d.absolute("height", trapezoid->getHeight());
+        d.absolute("sweep", trapezoid->getSweep());
+        d.absolute("sweepAngle", trapezoid->getSweepAngle());
+    }
+}
+
+/// A fin set or a launch lug: its volume, finish and material, and what the class adds.
+void compareExternalDetails(Details& d, const QtRocket::ExternalComponent& actual)
+{
+    d.relative("componentVolume", actual.getComponentVolume());
+    d.text("finish", QtRocket::finishName(actual.getFinish()));
+    d.material("material", actual.getMaterial());
+    if (const auto* fins = dynamic_cast<const QtRocket::FinSet*>(&actual))
+    {
+        compareFinSetDetails(d, *fins);
+    }
+    if (const auto* lug = dynamic_cast<const QtRocket::LaunchLug*>(&actual))
+    {
+        d.absolute("outerRadius", lug->getOuterRadius());
+        d.absolute("innerRadius", lug->getInnerRadius());
+        d.absolute("thickness", lug->getThickness());
+    }
+}
+
 /// Compares the golden details of @p expected with @p actual, by the classes @p actual is of
 /// (the C++ counterpart of the harness's reflection), then reports the entries left over.
 void compareDetails(Mismatches& m, const json& expected, const RocketComponent& actual)
 {
     Details d(m, expected.at("details"));
     compareCommonDetails(d, actual);
+    if (const auto* external = dynamic_cast<const QtRocket::ExternalComponent*>(&actual))
+    {
+        compareExternalDetails(d, *external);
+    }
     if (const auto* body = dynamic_cast<const QtRocket::SymmetricComponent*>(&actual))
     {
         compareBodyDetails(d, *body);
@@ -603,13 +678,11 @@ void compareDetails(Mismatches& m, const json& expected, const RocketComponent& 
 /// What a comparison of a rocket's components found.
 struct ComponentComparison
 {
-    int         compared{0};  ///< the components that are real classes, compared in full
-    int         doubles{0};   ///< the fin sets and launch lugs (HOOK(fins-lugs))
+    int         compared{0};  ///< the components compared
     std::string report;       ///< the mismatches, empty when everything matched
 };
 
-/// Compares every component of @p rocket with its golden entry in @p geometry: a real class in
-/// full, a double in what it carries.
+/// Compares every component of @p rocket with its golden entry in @p geometry.
 [[nodiscard]] ComponentComparison compareComponents(Rocket& rocket, const json& geometry)
 {
     ComponentComparison result;
@@ -628,19 +701,10 @@ struct ComponentComparison
             comparePlacement(m, expected, *actual);
             compareMass(m, expected, *actual);
             compareInstances(m, expected, *actual);
-            if (isDouble(*actual))
-            {
-                // HOOK(fins-lugs): a double has no shape; tier 6b compares the bounds and the
-                // details too.
-                result.doubles++;
-            }
-            else
-            {
-                m.positions("componentBounds", expected.at("componentBounds"),
-                            actual->getComponentBounds());
-                compareDetails(m, expected, *actual);
-                result.compared++;
-            }
+            m.positions("componentBounds", expected.at("componentBounds"),
+                        actual->getComponentBounds());
+            compareDetails(m, expected, *actual);
+            result.compared++;
         }
         result.report += m.report();
     }
@@ -691,6 +755,10 @@ void compareMotor(Mismatches& m, const json& expected, Rocket& rocket,
            motor.toMotorName(preferences));
     m.text(field + " designation", expected.at("designation").get<std::string>(),
            motor.getMotor()->getDesignation());
+    // The manufacturer is the thrust curve motor's (every motor of the test rockets is one).
+    const auto* curve = dynamic_cast<const QtRocket::ThrustCurveMotor*>(motor.getMotor().get());
+    m.text(field + " manufacturer", expected.at("manufacturer").get<std::string>(),
+           curve != nullptr ? curve->getManufacturer().getSimpleName() : std::string{});
     m.text(field + " digest", expected.at("digest").get<std::string>(),
            motor.getMotor()->getDigest());
     m.relative(field + " ejectionDelay", number(expected.at("ejectionDelay")),
@@ -711,10 +779,8 @@ void compareMotor(Mismatches& m, const json& expected, Rocket& rocket,
                mount->getMotorPosition(config.getId()));
 }
 
-/// Compares the reference values, the lengths and the bounds of @p config. With @p fullBounds
-/// the whole boxes are compared, else their x extent only (the rocket has fin and lug doubles).
-void compareExtent(Mismatches& m, const json& expected, const FlightConfiguration& config,
-                   bool fullBounds)
+/// Compares the reference values, the lengths and the bounds of @p config.
+void compareExtent(Mismatches& m, const json& expected, const FlightConfiguration& config)
 {
     m.relative("referenceLength", number(expected.at("referenceLength")),
                config.getReferenceLength());
@@ -727,23 +793,38 @@ void compareExtent(Mismatches& m, const json& expected, const FlightConfiguratio
     const BoundingBox aero     = config.getBoundingBoxAerodynamic();
     const json&       boxJson  = expected.at("boundingBox");
     const json&       aeroJson = expected.at("boundingBoxAerodynamic");
-    if (fullBounds)
-    {
-        m.position("boundingBox.min", coordinate(boxJson.at("min")), box.min());
-        m.position("boundingBox.max", coordinate(boxJson.at("max")), box.max());
-        m.position("boundingBoxAerodynamic.min", coordinate(aeroJson.at("min")), aero.min());
-        m.position("boundingBoxAerodynamic.max", coordinate(aeroJson.at("max")), aero.max());
-        return;
-    }
-    // HOOK(fins-lugs): the y and z extents are the fins' and the lugs'.
-    m.absolute("boundingBox.min.x", coordinate(boxJson.at("min")).x, box.min().x);
-    m.absolute("boundingBox.max.x", coordinate(boxJson.at("max")).x, box.max().x);
-    m.absolute("boundingBoxAerodynamic.min.x", coordinate(aeroJson.at("min")).x, aero.min().x);
-    m.absolute("boundingBoxAerodynamic.max.x", coordinate(aeroJson.at("max")).x, aero.max().x);
+    m.position("boundingBox.min", coordinate(boxJson.at("min")), box.min());
+    m.position("boundingBox.max", coordinate(boxJson.at("max")), box.max());
+    m.position("boundingBoxAerodynamic.min", coordinate(aeroJson.at("min")), aero.min());
+    m.position("boundingBoxAerodynamic.max", coordinate(aeroJson.at("max")), aero.max());
 }
 
-/// Compares the active components of @p config and the instances of those that are real
-/// classes: their numbers and their locations in the rocket.
+/// Compares the instance contexts @p contexts of the component at @p path with the golden
+/// @p instances: as many, each with its number, location and transformations.
+void compareInstanceContexts(Mismatches& m, const std::string& path, const json& instances,
+                             std::span<const InstanceContext> contexts)
+{
+    if (contexts.size() != instances.size())
+    {
+        m.missing(std::format("instances of {}: expected {}, got {}", path, instances.size(),
+                              contexts.size()));
+        return;
+    }
+    for (std::size_t i = 0; i < contexts.size(); i++)
+    {
+        const json&       expected = instances.at(i);
+        const std::string field    = std::format("instance {} of {}", i, path);
+        m.integer(field + " number", expected.at("instanceNumber").get<int>(),
+                  contexts[i].instanceNumber);
+        m.position(field + " location", coordinate(expected.at("location")),
+                   contexts[i].getLocation());
+        m.transformation(field + " transform", expected.at("transform"), contexts[i].transform);
+        m.transformation(field + " parentTransform", expected.at("parentTransform"),
+                         contexts[i].getParentTransform());
+    }
+}
+
+/// Compares the active components of @p config and their instances.
 void compareActiveInstances(Mismatches& m, const json& expected, Rocket& rocket,
                             const FlightConfiguration& config)
 {
@@ -767,34 +848,19 @@ void compareActiveInstances(Mismatches& m, const json& expected, Rocket& rocket,
     {
         const auto             path      = entry.at("path").get<std::string>();
         const RocketComponent* component = componentAt(rocket, path);
-        if (component == nullptr || isDouble(*component))
+        if (component == nullptr)
         {
+            m.missing(std::format("instances of {}: no such component", path));
             continue;
         }
-        const std::span<const InstanceContext> contexts =
-            config.getActiveInstances().getInstanceContexts(*component);
-        const json& instances = entry.at("instances");
-        if (contexts.size() != instances.size())
-        {
-            m.missing(std::format("instances of {}: expected {}, got {}", path, instances.size(),
-                                  contexts.size()));
-            continue;
-        }
-        for (std::size_t i = 0; i < contexts.size(); i++)
-        {
-            const std::string field = std::format("instance {} of {}", i, path);
-            m.integer(field + " number", instances.at(i).at("instanceNumber").get<int>(),
-                      contexts[i].instanceNumber);
-            m.position(field + " location", coordinate(instances.at(i).at("location")),
-                       contexts[i].getLocation());
-        }
+        compareInstanceContexts(m, path, entry.at("instances"),
+                                config.getActiveInstances().getInstanceContexts(*component));
     }
 }
 
 /// Compares every flight configuration of @p rocket with its golden entry in @p geometry, each
 /// one selected while it is compared (as the golden harness dumps it); returns the mismatches.
-[[nodiscard]] std::string compareConfigurations(Rocket& rocket, const json& geometry,
-                                                bool fullBounds)
+[[nodiscard]] std::string compareConfigurations(Rocket& rocket, const json& geometry)
 {
     const QtRocket::InMemoryPreferences preferences;
     const FlightConfigurationId         selected = rocket.getSelectedConfiguration().getId();
@@ -816,7 +882,7 @@ void compareActiveInstances(Mismatches& m, const json& expected, Rocket& rocket,
         {
             compareMotor(m, motor, rocket, config, preferences);
         }
-        compareExtent(m, expected, config, fullBounds);
+        compareExtent(m, expected, config);
         compareActiveInstances(m, expected, rocket, config);
         report += m.report();
     }
@@ -824,9 +890,9 @@ void compareActiveInstances(Mismatches& m, const json& expected, Rocket& rocket,
     return report;
 }
 
-/// Expects @p rocket to be the golden input @p input: its components (@p components of them
-/// real classes, @p doubles of them doubles), then its configurations.
-void expectGoldenRocket(Rocket& rocket, const std::string& input, int components, int doubles)
+/// Expects @p rocket to be the golden input @p input: its @p components components, then its
+/// configurations.
+void expectGoldenRocket(Rocket& rocket, const std::string& input, int components)
 {
     const QtRocket::Result<json> geometry = loadGeometry(input);
     ASSERT_TRUE(geometry.has_value()) << geometry.error().message;
@@ -835,47 +901,38 @@ void expectGoldenRocket(Rocket& rocket, const std::string& input, int components
     const ComponentComparison comparison = compareComponents(rocket, *geometry);
     EXPECT_EQ(comparison.report, "");
     EXPECT_EQ(comparison.compared, components);
-    EXPECT_EQ(comparison.doubles, doubles);
 
-    EXPECT_EQ(compareConfigurations(rocket, *geometry, doubles == 0), "");
+    EXPECT_EQ(compareConfigurations(rocket, *geometry), "");
 }
 
-/// The number of real components and of doubles of each rebuilt rocket.
-// HOOK(fins-lugs): with the real fin sets and launch lugs every component is compared (10, 17,
-// 16 and 5) and no double is left.
-constexpr int kAlphaComponents  = 8;
-constexpr int kAlphaDoubles     = 2;
-constexpr int kBetaComponents   = 13;
-constexpr int kBetaDoubles      = 4;
-constexpr int kFalconComponents = 15;
-constexpr int kFalconDoubles    = 1;
+/// The number of components of each rebuilt rocket: every component of its geometry.json.
+constexpr int kAlphaComponents  = 10;
+constexpr int kBetaComponents   = 17;
+constexpr int kFalconComponents = 16;
 constexpr int kSimpleComponents = 5;
-constexpr int kSimpleDoubles    = 0;
 
 TEST(TestRocketsGolden, EstesAlphaIII)
 {
     const TestEstesAlphaIII alpha;
-    expectGoldenRocket(*alpha.rocket, "testrocket-estes-alpha-iii", kAlphaComponents,
-                       kAlphaDoubles);
+    expectGoldenRocket(*alpha.rocket, "testrocket-estes-alpha-iii", kAlphaComponents);
 }
 
 TEST(TestRocketsGolden, Beta)
 {
     const TestBeta beta;
-    expectGoldenRocket(*beta.rocket, "testrocket-beta", kBetaComponents, kBetaDoubles);
+    expectGoldenRocket(*beta.rocket, "testrocket-beta", kBetaComponents);
 }
 
 TEST(TestRocketsGolden, Falcon9Heavy)
 {
     const TestFalcon9Heavy f9h;
-    expectGoldenRocket(*f9h.rocket, "testrocket-falcon-9-heavy", kFalconComponents, kFalconDoubles);
+    expectGoldenRocket(*f9h.rocket, "testrocket-falcon-9-heavy", kFalconComponents);
 }
 
 TEST(TestRocketsGolden, Simple2Stage)
 {
     const TestSimple2Stage simple;
-    expectGoldenRocket(*simple.rocket, "testrocket-simple-2-stage", kSimpleComponents,
-                       kSimpleDoubles);
+    expectGoldenRocket(*simple.rocket, "testrocket-simple-2-stage", kSimpleComponents);
 }
 
 /// The selected configuration of each rebuilt rocket is the one OpenRocket's maker leaves
@@ -898,45 +955,23 @@ TEST(TestRocketsGolden, SelectedConfigurations)
     EXPECT_TRUE(isSelected(*TestSimple2Stage{}.rocket, "testrocket-simple-2-stage"));
 }
 
-/// The number of fin sets and launch lugs among the golden @p components.
-[[nodiscard]] int countFinsAndLugs(const json& components)
-{
-    int count = 0;
-    for (const json& component : components)
-    {
-        const auto type = component.at("type").get<std::string>();
-        if (type == "TrapezoidFinSet" || type == "LaunchLug")
-        {
-            count++;
-        }
-    }
-    return count;
-}
-
-/// Expects the golden input @p input to hold @p doubles fin sets and launch lugs and
-/// @p components other components.
-void expectGoldenCounts(const std::string& input, int components, int doubles)
+/// The number of components of the golden input @p input, -1 when it cannot be read.
+[[nodiscard]] int goldenComponentCount(const std::string& input)
 {
     const QtRocket::Result<json> geometry = loadGeometry(input);
-    ASSERT_TRUE(geometry.has_value()) << geometry.error().message;
-    const json& all        = geometry->at("components");
-    const int   finsOrLugs = countFinsAndLugs(all);
-    EXPECT_EQ(finsOrLugs, doubles) << input;
-    EXPECT_EQ(static_cast<int>(all.size()) - finsOrLugs, components) << input;
+    return geometry ? static_cast<int>(geometry->at("components").size()) : -1;
 }
 
 /// How many components of each rocket the golden tests compare: every component of the golden
-/// file is either compared in full or one of the known doubles.
+/// file.
 TEST(TestRocketsGoldenCoverage, ComponentsComparedPerRocket)
 {
-    expectGoldenCounts("testrocket-estes-alpha-iii", kAlphaComponents, kAlphaDoubles);
-    expectGoldenCounts("testrocket-beta", kBetaComponents, kBetaDoubles);
-    expectGoldenCounts("testrocket-falcon-9-heavy", kFalconComponents, kFalconDoubles);
-    expectGoldenCounts("testrocket-simple-2-stage", kSimpleComponents, kSimpleDoubles);
-    EXPECT_EQ(kAlphaComponents + kBetaComponents + kFalconComponents + kSimpleComponents, 41)
-        << "the components the four rocket tests compare in full";
-    EXPECT_EQ(kAlphaDoubles + kBetaDoubles + kFalconDoubles + kSimpleDoubles, 7)
-        << "the fin sets and launch lugs";
+    EXPECT_EQ(goldenComponentCount("testrocket-estes-alpha-iii"), kAlphaComponents);
+    EXPECT_EQ(goldenComponentCount("testrocket-beta"), kBetaComponents);
+    EXPECT_EQ(goldenComponentCount("testrocket-falcon-9-heavy"), kFalconComponents);
+    EXPECT_EQ(goldenComponentCount("testrocket-simple-2-stage"), kSimpleComponents);
+    EXPECT_EQ(kAlphaComponents + kBetaComponents + kFalconComponents + kSimpleComponents, 48)
+        << "the components the four rocket tests compare";
 }
 
 }  // namespace

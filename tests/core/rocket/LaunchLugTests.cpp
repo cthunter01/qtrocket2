@@ -67,6 +67,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -96,6 +97,7 @@ using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
+using QtRocket::Test::TestEstesAlphaIII;
 
 /// LaunchLugTest.EPSILON (MathUtil.EPSILON).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
@@ -111,7 +113,10 @@ using Events = std::vector<int>;
 
 /// The nose cone, body tube and launch lug of TestRockets.makeEstesAlphaIII(), built in the
 /// order and with the calls of the Java factory (its fin set, internal components and motors are
-/// left out: the lug does not read them).
+/// left out: the lug does not read them). It is the rocket of the OpenRocket program that
+/// computed the values pinned in the LaunchLugOnBody suite, which has no JUnit counterpart.
+/// (LaunchLugTest's own cases on makeEstesAlphaIII() run on the whole rocket: TestEstesAlphaIII
+/// of TestRockets.h.)
 struct EstesAlphaIII
 {
     Rocket      rocket;
@@ -170,13 +175,15 @@ void expectCG(const Coordinate& cg, double x, double y, double z, double weight)
 // Java: testLaunchLugLocationZeroAngle
 TEST(LaunchLugTest, LaunchLugLocationZeroAngle)
 {
-    const EstesAlphaIII alpha;
-    LaunchLug&          lug = *alpha.lug;
+    const TestEstesAlphaIII alpha;
+
+    const auto& body = dynamic_cast<BodyTube&>(alpha.rocket->getChild(0).getChild(1));
+    auto&       lug  = dynamic_cast<LaunchLug&>(alpha.rocket->getChild(0).getChild(1).getChild(1));
     lug.setInstanceSeparation(0.05);
     lug.setInstanceCount(2);
 
-    const double                  expX = 0.111 + alpha.body->getComponentLocations().at(0).x;
-    const double                  expR = -(alpha.body->getOuterRadius() + lug.getOuterRadius());
+    const double                  expX = 0.111 + body.getComponentLocations().at(0).x;
+    const double                  expR = -(body.getOuterRadius() + lug.getOuterRadius());
     Coordinate                    expPos{expX, expR, 0, 0};
     const std::vector<Coordinate> actPos = lug.getComponentLocations();
     ASSERT_EQ(actPos.size(), 2U);
@@ -193,14 +200,16 @@ TEST(LaunchLugTest, LaunchLugLocationZeroAngle)
 // Java: testLaunchLugLocationAtAngles
 TEST(LaunchLugTest, LaunchLugLocationAtAngles)
 {
-    const EstesAlphaIII alpha;
-    LaunchLug&          lug        = *alpha.lug;
-    const double        startAngle = std::numbers::pi / 2;
+    const TestEstesAlphaIII alpha;
+
+    const auto&  body = dynamic_cast<BodyTube&>(alpha.rocket->getChild(0).getChild(1));
+    auto&        lug  = dynamic_cast<LaunchLug&>(alpha.rocket->getChild(0).getChild(1).getChild(1));
+    const double startAngle = std::numbers::pi / 2;
     lug.setAngleOffset(startAngle);
     lug.setInstanceSeparation(0.05);
     lug.setInstanceCount(2);
 
-    const double                  expX = 0.111 + alpha.body->getComponentLocations().at(0).x;
+    const double                  expX = 0.111 + body.getComponentLocations().at(0).x;
     const double                  expR = 0.015;
     const double                  expY = std::cos(startAngle) * expR;
     const double                  expZ = std::sin(startAngle) * expR;
@@ -1133,7 +1142,8 @@ TEST_F(LaunchLugOnBody, SitsOnTheBodysSurface)
     EXPECT_EQ(differences(pinsAlpha(), lug()), "");
     EXPECT_EQ(lug().getAxialMethod(), AxialMethod::TOP);
 
-    // The launch lug assertions of RocketTest.testEstesAlphaIII.
+    // The launch lug assertions of RocketTest.testEstesAlphaIII, which hold on this reduced
+    // rocket too (RocketTests.cpp ports the JUnit case on the whole rocket).
     EXPECT_EQ(lug().getInstanceCount(), 1) << lug().getName() << " have incorrect count: ";
     EXPECT_EQ(lug().getComponentLocations().at(0), (Coordinate{0.181, -0.015, 0}))
         << lug().getName() << " not positioned correctly: ";
@@ -1489,9 +1499,11 @@ TEST(LaunchLugPreset, APresetGivenByItsThickness)
 
 // ========================================================================== automatic radii
 
-/// The body components of TestRockets.makeBeta() (see BodyBeta in RocketTests.cpp), with its two
-/// launch lugs when @p withLugs: a nose cone and a body tube in the sustainer stage, a body tube
-/// and a tail cone in the booster stage; TEST_FCID_1 selected with every stage active.
+/// The body components of TestRockets.makeBeta(), with its two launch lugs when @p withLugs: a
+/// nose cone and a body tube in the sustainer stage, a body tube and a tail cone in the booster
+/// stage; TEST_FCID_1 selected with every stage active. (The whole rocket is TestBeta in
+/// TestRockets.h, on which RocketTests.cpp runs RocketTest's own cases; this one exists to show
+/// what the lugs change.)
 struct Beta
 {
     Rocket      rocket;

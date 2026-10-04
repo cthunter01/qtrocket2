@@ -21,9 +21,11 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/DesignType.h"
 #include "QtRocket/rocket/EngineBlock.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/ParallelStage.h"
@@ -31,7 +33,6 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
-#include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TubeCoupler.h"
@@ -45,6 +46,7 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/AxialOffsetSupport.h"
 #include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
@@ -62,9 +64,11 @@ using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::DesignType;
 using QtRocket::EngineBlock;
+using QtRocket::FinSet;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::InnerTube;
+using QtRocket::LaunchLug;
 using QtRocket::ModId;
 using QtRocket::NoseCone;
 using QtRocket::Parachute;
@@ -966,9 +970,7 @@ template <class Component>
     return component.getComponentLocations().at(0);
 }
 
-/// RocketTest.testEstesAlphaIII: the location of every component and the x extent of the bounds.
-/// Deferred until the fins and the launch lug are real classes (HOOK(fins-lugs)): the y and z
-/// extents of the bounds, which need the real fin and lug shapes.
+/// RocketTest.testEstesAlphaIII: the location of every component and the bounds.
 TEST(RocketEstesAlphaIII, ComponentLocations)
 {
     const QtRocket::Test::TestEstesAlphaIII alpha;
@@ -983,18 +985,17 @@ TEST(RocketEstesAlphaIII, ComponentLocations)
     EXPECT_EQ(location(body), (Coordinate{0.07, 0, 0})) << body.getName();
 
     {
-        // HOOK(fins-lugs): the fins are a double carrying OpenRocket's instance offsets.
-        const RocketComponent& fins = body.getChild(0);
-        EXPECT_EQ(fins.kind(), ComponentKind::TRAPEZOID_FIN_SET);
+        const auto& fins = childAs<FinSet>(body, 0);
         EXPECT_EQ(fins.getInstanceCount(), 3) << fins.getName() << " have incorrect count: ";
-        EXPECT_EQ(location(fins), (Coordinate{0.22, 0.012, 0})) << "fin #1";
+        // fin #1
+        EXPECT_EQ(location(fins), (Coordinate{0.22, 0.012, 0}))
+            << fins.getName() << " not positioned correctly: ";
 
-        // HOOK(fins-lugs): the lug is a double carrying OpenRocket's instance offset (its radial
-        // offset, y = -0.015), which LaunchLug computes.
-        const RocketComponent& lugs = body.getChild(1);
-        EXPECT_EQ(lugs.kind(), ComponentKind::LAUNCH_LUG);
+        const auto& lugs = childAs<LaunchLug>(body, 1);
         EXPECT_EQ(lugs.getInstanceCount(), 1) << lugs.getName() << " have incorrect count: ";
-        EXPECT_EQ(location(lugs), (Coordinate{0.181, -0.015, 0})) << lugs.getName();
+        // singular instance:
+        EXPECT_EQ(location(lugs), (Coordinate{0.181, -0.015, 0}))
+            << lugs.getName() << " not positioned correctly: ";
 
         auto& mmt = childAs<InnerTube>(body, 2);
         EXPECT_EQ(location(mmt), (Coordinate{0.203, 0, 0})) << mmt.getName();
@@ -1011,8 +1012,11 @@ TEST(RocketEstesAlphaIII, ComponentLocations)
     const QtRocket::BoundingBox bounds = rocket.getBoundingBox();
     EXPECT_NEAR(bounds.min().x, 0.0, kEpsilon);
     EXPECT_NEAR(bounds.max().x, 0.27, kEpsilon);
-    // HOOK(fins-lugs): min y -0.032385640, min z -0.054493575, max y 0.062000000 and max z
-    // 0.052893575 need the real fins and lug.
+
+    EXPECT_NEAR(-0.032385640, bounds.min().y, kEpsilon);
+    EXPECT_NEAR(-0.054493575, bounds.min().z, kEpsilon);
+    EXPECT_NEAR(0.062000000, bounds.max().y, kEpsilon);
+    EXPECT_NEAR(0.052893575, bounds.max().z, kEpsilon);
 }
 
 /// RocketTest.testEstesAlphaIII, the centering rings: two instances, also after a round trip
@@ -1059,10 +1063,10 @@ struct AxialPositionTestCase
 };
 
 /// Whether @p fins follow @p cur (see AxialPositionTestCase).
-::testing::AssertionResult repositions(TestComponent& fins, const AxialPositionTestCase& cur)
+::testing::AssertionResult repositions(FinSet& fins, const AxialPositionTestCase& cur)
 {
     // test repositioning
-    fins.setAxialOffset(cur.beginMethod, cur.beginOffset);
+    QtRocket::Test::setAxialOffset(fins, cur.beginMethod, cur.beginOffset);
     if (fins.getAxialMethod() != cur.beginMethod)
     {
         return ::testing::AssertionFailure() << "incorrect start axial-position-method";
@@ -1085,13 +1089,13 @@ struct AxialPositionTestCase
     return ::testing::AssertionSuccess();
 }
 
-/// RocketTest.testChangeAxialMethod, on the real body tube.
-// HOOK(fins-lugs): the fins are a double; tier 6b runs this on the TrapezoidFinSet.
+/// RocketTest.testChangeAxialMethod.
 TEST(RocketEstesAlphaIII, ChangeAxialMethod)
 {
     const QtRocket::Test::TestEstesAlphaIII alpha;
-    const BodyTube&                         body = *alpha.body;
-    TestComponent&                          fins = *alpha.fins;
+    auto&                                   stage = childAs<AxialStage>(*alpha.rocket, 0);
+    auto&                                   body  = childAs<BodyTube>(stage, 1);
+    auto&                                   fins  = childAs<FinSet>(body, 0);
 
     {  // verify construction:
         EXPECT_NEAR(0.20, body.getLength(), kEpsilon) << "incorrect body length:";
@@ -1151,13 +1155,13 @@ TEST(RocketEstesAlphaIII, ChangeAxialMethod)
     }
 }
 
-/// RocketTest.testComponentLocationCacheInvalidatesOnMove, on the real body tube.
-// HOOK(fins-lugs): the fins are a double; tier 6b runs this on the TrapezoidFinSet.
+/// RocketTest.testComponentLocationCacheInvalidatesOnMove.
 TEST(RocketEstesAlphaIII, ComponentLocationCacheInvalidatesOnMove)
 {
     const QtRocket::Test::TestEstesAlphaIII alpha;
-    const BodyTube&                         body = *alpha.body;
-    TestComponent&                          fins = *alpha.fins;
+    auto&                                   stage = childAs<AxialStage>(*alpha.rocket, 0);
+    auto&                                   body  = childAs<BodyTube>(stage, 1);
+    auto&                                   fins  = childAs<FinSet>(body, 0);
 
     // Warm the caches before moving the fin set so the assertions cover invalidation as well.
     const Coordinate initialAbsolute = location(fins);
@@ -1225,8 +1229,7 @@ TEST(RocketEstesAlphaIII, UuidSearch)
     EXPECT_EQ(rocket.findComponent(QtRocket::Uuid{0U, 0U}), nullptr) << "Failed to find REMOVED";
 }
 
-/// RocketTest.testBeta: the locations of the booster's components and the x extent of the bounds
-/// (HOOK(fins-lugs): the y and z extents need the real fins and lugs).
+/// RocketTest.testBeta: the locations of the booster's components and the bounds.
 TEST(RocketBeta, ComponentLocations)
 {
     const QtRocket::Test::TestBeta beta;
@@ -1241,11 +1244,11 @@ TEST(RocketBeta, ComponentLocations)
             const auto& coupler = childAs<TubeCoupler>(body, 0);
             EXPECT_EQ(location(coupler), (Coordinate{0.255, 0, 0})) << coupler.getName();
 
-            // HOOK(fins-lugs): the fins are a double carrying OpenRocket's instance offsets.
-            const RocketComponent& fins = body.getChild(1);
-            EXPECT_EQ(fins.kind(), ComponentKind::TRAPEZOID_FIN_SET);
+            const auto& fins = childAs<FinSet>(body, 1);
             EXPECT_EQ(fins.getInstanceCount(), 3) << fins.getName() << " have incorrect count: ";
-            EXPECT_EQ(location(fins), (Coordinate{0.28, 0.012, 0})) << "fin #1";
+            // fin #1
+            EXPECT_EQ(location(fins), (Coordinate{0.28, 0.012, 0}))
+                << fins.getName() << " not positioned correctly: ";
 
             const auto& mmt = childAs<InnerTube>(body, 2);
             EXPECT_EQ(location(mmt), (Coordinate{0.285, 0, 0})) << mmt.getName();
@@ -1255,8 +1258,11 @@ TEST(RocketBeta, ComponentLocations)
     const QtRocket::BoundingBox bounds = rocket.getBoundingBox();
     EXPECT_NEAR(bounds.min().x, 0.0, kEpsilon);
     EXPECT_NEAR(bounds.max().x, 0.335, kEpsilon);
-    // HOOK(fins-lugs): min y -0.032385640, min z -0.054493575, max y 0.062000000 and max z
-    // 0.052893575 need the real fins and lugs.
+
+    EXPECT_NEAR(-0.032385640, bounds.min().y, kEpsilon);
+    EXPECT_NEAR(-0.054493575, bounds.min().z, kEpsilon);
+    EXPECT_NEAR(0.062000000, bounds.max().y, kEpsilon);
+    EXPECT_NEAR(0.052893575, bounds.max().z, kEpsilon);
 }
 
 /// Whether @p c sits at @p offset in its parent and at @p location in the rocket (x only, as
@@ -1320,9 +1326,7 @@ TEST(RocketFalcon9Heavy, BoosterSetLocations)
     EXPECT_NEAR(0.0, boosterLocations.at(0).z, kEpsilon) << boosters.getName();
 }
 
-/// RocketTest.testFalcon9HComponentLocations, the core stage and the boosters, and the x extent
-/// of the bounds (HOOK(fins-lugs): the y extent, -0.2155 to 0.2155, and the z extent,
-/// -0.12069451 to 0.12069451, need the real fins).
+/// RocketTest.testFalcon9HComponentLocations, the core stage and the boosters, and the bounds.
 TEST(RocketFalcon9Heavy, CoreAndBoosterLocations)
 {
     const QtRocket::Test::TestFalcon9Heavy f9h;
@@ -1337,15 +1341,18 @@ TEST(RocketFalcon9Heavy, CoreAndBoosterLocations)
     auto& boosterBody = childAs<BodyTube>(boosters, 1);
     EXPECT_TRUE(isAt(boosterBody, 0.08, 0.564));
     EXPECT_TRUE(isAt(childAs<InnerTube>(boosterBody, 0), 0.65, 1.214));
-    // HOOK(fins-lugs): the fins are a double (positioned BOTTOM, as the Java fins).
-    const RocketComponent& boosterFins = boosterBody.getChild(1);
-    EXPECT_EQ(boosterFins.kind(), ComponentKind::TRAPEZOID_FIN_SET);
-    EXPECT_TRUE(isAt(boosterFins, 0.480, 1.044));
+    EXPECT_TRUE(isAt(childAs<FinSet>(boosterBody, 1), 0.480, 1.044));
 
     const std::string           tree   = rocket.toDebugTree();
     const QtRocket::BoundingBox bounds = rocket.getBoundingBox();
     EXPECT_NEAR(0.0, bounds.min().x, kEpsilon) << tree;
     EXPECT_NEAR(1.364, bounds.max().x, kEpsilon) << tree;
+
+    EXPECT_NEAR(-0.215500, bounds.min().y, kEpsilon) << tree;
+    EXPECT_NEAR(0.215500, bounds.max().y, kEpsilon) << tree;
+
+    EXPECT_NEAR(-0.12069451, bounds.min().z, kEpsilon) << tree;
+    EXPECT_NEAR(0.12069451, bounds.max().z, kEpsilon) << tree;
 }
 
 TEST(RocketFalcon9Heavy, DebugTreeShowsTheMountedMotors)
@@ -1579,83 +1586,14 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
 
 // ========================================================================= automatic radii
 
-/// A stand-in for OpenRocket's LaunchLug in the automatic radius tests: a launch lug's
-/// componentChanged() reads the radius of the symmetric component it sits on at both of its ends
-/// (to compute its radial offset), and reading an automatic body tube radius refreshes the tube's
-/// reference component. RocketTest.testAutoSizeNextComponent depends on that side effect, so
-/// LuggedBeta carries the two lugs of TestRockets.makeBeta() as this stand-in until LaunchLug is
-/// ported.
-/// HOOK(launch-lug): replace with the real LaunchLug once it is ported.
-// HOOK(fins-lugs): tier 6b deletes this with LuggedBeta (see there)
-class LaunchLugStandIn : public TestComponent
-{
-public:
-    LaunchLugStandIn() : TestComponent(ComponentKind::LAUNCH_LUG, AxialMethod::TOP, 0.050) { }
-
-protected:
-    void componentChanged(const ComponentChangeEvent& event) override
-    {
-        TestComponent::componentChanged(event);
-        const RocketComponent* body = getParent();
-        while (body != nullptr &&
-               dynamic_cast<const QtRocket::SymmetricComponent*>(body) == nullptr)
-        {
-            body = body->getParent();
-        }
-        if (body == nullptr)
-        {
-            return;
-        }
-        const auto&  symmetric = dynamic_cast<const QtRocket::SymmetricComponent&>(*body);
-        const double x1        = toRelative(Coordinate::kNul, *body).at(0).x;
-        const double x2        = toRelative(Coordinate{getLength(), 0, 0}, *body).at(0).x;
-        static_cast<void>(symmetric.getRadius(QtRocket::MathUtil::clamp(x1, 0, body->getLength())));
-        static_cast<void>(symmetric.getRadius(QtRocket::MathUtil::clamp(x2, 0, body->getLength())));
-    }
-};
-
-/// TestRockets.makeBeta() for the automatic radius tests: TestBeta (TestRockets.h, built from the
-/// real body and internal components) with its two launch lug doubles replaced, at the same
-/// child index, offset and name, by lugs that read the body radius as Java's LaunchLug does.
-/// TestBeta's own lug doubles are inert, and without that side effect the last step of
-/// RocketTest.testAutoSizeNextComponent would give 0.025 m instead of OpenRocket's 0.012 m.
-// HOOK(launch-lug), HOOK(fins-lugs): once TestBeta's lugs are real LaunchLugs, RocketAutoSize
-// runs on TestBeta itself; this struct and LaunchLugStandIn are then deleted.
-struct LuggedBeta : QtRocket::Test::TestBeta
-{
-    LuggedBeta()
-    {
-        lug        = &replaceLug(*body, *lug, 0.111);
-        boosterLug = &replaceLug(*boosterBody, *boosterLug, 0.0);
-    }
-
-private:
-    /// Replaces the lug double @p old of @p parent by a LaunchLugStandIn positioned TOP at
-    /// @p offset, with the same name and child index.
-    static TestComponent& replaceLug(BodyTube& parent, const TestComponent& old, double offset)
-    {
-        const std::optional<std::size_t> index = parent.getChildPosition(&old);
-        if (!index)
-        {
-            QtRocket::bug("the launch lug double is not a child of its body");
-        }
-        const std::string name = old.getName();
-        static_cast<void>(parent.removeChild(&old));
-        auto lug = std::make_unique<LaunchLugStandIn>();
-        lug->setName(name);
-        lug->setAxialOffset(AxialMethod::TOP, offset);
-        return parent.addChild(std::move(lug), *index);
-    }
-};
-
 /// RocketTest's tolerance (MathUtil.EPSILON).
 constexpr double kAutoSizeEpsilon = kEpsilon;
 
 /// RocketTest.testAutoSizePreviousComponent.
 TEST(RocketAutoSize, PreviousComponent)
 {
-    const LuggedBeta beta;
-    const double     expRadius = 0.012;
+    const QtRocket::Test::TestBeta beta;
+    const double                   expRadius = 0.012;
 
     {  // test auto-radius within a stage: nose -> body tube
         EXPECT_NEAR(expRadius, beta.nose->getAftRadius(), kAutoSizeEpsilon) << " radius match: ";
@@ -1688,8 +1626,8 @@ TEST(RocketAutoSize, PreviousComponent)
 /// RocketTest.testAutoSizeNextComponent.
 TEST(RocketAutoSize, NextComponent)
 {
-    const LuggedBeta beta;
-    const double     expRadius = 0.012;
+    const QtRocket::Test::TestBeta beta;
+    const double                   expRadius = 0.012;
 
     {  // test auto-radius within a stage: nose <- body tube
         EXPECT_NEAR(expRadius, beta.nose->getAftRadius(), kAutoSizeEpsilon) << " radius match: ";
@@ -1722,7 +1660,7 @@ TEST(RocketAutoSize, AChangedNeighbourResizesTheAutomaticComponents)
 {
     // Not in OpenRocket's tests: the automatic radii follow a change of the radius they come
     // from, across the stage boundary too.
-    const LuggedBeta beta;
+    const QtRocket::Test::TestBeta beta;
     beta.body->setOuterRadiusAutomatic(true);
     beta.boosterBody->setOuterRadiusAutomatic(true);
     beta.boosterTail->setForeRadiusAutomatic(true);

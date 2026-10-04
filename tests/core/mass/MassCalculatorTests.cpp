@@ -29,7 +29,7 @@
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
@@ -44,6 +44,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
@@ -53,7 +54,6 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "goldens/GoldenData.h"
-#include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -66,8 +66,8 @@ using QtRocket::BodyTube;
 using QtRocket::ClusterConfiguration;
 using QtRocket::CMAnalysisEntry;
 using QtRocket::CMAnalysisMap;
-using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
+using QtRocket::FinSet;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::InnerTube;
@@ -89,9 +89,9 @@ using QtRocket::RocketComponent;
 using QtRocket::ShockCord;
 using QtRocket::ThrustCurveMotor;
 using QtRocket::Transition;
+using QtRocket::TrapezoidFinSet;
 using QtRocket::Test::addMotor;
 using QtRocket::Test::TestBeta;
-using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::testFcid;
@@ -333,8 +333,8 @@ void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
 
 // ======================================================================== golden comparisons
 //
-// The test rockets are built from the real components; only their fin sets and launch lugs are
-// doubles that carry OpenRocket's mass properties (HOOK(fins-lugs), see TestRockets.h).
+// The test rockets are built from the real components (TestRockets.h): every component's
+// locations and every configuration's rigid bodies and CM analysis rows are compared.
 
 TEST(MassCalculatorGolden, EstesAlphaIII)
 {
@@ -365,11 +365,6 @@ TEST(MassCalculatorGolden, Simple2Stage)
 }
 
 // ================================================================ ported from MassCalculatorTest
-//
-// HOOK(fins-lugs): the totals of the Estes Alpha III, the Beta and the Falcon 9 Heavy boosters
-// below include their fin sets and launch lugs, which are doubles that carry OpenRocket's mass,
-// CG and unit inertias (TestRockets.h). The expectations are OpenRocket's and stay as they are
-// when tier 6b computes those values with TrapezoidFinSet and LaunchLug.
 
 TEST(MassCalculator, EmptyRocket)
 {
@@ -963,8 +958,7 @@ TEST(MassCalculator, Falcon9HComponentMassesOfTheCoreAndBoosters)
     const auto& mmt = childAs<InnerTube>(body, 0);
     EXPECT_NEAR(0.01890610458, mmt.getComponentMass(), kEpsilon) << mmt.getName();
 
-    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's mass.
-    const RocketComponent& boosterFins = body.getChild(1);
+    const auto& boosterFins = childAs<FinSet>(body, 1);
     EXPECT_NEAR(0.13329359999999998, boosterFins.getComponentMass(), kEpsilon)
         << boosterFins.getName();
 }
@@ -1015,8 +1009,7 @@ TEST(MassCalculator, Falcon9HComponentCMOfTheCoreAndBoosters)
     EXPECT_NEAR(0.075, childAs<InnerTube>(body, 0).getComponentCG().x, kEpsilon)
         << " Motor Mount Tube CMx calculated incorrectly: ";
 
-    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's CG.
-    EXPECT_NEAR(0.19393939, body.getChild(1).getComponentCG().x, kEpsilon)
+    EXPECT_NEAR(0.19393939, childAs<FinSet>(body, 1).getComponentCG().x, kEpsilon)
         << "Core Fins CMx calculated incorrectly: ";
 }
 
@@ -1066,8 +1059,7 @@ TEST(MassCalculator, Falcon9HComponentMOIOfTheCoreAndBoosters)
     expectInertias(boosterBody, 1.875878651e-4, 0.00702104762);
     expectInertias(boosterBody.getChild(0), 4.11444e-6, 3.75062e-5);
 
-    // HOOK(fins-lugs): the fins are a double that carries OpenRocket's unit inertias.
-    expectInertias(boosterBody.getChild(1), 0.000928545614574877, 0.001246261927287438);
+    expectInertias(childAs<FinSet>(boosterBody, 1), 0.000928545614574877, 0.001246261927287438);
 }
 
 TEST(MassCalculator, Falcon9HPayloadStructureCM)
@@ -1399,16 +1391,14 @@ TEST(MassCalculator, SimplePhantomPodRocket)
     newPodBody->setName("Primary Body");
     BodyTube& podBody = pods.addChild(std::move(newPodBody));
 
-    // HOOK(fins-lugs): tier 6b replaces this double with the real class: TrapezoidFinSet(1 fin,
-    // root 0.05, tip 0.05, sweep 0, height 0.001) with thickness 0.01, a rectangle whose CG is
-    // in the middle of the root chord; its mass is overridden.
-    auto fins = TestComponent::make(0.05, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM);
+    auto fins = std::make_unique<TrapezoidFinSet>(1, 0.05, 0.05, 0.0, 0.001);
     fins->setName("podFins");
-    fins->setCG(Coordinate{0.025});
+    fins->setThickness(0.01);
     fins->setMassOverridden(true);
     fins->setOverrideMass(0.02835);
     fins->setSubcomponentsOverriddenMass(false);
-    fins->setAxialOffset(AxialMethod::BOTTOM, -0.01);
+    fins->setAxialOffset(-0.01);
+    fins->setAxialMethod(AxialMethod::BOTTOM);
     podBody.addChild(std::move(fins));
 
     rocket.enableEvents();

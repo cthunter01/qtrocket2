@@ -25,6 +25,7 @@
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
@@ -60,6 +61,7 @@ using QtRocket::ClusterConfiguration;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
+using QtRocket::FinSet;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightConfigurationId;
 using QtRocket::InMemoryPreferences;
@@ -420,10 +422,9 @@ TEST(FlightConfigurationTest, IterateComponents)
                 EXPECT_TRUE(isMotorTube(mmtContextList[7], 3, Coordinate{1.214, -0.062, 0.015}));
             }
             {  // Booster::Fins::Instances ( x2 x3)
-                // HOOK(fins-lugs): the fins are a double that carries OpenRocket's instance
-                // offsets and angles; tier 6b's TrapezoidFinSet computes them.
+                const auto& fins = dynamic_cast<const FinSet&>(boosterBody.getChild(1));
                 const std::span<const InstanceContext> finContextList =
-                    instances.getInstanceContexts(*f9h.boosterFins);
+                    instances.getInstanceContexts(fins);
                 ASSERT_EQ(6U, finContextList.size());
 
                 const InstanceContext& boosterFinContext0 = finContextList[3];
@@ -433,11 +434,13 @@ TEST(FlightConfigurationTest, IterateComponents)
                     near(boosterFinContext0.getLocation(), Coordinate{1.044, -0.1155, 0.0}));
 
                 const InstanceContext& boosterFinContext1 = finContextList[4];
+                EXPECT_EQ(boosterFinContext1.component->kind(), ComponentKind::TRAPEZOID_FIN_SET);
                 EXPECT_EQ(boosterFinContext1.instanceNumber, 1);
                 EXPECT_TRUE(near(boosterFinContext1.getLocation(),
                                  Coordinate{1.044, -0.05775, -0.033341978}));
 
                 const InstanceContext& boosterFinContext2 = finContextList[5];
+                EXPECT_EQ(boosterFinContext2.component->kind(), ComponentKind::TRAPEZOID_FIN_SET);
                 EXPECT_EQ(boosterFinContext2.instanceNumber, 2);
                 EXPECT_TRUE(
                     near(boosterFinContext2.getLocation(), Coordinate{1.044, -0.05775, 0.03334}));
@@ -1541,7 +1544,6 @@ TEST(FlightConfigurationRemoval, AMountUnderAComponentThatStaysLeaves)
     const FlightConfiguration& config = rocket.getFlightConfiguration(f9h.fcid);
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2)
         << "its parent keeps its instances";
-    // HOOK(fins-lugs): the fins are a double carrying OpenRocket's three instances.
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterFins), 6) << "3 fins per booster";
     EXPECT_EQ(config.getAllMotors().size(), 1U);
     EXPECT_EQ(config.getActiveMotors().size(), 1U);

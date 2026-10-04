@@ -17,11 +17,12 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/CenteringRing.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EngineBlock.h"
+#include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/NoseCone.h"
@@ -31,35 +32,23 @@
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
-#include "rocket/TestComponent.h"
 
 /// The test motors and rockets of OpenRocket's TestRockets (core/src/main/java/.../util/
 /// TestRockets.java), built call for call as the Java makers build them, from the real
-/// components: NoseCone, BodyTube, Transition, InnerTube, EngineBlock, CenteringRing,
-/// TubeCoupler, Parachute, ShockCord and the real MotorMount API.
+/// components: NoseCone, BodyTube, Transition, TrapezoidFinSet, LaunchLug, InnerTube,
+/// EngineBlock, CenteringRing, TubeCoupler, Parachute, ShockCord and the real MotorMount API.
 ///
-/// The fin sets and the launch lugs are not ported yet. Each is a TestComponent double of its
-/// kind (TRAPEZOID_FIN_SET, LAUNCH_LUG) that carries what OpenRocket computes for the Java
-/// component: its mass, CG, unit inertias, instance offsets and instance angles, copied from
-/// tests/data/goldens/testrocket-*/geometry.json. What a double does not reproduce:
-/// - It has no shape: its bounds are the segment from its front to its end, so the y and z
-///   extents of a rocket's bounding box, and anything else that depends on the fin or lug
-///   geometry, are not OpenRocket's. Its radius method, angle offset and material are a
-///   TestComponent's, not the Java component's.
-/// - A lug double is inert: Java's LaunchLug.componentChanged() reads the radius of the body it
-///   sits on, and reading an automatic body tube radius refreshes the tube's reference
-///   component. Without that side effect the automatic radii of the bodies of these rockets are
-///   not always OpenRocket's: the last step of RocketTest.testAutoSizeNextComponent gives 0.025 m
-///   on TestBeta where OpenRocket gives 0.012 m. RocketTests.cpp therefore runs the automatic
-///   radius tests on a TestBeta whose lug doubles it replaces by lugs that do have the side
-///   effect (LuggedBeta with LaunchLugStandIn, HOOK(launch-lug)), until the lugs here are real.
-/// HOOK(fins-lugs): tier 6b replaces the doubles with TrapezoidFinSet and LaunchLug.
+/// Where Java asks the application preferences for a material (the default material of a new
+/// component, and makeEstesAlphaIII()'s getDefaultComponentMaterial(null, BULK)), the rockets
+/// have the built-in bulk default, "Cardboard": what OpenRocket's test preferences give, and so
+/// what the values OpenRocket's tests pin are computed with.
 namespace QtRocket::Test
 {
 
@@ -168,110 +157,21 @@ inline MotorConfiguration& addMotor(MotorMount& mount, const FlightConfiguration
     return FlightConfigurationId::fromString(kKeys.at(static_cast<std::size_t>(n)));
 }
 
-/// What OpenRocket computes for a fin set or a launch lug of the test rockets (the component's
-/// entry in geometry.json): the values a double carries.
-// HOOK(fins-lugs): tier 6b deletes this with the doubles
-struct DoubleProperties
-{
-    double                  length;                   ///< "length"
-    double                  mass;                     ///< "componentMass"
-    Coordinate              cg;                       ///< "componentCG", without the weight
-    double                  longitudinalUnitInertia;  ///< "longitudinalUnitInertia"
-    double                  rotationalUnitInertia;    ///< "rotationalUnitInertia"
-    std::vector<Coordinate> instanceOffsets;          ///< "instanceOffsets"
-    std::vector<double>     instanceAngles;           ///< "instanceAngles"
-};
-
-/// A TestComponent of @p kind positioned by @p method that carries @p properties.
-// HOOK(fins-lugs): tier 6b replaces this double with the real class
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeDouble(ComponentKind           kind,
-                                                               AxialMethod             method,
-                                                               const DoubleProperties& properties)
-{
-    auto component = TestComponent::make(properties.length, kind, method);
-    component->setMass(properties.mass);
-    component->setCG(properties.cg);
-    component->setUnitInertias(properties.longitudinalUnitInertia,
-                               properties.rotationalUnitInertia);
-    component->setInstances(properties.instanceOffsets, properties.instanceAngles);
-    return component;
-}
-
-/// The angles of the three fins of every fin set of the test rockets (geometry.json's
-/// "instanceAngles": 0, 2 pi / 3, 4 pi / 3).
-// HOOK(fins-lugs): tier 6b deletes this with the doubles
-inline constexpr std::array<double, 3> kThreeFinAngles{0.0, 2.0943951023931953, 4.1887902047863905};
-
-/// TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05) with thickness 0.0032 on a body of radius 0.012 m,
-/// positioned BOTTOM: the "3 Fin Set" of the Estes Alpha III (geometry.json "/0/1/0") and, with
-/// @p cgX from "/1/0/1", the "Booster Fins" of the Beta. Its instance offsets are on the body's
-/// surface.
-// HOOK(fins-lugs): tier 6b replaces this double with the real class
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeAlphaFins(double cgX = 0.029583333333333336)
-{
-    return makeDouble(
-        ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM,
-        {.length                  = 0.05,
-         .mass                    = 0.013056,
-         .cg                      = Coordinate{cgX, 0.0, 0.0},
-         .longitudinalUnitInertia = 0.0008403281572999748,
-         .rotationalUnitInertia   = 0.0013473229812666163,
-         .instanceOffsets         = {Coordinate{0.0, 0.012, 0.0},
-                                     Coordinate{0.0, -0.0059999999999999975, 0.010392304845413265},
-                                     Coordinate{0.0, -0.006000000000000005, -0.01039230484541326}},
-         .instanceAngles = std::vector<double>(kThreeFinAngles.begin(), kThreeFinAngles.end())});
-}
-
-/// LaunchLug() with length 0.050, setOuterRadius(0.0022) and setInnerRadius(0.0020) (which makes
-/// the radii 0.003 and 0.002 m) on a body of radius 0.012 m, positioned TOP: the "Launch Lugs"
-/// of the Estes Alpha III (geometry.json "/0/1/1") and of the Beta's booster ("/1/0/3"). The lug
-/// sits on the body's surface opposite the y axis, 0.015 m from the axis, which both its
-/// instance offset and its CG hold.
-// HOOK(fins-lugs): tier 6b replaces this double with the real class
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeAlphaLug()
-{
-    return makeDouble(ComponentKind::LAUNCH_LUG, AxialMethod::TOP,
-                      {.length                  = 0.05,
-                       .mass                    = 0.0005340707511102649,
-                       .cg                      = Coordinate{0.025, -0.015, 1.8369701987210296e-18},
-                       .longitudinalUnitInertia = 0.00021158333333333337,
-                       .rotationalUnitInertia   = 6.5000000000000004e-06,
-                       .instanceOffsets         = {Coordinate{0.0, -0.015, 1.8369701987210296e-18}},
-                       .instanceAngles          = {0.0}});
-}
-
-/// TrapezoidFinSet() with 3 fins, thickness 0.003, a ROUNDED cross section, root chord 0.32, tip
-/// chord 0.12, height 0.10 and sweep 0.18 on a body of radius 0.0385 m, positioned BOTTOM: the
-/// "Booster Fins" of the Falcon 9 Heavy (geometry.json "/1/0/0/1/1").
-// HOOK(fins-lugs): tier 6b replaces this double with the real class
-[[nodiscard]] inline std::unique_ptr<TestComponent> makeFalconBoosterFins()
-{
-    return makeDouble(
-        ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM,
-        {.length                  = 0.32,
-         .mass                    = 0.13329359999999998,
-         .cg                      = Coordinate{0.19393939393939394, 0.0, 0.0},
-         .longitudinalUnitInertia = 0.009349750680358534,
-         .rotationalUnitInertia   = 0.0069661680273837385,
-         .instanceOffsets         = {Coordinate{0.0, 0.0385, 0.0},
-                                     Coordinate{0.0, -0.019249999999999993, 0.03334197804570089},
-                                     Coordinate{0.0, -0.019250000000000017, -0.033341978045700875}},
-         .instanceAngles = std::vector<double>(kThreeFinAngles.begin(), kThreeFinAngles.end())});
-}
-
 /// TestRockets.makeEstesAlphaIII(): a stage with an ogive nose cone (0.07 m, base radius
-/// 0.012 m, an aft shoulder) and a body tube (0.2 m, wall 0.3 mm) holding the fins, a launch
-/// lug, a motor mount inner tube (with an engine block, and a motor in each of the five test
-/// configurations), a parachute whose mass is overridden and two centering rings. The default
-/// configuration stays selected; events are enabled.
+/// 0.012 m, an aft shoulder) and a body tube (0.2 m, wall 0.3 mm) holding three trapezoidal fins
+/// (root chord 0.05 m, tip chord 0.03 m, sweep 0.02 m, height 0.05 m, 3.2 mm thick, at the
+/// BOTTOM), a launch lug (0.05 m, radii 3 and 2 mm, TOP 0.111 m), a motor mount inner tube (with an
+/// engine block, and a motor in each of the five test configurations), a parachute whose mass is
+/// overridden and two centering rings. The default configuration stays selected; events are
+/// enabled.
 struct TestEstesAlphaIII
 {
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
     AxialStage*             stage{nullptr};
     NoseCone*               nose{nullptr};
     BodyTube*               body{nullptr};
-    TestComponent*          fins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
-    TestComponent*          lug{nullptr};   // HOOK(fins-lugs): LaunchLug
+    TrapezoidFinSet*        fins{nullptr};
+    LaunchLug*              lug{nullptr};
     InnerTube*              inner{nullptr};
     EngineBlock*            block{nullptr};
     Parachute*              chute{nullptr};
@@ -314,7 +214,7 @@ struct TestEstesAlphaIII
         const Material material = builtinDefaultComponentMaterial(Material::Type::BULK);
         nose->setMaterial(material);
         body->setMaterial(material);
-        // HOOK(fins-lugs): finset.setMaterial(material) (the double carries the mass).
+        fins->setMaterial(material);
 
         // The default configuration of the rocket stays as it was initialised.
         rocket->enableEvents();
@@ -324,17 +224,25 @@ private:
     /// The fin set, the launch lug and the motor mount with its engine block and motors.
     void addFinsLugAndMotorMount()
     {
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class
-        // (TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05), thickness 0.0032, BOTTOM).
-        auto finset = makeAlphaFins();
+        const int    finCount     = 3;
+        const double finRootChord = 0.05;
+        const double finTipChord  = 0.03;
+        const double finSweep     = 0.02;
+        const double finHeight    = 0.05;
+        auto         finset = std::make_unique<TrapezoidFinSet>(finCount, finRootChord, finTipChord,
+                                                                finSweep, finHeight);
+        finset->setThickness(0.0032);
+        finset->setAxialMethod(AxialMethod::BOTTOM);
         finset->setName("3 Fin Set");
         fins = &body->addChild(std::move(finset));
 
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class (LaunchLug(), TOP
-        // 0.111, length 0.050, setOuterRadius(0.0022), setInnerRadius(0.0020)).
-        auto launchLug = makeAlphaLug();
+        auto launchLug = std::make_unique<LaunchLug>();
         launchLug->setName("Launch Lugs");
-        launchLug->setAxialOffset(AxialMethod::TOP, 0.111);
+        launchLug->setAxialMethod(AxialMethod::TOP);
+        launchLug->setAxialOffset(0.111);
+        launchLug->setLength(0.050);
+        launchLug->setOuterRadius(0.0022);
+        launchLug->setInnerRadius(0.0020);
         lug = &body->addChild(std::move(launchLug));
 
         auto innerTube = std::make_unique<InnerTube>();
@@ -413,13 +321,13 @@ private:
 /// and 0.01 m). TEST_FCID_1 is selected, with every stage active.
 struct TestBeta : TestEstesAlphaIII
 {
-    AxialStage*    boosterStage{nullptr};
-    BodyTube*      boosterBody{nullptr};
-    TubeCoupler*   coupler{nullptr};
-    TestComponent* boosterFins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
-    InnerTube*     boosterMmt{nullptr};
-    TestComponent* boosterLug{nullptr};  // HOOK(fins-lugs): LaunchLug
-    Transition*    boosterTail{nullptr};
+    AxialStage*      boosterStage{nullptr};
+    BodyTube*        boosterBody{nullptr};
+    TubeCoupler*     coupler{nullptr};
+    TrapezoidFinSet* boosterFins{nullptr};
+    InnerTube*       boosterMmt{nullptr};
+    LaunchLug*       boosterLug{nullptr};
+    Transition*      boosterTail{nullptr};
 
     TestBeta()
     {
@@ -466,11 +374,17 @@ private:
         newCoupler->setAxialOffset(-0.015);
         coupler = &boosterBody->addChild(std::move(newCoupler));
 
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class
-        // (TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05), thickness 0.0032, BOTTOM 0.0).
-        auto finset = makeAlphaFins(0.02958333333333333);
+        const int    finCount     = 3;
+        const double finRootChord = 0.05;
+        const double finTipChord  = 0.03;
+        const double finSweep     = 0.02;
+        const double finHeight    = 0.05;
+        auto         finset = std::make_unique<TrapezoidFinSet>(finCount, finRootChord, finTipChord,
+                                                                finSweep, finHeight);
         finset->setName("Booster Fins");
-        finset->setAxialOffset(AxialMethod::BOTTOM, 0.0);
+        finset->setThickness(0.0032);
+        finset->setAxialMethod(AxialMethod::BOTTOM);
+        finset->setAxialOffset(0.0);
         boosterFins = &boosterBody->addChild(std::move(finset));
 
         // Motor mount
@@ -489,11 +403,13 @@ private:
         }
         boosterMmt = &boosterBody->addChild(std::move(mmt));
 
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class (LaunchLug(), TOP
-        // 0.0, length 0.050, setOuterRadius(0.0022), setInnerRadius(0.0020)).
-        auto launchLug = makeAlphaLug();
+        auto launchLug = std::make_unique<LaunchLug>();
         launchLug->setName("Launch Lugs");
-        launchLug->setAxialOffset(AxialMethod::TOP, 0.0);
+        launchLug->setAxialMethod(AxialMethod::TOP);
+        launchLug->setAxialOffset(0.0);
+        launchLug->setLength(0.050);
+        launchLug->setOuterRadius(0.0022);
+        launchLug->setInnerRadius(0.0020);
         boosterLug = &boosterBody->addChild(std::move(launchLug));
     }
 };
@@ -570,7 +486,7 @@ struct TestFalcon9Heavy
     NoseCone*             boosterNose{nullptr};
     BodyTube*             boosterBody{nullptr};
     InnerTube*            boosterMotorTubes{nullptr};
-    TestComponent*        boosterFins{nullptr};  // HOOK(fins-lugs): TrapezoidFinSet
+    TrapezoidFinSet*      boosterFins{nullptr};
 
     TestFalcon9Heavy()
     {
@@ -705,12 +621,17 @@ private:
         boosterMotorTubes->setMotorConfig(std::move(boosterMotorConfig), fcid);
         boosterMotorTubes->setMotorOverhang(0.01234);
 
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class (TrapezoidFinSet(),
-        // added first, then 3 fins, thickness 0.003, ROUNDED, root chord 0.32, tip chord 0.12,
-        // height 0.10, sweep 0.18, BOTTOM 0.0).
-        boosterFins = &boosterBody->addChild(makeFalconBoosterFins());
+        boosterFins = &boosterBody->addChild(std::make_unique<TrapezoidFinSet>());
         boosterFins->setName("Booster Fins");
-        boosterFins->setAxialOffset(AxialMethod::BOTTOM, 0.0);
+        boosterFins->setFinCount(3);
+        boosterFins->setThickness(0.003);
+        boosterFins->setCrossSection(FinSet::CrossSection::ROUNDED);
+        boosterFins->setRootChord(0.32);
+        boosterFins->setTipChord(0.12);
+        boosterFins->setHeight(0.10);
+        boosterFins->setSweep(0.18);
+        boosterFins->setAxialMethod(AxialMethod::BOTTOM);
+        boosterFins->setAxialOffset(0.0);
     }
 };
 

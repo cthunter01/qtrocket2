@@ -199,8 +199,8 @@ using QtRocket::Test::TestSimple2Stage;
 TEST(TestRocketsFixture, EstesAlphaIIIFlagsAreOpenRockets)
 {
     const TestEstesAlphaIII alpha;
-    // HOOK(fins-lugs): the fin set and the launch lug are doubles; their lines hold the class
-    // their kind names and their name only, as Java's do.
+    // A fin set and a launch lug have no automatic flag: their lines hold the class and the name
+    // only.
     EXPECT_EQ(joined(flagLines(*alpha.rocket)),
               "/ Rocket \"Estes Alpha III / Code Verification Rocket\"\n"
               "/0 AxialStage \"Stage\"\n"
@@ -218,7 +218,6 @@ TEST(TestRocketsFixture, EstesAlphaIIIFlagsAreOpenRockets)
 TEST(TestRocketsFixture, BetaFlagsAreOpenRockets)
 {
     const TestBeta beta;
-    // HOOK(fins-lugs): the fin sets and the launch lugs are doubles (see EstesAlphaIII).
     EXPECT_EQ(joined(flagLines(*beta.rocket)),
               "/ Rocket \"Kit-bash Beta\"\n"
               "/0 AxialStage \"Sustainer Stage\"\n"
@@ -243,7 +242,6 @@ TEST(TestRocketsFixture, BetaFlagsAreOpenRockets)
 TEST(TestRocketsFixture, Falcon9HeavyFlagsAreOpenRockets)
 {
     const TestFalcon9Heavy f9h;
-    // HOOK(fins-lugs): the booster fins are a double (see EstesAlphaIII).
     EXPECT_EQ(joined(flagLines(*f9h.rocket)),
               "/ Rocket \"Falcon9H Scale Rocket\"\n"
               "/0 AxialStage \"Payload Fairing Stage\"\n"
