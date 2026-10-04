@@ -4,15 +4,20 @@
 // rockets, in tests/data/goldens/testrocket-<name>/geometry.json (tools/openrocket-goldens).
 //
 // - Every component that is a real class is compared: its class, name, placement, mass
-//   properties (with and without the overrides), bounds and instances.
+//   properties (with and without the overrides), bounds and instances, and its "details": what
+//   the public getters of its Java class return (shape, radii, shoulders, wall, finish, material,
+//   radial and angular position, motor mount and cluster settings, recovery device dimensions,
+//   the rocket's reference type). These are the constructor arguments and setter values of
+//   TestRockets.java, so a fixture that drifts from it shows here. Every entry of "details" has
+//   to be compared: one that no comparison reads is reported.
 // - The fin sets and launch lugs are doubles that carry OpenRocket's values (HOOK(fins-lugs),
 //   see TestRockets.h). They are counted apart: what they carry (placement, mass properties,
 //   instances) is checked against the same entries, so that a wrong constant shows here, but a
-//   double has no shape, so its bounds are not compared.
-// - Every flight configuration is compared with it selected, as the harness dumps it: its name,
-//   stages, motors, reference values, lengths, active components and instances. A rocket with
-//   doubles is compared in the x extent of its bounds only (the y and z extents are the fins'
-//   and lugs'), and the instances of its doubles are left out.
+//   double has no shape, so its bounds and its details are not compared.
+// - Every flight configuration is compared with it selected, as the harness dumps it: its id,
+//   name, stages, motors, reference values, lengths, active components and instances. A rocket
+//   with doubles is compared in the x extent of its bounds only (the y and z extents are the
+//   fins' and lugs'), and the instances of its doubles are left out.
 //
 // Tolerances (plan section 6.4): geometry and mass relative 1e-9; positions and CGs absolute
 // 1e-9 m.
@@ -21,8 +26,10 @@
 #include <cmath>
 #include <cstddef>
 #include <format>
+#include <functional>
 #include <limits>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -33,19 +40,37 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include "QtRocket/material/Material.h"
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/BoxBounded.h"
+#include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
+#include "QtRocket/rocket/LineInstanceable.h"
+#include "QtRocket/rocket/MassObject.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/Parachute.h"
+#include "QtRocket/rocket/ReferenceType.h"
+#include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ShockCord.h"
+#include "QtRocket/rocket/SymmetricComponent.h"
+#include "QtRocket/rocket/Transition.h"
+#include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/position/AngleMethod.h"
+#include "QtRocket/rocket/position/AnglePositionable.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
@@ -288,12 +313,30 @@ void compareMass(Mismatches& m, const json& expected, const RocketComponent& act
         m.relative("overrideMass", number(overrides.at("overrideMass")), actual.getOverrideMass());
     }
     m.boolean("cgOverridden", overrides.at("cgOverridden").get<bool>(), actual.isCGOverridden());
+    if (actual.isCGOverridden() && !overrides.at("overrideCGX").is_null())
+    {
+        m.absolute("overrideCGX", number(overrides.at("overrideCGX")), actual.getOverrideCGX());
+    }
     m.boolean("cdOverridden", overrides.at("cdOverridden").get<bool>(), actual.isCDOverridden());
+    if (actual.isCDOverridden() && !overrides.at("overrideCD").is_null())
+    {
+        m.relative("overrideCD", number(overrides.at("overrideCD")), actual.getOverrideCD());
+    }
     m.boolean("subcomponentsOverriddenMass",
               overrides.at("subcomponentsOverriddenMass").get<bool>(),
               actual.isSubcomponentsOverriddenMass());
     m.boolean("subcomponentsOverriddenCG", overrides.at("subcomponentsOverriddenCG").get<bool>(),
               actual.isSubcomponentsOverriddenCG());
+    m.boolean("subcomponentsOverriddenCD", overrides.at("subcomponentsOverriddenCD").get<bool>(),
+              actual.isSubcomponentsOverriddenCD());
+    m.boolean("cdOverriddenByAncestor", overrides.at("cdOverriddenByAncestor").get<bool>(),
+              actual.isCDOverriddenByAncestor());
+    // None of the rebuilt rockets overrides its subcomponents, so no component is overridden by
+    // another one (the golden entries are null).
+    m.boolean("massOverriddenBy", !overrides.at("massOverriddenBy").is_null(),
+              actual.getMassOverriddenBy() != nullptr);
+    m.boolean("cgOverriddenBy", !overrides.at("cgOverriddenBy").is_null(),
+              actual.getCGOverriddenBy() != nullptr);
 }
 
 /// Compares the instances of @p actual: their count, offsets, angles and locations.
@@ -307,6 +350,254 @@ void compareInstances(Mismatches& m, const json& expected, const RocketComponent
     m.positions("componentLocations", expected.at("componentLocations"),
                 actual.getComponentLocations());
     m.positions("componentAngles", expected.at("componentAngles"), actual.getComponentAngles());
+}
+
+/// The "details" of a golden component: what the public getters of its Java class return
+/// (GeometryDumper lists the getters; an entry exists when the class has the getter). Each
+/// comparison reads one entry; unread() then reports the entries nothing compared, so the golden
+/// file decides what has to be checked.
+class Details
+{
+public:
+    Details(Mismatches& mismatches, const json& details)
+      : m_mismatches(&mismatches), m_details(&details)
+    {
+    }
+
+    /// Whether the golden component has the entry @p key (its Java class has the getter).
+    [[nodiscard]] bool has(std::string_view key) const { return m_details->contains(key); }
+
+    /// A volume, an area, a density or a coefficient: within kRelative.
+    void relative(std::string_view key, double actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->relative(field(key), number(*expected), actual);
+        }
+    }
+
+    /// A radius, a length, an offset or an angle: within kAbsolute.
+    void absolute(std::string_view key, double actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->absolute(field(key), number(*expected), actual);
+        }
+    }
+
+    void text(std::string_view key, std::string_view actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->text(field(key), expected->get<std::string>(), actual);
+        }
+    }
+
+    void boolean(std::string_view key, bool actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->boolean(field(key), expected->get<bool>(), actual);
+        }
+    }
+
+    void integer(std::string_view key, long long actual)
+    {
+        if (const json* expected = read(key))
+        {
+            m_mismatches->integer(field(key), expected->get<long long>(), actual);
+        }
+    }
+
+    /// A material: its name, type and density.
+    void material(std::string_view key, const QtRocket::Material& actual)
+    {
+        if (const json* expected = read(key))
+        {
+            const std::string name = field(key);
+            m_mismatches->text(name + ".name", expected->at("name").get<std::string>(),
+                               actual.getName());
+            m_mismatches->text(name + ".type", expected->at("type").get<std::string>(),
+                               QtRocket::toString(actual.getType()));
+            m_mismatches->relative(name + ".density", number(expected->at("density")),
+                                   actual.getDensity());
+        }
+    }
+
+    /// A bounding box: its corners (an empty box is +-DBL_MAX in both).
+    void box(std::string_view key, const BoundingBox& actual)
+    {
+        if (const json* expected = read(key))
+        {
+            const std::string name = field(key);
+            m_mismatches->position(name + ".min", coordinate(expected->at("min")), actual.min());
+            m_mismatches->position(name + ".max", coordinate(expected->at("max")), actual.max());
+        }
+    }
+
+    /// Reports every entry of the golden details that no comparison read.
+    void unread() const
+    {
+        for (const auto& [key, value] : m_details->items())
+        {
+            if (!m_read.contains(key))
+            {
+                m_mismatches->missing(std::format("details.{}: not compared", key));
+            }
+        }
+    }
+
+private:
+    /// The golden entry @p key, now read; null, and a mismatch, when the golden component has
+    /// no such entry (the rebuilt component is of a class that the Java one is not).
+    [[nodiscard]] const json* read(std::string_view key)
+    {
+        m_read.emplace(key);
+        const auto entry = m_details->find(key);
+        if (entry == m_details->end())
+        {
+            m_mismatches->missing(std::format("details.{}: no golden entry", key));
+            return nullptr;
+        }
+        return &*entry;
+    }
+
+    [[nodiscard]] static std::string field(std::string_view key)
+    {
+        return std::format("details.{}", key);
+    }
+
+    Mismatches*                        m_mismatches;
+    const json*                        m_details;
+    std::set<std::string, std::less<>> m_read;
+};
+
+/// The details every component has: its radial and angular position and whether it is a motor
+/// mount; the angle method of an AnglePositionable and the instance box of a BoxBounded.
+void compareCommonDetails(Details& d, const RocketComponent& actual)
+{
+    d.text("radiusMethod", QtRocket::radiusMethodName(actual.getRadiusMethod()));
+    d.absolute("radiusOffset", actual.getRadiusOffset());
+    d.absolute("angleOffset", actual.getAngleOffset());
+    d.boolean("motorMount", actual.isMotorMount());
+    if (const auto* angled = dynamic_cast<const QtRocket::AnglePositionable*>(&actual))
+    {
+        d.text("angleMethod", QtRocket::angleMethodName(angled->getAngleMethod()));
+    }
+    if (const auto* boxed = dynamic_cast<const QtRocket::BoxBounded*>(&actual))
+    {
+        d.box("instanceBoundingBox", boxed->getInstanceBoundingBox());
+    }
+    if (const auto* line = dynamic_cast<const QtRocket::LineInstanceable*>(&actual))
+    {
+        d.absolute("instanceSeparation", line->getInstanceSeparation());
+    }
+}
+
+/// A nose cone, body tube or transition: its volumes and areas, radii, wall, finish and
+/// material; a transition's shape and shoulders; a body tube's mount settings.
+void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
+{
+    d.relative("componentVolume", actual.getComponentVolume());
+    d.relative("fullVolume", actual.getFullVolume());
+    d.relative("componentWetArea", actual.getComponentWetArea());
+    d.relative("componentPlanformArea", actual.getComponentPlanformArea());
+    d.absolute("foreRadius", actual.getForeRadius());
+    d.absolute("aftRadius", actual.getAftRadius());
+    d.absolute("maxRadius", actual.getMaxRadius());
+    d.absolute("innerRadius", actual.getInnerRadius());
+    d.absolute("thickness", actual.getThickness());
+    d.boolean("filled", actual.isFilled());
+    d.text("finish", QtRocket::finishName(actual.getFinish()));
+    d.material("material", actual.getMaterial());
+
+    if (const auto* transition = dynamic_cast<const QtRocket::Transition*>(&actual))
+    {
+        d.text("shapeType", QtRocket::transitionShapeName(transition->getShapeType()));
+        d.absolute("shapeParameter", transition->getShapeParameter());
+        d.boolean("clipped", transition->isClipped());
+        d.absolute("foreShoulderRadius", transition->getForeShoulderRadius());
+        d.absolute("foreShoulderLength", transition->getForeShoulderLength());
+        d.absolute("foreShoulderThickness", transition->getForeShoulderThickness());
+        d.boolean("foreShoulderCapped", transition->isForeShoulderCapped());
+        d.absolute("aftShoulderRadius", transition->getAftShoulderRadius());
+        d.absolute("aftShoulderLength", transition->getAftShoulderLength());
+        d.absolute("aftShoulderThickness", transition->getAftShoulderThickness());
+        d.boolean("aftShoulderCapped", transition->isAftShoulderCapped());
+    }
+    if (const auto* tube = dynamic_cast<const QtRocket::BodyTube*>(&actual))
+    {
+        d.absolute("outerRadius", tube->getOuterRadius());
+        d.absolute("motorOverhang", tube->getMotorOverhang());
+        d.text("clusterConfiguration", tube->getClusterConfiguration().getXmlName());
+    }
+}
+
+/// An inner tube, engine block, centering ring or coupler: its radii, wall, radial position and
+/// material; an inner tube's mount and cluster settings.
+void compareRingDetails(Details& d, const QtRocket::RingComponent& actual)
+{
+    d.absolute("outerRadius", actual.getOuterRadius());
+    d.absolute("innerRadius", actual.getInnerRadius());
+    d.absolute("thickness", actual.getThickness());
+    d.absolute("radialPosition", actual.getRadialPosition());
+    d.absolute("radialDirection", actual.getRadialDirection());
+    d.material("material", actual.getMaterial());
+    if (const auto* tube = dynamic_cast<const QtRocket::InnerTube*>(&actual))
+    {
+        d.absolute("motorOverhang", tube->getMotorOverhang());
+        d.text("clusterConfiguration", tube->getClusterConfiguration().getXmlName());
+        d.relative("clusterScale", tube->getClusterScale());
+        d.absolute("clusterRotation", tube->getClusterRotation());
+    }
+}
+
+/// A parachute or a shock cord: its packed radius and radial position, and what the class adds.
+void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
+{
+    d.absolute("radius", actual.getRadius());
+    d.absolute("radialPosition", actual.getRadialPosition());
+    d.absolute("radialDirection", actual.getRadialDirection());
+    if (const auto* chute = dynamic_cast<const QtRocket::Parachute*>(&actual))
+    {
+        d.absolute("diameter", chute->getDiameter());
+        d.relative("cd", chute->getCD());
+        d.integer("lineCount", chute->getLineCount());
+        d.absolute("lineLength", chute->getLineLength());
+        d.material("material", chute->getMaterial());
+    }
+    if (const auto* cord = dynamic_cast<const QtRocket::ShockCord*>(&actual))
+    {
+        d.absolute("cordLength", cord->getCordLength());
+        d.material("material", cord->getMaterial());
+    }
+}
+
+/// Compares the golden details of @p expected with @p actual, by the classes @p actual is of
+/// (the C++ counterpart of the harness's reflection), then reports the entries left over.
+void compareDetails(Mismatches& m, const json& expected, const RocketComponent& actual)
+{
+    Details d(m, expected.at("details"));
+    compareCommonDetails(d, actual);
+    if (const auto* body = dynamic_cast<const QtRocket::SymmetricComponent*>(&actual))
+    {
+        compareBodyDetails(d, *body);
+    }
+    if (const auto* ring = dynamic_cast<const QtRocket::RingComponent*>(&actual))
+    {
+        compareRingDetails(d, *ring);
+    }
+    if (const auto* massObject = dynamic_cast<const QtRocket::MassObject*>(&actual))
+    {
+        compareMassObjectDetails(d, *massObject);
+    }
+    if (const auto* rocket = dynamic_cast<const Rocket*>(&actual))
+    {
+        d.text("referenceType", QtRocket::referenceTypeName(rocket->getReferenceType()));
+        d.absolute("customReferenceLength", rocket->getCustomReferenceLength());
+        d.boolean("perfectFinish", rocket->isPerfectFinish());
+    }
+    d.unread();
 }
 
 /// What a comparison of a rocket's components found.
@@ -339,13 +630,15 @@ struct ComponentComparison
             compareInstances(m, expected, *actual);
             if (isDouble(*actual))
             {
-                // HOOK(fins-lugs): a double has no shape; tier 6b compares the bounds too.
+                // HOOK(fins-lugs): a double has no shape; tier 6b compares the bounds and the
+                // details too.
                 result.doubles++;
             }
             else
             {
                 m.positions("componentBounds", expected.at("componentBounds"),
                             actual->getComponentBounds());
+                compareDetails(m, expected, *actual);
                 result.compared++;
             }
         }
@@ -513,6 +806,7 @@ void compareActiveInstances(Mismatches& m, const json& expected, Rocket& rocket,
         rocket.setSelectedConfiguration(config.getId());
 
         Mismatches m(std::format("configuration {}", index));
+        m.text("id", expected.at("id").get<std::string>(), config.getId().toString());
         m.boolean("isDefault", expected.at("isDefault").get<bool>(), config.getId().isDefaultId());
         m.text("name", expected.at("name").get<std::string>(), config.getName(preferences));
         compareStages(m, expected, config);

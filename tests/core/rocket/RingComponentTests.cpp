@@ -43,21 +43,19 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BoundingBox.h"
-#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "goldens/GoldenData.h"
 #include "rocket/InternalTestSupport.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
 
 using nlohmann::json;
 using QtRocket::AxialMethod;
-using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
-using QtRocket::BugError;
 using QtRocket::Bulkhead;
 using QtRocket::CenteringRing;
 using QtRocket::ClusterConfiguration;
@@ -69,8 +67,6 @@ using QtRocket::Coordinate;
 using QtRocket::EngineBlock;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
-using QtRocket::NoseCone;
-using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
@@ -81,7 +77,10 @@ using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::makeFactoryPreset;
 using QtRocket::Test::noGoldenMismatches;
 using QtRocket::Test::OneStage;
+using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestComponent;
+using QtRocket::Test::TestEstesAlphaIII;
+using QtRocket::Test::TestFalcon9Heavy;
 
 constexpr double kEpsilon = 1e-12;
 
@@ -267,42 +266,32 @@ TEST(RingComponent, AutomaticOuterRadiusNeedsARadialParent)
     EXPECT_EQ(detached.getOuterRadius(), 0.0);
 }
 
-/// Whether a new @p Ring in a stand-in parent of @p kind (a TestComponent, which is not a
-/// RadialParent) refuses to compute its automatic outer radius with a BugError.
+/// The automatic outer radius of a new @p Ring in a TestComponent parent of @p kind with an
+/// inner radius of 0.04 m.
 template <class Ring>
-[[nodiscard]] bool refusesTheParent(ComponentKind kind)
+[[nodiscard]] double automaticOuterRadiusIn(ComponentKind kind)
 {
-    auto        parent = TestComponent::make(0.5, kind);
-    const auto& ring   = parent->addChild(std::make_unique<Ring>());
-    try
-    {
-        static_cast<void>(ring.getOuterRadius());
-    }
-    catch (const BugError&)
-    {
-        return true;
-    }
-    return false;
+    auto parent = TestComponent::make(0.5, kind);
+    parent->setOuterRadius(0.05);
+    parent->setInnerRadius(0.04);
+    const auto& ring = parent->addChild(std::make_unique<Ring>());
+    EXPECT_TRUE(ring.isOuterRadiusAutomatic());
+    return ring.getOuterRadius();
 }
 
-TEST(RingComponent, AutomaticOuterRadiusRefusesAMisbuiltParent)
+TEST(RingComponent, TheParentClassDecidesNotItsKind)
 {
-    // Java's body tubes, nose cones, transitions, inner tubes and couplers are all RadialParents:
-    // a parent of such a kind that is not one is a programming error, not a radius of 0.
-    // The kinds accepted, by name (a string: GCC's -O3 -Wnull-dereference misfires on a vector
-    // filled in this loop).
-    std::string accepted;
+    // Java: getParent() instanceof RadialParent. A parent that only reports the kind of a body
+    // tube, nose cone, transition, inner tube or coupler (a TestComponent, a Coaxial with radii
+    // of its own) is not a RadialParent: the stored radius (0 for a new ring) stays.
     for (const ComponentKind kind :
          {ComponentKind::BODY_TUBE, ComponentKind::NOSE_CONE, ComponentKind::TRANSITION,
           ComponentKind::INNER_TUBE, ComponentKind::TUBE_COUPLER})
     {
-        if (!refusesTheParent<EngineBlock>(kind) || !refusesTheParent<Bulkhead>(kind))
-        {
-            accepted += QtRocket::componentKindName(kind);
-            accepted += ' ';
-        }
+        SCOPED_TRACE(QtRocket::componentKindName(kind));
+        EXPECT_EQ(automaticOuterRadiusIn<EngineBlock>(kind), 0.0);  // ThicknessRingComponent
+        EXPECT_EQ(automaticOuterRadiusIn<Bulkhead>(kind), 0.0);     // RadiusRingComponent
     }
-    EXPECT_EQ(accepted, "");
 }
 
 TEST(RingComponent, RadiusRingAutomaticOuterRadius)
@@ -438,58 +427,12 @@ TEST(RingComponent, CopiesKeepTheRingFields)
     return check.failures();
 }
 
-/// TestRockets.makeEstesAlphaIII() as far as the ring components go: the stage holds the nose
-/// cone and the body tube, the body the inner tube (with its engine block) and the centering
-/// rings, built as OpenRocket's factory builds them.
-struct AlphaIIIRings
-{
-    Rocket         rocket;
-    InnerTube*     inner{nullptr};
-    EngineBlock*   block{nullptr};
-    CenteringRing* rings{nullptr};
-
-    AlphaIIIRings()
-    {
-        rocket.setName("Estes Alpha III / Code Verification Rocket");
-        auto& stage = rocket.addChild(std::make_unique<AxialStage>());
-        stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
-        auto& body = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
-
-        auto tube = std::make_unique<InnerTube>();
-        tube->setAxialMethod(AxialMethod::TOP);
-        tube->setAxialOffset(0.133);
-        tube->setLength(0.07);
-        tube->setOuterRadius(0.009);
-        tube->setThickness(0.0003);
-        tube->setMotorMount(true);
-        tube->setName("Motor Mount Tube");
-        inner = &body.addChild(std::move(tube));
-
-        auto thrustBlock = std::make_unique<EngineBlock>();
-        thrustBlock->setAxialMethod(AxialMethod::TOP);
-        thrustBlock->setAxialOffset(0.0);
-        thrustBlock->setLength(0.005);
-        thrustBlock->setOuterRadius(0.009);
-        thrustBlock->setThickness(0.0008);
-        thrustBlock->setName("Engine Block");
-        block = &inner->addChild(std::move(thrustBlock));
-
-        auto centerings = std::make_unique<CenteringRing>();
-        centerings->setName("Centering Rings");
-        centerings->setAxialMethod(AxialMethod::TOP);
-        centerings->setAxialOffset(0.14);
-        centerings->setLength(0.006);
-        centerings->setInstanceCount(2);
-        centerings->setInstanceSeparation(0.035);
-        rings = &body.addChild(std::move(centerings));
-
-        rocket.enableEvents();
-    }
-};
+// The ring components of TestRockets.makeEstesAlphaIII(), makeBeta() and makeFalcon9Heavy() are
+// those of the shared fixtures (TestRockets.h), which build the whole rockets.
 
 TEST(RingComponentGolden, EstesAlphaIIIMotorMountTube)
 {
-    const AlphaIIIRings alpha;
+    const TestEstesAlphaIII alpha;
     const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/2");
     EXPECT_EQ(goldenMismatches(*alpha.inner, golden), noGoldenMismatches());
     EXPECT_EQ(goldenLocationMismatches(*alpha.inner, golden), noGoldenMismatches());
@@ -498,7 +441,7 @@ TEST(RingComponentGolden, EstesAlphaIIIMotorMountTube)
 
 TEST(RingComponentGolden, EstesAlphaIIIEngineBlock)
 {
-    const AlphaIIIRings alpha;
+    const TestEstesAlphaIII alpha;
     const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/2/0");
     EXPECT_EQ(goldenMismatches(*alpha.block, golden), noGoldenMismatches());
     EXPECT_EQ(goldenLocationMismatches(*alpha.block, golden), noGoldenMismatches());
@@ -507,7 +450,7 @@ TEST(RingComponentGolden, EstesAlphaIIIEngineBlock)
 TEST(RingComponentGolden, EstesAlphaIIICenteringRings)
 {
     // Automatic outer radius from the body tube, automatic inner radius from the inner tube.
-    const AlphaIIIRings alpha;
+    const TestEstesAlphaIII alpha;
     const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/4");
     EXPECT_EQ(goldenMismatches(*alpha.rings, golden), noGoldenMismatches());
     EXPECT_EQ(goldenLocationMismatches(*alpha.rings, golden), noGoldenMismatches());
@@ -515,22 +458,22 @@ TEST(RingComponentGolden, EstesAlphaIIICenteringRings)
 
 TEST(RingComponentGolden, BetaCoupler)
 {
-    // TestRockets.makeBeta(): the booster body (BodyTube(0.06, 0.012, 0.0003)) and its coupler,
+    // TestRockets.makeBeta(): the coupler of the booster body (BodyTube(0.06, 0.012, 0.0003)),
     // whose thickness the constructor-time clamp keeps at 0 (so it weighs nothing).
-    OneStage  rocket;
-    BodyTube& body    = rocket.stage->addChild(std::make_unique<BodyTube>(0.06, 0.012, 0.0003));
-    auto      coupler = std::make_unique<TubeCoupler>();
-    coupler->setName("Coupler");
-    coupler->setOuterRadiusAutomatic(true);
-    coupler->setThickness(0.0003);
-    coupler->setLength(0.03);
-    coupler->setAxialMethod(AxialMethod::TOP);
-    coupler->setAxialOffset(-0.015);
-    const TubeCoupler& added = body.addChild(std::move(coupler));
-    rocket.rocket.enableEvents();
+    const TestBeta beta;
+    const json&    golden = goldenGeometryComponentOrFail("testrocket-beta", "/1/0/0");
+    EXPECT_EQ(goldenMismatches(*beta.coupler, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*beta.coupler, golden), noGoldenMismatches());
+}
 
-    const json& golden = goldenGeometryComponentOrFail("testrocket-beta", "/1/0/0");
-    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
+TEST(RingComponentGolden, BetaBoosterMotorMount)
+{
+    // TestRockets.makeBeta(): the booster's motor mount, positioned BOTTOM 0.005 m.
+    const TestBeta beta;
+    const json&    golden = goldenGeometryComponentOrFail("testrocket-beta", "/1/0/2");
+    EXPECT_EQ(goldenMismatches(*beta.boosterMmt, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*beta.boosterMmt, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(*beta.boosterMmt, golden), noGoldenMismatches());
 }
 
 /// TestRockets.makeIsoHaisu()'s second and third body tubes (BodyTube(length, 0.07, 0.005))
@@ -616,24 +559,16 @@ TEST(RingComponentGolden, IsoHaisuInnerTubeAndCenteringRings)
 
 TEST(RingComponentGolden, Falcon9HeavyBoosterMotorTubes)
 {
-    // A 4-ring cluster in a booster body (BodyTube(0.8, 0.0385, 0.001)).
-    OneStage  rocket;
-    BodyTube& body  = rocket.stage->addChild(std::make_unique<BodyTube>(0.8, 0.0385, 0.001));
-    auto      tubes = std::make_unique<InnerTube>();
-    tubes->setName("Booster Motor Tubes");
-    tubes->setLength(0.15);
-    tubes->setOuterRadius(0.015);
-    tubes->setThickness(0.0005);
-    tubes->setClusterConfiguration(ClusterConfiguration::configurations()[5]);  // 4-ring
-    tubes->setClusterScale(1.0);
-    InnerTube& added = body.addChild(std::move(tubes));
-    added.setMotorOverhang(0.01234);
-    added.setMotorMount(true);  // TestRockets gives it a motor, which makes it a mount
-    rocket.rocket.enableEvents();
+    // A 4-ring cluster in each of the two booster bodies (BodyTube(0.8, 0.0385, 0.001)): eight
+    // locations in the rocket.
+    const TestFalcon9Heavy f9h;
+    const InnerTube&       tubes = *f9h.boosterMotorTubes;
 
     const json& golden = goldenGeometryComponentOrFail("testrocket-falcon-9-heavy", "/1/0/0/1/0");
-    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
-    EXPECT_EQ(goldenMountMismatches(added, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(tubes, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(tubes, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(tubes, golden), noGoldenMismatches());
+    EXPECT_EQ(tubes.getComponentLocations().size(), 8U);
 }
 
 TEST(RingComponentGolden, ClusterPodsInnerTubes)

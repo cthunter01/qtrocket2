@@ -1541,6 +1541,7 @@ TEST(FlightConfigurationRemoval, AMountUnderAComponentThatStaysLeaves)
     const FlightConfiguration& config = rocket.getFlightConfiguration(f9h.fcid);
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2)
         << "its parent keeps its instances";
+    // HOOK(fins-lugs): the fins are a double carrying OpenRocket's three instances.
     EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterFins), 6) << "3 fins per booster";
     EXPECT_EQ(config.getAllMotors().size(), 1U);
     EXPECT_EQ(config.getActiveMotors().size(), 1U);

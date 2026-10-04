@@ -47,9 +47,18 @@
 /// The fin sets and the launch lugs are not ported yet. Each is a TestComponent double of its
 /// kind (TRAPEZOID_FIN_SET, LAUNCH_LUG) that carries what OpenRocket computes for the Java
 /// component: its mass, CG, unit inertias, instance offsets and instance angles, copied from
-/// tests/data/goldens/testrocket-*/geometry.json. A double has no shape: its bounds are the
-/// segment from its front to its end, so the y and z extents of a rocket's bounding box, and
-/// anything else that depends on the fin or lug geometry, are not OpenRocket's.
+/// tests/data/goldens/testrocket-*/geometry.json. What a double does not reproduce:
+/// - It has no shape: its bounds are the segment from its front to its end, so the y and z
+///   extents of a rocket's bounding box, and anything else that depends on the fin or lug
+///   geometry, are not OpenRocket's. Its radius method, angle offset and material are a
+///   TestComponent's, not the Java component's.
+/// - A lug double is inert: Java's LaunchLug.componentChanged() reads the radius of the body it
+///   sits on, and reading an automatic body tube radius refreshes the tube's reference
+///   component. Without that side effect the automatic radii of the bodies of these rockets are
+///   not always OpenRocket's: the last step of RocketTest.testAutoSizeNextComponent gives 0.025 m
+///   on TestBeta where OpenRocket gives 0.012 m. RocketTests.cpp therefore runs the automatic
+///   radius tests on a TestBeta whose lug doubles it replaces by lugs that do have the side
+///   effect (LuggedBeta with LaunchLugStandIn, HOOK(launch-lug)), until the lugs here are real.
 /// HOOK(fins-lugs): tier 6b replaces the doubles with TrapezoidFinSet and LaunchLug.
 namespace QtRocket::Test
 {
@@ -161,6 +170,7 @@ inline MotorConfiguration& addMotor(MotorMount& mount, const FlightConfiguration
 
 /// What OpenRocket computes for a fin set or a launch lug of the test rockets (the component's
 /// entry in geometry.json): the values a double carries.
+// HOOK(fins-lugs): tier 6b deletes this with the doubles
 struct DoubleProperties
 {
     double                  length;                   ///< "length"
@@ -189,6 +199,7 @@ struct DoubleProperties
 
 /// The angles of the three fins of every fin set of the test rockets (geometry.json's
 /// "instanceAngles": 0, 2 pi / 3, 4 pi / 3).
+// HOOK(fins-lugs): tier 6b deletes this with the doubles
 inline constexpr std::array<double, 3> kThreeFinAngles{0.0, 2.0943951023931953, 4.1887902047863905};
 
 /// TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05) with thickness 0.0032 on a body of radius 0.012 m,

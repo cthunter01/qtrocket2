@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/BugError.h"
@@ -22,6 +23,7 @@ namespace
 
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
@@ -33,18 +35,21 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 static_assert(QtRocket::Monitorable<AerodynamicForces>);
 
-/// A rocket with a stage holding a body (a TestComponent) for the override tests.
+/// A rocket with a stage holding a body tube (0.3 m, radius 0.025 m) for the override tests, and
+/// in it a part whose instance count a test can set (a TestComponent).
 struct OverrideRocket
 {
     std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
     AxialStage*             stage{nullptr};
-    TestComponent*          body{nullptr};
+    BodyTube*               body{nullptr};
+    TestComponent*          part{nullptr};
 
     OverrideRocket()
     {
         stage = &rocket->addChild(std::make_unique<AxialStage>());
-        body  = &stage->addChild(TestComponent::make(0.3));
+        body  = &stage->addChild(std::make_unique<BodyTube>(0.3, 0.025));
         body->setName("Body");
+        part = &body->addChild(TestComponent::make(0.05));
         rocket->enableEvents();
     }
 };
@@ -370,10 +375,14 @@ TEST(AerodynamicForces, AssemblyValuesAreAlreadyAggregated)
 TEST(AerodynamicForces, CDTotalCountsTheInstances)
 {
     const OverrideRocket r;
-    r.body->setInstanceCount(3);
+    r.part->setInstanceCount(3);
     AerodynamicForces forces = dragForces();
-    forces.setComponent(r.body);
+    forces.setComponent(r.part);
     EXPECT_EQ(forces.getCDTotal(), 1.5);
+
+    // A single body tube counts once.
+    forces.setComponent(r.body);
+    EXPECT_EQ(forces.getCDTotal(), 0.5);
 
     forces.setComponent(nullptr);
     EXPECT_THROW((void)forces.getCDTotal(), BugError);  // Java: NullPointerException

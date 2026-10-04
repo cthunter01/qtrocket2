@@ -4,14 +4,11 @@
 #include <vector>
 
 #include "QtRocket/rocket/ComponentChangeEvent.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/RingComponent.h"
-#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
-#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 
@@ -118,11 +115,7 @@ double MassObject::getMaxParentRadius() const
     {
         return ring->getInnerRadius();
     }
-    // Java tests the parent's class (instanceof), which cannot miss a body or ring component;
-    // here a parent whose kind() names one of those classes but that is not of the class is a
-    // programming error, not a parent of radius 0.
-    QTROCKET_ASSERT(m_parent == nullptr ||
-                    !(isBodyComponent(m_parent->kind()) || isRingComponent(m_parent->kind())));
+    // Any other parent, and none at all (Java's instanceof is false for null).
     return 0;
 }
 

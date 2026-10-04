@@ -48,10 +48,8 @@ public:
 
     /// The radius of the space the parent offers: the base radius of a nose cone, the larger
     /// radius of a transition, the inner radius of a body tube (BodyComponent.getInnerRadius())
-    /// or of a ring component, else 0 (also without a parent).
-    /// @throws BugError when the parent's kind() names a body or ring component but the parent
-    ///         is not a SymmetricComponent or a RingComponent: Java's instanceof tests cannot
-    ///         fail that way.
+    /// or of a ring component, else 0 (also without a parent). The parent's class decides, as
+    /// Java's instanceof does, never its kind().
     [[nodiscard]] double getMaxParentRadius() const;
 
     /// Sets the packed radius (negative values become 0), makes it manual and recomputes the

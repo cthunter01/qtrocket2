@@ -30,12 +30,12 @@
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
-#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
 #include "rocket/InternalTestSupport.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -63,6 +63,8 @@ using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::noGoldenMismatches;
 using QtRocket::Test::OneStage;
 using QtRocket::Test::TestComponent;
+using QtRocket::Test::TestEstesAlphaIII;
+using QtRocket::Test::TestFalcon9Heavy;
 
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
 
@@ -241,42 +243,29 @@ TEST(MassObject, AutomaticRadiusInsideBodyComponents)
     EXPECT_EQ(inBody.getAutoRadius(), body->getInnerRadius());
 }
 
-/// Whether a mass component in a TestComponent parent of @p kind (a Coaxial, but neither a
-/// SymmetricComponent nor a RingComponent) refuses getMaxParentRadius() with a BugError.
-[[nodiscard]] bool refusesTheParent(ComponentKind kind)
+TEST(MassObject, TheParentClassDecidesNotItsKind)
 {
-    auto        parent = TestComponent::make(0.1, kind);
-    const auto& mc     = parent->addChild(std::make_unique<MassComponent>());
-    try
-    {
-        static_cast<void>(mc.getMaxParentRadius());
-    }
-    catch (const QtRocket::BugError&)
-    {
-        return true;
-    }
-    return false;
-}
-
-TEST(MassObject, MaxParentRadiusRefusesAMisbuiltParent)
-{
-    // Java tests the parent's class: a body component that is not a SymmetricComponent, or a
-    // ring component that is not a RingComponent, is a programming error, not a radius of 0.
-    // The kinds accepted, by name (a string: GCC's -O3 -Wnull-dereference misfires on a vector
-    // filled in this loop).
-    std::string accepted;
+    // Java: parent instanceof NoseCone / Transition / BodyComponent / RingComponent. A parent
+    // that only reports the kind of one of them (a TestComponent, a Coaxial with radii of its
+    // own) is none of the four classes: it offers no radius, and the automatic radius falls back
+    // to the stored one.
     for (const ComponentKind kind :
          {ComponentKind::BODY_TUBE, ComponentKind::NOSE_CONE, ComponentKind::TRANSITION,
           ComponentKind::INNER_TUBE, ComponentKind::TUBE_COUPLER, ComponentKind::CENTERING_RING,
           ComponentKind::BULKHEAD, ComponentKind::ENGINE_BLOCK})
     {
-        if (!refusesTheParent(kind))
-        {
-            accepted += QtRocket::componentKindName(kind);
-            accepted += ' ';
-        }
+        SCOPED_TRACE(QtRocket::componentKindName(kind));
+        auto parent = TestComponent::make(0.1, kind);
+        parent->setOuterRadius(0.05);
+        parent->setInnerRadius(0.04);
+        auto& mc = parent->addChild(std::make_unique<MassComponent>());
+        EXPECT_EQ(mc.getMaxParentRadius(), 0.0);
+        EXPECT_EQ(mc.getAutoRadius(), 0.0125);
+
+        mc.setRadiusAutomatic(true);
+        EXPECT_EQ(mc.getRadius(), 0.0125);
+        EXPECT_EQ(mc.getLength(), 0.025);
     }
-    EXPECT_EQ(accepted, "");
 }
 
 TEST(MassObject, GetLengthReadsTheStoredRadiusUntilGetRadiusRefreshesIt)
@@ -409,58 +398,60 @@ TEST(MassObject, SettersFireOnChange)
     return check.failures();
 }
 
+/// The mismatches between @p chute's own dimensions, material and absolute placement and its
+/// golden entry.
+[[nodiscard]] std::vector<std::string> goldenParachuteMismatches(const Parachute& chute,
+                                                                 const json&      golden)
+{
+    GoldenCheck check{golden};
+    check.number("/details/diameter", chute.getDiameter());
+    check.number("/details/cd", chute.getCD());
+    check.integer("/details/lineCount", chute.getLineCount());
+    check.number("/details/lineLength", chute.getLineLength());
+    check.string("/details/material/name", chute.getMaterial().getName());
+    check.number("/details/material/density", chute.getMaterial().getDensity());
+    check.coordinates("/componentLocations", chute.getComponentLocations());
+    check.coordinates("/componentAngles", chute.getComponentAngles());
+    check.integer("/stageNumber", chute.getStageNumber());
+    return check.failures();
+}
+
 TEST(MassObjectGolden, EstesAlphaIIIParachute)
 {
     // TestRockets.makeEstesAlphaIII(): a default parachute at TOP 0.028 m in the body tube,
     // with an override mass of 2 g.
-    Rocket rocket;
-    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
-    auto& body  = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
-    auto  chute = std::make_unique<Parachute>();
-    chute->setAxialMethod(AxialMethod::TOP);
-    chute->setName("Parachute");
-    chute->setAxialOffset(0.028);
-    chute->setOverrideMass(0.002);
-    chute->setMassOverridden(true);
-    const Parachute& added = body.addChild(std::move(chute));
-    rocket.enableEvents();
-
+    const TestEstesAlphaIII alpha;
     const json& golden = goldenGeometryComponentOrFail("testrocket-estes-alpha-iii", "/0/1/3");
-    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
-    GoldenCheck check{golden};
-    check.number("/details/diameter", added.getDiameter());
-    check.number("/details/cd", added.getCD());
-    check.integer("/details/lineCount", added.getLineCount());
-    check.number("/details/lineLength", added.getLineLength());
-    check.string("/details/material/name", added.getMaterial().getName());
-    check.number("/details/material/density", added.getMaterial().getDensity());
-    check.coordinates("/componentLocations", added.getComponentLocations());
-    check.coordinates("/componentAngles", added.getComponentAngles());
-    check.integer("/stageNumber", added.getStageNumber());
-    EXPECT_EQ(check.failures(), noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(*alpha.chute, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenParachuteMismatches(*alpha.chute, golden), noGoldenMismatches());
+}
+
+TEST(MassObjectGolden, Falcon9HeavyParachute)
+{
+    // TestRockets.makeFalcon9Heavy(): a parachute at MIDDLE 0 with a diameter of 0.3 m and six
+    // lines of 0.3 m, in the upper stage body.
+    const TestFalcon9Heavy f9h;
+    const json& golden = goldenGeometryComponentOrFail("testrocket-falcon-9-heavy", "/0/3/0");
+    EXPECT_EQ(goldenMismatches(*f9h.parachute, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenParachuteMismatches(*f9h.parachute, golden), noGoldenMismatches());
 }
 
 TEST(MassObjectGolden, Falcon9HeavyShockCord)
 {
     // TestRockets.makeFalcon9Heavy(): a shock cord at BOTTOM 0 with a cord length of 0.4 m, in
     // the upper stage body (BodyTube(0.18, 0.0385, 0.001)).
-    OneStage rocket;
-    auto&    body = rocket.stage->addChild(std::make_unique<BodyTube>(0.18, 0.0385, 0.001));
-    auto     cord = std::make_unique<ShockCord>();
-    cord->setName("Shock Cord");
-    cord->setAxialMethod(AxialMethod::BOTTOM);
-    cord->setAxialOffset(0.0);
-    cord->setCordLength(0.4);
-    const ShockCord& added = body.addChild(std::move(cord));
-    rocket.rocket.enableEvents();
+    const TestFalcon9Heavy f9h;
+    const ShockCord&       cord = *f9h.shockCord;
 
     const json& golden = goldenGeometryComponentOrFail("testrocket-falcon-9-heavy", "/0/3/1");
-    EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(cord, golden), noGoldenMismatches());
     GoldenCheck check{golden};
-    check.number("/details/cordLength", added.getCordLength());
-    check.string("/details/material/name", added.getMaterial().getName());
-    check.number("/details/material/density", added.getMaterial().getDensity());
+    check.number("/details/cordLength", cord.getCordLength());
+    check.string("/details/material/name", cord.getMaterial().getName());
+    check.number("/details/material/density", cord.getMaterial().getDensity());
+    check.coordinates("/componentLocations", cord.getComponentLocations());
+    check.coordinates("/componentAngles", cord.getComponentAngles());
+    check.integer("/stageNumber", cord.getStageNumber());
     EXPECT_EQ(check.failures(), noGoldenMismatches());
 }
 

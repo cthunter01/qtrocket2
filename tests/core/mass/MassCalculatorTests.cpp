@@ -1708,11 +1708,11 @@ TEST_F(MassCalculatorRocketTest, StructureAddsComponentsAndParallelAxisTerms)
     EXPECT_DOUBLE_EQ(m_mount->getPosition().x + m_mount->getComponentCG().x, kMountX);
 
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    EXPECT_NEAR(structure.getMass(), structureMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getMass(), structureMass());
     const double cmx = structureCmx();
-    EXPECT_NEAR(structure.getCM().x, cmx, 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getCM().x, cmx);
     // Ixx: each tube's rotational unit inertia times its mass; Iyy: their own plus both offsets.
-    EXPECT_NEAR(structure.getIxx(), structureIxx(), 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getIxx(), structureIxx());
     const double iyy = (m_body->getLongitudinalUnitInertia() * bodyMass()) +
                        (m_mount->getLongitudinalUnitInertia() * mountMass()) +
                        (bodyMass() * (kBodyX - cmx) * (kBodyX - cmx)) +
@@ -1726,12 +1726,10 @@ TEST_F(MassCalculatorRocketTest, MassOverrideOfThisComponentOnlyScalesItsOwnIner
     m_body->setMassOverridden(true);
     m_body->setOverrideMass(0.4);
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    EXPECT_NEAR(structure.getMass(), 0.4 + mountMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getMass(), 0.4 + mountMass());
     // The body's own inertia follows the override mass (0.4), the mount keeps its mass.
-    EXPECT_NEAR(structure.getIxx(),
-                (m_body->getRotationalUnitInertia() * 0.4) +
-                    (m_mount->getRotationalUnitInertia() * mountMass()),
-                1e-15);
+    EXPECT_DOUBLE_EQ(structure.getIxx(), (m_body->getRotationalUnitInertia() * 0.4) +
+                                             (m_mount->getRotationalUnitInertia() * mountMass()));
 }
 
 TEST_F(MassCalculatorRocketTest, SubcomponentMassOverrideScalesTheWholeSubtree)
@@ -1745,7 +1743,7 @@ TEST_F(MassCalculatorRocketTest, SubcomponentMassOverrideScalesTheWholeSubtree)
 
     // The whole override mass sits at the (massive) body's own CG, as in Java; the subtree's
     // bodies keep their places with twice their mass and inertia.
-    EXPECT_NEAR(after.getMass(), 2 * structureMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(after.getMass(), 2 * structureMass());
     EXPECT_DOUBLE_EQ(after.getCM().x, kBodyX);
     EXPECT_NEAR(after.getIxx(), 2 * before.getIxx(), 1e-15);
     // The body at the CM; the mount 0.2 m behind it.
@@ -1784,8 +1782,8 @@ TEST_F(MassCalculatorRocketTest, MassOverrideOfANonMassiveComponentTakesItsChild
     m_stage->setMassOverridden(true);
     m_stage->setOverrideMass(1.0);
     const RigidBody structure = MassCalculator::calculateStructure(config());
-    EXPECT_NEAR(structure.getMass(), 1.0 + structureMass(), 1e-15);
-    EXPECT_NEAR(structure.getCM().x, structureCmx(), 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getMass(), 1.0 + structureMass());
+    EXPECT_DOUBLE_EQ(structure.getCM().x, structureCmx());
 }
 
 TEST_F(MassCalculatorRocketTest, CGOverrideIsMeasuredFromTheComponentsFront)
@@ -1794,8 +1792,8 @@ TEST_F(MassCalculatorRocketTest, CGOverrideIsMeasuredFromTheComponentsFront)
     m_mount->setOverrideCGX(0.0);
     const RigidBody structure = MassCalculator::calculateStructure(config());
     // The mount's CG moves to its front, 0.4 m.
-    EXPECT_NEAR(structure.getCM().x,
-                ((bodyMass() * kBodyX) + (mountMass() * 0.4)) / structureMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(structure.getCM().x,
+                     ((bodyMass() * kBodyX) + (mountMass() * 0.4)) / structureMass());
 }
 
 TEST_F(MassCalculatorRocketTest, SubcomponentCGOverrideMovesTheChildrenToo)
@@ -1803,13 +1801,13 @@ TEST_F(MassCalculatorRocketTest, SubcomponentCGOverrideMovesTheChildrenToo)
     m_body->setCGOverridden(true);
     m_body->setOverrideCGX(0.1);
     const RigidBody own = MassCalculator::calculateStructure(config());
-    EXPECT_NEAR(own.getCM().x, ((bodyMass() * 0.1) + (mountMass() * kMountX)) / structureMass(),
-                1e-15);
+    EXPECT_DOUBLE_EQ(own.getCM().x,
+                     ((bodyMass() * 0.1) + (mountMass() * kMountX)) / structureMass());
 
     m_body->setSubcomponentsOverriddenCG(true);
     const RigidBody all = MassCalculator::calculateStructure(config());
     EXPECT_DOUBLE_EQ(all.getCM().x, 0.1);
-    EXPECT_NEAR(all.getMass(), structureMass(), 1e-15);
+    EXPECT_DOUBLE_EQ(all.getMass(), structureMass());
 }
 
 TEST_F(MassCalculatorRocketTest, MotorMassAtLaunch)

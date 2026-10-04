@@ -114,10 +114,7 @@ protected:
     /// smaller of the parent's inner radii (RadialParent::getInnerRadius()) at this component's
     /// front and back, both positions taken relative to the parent's first instance and clamped
     /// to 0 ... the parent's length; nullopt when the parent is not a RadialParent (or there is
-    /// none).
-    /// @throws BugError when the parent is not a RadialParent although its kind() names a class
-    ///         that is one in OpenRocket (BODY_TUBE, NOSE_CONE, TRANSITION, INNER_TUBE,
-    ///         TUBE_COUPLER).
+    /// none). The parent's class decides, as Java's instanceof does, never its kind().
     [[nodiscard]] std::optional<double> parentInnerRadius() const;
 
     /// Whether the outer radius is automatic (Java: outerRadiusAutomatic).

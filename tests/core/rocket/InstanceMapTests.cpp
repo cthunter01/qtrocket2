@@ -9,44 +9,42 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/rocket/AxialStage.h"
-#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Transformation.h"
-#include "rocket/TestComponent.h"
 
 namespace
 {
 
 using QtRocket::AxialStage;
-using QtRocket::ComponentKind;
+using QtRocket::BodyTube;
 using QtRocket::Coordinate;
 using QtRocket::InstanceContext;
 using QtRocket::InstanceMap;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Transformation;
-using QtRocket::Test::TestComponent;
 
-/// Three components of a small tree, for keys.
+/// Three components of a small tree, for keys: a stage and its two body tubes.
 class InstanceMapTest : public ::testing::Test
 {
 protected:
     InstanceMapTest()
     {
         m_stage = &m_rocket.addChild(std::make_unique<AxialStage>());
-        m_a     = &m_stage->addChild(TestComponent::make(0.1));
-        m_b     = &m_stage->addChild(TestComponent::make(0.2));
+        m_a     = &m_stage->addChild(std::make_unique<BodyTube>(0.1, 0.01));
+        m_b     = &m_stage->addChild(std::make_unique<BodyTube>(0.2, 0.01));
         m_a->setName("A");
         m_b->setName("B");
     }
 
-    Rocket         m_rocket;
-    AxialStage*    m_stage{nullptr};
-    TestComponent* m_a{nullptr};
-    TestComponent* m_b{nullptr};
+    Rocket      m_rocket;
+    AxialStage* m_stage{nullptr};
+    BodyTube*   m_a{nullptr};
+    BodyTube*   m_b{nullptr};
 };
 
 TEST_F(InstanceMapTest, StartsEmpty)

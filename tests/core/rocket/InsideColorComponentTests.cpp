@@ -9,25 +9,25 @@
 
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/InsideColorComponentHandler.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Color.h"
-#include "rocket/TestComponent.h"
 
 namespace
 {
 
 using QtRocket::Appearance;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::Color;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::InsideColorComponentHandler;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
-using QtRocket::Test::TestComponent;
 
 /// A rocket with one stage holding one body tube, events enabled, recording the last event.
 class InsideColorComponentTest : public ::testing::Test
@@ -36,14 +36,14 @@ protected:
     InsideColorComponentTest()
     {
         AxialStage& stage = m_rocket.addChild(std::make_unique<AxialStage>());
-        m_tube            = &stage.addChild(TestComponent::make(0.2));
+        m_tube            = &stage.addChild(std::make_unique<BodyTube>(0.2, 0.025));
         m_rocket.enableEvents();
         m_connection = m_rocket.addComponentChangeListener(
             [this](const ComponentChangeEvent& event) { m_lastType = event.getType(); });
     }
 
     Rocket                                  m_rocket;
-    TestComponent*                          m_tube{nullptr};
+    BodyTube*                               m_tube{nullptr};
     std::optional<int>                      m_lastType;
     ComponentChangeSignal::ScopedConnection m_connection;
 };
@@ -71,7 +71,7 @@ TEST_F(InsideColorComponentTest, MaterialPartitionChangesFireGraphicEvents)
 
 TEST_F(InsideColorComponentTest, TheMixinOwnsTheHandler)
 {
-    static_assert(std::is_base_of_v<QtRocket::InsideColorComponent, TestComponent>);
+    static_assert(std::is_base_of_v<QtRocket::InsideColorComponent, BodyTube>);
     QtRocket::InsideColorComponent&       mixin      = *m_tube;
     const QtRocket::InsideColorComponent& constMixin = *m_tube;
     EXPECT_EQ(&mixin.getInsideColorComponentHandler(),
@@ -116,14 +116,14 @@ TEST_F(InsideColorComponentTest, CopyFromCopiesTheStateSilently)
     handler.setSeparateInsideOutside(true);
     handler.setEdgesSameAsInside(true);
 
-    TestComponent other;
+    BodyTube other;
     other.getInsideColorComponentHandler().copyFrom(handler);
     EXPECT_EQ(other.getInsideColorComponentHandler().getInsideAppearance(),
               handler.getInsideAppearance());
     EXPECT_TRUE(other.getInsideColorComponentHandler().isSeparateInsideOutside());
     EXPECT_TRUE(other.getInsideColorComponentHandler().isEdgesSameAsInside());
 
-    TestComponent third;
+    BodyTube third;
     third.setInsideColorComponentHandler(handler);
     EXPECT_TRUE(third.getInsideColorComponentHandler().isEdgesSameAsInside());
 }
@@ -136,7 +136,7 @@ TEST_F(InsideColorComponentTest, ACopiedComponentNotifiesAsItself)
     // The copy has its own handler with the same state, bound to the copy: once the copy is in
     // the rocket, its handler fires with the copy as the source.
     std::unique_ptr<RocketComponent> copy   = m_tube->copyWithNewIds();
-    auto&                            copied = dynamic_cast<TestComponent&>(*copy);
+    auto&                            copied = dynamic_cast<BodyTube&>(*copy);
     EXPECT_TRUE(copied.getInsideColorComponentHandler().isSeparateInsideOutside());
     EXPECT_NE(&copied.getInsideColorComponentHandler(), &handler);
 
@@ -152,7 +152,7 @@ TEST_F(InsideColorComponentTest, ACopiedComponentNotifiesAsItself)
 
 TEST_F(InsideColorComponentTest, DetachedComponentFiresNothing)
 {
-    TestComponent detached;
+    BodyTube detached;
     detached.getInsideColorComponentHandler().setSeparateInsideOutside(true);
     EXPECT_TRUE(detached.getInsideColorComponentHandler().isSeparateInsideOutside());
     EXPECT_FALSE(m_lastType.has_value());

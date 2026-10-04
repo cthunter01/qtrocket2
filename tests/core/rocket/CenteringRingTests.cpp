@@ -1,11 +1,10 @@
-// CenteringRingComponentTests.java (core/src/test/.../preset), ported, the centering ring part
-// of RocketTest.testEstesAlphaIII, and the ring's automatic radii.
+// CenteringRingComponentTests.java (core/src/test/.../preset), ported, and the ring's automatic
+// radii. The centering ring part of RocketTest.testEstesAlphaIII is in RocketTests.cpp
+// (RocketEstesAlphaIII.CenteringRingLocations), on the whole rocket.
 
 #include "QtRocket/rocket/CenteringRing.h"
 
 #include <memory>
-#include <utility>
-#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -16,16 +15,13 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
-#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
-#include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Coordinate.h"
 #include "rocket/TestComponent.h"
 
 namespace
@@ -40,13 +36,10 @@ using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetFactory;
 using QtRocket::ComponentPresetType;
-using QtRocket::Coordinate;
 using QtRocket::InnerTube;
 using QtRocket::Manufacturer;
 using QtRocket::Material;
-using QtRocket::NoseCone;
 using QtRocket::Rocket;
-using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Test::TestComponent;
 
@@ -254,41 +247,6 @@ TEST_F(CenteringRingTest, SetInnerRadiusMakesItManual)
     EXPECT_EQ(m_ring->getInnerRadius(), 0.005);
     m_ring->setInnerRadiusAutomatic(true);
     EXPECT_EQ(m_ring->getInnerRadius(), 0.012);
-}
-
-/// RocketTest.testEstesAlphaIII, the centering rings: two rings 6 mm long at TOP 0.14 m, 0.035 m
-/// apart, in the Alpha III's body tube (0.2 m after a 0.07 m nose cone).
-TEST(CenteringRing, EstesAlphaIIICenteringRingLocations)
-{
-    Rocket rocket;
-    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012));
-    auto& body = stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003));
-    auto  ring = std::make_unique<CenteringRing>();
-    ring->setName("Centering Rings");
-    ring->setAxialMethod(AxialMethod::TOP);
-    ring->setAxialOffset(0.14);
-    ring->setLength(0.006);
-    ring->setInstanceCount(2);
-    ring->setInstanceSeparation(0.035);
-    CenteringRing& rings = body.addChild(std::move(ring));
-    rocket.enableEvents();
-
-    EXPECT_EQ(rings.getInstanceCount(), 2) << rings.getName() << " not instanced correctly";
-    // Singleton instances follow different code paths.
-    rings.setInstanceCount(1);
-    const Coordinate single = rings.getComponentLocations().at(0);
-    EXPECT_NEAR(single.x, 0.21, 1e-8) << " position x fail";
-    EXPECT_NEAR(single.y, 0.0, 1e-8) << " position y fail";
-    EXPECT_NEAR(single.z, 0.0, 1e-8) << " position z fail";
-    EXPECT_EQ(single, (Coordinate{0.21, 0, 0})) << rings.getName() << " not positioned correctly";
-
-    rings.setInstanceCount(2);
-    const std::vector<Coordinate> locations = rings.getComponentLocations();
-    ASSERT_EQ(locations.size(), 2U);
-    EXPECT_EQ(locations[0], (Coordinate{0.21, 0, 0})) << "first instance";
-    EXPECT_EQ(rings.getInstanceCount(), 2) << rings.getName() << " not instanced correctly";
-    EXPECT_EQ(locations[1], (Coordinate{0.245, 0, 0})) << "second instance";
 }
 
 }  // namespace

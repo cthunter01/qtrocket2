@@ -416,10 +416,11 @@ TEST_F(RocketTest, BypassedAndDetachedComponentsFireNothing)
 
 TEST_F(RocketTest, TreeChangesFireWithMassAndAeroOfTheSubtree)
 {
-    auto tube = TestComponent::make(0.2);
-    tube->addChild(TestComponent::make(0.05)).setAerodynamic(false);
-    tube->setMassive(false);
-    m_stage->addChild(std::move(tube));
+    // A subtree whose root is aerodynamic only and whose child is massive only.
+    auto part = TestComponent::make(0.2);
+    part->addChild(TestComponent::make(0.05)).setAerodynamic(false);
+    part->setMassive(false);
+    m_body->addChild(std::move(part));
     ASSERT_EQ(m_events.size(), 1U);
     EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kTreeChange |
                                     ComponentChangeEvent::kAerodynamicChange |
@@ -430,16 +431,23 @@ TEST_F(RocketTest, TreeChangesFireWithMassAndAeroOfTheSubtree)
     auto plain = TestComponent::make(0.1);
     plain->setAerodynamic(false);
     plain->setMassive(false);
-    TestComponent& added = m_stage->addChild(std::move(plain));
+    TestComponent& added = m_body->addChild(std::move(plain));
     EXPECT_EQ(types(), std::vector<int>{ComponentChangeEvent::kTreeChange});
 
     m_events.clear();
-    m_stage->moveChild(&added, 0);
+    m_body->moveChild(&added, 0);
     EXPECT_EQ(types(), std::vector<int>{ComponentChangeEvent::kTreeChange});
     m_events.clear();
-    const std::unique_ptr<RocketComponent> removed = m_stage->removeChild(&added);
+    const std::unique_ptr<RocketComponent> removed = m_body->removeChild(&added);
     EXPECT_EQ(types(), std::vector<int>{ComponentChangeEvent::kTreeChange});
-    EXPECT_EQ(m_events[0].source, m_stage);
+    EXPECT_EQ(m_events[0].source, m_body);
+
+    // A real body tube is massive and aerodynamic.
+    m_events.clear();
+    m_stage->addChild(std::make_unique<BodyTube>(0.1, 0.02));
+    EXPECT_EQ(types(), std::vector<int>{ComponentChangeEvent::kTreeChange |
+                                        ComponentChangeEvent::kAerodynamicChange |
+                                        ComponentChangeEvent::kMassChange});
 }
 
 TEST_F(RocketTest, ListenersAreRemovedWithTheirConnection)
@@ -959,9 +967,8 @@ template <class Component>
 }
 
 /// RocketTest.testEstesAlphaIII: the location of every component and the x extent of the bounds.
-/// Deferred until the fins and the launch lug are real classes (HOOK(fins-lugs)): the launch
-/// lug's radial offset (Java expects it at (0.181, -0.015, 0)) and the y and z extents of the
-/// bounds, which need the real fin and lug shapes.
+/// Deferred until the fins and the launch lug are real classes (HOOK(fins-lugs)): the y and z
+/// extents of the bounds, which need the real fin and lug shapes.
 TEST(RocketEstesAlphaIII, ComponentLocations)
 {
     const QtRocket::Test::TestEstesAlphaIII alpha;
@@ -982,12 +989,12 @@ TEST(RocketEstesAlphaIII, ComponentLocations)
         EXPECT_EQ(fins.getInstanceCount(), 3) << fins.getName() << " have incorrect count: ";
         EXPECT_EQ(location(fins), (Coordinate{0.22, 0.012, 0})) << "fin #1";
 
-        // HOOK(fins-lugs): the lug is a double; its radial offset (y = -0.015) is asserted once
-        // LaunchLug computes it.
+        // HOOK(fins-lugs): the lug is a double carrying OpenRocket's instance offset (its radial
+        // offset, y = -0.015), which LaunchLug computes.
         const RocketComponent& lugs = body.getChild(1);
         EXPECT_EQ(lugs.kind(), ComponentKind::LAUNCH_LUG);
         EXPECT_EQ(lugs.getInstanceCount(), 1) << lugs.getName() << " have incorrect count: ";
-        EXPECT_NEAR(location(lugs).x, 0.181, kEpsilon) << lugs.getName();
+        EXPECT_EQ(location(lugs), (Coordinate{0.181, -0.015, 0})) << lugs.getName();
 
         auto& mmt = childAs<InnerTube>(body, 2);
         EXPECT_EQ(location(mmt), (Coordinate{0.203, 0, 0})) << mmt.getName();
@@ -1191,6 +1198,31 @@ TEST(RocketEstesAlphaIII, RemoveReadjustLocation)
         const auto& tubePost = childAs<BodyTube>(rocket.getChild(0), 0);
         EXPECT_NEAR(location(tubePost).x, 0.0, kEpsilon);
     }
+}
+
+/// UUIDSearchTest.testUUIDSearch: a component is found by its id until it is removed.
+TEST(RocketEstesAlphaIII, UuidSearch)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    Rocket&                                 rocket = *alpha.rocket;
+
+    auto&       stage    = childAs<AxialStage>(rocket, 0);
+    const auto& noseCone = childAs<NoseCone>(stage, 0);
+
+    // If I search for the NoseCone using its UUID I should get it back
+    const QtRocket::Uuid noseConeId = noseCone.getId();
+    EXPECT_EQ(&noseCone, rocket.findComponent(noseConeId)) << "UUID search didn't find NoseCone";
+
+    // Once removed (without stage tracking, as Java's removeChild(noseCone, false)), it is not
+    // found any more (Java: RocketComponent.REMOVED).
+    const std::unique_ptr<RocketComponent> removed =
+        stage.removeChild(&noseCone, RocketComponent::StageTracking::SKIP);
+    ASSERT_NE(removed, nullptr) << "failed to remove NoseCone";
+    EXPECT_EQ(rocket.findComponent(noseConeId), nullptr)
+        << "Search for NoseCone failed to find REMOVED";
+
+    // The nil id is not found either.
+    EXPECT_EQ(rocket.findComponent(QtRocket::Uuid{0U, 0U}), nullptr) << "Failed to find REMOVED";
 }
 
 /// RocketTest.testBeta: the locations of the booster's components and the x extent of the bounds
@@ -1551,9 +1583,10 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
 /// componentChanged() reads the radius of the symmetric component it sits on at both of its ends
 /// (to compute its radial offset), and reading an automatic body tube radius refreshes the tube's
 /// reference component. RocketTest.testAutoSizeNextComponent depends on that side effect, so
-/// BodyBeta carries the two lugs of TestRockets.makeBeta() as this stand-in until LaunchLug is
+/// LuggedBeta carries the two lugs of TestRockets.makeBeta() as this stand-in until LaunchLug is
 /// ported.
 /// HOOK(launch-lug): replace with the real LaunchLug once it is ported.
+// HOOK(fins-lugs): tier 6b deletes this with LuggedBeta (see there)
 class LaunchLugStandIn : public TestComponent
 {
 public:
@@ -1581,81 +1614,48 @@ protected:
     }
 };
 
-/// TestRockets.makeBeta() with its real body components: the sustainer stage's nose cone (an
-/// ogive 0.07 m long with base radius 0.012 m and an aft shoulder) and body tube (0.2 m, radius
-/// 0.012 m, wall 0.3 mm), and the booster stage's body tube (0.06 m) and tail cone (0.005 m, radii
-/// 0.012 and 0.01 m), with the launch lugs as LaunchLugStandIn. The other internal components and
-/// the fins are left out: the automatic radii read only the body components and the assemblies.
-/// TEST_FCID_1 is selected, with every stage active.
-/// TODO(launch-lug, internal-components, fin-sets): rebuild RocketAutoSize on the full
-/// TestRockets.makeBeta() once LaunchLug, TubeCoupler (whose automatic outer radius reads the body
-/// tube), InnerTube, the Alpha III internals and the trapezoidal fin set are ported; this omits
-/// them all.
-struct BodyBeta
+/// TestRockets.makeBeta() for the automatic radius tests: TestBeta (TestRockets.h, built from the
+/// real body and internal components) with its two launch lug doubles replaced, at the same
+/// child index, offset and name, by lugs that read the body radius as Java's LaunchLug does.
+/// TestBeta's own lug doubles are inert, and without that side effect the last step of
+/// RocketTest.testAutoSizeNextComponent would give 0.025 m instead of OpenRocket's 0.012 m.
+// HOOK(launch-lug), HOOK(fins-lugs): once TestBeta's lugs are real LaunchLugs, RocketAutoSize
+// runs on TestBeta itself; this struct and LaunchLugStandIn are then deleted.
+struct LuggedBeta : QtRocket::Test::TestBeta
 {
-    std::unique_ptr<Rocket> rocket = std::make_unique<Rocket>();
-    AxialStage*             sustainer{nullptr};
-    AxialStage*             booster{nullptr};
-    QtRocket::NoseCone*     nose{nullptr};
-    QtRocket::BodyTube*     body{nullptr};
-    QtRocket::BodyTube*     boosterBody{nullptr};
-    QtRocket::Transition*   tailCone{nullptr};
-
-    BodyBeta()
+    LuggedBeta()
     {
-        for (int i = 0; i < 5; i++)
+        lug        = &replaceLug(*body, *lug, 0.111);
+        boosterLug = &replaceLug(*boosterBody, *boosterLug, 0.0);
+    }
+
+private:
+    /// Replaces the lug double @p old of @p parent by a LaunchLugStandIn positioned TOP at
+    /// @p offset, with the same name and child index.
+    static TestComponent& replaceLug(BodyTube& parent, const TestComponent& old, double offset)
+    {
+        const std::optional<std::size_t> index = parent.getChildPosition(&old);
+        if (!index)
         {
-            rocket->createFlightConfiguration(QtRocket::Test::testFcid(i));
+            QtRocket::bug("the launch lug double is not a child of its body");
         }
-        rocket->setName("Kit-bash Beta");
-        sustainer = &rocket->addChild(std::make_unique<AxialStage>());
-        sustainer->setName("Sustainer Stage");
-
-        auto nosecone =
-            std::make_unique<QtRocket::NoseCone>(QtRocket::TransitionShape::OGIVE, 0.07, 0.012);
-        nosecone->setAftShoulderLength(0.02);
-        nosecone->setAftShoulderThickness(0);
-        nosecone->setAftShoulderRadius(0.011);
-        nosecone->setName("Nose Cone");
-        nose = &sustainer->addChild(std::move(nosecone));
-
-        body = &sustainer->addChild(std::make_unique<QtRocket::BodyTube>(0.20, 0.012, 0.0003));
-        body->setName("Sustainer Body Tube");
-        auto& lug = body->addChild(std::make_unique<LaunchLugStandIn>());
-        lug.setAxialOffset(AxialMethod::TOP, 0.111);
-        lug.setName("Launch Lugs");
-        const double sustainerRadius    = body->getAftRadius();
-        const double sustainerThickness = body->getThickness();
-
-        booster = &rocket->addChild(std::make_unique<AxialStage>());
-        booster->setName("Booster Stage");
-        boosterBody = &booster->addChild(
-            std::make_unique<QtRocket::BodyTube>(0.06, sustainerRadius, sustainerThickness));
-        boosterBody->setName("Booster Body");
-        auto& boosterLug = boosterBody->addChild(std::make_unique<LaunchLugStandIn>());
-        boosterLug.setAxialOffset(AxialMethod::TOP, 0.0);
-        boosterLug.setName("Launch Lugs");
-
-        auto tail = std::make_unique<QtRocket::Transition>();
-        tail->setForeRadius(0.012);
-        tail->setAftRadius(0.01);
-        tail->setLength(0.005);
-        tail->setName("Booster Tail Cone");
-        tailCone = &booster->addChild(std::move(tail));
-
-        rocket->setSelectedConfiguration(QtRocket::Test::testFcid(1));
-        rocket->getSelectedConfiguration().setAllStages();
-        rocket->enableEvents();
+        const std::string name = old.getName();
+        static_cast<void>(parent.removeChild(&old));
+        auto lug = std::make_unique<LaunchLugStandIn>();
+        lug->setName(name);
+        lug->setAxialOffset(AxialMethod::TOP, offset);
+        return parent.addChild(std::move(lug), *index);
     }
 };
 
 /// RocketTest's tolerance (MathUtil.EPSILON).
 constexpr double kAutoSizeEpsilon = kEpsilon;
 
+/// RocketTest.testAutoSizePreviousComponent.
 TEST(RocketAutoSize, PreviousComponent)
 {
-    const BodyBeta beta;
-    const double   expRadius = 0.012;
+    const LuggedBeta beta;
+    const double     expRadius = 0.012;
 
     {  // test auto-radius within a stage: nose -> body tube
         EXPECT_NEAR(expRadius, beta.nose->getAftRadius(), kAutoSizeEpsilon) << " radius match: ";
@@ -1667,11 +1667,11 @@ TEST(RocketAutoSize, PreviousComponent)
     {  // test auto-radius within a stage: tail cone -> body tube
         EXPECT_NEAR(expRadius, beta.boosterBody->getOuterRadius(), kAutoSizeEpsilon)
             << " radius match: ";
-        EXPECT_NEAR(expRadius, beta.tailCone->getForeRadius(), kAutoSizeEpsilon)
+        EXPECT_NEAR(expRadius, beta.boosterTail->getForeRadius(), kAutoSizeEpsilon)
             << " radius match: ";
 
-        beta.tailCone->setForeRadiusAutomatic(true);
-        EXPECT_NEAR(expRadius, beta.tailCone->getForeRadius(), kAutoSizeEpsilon)
+        beta.boosterTail->setForeRadiusAutomatic(true);
+        EXPECT_NEAR(expRadius, beta.boosterTail->getForeRadius(), kAutoSizeEpsilon)
             << " trailing transition match: ";
     }
     {  // test auto-radius across stages: sustainer body -> booster body
@@ -1685,10 +1685,11 @@ TEST(RocketAutoSize, PreviousComponent)
     }
 }
 
+/// RocketTest.testAutoSizeNextComponent.
 TEST(RocketAutoSize, NextComponent)
 {
-    const BodyBeta beta;
-    const double   expRadius = 0.012;
+    const LuggedBeta beta;
+    const double     expRadius = 0.012;
 
     {  // test auto-radius within a stage: nose <- body tube
         EXPECT_NEAR(expRadius, beta.nose->getAftRadius(), kAutoSizeEpsilon) << " radius match: ";
@@ -1700,7 +1701,7 @@ TEST(RocketAutoSize, NextComponent)
     {  // test auto-radius within a stage: body tube <- trailing transition
         EXPECT_NEAR(expRadius, beta.boosterBody->getOuterRadius(), kAutoSizeEpsilon)
             << " radius match: ";
-        EXPECT_NEAR(expRadius, beta.tailCone->getForeRadius(), kAutoSizeEpsilon)
+        EXPECT_NEAR(expRadius, beta.boosterTail->getForeRadius(), kAutoSizeEpsilon)
             << " radius match: ";
 
         beta.boosterBody->setOuterRadiusAutomatic(true);
@@ -1721,15 +1722,15 @@ TEST(RocketAutoSize, AChangedNeighbourResizesTheAutomaticComponents)
 {
     // Not in OpenRocket's tests: the automatic radii follow a change of the radius they come
     // from, across the stage boundary too.
-    const BodyBeta beta;
+    const LuggedBeta beta;
     beta.body->setOuterRadiusAutomatic(true);
     beta.boosterBody->setOuterRadiusAutomatic(true);
-    beta.tailCone->setForeRadiusAutomatic(true);
+    beta.boosterTail->setForeRadiusAutomatic(true);
 
     beta.nose->setAftRadius(0.02);
     EXPECT_EQ(beta.body->getOuterRadius(), 0.02);
     EXPECT_EQ(beta.boosterBody->getOuterRadius(), 0.02);
-    EXPECT_EQ(beta.tailCone->getForeRadius(), 0.02);
+    EXPECT_EQ(beta.boosterTail->getForeRadius(), 0.02);
     EXPECT_DOUBLE_EQ(beta.rocket->getBoundingRadius(), 0.02);
 }
 

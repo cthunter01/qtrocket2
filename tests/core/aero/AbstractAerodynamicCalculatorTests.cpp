@@ -15,6 +15,7 @@
 #include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -22,7 +23,6 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
 #include "QtRocket/util/Signal.h"
-#include "rocket/TestComponent.h"
 
 namespace
 {
@@ -31,6 +31,7 @@ using QtRocket::AbstractAerodynamicCalculator;
 using QtRocket::AerodynamicCalculator;
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::Coordinate;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
@@ -39,7 +40,6 @@ using QtRocket::ModId;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::WarningSet;
-using QtRocket::Test::TestComponent;
 
 constexpr double kPi = std::numbers::pi;
 
@@ -109,12 +109,13 @@ private:
     int        m_voidCount{0};
 };
 
-/// A rocket with a stage and a body, events on, and a configuration of it.
+/// A rocket with a stage and a body tube (0.5 m, radius 0.025 m), events on, and a configuration
+/// of it.
 struct TestRocket
 {
     Rocket              rocket;
     AxialStage&         stage = rocket.addChild(std::make_unique<AxialStage>());
-    TestComponent&      body  = stage.addChild(TestComponent::make(0.5));
+    BodyTube&           body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.025));
     FlightConfiguration config{rocket};
 
     TestRocket() { rocket.enableEvents(); }
@@ -219,7 +220,7 @@ TEST(AbstractAerodynamicCalculator, CacheIsVoidedOnTheFirstCallAndAnAerodynamicC
     (void)calculator.getAerodynamicForces(r.config, conditions, nullptr);
     EXPECT_EQ(calculator.voidCount(), 1);
 
-    r.body.setMass(2.0);  // a mass change leaves the aerodynamics alone
+    r.body.setFilled(true);  // a mass change leaves the aerodynamics alone
     (void)calculator.getCP(r.config, conditions, nullptr);
     EXPECT_EQ(calculator.voidCount(), 1);
 
@@ -236,7 +237,7 @@ TEST(AbstractAerodynamicCalculator, CacheIsVoidedWhenTheTreeOrTheRocketChanges)
     (void)calculator.getCP(r.config, conditions, nullptr);
     EXPECT_EQ(calculator.voidCount(), 1);
 
-    r.stage.addChild(TestComponent::make(0.1));  // a tree change
+    r.stage.addChild(std::make_unique<BodyTube>(0.1, 0.025));  // a tree change
     (void)calculator.getCP(r.config, conditions, nullptr);
     EXPECT_EQ(calculator.voidCount(), 2);
     (void)calculator.getCP(r.config, conditions, nullptr);

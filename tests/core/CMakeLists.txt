@@ -114,6 +114,7 @@ add_executable(QtRocket_core_tests
     rocket/StreamerTests.cpp
     rocket/StructuralComponentTests.cpp
     rocket/SymmetricComponentTests.cpp
+    rocket/test_rockets_tests.cpp
     rocket/ThicknessRingComponentTests.cpp
     rocket/TransitionShapeTests.cpp
     rocket/TransitionTests.cpp

@@ -57,7 +57,8 @@ using Type = QtRocket::MassCalculation::Type;
 /// A rocket with a stage holding a body tube (0.5 m, radius 0.03 m) that holds an inner tube
 /// motor mount (0.1 m, 0.4 m from the body's front) with an A8 in one flight configuration, and
 /// a child of the body with two instances at +-0.02 m in y (a TestComponent of a prescribed
-/// mass); events enabled.
+/// mass: a generic instanced component, not a double of any OpenRocket class, so it stays when
+/// the fin sets and launch lugs are ported); events enabled.
 class MassCalculationTest : public ::testing::Test
 {
 protected:
@@ -79,7 +80,7 @@ protected:
         m_motor = QtRocket::Test::motorA8();
         QtRocket::Test::addMotor(*m_mount, m_fcid, m_motor);
         m_pair = &m_body->addChild(
-            TestComponent::make(0.05, ComponentKind::LAUNCH_LUG, AxialMethod::TOP));
+            TestComponent::make(0.05, ComponentKind::MASS_COMPONENT, AxialMethod::TOP));
         m_pair->setAxialOffset(AxialMethod::TOP, 0.1);
         m_pair->setInstances({Coordinate{0, 0.02, 0}, Coordinate{0, -0.02, 0}}, {0, 0});
         m_pair->setMass(kPairMass);
@@ -422,8 +423,8 @@ TEST_F(MassCalculationTest, StructurePlacesChildInstancesThroughTheTransforms)
     // both instances). Bodies: rocket, stage, body, mount, pair.
     ASSERT_GT(bodyMass(), 0.0);
     ASSERT_GT(mountMass(), 0.0);
-    EXPECT_NEAR(calc.getMass(), structureMass(), 1e-15);
-    EXPECT_NEAR(calc.getCM().x, structureCmx(), 1e-15);
+    EXPECT_DOUBLE_EQ(calc.getMass(), structureMass());
+    EXPECT_DOUBLE_EQ(calc.getCM().x, structureCmx());
     EXPECT_NEAR(calc.getCM().y, 0.0, 1e-15);
     EXPECT_NEAR(calc.getCM().z, 0.0, 1e-15);
     EXPECT_EQ(calc.size(), 5U);
@@ -552,8 +553,8 @@ TEST_F(MassCalculationTest, AnalysisRowsForComponentsAssembliesAndMotors)
 
     // The stage holds its structure and the motor below it.
     const CMAnalysisEntry& stage = map.at(CMAnalysisEntry::keyOf(*m_stage));
-    EXPECT_NEAR(stage.totalCM.weight, structureMass() + 0.0164, 1e-15);
-    EXPECT_NEAR(stage.eachMass, structureMass() + 0.0164, 1e-15);
+    EXPECT_DOUBLE_EQ(stage.totalCM.weight, structureMass() + 0.0164);
+    EXPECT_DOUBLE_EQ(stage.eachMass, structureMass() + 0.0164);
     EXPECT_NEAR(stage.totalCM.x, calc.getCM().x, 1e-15);
 
     // Without a map nothing is recorded, and STRUCTURE records no motors.
