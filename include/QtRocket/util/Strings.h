@@ -57,6 +57,22 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// formatFixed() rounds them. NaN, the infinities and the sign are as in formatFixed().
 [[nodiscard]] std::string formatScientific(double value, int precision);
 
+/// Java's String.format(Locale.ENGLISH, "%.<precision>g", value) on JDK 17: @p precision
+/// significant digits (a precision below 1 counts as 1), rounded half-up, trailing zeros kept.
+/// The value rounded to that many digits decides the notation, as java.util.Formatter does: from
+/// 10^-4 up to but excluding 10^precision it is written in the fixed notation of formatFixed()
+/// with the decimals the significant digits leave ("0.05000", "12.35" and "1235" for precision
+/// 4), otherwise in the scientific notation of formatScientific() with precision - 1 decimals
+/// ("1.235e+04", "9.999e-05"). Zero is "0" followed by precision - 1 decimals ("0.000"). NaN, the
+/// infinities and the sign are as in formatFixed(). The debug dumps of the fin sets format their
+/// points with it (FinSet::getPointDescr()).
+/// Unlike formatFixed() and formatScientific(), which follow the shortest digits (see
+/// doubleToString()), this takes the value's digits from FloatingDecimal::binaryToAscii(value,
+/// false), JDK 17's own conversion, and so matches it for every value: also for subnormals
+/// ("4.900e-324" for Double.MIN_VALUE, where the shortest digits would give "5.000e-324") and
+/// from 15 significant digits on. JDK 21+ prints the shortest digits there.
+[[nodiscard]] std::string formatGeneral(double value, int precision);
+
 /// Java's Double.toString(value), the form a double takes in a string concatenation
 /// (Material.toStorableString, Tick.toString): "NaN", "Infinity", "-Infinity", "0.0", "-0.0"; a
 /// magnitude from 0.001 up to but excluding 1e7 as integer digits, a point and at least one
