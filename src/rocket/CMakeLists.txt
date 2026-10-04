@@ -12,11 +12,14 @@ target_sources(QtRocket_core PRIVATE
     Decal.cpp
     DeploymentConfiguration.cpp
     DesignType.cpp
+    EllipticalFinSet.cpp
     EngineBlock.cpp
     ExternalComponent.cpp
     Finish.cpp
+    FinSet.cpp
     FlightConfiguration.cpp
     FlightConfigurationId.cpp
+    FreeformFinSet.cpp
     InnerTube.cpp
     InsideColorComponent.cpp
     InsideColorComponentHandler.cpp
@@ -53,5 +56,6 @@ target_sources(QtRocket_core PRIVATE
     ThicknessRingComponent.cpp
     Transition.cpp
     TransitionShape.cpp
+    TrapezoidFinSet.cpp
     TubeCoupler.cpp
 )

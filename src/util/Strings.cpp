@@ -1419,6 +1419,28 @@ std::string formatScientific(double value, int precision)
     return std::signbit(value) ? "-" + text : text;
 }
 
+std::string formatGeneral(double value, int precision)
+{
+    if (std::isnan(value) || std::isinf(value))
+    {
+        return formatFixed(value, 0);
+    }
+    // Formatter: a precision of 0 is taken as 1.
+    const int significant = std::max(1, precision);
+    if (value == 0)
+    {
+        return formatFixed(value, significant - 1);
+    }
+    // The exponent of the value once rounded to the significant digits decides the notation
+    // (FormattedFloatingDecimal's GENERAL form).
+    const int exponent = javaScientificParts(std::abs(value), significant - 1).exponent;
+    if (exponent < -4 || exponent >= significant)
+    {
+        return formatScientific(value, significant - 1);
+    }
+    return formatFixed(value, significant - 1 - exponent);
+}
+
 std::string javaDoubleToString(double value)
 {
     if (std::isnan(value))

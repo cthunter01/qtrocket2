@@ -1420,6 +1420,56 @@ TEST(Strings, FormatScientificMatchesJavaFormatter)
     EXPECT_EQ(Strings::formatScientific(-kInf, 2), "-Infinity");
 }
 
+// Pinned with String.format("%.4g" / "%g" / "%.1g" / "%.0g", v) on JDK 17.
+TEST(Strings, FormatGeneralMatchesJavaFormatter)
+{
+    EXPECT_EQ(Strings::formatGeneral(0.0, 4), "0.000");
+    EXPECT_EQ(Strings::formatGeneral(-0.0, 4), "-0.000");
+    EXPECT_EQ(Strings::formatGeneral(0.05, 4), "0.05000");
+    EXPECT_EQ(Strings::formatGeneral(0.025, 4), "0.02500");
+    EXPECT_EQ(Strings::formatGeneral(1.0, 4), "1.000");
+    EXPECT_EQ(Strings::formatGeneral(12.345678, 4), "12.35");
+    EXPECT_EQ(Strings::formatGeneral(123.45, 4), "123.5");
+    EXPECT_EQ(Strings::formatGeneral(1234.5, 4), "1235");
+    EXPECT_EQ(Strings::formatGeneral(12345.0, 4), "1.235e+04");
+    // The rounded value decides the notation.
+    EXPECT_EQ(Strings::formatGeneral(9999.5, 4), "1.000e+04");
+    EXPECT_EQ(Strings::formatGeneral(0.99995, 4), "1.000");
+    EXPECT_EQ(Strings::formatGeneral(0.999949, 4), "0.9999");
+    EXPECT_EQ(Strings::formatGeneral(0.0001, 4), "0.0001000");
+    EXPECT_EQ(Strings::formatGeneral(0.00009999, 4), "9.999e-05");
+    EXPECT_EQ(Strings::formatGeneral(0.000099996, 4), "0.0001000");
+    EXPECT_EQ(Strings::formatGeneral(0.00012345, 4), "0.0001235");
+    EXPECT_EQ(Strings::formatGeneral(1.0e-5, 4), "1.000e-05");
+    EXPECT_EQ(Strings::formatGeneral(-0.02, 4), "-0.02000");
+    EXPECT_EQ(Strings::formatGeneral(-1.5e-7, 4), "-1.500e-07");
+    EXPECT_EQ(Strings::formatGeneral(1.0e10, 4), "1.000e+10");
+    EXPECT_EQ(Strings::formatGeneral(123456789.0, 4), "1.235e+08");
+    // Half-up on the shortest digits.
+    EXPECT_EQ(Strings::formatGeneral(0.12345, 4), "0.1235");
+    EXPECT_EQ(Strings::formatGeneral(0.12355, 4), "0.1236");
+
+    // The default precision of "%g" is six.
+    EXPECT_EQ(Strings::formatGeneral(12.345678, 6), "12.3457");
+    EXPECT_EQ(Strings::formatGeneral(12345.0, 6), "12345.0");
+    EXPECT_EQ(Strings::formatGeneral(0.00009999, 6), "9.99900e-05");
+    EXPECT_EQ(Strings::formatGeneral(0.0, 6), "0.00000");
+
+    // One significant digit; a precision of 0 counts as 1.
+    EXPECT_EQ(Strings::formatGeneral(0.025, 1), "0.03");
+    EXPECT_EQ(Strings::formatGeneral(2.5, 1), "3");
+    EXPECT_EQ(Strings::formatGeneral(12.345678, 1), "1e+01");
+    EXPECT_EQ(Strings::formatGeneral(0.0, 1), "0");
+    EXPECT_EQ(Strings::formatGeneral(-0.0, 0), "-0");
+    EXPECT_EQ(Strings::formatGeneral(0.025, 0), "0.03");
+    EXPECT_EQ(Strings::formatGeneral(-1.5e-7, 0), "-2e-07");
+    EXPECT_EQ(Strings::formatGeneral(2.5, -3), "3");
+
+    EXPECT_EQ(Strings::formatGeneral(kNaN, 4), "NaN");
+    EXPECT_EQ(Strings::formatGeneral(kInf, 4), "Infinity");
+    EXPECT_EQ(Strings::formatGeneral(-kInf, 4), "-Infinity");
+}
+
 TEST(Strings, JavaDoubleToStringMatchesJdk)
 {
     EXPECT_EQ(Strings::javaDoubleToString(1.0), "1.0");

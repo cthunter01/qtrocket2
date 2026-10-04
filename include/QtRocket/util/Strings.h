@@ -57,6 +57,16 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// formatFixed() rounds them. NaN, the infinities and the sign are as in formatFixed().
 [[nodiscard]] std::string formatScientific(double value, int precision);
 
+/// Java's String.format(Locale.ENGLISH, "%.<precision>g", value): @p precision significant
+/// digits (a precision below 1 counts as 1), trailing zeros kept. The value rounded to that many
+/// digits decides the notation, as java.util.Formatter does: from 10^-4 up to but excluding
+/// 10^precision it is written as formatFixed() with the decimals the significant digits leave
+/// ("0.05000", "12.35" and "1235" for precision 4), otherwise as formatScientific() with
+/// precision - 1 decimals ("1.235e+04", "9.999e-05"). Zero is "0" followed by precision - 1
+/// decimals ("0.000"). NaN, the infinities and the sign are as in formatFixed(). The debug dumps
+/// of the fin sets format their points with it (FinSet::getPointDescr()).
+[[nodiscard]] std::string formatGeneral(double value, int precision);
+
 /// Java's Double.toString(value), the form a double takes in a string concatenation
 /// (Material.toStorableString, Tick.toString): "NaN", "Infinity", "-Infinity", "0.0", "-0.0"; a
 /// magnitude from 0.001 up to but excluding 1e7 as integer digits, a point and at least one
