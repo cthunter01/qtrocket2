@@ -38,6 +38,7 @@
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/AxialOffsetSupport.h"
 
 namespace
 {
@@ -69,6 +70,7 @@ using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::MathUtil::javaToRadians;
+using QtRocket::Test::setAxialOffset;
 
 /// FreeformFinSetTest's tolerance.
 constexpr double kEpsilon = 1.0E-6;
@@ -89,20 +91,6 @@ void expectIllegalFinPoint(const Result<void>& result, std::string_view message,
     ASSERT_FALSE(result.has_value()) << "index " << index;
     EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT) << "index " << index;
     EXPECT_EQ(result.error().message, message) << "index " << index;
-}
-
-/// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: it stores the method and the offset and moves the component without firing an event,
-/// so in a rocket nothing is updated or cleared (a freeform outline is not clamped again, the
-/// cached area and CG stay). Here the public setAxialMethod() and setAxialOffset() with the
-/// component's events bypassed meanwhile, which does exactly that.
-void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
-{
-    const bool bypass = component.isBypassComponentChangeEvent();
-    component.setBypassChangeEvent(true);
-    component.setAxialMethod(method);
-    component.setAxialOffset(offset);
-    component.setBypassChangeEvent(bypass);
 }
 
 /// @p actual has the (x, y) points @p expected, each within @p tolerance.

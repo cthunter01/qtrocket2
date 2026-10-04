@@ -233,6 +233,11 @@ TEST(NoseCone, NormalNoseConeRadiusAutomatic)
     EXPECT_FALSE(noseCone.isAftRadiusAutomatic());
     EXPECT_FALSE(noseCone.isBaseRadiusAutomatic());
     EXPECT_FALSE(noseCone.isForeRadiusAutomatic());
+    // Java compares each radius with itself, here and below: the getters, which refresh an
+    // automatic radius, are called twice and must answer the same.
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0.01, noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
@@ -255,6 +260,9 @@ TEST(NoseCone, NormalNoseConeRadiusAutomatic)
     EXPECT_FALSE(noseCone.isAftRadiusAutomatic());
     EXPECT_FALSE(noseCone.isBaseRadiusAutomatic());
     EXPECT_FALSE(noseCone.isForeRadiusAutomatic());
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
     noseCone.setAftRadiusAutomatic(true, true);
@@ -271,15 +279,20 @@ TEST(NoseCone, NormalNoseConeRadiusAutomatic)
     EXPECT_NEAR(0.023, noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getForeRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.023, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
     noseCone.setAftRadiusAutomatic(false, true);
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
     noseCone.setBaseRadiusAutomatic(true);
     EXPECT_NEAR(0.023, noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getForeRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.023, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
     noseCone.setForeRadiusAutomatic(true, true);
@@ -302,6 +315,7 @@ TEST(NoseCone, NormalNoseConeRadiusAutomatic)
     EXPECT_NEAR(0.023, noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getForeRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.023, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getForeRadius(), kEpsilon);
 
     // Do a flip
@@ -335,6 +349,9 @@ TEST(NoseCone, FlippedNoseConeRadiusAutomatic)
     EXPECT_FALSE(noseCone.isAftRadiusAutomatic());
     EXPECT_FALSE(noseCone.isBaseRadiusAutomatic());
     EXPECT_FALSE(noseCone.isForeRadiusAutomatic());
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(0.01, noseCone.getForeRadius(), kEpsilon);
 
@@ -357,6 +374,9 @@ TEST(NoseCone, FlippedNoseConeRadiusAutomatic)
     EXPECT_FALSE(noseCone.isAftRadiusAutomatic());
     EXPECT_FALSE(noseCone.isBaseRadiusAutomatic());
     EXPECT_FALSE(noseCone.isForeRadiusAutomatic());
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getAftRadius(), kEpsilon);
 
     noseCone.setBaseRadiusAutomatic(true);
@@ -373,9 +393,13 @@ TEST(NoseCone, FlippedNoseConeRadiusAutomatic)
     EXPECT_NEAR(0.02, noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getAftRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.02, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getAftRadius(), kEpsilon);
 
     noseCone.setForeRadiusAutomatic(false, true);
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getBaseRadius(), noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getForeRadius(), noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(0.02, noseCone.getForeRadius(), kEpsilon);
 
     noseCone.setBaseRadiusAutomatic(true);
@@ -383,6 +407,7 @@ TEST(NoseCone, FlippedNoseConeRadiusAutomatic)
     EXPECT_NEAR(0.02, noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getAftRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.02, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getAftRadius(), kEpsilon);
 
     EXPECT_TRUE(noseCone.isForeRadiusAutomatic());
@@ -405,6 +430,7 @@ TEST(NoseCone, FlippedNoseConeRadiusAutomatic)
     EXPECT_NEAR(0.02, noseCone.getForeRadius(), kEpsilon);
     EXPECT_NEAR(tube1.getForeRadius(), noseCone.getBaseRadius(), kEpsilon);
     EXPECT_NEAR(0.02, noseCone.getBaseRadius(), kEpsilon);
+    EXPECT_NEAR(noseCone.getAftRadius(), noseCone.getAftRadius(), kEpsilon);
     EXPECT_NEAR(0, noseCone.getAftRadius(), kEpsilon);
 }
 

@@ -24,6 +24,7 @@
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "rocket/AxialOffsetSupport.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -44,18 +45,11 @@ using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
+using QtRocket::Test::setAxialOffset;
 using QtRocket::Test::TestFalcon9Heavy;
 
 // ParallelStageTest's tolerance.
 constexpr double kEpsilon = 0.000001;
-
-/// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: here the public setAxialMethod() and setAxialOffset(), which end in the same place.
-void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
-{
-    component.setAxialMethod(method);
-    component.setAxialOffset(offset);
-}
 
 /// ParallelStageTest.createExtraBooster(): a three-booster set with a conical nose cone (2 m,
 /// radius 0.8 m), a body tube (2 m, radius 0.8 m, wall 0.01 m) and a tail (1 m, radii 1 and
@@ -336,6 +330,8 @@ TEST(ParallelStageTest, SetStagePositionOutsideTop)
 
     EXPECT_NEAR(boosterStage.getPosition().x, 0.2, kEpsilon) << treeDump;
     EXPECT_NEAR(boosterStage.getComponentLocations().at(0).x, 0.764, kEpsilon) << treeDump;
+    EXPECT_NEAR(boosterStage.getAxialOffset(), targetOffset, kEpsilon) << treeDump;
+    // Java asserts the axial offset a second time (as its "position value").
     EXPECT_NEAR(boosterStage.getAxialOffset(), targetOffset, kEpsilon) << treeDump;
 }
 

@@ -396,7 +396,8 @@ public:
     Rocket(const Rocket& other, CopyKey key);
 
 private:
-    // removeChild() calls forgetStageEntries() and forgetComponents().
+    // removeChild() calls forgetStageEntries(), forgetComponents(), stageActivenessIn() and
+    // restoreStageActiveness().
     friend class RocketComponent;
 
     /// An event held back by freeze(): its type and its source's id, by which thaw() finds the
@@ -439,6 +440,26 @@ private:
     /// Called by removeChild() when @p removed (just detached) has left this rocket: its components
     /// leave every configuration.
     void forgetComponents(const RocketComponent& removed);
+
+    /// The raw flag of one stage in one configuration (FlightConfiguration::isStageActive() is
+    /// not it: it is false for a stage without children whatever the flag).
+    struct StageActiveness
+    {
+        FlightConfigurationId fcid;
+        Uuid                  stageId;
+        bool                  active{true};
+    };
+
+    /// The flags, in every configuration (the default included), of the stages in the subtree of
+    /// @p root, a component of this rocket: what removeChild() saves before it takes @p root out,
+    /// since a configuration forgets the flag of a stage that leaves the rocket.
+    [[nodiscard]] std::vector<StageActiveness> stageActivenessIn(const RocketComponent& root) const;
+
+    /// Writes @p saved back, by configuration and stage id, into the configurations that are
+    /// still in the set and have a flag for the stage, and updates every configuration (its
+    /// motors and instances); fires nothing, and does nothing for an empty @p saved. Called by
+    /// removeChild() when it has put the child back after a failed removal.
+    void restoreStageActiveness(std::span<const StageActiveness> saved);
 
     ComponentChangeSignal                   m_listeners;
     std::optional<std::vector<FrozenEvent>> m_freezeList;

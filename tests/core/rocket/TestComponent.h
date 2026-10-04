@@ -45,8 +45,8 @@ namespace QtRocket::Test
 /// MassObject.TheParentClassDecidesNotItsKind, RingComponent.TheParentClassDecidesNotItsKind
 /// and RadiusMethodTest.OnlyABodyTubeGivesTheParentRadius.
 ///
-/// TestRockets.h uses it for the fin sets and launch lugs that are not ported yet
-/// (HOOK(fins-lugs)).
+/// Nor is it a stand-in for a fin set, a tube fin set, a launch lug or a rail button: a test
+/// that needs one builds the real class (TrapezoidFinSet, LaunchLug, ...), as TestRockets.h does.
 ///
 /// Setters of physical values fire AEROMASS_CHANGE, as a real component's do. componentChanged()
 /// counts its calls. A derived class overrides cloneShallow().

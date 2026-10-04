@@ -3,19 +3,21 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <format>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
-// The complete nlohmann::json, whose members positions() calls; the include-cleaner check counts
-// only the name, which json_fwd.hpp declares.
+// The complete nlohmann::json, whose members positions(), angles() and transformation() call; the
+// include-cleaner check counts only the name, which json_fwd.hpp declares.
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Transformation.h"
 #include "goldens/GoldenGeometry.h"
 
 namespace QtRocket::Test
@@ -44,6 +46,14 @@ void GoldenMismatches::absolute(std::string_view field, double expected, double 
     }
 }
 
+void GoldenMismatches::exact(std::string_view field, double expected, double actual)
+{
+    if (expected != actual)
+    {
+        add(field, expected, actual);
+    }
+}
+
 void GoldenMismatches::position(std::string_view field, const Coordinate& expected,
                                 const Coordinate& actual)
 {
@@ -60,7 +70,7 @@ void GoldenMismatches::cg(std::string_view field, const Coordinate& expected,
 }
 
 void GoldenMismatches::positions(std::string_view field, const nlohmann::json& expected,
-                                 const std::vector<Coordinate>& actual)
+                                 std::span<const Coordinate> actual)
 {
     if (expected.size() != actual.size())
     {
@@ -74,12 +84,60 @@ void GoldenMismatches::positions(std::string_view field, const nlohmann::json& e
     }
 }
 
+void GoldenMismatches::angles(std::string_view field, const nlohmann::json& expected,
+                              std::span<const double> actual)
+{
+    if (expected.size() != actual.size())
+    {
+        m_text += std::format("  {}: {} angles expected, {} computed\n", field, expected.size(),
+                              actual.size());
+        return;
+    }
+    for (std::size_t i = 0; i < actual.size(); i++)
+    {
+        absolute(std::format("{}[{}]", field, i), goldenValue(expected.at(i)), actual[i]);
+    }
+}
+
+void GoldenMismatches::transformation(std::string_view field, const nlohmann::json& expected,
+                                      const Transformation& actual)
+{
+    const nlohmann::json& rotation = expected.at("rotation");
+    for (std::size_t row = 0; row < 3; row++)
+    {
+        for (std::size_t column = 0; column < 3; column++)
+        {
+            absolute(std::format("{}.rotation[{}][{}]", field, row, column),
+                     goldenValue(rotation.at((row * 3) + column)),
+                     actual.matrix().at(row).at(column));
+        }
+    }
+    position(std::format("{}.translation", field), goldenCoordinate(expected.at("translation")),
+             actual.translationVector());
+}
+
 void GoldenMismatches::text(std::string_view field, std::string_view expected,
                             std::string_view actual)
 {
     if (expected != actual)
     {
         m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
+    }
+}
+
+void GoldenMismatches::integer(std::string_view field, std::int64_t expected, std::int64_t actual)
+{
+    if (expected != actual)
+    {
+        m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
+    }
+}
+
+void GoldenMismatches::boolean(std::string_view field, bool expected, bool actual)
+{
+    if (expected != actual)
+    {
+        m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
     }
 }
 

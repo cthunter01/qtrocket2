@@ -15,6 +15,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Color.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -50,20 +51,27 @@ protected:
 
 // ---- Ported from InsideColorComponentHandlerTest.java ----
 
-TEST_F(InsideColorComponentTest, MaterialPartitionChangesFireGraphicEvents)
+/// InsideColorComponentHandlerTest.materialPartitionChangesFireGraphicEvents, on the first body
+/// tube of TestRockets.makeEstesAlphaIII() (the one it has).
+TEST(InsideColorComponentHandler, MaterialPartitionChangesFireGraphicEvents)
 {
-    InsideColorComponentHandler& handler = m_tube->getInsideColorComponentHandler();
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    InsideColorComponentHandler&            handler = alpha.body->getInsideColorComponentHandler();
+    std::optional<int>                      lastType;
+    const ComponentChangeSignal::ScopedConnection connection{
+        alpha.rocket->addComponentChangeListener(
+            [&lastType](const ComponentChangeEvent& event) { lastType = event.getType(); })};
 
     handler.setSeparateInsideOutside(true);
-    EXPECT_EQ(std::optional{ComponentChangeEvent::kGraphicChange}, m_lastType);
+    EXPECT_EQ(std::optional{ComponentChangeEvent::kGraphicChange}, lastType);
 
-    m_lastType.reset();
+    lastType.reset();
     handler.setEdgesSameAsInside(true);
-    EXPECT_EQ(std::optional{ComponentChangeEvent::kGraphicChange}, m_lastType);
+    EXPECT_EQ(std::optional{ComponentChangeEvent::kGraphicChange}, lastType);
 
-    m_lastType.reset();
+    lastType.reset();
     handler.setEdgesSameAsInside(true);
-    EXPECT_FALSE(m_lastType.has_value())
+    EXPECT_FALSE(lastType.has_value())
         << "Assigning the current partition setting should not rebuild the scene";
 }
 

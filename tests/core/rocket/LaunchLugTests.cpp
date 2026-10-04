@@ -17,7 +17,6 @@
 
 #include "QtRocket/rocket/LaunchLug.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <format>
@@ -67,6 +66,8 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
+#include "rocket/JavaValueDifferences.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -96,6 +97,11 @@ using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
+using QtRocket::Test::matchesJavaValue;
+using QtRocket::Test::TestEstesAlphaIII;
+
+/// The collector of the differences from Java's values.
+using Differences = QtRocket::Test::JavaValueDifferences;
 
 /// LaunchLugTest.EPSILON (MathUtil.EPSILON).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
@@ -111,7 +117,10 @@ using Events = std::vector<int>;
 
 /// The nose cone, body tube and launch lug of TestRockets.makeEstesAlphaIII(), built in the
 /// order and with the calls of the Java factory (its fin set, internal components and motors are
-/// left out: the lug does not read them).
+/// left out: the lug does not read them). It is the rocket of the OpenRocket program that
+/// computed the values pinned in the LaunchLugOnBody suite, which has no JUnit counterpart.
+/// (LaunchLugTest's own cases on makeEstesAlphaIII() run on the whole rocket: TestEstesAlphaIII
+/// of TestRockets.h.)
 struct EstesAlphaIII
 {
     Rocket      rocket;
@@ -170,13 +179,15 @@ void expectCG(const Coordinate& cg, double x, double y, double z, double weight)
 // Java: testLaunchLugLocationZeroAngle
 TEST(LaunchLugTest, LaunchLugLocationZeroAngle)
 {
-    const EstesAlphaIII alpha;
-    LaunchLug&          lug = *alpha.lug;
+    const TestEstesAlphaIII alpha;
+
+    const auto& body = dynamic_cast<BodyTube&>(alpha.rocket->getChild(0).getChild(1));
+    auto&       lug  = dynamic_cast<LaunchLug&>(alpha.rocket->getChild(0).getChild(1).getChild(1));
     lug.setInstanceSeparation(0.05);
     lug.setInstanceCount(2);
 
-    const double                  expX = 0.111 + alpha.body->getComponentLocations().at(0).x;
-    const double                  expR = -(alpha.body->getOuterRadius() + lug.getOuterRadius());
+    const double                  expX = 0.111 + body.getComponentLocations().at(0).x;
+    const double                  expR = -(body.getOuterRadius() + lug.getOuterRadius());
     Coordinate                    expPos{expX, expR, 0, 0};
     const std::vector<Coordinate> actPos = lug.getComponentLocations();
     ASSERT_EQ(actPos.size(), 2U);
@@ -193,14 +204,16 @@ TEST(LaunchLugTest, LaunchLugLocationZeroAngle)
 // Java: testLaunchLugLocationAtAngles
 TEST(LaunchLugTest, LaunchLugLocationAtAngles)
 {
-    const EstesAlphaIII alpha;
-    LaunchLug&          lug        = *alpha.lug;
-    const double        startAngle = std::numbers::pi / 2;
+    const TestEstesAlphaIII alpha;
+
+    const auto&  body = dynamic_cast<BodyTube&>(alpha.rocket->getChild(0).getChild(1));
+    auto&        lug  = dynamic_cast<LaunchLug&>(alpha.rocket->getChild(0).getChild(1).getChild(1));
+    const double startAngle = std::numbers::pi / 2;
     lug.setAngleOffset(startAngle);
     lug.setInstanceSeparation(0.05);
     lug.setInstanceCount(2);
 
-    const double                  expX = 0.111 + alpha.body->getComponentLocations().at(0).x;
+    const double                  expX = 0.111 + body.getComponentLocations().at(0).x;
     const double                  expR = 0.015;
     const double                  expY = std::cos(startAngle) * expR;
     const double                  expZ = std::sin(startAngle) * expR;
@@ -471,75 +484,6 @@ TEST_F(LaunchLugComponentTest, ChangeFinishLeavesPreset)
 }
 
 // ========================================================================= Java's own values
-
-/// Whether @p actual is the Java value @p expected: both NaN, equal, or within 1e-12 relative,
-/// plus 1e-15 absolute for values near zero such as sin(pi) * r.
-[[nodiscard]] bool matches(double expected, double actual)
-{
-    if (std::isnan(expected) || std::isnan(actual))
-    {
-        return std::isnan(expected) && std::isnan(actual);
-    }
-    if (expected == actual)
-    {
-        return true;
-    }
-    return std::abs(actual - expected) <=
-           (1e-12 * std::max(std::abs(expected), std::abs(actual))) + 1e-15;
-}
-
-/// Collects the differences between Java's values and the computed ones, one line each.
-class Differences
-{
-public:
-    void number(std::string_view field, double expected, double actual)
-    {
-        if (!matches(expected, actual))
-        {
-            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
-        }
-    }
-
-    void name(std::string_view field, std::string_view expected, std::string_view actual)
-    {
-        if (expected != actual)
-        {
-            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
-        }
-    }
-
-    /// Something that kept a value from being compared.
-    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
-
-    void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
-    {
-        number(std::format("{}.x", field), expected.x, actual.x);
-        number(std::format("{}.y", field), expected.y, actual.y);
-        number(std::format("{}.z", field), expected.z, actual.z);
-        number(std::format("{}.weight", field), expected.weight, actual.weight);
-    }
-
-    void coordinates(std::string_view field, const std::vector<Coordinate>& expected,
-                     const std::vector<Coordinate>& actual)
-    {
-        if (expected.size() != actual.size())
-        {
-            m_text += std::format("  {}: expected {} points, got {}\n", field, expected.size(),
-                                  actual.size());
-            return;
-        }
-        for (std::size_t i = 0; i < expected.size(); i++)
-        {
-            coordinate(std::format("{}[{}]", field, i), expected[i], actual[i]);
-        }
-    }
-
-    /// Empty when everything matched.
-    [[nodiscard]] const std::string& text() const noexcept { return m_text; }
-
-private:
-    std::string m_text;
-};
 
 /// What OpenRocket's LaunchLug answers in one state.
 struct Pins
@@ -1123,7 +1067,7 @@ TEST(LaunchLug, BeforeEventsAreEnabledTheInstancesAreOnTheAxis)
     EXPECT_EQ(lug.getInstanceOffsets().at(0).y, 0.0);
 
     rocket.enableEvents();
-    EXPECT_TRUE(matches(-0.017, lug.getInstanceOffsets().at(0).y))
+    EXPECT_TRUE(matchesJavaValue(-0.017, lug.getInstanceOffsets().at(0).y))
         << "the body radius plus the lug's";
 }
 
@@ -1133,7 +1077,8 @@ TEST_F(LaunchLugOnBody, SitsOnTheBodysSurface)
     EXPECT_EQ(differences(pinsAlpha(), lug()), "");
     EXPECT_EQ(lug().getAxialMethod(), AxialMethod::TOP);
 
-    // The launch lug assertions of RocketTest.testEstesAlphaIII.
+    // The launch lug assertions of RocketTest.testEstesAlphaIII, which hold on this reduced
+    // rocket too (RocketTests.cpp ports the JUnit case on the whole rocket).
     EXPECT_EQ(lug().getInstanceCount(), 1) << lug().getName() << " have incorrect count: ";
     EXPECT_EQ(lug().getComponentLocations().at(0), (Coordinate{0.181, -0.015, 0}))
         << lug().getName() << " not positioned correctly: ";
@@ -1197,7 +1142,7 @@ TEST_F(LaunchLugOnBody, RadiusAndThicknessSetters)
     lug().setOuterRadius(0.003);
     EXPECT_EQ(takeEvents(), Events{kBoth});
     EXPECT_EQ(lug().getThickness(), 0.001);
-    EXPECT_TRUE(matches(0.002, lug().getInnerRadius()));
+    EXPECT_TRUE(matchesJavaValue(0.002, lug().getInnerRadius()));
 
     lug().setOuterRadius(0.0001);
     EXPECT_EQ(takeEvents(), Events{kBoth});
@@ -1222,7 +1167,7 @@ TEST_F(LaunchLugOnBody, RadiusAndThicknessSetters)
     EXPECT_EQ(takeEvents(), Events{kBoth});
     EXPECT_EQ(lug().getOuterRadius(), 0.0025);
     EXPECT_EQ(lug().getThickness(), 5.0E-4);
-    EXPECT_TRUE(matches(0.002, lug().getInnerRadius()));
+    EXPECT_TRUE(matchesJavaValue(0.002, lug().getInnerRadius()));
     lug().setInnerRadius(0.002);
     EXPECT_EQ(takeEvents(), Events{});
 
@@ -1234,7 +1179,7 @@ TEST_F(LaunchLugOnBody, RadiusAndThicknessSetters)
     EXPECT_EQ(lug().getOuterRadius(), -0.001);
     EXPECT_EQ(lug().getThickness(), -0.001);
     EXPECT_EQ(lug().getInnerRadius(), 0.0);
-    EXPECT_TRUE(matches(4.7123889803846896E-7, lug().getComponentVolume()))
+    EXPECT_TRUE(matchesJavaValue(4.7123889803846896E-7, lug().getComponentVolume()))
         << lug().getComponentVolume();
 }
 
@@ -1259,7 +1204,7 @@ TEST_F(LaunchLugOnBody, LengthAndAxialPosition)
     // Unlike a tube fin set or a rail button, a launch lug's setAxialMethod() fires nothing.
     lug().setAxialMethod(AxialMethod::BOTTOM);
     EXPECT_EQ(takeEvents(), Events{});
-    EXPECT_TRUE(matches(-0.049, lug().getAxialOffset())) << lug().getAxialOffset();
+    EXPECT_TRUE(matchesJavaValue(-0.049, lug().getAxialOffset())) << lug().getAxialOffset();
     lug().setAxialOffset(-0.01);
     EXPECT_EQ(takeEvents(), Events{kBoth});
     EXPECT_EQ(differences(pinsFinal(), lug()), "");
@@ -1292,8 +1237,8 @@ TEST_F(LaunchLugOnBody, AfterIsOnlyAnotherWayToDescribeThePosition)
 
     lug().setAxialMethod(AxialMethod::TOP);
     EXPECT_EQ(takeEvents(), Events{});
-    EXPECT_TRUE(matches(0.15, lug().getAxialOffset())) << lug().getAxialOffset();
-    EXPECT_TRUE(matches(0.15, lug().getPosition().x)) << lug().getPosition().x;
+    EXPECT_TRUE(matchesJavaValue(0.15, lug().getAxialOffset())) << lug().getAxialOffset();
+    EXPECT_TRUE(matchesJavaValue(0.15, lug().getPosition().x)) << lug().getPosition().x;
 }
 
 TEST_F(LaunchLugOnBody, ACopyKeepsTheRadialOffsetOfItsOriginal)
@@ -1461,7 +1406,7 @@ TEST(LaunchLugPreset, LoadedValues)
     lug.loadPreset(&preset);
     EXPECT_EQ(lug.getThickness(), 0.5);
     EXPECT_EQ(lug.getMaterial().getName(), "TubeCustom");
-    EXPECT_TRUE(matches(21.22065907891938, lug.getMaterial().getDensity()));
+    EXPECT_TRUE(matchesJavaValue(21.22065907891938, lug.getMaterial().getDensity()));
     EXPECT_NEAR(lug.getMass(), 100.0, 1e-9);
     EXPECT_EQ(lug.getInstanceSeparation(), 0.06) << "not the preset's business";
 }
@@ -1482,16 +1427,18 @@ TEST(LaunchLugPreset, APresetGivenByItsThickness)
     LaunchLug lug;
     lug.loadPreset(&preset);
     EXPECT_EQ(lug.getOuterRadius(), 0.005);
-    EXPECT_TRUE(matches(0.0015, lug.getThickness())) << lug.getThickness();
-    EXPECT_TRUE(matches(0.0035, lug.getInnerRadius())) << lug.getInnerRadius();
+    EXPECT_TRUE(matchesJavaValue(0.0015, lug.getThickness())) << lug.getThickness();
+    EXPECT_TRUE(matchesJavaValue(0.0035, lug.getInnerRadius())) << lug.getInnerRadius();
     EXPECT_EQ(lug.getLength(), 0.05);
 }
 
 // ========================================================================== automatic radii
 
-/// The body components of TestRockets.makeBeta() (see BodyBeta in RocketTests.cpp), with its two
-/// launch lugs when @p withLugs: a nose cone and a body tube in the sustainer stage, a body tube
-/// and a tail cone in the booster stage; TEST_FCID_1 selected with every stage active.
+/// The body components of TestRockets.makeBeta(), with its two launch lugs when @p withLugs: a
+/// nose cone and a body tube in the sustainer stage, a body tube and a tail cone in the booster
+/// stage; TEST_FCID_1 selected with every stage active. (The whole rocket is TestBeta in
+/// TestRockets.h, on which RocketTests.cpp runs RocketTest's own cases; this one exists to show
+/// what the lugs change.)
 struct Beta
 {
     Rocket      rocket;

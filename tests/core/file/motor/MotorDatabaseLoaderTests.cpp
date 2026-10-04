@@ -290,6 +290,36 @@ TEST(MotorDatabaseLoader, ReadsPathsThatAreNotAscii)
     EXPECT_EQ(library.getMotorCount(), 2);
 }
 
+TEST(MotorDatabaseLoader, NamesPathsThatAreNotAsciiInUtf8)
+{
+    // The problems name their files as UTF-8 (FileIo's pathToUtf8()) on every platform.
+    const TempDir               tempDir;
+    const std::filesystem::path directory = tempDir.resolve(std::filesystem::path(u8"mot\u00F6rs"));
+    const std::filesystem::path text =
+        tempDir.write(std::filesystem::path(u8"mot\u00F6rs/t\u00EBst.txt"), "no motor");
+    const std::filesystem::path missing = directory / std::filesystem::path(u8"n\u00F8where.eng");
+
+    MotorDatabaseLoader loader;
+    loader.loadUserDefinedMotors(std::vector<std::filesystem::path>{text, missing});
+    ASSERT_EQ(loader.getProblems().size(), 2U);
+    EXPECT_EQ(loader.getProblems()[0].error.message, "User-defined motor file " +
+                                                         QtRocket::pathToUtf8(text) +
+                                                         " does not have a supported extension");
+    EXPECT_TRUE(loader.getProblems()[0].error.message.contains("t\u00EBst.txt"));
+    EXPECT_EQ(loader.getProblems()[1].error.message, "User-defined motor file " +
+                                                         QtRocket::pathToUtf8(missing) +
+                                                         " is neither file nor directory");
+    EXPECT_TRUE(loader.getProblems()[1].error.message.contains("n\u00F8where.eng"));
+
+    // A bundled directory without a database.
+    MotorDatabaseLoader library;
+    ASSERT_TRUE(library.loadInternalMotorDatabase(directory, {}));
+    ASSERT_EQ(library.getProblems().size(), 1U);
+    EXPECT_EQ(library.getProblems().front().error.message,
+              "No SQLite motor database found in " + QtRocket::pathToUtf8(directory));
+    EXPECT_TRUE(library.getProblems().front().error.message.ends_with("mot\u00F6rs"));
+}
+
 TEST(MotorDatabaseLoader, RecordsBundledDirectoriesItCannotRead)
 {
     const TempDir tempDir;

@@ -47,7 +47,9 @@
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Transformation.h"
 #include "QtRocket/util/Uuid.h"
+#include "rocket/AxialOffsetSupport.h"
 #include "rocket/TestComponent.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -81,7 +83,9 @@ using QtRocket::TransitionShape;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::MathUtil::javaToDegrees;
 using QtRocket::MathUtil::javaToRadians;
+using QtRocket::Test::setAxialOffset;
 using QtRocket::Test::TestComponent;
+using QtRocket::Test::TestEstesAlphaIII;
 
 /// FinSetTest's tolerance.
 constexpr double kEpsilon = 1.0E-8;
@@ -91,20 +95,6 @@ constexpr double kEpsilon = 1.0E-8;
 constexpr double kPinned = 1e-14;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-
-/// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: it stores the method and the offset and moves the component without firing an event,
-/// so in a rocket nothing is updated or cleared (a freeform outline is not clamped again, the
-/// cached area and CG stay). Here the public setAxialMethod() and setAxialOffset() with the
-/// component's events bypassed meanwhile, which does exactly that.
-void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
-{
-    const bool bypass = component.isBypassComponentChangeEvent();
-    component.setBypassChangeEvent(true);
-    component.setAxialMethod(method);
-    component.setAxialOffset(offset);
-    component.setBypassChangeEvent(bypass);
-}
 
 /// @p actual within @p tolerance of @p expected in x, y, z and the weight.
 void expectNear(const Coordinate& expected, const Coordinate& actual, double tolerance,
@@ -161,7 +151,10 @@ std::unique_ptr<TrapezoidFinSet> createSimpleFin()
 }
 
 /// The nose cone, body tube and fin set of TestRockets.makeEstesAlphaIII() in a rocket with one
-/// stage; events enabled and recorded.
+/// stage; events enabled and recorded. It is the rocket of the OpenRocket programs that computed
+/// the values pinned in the suite's tests, which have no JUnit counterpart. (FinSetTest's own
+/// case on makeEstesAlphaIII(), testTabSetLength, runs on the whole rocket: TestEstesAlphaIII
+/// of TestRockets.h.)
 class FinSetOnAlpha : public ::testing::Test
 {
 protected:
@@ -297,11 +290,15 @@ TEST(FinSet, TabGetAs)
     EXPECT_NEAR(0.02, fins->getTabLength(), kEpsilon) << "Setting by BOTTOM method failed!";
 }
 
-TEST_F(FinSetOnAlpha, TabSetLength)
+// On TestRockets.makeEstesAlphaIII() itself (the shared TestEstesAlphaIII), as in Java.
+TEST(FinSet, TabSetLength)
 {
-    EXPECT_NEAR(0.20, m_body->getLength(), kEpsilon) << "incorrect body tube length:";
+    const TestEstesAlphaIII alpha;
 
-    FinSet& fins = *m_fins;
+    auto& body = dynamic_cast<BodyTube&>(alpha.rocket->getChild(0).getChild(1));
+    EXPECT_NEAR(0.20, body.getLength(), kEpsilon) << "incorrect body tube length:";
+
+    auto& fins = dynamic_cast<FinSet&>(body.getChild(0));
     fins.setTabHeight(0.01);
     fins.setTabLength(0.02);
     EXPECT_NEAR(0.05, fins.getLength(), kEpsilon) << "incorrect fin length:";

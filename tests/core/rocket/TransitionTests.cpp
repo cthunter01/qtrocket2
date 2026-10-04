@@ -30,6 +30,7 @@
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
+#include "rocket/TestRockets.h"
 
 namespace
 {
@@ -195,23 +196,11 @@ TEST(Transition, VerifyBackwardOgiveTransition)
     EXPECT_NEAR(0.44135250736, transition.getRadius(6.0), kEpsilon);
 }
 
+/// TransitionTest.testStockIntegration: the nose cone of TestRockets.makeEstesAlphaIII().
 TEST(Transition, StockIntegration)
 {
-    // The nose cone of TestRockets.makeEstesAlphaIII(), built and placed as there (only the
-    // stage's first two components matter to it).
-    Rocket rocket;
-    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
-    stage.setName("Stage");
-
-    auto nosecone = std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.07, 0.012);
-    nosecone->setAftShoulderLength(0.02);
-    // Test with a thickness set to 0 (changed by setAftShoulderLength)
-    nosecone->setAftShoulderThickness(0);
-    nosecone->setAftShoulderRadius(0.011);
-    nosecone->setName("Nose Cone");
-    const NoseCone& nose = stage.addChild(std::move(nosecone));
-    stage.addChild(std::make_unique<BodyTube>(0.20, 0.012, 0.0003)).setName("Body Tube");
-    rocket.enableEvents();
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    const auto& nose = dynamic_cast<const NoseCone&>(alpha.rocket->getChild(0).getChild(0));
 
     EXPECT_NEAR(0.07, nose.getLength(), kEpsilon) << "Alpha3 nose cone length is wrong ";
     EXPECT_NEAR(0.00, nose.getForeRadius(), kEpsilon) << "Alpha3 nose cone fore radius is wrong ";

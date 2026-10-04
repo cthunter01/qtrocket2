@@ -484,6 +484,11 @@ TEST(ThrustCurveMotor, ValidationMessagesMatchOpenRocket)
     ThrustCurveMotor::Builder builder = simpleBuilder({0, 1}, {0, 1});
     builder.setCGPoints({Coordinate(0.01, 0, 0, 0.1), Coordinate(kNaN, 0, 0, 0.1)});
     EXPECT_EQ(buildError(builder), "Invalid CG (NaN,0.00000,0.00000,w=0.10000)");
+    // The point is printed as Coordinate::toString() prints it: without the weight when it is 0,
+    // five decimals rounded half up.
+    builder.setCGPoints({Coordinate(0.01, 0, 0, 0.1), Coordinate(0.015625, kNaN, -2.5, 0)});
+    EXPECT_EQ(buildError(builder), "Invalid CG (0.01563,NaN,-2.50000)");
+    EXPECT_EQ(buildError(builder), "Invalid CG " + Coordinate(0.015625, kNaN, -2.5, 0).toString());
     builder.setCGPoints({Coordinate(0.01, 0, 0, 0.1), Coordinate(-0.001, 0, 0, 0.1)});
     EXPECT_EQ(buildError(builder),
               "Invalid CG position -0.001000: CG is below the start of the motor.");

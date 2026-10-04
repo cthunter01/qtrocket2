@@ -13,20 +13,19 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
-#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
-#include "rocket/TestComponent.h"
+#include "rocket/AxialOffsetSupport.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -36,7 +35,6 @@ using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
-using QtRocket::ComponentKind;
 using QtRocket::Coordinate;
 using QtRocket::Material;
 using QtRocket::NoseCone;
@@ -44,24 +42,16 @@ using QtRocket::ParallelStage;
 using QtRocket::PodSet;
 using QtRocket::RadiusMethod;
 using QtRocket::Rocket;
-using QtRocket::RocketComponent;
 using QtRocket::SymmetricComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
+using QtRocket::TrapezoidFinSet;
 using QtRocket::MathUtil::pow2;
-using QtRocket::Test::TestComponent;
+using QtRocket::Test::setAxialOffset;
 using QtRocket::Test::TestFalcon9Heavy;
 
 /// SymmetricComponentVolumeTest's tolerance (MathUtil.EPSILON * 1000).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon * 1000;
-
-/// Java's protected setAxialOffset(method, offset), which the JUnit tests (in the same package)
-/// call: here the public setAxialMethod() and setAxialOffset(), which end in the same place.
-void setAxialOffset(RocketComponent& component, AxialMethod method, double offset)
-{
-    component.setAxialMethod(method);
-    component.setAxialOffset(offset);
-}
 
 /// A test bulk material of @p density.
 [[nodiscard]] Material testMaterial(double density)
@@ -906,7 +896,10 @@ TEST(SymmetricComponent, NeighboursThroughConstAndMutableAccessAgree)
 /// The rocket of the two InlineComponentAssembly tests: the Falcon 9 Heavy with the booster set
 /// reduced to one booster off the axis, a last stage (a body tube 0.2 m, radius 0.05 m), and a
 /// pod set of one pod on the core body's axis (FREE radius 0) holding a nose cone (0.1 m, base
-/// radius 0.05 m) and a body (0.2 m, radius 0.05 m, with fins), in the order @p coneFirst gives.
+/// radius 0.05 m) and a body (0.2 m, radius 0.05 m, with a TrapezoidFinSet()), in the order
+/// @p coneFirst gives: the cone then the body at the BOTTOM of the core body
+/// (testPreviousSymmetricComponentInlineComponentAssembly), or the body then the flipped cone at
+/// its TOP (testNextSymmetricComponentInlineComponentAssembly).
 struct InlineAssemblyRocket : TestFalcon9Heavy
 {
     PodSet*   podSet{nullptr};
@@ -920,30 +913,21 @@ struct InlineAssemblyRocket : TestFalcon9Heavy
         boosterStage->setRadius(RadiusMethod::RELATIVE, 0);
 
         // Add inline pod set
-        podSet = &coreBody->addChild(std::make_unique<PodSet>());
-        podSet->setName("Inline Pod Set");
-        podSet->setInstanceCount(1);
-        podSet->setRadius(RadiusMethod::FREE, 0);
+        auto pods = std::make_unique<PodSet>();
+        pods->setName("Inline Pod Set");
+        pods->setInstanceCount(1);
+        pods->setRadius(RadiusMethod::FREE, 0);
+        podSet = &coreBody->addChild(std::move(pods));
         setAxialOffset(*podSet, coneFirst ? AxialMethod::BOTTOM : AxialMethod::TOP, 0);
-
-        auto cone = std::make_unique<NoseCone>();
-        cone->setLength(0.1);
-        cone->setBaseRadius(0.05);
-        auto body = std::make_unique<BodyTube>(0.2, 0.05, 0.001);
-        body->setName("Pod Set Body");
-        // HOOK(fins-lugs): tier 6b replaces this double with the real class (TrapezoidFinSet()).
-        body->addChild(
-            TestComponent::make(0.05, ComponentKind::TRAPEZOID_FIN_SET, AxialMethod::BOTTOM));
         if (coneFirst)
         {
-            podSetCone = &podSet->addChild(std::move(cone));
-            podSetBody = &podSet->addChild(std::move(body));
+            addCone(false);
+            addBodyWithFins();
         }
         else
         {
-            podSetBody = &podSet->addChild(std::move(body));
-            cone->setFlipped(true);
-            podSetCone = &podSet->addChild(std::move(cone));
+            addBodyWithFins();
+            addCone(true);
         }
 
         // Add last stage
@@ -952,6 +936,29 @@ struct InlineAssemblyRocket : TestFalcon9Heavy
         lastBody->setName("Last Stage Body");
         lastStageBody = &lastStage->addChild(std::move(lastBody));
         rocket->addChild(std::move(lastStage));
+    }
+
+private:
+    /// Adds the pod's nose cone, flipped when @p flipped.
+    void addCone(bool flipped)
+    {
+        auto cone = std::make_unique<NoseCone>();
+        cone->setLength(0.1);
+        cone->setBaseRadius(0.05);
+        if (flipped)
+        {
+            cone->setFlipped(true);
+        }
+        podSetCone = &podSet->addChild(std::move(cone));
+    }
+
+    /// Adds the pod's body, then a new fin set to it.
+    void addBodyWithFins()
+    {
+        auto body = std::make_unique<BodyTube>(0.2, 0.05, 0.001);
+        body->setName("Pod Set Body");
+        podSetBody = &podSet->addChild(std::move(body));
+        podSetBody->addChild(std::make_unique<TrapezoidFinSet>());
     }
 };
 
@@ -1050,13 +1057,15 @@ TEST(SymmetricComponent, PreviousSymmetricComponentInlineComponentAssembly)
     EXPECT_EQ(coreBody->getPreviousSymmetricComponent(), interstage);
 
     // Add a booster inside the pod set
-    auto& insideBooster = podSetBody->addChild(std::make_unique<ParallelStage>());
-    insideBooster.setName("Inside Booster");
-    insideBooster.setInstanceCount(1);
-    insideBooster.setRadius(RadiusMethod::FREE, 0);
+    auto newInsideBooster = std::make_unique<ParallelStage>();
+    newInsideBooster->setName("Inside Booster");
+    newInsideBooster->setInstanceCount(1);
+    newInsideBooster->setRadius(RadiusMethod::FREE, 0);
+    auto& insideBooster = podSetBody->addChild(std::move(newInsideBooster));
     setAxialOffset(insideBooster, AxialMethod::BOTTOM, 0);
-    auto& insideBoosterBody = insideBooster.addChild(std::make_unique<BodyTube>(0.2, 0.06, 0.001));
-    insideBoosterBody.setName("Inside Booster Body");
+    auto newInsideBoosterBody = std::make_unique<BodyTube>(0.2, 0.06, 0.001);
+    newInsideBoosterBody->setName("Inside Booster Body");
+    auto& insideBoosterBody = insideBooster.addChild(std::move(newInsideBoosterBody));
 
     // Case 1: inside booster is larger than pod set and flush to its end (both are at the back
     // of the core stage)
@@ -1238,13 +1247,15 @@ TEST(SymmetricComponent, NextSymmetricComponentInlineComponentAssembly)
     EXPECT_EQ(coreBody->getNextSymmetricComponent(), lastStageBody);
 
     // Add a booster inside the pod set
-    auto& insideBooster = podSetBody->addChild(std::make_unique<ParallelStage>());
-    insideBooster.setName("Inside Booster");
-    insideBooster.setInstanceCount(1);
-    insideBooster.setRadius(RadiusMethod::FREE, 0);
+    auto newInsideBooster = std::make_unique<ParallelStage>();
+    newInsideBooster->setName("Inside Booster");
+    newInsideBooster->setInstanceCount(1);
+    newInsideBooster->setRadius(RadiusMethod::FREE, 0);
+    auto& insideBooster = podSetBody->addChild(std::move(newInsideBooster));
     setAxialOffset(insideBooster, AxialMethod::TOP, 0);
-    auto& insideBoosterBody = insideBooster.addChild(std::make_unique<BodyTube>(0.2, 0.06, 0.001));
-    insideBoosterBody.setName("Inside Booster Body");
+    auto newInsideBoosterBody = std::make_unique<BodyTube>(0.2, 0.06, 0.001);
+    newInsideBoosterBody->setName("Inside Booster Body");
+    auto& insideBoosterBody = insideBooster.addChild(std::move(newInsideBoosterBody));
 
     // Case 1: inside booster is larger than pod set and flush to its front (both are at the
     // front of the core stage)

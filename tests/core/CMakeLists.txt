@@ -101,6 +101,7 @@ add_executable(QtRocket_core_tests
     rocket/MotorConfigurationSetTests.cpp
     rocket/MotorConfigurationTests.cpp
     rocket/NoseConeTests.cpp
+    rocket/override_tests.cpp
     rocket/ParachuteTests.cpp
     rocket/ParallelStageTests.cpp
     rocket/PodSetTests.cpp
@@ -113,6 +114,7 @@ add_executable(QtRocket_core_tests
     rocket/RailButtonTests.cpp
     rocket/RecoveryDeviceTests.cpp
     rocket/RingComponentTests.cpp
+    rocket/rocket_bounding_box_tests.cpp
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/ShockCordTests.cpp
@@ -121,6 +123,7 @@ add_executable(QtRocket_core_tests
     rocket/StructuralComponentTests.cpp
     rocket/SymmetricComponentTests.cpp
     rocket/test_rockets_tests.cpp
+    rocket/TestRockets.cpp
     rocket/ThicknessRingComponentTests.cpp
     rocket/TransitionShapeTests.cpp
     rocket/TransitionTests.cpp
