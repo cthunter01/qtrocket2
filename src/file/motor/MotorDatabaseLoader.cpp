@@ -28,18 +28,11 @@ namespace QtRocket
 namespace
 {
 
-/// @p path as UTF-8 (path::string() would go through the Windows ANSI code page).
-[[nodiscard]] std::string utf8(const std::filesystem::path& path)
-{
-    const std::u8string text = path.u8string();
-    return {text.begin(), text.end()};
-}
-
 /// The file name of @p path lower-cased as Locale.ENGLISH does for the ASCII extensions compared
 /// here.
 [[nodiscard]] std::string lowerCaseName(const std::filesystem::path& path)
 {
-    return Strings::toLower(utf8(path.filename()));
+    return Strings::toLower(pathToUtf8(path.filename()));
 }
 
 /// SimpleFileFilter.accept() for a file: the name ends with "." and one of @p extensions.
@@ -83,7 +76,7 @@ void collectFiles(const std::filesystem::path& directory,
     std::filesystem::directory_iterator iterator(directory, error);
     for (; !error && iterator != std::filesystem::directory_iterator(); iterator.increment(error))
     {
-        if (!utf8(iterator->path().filename()).starts_with('.'))
+        if (!pathToUtf8(iterator->path().filename()).starts_with('.'))
         {
             entries.push_back(iterator->path());
         }
@@ -95,7 +88,7 @@ void collectFiles(const std::filesystem::path& directory,
             .error = Error{.code    = ErrorCode::IO,
                            .message = "not a directory or IOException occurred when listing files "
                                       "from " +
-                                      utf8(directory),
+                                      pathToUtf8(directory),
                            .where   = std::source_location::current()}});
         return;
     }
@@ -178,10 +171,10 @@ Result<void> MotorDatabaseLoader::loadInternalMotorDatabase(
     }
     if (listing.files.empty())
     {
-        addProblem(bundledDirectory,
-                   Error{.code    = ErrorCode::NOT_FOUND,
-                         .message = "No SQLite motor database found in " + utf8(bundledDirectory),
-                         .where   = std::source_location::current()});
+        addProblem(bundledDirectory, Error{.code    = ErrorCode::NOT_FOUND,
+                                           .message = "No SQLite motor database found in " +
+                                                      pathToUtf8(bundledDirectory),
+                                           .where   = std::source_location::current()});
         return {};
     }
     for (const std::filesystem::path& file : listing.files)
@@ -204,7 +197,7 @@ void MotorDatabaseLoader::loadUserDefinedMotors(std::span<const std::filesystem:
             if (!isUserMotorFile(file))
             {
                 addProblem(file, Error{.code    = ErrorCode::UNSUPPORTED_FORMAT,
-                                       .message = "User-defined motor file " + utf8(file) +
+                                       .message = "User-defined motor file " + pathToUtf8(file) +
                                                   " does not have a supported extension",
                                        .where   = std::source_location::current()});
                 continue;
@@ -218,7 +211,7 @@ void MotorDatabaseLoader::loadUserDefinedMotors(std::span<const std::filesystem:
         else
         {
             addProblem(file, Error{.code    = ErrorCode::NOT_FOUND,
-                                   .message = "User-defined motor file " + utf8(file) +
+                                   .message = "User-defined motor file " + pathToUtf8(file) +
                                               " is neither file nor directory",
                                    .where   = std::source_location::current()});
         }
@@ -262,7 +255,7 @@ void MotorDatabaseLoader::loadFile(const std::filesystem::path& file)
         return;
     }
     Result<std::vector<ThrustCurveMotor::Builder>> motors =
-        m_loader->load(*bytes, utf8(file.filename()));
+        m_loader->load(*bytes, pathToUtf8(file.filename()));
     if (!motors)
     {
         addProblem(file, std::move(motors.error()));

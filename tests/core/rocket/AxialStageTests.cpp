@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -146,6 +147,38 @@ TEST(AxialStage, CopiesCloneTheSeparations)
     EXPECT_EQ(stage.getSeparationConfigurations().get(fcid).getSeparationEvent(),
               SeparationEvent::EJECTION);
     EXPECT_EQ(stage.getSeparationConfigurations().getDefault().getSeparationDelay(), 0.0);
+}
+
+TEST(AxialStage, ABoosterSetCannotBeSlicedIntoAStage)
+{
+    // The copy constructor is protected (as Transition's, for the NoseCone); copies come from
+    // cloneShallow(), which keeps the class.
+    static_assert(!std::is_copy_constructible_v<AxialStage>);
+    static_assert(std::is_copy_constructible_v<ParallelStage>);
+
+    ParallelStage                boosters(3);
+    StageSeparationConfiguration separation;
+    separation.setSeparationEvent(SeparationEvent::BURNOUT);
+    const FlightConfigurationId fcid;
+    boosters.getSeparationConfigurations().set(fcid, separation);
+
+    const std::unique_ptr<RocketComponent> copy = boosters.copyWithOriginalId();
+    EXPECT_EQ(copy->kind(), ComponentKind::PARALLEL_STAGE);
+    const auto& copiedBoosters = dynamic_cast<const ParallelStage&>(*copy);
+    EXPECT_EQ(copiedBoosters.getInstanceCount(), 3);
+    EXPECT_EQ(copiedBoosters.getAxialMethod(), AxialMethod::BOTTOM);
+    EXPECT_EQ(copiedBoosters.getSeparationConfigurations().get(fcid).getSeparationEvent(),
+              SeparationEvent::BURNOUT);
+
+    // A stage is copied as a stage.
+    AxialStage stage;
+    stage.getSeparationConfigurations().set(fcid, separation);
+    const std::unique_ptr<RocketComponent> stageCopy = stage.copyWithNewIds();
+    EXPECT_EQ(stageCopy->kind(), ComponentKind::AXIAL_STAGE);
+    EXPECT_NE(stageCopy->getId(), stage.getId());
+    const auto& copiedStage = dynamic_cast<const AxialStage&>(*stageCopy);
+    EXPECT_EQ(copiedStage.getSeparationConfigurations().get(fcid).getSeparationEvent(),
+              SeparationEvent::BURNOUT);
 }
 
 TEST(AxialStage, ActiveWhileItHasChildren)

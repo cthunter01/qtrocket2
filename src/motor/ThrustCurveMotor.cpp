@@ -81,20 +81,6 @@ constexpr double kSnapDistance = 0.0001;
     return text.substr(start, position - start);
 }
 
-/// Java's Coordinate.toString(): "(x,y,z)", or "(x,y,z,w=weight)" when weighted, each with
-/// String.format's "%.5f" (NaN as "NaN"), as the invalid-CG message shows it.
-[[nodiscard]] std::string javaCoordinateString(const Coordinate& c)
-{
-    if (c.isWeighted())
-    {
-        return std::format("({},{},{},w={})", Strings::formatFixed(c.x, 5),
-                           Strings::formatFixed(c.y, 5), Strings::formatFixed(c.z, 5),
-                           Strings::formatFixed(c.weight, 5));
-    }
-    return std::format("({},{},{})", Strings::formatFixed(c.x, 5), Strings::formatFixed(c.y, 5),
-                       Strings::formatFixed(c.z, 5));
-}
-
 /// Arrays.toString(double[]): "[1.0, 2.5]".
 [[nodiscard]] std::string javaArrayString(std::span<const double> values)
 {
@@ -252,7 +238,8 @@ constexpr double kSnapDistance = 0.0001;
         const Coordinate& c = cg[i];
         if (c.isNaN())
         {
-            return "Invalid CG " + javaCoordinateString(c);
+            // Java prints the point with Coordinate.toString(): "(x,y,z)" or "(x,y,z,w=weight)".
+            return "Invalid CG " + c.toString();
         }
         if (c.x < 0)
         {

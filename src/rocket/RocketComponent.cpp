@@ -1087,10 +1087,9 @@ void RocketComponent::checkAddable(const RocketComponent* component) const
     }
 }
 
-void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
-                                  StageTracking tracking)
+RocketComponent& RocketComponent::linkChild(std::unique_ptr<RocketComponent> component,
+                                            std::size_t index, StageTracking tracking)
 {
-    // addChild() ran checkAddable() and checkedIndex() before it gave up the component.
     QTROCKET_ASSERT(component != nullptr && component->m_parent == nullptr);
     QTROCKET_ASSERT(index <= m_children.size());
 
@@ -1136,6 +1135,14 @@ void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, st
             }
         }
     }
+    return added;
+}
+
+void RocketComponent::insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
+                                  StageTracking tracking)
+{
+    // addChild() ran checkAddable() and checkedIndex() before it gave up the component.
+    RocketComponent& added = linkChild(std::move(component), index, tracking);
 
     checkComponentStructure();
     added.checkComponentStructure();
@@ -1161,41 +1168,63 @@ std::unique_ptr<RocketComponent> RocketComponent::removeChild(const RocketCompon
     ++m_childListModCount;
     removed->m_parent = nullptr;
 
-    clearOverriddenByAcross(*removed);
+    try
+    {
+        finishRemoval(*removed, tracking);
+    }
+    catch (...)
+    {
+        // A change listener threw (or a structure check failed): the caller will not get the
+        // removed child, so it goes back to its place (see the class comment). The rocket's
+        // stage map and configurations are rebuilt whatever its events, then the listeners
+        // hear of the tree change; should that throw as well, the child is in the tree already.
+        const RocketComponent& restored = linkChild(std::move(removed), *index, tracking);
+        if (Rocket* rocket = findRocket())
+        {
+            rocket->update();
+        }
+        fireAddRemoveEvent(restored);
+        updateBounds();
+        throw;
+    }
+    return removed;
+}
+
+void RocketComponent::finishRemoval(RocketComponent& removed, StageTracking tracking)
+{
+    clearOverriddenByAcross(removed);
 
     if (Rocket* rocket = findRocket())
     {
         if (tracking == StageTracking::TRACK)
         {
-            if (const auto* stage = dynamic_cast<const AxialStage*>(removed.get()))
+            if (const auto* stage = dynamic_cast<const AxialStage*>(&removed))
             {
                 rocket->forgetStage(*stage);
             }
             // The removed component's sub-stages too.
-            for (const AxialStage* stage : std::as_const(*removed).getSubStages())
+            for (const AxialStage* stage : std::as_const(removed).getSubStages())
             {
                 rocket->forgetStage(*stage);
             }
         }
         // Deviation (see StageTracking): whatever the tracking, no entry may keep a removed
         // stage, which the caller may destroy.
-        std::as_const(*removed).forEach([rocket](const RocketComponent& c) {
+        std::as_const(removed).forEach([rocket](const RocketComponent& c) {
             if (const auto* stage = dynamic_cast<const AxialStage*>(&c))
             {
                 rocket->forgetStageEntries(*stage);
             }
         });
         // Nor may a flight configuration keep the removed components (see FlightConfiguration).
-        rocket->forgetComponents(*removed);
+        rocket->forgetComponents(removed);
     }
 
     checkComponentStructure();
-    removed->checkComponentStructure();
+    removed.checkComponentStructure();
 
-    fireAddRemoveEvent(*removed);
+    fireAddRemoveEvent(removed);
     updateBounds();
-
-    return removed;
 }
 
 void RocketComponent::clearOverriddenByAcross(RocketComponent& removed)

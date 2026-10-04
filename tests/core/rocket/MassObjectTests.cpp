@@ -33,7 +33,6 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
-#include "rocket/InternalTestSupport.h"
 #include "rocket/TestComponent.h"
 #include "rocket/TestRockets.h"
 
@@ -61,7 +60,6 @@ using QtRocket::TransitionShape;
 using QtRocket::Test::GoldenCheck;
 using QtRocket::Test::goldenGeometryComponentOrFail;
 using QtRocket::Test::noGoldenMismatches;
-using QtRocket::Test::OneStage;
 using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
@@ -459,61 +457,22 @@ TEST(MassObjectGolden, IsoHaisuMassComponents)
 {
     // TestRockets.makeIsoHaisu(): mass components made with (length, radius, mass), positioned
     // TOP in the first two body tubes (BodyTube(0.505, 0.07, 0.005) and (0.605, 0.07, 0.005)).
-    struct Mass
-    {
-        double           length;
-        double           radius;
-        double           mass;
-        double           offset;
-        int              tube;
-        std::string_view path;
-    };
-    constexpr double kR = 0.07;
-    for (const Mass& m : {Mass{.length = 0.05,
-                               .radius = 0.05,
-                               .mass   = 0.280,
-                               .offset = 0.2,
-                               .tube   = 0,
-                               .path   = "/0/1/2"},
-                          Mass{.length = 0.05,
-                               .radius = 0.05,
-                               .mass   = 0.125,
-                               .offset = 0.2,
-                               .tube   = 0,
-                               .path   = "/0/1/3"},
-                          Mass{.length = 0.40,
-                               .radius = kR,
-                               .mass   = 1.500,
-                               .offset = 0.25,
-                               .tube   = 0,
-                               .path   = "/0/1/4"},
-                          Mass{.length = 0.1,
-                               .radius = 0.05,
-                               .mass   = 0.028,
-                               .offset = 0.14,
-                               .tube   = 1,
-                               .path   = "/0/2/1"},
-                          Mass{.length = 0.1,
-                               .radius = 0.05,
-                               .mass   = 0.125,
-                               .offset = 0.19,
-                               .tube   = 1,
-                               .path   = "/0/2/3"}})
-    {
-        OneStage rocket;
-        auto&    body = rocket.stage->addChild(
-            std::make_unique<BodyTube>(m.tube == 0 ? 0.505 : 0.605, kR, 0.005));
-        auto mass = std::make_unique<MassComponent>(m.length, m.radius, m.mass);
-        mass->setAxialMethod(AxialMethod::TOP);
-        mass->setAxialOffset(m.offset);
-        const MassComponent& added = body.addChild(std::move(mass));
-        rocket.rocket.enableEvents();
-
-        EXPECT_EQ(
-            goldenMismatches(added, goldenGeometryComponentOrFail("testrocket-iso-haisu", m.path)),
-            noGoldenMismatches())
-            << m.path;
-    }
+    const QtRocket::Test::TestIsoHaisu iso;
+    EXPECT_EQ(goldenMismatches(*iso.tube1Masses.at(0),
+                               goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/1/2")),
+              noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(*iso.tube1Masses.at(1),
+                               goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/1/3")),
+              noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(*iso.tube1Masses.at(2),
+                               goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/1/4")),
+              noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(*iso.tube2Masses.at(0),
+                               goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/1")),
+              noGoldenMismatches());
+    EXPECT_EQ(goldenMismatches(*iso.tube2Masses.at(1),
+                               goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/3")),
+              noGoldenMismatches());
 }
 
 }  // namespace

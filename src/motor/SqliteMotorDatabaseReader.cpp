@@ -31,6 +31,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
@@ -56,14 +57,6 @@ struct StatementFinalizer
 {
     void operator()(sqlite3_stmt* statement) const noexcept { sqlite3_finalize(statement); }
 };
-
-/// @p path as UTF-8, which sqlite3_open_v2 takes on every platform (path::string() would go
-/// through the Windows ANSI code page).
-[[nodiscard]] std::string utf8Path(const std::filesystem::path& path)
-{
-    const std::u8string utf8 = path.u8string();
-    return {utf8.begin(), utf8.end()};
-}
 
 /// A failure carrying SQLite's message for the last error on @p db.
 [[nodiscard]] std::unexpected<Error> sqliteError(sqlite3* db)
@@ -237,7 +230,7 @@ public:
         sqlite3*  raw = nullptr;
         const int flags =
             writable ? (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) : SQLITE_OPEN_READONLY;
-        const int  status = sqlite3_open_v2(utf8Path(file).c_str(), &raw, flags, nullptr);
+        const int  status = sqlite3_open_v2(pathToUtf8(file).c_str(), &raw, flags, nullptr);
         Connection connection(raw);
         if (status != SQLITE_OK)
         {
@@ -576,7 +569,7 @@ constexpr std::array<std::string_view, 2>  kMotorColumnsV3Extra{"description", "
     std::error_code error;
     if (!std::filesystem::is_regular_file(dbFile, error))
     {
-        return fail(ErrorCode::DATABASE, "SQLite motor database not found: " + utf8Path(dbFile));
+        return fail(ErrorCode::DATABASE, "SQLite motor database not found: " + pathToUtf8(dbFile));
     }
     Result<Connection> connection = Connection::open(dbFile, false);
     if (!connection)
@@ -1652,13 +1645,13 @@ Result<void> SqliteMotorDatabaseReader::writeDatabase(
         if (error)
         {
             return fail(ErrorCode::IO, "Unable to create directory: " +
-                                           utf8Path(std::filesystem::absolute(parent, error)));
+                                           pathToUtf8(std::filesystem::absolute(parent, error)));
         }
     }
     if (std::filesystem::exists(dbFile, error) && !std::filesystem::remove(dbFile, error))
     {
         return fail(ErrorCode::IO, "Unable to delete existing SQLite database: " +
-                                       utf8Path(std::filesystem::absolute(dbFile, error)));
+                                       pathToUtf8(std::filesystem::absolute(dbFile, error)));
     }
 
     Result<Connection> connection = Connection::open(dbFile, true);

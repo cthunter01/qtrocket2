@@ -12,7 +12,6 @@
 
 #include "QtRocket/rocket/TubeFinSet.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <format>
@@ -72,6 +71,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Transformation.h"
+#include "rocket/JavaValueDifferences.h"
 
 namespace
 {
@@ -97,6 +97,10 @@ using QtRocket::RocketComponent;
 using QtRocket::Transformation;
 using QtRocket::TubeFinSet;
 using QtRocket::TypedPropertyMap;
+using QtRocket::Test::matchesJavaValue;
+
+/// The collector of the differences from Java's values.
+using Differences = QtRocket::Test::JavaValueDifferences;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -108,104 +112,6 @@ constexpr int kNonFunctional = ComponentChangeEvent::kNonFunctionalChange;
 constexpr int kTree          = ComponentChangeEvent::kTreeChange;
 
 using Events = std::vector<int>;
-
-/// Whether @p actual is the Java value @p expected: both NaN, equal (the infinities, the zeros),
-/// or within 1e-12 relative, plus 1e-15 absolute for values near zero such as sin(pi) * r. An
-/// infinite Java value (two tubes: r / (1 - sin(pi / 2))) also matches a value beyond 1e12 of its
-/// sign, which is what a sin(pi / 2) one bit below 1 would give.
-[[nodiscard]] bool matches(double expected, double actual)
-{
-    if (std::isnan(expected) || std::isnan(actual))
-    {
-        return std::isnan(expected) && std::isnan(actual);
-    }
-    if (expected == actual)
-    {
-        return true;
-    }
-    if (std::isinf(expected))
-    {
-        return expected > 0 ? actual > 1e12 : actual < -1e12;
-    }
-    return std::abs(actual - expected) <=
-           (1e-12 * std::max(std::abs(expected), std::abs(actual))) + 1e-15;
-}
-
-/// Collects the differences between Java's values and the computed ones, one line each.
-class Differences
-{
-public:
-    void number(std::string_view field, double expected, double actual)
-    {
-        if (!matches(expected, actual))
-        {
-            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
-        }
-    }
-
-    void integer(std::string_view field, int expected, int actual)
-    {
-        if (expected != actual)
-        {
-            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
-        }
-    }
-
-    void name(std::string_view field, std::string_view expected, std::string_view actual)
-    {
-        if (expected != actual)
-        {
-            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
-        }
-    }
-
-    /// Something that kept a value from being compared.
-    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
-
-    void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
-    {
-        number(std::format("{}.x", field), expected.x, actual.x);
-        number(std::format("{}.y", field), expected.y, actual.y);
-        number(std::format("{}.z", field), expected.z, actual.z);
-        number(std::format("{}.weight", field), expected.weight, actual.weight);
-    }
-
-    void numbers(std::string_view field, const std::vector<double>& expected,
-                 const std::vector<double>& actual)
-    {
-        if (expected.size() != actual.size())
-        {
-            m_text += std::format("  {}: expected {} values, got {}\n", field, expected.size(),
-                                  actual.size());
-            return;
-        }
-        for (std::size_t i = 0; i < expected.size(); i++)
-        {
-            number(std::format("{}[{}]", field, i), expected[i], actual[i]);
-        }
-    }
-
-    void coordinates(std::string_view field, const std::vector<Coordinate>& expected,
-                     const std::vector<Coordinate>& actual)
-    {
-        if (expected.size() != actual.size())
-        {
-            m_text += std::format("  {}: expected {} points, got {}\n", field, expected.size(),
-                                  actual.size());
-            return;
-        }
-        for (std::size_t i = 0; i < expected.size(); i++)
-        {
-            coordinate(std::format("{}[{}]", field, i), expected[i], actual[i]);
-        }
-    }
-
-    /// Empty when everything matched.
-    [[nodiscard]] const std::string& text() const noexcept { return m_text; }
-
-private:
-    std::string m_text;
-};
 
 /// What OpenRocket's TubeFinSet answers in one state.
 struct Pins
@@ -1019,8 +925,8 @@ TEST_F(TubeFinSetOnBody, AxialMethodKeepsThePositionAndFiresANonFunctionalChange
 
     m_fins->setAxialMethod(AxialMethod::MIDDLE);
     EXPECT_EQ(takeEvents(), Events{kNonFunctional});
-    EXPECT_TRUE(matches(0.09, m_fins->getAxialOffset())) << m_fins->getAxialOffset();
-    EXPECT_TRUE(matches(0.03471433333333333, m_fins->getLongitudinalUnitInertia()))
+    EXPECT_TRUE(matchesJavaValue(0.09, m_fins->getAxialOffset())) << m_fins->getAxialOffset();
+    EXPECT_TRUE(matchesJavaValue(0.03471433333333333, m_fins->getLongitudinalUnitInertia()))
         << m_fins->getLongitudinalUnitInertia();
 }
 
@@ -1046,9 +952,9 @@ TEST_F(TubeFinSetOnBody, AfterIsOnlyAnotherWayToDescribeThePosition)
 
     m_fins->setAxialMethod(AxialMethod::BOTTOM);
     EXPECT_EQ(takeEvents(), Events{kNonFunctional});
-    EXPECT_TRUE(matches(-0.06999999999999998, m_fins->getAxialOffset()))
+    EXPECT_TRUE(matchesJavaValue(-0.06999999999999998, m_fins->getAxialOffset()))
         << m_fins->getAxialOffset();
-    EXPECT_TRUE(matches(0.15, m_fins->getPosition().x)) << m_fins->getPosition().x;
+    EXPECT_TRUE(matchesJavaValue(0.15, m_fins->getPosition().x)) << m_fins->getPosition().x;
 }
 
 TEST_F(TubeFinSetOnBody, ASingleTubeSitsBesideTheBody)
@@ -1101,7 +1007,7 @@ TEST_F(TubeFinSetOnBody, RadiusAndThicknessSetters)
     m_fins->setOuterRadiusAutomatic(true);
     EXPECT_EQ(takeEvents(), Events{});
     m_fins->setFinCount(6);
-    EXPECT_TRUE(matches(0.024999999999999998, m_fins->getOuterRadius()));
+    EXPECT_TRUE(matchesJavaValue(0.024999999999999998, m_fins->getOuterRadius()));
     EXPECT_EQ(m_fins->getThickness(), 0.001);
     static_cast<void>(takeEvents());
 
@@ -1121,8 +1027,8 @@ TEST_F(TubeFinSetOnBody, RadiusAndThicknessSetters)
 
     m_fins->setInnerRadius(0.004);
     EXPECT_EQ(takeEvents(), Events{kBoth});
-    EXPECT_TRUE(matches(0.006, m_fins->getThickness())) << m_fins->getThickness();
-    EXPECT_TRUE(matches(0.004, m_fins->getInnerRadius())) << m_fins->getInnerRadius();
+    EXPECT_TRUE(matchesJavaValue(0.006, m_fins->getThickness())) << m_fins->getThickness();
+    EXPECT_TRUE(matchesJavaValue(0.004, m_fins->getInnerRadius())) << m_fins->getInnerRadius();
 
     m_fins->setOuterRadius(0.003);
     EXPECT_EQ(takeEvents(), Events{kBoth});
@@ -1224,10 +1130,10 @@ struct AngleStep
 void expectAngleStep(const AngleStep& step, const Events& events, const TubeFinSet& fins)
 {
     EXPECT_EQ(events, step.events) << step.angle;
-    EXPECT_TRUE(matches(step.stored, fins.getAngleOffset()))
+    EXPECT_TRUE(matchesJavaValue(step.stored, fins.getAngleOffset()))
         << step.angle << " gives " << fins.getAngleOffset();
-    EXPECT_TRUE(matches(step.stored, fins.getBaseRotation())) << step.angle;
-    EXPECT_TRUE(matches(step.stored, fins.getBaseRotationTransformation().xRotation()))
+    EXPECT_TRUE(matchesJavaValue(step.stored, fins.getBaseRotation())) << step.angle;
+    EXPECT_TRUE(matchesJavaValue(step.stored, fins.getBaseRotationTransformation().xRotation()))
         << step.angle;
     Differences d;
     d.numbers("instanceAngles", step.instanceAngles, fins.getInstanceAngles());
@@ -1262,15 +1168,16 @@ TEST_F(TubeFinSetOnBody, RotationTransformations)
         EXPECT_EQ(m_fins->getFinRotation(), 2 * std::numbers::pi / count);
     }
     m_fins->setFinCount(3);
-    EXPECT_TRUE(matches(2.0943951023931957, m_fins->getFinRotationTransformation().xRotation()));
+    EXPECT_TRUE(
+        matchesJavaValue(2.0943951023931957, m_fins->getFinRotationTransformation().xRotation()));
 
     m_fins->setBaseRotation(0.5);
     EXPECT_EQ(m_fins->getBaseRotationTransformation(), Transformation::rotateX(0.5));
     // The base rotation turns the y axis towards z.
     const Coordinate turned =
         m_fins->getBaseRotationTransformation().transform(Coordinate{0, 1, 0});
-    EXPECT_TRUE(matches(std::cos(0.5), turned.y));
-    EXPECT_TRUE(matches(std::sin(0.5), turned.z));
+    EXPECT_TRUE(matchesJavaValue(std::cos(0.5), turned.y));
+    EXPECT_TRUE(matchesJavaValue(std::sin(0.5), turned.z));
 }
 
 // ===================================================================================== split
@@ -1469,7 +1376,7 @@ TEST(TubeFinSetPreset, LoadsABodyTubePreset)
     EXPECT_EQ(fins.getFinCount(), 6);
     EXPECT_EQ(fins.getMaterial(), preset.get(ComponentPreset::kMaterial));
     EXPECT_EQ(fins.getMaterial().getName(), "TubeCustom");
-    EXPECT_TRUE(matches(21.22065907891938, fins.getMaterial().getDensity()));
+    EXPECT_TRUE(matchesJavaValue(21.22065907891938, fins.getMaterial().getDensity()));
     // The preset's mass is that of one tube; the set has six.
     EXPECT_NEAR(fins.getMass(), 600.0, 1e-9);
 }
@@ -1566,8 +1473,8 @@ TEST(TubeFinSetMass, TubeFinMass)
     EXPECT_NEAR(0.0999780446, tubeFinSet.getComponentMass(), kEpsilon);
     EXPECT_NEAR(0.0999780446, tubeFinSet.getMass(), kEpsilon);
     // Java's full values (the JUnit literals are rounded).
-    EXPECT_TRUE(matches(1.4702653618800244E-4, tubeFinSet.getComponentVolume()));
-    EXPECT_TRUE(matches(0.09997804460784167, tubeFinSet.getComponentMass()));
+    EXPECT_TRUE(matchesJavaValue(1.4702653618800244E-4, tubeFinSet.getComponentVolume()));
+    EXPECT_TRUE(matchesJavaValue(0.09997804460784167, tubeFinSet.getComponentMass()));
     // The events placed the set at the bottom of the 0.2 m body tube (without them it stays at
     // 0), and it kept the thickness it was given.
     EXPECT_EQ(tubeFinSet.getPosition(), (Coordinate{0.1, 0.0, 0.0}));
@@ -1578,8 +1485,8 @@ TEST(TubeFinSetMass, TubeFinMass)
     EXPECT_NEAR(0.000196035, tubeFinSet.getComponentVolume(), kEpsilon);
     EXPECT_NEAR(0.133304059, tubeFinSet.getComponentMass(), kEpsilon);
     EXPECT_NEAR(0.133304059, tubeFinSet.getMass(), kEpsilon);
-    EXPECT_TRUE(matches(1.9603538158400325E-4, tubeFinSet.getComponentVolume()));
-    EXPECT_TRUE(matches(0.1333040594771222, tubeFinSet.getComponentMass()));
+    EXPECT_TRUE(matchesJavaValue(1.9603538158400325E-4, tubeFinSet.getComponentVolume()));
+    EXPECT_TRUE(matchesJavaValue(0.1333040594771222, tubeFinSet.getComponentMass()));
 
     tubeFinSet.setMassOverridden(true);
     tubeFinSet.setOverrideMass(0.02);
@@ -1616,8 +1523,9 @@ TEST(TubeFinSetBodyTubeHook, TheThicknessGoesThroughTheSetter)
     // A filled body tube's thickness is its radius; the setter clamps it to the tubes' radius.
     BodyTube          filled(0.3, 0.025, true);
     const TubeFinSet& onFilled = filled.addChild(std::make_unique<TubeFinSet>());
-    EXPECT_TRUE(matches(0.024999999999999998, onFilled.getThickness())) << onFilled.getThickness();
-    EXPECT_TRUE(matches(0.024999999999999998, onFilled.getOuterRadius()));
+    EXPECT_TRUE(matchesJavaValue(0.024999999999999998, onFilled.getThickness()))
+        << onFilled.getThickness();
+    EXPECT_TRUE(matchesJavaValue(0.024999999999999998, onFilled.getOuterRadius()));
     EXPECT_NEAR(onFilled.getInnerRadius(), 0.0, 1e-15);
 
     BodyTube tube(0.3, 0.025, 0.002);

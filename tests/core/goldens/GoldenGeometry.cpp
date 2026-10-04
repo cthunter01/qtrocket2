@@ -1,10 +1,12 @@
 #include "goldens/GoldenGeometry.h"
 
+#include <cstddef>
 #include <expected>
 #include <format>
 #include <functional>
 #include <limits>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <source_location>
@@ -15,9 +17,15 @@
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <pugixml.hpp>
 
+#include "QtRocket/material/Material.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
+#include "QtRocket/util/Strings.h"
 #include "goldens/GoldenData.h"
 
 namespace QtRocket::Test
@@ -35,7 +43,29 @@ Coordinate goldenCoordinate(const nlohmann::json& value)
                       value.size() > 3 ? goldenValue(value.at(3)) : 0.0};
 }
 
-Result<nlohmann::json> loadGoldenGeometry(std::string_view name)
+Material goldenMaterial(const nlohmann::json& material)
+{
+    return Material::newMaterial(Material::Type::BULK, material.at("name").get<std::string>(),
+                                 goldenValue(material.at("density")), true);
+}
+
+std::optional<AxialMethod> goldenAxialMethod(std::string_view name)
+{
+    for (const AxialMethod method : kAllAxialMethods)
+    {
+        if (axialMethodName(method) == name)
+        {
+            return method;
+        }
+    }
+    return std::nullopt;
+}
+
+namespace
+{
+
+/// The manifest entry of the golden input @p name (a copy: the manifest is read for the call).
+[[nodiscard]] Result<GoldenInput> goldenInput(std::string_view name)
 {
     const Result<GoldenManifest> manifest = loadGoldenManifest();
     if (!manifest)
@@ -49,7 +79,50 @@ Result<nlohmann::json> loadGoldenGeometry(std::string_view name)
                                      .message = std::format("no input {}", name),
                                      .where   = std::source_location::current()});
     }
+    return *input;
+}
+
+}  // namespace
+
+Result<nlohmann::json> loadGoldenGeometry(std::string_view name)
+{
+    const Result<GoldenInput> input = goldenInput(name);
+    if (!input)
+    {
+        return std::unexpected(input.error());
+    }
     return loadGoldenJson(input->geometry);
+}
+
+Result<std::unique_ptr<pugi::xml_document>> loadGoldenResave(std::string_view name)
+{
+    const Result<GoldenInput> input = goldenInput(name);
+    if (!input)
+    {
+        return std::unexpected(input.error());
+    }
+    const Result<std::string> text = readTextFile(goldensDir() / input->resave);
+    if (!text)
+    {
+        return std::unexpected(text.error());
+    }
+    auto                         document = std::make_unique<pugi::xml_document>();
+    const pugi::xml_parse_result parsed   = document->load_buffer(text->data(), text->size());
+    if (!parsed)
+    {
+        return std::unexpected(
+            Error{.code    = ErrorCode::PARSE,
+                  .message = std::format("{}: {}", input->resave, parsed.description()),
+                  .where   = std::source_location::current()});
+    }
+    return document;
+}
+
+pugi::xml_node savedGoldenComponent(const pugi::xml_document& resave, std::string_view id)
+{
+    return resave.find_node([id](const pugi::xml_node& node) {
+        return std::string_view{node.child_value("id")} == id;
+    });
 }
 
 Result<const nlohmann::json*> goldenGeometry(std::string_view name)
@@ -103,6 +176,57 @@ std::vector<std::string> goldenInputNames()
         }
     }
     return names;
+}
+
+namespace
+{
+
+/// componentAtGoldenPath() for a const or a mutable tree.
+template <class Component>
+[[nodiscard]] Component* descendGoldenPath(Component& root, std::string_view path)
+{
+    Component*  component = &root;
+    std::size_t start     = 1;
+    while (start < path.size())
+    {
+        std::size_t end = path.find('/', start);
+        if (end == std::string_view::npos)
+        {
+            end = path.size();
+        }
+        const std::optional<int> index = Strings::parseInt(path.substr(start, end - start));
+        if (!index || *index < 0 || std::cmp_greater_equal(*index, component->getChildCount()))
+        {
+            return nullptr;
+        }
+        component = &component->getChild(static_cast<std::size_t>(*index));
+        start     = end + 1;
+    }
+    return component;
+}
+
+}  // namespace
+
+RocketComponent* componentAtGoldenPath(RocketComponent& root, std::string_view path)
+{
+    return descendGoldenPath(root, path);
+}
+
+const RocketComponent* componentAtGoldenPath(const RocketComponent& root, std::string_view path)
+{
+    return descendGoldenPath(root, path);
+}
+
+std::string goldenPathOf(const RocketComponent& component)
+{
+    const RocketComponent* parent = component.getParent();
+    if (parent == nullptr)
+    {
+        return "/";
+    }
+    const std::string above = goldenPathOf(*parent);
+    return std::format("{}/{}", above == "/" ? "" : above,
+                       parent->getChildPosition(&component).value_or(0));
 }
 
 }  // namespace QtRocket::Test

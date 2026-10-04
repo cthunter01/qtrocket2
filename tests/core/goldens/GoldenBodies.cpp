@@ -9,7 +9,6 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
@@ -116,10 +115,7 @@ std::unique_ptr<SymmetricComponent> rebuildGoldenBody(const nlohmann::json& comp
         return nullptr;
     }
 
-    const json& material = details.at("material");
-    result->setMaterial(Material::newMaterial(Material::Type::BULK,
-                                              material.at("name").get<std::string>(),
-                                              goldenValue(material.at("density")), true));
+    result->setMaterial(goldenMaterial(details.at("material")));
     return result;
 }
 

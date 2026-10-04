@@ -9,7 +9,7 @@
 // area, the volume, the mass, the CG, the unit inertias, the component bounds, the instance
 // bounding box and the instance offsets, locations and angles. A fin set's geometry depends on
 // its own fields and its parent's profile only, so this covers the 48 fin sets of the 29 inputs
-// without the components that are not ported yet.
+// without rebuilding their rockets.
 //
 // Two values come from elsewhere:
 // - The tab's offset method is not in geometry.json. It is read from OpenRocket's re-save of the
@@ -50,7 +50,6 @@
 #include <nlohmann/json_fwd.hpp>
 #include <pugixml.hpp>
 
-#include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
@@ -65,9 +64,7 @@
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/FileIo.h"
 #include "goldens/GoldenBodies.h"
-#include "goldens/GoldenData.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
 
@@ -84,17 +81,20 @@ using QtRocket::EllipticalFinSet;
 using QtRocket::FinCrossSection;
 using QtRocket::FinSet;
 using QtRocket::FreeformFinSet;
-using QtRocket::Material;
 using QtRocket::Rocket;
 using QtRocket::SymmetricComponent;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::Test::findGoldenComponent;
+using QtRocket::Test::goldenAxialMethod;
 using QtRocket::Test::goldenCoordinate;
 using QtRocket::Test::goldenGeometry;
 using QtRocket::Test::goldenInputNames;
+using QtRocket::Test::goldenMaterial;
 using QtRocket::Test::GoldenMismatches;
 using QtRocket::Test::goldenValue;
+using QtRocket::Test::loadGoldenResave;
 using QtRocket::Test::rebuildGoldenBody;
+using QtRocket::Test::savedGoldenComponent;
 
 /// How many fin sets of each class were compared.
 struct FinCounts
@@ -128,19 +128,6 @@ struct RebuiltFinSet
     return type == "TrapezoidFinSet" || type == "EllipticalFinSet" || type == "FreeformFinSet";
 }
 
-/// The axial method with the constant name @p name ("BOTTOM").
-[[nodiscard]] std::optional<AxialMethod> axialMethodNamed(std::string_view name)
-{
-    for (const AxialMethod method : QtRocket::kAllAxialMethods)
-    {
-        if (QtRocket::axialMethodName(method) == name)
-        {
-            return method;
-        }
-    }
-    return std::nullopt;
-}
-
 /// The angle method with the constant name @p name ("RELATIVE").
 [[nodiscard]] std::optional<AngleMethod> angleMethodNamed(std::string_view name)
 {
@@ -167,13 +154,6 @@ struct RebuiltFinSet
     return std::nullopt;
 }
 
-/// The bulk material a golden {name, type, density} entry describes.
-[[nodiscard]] Material goldenMaterial(const json& material)
-{
-    return Material::newMaterial(Material::Type::BULK, material.at("name").get<std::string>(),
-                                 goldenValue(material.at("density")), true);
-}
-
 /// The golden list of [x, y, z] points @p value.
 [[nodiscard]] std::vector<Coordinate> goldenPoints(const json& value)
 {
@@ -186,44 +166,6 @@ struct RebuiltFinSet
     return points;
 }
 
-/// OpenRocket's re-save of the golden input @p name, parsed; an empty document (and a note in
-/// @p problems) when it cannot be read.
-void loadResave(const std::string& name, pugi::xml_document& document,
-                std::vector<std::string>& problems)
-{
-    const auto manifest = QtRocket::Test::loadGoldenManifest();
-    if (!manifest)
-    {
-        problems.push_back(name + ": " + manifest.error().message);
-        return;
-    }
-    const QtRocket::Test::GoldenInput* input = manifest->find(name);
-    if (input == nullptr)
-    {
-        problems.push_back(name + ": not in manifest.json");
-        return;
-    }
-    const auto text = QtRocket::readTextFile(QtRocket::Test::goldensDir() / input->resave);
-    if (!text)
-    {
-        problems.push_back(name + ": " + text.error().message);
-        return;
-    }
-    const pugi::xml_parse_result parsed = document.load_buffer(text->data(), text->size());
-    if (!parsed)
-    {
-        problems.push_back(std::format("{}: {}: {}", name, input->resave, parsed.description()));
-    }
-}
-
-/// The element of the component with the id @p id in the re-saved design; an empty node when it
-/// is not in the file.
-[[nodiscard]] pugi::xml_node savedComponent(const pugi::xml_document& resave, const std::string& id)
-{
-    return resave.find_node(
-        [&id](const pugi::xml_node& node) { return id == node.child_value("id"); });
-}
-
 /// The tab offset method of the fin set with the id @p id in the re-saved design: the last
 /// <tabposition relativeto="..."> that names an axial method (the saver writes the pre-1.1
 /// front/center/end form first), or nullopt when the fin set has none (it has no tab) or is not
@@ -231,7 +173,7 @@ void loadResave(const std::string& name, pugi::xml_document& document,
 [[nodiscard]] std::optional<AxialMethod> savedTabOffsetMethod(const pugi::xml_document& resave,
                                                               const std::string&        id)
 {
-    const pugi::xml_node       finSet = savedComponent(resave, id);
+    const pugi::xml_node       finSet = savedGoldenComponent(resave, id);
     std::optional<AxialMethod> method;
     for (const pugi::xml_node& position : finSet.children("tabposition"))
     {
@@ -315,7 +257,7 @@ void loadResave(const std::string& name, pugi::xml_document& document,
     }
     std::unique_ptr<FinSet>          made = makeFinSet(component, m);
     const std::optional<AxialMethod> axialMethod =
-        axialMethodNamed(component.at("axialMethod").get<std::string>());
+        goldenAxialMethod(component.at("axialMethod").get<std::string>());
     if (!made || !axialMethod)
     {
         m.note("the fin set cannot be rebuilt");
@@ -459,7 +401,7 @@ void compareSettings(GoldenMismatches& m, const json& expected, const FinSet& fi
 void compareSavedCrossSection(GoldenMismatches& m, const pugi::xml_document& resave,
                               const json& expected, const FinSet& fins)
 {
-    const pugi::xml_node saved = savedComponent(resave, expected.at("id").get<std::string>());
+    const pugi::xml_node saved = savedGoldenComponent(resave, expected.at("id").get<std::string>());
     if (!saved)
     {
         m.note("the fin set is not in the re-saved design");
@@ -566,8 +508,14 @@ void count(FinCounts& counts, std::string_view type)
         comparison.reports.push_back(name + ": " + geometry.error().message);
         return comparison;
     }
-    pugi::xml_document resave;
-    loadResave(name, resave, comparison.reports);
+    // The re-saved design; an empty document (and a report) when it cannot be read.
+    const pugi::xml_document empty;
+    const auto               loaded = loadGoldenResave(name);
+    if (!loaded)
+    {
+        comparison.reports.push_back(name + ": " + loaded.error().message);
+    }
+    const pugi::xml_document& resave = loaded ? **loaded : empty;
 
     for (const json& component : (*geometry)->at("components"))
     {

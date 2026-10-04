@@ -13,7 +13,6 @@
 #include <numbers>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -22,7 +21,6 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/rocket/AxialStage.h"
-#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/CenteringRing.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
@@ -36,7 +34,6 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
-#include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
@@ -54,11 +51,9 @@ namespace
 
 using nlohmann::json;
 using QtRocket::AxialMethod;
-using QtRocket::BodyTube;
 using QtRocket::BoundingBox;
 using QtRocket::Bulkhead;
 using QtRocket::CenteringRing;
-using QtRocket::ClusterConfiguration;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
@@ -70,7 +65,6 @@ using QtRocket::Manufacturer;
 using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
-using QtRocket::TubeCoupler;
 using QtRocket::TypedPropertyMap;
 using QtRocket::Test::GoldenCheck;
 using QtRocket::Test::goldenGeometryComponentOrFail;
@@ -78,9 +72,11 @@ using QtRocket::Test::makeFactoryPreset;
 using QtRocket::Test::noGoldenMismatches;
 using QtRocket::Test::OneStage;
 using QtRocket::Test::TestBeta;
+using QtRocket::Test::TestClusterPods;
 using QtRocket::Test::TestComponent;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
+using QtRocket::Test::TestIsoHaisu;
 
 constexpr double kEpsilon = 1e-12;
 
@@ -476,84 +472,28 @@ TEST(RingComponentGolden, BetaBoosterMotorMount)
     EXPECT_EQ(goldenMountMismatches(*beta.boosterMmt, golden), noGoldenMismatches());
 }
 
-/// TestRockets.makeIsoHaisu()'s second and third body tubes (BodyTube(length, 0.07, 0.005))
-/// with their coupler, bulkhead, inner tube and centering rings.
-struct IsoHaisuRings
-{
-    OneStage     rocket;
-    BodyTube*    tube2{&rocket.stage->addChild(std::make_unique<BodyTube>(0.605, 0.07, 0.005))};
-    BodyTube*    tube3{&rocket.stage->addChild(std::make_unique<BodyTube>(1.065, 0.07, 0.005))};
-    TubeCoupler* coupler{nullptr};
-    Bulkhead*    bulk{nullptr};
-    InnerTube*   inner{nullptr};
-    std::vector<CenteringRing*> centers;
-
-    IsoHaisuRings()
-    {
-        auto tubeCoupler = std::make_unique<TubeCoupler>();
-        tubeCoupler->setOuterRadiusAutomatic(true);
-        tubeCoupler->setLength(0.28);
-        tubeCoupler->setAxialMethod(AxialMethod::TOP);
-        tubeCoupler->setAxialOffset(0.47);
-        tubeCoupler->setMassOverridden(true);
-        tubeCoupler->setOverrideMass(0.360);
-        coupler = &tube2->addChild(std::move(tubeCoupler));
-
-        auto bulkhead = std::make_unique<Bulkhead>();
-        bulkhead->setOuterRadiusAutomatic(true);
-        bulkhead->setMassOverridden(true);
-        bulkhead->setOverrideMass(0.050);
-        bulkhead->setAxialMethod(AxialMethod::TOP);
-        bulkhead->setAxialOffset(0.27);
-        bulk = &tube2->addChild(std::move(bulkhead));
-
-        auto innerTube = std::make_unique<InnerTube>();
-        innerTube->setOuterRadius(0.08 / 2);
-        innerTube->setInnerRadius(0.0762 / 2);
-        innerTube->setLength(0.86);
-        innerTube->setMassOverridden(true);
-        innerTube->setOverrideMass(0.388);
-        inner = &tube3->addChild(std::move(innerTube));
-
-        addCenter(AxialMethod::BOTTOM, 0);
-        addCenter(AxialMethod::TOP, 0.28);
-        addCenter(AxialMethod::TOP, 0.83);
-        rocket.rocket.enableEvents();
-    }
-
-    void addCenter(AxialMethod method, double offset)
-    {
-        auto center = std::make_unique<CenteringRing>();
-        center->setInnerRadiusAutomatic(true);
-        center->setOuterRadiusAutomatic(true);
-        center->setLength(0.005);
-        center->setMassOverridden(true);
-        center->setOverrideMass(0.038);
-        center->setAxialMethod(method);
-        center->setAxialOffset(offset);
-        centers.push_back(&tube3->addChild(std::move(center)));
-    }
-};
-
 TEST(RingComponentGolden, IsoHaisuCouplerAndBulkhead)
 {
-    const IsoHaisuRings iso;
-    const json&         coupler = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/0");
-    EXPECT_EQ(goldenMismatches(*iso.coupler, coupler), noGoldenMismatches());
+    // TestRockets.makeIsoHaisu(): the coupler and the bulkhead of the second body tube
+    // (BodyTube(0.605, 0.07, 0.005)), both with an automatic outer radius.
+    const TestIsoHaisu iso;
+    const json&        coupler = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/0");
+    EXPECT_EQ(goldenMismatches(*iso.tube2Coupler, coupler), noGoldenMismatches());
     const json& bulkhead = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/2/2");
     EXPECT_EQ(goldenMismatches(*iso.bulk, bulkhead), noGoldenMismatches());
 }
 
 TEST(RingComponentGolden, IsoHaisuInnerTubeAndCenteringRings)
 {
-    const IsoHaisuRings iso;
-    const json&         inner = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/3/0");
+    // The inner tube and the three centering rings of the third body tube.
+    const TestIsoHaisu iso;
+    const json&        inner = goldenGeometryComponentOrFail("testrocket-iso-haisu", "/0/3/0");
     EXPECT_EQ(goldenMismatches(*iso.inner, inner), noGoldenMismatches());
     for (std::size_t i = 0; i < iso.centers.size(); ++i)
     {
         const json& center =
             goldenGeometryComponentOrFail("testrocket-iso-haisu", std::format("/0/3/{}", i + 1));
-        EXPECT_EQ(goldenMismatches(*iso.centers[i], center), noGoldenMismatches());
+        EXPECT_EQ(goldenMismatches(*iso.centers.at(i), center), noGoldenMismatches());
     }
 }
 
@@ -575,21 +515,17 @@ TEST(RingComponentGolden, ClusterPodsInnerTubes)
 {
     // TestRockets.makeClusterPods(): default inner tubes in default body tubes, a double
     // cluster in the sustainer and a 4-row cluster in each side booster.
-    for (const auto& [path, layout] : {std::pair{"/0/0/0", 1}, std::pair{"/0/0/1/0/0", 3}})
-    {
-        OneStage  rocket;
-        BodyTube& body = rocket.stage->addChild(std::make_unique<BodyTube>());
-        auto      tube = std::make_unique<InnerTube>();
-        tube->setClusterConfiguration(
-            ClusterConfiguration::configurations()[static_cast<std::size_t>(layout)]);
-        InnerTube& added = body.addChild(std::move(tube));
-        added.setMotorMount(true);  // as TestRockets does
-        rocket.rocket.enableEvents();
+    const TestClusterPods cluster;
 
-        const json& golden = goldenGeometryComponentOrFail("testrocket-cluster-pods", path);
-        EXPECT_EQ(goldenMismatches(added, golden), noGoldenMismatches());
-        EXPECT_EQ(goldenMountMismatches(added, golden), noGoldenMismatches());
-    }
+    const json& sustainer = goldenGeometryComponentOrFail("testrocket-cluster-pods", "/0/0/0");
+    EXPECT_EQ(goldenMismatches(*cluster.sustainerMount, sustainer), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*cluster.sustainerMount, sustainer), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(*cluster.sustainerMount, sustainer), noGoldenMismatches());
+
+    const json& boosters = goldenGeometryComponentOrFail("testrocket-cluster-pods", "/0/0/1/0/0");
+    EXPECT_EQ(goldenMismatches(*cluster.sideMounts, boosters), noGoldenMismatches());
+    EXPECT_EQ(goldenLocationMismatches(*cluster.sideMounts, boosters), noGoldenMismatches());
+    EXPECT_EQ(goldenMountMismatches(*cluster.sideMounts, boosters), noGoldenMismatches());
 }
 
 }  // namespace

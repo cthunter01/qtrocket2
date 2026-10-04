@@ -30,8 +30,8 @@ AxialStage::AxialStage()
 
 std::unique_ptr<RocketComponent> AxialStage::cloneShallow() const
 {
-    // The implicit copy constructor clones the separations (Java's copyWithOriginalID()).
-    return std::make_unique<AxialStage>(*this);
+    // The copy constructor clones the separations (Java's copyWithOriginalID()).
+    return std::make_unique<AxialStage>(CopyKey{}, *this);
 }
 
 bool AxialStage::allowsChildren() const

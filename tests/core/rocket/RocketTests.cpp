@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1227,6 +1228,117 @@ TEST(RocketEstesAlphaIII, UuidSearch)
 
     // The nil id is not found either.
     EXPECT_EQ(rocket.findComponent(QtRocket::Uuid{0U, 0U}), nullptr) << "Failed to find REMOVED";
+}
+
+// ------------------------------------------------- removeChild() and a listener that throws
+
+/// A change listener of @p rocket that records how many children @p watched has at every event
+/// and throws std::runtime_error at its first event, or at every event.
+struct FailingListener
+{
+    std::vector<std::size_t>                childCounts;
+    bool                                    always{false};
+    ComponentChangeSignal::ScopedConnection connection;
+
+    FailingListener(Rocket& rocket, const RocketComponent& watched, bool failAlways)
+      : always(failAlways),
+        connection(rocket.addComponentChangeListener(
+            [this, &watched](const ComponentChangeEvent&) { heard(watched); }))
+    {
+    }
+
+private:
+    void heard(const RocketComponent& watched)
+    {
+        childCounts.push_back(watched.getChildCount());
+        if (always || childCounts.size() == 1)
+        {
+            throw std::runtime_error("the listener failed");
+        }
+    }
+};
+
+/// A listener that throws while removeChild() announces the removal keeps the caller from
+/// getting the removed child: it is then a child again, at its index, with its subtree and its
+/// overrider, and the listeners hear of the second tree change. (OpenRocket leaves the child
+/// removed, alive through the caller's reference; here it would be destroyed.)
+TEST(RocketRemoveChild, AThrowingListenerLeavesTheChildInTheTree)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    Rocket&                                 rocket = *alpha.rocket;
+    BodyTube&                               body   = *alpha.body;
+    body.setMassOverridden(true);
+    body.setSubcomponentsOverriddenMass(true);
+    ASSERT_EQ(alpha.inner->getMassOverriddenBy(), &body);
+    ASSERT_EQ(body.getChildCount(), 5U);
+
+    const FailingListener listener(rocket, body, false);
+    EXPECT_THROW(static_cast<void>(body.removeChild(alpha.inner)), std::runtime_error);
+
+    // Heard: the removal (four children), then the tree change that put the child back (five).
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{4, 5}));
+    EXPECT_EQ(alpha.inner->getParent(), &body);
+    EXPECT_EQ(body.getChildPosition(alpha.inner), std::optional<std::size_t>{2});
+    EXPECT_EQ(alpha.block->getParent(), alpha.inner);
+    EXPECT_EQ(alpha.inner->getMassOverriddenBy(), &body);
+    EXPECT_EQ(alpha.block->getMassOverriddenBy(), &body);
+    EXPECT_EQ(&alpha.inner->getRocket(), &rocket);
+
+    // The flight configurations have the motor mount and its motor again.
+    const FlightConfiguration& config = rocket.getFlightConfiguration(QtRocket::Test::testFcid(0));
+    EXPECT_TRUE(config.getActiveInstances().containsKey(*alpha.inner));
+    EXPECT_EQ(config.getActiveMotors().size(), 1U);
+
+    // Without a failing listener the removal goes through, and the caller owns the child.
+    const std::unique_ptr<RocketComponent> removed = body.removeChild(alpha.inner);
+    EXPECT_EQ(removed.get(), alpha.inner);
+    EXPECT_EQ(alpha.inner->getParent(), nullptr);
+    EXPECT_EQ(body.getChildCount(), 4U);
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{4, 5, 4}));
+}
+
+/// A listener that throws every time also fails the event that announces the child's return:
+/// that exception leaves, and the child is in the tree all the same.
+TEST(RocketRemoveChild, AListenerThatKeepsThrowingStillLeavesTheChildInTheTree)
+{
+    const QtRocket::Test::TestEstesAlphaIII alpha;
+    BodyTube&                               body = *alpha.body;
+
+    const FailingListener listener(*alpha.rocket, body, true);
+    EXPECT_THROW(static_cast<void>(body.removeChild(alpha.fins)), std::runtime_error);
+
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{4, 5}));
+    EXPECT_EQ(alpha.fins->getParent(), &body);
+    EXPECT_EQ(body.getChildPosition(alpha.fins), std::optional<std::size_t>{0});
+    EXPECT_EQ(alpha.fins->getFinCount(), 3);
+}
+
+/// The same for a stage that carries a booster set: the stage map, the stage numbers and the
+/// configurations are as before the failed removal.
+TEST(RocketRemoveChild, AThrowingListenerLeavesTheStagesTracked)
+{
+    const QtRocket::Test::TestFalcon9Heavy f9h;
+    Rocket&                                rocket = *f9h.rocket;
+    ASSERT_EQ(rocket.getStageCount(), 3U);
+
+    const FailingListener listener(rocket, rocket, false);
+    EXPECT_THROW(static_cast<void>(rocket.removeChild(f9h.coreStage)), std::runtime_error);
+
+    EXPECT_EQ(listener.childCounts, (std::vector<std::size_t>{1, 2}));
+    EXPECT_EQ(rocket.getChildPosition(f9h.coreStage), std::optional<std::size_t>{1});
+    EXPECT_EQ(rocket.getStageCount(), 3U);
+    EXPECT_EQ(rocket.getStage(0), f9h.payloadStage);
+    EXPECT_EQ(rocket.getStage(1), f9h.coreStage);
+    EXPECT_EQ(rocket.getStage(2), f9h.boosterStage);
+    EXPECT_EQ(f9h.coreStage->getStageNumber(), 1);
+    EXPECT_EQ(f9h.boosterStage->getStageNumber(), 2);
+
+    const FlightConfiguration& config = rocket.getSelectedConfiguration();
+    EXPECT_EQ(config.getStageCount(), 3);
+    EXPECT_TRUE(config.isStageActive(1));
+    EXPECT_TRUE(config.isStageActive(2));
+    EXPECT_EQ(config.getActiveInstances().count(*f9h.boosterBody), 2);
+    EXPECT_EQ(config.getActiveMotors().size(), 2U);
 }
 
 /// RocketTest.testBeta: the locations of the booster's components and the bounds.

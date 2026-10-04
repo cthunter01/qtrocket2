@@ -331,6 +331,8 @@ TEST(ParallelStageTest, SetStagePositionOutsideTop)
     EXPECT_NEAR(boosterStage.getPosition().x, 0.2, kEpsilon) << treeDump;
     EXPECT_NEAR(boosterStage.getComponentLocations().at(0).x, 0.764, kEpsilon) << treeDump;
     EXPECT_NEAR(boosterStage.getAxialOffset(), targetOffset, kEpsilon) << treeDump;
+    // Java asserts the axial offset a second time (as its "position value").
+    EXPECT_NEAR(boosterStage.getAxialOffset(), targetOffset, kEpsilon) << treeDump;
 }
 
 TEST(ParallelStageTest, SetMiddle)

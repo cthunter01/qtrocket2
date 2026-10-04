@@ -1,5 +1,6 @@
 #include "QtRocket/mass/MassCalculator.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -54,6 +55,7 @@
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenGeometry.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -91,10 +93,11 @@ using QtRocket::ThrustCurveMotor;
 using QtRocket::Transition;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::Test::addMotor;
-using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::testFcid;
+using QtRocket::Test::TestRocketMaker;
+using QtRocket::Test::testRocketMakers;
 using QtRocket::Test::TestSimple2Stage;
 using Json = nlohmann::json;
 
@@ -140,25 +143,13 @@ Coordinate coordinate(const Json& value)
 }
 
 /// The component at the golden @p path ("/", "/0", "/0/1/2": child indices from the root).
+/// @throws std::runtime_error when @p root has no such component.
 RocketComponent& componentAt(RocketComponent& root, std::string_view path)
 {
-    RocketComponent* component = &root;
-    std::size_t      position  = 1;
-    while (position < path.size())
+    RocketComponent* const component = QtRocket::Test::componentAtGoldenPath(root, path);
+    if (component == nullptr)
     {
-        std::size_t next = path.find('/', position);
-        if (next == std::string_view::npos)
-        {
-            next = path.size();
-        }
-        const std::optional<int> index =
-            QtRocket::Strings::parseInt(path.substr(position, next - position));
-        if (!index || *index < 0)
-        {
-            throw std::runtime_error("bad golden path " + std::string{path});
-        }
-        component = &component->getChild(static_cast<std::size_t>(*index));
-        position  = next + 1;
+        throw std::runtime_error("no component at the golden path " + std::string{path});
     }
     return *component;
 }
@@ -263,18 +254,24 @@ void expectGoldenAnalysis(Rocket& rocket, const CMAnalysisMap& analysis, const J
 
 /// Expects the mass calculations of every flight configuration of @p rocket to give the golden
 /// values of @p mass: the four rigid bodies and the CM analysis rows. Each configuration is
-/// selected while it is calculated, as the golden harness does.
-void expectGoldenMass(Rocket& rocket, const Json& mass)
+/// selected while it is calculated, as the golden harness does. A configuration is found by its
+/// index (the default first), since two makers draw their configuration's id at random. Returns
+/// the number of configurations compared.
+int expectGoldenMass(Rocket& rocket, const Json& mass)
 {
     const FlightConfigurationId selected = rocket.getSelectedConfiguration().getId();
+    int                         compared = 0;
     for (const Json& golden : mass.at("configurations"))
     {
-        const auto           name = golden.at("name").get<std::string>();
-        FlightConfiguration& config =
-            golden.at("isDefault").get<bool>()
-                ? rocket.getEmptyConfiguration()
-                : rocket.getFlightConfiguration(
-                      FlightConfigurationId::fromString(golden.at("id").get<std::string>()));
+        const auto name  = golden.at("name").get<std::string>();
+        const int  index = golden.at("index").get<int>();
+        if (index < 0 || index > rocket.getConfigurationCount())
+        {
+            ADD_FAILURE() << "the rocket has no configuration " << index << " (" << name << ")";
+            continue;
+        }
+        FlightConfiguration& config = rocket.getFlightConfigurationByIndex(index, true);
+        EXPECT_EQ(config.getId().isDefaultId(), golden.at("isDefault").get<bool>()) << name;
         rocket.setSelectedConfiguration(config.getId());
 
         expectRigidBody(MassCalculator::calculateStructure(config), golden.at("structure"),
@@ -287,8 +284,10 @@ void expectGoldenMass(Rocket& rocket, const Json& mass)
                         name + " motor");
         expectGoldenAnalysis(rocket, MassCalculator::getCMAnalysis(config), golden.at("cmAnalysis"),
                              name);
+        compared++;
     }
     rocket.setSelectedConfiguration(selected);
+    return compared;
 }
 
 // ============================================================================ motor states
@@ -333,35 +332,78 @@ void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
 
 // ======================================================================== golden comparisons
 //
-// The test rockets are built from the real components (TestRockets.h): every component's
-// locations and every configuration's rigid bodies and CM analysis rows are compared.
+// The thirteen test rockets, built from the real components (TestRockets.h): every component's
+// locations and every configuration's STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies and CM
+// analysis rows are compared with tests/data/goldens/testrocket-<name>/mass.json. The number of
+// configurations compared is taken from the golden file: none is skipped.
 
-TEST(MassCalculatorGolden, EstesAlphaIII)
+/// One test rocket of TestRockets.h against its golden mass data.
+class MassCalculatorGolden : public ::testing::TestWithParam<TestRocketMaker>
+{ };
+
+TEST_P(MassCalculatorGolden, RigidBodiesAndCMAnalysis)
 {
-    TestEstesAlphaIII alpha;
-    expectGoldenLocations(*alpha.rocket, loadGolden("testrocket-estes-alpha-iii", "geometry.json"));
-    expectGoldenMass(*alpha.rocket, loadGolden("testrocket-estes-alpha-iii", "mass.json"));
+    const std::string             input{GetParam().input};
+    const std::unique_ptr<Rocket> rocket = GetParam().make();
+    const Json                    mass   = loadGolden(input, "mass.json");
+
+    expectGoldenLocations(*rocket, loadGolden(input, "geometry.json"));
+    const int compared = expectGoldenMass(*rocket, mass);
+    EXPECT_EQ(compared, static_cast<int>(mass.at("configurations").size()));
+    EXPECT_EQ(rocket->getConfigurationCount() + 1, compared)
+        << "the rocket has a configuration the golden file does not hold";
 }
 
-TEST(MassCalculatorGolden, Beta)
+/// The test name of @p info's maker: its golden input with '-' as '_'.
+std::string makerTestName(const ::testing::TestParamInfo<TestRocketMaker>& info)
 {
-    TestBeta beta;
-    expectGoldenLocations(*beta.rocket, loadGolden("testrocket-beta", "geometry.json"));
-    expectGoldenMass(*beta.rocket, loadGolden("testrocket-beta", "mass.json"));
+    std::string name{info.param.input};
+    std::ranges::replace(name, '-', '_');
+    return name;
 }
 
-TEST(MassCalculatorGolden, Falcon9Heavy)
+INSTANTIATE_TEST_SUITE_P(Makers, MassCalculatorGolden, ::testing::ValuesIn(testRocketMakers()),
+                         makerTestName);
+
+/// The number of configurations in the mass.json of every golden test rocket, the default ones
+/// included; -1 when the manifest cannot be read.
+int goldenMassConfigurationCount()
 {
-    TestFalcon9Heavy f9h;
-    expectGoldenLocations(*f9h.rocket, loadGolden("testrocket-falcon-9-heavy", "geometry.json"));
-    expectGoldenMass(*f9h.rocket, loadGolden("testrocket-falcon-9-heavy", "mass.json"));
+    const auto manifest = QtRocket::Test::loadGoldenManifest();
+    if (!manifest)
+    {
+        return -1;
+    }
+    int count = 0;
+    for (const QtRocket::Test::GoldenInput& input : manifest->inputs)
+    {
+        if (input.kind == "testrocket")
+        {
+            count +=
+                static_cast<int>(loadGolden(input.name, "mass.json").at("configurations").size());
+        }
+    }
+    return count;
 }
 
-TEST(MassCalculatorGolden, Simple2Stage)
+/// The number of configurations of the makers' rockets, the default ones included.
+int makerConfigurationCount()
 {
-    TestSimple2Stage simple;
-    expectGoldenLocations(*simple.rocket, loadGolden("testrocket-simple-2-stage", "geometry.json"));
-    expectGoldenMass(*simple.rocket, loadGolden("testrocket-simple-2-stage", "mass.json"));
+    int count = 0;
+    for (const TestRocketMaker& maker : testRocketMakers())
+    {
+        count += maker.make()->getConfigurationCount() + 1;
+    }
+    return count;
+}
+
+/// Every configuration of the mass.json of every golden test rocket belongs to a maker: the
+/// per-rocket tests above compare as many configurations as the golden files hold.
+TEST(MassCalculatorGoldenCoverage, EveryGoldenConfigurationIsCalculated)
+{
+    EXPECT_EQ(testRocketMakers().size(), 13U);
+    EXPECT_EQ(makerConfigurationCount(), goldenMassConfigurationCount());
+    EXPECT_EQ(goldenMassConfigurationCount(), 47);
 }
 
 // ================================================================ ported from MassCalculatorTest

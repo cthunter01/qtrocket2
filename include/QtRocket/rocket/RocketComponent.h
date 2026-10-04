@@ -109,6 +109,15 @@ class Rocket;
 ///   them dangling.
 /// - removeChild() drops the removed stages from the Rocket's stage map by identity whatever the
 ///   StageTracking, so that the map never holds a destroyed stage (see StageTracking).
+/// - removeChild() puts the child back when a change listener throws while it announces the
+///   removal. In Java the exception leaves the child removed (parent null, the stages forgotten,
+///   the parent's bounds not updated) and alive through the caller's reference. Here the caller
+///   gets the removed child as the return value, which an exception keeps from it, so the child
+///   would be destroyed under the caller's pointers; instead it is linked in again at its index,
+///   the rocket's stage map and flight configurations are rebuilt, a second tree change event
+///   tells the listeners (if that one throws too, its exception is the one that leaves) and the
+///   first exception is rethrown. The overriddenBy pointers that the rest of the tree had into
+///   the removed subtree stay cleared.
 /// - The subtree() iteration also fails fast on a change of any child list it is walking, in a
 ///   detached tree or a rocket with events disabled too (Java checks the rocket's tree
 ///   modification id, and each ArrayList iterator its own list).
@@ -610,6 +619,9 @@ public:
     /// direction (see the class comment), drops the removed stages from the Rocket's stage map
     /// (see StageTracking) and the removed components from its flight configurations (see
     /// FlightConfiguration), fires the same event as addChild() and updates the bounds.
+    /// When a change listener throws, the exception passes through and the component is a child
+    /// again, at its index (see the class comment): it is either returned or still in the tree,
+    /// never destroyed.
     [[nodiscard]] std::unique_ptr<RocketComponent> removeChild(
         const RocketComponent* component, StageTracking tracking = StageTracking::TRACK);
 
@@ -1027,6 +1039,16 @@ private:
     /// The body of every addChild(), once checkAddable() has passed.
     void insertChild(std::unique_ptr<RocketComponent> component, std::size_t index,
                      StageTracking tracking);
+
+    /// Makes @p component the child @p index: links it, hands it this component's overriders
+    /// and registers it when it is a stage. Fires nothing. Returns the child.
+    RocketComponent& linkChild(std::unique_ptr<RocketComponent> component, std::size_t index,
+                               StageTracking tracking);
+
+    /// What removeChild() does once @p removed is out of the child list: the overriddenBy
+    /// pointers, the rocket's stage map and configurations, the structure checks, the event and
+    /// the bounds.
+    void finishRemoval(RocketComponent& removed, StageTracking tracking);
 
     /// Clears the overriddenBy pointers between @p removed (just detached from this component)
     /// and the tree it left, in both directions.

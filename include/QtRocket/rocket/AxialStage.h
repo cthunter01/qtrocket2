@@ -23,17 +23,35 @@ class FlightConfiguration;
 /// Deviation: isLaunchStage() is false when no core stage is active in the configuration (Java:
 /// NullPointerException).
 ///
+/// The copy constructor is protected, so that a ParallelStage cannot be sliced into an AxialStage
+/// by copying it: copies are made by copyWithOriginalId() and copyWithNewIds() (cloneShallow()).
+///
 /// Not ported: getRelativeToStage(), unused in OpenRocket, whose Java version decrements the
 /// stored stage number as a side effect; the multi-edit config listener overrides
 /// (addConfigListener() and friends), by decision.
 class AxialStage : public ComponentAssembly, public virtual FlightConfigurableComponent
 {
+    /// The key to the copying constructor that cloneShallow() calls through std::make_unique,
+    /// which cannot reach the protected copy constructor; only AxialStage can make one.
+    struct CopyKey
+    {
+        explicit CopyKey() = default;
+    };
+
 public:
     using RocketComponent::isCompatible;
 
     /// A stage with the default separation (ejection charge, no delay), positioned AFTER, stage
     /// number 0.
     AxialStage();
+
+    /// A copy of @p other (cloneShallow()); the CopyKey keeps it private to AxialStage.
+    AxialStage(CopyKey /*key*/, const AxialStage& other) : AxialStage(other) { }
+
+    AxialStage& operator=(const AxialStage&) = delete;
+    AxialStage(AxialStage&&)                 = delete;
+    AxialStage& operator=(AxialStage&&)      = delete;
+    ~AxialStage() override                   = default;
 
     [[nodiscard]] ComponentKind kind() const noexcept override
     {
@@ -109,6 +127,10 @@ public:
     void toDebugTreeNode(std::string& buffer, const std::string& indent) const override;
 
 protected:
+    /// A member-wise copy (it clones the separations, as Java's copyWithOriginalID()), for
+    /// cloneShallow() and ParallelStage's copy constructor (protected: see the class comment).
+    AxialStage(const AxialStage& other) = default;
+
     [[nodiscard]] std::unique_ptr<RocketComponent> cloneShallow() const override;
 
     /// The separation configurations (Java: separations, cloned by copyWithOriginalID()).

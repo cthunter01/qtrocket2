@@ -39,6 +39,7 @@ using QtRocket::ErrorCode;
 using QtRocket::Manufacturer;
 using QtRocket::Motor;
 using QtRocket::MotorDigest;
+using QtRocket::pathToUtf8;
 using QtRocket::Result;
 using QtRocket::SqliteMotorDatabaseReader;
 using QtRocket::ThrustCurveMotor;
@@ -55,12 +56,6 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
     return QtRocket::Test::dataDir() / "motors" / "initial_motors.db";
 }
 
-[[nodiscard]] std::string utf8(const std::filesystem::path& path)
-{
-    const std::u8string text = path.u8string();
-    return {text.begin(), text.end()};
-}
-
 using QtRocket::Test::TempDir;
 
 /// Runs @p sql on the database @p file (created when missing), as the JUnit tests do through
@@ -68,8 +63,8 @@ using QtRocket::Test::TempDir;
 void exec(const std::filesystem::path& file, const std::string& sql)
 {
     sqlite3* db = nullptr;
-    ASSERT_EQ(sqlite3_open_v2(utf8(file).c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                              nullptr),
+    ASSERT_EQ(sqlite3_open_v2(pathToUtf8(file).c_str(), &db,
+                              SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
               SQLITE_OK);
     const int status = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr);
     EXPECT_EQ(status, SQLITE_OK) << sqlite3_errmsg(db) << "\n" << sql;
@@ -81,7 +76,8 @@ void exec(const std::filesystem::path& file, const std::string& sql)
                                                const std::string&           sql)
 {
     sqlite3* db = nullptr;
-    EXPECT_EQ(sqlite3_open_v2(utf8(file).c_str(), &db, SQLITE_OPEN_READONLY, nullptr), SQLITE_OK);
+    EXPECT_EQ(sqlite3_open_v2(pathToUtf8(file).c_str(), &db, SQLITE_OPEN_READONLY, nullptr),
+              SQLITE_OK);
     sqlite3_stmt* statement = nullptr;
     EXPECT_EQ(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, nullptr), SQLITE_OK)
         << sqlite3_errmsg(db);
@@ -547,11 +543,23 @@ TEST(SqliteMotorDatabaseReader, ReportsAMissingFile)
 {
     const TempDir               tempDir;
     const std::filesystem::path missing = tempDir.resolve("missing.db");
-    EXPECT_EQ(readError(missing), "SQLite motor database not found: " + utf8(missing));
+    EXPECT_EQ(readError(missing), "SQLite motor database not found: " + pathToUtf8(missing));
     // A directory is no database file either.
     EXPECT_EQ(readError(tempDir.resolve("")),
-              "SQLite motor database not found: " + utf8(tempDir.resolve("")));
+              "SQLite motor database not found: " + pathToUtf8(tempDir.resolve("")));
     EXPECT_FALSE(SqliteMotorDatabaseReader::validateDatabase(missing));
+}
+
+TEST(SqliteMotorDatabaseReader, NamesAMissingFileInUtf8)
+{
+    // The message holds the path as UTF-8 (FileIo's pathToUtf8()) on every platform.
+    const TempDir               tempDir;
+    const std::filesystem::path missing =
+        tempDir.resolve(std::filesystem::path(u8"mot\u00F6rs/d\u00E5tabase.db"));
+    const std::string message = readError(missing);
+    EXPECT_EQ(message, "SQLite motor database not found: " + pathToUtf8(missing));
+    EXPECT_TRUE(message.ends_with("d\u00E5tabase.db")) << message;
+    EXPECT_NE(message.find("mot\u00F6rs"), std::string::npos) << message;
 }
 
 TEST(SqliteMotorDatabaseReader, RejectsAFileThatIsNoDatabase)
@@ -923,7 +931,7 @@ TEST(SqliteMotorDatabaseReader, WaitsForALockHeldBriefly)
                    "(1, 0, 0), (1, 0.5, 5), (1, 1, 0);");
 
     sqlite3* locker = nullptr;
-    ASSERT_EQ(sqlite3_open_v2(utf8(dbFile).c_str(), &locker, SQLITE_OPEN_READWRITE, nullptr),
+    ASSERT_EQ(sqlite3_open_v2(pathToUtf8(dbFile).c_str(), &locker, SQLITE_OPEN_READWRITE, nullptr),
               SQLITE_OK);
     ASSERT_EQ(sqlite3_exec(locker, "BEGIN EXCLUSIVE", nullptr, nullptr, nullptr), SQLITE_OK);
     std::thread                                                 release([locker] {

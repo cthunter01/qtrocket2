@@ -9,7 +9,6 @@
 
 #include "QtRocket/rocket/RailButton.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -58,6 +57,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
+#include "rocket/JavaValueDifferences.h"
 
 namespace
 {
@@ -85,6 +85,10 @@ using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::TransitionShape;
 using QtRocket::TypedPropertyMap;
+using QtRocket::Test::matchesJavaValue;
+
+/// The collector of the differences from Java's values.
+using Differences = QtRocket::Test::JavaValueDifferences;
 
 /// RailButtonTest.EPSILON (MathUtil.EPSILON).
 constexpr double kEpsilon = QtRocket::MathUtil::kEpsilon;
@@ -265,75 +269,6 @@ TEST(RailButtonTest, CMMultipleInstancesOverride)
 }
 
 // ========================================================================= Java's own values
-
-/// Whether @p actual is the Java value @p expected: both NaN, equal, or within 1e-12 relative,
-/// plus 1e-15 absolute for values near zero such as sin(pi) * r.
-[[nodiscard]] bool matches(double expected, double actual)
-{
-    if (std::isnan(expected) || std::isnan(actual))
-    {
-        return std::isnan(expected) && std::isnan(actual);
-    }
-    if (expected == actual)
-    {
-        return true;
-    }
-    return std::abs(actual - expected) <=
-           (1e-12 * std::max(std::abs(expected), std::abs(actual))) + 1e-15;
-}
-
-/// Collects the differences between Java's values and the computed ones, one line each.
-class Differences
-{
-public:
-    void number(std::string_view field, double expected, double actual)
-    {
-        if (!matches(expected, actual))
-        {
-            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
-        }
-    }
-
-    void name(std::string_view field, std::string_view expected, std::string_view actual)
-    {
-        if (expected != actual)
-        {
-            m_text += std::format("  {}: expected \"{}\", got \"{}\"\n", field, expected, actual);
-        }
-    }
-
-    /// Something that kept a value from being compared.
-    void problem(std::string_view what) { m_text += std::format("  {}\n", what); }
-
-    void coordinate(std::string_view field, const Coordinate& expected, const Coordinate& actual)
-    {
-        number(std::format("{}.x", field), expected.x, actual.x);
-        number(std::format("{}.y", field), expected.y, actual.y);
-        number(std::format("{}.z", field), expected.z, actual.z);
-        number(std::format("{}.weight", field), expected.weight, actual.weight);
-    }
-
-    void coordinates(std::string_view field, const std::vector<Coordinate>& expected,
-                     const std::vector<Coordinate>& actual)
-    {
-        if (expected.size() != actual.size())
-        {
-            m_text += std::format("  {}: expected {} points, got {}\n", field, expected.size(),
-                                  actual.size());
-            return;
-        }
-        for (std::size_t i = 0; i < expected.size(); i++)
-        {
-            coordinate(std::format("{}[{}]", field, i), expected[i], actual[i]);
-        }
-    }
-
-    /// Empty when everything matched.
-    [[nodiscard]] const std::string& text() const noexcept { return m_text; }
-
-private:
-    std::string m_text;
-};
 
 /// What OpenRocket's RailButton answers in one state.
 struct Pins
@@ -1051,7 +986,8 @@ TEST(RailButton, BeforeEventsAreEnabledTheInstancesAreOnTheAxis)
     EXPECT_EQ(button.getInstanceOffsets().at(0).y, 0.0);
 
     rocket.enableEvents();
-    EXPECT_TRUE(matches(-0.025, button.getInstanceOffsets().at(0).y)) << "the body tube's radius";
+    EXPECT_TRUE(matchesJavaValue(-0.025, button.getInstanceOffsets().at(0).y))
+        << "the body tube's radius";
 }
 
 TEST_F(RailButtonOnBody, SitsOnTheBodyTubesSurface)
@@ -1181,7 +1117,7 @@ TEST_F(RailButtonOnBody, AxialPositionAndMaterial)
 
     m_button->setMaterial(Material::newMaterial(Material::Type::BULK, "x", 1000, true));
     EXPECT_EQ(takeEvents(), Events{kMass});
-    EXPECT_TRUE(matches(0.003593196611025579, m_button->getComponentMass()));
+    EXPECT_TRUE(matchesJavaValue(0.003593196611025579, m_button->getComponentMass()));
 }
 
 // ========================================================================= positioned AFTER
@@ -1290,15 +1226,15 @@ TEST_F(RailButtonOnBody, PositionedAfterItFollowsItsPreviousSibling)
     EXPECT_EQ(differences(pinsAfterMoved(), *m_button), "");
     sibling.setLength(0.04);
     EXPECT_EQ(takeEvents(), Events{kBoth});
-    EXPECT_TRUE(matches(0.18, sibling.getPosition().x)) << sibling.getPosition().x;
-    EXPECT_TRUE(matches(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
+    EXPECT_TRUE(matchesJavaValue(0.18, sibling.getPosition().x)) << sibling.getPosition().x;
+    EXPECT_TRUE(matchesJavaValue(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
 
     // Described from the top of the body again, it stays where it is.
     m_button->setAxialMethod(AxialMethod::TOP);
     EXPECT_EQ(takeEvents(), Events{kNonFunctional});
     EXPECT_FALSE(m_button->isAfter());
-    EXPECT_TRUE(matches(0.22, m_button->getAxialOffset())) << m_button->getAxialOffset();
-    EXPECT_TRUE(matches(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
+    EXPECT_TRUE(matchesJavaValue(0.22, m_button->getAxialOffset())) << m_button->getAxialOffset();
+    EXPECT_TRUE(matchesJavaValue(0.22, m_button->getPosition().x)) << m_button->getPosition().x;
 }
 
 TEST_F(RailButtonOnBody, PositionedAfterAsTheFirstChildItIsAtTheTopOfTheBody)
@@ -1308,7 +1244,7 @@ TEST_F(RailButtonOnBody, PositionedAfterAsTheFirstChildItIsAtTheTopOfTheBody)
     EXPECT_TRUE(m_button->isAfter());
     EXPECT_EQ(m_button->getAxialOffset(), 0.0);
     EXPECT_EQ(m_button->getPosition(), (Coordinate{0, 0, 0}));
-    EXPECT_TRUE(matches(0.07, m_button->getComponentLocations().at(0).x));
+    EXPECT_TRUE(matchesJavaValue(0.07, m_button->getComponentLocations().at(0).x));
 
     // MIDDLE describes the same place, and its offset moves the button again.
     m_button->setAxialMethod(AxialMethod::MIDDLE);
@@ -1605,11 +1541,11 @@ TEST(RailButtonPreset, LoadsTheDimensionsAndOverridesTheMassAndTheCD)
     EXPECT_EQ(differences(pinsPreset(), button), "");
     EXPECT_EQ(button.getMaterial(), preset.get(ComponentPreset::kMaterial));
     EXPECT_EQ(button.getMaterial().getName(), "test");
-    EXPECT_TRUE(matches(208811.28367708367, button.getMaterial().getDensity()));
+    EXPECT_TRUE(matchesJavaValue(208811.28367708367, button.getMaterial().getDensity()));
     // The mass override is the button's mass plus the screw's and the nut's.
     EXPECT_TRUE(button.isMassOverridden());
-    EXPECT_TRUE(matches(0.126, button.getOverrideMass())) << button.getOverrideMass();
-    EXPECT_TRUE(matches(0.126, button.getMass()));
+    EXPECT_TRUE(matchesJavaValue(0.126, button.getOverrideMass())) << button.getOverrideMass();
+    EXPECT_TRUE(matchesJavaValue(0.126, button.getMass()));
     EXPECT_TRUE(button.isCDOverridden());
     EXPECT_EQ(button.getOverrideCD(), 0.7);
 }
@@ -1624,9 +1560,9 @@ TEST(RailButtonPreset, AMassAloneOverridesTheMass)
     EXPECT_EQ(button.getOverrideMass(), 0.123);
     EXPECT_FALSE(button.isCDOverridden());
     EXPECT_EQ(button.getScrewHeight(), 0.0);
-    EXPECT_TRUE(matches(4.319689898685966E-7, button.getComponentVolume()));
+    EXPECT_TRUE(matchesJavaValue(4.319689898685966E-7, button.getComponentVolume()));
     // The factory's density gives the preset's mass back.
-    EXPECT_TRUE(matches(0.12300000000000001, button.getComponentMass()));
+    EXPECT_TRUE(matchesJavaValue(0.12300000000000001, button.getComponentMass()));
     EXPECT_EQ(button.getMaterial().getName(), "RailButtonCustom");
 }
 
@@ -1735,8 +1671,8 @@ TEST(RailButtonCG, InconsistentPresetDimensionsAreABug)
 
     RailButton button;
     button.loadPreset(&preset);
-    EXPECT_TRUE(matches(-0.002999999999999999, button.getInnerHeight()));
-    EXPECT_TRUE(matches(-1.8064157758141057E-8, button.getComponentVolume()));
+    EXPECT_TRUE(matchesJavaValue(-0.002999999999999999, button.getInnerHeight()));
+    EXPECT_TRUE(matchesJavaValue(-1.8064157758141057E-8, button.getComponentVolume()));
     try
     {
         static_cast<void>(button.getComponentCG());

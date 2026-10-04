@@ -37,9 +37,9 @@ void expectCoordinateNear(const Coordinate& expected, const Coordinate& actual)
     EXPECT_NEAR(expected.weight, actual.weight, kEps);
 }
 
-// OpenRocket's BoundingBoxTest.java builds every box from a rocket model (the aerodynamic and
-// full bounding boxes of the Estes Alpha III, Beta, Falcon 9 Heavy and end-plate test rockets);
-// those cases move to the rocket component tests. The tests below cover the class itself.
+// OpenRocket's BoundingBoxTest.java builds every box from a rocket model (the bounding boxes of
+// the Estes Alpha III, Beta, Falcon 9 Heavy and end-plate test rockets); those cases are ported
+// in tests/core/rocket/rocket_bounding_box_tests.cpp. The tests below cover the class itself.
 
 TEST(BoundingBox, NewBoxIsEmpty)
 {
