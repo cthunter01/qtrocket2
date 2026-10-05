@@ -18,15 +18,16 @@ namespace QtRocket
 /// method, so a setter notifies nobody, and whoever edits a stage's separation (the GUI) fires
 /// EVENT_CHANGE on the AxialStage. The multi-edit config listeners are not ported, by decision.
 ///
-/// Deferred to simulation/: SeparationEvent.isSeparationEvent(config, FlightEvent, stage), the
-/// test the simulation engine applies to every flight event. Its logic, for the simulation group
-/// to implement over FlightEvent: LAUNCH on a LAUNCH event; IGNITION, BURNOUT and EJECTION on an
-/// IGNITION, BURNOUT or EJECTION_CHARGE event whose source is in the stage (source stage number
-/// equal to the stage's); UPPER_IGNITION on an IGNITION event of the stage above (source stage
-/// number + 1 equal to the stage's); ALTITUDE_ASCENDING on an ALTITUDE event whose data (the
-/// previous and current altitude, u and v) has u <= separation altitude <= v, and
-/// ALTITUDE_DESCENDING with u >= altitude >= v (an ALTITUDE event without data never matches);
-/// APOGEE on an APOGEE event; NEVER never.
+/// In simulation/ (rocket/ does not include it): SeparationEvent.isSeparationEvent(config,
+/// FlightEvent, stage), the test the simulation engine applies to every flight event, is
+/// FlightEventActivation::isSeparationEvent(SeparationEvent, config, event, stage) in
+/// simulation/FlightEventActivation.h. Its logic: LAUNCH on a LAUNCH event; IGNITION, BURNOUT
+/// and EJECTION on an IGNITION, BURNOUT or EJECTION_CHARGE event whose source is in the stage
+/// (source stage number equal to the stage's); UPPER_IGNITION on an IGNITION event of the stage
+/// above (source stage number + 1 equal to the stage's); ALTITUDE_ASCENDING on an ALTITUDE event
+/// whose data (the previous and current altitude, u and v) has u <= separation altitude <= v,
+/// and ALTITUDE_DESCENDING with u >= altitude >= v (an ALTITUDE event without data never
+/// matches); APOGEE on an APOGEE event; NEVER never.
 class StageSeparationConfiguration
 {
 public:

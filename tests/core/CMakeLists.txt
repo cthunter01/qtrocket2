@@ -170,9 +170,18 @@ add_executable(QtRocket_core_tests
     aero/SymmetricComponentCalcTests.cpp
     aero/TubeCalcTests.cpp
     aero/TubeFinSetCalcTests.cpp
+    simulation/AbstractSimulationListenerTests.cpp
+    simulation/AccelerationDataTests.cpp
+    simulation/CloneableSimulationListenerTests.cpp
     simulation/DataBranchTests.cpp
+    simulation/EventQueueTests.cpp
+    simulation/flight_event_activation_tests.cpp
+    simulation/FlightDataBranchTests.cpp
+    simulation/FlightDataTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
+    simulation/FlightEventTests.cpp
+    simulation/SimulationExceptionTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp

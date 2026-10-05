@@ -112,22 +112,42 @@ std::string AxialStage::toDebugSeparation() const
     return m_separations.toDebug();
 }
 
-AxialStage* AxialStage::getUpperStage()
+namespace
 {
-    if (m_parent == nullptr)
+
+/// Java's getUpperStage() for a const and a non-const stage alike (@p Stage is AxialStage or
+/// const AxialStage): the stage before @p stage when its parent is the Rocket, else the stage
+/// its parent is in.
+template <class Stage>
+[[nodiscard]] Stage* upperStageOf(Stage& stage)
+{
+    auto* parent = stage.getParent();
+    if (parent == nullptr)
     {
         return nullptr;
     }
-    if (dynamic_cast<const Rocket*>(m_parent) != nullptr)
+    if (dynamic_cast<const Rocket*>(parent) != nullptr)
     {
-        const auto thisIndex = m_parent->getChildPosition(this);
+        const auto thisIndex = parent->getChildPosition(&stage);
         if (thisIndex && *thisIndex > 0)
         {
-            return dynamic_cast<AxialStage*>(&m_parent->getChild(*thisIndex - 1));
+            return dynamic_cast<Stage*>(&parent->getChild(*thisIndex - 1));
         }
         return nullptr;
     }
-    return m_parent->findStage();
+    return parent->findStage();
+}
+
+}  // namespace
+
+AxialStage* AxialStage::getUpperStage()
+{
+    return upperStageOf(*this);
+}
+
+const AxialStage* AxialStage::getUpperStage() const
+{
+    return upperStageOf(*this);
 }
 
 void AxialStage::toDebugTreeNode(std::string& buffer, const std::string& indent) const

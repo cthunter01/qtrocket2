@@ -32,9 +32,11 @@ class MotorMount;
 /// the copied event queue's IGNITION, BURNOUT and EJECTION_CHARGE events carry those same
 /// objects, so burnOut() and expend() on a state are seen by every branch and every queued event.
 /// A state here is a copyable value, but the simulation must not copy states per branch: it keeps
-/// each one at a stable address shared between the branches as Java shares it (for example
-/// std::vector<std::shared_ptr<MotorClusterState>> in SimulationStatus, with a flight event's data
-/// a non-owning pointer into it), and passes MassCalculator pointers to them.
+/// each one at a stable address shared between the branches as Java shares it, by
+/// std::shared_ptr<MotorClusterState>: in SimulationStatus's list of motor states and as the
+/// data of the flight events (FlightEvent::Data), which keep the state alive after the status
+/// is gone (the events of a finished simulation still carry it). MassCalculator is passed
+/// pointers to them.
 ///
 /// Placement: OpenRocket keeps this class in its simulation package. It lives in mass/ here
 /// because MassCalculation needs it and simulation/ builds on mass/ (simulation/ includes mass/,
@@ -47,8 +49,9 @@ class MotorMount;
 ///   configuration (by a simulation listener, say) is therefore not seen by isPlugged(),
 ///   getEjectionDelay() or getIgnitionEvent(), where Java reads the live object.
 /// - testForIgnition(FlightConfiguration, FlightEvent) is not here: it needs the simulation's
-///   FlightEvent, which lives above mass/. The simulation ports it next to its event handling
-///   from getIgnitionEvent() and getMount() (the rules are in IgnitionEvent.h).
+///   FlightEvent, which lives above mass/. It is FlightEventActivation::testForIgnition(state,
+///   config, event) in simulation/FlightEventActivation.h, made from getIgnitionEvent() and
+///   getMount() (the rules are in IgnitionEvent.h).
 /// - A configuration without a motor is a BugError (Java: NullPointerException).
 /// - getThrustDuration(), getEjectionTime() and getState() are additions: Java reads its
 ///   protected fields directly.
