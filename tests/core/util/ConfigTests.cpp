@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -9,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -163,7 +165,8 @@ TEST(Config, ModifyingStoredNumber)
     EXPECT_EQ(config.getInt("atomicinteger"), 100);
 }
 
-// TestConfig.testClone: Java's clone() is the copy constructor.
+// TestConfig.testClone: Java's clone() is the copy constructor. Java puts an AtomicInteger, which
+// Config stores as the BigDecimal of its text, so the clone copies a BigDecimal entry.
 TEST(Config, Clone)
 {
     Config config;
@@ -172,7 +175,7 @@ TEST(Config, Clone)
     config.put("double", std::numbers::pi);
 
     int ai = 100;
-    config.put("atomicinteger", ai);
+    config.put("atomicinteger", BigDecimal::valueOf(ai));
 
     List list;
     list.emplace_back("Foo");
@@ -187,6 +190,7 @@ TEST(Config, Clone)
     EXPECT_EQ(copy.getString("string"), "foo");
     EXPECT_EQ(copy.getInt("int"), 123);
     EXPECT_EQ(copy.getInt("atomicinteger"), 100);
+    EXPECT_TRUE(holds<BigDecimal>(copy, "atomicinteger"));
     EXPECT_EQ(copy.getDouble("double"), std::numbers::pi);
     EXPECT_TRUE(copy.getList("list") == List{Value{"Foo"}});
     EXPECT_EQ(ai, 101);
@@ -200,8 +204,17 @@ TEST(Config, StoringNullValue)
     const char* const null = nullptr;
     EXPECT_THROW(config.put("foo", null), BugError);
     EXPECT_THROW(static_cast<void>(Value{null}), BugError);
+    // A nullptr is that null String, not the Boolean false.
+    EXPECT_THROW(config.put("foo", nullptr), BugError);
+    EXPECT_THROW(static_cast<void>(Value{nullptr}), BugError);
     EXPECT_FALSE(config.containsKey("foo"));
 }
+
+/// What the member pointers of StoringInvalidTypesDoesNotCompile point into.
+struct Thing
+{
+    int member{0};
+};
 
 // TestConfig.testStoringListWithInvalidTypes and testStoringListWithNull (the two have the same
 // body in Java: a list holding a java.util.Date is refused with IllegalArgumentException). A List
@@ -215,6 +228,38 @@ TEST(Config, StoringInvalidTypesDoesNotCompile)
     static_assert(!Puttable<char>);
     static_assert(!Puttable<unsigned int>);
     static_assert(!Puttable<std::uint64_t>);
+    // A pointer converts to bool, and must not become a Boolean that way: not the address of a
+    // value (a Date in Java's test), not a string of another character type.
+    static_assert(!Puttable<int*>);
+    static_assert(!Puttable<const int*>);
+    static_assert(!Puttable<void*>);
+    static_assert(!Puttable<std::string*>);
+    static_assert(!Puttable<std::chrono::system_clock::time_point*>);
+    static_assert(!Puttable<const wchar_t*>);
+    static_assert(!Puttable<const char8_t*>);
+    static_assert(!Puttable<const char16_t*>);
+    static_assert(!Puttable<const char32_t*>);
+    static_assert(!Puttable<void (*)()>);
+    static_assert(!Puttable<int Thing::*>);
+    static_assert(!Puttable<void (Thing::*)()>);
+    static_assert(!std::constructible_from<Value, int*>);
+    static_assert(!std::constructible_from<Value, void*>);
+    static_assert(!std::constructible_from<Value, std::string*>);
+    static_assert(!std::constructible_from<Value, const wchar_t*>);
+    // A wide or UTF-8 string literal, as the array it is and as the pointer it decays to.
+    static_assert(!std::constructible_from<Value, decltype(L"wide")>);
+    static_assert(!std::constructible_from<Value, decltype(u8"utf8")>);
+    static_assert(!std::constructible_from<Value, decltype(+L"wide")>);
+    static_assert(!std::constructible_from<Value, decltype(+u8"utf8")>);
+    static_assert(!std::constructible_from<Value, void (*)()>);
+    static_assert(!std::constructible_from<Value, int Thing::*>);
+    // Nor does anything else that only converts to bool.
+    static_assert(!std::constructible_from<Value, std::true_type>);
+    static_assert(!std::constructible_from<Value, std::vector<bool>::reference>);
+    // A nullptr is the null String, refused when it is stored (see StoringNullValue).
+    static_assert(Puttable<std::nullptr_t>);
+    static_assert(std::constructible_from<Value, bool&>);
+    static_assert(std::constructible_from<Value, const bool&>);
     // What does compile:
     static_assert(Puttable<bool>);
     static_assert(Puttable<std::int8_t>);
@@ -258,6 +303,39 @@ TEST(Config, AValueKeepsItsJavaType)
     EXPECT_TRUE(holds<BigDecimal>(config, "bigdecimal"));
     EXPECT_TRUE(holds<std::string>(config, "string"));
     EXPECT_TRUE(holds<List>(config, "list"));
+}
+
+TEST(Config, ABooleanIsMadeFromABoolOnly)
+{
+    // Whatever kind of bool expression it is; a pointer is none (see
+    // StoringInvalidTypesDoesNotCompile).
+    Config     config;
+    bool       variable = true;
+    const bool constant = false;
+    const int  one      = 1;
+    const int  two      = 2;
+    config.put("variable", variable);
+    config.put("constant", constant);
+    config.put("comparison", one < two);
+    config.put("element", bool{std::vector<bool>{true}.front()});
+    // The value is stored, not the variable.
+    variable = false;
+    EXPECT_FALSE(variable);
+    EXPECT_TRUE(holds<bool>(config, "variable"));
+    EXPECT_TRUE(holds<bool>(config, "constant"));
+    EXPECT_TRUE(holds<bool>(config, "comparison"));
+    EXPECT_TRUE(holds<bool>(config, "element"));
+    EXPECT_EQ(config.getBoolean("variable"), true);
+    EXPECT_EQ(config.getBoolean("constant"), false);
+    EXPECT_EQ(config.getBoolean("comparison"), true);
+    EXPECT_EQ(config.getBoolean("element"), true);
+    // A Boolean is no number.
+    EXPECT_EQ(config.getInt("variable"), std::nullopt);
+
+    List list;
+    list.emplace_back(true);
+    list.emplace_back(constant);
+    EXPECT_TRUE(list == (List{Value{true}, Value{false}}));
 }
 
 TEST(Config, IntegersAreStoredByTheirWidth)
@@ -565,6 +643,88 @@ TEST(Config, ListsCompareElementByElement)
     EXPECT_TRUE(nestedNan == nestedNanAgain);
     EXPECT_FALSE(one == Value{1});
     EXPECT_FALSE(stringAndInt == intAndString);
+}
+
+// document/Simulation.configEqual(): `a.keySet().equals(b.keySet())` compares two Sets, so the
+// order the keys were put in does not count (SameEntriesProbe prints the same answers).
+TEST(Config, SameEntriesIgnoresTheOrderOfTheKeys)
+{
+    Config a;
+    a.put("altitude", 100.0);
+    a.put("name", "x");
+    a.put("list", List{Value{1}, Value{"a"}});
+    Config b;
+    b.put("list", List{Value{1}, Value{"a"}});
+    b.put("name", "x");
+    b.put("altitude", 100.0);
+    EXPECT_NE(a.keySet(), b.keySet());
+    EXPECT_TRUE(a.sameEntries(b));
+    EXPECT_TRUE(b.sameEntries(a));
+    EXPECT_TRUE(a.sameEntries(a));
+    EXPECT_TRUE(Config{}.sameEntries(Config{}));
+    // A copy has the same entries, in the same order.
+    const Config copy = a;
+    EXPECT_TRUE(copy.sameEntries(a));
+    EXPECT_EQ(copy.keySet(), a.keySet());
+}
+
+TEST(Config, SameEntriesComparesTheKeys)
+{
+    Config a;
+    a.put("k", 1);
+    a.put("m", 2);
+    Config b;
+    b.put("k", 1);
+    // A key more on either side.
+    EXPECT_FALSE(a.sameEntries(b));
+    EXPECT_FALSE(b.sameEntries(a));
+    EXPECT_FALSE(a.sameEntries(Config{}));
+    EXPECT_FALSE(Config{}.sameEntries(a));
+    // As many keys, but other ones.
+    b.put("n", 2);
+    EXPECT_FALSE(a.sameEntries(b));
+    EXPECT_FALSE(b.sameEntries(a));
+    // Keys are compared exactly.
+    Config c;
+    c.put("K", 1);
+    c.put("m", 2);
+    EXPECT_FALSE(a.sameEntries(c));
+}
+
+TEST(Config, SameEntriesComparesTheValuesWithTheirTypes)
+{
+    Config a;
+    a.put("k", 5);
+    Config b;
+    b.put("k", 5.0);
+    // The Integer 5 is not the Double 5.0.
+    EXPECT_FALSE(a.sameEntries(b));
+    EXPECT_FALSE(b.sameEntries(a));
+    b.put("k", std::int64_t{5});
+    EXPECT_FALSE(a.sameEntries(b));
+    b.put("k", 6);
+    EXPECT_FALSE(a.sameEntries(b));
+    b.put("k", 5);
+    EXPECT_TRUE(a.sameEntries(b));
+
+    // Double.equals(): a NaN equals a NaN, and 0.0 does not equal -0.0.
+    a.put("x", std::numeric_limits<double>::quiet_NaN());
+    b.put("x", std::numeric_limits<double>::quiet_NaN());
+    EXPECT_TRUE(a.sameEntries(b));
+    a.put("x", 0.0);
+    b.put("x", -0.0);
+    EXPECT_FALSE(a.sameEntries(b));
+    b.put("x", 0.0);
+
+    // Lists compare element by element, and a BigDecimal with its scale.
+    a.put("list", List{Value{1}, Value{List{Value{"deep"}}}});
+    b.put("list", List{Value{1}, Value{List{Value{"deeper"}}}});
+    EXPECT_FALSE(a.sameEntries(b));
+    b.put("list", List{Value{1}, Value{List{Value{"deep"}}}});
+    EXPECT_TRUE(a.sameEntries(b));
+    a.put("big", big("1.0"));
+    b.put("big", big("1.00"));
+    EXPECT_FALSE(a.sameEntries(b));
 }
 
 TEST(Config, OptionalValuesCompareAsObjectsEqualsDoes)

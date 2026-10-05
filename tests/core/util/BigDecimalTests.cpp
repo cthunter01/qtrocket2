@@ -216,6 +216,28 @@ TEST(BigDecimal, DoubleValueBeyondTheDoubleRange)
     EXPECT_FALSE(std::signbit(parsed("-0.00").doubleValue()));
 }
 
+TEST(BigDecimal, ANegativeValueFarBeyondTheDoubleRangeKeepsItsSign)
+{
+    // Further out than the texts above the exponent alone decides, without parsing the text
+    // (BigNegativeProbe: -Infinity, bits fff0000000000000, and -0.0, bits 8000000000000000).
+    EXPECT_EQ(describe("-1E+401"), "-1 -401 -1E+401 0 0 -Infinity");
+    EXPECT_EQ(describe("-9.99E+400"), "-999 -398 -9.99E+400 0 0 -Infinity");
+    EXPECT_EQ(describe("-1E+2147483647"), "-1 -2147483647 -1E+2147483647 0 0 -Infinity");
+    EXPECT_EQ(parsed("-1E+401").doubleValue(), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(parsed("-1E+2147483647").doubleValue(), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(describe("-1E-401"), "-1 401 -1E-401 0 0 -0.0");
+    EXPECT_EQ(describe("-1E-2147483647"), "-1 2147483647 -1E-2147483647 0 0 -0.0");
+    const double tiny = parsed("-1E-401").doubleValue();
+    EXPECT_EQ(tiny, 0.0);
+    EXPECT_TRUE(std::signbit(tiny));
+    const double tiniest = parsed("-1E-2147483647").doubleValue();
+    EXPECT_EQ(tiniest, 0.0);
+    EXPECT_TRUE(std::signbit(tiniest));
+    // The positive twins stay positive.
+    EXPECT_EQ(parsed("1E+401").doubleValue(), std::numeric_limits<double>::infinity());
+    EXPECT_FALSE(std::signbit(parsed("1E-401").doubleValue()));
+}
+
 TEST(BigDecimal, ScaleLimits)
 {
     EXPECT_EQ(describe("1E+2147483647"), "1 -2147483647 1E+2147483647 0 0 Infinity");

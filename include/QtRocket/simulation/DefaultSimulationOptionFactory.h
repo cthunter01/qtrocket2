@@ -32,6 +32,13 @@ class Preferences;
 ///   hold the average, the turbulence intensity and the direction, so a standard deviation
 ///   saved with a zero average comes back as 0 (in Java only after a restart), and a deviation
 ///   may come back one rounding step away from the one saved.
+/// - saveDefault() stores the wind once more after copying it, so that the wind keys describe
+///   the wind just saved also when no setter changed the freshly loaded model: saving a calm
+///   wind (0 m/s, no deviation) over a stored intensity of a wind without an average writes the
+///   intensity 0, as Java's long-lived model does when its deviation goes to 0, and an intensity
+///   that is a rounding step away from deviation / average is rewritten, as Java rewrites it
+///   when it first loads the model. Nothing is written or announced for a key that already
+///   holds the value.
 /// - Preferences' wind setters emit its changed() (see Preferences), so saveDefault() emits it
 ///   for the wind as well as for the other values.
 class DefaultSimulationOptionFactory

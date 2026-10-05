@@ -38,9 +38,11 @@ concept ConfigInteger = std::signed_integral<T> && !std::same_as<T, char> &&
 /// - List (std::vector<Value>), whose elements are any of these, lists included.
 ///
 /// A Config is a value: a copy is Java's clone(), a deep copy (the lists are copied, as put()
-/// copies the list it is given). Java's Config has no equals(), so two Configs are compared by
-/// their keys and values (see Value::operator==, Java's equals() of the stored objects, which
-/// document/Simulation's configEqual() uses); there is no operator== here either.
+/// copies the list it is given). Java's Config has no equals(), and there is no operator== here
+/// either: document/Simulation's configEqual() compares two Configs by their key sets, whatever
+/// order the keys were put in, and by Java's equals() of the stored objects. That comparison is
+/// sameEntries() (with Value::operator==); comparing two keySet() results with == would not be
+/// it, since they are in insertion order.
 ///
 /// The getters with a default return it when the key is absent or holds another type (Java's
 /// get(key, def, type)); the getters without one return nullopt there, where Java is given a null
@@ -48,8 +50,11 @@ concept ConfigInteger = std::signed_integral<T> && !std::same_as<T, char> &&
 ///
 /// Deviations from OpenRocket:
 /// - Java's put() throws for a null (NullPointerException) and for a value, or a list element,
-///   of another type (IllegalArgumentException). Here a value of another type does not compile,
-///   and only a null `const char*` can be null: that is a BugError with Java's message.
+///   of another type (IllegalArgumentException). Here a value of another type does not compile
+///   (a Value is made from exactly the types above: no pointer but a `const char*`, no character,
+///   no unsigned integer, and nothing that only converts to bool, so a std::vector<bool> element
+///   is written `bool{element}`), and only a null `const char*` can be null (a `nullptr`
+///   included): that is a BugError with Java's message.
 /// - The getters return copies. Java hands out the stored objects, which are immutable except
 ///   for a list: there a caller could change the Config through the list getList() returned.
 /// - keySet() is a copy of the keys, where Java returns an unmodifiable view.
@@ -73,8 +78,13 @@ public:
         using Variant = std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t,
                                      float, double, BigDecimal, std::string, List>;
 
-        /// A Boolean.
-        explicit Value(bool value) noexcept;
+        /// A Boolean: a bool itself and nothing that merely converts to one. A plain
+        /// `Value(bool)` would take every pointer (the pointer-to-bool conversion) and store
+        /// true for a `std::string*` or a `const wchar_t*`, where Java's validateType() throws.
+        template <std::same_as<bool> T>
+        explicit Value(T value) noexcept : m_data(std::in_place_type<bool>, value)
+        {
+        }
 
         /// A Byte, Short, Integer or Long, by the width of @p value's type: an int is an
         /// Integer, a std::int64_t a Long (a long is 64 bits wide on Linux and macOS and 32 on
@@ -206,6 +216,12 @@ public:
 
     /// The keys, in the order they were first put.
     [[nodiscard]] std::vector<std::string> keySet() const;
+
+    /// Whether @p other holds the same keys with equal values (Value::operator==), in whatever
+    /// order they were put: the comparison of document/Simulation's configEqual() in Java,
+    /// `a.keySet().equals(b.keySet())` on Sets and then Objects.equals() of each key's values.
+    /// Not in Java's Config, which leaves the comparison to that caller.
+    [[nodiscard]] bool sameEntries(const Config& other) const;
 
 private:
     /// The value stored under @p key, or null.

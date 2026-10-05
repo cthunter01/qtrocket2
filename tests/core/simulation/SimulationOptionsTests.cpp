@@ -30,11 +30,13 @@
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
+#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Signal.h"
 #include "TestTempDir.h"
 #include "simulation/SimulationOptionsSupport.h"
@@ -68,7 +70,8 @@ namespace Keys = QtRocket::PreferenceKeys;
 
 // The pinned numbers and event counts below are what OpenRocket prints for the same calls
 // (probes/options-extensions-impl/OptionsProbe.java, against a MockPreferences store as
-// DefaultSimulationOptionFactoryTest sets one up), unless a test names a JUnit original.
+// DefaultSimulationOptionFactoryTest sets one up; probes/options-extensions-fix/FixProbe.java for
+// the tests that name FixProbe), unless a test names a JUnit original.
 
 constexpr double kPi  = std::numbers::pi;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -236,6 +239,47 @@ using Setter = void (SimulationOptions::*)(double);
 /// plainSetter() of a setter that ports Java's: nothing for the stored value or one within the
 /// tolerance, one event per change, and a NaN is a change every time.
 constexpr std::string_view kPlainSetter = "0 0 true 1 true 2 true 3";
+
+/// What a listener of the options reads from them, and from their preferences, when it is called.
+struct SeenState
+{
+    /// describe() of the options.
+    std::string values;
+    /// The stepper method the preferences hold.
+    std::string storedStepper;
+    bool        isa{false};
+    double      altitude{0};
+    double      temperature{0};
+    double      pressure{0};
+    double      humidity{0};
+};
+
+/// Records what a listener of the options sees at every change event, while it lives. The
+/// record is mutable: the slot fills it through the `this` the constructor captured, also when
+/// the recorder is declared const.
+class StateRecorder
+{
+public:
+    StateRecorder(SimulationOptions& options, const QtRocket::Preferences& preferences)
+      : m_connection(options.changed().connect([this, &options, &preferences] {
+            m_seen.push_back(
+                SeenState{.values        = describe(options),
+                          .storedStepper = preferences.getSimulationStepperMethodName(),
+                          .isa           = options.isIsaAtmosphere(),
+                          .altitude      = options.getLaunchAltitude(),
+                          .temperature   = options.getLaunchTemperature(),
+                          .pressure      = options.getLaunchPressure(),
+                          .humidity      = options.getLaunchRelativeHumidity()});
+        }))
+    {
+    }
+
+    [[nodiscard]] const std::vector<SeenState>& seen() const noexcept { return m_seen; }
+
+private:
+    mutable std::vector<SeenState>       m_seen;
+    QtRocket::Signal<>::ScopedConnection m_connection;
+};
 
 // ------------------------------------------------------------------------------ defaults
 
@@ -550,6 +594,36 @@ TEST(SimulationOptions, LaunchIntoWindFollowsTheMultiLevelWindAtTheLaunchAltitud
     EXPECT_EQ(options.getLaunchRodDirection(), 0.7);
 }
 
+TEST(SimulationOptions, LaunchIntoATurbulentMultiLevelWindIsTheDirectionTheModelItselfGives)
+{
+    // Java asks the options' own model for its wind at time 0; here a copy of the model answers
+    // (see the class comment), which has the same levels and seeds.
+    SimulationOptions             options;
+    MultiLevelPinkNoiseWindModel& wind = options.getMultiLevelWindModel();
+    wind.clearLevels();
+    addLevel(wind, 0, 5.0, 1.25, 2.0);
+    addLevel(wind, 1000, 10.0, 2.5, 4.0);
+    wind.setSeed(12345);
+    options.setWindModelType(WindModelType::MULTI_LEVEL);
+    options.setLaunchAltitude(400);
+    const ChangeCounter      events(options.changed());
+    const SimulationOptions& constOptions = options;
+
+    const double direction = constOptions.getLaunchRodDirection();
+    EXPECT_EQ(direction, QtRocket::MathUtil::reduce2Pi(wind.getWindDirection(0, 400)));
+    EXPECT_EQ(constOptions.getLaunchRodDirection(), direction);
+    // However far the model's own random sources have run.
+    static_cast<void>(wind.getWindVelocity(7.0, 400));
+    EXPECT_EQ(constOptions.getLaunchRodDirection(), direction);
+    // The turbulence is part of it: other seeds, another direction.
+    wind.setSeed(54321);
+    EXPECT_NE(constOptions.getLaunchRodDirection(), direction);
+    EXPECT_EQ(constOptions.getLaunchRodDirection(),
+              QtRocket::MathUtil::reduce2Pi(wind.getWindDirection(0, 400)));
+    // Asking announces nothing.
+    EXPECT_EQ(events.count(), 0);
+}
+
 TEST(SimulationOptions, GetWindModelFollowsTheType)
 {
     SimulationOptions        options;
@@ -826,6 +900,23 @@ TEST(SimulationOptions, SetIsaAtmosphere)
     EXPECT_EQ(options.getLaunchRelativeHumidity(), 0.0);
 }
 
+TEST(SimulationOptions, SwitchingTheIsaOffKeepsConditionsThatAreNotTheIsaOnes)
+{
+    // The .ork reader stores the conditions of a file while the ISA is still on and only then
+    // switches it off (AtmosphereHandler.storeSettings()); FixProbe: 1 event, 300 K, 90000 Pa, 0.5.
+    SimulationOptions options;
+    options.setLaunchTemperature(300);
+    options.setLaunchPressure(90000);
+    options.setLaunchRelativeHumidity(0.5);
+    const ChangeCounter events(options.changed());
+    options.setIsaAtmosphere(false);
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_FALSE(options.isIsaAtmosphere());
+    EXPECT_EQ(options.getLaunchTemperature(), 300.0);
+    EXPECT_EQ(options.getLaunchPressure(), 90000.0);
+    EXPECT_EQ(options.getLaunchRelativeHumidity(), 0.5);
+}
+
 TEST(SimulationOptions, TheConditionsCanBeSetWhileTheIsaIsInUse)
 {
     // Nothing ties them to the ISA until the altitude or the flag changes again.
@@ -1056,6 +1147,50 @@ TEST(SimulationOptions, EveryThresholdSetterComparesWithMathUtilEquals)
               kPlainSetter);
 }
 
+TEST(SimulationOptions, TheClampingSettersCompareWithMathUtilEquals)
+{
+    // The setters that clamp or reduce their argument compare what is left with the stored
+    // value as the plain ones do (FixProbe: no event within the tolerance, six outside it).
+    SimulationOptions options;
+    options.setIsaAtmosphere(false);
+    options.setLaunchIntoWind(false);
+    options.setLaunchAltitude(100);
+    options.setLaunchLatitude(45);
+    options.setLaunchLongitude(10);
+    options.setLaunchRodAngle(0.5);
+    options.setLaunchRodDirection(1.0);
+    options.setMaximumStepAngle(0.1);
+    const ChangeCounter events(options.changed());
+
+    options.setLaunchAltitude(100 * (1 + 1e-10));
+    options.setLaunchLatitude(45 * (1 + 1e-10));
+    options.setLaunchLongitude(10 * (1 + 1e-10));
+    options.setLaunchRodAngle(0.5 * (1 + 1e-10));
+    options.setLaunchRodDirection(1.0 + 1e-10);
+    options.setMaximumStepAngle(0.1 * (1 + 1e-10));
+    EXPECT_EQ(events.count(), 0);
+    EXPECT_EQ(options.getLaunchAltitude(), 100.0);
+    EXPECT_EQ(options.getLaunchLatitude(), 45.0);
+    EXPECT_EQ(options.getLaunchLongitude(), 10.0);
+    EXPECT_EQ(options.getLaunchRodAngle(), 0.5);
+    EXPECT_EQ(options.getLaunchRodDirection(), 1.0);
+    EXPECT_EQ(options.getMaximumStepAngle(), 0.1);
+
+    options.setLaunchAltitude(100 * (1 + 1e-7));
+    options.setLaunchLatitude(45 * (1 + 1e-7));
+    options.setLaunchLongitude(10 * (1 + 1e-7));
+    options.setLaunchRodAngle(0.5 * (1 + 1e-7));
+    options.setLaunchRodDirection(1.0 + 1e-7);
+    options.setMaximumStepAngle(0.1 * (1 + 1e-7));
+    EXPECT_EQ(events.count(), 6);
+    EXPECT_EQ(options.getLaunchAltitude(), 100 * (1 + 1e-7));
+    EXPECT_EQ(options.getLaunchLatitude(), 45 * (1 + 1e-7));
+    EXPECT_EQ(options.getLaunchLongitude(), 10 * (1 + 1e-7));
+    EXPECT_EQ(options.getLaunchRodAngle(), 0.5 * (1 + 1e-7));
+    EXPECT_EQ(options.getLaunchRodDirection(), 1.0 + 1e-7);
+    EXPECT_EQ(options.getMaximumStepAngle(), 0.1 * (1 + 1e-7));
+}
+
 // --------------------------------------------------------------------------- random seed
 
 TEST(SimulationOptions, SetRandomSeedAnnouncesOnlyAFixedSeed)
@@ -1133,6 +1268,22 @@ TEST(SimulationOptions, RandomizeSeedIfNotFixedDrawsWhileNotFixed)
     options.randomizeSeedIfNotFixed();
     seeds.insert(options.getRandomSeed());
     EXPECT_GT(seeds.size(), 1U);
+}
+
+TEST(SimulationOptions, TheAverageWindModelStartsWithTheOptionsSeed)
+{
+    // Java: averageWindModel = new PinkNoiseWindModel(randomSeed). (The models compare with
+    // their seeds.)
+    const SimulationOptions options;
+    EXPECT_TRUE(options.getAverageWindModel() == PinkNoiseWindModel(options.getRandomSeed()));
+    EXPECT_FALSE(options.getAverageWindModel() ==
+                 PinkNoiseWindModel(otherSeed(options.getRandomSeed())));
+
+    InMemoryPreferences preferences;
+    storeEverySimulationKey(preferences);
+    const SimulationOptions fromStore(preferences);
+    // Not the stored seed either: that one is the factory's to apply.
+    EXPECT_TRUE(fromStore.getAverageWindModel() == PinkNoiseWindModel(fromStore.getRandomSeed()));
 }
 
 TEST(SimulationOptions, TheSeedDoesNotReachTheConfiguredWindModel)
@@ -1244,6 +1395,30 @@ TEST(SimulationOptions, TheLookupPathHasNoTrailingSeparatorAndAnEmptyPathIsTheCu
     EXPECT_TRUE(std::filesystem::equivalent(
         options.getDragLookupCsvPath().value_or(std::filesystem::path()),
         std::filesystem::current_path()));
+}
+
+TEST(SimulationOptions, ARootLookupPathIsTheRootHoweverItIsWritten)
+{
+    // Java: Path.of("//").toAbsolutePath().normalize() is "/" (FixProbe). The spellings are
+    // compared as texts: two paths that differ in the separators of their root compare equal.
+    SimulationOptions                          options;
+    const std::shared_ptr<const MachAoALookup> table = parseTable(dragRows("2"), dragColumns());
+    const std::filesystem::path                root  = std::filesystem::current_path().root_path();
+    options.setDragLookup(root, table);
+    EXPECT_EQ(options.getDragLookupCsvPath().value_or(std::filesystem::path()).native(),
+              root.native());
+
+    std::filesystem::path::string_type doubled = root.native();
+    doubled += std::filesystem::path::preferred_separator;
+    options.setDragLookup(std::filesystem::path(doubled), table);
+    EXPECT_EQ(options.getDragLookupCsvPath().value_or(std::filesystem::path()).native(),
+              root.native());
+
+    doubled += std::filesystem::path::preferred_separator;
+    options.setStabilityLookup(std::filesystem::path(doubled),
+                               parseTable(stabilityRows("2"), stabilityColumns()));
+    EXPECT_EQ(options.getStabilityLookupCsvPath().value_or(std::filesystem::path()).native(),
+              root.native());
 }
 
 TEST(SimulationOptions, GetLookupCsvRowsReturnsACopy)
@@ -1391,6 +1566,55 @@ TEST(SimulationOptions, SetStabilityLookupCsvPath)
     ASSERT_TRUE(options.setStabilityLookupCsvPath(std::nullopt));
     EXPECT_EQ(events.count(), 2);
     EXPECT_FALSE(options.hasStabilityLookup());
+}
+
+TEST(SimulationOptions, TheStabilityRowsAreClearedOnlyByClearStabilityLookup)
+{
+    // The saver embeds the rows and the reader prefers them to the file (CsvLookupHandler), so
+    // rows that stay or go at the wrong moment would replace the table on the next load.
+    // FixProbe: 1 event and the rows kept, 2 and kept, 4 and null.
+    const QtRocket::Test::TempDir tempDir;
+    const std::filesystem::path   file =
+        tempDir.write("stability.csv", "Mach,Cn,Cm,Cp\n0,1,2,0.5\n1,3,4,0.75\n");
+    SimulationOptions   options = lookupOptions("2.0");
+    const ChangeCounter events(options.changed());
+
+    // Reading a file replaces the path and the table and leaves the rows as they were.
+    ASSERT_TRUE(options.setStabilityLookupCsvPath(file));
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_TRUE(options.hasStabilityLookup());
+    EXPECT_EQ(options.getStabilityLookupCsvRows(), stabilityRows("2.0"));
+
+    // So does removing the path, which removes the table.
+    ASSERT_TRUE(options.setStabilityLookupCsvPath(std::nullopt));
+    EXPECT_EQ(events.count(), 2);
+    EXPECT_FALSE(options.hasStabilityLookup());
+    EXPECT_EQ(options.getStabilityLookupCsvPath(), std::nullopt);
+    EXPECT_EQ(options.getStabilityLookupCsvRows(), stabilityRows("2.0"));
+
+    options.setStabilityLookup(lookupCsv(), parseTable(stabilityRows("2.0"), stabilityColumns()),
+                               stabilityRows("2.0"));
+    options.clearStabilityLookup();
+    EXPECT_EQ(events.count(), 4);
+    EXPECT_FALSE(options.hasStabilityLookup());
+    EXPECT_EQ(options.getStabilityLookupCsvPath(), std::nullopt);
+    EXPECT_EQ(options.getStabilityLookupCsvRows(), std::nullopt);
+    // The drag lookup was never touched.
+    EXPECT_TRUE(options.hasDragLookup());
+    EXPECT_EQ(options.getDragLookupCsvRows(), dragRows("2.0"));
+}
+
+TEST(SimulationOptions, ClearDragLookupLeavesTheStabilityLookup)
+{
+    SimulationOptions   options = lookupOptions("2.0");
+    const ChangeCounter events(options.changed());
+    options.clearDragLookup();
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_FALSE(options.hasDragLookup());
+    EXPECT_EQ(options.getDragLookupCsvRows(), std::nullopt);
+    EXPECT_TRUE(options.hasStabilityLookup());
+    EXPECT_TRUE(options.getStabilityLookupCsvPath().has_value());
+    EXPECT_EQ(options.getStabilityLookupCsvRows(), stabilityRows("2.0"));
 }
 
 // ------------------------------------------------------------- the copy (Java's clone())
@@ -1832,6 +2056,60 @@ TEST(SimulationOptions, CopyConditionsFromTakesTheLookups)
     EXPECT_EQ(copyCase(Field::STABILITY_LOOKUP), kCopied);
 }
 
+TEST(SimulationOptions, CopyConditionsFromTakesALookupPathThatAloneDiffers)
+{
+    // FixProbe: 1 event, then 2, then no more.
+    SimulationOptions   src = lookupOptions("2.0");
+    SimulationOptions   dst = src;
+    const ChangeCounter events(dst.changed());
+
+    src.setDragLookup(std::filesystem::path("other-drag.csv"), src.getDragLookupTable(),
+                      src.getDragLookupCsvRows());
+    EXPECT_NE(dst.getDragLookupCsvPath(), src.getDragLookupCsvPath());
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_EQ(dst.getDragLookupCsvPath(), src.getDragLookupCsvPath());
+    EXPECT_EQ(dst.getDragLookupTable(), src.getDragLookupTable());
+    EXPECT_EQ(dst.getDragLookupCsvRows(), dragRows("2.0"));
+
+    src.setStabilityLookup(std::filesystem::path("other-stability.csv"),
+                           src.getStabilityLookupTable(), src.getStabilityLookupCsvRows());
+    EXPECT_NE(dst.getStabilityLookupCsvPath(), src.getStabilityLookupCsvPath());
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 2);
+    EXPECT_EQ(dst.getStabilityLookupCsvPath(), src.getStabilityLookupCsvPath());
+    EXPECT_EQ(dst.getStabilityLookupTable(), src.getStabilityLookupTable());
+    EXPECT_EQ(dst.getStabilityLookupCsvRows(), stabilityRows("2.0"));
+
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 2);
+}
+
+TEST(SimulationOptions, CopyConditionsFromTakesALookupTableThatAloneDiffers)
+{
+    // Another table object with the same content, path and rows (FixProbe: 1 event, then 2,
+    // then no more).
+    SimulationOptions   src = lookupOptions("2.0");
+    SimulationOptions   dst = src;
+    const ChangeCounter events(dst.changed());
+
+    src.setDragLookup(lookupCsv(), parseTable(dragRows("2.0"), dragColumns()), dragRows("2.0"));
+    EXPECT_NE(dst.getDragLookupTable(), src.getDragLookupTable());
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_EQ(dst.getDragLookupTable(), src.getDragLookupTable());
+
+    src.setStabilityLookup(lookupCsv(), parseTable(stabilityRows("2.0"), stabilityColumns()),
+                           stabilityRows("2.0"));
+    EXPECT_NE(dst.getStabilityLookupTable(), src.getStabilityLookupTable());
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 2);
+    EXPECT_EQ(dst.getStabilityLookupTable(), src.getStabilityLookupTable());
+
+    dst.copyConditionsFrom(src);
+    EXPECT_EQ(events.count(), 2);
+}
+
 TEST(SimulationOptions, CopyConditionsFromTakesTheSeedOnlyWithAChange)
 {
     // A seed that is not fixed is no difference: nothing is announced, nothing is taken.
@@ -1928,6 +2206,169 @@ TEST(SimulationOptions, CopyConditionsFromKeepsConnectionsAndPreferences)
     EXPECT_EQ(preferences.get(Keys::kSimulationStepperMethod), "RK4");
     // The source is only read.
     EXPECT_EQ(src.changed().size(), 1U);
+}
+
+// ------------------------------------------------- what a listener sees when it is called
+
+TEST(SimulationOptions, AListenerSeesTheNewValue)
+{
+    // Every setter stores before it announces: a listener that reads the options (a bound
+    // control, a simulation marking itself outdated) finds the new value. FixProbe: 2.5; true;
+    // true; RK6 with the preference RK6 already.
+    InMemoryPreferences preferences;
+    SimulationOptions   options(preferences);
+    const StateRecorder recorder(options, preferences);
+
+    options.setLaunchRodLength(2.5);
+    ASSERT_EQ(recorder.seen().size(), 1U);
+    EXPECT_EQ(recorder.seen().back().values, describe(options));
+    EXPECT_EQ(options.getLaunchRodLength(), 2.5);
+
+    options.setDragLookup(std::nullopt, parseTable(dragRows("2"), dragColumns()));
+    ASSERT_EQ(recorder.seen().size(), 2U);
+    EXPECT_EQ(recorder.seen().back().values, describe(options));
+    EXPECT_TRUE(options.hasDragLookup());
+
+    options.setStabilityLookup(std::nullopt, parseTable(stabilityRows("2"), stabilityColumns()));
+    ASSERT_EQ(recorder.seen().size(), 3U);
+    EXPECT_EQ(recorder.seen().back().values, describe(options));
+    EXPECT_TRUE(options.hasStabilityLookup());
+
+    // The choice is in the preferences before the listeners hear of it.
+    options.setSimulationStepperMethodChoice(SimulationStepperMethod::RK6);
+    ASSERT_EQ(recorder.seen().size(), 4U);
+    EXPECT_EQ(recorder.seen().back().values, describe(options));
+    EXPECT_EQ(options.getSimulationStepperMethodChoice(), SimulationStepperMethod::RK6);
+    EXPECT_EQ(recorder.seen().back().storedStepper, "RK6");
+}
+
+TEST(SimulationOptions, TheIsaConditionsAnnounceThemselvesBeforeTheFlagDoes)
+{
+    // Switching the ISA on stores the flag, then sets the three conditions, each announcing
+    // itself, and announces itself last (FixProbe: four events, the flag set in all of them).
+    InMemoryPreferences preferences;
+    SimulationOptions   options(preferences);
+    options.setIsaAtmosphere(false);
+    options.setLaunchAltitude(200);
+    options.setLaunchTemperature(300);
+    options.setLaunchPressure(90000);
+    options.setLaunchRelativeHumidity(0.5);
+    const StateRecorder recorder(options, preferences);
+
+    options.setIsaAtmosphere(true);
+    ASSERT_EQ(recorder.seen().size(), 4U);
+    // The temperature's own event: the ISA temperature, the old pressure and humidity.
+    EXPECT_TRUE(recorder.seen()[0].isa);
+    EXPECT_EQ(recorder.seen()[0].temperature, options.getLaunchTemperature());
+    EXPECT_EQ(recorder.seen()[0].pressure, 90000.0);
+    EXPECT_EQ(recorder.seen()[0].humidity, 0.5);
+    // The pressure's.
+    EXPECT_EQ(recorder.seen()[1].pressure, options.getLaunchPressure());
+    EXPECT_EQ(recorder.seen()[1].humidity, 0.5);
+    // The humidity's, and the flag's own, which sees nothing new.
+    EXPECT_EQ(recorder.seen()[2].humidity, 0.0);
+    EXPECT_EQ(recorder.seen()[3].values, recorder.seen()[2].values);
+    EXPECT_EQ(recorder.seen()[3].values, describe(options));
+    EXPECT_TRUE(isJavaValue(kIsaTemperature200, options.getLaunchTemperature()));
+    EXPECT_TRUE(isJavaValue(kIsaPressure200, options.getLaunchPressure()));
+}
+
+TEST(SimulationOptions, TheAltitudeIsStoredBeforeTheIsaConditionsAnnounceThemselves)
+{
+    // FixProbe: three events, all at 100 m; the first with the ISA temperature and the old
+    // pressure.
+    InMemoryPreferences preferences;
+    SimulationOptions   options(preferences);
+    const StateRecorder recorder(options, preferences);
+
+    options.setLaunchAltitude(100);
+    ASSERT_EQ(recorder.seen().size(), 3U);
+    EXPECT_EQ(recorder.seen()[0].altitude, 100.0);
+    EXPECT_EQ(recorder.seen()[0].temperature, options.getLaunchTemperature());
+    EXPECT_EQ(recorder.seen()[0].pressure, 101325.0);
+    EXPECT_EQ(recorder.seen()[1].altitude, 100.0);
+    EXPECT_EQ(recorder.seen()[1].pressure, options.getLaunchPressure());
+    EXPECT_EQ(recorder.seen()[2].values, describe(options));
+    EXPECT_TRUE(isJavaValue(kIsaTemperature100, options.getLaunchTemperature()));
+    EXPECT_TRUE(isJavaValue(kIsaPressure100, options.getLaunchPressure()));
+}
+
+/// Whether a listener of options whose @p field is changed finds, at the last event of that
+/// change, every value the options have afterwards; false also when nothing was announced.
+[[nodiscard]] bool listenerSeesTheChange(Field field)
+{
+    InMemoryPreferences preferences;
+    SimulationOptions   options(preferences);
+    options.setIsaAtmosphere(false);
+    const StateRecorder recorder(options, preferences);
+    change(options, field);
+    return !recorder.seen().empty() && recorder.seen().back().values == describe(options);
+}
+
+TEST(SimulationOptions, AListenerSeesTheChangedLaunchRodAndWind)
+{
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_ROD_LENGTH));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_INTO_WIND));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_ROD_ANGLE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_ROD_DIRECTION));
+    EXPECT_TRUE(listenerSeesTheChange(Field::WIND_MODEL_TYPE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::AVERAGE_WIND));
+    EXPECT_TRUE(listenerSeesTheChange(Field::MULTI_LEVEL_WIND));
+}
+
+TEST(SimulationOptions, AListenerSeesTheChangedLaunchSiteAndAtmosphere)
+{
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_ALTITUDE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_LATITUDE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_LONGITUDE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::GEODETIC_COMPUTATION));
+    EXPECT_TRUE(listenerSeesTheChange(Field::USE_ISA));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_TEMPERATURE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_PRESSURE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::LAUNCH_HUMIDITY));
+}
+
+TEST(SimulationOptions, AListenerSeesTheChangedStepperGravityThresholdsAndLookups)
+{
+    EXPECT_TRUE(listenerSeesTheChange(Field::TIME_STEP));
+    EXPECT_TRUE(listenerSeesTheChange(Field::MAX_SIMULATION_TIME));
+    EXPECT_TRUE(listenerSeesTheChange(Field::MAXIMUM_ANGLE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::GRAVITY_MODEL_TYPE));
+    EXPECT_TRUE(listenerSeesTheChange(Field::CONSTANT_GRAVITY));
+    EXPECT_TRUE(listenerSeesTheChange(Field::STEPPER));
+    EXPECT_TRUE(listenerSeesTheChange(Field::RECOVERY_SPEED_WARNING));
+    EXPECT_TRUE(listenerSeesTheChange(Field::DROGUE_LOW_SPEED_WARNING));
+    EXPECT_TRUE(listenerSeesTheChange(Field::MAIN_HIGH_SPEED_WARNING));
+    EXPECT_TRUE(listenerSeesTheChange(Field::MAIN_LOW_SPEED_WARNING));
+    EXPECT_TRUE(listenerSeesTheChange(Field::DRAG_LOOKUP));
+    EXPECT_TRUE(listenerSeesTheChange(Field::STABILITY_LOOKUP));
+    EXPECT_TRUE(listenerSeesTheChange(Field::SEED_FIXED));
+    // A generated seed is not announced at all.
+    EXPECT_FALSE(listenerSeesTheChange(Field::SEED));
+}
+
+/// copyConditionsFrom() of options with every option changed: how many of the events a
+/// listener of the target hears show it every value the target has afterwards, how many events
+/// there are, and whether the target then has the source's values.
+[[nodiscard]] std::string eventsThatSeeTheCopiedConditions()
+{
+    InMemoryPreferences preferences;
+    SimulationOptions   src;
+    populate(src);
+    SimulationOptions   dst(preferences);
+    const StateRecorder recorder(dst, preferences);
+    dst.copyConditionsFrom(src);
+    const std::string result = describe(dst);
+    return std::format("{} of {} {}",
+                       std::ranges::count(recorder.seen(), result, &SeenState::values),
+                       recorder.seen().size(), result == describe(src));
+}
+
+TEST(SimulationOptions, AListenerSeesTheCopiedConditions)
+{
+    // The two wind models and the options announce the copy only after every condition has
+    // been taken (FixProbe).
+    EXPECT_EQ(eventsThatSeeTheCopiedConditions(), "3 of 3 true");
 }
 
 // ------------------------------------------------------------------ equality and hashing
@@ -2048,6 +2489,18 @@ TEST(SimulationOptions, ToStringOfChangedOptions)
     options.setGeodeticComputation(GeodeticComputationStrategy::WGS84);
     EXPECT_NE(options.toString().find("    geodeticComputation:  WGS84 ellipsoid\n"),
               std::string::npos);
+}
+
+TEST(SimulationOptions, ToStringPrintsTheStoredRodDirectionWhileLaunchingIntoTheWind)
+{
+    // Java prints the field, not getLaunchRodDirection().
+    SimulationOptions options;
+    options.setLaunchRodDirection(1.0);
+    EXPECT_TRUE(options.getLaunchIntoWind());
+    EXPECT_EQ(options.getLaunchRodDirection(), kPi / 2);
+    const std::string text = options.toString();
+    EXPECT_NE(text.find("    launchRodDirection:  1.000000\n"), std::string::npos) << text;
+    EXPECT_EQ(text.find("    launchRodDirection:  1.570796\n"), std::string::npos) << text;
 }
 
 TEST(SimulationOptions, ToStringNeverFails)
@@ -2257,6 +2710,40 @@ TEST(SimulationLookupCopy, ChangedRowsAreCopiedAndNotifyEvenWhenTablesAreShared)
     EXPECT_EQ(events.count(), 1) << "Copying unchanged conditions should not notify again";
     source.clearDragLookup();
     EXPECT_EQ(target.getDragLookupCsvRows(), rows);
+}
+
+// The stability twin of testChangedRowsAreCopiedAndNotifyEvenWhenTablesAreShared, which the JUnit
+// test leaves out (FixProbe: 1 event and the rows; still 1; 2 and null once the source has none;
+// and the copied rows stay when the source's lookup is cleared).
+TEST(SimulationLookupCopy, ChangedStabilityRowsAreCopiedAndNotifyEvenWhenTablesAreShared)
+{
+    SimulationOptions              source = lookupOptions("2.0");
+    SimulationOptions              target = source;
+    const std::vector<std::string> rows{"# edited comment", "Mach,Cn,Cm,Cp", "0,1,1,2", "1,1,1,2"};
+    source.setStabilityLookup(lookupCsv(), source.getStabilityLookupTable(), rows);
+    const ChangeCounter events(target.changed());
+
+    target.copyConditionsFrom(source);
+
+    EXPECT_EQ(target.getStabilityLookupCsvRows(), rows);
+    EXPECT_EQ(events.count(), 1);
+    target.copyConditionsFrom(source);
+    EXPECT_EQ(events.count(), 1) << "Copying unchanged conditions should not notify again";
+
+    // Rows that the source no longer has are cleared, and that is a change too.
+    source.setStabilityLookup(lookupCsv(), source.getStabilityLookupTable(), std::nullopt);
+    target.copyConditionsFrom(source);
+    EXPECT_EQ(events.count(), 2);
+    EXPECT_EQ(target.getStabilityLookupCsvRows(), std::nullopt);
+    EXPECT_EQ(target.getStabilityLookupTable(), source.getStabilityLookupTable());
+    // The drag rows were never touched.
+    EXPECT_EQ(target.getDragLookupCsvRows(), dragRows("2.0"));
+
+    // The copy holds its own rows: clearing the source's leaves them.
+    source.setStabilityLookup(lookupCsv(), source.getStabilityLookupTable(), rows);
+    target.copyConditionsFrom(source);
+    source.clearStabilityLookup();
+    EXPECT_EQ(target.getStabilityLookupCsvRows(), rows);
 }
 
 // The part of SimulationLookupCopyTest.testCopiedLookupsSurviveSaveAndReloadWithoutExternalFiles

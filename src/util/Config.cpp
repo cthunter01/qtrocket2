@@ -185,8 +185,6 @@ struct JavaEquals
 
 }  // namespace
 
-Config::Value::Value(bool value) noexcept : m_data(value) { }
-
 Config::Value::Value(float value) noexcept : m_data(value) { }
 
 Config::Value::Value(double value) noexcept : m_data(value) { }
@@ -363,6 +361,20 @@ std::vector<std::string> Config::keySet() const
         keys.push_back(key);
     }
     return keys;
+}
+
+bool Config::sameEntries(const Config& other) const
+{
+    // The keys of a Config are distinct, so equal counts and every key of this one in the other
+    // make the two key sets equal.
+    if (m_entries.size() != other.m_entries.size())
+    {
+        return false;
+    }
+    return std::ranges::all_of(m_entries, [&other](const std::pair<std::string, Value>& entry) {
+        const Value* const value = other.find(entry.first);
+        return value != nullptr && *value == entry.second;
+    });
 }
 
 }  // namespace QtRocket

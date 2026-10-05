@@ -75,6 +75,11 @@ class Preferences;
 ///   conditions come from the user and ExtendedIsaModel refuses some of them.
 /// - The random seed comes from std::random_device where Java draws new Random().nextInt().
 /// - getChangeListeners() is not ported (changed().size() counts the connections).
+/// - getLaunchRodDirection() asks a copy of the multi-level wind model for the wind at the
+///   launch altitude, where Java asks the model itself and so restarts its random sources. The
+///   direction is the same (the wind at time 0 depends on the levels and their seeds only), and
+///   the const members of the options write nothing: they may be called from several threads
+///   at once while no thread changes the options.
 /// - toString() names the atmospheric model and the two wind models by their class only, where
 ///   Java prints Object.toString() with an identity hash, and it never fails (Java builds the
 ///   atmospheric model first, which throws for launch conditions the model refuses).
@@ -121,8 +126,8 @@ public:
 
     /// The direction of the launch rod. When launching into the wind it is the wind direction
     /// reduced to 0 ... 2 pi: the average wind model's direction, or with the multi-level model
-    /// the direction of its wind at time 0 and the launch altitude (asking for which starts that
-    /// model's random sources again, as in Java). Otherwise it is the stored direction.
+    /// the direction of its wind at time 0 and the launch altitude. Otherwise it is the stored
+    /// direction. Like every const member it only reads (see the class comment).
     [[nodiscard]] double getLaunchRodDirection() const override;
     /// Stores the direction reduced to 0 ... 2 pi and emits changed(), unless the reduced
     /// direction equals the stored one. The stored direction only shows when not launching into
@@ -252,9 +257,12 @@ public:
     /// The atmospheric model of the launch conditions: the standard ISA model when the ISA is in
     /// use (one model shared by every caller, as Java's ISA_ATMOSPHERIC_MODEL), otherwise a new
     /// ExtendedIsaModel fitted to the launch altitude, temperature, pressure and humidity. Fails
-    /// with ExtendedIsaModel::create()'s Error when the model refuses those conditions (Java:
-    /// IllegalArgumentException from the constructor), such as a temperature that is not
-    /// positive. Public for SimulationConditions (see the class comment).
+    /// with ExtendedIsaModel::create()'s Error when the model refuses those conditions, such as
+    /// a temperature that is not positive. Java throws IllegalArgumentException for the same
+    /// conditions, but not always as early: for some (36 K at 11 km) its constructor succeeds
+    /// and only the first getConditions() of the run throws. A caller takes this Error for
+    /// Java's exception at either point. Public for SimulationConditions (see the class
+    /// comment).
     [[nodiscard]] Result<std::shared_ptr<const AtmosphericModel>> getAtmosphericModel() const;
 
     // -------------------------------------------------------------------- stepper limits

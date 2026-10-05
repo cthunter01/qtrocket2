@@ -47,12 +47,18 @@ static_assert(!std::is_copy_assignable_v<AbstractSimulationExtension>);
 static_assert(!std::is_constructible_v<AbstractSimulationExtensionProvider, std::string,
                                        AbstractSimulationExtensionProvider::Factory,
                                        std::vector<std::string>>);
+// Nor can the base part of a provider be copied or moved out of a subclass, or assigned to.
+static_assert(!std::is_copy_constructible_v<AbstractSimulationExtensionProvider>);
+static_assert(!std::is_move_constructible_v<AbstractSimulationExtensionProvider>);
+static_assert(!std::is_copy_assignable_v<AbstractSimulationExtensionProvider>);
+static_assert(!std::is_move_assignable_v<AbstractSimulationExtensionProvider>);
 
 /// OpenRocket's class name of the extension the tests port the shape of.
 constexpr std::string_view kAirStartId =
     "info.openrocket.core.simulation.extension.example.AirStart";
 
-/// Counts the emissions of a signal while it lives.
+/// Counts the emissions of a signal while it lives. The count is mutable: the slot changes it
+/// through the `this` the constructor captured, also when the counter is declared const.
 class ChangeCounter
 {
 public:
@@ -64,7 +70,7 @@ public:
     [[nodiscard]] int count() const noexcept { return m_count; }
 
 private:
-    int                                  m_count{0};
+    mutable int                          m_count{0};
     QtRocket::Signal<>::ScopedConnection m_connection;
 };
 
@@ -211,6 +217,14 @@ private:
     std::vector<std::string> m_ids;
 };
 
+// A subclass is copied as a whole, and is not assigned to either.
+static_assert(std::is_copy_constructible_v<ManyIdsProvider>);
+static_assert(std::is_move_constructible_v<ManyIdsProvider>);
+static_assert(!std::is_copy_assignable_v<ManyIdsProvider>);
+static_assert(!std::is_move_assignable_v<ManyIdsProvider>);
+static_assert(
+    !std::is_constructible_v<AbstractSimulationExtensionProvider, const ManyIdsProvider&>);
+
 /// A provider whose factory is whatever the test passes.
 class FactoryProvider final : public AbstractSimulationExtensionProvider
 {
@@ -231,6 +245,18 @@ public:
 [[nodiscard]] std::unique_ptr<SimulationExtension> noExtension()
 {
     return nullptr;
+}
+
+/// Calls setConfig(@p config) on @p extension and returns whether a listener, at the moment the
+/// change is announced, finds @p key in the extension's configuration.
+[[nodiscard]] bool listenerSeesKeyWhenTheConfigIsSet(AbstractSimulationExtension& extension,
+                                                     const Config& config, std::string_view key)
+{
+    bool                                       seen = false;
+    const QtRocket::Signal<>::ScopedConnection connection{extension.changed().connect(
+        [&seen, &extension, key] { seen = extension.getConfig().containsKey(key); })};
+    extension.setConfig(config);
+    return seen;
 }
 
 // ------------------------------------------------------------ AbstractSimulationExtension
@@ -326,6 +352,17 @@ TEST(AbstractSimulationExtension, SetConfigCopiesAndAnnounces)
     airStart.setConfig(Config{});
     EXPECT_EQ(events.count(), 3);
     EXPECT_EQ(airStart.getLaunchAltitude(), 100.0);
+}
+
+TEST(AbstractSimulationExtension, AListenerSeesTheNewConfiguration)
+{
+    // Java: `this.config = config.clone(); fireChangeEvent();`, in that order (FixProbe).
+    AirStart airStart;
+    Config   config;
+    config.put("launchAltitude", 250.0);
+    EXPECT_TRUE(listenerSeesKeyWhenTheConfigIsSet(airStart, config, "launchAltitude"));
+    // And the old configuration is gone by then.
+    EXPECT_FALSE(listenerSeesKeyWhenTheConfigIsSet(airStart, Config{}, "launchAltitude"));
 }
 
 TEST(AbstractSimulationExtension, ASubclassSetterAnnouncesItsChange)
@@ -494,6 +531,29 @@ TEST(AbstractSimulationExtensionProvider, ASubclassWithSeveralIdsNamesOnlyTheFir
     EXPECT_EQ(provider.getName("test.First"), (std::vector<std::string>{"Menu", "Entry"}));
     EXPECT_EQ(provider.getName("test.LegacyName"), std::nullopt);
     const std::unique_ptr<SimulationExtension> extension = provider.getInstance("test.LegacyName");
+    ASSERT_NE(extension, nullptr);
+    EXPECT_EQ(extension->getId(), "test.First");
+}
+
+TEST(AbstractSimulationExtensionProvider, TheNameBelongsToTheFirstIdNotToTheConstructorsId)
+{
+    // Java: `if (id.equals(getIds().get(0)))`. ManyIdsProvider gives the constructor
+    // "test.First"; here getIds() returns that id second.
+    const ManyIdsProvider provider({"test.Renamed", "test.First"});
+    EXPECT_EQ(provider.getName("test.Renamed"), (std::vector<std::string>{"Menu", "Entry"}));
+    EXPECT_EQ(provider.getName("test.First"), std::nullopt);
+}
+
+TEST(AbstractSimulationExtensionProvider, ACopyOfASubclassKeepsItsOverrides)
+{
+    std::optional<ManyIdsProvider> original(std::in_place,
+                                            std::vector<std::string>{"test.Renamed", "test.First"});
+    const ManyIdsProvider          copy(*original);
+    original.reset();
+    EXPECT_EQ(copy.getIds(), (std::vector<std::string>{"test.Renamed", "test.First"}));
+    EXPECT_EQ(copy.getName("test.Renamed"), (std::vector<std::string>{"Menu", "Entry"}));
+    EXPECT_EQ(copy.getName("test.First"), std::nullopt);
+    const std::unique_ptr<SimulationExtension> extension = copy.getInstance("test.Renamed");
     ASSERT_NE(extension, nullptr);
     EXPECT_EQ(extension->getId(), "test.First");
 }

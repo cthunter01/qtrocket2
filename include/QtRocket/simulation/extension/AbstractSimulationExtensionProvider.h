@@ -34,12 +34,22 @@ namespace QtRocket
 ///         }
 ///     };
 ///
+/// Java's class is abstract. Here every member has a default, so the class is kept from being
+/// used on its own by its protected constructors: only a subclass can make or copy one (a copy
+/// made of the base part alone would lose the subclass's overrides), and there is no assignment.
+///
 /// Not ported: the injected Translator (the protected field trans).
 class AbstractSimulationExtensionProvider : public SimulationExtensionProvider
 {
 public:
     /// Makes a new extension with its default configuration; never null.
     using Factory = std::function<std::unique_ptr<SimulationExtension>()>;
+
+    ~AbstractSimulationExtensionProvider() override = default;
+
+    AbstractSimulationExtensionProvider& operator=(const AbstractSimulationExtensionProvider&) =
+        delete;
+    AbstractSimulationExtensionProvider& operator=(AbstractSimulationExtensionProvider&&) = delete;
 
     /// By default, the one id given to the constructor.
     [[nodiscard]] std::vector<std::string> getIds() const override;
@@ -63,6 +73,10 @@ protected:
     /// @throws BugError when @p factory is empty
     AbstractSimulationExtensionProvider(std::string extensionId, Factory factory,
                                         std::vector<std::string> name);
+
+    /// For a subclass's own copy and move (see the class comment).
+    AbstractSimulationExtensionProvider(const AbstractSimulationExtensionProvider&) = default;
+    AbstractSimulationExtensionProvider(AbstractSimulationExtensionProvider&&)      = default;
 
     /// The id of the extension (Java: the protected field extensionClass, as its name).
     [[nodiscard]] const std::string& getExtensionId() const noexcept { return m_extensionId; }

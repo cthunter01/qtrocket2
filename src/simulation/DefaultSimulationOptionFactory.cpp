@@ -72,6 +72,11 @@ void DefaultSimulationOptionFactory::saveDefault(const SimulationOptions& newDef
     destinationWind.setAverage(sourceWind.getAverage());
     destinationWind.setStandardDeviation(sourceWind.getStandardDeviation());
     destinationWind.setDirection(sourceWind.getDirection());
+    // Java's keys always describe the model its preferences keep, which stored itself when it
+    // was first loaded. The model here was loaded just now, without storing: a key that does not
+    // describe it (an intensity left over from a wind whose average is now zero, or one a
+    // rounding step away from deviation / average) would be read again by the next call.
+    destinationWind.storeTo(prefs);
 
     prefs.setLaunchLatitude(newDefaults.getLaunchLatitude());
     prefs.setLaunchLongitude(newDefaults.getLaunchLongitude());

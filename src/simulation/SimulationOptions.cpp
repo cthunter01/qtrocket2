@@ -114,9 +114,15 @@ constexpr double kMaximumStepAngle = 20 * std::numbers::pi / 180;
         absolute = *path;
     }
     std::filesystem::path normal = absolute.lexically_normal();
-    // A Java Path never ends in a separator; lexically_normal() keeps the one of "a/b/".
-    if (!normal.has_filename() && normal.has_relative_path())
+    if (!normal.has_relative_path())
     {
+        // A root written with more separators than it needs ("//") is the root itself ("/"), as
+        // in Java; lexically_normal() may keep the spelling.
+        normal = normal.root_path();
+    }
+    else if (!normal.has_filename())
+    {
+        // A Java Path never ends in a separator; lexically_normal() keeps the one of "a/b/".
         normal = normal.parent_path();
     }
     return normal;
@@ -304,7 +310,12 @@ double SimulationOptions::getLaunchRodDirection() const
         }
         else
         {
-            windDirection = m_multiLevelPinkNoiseWindModel->getWindDirection(0, m_launchAltitude);
+            // Asked of a copy, which has the same levels and seeds and random sources of its
+            // own: the wind at time 0 depends on nothing else, so this is the direction Java gets
+            // from the model itself, and the getter writes nothing. (Java's getter restarts the
+            // model's random sources, which changes none of the winds the model gives later.)
+            windDirection = MultiLevelPinkNoiseWindModel(*m_multiLevelPinkNoiseWindModel)
+                                .getWindDirection(0, m_launchAltitude);
         }
         return MathUtil::reduce2Pi(windDirection);
     }

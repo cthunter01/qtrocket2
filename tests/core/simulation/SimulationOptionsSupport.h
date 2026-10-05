@@ -29,7 +29,8 @@ namespace QtRocket::Test
 {
 
 /// Counts the emissions of a signal while it lives (Java's tests count with an AtomicInteger in
-/// a StateChangeListener).
+/// a StateChangeListener). The count is mutable: the slot changes it through the `this` the
+/// constructor captured, also when the counter is declared const, as most tests declare it.
 class ChangeCounter
 {
 public:
@@ -43,7 +44,7 @@ public:
     void               reset() noexcept { m_count = 0; }
 
 private:
-    int                        m_count{0};
+    mutable int                m_count{0};
     Signal<>::ScopedConnection m_connection;
 };
 

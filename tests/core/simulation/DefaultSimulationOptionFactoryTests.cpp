@@ -685,6 +685,67 @@ TEST_F(DefaultSimulationOptionFactoryTest, SaveDefaultWhileLaunchingIntoTheWind)
     EXPECT_EQ(reloaded.getAverageWindModel().getStandardDeviation(), 0.0);
 }
 
+TEST_F(DefaultSimulationOptionFactoryTest, SavingACalmWindReplacesAStaleTurbulenceIntensity)
+{
+    // FixProbe: WindTurbulence is 1.0 after the first save and 0.0 after the second, and with
+    // the average set to 5 m/s afterwards getDefault() has 5 m/s without a deviation. (The
+    // model loaded for the second save is calm already, since the intensity of a wind without an
+    // average gives no deviation: no setter changes it, and the key is stored all the same.)
+    SimulationOptions gusty(m_preferences);
+    gusty.getAverageWindModel().setStandardDeviation(0.5);
+    m_factory.saveDefault(gusty);
+    EXPECT_EQ(m_preferences.getWindAverage(), 0.0);
+    EXPECT_EQ(m_preferences.getWindTurbulenceIntensity(), 1.0);
+
+    const SimulationOptions calm(m_preferences);
+    EXPECT_EQ(calm.getAverageWindModel().getAverage(), 0.0);
+    EXPECT_EQ(calm.getAverageWindModel().getStandardDeviation(), 0.0);
+    ChangeCounter events(m_preferences.changed());
+    m_factory.saveDefault(calm);
+    EXPECT_EQ(m_preferences.getWindAverage(), 0.0);
+    EXPECT_EQ(m_preferences.getWindTurbulenceIntensity(), 0.0);
+    // The intensity alone changed.
+    EXPECT_EQ(events.count(), 1);
+    events.reset();
+    m_factory.saveDefault(calm);
+    EXPECT_EQ(events.count(), 0);
+
+    // Java: preferences.getAverageWindModel().setAverage(5), which keeps the model's intensity.
+    m_preferences.setWindAverage(5.0);
+    const SimulationOptions defaults = m_factory.getDefault();
+    EXPECT_EQ(defaults.getAverageWindModel().getAverage(), 5.0);
+    EXPECT_EQ(defaults.getAverageWindModel().getStandardDeviation(), 0.0);
+}
+
+TEST_F(DefaultSimulationOptionFactoryTest, SaveDefaultStoresTheIntensityOfTheWindItSaved)
+{
+    // The wind keys as a settings file may hold them: an intensity of 0.1 at 3 m/s is a
+    // deviation of 0.30000000000000004 m/s, whose intensity is 0.10000000000000002. Java stores
+    // that when its preferences first load the wind (FixProbe: WindTurbulence
+    // 0.10000000000000002 after getDefault()); here the first saveDefault() does.
+    m_preferences.putDouble(Keys::kWindAverage, 3.0);
+    m_preferences.putDouble(Keys::kWindTurbulence, 0.1);
+    const SimulationOptions defaults = m_factory.getDefault();
+    EXPECT_EQ(defaults.getAverageWindModel().getAverage(), 3.0);
+    EXPECT_EQ(defaults.getAverageWindModel().getStandardDeviation(), 0.30000000000000004);
+    // Deviation: reading the defaults stores nothing.
+    EXPECT_EQ(m_preferences.getWindTurbulenceIntensity(), 0.1);
+
+    m_factory.saveDefault(defaults);
+    EXPECT_EQ(m_preferences.getWindAverage(), 3.0);
+    EXPECT_EQ(m_preferences.getWindTurbulenceIntensity(), 0.10000000000000002);
+    // The deviation that comes back is the one that was saved.
+    EXPECT_EQ(m_factory.getDefault().getAverageWindModel().getStandardDeviation(),
+              0.30000000000000004);
+
+    // From then on saving the same wind changes nothing.
+    const InMemoryPreferences before = m_preferences;
+    const ChangeCounter       events(m_preferences.changed());
+    m_factory.saveDefault(m_factory.getDefault());
+    EXPECT_EQ(events.count(), 0);
+    EXPECT_TRUE(m_preferences == before);
+}
+
 TEST_F(DefaultSimulationOptionFactoryTest, SaveDefaultWithTheIsaStoresTheIsaConditions)
 {
     SimulationOptions options(m_preferences);
