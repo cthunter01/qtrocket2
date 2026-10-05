@@ -1,9 +1,11 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
     util/BugErrorTests.cpp
     util/ColorTests.cpp
+    util/ConfigTests.cpp
     util/CoordinateTests.cpp
     util/DecimalFormatTests.cpp
     util/FileIoTests.cpp
@@ -174,6 +176,7 @@ add_executable(QtRocket_core_tests
     simulation/AccelerationDataTests.cpp
     simulation/CloneableSimulationListenerTests.cpp
     simulation/DataBranchTests.cpp
+    simulation/DefaultSimulationOptionFactoryTests.cpp
     simulation/EventQueueTests.cpp
     simulation/flight_event_activation_tests.cpp
     simulation/FlightDataBranchTests.cpp
@@ -182,6 +185,10 @@ add_executable(QtRocket_core_tests
     simulation/FlightDataTypeTests.cpp
     simulation/FlightEventTests.cpp
     simulation/SimulationExceptionTests.cpp
+    simulation/SimulationExtensionTests.cpp
+    simulation/SimulationOptionsInterfaceTests.cpp
+    simulation/SimulationOptionsTests.cpp
+    simulation/SimulationStepperMethodTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
