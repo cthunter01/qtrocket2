@@ -1069,6 +1069,12 @@ void expectFactors(const std::array<double, 4>& row)
 
 TEST(Naca1307FinBodyInterference, SlenderBodyFactorsAreJavas)
 {
+    // The row of tau 0.999 is the ill-conditioned one: the braces of the fin factor cancel to
+    // 2e-6 of their terms there, so one ulp of atan(tau) is 1.4e-10 of the fin factor (and of the
+    // slender-body factor, which is its complement), more than the relative 1e-12 of
+    // expectPinned(). The row holds on Linux, macOS and Windows (CI) because glibc, Apple's libm
+    // and the UCRT round these two atan() calls as Java does; a math library that does not would
+    // fail here, and only for that reason.
     // tau, finFactor, slenderBodyFactor, incidenceFactor
     constexpr std::array<std::array<double, 4>, 14> kFactors{{
         {-1.0, 1.0, 0.0, 1.0},

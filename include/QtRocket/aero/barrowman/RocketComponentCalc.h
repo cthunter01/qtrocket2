@@ -14,7 +14,20 @@ class WarningSet;
 /// base drag. A calculator holds one per aerodynamic component and assembly (in a
 /// ComponentCalcMap), made by CalcFactory::create(), a kind() switch over the component
 /// (SymmetricComponentCalc, FinSetCalc, TubeFinSetCalc, LaunchLugCalc, RailButtonCalc,
-/// ComponentAssemblyCalc), which copies the geometry it needs at construction.
+/// ComponentAssemblyCalc).
+///
+/// What a calculation keeps of its component differs from class to class, as in Java:
+/// - FinSetCalc, TubeFinSetCalc and LaunchLugCalc copy the geometry they need at construction
+///   and neither keep the component nor see a later change to it.
+/// - SymmetricComponentCalc copies its geometry at construction too, but computes its
+///   slender-body CNa and CP at the first calculateNonaxialForces() and its pressure drag
+///   interpolator at the first calculatePressureCD() that needs it, and keeps them.
+/// - RailButtonCalc keeps a non-owning pointer to its button and reads the button's dimensions,
+///   instances and position at every call: it must not outlive the button.
+/// - ComponentAssemblyCalc reads nothing.
+/// A change of the component therefore needs a new calculation (the calculators drop theirs
+/// when the rocket's aerodynamic or tree modification id changes, see ComponentCalcMap); a
+/// component outside a rocket, or in one whose events are disabled, announces no change.
 ///
 /// It also holds the CP position helpers shared by the fin calculators: the position along the
 /// mean aerodynamic chord at subsonic, transonic and supersonic speeds.

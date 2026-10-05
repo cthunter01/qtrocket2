@@ -188,6 +188,7 @@ add_executable(QtRocket_core_tests
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
     file/ZipInputStreamTests.cpp
+    goldens/aero_golden_tests.cpp
     goldens/attachment_geometry_golden_tests.cpp
     goldens/body_geometry_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp

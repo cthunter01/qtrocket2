@@ -79,6 +79,44 @@ TEST(Message, SourcesAreComponentsComparedById)
     EXPECT_FALSE(direct == finSet1);
 }
 
+/// What MessageSource::of() asks of a component: its id and its name (the getters of
+/// RocketComponent).
+struct NamedComponent
+{
+    Uuid        id;
+    std::string name;
+
+    [[nodiscard]] const Uuid&        getId() const noexcept { return id; }
+    [[nodiscard]] const std::string& getName() const noexcept { return name; }
+};
+
+TEST(Message, ASourceIsBuiltFromAComponentsIdAndName)
+{
+    NamedComponent      tube{.id = componentId("bt-1"), .name = "Body tube"};
+    const MessageSource made = MessageSource::of(tube);
+    EXPECT_EQ(made.id, componentId("bt-1"));
+    EXPECT_EQ(made.name, "Body tube");
+    EXPECT_TRUE(made == source("bt-1", "Body tube"));
+
+    // The name is a snapshot, the id the identity.
+    tube.name = "Payload bay";
+    EXPECT_EQ(made.name, "Body tube");
+    const MessageSource renamed = MessageSource::of(tube);
+    EXPECT_EQ(renamed.name, "Payload bay");
+    EXPECT_TRUE(renamed == made);
+
+    // A message prints the names of the sources built this way.
+    SimulationAbort abort{SimulationAbort::Cause::NO_ACTIVE_STAGES};
+    abort.setSources(MessageSources{
+        made, MessageSource::of(NamedComponent{.id = componentId("nc-1"), .name = "Nose cone"})});
+    EXPECT_TRUE(abort.toString().ends_with(R"(:  "Body tube", "Nose cone")")) << abort.toString();
+
+    // Only something with an id and a name is a component.
+    static_assert(QtRocket::MessageSourceComponent<NamedComponent>);
+    static_assert(!QtRocket::MessageSourceComponent<std::string>);
+    static_assert(!QtRocket::MessageSourceComponent<MessageSource>);
+}
+
 TEST(Message, TestComponentIdsFollowTheirTags)
 {
     // The test helper: one Uuid per tag, up to the eight characters that fit in the packed half.

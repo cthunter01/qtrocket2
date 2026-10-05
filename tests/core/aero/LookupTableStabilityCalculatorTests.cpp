@@ -97,6 +97,7 @@ struct Configuration
 
 // ---- Ported from LookupTableStabilityCalculatorTest.java ----
 
+// LookupTableStabilityCalculatorTest.interpolatesNonAxialCoefficients
 TEST(LookupTableStabilityCalculator, InterpolatesNonAxialCoefficients)
 {
     const TempDir                  dir;
@@ -122,6 +123,7 @@ TEST(LookupTableStabilityCalculator, InterpolatesNonAxialCoefficients)
     EXPECT_NEAR(MathUtil::javaToRadians(10), calculator.getStallAngle(), kEpsilon);
 }
 
+// LookupTableStabilityCalculatorTest.getCP
 TEST(LookupTableStabilityCalculator, GetCP)
 {
     const TempDir                  dir;
@@ -139,6 +141,7 @@ TEST(LookupTableStabilityCalculator, GetCP)
     EXPECT_NEAR(0, cp.z, kEpsilon);
 }
 
+// LookupTableStabilityCalculatorTest.getStallAngleWithAoA
 TEST(LookupTableStabilityCalculator, GetStallAngleWithAoA)
 {
     const TempDir                  dir;
@@ -156,6 +159,7 @@ TEST(LookupTableStabilityCalculator, GetStallAngleWithAoA)
     EXPECT_NEAR(MathUtil::javaToRadians(10), calculator.getStallAngle(), kEpsilon);
 }
 
+// LookupTableStabilityCalculatorTest.getStallAngleWithoutAoA
 TEST(LookupTableStabilityCalculator, GetStallAngleWithoutAoA)
 {
     const TempDir       dir;
@@ -176,6 +180,7 @@ TEST(LookupTableStabilityCalculator, GetStallAngleWithoutAoA)
     EXPECT_EQ(std::numeric_limits<double>::infinity(), stall);
 }
 
+// LookupTableStabilityCalculatorTest.getForceAnalysis
 TEST(LookupTableStabilityCalculator, GetForceAnalysis)
 {
     const TempDir                  dir;
@@ -198,6 +203,7 @@ TEST(LookupTableStabilityCalculator, GetForceAnalysis)
     EXPECT_NEAR(0.575, total->getCP().x, kEpsilon);
 }
 
+// LookupTableStabilityCalculatorTest.calculateDampingMoments
 TEST(LookupTableStabilityCalculator, CalculateDampingMoments)
 {
     const TempDir                  dir;
@@ -220,6 +226,7 @@ TEST(LookupTableStabilityCalculator, CalculateDampingMoments)
     EXPECT_NEAR(0, total.getYawDampingMoment(), kEpsilon);
 }
 
+// LookupTableStabilityCalculatorTest.checkGeometry
 TEST(LookupTableStabilityCalculator, CheckGeometry)
 {
     const TempDir                  dir;
@@ -233,6 +240,7 @@ TEST(LookupTableStabilityCalculator, CheckGeometry)
     EXPECT_TRUE(warnings.empty());
 }
 
+// LookupTableStabilityCalculatorTest.newInstance
 TEST(LookupTableStabilityCalculator, NewInstance)
 {
     const TempDir                        dir;
@@ -279,6 +287,7 @@ TEST(LookupTableStabilityCalculator, ANullTableIsABug)
     EXPECT_THROW(LookupTableStabilityCalculator{none}, BugError);
 }
 
+// LookupTableStabilityCalculatorTest.voidAerodynamicCache
 TEST(LookupTableStabilityCalculator, VoidAerodynamicCache)
 {
     const TempDir                  dir;
@@ -288,6 +297,7 @@ TEST(LookupTableStabilityCalculator, VoidAerodynamicCache)
     EXPECT_NO_THROW(calculator.voidAerodynamicCache());
 }
 
+// LookupTableStabilityCalculatorTest.setsAllForceCoefficientsToZero
 TEST(LookupTableStabilityCalculator, SetsAllForceCoefficientsToZero)
 {
     const TempDir                  dir;

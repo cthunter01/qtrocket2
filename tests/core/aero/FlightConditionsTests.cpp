@@ -86,6 +86,7 @@ private:
 
 // ---- Ported from FlightConditionsTest.java ----
 
+// FlightConditionsTest.testSetAndGetRefLength
 TEST_F(FlightConditionsTest, SetAndGetRefLength)
 {
     const double expectedLength = m_bodyTube->getOuterRadius() * 2;
@@ -96,6 +97,7 @@ TEST_F(FlightConditionsTest, SetAndGetRefLength)
     EXPECT_NEAR(kPi, m_conditions.getRefArea(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetRefArea
 TEST_F(FlightConditionsTest, SetAndGetRefArea)
 {
     // Get the actual reference area from FlightConditions
@@ -112,6 +114,7 @@ TEST_F(FlightConditionsTest, SetAndGetRefArea)
     EXPECT_NEAR(std::sqrt(newArea / kPi) * 2, m_conditions.getRefLength(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetThrustingNozzleExitArea
 TEST_F(FlightConditionsTest, SetAndGetThrustingNozzleExitArea)
 {
     const double nozzleExitArea = kPi * std::pow(0.010 / 2, 2);
@@ -123,6 +126,7 @@ TEST_F(FlightConditionsTest, SetAndGetThrustingNozzleExitArea)
     EXPECT_NEAR(nozzleExitArea, m_conditions.getThrustingNozzleExitArea(assembly()), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetAOA
 TEST_F(FlightConditionsTest, SetAndGetAOA)
 {
     m_conditions.setAOA(kPi / 4);
@@ -131,12 +135,14 @@ TEST_F(FlightConditionsTest, SetAndGetAOA)
     EXPECT_NEAR(std::sin(kPi / 4) / (kPi / 4), m_conditions.getSincAOA(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetTheta
 TEST_F(FlightConditionsTest, SetAndGetTheta)
 {
     m_conditions.setTheta(kPi / 3);
     EXPECT_NEAR(kPi / 3, m_conditions.getTheta(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetMach
 TEST_F(FlightConditionsTest, SetAndGetMach)
 {
     m_conditions.setMach(0.2);
@@ -164,6 +170,7 @@ TEST_F(FlightConditionsTest, SetAndGetMach)
     EXPECT_NEAR(2.8284271247, m_conditions.getBeta(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetVelocity
 TEST_F(FlightConditionsTest, SetAndGetVelocity)
 {
     const AtmosphericConditions atm;
@@ -176,24 +183,28 @@ TEST_F(FlightConditionsTest, SetAndGetVelocity)
     EXPECT_NEAR(expectedMachSpeed / 2, m_conditions.getVelocity(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetRollRate
 TEST_F(FlightConditionsTest, SetAndGetRollRate)
 {
     m_conditions.setRollRate(5.0);
     EXPECT_NEAR(5.0, m_conditions.getRollRate(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetPitchRate
 TEST_F(FlightConditionsTest, SetAndGetPitchRate)
 {
     m_conditions.setPitchRate(2.5);
     EXPECT_NEAR(2.5, m_conditions.getPitchRate(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetYawRate
 TEST_F(FlightConditionsTest, SetAndGetYawRate)
 {
     m_conditions.setYawRate(1.5);
     EXPECT_NEAR(1.5, m_conditions.getYawRate(), 1e-6);
 }
 
+// FlightConditionsTest.testSetAndGetPitchCenter
 TEST_F(FlightConditionsTest, SetAndGetPitchCenter)
 {
     const Coordinate center{1.0, 2.0, 3.0};
@@ -201,6 +212,7 @@ TEST_F(FlightConditionsTest, SetAndGetPitchCenter)
     EXPECT_EQ(center, m_conditions.getPitchCenter());
 }
 
+// FlightConditionsTest.testClone
 TEST_F(FlightConditionsTest, Clone)
 {
     m_conditions.setAOA(kPi / 6);
@@ -229,6 +241,7 @@ TEST_F(FlightConditionsTest, Clone)
                 cloned.getAtmosphericConditions().getPressure(), 1e-6);
 }
 
+// FlightConditionsTest.testEquals
 TEST_F(FlightConditionsTest, Equals)
 {
     FlightConditions conditions1;
@@ -246,6 +259,7 @@ TEST_F(FlightConditionsTest, Equals)
     EXPECT_FALSE(conditions1 == conditions2);
 }
 
+// FlightConditionsTest.testSetAndGetAtmosphericConditions
 TEST_F(FlightConditionsTest, SetAndGetAtmosphericConditions)
 {
     const AtmosphericConditions atm{280, 90000};
@@ -255,6 +269,7 @@ TEST_F(FlightConditionsTest, SetAndGetAtmosphericConditions)
     EXPECT_NEAR(90000, m_conditions.getAtmosphericConditions().getPressure(), 1e-6);
 }
 
+// FlightConditionsTest.testHumidityOnlyAtmosphericChangeIsApplied
 TEST_F(FlightConditionsTest, HumidityOnlyAtmosphericChangeIsApplied)
 {
     const double                dryDensity = m_conditions.getAtmosphericConditions().getDensity();
@@ -271,6 +286,7 @@ TEST_F(FlightConditionsTest, HumidityOnlyAtmosphericChangeIsApplied)
         << "A humidity-only atmospheric change should fire a change event";
 }
 
+// FlightConditionsTest.testGetVelocityWithChangedAtmosphere
 TEST_F(FlightConditionsTest, GetVelocityWithChangedAtmosphere)
 {
     AtmosphericConditions atm{280, 90000};

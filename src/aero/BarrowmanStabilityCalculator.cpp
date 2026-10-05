@@ -49,12 +49,6 @@ namespace
     return dynamic_cast<const SymmetricComponent*>(&component);
 }
 
-/// @p component as the source of a warning.
-[[nodiscard]] MessageSource sourceOf(const RocketComponent& component)
-{
-    return MessageSource{component.getId(), component.getName()};
-}
-
 /// @p value as the default length unit prints it (Java:
 /// UnitGroup.UNITS_LENGTH.getDefaultUnit().toStringUnit(value)).
 [[nodiscard]] std::string formatLength(double value)
@@ -152,7 +146,7 @@ void checkForwardEnd(const FlightConfiguration& configuration, const SymmetricCo
 
         if (sustainer || hasRecoveryDevice)
         {
-            warnings.add(Warning::kOpenAirframeForward, MessageSources{sourceOf(sym)});
+            warnings.add(Warning::kOpenAirframeForward, MessageSources{MessageSource::of(sym)});
         }
     }
 }
@@ -173,14 +167,16 @@ void checkSeparatedJoint(const SymmetricComponent& prevComp, const SymmetricComp
 {
     if (x.symXfore > x.prevXaft)
     {
-        warnings.add(Warning::kAirframeGap, MessageSources{sourceOf(prevComp), sourceOf(sym)});
+        warnings.add(Warning::kAirframeGap,
+                     MessageSources{MessageSource::of(prevComp), MessageSource::of(sym)});
         return;
     }
 
     if ((x.symXfore >= x.prevXfore) &&
         ((x.symXaft >= x.prevXaft) || (sym.getNextSymmetricComponent() == nullptr)))
     {
-        warnings.add(Warning::kAirframeOverlap, MessageSources{sourceOf(prevComp), sourceOf(sym)});
+        warnings.add(Warning::kAirframeOverlap,
+                     MessageSources{MessageSource::of(prevComp), MessageSource::of(sym)});
         return;
     }
 
@@ -207,11 +203,11 @@ void checkSeparatedJoint(const SymmetricComponent& prevComp, const SymmetricComp
     QTROCKET_ASSERT(parent != nullptr);
     if (lastCompXaft <= firstCompXfore)
     {
-        warnings.add(Warning::kPodsetForward, MessageSources{sourceOf(*parent)});
+        warnings.add(Warning::kPodsetForward, MessageSources{MessageSource::of(*parent)});
     }
     else
     {
-        warnings.add(Warning::kPodsetOverlap, MessageSources{sourceOf(*parent)});
+        warnings.add(Warning::kPodsetOverlap, MessageSources{MessageSource::of(*parent)});
     }
 }
 
@@ -236,7 +232,7 @@ void checkFlushJoint(const SymmetricComponent& prevComp, const SymmetricComponen
     if (onPodOrBooster && MathUtil::equals(x.symXfore, x.prevXaft) &&
         (compParent->getParent() == nextComp))
     {
-        warnings.add(Warning::kPodsetOverlap, MessageSources{sourceOf(*compParent)});
+        warnings.add(Warning::kPodsetOverlap, MessageSources{MessageSource::of(*compParent)});
     }
 }
 
@@ -247,13 +243,13 @@ void checkJoint(const SymmetricComponent& prevComp, const SymmetricComponent& sy
     if (formatLength(2.0 * sym.getForeRadius()) != formatLength(2.0 * prevComp.getAftRadius()))
     {
         warnings.add(Warning::kDiameterDiscontinuity,
-                     MessageSources{sourceOf(prevComp), sourceOf(sym)});
+                     MessageSources{MessageSource::of(prevComp), MessageSource::of(sym)});
     }
 
     if ((sym.getLength() < MathUtil::kEpsilon) ||
         (sym.getAftRadius() < MathUtil::kEpsilon && sym.getForeRadius() < MathUtil::kEpsilon))
     {
-        warnings.add(Warning::kZeroVolumeBody, MessageSources{sourceOf(sym)});
+        warnings.add(Warning::kZeroVolumeBody, MessageSources{MessageSource::of(sym)});
     }
 
     const JointPositions x{

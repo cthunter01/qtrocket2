@@ -34,6 +34,7 @@ constexpr double kInf     = std::numeric_limits<double>::infinity();
 
 // ---- Ported from MachAoALookupTest.java ----
 
+// MachAoALookupTest.interpolatesSingleAxis
 TEST(MachAoALookup, InterpolatesSingleAxis)
 {
     const TempDir dir;
@@ -45,6 +46,7 @@ TEST(MachAoALookup, InterpolatesSingleAxis)
     EXPECT_NEAR(0.40, cd, 1e-9);
 }
 
+// MachAoALookupTest.interpolatesMachAndAoA
 TEST(MachAoALookup, InterpolatesMachAndAoA)
 {
     const TempDir dir;
@@ -57,6 +59,7 @@ TEST(MachAoALookup, InterpolatesMachAndAoA)
     EXPECT_NEAR(0.35, cd, kEpsilon);
 }
 
+// MachAoALookupTest.clampsOutsideRange
 TEST(MachAoALookup, ClampsOutsideRange)
 {
     const TempDir dir;
@@ -72,6 +75,7 @@ TEST(MachAoALookup, ClampsOutsideRange)
     EXPECT_FALSE(table->hasAoA());
 }
 
+// MachAoALookupTest.buildsFromBuilder
 TEST(MachAoALookup, BuildsFromBuilder)
 {
     const auto table = MachAoALookup::builder(cdColumns())
@@ -83,6 +87,7 @@ TEST(MachAoALookup, BuildsFromBuilder)
     EXPECT_NEAR(0.4, table->interpolate(0.5, 0, "cd"), kEpsilon);
 }
 
+// MachAoALookupTest.supportsCustomSeparator
 TEST(MachAoALookup, SupportsCustomSeparator)
 {
     const TempDir dir;

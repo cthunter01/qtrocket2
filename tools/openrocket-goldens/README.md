@@ -253,7 +253,14 @@ damping geometry of the active components across configurations):
   `overrideCD`, `pitchDampingMoment`, `yawDampingMoment`, `axisymmetric`), `components`
   (`getForceAnalysis`: the same fields per component and assembly, with `path`, tree order, as
   OpenRocket returns them, i.e. per instance) and `warnings`;
-- `worstCP`: per Mach number at AoA 0, `getWorstCP` (`cp` and the `theta` it found).
+- `worstCP`: per Mach number at AoA 0, `getWorstCP` (`cp` and the `theta` it found). The `theta`
+  is meaningful only where the CP depends on the wind direction (of the test rockets: the
+  Iso-Haisu, with its two control fins). With three or four equal fins the 360 CPs that
+  `getWorstCP` tries differ by a few units in the last place, and the direction that happens to
+  give the smallest x follows the order in which OpenRocket sums the components (the order of
+  their ids) and the last bit of the sines: another run of OpenRocket with other ids finds another
+  direction. A port compares the `cp`, and the `theta` as "an equally bad direction"
+  (`compareWorstTheta()` in `tests/core/goldens/aero_golden_tests.cpp`).
 
 ### sim_&lt;NN&gt;_&lt;name&gt;.json and the branch CSV files
 

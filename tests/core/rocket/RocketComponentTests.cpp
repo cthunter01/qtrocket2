@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/logging/Message.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
@@ -1850,6 +1852,34 @@ TEST(ComponentKind, ClassChainsFeedThePerClassPreferences)
     EXPECT_EQ(prefs.getDefaultLineStyle(QtRocket::componentClassChain(ComponentKind::BODY_TUBE)),
               LineStyle::SOLID)
         << "RocketComponent";
+}
+
+// ---- A component as the source of a message (logging/Message.h) ----
+
+TEST(RocketComponent, IsAMessageSourceByItsIdAndName)
+{
+    BodyTube tube;
+    tube.setName("Payload bay");
+    const QtRocket::MessageSource source = QtRocket::MessageSource::of(tube);
+    EXPECT_EQ(source.id, tube.getId());
+    EXPECT_EQ(source.name, "Payload bay");
+
+    // Through a reference to the base class as well: the id and the name are the component's.
+    const RocketComponent& component = tube;
+    EXPECT_TRUE(QtRocket::MessageSource::of(component) == source);
+
+    // A warning prints the name the component had when the source was made, and stays the
+    // warning of that component when it is renamed (equality is by id).
+    QtRocket::Warning::Other warning = QtRocket::Warning::kOpenAirframeForward;
+    warning.setSources(QtRocket::MessageSources{source});
+    tube.setName("Booster tube");
+    EXPECT_EQ(warning.toString(), R"(Open forward airframe (diameter > 0):  "Payload bay")");
+    EXPECT_TRUE(warning.sources().front() == QtRocket::MessageSource::of(tube));
+
+    // Another component, even one of the same name, is another source.
+    BodyTube other;
+    other.setName("Payload bay");
+    EXPECT_FALSE(QtRocket::MessageSource::of(other) == source);
 }
 
 }  // namespace

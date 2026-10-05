@@ -79,6 +79,7 @@ struct Configuration
 
 // ---- Ported from LookupTableDragCalculatorTest.java ----
 
+// LookupTableDragCalculatorTest.usesTableCdValue
 TEST(LookupTableDragCalculator, UsesTableCdValue)
 {
     const TempDir             dir;
@@ -102,6 +103,7 @@ TEST(LookupTableDragCalculator, UsesTableCdValue)
     EXPECT_NEAR(0, total.getBaseCD(), kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.interpolatesWithAoA
 TEST(LookupTableDragCalculator, InterpolatesWithAoA)
 {
     const TempDir             dir;
@@ -122,6 +124,7 @@ TEST(LookupTableDragCalculator, InterpolatesWithAoA)
     EXPECT_NEAR(0.35, total.getCD(), kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.toAxialDragWithZeroAOA
 TEST(LookupTableDragCalculator, ToAxialDragWithZeroAOA)
 {
     const TempDir                   dir;
@@ -136,6 +139,7 @@ TEST(LookupTableDragCalculator, ToAxialDragWithZeroAOA)
     EXPECT_NEAR(cd, axial, kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.toAxialDragWithSmallAOA
 TEST(LookupTableDragCalculator, ToAxialDragWithSmallAOA)
 {
     const TempDir                   dir;
@@ -153,6 +157,7 @@ TEST(LookupTableDragCalculator, ToAxialDragWithSmallAOA)
     EXPECT_GT(axial, 0);
 }
 
+// LookupTableDragCalculatorTest.toAxialDragWithLargeAOA
 TEST(LookupTableDragCalculator, ToAxialDragWithLargeAOA)
 {
     const TempDir                   dir;
@@ -168,6 +173,7 @@ TEST(LookupTableDragCalculator, ToAxialDragWithLargeAOA)
     EXPECT_GT(axial, 0);
 }
 
+// LookupTableDragCalculatorTest.toAxialDragWithNegativeAOA
 TEST(LookupTableDragCalculator, ToAxialDragWithNegativeAOA)
 {
     const TempDir                   dir;
@@ -182,6 +188,7 @@ TEST(LookupTableDragCalculator, ToAxialDragWithNegativeAOA)
     EXPECT_LE(std::abs(axial), cd);
 }
 
+// LookupTableDragCalculatorTest.toAxialDragWithAOAOver90Degrees
 TEST(LookupTableDragCalculator, ToAxialDragWithAOAOver90Degrees)
 {
     const TempDir                   dir;
@@ -196,6 +203,7 @@ TEST(LookupTableDragCalculator, ToAxialDragWithAOAOver90Degrees)
     EXPECT_LT(axial, 0);
 }
 
+// LookupTableDragCalculatorTest.zerosComponentForces
 TEST(LookupTableDragCalculator, ZerosComponentForces)
 {
     const TempDir             dir;
@@ -225,6 +233,7 @@ TEST(LookupTableDragCalculator, ZerosComponentForces)
     EXPECT_NEAR(0, zeroed.getCDaxial(), kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.zerosAssemblyForces
 TEST(LookupTableDragCalculator, ZerosAssemblyForces)
 {
     const TempDir             dir;
@@ -254,6 +263,7 @@ TEST(LookupTableDragCalculator, ZerosAssemblyForces)
     EXPECT_NEAR(0, zeroed.getCDaxial(), kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.handlesNullComponentForces
 TEST(LookupTableDragCalculator, HandlesNullComponentForces)
 {
     const TempDir             dir;
@@ -272,6 +282,7 @@ TEST(LookupTableDragCalculator, HandlesNullComponentForces)
     EXPECT_NEAR(0.50, total.getCD(), kEpsilon);
 }
 
+// LookupTableDragCalculatorTest.newInstance
 TEST(LookupTableDragCalculator, NewInstance)
 {
     const TempDir                   dir;
@@ -313,6 +324,7 @@ TEST(LookupTableDragCalculator, ANullTableIsABug)
     EXPECT_THROW(LookupTableDragCalculator{none}, BugError);
 }
 
+// LookupTableDragCalculatorTest.voidAerodynamicCache
 TEST(LookupTableDragCalculator, VoidAerodynamicCache)
 {
     const TempDir             dir;

@@ -3,8 +3,8 @@
 // GoldenMismatches: collects the differences between golden and computed values, for the golden
 // tests that compare many values of one thing and report them together. Test-only.
 //
-// Tolerances (plan section 6.4): geometry and mass relative 1e-9; positions and CGs absolute
-// 1e-9 m.
+// Tolerances (plan section 6.4): geometry, mass and aerodynamic coefficients relative 1e-9;
+// positions, CGs and CPs absolute 1e-9 m.
 
 #include <cstdint>
 #include <span>
@@ -19,9 +19,9 @@
 namespace QtRocket::Test
 {
 
-/// Geometry and mass values: relative tolerance.
+/// Geometry and mass values and aerodynamic coefficients: relative tolerance.
 inline constexpr double kGoldenRelative = 1e-9;
-/// Positions and CGs: absolute tolerance, in m.
+/// Positions, CGs and CPs: absolute tolerance, in m.
 inline constexpr double kGoldenAbsolute = 1e-9;
 
 /// Collects the differences between golden and computed values, one line each.
@@ -46,6 +46,7 @@ public:
     void position(std::string_view field, const Coordinate& expected, const Coordinate& actual);
 
     /// A CG: the position within kGoldenAbsolute, the mass (weight) within kGoldenRelative.
+    /// A CP with its CNa as the weight is compared in the same way.
     void cg(std::string_view field, const Coordinate& expected, const Coordinate& actual);
 
     /// A list of positions of the same length as the golden list @p expected (a JSON array of
