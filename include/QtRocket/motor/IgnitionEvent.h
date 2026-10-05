@@ -10,8 +10,9 @@ namespace QtRocket
 /// When a motor ignites (OpenRocket's IgnitionEvent), in declaration order.
 ///
 /// OpenRocket's isActivationEvent(FlightConfiguration, FlightEvent, RocketComponent) needs the
-/// rocket model and the simulation's flight events, which live in higher layers; the simulation
-/// ports it next to its event handling, with these rules: AUTOMATIC acts as LAUNCH for a motor in
+/// rocket model and the simulation's flight events, which live in higher layers: it is
+/// FlightEventActivation::isActivationEvent(IgnitionEvent, config, event, target) in
+/// simulation/FlightEventActivation.h, with these rules: AUTOMATIC acts as LAUNCH for a motor in
 /// the launch stage and as EJECTION_CHARGE otherwise; LAUNCH fires on a LAUNCH event;
 /// EJECTION_CHARGE and BURNOUT fire on that event when it comes from the stage directly below
 /// the motor's own stage (the event source's stage's upper stage is the motor's stage); NEVER

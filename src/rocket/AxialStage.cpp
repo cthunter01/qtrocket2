@@ -130,6 +130,25 @@ AxialStage* AxialStage::getUpperStage()
     return m_parent->findStage();
 }
 
+const AxialStage* AxialStage::getUpperStage() const
+{
+    if (m_parent == nullptr)
+    {
+        return nullptr;
+    }
+    const RocketComponent* parent = m_parent;
+    if (dynamic_cast<const Rocket*>(parent) != nullptr)
+    {
+        const auto thisIndex = parent->getChildPosition(this);
+        if (thisIndex && *thisIndex > 0)
+        {
+            return dynamic_cast<const AxialStage*>(&parent->getChild(*thisIndex - 1));
+        }
+        return nullptr;
+    }
+    return parent->findStage();
+}
+
 void AxialStage::toDebugTreeNode(std::string& buffer, const std::string& indent) const
 {
     // Java's %5.3f, %6.4f and %4.1f round the decimal digits half-up: Strings::formatFixed().

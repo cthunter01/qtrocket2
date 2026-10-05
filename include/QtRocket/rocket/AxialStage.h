@@ -120,7 +120,8 @@ public:
     /// The stage above this one: the previous child of the Rocket for a stage on the rocket, or
     /// the stage the parent belongs to (for a booster set); nullptr for the first stage or a
     /// detached one.
-    [[nodiscard]] AxialStage* getUpperStage();
+    [[nodiscard]] AxialStage*       getUpperStage();
+    [[nodiscard]] const AxialStage* getUpperStage() const;
 
     /// The stage's line of toDebugTree(): name, stage number, length, position, absolute location,
     /// or one line per instance.

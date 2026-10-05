@@ -18,10 +18,11 @@ namespace QtRocket
 /// Java, and whoever edits a device's deployment fires EVENT_CHANGE on the device. The multi-edit
 /// config listeners are not ported, by decision (see RocketComponent).
 ///
-/// Deferred to simulation/: DeployEvent.isActivationEvent(config, FlightEvent, source) and
-/// isActivationEvent(FlightEvent, source), the test the simulation engine applies to every
-/// flight event for a recovery device @p source. Its rules, for the simulation group to implement
-/// over FlightEvent:
+/// In simulation/ (rocket/ does not include it): DeployEvent.isActivationEvent(config,
+/// FlightEvent, source) and isActivationEvent(FlightEvent, source), the test the simulation
+/// engine applies to every flight event for a recovery device @p source, are
+/// FlightEventActivation::isActivationEvent(DeployEvent, config, event, source) and
+/// isActivationEvent(config, event, source) in simulation/FlightEventActivation.h. Its rules:
 /// - LAUNCH: a LAUNCH event.
 /// - EJECTION: an EJECTION_CHARGE event; when the event's data is the MotorClusterState of the
 ///   motor that fired, only when that motor's mount has the same assembly as the device

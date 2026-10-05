@@ -419,6 +419,22 @@ TEST(AxialStage, UpperStage)
     EXPECT_EQ(detached.getUpperStage(), nullptr);
 }
 
+TEST(AxialStage, UpperStageOfAConstStage)
+{
+    Rocket         rocket;
+    AxialStage&    payload = rocket.addChild(std::make_unique<AxialStage>());
+    AxialStage&    core    = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&      body    = core.addChild(std::make_unique<BodyTube>(0.3, 0.02));
+    ParallelStage& booster = body.addChild(std::make_unique<ParallelStage>());
+
+    EXPECT_EQ(std::as_const(payload).getUpperStage(), nullptr);
+    EXPECT_EQ(std::as_const(core).getUpperStage(), &payload);
+    EXPECT_EQ(std::as_const(booster).getUpperStage(), &core)
+        << "a booster's upper stage is its parent's stage";
+    const AxialStage detached;
+    EXPECT_EQ(detached.getUpperStage(), nullptr);
+}
+
 TEST(AxialStage, StagesFollowEachOther)
 {
     Rocket      rocket;
