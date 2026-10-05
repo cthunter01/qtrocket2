@@ -69,7 +69,8 @@ using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 namespace CalcFactory = QtRocket::CalcFactory;
 
-/// The calculation classes of aerodynamics.barrowman, and none.
+/// The calculation classes of aerodynamics.barrowman, and none; and what the factory must
+/// never give: a null pointer, and a calculation of another class.
 enum class Calculation
 {
     SYMMETRIC_COMPONENT,
@@ -78,7 +79,9 @@ enum class Calculation
     LAUNCH_LUG,
     RAIL_BUTTON,
     COMPONENT_ASSEMBLY,
-    NONE,
+    NONE,          ///< Java: a BugException; here create() throws BugError
+    NULL_POINTER,  ///< create() returned nullptr
+    OTHER_CLASS,   ///< create() returned a calculation of none of the six classes
 };
 
 [[nodiscard]] std::string_view name(Calculation calculation)
@@ -98,7 +101,11 @@ enum class Calculation
         case Calculation::COMPONENT_ASSEMBLY:
             return "ComponentAssemblyCalc";
         case Calculation::NONE:
-            return "none";
+            return "none (a BugError)";
+        case Calculation::NULL_POINTER:
+            return "a null pointer";
+        case Calculation::OTHER_CLASS:
+            return "a calculation of another class";
     }
     return "?";
 }
@@ -176,17 +183,18 @@ enum class Calculation
     {
         return Calculation::COMPONENT_ASSEMBLY;
     }
-    return Calculation::NONE;
+    return Calculation::OTHER_CLASS;
 }
 
 /// What CalcFactory::create() makes of @p component: the class of the calculation, or NONE
-/// when it throws BugError.
+/// when it throws BugError, and only then (a null pointer is NULL_POINTER, which nothing
+/// expects).
 [[nodiscard]] Calculation created(const RocketComponent& component)
 {
     try
     {
         const std::unique_ptr<RocketComponentCalc> calc = CalcFactory::create(component);
-        return calc == nullptr ? Calculation::NONE : calculationOf(*calc);
+        return calc == nullptr ? Calculation::NULL_POINTER : calculationOf(*calc);
     }
     catch (const BugError&)
     {
@@ -258,8 +266,9 @@ struct EveryKindRocket
     return kinds;
 }
 
-/// The components of @p rocket for which create() does not give OpenRocket's calculation, or
-/// for which hasCalculation() does not answer the calculators' condition.
+/// The components of @p rocket for which create() does not give OpenRocket's calculation (for
+/// a component without one: does not throw BugError), or for which hasCalculation() does not
+/// answer the calculators' condition.
 [[nodiscard]] std::string factoryDifferences(Rocket& rocket)
 {
     std::string text;
@@ -301,6 +310,54 @@ TEST(CalcFactory, EveryKindHasOpenRocketsCalculationOrNone)
     EXPECT_EQ(kinds.size(), QtRocket::kAllComponentKinds.size());
 
     EXPECT_EQ(factoryDifferences(everyKind.rocket), "");
+}
+
+/// Whether CalcFactory::create() of @p component throws BugError.
+[[nodiscard]] bool createIsABug(const RocketComponent& component)
+{
+    try
+    {
+        static_cast<void>(CalcFactory::create(component));
+    }
+    catch (const BugError&)
+    {
+        return true;
+    }
+    return false;
+}
+
+/// The components of @p rocket whose kind has no calculation in OpenRocket and for which
+/// create() does not throw BugError, each name on a line; @p count is set to the number of
+/// components of such a kind.
+[[nodiscard]] std::string internalComponentsThatDoNotThrow(Rocket& rocket, int& count)
+{
+    std::string names;
+    count = 0;
+    for (const RocketComponent* const component : allComponents(rocket))
+    {
+        if (javaCalculation(component->kind()) != Calculation::NONE)
+        {
+            continue;
+        }
+        count++;
+        if (!createIsABug(*component))
+        {
+            names += std::format("{} ({})\n", component->getName(),
+                                 QtRocket::componentKindName(component->kind()));
+        }
+    }
+    return names;
+}
+
+TEST(CalcFactory, EveryKindWithoutACalculationIsABug)
+{
+    // Java: Reflection.construct() ends at the abstract RocketComponentCalc and throws a
+    // BugException. Here create() throws BugError for each of the nine internal kinds; it never
+    // answers with a null pointer.
+    EveryKindRocket everyKind;
+    int             internalComponents = 0;
+    EXPECT_EQ(internalComponentsThatDoNotThrow(everyKind.rocket, internalComponents), "");
+    EXPECT_EQ(internalComponents, 9);
 }
 
 TEST(CalcFactory, HasCalculationForExternalComponentsAndAssembliesOnly)

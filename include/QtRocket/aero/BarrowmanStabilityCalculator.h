@@ -36,6 +36,11 @@ class WarningSet;
 /// component visited, the forces of its whole subtree, children first, so that the rocket's entry
 /// comes last and is the total. An inactive stage is left out with its components, but its
 /// top-level child stages that are active (boosters that fly without their core) are visited.
+/// That replacement goes one level deep, as in Java: an active stage that lies below two
+/// inactive ones (a booster set on the body of a booster set, flying without the outer boosters
+/// and without the core, which FlightConfiguration::setOnlyStage() selects) is not visited, and
+/// neither it nor its components get an entry. The total forces (calculateNonAxialForces(), the
+/// sum over the active instances) do include them.
 ///
 /// Damping moments: the multiplier 0.275 * d / (Aref * Lref) * (cg^4 + (L - cg)^4), with L the
 /// summed length and d the summed planform area over L of the active symmetric components, plus
@@ -61,6 +66,9 @@ class WarningSet;
 /// - checkGeometry() compares diameters and positions as the default length unit prints them
 ///   (UnitGroup's process-wide default unit), so what counts as a discontinuity or a gap depends
 ///   on the user's unit, as in OpenRocket's GUI.
+/// - The force analysis leaves out an active stage below two inactive ones (see above), so
+///   BarrowmanCalculator::getForceAnalysis() fails for such a selection of stages, as
+///   OpenRocket's does.
 ///
 /// Deviations from OpenRocket:
 /// - Java's null WarningSet is resolved by the caller (see StabilityCalculator), so the
@@ -75,6 +83,12 @@ class WarningSet;
 ///   its own), and for a symmetric component without a parent.
 /// - A component without an absolute location, which no component tree has, throws BugError
 ///   (Java: an array index error).
+/// - checkGeometry() reads the default length unit once per call and prints both sides of every
+///   comparison with it (Java reads it for each side; the GUI thread may change the default
+///   while a simulation checks its rocket in another thread). The results are Java's.
+/// - The damping L and d are stored once both are summed, so that an exception on the way
+///   leaves them to be calculated again (Java sums into the fields; after an exception there
+///   the length is partial and d is 0, and both count as cached).
 class BarrowmanStabilityCalculator final : public StabilityCalculator
 {
 public:

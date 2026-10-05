@@ -26,8 +26,10 @@ class WarningSet;
 ///   instances and position at every call: it must not outlive the button.
 /// - ComponentAssemblyCalc reads nothing.
 /// A change of the component therefore needs a new calculation (the calculators drop theirs
-/// when the rocket's aerodynamic or tree modification id changes, see ComponentCalcMap); a
-/// component outside a rocket, or in one whose events are disabled, announces no change.
+/// when the rocket's aerodynamic or tree modification id changes, and replace that of a renamed
+/// component, whose name is in the sources of the fin calculations' warnings; see
+/// ComponentCalcMap); a component outside a rocket, or in one whose events are disabled,
+/// announces no change.
 ///
 /// It also holds the CP position helpers shared by the fin calculators: the position along the
 /// mean aerodynamic chord at subsonic, transonic and supersonic speeds.

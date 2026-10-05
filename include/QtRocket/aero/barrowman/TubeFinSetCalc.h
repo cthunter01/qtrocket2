@@ -47,7 +47,8 @@ class TubeFinSet;
 ///   fields it never reads after the constructor; they are not kept here. Its cant angle field,
 ///   always 0, is the constant kCantAngle.
 /// - The source of a geometry warning is the tube fin set's id and its name at construction
-///   (see MessageSource).
+///   (see MessageSource). ComponentCalcMap makes the calculation of a renamed tube fin set anew,
+///   so a calculator's warnings carry the current name, as Java's do.
 class TubeFinSetCalc final : public TubeCalc
 {
 public:

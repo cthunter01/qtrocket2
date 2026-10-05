@@ -1138,7 +1138,9 @@ TEST(BarrowmanStabilityCalculator, AComponentAddedBehindItsBackIsSkippedOrABug)
     // An aerodynamic component that became active after the calculations were made has none:
     // the total forces go without it, as in Java, and the force analysis, which insists on a
     // calculation for every aerodynamic component it visits, throws (Java: a
-    // NullPointerException). Voiding the cache makes one.
+    // NullPointerException), and so do the damping moments, which take the midchord position of
+    // every active fin set from its calculation (Java: a NullPointerException too). Voiding the
+    // cache makes one.
     const TestEstesAlphaIII      alpha;
     const FlightConfiguration&   config = alpha.rocket->getSelectedConfiguration();
     const FlightConditions       conditions{config};
@@ -1155,12 +1157,46 @@ TEST(BarrowmanStabilityCalculator, AComponentAddedBehindItsBackIsSkippedOrABug)
     EXPECT_TRUE(calculator.getCP(config, conditions, warnings).exactlyEquals(before));
     EXPECT_THROW(static_cast<void>(calculator.getForceAnalysis(config, conditions, warnings)),
                  BugError);
+    FlightConditions rotating{config};
+    rotating.setPitchRate(0.5);
+    rotating.setPitchCenter(Coordinate{0.15, 0, 0});
+    AerodynamicForces total;
+    total.setCm(5.0);
+    total.setCyaw(5.0);
+    EXPECT_THROW(calculator.calculateDampingMoments(config, rotating, total), BugError);
+    // (the moments are set last: untouched)
+    EXPECT_TRUE(std::isnan(total.getPitchDampingMoment()));
 
     calculator.voidAerodynamicCache();
     EXPECT_GT(calculator.getCP(config, conditions, warnings).weight, before.weight);
     const StabilityForceBreakdown breakdown =
         calculator.getForceAnalysis(config, conditions, warnings);
     EXPECT_TRUE(breakdown.getComponentForces().containsKey(&added));
+    EXPECT_NO_THROW(calculator.calculateDampingMoments(config, rotating, total));
+    // With four more fins ahead of the pitch centre: more than the three alone give
+    // (DampingMomentsOfTheAlphaAreOpenRockets, the same rate and centre).
+    EXPECT_GT(total.getPitchDampingMoment(), 5.1158283860786216E-5);
+    EXPECT_LT(total.getPitchDampingMoment(), 5.0);
+    EXPECT_EQ(total.getYawDampingMoment(), 0.0);
+}
+
+TEST(BarrowmanStabilityCalculator, AMovedFromCalculatorBuildsItsCalculationsAgain)
+{
+    // The calculator can be moved, with its calculations (ComponentCalcMap). The one moved from
+    // must not go on with a map that counts as built and is empty: it would give a rocket
+    // without lift.
+    const TestEstesAlphaIII      alpha;
+    const FlightConfiguration&   config = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions       conditions{config};
+    WarningSet                   warnings;
+    BarrowmanStabilityCalculator calculator;
+    const Coordinate             before = calculator.getCP(config, conditions, warnings);
+    ASSERT_GT(before.weight, 0);
+
+    BarrowmanStabilityCalculator other{std::move(calculator)};
+    EXPECT_TRUE(other.getCP(config, conditions, warnings).exactlyEquals(before));
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_TRUE(calculator.getCP(config, conditions, warnings).exactlyEquals(before));
 }
 
 TEST(BarrowmanStabilityCalculator, NewInstanceIsAnIndependentBarrowmanStabilityCalculator)

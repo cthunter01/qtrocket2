@@ -7,6 +7,7 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/RailButton.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -18,9 +19,9 @@
 
 /// The rockets of the Barrowman calculator tests that TestRockets does not make. Each is built
 /// statement for statement as the Java probe that computed the pinned values builds it
-/// (Rockets.java of the probes: steps(), tubeFins(), flushPod() and shortPod()), from the real
-/// components, with the rocket's events enabled at the end. The definitions are in
-/// BarrowmanTestRockets.cpp.
+/// (Rockets.java of the probes: steps(), tubeFins(), flushPod() and shortPod(); NestedProbe.java:
+/// boostersOnBoosters()), from the real components, with the rocket's events enabled at the end.
+/// The definitions are in BarrowmanTestRockets.cpp.
 namespace QtRocket::Test
 {
 
@@ -85,6 +86,23 @@ struct TestShortPodRocket
     BodyTube*               tail{nullptr};
 
     TestShortPodRocket(double podOffset, bool withTail);
+};
+
+/// The Falcon 9 Heavy with boosters on its boosters: "Inner Boosters", a booster set of two on
+/// the booster body, each with an ogive nose (0.05 m, radius 0.015 m) and a body tube (0.2 m)
+/// holding three fins. The inner set is stage 3, below the booster set (2) and the core (1): the
+/// one design of the tests with an active stage two inactive stages deep, once
+/// FlightConfiguration::setOnlyStage(kInnerStageNumber) is called.
+struct TestBoostersOnBoostersRocket : TestFalcon9Heavy
+{
+    static constexpr int kInnerStageNumber = 3;
+
+    ParallelStage*   innerStage{nullptr};
+    NoseCone*        innerNose{nullptr};
+    BodyTube*        innerBody{nullptr};
+    TrapezoidFinSet* innerFins{nullptr};
+
+    TestBoostersOnBoostersRocket();
 };
 
 /// The rocket and every component below it, in tree order (Java: `for (RocketComponent c :

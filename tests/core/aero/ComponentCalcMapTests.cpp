@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <limits>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "QtRocket/aero/barrowman/RailButtonCalc.h"
 #include "QtRocket/aero/barrowman/RocketComponentCalc.h"
 #include "QtRocket/aero/barrowman/SymmetricComponentCalc.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
@@ -50,6 +52,7 @@ using QtRocket::RocketComponentCalc;
 using QtRocket::SymmetricComponentCalc;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::Uuid;
+using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::Test::allComponents;
 using QtRocket::Test::TestEstesAlphaIII;
@@ -77,6 +80,24 @@ using QtRocket::Test::TestFalcon9Heavy;
         }
     }
     return found;
+}
+
+/// The geometry warnings of the calculation the map has for the fin set @p fins, each text on
+/// a line ("no FinSetCalc" when it has none).
+[[nodiscard]] std::string finWarnings(ComponentCalcMap& map, const RocketComponent& fins)
+{
+    const auto* const calc = dynamic_cast<const FinSetCalc*>(map.get(fins));
+    if (calc == nullptr)
+    {
+        return "no FinSetCalc";
+    }
+    std::string texts;
+    for (const Warning& warning : calc->getGeometryWarnings())
+    {
+        texts += warning.toString();
+        texts += '\n';
+    }
+    return texts;
 }
 
 TEST(ComponentCalcMap, StartsUnbuiltAndEmpty)
@@ -331,17 +352,172 @@ TEST(ComponentCalcMap, BuildIsAllOrNothing)
     EXPECT_EQ(unbuilt.size(), 0U);
 }
 
+TEST(ComponentCalcMap, ARenamedComponentGetsANewCalculation)
+{
+    // A FinSetCalc makes its geometry warnings at construction, with the fin set's name of
+    // then in their source; OpenRocket's warning prints the current name (the probe
+    // VerifyRename.java: the same calculator says "New fins" after the rename). A rename changes
+    // neither the aerodynamic nor the tree modification id, so nothing voids the calculators'
+    // caches: ensureBuilt() makes the calculation of the renamed component anew.
+    const TestEstesAlphaIII alpha;
+    alpha.fins->setThickness(0.008);
+    alpha.fins->setName("Old fins");
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    ComponentCalcMap           map;
+    map.ensureBuilt(config);
+    RocketComponentCalc* const oldFins = map.get(*alpha.fins);
+    RocketComponentCalc* const body    = map.get(*alpha.body);
+    RocketComponentCalc* const lug     = map.get(*alpha.lug);
+    RocketComponentCalc* const stage   = map.get(*alpha.stage);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"Old fins\"\n");
+
+    const ModId aeroId = alpha.rocket->getAerodynamicModId();
+    const ModId treeId = alpha.rocket->getTreeModId();
+    alpha.fins->setName("New fins");
+    ASSERT_EQ(alpha.rocket->getAerodynamicModId(), aeroId);
+    ASSERT_EQ(alpha.rocket->getTreeModId(), treeId);
+
+    // get() does not compare names (it is the calculators' hot path): ensureBuilt() does.
+    EXPECT_EQ(map.get(*alpha.fins), oldFins);
+    map.ensureBuilt(config);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"New fins\"\n");
+    RocketComponentCalc* const newFins = map.get(*alpha.fins);
+    ASSERT_NE(newFins, nullptr);
+    EXPECT_EQ(map.get(*alpha.fins), newFins);
+    // The other calculations are the objects they were.
+    EXPECT_EQ(map.get(*alpha.body), body);
+    EXPECT_EQ(map.get(*alpha.lug), lug);
+    EXPECT_EQ(map.get(*alpha.stage), stage);
+    EXPECT_EQ(map.size(), 6U);
+    EXPECT_TRUE(map.isBuilt());
+
+    // Without a rename every calculation stays, whatever else changes in the rocket.
+    alpha.chute->setOverrideMass(0.01);
+    alpha.inner->setName("Renamed motor mount");  // no calculation: nothing to make anew
+    map.ensureBuilt(config);
+    map.ensureBuilt(config);
+    EXPECT_EQ(map.get(*alpha.fins), newFins);
+    EXPECT_EQ(map.get(*alpha.body), body);
+    EXPECT_EQ(map.size(), 6U);
+
+    // A component whose warnings name nobody gets a new calculation too, and works.
+    alpha.body->setName("Renamed body");
+    map.ensureBuilt(config);
+    EXPECT_NE(dynamic_cast<SymmetricComponentCalc*>(map.get(*alpha.body)), nullptr);
+    EXPECT_EQ(map.get(*alpha.fins), newFins);
+    EXPECT_EQ(countFound(map, *alpha.rocket), 6U);
+
+    // The name cleared: the component's default name.
+    alpha.fins->setName("");
+    map.ensureBuilt(config);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"Trapezoidal Fin Set\"\n");
+}
+
+TEST(ComponentCalcMap, ARenameWithoutEventsIsSeenWhenTheyAreEnabledAgain)
+{
+    // With the rocket's events disabled no modification id changes, so the map does not look
+    // at the names (nor do the calculators at the rocket): see the class comment.
+    const TestEstesAlphaIII alpha;
+    alpha.fins->setThickness(0.008);
+    alpha.fins->setName("Old fins");
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    ComponentCalcMap           map;
+    map.ensureBuilt(config);
+
+    alpha.rocket->enableEvents(false);
+    alpha.fins->setName("Quiet fins");
+    map.ensureBuilt(config);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"Old fins\"\n");
+
+    alpha.rocket->enableEvents();
+    map.ensureBuilt(config);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"Quiet fins\"\n");
+}
+
+TEST(ComponentCalcMap, ARenamedComponentThatCannotBeCalculatedKeepsItsCalculation)
+{
+    // The new calculation is made first: when its constructor throws, the entry is what it was,
+    // and the next ensureBuilt() tries again.
+    const TestEstesAlphaIII alpha;
+    alpha.fins->setName("Old fins");
+    alpha.fins->setThickness(0.008);
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    ComponentCalcMap           map;
+    map.ensureBuilt(config);
+    RocketComponentCalc* const fins = map.get(*alpha.fins);
+
+    // A change that renews the rocket's modification id, which the map has not seen yet; then,
+    // without events, a rename and a root chord of NaN, which the fin set refuses while the
+    // events are enabled and which FinSetCalc cannot calculate (see BuildIsAllOrNothing).
+    const ModId builtAt = alpha.rocket->getModId();
+    alpha.inner->setName("Renamed motor mount");
+    ASSERT_NE(alpha.rocket->getModId(), builtAt);
+    alpha.rocket->enableEvents(false);
+    alpha.fins->setFinShape(std::numeric_limits<double>::quiet_NaN(), 0.03, 0.02, 0.05, 0.008);
+    alpha.fins->setName("New fins");
+    EXPECT_THROW(map.ensureBuilt(config), BugError);
+    EXPECT_TRUE(map.isBuilt());
+    EXPECT_EQ(map.size(), 6U);
+    EXPECT_EQ(map.get(*alpha.fins), fins);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"Old fins\"\n");
+    EXPECT_THROW(map.ensureBuilt(config), BugError);
+
+    // Once the fin set can be calculated again, it is.
+    alpha.fins->setFinShape(0.05, 0.03, 0.02, 0.05, 0.008);
+    alpha.rocket->enableEvents();
+    map.ensureBuilt(config);
+    EXPECT_EQ(finWarnings(map, *alpha.fins),
+              "Thick fins may not simulate accurately:  \"New fins\"\n");
+    EXPECT_NE(map.get(*alpha.body), nullptr);
+    EXPECT_EQ(map.size(), 6U);
+}
+
 TEST(ComponentCalcMap, MovesWithItsCalculations)
 {
-    const TestEstesAlphaIII alpha;
-    ComponentCalcMap        map;
-    map.ensureBuilt(alpha.rocket->getSelectedConfiguration());
+    const TestEstesAlphaIII    alpha;
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    ComponentCalcMap           map;
+    map.ensureBuilt(config);
     RocketComponentCalc* const calc = map.get(*alpha.fins);
 
     ComponentCalcMap moved{std::move(map)};
     EXPECT_TRUE(moved.isBuilt());
     EXPECT_EQ(moved.get(*alpha.fins), calc);
     EXPECT_EQ(moved.size(), 6U);
+
+    // The source is cleared, not left built and empty (a calculator that was moved from would
+    // then calculate without any component): it is built again when asked.
+    // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_FALSE(map.isBuilt());
+    EXPECT_EQ(map.size(), 0U);
+    EXPECT_EQ(map.get(*alpha.fins), nullptr);
+    map.ensureBuilt(config);
+    EXPECT_TRUE(map.isBuilt());
+    EXPECT_EQ(map.size(), 6U);
+    EXPECT_NE(dynamic_cast<FinSetCalc*>(map.get(*alpha.fins)), nullptr);
+    EXPECT_NE(map.get(*alpha.fins), calc);
+    // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+
+    // Move assignment: the target's own calculations go, the source is cleared.
+    ComponentCalcMap target;
+    target.ensureBuilt(config);
+    target = std::move(moved);
+    EXPECT_TRUE(target.isBuilt());
+    EXPECT_EQ(target.get(*alpha.fins), calc);
+    EXPECT_EQ(target.size(), 6U);
+    // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    EXPECT_FALSE(moved.isBuilt());
+    EXPECT_EQ(moved.size(), 0U);
+    EXPECT_EQ(moved.get(*alpha.fins), nullptr);
+    moved.ensureBuilt(config);
+    EXPECT_EQ(moved.size(), 6U);
+    // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
 }  // namespace

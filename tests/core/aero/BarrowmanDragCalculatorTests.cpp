@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -2306,6 +2307,31 @@ TEST(BarrowmanDragCalculator, NewInstanceIsAnIndependentBarrowmanDragCalculator)
     EXPECT_EQ(fromInstance.getCD(), dragOf(config, conditions).getCD());
     EXPECT_NE(fromInstance.getCD(), total.getCD());
     EXPECT_EQ(instance->toAxialDrag(conditions, 0.7), calculator.toAxialDrag(conditions, 0.7));
+}
+
+TEST(BarrowmanDragCalculator, AMovedFromCalculatorBuildsItsCalculationsAgain)
+{
+    // The calculator can be moved, with its calculations (ComponentCalcMap). The one moved from
+    // must not go on with a map that counts as built and is empty: its friction drag would
+    // find no calculation (a BugError).
+    const TestEstesAlphaIII    alpha;
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions     conditions{config};
+    WarningSet                 warnings;
+    BarrowmanDragCalculator    calculator;
+    AerodynamicForces          before;
+    calculator.calculateDrag(config, conditions, nullptr, nullptr, before, warnings);
+    ASSERT_GT(before.getCD(), 0);
+
+    BarrowmanDragCalculator other{std::move(calculator)};
+    AerodynamicForces       fromOther;
+    other.calculateDrag(config, conditions, nullptr, nullptr, fromOther, warnings);
+    EXPECT_EQ(fromOther.getCD(), before.getCD());
+
+    AerodynamicForces fromSource;
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): moved from on purpose
+    calculator.calculateDrag(config, conditions, nullptr, nullptr, fromSource, warnings);
+    EXPECT_EQ(fromSource.getCD(), before.getCD());
 }
 
 TEST(BarrowmanDragCalculator, AnEmptyRocketHasNoDrag)

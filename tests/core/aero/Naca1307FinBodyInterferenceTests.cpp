@@ -44,17 +44,20 @@ constexpr double kTau     = 0.25;     // FinBodyInterferenceTest.TAU
     return Naca1307FinBodyInterference{0.562, 2.25, 2.25, 0.0, 2.25, 4.0, bodyEnd};
 }
 
-/// Expects @p actual to be the Java-pinned @p expected: NaN for NaN, otherwise within a relative
-/// 1e-12 (the values went through atan, asin, acos or log, which may differ in the last bit
-/// between math libraries) or 1e-15 absolute near zero.
-void expectPinned(double actual, double expected)
+/// The relative tolerance of a Java-pinned value: the values went through atan, asin, acos or
+/// log, which may differ in the last bit between math libraries.
+constexpr double kPinnedRelative = 1e-12;
+
+/// Expects @p actual to be the Java-pinned @p expected: NaN for NaN, otherwise within the
+/// relative tolerance @p relative, or 1e-15 absolute near zero.
+void expectPinned(double actual, double expected, double relative = kPinnedRelative)
 {
     if (std::isnan(expected))
     {
         EXPECT_TRUE(std::isnan(actual)) << actual;
         return;
     }
-    EXPECT_NEAR(actual, expected, (1e-12 * std::abs(expected)) + 1e-15);
+    EXPECT_NEAR(actual, expected, (relative * std::abs(expected)) + 1e-15);
 }
 
 // ---- Ported from FinBodyInterferenceTest.java: all of its 25 cases, in its order. The six that
@@ -1055,26 +1058,34 @@ TEST(Naca1307FinBodyInterference, ChartFifteenIsJavas)
     }
 }
 
+/// The tau of the ill-conditioned row of kFactors.
+constexpr double kIllConditionedTau = 0.999;
+
+/// The relative tolerance of the fin-in-body and slender-body factors at kIllConditionedTau:
+/// the braces of the fin factor cancel to 2e-6 of their terms there, so one ulp of atan(tau)
+/// moves the fin factor (and the slender-body factor, which is its complement) by a relative
+/// 1.4e-10. 1e-9 is seven such ulps; a pin at 1e-12 would demand that every math library
+/// rounds that atan() as Java's does (Math.atan is itself specified to 1 ulp only).
+constexpr double kIllConditionedRelative = 1e-9;
+
 /// Checks one row of kFactors: tau, then the pinned fin-in-body, slender-body-in-fin and
 /// equation-19 incidence factors.
 void expectFactors(const std::array<double, 4>& row)
 {
     SCOPED_TRACE(::testing::Message() << "tau " << row[0]);
+    const double relative =
+        row[0] == kIllConditionedTau ? kIllConditionedRelative : kPinnedRelative;
     const double finFactor = Naca1307FinBodyInterference::calculateFinInBodyFactor(row[0]);
-    expectPinned(finFactor, row[1]);
+    expectPinned(finFactor, row[1], relative);
     expectPinned(Naca1307FinBodyInterference::calculateSlenderBodyInFinFactor(row[0], finFactor),
-                 row[2]);
+                 row[2], relative);
     expectPinned(Naca1307FinBodyInterference::calculateWingIncidenceFactor(row[0]), row[3]);
 }
 
 TEST(Naca1307FinBodyInterference, SlenderBodyFactorsAreJavas)
 {
-    // The row of tau 0.999 is the ill-conditioned one: the braces of the fin factor cancel to
-    // 2e-6 of their terms there, so one ulp of atan(tau) is 1.4e-10 of the fin factor (and of the
-    // slender-body factor, which is its complement), more than the relative 1e-12 of
-    // expectPinned(). The row holds on Linux, macOS and Windows (CI) because glibc, Apple's libm
-    // and the UCRT round these two atan() calls as Java does; a math library that does not would
-    // fail here, and only for that reason.
+    // The row of tau 0.999 is the ill-conditioned one: see kIllConditionedRelative. Its two
+    // conditioned values are compared within a relative 1e-9, everything else within 1e-12.
     // tau, finFactor, slenderBodyFactor, incidenceFactor
     constexpr std::array<std::array<double, 4>, 14> kFactors{{
         {-1.0, 1.0, 0.0, 1.0},

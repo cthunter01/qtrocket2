@@ -8,7 +8,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -47,13 +46,6 @@ namespace
 [[nodiscard]] const SymmetricComponent* asSymmetric(const RocketComponent& component) noexcept
 {
     return dynamic_cast<const SymmetricComponent*>(&component);
-}
-
-/// @p value as the default length unit prints it (Java:
-/// UnitGroup.UNITS_LENGTH.getDefaultUnit().toStringUnit(value)).
-[[nodiscard]] std::string formatLength(double value)
-{
-    return unitGroup(UnitGroupId::LENGTH).getDefaultUnit().toStringUnit(value);
 }
 
 /// The x of @p c (relative to @p component) in absolute coordinates, at the component's first
@@ -236,11 +228,14 @@ void checkFlushJoint(const SymmetricComponent& prevComp, const SymmetricComponen
     }
 }
 
-/// checkGeometry() for @p sym, which follows @p prevComp in line.
-void checkJoint(const SymmetricComponent& prevComp, const SymmetricComponent& sym,
-                WarningSet& warnings)
+/// checkGeometry() for @p sym, which follows @p prevComp in line. Diameters and positions are
+/// compared as @p lengthUnit prints them (Java:
+/// UnitGroup.UNITS_LENGTH.getDefaultUnit().toStringUnit(value) on both sides).
+void checkJoint(const Unit& lengthUnit, const SymmetricComponent& prevComp,
+                const SymmetricComponent& sym, WarningSet& warnings)
 {
-    if (formatLength(2.0 * sym.getForeRadius()) != formatLength(2.0 * prevComp.getAftRadius()))
+    if (lengthUnit.toStringUnit(2.0 * sym.getForeRadius()) !=
+        lengthUnit.toStringUnit(2.0 * prevComp.getAftRadius()))
     {
         warnings.add(Warning::kDiameterDiscontinuity,
                      MessageSources{MessageSource::of(prevComp), MessageSource::of(sym)});
@@ -258,13 +253,62 @@ void checkJoint(const SymmetricComponent& prevComp, const SymmetricComponent& sy
         .symXaft   = firstAbsoluteX(sym, Coordinate{sym.getLength(), 0, 0, 0}),
         .prevXaft  = firstAbsoluteX(prevComp, Coordinate{prevComp.getLength(), 0, 0, 0})};
 
-    if (formatLength(x.symXfore) != formatLength(x.prevXaft))
+    if (lengthUnit.toStringUnit(x.symXfore) != lengthUnit.toStringUnit(x.prevXaft))
     {
         checkSeparatedJoint(prevComp, sym, x, warnings);
     }
     else
     {
         checkFlushJoint(prevComp, sym, x, warnings);
+    }
+}
+
+/// checkGeometry() of @p component, with the lengths printed by @p lengthUnit (Java:
+/// checkGeometry(), which calls itself for a pod set or a booster set).
+void checkGeometryWith(const Unit& lengthUnit, const FlightConfiguration& configuration,
+                       const RocketComponent& component, WarningSet& warnings)
+{
+    std::deque<const RocketComponent*> queue;
+    appendDirectChildStages(configuration, queue, component);
+
+    const SymmetricComponent* prevComp = nullptr;
+    if (isAssembly(component.kind()) && (component.kind() != ComponentKind::ROCKET) &&
+        (component.getChildCount() > 0))
+    {
+        if (const SymmetricComponent* const firstChild = asSymmetric(component.getChild(0)))
+        {
+            prevComp = firstChild->getPreviousSymmetricComponent();
+        }
+    }
+
+    while (!queue.empty())
+    {
+        const RocketComponent* const comp = queue.front();
+        queue.pop_front();
+
+        const SymmetricComponent* const sym = asSymmetric(*comp);
+        if ((sym != nullptr) || (comp->kind() == ComponentKind::AXIAL_STAGE))
+        {
+            appendDirectChildStages(configuration, queue, *comp);
+
+            if (sym != nullptr)
+            {
+                if (prevComp == nullptr)
+                {
+                    checkForwardEnd(configuration, *sym, warnings);
+                }
+                else
+                {
+                    checkJoint(lengthUnit, *prevComp, *sym, warnings);
+                }
+                prevComp = sym;
+            }
+        }
+        else if ((comp->kind() == ComponentKind::POD_SET) ||
+                 (comp->kind() == ComponentKind::PARALLEL_STAGE))
+        {
+            checkGeometryWith(lengthUnit, configuration, *comp, warnings);
+        }
     }
 }
 
@@ -352,48 +396,11 @@ void BarrowmanStabilityCalculator::checkGeometry(const FlightConfiguration& conf
                                                  const RocketComponent&     component,
                                                  WarningSet&                warnings)
 {
-    std::deque<const RocketComponent*> queue;
-    appendDirectChildStages(configuration, queue, component);
-
-    const SymmetricComponent* prevComp = nullptr;
-    if (isAssembly(component.kind()) && (component.kind() != ComponentKind::ROCKET) &&
-        (component.getChildCount() > 0))
-    {
-        if (const SymmetricComponent* const firstChild = asSymmetric(component.getChild(0)))
-        {
-            prevComp = firstChild->getPreviousSymmetricComponent();
-        }
-    }
-
-    while (!queue.empty())
-    {
-        const RocketComponent* const comp = queue.front();
-        queue.pop_front();
-
-        const SymmetricComponent* const sym = asSymmetric(*comp);
-        if ((sym != nullptr) || (comp->kind() == ComponentKind::AXIAL_STAGE))
-        {
-            appendDirectChildStages(configuration, queue, *comp);
-
-            if (sym != nullptr)
-            {
-                if (prevComp == nullptr)
-                {
-                    checkForwardEnd(configuration, *sym, warnings);
-                }
-                else
-                {
-                    checkJoint(*prevComp, *sym, warnings);
-                }
-                prevComp = sym;
-            }
-        }
-        else if ((comp->kind() == ComponentKind::POD_SET) ||
-                 (comp->kind() == ComponentKind::PARALLEL_STAGE))
-        {
-            checkGeometry(configuration, *comp, warnings);
-        }
-    }
+    // The default length unit is process-wide and the GUI thread may change it while a
+    // simulation checks its rocket in another thread: it is read once, so that the two sides
+    // of every comparison are printed by the same unit (Java reads it for each side).
+    const Unit& lengthUnit = unitGroup(UnitGroupId::LENGTH).getDefaultUnit();
+    checkGeometryWith(lengthUnit, configuration, component, warnings);
 }
 
 void BarrowmanStabilityCalculator::voidAerodynamicCache()
@@ -449,22 +456,22 @@ double BarrowmanStabilityCalculator::getDampingMultiplier(const FlightConfigurat
 {
     if (m_cacheDiameter < 0)
     {
-        double area     = 0;
-        m_cacheLength   = 0;
-        m_cacheDiameter = 0;
+        // Summed in locals and stored at the end: an exception on the way (the components'
+        // getters allocate) leaves the cache unbuilt, not half built. (Java sums into the
+        // fields, after setting both to 0.)
+        double area   = 0;
+        double length = 0;
 
         for (const RocketComponent* const c : configuration.getActiveComponents())
         {
             if (const SymmetricComponent* const s = asSymmetric(*c))
             {
                 area += s->getComponentPlanformArea();
-                m_cacheLength += s->getLength();
+                length += s->getLength();
             }
         }
-        if (m_cacheLength > 0)
-        {
-            m_cacheDiameter = area / m_cacheLength;
-        }
+        m_cacheLength   = length;
+        m_cacheDiameter = length > 0 ? area / length : 0.0;
     }
 
     double mul = 0.275 * m_cacheDiameter / (conditions.getRefArea() * conditions.getRefLength());

@@ -26,6 +26,7 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/BugError.h"
 #include "aero/BarrowmanTestRockets.h"
 #include "aero/ForcePins.h"
 #include "rocket/JavaValueDifferences.h"
@@ -37,6 +38,7 @@ namespace
 using QtRocket::AxialStage;
 using QtRocket::BarrowmanCalculator;
 using QtRocket::BodyTube;
+using QtRocket::BugError;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::ForceMap;
@@ -45,6 +47,7 @@ using QtRocket::RocketComponent;
 using QtRocket::Test::allComponents;
 using QtRocket::Test::JavaValueDifferences;
 using QtRocket::Test::kRocketTolerance;
+using QtRocket::Test::TestBoostersOnBoostersRocket;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 namespace ComponentDrag = QtRocket::ComponentDrag;
@@ -364,6 +367,103 @@ TEST(ComponentDrag, AComponentWithoutARocketHasNoCD)
     EXPECT_EQ(ComponentDrag::getComponentCD(inStage, 0, 0, 0.3, 0), 0.0);
     EXPECT_EQ(ComponentDrag::getOverrideCD(inStage, 0.3), 0.0);
     EXPECT_EQ(ComponentDrag::getOverrideCD(stage, 0.3), 0.0);
+}
+
+/// Whether ComponentDrag::getComponentCD() of @p component throws BugError.
+[[nodiscard]] bool componentCDIsABug(const RocketComponent& component)
+{
+    try
+    {
+        static_cast<void>(ComponentDrag::getComponentCD(component, 0, 0, 0.3, 0));
+    }
+    catch (const BugError&)
+    {
+        return true;
+    }
+    return false;
+}
+
+/// Whether ComponentDrag::getOverrideCD() of @p component throws BugError.
+[[nodiscard]] bool overrideCDIsABug(const RocketComponent& component)
+{
+    try
+    {
+        static_cast<void>(ComponentDrag::getOverrideCD(component, 0.3));
+    }
+    catch (const BugError&)
+    {
+        return true;
+    }
+    return false;
+}
+
+/// The names of the components of @p rocket for which getComponentCD() or getOverrideCD() does
+/// not throw BugError, each on a line.
+[[nodiscard]] std::string componentsWithACD(Rocket& rocket)
+{
+    std::string names;
+    for (const RocketComponent* const component : allComponents(rocket))
+    {
+        if (!componentCDIsABug(*component) || !overrideCDIsABug(*component))
+        {
+            names += component->getName();
+            names += '\n';
+        }
+    }
+    return names;
+}
+
+TEST(ComponentDrag, AStageTwoStagesDeepHasOpenRocketsCDs)
+{
+    // Boosters on the boosters of the Falcon 9 Heavy, every stage active (the probe
+    // NestedProbe.java; its getOverrideCD() is at the test preferences' default Mach number 0).
+    const TestBoostersOnBoostersRocket nested;
+    JavaValueDifferences               diff;
+    diff.pinned("payload nose: CD", 0.0142382921023787,
+                ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0), kRocketTolerance);
+    diff.pinned("inner boosters: CD", 0.054792194223390184,
+                ComponentDrag::getComponentCD(*nested.innerStage, 0, 0, 0.3, 0), kRocketTolerance);
+    diff.pinned("inner body: CD", 0.02078265015227631,
+                ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0), kRocketTolerance);
+    diff.pinned("payload nose: override CD", 0.04941156449150655,
+                ComponentDrag::getOverrideCD(*nested.payloadNose, 0.0), kRocketTolerance);
+    diff.pinned("inner boosters: override CD", 0.0894082087546037,
+                ComponentDrag::getOverrideCD(*nested.innerStage, 0.0), kRocketTolerance);
+    diff.pinned("inner body: override CD", 0.04407732583939211,
+                ComponentDrag::getOverrideCD(*nested.innerBody, 0.0), kRocketTolerance);
+    EXPECT_EQ(diff.text(), "");
+}
+
+TEST(ComponentDrag, AnActiveStageBelowTwoInactiveOnesIsABugForEveryComponent)
+{
+    // With the inner boosters alone active (FlightConfiguration::setOnlyStage()), the force
+    // analysis has no entry for them (see BarrowmanCalculator): OpenRocket's getComponentCD()
+    // and getOverrideCD() throw a NullPointerException for every component of the rocket, active
+    // or not (NestedProbe.java), and these throw BugError. Kept from OpenRocket on purpose; the
+    // GUI, which reaches the state by toggling stages, has to expect it.
+    const TestBoostersOnBoostersRocket nested;
+    FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
+    config.setOnlyStage(TestBoostersOnBoostersRocket::kInnerStageNumber);
+    ASSERT_EQ(allComponents(*nested.rocket).size(), 20U);
+    EXPECT_EQ(componentsWithACD(*nested.rocket), "");
+    EXPECT_THROW(static_cast<void>(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0)),
+                 BugError);
+    EXPECT_THROW(static_cast<void>(ComponentDrag::getOverrideCD(*nested.payloadNose, 0.3)),
+                 BugError);
+
+    // An overridden CD is the stored one, without a force analysis.
+    nested.innerFins->setOverrideCD(0.2);
+    nested.innerFins->setCDOverridden(true);
+    ASSERT_TRUE(config.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber));
+    ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
+    EXPECT_EQ(ComponentDrag::getOverrideCD(*nested.innerFins, 0.3), 0.2);
+    EXPECT_TRUE(componentCDIsABug(*nested.innerFins));
+
+    // With the boosters they sit on active as well, there is an analysis again.
+    config.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, true);
+    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0), 0.2);
+    EXPECT_GT(ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0), 0.0);
 }
 
 TEST(ComponentDrag, ComponentCDIsTheForceAnalysisOfTheSelectedConfiguration)

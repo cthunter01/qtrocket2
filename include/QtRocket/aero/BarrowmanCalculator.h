@@ -42,6 +42,22 @@ class WarningSet;
 /// rocket's entry keeps the drag calculator's total, which can hold corrections that belong to
 /// no single assembly.
 ///
+/// The entries of the result point at the components of the rocket (ForceMap's keys, and each
+/// AerodynamicForces::getComponent(), which the drag getters read for the CD override): the map
+/// must be read, or the values wanted copied out of it, before the component tree changes
+/// (a component removed, Rocket::loadFrom()) and before the rocket is destroyed. Java's map keeps
+/// its components alive.
+///
+/// A selection of stages the force analysis cannot do, as in OpenRocket: the stability
+/// calculator's breakdown replaces an inactive stage by its active top-level child stages, one
+/// level deep. An active stage below two inactive ones (a booster set on the body of a booster
+/// set, with the outer boosters and the core switched off: FlightConfiguration::setOnlyStage()
+/// of the inner set) has no entry in the breakdown, and getForceAnalysis() throws BugError
+/// (Java: a NullPointerException). The stage selection is the user's, not a programming error
+/// of the caller, so a caller that shows a force analysis (the component analysis, the override
+/// tab through ComponentDrag) has to expect it. getCP() and getAerodynamicForces() work for
+/// such a selection.
+///
 /// The cache: checkCache() runs first in getCP(), getAerodynamicForces() and getForceAnalysis()
 /// (and so in getWorstCP()), not in checkGeometry() or getStallAngle(), as in Java; when the
 /// rocket's aerodynamic or tree modification id has changed, both calculators drop their cached
@@ -59,7 +75,7 @@ class WarningSet;
 /// - A null calculator throws BugError (Java: IllegalArgumentException).
 /// - BugError where Java throws a NullPointerException: in getForceAnalysis() when the
 ///   breakdown has no entry for the rocket, for an active assembly or for an active aerodynamic
-///   component.
+///   component (see above for the selection of stages that leads to it).
 /// - checkGeometry() resolves a null WarningSet with this calculator's own set of ignored
 ///   warnings (Java: the stability calculator's).
 class BarrowmanCalculator final : public AbstractAerodynamicCalculator
@@ -84,8 +100,10 @@ public:
                                    const FlightConditions&    conditions,
                                    WarningSet*                warnings) override;
 
-    /// The forces per component (see the class comment).
-    /// @throws BugError see the class comment.
+    /// The forces per component (see the class comment). The entries point at the rocket's
+    /// components: read the map before the component tree changes or the rocket is destroyed.
+    /// @throws BugError see the class comment: for an active stage below two inactive ones, and
+    ///         when the stability calculator's breakdown lacks an entry.
     [[nodiscard]] ForceMap getForceAnalysis(const FlightConfiguration& configuration,
                                             const FlightConditions&    conditions,
                                             WarningSet*                warnings) override;

@@ -50,6 +50,13 @@ public:
 
     /// The aerodynamic forces per component, in the order of the active instances; the rocket's
     /// entry holds the total forces.
+    ///
+    /// Lifetime: every entry of the map points at its component of the rocket, non-owning (the
+    /// key, and AerodynamicForces::getComponent(), which getCD(), getPressureCD(), getBaseCD(),
+    /// getFrictionCD(), getOverrideCD() and getCDTotal() dereference for the CD override). The
+    /// map must therefore be read, or its values copied out, before the component tree changes
+    /// (RocketComponent::removeChild(), Rocket::loadFrom()) and before the rocket is destroyed
+    /// (Java's map keeps the components alive).
     [[nodiscard]] virtual ForceMap getForceAnalysis(const FlightConfiguration& configuration,
                                                     const FlightConditions&    conditions,
                                                     WarningSet*                warnings) = 0;

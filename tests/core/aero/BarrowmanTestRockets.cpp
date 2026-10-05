@@ -8,6 +8,7 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/NoseCone.h"
+#include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/RailButton.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -130,6 +131,21 @@ TestShortPodRocket::TestShortPodRocket(double podOffset, bool withTail)
     }
 
     rocket->enableEvents();
+}
+
+TestBoostersOnBoostersRocket::TestBoostersOnBoostersRocket()
+{
+    auto inner = std::make_unique<ParallelStage>();
+    inner->setName("Inner Boosters");
+    inner->setInstanceCount(2);
+    innerStage = &boosterBody->addChild(std::move(inner));
+
+    innerNose =
+        &innerStage->addChild(std::make_unique<NoseCone>(TransitionShape::OGIVE, 0.05, 0.015));
+
+    innerBody = &innerStage->addChild(std::make_unique<BodyTube>(0.2, 0.015, 0.001));
+
+    innerFins = &innerBody->addChild(std::make_unique<TrapezoidFinSet>(3, 0.04, 0.02, 0.01, 0.03));
 }
 
 std::vector<RocketComponent*> allComponents(Rocket& rocket)

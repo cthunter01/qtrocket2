@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -23,6 +24,8 @@
 #include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/aero/LookupTableDragCalculator.h"
 #include "QtRocket/aero/LookupTableStabilityCalculator.h"
+#include "QtRocket/aero/StabilityCalculator.h"
+#include "QtRocket/aero/StabilityForceBreakdown.h"
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -41,6 +44,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
@@ -79,8 +83,11 @@ using QtRocket::PodSet;
 using QtRocket::RailButton;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::StabilityCalculator;
+using QtRocket::StabilityForceBreakdown;
 using QtRocket::TransitionShape;
 using QtRocket::TrapezoidFinSet;
+using QtRocket::TubeFinSet;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::Test::compareDrag;
@@ -92,6 +99,7 @@ using QtRocket::Test::kComponentTolerance;
 using QtRocket::Test::kRocketTolerance;
 using QtRocket::Test::NonAxialPin;
 using QtRocket::Test::TestBeta;
+using QtRocket::Test::TestBoostersOnBoostersRocket;
 using QtRocket::Test::TestEndPlateRocket;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestEstesAlphaIIIWithInlinePod;
@@ -2953,6 +2961,404 @@ TEST(BarrowmanCalculator, NewInstanceIsIndependent)
     // The original may go first.
     const std::unique_ptr<AerodynamicCalculator> second = instance->newInstance();
     EXPECT_EQ(differencesFromANewCalculator(*second, alphaConfig), "");
+}
+
+// ------------------------------------------------------------------- renamed components
+
+/// The texts of @p warnings, each on a line.
+[[nodiscard]] std::string textsOf(const WarningSet& warnings)
+{
+    std::string texts;
+    for (const Warning& warning : warnings)
+    {
+        texts += warning.toString();
+        texts += '\n';
+    }
+    return texts;
+}
+
+/// Whether two results of getAerodynamicForces() are the same, bit for bit ("" when they are).
+[[nodiscard]] std::string forceDifferences(const AerodynamicForces& expected,
+                                           const AerodynamicForces& actual)
+{
+    JavaValueDifferences diff;
+    diff.pinned("CN", expected.getCN(), actual.getCN(), 0.0);
+    diff.pinned("Cm", expected.getCm(), actual.getCm(), 0.0);
+    diff.pinned("Croll", expected.getCroll(), actual.getCroll(), 0.0);
+    diff.pinned("CD", expected.getCD(), actual.getCD(), 0.0);
+    diff.pinned("CDaxial", expected.getCDaxial(), actual.getCDaxial(), 0.0);
+    diff.pinned("CP.x", expected.getCP().x, actual.getCP().x, 0.0);
+    diff.pinned("CNa", expected.getCP().weight, actual.getCP().weight, 0.0);
+    diff.pinned("pitch damping", expected.getPitchDampingMoment(), actual.getPitchDampingMoment(),
+                0.0);
+    return diff.text();
+}
+
+TEST(BarrowmanCalculator, ARenamedFinSetIsNamedByItsNewNameInTheWarnings)
+{
+    // A fin calculation makes its geometry warnings once, with the fin set's name of then in
+    // their source, and a rename changes neither the aerodynamic nor the tree modification id,
+    // so the cache is not voided. OpenRocket's warning holds the fin set and prints its current
+    // name: the same calculator says "New fins" after the rename (the probe VerifyRename.java,
+    // whose texts these are).
+    const TestEstesAlphaIII alpha;
+    alpha.fins->setThickness(0.008);
+    alpha.fins->setName("Old fins");
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    FlightConditions           conditions{config};
+    conditions.setAOA(0.05);
+    conditions.setMach(0.4);
+    BarrowmanCalculator calculator;
+
+    WarningSet              before;
+    const AerodynamicForces forcesBefore =
+        calculator.getAerodynamicForces(config, conditions, &before);
+    EXPECT_EQ(textsOf(before), "Thick fins may not simulate accurately:  \"Old fins\"\n");
+
+    const ModId aeroId = alpha.rocket->getAerodynamicModId();
+    const ModId treeId = alpha.rocket->getTreeModId();
+    alpha.fins->setName("New fins");
+    ASSERT_EQ(alpha.rocket->getAerodynamicModId(), aeroId);
+    ASSERT_EQ(alpha.rocket->getTreeModId(), treeId);
+
+    WarningSet              after;
+    const AerodynamicForces forcesAfter =
+        calculator.getAerodynamicForces(config, conditions, &after);
+    EXPECT_EQ(textsOf(after), "Thick fins may not simulate accurately:  \"New fins\"\n");
+    EXPECT_EQ(forceDifferences(forcesBefore, forcesAfter), "");
+
+    // Each of the calculator's entries sees the rename, whichever comes first after it.
+    alpha.fins->setName("Newer fins");
+    WarningSet cpWarnings;
+    static_cast<void>(calculator.getCP(config, conditions, &cpWarnings));
+    EXPECT_EQ(textsOf(cpWarnings), "Thick fins may not simulate accurately:  \"Newer fins\"\n");
+    alpha.fins->setName("Newest fins");
+    WarningSet analysisWarnings;
+    static_cast<void>(calculator.getForceAnalysis(config, conditions, &analysisWarnings));
+    EXPECT_EQ(textsOf(analysisWarnings),
+              "Thick fins may not simulate accurately:  \"Newest fins\"\n");
+
+    // The other components renamed (no warning names them): the same forces.
+    alpha.nose->setName("Renamed nose");
+    alpha.body->setName("Renamed body");
+    EXPECT_EQ(forceDifferences(forcesBefore,
+                               calculator.getAerodynamicForces(config, conditions, nullptr)),
+              "");
+    EXPECT_EQ(differencesFromANewCalculator(calculator, config), "");
+}
+
+TEST(BarrowmanCalculator, ARenamedTubeFinSetIsNamedByItsNewNameInTheWarnings)
+{
+    // As above, for the geometry warnings of a TubeFinSetCalc: a single tube fin.
+    const TestEstesAlphaIII alpha;
+    auto                    tubes = std::make_unique<TubeFinSet>();
+    tubes->setFinCount(1);
+    tubes->setName("Old tubes");
+    TubeFinSet&                tubeFins = alpha.body->addChild(std::move(tubes));
+    const FlightConfiguration& config   = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions     conditions{config};
+    BarrowmanCalculator        calculator;
+
+    WarningSet              before;
+    const AerodynamicForces forcesBefore =
+        calculator.getAerodynamicForces(config, conditions, &before);
+    EXPECT_EQ(textsOf(before), "Isolated tube fins may not simulate accurately:  \"Old tubes\"\n");
+
+    tubeFins.setName("New tubes");
+    WarningSet              after;
+    const AerodynamicForces forcesAfter =
+        calculator.getAerodynamicForces(config, conditions, &after);
+    EXPECT_EQ(textsOf(after), "Isolated tube fins may not simulate accurately:  \"New tubes\"\n");
+    EXPECT_EQ(forceDifferences(forcesBefore, forcesAfter), "");
+}
+
+TEST(BarrowmanCalculator, EachCalculatorOnItsOwnSeesARename)
+{
+    // The stability and the drag calculator have a map of calculations each, and neither looks
+    // at the rocket's modification ids. A TubeFinSetCalc adds its geometry warnings to the
+    // non-axial forces and to the pressure drag.
+    const TestEstesAlphaIII alpha;
+    auto                    tubes = std::make_unique<TubeFinSet>();
+    tubes->setFinCount(1);
+    tubes->setName("Old tubes");
+    TubeFinSet&                  tubeFins = alpha.body->addChild(std::move(tubes));
+    const FlightConfiguration&   config   = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions       conditions{config};
+    BarrowmanStabilityCalculator stability;
+    BarrowmanDragCalculator      drag;
+
+    WarningSet stabilityBefore;
+    static_cast<void>(stability.getCP(config, conditions, stabilityBefore));
+    EXPECT_EQ(textsOf(stabilityBefore),
+              "Isolated tube fins may not simulate accurately:  \"Old tubes\"\n");
+    WarningSet        dragBefore;
+    AerodynamicForces total;
+    drag.calculateDrag(config, conditions, nullptr, nullptr, total, dragBefore);
+    EXPECT_EQ(textsOf(dragBefore),
+              "Isolated tube fins may not simulate accurately:  \"Old tubes\"\n");
+    const double cdBefore = total.getCD();
+
+    tubeFins.setName("New tubes");
+    WarningSet stabilityAfter;
+    static_cast<void>(stability.getCP(config, conditions, stabilityAfter));
+    EXPECT_EQ(textsOf(stabilityAfter),
+              "Isolated tube fins may not simulate accurately:  \"New tubes\"\n");
+    WarningSet dragAfter;
+    drag.calculateDrag(config, conditions, nullptr, nullptr, total, dragAfter);
+    EXPECT_EQ(textsOf(dragAfter),
+              "Isolated tube fins may not simulate accurately:  \"New tubes\"\n");
+    EXPECT_EQ(total.getCD(), cdBefore);
+    EXPECT_GT(cdBefore, 0);
+}
+
+// ------------------------------------------------- an active stage below two inactive ones
+
+TEST(BarrowmanCalculator, AStageTwoStagesDeepIsAnalysedWhileTheStagesAboveAreActive)
+{
+    // Boosters on the boosters of the Falcon 9 Heavy, every stage active: OpenRocket's values
+    // (the probe NestedProbe.java, at the default conditions: Mach 0.3, angle of attack 0).
+    const TestBoostersOnBoostersRocket nested;
+    ASSERT_EQ(nested.innerStage->getStageNumber(), TestBoostersOnBoostersRocket::kInnerStageNumber);
+    const FlightConfiguration& config = nested.rocket->getSelectedConfiguration();
+    const FlightConditions     conditions{config};
+    BarrowmanCalculator        calculator;
+
+    const AerodynamicForces forces = calculator.getAerodynamicForces(config, conditions, nullptr);
+    const Coordinate        cp     = calculator.getCP(config, conditions, nullptr);
+    JavaValueDifferences    diff;
+    diff.pinned("CD", 1.0415630884694889, forces.getCD(), kRocketTolerance);
+    diff.pinned("CN", 0.0, forces.getCN(), kRocketTolerance);
+    diff.pinned("CP.x", 1.0721300083721113, cp.x, kRocketTolerance);
+    diff.pinned("CNa", 23.840055333244806, cp.weight, kRocketTolerance);
+    EXPECT_EQ(diff.text(), "");
+
+    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, nullptr);
+    EXPECT_EQ(forceMap.size(), 17U);
+    EXPECT_TRUE(forceMap.containsKey(nested.innerStage));
+    EXPECT_TRUE(forceMap.containsKey(nested.innerFins));
+}
+
+TEST(BarrowmanCalculator, AnActiveStageBelowTwoInactiveOnesHasForcesButNoForceAnalysis)
+{
+    // FlightConfiguration::setOnlyStage() of the inner boosters switches off the boosters they
+    // sit on and the core. The total forces sum over the active instances and are OpenRocket's
+    // (NestedProbe.java). The force analysis replaces an inactive stage by its active top-level
+    // child stages, one level deep, so the inner boosters are never visited and have no entry:
+    // OpenRocket fails there with a NullPointerException (BarrowmanCalculator.java:80, also out
+    // of RocketComponent.getComponentCD() and getOverrideCD()), and so does this port, with a
+    // BugError. Kept on purpose: see the class comment.
+    const TestBoostersOnBoostersRocket nested;
+    FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
+    config.setOnlyStage(TestBoostersOnBoostersRocket::kInnerStageNumber);
+    ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kPayloadStageNumber));
+    ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kCoreStageNumber));
+    ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
+    ASSERT_TRUE(config.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber));
+    ASSERT_TRUE(config.isComponentActive(*nested.innerFins));
+
+    const FlightConditions conditions{config};
+    EXPECT_EQ(conditions.getRefLength(), 0.03);
+    BarrowmanCalculator calculator;
+
+    const AerodynamicForces forces = calculator.getAerodynamicForces(config, conditions, nullptr);
+    const Coordinate        cp     = calculator.getCP(config, conditions, nullptr);
+    JavaValueDifferences    diff;
+    diff.pinned("CD", 2.9374020703047328, forces.getCD(), kRocketTolerance);
+    diff.pinned("CN", 0.0, forces.getCN(), kRocketTolerance);
+    diff.pinned("CP.x", 1.2993408142983731, cp.x, kRocketTolerance);
+    diff.pinned("CNa", 43.82382381090931, cp.weight, kRocketTolerance);
+    EXPECT_EQ(diff.text(), "");
+
+    EXPECT_THROW(static_cast<void>(calculator.getForceAnalysis(config, conditions, nullptr)),
+                 BugError);
+    // The calculator is still good for the forces, and for the analysis of another selection.
+    EXPECT_EQ(calculator.getAerodynamicForces(config, conditions, nullptr).getCD(), forces.getCD());
+    config.setAllStages();
+    EXPECT_EQ(calculator.getForceAnalysis(config, FlightConditions{config}, nullptr).size(), 17U);
+}
+
+// ------------------------------------------------------ a breakdown without the rocket
+
+/// A stability calculator whose force analysis is empty: it has no entry for the rocket (and
+/// none for anything else).
+class EmptyBreakdownCalculator final : public StabilityCalculator
+{
+public:
+    [[nodiscard]] std::unique_ptr<StabilityCalculator> newInstance() const override
+    {
+        return std::make_unique<EmptyBreakdownCalculator>();
+    }
+
+    [[nodiscard]] double getStallAngle() const override { return 0.25; }
+
+    [[nodiscard]] Coordinate getCP(const FlightConfiguration& /*configuration*/,
+                                   const FlightConditions& /*conditions*/,
+                                   WarningSet& /*warnings*/) override
+    {
+        return Coordinate{0.5, 0, 0, 2.0};
+    }
+
+    [[nodiscard]] AerodynamicForces calculateNonAxialForces(
+        const FlightConfiguration& /*configuration*/, const FlightConditions& /*conditions*/,
+        WarningSet& /*warnings*/) override
+    {
+        return AerodynamicForces{}.zero();
+    }
+
+    [[nodiscard]] StabilityForceBreakdown getForceAnalysis(
+        const FlightConfiguration& /*configuration*/, const FlightConditions& /*conditions*/,
+        WarningSet& /*warnings*/) override
+    {
+        return StabilityForceBreakdown{ForceMap{}, ForceMap{}};
+    }
+
+    void calculateDampingMoments(const FlightConfiguration& /*configuration*/,
+                                 const FlightConditions& /*conditions*/,
+                                 AerodynamicForces& total) override
+    {
+        total.setPitchDampingMoment(0);
+        total.setYawDampingMoment(0);
+    }
+
+    void checkGeometry(const FlightConfiguration& /*configuration*/,
+                       const RocketComponent& /*component*/, WarningSet& /*warnings*/) override
+    {
+    }
+
+    void voidAerodynamicCache() override { }
+};
+
+TEST(BarrowmanCalculator, ABreakdownWithoutTheRocketIsABug)
+{
+    // Java: assemblyMap.get(configuration.getRocket()) is null, and calculateDrag() fails on it
+    // with a NullPointerException. No stability calculator of the library gives such a
+    // breakdown.
+    const TestEstesAlphaIII    alpha;
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions     conditions{config};
+    BarrowmanCalculator        calculator{std::make_unique<EmptyBreakdownCalculator>(),
+                                          std::make_unique<BarrowmanDragCalculator>()};
+
+    EXPECT_THROW(static_cast<void>(calculator.getForceAnalysis(config, conditions, nullptr)),
+                 BugError);
+    // The other entries do not need the breakdown.
+    EXPECT_EQ(calculator.getStallAngle(), 0.25);
+    EXPECT_EQ(calculator.getCP(config, conditions, nullptr).weight, 2.0);
+    EXPECT_GT(calculator.getAerodynamicForces(config, conditions, nullptr).getCD(), 0);
+}
+
+// ----------------------------------------- one calculator, the configurations of a flight
+
+/// What OpenRocket gives a configuration of the Falcon 9 Heavy at Mach 0.6, an angle of attack
+/// of 0.05 rad and a pitch rate of 0.3 rad/s (the probe StagingProbe.java): CD, CNa, the number
+/// of entries of the force analysis, the pitch damping moment and Cm.
+struct StagedPin
+{
+    double      cd;
+    double      cna;
+    std::size_t entries;
+    double      pitchDamping;
+    double      cm;
+};
+
+/// The differences between @p expected and what @p calculator gives @p configuration, with the
+/// calls of the probe in its order: getAerodynamicForces(), getCP(), getForceAnalysis().
+[[nodiscard]] std::string stagedDifferences(AerodynamicCalculator&     calculator,
+                                            const FlightConfiguration& configuration,
+                                            const StagedPin&           expected)
+{
+    FlightConditions conditions{configuration};
+    conditions.setAOA(0.05);
+    conditions.setMach(0.6);
+    conditions.setPitchRate(0.3);
+    WarningSet              warnings;
+    const AerodynamicForces forces =
+        calculator.getAerodynamicForces(configuration, conditions, &warnings);
+    const Coordinate cp       = calculator.getCP(configuration, conditions, &warnings);
+    const ForceMap   analysis = calculator.getForceAnalysis(configuration, conditions, &warnings);
+
+    JavaValueDifferences diff;
+    diff.pinned("CD", expected.cd, forces.getCD(), kRocketTolerance);
+    diff.pinned("CNa", expected.cna, cp.weight, kRocketTolerance);
+    diff.pinned("pitch damping", expected.pitchDamping, forces.getPitchDampingMoment(),
+                kRocketTolerance);
+    diff.pinned("Cm", expected.cm, forces.getCm(), kRocketTolerance);
+    if (analysis.size() != expected.entries)
+    {
+        diff.problem(std::format("{} entries in the force analysis instead of {}", analysis.size(),
+                                 expected.entries));
+    }
+    return diff.text();
+}
+
+TEST(BarrowmanCalculator, OneCalculatorForTheClonedConfigurationsOfASimulation)
+{
+    // What a simulation does (OpenRocket's BasicEventSimulationEngine and the shallow
+    // SimulationConditions.clone()): one calculator, shared by clones of a flight configuration
+    // whose active stages differ, one clone per separated stage, clones that go while the
+    // calculator stays. The rocket does not change, so the cache is never voided: the
+    // calculations cover every stage, and the damping length and diameter stay those of the
+    // whole stack, which the first call cached (OpenRocket's behaviour, kept on purpose: a new
+    // calculator gives the separated stages another damping moment).
+    const TestFalcon9Heavy     falcon;
+    const FlightConfiguration& original = falcon.rocket->getSelectedConfiguration();
+    BarrowmanCalculator        calculator;
+    constexpr StagedPin        kAllStages{.cd           = 0.893462575948982,
+                                          .cna          = 22.06734139410027,
+                                          .entries      = 13,
+                                          .pitchDamping = 0.004423056998242948,
+                                          .cm           = 10.800908560443109};
+
+    std::optional<FlightConfiguration> flying{original.clone()};
+    flying->copyStages(original);
+    EXPECT_EQ(stagedDifferences(calculator, *flying, kAllStages), "");
+
+    // The boosters separate: a clone of their own, and the core flies on without them.
+    std::optional<FlightConfiguration> boosters{flying->clone()};
+    boosters->setOnlyStage(TestFalcon9Heavy::kBoosterStageNumber);
+    flying->setStageActive(TestFalcon9Heavy::kBoosterStageNumber, false);
+    constexpr StagedPin kCoreAndPayload{.cd           = 0.3402204854728941,
+                                        .cna          = 1.7937341186767581,
+                                        .entries      = 9,
+                                        .pitchDamping = 0.003882620267170254,
+                                        .cm           = 0.1664709166872872};
+    EXPECT_EQ(stagedDifferences(calculator, *flying, kCoreAndPayload), "");
+    constexpr StagedPin kBoostersAlone{.cd           = 1.0687558311236902,
+                                       .cna          = 36.98420244408512,
+                                       .entries      = 5,
+                                       .pitchDamping = 0.010898089704953543,
+                                       .cm           = 26.192911894521398};
+    EXPECT_EQ(stagedDifferences(calculator, *boosters, kBoostersAlone), "");
+
+    // A calculator that starts with the separated stages caches their own length and diameter.
+    constexpr StagedPin kCoreAndPayloadAnew{.cd           = 0.3402204854728941,
+                                            .cna          = 1.7937341186767581,
+                                            .entries      = 9,
+                                            .pitchDamping = 5.418985553293747E-4,
+                                            .cm           = 0.16981163839912808};
+    BarrowmanCalculator coreCalculator;
+    EXPECT_EQ(stagedDifferences(coreCalculator, *flying, kCoreAndPayloadAnew), "");
+    constexpr StagedPin kBoostersAloneAnew{.cd           = 1.0687558311236902,
+                                           .cna          = 36.98420244408512,
+                                           .entries      = 5,
+                                           .pitchDamping = 0.0015499879169214106,
+                                           .cm           = 26.20225999630943};
+    BarrowmanCalculator boosterCalculator;
+    EXPECT_EQ(stagedDifferences(boosterCalculator, *boosters, kBoostersAloneAnew), "");
+
+    // The booster clone goes; the payload flies on alone (its damping moment is capped by Cm).
+    boosters.reset();
+    flying->setOnlyStage(TestFalcon9Heavy::kPayloadStageNumber);
+    constexpr StagedPin kPayloadAlone{.cd           = 0.2613379501136298,
+                                      .cna          = 1.395237262541339,
+                                      .entries      = 7,
+                                      .pitchDamping = -0.014334429062150458,
+                                      .cm           = 0.0};
+    EXPECT_EQ(stagedDifferences(calculator, *flying, kPayloadAlone), "");
+
+    // The simulation is over; the rocket's own configuration is what it was.
+    flying.reset();
+    EXPECT_EQ(stagedDifferences(calculator, original, kAllStages), "");
 }
 
 TEST(BarrowmanCalculator, WarningsAreOptional)
