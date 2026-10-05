@@ -22,7 +22,7 @@ TubeFinSetCalc::TubeFinSetCalc(const TubeFinSet& tubes)
     m_chord(tubes.getLength()),
     m_outerRadius(tubes.getOuterRadius())
 {
-    const MessageSources source{MessageSource{tubes.getId(), tubes.getName()}};
+    const MessageSources source{MessageSource::of(tubes)};
     if (tubes.getFinCount() == 1)
     {
         m_geometryWarnings.add(Warning::kTubeIsolated, source);

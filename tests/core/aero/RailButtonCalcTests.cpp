@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/BarrowmanCalculator.h"
 #include "QtRocket/aero/BarrowmanDragCalculator.h"
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/aero/barrowman/RocketComponentCalc.h"
@@ -40,6 +41,7 @@ namespace
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BarrowmanCalculator;
 using QtRocket::BarrowmanDragCalculator;
 using QtRocket::BodyTube;
 using QtRocket::BugError;
@@ -65,8 +67,8 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 // ================================================================== RailButtonCalcTest.java
 
-// RailButtonCalcTest.testRailButtons. Java makes a BarrowmanCalculator only to call its static
-// calculateStagnationCD(), which forwards to BarrowmanDragCalculator's: that one is called here.
+// RailButtonCalcTest.testRailButtons. Java makes a BarrowmanCalculator to call
+// calculateStagnationCD() on it; the function is static there and here.
 TEST(RailButtonCalc, RailButtons)
 {
     /// RailButtonCalcTest.EPSILON.
@@ -126,14 +128,13 @@ TEST(RailButtonCalc, RailButtons)
 
     // Get "effective" CD
     const double calccd = cd * MathUtil::pow2(mach) *
-                          BarrowmanDragCalculator::calculateStagnationCD(conditions.getMach()) *
+                          BarrowmanCalculator::calculateStagnationCD(conditions.getMach()) *
                           refArea / conditions.getRefArea();
 
     // Now compare with value from RailButtonCalc
     WarningSet   warnings;
     const double testcd = calcObj.calculatePressureCD(
-        conditions, BarrowmanDragCalculator::calculateStagnationCD(conditions.getMach()), 0,
-        warnings);
+        conditions, BarrowmanCalculator::calculateStagnationCD(conditions.getMach()), 0, warnings);
 
     EXPECT_NEAR(testcd, calccd, epsilon) << "Calculated rail button CD incorrect";
 }

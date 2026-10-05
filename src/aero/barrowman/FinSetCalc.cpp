@@ -120,12 +120,6 @@ struct SupersonicCoefficients
     return kInterpolator;
 }
 
-/// @p component as the source of a warning.
-[[nodiscard]] MessageSources sourceOf(const RocketComponent& component)
-{
-    return MessageSources{MessageSource{component.getId(), component.getName()}};
-}
-
 /// Whether @p component is a trapezoidal fin set whose root and tip chords are equal.
 [[nodiscard]] bool isRectangularPlanform(const FinSet& component)
 {
@@ -344,7 +338,7 @@ void FinSetCalc::calculateFinGeometry(const FinSet& component)
     m_finArea = component.getPlanformArea();
     if (m_finArea < MathUtil::kEpsilon)
     {
-        m_geometryWarnings.add(Warning::kZeroAreaFin, sourceOf(component));
+        m_geometryWarnings.add(Warning::kZeroAreaFin, MessageSources{MessageSource::of(component)});
         m_ar = 0;
     }
     else
@@ -374,7 +368,8 @@ void FinSetCalc::checkOutline(const FinSet& component)
     {
         if ((points[i].y > points[i - 1].y + 0.001) && down)
         {
-            m_geometryWarnings.add(Warning::kJaggedEdgedFin, sourceOf(component));
+            m_geometryWarnings.add(Warning::kJaggedEdgedFin,
+                                   MessageSources{MessageSource::of(component)});
             break;
         }
         if (points[i].y < points[i - 1].y - 0.001)
@@ -386,7 +381,7 @@ void FinSetCalc::checkOutline(const FinSet& component)
     if ((m_bodyRadius > 0) && (m_thickness > m_bodyRadius / 2))
     {
         // Add warnings  (radius/2 == diameter/4)
-        m_geometryWarnings.add(Warning::kThickFin, sourceOf(component));
+        m_geometryWarnings.add(Warning::kThickFin, MessageSources{MessageSource::of(component)});
     }
 }
 

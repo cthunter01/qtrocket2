@@ -551,8 +551,8 @@ void RocketComponent::setCDOverridden(bool overridden)
         overrideSubcomponentsCD(overridden);
     }
 
-    // Deferred to aero/: without the override Java refreshes m_overrideCD from getComponentCD(0,
-    // 0, defaultMach, 0) here (see the class comment).
+    // Without the override Java stores getComponentCD(0, 0, defaultMach, 0) in the override CD
+    // here; the stored value is left alone (see the class comment, "In aero/").
 
     fireComponentChangeEvent(ComponentChangeEvent::kAerodynamicChange);
 }

@@ -35,7 +35,7 @@ Each input directory holds:
 |---|---|
 | `geometry.json` | per component: geometry, mass properties, instances; per flight configuration: active stages, motors, reference values, bounds, the transform of every active instance |
 | `mass.json` | per flight configuration: the STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies of `MassCalculator` and its CM analysis |
-| `aero.json` | per flight configuration: CP/CNα, total forces and the per-component force analysis of `BarrowmanCalculator` at 23 flight conditions, worst CP per Mach number, geometry warnings |
+| `aero.json` | per flight configuration: CP/CNα, total forces and the per-component force analysis of `BarrowmanCalculator` at 25 flight conditions, worst CP per Mach number, geometry warnings |
 | `sim_<NN>_<name>.json` | one simulation: options, what the harness changed, extensions, result, summary values, warnings, and per branch the columns, events and extremes |
 | `sim_<NN>_<name>_branch<i>.csv.gz` | the full time series of branch `i` of that simulation |
 | `resave/rocket.ork` | `OpenRocketSaver`'s XML for the design as loaded (as built, for the test rockets), without simulation data |
@@ -253,7 +253,17 @@ damping geometry of the active components across configurations):
   `overrideCD`, `pitchDampingMoment`, `yawDampingMoment`, `axisymmetric`), `components`
   (`getForceAnalysis`: the same fields per component and assembly, with `path`, tree order, as
   OpenRocket returns them, i.e. per instance) and `warnings`;
-- `worstCP`: per Mach number at AoA 0, `getWorstCP` (`cp` and the `theta` it found).
+- `worstCP`: per Mach number at AoA 0, `getWorstCP` (`cp` and the `theta` it found). The `theta`
+  is meaningful only where the CP depends on the wind direction (of the test rockets: the
+  Iso-Haisu, with its two control fins). With three or four equal fins the 360 CPs that
+  `getWorstCP` tries differ by a few units in the last place, and the direction that happens to
+  give the smallest x follows the order in which OpenRocket sums the components (the order of
+  their ids) and the last bit of the sines: another run of OpenRocket with other ids finds another
+  direction. A port compares the `cp`; of the `theta` it can check that the one it finds is one of
+  the 360 directions `getWorstCP` tries, that the CP at it is the golden worst CP, and that the
+  golden `theta` is an equally bad direction for the port (`compareWorstTheta()` in
+  `tests/core/goldens/aero_golden_tests.cpp`), but not which of several equally bad directions is
+  found.
 
 ### sim_&lt;NN&gt;_&lt;name&gt;.json and the branch CSV files
 

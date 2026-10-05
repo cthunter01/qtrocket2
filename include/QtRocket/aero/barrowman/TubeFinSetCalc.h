@@ -15,8 +15,9 @@ class TubeFinSet;
 
 /// The aerodynamic calculation of one tube of a tube fin set (OpenRocket's
 /// aerodynamics/barrowman/TubeFinSetCalc, "preliminary computation of tube fin aerodynamics").
-/// The calculators of tier 7b iterate over the tubes, so everything here is the geometry of a
-/// single tube; the interference between the tubes is not considered.
+/// The Barrowman calculators iterate over the tubes (the instances of the tube fin set), so
+/// everything here is the geometry of a single tube; the interference between the tubes is not
+/// considered.
 ///
 /// - Non-axial forces: CNa is Ribner's ring airfoil value ("The ring airfoil in nonaxial flow",
 ///   Journal of the Aeronautical Sciences 14(9), 1947, equation 5),
@@ -46,7 +47,8 @@ class TubeFinSet;
 ///   fields it never reads after the constructor; they are not kept here. Its cant angle field,
 ///   always 0, is the constant kCantAngle.
 /// - The source of a geometry warning is the tube fin set's id and its name at construction
-///   (see MessageSource).
+///   (see MessageSource). ComponentCalcMap makes the calculation of a renamed tube fin set anew,
+///   so a calculator's warnings carry the current name, as Java's do.
 class TubeFinSetCalc final : public TubeCalc
 {
 public:

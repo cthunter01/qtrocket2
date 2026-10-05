@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -12,11 +13,18 @@
 namespace QtRocket
 {
 
-/// A rocket component that caused a message (Java: RocketComponent). Extension point: rocket/
-/// does not exist yet, so a source carries the two things a message needs from a component: its
-/// id, which is its identity, and its name, which the message text prints. The rocket group
-/// builds one from a component (or replaces this with the component itself); equality must stay
-/// by id.
+/// What a MessageSource is built from: a rocket component, which answers its id with getId()
+/// and its name with getName() (RocketComponent and everything derived from it).
+template <typename T>
+concept MessageSourceComponent = requires(const T& component) {
+    { component.getId() } -> std::convertible_to<Uuid>;
+    { component.getName() } -> std::convertible_to<std::string>;
+};
+
+/// A rocket component that caused a message (Java: RocketComponent). logging/ lies below
+/// rocket/, so a source carries the two things a message needs from a component: its id, which
+/// is its identity, and its name, which the message text prints. of() builds one from a
+/// component; it is how the aerodynamic calculators name the components of their warnings.
 ///
 /// Two sources are equal when their ids are equal, whatever their names (Java:
 /// RocketComponent.equals() compares ids), so two same-named components ("Body tube" twice) are
@@ -27,6 +35,14 @@ struct MessageSource
     MessageSource(Uuid componentId, std::string componentName)
       : id(componentId), name(std::move(componentName))
     {
+    }
+
+    /// The source that stands for @p component: its id and its name as it is now. A template,
+    /// so that logging/ does not depend on rocket/.
+    template <MessageSourceComponent Component>
+    [[nodiscard]] static MessageSource of(const Component& component)
+    {
+        return MessageSource{component.getId(), component.getName()};
     }
 
     /// The component's id (Java: RocketComponent.getID()).

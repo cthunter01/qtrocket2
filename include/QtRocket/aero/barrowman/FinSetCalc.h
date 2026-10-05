@@ -77,7 +77,9 @@ class Transformation;
 ///   usesNacaInterference() is an addition (Java: a private field).
 /// - calculateFinGeometry() is private and takes no part in overriding (Java: protected; only
 ///   the constructor calls it).
-/// - A geometry warning names its fin set by a snapshot of the id and name (see MessageSource).
+/// - A geometry warning names its fin set by a snapshot of the id and name (see MessageSource),
+///   taken at construction. ComponentCalcMap makes the calculation of a renamed fin set anew, so
+///   a calculator's warnings carry the current name, as Java's do.
 class FinSetCalc final : public RocketComponentCalc
 {
 public:

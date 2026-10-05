@@ -148,8 +148,14 @@ add_executable(QtRocket_core_tests
     mass/ThrustStateTests.cpp
     aero/AbstractAerodynamicCalculatorTests.cpp
     aero/AerodynamicForcesTests.cpp
+    aero/BarrowmanCalculatorTests.cpp
     aero/BarrowmanDragCalculatorTests.cpp
+    aero/BarrowmanStabilityCalculatorTests.cpp
+    aero/BarrowmanTestRockets.cpp
+    aero/CalcFactoryTests.cpp
+    aero/component_drag_tests.cpp
     aero/ComponentAssemblyCalcTests.cpp
+    aero/ComponentCalcMapTests.cpp
     aero/CsvMachAoALookupTests.cpp
     aero/FinSetCalcTests.cpp
     aero/FlightConditionsTests.cpp
@@ -182,6 +188,7 @@ add_executable(QtRocket_core_tests
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
     file/ZipInputStreamTests.cpp
+    goldens/aero_golden_tests.cpp
     goldens/attachment_geometry_golden_tests.cpp
     goldens/body_geometry_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
