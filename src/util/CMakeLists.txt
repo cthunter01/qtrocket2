@@ -1,7 +1,9 @@
 target_sources(QtRocket_core PRIVATE
+    BigDecimal.cpp
     BoundingBox.cpp
     BugError.cpp
     Color.cpp
+    Config.cpp
     Coordinate.cpp
     DecimalFormat.cpp
     Error.cpp
