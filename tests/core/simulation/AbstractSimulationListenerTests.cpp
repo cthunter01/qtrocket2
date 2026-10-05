@@ -16,6 +16,7 @@
 #include "QtRocket/models/AtmosphericConditions.h"
 #include "QtRocket/simulation/AccelerationData.h"
 #include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
@@ -24,7 +25,7 @@
 #include "QtRocket/simulation/listeners/SimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Quaternion.h"
-#include "simulation/SimulationStatusStandIn.h"
+#include "simulation/SimulationStatusSupport.h"
 #include "simulation/SimulationTestSupport.h"
 
 namespace
@@ -48,6 +49,7 @@ using QtRocket::SimulationListener;
 using QtRocket::SimulationStatus;
 using QtRocket::Test::bugText;
 using QtRocket::Test::EventTestRocket;
+using QtRocket::Test::TestStatus;
 
 // Java's hierarchy: SimulationComputationListener extends SimulationListener,
 // SimulationEventListener stands alone, AbstractSimulationListener implements all three.
@@ -194,7 +196,8 @@ public:
 
 TEST(AbstractSimulationListener, TheStepAndSimulationHooksLetTheSimulationGoOn)
 {
-    SimulationStatus           status;
+    TestStatus                 fixture;
+    SimulationStatus&          status = fixture.status;
     AbstractSimulationListener listener;
     const SimulationException  exception("failed");
 
@@ -212,7 +215,8 @@ TEST(AbstractSimulationListener, TheStepAndSimulationHooksLetTheSimulationGoOn)
 TEST(AbstractSimulationListener, TheEventHooksLetEverythingHappen)
 {
     const EventTestRocket      r;
-    SimulationStatus           status;
+    TestStatus                 fixture;
+    SimulationStatus&          status = fixture.status;
     AbstractSimulationListener listener;
     const FlightEvent          event{FlightEvent::Type::IGNITION, 0.0, r.sustainerMount, r.state};
 
@@ -224,7 +228,8 @@ TEST(AbstractSimulationListener, TheEventHooksLetEverythingHappen)
 
 TEST(AbstractSimulationListener, ThePreComputationHooksChangeNothing)
 {
-    SimulationStatus           status;
+    TestStatus                 fixture;
+    SimulationStatus&          status = fixture.status;
     AbstractSimulationListener listener;
 
     EXPECT_EQ(listener.preAccelerationCalculation(status), std::nullopt);
@@ -239,7 +244,8 @@ TEST(AbstractSimulationListener, ThePreComputationHooksChangeNothing)
 
 TEST(AbstractSimulationListener, ThePostComputationHooksChangeNothing)
 {
-    SimulationStatus           status;
+    TestStatus                 fixture;
+    SimulationStatus&          status = fixture.status;
     AbstractSimulationListener listener;
     const AccelerationData     acceleration(Coordinate{1, 2, 3}, Coordinate{4, 5, 6}, std::nullopt,
                                             std::nullopt, Quaternion{});
@@ -283,7 +289,8 @@ TEST(SimulationListeners, AListenerIsAskedWhichInterfacesItImplements)
 TEST(SimulationListeners, TheHooksAreReachedThroughTheInterfaces)
 {
     const EventTestRocket                     r;
-    SimulationStatus                          status;
+    TestStatus                                fixture;
+    SimulationStatus&                         status   = fixture.status;
     const std::shared_ptr<CountingListener>   counting = std::make_shared<CountingListener>();
     const std::shared_ptr<SimulationListener> listener = counting;
 
@@ -308,7 +315,8 @@ TEST(SimulationListeners, TheHooksAreReachedThroughTheInterfaces)
 
 TEST(SimulationListeners, AHookMayThrowASimulationException)
 {
-    SimulationStatus                          status;
+    TestStatus                                fixture;
+    SimulationStatus&                         status     = fixture.status;
     const std::shared_ptr<CancellingListener> cancelling = std::make_shared<CancellingListener>();
     const std::shared_ptr<SimulationListener> listener   = cancelling;
 

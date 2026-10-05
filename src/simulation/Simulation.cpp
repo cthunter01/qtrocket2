@@ -1,0 +1,757 @@
+#include "QtRocket/simulation/Simulation.h"
+
+#include <cstddef>
+#include <expected>
+#include <initializer_list>
+#include <map>
+#include <memory>
+#include <optional>
+#include <span>
+#include <stop_token>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "QtRocket/logging/SimulationAbort.h"
+#include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/FlightDataType.h"
+#include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/simulation/PlotAppearance.h"
+#include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/exception/SimulationCancelledException.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
+#include "QtRocket/simulation/extension/SimulationExtension.h"
+#include "QtRocket/simulation/listeners/SimulationListener.h"
+#include "QtRocket/simulation/listeners/system/InterruptListener.h"
+#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/ModId.h"
+#include "QtRocket/util/Strings.h"
+
+namespace QtRocket
+{
+
+Simulation::Simulation(Rocket& rocket) : Simulation(nullptr, rocket) { }
+
+Simulation::Simulation(Rocket& rocket, Preferences& preferences)
+  : Simulation(nullptr, rocket, preferences)
+{
+}
+
+Simulation::Simulation(OpenRocketDocument* document, Rocket& rocket)
+  : m_document(document), m_rocket(&rocket), m_status(Status::NOT_SIMULATED)
+{
+    // Java copies the conditions of the factory's default options here; without preferences the
+    // options stay the built-in defaults (see the class comment).
+    initialize();
+}
+
+Simulation::Simulation(OpenRocketDocument* document, Rocket& rocket, Preferences& preferences)
+  : m_document(document),
+    m_rocket(&rocket),
+    m_preferences(&preferences),
+    m_status(Status::NOT_SIMULATED),
+    m_options(preferences)
+{
+    const DefaultSimulationOptionFactory f(preferences);
+    m_options.copyConditionsFrom(f.getDefault());
+
+    initialize();
+}
+
+Simulation::Simulation(OpenRocketDocument* document, Rocket& rocket, Status status,
+                       std::string name, SimulationOptions options,
+                       std::vector<std::shared_ptr<SimulationExtension>> extensions,
+                       std::shared_ptr<FlightData>                       data,
+                       const std::map<std::string, PlotAppearance>&      plotAppearances,
+                       Preferences*                                      preferences)
+  : m_document(document),
+    m_rocket(&rocket),
+    m_preferences(preferences),
+    m_name(std::move(name)),
+    m_status(status),
+    m_options(std::move(options)),
+    m_simulationExtensions(std::move(extensions)),
+    m_simulatedData(std::move(data))
+{
+    m_simulatedConditions.emplace(m_options);
+    // HOOK(document): Java adds the document as a change listener here
+    // (addChangeListener(this.document)).
+
+    connectConditionListener();
+
+    const FlightConfiguration& config = m_rocket->getSelectedConfiguration();
+    setFlightConfigurationId(config.getFlightConfigurationId());
+    m_simulatedConfigurationModId = config.getModId();
+
+    setPlotAppearancesInternal(plotAppearances, false);
+}
+
+Simulation::Simulation(CloneKey /*key*/, const Simulation& other)
+  : m_document(other.m_document),
+    m_rocket(other.m_rocket),
+    m_ownedRocket(other.m_ownedRocket),
+    m_preferences(other.m_preferences),
+    m_configId(other.m_configId),
+    m_name(other.m_name),
+    m_status(other.m_status),
+    m_options(other.m_options),
+    m_simulatedConditions(other.m_simulatedConditions),
+    m_simulatedConfigurationDescription(other.m_simulatedConfigurationDescription),
+    m_simulatedData(other.m_simulatedData),
+    m_simulatedConfigurationModId(other.m_simulatedConfigurationModId),
+    // Java: Object.clone() copies the reference to the map.
+    m_plotAppearances(other.m_plotAppearances)
+{
+    m_simulationExtensions.reserve(other.m_simulationExtensions.size());
+    for (const std::shared_ptr<SimulationExtension>& c : other.m_simulationExtensions)
+    {
+        if (c == nullptr)
+        {
+            bug("The simulation holds a null extension");
+        }
+        m_simulationExtensions.push_back(c->clone());
+    }
+}
+
+Simulation::~Simulation() = default;
+
+void Simulation::initialize()
+{
+    const FlightConfigurationId fcid =
+        m_rocket->getSelectedConfiguration().getFlightConfigurationId();
+    setFlightConfigurationId(fcid);
+
+    connectConditionListener();
+    // HOOK(document): Java adds the document as a change listener here
+    // (addChangeListener(document)).
+}
+
+void Simulation::connectConditionListener()
+{
+    m_options.changed().connect([this] { fireChangeEvent(); });
+}
+
+FlightConfiguration& Simulation::getActiveConfiguration()
+{
+    return m_rocket->getFlightConfiguration(m_configId);
+}
+
+const FlightConfiguration& Simulation::getActiveConfiguration() const
+{
+    const Rocket& rocket = *m_rocket;
+    return rocket.getFlightConfiguration(m_configId);
+}
+
+void Simulation::setFlightConfigurationId(const FlightConfigurationId& fcid)
+{
+    if (fcid.hasError())
+    {
+        bug("Attempted to set the configuration to an error id. Not Allowed!");
+    }
+    if (!m_rocket->containsFlightConfigurationId(fcid))
+    {
+        m_rocket->createFlightConfiguration(fcid);
+    }
+
+    if (fcid == m_configId)
+    {
+        return;
+    }
+
+    m_configId = fcid;
+    fireChangeEvent();
+}
+
+void Simulation::copySimulationOptionsFrom(const SimulationOptions& options)
+{
+    m_options.copyConditionsFrom(options);
+}
+
+void Simulation::copyExtensionsFrom(
+    const std::vector<std::shared_ptr<SimulationExtension>>& extensions)
+{
+    if (&extensions == &m_simulationExtensions)
+    {
+        // Java clears the list and then adds the (same, now empty) list to it.
+        m_simulationExtensions.clear();
+        return;
+    }
+    m_simulationExtensions = extensions;
+}
+
+void Simulation::setName(std::string_view name)
+{
+    if (m_name == name)
+    {
+        return;
+    }
+
+    m_name = name;
+
+    fireChangeEvent();
+}
+
+Simulation::Status Simulation::getStatus()
+{
+    const FlightConfiguration config = m_rocket->getFlightConfiguration(getId()).clone();
+
+    if (isStatusUpToDate(m_status) &&
+        (config.getModId() != m_simulatedConfigurationModId ||
+         !(m_simulatedConditions.has_value() && m_options == *m_simulatedConditions)))
+    {
+        m_status = Status::OUTDATED;
+    }
+
+    // if the id hasn't been set yet, skip.
+    if (getId().hasError())
+    {
+        m_status = Status::CANT_RUN;
+        return m_status;
+    }
+
+    // Make sure this simulation has motors.
+    if (!config.hasMotors())
+    {
+        m_status = Status::CANT_RUN;
+    }
+
+    // If it has errors, it has aborted
+    if (hasErrors())
+    {
+        m_status = Status::ABORTED;
+    }
+
+    return m_status;
+}
+
+std::string Simulation::getStatusDescription()
+{
+    return getDescription(getStatus(), *this);
+}
+
+bool Simulation::hasErrors() const
+{
+    const std::shared_ptr<FlightData>& data = getSimulatedData();
+    if (data != nullptr)
+    {
+        for (std::size_t branchNo = 0; branchNo < data->getBranchCount(); branchNo++)
+        {
+            if (hasErrors(branchNo))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool Simulation::hasErrors(std::size_t branch) const
+{
+    const std::shared_ptr<FlightData>& data = getSimulatedData();
+    if (data == nullptr)
+    {
+        bug("The simulation has no simulated data");
+    }
+    const FlightData& simulated = *data;
+    return simulated.getBranch(branch).getFirstEvent(FlightEvent::Type::SIM_ABORT) != nullptr;
+}
+
+void Simulation::syncModId()
+{
+    m_simulatedConfigurationModId = getActiveConfiguration().getModId();
+    fireChangeEvent();
+}
+
+Result<void> Simulation::simulate(
+    std::span<const std::shared_ptr<SimulationListener>> additionalListeners)
+{
+    m_simulatedData = nullptr;
+    // What the engine produced (Java: simulator.getFlightData()); null until it has run.
+    std::shared_ptr<FlightData> flightData;
+    Result<void>                result;
+    try
+    {
+        result = runSimulation(additionalListeners, flightData);
+    }
+    catch (...)
+    {
+        // Java's finally block, on the way out of an exception that is not a
+        // SimulationException (a BugError).
+        recordSimulation(std::move(flightData));
+        throw;
+    }
+    recordSimulation(std::move(flightData));
+    return result;
+}
+
+Result<void> Simulation::simulate(
+    std::initializer_list<std::shared_ptr<SimulationListener>> additionalListeners)
+{
+    return simulate(std::span<const std::shared_ptr<SimulationListener>>(
+        additionalListeners.begin(), additionalListeners.size()));
+}
+
+Result<void> Simulation::simulate(
+    const std::stop_token&                               stopToken,
+    std::span<const std::shared_ptr<SimulationListener>> additionalListeners)
+{
+    std::vector<std::shared_ptr<SimulationListener>> listeners(additionalListeners.begin(),
+                                                               additionalListeners.end());
+    listeners.push_back(std::make_shared<InterruptListener>(stopToken));
+    return simulate(std::span<const std::shared_ptr<SimulationListener>>(listeners));
+}
+
+Result<void> Simulation::runSimulation(
+    std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
+    [[maybe_unused]] std::shared_ptr<FlightData>&        flightData)
+{
+    try
+    {
+        if (m_status == Status::EXTERNAL)
+        {
+            throw SimulationException("Cannot simulate imported simulation.");
+        }
+
+        Result<SimulationConditions> conditions = m_options.toSimulationConditions();
+        if (!conditions.has_value())
+        {
+            // Java: an IllegalArgumentException that leaves simulate() through the finally block.
+            return std::unexpected(std::move(conditions.error()));
+        }
+        const std::shared_ptr<SimulationConditions> simulationConditions =
+            std::make_shared<SimulationConditions>(std::move(*conditions));
+        simulationConditions->setSimulation(this);
+
+        for (const std::shared_ptr<SimulationExtension>& extension : m_simulationExtensions)
+        {
+            if (extension == nullptr)
+            {
+                bug("The simulation holds a null extension");
+            }
+            extension->initialize(*simulationConditions);
+        }
+
+        for (const std::shared_ptr<SimulationListener>& l : additionalListeners)
+        {
+            simulationConditions->getSimulationListenerList().push_back(l);
+        }
+
+        // HOOK(engine): part C creates and runs the engine here
+        bug("Simulation::simulate(): the simulation engine is not ported yet");
+    }
+    catch (const SimulationCancelledException& e)
+    {
+        return fail(ErrorCode::CANCELLED, e.what());
+    }
+    catch (const SimulationException& e)
+    {
+        return fail(ErrorCode::SIMULATION_ABORTED, e.what());
+    }
+}
+
+void Simulation::recordSimulation(std::shared_ptr<FlightData> flightData)
+{
+    // Set simulated info after simulation
+    m_simulatedConditions.emplace(m_options);
+    m_simulatedConfigurationDescription = describeConfiguration();
+    m_simulatedConfigurationModId       = getActiveConfiguration().getModId();
+    // Java: simulator.getFlightData() when there is a simulator; the data was dropped before.
+    m_simulatedData = std::move(flightData);
+
+    m_status = Status::UPTODATE;
+    fireChangeEvent();
+}
+
+std::string Simulation::describeConfiguration() const
+{
+    // Java: descriptor.format(rocket, getId()), the name of the configuration run through the
+    // substitutors once more, which finds nothing left to substitute.
+    const FlightConfiguration& config = getActiveConfiguration();
+    if (m_preferences != nullptr)
+    {
+        return config.getName(*m_preferences);
+    }
+    const InMemoryPreferences defaults;
+    return config.getName(defaults);
+}
+
+WarningSet* Simulation::getSimulatedWarnings() noexcept
+{
+    if (m_simulatedData == nullptr)
+    {
+        return nullptr;
+    }
+    return &m_simulatedData->getWarningSet();
+}
+
+const WarningSet* Simulation::getSimulatedWarnings() const noexcept
+{
+    if (m_simulatedData == nullptr)
+    {
+        return nullptr;
+    }
+    const FlightData& data = *m_simulatedData;
+    return &data.getWarningSet();
+}
+
+bool Simulation::hasSimulationData() const noexcept
+{
+    const std::shared_ptr<FlightData>& data = getSimulatedData();
+    if (data == nullptr)
+    {
+        return false;
+    }
+    return data->getBranchCount() != 0;
+}
+
+std::unique_ptr<Simulation> Simulation::copy() const
+{
+    std::unique_ptr<Simulation> copy = std::make_unique<Simulation>(CloneKey{}, *this);
+
+    copy->m_status = Status::NOT_SIMULATED;
+    copy->m_simulatedConditions.reset();
+    copy->m_simulatedConfigurationDescription.reset();
+    copy->m_simulatedData               = nullptr;
+    copy->m_simulatedConfigurationModId = ModId::invalid();
+
+    return copy;
+}
+
+std::unique_ptr<Simulation> Simulation::clone() const
+{
+    return clone(true);
+}
+
+std::unique_ptr<Simulation> Simulation::clone(bool includeSimulatedData) const
+{
+    std::unique_ptr<Simulation> clone = std::make_unique<Simulation>(CloneKey{}, *this);
+
+    clone->connectConditionListener();
+    if (includeSimulatedData)
+    {
+        if (m_simulatedData != nullptr)
+        {
+            clone->m_simulatedData = std::make_shared<FlightData>(m_simulatedData->clone());
+        }
+    }
+    else
+    {
+        clone->m_simulatedData = nullptr;
+    }
+
+    return clone;
+}
+
+std::unique_ptr<Simulation> Simulation::cloneForUndo() const
+{
+    return std::make_unique<Simulation>(CloneKey{}, *this);
+}
+
+void Simulation::loadFrom(const Simulation& simulation)
+{
+    m_name                              = simulation.m_name;
+    m_configId                          = simulation.m_configId;
+    m_simulatedConfigurationDescription = simulation.m_simulatedConfigurationDescription;
+    m_simulatedConfigurationModId       = simulation.m_simulatedConfigurationModId;
+    m_options.copyConditionsFrom(simulation.m_options);
+    // HOOK(monte-carlo): Java takes the landing dispersion settings here.
+    if (!simulation.m_simulatedConditions.has_value())
+    {
+        m_simulatedConditions.reset();
+    }
+    else if (!m_simulatedConditions.has_value())
+    {
+        m_simulatedConditions.emplace(*simulation.m_simulatedConditions);
+    }
+    else
+    {
+        m_simulatedConditions->copyConditionsFrom(*simulation.m_simulatedConditions);
+    }
+    copyExtensionsFrom(simulation.getSimulationExtensions());
+    m_status        = simulation.m_status;
+    m_simulatedData = simulation.m_simulatedData;
+    if (isStatusUpToDate(m_status) && !m_configId.hasError())
+    {
+        m_simulatedConfigurationModId = getActiveConfiguration().getModId();
+    }
+}
+
+std::unique_ptr<Simulation> Simulation::duplicateSimulation(Rocket& newRocket) const
+{
+    std::unique_ptr<Simulation> newSim =
+        m_preferences != nullptr
+            ? std::make_unique<Simulation>(m_document, newRocket, *m_preferences)
+            : std::make_unique<Simulation>(m_document, newRocket);
+    newSim->m_name     = m_name;
+    newSim->m_configId = m_configId;
+    newSim->m_options.copyConditionsFrom(m_options);
+    // HOOK(monte-carlo): Java copies the landing dispersion settings here.
+    newSim->m_simulatedConfigurationDescription = m_simulatedConfigurationDescription;
+    for (const std::shared_ptr<SimulationExtension>& c : m_simulationExtensions)
+    {
+        if (c == nullptr)
+        {
+            bug("The simulation holds a null extension");
+        }
+        newSim->m_simulationExtensions.push_back(c->clone());
+    }
+    // A map of its own, with copies of the appearances.
+    *newSim->m_plotAppearances = *m_plotAppearances;
+
+    return newSim;
+}
+
+std::unique_ptr<Simulation> Simulation::duplicateForIndependentSimulation() const
+{
+    std::shared_ptr<Rocket>     rocket = m_rocket->copyRocketWithOriginalId();
+    std::unique_ptr<Simulation> copy =
+        m_preferences != nullptr ? std::make_unique<Simulation>(nullptr, *rocket, *m_preferences)
+                                 : std::make_unique<Simulation>(nullptr, *rocket);
+    copy->m_ownedRocket = std::move(rocket);
+    copy->m_name        = m_name;
+    copy->m_configId    = m_configId;
+    // A full options clone, not copyConditionsFrom: the latter copies only the
+    // launch conditions, leaving the rest of the copy on preference defaults.
+    copy->m_options = SimulationOptions(m_options);
+    copy->connectConditionListener();
+    // HOOK(monte-carlo): Java copies the landing dispersion settings here.
+    // Java: copy.listeners = new ArrayList<>(); the constructor's document listener is the only
+    // one there could be, and there is no document.
+    for (const std::shared_ptr<SimulationExtension>& extension : m_simulationExtensions)
+    {
+        if (extension == nullptr)
+        {
+            bug("The simulation holds a null extension");
+        }
+        copy->m_simulationExtensions.push_back(extension->clone());
+    }
+
+    return copy;
+}
+
+bool Simulation::operator==(const Simulation& other) const
+{
+    if (this == &other)
+    {
+        return true;
+    }
+
+    // HOOK(monte-carlo): Java compares the landing dispersion settings too.
+    return m_name == other.m_name && m_configId == other.m_configId &&
+           m_options == other.m_options && *m_plotAppearances == *other.m_plotAppearances &&
+           simulationExtensionsEqual(m_simulationExtensions, other.m_simulationExtensions);
+}
+
+bool Simulation::simulationExtensionsEqual(
+    const std::vector<std::shared_ptr<SimulationExtension>>& a,
+    const std::vector<std::shared_ptr<SimulationExtension>>& b)
+{
+    if (&a == &b)
+    {
+        return true;
+    }
+    if (a.size() != b.size())
+    {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < a.size(); i++)
+    {
+        const std::shared_ptr<SimulationExtension>& extA = a[i];
+        const std::shared_ptr<SimulationExtension>& extB = b[i];
+        if (extA == extB)
+        {
+            continue;
+        }
+        if (extA == nullptr || extB == nullptr)
+        {
+            return false;
+        }
+        if (extA->getId() != extB->getId())
+        {
+            return false;
+        }
+        // Java: configEqual(), the same keys with equal values.
+        if (!extA->getConfig().sameEntries(extB->getConfig()))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::optional<PlotAppearance> Simulation::getPlotAppearance(const FlightDataType& type) const
+{
+    const std::string& symbol = type.getSymbol();
+    if (Strings::isEmpty(symbol))
+    {
+        return std::nullopt;
+    }
+    const auto appearance = m_plotAppearances->find(symbol);
+    if (appearance == m_plotAppearances->end())
+    {
+        return std::nullopt;
+    }
+    return appearance->second;
+}
+
+void Simulation::setPlotAppearance(const FlightDataType&                type,
+                                   const std::optional<PlotAppearance>& appearance)
+{
+    const std::string& symbol = type.getSymbol();
+    if (Strings::isEmpty(symbol))
+    {
+        return;
+    }
+    if (!appearance.has_value() || appearance->isEmpty())
+    {
+        m_plotAppearances->erase(symbol);
+    }
+    else
+    {
+        m_plotAppearances->insert_or_assign(symbol, *appearance);
+    }
+    fireChangeEvent();
+}
+
+std::map<std::string, PlotAppearance> Simulation::getPlotAppearances() const
+{
+    return *m_plotAppearances;
+}
+
+void Simulation::setPlotAppearancesInternal(
+    const std::map<std::string, PlotAppearance>& appearances, bool notify)
+{
+    m_plotAppearances->clear();
+    for (const auto& [symbol, appearance] : appearances)
+    {
+        if (!appearance.isEmpty())
+        {
+            m_plotAppearances->insert_or_assign(symbol, appearance);
+        }
+    }
+    if (notify)
+    {
+        fireChangeEvent();
+    }
+}
+
+std::string_view name(Simulation::Status status) noexcept
+{
+    switch (status)
+    {
+        case Simulation::Status::UPTODATE:
+            return "UPTODATE";
+        case Simulation::Status::LOADED:
+            return "LOADED";
+        case Simulation::Status::OUTDATED:
+            return "OUTDATED";
+        case Simulation::Status::EXTERNAL:
+            return "EXTERNAL";
+        case Simulation::Status::NOT_SIMULATED:
+            return "NOT_SIMULATED";
+        case Simulation::Status::CANT_RUN:
+            return "CANT_RUN";
+        case Simulation::Status::ABORTED:
+            return "ABORTED";
+    }
+    return "NOT_SIMULATED";  // not reached: the switch covers every status
+}
+
+std::string_view displayName(Simulation::Status status) noexcept
+{
+    // The English texts of the keys Simulation.Status.<name>.
+    switch (status)
+    {
+        case Simulation::Status::UPTODATE:
+            return "Up To Date";
+        case Simulation::Status::LOADED:
+            return "Loaded From File";
+        case Simulation::Status::OUTDATED:
+            return "Out of Date";
+        case Simulation::Status::EXTERNAL:
+            return "Imported External Data";
+        case Simulation::Status::NOT_SIMULATED:
+            return "Not Simulated Yet";
+        case Simulation::Status::CANT_RUN:
+            return "Simulation Can't Be Run";
+        case Simulation::Status::ABORTED:
+            return "<i><b>ABORTED</b></i>";
+    }
+    return "Not Simulated Yet";  // not reached: the switch covers every status
+}
+
+std::string_view description(Simulation::Status status) noexcept
+{
+    // The English texts of the keys Simulation.Status.Description.<name>.
+    switch (status)
+    {
+        case Simulation::Status::UPTODATE:
+            return "<i>Up to date</i>";
+        case Simulation::Status::LOADED:
+            return "<i>Loaded from file</i>";
+        case Simulation::Status::OUTDATED:
+            return "<i>Out of date</i>";
+        case Simulation::Status::EXTERNAL:
+            return "<i>Imported data</i>";
+        case Simulation::Status::NOT_SIMULATED:
+            return "<i>Not simulated yet</i> <br>Click <i><b>Run simulations</b></i> to simulate.";
+        case Simulation::Status::CANT_RUN:
+            return "<i>Errors in simulation prevent running</i>";
+        case Simulation::Status::ABORTED:
+            return "<i><b>Simulation Aborted</b></i>";
+    }
+    return "<i>Not simulated yet</i>";  // not reached: the switch covers every status
+}
+
+std::string getDescription(Simulation::Status status, Simulation& simulation)
+{
+    const std::string_view text = description(status);
+    if (simulation.getStatus() != Simulation::Status::ABORTED)
+    {
+        return std::string{text};
+    }
+
+    std::string builder;
+
+    // We'll put every abort event on a new line (note that more than one branch can abort)
+    const std::shared_ptr<FlightData>& data = simulation.getSimulatedData();
+    if (data != nullptr)
+    {
+        const FlightData& simulated = *data;
+        for (std::size_t b = 0; b < simulated.getBranchCount(); b++)
+        {
+            const FlightEvent* abortEvent =
+                simulated.getBranch(b).getFirstEvent(FlightEvent::Type::SIM_ABORT);
+            if (abortEvent != nullptr)
+            {
+                const SimulationAbort* abort = abortEvent->getAbort();
+                QTROCKET_ASSERT(abort != nullptr);
+                builder += text;
+                builder += "<i>: ";
+                builder += abort->toString();
+                builder += "</i><br>";
+            }
+        }
+    }
+
+    // It shouldn't be possible to abort without an abort event. But just in case...
+    if (!builder.empty())
+    {
+        return builder;
+    }
+    return std::string{text};
+}
+
+}  // namespace QtRocket

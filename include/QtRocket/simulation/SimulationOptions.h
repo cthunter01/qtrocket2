@@ -24,6 +24,7 @@ namespace QtRocket
 {
 
 class Preferences;
+class SimulationConditions;
 
 /// What the user configures for one simulation (OpenRocket's simulation/SimulationOptions): the
 /// launch rod, the wind (an average PinkNoiseWindModel and a MultiLevelPinkNoiseWindModel, and
@@ -435,7 +436,29 @@ public:
     /// for the three lines that differ from Java's.
     [[nodiscard]] std::string toString() const;
 
-    // HOOK(simulation-conditions): tier 8b adds toSimulationConditions()
+    /// The conditions a simulation runs on (Java: toSimulationConditions()): new conditions with
+    /// - the launch rod length and angle, and the rod direction of getLaunchRodDirection(), so
+    ///   the wind direction when launching into the wind;
+    /// - the launch site (latitude, longitude, altitude) as a WorldCoordinate, which clamps the
+    ///   latitude and reduces the longitude, and the geodetic computation;
+    /// - the random seed;
+    /// - a clone() of the wind model in use, seeded with the random seed: the seed governs the
+    ///   run without becoming part of the configured model;
+    /// - the atmospheric model of getAtmosphericModel(): the shared ISA model, or a new model
+    ///   fitted to the launch conditions;
+    /// - a new gravity model of the chosen type: a WgsGravityModel, or a ConstantGravityModel
+    ///   with the constant gravity;
+    /// - a new BarrowmanCalculator whose stability and drag calculators are the Barrowman ones,
+    ///   each replaced by a lookup-table calculator over the options' table when there is one;
+    /// - a mass calculator;
+    /// - the time step, the maximum simulation time and the maximum step angle, and the four
+    ///   recovery thresholds.
+    /// The conditions have no simulation and no listener yet, and the launch position and
+    /// velocity are zero. Nothing of the options changes.
+    ///
+    /// Fails with getAtmosphericModel()'s Error when the model refuses the launch conditions
+    /// (Java: an IllegalArgumentException from here or from the first step of the run).
+    [[nodiscard]] Result<SimulationConditions> toSimulationConditions() const;
 
 private:
     /// The values Java reads from @p source; @p store is the store to write to later, or null.

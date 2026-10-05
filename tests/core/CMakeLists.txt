@@ -19,6 +19,7 @@ add_executable(QtRocket_core_tests
     util/MathUtilTests.cpp
     util/Md5Tests.cpp
     util/ModIdTests.cpp
+    util/MonitorableSetTests.cpp
     util/MonitorableTests.cpp
     util/MutableTests.cpp
     util/PinkNoiseTests.cpp
@@ -184,11 +185,18 @@ add_executable(QtRocket_core_tests
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
     simulation/FlightEventTests.cpp
+    simulation/PlotAppearanceTests.cpp
+    simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp
+    simulation/SimulationListenerHelperTests.cpp
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
+    simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
+    simulation/SimulationTests.cpp
+    simulation/system_listener_tests.cpp
+    simulation/TumbleDetectorTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp

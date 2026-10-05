@@ -8,11 +8,12 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/listeners/AbstractSimulationListener.h"
 #include "QtRocket/simulation/listeners/SimulationComputationListener.h"
 #include "QtRocket/simulation/listeners/SimulationEventListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
-#include "simulation/SimulationStatusStandIn.h"
+#include "simulation/SimulationStatusSupport.h"
 #include "simulation/SimulationTestSupport.h"
 
 namespace
@@ -26,6 +27,7 @@ using QtRocket::SimulationEventListener;
 using QtRocket::SimulationListener;
 using QtRocket::SimulationStatus;
 using QtRocket::Test::bugText;
+using QtRocket::Test::TestStatus;
 
 /// What a listener written for a test looks like: it counts the steps and remembers the events
 /// it was asked about, in members of its own.
@@ -133,7 +135,8 @@ static_assert(!std::is_copy_assignable_v<CountingListener>);
 /// Calls postStep() on @p listener @p count times.
 void step(SimulationListener& listener, int count)
 {
-    SimulationStatus status;
+    TestStatus        fixture;
+    SimulationStatus& status = fixture.status;
     for (int i = 0; i < count; i++)
     {
         listener.postStep(status);
@@ -149,7 +152,8 @@ template <class Listener>
 
 TEST(CloneableSimulationListener, AListenerIsClonedWithItsClassAndItsState)
 {
-    SimulationStatus       status;
+    TestStatus             fixture;
+    SimulationStatus&      status = fixture.status;
     const CountingListener empty;
     EXPECT_EQ(empty.steps(), 0);
 
@@ -186,8 +190,9 @@ TEST(CloneableSimulationListener, AValueMemberBelongsToEachCloneAndASharedOneToA
     // startSimulation() and the first startSimulationBranch() only; every step ran on a clone,
     // and only a counter held by reference saw the 401 steps): the steps are taken on a clone
     // and on a clone of that clone.
-    SimulationStatus                         status;
-    const std::shared_ptr<RecordingListener> mine = std::make_shared<RecordingListener>();
+    TestStatus                               fixture;
+    SimulationStatus&                        status = fixture.status;
+    const std::shared_ptr<RecordingListener> mine   = std::make_shared<RecordingListener>();
     step(*mine, 1);
 
     const std::shared_ptr<RecordingListener> clone = cloneOf<RecordingListener>(*mine);
@@ -242,7 +247,8 @@ TEST(CloneableSimulationListener, TheCloneImplementsTheSameInterfaces)
 
 TEST(CloneableSimulationListener, AListenerBuiltOnAnotherClonesItsOwnClass)
 {
-    SimulationStatus                       status;
+    TestStatus                             fixture;
+    SimulationStatus&                      status  = fixture.status;
     const std::shared_ptr<FurtherListener> further = std::make_shared<FurtherListener>();
     further->setValue(7);
     const std::shared_ptr<SimulationListener> clone = further->clone();

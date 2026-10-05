@@ -13,6 +13,17 @@ target_sources(QtRocket_core PRIVATE
     FlightEvent.cpp
     FlightEventActivation.cpp
     listeners/AbstractSimulationListener.cpp
+    listeners/SimulationListenerHelper.cpp
+    listeners/system/ApogeeEndListener.cpp
+    listeners/system/GroundHitListener.cpp
+    listeners/system/InterruptListener.cpp
+    listeners/system/OptimumCoastListener.cpp
+    listeners/system/ProgressListener.cpp
+    listeners/system/RecoveryDeviceDeploymentEndListener.cpp
+    Simulation.cpp
+    SimulationConditions.cpp
     SimulationOptions.cpp
+    SimulationStatus.cpp
     SimulationStepperMethod.cpp
+    TumbleDetector.cpp
 )

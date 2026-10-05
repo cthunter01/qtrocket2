@@ -11,13 +11,24 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/simulation/FlightDataType.h"
+#include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtensionProvider.h"
 #include "QtRocket/simulation/extension/SimulationExtensionProvider.h"
+#include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
+#include "QtRocket/simulation/listeners/SimulationListener.h"
+#include "QtRocket/simulation/listeners/SimulationListenerHelper.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Config.h"
+#include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Signal.h"
+#include "simulation/SimulationStatusSupport.h"
 
 namespace
 {
@@ -28,13 +39,16 @@ using QtRocket::BugError;
 using QtRocket::Config;
 using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
+using QtRocket::SimulationConditions;
+using QtRocket::SimulationException;
 using QtRocket::SimulationExtension;
 using QtRocket::SimulationExtensionProvider;
+using QtRocket::SimulationStatus;
 
 // OpenRocket has no test of the extension classes themselves. The extensions below have the
-// shape of OpenRocket's own ones (example/AirStart and its provider), without the simulation
-// listener: initialize() and documentLoaded() take SimulationConditions, Simulation and
-// OpenRocketDocument, which later tiers define, so no test here can call them.
+// shape of OpenRocket's own ones (example/AirStart and its provider), with the simulation
+// listener AirStart adds in initialize(). documentLoaded() takes an OpenRocketDocument, which
+// a later tier defines, so no test here can call it.
 
 static_assert(std::is_abstract_v<SimulationExtension>);
 static_assert(std::has_virtual_destructor_v<SimulationExtension>);
@@ -74,8 +88,31 @@ private:
     QtRocket::Signal<>::ScopedConnection m_connection;
 };
 
+/// OpenRocket's AirStart.AirStartListener: when the simulation starts, it puts the rocket at
+/// the launch altitude with the launch velocity along its axis. (Java's is an inner class that
+/// reads the extension; this one is given the two values when the extension is initialised.)
+class AirStartListener final : public QtRocket::CloneableSimulationListener<AirStartListener>
+{
+public:
+    AirStartListener(double launchAltitude, double launchVelocity) noexcept
+      : m_launchAltitude(launchAltitude), m_launchVelocity(launchVelocity)
+    {
+    }
+
+    void startSimulation(SimulationStatus& status) override
+    {
+        status.setRocketPosition(QtRocket::Coordinate{0, 0, m_launchAltitude});
+        status.setRocketVelocity(status.getRocketOrientationQuaternion().rotate(
+            QtRocket::Coordinate{0, 0, m_launchVelocity}));
+    }
+
+private:
+    double m_launchAltitude;
+    double m_launchVelocity;
+};
+
 /// The shape of OpenRocket's AirStart: the configuration lives in the Config, the name is made
-/// from it, and every setter announces its change.
+/// from it, every setter announces its change, and initialize() adds the listener.
 class AirStart final : public AbstractSimulationExtension
 {
 public:
@@ -83,7 +120,11 @@ public:
 
     [[nodiscard]] bool isMonteCarloSafe() const override { return true; }
 
-    void initialize(QtRocket::SimulationConditions& /*conditions*/) override { }
+    void initialize(SimulationConditions& conditions) override
+    {
+        conditions.getSimulationListenerList().push_back(
+            std::make_shared<AirStartListener>(getLaunchAltitude(), getLaunchVelocity()));
+    }
 
     [[nodiscard]] std::string getName() const override
     {
@@ -474,6 +515,103 @@ TEST(SimulationExtension, ASimulationsListSharesItsExtensions)
     EXPECT_NE(cloned[0], first[0]);
     EXPECT_EQ(cloned[0]->getId(), first[0]->getId());
     EXPECT_EQ(cloned[0]->getConfig().getDouble("launchAltitude"), 400.0);
+}
+
+// ------------------------------------------------------------------------ initialize()
+
+TEST(SimulationExtension, InitializeAddsAListenerToTheConditions)
+{
+    // What OpenRocket's AirStart does: conditions.getSimulationListenerList().add(new
+    // AirStartListener()).
+    AirStart extension;
+    extension.setLaunchAltitude(150);
+    extension.setLaunchVelocity(20);
+    SimulationConditions  conditions;
+    const QtRocket::ModId before = conditions.getModId();
+
+    extension.initialize(conditions);
+
+    ASSERT_EQ(conditions.getSimulationListenerList().size(), 1U);
+    EXPECT_NE(
+        dynamic_cast<const AirStartListener*>(conditions.getSimulationListenerList()[0].get()),
+        nullptr);
+    EXPECT_FALSE(conditions.getSimulationListenerList()[0]->isSystemListener());
+    EXPECT_EQ(conditions.getModId(), before) << "a listener more is not a change of the conditions";
+
+    // Every initialisation adds one: the conditions of each run are new.
+    extension.initialize(conditions);
+    EXPECT_EQ(conditions.getSimulationListenerList().size(), 2U);
+}
+
+TEST(SimulationExtension, TheListenerOfAnInitializedExtensionActsOnTheSimulation)
+{
+    // The extension's listener is called with the other listeners of the conditions; it is not
+    // a system listener, so the simulation notes that a listener affected it.
+    QtRocket::Test::TestStatus fixture;
+    AirStart                   extension;
+    extension.setLaunchAltitude(150);
+    extension.setLaunchVelocity(20);
+    extension.initialize(*fixture.conditions);
+
+    QtRocket::SimulationListenerHelper::fireStartSimulation(fixture.status);
+
+    EXPECT_TRUE(fixture.status.getRocketPosition().exactlyEquals(QtRocket::Coordinate{0, 0, 150}));
+    // The default conditions have a vertical rod: the velocity is straight up.
+    EXPECT_NEAR(fixture.status.getRocketVelocity().x, 0.0, 1e-12);
+    EXPECT_NEAR(fixture.status.getRocketVelocity().y, 0.0, 1e-12);
+    EXPECT_NEAR(fixture.status.getRocketVelocity().z, 20.0, 1e-12);
+    const QtRocket::WarningSet& warnings = *fixture.status.getWarnings();
+    EXPECT_TRUE(warnings.contains(QtRocket::Warning::kListenersAffected));
+}
+
+/// An extension that changes the conditions themselves, and one that cannot run.
+class RodExtension final : public AbstractSimulationExtension
+{
+public:
+    explicit RodExtension(bool failing)
+      : AbstractSimulationExtension("test.Rod"), m_failing(failing)
+    {
+    }
+
+    void initialize(SimulationConditions& conditions) override
+    {
+        if (m_failing)
+        {
+            throw SimulationException("the rod is missing");
+        }
+        conditions.setLaunchRodLength(2 * conditions.getLaunchRodLength());
+    }
+
+    [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override
+    {
+        return std::make_unique<RodExtension>(*this);
+    }
+
+private:
+    bool m_failing;
+};
+
+TEST(SimulationExtension, InitializeMayModifyTheConditionsOrRefuseToRun)
+{
+    SimulationConditions conditions;
+    conditions.setLaunchRodLength(1.5);
+    const std::shared_ptr<SimulationExtension> extension = std::make_shared<RodExtension>(false);
+    extension->initialize(conditions);
+    EXPECT_EQ(conditions.getLaunchRodLength(), 3.0);
+    EXPECT_TRUE(conditions.getSimulationListenerList().empty());
+
+    // Java declares initialize() `throws SimulationException`.
+    RodExtension failing(true);
+    try
+    {
+        failing.initialize(conditions);
+        ADD_FAILURE() << "initialize() did not throw";
+    }
+    catch (const SimulationException& exception)
+    {
+        EXPECT_STREQ(exception.what(), "the rod is missing");
+    }
+    EXPECT_EQ(conditions.getLaunchRodLength(), 3.0);
 }
 
 // --------------------------------------------------- AbstractSimulationExtensionProvider
