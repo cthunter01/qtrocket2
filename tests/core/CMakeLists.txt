@@ -172,13 +172,14 @@ add_executable(QtRocket_core_tests
     aero/TubeFinSetCalcTests.cpp
     simulation/AbstractSimulationListenerTests.cpp
     simulation/AccelerationDataTests.cpp
+    simulation/CloneableSimulationListenerTests.cpp
     simulation/DataBranchTests.cpp
     simulation/EventQueueTests.cpp
+    simulation/flight_event_activation_tests.cpp
     simulation/FlightDataBranchTests.cpp
     simulation/FlightDataTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
-    simulation/FlightEventActivationTests.cpp
     simulation/FlightEventTests.cpp
     simulation/SimulationExceptionTests.cpp
     file/GzipStreamTests.cpp

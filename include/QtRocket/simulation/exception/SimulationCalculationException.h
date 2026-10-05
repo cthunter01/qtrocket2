@@ -18,6 +18,15 @@ class FlightDataBranch;
 ///
 /// The branch is shared with the simulation status and the flight data that hold it (Java: the
 /// same object); it may be null.
+///
+/// Lifetime: the exception co-owns the branch, not the rocket the simulation ran on. The name
+/// and the columns of the branch are safe for as long as the exception (or a copy of it) lives.
+/// The events of the branch are not: their sources, and the mounts of the motor states they
+/// carry, point into the simulated rocket (see FlightEvent), and are valid only while that
+/// rocket lives. Whoever catches the exception outside the simulation reads the name and the
+/// columns only (as OpenRocket's one reader of the branch does), unless it holds the rocket:
+/// the FlightData the engine fills is the holder (FlightData::setSimulatedRocket()). In Java
+/// the exception keeps everything reachable.
 class SimulationCalculationException : public SimulationException
 {
 public:

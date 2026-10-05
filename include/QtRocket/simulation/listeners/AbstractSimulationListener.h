@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <optional>
-#include <typeinfo>
 
 #include "QtRocket/aero/AerodynamicForces.h"
 #include "QtRocket/aero/FlightConditions.h"
@@ -12,7 +11,6 @@
 #include "QtRocket/simulation/listeners/SimulationComputationListener.h"
 #include "QtRocket/simulation/listeners/SimulationEventListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
-#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 
 namespace QtRocket
@@ -42,10 +40,12 @@ class SimulationStatus;
 ///
 /// clone(): Java's Object.clone() makes a shallow copy of the object's dynamic type, whatever
 /// subclass it is. In C++ a class has to say how it is copied, so a listener derives from
-/// CloneableSimulationListener<ItsClass> (below) in place of AbstractSimulationListener, which
-/// gives it a clone() that copy-constructs ItsClass; that is all the boilerplate a listener
-/// needs. A subclass that derives from AbstractSimulationListener directly must override
-/// clone() itself: the clone() here refuses to slice it (BugError).
+/// CloneableSimulationListener<ItsClass> (CloneableSimulationListener.h) in place of
+/// AbstractSimulationListener, which gives it a clone() that copy-constructs ItsClass; that is
+/// all the boilerplate a listener needs. A subclass that derives from AbstractSimulationListener
+/// directly must override clone() itself: the clone() here refuses to slice it (BugError).
+/// What a clone shares with its original, and what it does not, is described in
+/// SimulationListener ("Clones").
 ///
 /// Deviation: the copy and move constructors are protected, so that a listener cannot be
 /// sliced by copying it through this class; copies are made by clone().
@@ -154,56 +154,6 @@ public:
 protected:
     AbstractSimulationListener(const AbstractSimulationListener&) = default;
     AbstractSimulationListener(AbstractSimulationListener&&)      = default;
-};
-
-/// The base of a concrete simulation listener: AbstractSimulationListener (or @p Base, another
-/// listener class to build on) with the clone() that Java's Object.clone() gives every
-/// listener, a copy of the object made with @p Derived's copy constructor. A listener is
-/// written as
-///
-///     class CountingListener final : public CloneableSimulationListener<CountingListener>
-///     {
-///     public:
-///         void postStep(SimulationStatus& status) override { m_steps++; }
-///     private:
-///         int m_steps{0};
-///     };
-///
-/// and used as std::make_shared<CountingListener>(). @p Derived must be the class that derives
-/// from this one, must be copy-constructible, and is the class clone() copies: a class derived
-/// further from @p Derived needs its own clone() (derive it through
-/// CloneableSimulationListener<Further, Derived>), which clone() checks (BugError).
-///
-/// The constructors are private and @p Derived is a friend, so that only @p Derived can be
-/// built on CloneableSimulationListener<Derived> (a class that names another class there does
-/// not compile). @p Base must be default-constructible.
-template <class Derived, class Base = AbstractSimulationListener>
-class CloneableSimulationListener : public Base
-{
-public:
-    CloneableSimulationListener& operator=(const CloneableSimulationListener&) = delete;
-    CloneableSimulationListener& operator=(CloneableSimulationListener&&)      = delete;
-    ~CloneableSimulationListener() override                                    = default;
-
-    /// A copy of this listener, made with @p Derived's copy constructor (Java: clone()).
-    /// @throws BugError when the object is of a class derived from @p Derived that does not
-    ///         override clone()
-    [[nodiscard]] std::shared_ptr<SimulationListener> clone() const override
-    {
-        // Java: Object.clone(), a shallow copy of the object's own class.
-        const auto* self = dynamic_cast<const Derived*>(this);
-        if (self == nullptr || typeid(*this) != typeid(Derived))
-        {
-            bug("clone() is not overridden by a class derived from a cloneable listener");
-        }
-        return std::make_shared<Derived>(*self);
-    }
-
-private:
-    friend Derived;
-    CloneableSimulationListener()                                   = default;
-    CloneableSimulationListener(const CloneableSimulationListener&) = default;
-    CloneableSimulationListener(CloneableSimulationListener&&)      = default;
 };
 
 }  // namespace QtRocket

@@ -18,6 +18,7 @@
 #include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
+#include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/simulation/listeners/SimulationComputationListener.h"
 #include "QtRocket/simulation/listeners/SimulationEventListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
@@ -93,13 +94,6 @@ private:
     std::vector<FlightEvent::Type> m_handled;
 };
 
-/// A system listener, as the application's own are.
-class SystemListener final : public CloneableSimulationListener<SystemListener>
-{
-public:
-    [[nodiscard]] bool isSystemListener() const override { return true; }
-};
-
 /// A listener that cancels the simulation and records how it ended.
 class CancellingListener final : public CloneableSimulationListener<CancellingListener>
 {
@@ -126,29 +120,6 @@ class ForgetfulListener final : public AbstractSimulationListener
 public:
     [[nodiscard]] bool preStep(SimulationStatus& /*status*/) override { return false; }
 };
-
-/// A listener that another one builds on.
-class BaseListener : public CloneableSimulationListener<BaseListener>
-{
-public:
-    [[nodiscard]] bool preStep(SimulationStatus& /*status*/) override { return false; }
-    [[nodiscard]] int  value() const noexcept { return m_value; }
-    void               setValue(int value) noexcept { m_value = value; }
-
-private:
-    int m_value{1};
-};
-
-/// Built on BaseListener with a clone() of its own.
-class FurtherListener final : public CloneableSimulationListener<FurtherListener, BaseListener>
-{
-public:
-    [[nodiscard]] bool isSystemListener() const override { return true; }
-};
-
-/// Built on BaseListener without one.
-class SlicedListener final : public BaseListener
-{ };
 
 /// A listener that implements the plain interface only.
 class PlainListener final : public SimulationListener
@@ -359,6 +330,9 @@ TEST(SimulationListeners, AHookMayThrowASimulationException)
 
 // ============================================================================ clone()
 
+// The clone() of a listener derived through CloneableSimulationListener is tested in
+// CloneableSimulationListenerTests.cpp.
+
 TEST(SimulationListenerClone, TheBaseClonesItself)
 {
     const AbstractSimulationListener          listener;
@@ -370,46 +344,6 @@ TEST(SimulationListenerClone, TheBaseClonesItself)
     EXPECT_FALSE(clone->isSystemListener());
 }
 
-TEST(SimulationListenerClone, AListenerIsClonedWithItsClassAndItsState)
-{
-    SimulationStatus       status;
-    const CountingListener empty;
-    EXPECT_EQ(empty.steps(), 0);
-
-    const std::shared_ptr<CountingListener> original = std::make_shared<CountingListener>();
-    original->postStep(status);
-    original->postStep(status);
-    original->postStep(status);
-    static_cast<void>(original->handleFlightEvent(status, {FlightEvent::Type::LAUNCH, 0.0}));
-
-    const std::shared_ptr<SimulationListener> base  = original;
-    const std::shared_ptr<SimulationListener> clone = base->clone();
-    ASSERT_NE(clone, nullptr);
-    EXPECT_NE(clone, base);
-    const auto typed = std::dynamic_pointer_cast<CountingListener>(clone);
-    ASSERT_NE(typed, nullptr) << "the clone has the listener's own class";
-    EXPECT_EQ(typed->steps(), 3);
-    EXPECT_EQ(typed->handled(), (std::vector<FlightEvent::Type>{FlightEvent::Type::LAUNCH}));
-
-    // The clone is its own listener.
-    typed->postStep(status);
-    EXPECT_EQ(typed->steps(), 4);
-    EXPECT_EQ(original->steps(), 3);
-
-    // And can be cloned again.
-    const auto again = std::dynamic_pointer_cast<CountingListener>(clone->clone());
-    ASSERT_NE(again, nullptr);
-    EXPECT_EQ(again->steps(), 4);
-}
-
-TEST(SimulationListenerClone, KeepsTheOverriddenAnswers)
-{
-    const std::shared_ptr<SimulationListener> system = std::make_shared<SystemListener>();
-    EXPECT_TRUE(system->isSystemListener());
-    EXPECT_TRUE(system->clone()->isSystemListener());
-    EXPECT_FALSE(std::make_shared<CountingListener>()->clone()->isSystemListener());
-}
-
 TEST(SimulationListenerClone, AListenerWithoutACloneOfItsOwnIsNotSliced)
 {
     // Java's Object.clone() would copy the ForgetfulListener; a copy made by the base would be a
@@ -418,26 +352,6 @@ TEST(SimulationListenerClone, AListenerWithoutACloneOfItsOwnIsNotSliced)
     EXPECT_EQ(bugText([&forgetful] { static_cast<void>(forgetful.clone()); }),
               "clone() is not overridden by a simulation listener: derive it from "
               "CloneableSimulationListener");
-}
-
-TEST(SimulationListenerClone, AListenerBuiltOnAnotherClonesItsOwnClass)
-{
-    SimulationStatus                       status;
-    const std::shared_ptr<FurtherListener> further = std::make_shared<FurtherListener>();
-    further->setValue(7);
-    const std::shared_ptr<SimulationListener> clone = further->clone();
-    const auto typed = std::dynamic_pointer_cast<FurtherListener>(clone);
-    ASSERT_NE(typed, nullptr);
-    EXPECT_EQ(typed->value(), 7);
-    EXPECT_TRUE(typed->isSystemListener());
-    EXPECT_FALSE(typed->preStep(status)) << "BaseListener's hook";
-
-    const BaseListener base;
-    EXPECT_NE(std::dynamic_pointer_cast<BaseListener>(base.clone()), nullptr);
-
-    const SlicedListener sliced;
-    EXPECT_EQ(bugText([&sliced] { static_cast<void>(sliced.clone()); }),
-              "clone() is not overridden by a class derived from a cloneable listener");
 }
 
 }  // namespace

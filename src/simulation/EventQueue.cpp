@@ -30,7 +30,7 @@ void EventQueue::Iterator::checkForComodification() const
 
 bool EventQueue::Iterator::hasNext() const noexcept
 {
-    return m_cursor < m_queue->m_events.size() || !m_forgetMeNot.empty();
+    return m_cursor < m_queue->m_events.size() || m_forgetMeNotNext < m_forgetMeNot.size();
 }
 
 FlightEvent EventQueue::Iterator::next()
@@ -41,14 +41,20 @@ FlightEvent EventQueue::Iterator::next()
         m_lastRet = m_cursor++;
         return m_queue->m_events[*m_lastRet];
     }
-    if (m_forgetMeNot.empty())
+    // Java: `if (forgetMeNot != null)`, which forgets the last returned event even when the
+    // deque has run empty.
+    if (!m_forgetMeNot.empty())
     {
-        bug("The event queue has no more events");
+        m_lastRet.reset();
+        m_lastRetElt.reset();
+        if (m_forgetMeNotNext < m_forgetMeNot.size())
+        {
+            m_lastRetElt = std::move(m_forgetMeNot[m_forgetMeNotNext]);
+            m_forgetMeNotNext++;
+            return *m_lastRetElt;
+        }
     }
-    m_lastRet.reset();
-    m_lastRetElt = std::move(m_forgetMeNot.front());
-    m_forgetMeNot.pop_front();
-    return *m_lastRetElt;
+    bug("The event queue has no more events");
 }
 
 void EventQueue::Iterator::remove()

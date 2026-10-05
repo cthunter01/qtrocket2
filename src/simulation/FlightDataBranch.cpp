@@ -55,7 +55,9 @@ namespace
 }
 
 /// Java's parent.containsChild(component): whether a descendant of @p parent equals
-/// @p component (List.contains(), so RocketComponent.equals(): the same class and id).
+/// @p component (List.contains(), so RocketComponent.equals(): the same class and id). The
+/// caller has already matched the stages of the two by identity, so they are in one tree, where
+/// ids are unique: equals() answers here as identity would.
 [[nodiscard]] bool containsChild(const RocketComponent& parent, const RocketComponent& component)
 {
     const std::vector<const RocketComponent*> all = parent.getAllChildren();
@@ -183,7 +185,7 @@ double FlightDataBranch::getOptimumDelay() const
     // TODO - we really want the first burnout of this stage.  which
     // could be computed as the first burnout after the last stage separation event.
     // however, that's not quite so concise
-    if (const std::optional<FlightEvent> event = getLastEvent(FlightEvent::Type::BURNOUT))
+    if (const FlightEvent* event = getLastEvent(FlightEvent::Type::BURNOUT))
     {
         return m_timeToOptimumAltitude - event->getTime();
     }
@@ -203,19 +205,19 @@ void FlightDataBranch::addEvent(FlightEvent event, std::source_location where)
     markModified();
 }
 
-std::optional<FlightEvent> FlightDataBranch::getFirstEvent(FlightEvent::Type type) const
+const FlightEvent* FlightDataBranch::getFirstEvent(FlightEvent::Type type) const noexcept
 {
     for (const FlightEvent& event : m_events)
     {
         if (event.getType() == type)
         {
-            return event;
+            return &event;
         }
     }
-    return std::nullopt;
+    return nullptr;
 }
 
-std::optional<FlightEvent> FlightDataBranch::getLastEvent(FlightEvent::Type type) const
+const FlightEvent* FlightDataBranch::getLastEvent(FlightEvent::Type type) const noexcept
 {
     const FlightEvent* last = nullptr;
     for (const FlightEvent& event : m_events)
@@ -225,19 +227,19 @@ std::optional<FlightEvent> FlightDataBranch::getLastEvent(FlightEvent::Type type
             last = &event;
         }
     }
-    return last != nullptr ? std::optional<FlightEvent>{*last} : std::nullopt;
+    return last;
 }
 
-std::optional<FlightEvent> FlightDataBranch::findEvent(const Uuid& id) const
+const FlightEvent* FlightDataBranch::findEvent(const Uuid& id) const noexcept
 {
     for (const FlightEvent& event : m_events)
     {
         if (id == event.getId())
         {
-            return event;
+            return &event;
         }
     }
-    return std::nullopt;
+    return nullptr;
 }
 
 std::optional<std::size_t> FlightDataBranch::getDataIndexOfTime(double time) const

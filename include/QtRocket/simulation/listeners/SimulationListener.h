@@ -18,9 +18,23 @@ class SimulationStatus;
 /// through CloneableSimulationListener.
 ///
 /// Ownership: the listeners of a simulation are held by std::shared_ptr<SimulationListener>
-/// (the caller of a simulation keeps its listener and reads what it recorded afterwards; Java:
-/// a reference). Each simulation run works on clones of the listeners it was given (clone()),
-/// so a listener that keeps state must copy it in its copy constructor.
+/// (Java: a reference): the caller of a simulation keeps the listener it handed over.
+///
+/// Clones: as in Java, a simulation clones its listeners (clone()) whenever it copies its
+/// conditions or its status: when a Runge-Kutta stepper is initialised, for the status of a
+/// stage that separates, and for the coast simulation that finds the optimum altitude. So only
+/// startSimulation() and the first startSimulationBranch() reach the object the caller handed
+/// over; every later hook, endSimulationBranch() and endSimulation() included, runs on a clone,
+/// or on a clone of a clone. What that means for the state of a listener:
+/// - a value member (an int, a std::string, a std::vector) belongs to each clone: it is copied
+///   when the clone is made, and what a clone records in it never comes back to the caller's
+///   object (Java: a primitive field);
+/// - what the caller wants to read after the run, and what the clones must see of each other,
+///   is held through a std::shared_ptr member, which the clones share (Java: an object the
+///   listener refers to, which a shallow clone shares).
+/// One difference from Java follows from value semantics: a collection field of a Java listener
+/// is shared by its shallow clones, while a std::vector member is copied; hold it by
+/// std::shared_ptr to get Java's behaviour.
 ///
 /// A hook that changes the simulation status it is given makes the simulation add the
 /// "listeners affected the simulation" warning, unless the listener is a system listener.
@@ -71,8 +85,9 @@ public:
     /// when they affect the simulation.
     [[nodiscard]] virtual bool isSystemListener() const = 0;
 
-    /// A copy of this listener with its state: an object of the same dynamic type (Java:
-    /// clone()).
+    /// A copy of this listener: an object of the same dynamic type with a copy of each member
+    /// (Java: clone(), a shallow copy); see "Clones" in the class comment for what the copy
+    /// shares with this object.
     [[nodiscard]] virtual std::shared_ptr<SimulationListener> clone() const = 0;
 
 protected:

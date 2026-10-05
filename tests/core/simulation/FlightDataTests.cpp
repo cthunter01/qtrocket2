@@ -329,6 +329,60 @@ TEST(FlightDataValues, AFullBranch)
     expectSame(summary(data), {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, 4.0, 9.0, 7.0, 0.5});
 }
 
+/// The summary of fullBranch() with a RECOVERY_DEVICE_DEPLOYMENT event at each of @p times, in
+/// that order.
+[[nodiscard]] std::vector<double> summaryWithDeploymentsAt(const EventTestRocket&  r,
+                                                           std::span<const double> times)
+{
+    std::shared_ptr<FlightDataBranch> branch = fullBranch();
+    for (const double time : times)
+    {
+        branch->addEvent({Type::RECOVERY_DEVICE_DEPLOYMENT, time, r.chute});
+    }
+    return summary(FlightData{std::move(branch)});
+}
+
+TEST(FlightDataValues, TheMaximumAccelerationEndsAtTheEarliestDeploymentWhereverItIsListed)
+{
+    // Java: probes/events-data-fix/FixProbe.java, "deployments". The search for the maximum
+    // acceleration ends at the earliest deployment (2.25 s: 40 at 2.0 s counts, 60 at 2.5 s does
+    // not), whether that event comes first or last; the deployment velocity is that of the last
+    // deployment listed.
+    const EventTestRocket       r;
+    const std::array<double, 2> earliestFirst{2.25, 2.75};
+    expectSame(summaryWithDeploymentsAt(r, earliestFirst),
+               {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, kNaN, kNaN, 14.0, kNaN});
+    const std::array<double, 2> earliestLast{2.75, 2.25};
+    expectSame(summaryWithDeploymentsAt(r, earliestLast),
+               {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, kNaN, kNaN, 7.0, kNaN});
+    const std::array<double, 3> earliestFirstOfThree{2.25, 2.75, 2.5};
+    expectSame(summaryWithDeploymentsAt(r, earliestFirstOfThree),
+               {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, kNaN, kNaN, 13.0, kNaN});
+
+    // One deployment: the later one lets the 60 at 2.5 s in.
+    const std::array<double, 1> early{2.25};
+    expectSame(summaryWithDeploymentsAt(r, early),
+               {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, kNaN, kNaN, 7.0, kNaN});
+    const std::array<double, 1> late{2.75};
+    expectSame(summaryWithDeploymentsAt(r, late),
+               {18.0, 20.0, 60.0, 0.0625, 1.5, 3.5, kNaN, kNaN, 14.0, kNaN});
+}
+
+TEST(FlightDataValues, TheFlightTimeIsTheLastTimeNotTheLargest)
+{
+    // Java: FixProbe.java, "flight time".
+    const std::array<double, 3>             times{1.0, 5.0, 3.0};
+    const std::shared_ptr<FlightDataBranch> branch =
+        createFlightDataBranch("Times", Id::TYPE_TIME, times);
+    expectSame(summary(FlightData{branch}),
+               {kNaN, kNaN, kNaN, kNaN, kNaN, 3.0, kNaN, kNaN, kNaN, kNaN});
+
+    // A row whose time was never set is the last row all the same.
+    branch->addPoint();
+    expectSame(summary(FlightData{branch}),
+               {kNaN, kNaN, kNaN, kNaN, kNaN, kNaN, kNaN, kNaN, kNaN, kNaN});
+}
+
 TEST(FlightDataValues, EventsOutsideTheData)
 {
     const EventTestRocket             r;
@@ -662,7 +716,67 @@ TEST(FlightDataMove, TakesEverythingAlong)
     assigned = std::move(moved);
     EXPECT_FALSE(assigned.isMutable());
     EXPECT_EQ(&assigned.getBranch(0), branch);
+    EXPECT_EQ(assigned.getWarningSet().size(), 1U);
     expectSame(summary(assigned), {18.0, 20.0, 40.0, 0.0625, 1.5, 3.5, 4.0, 9.0, 7.0, 0.5});
+}
+
+/// Flight data that alone owns the rocket its one event points into: a stage named @p name, the
+/// source of a STAGE_SEPARATION event at @p time.
+[[nodiscard]] FlightData dataOwningItsRocket(const std::string& name, double time)
+{
+    auto        rocket = std::make_shared<Rocket>();
+    AxialStage& stage  = rocket->addChild(std::make_unique<AxialStage>());
+    stage.setName(name);
+    const std::vector<const FlightDataType*> types{&type(Id::TYPE_TIME)};
+    const auto branch = std::make_shared<FlightDataBranch>("Flight", &stage, types);
+    branch->addPoint();
+    branch->setValue(type(Id::TYPE_TIME), time);
+    branch->addEvent({Type::STAGE_SEPARATION, time, &stage});
+    FlightData data{branch};
+    data.getWarningSet().add(Warning::kListenersAffected);
+    data.setSimulatedRocket(std::move(rocket));
+    return data;
+}
+
+TEST(FlightDataMove, AssignmentReplacesDataThatOwnsItsRocket)
+{
+    // The assigned-to data is the only owner of its rocket, and its events point into it: the
+    // assignment lets the branches go before the rocket, as the destructor does (the sanitizers
+    // watch that nothing touches the rocket afterwards).
+    FlightData                                  target    = dataOwningItsRocket("Old", 1.0);
+    const std::weak_ptr<const Rocket>           oldRocket = target.getSimulatedRocket();
+    const std::weak_ptr<const FlightDataBranch> oldBranch = target.getBranches().front();
+    FlightData                                  source    = dataOwningItsRocket("New", 2.0);
+    source.immute();
+    const FlightDataBranch*             newBranch = &source.getBranch(0);
+    const std::shared_ptr<const Rocket> newRocket = source.getSimulatedRocket();
+
+    target = std::move(source);
+    EXPECT_TRUE(oldBranch.expired());
+    EXPECT_TRUE(oldRocket.expired());
+    EXPECT_EQ(target.getSimulatedRocket(), newRocket);
+    ASSERT_EQ(target.getBranchCount(), 1U);
+    EXPECT_EQ(&target.getBranch(0), newBranch);
+    EXPECT_FALSE(target.isMutable());
+    EXPECT_EQ(target.getWarningSet().size(), 1U);
+    EXPECT_EQ(target.getFlightTime(), 2.0);
+    const FlightEvent* separation = target.getBranch(0).getFirstEvent(Type::STAGE_SEPARATION);
+    ASSERT_NE(separation, nullptr);
+    ASSERT_NE(separation->getSource(), nullptr);
+    EXPECT_EQ(separation->getSource()->getName(), "New");
+}
+
+TEST(FlightDataMove, AssignmentToItselfKeepsEverything)
+{
+    FlightData  data = dataOwningItsRocket("Only", 3.0);
+    FlightData& self = data;
+    data             = std::move(self);
+    ASSERT_EQ(data.getBranchCount(), 1U);
+    ASSERT_NE(data.getSimulatedRocket(), nullptr);
+    EXPECT_EQ(data.getFlightTime(), 3.0);
+    EXPECT_EQ(data.getWarningSet().size(), 1U);
+    EXPECT_EQ(data.getBranch(0).getEvents().front().toString(),
+              "FlightEvent[type=STAGE_SEPARATION,time=3.0,source=Only,data=null]");
 }
 
 // ==================================================================== the warning of an event
@@ -699,6 +813,14 @@ TEST(FlightDataWarnings, FindWarningOfOtherEventsIsNull)
     const FlightEvent stranger{Type::SIM_WARN, 1.0, nullptr,
                                FlightEvent::warningData(Warning::kNoRecoveryDevice)};
     EXPECT_EQ(data.findWarning(stranger), nullptr) << "a warning the set does not have";
+
+    // The warning is looked up by its id, not by its contents: an equal warning that is another
+    // object (another id) is not the set's.
+    ASSERT_TRUE(data.getWarningSet().add(Warning::LargeAOA(0.3)));
+    const Warning::LargeAOA twin(0.3);
+    ASSERT_NE(data.getWarningSet().find(twin), nullptr) << "the set has an equal warning";
+    const FlightEvent ofTwin{Type::SIM_WARN, 1.0, nullptr, FlightEvent::warningData(twin)};
+    EXPECT_EQ(data.findWarning(ofTwin), nullptr);
 
     // A clone has the warnings with the same ids, so the events of its branches find them.
     const Warning* stored = data.getWarningSet().find(Warning::kListenersAffected);
@@ -762,7 +884,7 @@ TEST(FlightDataSimulatedRocket, OutlivesTheEventsThatPointIntoIt)
         data.emplace(std::initializer_list<std::shared_ptr<FlightDataBranch>>{branch});
         data->setSimulatedRocket(std::move(rocket));
     }
-    const std::vector<FlightEvent> events = data->getBranch(0).getEvents();
+    const std::vector<FlightEvent>& events = data->getBranch(0).getEvents();
     ASSERT_EQ(events.size(), 1U);
     ASSERT_NE(events.front().getSource(), nullptr);
     EXPECT_EQ(events.front().getSource()->getName(), "Stage");

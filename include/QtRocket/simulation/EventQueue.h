@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <optional>
 #include <string>
 #include <vector>
@@ -41,6 +40,9 @@ namespace QtRocket
 ///
 /// Sources: compareTo() reads the stage number of the events' source components, so the
 /// components must be alive, and must keep their stage numbers, while their events are queued.
+/// A queue whose sources changed stage behind its back is no longer a heap; a copy of it is
+/// one again, as in Java (the copy heapifies the array it took), and that is the only case in
+/// which a copy does not have its original's array order.
 ///
 /// Deviations from OpenRocket:
 /// - add() and offer() return nothing (Java: always true), and there is no null event.
@@ -78,7 +80,9 @@ public:
         /// Whether next() has another event to give.
         [[nodiscard]] bool hasNext() const noexcept;
 
-        /// The next event (a copy).
+        /// The next event (a copy). At the end it throws; as in Java, the event returned last
+        /// can still be removed after that, unless a remove() has moved an event before (the
+        /// failed call then forgets the event returned last).
         /// @throws BugError at the end, or when the queue was changed behind the iterator
         FlightEvent next();
 
@@ -100,8 +104,12 @@ public:
         /// after a remove() (Java: -1).
         std::optional<std::size_t> m_lastRet;
         /// The events a remove() moved from the unvisited part of the heap into the visited
-        /// part (a removal that needed a siftUp); they are visited at the end.
-        std::deque<FlightEvent> m_forgetMeNot;
+        /// part (a removal that needed a siftUp); they are visited at the end, from
+        /// m_forgetMeNotNext on. Empty until the first such removal (Java: a null deque), which
+        /// is nearly always: an empty vector allocates nothing.
+        std::vector<FlightEvent> m_forgetMeNot;
+        /// Index of the event of m_forgetMeNot the next next() returns (Java: the deque's head).
+        std::size_t m_forgetMeNotNext{0};
         /// The event next() returned last, when it came from m_forgetMeNot.
         std::optional<FlightEvent> m_lastRetElt;
         std::uint64_t              m_expectedModCount;

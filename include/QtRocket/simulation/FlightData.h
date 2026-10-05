@@ -72,11 +72,14 @@ public:
     /// The same with the branches written in place.
     FlightData(std::initializer_list<std::shared_ptr<FlightDataBranch>> branches);
 
-    FlightData(const FlightData&)                = delete;
-    FlightData& operator=(const FlightData&)     = delete;
-    FlightData(FlightData&&) noexcept            = default;
-    FlightData& operator=(FlightData&&) noexcept = default;
-    ~FlightData()                                = default;
+    FlightData(const FlightData&)            = delete;
+    FlightData& operator=(const FlightData&) = delete;
+    FlightData(FlightData&&) noexcept        = default;
+    /// Takes the contents of @p other. What this object held is released as its destructor
+    /// would release it: the branches, whose events point into the simulated rocket, before
+    /// that rocket.
+    FlightData& operator=(FlightData&& other) noexcept;
+    ~FlightData() = default;
 
     /// Immutable flight data with no content (Java: NaN_DATA).
     [[nodiscard]] static const FlightData& nanData();
@@ -173,9 +176,13 @@ private:
     /// deployment (Java: calculateMaxAcceleration()).
     [[nodiscard]] double calculateMaxAcceleration() const;
 
+    /// Exchanges every member with @p other.
+    void swap(FlightData& other) noexcept;
+
     Mutable m_mutable;
     /// Declared before the branches, so that it is destroyed after them: the events of the
-    /// branches point into it.
+    /// branches point into it. The move assignment keeps to that order (it hands the old
+    /// contents to a temporary, whose destructor releases them).
     std::shared_ptr<const Rocket>                  m_simulatedRocket;
     std::vector<std::shared_ptr<FlightDataBranch>> m_branches;
     WarningSet                                     m_warnings;

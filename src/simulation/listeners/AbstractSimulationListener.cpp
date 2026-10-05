@@ -3,6 +3,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <typeinfo>
 
 #include "QtRocket/aero/AerodynamicForces.h"
 #include "QtRocket/aero/FlightConditions.h"
@@ -57,14 +58,14 @@ bool AbstractSimulationListener::isSystemListener() const
 
 std::shared_ptr<SimulationListener> AbstractSimulationListener::clone() const
 {
-    // Java's Object.clone() copies the object's own class; a copy made here would be an
-    // AbstractSimulationListener, without the subclass's hooks and state.
-    if (typeid(*this) != typeid(AbstractSimulationListener))
+    // Java's Object.clone() copies the object's own class; a copy made here of a subclass would
+    // be an AbstractSimulationListener, without the subclass's hooks and state.
+    if (typeid(*this) == typeid(AbstractSimulationListener))
     {
-        bug("clone() is not overridden by a simulation listener: derive it from "
-            "CloneableSimulationListener");
+        return std::make_shared<AbstractSimulationListener>(CopyKey{}, *this);
     }
-    return std::make_shared<AbstractSimulationListener>(CopyKey{}, *this);
+    bug("clone() is not overridden by a simulation listener: derive it from "
+        "CloneableSimulationListener");
 }
 
 //// SimulationEventListener ////

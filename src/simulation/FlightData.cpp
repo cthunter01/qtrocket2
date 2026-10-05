@@ -96,6 +96,33 @@ FlightData::FlightData(std::initializer_list<std::shared_ptr<FlightDataBranch>> 
 {
 }
 
+FlightData& FlightData::operator=(FlightData&& other) noexcept
+{
+    // A member-wise assignment would release the old rocket before the old branches. The old
+    // contents go to `incoming` instead, and leave through its destructor.
+    FlightData incoming(std::move(other));
+    swap(incoming);
+    return *this;
+}
+
+void FlightData::swap(FlightData& other) noexcept
+{
+    std::swap(m_mutable, other.m_mutable);
+    std::swap(m_simulatedRocket, other.m_simulatedRocket);
+    std::swap(m_branches, other.m_branches);
+    std::swap(m_warnings, other.m_warnings);
+    std::swap(m_maxAltitude, other.m_maxAltitude);
+    std::swap(m_maxVelocity, other.m_maxVelocity);
+    std::swap(m_maxAcceleration, other.m_maxAcceleration);
+    std::swap(m_maxMachNumber, other.m_maxMachNumber);
+    std::swap(m_timeToApogee, other.m_timeToApogee);
+    std::swap(m_flightTime, other.m_flightTime);
+    std::swap(m_groundHitVelocity, other.m_groundHitVelocity);
+    std::swap(m_launchRodVelocity, other.m_launchRodVelocity);
+    std::swap(m_deploymentVelocity, other.m_deploymentVelocity);
+    std::swap(m_optimumDelay, other.m_optimumDelay);
+}
+
 const FlightData& FlightData::nanData()
 {
     static const FlightData kNanData = [] {

@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <span>
@@ -92,6 +93,18 @@ static_assert(std::is_nothrow_move_assignable_v<EventQueue>);
         labels.push_back(labelOf(*event));
     }
     return labels;
+}
+
+/// The message of the BugError that remove() of @p iterator throws ("<none>" without one).
+[[nodiscard]] std::string removeFailure(EventQueue::Iterator& iterator)
+{
+    return QtRocket::Test::bugText([&iterator] { iterator.remove(); });
+}
+
+/// The message of the BugError that next() of @p iterator throws ("<none>" without one).
+[[nodiscard]] std::string nextFailure(EventQueue::Iterator& iterator)
+{
+    return QtRocket::Test::bugText([&iterator] { static_cast<void>(iterator.next()); });
 }
 
 // ============================================================================ the order
@@ -660,6 +673,33 @@ TEST(EventQueue, RemoveComparesTheIdNotTheContents)
     EXPECT_TRUE(queue.empty());
 }
 
+TEST(EventQueue, RemoveTakesTheFirstInArrayOrderOfAnEventQueuedTwice)
+{
+    // Java (probes/events-data-fix/FixProbe.java, "twice among ties"): the same event object
+    // added twice among events that compare equal. remove() takes out the first slot that
+    // holds it (indexOf()), and the last event moves into the gap.
+    EventQueue        queue;
+    const FlightEvent twice = labelled(Type::ALTITUDE, 1.0, nullptr, 9);
+    queue.add(labelled(Type::ALTITUDE, 1.0, nullptr, 0));
+    queue.add(labelled(Type::ALTITUDE, 1.0, nullptr, 1));
+    queue.add(twice);
+    queue.add(labelled(Type::ALTITUDE, 1.0, nullptr, 3));
+    queue.add(labelled(Type::ALTITUDE, 1.0, nullptr, 4));
+    queue.add(twice);
+    queue.add(labelled(Type::ALTITUDE, 1.0, nullptr, 6));
+    ASSERT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 9, 3, 4, 9, 6}));
+
+    EXPECT_TRUE(queue.contains(twice));
+    EXPECT_TRUE(queue.remove(twice));
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 6, 3, 4, 9}))
+        << "taking the last one out would leave 0, 1, 9, 3, 4, 6";
+    EXPECT_TRUE(queue.contains(twice)) << "the other one is still queued";
+    EXPECT_TRUE(queue.remove(twice));
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 6, 3, 4}));
+    EXPECT_FALSE(queue.contains(twice));
+    EXPECT_FALSE(queue.remove(twice));
+}
+
 TEST(EventQueue, RemoveOfTheLastArraySlotMovesNothing)
 {
     EventQueue queue;
@@ -784,6 +824,111 @@ TEST(EventQueueIterator, AnEventVisitedAtTheEndCanBeRemovedToo)
     EXPECT_EQ(drain(queue), (std::vector<std::int64_t>{0, 1, 2, 10, 12}));
 }
 
+/// A queue to which an ALTITUDE event at each of @p times (in s) was added in that order, each
+/// labelled by its time.
+[[nodiscard]] EventQueue queueOfTimes(std::initializer_list<std::uint64_t> times)
+{
+    EventQueue queue;
+    for (const std::uint64_t time : times)
+    {
+        queue.add(labelled(Type::ALTITUDE, static_cast<double>(time), nullptr, time));
+    }
+    return queue;
+}
+
+/// The heap of FixProbe.java ("twice in a heap"): 0; 10, 1; 11, 12, 2, 3; 13, 14, 15, 16, 3,
+/// where the two events labelled 3 are one event queued twice.
+[[nodiscard]] EventQueue heapWithAnEventTwice()
+{
+    EventQueue        queue = queueOfTimes({0U, 10U, 1U, 11U, 12U, 2U});
+    const FlightEvent twice = labelled(Type::ALTITUDE, 3.0, nullptr, 3);
+    queue.add(twice);
+    for (const std::uint64_t time : {13U, 14U, 15U, 16U})
+    {
+        queue.add(labelled(Type::ALTITUDE, static_cast<double>(time), nullptr, time));
+    }
+    queue.add(twice);
+    return queue;
+}
+
+/// Calls next() on @p iterator until it has returned the event labelled @p label; the labels
+/// it returned on the way.
+[[nodiscard]] std::vector<std::int64_t> visitUntil(EventQueue::Iterator& iterator,
+                                                   std::int64_t          label)
+{
+    std::vector<std::int64_t> visited;
+    while (iterator.hasNext())
+    {
+        visited.push_back(labelOf(iterator.next()));
+        if (visited.back() == label)
+        {
+            break;
+        }
+    }
+    return visited;
+}
+
+/// Calls next() on @p iterator until it has no more; the labels it returned.
+[[nodiscard]] std::vector<std::int64_t> visitRest(EventQueue::Iterator& iterator)
+{
+    return visitUntil(iterator, -1);
+}
+
+TEST(EventQueueIterator, RemovingAnEventVisitedAtTheEndTakesItsFirstSlotInArrayOrder)
+{
+    // Java: FixProbe.java, "twice in a heap". Removing 15 moves the last event, the second 3,
+    // up into the visited part (to slot 1, above its twin at slot 6); it is visited again at
+    // the end, and removing it there takes out the first slot in array order that holds that
+    // event (Java: removeEq()).
+    EventQueue queue = heapWithAnEventTwice();
+    ASSERT_EQ(arrayOrder(queue),
+              (std::vector<std::int64_t>{0, 10, 1, 11, 12, 2, 3, 13, 14, 15, 16, 3}));
+
+    EventQueue::Iterator iterator = queue.iterator();
+    EXPECT_EQ(visitUntil(iterator, 15),
+              (std::vector<std::int64_t>{0, 10, 1, 11, 12, 2, 3, 13, 14, 15}));
+    iterator.remove();
+    EXPECT_EQ(arrayOrder(queue),
+              (std::vector<std::int64_t>{0, 3, 1, 11, 10, 2, 3, 13, 14, 12, 16}));
+    EXPECT_EQ(visitRest(iterator), (std::vector<std::int64_t>{16, 3}));
+
+    iterator.remove();
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 10, 1, 11, 12, 2, 3, 13, 14, 16}))
+        << "taking the 3 at slot 6 out would leave 0, 3, 1, 11, 10, 2, 16, 13, 14, 12";
+
+    // Java: IllegalStateException, the event is removed already.
+    EXPECT_EQ(removeFailure(iterator), "Iterator::remove() needs a next() before it");
+    EXPECT_FALSE(iterator.hasNext());
+    EXPECT_EQ(nextFailure(iterator), "The event queue has no more events");
+    EXPECT_EQ(removeFailure(iterator), "Iterator::remove() needs a next() before it");
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 10, 1, 11, 12, 2, 3, 13, 14, 16}));
+}
+
+TEST(EventQueueIterator, AFailedNextLeavesTheLastEventRemovableUnlessEventsWereMoved)
+{
+    // Java: FixProbe.java, "plain" and "moved". PriorityQueue.Itr.next() at the end throws
+    // without touching the last returned event, unless a removal has made the list of moved
+    // events: then it forgets the last returned event first.
+    EventQueue plain;
+    plain.add(labelled(Type::ALTITUDE, 1.0, nullptr, 1));
+    plain.add(labelled(Type::ALTITUDE, 2.0, nullptr, 2));
+    EventQueue::Iterator plainIterator = plain.iterator();
+    EXPECT_EQ(visitRest(plainIterator), (std::vector<std::int64_t>{1, 2}));
+    EXPECT_EQ(nextFailure(plainIterator), "The event queue has no more events");
+    EXPECT_EQ(removeFailure(plainIterator), "<none>");
+    EXPECT_EQ(arrayOrder(plain), (std::vector<std::int64_t>{1}));
+
+    EventQueue           moved         = queueOfTimes({0U, 10U, 1U, 11U, 12U, 2U, 3U});
+    EventQueue::Iterator movedIterator = moved.iterator();
+    EXPECT_EQ(visitUntil(movedIterator, 11), (std::vector<std::int64_t>{0, 10, 1, 11}));
+    movedIterator.remove();
+    EXPECT_EQ(visitRest(movedIterator), (std::vector<std::int64_t>{12, 2, 3}));
+    ASSERT_EQ(arrayOrder(moved), (std::vector<std::int64_t>{0, 3, 1, 10, 12, 2}));
+    EXPECT_EQ(nextFailure(movedIterator), "The event queue has no more events");
+    EXPECT_EQ(removeFailure(movedIterator), "Iterator::remove() needs a next() before it");
+    EXPECT_EQ(arrayOrder(moved), (std::vector<std::int64_t>{0, 3, 1, 10, 12, 2}));
+}
+
 TEST(EventQueueIterator, RemovingEveryEventEmptiesTheQueue)
 {
     EventQueue                queue;
@@ -833,6 +978,81 @@ TEST(EventQueueIterator, AChangeBehindTheIteratorIsABug)
     EXPECT_THROW(static_cast<void>(cleared.next()), BugError);
 }
 
+/// A queue of three events at 1, 2 and 3 s, labelled by their times.
+[[nodiscard]] EventQueue queueOfThree()
+{
+    return queueOfTimes({1U, 2U, 3U});
+}
+
+TEST(EventQueueIterator, EveryKindOfChangeBehindTheIteratorIsNoticed)
+{
+    // The iterator has returned an event, so its remove() can only fail because the queue
+    // changed (Java: ConcurrentModificationException): next() on an emptied queue would fail
+    // anyway, for having no more events.
+    const std::string changed = "The event queue was modified while it was being iterated";
+
+    EventQueue           cleared         = queueOfThree();
+    EventQueue::Iterator clearedIterator = cleared.iterator();
+    static_cast<void>(clearedIterator.next());
+    cleared.clear();
+    EXPECT_EQ(removeFailure(clearedIterator), changed);
+    EXPECT_EQ(nextFailure(clearedIterator), changed);
+
+    EventQueue           added         = queueOfThree();
+    EventQueue::Iterator addedIterator = added.iterator();
+    static_cast<void>(addedIterator.next());
+    added.offer(labelled(Type::ALTITUDE, 4.0, nullptr, 4));
+    EXPECT_EQ(removeFailure(addedIterator), changed);
+
+    EventQueue           removed         = queueOfThree();
+    EventQueue::Iterator removedIterator = removed.iterator();
+    static_cast<void>(removedIterator.next());
+    ASSERT_TRUE(removed.remove(labelled(Type::ALTITUDE, 3.0, nullptr, 3)));
+    EXPECT_EQ(removeFailure(removedIterator), changed);
+
+    const EventQueue     other          = queueOfThree();
+    EventQueue           copied         = queueOfThree();
+    EventQueue::Iterator copiedIterator = copied.iterator();
+    static_cast<void>(copiedIterator.next());
+    copied = other;
+    EXPECT_EQ(removeFailure(copiedIterator), changed) << "a copy assignment";
+    EXPECT_EQ(copied.size(), 3U);
+
+    EventQueue           source           = queueOfThree();
+    EventQueue           assigned         = queueOfThree();
+    EventQueue::Iterator assignedIterator = assigned.iterator();
+    static_cast<void>(assignedIterator.next());
+    assigned = std::move(source);
+    EXPECT_EQ(removeFailure(assignedIterator), changed) << "a move assignment";
+    EXPECT_EQ(assigned.size(), 3U);
+
+    // A remove() through another iterator is a change too (Java: FixProbe.java, "three").
+    EventQueue           shared = queueOfThree();
+    EventQueue::Iterator first  = shared.iterator();
+    EventQueue::Iterator second = shared.iterator();
+    static_cast<void>(first.next());
+    static_cast<void>(second.next());
+    first.remove();
+    EXPECT_EQ(removeFailure(second), changed);
+    EXPECT_EQ(labelOf(first.next()), 2) << "the iterator that removed goes on";
+}
+
+TEST(EventQueueIterator, AQueryOfTheQueueIsNoChange)
+{
+    EventQueue           queue    = queueOfThree();
+    EventQueue::Iterator iterator = queue.iterator();
+    static_cast<void>(iterator.next());
+    static_cast<void>(queue.peek());
+    static_cast<void>(queue.contains(labelled(Type::ALTITUDE, 2.0, nullptr, 2)));
+    static_cast<void>(queue.size());
+    static_cast<void>(queue.toString());
+    const EventQueue copy(queue);
+    EXPECT_NO_THROW(iterator.remove());
+    // Java: FixProbe.java, "three: after removing the first".
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{2, 3}));
+    EXPECT_EQ(copy.size(), 3U);
+}
+
 // ============================================================================ copies
 
 /// A queue of twenty events, labelled 0 to 19, at four different times.
@@ -862,6 +1082,66 @@ TEST(EventQueue, ACopyHasTheSameArrayAndAnInvalidModId)
     EXPECT_EQ(copy.size(), 19U);
     EXPECT_EQ(queue.size(), 20U);
     EXPECT_EQ(drain(copy).size(), 19U);
+}
+
+/// Five body tubes added to the sustainer of a test rocket, and a queue with a BURNOUT event of
+/// each at the same time, labelled 0 to 4 (FixProbe.java, "staged").
+struct StagedTubes
+{
+    std::array<BodyTube*, 5> tubes{};
+    EventQueue               queue;
+
+    explicit StagedTubes(const EventTestRocket& r)
+    {
+        for (std::size_t i = 0; i < tubes.size(); i++)
+        {
+            tubes.at(i) = &r.sustainer->addChild(std::make_unique<BodyTube>(0.1, 0.01));
+            queue.add(labelled(Type::BURNOUT, 1.0, tubes.at(i), i));
+        }
+    }
+
+    /// The stage number of each tube.
+    [[nodiscard]] std::vector<int> stageNumbers() const
+    {
+        std::vector<int> numbers;
+        numbers.reserve(tubes.size());
+        for (const BodyTube* tube : tubes)
+        {
+            numbers.push_back(tube->getStageNumber());
+        }
+        return numbers;
+    }
+};
+
+TEST(EventQueue, ACopyOfAQueueWhoseSourcesChangedStageIsAHeapAgain)
+{
+    // Java: FixProbe.java, "staged". Java's EventQueue(PriorityQueue) heapifies the array it
+    // copies, which moves nothing as long as the array is a heap. It stops being one when the
+    // sources of queued events change stage (which the simulation never does): five burnouts of
+    // tubes in the sustainer, then three of the tubes are moved to stages below.
+    const EventTestRocket r;
+    const StagedTubes     staged(r);
+    const EventQueue&     queue = staged.queue;
+    ASSERT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 2, 3, 4}));
+    ASSERT_EQ(staged.stageNumbers(), (std::vector<int>{0, 0, 0, 0, 0}));
+
+    r.booster->addChild(r.sustainer->removeChild(staged.tubes.at(3)));
+    r.booster->addChild(r.sustainer->removeChild(staged.tubes.at(4)));
+    r.strapOns->addChild(r.sustainer->removeChild(staged.tubes.at(2)));
+    ASSERT_EQ(staged.stageNumbers(), (std::vector<int>{0, 0, 2, 1, 1}));
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 2, 3, 4}))
+        << "the queue does not notice";
+
+    EventQueue copy(queue);
+    EXPECT_EQ(arrayOrder(copy), (std::vector<std::int64_t>{2, 3, 0, 1, 4}));
+    EXPECT_EQ(arrayOrder(queue), (std::vector<std::int64_t>{0, 1, 2, 3, 4}));
+    EXPECT_EQ(drain(copy), (std::vector<std::int64_t>{2, 4, 3, 0, 1}))
+        << "the strap-ons' tube, the booster's two, the sustainer's two";
+
+    // An assignment copies the same way.
+    EventQueue assigned;
+    assigned = queue;
+    EXPECT_EQ(arrayOrder(assigned), (std::vector<std::int64_t>{2, 3, 0, 1, 4}));
 }
 
 TEST(EventQueue, AddAllIntoAnEmptyQueueReproducesTheArray)

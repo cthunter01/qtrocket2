@@ -38,7 +38,9 @@ class Warning;
 /// component reference). The pointer is valid only while that component lives; compareTo(),
 /// validate() and toString() dereference it. Whoever keeps events longer than the simulation
 /// (the FlightData of a finished simulation) keeps the rocket alive: see
-/// FlightData::setSimulatedRocket(). The event also copies the source's id when it is made
+/// FlightData::setSimulatedRocket(); the branch a SimulationCalculationException carries out of
+/// a simulation is under the same rule (see there). The event also copies the source's id when
+/// it is made
 /// (getSourceId()), so that it can be saved, shown and matched against another copy of the rocket
 /// once the pointer is no longer usable; RocketComponent::equals() (class and id) is how Java
 /// compares the source of an event with a component of another copy of the rocket.
@@ -71,6 +73,11 @@ class Warning;
 ///   a file refer to components by id). Such an event has a source for validate() and
 ///   getSourceId(), but compareTo() sees only the pointer and so orders it as an event without
 ///   one: its stage number is not known. toString() prints the id in place of the name.
+/// - createDetached() is an addition for the same reader: it checks the event against the
+///   component the id names, as Java's loader does through the constructor, and keeps the id
+///   only. Flight data read from a file co-owns no rocket (see FlightData), and the components
+///   of the document's rocket need not live as long as the data (OpenRocket's undo loads the
+///   rocket anew), so its events must not point into a rocket.
 /// - compareTo() throws BugError when a source has no stage above it and is not the Rocket (Java:
 ///   the IllegalStateException of getStage()).
 class FlightEvent
@@ -164,6 +171,17 @@ public:
                                                     Data                data = {},
                                                     std::optional<Uuid> id   = std::nullopt);
 
+    /// create() for an event that must not point into a rocket (see the class comment): the
+    /// event is checked as create(type, time, source, data, id) checks it, the class of
+    /// @p source included, and then keeps the id of @p source only: getSource() is null and
+    /// getSourceId() is the id of @p source. A null @p source gives an event without a source.
+    /// @p source is not kept and need not outlive the call. For the .ork loader, which finds
+    /// the component an event names in the document's rocket (Java: FlightDataBranchHandler).
+    [[nodiscard]] static Result<FlightEvent> createDetached(Type type, double time,
+                                                            const RocketComponent* source,
+                                                            Data                   data = {},
+                                                            std::optional<Uuid> id = std::nullopt);
+
     /// The data of a SIM_WARN event for @p warning: a copy of it (Message::clone(), so with the
     /// same dynamic type and the same id), which the copies of the event share. An addition:
     /// Java passes the warning object itself (see the class comment).
@@ -198,7 +216,10 @@ public:
     /// the simulation's own object: igniting it through this pointer ignites it for every holder.
     [[nodiscard]] std::shared_ptr<MotorClusterState> getMotorState() const;
 
-    /// The warning the event carries, or null when its data is something else.
+    /// The warning the event carries, or null when its data is something else: the warning as
+    /// it was when the event was made. Whoever shows or stores the warning of an event of a
+    /// simulation reads it through FlightData::findWarning(), which gives the warning as the
+    /// warning set has it now (see the class comment).
     [[nodiscard]] std::shared_ptr<const Warning> getWarning() const;
 
     /// The abort the event carries, or null when its data is something else. The pointer is
@@ -252,7 +273,7 @@ public:
     ///   Warning;
     /// - SIM_ABORT: the data is a SimulationAbort.
     /// The other types take any source and any data. The class of a source that is known by its
-    /// id only cannot be checked.
+    /// id only cannot be checked (createDetached() checks it before the pointer is dropped).
     /// @throws BugError with Java's message when a check fails
     void validate() const;
 

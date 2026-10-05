@@ -3,18 +3,23 @@
 #include <array>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/logging/SimulationAbort.h"
 #include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/DataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
@@ -30,6 +35,7 @@ using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::FlightEvent;
 using QtRocket::ModId;
+using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Uuid;
 using QtRocket::Test::EventTestRocket;
@@ -74,8 +80,8 @@ static_assert(std::is_copy_constructible_v<FlightDataBranch>);
 [[nodiscard]] std::vector<int> positionsIn(const FlightDataBranch& parent,
                                            const FlightDataBranch& child)
 {
-    const std::vector<FlightEvent> all = parent.getEvents();
-    std::vector<int>               positions;
+    const std::vector<FlightEvent>& all = parent.getEvents();
+    std::vector<int>                positions;
     for (const FlightEvent& event : child.getEvents())
     {
         int position = -1;
@@ -97,12 +103,6 @@ static_assert(std::is_copy_constructible_v<FlightDataBranch>);
 {
     const FlightDataBranch child("Child", source, &parent);
     return positionsIn(parent, child);
-}
-
-/// Whether @p event is there and is the event @p expected (the same id).
-[[nodiscard]] bool isEvent(const std::optional<FlightEvent>& event, const FlightEvent& expected)
-{
-    return event.has_value() && event->sameEvent(expected);
 }
 
 /// The parent branch of the Java probe (MiscProbe.java, parentBranch()): five rows of time,
@@ -265,14 +265,45 @@ TEST(FlightDataBranch, EventsStayInTheOrderTheyWereAddedNotInTimeOrder)
     EXPECT_EQ(events.at(3).getType(), Type::LIFTOFF);
 }
 
-TEST(FlightDataBranch, GetEventsIsACopy)
+TEST(FlightDataBranch, GetEventsIsTheBranchsOwnListAndACopyOfItIsASnapshot)
 {
+    // Java hands out a copy of the list; here the list is read-only and the caller copies when
+    // it needs a snapshot.
     FlightDataBranch branch("Events", {type(Id::TYPE_TIME)});
     branch.addEvent({Type::LAUNCH, 0.0});
-    const std::vector<FlightEvent> before = branch.getEvents();
+    static_assert(std::is_same_v<decltype(branch.getEvents()), const std::vector<FlightEvent>&>);
+    EXPECT_EQ(&branch.getEvents(), &std::as_const(branch).getEvents()) << "one list";
+
+    const std::vector<FlightEvent> snapshot = branch.getEvents();
     branch.addEvent({Type::LIFTOFF, 0.5});
-    EXPECT_EQ(before.size(), 1U);
-    EXPECT_EQ(branch.getEvents().size(), 2U);
+    EXPECT_EQ(snapshot.size(), 1U);
+    ASSERT_EQ(branch.getEvents().size(), 2U);
+    EXPECT_TRUE(snapshot.front().sameEvent(branch.getEvents().front()))
+        << "a copy of an event is that event";
+}
+
+TEST(FlightDataBranch, AnEventHandedOutIsTheStoredOne)
+{
+    // What the transliteration of Java's getFirstEvent(SIM_ABORT).getData() relies on: the
+    // event, and what its accessors point to, lives in the branch.
+    FlightDataBranch branch("Events", {type(Id::TYPE_TIME)});
+    branch.addEvent({Type::LAUNCH, 0.0});
+    branch.addEvent({Type::SIM_ABORT, 1.0, nullptr,
+                     QtRocket::SimulationAbort{QtRocket::SimulationAbort::Cause::NO_CP}});
+    branch.addEvent({Type::EXCEPTION, 2.0, nullptr, std::string{"it failed"}});
+    branch.immute();
+
+    const std::vector<FlightEvent>& events = branch.getEvents();
+    EXPECT_EQ(branch.getFirstEvent(Type::SIM_ABORT), &events.at(1));
+    EXPECT_EQ(branch.getLastEvent(Type::EXCEPTION), &events.at(2));
+    EXPECT_EQ(branch.findEvent(events.at(0).getId()), &events.at(0));
+
+    const QtRocket::SimulationAbort* abort = branch.getFirstEvent(Type::SIM_ABORT)->getAbort();
+    ASSERT_NE(abort, nullptr);
+    EXPECT_EQ(abort->cause(), QtRocket::SimulationAbort::Cause::NO_CP);
+    const std::string* text = branch.getLastEvent(Type::EXCEPTION)->getMessage();
+    ASSERT_NE(text, nullptr);
+    EXPECT_EQ(*text, "it failed");
 }
 
 TEST(FlightDataBranch, TheSeparationTimeIsThatOfTheLastSeparationEventAdded)
@@ -307,35 +338,46 @@ TEST(FlightDataBranch, AddEventIsRefusedOnceTheBranchIsImmutable)
 TEST(FlightDataBranch, FirstAndLastEventOfAType)
 {
     // Java: MiscProbe.java, "parent first burnout" and the lines after it.
-    const EventTestRocket          r;
-    const FlightDataBranch         parent = parentBranch(r);
-    const std::vector<FlightEvent> events = parent.getEvents();
+    const EventTestRocket           r;
+    const FlightDataBranch          parent = parentBranch(r);
+    const std::vector<FlightEvent>& events = parent.getEvents();
 
-    EXPECT_TRUE(isEvent(parent.getFirstEvent(Type::BURNOUT), events.at(4)));
-    EXPECT_TRUE(isEvent(parent.getLastEvent(Type::BURNOUT), events.at(7)));
-    EXPECT_FALSE(isEvent(parent.getFirstEvent(Type::BURNOUT), events.at(7)));
+    EXPECT_EQ(parent.getFirstEvent(Type::BURNOUT), &events.at(4));
+    EXPECT_EQ(parent.getLastEvent(Type::BURNOUT), &events.at(7));
 
     // The only event of its type is the first and the last.
-    EXPECT_TRUE(isEvent(parent.getFirstEvent(Type::LIFTOFF), events.at(3)));
-    EXPECT_TRUE(isEvent(parent.getLastEvent(Type::LIFTOFF), events.at(3)));
+    EXPECT_EQ(parent.getFirstEvent(Type::LIFTOFF), &events.at(3));
+    EXPECT_EQ(parent.getLastEvent(Type::LIFTOFF), &events.at(3));
 
-    EXPECT_EQ(parent.getFirstEvent(Type::TUMBLE), std::nullopt);
-    EXPECT_EQ(parent.getLastEvent(Type::TUMBLE), std::nullopt);
+    EXPECT_EQ(parent.getFirstEvent(Type::TUMBLE), nullptr);
+    EXPECT_EQ(parent.getLastEvent(Type::TUMBLE), nullptr);
 }
 
 TEST(FlightDataBranch, FindEventLooksAnEventUpByItsId)
 {
-    const EventTestRocket          r;
-    const FlightDataBranch         parent = parentBranch(r);
-    const std::vector<FlightEvent> events = parent.getEvents();
+    const EventTestRocket           r;
+    const FlightDataBranch          parent = parentBranch(r);
+    const std::vector<FlightEvent>& events = parent.getEvents();
 
-    EXPECT_TRUE(isEvent(parent.findEvent(events.at(9).getId()), events.at(9)));
-    const FlightEvent found =
-        parent.findEvent(events.at(9).getId()).value_or(FlightEvent{Type::LAUNCH, -1.0});
-    EXPECT_EQ(found.getType(), Type::STAGE_SEPARATION);
-    EXPECT_EQ(found.getSource(), r.booster);
-    EXPECT_EQ(parent.findEvent(Uuid::random()), std::nullopt);
-    EXPECT_EQ(parent.findEvent(Uuid::nil()), std::nullopt);
+    const FlightEvent* found = parent.findEvent(events.at(9).getId());
+    ASSERT_EQ(found, &events.at(9));
+    EXPECT_EQ(found->getType(), Type::STAGE_SEPARATION);
+    EXPECT_EQ(found->getSource(), r.booster);
+    EXPECT_EQ(parent.findEvent(Uuid::random()), nullptr);
+    EXPECT_EQ(parent.findEvent(Uuid::nil()), nullptr);
+}
+
+TEST(FlightDataBranch, FindEventGivesTheFirstEventWithAnId)
+{
+    // An event added twice (a copy is the same event): the first one in the list.
+    FlightDataBranch  branch("Events", {type(Id::TYPE_TIME)});
+    const FlightEvent apogee{Type::APOGEE, 4.0};
+    branch.addEvent({Type::LAUNCH, 0.0});
+    branch.addEvent(apogee);
+    branch.addEvent(apogee);
+    EXPECT_EQ(branch.findEvent(apogee.getId()), &branch.getEvents().at(1));
+    EXPECT_EQ(branch.getFirstEvent(Type::APOGEE), &branch.getEvents().at(1));
+    EXPECT_EQ(branch.getLastEvent(Type::APOGEE), &branch.getEvents().at(2));
 }
 
 // ============================================================================ the optimum
@@ -504,11 +546,134 @@ TEST(FlightDataBranch, TheCopiedEventsAreTheParentsEvents)
     const FlightDataBranch parent = parentBranch(r);
     const FlightDataBranch child("Child", r.sustainer, &parent);
 
-    const std::vector<FlightEvent> events = child.getEvents();
+    const std::vector<FlightEvent>& events = child.getEvents();
     ASSERT_EQ(events.size(), 4U);
     EXPECT_TRUE(events.at(0).sameEvent(parent.getEvents().at(10)));
+    EXPECT_NE(&events.at(0), &parent.getEvents().at(10)) << "each branch stores its own copy";
     EXPECT_EQ(events.at(0).getMotorState(), r.state) << "with the same motor state";
     EXPECT_EQ(events.at(0).getSource(), r.sustainerMount);
+}
+
+/// The component of @p copy that has the id of @p original.
+[[nodiscard]] const RocketComponent* inCopy(const Rocket& copy, const RocketComponent* original)
+{
+    return copy.findComponent(original->getId());
+}
+
+/// The parent of FixProbe.java ("events taken"): fourteen events, one from each kind of source,
+/// the sources taken from @p from, the rocket of @p r or a copy of it.
+[[nodiscard]] FlightDataBranch parentWithSourcesFrom(const EventTestRocket& r, const Rocket& from)
+{
+    struct Sourced
+    {
+        Type                   type;
+        const RocketComponent* source;
+    };
+    const std::array<Sourced, 14> events{{
+        {.type = Type::LAUNCH, .source = &r.rocket},
+        {.type = Type::IGNITION, .source = r.boosterBody},
+        {.type = Type::IGNITION, .source = r.strapOnBody},
+        {.type = Type::BURNOUT, .source = r.strapOnBody},
+        {.type = Type::EJECTION_CHARGE, .source = r.strapOns},
+        {.type = Type::STAGE_SEPARATION, .source = r.strapOns},
+        {.type = Type::BURNOUT, .source = r.boosterBody},
+        {.type = Type::EJECTION_CHARGE, .source = r.booster},
+        {.type = Type::STAGE_SEPARATION, .source = r.booster},
+        {.type = Type::IGNITION, .source = r.sustainerMount},
+        {.type = Type::RECOVERY_DEVICE_DEPLOYMENT, .source = r.chute},
+        {.type = Type::APOGEE, .source = &r.rocket},
+        {.type = Type::ALTITUDE, .source = r.sustainer},
+        {.type = Type::ALTITUDE, .source = r.sustainerBody},
+    }};
+    FlightDataBranch              parent("Parent", r.sustainer, {type(Id::TYPE_TIME)});
+    for (const Sourced& event : events)
+    {
+        parent.addEvent({event.type, 1.0, inCopy(from, event.source)});
+    }
+    return parent;
+}
+
+/// The number of events the branch of each component of @p r takes from @p parent, in the order
+/// of FixProbe.java: the rocket, the sustainer, the booster, the strap-ons, the booster body,
+/// the sustainer body, the strap-on body, the sustainer mount and the parachute.
+[[nodiscard]] std::vector<std::size_t> eventsTaken(const EventTestRocket&  r,
+                                                   const FlightDataBranch& parent)
+{
+    const std::array<const RocketComponent*, 9> targets{
+        &r.rocket,       r.sustainer,   r.booster,        r.strapOns, r.boosterBody,
+        r.sustainerBody, r.strapOnBody, r.sustainerMount, r.chute};
+    std::vector<std::size_t> taken;
+    taken.reserve(targets.size());
+    for (const RocketComponent* target : targets)
+    {
+        taken.push_back(FlightDataBranch("Child", target, &parent).getEvents().size());
+    }
+    return taken;
+}
+
+TEST(FlightDataBranch, TheEventsOfACopyOfTheRocketAreNotThoseOfTheStage)
+{
+    // Java: FixProbe.java, "events taken". The stages are compared by identity, so a branch made
+    // for a component of one rocket takes no event whose source is in a copy of that rocket,
+    // although the ids are the same.
+    const EventTestRocket         r;
+    const std::unique_ptr<Rocket> copy = r.rocket.copyRocketWithOriginalId();
+    ASSERT_NE(inCopy(*copy, r.booster), r.booster);
+
+    EXPECT_EQ(eventsTaken(r, parentWithSourcesFrom(r, r.rocket)),
+              (std::vector<std::size_t>{2, 4, 3, 3, 2, 3, 2, 1, 1}));
+    EXPECT_EQ(eventsTaken(r, parentWithSourcesFrom(r, *copy)),
+              (std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 0, 0, 0}));
+}
+
+/// A branch for @p source with a TIME column (0, 1, 2) and a column of @p custom (5, 7, 6).
+[[nodiscard]] FlightDataBranch branchWithCustomColumn(const RocketComponent* source,
+                                                      const FlightDataType&  custom)
+{
+    FlightDataBranch            branch("Parent", source, {type(Id::TYPE_TIME), custom});
+    const std::array<double, 3> expression{5.0, 7.0, 6.0};
+    for (std::size_t i = 0; i < expression.size(); i++)
+    {
+        branch.addPoint();
+        branch.setValue(type(Id::TYPE_TIME), static_cast<double>(i));
+        branch.setValue(custom, expression.at(i));
+    }
+    return branch;
+}
+
+TEST(FlightDataBranch, TheBranchOfAStageKeepsACustomTypeAndFindsItByItsReplacement)
+{
+    // Java: FixProbe.java, "a custom type and its replacement in the branch of a stage". When
+    // the unit of a custom expression changes, FlightDataType.getType() makes a new type with
+    // the same name; the two are equal, and the columns written with the first are found with
+    // the second.
+    const EventTestRocket  r;
+    const FlightDataType&  first  = FlightDataType::getType("QtRocket stage expr", "qtrStageExpr",
+                                                            QtRocket::UnitGroupId::LENGTH);
+    const FlightDataBranch parent = branchWithCustomColumn(r.sustainer, first);
+    const FlightDataType&  second = FlightDataType::getType("QtRocket stage expr", "qtrStageExpr",
+                                                            QtRocket::UnitGroupId::VELOCITY);
+    ASSERT_NE(&first, &second);
+    ASSERT_TRUE(first.equals(second));
+
+    FlightDataBranch child("Child", r.booster, &parent);
+    EXPECT_EQ(typeNames(child), "Time, QtRocket stage expr");
+    ASSERT_EQ(child.getTypes().size(), 2U);
+    EXPECT_EQ(child.getTypes().at(1), &first) << "the parent's type object";
+    expectSame(child.get(first).value_or(std::vector<double>{}), {5.0, 7.0, 6.0});
+    expectSame(child.get(second).value_or(std::vector<double>{}), {5.0, 7.0, 6.0});
+    EXPECT_EQ(child.getMaximum(second), 7.0);
+
+    child.setValue(second, 9.0);
+    expectSame(child.get(first).value_or(std::vector<double>{}), {5.0, 7.0, 9.0});
+    ASSERT_EQ(child.getTypes().size(), 2U) << "no second column";
+    EXPECT_EQ(child.getTypes().at(1), &first);
+
+    const FlightDataBranch clone = parent.clone();
+    EXPECT_EQ(typeNames(clone), "Time, QtRocket stage expr");
+    EXPECT_EQ(clone.getTypes().at(1), &first);
+    expectSame(clone.get(second).value_or(std::vector<double>{}), {5.0, 7.0, 6.0});
+    EXPECT_EQ(clone.getMinimum(second), 5.0);
 }
 
 TEST(FlightDataBranch, TheBranchOfAStageCanBeMadeFromAnImmutableParent)

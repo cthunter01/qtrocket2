@@ -32,10 +32,16 @@ class RocketComponent;
 /// The events hold non-owning pointers to components of the simulated rocket (see FlightEvent);
 /// a branch that outlives the simulation is kept in a FlightData, which keeps that rocket alive.
 ///
+/// The events are handed out as they are stored: getEvents() is a reference to the branch's
+/// list and getFirstEvent(), getLastEvent() and findEvent() are pointers into it. They are
+/// valid while the branch lives and until its events change (addEvent(), an assignment to the
+/// branch): whoever adds events while walking them, or keeps an event longer, copies it first
+/// (an event is a value; the copy is the same event, with the same id).
+///
 /// Deviations from OpenRocket:
-/// - getEvents(), getFirstEvent(), getLastEvent() and findEvent() give copies of the events
-///   (an event is a value; the copy is the same event, with the same id), nullopt for Java's
-///   null.
+/// - getEvents() gives the list read-only (Java: a copy of the list, which protects the list
+///   from the caller, as const does here), and getFirstEvent(), getLastEvent() and findEvent()
+///   give a pointer to the stored event, null for Java's null (Java: the event object).
 /// - getDataIndexOfTime() gives nullopt for Java's -1.
 /// - Java's private constructor with a source component id is not needed: clone() copies the
 ///   object.
@@ -84,9 +90,10 @@ public:
     /// not when @p srcComponent or the event's source is null, only when both are in the same
     /// stage (the component itself when it is a stage, no stage for the Rocket, else
     /// RocketComponent::getStage(); compared by identity, so the events of a booster of the
-    /// separated stage stay out), and then only when the source is @p srcComponent itself or
-    /// one of its descendants (RocketComponent::equals(), as Java's List.contains()). They are
-    /// added directly: without a modification id, and the separation time stays NaN.
+    /// separated stage stay out, and so do the events whose sources are in another copy of the
+    /// rocket), and then only when the source is @p srcComponent itself or one of its
+    /// descendants. They are added directly: without a modification id, and the separation time
+    /// stays NaN.
     /// @throws BugError when a source of an event of @p parent, or @p srcComponent, is neither
     ///         in a stage nor the Rocket
     FlightDataBranch(std::string name, const RocketComponent* srcComponent,
@@ -131,17 +138,19 @@ public:
     /// @throws BugError when the branch is immutable
     void addEvent(FlightEvent event, std::source_location where = std::source_location::current());
 
-    /// The events, in the order they were added (a copy, as Java's is).
-    [[nodiscard]] std::vector<FlightEvent> getEvents() const { return m_events; }
+    /// The events, in the order they were added: the branch's own list, valid until the events
+    /// change (see the class comment).
+    [[nodiscard]] const std::vector<FlightEvent>& getEvents() const noexcept { return m_events; }
 
-    /// The first event of type @p type, or nullopt.
-    [[nodiscard]] std::optional<FlightEvent> getFirstEvent(FlightEvent::Type type) const;
+    /// The first event of type @p type, or null. Valid until the events change (see the class
+    /// comment).
+    [[nodiscard]] const FlightEvent* getFirstEvent(FlightEvent::Type type) const noexcept;
 
-    /// The last event of type @p type, or nullopt.
-    [[nodiscard]] std::optional<FlightEvent> getLastEvent(FlightEvent::Type type) const;
+    /// The last event of type @p type, or null. Valid until the events change.
+    [[nodiscard]] const FlightEvent* getLastEvent(FlightEvent::Type type) const noexcept;
 
-    /// The first event with the id @p id, or nullopt.
-    [[nodiscard]] std::optional<FlightEvent> findEvent(const Uuid& id) const;
+    /// The first event with the id @p id, or null. Valid until the events change.
+    [[nodiscard]] const FlightEvent* findEvent(const Uuid& id) const noexcept;
 
     /// The time of the last STAGE_SEPARATION event given to addEvent(), in s; NaN when there
     /// was none.

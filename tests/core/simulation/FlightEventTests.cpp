@@ -355,6 +355,9 @@ TEST(FlightEventData, AltitudeChangesCompareAsJavasPairs)
     using Change = FlightEvent::AltitudeChange;
     EXPECT_EQ((Change{.previous = 1.0, .current = 2.0}), (Change{.previous = 1.0, .current = 2.0}));
     EXPECT_NE((Change{.previous = 1.0, .current = 2.0}), (Change{.previous = 2.0, .current = 1.0}));
+    // Java (FixProbe.java, "pair"): each of the two values counts.
+    EXPECT_NE((Change{.previous = 1.0, .current = 2.0}), (Change{.previous = 1.0, .current = 3.0}));
+    EXPECT_NE((Change{.previous = 1.0, .current = 2.0}), (Change{.previous = 3.0, .current = 2.0}));
     EXPECT_EQ((Change{.previous = kNaN, .current = 2.0}),
               (Change{.previous = kNaN, .current = 2.0}))
         << "Double.equals(): NaN equals NaN";
@@ -552,6 +555,9 @@ TEST(FlightEventValidation, CreateReportsTheSameFailureAsAResult)
     EXPECT_EQ(good->getType(), Type::IGNITION);
     EXPECT_EQ(good->getTime(), 0.5);
     EXPECT_EQ(good->getSource(), r.sustainerMount);
+    EXPECT_TRUE(good->hasSource());
+    EXPECT_EQ(good->getSourceId(), r.sustainerMount->getId())
+        << "what the saver writes as the source of the event";
     EXPECT_EQ(good->getMotorState(), r.state);
 
     const Result<FlightEvent> bare = FlightEvent::create(Type::LIFTOFF, 0.5, nullptr);
@@ -563,6 +569,13 @@ TEST(FlightEventValidation, CreateReportsTheSameFailureAsAResult)
     const Result<FlightEvent> withId = FlightEvent::create(Type::APOGEE, 0.5, nullptr, Data{}, id);
     ASSERT_TRUE(withId.has_value());
     EXPECT_EQ(withId->getId(), id);
+    EXPECT_EQ(withId->getSourceId(), std::nullopt);
+
+    const Result<FlightEvent> sourcedWithId =
+        FlightEvent::create(Type::BURNOUT, 0.5, r.boosterBody, Data{}, id);
+    ASSERT_TRUE(sourcedWithId.has_value());
+    EXPECT_EQ(sourcedWithId->getId(), id);
+    EXPECT_EQ(sourcedWithId->getSourceId(), r.boosterBody->getId());
 
     // The .ork loader's case: a SIM_WARN event whose warning was not found.
     const Result<FlightEvent> noWarning = FlightEvent::create(Type::SIM_WARN, 0.5, nullptr);
@@ -620,10 +633,103 @@ TEST(FlightEventSourceId, ItsClassCannotBeCheckedButAWarningEventStillRefusesIt)
     const Result<FlightEvent> created = FlightEvent::create(Type::STAGE_SEPARATION, 2.0, sourceId);
     ASSERT_TRUE(created.has_value());
     EXPECT_EQ(created->getSourceId(), sourceId);
+    EXPECT_NE(created->getId(), kGivenId) << "an id of its own";
+
+    // The .ork loader's case: the source and the id of the event are those of the file.
+    const Result<FlightEvent> loaded =
+        FlightEvent::create(Type::STAGE_SEPARATION, 2.0, sourceId, Data{}, kGivenId);
+    ASSERT_TRUE(loaded.has_value());
+    EXPECT_EQ(loaded->getId(), kGivenId);
+    EXPECT_EQ(loaded->getSource(), nullptr);
+    EXPECT_EQ(loaded->getSourceId(), sourceId);
+    EXPECT_TRUE(loaded->hasSource());
+    EXPECT_EQ(loaded->getType(), Type::STAGE_SEPARATION);
+    EXPECT_EQ(loaded->getTime(), 2.0);
     const Result<FlightEvent> refused =
         FlightEvent::create(Type::SIM_ABORT, 2.0, sourceId, std::string{"text"});
     ASSERT_FALSE(refused.has_value());
     EXPECT_EQ(refused.error().message, "SIM_ABORT events require SimulationAbort objects");
+}
+
+TEST(FlightEventSourceId, ADetachedEventIsCheckedAgainstItsSourceAndKeepsTheIdOnly)
+{
+    const EventTestRocket r;
+
+    // A mount is what a BURNOUT needs: accepted, and the pointer is gone.
+    const Result<FlightEvent> burnout =
+        FlightEvent::createDetached(Type::BURNOUT, 2.0, r.sustainerMount, Data{}, kGivenId);
+    ASSERT_TRUE(burnout.has_value());
+    EXPECT_EQ(burnout->getSource(), nullptr);
+    EXPECT_TRUE(burnout->hasSource());
+    EXPECT_EQ(burnout->getSourceId(), r.sustainerMount->getId());
+    EXPECT_EQ(burnout->getId(), kGivenId);
+    EXPECT_EQ(burnout->getType(), Type::BURNOUT);
+    EXPECT_EQ(burnout->getTime(), 2.0);
+    EXPECT_FALSE(burnout->hasData());
+    EXPECT_NO_THROW(burnout->validate());
+    EXPECT_EQ(burnout->toString(), "FlightEvent[type=BURNOUT,time=2.0,source=" +
+                                       r.sustainerMount->getId().toString() + ",data=null]");
+
+    // The class of the source is checked while the component is at hand: Java's messages.
+    const Result<FlightEvent> wrongSource =
+        FlightEvent::createDetached(Type::BURNOUT, 2.0, r.chute);
+    ASSERT_FALSE(wrongSource.has_value());
+    EXPECT_EQ(wrongSource.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(wrongSource.error().message,
+              "BURNOUT events should have MotorMount type data payloads, instead of Parachute");
+    const Result<FlightEvent> wrongStage =
+        FlightEvent::createDetached(Type::EJECTION_CHARGE, 2.0, r.sustainerBody);
+    ASSERT_FALSE(wrongStage.has_value());
+    EXPECT_EQ(
+        wrongStage.error().message,
+        "EJECTION_CHARGE events should have AxialStage type data payloads, instead of BodyTube");
+    // The same event by its id alone is taken: nothing can be checked.
+    EXPECT_TRUE(
+        FlightEvent::create(Type::EJECTION_CHARGE, 2.0, r.sustainerBody->getId()).has_value());
+
+    const Result<FlightEvent> warned =
+        FlightEvent::createDetached(Type::SIM_WARN, 2.0, r.sustainer, warning("custom text"));
+    ASSERT_FALSE(warned.has_value());
+    EXPECT_EQ(warned.error().message,
+              "SIM_WARN event requires null source component; was Sustainer");
+    const Result<FlightEvent> nan = FlightEvent::createDetached(Type::LAUNCH, kNaN, &r.rocket);
+    ASSERT_FALSE(nan.has_value());
+    EXPECT_EQ(nan.error().message, "LAUNCH event has a NaN time!");
+}
+
+TEST(FlightEventSourceId, ADetachedEventWithoutASourceHasNone)
+{
+    const Result<FlightEvent> bare = FlightEvent::createDetached(Type::APOGEE, 4.0, nullptr);
+    ASSERT_TRUE(bare.has_value());
+    EXPECT_EQ(bare->getSource(), nullptr);
+    EXPECT_FALSE(bare->hasSource());
+    EXPECT_EQ(bare->getSourceId(), std::nullopt);
+    EXPECT_FALSE(bare->getId().isNil()) << "a drawn id";
+
+    const Result<FlightEvent> abort = FlightEvent::createDetached(
+        Type::SIM_ABORT, 4.0, nullptr, SimulationAbort{SimulationAbort::Cause::NO_CP});
+    ASSERT_TRUE(abort.has_value());
+    ASSERT_NE(abort->getAbort(), nullptr);
+}
+
+TEST(FlightEventSourceId, ADetachedEventOutlivesTheRocketItWasCheckedAgainst)
+{
+    std::optional<FlightEvent> event;
+    Uuid                       stageId;
+    {
+        const EventTestRocket     r;
+        const Result<FlightEvent> separation =
+            FlightEvent::createDetached(Type::STAGE_SEPARATION, 2.0, r.booster);
+        ASSERT_TRUE(separation.has_value());
+        event   = *separation;
+        stageId = r.booster->getId();
+    }
+    // The rocket is gone; nothing of the event points into it.
+    ASSERT_TRUE(event.has_value());
+    EXPECT_EQ(event->getSourceId(), stageId);
+    EXPECT_EQ(event->toString(), "FlightEvent[type=STAGE_SEPARATION,time=2.0,source=" +
+                                     stageId.toString() + ",data=null]");
+    EXPECT_EQ(event->compareTo(FlightEvent{Type::STAGE_SEPARATION, 2.0}), 0);
 }
 
 TEST(FlightEventSourceId, ItIsOrderedAsAnEventWithoutASource)

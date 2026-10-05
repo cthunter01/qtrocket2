@@ -150,6 +150,19 @@ Result<FlightEvent> FlightEvent::create(Type type, double time, const Uuid& sour
     return event;
 }
 
+Result<FlightEvent> FlightEvent::createDetached(Type type, double time,
+                                                const RocketComponent* source, Data data,
+                                                std::optional<Uuid> id)
+{
+    Result<FlightEvent> event = create(type, time, source, std::move(data), id);
+    if (event.has_value())
+    {
+        // The id of the source stays; the pointer goes.
+        event->m_source = nullptr;
+    }
+    return event;
+}
+
 FlightEvent::Data FlightEvent::warningData(const Warning& warning)
 {
     // unique_ptr<Message> to shared_ptr, then down to the Warning it is.
