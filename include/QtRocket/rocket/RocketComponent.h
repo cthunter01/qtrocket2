@@ -131,14 +131,20 @@ class Rocket;
 /// - accept(RocketComponentVisitor) is not ported (no visitor exists in QtRocket), nor
 ///   updateChildren() (private and unused in Java).
 ///
-/// Deferred to aero/ (they need AerodynamicCalculator, BarrowmanCalculator and
-/// FlightConditions, and rocket/ does not include aero/):
-/// - getComponentCD(AOA, theta, mach, rollRate): the component's CD from a Barrowman force
-///   analysis of the selected configuration.
-/// - The CD refresh in getOverrideCD() and setCDOverridden(false): Java recomputes overrideCD as
-///   getComponentCD(0, 0, preferences.getDefaultMach(), 0) whenever the CD is not overridden.
-///   Here the stored value is returned and kept; it only matters to the GUI, since the saver
-///   writes the override CD only when it is overridden.
+/// In aero/ (they need BarrowmanCalculator and FlightConditions, and rocket/ does not include
+/// aero/): the free functions of aero/ComponentDrag.h.
+/// - Java's getComponentCD(AOA, theta, mach, rollRate), the component's CD from a Barrowman force
+///   analysis of the selected configuration, is ComponentDrag::getComponentCD(component, ...).
+/// - Java's getOverrideCD() gives the calculated getComponentCD(0, 0, defaultMach, 0) while the
+///   CD is not overridden, with the application preferences' default Mach number: that is
+///   ComponentDrag::getOverrideCD(component, defaultMach), which the GUI calls with
+///   Preferences::getDefaultMach() wherever it shows a component's override CD. getOverrideCD()
+///   here is the stored value alone, which is all the calculators and the saver read (both only
+///   while the CD is overridden).
+/// - Java also stores that calculated value in the component, in getOverrideCD() and in
+///   setCDOverridden(false), without an event. Here the stored value changes through
+///   setOverrideCD() only; a GUI that wants the override to start from the calculated CD sets it
+///   before switching the override on (see ComponentDrag::getOverrideCD()).
 ///
 /// Presets: loadPreset() is one non-virtual method, as Java's final one, and the only entry point
 /// (the .ork loader and the GUI call it on any component). A concrete class overrides only the
@@ -404,8 +410,10 @@ public:
     /// children's getCGOverriddenBy() and fires MASS_CHANGE, when it changes.
     void setCGOverridden(bool overridden);
 
-    /// The override CD, whether or not it is in use. See the class comment: Java refreshes it
-    /// from an aerodynamic analysis while the CD is not overridden; that is deferred to aero/.
+    /// The stored override CD, whether or not it is in use. Java's getOverrideCD() gives the
+    /// component's calculated CD while the CD is not overridden: that is
+    /// ComponentDrag::getOverrideCD() of aero/ComponentDrag.h, which the GUI calls (see the class
+    /// comment, "In aero/").
     [[nodiscard]] double getOverrideCD() const noexcept { return m_overrideCD; }
 
     /// Sets the override CD; when the CD is overridden fires AERODYNAMIC_CHANGE (after

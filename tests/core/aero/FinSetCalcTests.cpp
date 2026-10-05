@@ -15,7 +15,9 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/BarrowmanCalculator.h"
 #include "QtRocket/aero/FlightConditions.h"
+#include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -23,6 +25,7 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/FinSet.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FreeformFinSet.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -44,6 +47,7 @@ namespace
 using QtRocket::AerodynamicForces;
 using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
+using QtRocket::BarrowmanCalculator;
 using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::Coordinate;
@@ -51,6 +55,8 @@ using QtRocket::EllipticalFinSet;
 using QtRocket::FinSet;
 using QtRocket::FinSetCalc;
 using QtRocket::FlightConditions;
+using QtRocket::FlightConfiguration;
+using QtRocket::ForceMap;
 using QtRocket::FreeformFinSet;
 using QtRocket::MessagePriority;
 using QtRocket::NoseCone;
@@ -80,9 +86,6 @@ constexpr double kEpsilon = 0.0001;
 // (ThreeFin checks that). FinSetCalcTest.TestableFinSetCalc, a subclass that exposes the
 // protected calculateFinCNa1(), calculateCPPos() and the MAC fields, is not needed: they are
 // public in the C++ class.
-//
-// HOOK(barrowman): port FinSetCalcTest.testForceAnalysisFinDragSeparation and
-// testForceAnalysisAirfoilFinZeroBaseDrag here (they need BarrowmanCalculator::getForceAnalysis).
 
 /// FinSetCalcTest.sumFins(fins, conditions): the forces of the fins of @p fins summed as the
 /// Java test sums them, fin i turned by pi * i / fin count.
@@ -713,6 +716,83 @@ TEST(FinSetCalc, ZeroAreaFinDragSeparation)
         << "Zero-area fin pressure CD should be zero";
     EXPECT_NEAR(0.0, calc.calculateComponentBaseCD(conditions, 0.5, warnings), kEpsilon)
         << "Zero-area fin base CD should be zero";
+}
+
+/// The forces of the first fin set in @p forceMap, or nullptr (the loop of the two force
+/// analysis tests: `if (entry.getKey() instanceof FinSet) { finForces = entry.getValue();
+/// break; }`).
+[[nodiscard]] const AerodynamicForces* finSetForces(const ForceMap& forceMap)
+{
+    for (const auto& [component, forces] : forceMap)
+    {
+        if (dynamic_cast<const FinSet*>(component) != nullptr)
+        {
+            return &forces;
+        }
+    }
+    return nullptr;
+}
+
+// FinSetCalcTest.testForceAnalysisFinDragSeparation
+/// Integration test: verify that getForceAnalysis reports separate pressure and base drag for
+/// fins. The sum of pressureCD + baseCD for the fin should equal the total fin drag minus
+/// friction.
+TEST(FinSetCalc, ForceAnalysisFinDragSeparation)
+{
+    const TestEstesAlphaIII    alpha;
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    FlightConditions           conditions{config};
+    conditions.setMach(0.3);
+    WarningSet warnings;
+
+    BarrowmanCalculator calculator;
+    const ForceMap      forceMap = calculator.getForceAnalysis(config, conditions, &warnings);
+
+    // Find the fin set in the results
+    const AerodynamicForces* const finForces = finSetForces(forceMap);
+
+    ASSERT_NE(finForces, nullptr) << "Fin set should be present in force analysis";
+
+    // Verify that both pressure and base CD are reported (not NaN)
+    EXPECT_FALSE(std::isnan(finForces->getPressureCD())) << "Fin pressure CD should not be NaN";
+    EXPECT_FALSE(std::isnan(finForces->getBaseCD())) << "Fin base CD should not be NaN";
+    EXPECT_FALSE(std::isnan(finForces->getFrictionCD())) << "Fin friction CD should not be NaN";
+
+    // For square fins, base drag should be positive
+    EXPECT_TRUE(finForces->getBaseCD() > 0)
+        << "Square fin base CD should be positive in force analysis";
+    EXPECT_TRUE(finForces->getPressureCD() > 0)
+        << "Square fin pressure CD should be positive in force analysis";
+
+    // Total CD should equal sum of components
+    const double expectedCD =
+        finForces->getPressureCD() + finForces->getBaseCD() + finForces->getFrictionCD();
+    EXPECT_NEAR(expectedCD, finForces->getCD(), kEpsilon)
+        << "Total CD should equal pressureCD + baseCD + frictionCD";
+}
+
+// FinSetCalcTest.testForceAnalysisAirfoilFinZeroBaseDrag
+/// Integration test: verify that airfoil fins report zero base drag in force analysis.
+TEST(FinSetCalc, ForceAnalysisAirfoilFinZeroBaseDrag)
+{
+    const TestEstesAlphaIII alpha;
+    TrapezoidFinSet&        fins = *alpha.fins;
+    fins.setCrossSection(FinSet::CrossSection::AIRFOIL);
+
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    FlightConditions           conditions{config};
+    conditions.setMach(0.3);
+    WarningSet warnings;
+
+    BarrowmanCalculator calculator;
+    const ForceMap      forceMap = calculator.getForceAnalysis(config, conditions, &warnings);
+
+    const AerodynamicForces* const finForces = finSetForces(forceMap);
+
+    ASSERT_NE(finForces, nullptr) << "Fin set should be present in force analysis";
+    EXPECT_NEAR(0.0, finForces->getBaseCD(), kEpsilon)
+        << "Airfoil fin base CD should be zero in force analysis";
+    EXPECT_TRUE(finForces->getPressureCD() > 0) << "Airfoil fin pressure CD should be positive";
 }
 
 // ============================================================ beyond the JUnit tests

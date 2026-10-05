@@ -11,9 +11,10 @@ class WarningSet;
 
 /// The aerodynamic calculation of one component for the extended Barrowman method (OpenRocket's
 /// aerodynamics/barrowman/RocketComponentCalc): its non-axial forces, its friction, pressure and
-/// base drag. A calculator holds one per aerodynamic component and assembly, made by a kind()
-/// switch over the component (SymmetricComponentCalc, FinSetCalc, TubeFinSetCalc, LaunchLugCalc,
-/// RailButtonCalc, ComponentAssemblyCalc), which copies the geometry it needs at construction.
+/// base drag. A calculator holds one per aerodynamic component and assembly (in a
+/// ComponentCalcMap), made by CalcFactory::create(), a kind() switch over the component
+/// (SymmetricComponentCalc, FinSetCalc, TubeFinSetCalc, LaunchLugCalc, RailButtonCalc,
+/// ComponentAssemblyCalc), which copies the geometry it needs at construction.
 ///
 /// It also holds the CP position helpers shared by the fin calculators: the position along the
 /// mean aerodynamic chord at subsonic, transonic and supersonic speeds.

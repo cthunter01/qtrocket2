@@ -1,41 +1,51 @@
-// OverrideTest.java (core/src/test/.../rocketcomponent), ported, on the Estes Alpha III of
-// TestRockets.h.
-//
-// testOverriddenBy is ported in full. testCDAncestorOverrides is ported up to the two assertions
-// that compare a BarrowmanCalculator's drag coefficient with the override CDs: they wait for the
-// aero tier (marked HOOK(barrowman) below; RocketComponent.h, "Deferred to aero/").
+// OverrideTest.java (core/src/test/.../rocketcomponent), ported in full, on the Estes Alpha III
+// of TestRockets.h. Like the Java test it reaches into aero/ for the BarrowmanCalculator whose
+// drag coefficients testCDAncestorOverrides compares with the override CDs.
 
 #include <source_location>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/BarrowmanCalculator.h"
+#include "QtRocket/aero/FlightConditions.h"
+#include "QtRocket/aero/ForceMap.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/CenteringRing.h"
 #include "QtRocket/rocket/EngineBlock.h"
 #include "QtRocket/rocket/FinSet.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/MathUtil.h"
 #include "rocket/TestRockets.h"
 
 namespace
 {
 
+using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
+using QtRocket::BarrowmanCalculator;
 using QtRocket::BodyTube;
 using QtRocket::CenteringRing;
 using QtRocket::EngineBlock;
 using QtRocket::FinSet;
+using QtRocket::FlightConditions;
+using QtRocket::FlightConfiguration;
+using QtRocket::ForceMap;
 using QtRocket::InnerTube;
 using QtRocket::LaunchLug;
 using QtRocket::NoseCone;
 using QtRocket::Parachute;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::WarningSet;
 using QtRocket::Test::TestEstesAlphaIII;
 
 /// The last child of @p parent that is a @p Component, or nullptr (the loops of
@@ -117,27 +127,33 @@ TEST(OverrideTest, CDAncestorOverrides)
     EXPECT_TRUE(bodytube->isCDOverriddenByAncestor());
 
     // Now see if it's actually working
-    // HOOK(barrowman): total CD should be overrideCD of sustainer:
-    //   assertEquals(sustainer.getOverrideCD(),
-    //                calc.getAerodynamicForces(configuration, conditions, warnings).getCD(),
-    //                MathUtil.EPSILON)
-    // with a BarrowmanCalculator, FlightConditions(null) and the selected configuration. Its
-    // left side needs no calculator: the override CD of an overridden component is the stored one.
+    const FlightConfiguration& configuration = rocket.getSelectedConfiguration();
+    const FlightConditions     conditions;  // Java: new FlightConditions(null)
+    WarningSet                 warnings;
+    BarrowmanCalculator        calc;
+
+    // total CD should be overrideCD of sustainer
+    // (Java's getOverrideCD() of an overridden component is the stored override CD, which is
+    // what RocketComponent::getOverrideCD() gives.)
+    const AerodynamicForces forces =
+        calc.getAerodynamicForces(configuration, conditions, &warnings);
     EXPECT_EQ(sustainer->getOverrideCD(), 0.5);
+    EXPECT_NEAR(sustainer->getOverrideCD(), forces.getCD(), QtRocket::MathUtil::kEpsilon);
 
     // Turn off sustainer subcomponents override; body tube and nose cone aren't overridden by
     // ancestor but fin set is
     sustainer->setSubcomponentsOverriddenCD(false);
 
-    // HOOK(barrowman): CD of rocket should be overridden CD of sustainer plus body tube plus
-    // calculated CD of nose cone:
-    //   forceMap = calc.getForceAnalysis(configuration, conditions, warnings)
-    //   assertEquals(sustainer.getOverrideCD() + bodytube.getOverrideCD()
-    //                    + forceMap.get(nosecone).getCD(),
-    //                forceMap.get(rocket).getCD(), MathUtil.EPSILON)
-    // The two override CDs of its left side:
-    EXPECT_EQ(sustainer->getOverrideCD(), 0.5);
+    // CD of rocket should be overridden CD of sustainer plus body tube plus calculated CD of
+    // nose cone
+    const ForceMap forceMap = calc.getForceAnalysis(configuration, conditions, &warnings);
+    const AerodynamicForces* const noseconeForces = forceMap.get(nosecone);
+    const AerodynamicForces* const rocketForces   = forceMap.get(&rocket);
+    ASSERT_NE(noseconeForces, nullptr);
+    ASSERT_NE(rocketForces, nullptr);
     EXPECT_EQ(bodytube->getOverrideCD(), 0.25);
+    EXPECT_NEAR(sustainer->getOverrideCD() + bodytube->getOverrideCD() + noseconeForces->getCD(),
+                rocketForces->getCD(), QtRocket::MathUtil::kEpsilon);
 }
 
 /// Test whether children components of a parent that has subcomponents overridden for mass, CG,

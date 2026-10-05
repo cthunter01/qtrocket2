@@ -15,8 +15,9 @@ class TubeFinSet;
 
 /// The aerodynamic calculation of one tube of a tube fin set (OpenRocket's
 /// aerodynamics/barrowman/TubeFinSetCalc, "preliminary computation of tube fin aerodynamics").
-/// The calculators of tier 7b iterate over the tubes, so everything here is the geometry of a
-/// single tube; the interference between the tubes is not considered.
+/// The Barrowman calculators iterate over the tubes (the instances of the tube fin set), so
+/// everything here is the geometry of a single tube; the interference between the tubes is not
+/// considered.
 ///
 /// - Non-axial forces: CNa is Ribner's ring airfoil value ("The ring airfoil in nonaxial flow",
 ///   Journal of the Aeronautical Sciences 14(9), 1947, equation 5),

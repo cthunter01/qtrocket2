@@ -17,8 +17,8 @@ class WarningSet;
 /// small and slick surface), and the pressure drag of a short circular cylinder standing in the
 /// boundary layer of the body.
 ///
-/// The pressure drag is that of one instance, the mean over the instances (the calculators of
-/// tier 7b multiply by the instance count). For each instance the boundary layer thickness at
+/// The pressure drag is that of one instance, the mean over the instances (the drag calculator
+/// multiplies by the instance count). For each instance the boundary layer thickness at
 /// its absolute axial position x is 0.37 x / Re_x^0.2, and the mean Mach number over the button's
 /// height follows from it, assuming that the airspeed grows linearly through the boundary layer:
 /// (height - thickness / 2) * Mach / height for a button that reaches beyond the boundary layer,
@@ -32,7 +32,8 @@ class WarningSet;
 ///
 /// Unlike the other component calculators this one keeps the button and reads its dimensions,
 /// instances and position at every call, as in Java: it holds a non-owning pointer, so it must
-/// not outlive the button (the calculators of tier 7b drop their component calculators when the
+/// not outlive the button (the Barrowman calculators keep theirs in a ComponentCalcMap, which
+/// hands a calculation out for the very component it was made from only, and drop them when the
 /// rocket's tree or aerodynamics change).
 ///
 /// Deviations from OpenRocket:

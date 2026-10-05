@@ -148,8 +148,14 @@ add_executable(QtRocket_core_tests
     mass/ThrustStateTests.cpp
     aero/AbstractAerodynamicCalculatorTests.cpp
     aero/AerodynamicForcesTests.cpp
+    aero/BarrowmanCalculatorTests.cpp
     aero/BarrowmanDragCalculatorTests.cpp
+    aero/BarrowmanStabilityCalculatorTests.cpp
+    aero/BarrowmanTestRockets.cpp
+    aero/CalcFactoryTests.cpp
+    aero/component_drag_tests.cpp
     aero/ComponentAssemblyCalcTests.cpp
+    aero/ComponentCalcMapTests.cpp
     aero/CsvMachAoALookupTests.cpp
     aero/FinSetCalcTests.cpp
     aero/FlightConditionsTests.cpp
