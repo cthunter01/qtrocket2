@@ -1,6 +1,5 @@
 #include "QtRocket/aero/barrowman/TubeCalc.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -197,25 +196,6 @@ constexpr std::array<TubeCase, 9> kTubeCases{{
     return conditions;
 }
 
-/// Compares a value with the one OpenRocket printed: within 1e-12 of the value itself, so a small
-/// value is held as strictly as a large one and a zero must be a zero.
-/// JavaValueDifferences::number(), which also allows an absolute 1e-15, only decides for NaN (NaN
-/// with NaN) and the infinities.
-void pin(JavaValueDifferences& differences, std::string_view field, double expected, double actual)
-{
-    const bool finite = std::isfinite(expected) && std::isfinite(actual);
-    const bool within =
-        std::abs(actual - expected) <= 1e-12 * std::max(std::abs(expected), std::abs(actual));
-    if (finite && !within)
-    {
-        differences.problem(std::format("{}: expected {}, got {}", field, expected, actual));
-    }
-    else
-    {
-        differences.number(field, expected, actual);
-    }
-}
-
 /// What differs between Java's values and the calculator's for a case; empty when nothing does.
 [[nodiscard]] std::string differencesOf(const TubeCase& c)
 {
@@ -231,7 +211,8 @@ void pin(JavaValueDifferences& differences, std::string_view field, double expec
     for (std::size_t i = 0; i < kMachs.size(); i++)
     {
         const double mach = kMachs.at(i);
-        pin(differences, std::format("pressure CD at Mach {}", mach), c.pressureCD.at(i),
+        differences.pinned(
+            std::format("pressure CD at Mach {}", mach), c.pressureCD.at(i),
             calc.calculatePressureCD(conditionsAt(mach),
                                      BarrowmanDragCalculator::calculateStagnationCD(mach),
                                      BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
@@ -268,6 +249,19 @@ TEST(TubeCalc, HasNoPressureDragAtRest)
     moving.setVelocity(1.01 * MathUtil::kEpsilon);
     ASSERT_GE(moving.getVelocity(), MathUtil::kEpsilon);
     EXPECT_GT(calc.calculatePressureCD(moving, 0.9, 0.2, warnings), 0.0);
+
+    // At the limit itself the tube moves (v < EPSILON is at rest), one step below it it does
+    // not. OpenRocket's values (the probe FixProbe.java); the velocity is the Mach number times
+    // the speed of sound, which gives these two doubles back exactly.
+    FlightConditions atLimit = conditionsAt(0.3);
+    atLimit.setVelocity(MathUtil::kEpsilon);
+    ASSERT_EQ(atLimit.getVelocity(), MathUtil::kEpsilon);
+    EXPECT_NEAR(calc.calculatePressureCD(atLimit, 0.9, 0.2, warnings), 0.0067582042606439225,
+                0.0067582042606439225 * 1e-12);
+    FlightConditions belowLimit = conditionsAt(0.3);
+    belowLimit.setVelocity(std::nextafter(MathUtil::kEpsilon, 0.0));
+    ASSERT_EQ(belowLimit.getVelocity(), std::nextafter(MathUtil::kEpsilon, 0.0));
+    EXPECT_EQ(calc.calculatePressureCD(belowLimit, 0.9, 0.2, warnings), 0.0);
     EXPECT_TRUE(warnings.empty());
 }
 

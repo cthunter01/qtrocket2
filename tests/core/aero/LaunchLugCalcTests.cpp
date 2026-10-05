@@ -1,12 +1,10 @@
 #include "QtRocket/aero/barrowman/LaunchLugCalc.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <format>
 #include <string>
-#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -65,25 +63,6 @@ constexpr std::array<double, 11> kAlphaLugPressureCD{0.0,
                                                      0.05118405821716399,
                                                      0.052666753216464704};
 
-/// Compares a value with the one OpenRocket printed: within 1e-12 of the value itself, so a small
-/// value is held as strictly as a large one and a zero must be a zero.
-/// JavaValueDifferences::number(), which also allows an absolute 1e-15, only decides for NaN (NaN
-/// with NaN) and the infinities.
-void pin(JavaValueDifferences& differences, std::string_view field, double expected, double actual)
-{
-    const bool finite = std::isfinite(expected) && std::isfinite(actual);
-    const bool within =
-        std::abs(actual - expected) <= 1e-12 * std::max(std::abs(expected), std::abs(actual));
-    if (finite && !within)
-    {
-        differences.problem(std::format("{}: expected {}, got {}", field, expected, actual));
-    }
-    else
-    {
-        differences.number(field, expected, actual);
-    }
-}
-
 /// What differs between @p expected and the pressure drag of @p calc over kMachs, in fresh
 /// conditions of @p alpha's selected configuration.
 [[nodiscard]] std::string pressureDifferences(const TestEstesAlphaIII& alpha, LaunchLugCalc& calc,
@@ -96,10 +75,10 @@ void pin(JavaValueDifferences& differences, std::string_view field, double expec
         const double     mach = kMachs.at(i);
         FlightConditions conditions{alpha.rocket->getSelectedConfiguration()};
         conditions.setMach(mach);
-        pin(differences, std::format("pressure CD at Mach {}", mach), expected.at(i),
-            calc.calculatePressureCD(conditions,
-                                     BarrowmanDragCalculator::calculateStagnationCD(mach),
-                                     BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
+        differences.pinned(std::format("pressure CD at Mach {}", mach), expected.at(i),
+                           calc.calculatePressureCD(
+                               conditions, BarrowmanDragCalculator::calculateStagnationCD(mach),
+                               BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
     }
     if (!warnings.empty())
     {

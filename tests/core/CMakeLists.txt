@@ -95,6 +95,7 @@ add_executable(QtRocket_core_tests
     rocket/InsideColorComponentTests.cpp
     rocket/InstanceMapTests.cpp
     rocket/InternalComponentTests.cpp
+    rocket/java_value_differences_tests.cpp
     rocket/LaunchLugTests.cpp
     rocket/MassComponentTests.cpp
     rocket/MassObjectTests.cpp

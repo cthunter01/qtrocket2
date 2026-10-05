@@ -1,6 +1,5 @@
 #include "QtRocket/aero/barrowman/TubeFinSetCalc.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -26,6 +25,7 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/TubeFinSet.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Transformation.h"
 #include "rocket/JavaValueDifferences.h"
@@ -38,6 +38,7 @@ using QtRocket::AerodynamicForces;
 using QtRocket::AxialStage;
 using QtRocket::BarrowmanDragCalculator;
 using QtRocket::BodyTube;
+using QtRocket::Coordinate;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::Message;
@@ -182,7 +183,7 @@ struct TubeFinCase
 };
 
 // NOLINTBEGIN(modernize-use-std-numbers): OpenRocket's results, not approximations of constants
-constexpr std::array<TubeFinCase, 18> kTubeFinCases{{
+constexpr std::array<TubeFinCase, 20> kTubeFinCases{{
     // PINS-BEGIN (TubeFinProbe.java)
     {.name             = "1 tube, automatic radius",
      .onBody           = true,
@@ -652,6 +653,78 @@ constexpr std::array<TubeFinCase, 18> kTubeFinCases{{
                            {0.0, 0.0, 0.002769954023496762, 0.0, 0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.002781017504476834, 0.0, 0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0027802498791258162, 0.0, 0.0, 0.0, 0.0}}}},
+    {.name             = "4 tubes of 0.99 mm radius",
+     .onBody           = true,
+     .finCount         = 4,
+     .chord            = 0.06,
+     .fixedOuterRadius = 9.9E-4,
+     .thickness        = 2.0E-4,
+     .warning          = TubeWarning::SEPARATION,
+     .outerRadius      = 9.9E-4,
+     .cna              = 0.0,
+     .crollForce       = 0.0,
+     .frictionCD       = 1.9565771166492953E-4,
+     .cn               = {0.0, 0.0, 0.0, 0.0},
+     .rows             = {{{0.0, 0.0, 1.9574778392678424E-4, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0036179663689316025, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003133905274359175, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003117580059992704, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0031181143347914467, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003118751195590377, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003128668766435905, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003205659172165433, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0032445299149863266, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003262827975401449, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0033146047481403874, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003344547256896498, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0033449186073230526, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0033452831669101048, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.003361633730807218, 0.0, 0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0033618618076808543, 0.0, 0.0, 0.0, 0.0}}}},
+    {.name             = "4 tubes of 1 mm radius",
+     .onBody           = true,
+     .finCount         = 4,
+     .chord            = 0.06,
+     .fixedOuterRadius = 0.001,
+     .thickness        = 2.0E-4,
+     .warning          = TubeWarning::SEPARATION,
+     .outerRadius      = 0.001,
+     .cna              = 0.008055249831622098,
+     .crollForce       = 0.0,
+     .frictionCD       = 1.9785887949157996E-4,
+     .cn               = {0.0, 2.811812632650489E-4, 0.0014059063163252444, 0.0028118126326504888},
+     .rows = {{{0.015, kInf, 1.9960492004873333E-4, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 0.0012197144398411067, 0.00364643384003326, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 2.032857399735178E-4, 0.0031601753008768866, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 1.2446065712664356E-4, 0.0031440358721487403, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 1.2197144398411068E-4, 0.003144591183679232, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 1.1957984704324578E-4, 0.0031452500231978426, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 1.016428699867589E-4, 0.0031554057464350293, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 6.776191332450593E-5, 0.003233671732621414, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 6.098572199205534E-5, 0.0032731292036825067, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 5.544156544732303E-5, 0.003291717470804771, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 4.065714799470357E-5, 0.00334431188008994, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 3.064609145329414E-5, 0.003374737828349703, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 3.049286099602767E-5, 0.0033751153684694955, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 3.0341155219928033E-5, 0.003375486013049589, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 2.0328573997351785E-5, 0.0033921308333957623, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4},
+               {0.015, 1.219714439841107E-5, 0.0033924165152680276, 0.0, 8.435437897951467E-5,
+                4.2177189489757324E-4, 8.435437897951465E-4}}}},
     {.name             = "5 tubes of low aspect ratio",
      .onBody           = true,
      .finCount         = 5,
@@ -1026,23 +1099,21 @@ struct TubeFins
            warning.sources().front().name == fins.getName();
 }
 
-/// Compares a value with the one OpenRocket printed: within 1e-12 of the value itself, so a small
-/// value is held as strictly as a large one and a zero must be a zero.
-/// JavaValueDifferences::number(), which also allows an absolute 1e-15, only decides for NaN (NaN
-/// with NaN) and the infinities.
-void pin(JavaValueDifferences& differences, std::string_view field, double expected, double actual)
+/// Forces that already hold values, none of them one the calculator computes: it sets every
+/// coefficient, also for a tube of less than 1 mm radius, which has none (the probe seeded
+/// OpenRocket's forces the same way).
+[[nodiscard]] AerodynamicForces seededForces()
 {
-    const bool finite = std::isfinite(expected) && std::isfinite(actual);
-    const bool within =
-        std::abs(actual - expected) <= 1e-12 * std::max(std::abs(expected), std::abs(actual));
-    if (finite && !within)
-    {
-        differences.problem(std::format("{}: expected {}, got {}", field, expected, actual));
-    }
-    else
-    {
-        differences.number(field, expected, actual);
-    }
+    AerodynamicForces forces;
+    forces.setCP(Coordinate{0.3, 0.1, 0.2, 2});
+    forces.setCN(0.5);
+    forces.setCm(0.4);
+    forces.setCroll(0.3);
+    forces.setCrollDamp(0.2);
+    forces.setCrollForce(0.1);
+    forces.setCside(0.6);
+    forces.setCyaw(0.7);
+    return forces;
 }
 
 /// Whether the CP position of a case at @p mach is Java's double exactly: outside the transonic
@@ -1062,28 +1133,28 @@ void compareForces(JavaValueDifferences& differences, TubeFinSetCalc& calc, cons
 {
     const FlightConditions conditions = conditionsAt(kMachs.at(m), kAoas.at(a));
     WarningSet             warnings;
-    AerodynamicForces      forces;
+    AerodynamicForces      forces = seededForces();
     calc.calculateNonaxialForces(conditions, Transformation::rotateX(kRotation), forces, warnings);
 
     const std::array<double, 7>& row = c.rows.at(m);
     const std::string            at  = std::format("Mach {} AoA {}", kMachs.at(m), kAoas.at(a));
-    pin(differences, at + " CP x", row[0], forces.getCP().x);
+    differences.pinned(at + " CP x", row[0], forces.getCP().x);
     if (isExactCpPosition(c, kMachs.at(m)) && forces.getCP().x != row[0])
     {
         differences.problem(
             std::format("{} CP x: expected exactly {}, got {}", at, row[0], forces.getCP().x));
     }
-    pin(differences, at + " CNa", c.cna, forces.getCP().weight);
-    pin(differences, at + " CN", c.cn.at(a), forces.getCN());
-    pin(differences, at + " Cm", row.at(3 + a), forces.getCm());
-    pin(differences, at + " CrollDamp", row[1], forces.getCrollDamp());
-    pin(differences, at + " CrollForce", c.crollForce, forces.getCrollForce());
+    differences.pinned(at + " CNa", c.cna, forces.getCP().weight);
+    differences.pinned(at + " CN", c.cn.at(a), forces.getCN());
+    differences.pinned(at + " Cm", row.at(3 + a), forces.getCm());
+    differences.pinned(at + " CrollDamp", row[1], forces.getCrollDamp());
+    differences.pinned(at + " CrollForce", c.crollForce, forces.getCrollForce());
     // Java: Croll = CrollForce - CrollDamp, the same subtraction of the same doubles.
-    pin(differences, at + " Croll", c.crollForce - row[1], forces.getCroll());
+    differences.pinned(at + " Croll", c.crollForce - row[1], forces.getCroll());
     // The CP is on the axis (NaN when CNa is).
     const double offAxis = std::isnan(c.cna) ? kNaN : 0.0;
-    pin(differences, at + " CP y", offAxis, forces.getCP().y);
-    pin(differences, at + " CP z", offAxis, forces.getCP().z);
+    differences.pinned(at + " CP y", offAxis, forces.getCP().y);
+    differences.pinned(at + " CP z", offAxis, forces.getCP().z);
     if (forces.getCside() != 0 || forces.getCyaw() != 0)
     {
         differences.problem(at + ": a side force or yaw coefficient is not 0");
@@ -1094,20 +1165,48 @@ void compareForces(JavaValueDifferences& differences, TubeFinSetCalc& calc, cons
     }
 }
 
-/// Compares the pressure drag at kMachs[m] with Java's.
-void comparePressure(JavaValueDifferences& differences, TubeFinSetCalc& calc, const TubeFinCase& c,
-                     const TubeFinSet& fins, std::size_t m)
+/// The relative tolerance of the pressure drag of a case at @p mach: 1e-12, but 1e-11 for a tube
+/// of up to 1 mm radius at rest. At rest the drag is that of the interstice between the tube and
+/// the body alone, whose area a - a1 - a2 is, for so thin a tube on the 25 mm body, a difference
+/// of nearly equal terms (2.06e-5 - 9.9e-7 - 1.94e-5 = 2.6e-7 for 0.8 mm), with the angle
+/// theta2 = pi / 2 - acos(r / (r + R)) cancelling as well: one unit in the last place of acos()
+/// moves it by 3.4e-13 (1 mm) to 5.3e-13 (0.8 mm) of its value, and the math libraries may differ
+/// by that. For the larger tubes the same step moves it by less than 1e-14, and in motion the
+/// interstice is a few percent of the drag.
+[[nodiscard]] double pressureTolerance(const TubeFinCase& c, double mach)
+{
+    const bool thinTubeAtRest = c.onBody && c.outerRadius <= 0.001 && mach == 0;
+    return thinTubeAtRest ? 1e-11 : 1e-12;
+}
+
+/// Compares the pressure and the friction drag at kMachs[m] with Java's, at every angle of
+/// attack of kAoas: neither depends on the angle (nor the friction drag on the Mach number),
+/// which the probe asserted of OpenRocket's.
+void compareDrag(JavaValueDifferences& differences, TubeFinSetCalc& calc, const TubeFinCase& c,
+                 const TubeFinSet& fins, std::size_t m)
 {
     const double mach = kMachs.at(m);
-    WarningSet   warnings;
-    pin(differences, std::format("pressure CD at Mach {}", mach), c.rows.at(m)[2],
-        calc.calculatePressureCD(conditionsAt(mach, 0),
-                                 BarrowmanDragCalculator::calculateStagnationCD(mach),
-                                 BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
-    if (!holdsOnly(warnings, c.warning, fins))
+    for (const double aoaDeg : kAoas)
     {
-        differences.problem(std::format("pressure CD at Mach {}: warnings ", mach) +
-                            warnings.toString());
+        const FlightConditions conditions = conditionsAt(mach, aoaDeg);
+        const std::string      at         = std::format(" at Mach {} AoA {}", mach, aoaDeg);
+        WarningSet             warnings;
+        differences.pinned("pressure CD" + at, c.rows.at(m)[2],
+                           calc.calculatePressureCD(
+                               conditions, BarrowmanDragCalculator::calculateStagnationCD(mach),
+                               BarrowmanDragCalculator::calculateBaseCD(mach), warnings),
+                           pressureTolerance(c, mach));
+        if (!holdsOnly(warnings, c.warning, fins))
+        {
+            differences.problem("pressure CD" + at + ": warnings " + warnings.toString());
+        }
+        WarningSet frictionWarnings;
+        differences.pinned("friction CD" + at, c.frictionCD,
+                           calc.calculateFrictionCD(conditions, kCf, frictionWarnings));
+        if (!frictionWarnings.empty())
+        {
+            differences.problem("friction CD" + at + ": warnings " + frictionWarnings.toString());
+        }
     }
 }
 
@@ -1117,21 +1216,14 @@ void comparePressure(JavaValueDifferences& differences, TubeFinSetCalc& calc, co
     const TubeFins       made = makeTubeFins(c);
     TubeFinSetCalc       calc{*made.fins};
     JavaValueDifferences differences;
-    pin(differences, "outer radius", c.outerRadius, made.fins->getOuterRadius());
+    differences.pinned("outer radius", c.outerRadius, made.fins->getOuterRadius());
     for (std::size_t m = 0; m < kMachs.size(); m++)
     {
         for (std::size_t a = 0; a < kAoas.size(); a++)
         {
             compareForces(differences, calc, c, *made.fins, m, a);
         }
-        comparePressure(differences, calc, c, *made.fins, m);
-    }
-    WarningSet warnings;
-    pin(differences, "friction CD", c.frictionCD,
-        calc.calculateFrictionCD(conditionsAt(0.3, 0), kCf, warnings));
-    if (!warnings.empty())
-    {
-        differences.problem("the friction drag added warnings: " + warnings.toString());
+        compareDrag(differences, calc, c, *made.fins, m);
     }
     if (!holdsOnly(calc.getGeometryWarnings(), c.warning, *made.fins))
     {
@@ -1202,6 +1294,29 @@ TEST(TubeFinSetCalc, NormalForceIsHeldBeyondTheStallAngle)
     // The CP does not move with the angle of attack.
     EXPECT_EQ(beyond.getCP().x, at.getCP().x);
     EXPECT_EQ(beyond.getCP().weight, cna);
+}
+
+TEST(TubeFinSetCalc, NormalForceAtANaNAngleOfAttackIsThatOfTheStallAngle)
+{
+    // OpenRocket's MathUtil.min(NaN, STALL_ANGLE) is the stall angle (its second argument when
+    // the first is not smaller), so CN is CNa times the stall angle (the probe FixProbe.java).
+    const TubeFins made = makeTubeFins(true, 6, 0.06, kNaN, 0.001);
+    TubeFinSetCalc calc{*made.fins};
+    WarningSet     warnings;
+    const double   stall = 20 * std::numbers::pi / 180;
+
+    const AerodynamicForces forces = forcesAt(calc, 0.3, kNaN, 0, warnings);
+    const double            cna    = forces.getCP().weight;
+    EXPECT_NEAR(cna, 4.8849270716772635, 4.8849270716772635 * 1e-12);
+    EXPECT_EQ(forces.getCN(), cna * stall);
+    EXPECT_NEAR(forces.getCN(), 1.7051612224114656, 1.7051612224114656 * 1e-12);
+    EXPECT_NEAR(forces.getCm(), 0.5115483667234396, 0.5115483667234396 * 1e-12);
+    // A quarter of the chord, through the CP's weighting by CNa and back (the automatic radius,
+    // and so CNa, goes through a sine).
+    EXPECT_NEAR(forces.getCP().x, 0.015, 0.015 * 1e-12);
+    EXPECT_EQ(forces.getCrollForce(), 0.0);
+    EXPECT_EQ(forces.getCrollDamp(), 0.0);
+    EXPECT_EQ(forces.getCroll(), 0.0);
 }
 
 TEST(TubeFinSetCalc, RollDampingFollowsTheRollRate)

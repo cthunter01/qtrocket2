@@ -2,7 +2,7 @@
 
 // Comparing what a component answers with the values OpenRocket's own classes answer, as a Java
 // program printed them (the "Pins" of TubeFinSetTests.cpp, LaunchLugTests.cpp and
-// RailButtonTests.cpp). Test-only.
+// RailButtonTests.cpp, and of the calculator tests in tests/core/aero). Test-only.
 
 #include <algorithm>
 #include <cmath>
@@ -36,8 +36,33 @@ namespace QtRocket::Test
     {
         return expected > 0 ? actual > 1e12 : actual < -1e12;
     }
+    if (std::isinf(actual))
+    {
+        // Never a finite Java value (without this, inf <= 1e-12 * inf + 1e-15 would accept it).
+        return false;
+    }
     return std::abs(actual - expected) <=
            (1e-12 * std::max(std::abs(expected), std::abs(actual))) + 1e-15;
+}
+
+/// Whether @p actual is the pinned Java value @p expected, held more strictly than
+/// matchesJavaValue(): NaN with NaN, an infinity with the same infinity only (the result of an
+/// exact division by zero), and a finite value with a finite one within @p relativeTolerance of
+/// the value itself, without an absolute allowance: a small value is held as strictly as a large
+/// one and a zero must be a zero (of either sign).
+[[nodiscard]] inline bool matchesPinnedValue(double expected, double actual,
+                                             double relativeTolerance = 1e-12)
+{
+    if (std::isnan(expected) || std::isnan(actual))
+    {
+        return std::isnan(expected) && std::isnan(actual);
+    }
+    if (std::isinf(expected) || std::isinf(actual))
+    {
+        return expected == actual;
+    }
+    return std::abs(actual - expected) <=
+           relativeTolerance * std::max(std::abs(expected), std::abs(actual));
 }
 
 /// Collects the differences between Java's values and the computed ones, one line each.
@@ -48,6 +73,16 @@ public:
     void number(std::string_view field, double expected, double actual)
     {
         if (!matchesJavaValue(expected, actual))
+        {
+            m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
+        }
+    }
+
+    /// A pinned number: see matchesPinnedValue().
+    void pinned(std::string_view field, double expected, double actual,
+                double relativeTolerance = 1e-12)
+    {
+        if (!matchesPinnedValue(expected, actual, relativeTolerance))
         {
             m_text += std::format("  {}: expected {}, got {}\n", field, expected, actual);
         }

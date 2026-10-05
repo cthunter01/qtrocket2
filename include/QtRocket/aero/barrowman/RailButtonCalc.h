@@ -38,8 +38,10 @@ class WarningSet;
 /// Deviations from OpenRocket:
 /// - The class is final; nothing in OpenRocket extends it.
 /// - A button without an absolute location throws BugError (Java: an array index error), as
-///   does MathUtil::map() for a button no taller than a boundary layer of (almost) no thickness
-///   (Java: IllegalArgumentException).
+///   does MathUtil::map() for a button no taller than a boundary layer thinner than
+///   MathUtil::kEpsilon / 2 (5e-9 m; Java: IllegalArgumentException). The boundary layer is that
+///   thin within some 1e-8 m of the front of the rocket, and further aft only at Mach numbers of
+///   about 1e10 and more.
 class RailButtonCalc final : public RocketComponentCalc
 {
 public:

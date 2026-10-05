@@ -1,6 +1,5 @@
 #include "QtRocket/aero/barrowman/SymmetricComponentCalc.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -184,6 +183,19 @@ TEST(SymmetricComponentCalc, EllipseNoseconeDrag)
 // Every value below was printed by OpenRocket's own SymmetricComponentCalc (JDK 17, the probe
 // BodyProbe.java of the port's scratch directory) for a component built the same way, in fresh
 // flight conditions with the reference length kRefLength.
+//
+// Besides every shape, blunt and slender, the cases hold both sides of the decisions of the
+// calculation that no ordinary component is near:
+// - The guard of the subsonic continuation of the pressure drag (the power law a M^b + Cd(0)
+//   below the first Mach number of a shape's table is not used when Cd(0) is within 0.01 of the
+//   first value, or when the drag rises by no more than 0.01 per Mach there). "fineness 6.2": a
+//   drag that falls from the first Mach number, where the power law would give infinity at rest
+//   and NaN above it. "parameter 0.99", "0.02" and "0.254": a rise below the limit; "parameter
+//   0.257": just above it. "length 1.6667" and "length 2.6": the margin 0.01 from above and from
+//   below. A held drag is the same from Mach 0 to the first Mach number of the table.
+// - The tolerance within which the fore and the aft radius are equal, so that the component is
+//   a cylinder (MathUtil::equals(): relative 1e-8, and against 0 less than 5e-9): "radii equal
+//   within epsilon", "radii just apart" and the two "on a point".
 
 enum class Body
 {
@@ -231,7 +243,7 @@ struct BodyCase
 };
 
 // NOLINTBEGIN(modernize-use-std-numbers): OpenRocket's results, not approximations of constants
-constexpr std::array<BodyCase, 67> kBodyCases{{
+constexpr std::array<BodyCase, 79> kBodyCases{{
     // PINS-BEGIN (BodyProbe.java)
     {.name       = "conical nose",
      .body       = Body::NOSE,
@@ -1641,6 +1653,241 @@ constexpr std::array<BodyCase, 67> kBodyCases{{
                     0.024956025970496325,
                     0.024956025970496325,
                     0.024956025970496325}},
+    {.name       = "power nose, parameter 1, fineness 6.2",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::POWER,
+     .param      = 1.0,
+     .clipped    = false,
+     .length     = 0.31,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.06220128616033594,
+     .forces = {{{0.20666666666666664, 2.0, 0.0, 0.0},
+                 {0.20666666666666667, 2.1510878784561065, 0.07508713195759731, 0.3103601454247355},
+                 {0.2066666666666666, 2.739976090933663, 0.4782160421271597, 1.9766263074589259}}},
+     .slowForces =
+         {{{0.20666666666666664, 2.22278237308249, 1.9397435482791214, 8.017606666220367},
+           {0.20666666666666664, 3.042226354183467, 4.778717982430019, 19.75203432737741},
+           {0.20666666666666667, 4.411030792103956, 3.0794804291627007, 12.728519107205829},
+           {0.20666666666666664, 4.675255994630512, 4.079930523995238, 16.86371283251365}}},
+     .pressureCD = {0.02766575215355757,   0.02766575215355757,   0.02766575215355757,
+                    0.02766575215355757,   0.02766575215355757,   0.02742884756922507,
+                    0.027191942984892567,  0.026908492006420415,  0.026630710047517703,
+                    0.02662504102794826,   0.027315886121263174,  0.05478860634075129,
+                    0.06263732347172028,   0.06263731306091125,   0.02430810440312464,
+                    0.01740536455211208,   0.017037714867037694,  0.012359340726711611,
+                    0.00783134317234545,   0.0060767167110735215, 0.0051279036527669235,
+                    0.0041645246729813375, 0.0041645246729813375, 0.0041645246729813375}},
+    {.name       = "parabolic nose, parameter 0, fineness 6.2",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::PARABOLIC,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 0.31,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.06220128616033594,
+     .forces = {{{0.20666666666666664, 2.0, 0.0, 0.0},
+                 {0.20666666666666667, 2.1510878784561065, 0.07508713195759731, 0.3103601454247355},
+                 {0.2066666666666666, 2.739976090933663, 0.4782160421271597, 1.9766263074589259}}},
+     .slowForces =
+         {{{0.20666666666666664, 2.22278237308249, 1.9397435482791214, 8.017606666220367},
+           {0.20666666666666664, 3.042226354183467, 4.778717982430019, 19.75203432737741},
+           {0.20666666666666667, 4.411030792103956, 3.0794804291627007, 12.728519107205829},
+           {0.20666666666666664, 4.675255994630512, 4.079930523995238, 16.86371283251365}}},
+     .pressureCD = {0.02766575215355757,   0.02766575215355757,   0.02766575215355757,
+                    0.02766575215355757,   0.02766575215355757,   0.02742884756922507,
+                    0.027191942984892567,  0.02693973208522948,   0.026631334849093885,
+                    0.02662504102794826,   0.027315886121263174,  0.0547572410387847,
+                    0.06263732347172028,   0.06263731306091125,   0.02430810440312464,
+                    0.017405364552112085,  0.017037714867037694,  0.012359340726711611,
+                    0.007831343172345448,  0.0060767167110735215, 0.0051279036527669235,
+                    0.0041645246729813375, 0.0041645246729813375, 0.0041645246729813375}},
+    {.name       = "power nose, parameter 0.99",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::POWER,
+     .param      = 0.99,
+     .clipped    = false,
+     .length     = 0.15,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.030562511171765706,
+     .forces = {{{0.09966444499226225, 2.0, 0.0, 0.0},
+                 {0.09967042885520416, 2.073265720920198, 0.07237062619758267, 0.14426422699265473},
+                 {0.09969053315607461, 2.354643808549363, 0.41096287170885387,
+                  0.8193821557601427}}},
+     .slowForces = {{{0.09968373818340352, 1.9828146414197483, 1.730332197476267,
+                      3.4497196348707497},
+                     {0.09973234546245914, 2.133501514722186, 3.351296342536958, 6.684652891619433},
+                     {0.09973252165189665, 3.091042931988058, 2.1579550593476307, 4.30436599360415},
+                     {0.09973973890622126, 3.175457671738379, 2.7711095814774, 5.527794922741679}}},
+     .pressureCD = {0.1578230278131349,  0.1578230278131349,  0.1578230278131349,
+                    0.1578230278131349,  0.1578230278131349,  0.1581230278131349,
+                    0.1584230278131349,  0.1596830278131349,  0.1609178278131349,
+                    0.1609430278131349,  0.1622567266934549,  0.21326730550056658,
+                    0.22961765439747336, 0.22961764696404494, 0.17096456268771548,
+                    0.1536401669272079,  0.15191151502229694, 0.12882709020749203,
+                    0.10340607028260644, 0.09213629464652691, 0.08545258645166978,
+                    0.07793061877673538, 0.07793061877673538, 0.07793061877673538}},
+    {.name       = "parabolic nose, parameter 0.02",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::PARABOLIC,
+     .param      = 0.02,
+     .clipped    = false,
+     .length     = 0.15,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.03051345594925068,
+     .forces = {{{0.09974698006026175, 2.0, 0.0, 0.0},
+                 {0.09975298048668886, 2.07314421978817, 0.07236638500798509, 0.144375251831875},
+                 {0.0997731455889168, 2.354042202143179, 0.41085787158296383, 0.8198516447559906}}},
+     .slowForces =
+         {{{0.09976632917768836, 1.982439987825317, 1.7300052505374042, 3.451925466084878},
+           {0.09981510979619292, 2.1320827530199593, 3.3490677568665026, 6.685751317330389},
+           {0.09981528669847742, 3.088982079085163, 2.1565163126054383, 4.305065880253103},
+           {0.09982253367827218, 3.1731160867731827, 2.7690661631095064, 5.528304006487252}}},
+     .pressureCD = {0.1578230278131349,  0.1578230278131349,  0.1578230278131349,
+                    0.1578230278131349,  0.1578230278131349,  0.15814302781313488,
+                    0.1584630278131349,  0.15950302781313488, 0.1617766278131349,
+                    0.1618230278131349,  0.16312886002678822, 0.2137539721672332,
+                    0.22990336868318764, 0.22990336106404494, 0.17093456268771545,
+                    0.1534801669272079,  0.15175551502229695, 0.128667090207492,
+                    0.10356607028260643, 0.09244629464652689, 0.0859059197850031,
+                    0.07849061877673537, 0.07849061877673537, 0.07849061877673537}},
+    {.name       = "power nose, parameter 0.254",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::POWER,
+     .param      = 0.254,
+     .clipped    = false,
+     .length     = 0.15,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.04861606525329495,
+     .forces = {{{0.05056911008385822, 2.0, 0.0, 0.0},
+                 {0.05238805359395161, 2.116399345316529, 0.07387627372565173, 0.07740468374521763},
+                 {0.05799104480059264, 2.5682176602955855, 0.4482385408002321,
+                  0.5198764260179706}}},
+     .slowForces =
+         {{{0.056179433765759144, 2.1158188953817927, 1.8464003050160864, 2.074594472814574},
+           {0.06761453285401597, 2.637170355911188, 4.142457508197684, 5.6018065856879495},
+           {0.0676502975436448, 3.8226579677146706, 2.668718708568644, 3.6107922938992045},
+           {0.06908548165989131, 4.006734259001157, 3.496535253601272, 4.831196442716681}}},
+     .pressureCD = {0.13776000000000002,
+                    0.13776000000000002,
+                    0.13776000000000002,
+                    0.13776000000000002,
+                    0.13776000000000002,
+                    0.13776000000000002,
+                    0.13776000000000002,
+                    0.13798400000000005,
+                    0.13854848000000003,
+                    0.13856000000000002,
+                    0.13856320000000003,
+                    0.13872,
+                    0.13870400000000002,
+                    0.13870400035200003,
+                    0.146952,
+                    0.15484799999999999,
+                    0.15612759999999998,
+                    0.178964,
+                    0.21428399999999997,
+                    0.234948,
+                    0.246264,
+                    0.24921599999999997,
+                    0.24921599999999997,
+                    0.24921599999999997}},
+    {.name       = "power nose, parameter 0.257",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::POWER,
+     .param      = 0.257,
+     .clipped    = false,
+     .length     = 0.15,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.048490940344983455,
+     .forces = {{{0.05096204336080343, 2.0, 0.0, 0.0},
+                 {0.05276007739652639, 2.116122403110097, 0.07386660661897178, 0.07794415764471439},
+                 {0.058301618835461866, 2.5668463956600127, 0.4479992099721631,
+                  0.5223815835677019}}},
+     .slowForces =
+         {{{0.05650938740831837, 2.114964933024755, 1.8456550822751663, 2.085936761328382},
+           {0.06783000180156694, 2.6339365177595817, 4.137377807107692, 5.612766882197556},
+           {0.06786543768023841, 3.817960586377289, 2.6654393177462823, 3.61782411817935},
+           {0.06928757777528348, 4.001396994269669, 3.49187761147052, 4.8388748317306955}}},
+     .pressureCD = {0.0014760169557785805,
+                    0.04079263805049493,
+                    0.09976756969256946,
+                    0.12070021938556953,
+                    0.12994590599146819,
+                    0.13485914986977857,
+                    0.13568319132071593,
+                    0.136472,
+                    0.13745984000000003,
+                    0.13748000000000002,
+                    0.1374856,
+                    0.13776000000000002,
+                    0.13773200000000002,
+                    0.13773200061600002,
+                    0.146166,
+                    0.15398399999999998,
+                    0.15524829999999998,
+                    0.177812,
+                    0.21262199999999995,
+                    0.233034,
+                    0.24421199999999998,
+                    0.247128,
+                    0.247128,
+                    0.247128}},
+    {.name       = "conical nose, length 1.6667",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 1.6667,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.33337749714100384,
+     .forces = {{{1.1111333333333335, 2.0, 0.0, 0.0},
+                 {1.1111333333333335, 2.814094084056476, 0.09823041445535914, 2.1829417569699614},
+                 {1.1111333333333333, 6.022816126832977, 1.0511797165544783, 23.360016447751317}}},
+     .slowForces =
+         {{{1.1111333333333333, 4.267188494344674, 3.723824451476699, 82.75330951034952},
+           {1.111133333333333, 10.78411152959803, 16.93964277843908, 376.44403491765877},
+           {1.111133333333333, 15.656673039559973, 10.930419777941998, 242.90307525194564},
+           {1.1111333333333333, 17.45279425251916, 15.230436168980098, 338.46090617118836}}},
+     .pressureCD = {1.799523125651896E-4,  1.799523125651896E-4,  1.799523125651896E-4,
+                    1.799523125651896E-4,  1.799523125651896E-4,  1.7995439639681348E-4,
+                    1.8048774824809717E-4, 2.8186419698086657E-4, 0.014703689918013206,
+                    0.014998012891911827,  0.016436533008007022,  0.07130878093322757,
+                    0.08746909423183169,   0.08746908194904614,   0.02226425025789079,
+                    0.0094996787801023,    0.009337684731465845,  0.007179690091238188,
+                    0.004801928210716145,  0.0037452095514927185, 0.003123673975535296,
+                    0.0024189936658202092, 0.0024189936658202092, 0.0024189936658202092}},
+    {.name       = "conical nose, length 2.6",
+     .body       = Body::NOSE,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 2.6,
+     .foreRadius = 0.0,
+     .aftRadius  = 0.025,
+     .frictionCD = 0.5200240379059414,
+     .forces = {{{1.7333333333333336, 2.0, 0.0, 0.0},
+                 {1.7333333333333336, 3.2701887930465423, 0.11415112320096323, 3.957238937633392},
+                 {1.7333333333333336, 8.281144869742112, 1.445332438116368, 50.10485785470076}}},
+     .slowForces =
+         {{{1.7333333333333336, 5.673574749945757, 4.9511279872283716, 171.63910355725025},
+           {1.7333333333333336, 16.109903107849963, 25.30537662683241, 877.253056396857},
+           {1.7333333333333334, 23.392766434968447, 16.331231817608614, 566.1493696770987},
+           {1.7333333333333338, 26.242708350025936, 22.901083267428056, 793.9042199375061}}},
+     .pressureCD = {0.009614940148022555, 0.009614940148022555,  0.009614940148022555,
+                    0.009614940148022555, 0.009614940148022555,  0.009614940148022555,
+                    0.009614940148022555, 0.009614940148022555,  0.009614940148022555,
+                    0.009614940148022555, 0.011058176037634143,  0.06617808720793228,
+                    0.08263318682591603,  0.08263317517913203,   0.018426643104188494,
+                    0.005981371330598532, 0.005877520034207567,  0.004494070809620461,
+                    0.002969732996857462, 0.0022922908093526186, 0.0018938362003480713,
+                    0.001442079087574268, 0.001442079087574268,  0.001442079087574268}},
     {.name       = "conical transition, widening",
      .body       = Body::TRANSITION,
      .shape      = TransitionShape::CONICAL,
@@ -2360,6 +2607,104 @@ constexpr std::array<BodyCase, 67> kBodyCases{{
          {{{0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0}}},
      .pressureCD = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+    {.name       = "radii equal within epsilon",
+     .body       = Body::TRANSITION,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 0.05,
+     .foreRadius = 0.02,
+     .aftRadius  = 0.020000000100000002,
+     .frictionCD = 0.01600000004000001,
+     .forces     = {{{0.0, 0.0, 0.0, 0.0},
+                     {0.025000000020833326, 0.039095228555045915, 0.0013646809202105129,
+                      6.823404606738731E-4},
+                     {0.025000000020833323, 0.19357794908860707, 0.0337857257085415,
+                      0.016892862868348128}}},
+     .slowForces =
+         {{{0.025000000020833323, 0.12055169905642803, 0.10520120337040052, 0.05260060172903407},
+           {0.025000000020833323, 0.45651272616019917, 0.7170885133875653, 0.35854425699256937},
+           {0.025000000020833326, 0.6631174040286061, 0.4629432811030674, 0.23147164074442664},
+           {0.025000000020833323, 0.7534481191026753, 0.6575075210650034, 0.32875376080646307}}},
+     .pressureCD = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+    {.name       = "radii just apart",
+     .body       = Body::TRANSITION,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 0.05,
+     .foreRadius = 0.02,
+     .aftRadius  = 0.0200000003,
+     .frictionCD = 0.01600000012,
+     .forces =
+         {{{0.02499999978430484, 3.8400000443101854E-8, 0.0, 0.0},
+           {0.02500000006249972, 0.039095267142724745, 0.0013646822671746054, 6.823411352931478E-4},
+           {0.02500000006249994, 0.19357798826183867, 0.0337857325455602, 0.016892866315012224}}},
+     .slowForces =
+         {{{0.02500000006249992, 0.12055173336756199, 0.10520123331251341, 0.05260061678775808},
+           {0.02500000006249998, 0.45651275288896204, 0.7170885553730079, 0.35854427858286425},
+           {0.02500000006249998, 0.6631174427000496, 0.46294330810082807, 0.23147165462909297},
+           {0.025000000062499986, 0.7534481565782909, 0.6575075537686474, 0.328753777706208}}},
+     .pressureCD = {1.1520028348103862E-16, 1.1520028348103862E-16, 1.1520028348103862E-16,
+                    1.1520028348103862E-16, 1.1520028348103862E-16, 1.1520028348103862E-16,
+                    1.1520028348103862E-16, 1.1520028348103862E-16, 1.1520028348103862E-16,
+                    1.1520028348103862E-16, 2.787567091752099E-11,  1.0951112309218569E-9,
+                    1.4222223377609929E-9,  1.422222138649864E-9,   2.2755563435677684E-10,
+                    6.933937694505303E-17,  6.809484520342253E-17,  5.151900049200535E-17,
+                    3.3255372334365795E-17, 2.5138698912442327E-17, 2.036467391901512E-17,
+                    1.4952012856494865E-17, 1.4952012856494865E-17, 1.4952012856494865E-17}},
+    {.name       = "aft radius 4e-9 on a point",
+     .body       = Body::TRANSITION,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 0.05,
+     .foreRadius = 0.0,
+     .aftRadius  = 4.0E-9,
+     .frictionCD = 1.6000000000000054E-9,
+     .forces     = {{{0.0, 0.0, 0.0, 0.0},
+                     {0.0, 0.0, 0.0, 0.0},
+                     {0.033333333333333326, 1.9357794860466202E-8, 3.3785725624077152E-9,
+                      2.2523817082718096E-9}}},
+     .slowForces =
+         {{{0.033333333333333326, 1.205516987550487E-8, 1.0520120310739745E-8,
+            7.013413540493161E-9},
+           {0.033333333333333326, 4.565127250189171E-8, 7.170885115948437E-8, 4.780590077298957E-8},
+           {0.033333333333333326, 6.631174023708121E-8, 4.629432799457089E-8, 3.086288532971392E-8},
+           {0.033333333333333326, 7.534481172190544E-8, 6.575075194212341E-8,
+            4.3833834628082257E-8}}},
+     .pressureCD = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+    {.name       = "aft radius 6e-9 on a point",
+     .body       = Body::TRANSITION,
+     .shape      = TransitionShape::CONICAL,
+     .param      = 0.0,
+     .clipped    = false,
+     .length     = 0.05,
+     .foreRadius = 0.0,
+     .aftRadius  = 6.0E-9,
+     .frictionCD = 2.400000000000017E-9,
+     .forces     = {{{0.0, 0.0, 0.0, 0.0},
+                     {0.03333333333333335, 5.864399445202978E-9, 2.047061579418415E-10,
+                      1.3647077196122772E-10},
+                     {0.03333333333333335, 2.9036806906724006E-8, 5.067878847881639E-9,
+                      3.3785858985877603E-9}}},
+     .slowForces =
+         {{{0.03333333333333335, 1.8082855938382827E-8, 1.578026871442946E-8,
+            1.0520179142952976E-8},
+           {0.03333333333333334, 6.847698209143533E-8, 1.0756339193922653E-7, 7.170892795948436E-8},
+           {0.03333333333333335, 9.94677164231912E-8, 6.944156604098895E-8, 4.629437736065932E-8},
+           {0.03333333333333335, 1.1301731870798366E-7, 9.862621616150494E-8,
+            6.575081077433665E-8}}},
+     .pressureCD = {6.911999957992518E-21, 6.911999957992518E-21,  6.911999957992518E-21,
+                    6.911999957992518E-21, 6.911999957992518E-21,  6.911999957992518E-21,
+                    6.911999957992518E-21, 6.911999957992518E-21,  6.911999957992518E-21,
+                    6.911999957992518E-21, 8.363357238383609E-17,  3.2853398940144298E-15,
+                    4.266672783469698E-15, 4.266672186135383E-15,  6.826712642471473E-16,
+                    4.160334311978375E-21, 4.08567767855137E-21,   3.0911421139196967E-21,
+                    1.995324272143339E-21, 1.5083237991351734E-21, 1.221882259714349E-21,
+                    8.971225508217402E-22, 8.971225508217402E-22,  8.971225508217402E-22}},
     {.name       = "body tube",
      .body       = Body::TUBE,
      .shape      = TransitionShape::CONICAL,
@@ -2457,25 +2802,6 @@ constexpr std::array<BodyCase, 67> kBodyCases{{
     return conditions;
 }
 
-/// Compares a value with the one OpenRocket printed: within 1e-12 of the value itself, so a small
-/// value is held as strictly as a large one and a zero must be a zero.
-/// JavaValueDifferences::number(), which also allows an absolute 1e-15, only decides for NaN (NaN
-/// with NaN) and the infinities.
-void pin(JavaValueDifferences& differences, std::string_view field, double expected, double actual)
-{
-    const bool finite = std::isfinite(expected) && std::isfinite(actual);
-    const bool within =
-        std::abs(actual - expected) <= 1e-12 * std::max(std::abs(expected), std::abs(actual));
-    if (finite && !within)
-    {
-        differences.problem(std::format("{}: expected {}, got {}", field, expected, actual));
-    }
-    else
-    {
-        differences.number(field, expected, actual);
-    }
-}
-
 /// Compares the forces at @p mach and @p aoaDeg with Java's @p expected {CP x, CNa, CN, Cm}; the
 /// other coefficients must be 0 and the supersonic warning the only one, above Mach 1.1.
 void compareForces(JavaValueDifferences& differences, SymmetricComponentCalc& calc, double mach,
@@ -2487,10 +2813,10 @@ void compareForces(JavaValueDifferences& differences, SymmetricComponentCalc& ca
     calc.calculateNonaxialForces(conditions, Transformation::kIdentity, forces, warnings);
 
     const std::string at = std::format("Mach {} AoA {}", mach, aoaDeg);
-    pin(differences, at + " CP x", expected[0], forces.getCP().x);
-    pin(differences, at + " CNa", expected[1], forces.getCP().weight);
-    pin(differences, at + " CN", expected[2], forces.getCN());
-    pin(differences, at + " Cm", expected[3], forces.getCm());
+    differences.pinned(at + " CP x", expected[0], forces.getCP().x);
+    differences.pinned(at + " CNa", expected[1], forces.getCP().weight);
+    differences.pinned(at + " CN", expected[2], forces.getCN());
+    differences.pinned(at + " Cm", expected[3], forces.getCm());
     if (forces.getCroll() != 0 || forces.getCrollDamp() != 0 || forces.getCrollForce() != 0 ||
         forces.getCside() != 0 || forces.getCyaw() != 0)
     {
@@ -2522,20 +2848,33 @@ void compareAllForces(JavaValueDifferences& differences, SymmetricComponentCalc&
     }
 }
 
+/// The friction and pressure drag of a case at kMachs[i], at every angle of attack of kAoas:
+/// neither depends on the angle (nor the friction drag on the Mach number), which the probe
+/// asserted of OpenRocket's.
+void compareDragAt(JavaValueDifferences& differences, SymmetricComponentCalc& calc,
+                   const BodyCase& c, std::size_t i, WarningSet& warnings)
+{
+    const double mach = kMachs.at(i);
+    for (const double aoaDeg : kAoas)
+    {
+        const FlightConditions conditions = conditionsAt(mach, aoaDeg);
+        const std::string      at         = std::format(" at Mach {} AoA {}", mach, aoaDeg);
+        differences.pinned("friction CD" + at, c.frictionCD,
+                           calc.calculateFrictionCD(conditions, kCf, warnings));
+        differences.pinned("pressure CD" + at, c.pressureCD.at(i),
+                           calc.calculatePressureCD(
+                               conditions, BarrowmanDragCalculator::calculateStagnationCD(mach),
+                               BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
+    }
+}
+
 /// The friction and pressure drag of a case.
 void compareDrag(JavaValueDifferences& differences, SymmetricComponentCalc& calc, const BodyCase& c)
 {
     WarningSet warnings;
-    pin(differences, "friction CD", c.frictionCD,
-        calc.calculateFrictionCD(conditionsAt(0.3, 0), kCf, warnings));
     for (std::size_t i = 0; i < kMachs.size(); i++)
     {
-        const double           mach       = kMachs.at(i);
-        const FlightConditions conditions = conditionsAt(mach, 0);
-        pin(differences, std::format("pressure CD at Mach {}", mach), c.pressureCD.at(i),
-            calc.calculatePressureCD(conditions,
-                                     BarrowmanDragCalculator::calculateStagnationCD(mach),
-                                     BarrowmanDragCalculator::calculateBaseCD(mach), warnings));
+        compareDragAt(differences, calc, c, i, warnings);
     }
     if (!warnings.empty())
     {
@@ -2620,11 +2959,11 @@ TEST(SymmetricComponentCalc, BodyLiftIsReducedOnlyBelowMach005BeyondAnEighthTurn
     const AerodynamicForces at = forcesAt(calc, 0.04, quarterPi, warnings);
     EXPECT_NEAR(at.getCP().weight, 3.56650566421029, 1e-12);
     EXPECT_NEAR(at.getCN(), 2.801126998417358, 1e-12);
-    EXPECT_NEAR(at.getCm(), 5.602253996834706, 1e-11);
+    EXPECT_NEAR(at.getCm(), 5.602253996834706, 5.602253996834706 * 1e-12);
     const AerodynamicForces past = forcesAt(calc, 0.04, beyond, warnings);
     EXPECT_NEAR(past.getCP().weight, 2.2825636250945855, 1e-12);
     EXPECT_NEAR(past.getCN(), 1.7927212789871094, 1e-12);
-    EXPECT_NEAR(past.getCm(), 3.5854425579742126, 1e-11);
+    EXPECT_NEAR(past.getCm(), 3.5854425579742126, 3.5854425579742126 * 1e-12);
     EXPECT_NEAR(past.getCP().weight / at.getCP().weight, 0.64, 1e-12);
 
     // At Mach 0.05 exactly the lift is whole; one step below it is reduced (by almost nothing).
@@ -2656,6 +2995,80 @@ TEST(SymmetricComponentCalc, WarnsAboveMach11)
     static_cast<void>(forcesAt(calc, 2.0, 0.0, warnings));
     EXPECT_EQ(warnings.size(), 1U);
     EXPECT_TRUE(warnings.begin()->sources().empty());
+}
+
+/// What differs in the forces, the friction drag and the pressure drag of @p body between
+/// @p plain conditions and @p other conditions with a rotated instance (each computed by a
+/// calculator of its own); empty when nothing does, to the last bit.
+[[nodiscard]] std::string differencesBetween(const SymmetricComponent& body,
+                                             const FlightConditions&   plain,
+                                             const FlightConditions&   other)
+{
+    SymmetricComponentCalc plainCalc{body};
+    SymmetricComponentCalc otherCalc{body};
+    WarningSet             warnings;
+    AerodynamicForces      expected;
+    AerodynamicForces      actual;
+    plainCalc.calculateNonaxialForces(plain, Transformation::kIdentity, expected, warnings);
+    otherCalc.calculateNonaxialForces(other, Transformation::rotateX(0.7), actual, warnings);
+
+    JavaValueDifferences differences;
+    differences.pinned("CP x", expected.getCP().x, actual.getCP().x, 0);
+    differences.pinned("CNa", expected.getCP().weight, actual.getCP().weight, 0);
+    differences.pinned("CN", expected.getCN(), actual.getCN(), 0);
+    differences.pinned("Cm", expected.getCm(), actual.getCm(), 0);
+    differences.pinned("Croll", expected.getCroll(), actual.getCroll(), 0);
+    differences.pinned("CrollDamp", expected.getCrollDamp(), actual.getCrollDamp(), 0);
+    differences.pinned("CrollForce", expected.getCrollForce(), actual.getCrollForce(), 0);
+    differences.pinned("Cside", expected.getCside(), actual.getCside(), 0);
+    differences.pinned("Cyaw", expected.getCyaw(), actual.getCyaw(), 0);
+    differences.pinned("friction CD", plainCalc.calculateFrictionCD(plain, kCf, warnings),
+                       otherCalc.calculateFrictionCD(other, kCf, warnings), 0);
+    differences.pinned("pressure CD", plainCalc.calculatePressureCD(plain, 0.9, 0.2, warnings),
+                       otherCalc.calculatePressureCD(other, 0.9, 0.2, warnings), 0);
+    return differences.text();
+}
+
+/// differencesBetween() plain conditions and conditions with a lateral airflow direction and
+/// roll, pitch and yaw rates, over Mach numbers and angles of attack on both sides of every limit
+/// of the forces.
+[[nodiscard]] std::string differencesFromOtherConditions(const SymmetricComponent& body)
+{
+    constexpr std::array<double, 5> kOtherMachs{0.02, 0.3, 0.9, 1.2, 2.0};
+    constexpr std::array<double, 4> kOtherAoas{0, 2, 10, 50};
+    std::string                     text;
+    for (const double mach : kOtherMachs)
+    {
+        for (const double aoaDeg : kOtherAoas)
+        {
+            const FlightConditions plain = conditionsAt(mach, aoaDeg);
+            FlightConditions       other = conditionsAt(mach, aoaDeg);
+            other.setTheta(0.3);
+            other.setRollRate(5);
+            other.setPitchRate(0.2);
+            other.setYawRate(0.1);
+            text += differencesBetween(body, plain, other);
+        }
+    }
+    return text;
+}
+
+TEST(SymmetricComponentCalc, OnlyTheMachNumberAndTheAngleOfAttackMatter)
+{
+    // OpenRocket's calculator reads neither the lateral airflow direction, nor the roll, pitch
+    // and yaw rates, nor the transformation of the instance (the probe FixProbe.java asserts that
+    // its results do not change with them).
+    const NoseCone nose{TransitionShape::OGIVE, 0.15, 0.025};
+    EXPECT_EQ(differencesFromOtherConditions(nose), "");
+
+    Transition tail;
+    tail.setLength(0.0625);
+    tail.setForeRadius(0.03125);
+    tail.setAftRadius(0.015625);
+    EXPECT_EQ(differencesFromOtherConditions(tail), "");
+
+    const BodyTube tube{0.2, 0.025};
+    EXPECT_EQ(differencesFromOtherConditions(tube), "");
 }
 
 TEST(SymmetricComponentCalc, CopiesTheGeometryWhenItIsMade)
