@@ -4,14 +4,30 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <numbers>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/aero/barrowman/FinSetCalc.h"
+#include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/util/MathUtil.h"
+
 namespace
 {
 
+using QtRocket::AxialMethod;
+using QtRocket::AxialStage;
+using QtRocket::BodyTube;
+using QtRocket::FinSetCalc;
 using QtRocket::Naca1307FinBodyInterference;
+using QtRocket::Rocket;
+using QtRocket::TrapezoidFinSet;
+using QtRocket::MathUtil::javaToRadians;
 using Loads = Naca1307FinBodyInterference::Loads;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -41,8 +57,11 @@ void expectPinned(double actual, double expected)
     EXPECT_NEAR(actual, expected, (1e-12 * std::abs(expected)) + 1e-15);
 }
 
-// ---- Ported from FinBodyInterferenceTest.java (the NACA1307FinBodyInterference tests) ----
+// ---- Ported from FinBodyInterferenceTest.java: all of its 25 cases, in its order. The six that
+// call FinSetCalc's static functions (two of them on a rocket) are the FinBodyInterference
+// suite; the others test the NACA model alone. ----
 
+// FinBodyInterferenceTest.separatesSlenderBodyInterferenceFactors
 /// Equations 14 and 21 must retain their exact slender-body sum.
 TEST(Naca1307FinBodyInterference, SeparatesSlenderBodyInterferenceFactors)
 {
@@ -55,6 +74,7 @@ TEST(Naca1307FinBodyInterference, SeparatesSlenderBodyInterferenceFactors)
     EXPECT_GT(bodyFactor, 0.0);
 }
 
+// FinBodyInterferenceTest.reproducesNacaWingIncidenceFactor
 /// Equation 19 uses the lowercase incidence factor, which is distinct from the uppercase
 /// body-angle-of-attack factor in equation 14.
 TEST(Naca1307FinBodyInterference, ReproducesNacaWingIncidenceFactor)
@@ -67,6 +87,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaWingIncidenceFactor)
     EXPECT_LT(incidenceFactor, angleOfAttackFactor);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartThreeRectangularWingIncidenceFactors
 /// Chart 3 replaces equation 19 for rectangular wings when beta*A exceeds two. These source
 /// points are read from the beta*A=3 and 4 curves.
 TEST(Naca1307FinBodyInterference, ReproducesNacaChartThreeRectangularWingIncidenceFactors)
@@ -84,6 +105,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartThreeRectangularWingInciden
         0.006);
 }
 
+// FinBodyInterferenceTest.limitsChartThreeToItsPublishedSelectionRegion
 /// The report's chart-selection condition must not leak into nonrectangular fins or below its
 /// beta*A boundary.
 TEST(Naca1307FinBodyInterference, LimitsChartThreeToItsPublishedSelectionRegion)
@@ -102,6 +124,7 @@ TEST(Naca1307FinBodyInterference, LimitsChartThreeToItsPublishedSelectionRegion)
         kEpsilon);
 }
 
+// FinBodyInterferenceTest.remainsContinuousAtChartThreeSelectionBoundary
 /// The two approximations differ at the selection boundary, so the narrow engineering fairing
 /// must prevent a Mach-dependent roll-force step.
 TEST(Naca1307FinBodyInterference, RemainsContinuousAtChartThreeSelectionBoundary)
@@ -118,6 +141,7 @@ TEST(Naca1307FinBodyInterference, RemainsContinuousAtChartThreeSelectionBoundary
     EXPECT_NEAR(below, above, 1.0e-9);
 }
 
+// FinBodyInterferenceTest.reproducesNacaTableOneWingBodyExample
 /// Reproduce the wing-body entries of the Mach-2 computing example in NACA Report 1307, table I.
 /// The source values are rounded to two or three decimal places, so the assertions use the
 /// corresponding chart precision.
@@ -134,6 +158,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaTableOneWingBodyExample)
     EXPECT_NEAR(0.94, result.incidenceFactor, 0.005);
 }
 
+// FinBodyInterferenceTest.matchesPublishedWingBodyExperiment
 /// Validate against the independent wind-tunnel result for combination 2a in table II. The
 /// report gives beta*CLa=5.69 experimentally and 6.01 from its method for this Mach-1.5
 /// triangular wing-body configuration.
@@ -157,6 +182,7 @@ TEST(Naca1307FinBodyInterference, MatchesPublishedWingBodyExperiment)
     EXPECT_NEAR(5.69, estimatedBetaLiftCurveSlope, 0.569);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartSixteenLiftingLineEndpoint
 /// At beta*A=7, the slowest chart-16 family has reached its Appendix-D lifting-line result. The
 /// no-trailing-edge-sweep triangular case at r/s=0.2 reads about 0.41 root chords from the chart.
 TEST(Naca1307FinBodyInterference, ReproducesNacaChartSixteenLiftingLineEndpoint)
@@ -170,6 +196,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartSixteenLiftingLineEndpoint)
                 kEpsilon);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartSixteenRadiusFamily
 /// The nonzero-radius curves in chart 16(g) reach their lifting-line value near beta*A=4, unlike
 /// the r/s=0 curve which continues to about seven.
 TEST(Naca1307FinBodyInterference, ReproducesNacaChartSixteenRadiusFamily)
@@ -182,6 +209,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartSixteenRadiusFamily)
     EXPECT_NEAR(0.41, bodyCp, 0.015);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartSixteenPlanformFamilies
 /// Reproduce interior points from the two triangular extremes in chart 16. These cases ensure
 /// that the slow no-trailing-edge-sweep fairing is not replaced by the much faster
 /// no-leading-edge-sweep curve.
@@ -202,6 +230,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartSixteenPlanformFamilies)
     EXPECT_NEAR(0.46, noTrailingEdgeCp, 0.01);
 }
 
+// FinBodyInterferenceTest.accountsForFiniteAfterbody
 /// Clipping the pressure field at the root trailing edge represents the report's no-afterbody
 /// case and must move the body load forward.
 TEST(Naca1307FinBodyInterference, AccountsForFiniteAfterbody)
@@ -214,6 +243,7 @@ TEST(Naca1307FinBodyInterference, AccountsForFiniteAfterbody)
     EXPECT_LT(withoutAfterbody.bodyCp, withAfterbody.bodyCp);
 }
 
+// FinBodyInterferenceTest.accountsForFiniteAfterbodyAtLowAspectRatio
 /// Chart 15 supplies the low-aspect-ratio CP and remains compatible with a finite afterbody by
 /// retaining the same normalized fairing.
 TEST(Naca1307FinBodyInterference, AccountsForFiniteAfterbodyAtLowAspectRatio)
@@ -232,6 +262,7 @@ TEST(Naca1307FinBodyInterference, AccountsForFiniteAfterbodyAtLowAspectRatio)
     EXPECT_LT(withoutResult.bodyCp, withResult.bodyCp);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartFifteenRectangularRadiusFamilies
 /// Chart 15(c) publishes independent radius-family curves. Checking their interior ordinates
 /// prevents them from being collapsed back onto a shared curve with small abscissa adjustments.
 TEST(Naca1307FinBodyInterference, ReproducesNacaChartFifteenRectangularRadiusFamilies)
@@ -249,6 +280,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartFifteenRectangularRadiusFam
     EXPECT_NEAR(0.775, model.interpolateChart15(0.75, 0.6), 0.006);
 }
 
+// FinBodyInterferenceTest.rejectsGeometryThatRequiresMissingChartFifteenPanel
 /// Report 1307 explicitly omits the chart-15(a) low-aspect-ratio extrapolation. A geometry that
 /// needs that panel must use the fallback, while either adjacent published family remains usable.
 TEST(Naca1307FinBodyInterference, RejectsGeometryThatRequiresMissingChartFifteenPanel)
@@ -262,6 +294,7 @@ TEST(Naca1307FinBodyInterference, RejectsGeometryThatRequiresMissingChartFifteen
     EXPECT_TRUE(midchordBoundary.isApplicable());
 }
 
+// FinBodyInterferenceTest.remainsContinuousAtEquationTwentyTwoBoundary
 /// Force and moment must not jump where equation 22 changes from chart 15 to the planar pressure
 /// model.
 TEST(Naca1307FinBodyInterference, RemainsContinuousAtEquationTwentyTwoBoundary)
@@ -279,6 +312,7 @@ TEST(Naca1307FinBodyInterference, RemainsContinuousAtEquationTwentyTwoBoundary)
     EXPECT_GT(below.bodyCp, 0.5 * rootChord);
 }
 
+// FinBodyInterferenceTest.remainsContinuousAtSonicLeadingEdgeLimit
 /// Equations 23 and 25 have a finite common limit at m*beta=1.
 TEST(Naca1307FinBodyInterference, RemainsContinuousAtSonicLeadingEdgeLimit)
 {
@@ -296,6 +330,7 @@ TEST(Naca1307FinBodyInterference, RemainsContinuousAtSonicLeadingEdgeLimit)
     EXPECT_NEAR(at.bodyCp, above.bodyCp, 1.0e-5);
 }
 
+// FinBodyInterferenceTest.reproducesNacaChartFourSubsonicLeadingEdgeBranch
 /// Chart 4(a), printed page 49, includes the subsonic-leading-edge branch. At beta*m=0.5 and
 /// 2*beta*r/c_r=1.5, its ordinate is approximately 1.52.
 TEST(Naca1307FinBodyInterference, ReproducesNacaChartFourSubsonicLeadingEdgeBranch)
@@ -317,6 +352,7 @@ TEST(Naca1307FinBodyInterference, ReproducesNacaChartFourSubsonicLeadingEdgeBran
     EXPECT_NEAR(1.52, chartOrdinate, 0.10);
 }
 
+// FinBodyInterferenceTest.preservesAbsolutePlanarLoadAcrossWingSlopeNormalization
 /// The planar carryover is an absolute NACA load. Its stored factor changes inversely with the
 /// caller's isolated-wing slope, so the applied load and pressure center remain unchanged when
 /// only that normalization changes.
@@ -330,6 +366,54 @@ TEST(Naca1307FinBodyInterference, PreservesAbsolutePlanarLoadAcrossWingSlopeNorm
     EXPECT_NEAR(first.bodyCp, second.bodyCp, kEpsilon);
 }
 
+/// FinBodyInterferenceTest.AfterbodyFixture and createAfterbodyFixture(): a stage of two body
+/// tubes, the first (1 m long, radius 0.1 m) with four trapezoidal fins at its end, the second
+/// 2 m long with the radius @p followingRadius.
+struct AfterbodyFixture
+{
+    Rocket           rocket;
+    AxialStage&      stage{rocket.addChild(std::make_unique<AxialStage>())};
+    BodyTube&        firstTube{stage.addChild(std::make_unique<BodyTube>(1.0, 0.1))};
+    BodyTube&        followingTube;
+    TrapezoidFinSet& fins;
+
+    explicit AfterbodyFixture(double followingRadius)
+      : followingTube{stage.addChild(std::make_unique<BodyTube>(2.0, followingRadius))},
+        fins{firstTube.addChild(std::make_unique<TrapezoidFinSet>(4, 0.4, 0.2, 0.1, 0.2))}
+    {
+        fins.setAxialMethod(AxialMethod::BOTTOM);
+        fins.setAxialOffset(0.0);
+        rocket.enableEvents();
+    }
+};
+
+// FinBodyInterferenceTest.includesFollowingEqualRadiusBodyTubeInAfterbody
+/// Flush equal-radius body tubes are one physical cylinder for the pressure model, even when the
+/// design tree splits them into separate components.
+TEST(FinBodyInterference, IncludesFollowingEqualRadiusBodyTubeInAfterbody)
+{
+    const AfterbodyFixture fixture{0.1};
+
+    const double bodyEnd =
+        FinSetCalc::calculateCylindricalAfterbodyEnd(fixture.fins, fixture.firstTube);
+
+    EXPECT_NEAR(2.4, bodyEnd, kEpsilon);
+}
+
+// FinBodyInterferenceTest.stopsAfterbodyAtRadiusChange
+/// A radius change invalidates the constant-cylinder assumption and ends the NACA integration at
+/// the parent tube rather than extrapolating aft.
+TEST(FinBodyInterference, StopsAfterbodyAtRadiusChange)
+{
+    const AfterbodyFixture fixture{0.12};
+
+    const double bodyEnd =
+        FinSetCalc::calculateCylindricalAfterbodyEnd(fixture.fins, fixture.firstTube);
+
+    EXPECT_NEAR(0.4, bodyEnd, kEpsilon);
+}
+
+// FinBodyInterferenceTest.remainsContinuousAtTransonicBoundaries
 /// The body load and its moment are blended together through the transonic interval, avoiding a
 /// CP discontinuity at either endpoint.
 TEST(Naca1307FinBodyInterference, RemainsContinuousAtTransonicBoundaries)
@@ -346,6 +430,40 @@ TEST(Naca1307FinBodyInterference, RemainsContinuousAtTransonicBoundaries)
     EXPECT_NEAR(belowSubsonic.bodyCp, aboveSubsonic.bodyCp, 1.0e-6);
     EXPECT_NEAR(belowSupersonic.bodyFactor, aboveSupersonic.bodyFactor, 1.0e-6);
     EXPECT_NEAR(belowSupersonic.bodyCp, aboveSupersonic.bodyCp, 1.0e-6);
+}
+
+// FinBodyInterferenceTest.fallbackIncludesBodyContributionAtSubsonicSpeeds
+/// Unsupported geometries retain the simplified issue-2489 correction.
+TEST(FinBodyInterference, FallbackIncludesBodyContributionAtSubsonicSpeeds)
+{
+    EXPECT_NEAR(1.5625, FinSetCalc::calculateBodyFinInterferenceFactor(kTau, 0.5), kEpsilon);
+    EXPECT_NEAR(1.5625, FinSetCalc::calculateBodyFinInterferenceFactor(kTau, 0.9), kEpsilon);
+}
+
+// FinBodyInterferenceTest.fallbackBlendsBodyContributionThroughTransonicSpeeds
+/// The fallback body term is smoothly removed through the transonic interval.
+TEST(FinBodyInterference, FallbackBlendsBodyContributionThroughTransonicSpeeds)
+{
+    EXPECT_NEAR(1.40625, FinSetCalc::calculateBodyFinInterferenceFactor(kTau, 1.2), kEpsilon);
+}
+
+// FinBodyInterferenceTest.fallbackRetainsClassicalCorrectionAtSupersonicSpeeds
+/// The fallback retains the established classical correction supersonically.
+TEST(FinBodyInterference, FallbackRetainsClassicalCorrectionAtSupersonicSpeeds)
+{
+    EXPECT_NEAR(1.25, FinSetCalc::calculateBodyFinInterferenceFactor(kTau, 1.5), kEpsilon);
+    EXPECT_NEAR(1.25, FinSetCalc::calculateBodyFinInterferenceFactor(kTau, 3.0), kEpsilon);
+}
+
+// FinBodyInterferenceTest.limitsNacaModelToForwardLinearAngles
+/// The small-angle NACA model is smoothly removed before stall and is never reused for reverse
+/// flow.
+TEST(FinBodyInterference, LimitsNacaModelToForwardLinearAngles)
+{
+    EXPECT_NEAR(1.0, FinSetCalc::calculateNacaApplicabilityWeight(javaToRadians(10.0)), kEpsilon);
+    EXPECT_NEAR(0.5, FinSetCalc::calculateNacaApplicabilityWeight(javaToRadians(15.0)), kEpsilon);
+    EXPECT_NEAR(0.0, FinSetCalc::calculateNacaApplicabilityWeight(javaToRadians(20.0)), kEpsilon);
+    EXPECT_NEAR(0.0, FinSetCalc::calculateNacaApplicabilityWeight(javaToRadians(160.0)), kEpsilon);
 }
 
 // ---- Beyond the JUnit tests (values pinned with OpenRocket's NACA1307FinBodyInterference on
