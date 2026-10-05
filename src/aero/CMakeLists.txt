@@ -3,8 +3,14 @@ target_sources(QtRocket_core PRIVATE
     AerodynamicForces.cpp
     barrowman/ComponentAssemblyCalc.cpp
     barrowman/FinSetCalc.cpp
+    barrowman/LaunchLugCalc.cpp
     barrowman/Naca1307FinBodyInterference.cpp
+    barrowman/RailButtonCalc.cpp
     barrowman/RocketComponentCalc.cpp
+    barrowman/SymmetricComponentCalc.cpp
+    barrowman/TubeCalc.cpp
+    barrowman/TubeFinSetCalc.cpp
+    BarrowmanDragCalculator.cpp
     FlightConditions.cpp
     ForceMap.cpp
     lookup/CsvMachAoALookup.cpp

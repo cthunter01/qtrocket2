@@ -95,6 +95,7 @@ add_executable(QtRocket_core_tests
     rocket/InsideColorComponentTests.cpp
     rocket/InstanceMapTests.cpp
     rocket/InternalComponentTests.cpp
+    rocket/java_value_differences_tests.cpp
     rocket/LaunchLugTests.cpp
     rocket/MassComponentTests.cpp
     rocket/MassObjectTests.cpp
@@ -147,16 +148,22 @@ add_executable(QtRocket_core_tests
     mass/ThrustStateTests.cpp
     aero/AbstractAerodynamicCalculatorTests.cpp
     aero/AerodynamicForcesTests.cpp
+    aero/BarrowmanDragCalculatorTests.cpp
     aero/ComponentAssemblyCalcTests.cpp
     aero/CsvMachAoALookupTests.cpp
     aero/FinSetCalcTests.cpp
     aero/FlightConditionsTests.cpp
     aero/ForceMapTests.cpp
+    aero/LaunchLugCalcTests.cpp
     aero/LookupTableDragCalculatorTests.cpp
     aero/LookupTableStabilityCalculatorTests.cpp
     aero/MachAoALookupTests.cpp
     aero/Naca1307FinBodyInterferenceTests.cpp
+    aero/RailButtonCalcTests.cpp
     aero/RocketComponentCalcTests.cpp
+    aero/SymmetricComponentCalcTests.cpp
+    aero/TubeCalcTests.cpp
+    aero/TubeFinSetCalcTests.cpp
     simulation/DataBranchTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
