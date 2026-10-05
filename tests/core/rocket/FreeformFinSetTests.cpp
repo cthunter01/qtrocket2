@@ -13,6 +13,10 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/FlightConditions.h"
+#include "QtRocket/aero/barrowman/FinSetCalc.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -37,12 +41,14 @@
 #include "QtRocket/util/Geometry2D.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Transformation.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/AxialOffsetSupport.h"
 
 namespace
 {
 
+using QtRocket::AerodynamicForces;
 using QtRocket::AngleMethod;
 using QtRocket::Appearance;
 using QtRocket::AxialMethod;
@@ -58,6 +64,8 @@ using QtRocket::EllipticalFinSet;
 using QtRocket::ErrorCode;
 using QtRocket::Finish;
 using QtRocket::FinSet;
+using QtRocket::FinSetCalc;
+using QtRocket::FlightConditions;
 using QtRocket::FreeformFinSet;
 using QtRocket::LineStyle;
 using QtRocket::Material;
@@ -66,9 +74,11 @@ using QtRocket::Point2D;
 using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
+using QtRocket::Transformation;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TrapezoidFinSet;
+using QtRocket::WarningSet;
 using QtRocket::MathUtil::javaToRadians;
 using QtRocket::Test::setAxialOffset;
 
@@ -1290,12 +1300,7 @@ TEST_F(TemplateRocket, ForIntersectionAtFirstLast)
         fins.getFinPoints(), kEpsilon, "incorrect body points! ");
 }
 
-// The geometric half of testWildmanVindicatorShape; its second half waits for
-// aero/barrowman/FinSetCalc.
-// HOOK(fin-set-calc): add the second half: the fin set on a BodyTube(0.1, 0.1), then
-// FinSetCalc(fins).calculateNonaxialForces(FlightConditions(null), transform, forces, warnings)
-// with the transform {{1, 0, 0}, {0, 0, -1}, {0, 1, 1}} of FreeformFinSetTest.java:1370, and
-// forces.getCP().x == 0.023409 +- 1e-4.
+// FreeformFinSetTest.testWildmanVindicatorShape
 TEST(FreeformFinSet, WildmanVindicatorShape)
 {
     // This fin shape is similar to the aft fins on the Wildman Vindicator.
@@ -1309,7 +1314,9 @@ TEST(FreeformFinSet, WildmanVindicatorShape)
     //       /                   \        <=+
     //      +---------------------+
     //
-    FreeformFinSet fins;
+    // Owned here until the body tube takes it (Java: new FreeformFinSet(), added later)
+    auto            detached = std::make_unique<FreeformFinSet>();
+    FreeformFinSet& fins     = *detached;
     fins.setFinCount(1);
     const std::vector<Coordinate> points{Coordinate{0, 0}, Coordinate{0.02143125, 0.01143},
                                          Coordinate{0.009524999999999999, 0.032543749999999996},
@@ -1322,14 +1329,23 @@ TEST(FreeformFinSet, WildmanVindicatorShape)
 
     EXPECT_NEAR(0.03423168, coords.x, kEpsilon);
     EXPECT_NEAR(0.01427544, coords.y, kEpsilon);
+
+    BodyTube bt{0.1, 0.1};
+    bt.addChild(std::move(detached));
+    FinSetCalc             calc{fins};
+    const FlightConditions conditions;  // Java: new FlightConditions(null)
+    // rotate 90 degrees about the X axis
+    const Transformation transform{Transformation::Matrix3{{{1, 0, 0}, {0, 0, -1}, {0, 1, 1}}}};
+    AerodynamicForces    forces;
+    WarningSet           warnings;
+    calc.calculateNonaxialForces(conditions, transform, forces, warnings);
+    EXPECT_NEAR(0.023409, forces.getCP().x, 0.0001);
 }
 
-// The set-up of testFinsOnTransitions with the outlines it gives (pinned with OpenRocket,
-// ProbeFins2); the mean aerodynamic chords the JUnit test asserts wait for
-// aero/barrowman/FinSetCalc.
-// HOOK(fin-set-calc): add the JUnit assertions: FinSetCalc(fins).getMACLength() == 0.075 +- 1e-6
-// after test 1 and == 0.05053191489361704 +- 1e-6 after test 2 (a new FinSetCalc for each).
-TEST(FreeformFinSet, FinsOnTransitionsOutlines)
+// FreeformFinSetTest.testFinsOnTransitions: that fins on transitions don't get a NaN MAC length.
+// Beyond the JUnit assertions (the two MAC lengths), the outlines the set-up gives are pinned
+// with OpenRocket (ProbeFins2).
+TEST(FreeformFinSet, FinsOnTransitions)
 {
     // Rocket consisting of just a transition and a freeform fin set (its events stay disabled,
     // as in the Java test)
@@ -1351,6 +1367,9 @@ TEST(FreeformFinSet, FinsOnTransitionsOutlines)
         Coordinate{0, 0}, Coordinate{trans.getLength(), 0},
         Coordinate{trans.getLength(), trans.getAftRadius() - trans.getForeRadius()}};
     fins.setPoints(smaller);
+    const FinSetCalc smallerCalc{fins};
+
+    EXPECT_NEAR(0.075, smallerCalc.getMACLength(), kEpsilon);
 
     expectPointsNear({Coordinate{0.0, 0.0}, Coordinate{0.07500000000000001, 0.0},
                       Coordinate{0.07500000000000001, -0.025}},
@@ -1370,6 +1389,9 @@ TEST(FreeformFinSet, FinsOnTransitionsOutlines)
         Coordinate{0, 0}, Coordinate{0, trans.getAftRadius() - trans.getForeRadius()},
         Coordinate{trans.getLength(), trans.getAftRadius() - trans.getForeRadius()}};
     fins.setPoints(larger);
+    const FinSetCalc largerCalc{fins};
+
+    EXPECT_NEAR(0.05053191489361704, largerCalc.getMACLength(), kEpsilon);
 
     expectPointsNear(
         {Coordinate{0.0, 0.0}, Coordinate{0.0, 0.025}, Coordinate{0.07500000000000001, 0.025}},

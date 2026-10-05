@@ -149,6 +149,7 @@ add_executable(QtRocket_core_tests
     aero/AerodynamicForcesTests.cpp
     aero/ComponentAssemblyCalcTests.cpp
     aero/CsvMachAoALookupTests.cpp
+    aero/FinSetCalcTests.cpp
     aero/FlightConditionsTests.cpp
     aero/ForceMapTests.cpp
     aero/LookupTableDragCalculatorTests.cpp
