@@ -54,11 +54,18 @@ class Transformation;
 ///   stalled (roll rate * tip radius / velocity above 15 degrees), and kDivisions - 1 elsewhere;
 ///   between Mach 0.9 and 1.5 it interpolates the values at Mach 0.89 and 1.51.
 /// - A chord division that the outline crosses in a point of its own may count that point twice.
+/// - tau = body radius / (span + body radius) is reset to 0 when it is NaN or infinite. That is a
+///   defence only, which no fin set reaches: a NaN or infinite body radius throws at
+///   construction, a NaN span leaves no chord and a span of 0 no area (both are "no forces"
+///   before tau is formed), and span + body radius = 0 needs a negative span, whose area is
+///   below the zero-area limit.
 ///
 /// Deviations from OpenRocket:
 /// - A fin set without a parent throws BugError (Java: IllegalStateException), and so does a
 ///   count of interfering fins below the fin set's own, which a NaN root chord or position gives
 ///   (Java: BugException); both are thrown by the constructor.
+/// - A parent without an instance location, which no component tree has, throws BugError from
+///   the constructor too (Java: ArrayIndexOutOfBoundsException from toRelative(...)[0]).
 /// - Java's static K1, K2 and K3 interpolators and its transonic CNa PolyInterpolator are
 ///   function-local statics, built at first use from the same expressions.
 /// - Java's UnsupportedOperationException for a cross-section that is none of the three cannot
@@ -78,9 +85,10 @@ public:
     static constexpr int kDivisions = 48;
 
     /// A calculation for the fin set @p component, which must have a parent.
-    /// @throws BugError when @p component has no parent, or when fewer fins than its own are
-    ///         counted as interfering (see the class comment); and as FinSet::getFinFront() when
-    ///         the parent is not a SymmetricComponent.
+    /// @throws BugError when @p component has no parent, when the parent has no instance location,
+    ///         or when fewer fins than its own are counted as interfering (see the class
+    ///         comment); and as FinSet::getFinFront() when the parent is not a
+    ///         SymmetricComponent.
     explicit FinSetCalc(const FinSet& component);
 
     /// The non-axial forces of one fin (normal force, pitch and roll moments, CP and CNa; side

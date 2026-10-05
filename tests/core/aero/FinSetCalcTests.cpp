@@ -9,6 +9,7 @@
 #include <numbers>
 #include <span>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -28,6 +29,7 @@
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
@@ -58,6 +60,7 @@ using QtRocket::Transformation;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TrapezoidFinSet;
+using QtRocket::TubeFinSet;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::MathUtil::javaToRadians;
@@ -78,8 +81,8 @@ constexpr double kEpsilon = 0.0001;
 // protected calculateFinCNa1(), calculateCPPos() and the MAC fields, is not needed: they are
 // public in the C++ class.
 //
-// Not ported here, since they need BarrowmanCalculator (tier 7b):
-// testForceAnalysisFinDragSeparation and testForceAnalysisAirfoilFinZeroBaseDrag.
+// HOOK(barrowman): port FinSetCalcTest.testForceAnalysisFinDragSeparation and
+// testForceAnalysisAirfoilFinZeroBaseDrag here (they need BarrowmanCalculator::getForceAnalysis).
 
 /// FinSetCalcTest.sumFins(fins, conditions): the forces of the fins of @p fins summed as the
 /// Java test sums them, fin i turned by pi * i / fin count.
@@ -727,8 +730,10 @@ constexpr double kRefLength = 0.05;
 /// roll rate.
 using Condition = std::array<double, 5>;
 
-/// The angles of the conditions, as ProbeFinCalc computes them (PI4 and R3): the same doubles.
+/// The angles of the conditions, as ProbeFinCalc computes them (PI4 and R3; PI2 is
+/// ProbeFinCalcFix's): the same doubles.
 constexpr double kQuarterPi   = kPi / 4;
+constexpr double kHalfPi      = kPi / 2;
 constexpr double kTwoThirdsPi = 2 * kPi / 3;
 
 /// The forces Java gives for one row of conditions: the CP's x and its weight CNa, CN, Cm, Croll,
@@ -762,6 +767,14 @@ using DragPins = std::array<double, 16>;
 /// Two fin sets on one body tube: the forces, for kPairConditions, of the first and of the
 /// second.
 using PairPins = std::array<std::array<ForcePins, 2>, 2>;
+
+/// The Mach numbers of the pinned single-fin CNa of the fins at the limits of "no area", "no
+/// span" and "no sweep cosine" (ProbeFinCalcFix.SINGLE_FIN_MACH): subsonic, the two ends of the
+/// transonic interpolation with a value between them, and supersonic.
+constexpr std::array<double, 5> kSingleFinMach{0.3, 0.9, 1.2, 1.5, 2.0};
+
+/// calculateFinCNa1() at each of kSingleFinMach, at an angle of attack of 0.
+using SingleFinPins = std::array<double, 5>;
 
 // ---- the tables, as ProbeFinCalc prints them (Double.toString, the shortest digits that give
 // the double back)
@@ -868,6 +881,22 @@ constexpr std::array<Condition, 8>  kShortConditions{{
 constexpr std::array<Condition, 2>  kPairConditions{{
     {0.3, 2.0, kQuarterPi, 0.0, 0.0},
     {2.0, 10.0, 1.0, kTwoThirdsPi, 20.0},
+}};
+// a fin square to the lateral airflow, sub- and supersonic (in line with it, the sin^2 of the
+// angle between the two would hide the single-fin CNa)
+constexpr std::array<Condition, 2> kSquareConditions{{
+    {0.3, 2.0, kHalfPi, 0.0, 0.0},
+    {2.0, 2.0, kHalfPi, 0.0, 0.0},
+}};
+// a fin nearly in line with the lateral airflow: a CNa on each side of 1e-8
+constexpr std::array<Condition, 2> kSmallCNaConditions{{
+    {0.3, 2.0, 3.0E-5, 0.0, 0.0},
+    {0.3, 2.0, 4.0E-5, 0.0, 0.0},
+}};
+// the roll forcing of canted fins, supersonic (beta * aspect ratio above 2)
+constexpr std::array<Condition, 2> kCantConditions{{
+    {2.0, 2.0, kQuarterPi, 0.0, 0.0},
+    {4.9, 10.0, 1.0, 0.2, 20.0},
 }};
 
 // ---- Swept: a swept trapezoid on the body tube: 3 fins, square, no cant
@@ -1944,6 +1973,228 @@ constexpr std::array<ForcePins, 2> kForcesNaNHeight{{
 // square: friction 0.0, pressure NaN, base NaN
 // airfoil: friction 0.0, pressure NaN, base NaN
 
+// ---- the limits that the cases above leave open, from the probe ProbeFinCalcFix (which uses
+// ProbeFinCalc's rockets, helpers and table formats)
+
+/// What Java gives for a fin without area: no forces, no drag and no single-fin CNa.
+constexpr std::array<ForcePins, 2> kNoForces{};
+constexpr DragPins                 kNoDrag{};
+constexpr SingleFinPins            kNoSingleFinCNa{};
+
+// ---- AreaBelowLimit: the swept trapezoid 0.15 um high: an area below the 1e-8 limit
+// geometry warnings: [Fins with zero area will not affect aerodynamics:  "Trapezoidal Fin Set"]
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometryAreaBelowLimit{
+    9.74999999963852E-9, 1.5E-7, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0};
+// forces, drag and single-fin CNa: 0.0 in every place
+
+// ---- AreaAboveLimit: the swept trapezoid 0.16 um high: an area above the limit
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometryAreaAboveLimit{
+    1.0399999999643333E-8, 1.6E-7, 4.92307692324576E-6, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0};
+// forces: 0.0 in every place; warnings after the rows: []
+constexpr DragPins      kDragAreaAboveLimit{0.0,
+                                            2.6890819184806637E-7,
+                                            6.11154981472878E-8,
+                                            3.05577490736439E-8,
+                                            2.5530394437182424E-10,
+                                            9.80564425407906E-9,
+                                            5.000342512924598E-8,
+                                            2.2615328902088435E-7,
+                                            2.444619925891512E-7,
+                                            2.400983460214348E-7,
+                                            2.0518917347970408E-7,
+                                            2.0082552691198772E-7,
+                                            2.0219909306816947E-7,
+                                            2.1363874319830494E-7,
+                                            2.475222945704524E-7,
+                                            2.677699156950731E-7};
+constexpr SingleFinPins kSingleFinAreaAboveLimit{4.095999999994354E-11, 4.095999999998821E-11,
+                                                 3.3873345745087094E-6, 9.474982977644517E-6,
+                                                 6.1160752130026635E-6};
+
+// ---- HalfMillimetreLess: the swept trapezoid 0.49 mm high: no chord is found
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometryHalfMillimetreLess{
+    3.1849999999999934E-5, 4.9E-4, 0.015076923076923108, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0};
+// forces: 0.0 in every place; warnings after the rows: []
+constexpr DragPins      kDragHalfMillimetreLess{0.0,
+                                                8.235313375347032E-4,
+                                                1.871662130760689E-4,
+                                                9.358310653803445E-5,
+                                                7.818683296387117E-7,
+                                                3.0029785528117122E-5,
+                                                1.5313548945831583E-4,
+                                                6.925944476264583E-4,
+                                                7.486648523042756E-4,
+                                                7.353011846906442E-4,
+                                                6.283918437815937E-4,
+                                                6.150281761679624E-4,
+                                                6.19234722521269E-4,
+                                                6.542686510448089E-4,
+                                                7.580370271220105E-4,
+                                                8.200453668161614E-4};
+constexpr SingleFinPins kSingleFinHalfMillimetreLess{3.841550335306321E-4, 3.841589630236432E-4,
+                                                     0.010637736655455976, 0.02901713537003141,
+                                                     0.018730480340462978};
+
+// ---- HalfMillimetreMore: the swept trapezoid 0.51 mm high
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometryHalfMillimetreMore{3.3149999999999586E-5, 5.1E-4,
+                                                   0.01569230769230789,   0.06620294599018006,
+                                                   0.013797054009819966,  2.3454991816693944E-4,
+                                                   0.03398036502188705,   0.016997544032318183,
+                                                   2.1559225971715714E-8, 0.04689852700491};
+constexpr std::array<ForcePins, 2> kForcesHalfMillimetreMore{{
+    {0.030347790507364983, 8.061015745818446E-4, 2.813825316392764E-5, 1.7078676245241518E-5, 0.0,
+     0.0, 0.0},
+    {0.03034779050736498, 0.03475008321784132, 0.00606503367493357, 0.0036812074277399586,
+     -7.387224644994738E-6, 7.387224644994738E-6, 0.0},
+}};
+// warnings after the rows: []
+constexpr DragPins kDragHalfMillimetreMore{
+    2.2095940453450793E-4, 2.476432960654779E-7,  1.948056503444799E-4,  9.740282517223995E-5,
+    2.351148540631957E-10, 9.030227180649254E-9,  4.6049221961100563E-8, 2.082693930753273E-7,
+    2.2513026915043443E-7, 2.2111169384609915E-7, 1.8896309141141715E-7, 1.849445161070819E-7,
+    1.8620946251106885E-7, 1.967444805950967E-7,  2.2794856659387318E-7, 2.4659503324974616E-7};
+constexpr SingleFinPins kSingleFinHalfMillimetreMore{4.1123109422284217E-4, 4.1511137525210415E-4,
+                                                     0.011083910927275342, 0.03020150824227728,
+                                                     0.019494989742114326};
+
+// ---- SpanBelowLimit: a 3 m chord 5 nm high: a span below the limit, an area above it
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometrySpanBelowLimit{
+    1.4999999992104662E-8, 5.0E-9, 3.333333335087853E-9, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0};
+// single-fin CNa: 0.0 in every place
+
+// ---- SpanAboveLimit: the same 20 nm high
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometrySpanAboveLimit{
+    5.999999999617422E-8, 2.0E-8, 1.3333333334183507E-8, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0};
+constexpr SingleFinPins kSingleFinSpanAboveLimit{6.4E-13, 6.4E-13, 1.9542152830816142E-5,
+                                                 5.4663363330953704E-5, 3.5285049304744815E-5};
+
+// ---- SweepCosineBelowLimit: a sweep of 10000 km: a midchord sweep cosine below the limit
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometrySweepCosineBelowLimit{0.0038999999891966585, 0.06,
+                                                      1.846153851267854,     0.0662029462429208,
+                                                      4599018.0155231785,    0.027594108093139075,
+                                                      6.0000000089999955E-9, 6.0000000000000024E-9,
+                                                      1.2240163062517182E-5, 4599018.0486246515};
+// single-fin CNa and forces: 0.0 in every place; warnings after the rows: []
+
+// ---- SweepCosineAboveLimit: a sweep of 5000 km
+// geometry warnings: []
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins  kGeometrySweepCosineAboveLimit{0.0038999999891966585, 0.06,
+                                                       1.846153851267854,     0.06620294586946765,
+                                                       2299508.9998483094,    0.027594107998179716,
+                                                       1.2000000036E-8,       1.1999999999999992E-8,
+                                                       1.2240162934139377E-5, 2299509.0329497824};
+constexpr SingleFinPins kSingleFinSweepCosineAboveLimit{1.5699113504414012E-7, 3.435729928768083E-7,
+                                                        1.270240382289586, 3.553118606896098,
+                                                        2.2935281986013814};
+constexpr std::array<ForcePins, 2> kForcesSweepCosineAboveLimit{{
+    {2299509.016399046, 2.6291940955489213E-7, 9.177618728264613E-9, 0.42208034029434444, 0.0, 0.0,
+     0.0},
+    {2299509.030863786, 3.0373551655898177, 0.10602369638399979, 4876048.946411354, 0.0, 0.0, 0.0},
+}};
+// warnings after the rows: []
+
+// ---- Sliver: a freeform fin of two thin strokes: no area, but chords from one stroke to the
+// other
+// fin points (5): (0.0, 0.0) (0.05, 0.03) (0.1, 5.0E-4) (0.05, 0.0299999)
+//                 (1.0000000000287557E-7, 0.0)
+// geometry warnings: [Fins with zero area will not affect aerodynamics:  "Freeform Fin Set" |
+//                     Jagged-edged fin predictions may be inaccurate:  "Freeform Fin Set"]
+// interfering fins: 3, NACA model: false
+constexpr GeometryPins kGeometrySliver{8.999994999692867E-9,
+                                       0.03,
+                                       0.0,
+                                       0.06790031849527253,
+                                       0.016317770242575542,
+                                       0.00979066214554533,
+                                       0.9964673218221082,
+                                       0.5144957554275262,
+                                       1.2018230418278674E-11,
+                                       0.050267929490211805};
+// forces, drag and single-fin CNa: 0.0 in every place
+
+// ---- OnDivisions: a freeform fin with outline points on chord divisions (span 47 mm)
+// fin points (5): (0.0, 0.0) (0.01, 0.011) (0.025, 0.047) (0.045, 0.022) (0.06, 0.0)
+// geometry warnings: []
+// division, chordLead, chordTrail, chordLength
+constexpr std::array<std::array<double, 4>, 6> kChordsOnDivisions{{
+    {10, 0.009090909090909092, 0.05318181818181818, 0.04409090909090908},
+    {11, 0.01, 0.0525, 0.0325},
+    {12, 0.010416666666666668, 0.05181818181818181, 0.04140151515151515},
+    {21, 0.014166666666666666, 0.04568181818181818, 0.03151515151515151},
+    {22, 0.014583333333333334, 0.045, 0.030416666666666665},
+    {23, 0.015, 0.044199999999999996, 0.029199999999999997},
+}};
+
+// ---- NearlyRectangular: four canted fins with a root chord of 30 mm and a tip chord within and
+// beyond MathUtil.equals of it
+// tip chord 0.03000000015: interfering fins: 4, NACA model: false
+constexpr std::array<ForcePins, 2> kForcesTipWithinEquals{{
+    {0.014769159080555046, 1.0832937089286347, 0.03781408397389154, 0.011169644433917424,
+     0.1337698715293094, 0.0, 0.1337698715293094},
+    {0.014918990936339034, 0.5479902813510653, 0.0956423467850617, 0.0285377460963306,
+     0.06525809624445277, 0.0010059223968402033, 0.06626401864129297},
+}};
+// warnings after the rows: []
+// tip chord 0.0300000006: interfering fins: 4, NACA model: false
+constexpr std::array<ForcePins, 2> kForcesTipBeyondEquals{{
+    {0.014769159186812184, 1.08329372923962, 0.037814084682878675, 0.01116964472370063,
+     0.12781150474588301, 0.0, 0.12781150474588301},
+    {0.014918991046701056, 0.5479902916254926, 0.09564234857828754, 0.028537746842498667,
+     0.061813943811512596, 0.001005922407414668, 0.06281986621892727},
+}};
+// warnings after the rows: []
+
+// ---- SweptSmallCNa: the swept trapezoid nearly in line with the airflow: CNa against the 1e-8
+// limit
+constexpr std::array<ForcePins, 2> kForcesSweptSmallCNa{{
+    {0.030347790507364983, 7.3872454968536125E-9, 2.578635131464399E-10, 1.565117575292263E-10, 0.0,
+     0.0, 0.0},
+    {0.028567756199827002, 1.3132880880230977E-8, 4.5842402326448325E-10, 2.6192291465527157E-10,
+     0.0, 0.0, 0.0},
+}};
+// warnings after the rows: []
+
+// ---- Mixed: a trapezoidal, an elliptical and a freeform fin set and a set of tube fins on one
+// tube
+// MixedTrapezoid: interfering fins 7, NACA model true, geometry warnings []
+constexpr std::array<ForcePins, 2> kForcesMixedTrapezoid{{
+    {0.028567756199827005, 3.504837586780887, 0.12234191127395794, 0.06990067788590594, 0.0, 0.0,
+     0.0},
+    {0.04607148866517872, 2.5806845294901057, 0.4504144199488304, 0.41502525686611175,
+     -0.004197036709069692, 0.004197036709069692, 0.0},
+}};
+// warnings after the rows: []
+// MixedElliptical: interfering fins 7, NACA model false, geometry warnings []
+constexpr std::array<ForcePins, 2> kForcesMixedElliptical{{
+    {0.017237851027718146, 1.8321671013469523, 0.0639546967304499, 0.022048830695247764, 0.0, 0.0,
+     0.0},
+    {0.028225886288366364, 1.1778758039029094, 0.20557810957680844, 0.1160524868858463,
+     -0.0012105391037849082, 0.0012105391037849082, 0.0},
+}};
+// warnings after the rows: []
+// MixedFreeform: interfering fins 7, NACA model false, geometry warnings []
+constexpr std::array<ForcePins, 2> kForcesMixedFreeform{{
+    {0.0218049645390071, 1.2088968664837094, 0.04219846127436603, 0.018402719033764312, 0.0, 0.0,
+     0.0},
+    {0.03215779348073151, 0.9864653465242699, 0.1721706825367531, 0.11073258504906987,
+     -7.935789987534346E-4, 7.935789987534346E-4, 0.0},
+}};
+// warnings after the rows: []
+
 // NOLINTEND(modernize-use-std-numbers)
 
 // ---- the helpers that compare with the tables
@@ -2123,6 +2374,19 @@ void expectDrag(FinSet& fins, const DragPins& pins)
     }
 }
 
+/// Checks calculateFinCNa1() of @p calc at each Mach number of kSingleFinMach, at an angle of
+/// attack of 0, against @p pins.
+void expectSingleFinCNa(const FinSetCalc& calc, const SingleFinPins& pins)
+{
+    const std::span<const double> machs{kSingleFinMach};
+    const std::span<const double> expected{pins};
+    for (std::size_t i = 0; i < machs.size(); i++)
+    {
+        SCOPED_TRACE(::testing::Message() << "Mach " << machs[i]);
+        expectPinned(calc.calculateFinCNa1(conditionsAtMach(machs[i])), expected[i]);
+    }
+}
+
 // ---- the rockets, built call for call as ProbeFinCalc builds them
 
 /// ProbeFinCalc.Base: an ogive nose cone, a body tube and a conical boattail in one stage. The
@@ -2199,6 +2463,14 @@ TEST(FinSetCalc, SingleFinCNaAndCPPositionAreJavas)
     {
         expectSingleFin(calc, row);
     }
+
+    // The ends of the regimes belong to the formulas, not to the interpolations between them: at
+    // Mach 1.5 and an angle of attack of 0 the single-fin CNa is fin area * K1 / reference area,
+    // and at Mach 2 the CP position is the empirical one. Both are sums, products, quotients and
+    // square roots only, so these are Java's doubles to the last bit, which the interpolations
+    // do not reach.
+    EXPECT_EQ(calc.calculateFinCNa1(conditionsAtMach(1.5)), 3.5531186167385465);
+    EXPECT_EQ(calc.calculateCPPos(conditionsAtMach(2.0)), 0.4684908868950161);
 }
 
 /// A rectangular fin in the middle of the body tube: 4 fins, rounded, canted. Java makes a NACA
@@ -2309,6 +2581,55 @@ TEST(FinSetCalc, ChordsOfTheNotchedFreeformFinAreJavas)
     EXPECT_LT(calc.getChordLength()[30], calc.getChordTrail()[30] - calc.getChordLead()[30]);
     EXPECT_EQ(FinSetCalc::kDivisions, 48);
     EXPECT_EQ(calc.getChordLead().size(), 48U);
+}
+
+/// ProbeFinCalcFix.freeform(): three freeform fins with the outline @p points, 3 mm thick, whose
+/// root begins 100 mm behind the front of the body tube.
+FreeformFinSet& addFreeform(Base& base, const std::vector<Coordinate>& points)
+{
+    FreeformFinSet& fins = base.tube.addChild(std::make_unique<FreeformFinSet>());
+    fins.setFinCount(3);
+    fins.setPoints(points);
+    fins.setThickness(0.003);
+    fins.setAxialMethod(AxialMethod::TOP);
+    fins.setAxialOffset(0.1);
+    return fins;
+}
+
+/// The chord division @p division of @p calc in the layout of the chord tables: the division and
+/// the chord lead, trail and length.
+[[nodiscard]] std::array<double, 4> chordRowOf(const FinSetCalc& calc, double division)
+{
+    const auto i = static_cast<std::size_t>(division);
+    return {division, calc.getChordLead()[i], calc.getChordTrail()[i], calc.getChordLength()[i]};
+}
+
+/// Outline points on chord divisions. The fin is 47 mm high, so that its 48 divisions are a
+/// millimetre apart and its points at 11 mm and 22 mm lie on divisions 11 and 22. The division
+/// an outline segment reaches is (int)(y * 1.0001 / span * 47), and it is the factor 1.0001 that
+/// puts such a point into both of its segments (0.011 / 0.047 * 47 alone is 10.999999999999998).
+/// Division 11 so counts its leading-edge point twice and has a chord length 0.01 below trailing
+/// edge - leading edge, which OpenRocket leaves as it is. Division 22 counts its trailing-edge
+/// point twice, which the limit of the length to trailing edge - leading edge takes back.
+TEST(FinSetCalc, OutlinePointOnAChordDivisionIsInBothOfItsSegments)
+{
+    Base                          base;
+    const std::vector<Coordinate> points{Coordinate{0, 0}, Coordinate{0.01, 0.011},
+                                         Coordinate{0.025, 0.047}, Coordinate{0.045, 0.022},
+                                         Coordinate{0.06, 0}};
+    const FreeformFinSet&         fins = addFreeform(base, points);
+    base.rocket.enableEvents();
+
+    const FinSetCalc calc{fins};
+    EXPECT_EQ(calc.getSpan(), 0.047);
+    EXPECT_TRUE(calc.getGeometryWarnings().empty());
+    for (const std::array<double, 4>& row : kChordsOnDivisions)
+    {
+        EXPECT_EQ(chordRowOf(calc, row[0]), row);  // exactly: sums, products and quotients only
+    }
+    EXPECT_NEAR(calc.getChordTrail()[11] - calc.getChordLead()[11] - calc.getChordLength()[11],
+                0.01, 1e-15);
+    EXPECT_EQ(calc.getChordLength()[22], calc.getChordTrail()[22] - calc.getChordLead()[22]);
 }
 
 // ---- other parents, cant and a body radius of 0, over the short table
@@ -2484,6 +2805,12 @@ TEST(FinSetCalc, NaNOutlineOfACantedFinOnARadiusOfZeroIsJavas)
     EXPECT_TRUE(calc.getGeometryWarnings().empty());
     EXPECT_EQ(expectForces(calc, kShortConditions, kForcesNoseTipCanted), noWarnings());
     expectDrag(fins, kDragNoseTipCanted);
+
+    // The quarter chord, up to Mach 0.5 inclusive, does not need the aspect ratio, which is NaN
+    // here; beyond it the CP position is NaN (Java: 0.25, 0.25 and NaN)
+    EXPECT_EQ(calc.calculateCPPos(conditionsAtMach(0.49)), 0.25);
+    EXPECT_EQ(calc.calculateCPPos(conditionsAtMach(0.5)), 0.25);
+    EXPECT_TRUE(std::isnan(calc.calculateCPPos(conditionsAtMach(0.51))));
 }
 
 /// The swept trapezoid with a NaN height: the span and the area are NaN, no chord is found, the
@@ -2631,6 +2958,135 @@ TEST(FinSetCalc, ShortRootChordCountsItsOwnFinsOnly)
     expectPair(kPairShortRoot, {.finCount = 4, .rootChord = 0.006, .axialOffset = -0.03}, 8, 4);
 }
 
+/// A trapezoidal fin set of the count cases (ProbeFinCalcFix.counts()): its fin count, its root
+/// chord, and where its root begins behind the front of the body tube.
+struct RootOnTube
+{
+    int    finCount;
+    double rootChord;
+    double front;
+};
+
+/// Adds the fin set @p root to @p tube: unswept, 30 mm high, with a tip chord of half the root
+/// chord.
+TrapezoidFinSet& addRootOnTube(BodyTube& tube, const RootOnTube& root)
+{
+    TrapezoidFinSet& fins = tube.addChild(std::make_unique<TrapezoidFinSet>(
+        root.finCount, root.rootChord, root.rootChord / 2, 0.0, 0.03));
+    fins.setAxialMethod(AxialMethod::TOP);
+    fins.setAxialOffset(root.front);
+    return fins;
+}
+
+/// The numbers of interfering fins of two fin sets on one body tube.
+using Counts = std::array<int, 2>;
+
+/// The numbers of interfering fins that the calculators of @p first and @p second count, both
+/// added to @p tube of @p rocket, whose events are switched on first.
+[[nodiscard]] Counts interferingFinsOn(Rocket& rocket, BodyTube& tube, const RootOnTube& first,
+                                       const RootOnTube& second)
+{
+    const TrapezoidFinSet& firstFins  = addRootOnTube(tube, first);
+    const TrapezoidFinSet& secondFins = addRootOnTube(tube, second);
+    rocket.enableEvents();
+    return {FinSetCalc{firstFins}.getInterferenceFinCount(),
+            FinSetCalc{secondFins}.getInterferenceFinCount()};
+}
+
+/// interferingFinsOn() the body tube of a Base.
+[[nodiscard]] Counts interferingFinsOf(const RootOnTube& first, const RootOnTube& second)
+{
+    Base base;
+    return interferingFinsOn(base.rocket, base.tube, first, second);
+}
+
+/// The limit of the short root chord is 7 mm: 4 fins inside a set of 3 count all 7 with a root
+/// chord of 7.5 mm, and themselves only with one of 6.9 mm or 6.5 mm (the set around them counts
+/// them either way).
+TEST(FinSetCalc, RootChordFromSevenMillimetresCountsTheOtherFinSets)
+{
+    EXPECT_EQ(interferingFinsOf({.finCount = 3, .rootChord = 0.08, .front = 0.1},
+                                {.finCount = 4, .rootChord = 0.0075, .front = 0.12}),
+              (Counts{7, 7}));
+    EXPECT_EQ(interferingFinsOf({.finCount = 3, .rootChord = 0.08, .front = 0.1},
+                                {.finCount = 4, .rootChord = 0.0069, .front = 0.12}),
+              (Counts{7, 4}));
+    EXPECT_EQ(interferingFinsOf({.finCount = 3, .rootChord = 0.08, .front = 0.1},
+                                {.finCount = 4, .rootChord = 0.0065, .front = 0.12}),
+              (Counts{7, 4}));
+}
+
+/// A root chord of exactly 7 mm is not short. (At the front of a tube at the front of the rocket,
+/// where the root's end - the root's front is the root chord to the last bit.)
+TEST(FinSetCalc, RootChordOfSevenMillimetresIsNotShort)
+{
+    Rocket      rocket;
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&   tube  = stage.addChild(std::make_unique<BodyTube>(0.4, 0.025));
+
+    EXPECT_EQ(interferingFinsOn(rocket, tube, {.finCount = 3, .rootChord = 0.08, .front = 0.0},
+                                {.finCount = 4, .rootChord = 0.007, .front = 0.0}),
+              (Counts{7, 7}));
+}
+
+/// The 5 mm of overlap from which fin sets interfere, nearer than the pinned forces of
+/// FinSetsInterfereFromFiveMillimetresOfOverlap have it: 4.9 mm is not enough, 5.1 mm is.
+TEST(FinSetCalc, OverlapLimitOfInterferenceToATenthOfAMillimetre)
+{
+    EXPECT_EQ(interferingFinsOf({.finCount = 4, .rootChord = 0.08, .front = 0.1},
+                                {.finCount = 4, .rootChord = 0.05, .front = 0.0549}),
+              (Counts{4, 4}));
+    EXPECT_EQ(interferingFinsOf({.finCount = 4, .rootChord = 0.08, .front = 0.1},
+                                {.finCount = 4, .rootChord = 0.05, .front = 0.0551}),
+              (Counts{8, 8}));
+}
+
+/// Checks the calculator of @p fins, one fin set of the mixed case, against the pinned
+/// @p forces: 7 interfering fins, the NACA model or not, and no warning.
+void expectMixedMember(const FinSet& fins, bool naca, const std::array<ForcePins, 2>& forces)
+{
+    FinSetCalc calc{fins};
+    EXPECT_EQ(calc.getInterferenceFinCount(), 7);
+    EXPECT_EQ(calc.usesNacaInterference(), naca);
+    EXPECT_TRUE(calc.getGeometryWarnings().empty());
+    EXPECT_EQ(expectForces(calc, kPairConditions, forces), noWarnings());
+}
+
+/// Every fin set on the parent counts, whatever its shape, and nothing else does: the swept
+/// trapezoid's 3 fins and the 2 fins each of an elliptical and a freeform fin set that overlap
+/// it interfere as 7 fins, for each of the three; the 6 tube fins beside them (a TubeFinSet is
+/// no FinSet) are not counted.
+TEST(FinSetCalc, FinSetsOfEveryShapeInterfereAndTubeFinsDoNot)
+{
+    Base                   base;
+    const TrapezoidFinSet& trapezoid  = addSweptTrapezoid(base);
+    EllipticalFinSet&      elliptical = base.tube.addChild(std::make_unique<EllipticalFinSet>());
+    elliptical.setFinCount(2);
+    elliptical.setHeight(0.04);
+    elliptical.setLength(0.06);
+    elliptical.setThickness(0.003);
+    elliptical.setAxialMethod(AxialMethod::BOTTOM);
+    elliptical.setAxialOffset(-0.01);
+    FreeformFinSet& freeform = base.tube.addChild(std::make_unique<FreeformFinSet>());
+    freeform.setFinCount(2);
+    const std::vector<Coordinate> points{Coordinate{0, 0}, Coordinate{0.02, 0.03},
+                                         Coordinate{0.05, 0.03}, Coordinate{0.07, 0}};
+    freeform.setPoints(points);
+    freeform.setThickness(0.003);
+    freeform.setAxialMethod(AxialMethod::BOTTOM);
+    freeform.setAxialOffset(-0.005);
+    TubeFinSet& tubeFins = base.tube.addChild(std::make_unique<TubeFinSet>());
+    tubeFins.setFinCount(6);
+    tubeFins.setLength(0.05);
+    tubeFins.setAxialMethod(AxialMethod::BOTTOM);
+    tubeFins.setAxialOffset(0.0);
+    base.rocket.enableEvents();
+
+    expectMixedMember(trapezoid, true, kForcesMixedTrapezoid);
+    expectMixedMember(elliptical, false, kForcesMixedElliptical);
+    expectMixedMember(freeform, false, kForcesMixedFreeform);
+}
+
 // ---- the static functions
 
 /// The end of the cylindrical afterbody: flush tubes of the same radius (within
@@ -2661,6 +3117,39 @@ TEST(FinSetCalc, CylindricalAfterbodyEnd)
     EXPECT_DOUBLE_EQ(FinSetCalc::calculateCylindricalAfterbodyEnd(fins, firstTube), 1.2);
     // From the second tube on, the walk is the same
     EXPECT_DOUBLE_EQ(FinSetCalc::calculateCylindricalAfterbodyEnd(fins, secondTube), 1.2);
+}
+
+/// The afterbody ends where the next tube does not begin at the end of the one before it. An
+/// up-to-date component tree has no such gap (a body tube follows the component before it), but
+/// positions that were not updated have one: with the rocket's events off, a shorter first tube
+/// moves neither the second tube nor the fins.
+TEST(FinSetCalc, CylindricalAfterbodyEndsAtAGap)
+{
+    Rocket           rocket;
+    AxialStage&      stage      = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&        firstTube  = stage.addChild(std::make_unique<BodyTube>(1.0, 0.1));
+    const BodyTube&  secondTube = stage.addChild(std::make_unique<BodyTube>(0.5, 0.1));
+    TrapezoidFinSet& fins =
+        firstTube.addChild(std::make_unique<TrapezoidFinSet>(4, 0.4, 0.2, 0.1, 0.2));
+    fins.setAxialMethod(AxialMethod::BOTTOM);
+    fins.setAxialOffset(0.0);
+    rocket.enableEvents();
+
+    // Java: 0.9, 0.20000000000000007 and 0.9 (sums and differences only)
+    EXPECT_DOUBLE_EQ(FinSetCalc::calculateCylindricalAfterbodyEnd(fins, firstTube), 0.9);
+
+    rocket.enableEvents(false);
+    firstTube.setLength(0.8);
+    EXPECT_EQ(secondTube.getAxialOffset(AxialMethod::ABSOLUTE), 1.0);
+    EXPECT_EQ(fins.getAxialOffset(AxialMethod::ABSOLUTE), 0.6);
+    EXPECT_DOUBLE_EQ(FinSetCalc::calculateCylindricalAfterbodyEnd(fins, firstTube),
+                     0.20000000000000007);
+    // The 0.2 m of tube left behind the front of the 0.4 m root are no afterbody for the model
+    EXPECT_FALSE(FinSetCalc{fins}.usesNacaInterference());
+
+    rocket.enableEvents();
+    EXPECT_EQ(secondTube.getAxialOffset(AxialMethod::ABSOLUTE), 0.8);
+    EXPECT_DOUBLE_EQ(FinSetCalc::calculateCylindricalAfterbodyEnd(fins, firstTube), 0.9);
 }
 
 /// Where Java makes a NACA model for the swept trapezoid: not for a root that begins ahead of
@@ -2730,7 +3219,7 @@ TEST(FinSetCalc, BodyFinInterferenceFactorIsJavas)
 {
     // FinSetCalc.calculateBodyFinInterferenceFactor on JDK 17; arithmetic only, so the same
     // doubles. tau, Mach, factor
-    constexpr std::array<std::array<double, 3>, 11> kCases{{
+    constexpr std::array<std::array<double, 3>, 14> kCases{{
         {0.25, 0.0, 1.5625},
         {0.25, 0.9, 1.5625},
         {0.25, 0.91, 1.5572916666666665},
@@ -2742,6 +3231,11 @@ TEST(FinSetCalc, BodyFinInterferenceFactorIsJavas)
         {0.6, 1.0, 2.4000000000000004},
         {0.3, kNaN, kNaN},
         {kNaN, 1.2, kNaN},
+        // Mach 0.9 itself is subsonic: the square of 1.3, where the blend that begins above it
+        // gives 1.3 + 0.3 * 1.3, the double below
+        {0.3, 0.9, 1.6900000000000002},
+        {0.3, 0.9000000000000001, 1.69},
+        {0.3, 1.4999999999999998, 1.3000000000000003},
     }};
     for (const std::array<double, 3>& row : kCases)
     {
@@ -2779,6 +3273,50 @@ TEST(FinSetCalc, ThickFinWarning)
     WarningSet again;
     thick.calculateNonaxialForces(conditionsAtMach(2.0), Transformation::kIdentity, forces, again);
     EXPECT_EQ(textsOf(again), expected);
+}
+
+/// The geometry warnings of three freeform fins with the outline @p points on the body tube.
+[[nodiscard]] std::vector<std::string> outlineWarnings(const std::vector<Coordinate>& points)
+{
+    Base                  base;
+    const FreeformFinSet& fins = addFreeform(base, points);
+    base.rocket.enableEvents();
+    return textsOf(FinSetCalc{fins}.getGeometryWarnings());
+}
+
+/// An edge is jagged when the outline rises by more than 1 mm from one point to the next after
+/// having fallen by more than 1 mm: neither a smaller fall before a rise nor a smaller rise
+/// after a fall is one.
+TEST(FinSetCalc, JaggedEdgeIsAFallAndARiseOfMoreThanAMillimetre)
+{
+    const std::vector<std::string> jagged{
+        "Jagged-edged fin predictions may be inaccurate:  \"Freeform Fin Set\""};
+
+    // falls 0.5 mm, then rises 5.5 mm
+    EXPECT_EQ(outlineWarnings({Coordinate{0, 0}, Coordinate{0.01, 0.03}, Coordinate{0.02, 0.0295},
+                               Coordinate{0.03, 0.035}, Coordinate{0.05, 0}}),
+              noWarnings());
+    // falls 5 mm, then rises 0.5 mm
+    EXPECT_EQ(outlineWarnings({Coordinate{0, 0}, Coordinate{0.01, 0.03}, Coordinate{0.02, 0.025},
+                               Coordinate{0.03, 0.0255}, Coordinate{0.05, 0}}),
+              noWarnings());
+    // falls and rises 0.9 mm
+    EXPECT_EQ(outlineWarnings({Coordinate{0, 0}, Coordinate{0.01, 0.03}, Coordinate{0.02, 0.0291},
+                               Coordinate{0.03, 0.03}, Coordinate{0.06, 0}}),
+              noWarnings());
+    // falls and rises 1.1 mm
+    EXPECT_EQ(outlineWarnings({Coordinate{0, 0}, Coordinate{0.01, 0.03}, Coordinate{0.02, 0.0289},
+                               Coordinate{0.03, 0.03}, Coordinate{0.06, 0}}),
+              jagged);
+    // the notch in the tip of the pinned freeform fin, 0.9 mm and 1.1 mm deep
+    EXPECT_EQ(
+        outlineWarnings({Coordinate{0, 0}, Coordinate{0.03, 0.05}, Coordinate{0.05, 0.05 - 0.0009},
+                         Coordinate{0.07, 0.05}, Coordinate{0.09, 0}}),
+        noWarnings());
+    EXPECT_EQ(
+        outlineWarnings({Coordinate{0, 0}, Coordinate{0.03, 0.05}, Coordinate{0.05, 0.05 - 0.0011},
+                         Coordinate{0.07, 0.05}, Coordinate{0.09, 0}}),
+        jagged);
 }
 
 /// Expects every warning of @p warnings to have the one source @p fins.
@@ -2904,6 +3442,58 @@ TEST(FinSetCalc, KeepsTheGeometryItWasMadeFor)
     EXPECT_TRUE(warnings.empty());
 }
 
+/// CNa and the roll damping coefficient of one rolling fin of @p calc at Mach 1.2 and at Mach 2:
+/// what needs the tables every calculator shares (the transonic interpolation of the single-fin
+/// CNa and the K coefficients).
+[[nodiscard]] std::array<double, 4> sharedTableValues(FinSetCalc& calc)
+{
+    WarningSet        warnings;
+    AerodynamicForces transonic;
+    calc.calculateNonaxialForces(conditionsFor(1.2, 2, kHalfPi, 20), Transformation::kIdentity,
+                                 transonic, warnings);
+    AerodynamicForces supersonic;
+    calc.calculateNonaxialForces(conditionsFor(2.0, 2, kHalfPi, 20), Transformation::kIdentity,
+                                 supersonic, warnings);
+    return {transonic.getCP().weight, transonic.getCrollDamp(), supersonic.getCP().weight,
+            supersonic.getCrollDamp()};
+}
+
+TEST(FinSetCalc, ConcurrentFirstUseOfTheSharedTablesIsSafe)
+{
+    // A calculator belongs to one simulation, but simulations run side by side, and the tables
+    // the calculators share are built at their first use: several threads, each with a
+    // calculator of its own, may make them at once. Run under the tsan preset to check.
+    Base                   base;
+    const TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    base.rocket.enableEvents();
+
+    constexpr std::size_t                             kThreads = 4;
+    std::array<std::unique_ptr<FinSetCalc>, kThreads> calcs;
+    for (std::unique_ptr<FinSetCalc>& calc : calcs)
+    {
+        calc = std::make_unique<FinSetCalc>(fins);
+    }
+    std::array<std::array<double, 4>, kThreads> values{};
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(kThreads);
+        for (std::size_t i = 0; i < kThreads; ++i)
+        {
+            threads.emplace_back(
+                [&calcs, &values, i] { values.at(i) = sharedTableValues(*calcs.at(i)); });
+        }
+    }
+
+    FinSetCalc                  reference{fins};
+    const std::array<double, 4> expected = sharedTableValues(reference);
+    EXPECT_GT(expected[0], 0.0);
+    EXPECT_GT(expected[3], 0.0);
+    for (const std::array<double, 4>& value : values)
+    {
+        EXPECT_EQ(value, expected);
+    }
+}
+
 // ---- the forces
 
 /// Only the rotation about x of the instance's transformation counts: a translation changes
@@ -2965,6 +3555,55 @@ TEST(FinSetCalc, FinsOfASetAddUpToHalfTheFinCount)
     EXPECT_NEAR(total.getCP().x, square.getCP().x, 1e-12);
 }
 
+/// The NACA model moves the CP only for a CNa above MathUtil::kEpsilon. With the swept trapezoid
+/// nearly in line with the lateral airflow, a CNa of 7.4e-9 leaves the CP at the isolated fin's
+/// (the quarter chord of the MAC), and one of 1.3e-8 has it where the model puts it.
+TEST(FinSetCalc, NacaModelMovesTheCPOnlyForACNaAboveTheLimit)
+{
+    Base                   base;
+    const TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    ASSERT_TRUE(calc.usesNacaInterference());
+    EXPECT_EQ(expectForces(calc, kSmallCNaConditions, kForcesSweptSmallCNa), noWarnings());
+    EXPECT_EQ(calc.getMACLead() + (0.25 * calc.getMACLength()), 0.030347790507364983);
+}
+
+/// ProbeFinCalcFix.nearlyRectangular(): four canted fins with a root chord of 30 mm and the tip
+/// chord @p tipChord, unswept and 100 mm high.
+TrapezoidFinSet& addNearlyRectangular(Base& base, double tipChord)
+{
+    TrapezoidFinSet& fins =
+        base.tube.addChild(std::make_unique<TrapezoidFinSet>(4, 0.03, tipChord, 0.0, 0.1));
+    fins.setAxialMethod(AxialMethod::TOP);
+    fins.setAxialOffset(0.1);
+    fins.setCantAngle(0.05);
+    return fins;
+}
+
+/// A planform is rectangular when its root and tip chords are MathUtil::equals, not only when
+/// they are the same double: a tip chord within a relative 1e-8 of the root chord gets the roll
+/// forcing of chart 3, one beyond it that of equation 19.
+TEST(FinSetCalc, RectangularPlanformIsRootAndTipChordWithinEquals)
+{
+    Base                   within;
+    const TrapezoidFinSet& nearlyEqual = addNearlyRectangular(within, 0.03000000015);
+    within.rocket.enableEvents();
+    FinSetCalc withinCalc{nearlyEqual};
+    EXPECT_EQ(withinCalc.getInterferenceFinCount(), 4);
+    EXPECT_FALSE(withinCalc.usesNacaInterference());
+    EXPECT_EQ(expectForces(withinCalc, kCantConditions, kForcesTipWithinEquals), noWarnings());
+
+    Base                   beyond;
+    const TrapezoidFinSet& tapered = addNearlyRectangular(beyond, 0.0300000006);
+    beyond.rocket.enableEvents();
+    FinSetCalc beyondCalc{tapered};
+    EXPECT_EQ(beyondCalc.getInterferenceFinCount(), 4);
+    EXPECT_FALSE(beyondCalc.usesNacaInterference());
+    EXPECT_EQ(expectForces(beyondCalc, kCantConditions, kForcesTipBeyondEquals), noWarnings());
+}
+
 // ---- degenerate geometry
 
 /// A fin set without area has the zero-area warning, no aspect ratio and no MAC.
@@ -3009,8 +3648,171 @@ TEST(FinSetCalc, FinWithoutSpanHasNoAerodynamics)
 
     FinSetCalc calc{fins};
     EXPECT_EQ(calc.getFinArea(), 0.0);
+    // Java: all of the geometry is 0, the sweep cosines too (with a hypotenuse of 0 between two
+    // chords, 0 / 0 is not formed)
+    EXPECT_EQ(geometryOf(calc), GeometryPins{});
     expectNoAreaGeometry(calc);
     expectNoForcesOrDrag(calc);
+    // Without the early return, the sub- and transonic formulas would give NaN (0 / 0)
+    expectSingleFinCNa(calc, kNoSingleFinCNa);
+}
+
+/// "No area" is an area below MathUtil::kEpsilon (1e-8 m2), not an area of 0. The swept
+/// trapezoid 0.15 um high has 9.75e-9 m2: the warning, no aspect ratio, no forces, no drag for
+/// any cross-section and no single-fin CNa, although its span and its sweep cosines are above
+/// their limits.
+TEST(FinSetCalc, AreaBelowTheLimitIsNoArea)
+{
+    Base             base;
+    TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    fins.setHeight(1.5e-7);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    EXPECT_EQ(geometryOf(calc), kGeometryAreaBelowLimit);  // exactly: arithmetic only
+    EXPECT_EQ(calc.getInterferenceFinCount(), 3);
+    EXPECT_FALSE(calc.usesNacaInterference());
+    expectNoAreaGeometry(calc);
+    expectNoForcesOrDrag(calc);
+    expectSingleFinCNa(calc, kNoSingleFinCNa);
+    expectDrag(fins, kNoDrag);
+}
+
+/// The swept trapezoid 0.16 um high has 1.04e-8 m2, which is an area: no warning, an aspect
+/// ratio, a single-fin CNa, and leading and trailing edge drag. No chord is found on a span
+/// below 0.5 mm, though, so there is no MAC and with it neither forces nor friction drag.
+TEST(FinSetCalc, AreaAboveTheLimitIsAnArea)
+{
+    Base             base;
+    TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    fins.setHeight(1.6e-7);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    EXPECT_EQ(geometryOf(calc), kGeometryAreaAboveLimit);  // exactly: arithmetic only
+    EXPECT_EQ(calc.getInterferenceFinCount(), 3);
+    EXPECT_FALSE(calc.usesNacaInterference());
+    EXPECT_TRUE(calc.getGeometryWarnings().empty());
+    EXPECT_EQ(expectForces(calc, kPairConditions, kNoForces), noWarnings());
+    expectSingleFinCNa(calc, kSingleFinAreaAboveLimit);
+    expectDrag(fins, kDragAreaAboveLimit);
+}
+
+/// The chords leave out every outline segment whose ends are MathUtil::equals(y1, y2, 0.001),
+/// which two heights within 0.5 mm of 0 are: on a span of 0.49 mm no chord is found. Such a fin
+/// has an area, an aspect ratio and a single-fin CNa, and leading and trailing edge drag, but no
+/// MAC: no forces and no friction drag, and no warning either.
+TEST(FinSetCalc, SpanBelowHalfAMillimetreHasNoChords)
+{
+    Base             base;
+    TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    fins.setHeight(0.00049);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    EXPECT_EQ(geometryOf(calc), kGeometryHalfMillimetreLess);  // exactly: arithmetic only
+    EXPECT_FALSE(calc.usesNacaInterference());
+    EXPECT_TRUE(calc.getGeometryWarnings().empty());
+    EXPECT_EQ(expectForces(calc, kPairConditions, kNoForces), noWarnings());
+    expectSingleFinCNa(calc, kSingleFinHalfMillimetreLess);
+    expectDrag(fins, kDragHalfMillimetreLess);
+}
+
+/// On a span of 0.51 mm the chords are found: the swept trapezoid's MAC length and leading edge
+/// (its 30 mm of sweep over half a millimetre leave next to nothing of the sweep cosines).
+TEST(FinSetCalc, SpanAboveHalfAMillimetreHasChords)
+{
+    Base             base;
+    TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    fins.setHeight(0.00051);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    EXPECT_EQ(geometryOf(calc),
+              kGeometryHalfMillimetreMore);  // exactly: arithmetic and square roots only
+    EXPECT_FALSE(calc.usesNacaInterference());
+    EXPECT_TRUE(calc.getGeometryWarnings().empty());
+    EXPECT_EQ(expectForces(calc, kPairConditions, kForcesHalfMillimetreMore), noWarnings());
+    expectSingleFinCNa(calc, kSingleFinHalfMillimetreMore);
+    expectDrag(fins, kDragHalfMillimetreMore);
+}
+
+/// The single-fin CNa is 0 for a span below MathUtil::kEpsilon, whatever the area: a 3 m chord
+/// 5 nm high has 1.5e-8 m2, which is an area, and no CNa; 20 nm high it has one.
+TEST(FinSetCalc, SingleFinCNaNeedsASpan)
+{
+    Base base;
+    base.tube.setLength(5.0);
+    TrapezoidFinSet& fins =
+        base.tube.addChild(std::make_unique<TrapezoidFinSet>(3, 3.0, 3.0, 0.0, 5e-9));
+    fins.setAxialMethod(AxialMethod::TOP);
+    fins.setAxialOffset(0.1);
+    base.rocket.enableEvents();
+
+    const FinSetCalc below{fins};
+    EXPECT_EQ(geometryOf(below), kGeometrySpanBelowLimit);  // exactly: arithmetic only
+    EXPECT_TRUE(below.getGeometryWarnings().empty());
+    expectSingleFinCNa(below, kNoSingleFinCNa);
+
+    fins.setHeight(2e-8);
+    const FinSetCalc above{fins};
+    EXPECT_EQ(geometryOf(above), kGeometrySpanAboveLimit);  // exactly: arithmetic only
+    EXPECT_TRUE(above.getGeometryWarnings().empty());
+    expectSingleFinCNa(above, kSingleFinSpanAboveLimit);
+}
+
+/// The single-fin CNa is 0 for a mean midchord sweep cosine below MathUtil::kEpsilon: a sweep
+/// of 10000 km on a span of 60 mm leaves 6e-9 of it and no CNa, at any Mach number, and so no
+/// forces on the fin square to the airflow; 5000 km leave 1.2e-8 and a CNa.
+TEST(FinSetCalc, SingleFinCNaNeedsAMidchordSweepCosine)
+{
+    Base             base;
+    TrapezoidFinSet& fins =
+        base.tube.addChild(std::make_unique<TrapezoidFinSet>(3, 0.08, 0.05, 1e7, 0.06));
+    fins.setAxialMethod(AxialMethod::TOP);
+    fins.setAxialOffset(0.1);
+    base.rocket.enableEvents();
+
+    FinSetCalc below{fins};
+    expectGeometry(below, kGeometrySweepCosineBelowLimit);
+    EXPECT_FALSE(below.usesNacaInterference());
+    EXPECT_TRUE(below.getGeometryWarnings().empty());
+    expectSingleFinCNa(below, kNoSingleFinCNa);
+    EXPECT_EQ(expectForces(below, kSquareConditions, kNoForces), noWarnings());
+
+    fins.setSweep(5e6);
+    FinSetCalc above{fins};
+    expectGeometry(above, kGeometrySweepCosineAboveLimit);
+    EXPECT_FALSE(above.usesNacaInterference());
+    EXPECT_TRUE(above.getGeometryWarnings().empty());
+    expectSingleFinCNa(above, kSingleFinSweepCosineAboveLimit);
+    EXPECT_EQ(expectForces(above, kSquareConditions, kForcesSweepCosineAboveLimit), noWarnings());
+}
+
+/// A fin without area that has chords all the same: two strokes a tenth of a micrometre wide,
+/// one from the root up to the tip and one from the tip back down, 9e-9 m2 together. The chords
+/// reach from one stroke to the other, so the fin has a MAC of 68 mm at a span position of
+/// 10 mm, and only the area says that it has no forces, no friction drag and no single-fin CNa.
+TEST(FinSetCalc, FinOfNoAreaWithChordsHasNoAerodynamics)
+{
+    Base                          base;
+    const std::vector<Coordinate> points{Coordinate{0, 0}, Coordinate{0.05, 0.03},
+                                         Coordinate{0.1, 0.0005}, Coordinate{0.05, 0.0299999},
+                                         Coordinate{1e-7, 0}};
+    FreeformFinSet&               fins = addFreeform(base, points);
+    base.rocket.enableEvents();
+
+    FinSetCalc calc{fins};
+    expectGeometry(calc, kGeometrySliver);
+    EXPECT_GT(calc.getMACSpan(), 0.009);
+    EXPECT_GT(calc.getMACLength(), 0.06);
+    const std::vector<std::string> expected{
+        "Fins with zero area will not affect aerodynamics:  \"Freeform Fin Set\"",
+        "Jagged-edged fin predictions may be inaccurate:  \"Freeform Fin Set\""};
+    EXPECT_EQ(textsOf(calc.getGeometryWarnings()), expected);
+    EXPECT_EQ(expectForces(calc, kPairConditions, kNoForces), expected);
+    expectSingleFinCNa(calc, kNoSingleFinCNa);
+    expectDrag(fins, kNoDrag);
 }
 
 /// A fin of no thickness has no leading or trailing edge drag, and its friction drag is that of

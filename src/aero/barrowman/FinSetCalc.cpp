@@ -135,7 +135,9 @@ struct SupersonicCoefficients
 }
 
 /// The x of the first of @p coordinates (Java: [0].getX()).
-/// @throws BugError when there is none (Java: ArrayIndexOutOfBoundsException).
+/// @throws BugError when there is none (Java: ArrayIndexOutOfBoundsException). A defence only:
+///         toRelative() gives one coordinate for each instance location of the parent, and every
+///         component of a tree has at least one.
 [[nodiscard]] double firstX(const std::vector<Coordinate>& coordinates)
 {
     if (coordinates.empty())
@@ -254,6 +256,8 @@ void FinSetCalc::calculateNonaxialForces(const FlightConditions& conditions,
     // hold, and retains the previous scalar correction as an explicit fallback.
     const double r   = m_bodyRadius;
     double       tau = r / (m_span + r);
+    // Java's guard, kept as a defence: no fin set gets here with such a tau (a NaN or infinite
+    // body radius throws at construction, and a NaN, zero or negative span returned above)
     if (std::isnan(tau) || std::isinf(tau))
     {
         tau = 0;
