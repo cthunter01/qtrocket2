@@ -20,6 +20,7 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/BasicEventSimulationEngine.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataType.h"
@@ -313,7 +314,7 @@ Result<void> Simulation::simulate(
 
 Result<void> Simulation::runSimulation(
     std::span<const std::shared_ptr<SimulationListener>> additionalListeners,
-    [[maybe_unused]] std::shared_ptr<FlightData>&        flightData)
+    std::shared_ptr<FlightData>&                         flightData)
 {
     try
     {
@@ -346,8 +347,19 @@ Result<void> Simulation::runSimulation(
             simulationConditions->getSimulationListenerList().push_back(l);
         }
 
-        // HOOK(engine): part C creates and runs the engine here
-        bug("Simulation::simulate(): the simulation engine is not ported yet");
+        // Java: simulator.getFlightData() in the finally block, whatever way simulate() ends.
+        BasicEventSimulationEngine simulator;
+        try
+        {
+            simulator.simulate(simulationConditions);
+        }
+        catch (...)
+        {
+            flightData = simulator.getFlightData();
+            throw;
+        }
+        flightData = simulator.getFlightData();
+        return {};
     }
     catch (const SimulationCancelledException& e)
     {

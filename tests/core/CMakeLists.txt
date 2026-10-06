@@ -179,13 +179,17 @@ add_executable(QtRocket_core_tests
     simulation/AbstractSimulationListenerTests.cpp
     simulation/AbstractSimulationStepperTests.cpp
     simulation/AccelerationDataTests.cpp
+    simulation/banshee_mk2_simulation_tests.cpp
+    simulation/BasicEventSimulationEngineTests.cpp
     simulation/BasicLandingStepperTests.cpp
     simulation/BasicTumbleStepperTests.cpp
     simulation/CloneableSimulationListenerTests.cpp
     simulation/DataBranchTests.cpp
     simulation/DefaultSimulationOptionFactoryTests.cpp
+    simulation/engine_stable_run_tests.cpp
     simulation/EventQueueTests.cpp
     simulation/flight_event_activation_tests.cpp
+    simulation/flight_events_tests.cpp
     simulation/FlightDataBranchTests.cpp
     simulation/FlightDataTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
@@ -198,6 +202,7 @@ add_executable(QtRocket_core_tests
     simulation/Rk4SimulationStepperTests.cpp
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp
+    simulation/simulation_branch_listener_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp

@@ -1,6 +1,10 @@
 #include "QtRocket/simulation/Simulation.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstddef>
+#include <format>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -30,10 +34,13 @@
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
+#include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
+#include "QtRocket/simulation/listeners/SimulationListener.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
@@ -42,6 +49,7 @@
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationOptionsSupport.h"
+#include "simulation/SimulationRunSupport.h"
 #include "simulation/SimulationStatusSupport.h"
 #include "simulation/SimulationTestSupport.h"
 
@@ -50,6 +58,7 @@ namespace
 
 using QtRocket::AbstractSimulationExtension;
 using QtRocket::BugError;
+using QtRocket::CloneableSimulationListener;
 using QtRocket::Color;
 using QtRocket::ErrorCode;
 using QtRocket::FlightConfiguration;
@@ -70,11 +79,16 @@ using QtRocket::SimulationAbort;
 using QtRocket::SimulationConditions;
 using QtRocket::SimulationException;
 using QtRocket::SimulationExtension;
+using QtRocket::SimulationListener;
 using QtRocket::SimulationOptions;
+using QtRocket::SimulationStatus;
 using QtRocket::SimulationStepperMethod;
 using QtRocket::Test::bugText;
 using QtRocket::Test::ChangeCounter;
+using QtRocket::Test::JavaTestPreferences;
 using QtRocket::Test::newBranch;
+using QtRocket::Test::simulatedData;
+using QtRocket::Test::simulateOrFail;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::testFcid;
 
@@ -90,9 +104,8 @@ static_assert(!std::is_move_assignable_v<Simulation>);
 // ------------------------------------------------------------------- SimulationTest.java
 //
 // The cases that need neither a run of the engine nor a document. Not here:
-// testLandingDispersionSettingsAreOptionalAndCopied (Monte Carlo, not in Milestone 1),
-// testSimulationWithNoMotors, testBasicSimulationExecution, testAltitudeAboveSeaLevel and their
-// _RK6 variants (they run a simulation).
+// testLandingDispersionSettingsAreOptionalAndCopied (Monte Carlo, not in Milestone 1). The
+// cases that run a simulation follow further down (SimulationRunTest).
 
 /// SimulationTest.EPSILON
 constexpr double kEpsilon = 0.0001;
@@ -281,6 +294,12 @@ struct SelectedAlpha
 
     [[nodiscard]] Rocket& rocket() const { return *alpha.rocket; }
 };
+
+/// Branch 0 of the simulated data of @p simulation, which a test has just run.
+[[nodiscard]] const FlightDataBranch& simulatedBranch(const Simulation& simulation)
+{
+    return simulatedData(simulation).getBranch(0);
+}
 
 /// A simulation as a file describes it (the probes' loaded()): named "Loaded", with new options,
 /// without extensions.
@@ -772,6 +791,165 @@ TEST(Simulation, TheLoadingConstructorTakesWhatAFileDescribes)
     EXPECT_EQ(l.getStatus(), Status::OUTDATED);
 }
 
+// ------------------------------------- SimulationTest.java: the cases that run a simulation
+
+/// SimulationTest's fixture (setUpSim()) for the cases that run the simulation: Java's
+/// `new Simulation(rocket)` under the preferences of OpenRocket's test set-up, with the random
+/// seed of the options fixed (Java: whatever seed the new options drew).
+class SimulationRunTest : public ::testing::Test
+{
+protected:
+    SimulationRunTest() : m_simulation(*m_alpha.rocket, m_preferences.store)
+    {
+        m_simulation.setFlightConfigurationId(testFcid(0));
+        m_simulation.getOptions().setIsaAtmosphere(true);
+        m_simulation.getOptions().setTimeStep(0.05);
+        m_simulation.getOptions().setRandomSeed(0);
+    }
+
+    [[nodiscard]] Rocket&     rocket() const { return *m_alpha.rocket; }
+    [[nodiscard]] Simulation& simulation() { return m_simulation; }
+
+    /// The body of testSimulationWithNoMotors and its _RK6 variant.
+    void simulationWithNoMotors(SimulationStepperMethod method)
+    {
+        // Create configuration without motors
+        FlightConfiguration& config = rocket().getFlightConfiguration(testFcid(0));
+        config.clearAllMotors();
+        simulation().getOptions().setSimulationStepperMethodChoice(method);
+
+        simulateOrFail(simulation());
+
+        // Verify simulation aborted due to no motors
+        const FlightData& data = simulatedData(simulation());
+        ASSERT_GE(data.getBranchCount(), 1U);
+        const FlightEvent* abort = data.getBranch(0).getLastEvent(FlightEvent::Type::SIM_ABORT);
+        ASSERT_NE(abort, nullptr) << "Simulation without motors should abort";
+        ASSERT_NE(abort->getAbort(), nullptr);
+        EXPECT_EQ(SimulationAbort::Cause::NO_MOTORS_DEFINED, abort->getAbort()->cause());
+    }
+
+    /// The body of testBasicSimulationExecution and its _RK6 variant.
+    void basicSimulationExecution(SimulationStepperMethod method)
+    {
+        simulation().getOptions().setSimulationStepperMethodChoice(method);
+        simulateOrFail(simulation());
+
+        const std::shared_ptr<FlightData>& data = simulation().getSimulatedData();
+        ASSERT_NE(data, nullptr) << "Simulation data should not be null";
+        EXPECT_TRUE(data->getMaxAltitude() > 0) << "Max altitude should be positive";
+        EXPECT_TRUE(data->getMaxVelocity() > 0) << "Max velocity should be positive";
+        EXPECT_TRUE(data->getFlightTime() > 0) << "Flight time should be positive";
+        EXPECT_EQ(Status::UPTODATE, simulation().getStatus());
+    }
+
+    /// The body of testAltitudeAboveSeaLevel and its _RK6 variant.
+    void altitudeAboveSeaLevel(SimulationStepperMethod method)
+    {
+        const double launchAltitude = 123;
+        simulation().getOptions().setLaunchAltitude(launchAltitude);
+        simulation().getOptions().setSimulationStepperMethodChoice(method);
+
+        simulateOrFail(simulation());
+
+        const FlightData& flightData = simulatedData(simulation());
+        ASSERT_GE(flightData.getBranchCount(), 1U);
+        const FlightDataBranch& branch = flightData.getBranch(0);
+
+        const std::vector<double>* altitudeData =
+            branch.getView(FlightDataType::builtin(FlightDataTypeId::TYPE_ALTITUDE));
+        const std::vector<double>* altitudeAslData =
+            branch.getView(FlightDataType::builtin(FlightDataTypeId::TYPE_ALTITUDE_ABOVE_SEA));
+
+        ASSERT_NE(altitudeData, nullptr);
+        ASSERT_NE(altitudeAslData, nullptr);
+        expectAltitudesAboveSeaLevel(*altitudeData, *altitudeAslData, launchAltitude);
+    }
+
+private:
+    /// The second half of testAltitudeAboveSeaLevel: the comparison of the two columns.
+    static void expectAltitudesAboveSeaLevel(const std::vector<double>& altitudeData,
+                                             const std::vector<double>& altitudeAslData,
+                                             double                     launchAltitude)
+    {
+        ASSERT_EQ(altitudeData.size(), altitudeAslData.size());
+        ASSERT_FALSE(altitudeData.empty());
+
+        // Verify that altitude above sea level = altitude + launch altitude for each data
+        // point
+        EXPECT_EQ(altitudeMismatches(altitudeData, altitudeAslData, launchAltitude),
+                  std::vector<std::string>{});
+
+        // Additionally verify max altitudes
+        const double maxAltitude    = *std::ranges::max_element(altitudeData);
+        const double maxAltitudeAsl = *std::ranges::max_element(altitudeAslData);
+        EXPECT_NEAR(maxAltitude + launchAltitude, maxAltitudeAsl, 0.001)
+            << "Maximum altitude above sea level should equal maximum altitude + launch altitude";
+    }
+
+    /// The data points at which the altitude above sea level is not the altitude plus
+    /// @p launchAltitude, within 0.001.
+    [[nodiscard]] static std::vector<std::string> altitudeMismatches(
+        const std::vector<double>& altitudeData, const std::vector<double>& altitudeAslData,
+        double launchAltitude)
+    {
+        std::vector<std::string> mismatches;
+        for (std::size_t i = 0; i < altitudeData.size(); i++)
+        {
+            const double altitude    = altitudeData[i];
+            const double altitudeAsl = altitudeAslData[i];
+            if (!(std::abs(altitude + launchAltitude - altitudeAsl) <= 0.001))
+            {
+                mismatches.push_back(std::format(
+                    "Altitude above sea level should equal altitude + launch altitude at index "
+                    "{}: {} + {} != {}",
+                    i, altitude, launchAltitude, altitudeAsl));
+            }
+        }
+        return mismatches;
+    }
+
+    JavaTestPreferences m_preferences;
+    TestEstesAlphaIII   m_alpha;
+    Simulation          m_simulation;
+};
+
+// SimulationTest.testSimulationWithNoMotors
+TEST_F(SimulationRunTest, SimulationWithNoMotors)
+{
+    simulationWithNoMotors(SimulationStepperMethod::RK4);
+}
+
+// SimulationTest.testSimulationWithNoMotors_RK6
+TEST_F(SimulationRunTest, SimulationWithNoMotorsRk6)
+{
+    simulationWithNoMotors(SimulationStepperMethod::RK6);
+}
+
+// SimulationTest.testBasicSimulationExecution
+TEST_F(SimulationRunTest, BasicSimulationExecution)
+{
+    basicSimulationExecution(SimulationStepperMethod::RK4);
+}
+
+// SimulationTest.testBasicSimulationExecution_RK6
+TEST_F(SimulationRunTest, BasicSimulationExecutionRk6)
+{
+    basicSimulationExecution(SimulationStepperMethod::RK6);
+}
+
+// SimulationTest.testAltitudeAboveSeaLevel
+TEST_F(SimulationRunTest, AltitudeAboveSeaLevel)
+{
+    altitudeAboveSeaLevel(SimulationStepperMethod::RK4);
+}
+
+// SimulationTest.testAltitudeAboveSeaLevel_RK6
+TEST_F(SimulationRunTest, AltitudeAboveSeaLevelRk6)
+{
+    altitudeAboveSeaLevel(SimulationStepperMethod::RK6);
+}
+
 // ============================================================================ simulate()
 
 TEST(SimulationSimulate, AnImportedSimulationCannotBeSimulated)
@@ -873,33 +1051,248 @@ TEST(SimulationSimulate, TheStopTokenOverloadRunsTheSameChecks)
     EXPECT_FALSE(listed.has_value());
 }
 
-// HOOK(engine): part C replaces this test by one of a run of the engine (the engine does not
-// exist yet, so simulate() ends in a BugError after everything before the engine is done).
-TEST(SimulationSimulate, UntilTheEngineExistsTheRunEndsInABugErrorAfterTheBookkeeping)
+/// Writes its label down when the simulation starts, and may then fail the run with a bug.
+/// The log is shared by the clones.
+class StartRecorder final : public CloneableSimulationListener<StartRecorder>
+{
+public:
+    StartRecorder(std::shared_ptr<std::vector<std::string>> log, std::string label,
+                  bool buggy = false)
+      : m_log(std::move(log)), m_label(std::move(label)), m_buggy(buggy)
+    {
+    }
+
+    void startSimulation(SimulationStatus& /*status*/) override { m_log->push_back(m_label); }
+
+    void endSimulationBranch(SimulationStatus& /*status*/,
+                             const SimulationException* exception) override
+    {
+        m_log->push_back(m_label + (exception == nullptr ? " branch ended" : " branch failed"));
+    }
+
+    void postStep(SimulationStatus& /*status*/) override
+    {
+        if (m_buggy)
+        {
+            QtRocket::bug("a listener with a bug");
+        }
+    }
+
+private:
+    std::shared_ptr<std::vector<std::string>> m_log;
+    std::string                               m_label;
+    bool                                      m_buggy;
+};
+
+/// An extension that adds a listener to the conditions it is initialised with.
+class ListeningExt final : public AbstractSimulationExtension
+{
+public:
+    explicit ListeningExt(std::shared_ptr<std::vector<std::string>> log)
+      : AbstractSimulationExtension("test.ListeningExt"), m_log(std::move(log))
+    {
+    }
+
+    void initialize(SimulationConditions& conditions) override
+    {
+        conditions.getSimulationListenerList().push_back(
+            std::make_shared<StartRecorder>(m_log, "the extension's listener"));
+    }
+
+    [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override
+    {
+        return std::make_unique<ListeningExt>(*this);
+    }
+
+private:
+    std::shared_ptr<std::vector<std::string>> m_log;
+};
+
+TEST(SimulationSimulate, ARunRecordsWhatWasSimulated)
 {
     TestEstesAlphaIII alpha;
     Simulation        l(*alpha.rocket);
     l.setFlightConfigurationId(testFcid(0));
     l.getOptions().setIsaAtmosphere(true);
     l.getOptions().setTimeStep(0.03);
+    l.getOptions().setRandomSeed(0);
     const auto log = std::make_shared<std::vector<std::string>>();
     l.getSimulationExtensions().push_back(std::make_shared<Ext>(log, "first"));
     l.getSimulationExtensions().push_back(std::make_shared<Ext>(log, "second"));
     const ChangeCounter events(l.changed());
+    EXPECT_EQ(l.getStatus(), Status::NOT_SIMULATED);
+
+    const Result<void> result = l.simulate();
+
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+    EXPECT_EQ(*log, (std::vector<std::string>{"first", "second"}));
+    EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
+    EXPECT_EQ(l.getStatus(), Status::UPTODATE);
+    EXPECT_EQ(events.count(), 1);
+    ASSERT_NE(l.getSimulatedConditions(), nullptr);
+    EXPECT_EQ(l.getSimulatedConditions()->getTimeStep(), 0.03);
+    EXPECT_EQ(l.getSimulatedConfigurationDescription(), "[A8-0]");
+    EXPECT_EQ(l.getSimulatedConfigurationModId(), l.getActiveConfiguration().getModId());
+
+    const std::shared_ptr<FlightData>& data = l.getSimulatedData();
+    ASSERT_NE(data, nullptr);
+    EXPECT_TRUE(l.hasSimulationData());
+    EXPECT_TRUE(l.hasSummaryData());
+    EXPECT_FALSE(l.hasErrors());
+    EXPECT_EQ(l.getSimulatedWarnings(), &data->getWarningSet());
+    ASSERT_EQ(data->getBranchCount(), 1U);
+    EXPECT_GT(data->getMaxAltitude(), 0.0);
+    // The extensions changed the conditions the engine ran on (a launch velocity of 1 m/s):
+    // the first record of the flight has it.
+    const FlightDataBranch& branch = data->getBranch(0);
+    EXPECT_EQ(branch.getByIndex(FlightDataType::builtin(FlightDataTypeId::TYPE_VELOCITY_Z), 0),
+              1.0);
+
+    // A change of the options afterwards makes the data out of date.
+    l.getOptions().setTimeStep(0.04);
+    EXPECT_EQ(l.getStatus(), Status::OUTDATED);
+}
+
+TEST(SimulationSimulate, TheListenersOfTheExtensionsComeBeforeTheAdditionalOnes)
+{
+    // Java: the extensions are initialised, then the additional listeners are appended.
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setRandomSeed(0);
+    const auto log = std::make_shared<std::vector<std::string>>();
+    l.getSimulationExtensions().push_back(std::make_shared<ListeningExt>(log));
+
+    const Result<void> result = l.simulate({std::make_shared<StartRecorder>(log, "additional 1"),
+                                            std::make_shared<StartRecorder>(log, "additional 2")});
+
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+    EXPECT_EQ(*log,
+              (std::vector<std::string>{"the extension's listener", "additional 1", "additional 2",
+                                        "the extension's listener branch ended",
+                                        "additional 1 branch ended", "additional 2 branch ended"}));
+}
+
+TEST(SimulationSimulate, AnAbortedRunSucceedsAndTheStatusSaysSo)
+{
+    // A simulation that aborts is not a failure of simulate(): the data hold the SIM_ABORT.
+    TestEstesAlphaIII alpha;
+    alpha.rocket->getFlightConfiguration(testFcid(0)).clearAllMotors();
+    Simulation l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+
+    const Result<void> result = l.simulate();
+
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+    EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
+    EXPECT_TRUE(l.hasErrors());
+    EXPECT_TRUE(l.hasErrors(0));
+    // Java's getStatus(): no motors makes it CANT_RUN, then the abort in the data ABORTED.
+    EXPECT_EQ(l.getStatus(), Status::ABORTED);
+}
+
+/// A listener that fails the run after its first step.
+class Failing final : public CloneableSimulationListener<Failing>
+{
+public:
+    void postStep(SimulationStatus& /*status*/) override
+    {
+        throw SimulationException("the listener gave up");
+    }
+};
+
+TEST(SimulationSimulate, AListenersExceptionIsTheErrorAndTheDataStay)
+{
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setRandomSeed(0);
+    const ChangeCounter events(l.changed());
+
+    const Result<void> result = l.simulate({std::make_shared<Failing>()});
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::SIMULATION_ABORTED);
+    EXPECT_EQ(result.error().message, "the listener gave up");
+    // Java's finally block: the data the engine got to are the simulated data.
+    EXPECT_EQ(l.getStatus(), Status::UPTODATE);
+    EXPECT_EQ(events.count(), 1);
+    const std::shared_ptr<FlightData>& data = l.getSimulatedData();
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->getBranchCount(), 1U);
+    const FlightEvent* exception = data->getBranch(0).getLastEvent(FlightEvent::Type::EXCEPTION);
+    ASSERT_NE(exception, nullptr);
+    ASSERT_NE(exception->getMessage(), nullptr);
+    EXPECT_EQ(*exception->getMessage(), "the listener gave up");
+}
+
+TEST(SimulationSimulate, AStopRequestCancelsTheRunAfterAStep)
+{
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setRandomSeed(0);
+    // (Held through a pointer: a stop source must not be const, see system_listener_tests.cpp.)
+    const auto source = std::make_shared<std::stop_source>();
+    source->request_stop();
+    const auto log = std::make_shared<std::vector<std::string>>();
+
+    const std::vector<std::shared_ptr<SimulationListener>> listeners{
+        std::make_shared<StartRecorder>(log, "additional")};
+    const Result<void> result = l.simulate(source->get_token(), listeners);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::CANCELLED);
+    EXPECT_EQ(result.error().message, "The simulation was interrupted.");
+    EXPECT_EQ(*log, (std::vector<std::string>{"additional", "additional branch failed"}));
+    EXPECT_EQ(l.getStatus(), Status::UPTODATE);
+    const std::shared_ptr<FlightData>& data = l.getSimulatedData();
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->getBranchCount(), 1U);
+    // One step was taken before the interrupt listener looked at the token.
+    EXPECT_EQ(data->getBranch(0).getLength(), 1U);
+    EXPECT_NE(data->getBranch(0).getLastEvent(FlightEvent::Type::EXCEPTION), nullptr);
+
+    // A token nobody stops lets the run finish.
+    const auto         calm     = std::make_shared<std::stop_source>();
+    const Result<void> finished = l.simulate(calm->get_token());
+    EXPECT_TRUE(finished.has_value());
+    EXPECT_NE(simulatedBranch(l).getLastEvent(FlightEvent::Type::GROUND_HIT), nullptr);
+}
+
+TEST(SimulationSimulate, ABugErrorPassesThroughAfterTheBookkeeping)
+{
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setIsaAtmosphere(true);
+    l.getOptions().setTimeStep(0.03);
+    l.getOptions().setRandomSeed(0);
+    const auto          log = std::make_shared<std::vector<std::string>>();
+    const ChangeCounter events(l.changed());
 
     Result<void> result;
-    EXPECT_EQ(bugText([&] { result = l.simulate(); }),
-              "Simulation::simulate(): the simulation engine is not ported yet");
+    EXPECT_EQ(bugText([&] {
+                  result = l.simulate({std::make_shared<StartRecorder>(log, "buggy", true)});
+              }),
+              "a listener with a bug");
     EXPECT_TRUE(result.has_value()) << "nothing was returned";
 
-    // Java's finally block ran: a BugError passes through it.
-    EXPECT_EQ(*log, (std::vector<std::string>{"first", "second"}));
+    // Java's finally blocks ran: the branch's end was announced (without an exception: it is
+    // no SimulationException), and the simulation recorded what the engine got to.
+    EXPECT_EQ(*log, (std::vector<std::string>{"buggy", "buggy branch ended"}));
     EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
     EXPECT_EQ(events.count(), 1);
     ASSERT_NE(l.getSimulatedConditions(), nullptr);
     EXPECT_EQ(l.getSimulatedConditions()->getTimeStep(), 0.03);
     EXPECT_EQ(l.getSimulatedConfigurationDescription(), "[A8-0]");
-    EXPECT_EQ(l.getSimulatedData(), nullptr);
+    const std::shared_ptr<FlightData>& data = l.getSimulatedData();
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->getBranchCount(), 1U);
+    EXPECT_EQ(data->getBranch(0).getLength(), 1U);
+    // No EXCEPTION event: that is for SimulationExceptions.
+    EXPECT_EQ(data->getBranch(0).getLastEvent(FlightEvent::Type::EXCEPTION), nullptr);
+    EXPECT_NE(data->getSimulatedRocket(), nullptr);
 }
 
 TEST(SimulationSimulate, TheDescriptionIsTheNameOfTheSimulatedConfiguration)

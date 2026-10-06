@@ -3,6 +3,7 @@ target_sources(QtRocket_core PRIVATE
     AbstractRkSimulationStepper.cpp
     AbstractSimulationStepper.cpp
     AccelerationData.cpp
+    BasicEventSimulationEngine.cpp
     BasicLandingStepper.cpp
     BasicTumbleStepper.cpp
     DefaultSimulationOptionFactory.cpp
