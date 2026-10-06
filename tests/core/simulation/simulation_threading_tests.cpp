@@ -49,8 +49,8 @@
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
+#include "QtRocket/simulation/listeners/ProgressListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
-#include "QtRocket/simulation/listeners/system/ProgressListener.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 #include "rocket/TestRockets.h"
@@ -624,6 +624,98 @@ TEST(SimulationThreading, TheOriginalCanBeChangedWhileItsCopiesRun)
     ASSERT_TRUE(simulation.simulate().has_value());
     ASSERT_NE(simulation.getSimulatedData(), nullptr);
     EXPECT_NE(flightDifferences(*alone->getSimulatedData(), *simulation.getSimulatedData()), "");
+}
+
+// ============================================== writing the preferences while copies run
+
+/// Sets the stepper method of @p simulation's options to the one they have, which writes it to
+/// the preference store the simulation shares with its original (as OpenRocket's options do),
+/// and runs the simulation. The body of a worker thread.
+void chooseTheStepperAndSimulate(Simulation& simulation, Failure& failure,
+                                 std::atomic<std::size_t>& finished)
+{
+    SimulationOptions& options = simulation.getOptions();
+    options.setSimulationStepperMethodChoice(options.getSimulationStepperMethodChoice());
+    simulateAndCount(simulation, failure, finished);
+}
+
+/// Write number @p write of what an application stores all the time while simulations run in
+/// the background (the size of a window, the last directory): a key comes and goes, in the root
+/// node and in a child node, which changes the structure of the store's maps.
+void writeToTheStore(Preferences& store, int write)
+{
+    const std::string key = std::format("A.WindowSize.{}", write % 7);
+    store.putString(key, "800x600");
+    store.getNode("recent").putString(key, "/tmp");
+    store.remove(key);
+    store.getNode("recent").remove(key);
+}
+
+// The regression test of the one object an independent copy still shares with the simulation
+// it was made from: the preference store. simulate() reads the naming of the flight
+// configuration from it on the worker thread when the run ends, and the options write the
+// stepper method to it; the store was an unsynchronised map, so a write to any key by the
+// thread that owns it (what a GUI does all the time) raced with every run (ThreadSanitizer:
+// InMemoryPreferences::get() against InMemoryPreferences::put()). The store locks now. The
+// keys written here are not the ones a simulation reads, so every copy still gives the flight
+// and the description of the simulation run alone.
+TEST(SimulationThreading, ThePreferenceStoreCanBeWrittenWhileCopiesRun)
+{
+    constexpr std::size_t kCopies    = 4;
+    constexpr int         kMinWrites = 200;
+
+    JavaTestPreferences     preferences;
+    const TestEstesAlphaIII alpha;
+    Simulation              simulation(*alpha.rocket, preferences.store);
+    // The parachute opens before apogee: the nested coast run reads the store too.
+    simulation.setFlightConfigurationId(testFcid(1));
+    simulation.getOptions().setIsaAtmosphere(true);
+    simulation.getOptions().setTimeStep(0.05);
+    simulation.getOptions().setRandomSeed(1);
+
+    const std::unique_ptr<Simulation> alone = simulation.duplicateForIndependentSimulation();
+    ASSERT_TRUE(alone->simulate().has_value());
+    ASSERT_NE(alone->getSimulatedData(), nullptr);
+
+    std::vector<Copy> copies;
+    copies.reserve(kCopies);
+    for (std::size_t i = 0; i < kCopies; i++)
+    {
+        copies.push_back({.original   = 0,
+                          .simulation = simulation.duplicateForIndependentSimulation(),
+                          .failure    = std::nullopt});
+    }
+
+    std::atomic<std::size_t> finished{0};
+    int                      writes = 0;
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(copies.size());
+        for (Copy& copy : copies)
+        {
+            threads.emplace_back(chooseTheStepperAndSimulate, std::ref(*copy.simulation),
+                                 std::ref(copy.failure), std::ref(finished));
+        }
+        // This thread owns the store: it writes while the copies fly.
+        while (finished.load() < copies.size() || writes < kMinWrites)
+        {
+            writeToTheStore(preferences.store, writes);
+            writes++;
+        }
+    }  // joins
+
+    EXPECT_GE(writes, kMinWrites);
+    for (const Copy& copy : copies)
+    {
+        EXPECT_EQ(copyProblem(copy, *alone), "");
+        EXPECT_EQ(copy.simulation->getSimulatedConfigurationDescription(),
+                  alone->getSimulatedConfigurationDescription());
+    }
+    // What the workers wrote is in the store, and nothing of the comings and goings is left.
+    EXPECT_EQ(preferences.store.getSimulationStepperMethodName(), "RK4");
+    EXPECT_EQ(preferences.store.get("A.WindowSize.0"), std::nullopt);
+    ASSERT_NE(preferences.store.findNode("recent"), nullptr);
+    EXPECT_TRUE(preferences.store.findNode("recent")->keys().empty());
 }
 
 // ============================================================================ cancellation

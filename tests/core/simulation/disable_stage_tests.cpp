@@ -142,6 +142,7 @@ TEST(DisableStageSimulationTest, SimulationUsesItsOwnConfigurationForComponentPo
     JavaTestPreferences preferences;
     Simulation          activeSimulation(rocket, preferences.store);
     activeSimulation.setFlightConfigurationId(activeConfigId);
+    activeSimulation.getOptions().setRandomSeed(kRandomSeed);  // Java: left to chance
     EXPECT_NEAR(sustainerLength, getBoosterPositionDuringSimulation(activeSimulation),
                 kPositionEpsilon);
 
@@ -156,6 +157,7 @@ TEST(DisableStageSimulationTest, SimulationUsesItsOwnConfigurationForComponentPo
 
     Simulation disabledSustainerSimulation(rocket, preferences.store);
     disabledSustainerSimulation.setFlightConfigurationId(disabledSustainerConfigId);
+    disabledSustainerSimulation.getOptions().setRandomSeed(kRandomSeed);  // Java: left to chance
     EXPECT_NEAR(0.0, getBoosterPositionDuringSimulation(disabledSustainerSimulation),
                 kPositionEpsilon);
 

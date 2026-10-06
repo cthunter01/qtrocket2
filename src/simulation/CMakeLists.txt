@@ -20,12 +20,12 @@ target_sources(QtRocket_core PRIVATE
     FlightEventActivation.cpp
     GroundStepper.cpp
     listeners/AbstractSimulationListener.cpp
+    listeners/ProgressListener.cpp
     listeners/SimulationListenerHelper.cpp
     listeners/system/ApogeeEndListener.cpp
     listeners/system/GroundHitListener.cpp
     listeners/system/InterruptListener.cpp
     listeners/system/OptimumCoastListener.cpp
-    listeners/system/ProgressListener.cpp
     listeners/system/RecoveryDeviceDeploymentEndListener.cpp
     Rk4SimulationStepper.cpp
     Rk6SimulationStepper.cpp

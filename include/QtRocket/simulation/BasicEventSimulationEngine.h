@@ -84,9 +84,14 @@ class SimulationConditions;
 /// - BugError where Java throws a NullPointerException or a ClassCastException: conditions
 ///   without a simulation; a status without a flight data branch or without a warning set; an
 ///   IGNITION, BURNOUT or EJECTION_CHARGE event without a motor state; an IGNITION event whose
-///   source is not a motor mount or whose motor is not a ThrustCurveMotor; a STAGE_SEPARATION
-///   event without a source; a RECOVERY_DEVICE_DEPLOYMENT event whose source is not a recovery
-///   device (Java passes a null device to the listeners first).
+///   source is a component that is not a motor mount, or whose motor is not a ThrustCurveMotor;
+///   a STAGE_SEPARATION event without a source; a RECOVERY_DEVICE_DEPLOYMENT event whose source
+///   is not a recovery device (Java passes a null device to the listeners first).
+/// - An IGNITION event without a source (one that a listener or an extension queued; the
+///   engine's own always name the mount) ignites its motor as in Java, and the thrust curve's
+///   ALTITUDE events and the BURNOUT are queued without a source too. Java hands the listeners'
+///   motorIgnition() a null mount then; the hook takes a reference here, and it is the mount of
+///   the motor state.
 /// - The nested optimum-coast run: Java catches every exception that is not a
 ///   SimulationException there, logs it and returns null, which its caller then dereferences
 ///   (a NullPointerException leaves the outer run). Here a BugError of the nested run passes

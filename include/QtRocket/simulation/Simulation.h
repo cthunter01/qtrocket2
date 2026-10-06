@@ -62,7 +62,11 @@ class WarningSet;
 /// The simulation keeps a pointer to the store (it must outlive the simulation and its copies):
 /// it gives the name of the flight configuration that simulate() records (the default
 /// configuration name and the motor naming), and the default options of duplicateSimulation().
-/// Without a store both use the built-in defaults.
+/// Without a store both use the built-in defaults. Every copy and duplicate of a simulation,
+/// duplicateForIndependentSimulation() included, refers to the same store, and so do their
+/// options (which write the stepper method they are given to it), as every simulation of
+/// OpenRocket reads and writes the one application preferences. The store is safe to use from
+/// several threads (see Preferences, "Threads").
 ///
 /// The status: getStatus() works the status out from what it finds (see there); it is not a
 /// plain getter. The options may be changed freely (getOptions()): a change emits changed(),
@@ -84,7 +88,9 @@ class WarningSet;
 ///
 /// Threads: a Simulation is not thread-safe (Java enforces single-threaded access with a
 /// SafetyMutex, which is not ported). Simulations of one design that must run at the same time
-/// each run on a duplicateForIndependentSimulation().
+/// each run on a duplicateForIndependentSimulation(). What such duplicates still share with
+/// the simulation they were made from, and with each other, is the preference store, which is
+/// thread-safe: the thread that owns the store may write to it while they run.
 ///
 /// Deviations from OpenRocket:
 /// - simulate() returns a Result where Java throws: see there.
@@ -301,6 +307,19 @@ public:
     ///   conditions (Java: an IllegalArgumentException that leaves simulate()).
     /// A simulation that aborts (a SIM_ABORT event) is not a failure: simulate() succeeds and
     /// getStatus() is ABORTED. A BugError passes through, after the bookkeeping above.
+    ///
+    /// Inputs that are not finite: simulate() does not validate the options or the design, as
+    /// OpenRocket's does not. A NaN or an infinity among the options (the launch site, the
+    /// constant gravity, the wind, the launch pressure or temperature, the time step) or among
+    /// the delays of the design (a motor's ignition delay, a recovery device's deployment
+    /// delay) surfaces where the computation first meets it: mostly as a BugError (Java: a
+    /// BugException or an IllegalStateException), some of them in the middle of the flight, and
+    /// a NaN launch rod length as the SIMULATION_ABORTED error of the engine's NaN check. A
+    /// BugError means a defect of the program, so such values must not come from outside it:
+    // HOOK(file): the .ork loader (tier 10) has to refuse or replace, with a warning, every
+    // simulation option and every ignition, ejection, separation and deployment delay that is
+    // not finite (OpenRocket's DocumentConfig.stringToDouble() accepts "NaN"), and a command
+    // line that sets options from its arguments has to do the same, before simulate() runs.
     [[nodiscard]] Result<void> simulate(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 
@@ -400,12 +419,17 @@ public:
     /// appearances. @p newRocket must outlive the duplicate.
     [[nodiscard]] std::unique_ptr<Simulation> duplicateSimulation(Rocket& newRocket) const;
 
-    /// A deep copy of this simulation that shares no mutable state with it: a not yet simulated
-    /// simulation of a copy of the rocket (Rocket::copyRocketWithOriginalId()), which the
-    /// duplicate owns, without a document, with the name, the configuration id, a full copy of
-    /// the options and clones of the extensions. It may run on another thread without touching
-    /// this simulation or its rocket; making it reads this simulation and its rocket, so it
-    /// belongs to their thread. The plot appearances are not copied, as in Java.
+    /// A deep copy of this simulation for a run of its own: a not yet simulated simulation of a
+    /// copy of the rocket (Rocket::copyRocketWithOriginalId()), which the duplicate owns,
+    /// without a document, with the name, the configuration id, a full copy of the options and
+    /// clones of the extensions. It may run on another thread without touching this simulation
+    /// or its rocket; making it reads this simulation and its rocket, so it belongs to their
+    /// thread. The one thing the duplicate shares with this simulation is the preference store
+    /// (Java: the application preferences): simulate() reads the naming of the flight
+    /// configuration from it on the thread it runs on, and a stepper method set in the
+    /// duplicate's options is written to it. The store is thread-safe (see Preferences,
+    /// "Threads"), so it may be written while duplicates run. The plot appearances are not
+    /// copied, as in Java.
     [[nodiscard]] std::unique_ptr<Simulation> duplicateForIndependentSimulation() const;
 
     // ---------------------------------------------------------------------- change events

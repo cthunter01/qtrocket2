@@ -1,4 +1,4 @@
-#include "QtRocket/simulation/listeners/system/ProgressListener.h"
+#include "QtRocket/simulation/listeners/ProgressListener.h"
 
 #include <memory>
 #include <utility>
@@ -32,11 +32,6 @@ ProgressListener::ProgressListener(Callback callback)
 void ProgressListener::postStep(SimulationStatus& status)
 {
     (*m_callback)(status);
-}
-
-bool ProgressListener::isSystemListener() const
-{
-    return true;
 }
 
 }  // namespace QtRocket

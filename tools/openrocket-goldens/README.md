@@ -305,8 +305,10 @@ the number of replacements is compared with `result.jitterReplacements`. Compare
 the options and the `harness` block, `result`, the summary values, the warnings, and per branch its
 header, the columns (key, name, symbol, order, minimum and maximum), the events in order (type,
 source, data and time) and every value of the CSV. Everything that is not a number of the trajectory
-is compared exactly; the trajectory at 1e-9 of a column's scale (times: 1e-6 s) as far as the flight
-is reproducible (see [Reproducibility of the simulations](#reproducibility-of-the-simulations)).
+is compared exactly (but for the one option that is computed with mathematical functions, the launch
+rod direction of a launch into a multi-level wind: 1e-12); the trajectory at 1e-9 of a column's
+scale (times: 1e-6 s) as far as the flight is reproducible (see
+[Reproducibility of the simulations](#reproducibility-of-the-simulations)).
 
 ### resave/rocket.ork
 
@@ -352,6 +354,16 @@ launch rod and the first tenths of a second of free flight, at relative 1e-9; it
 measurements. A dump of the same simulations with a time step of 0.01 s (a probe, not committed)
 has the same row counts as the port in all but one branch (a tumbling booster) and summary values
 within 1e-8, so goldens generated with such a step would let the comparison cover whole flights.
+
+Until then whole flights are compared with OpenRocket outside the golden data, in tests whose
+expectations are pasted from Java probes run at a time step of 0.005 s:
+`tests/core/simulation/engine_stable_run_tests.cpp` (the jitter removed as here; a single-stage and
+a two-stage flight, the tumbling booster with tolerances of its own) and
+`tests/core/simulation/engine_jitter_run_tests.cpp` (with the jitter, which the port draws from a
+reproduction of `java.util.Random`: RK4 and RK6, two stages, a flight on lookup tables, and the
+sequence of the random numbers with the places where the stepper starts it anew). The structure of
+a run (the order of the events and of the listener calls, the warnings, the aborts) is pinned for
+32 scenarios in `tests/core/simulation/BasicEventSimulationEngineTests.cpp`.
 
 ## Regenerating
 

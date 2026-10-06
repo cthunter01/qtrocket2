@@ -190,6 +190,7 @@ add_executable(QtRocket_core_tests
     simulation/DataBranchTests.cpp
     simulation/DefaultSimulationOptionFactoryTests.cpp
     simulation/disable_stage_tests.cpp
+    simulation/engine_jitter_run_tests.cpp
     simulation/engine_stable_run_tests.cpp
     simulation/EventQueueTests.cpp
     simulation/flight_event_activation_tests.cpp
@@ -204,6 +205,7 @@ add_executable(QtRocket_core_tests
     simulation/motor_pressure_correction_tests.cpp
     simulation/natural_frequency_tests.cpp
     simulation/PlotAppearanceTests.cpp
+    simulation/ProgressListenerTests.cpp
     simulation/Rk4SimulationStepperTests.cpp
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp

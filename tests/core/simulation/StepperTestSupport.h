@@ -156,10 +156,19 @@ struct InitializedScenario
                         const std::vector<std::shared_ptr<SimulationListener>>& listeners = {});
 };
 
-/// Sets the nozzle exit diameter @p diameter(the motor's diameter) in the motor configuration of
-/// every active mount of @p configuration that has a motor, and brings the configuration up to
-/// date. Java sets it in `configuration.getActiveMotors()`, which are the mounts' own objects;
-/// the configuration's motors are copies here (see FlightConfiguration).
+/// Sets the nozzle exit diameter in the motor configuration of every mount whose motor
+/// @p configuration lists as active (FlightConfiguration::getActiveMotors()): @p diameter is
+/// called with the diameter of the motor and returns the nozzle exit diameter to set. Java
+/// sets it in the objects of `configuration.getActiveMotors()`, which are the mounts' own; the
+/// configuration's list holds copies here (see FlightConfiguration), so the diameter is set in
+/// the mount.
+///
+/// Like Java this goes by the configuration's list as it is, which is not refreshed: a rocket's
+/// own configuration does not list a motor that was set after its last update
+/// (MotorMount::setMotorConfig() fires no event), so on TestEstesAlphaIIIWithMotorPods and
+/// TestEstesAlphaIIIWithSecondMotor the pod and second motors get no nozzle here, in Java as in
+/// QtRocket. A clone of the configuration, which a simulation status is built on, lists every
+/// motor and reads the diameters that were set from the mounts.
 void setNozzleExitDiameters(FlightConfiguration&                 configuration,
                             const std::function<double(double)>& diameter);
 

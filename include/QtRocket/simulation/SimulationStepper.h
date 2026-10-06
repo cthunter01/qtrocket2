@@ -13,8 +13,11 @@ class SimulationStatus;
 /// Deviations from OpenRocket:
 /// - initialize() takes the status by value and gives the status to go on with back: Java's
 ///   steppers return either the object they were given or a new one made from it, and the
-///   engine drops the old one either way (`status = stepper.initialize(status)`); here that is
-///   `status = stepper.initialize(std::move(status))`.
+///   engine drops the old one either way (`status = stepper.initialize(status)`). A caller that
+///   has no further use for its status moves it in (`status = stepper.initialize(std::move(
+///   status))`). The engine, which must still have its status when initialize() throws (Java's
+///   variable keeps the old object then), hands over the shallow clone, which shares every
+///   object with it: `status = stepper.initialize(status.clone())`.
 class SimulationStepper
 {
 public:

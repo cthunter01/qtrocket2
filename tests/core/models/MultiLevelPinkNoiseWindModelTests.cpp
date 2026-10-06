@@ -157,8 +157,13 @@ protected:
 
         EXPECT_NEAR(avgSpeed, expectedSpeed, standardDeviation)
             << "Average wind speed at altitude " << altitude;
-        EXPECT_NEAR(avgDirection, expectedDirection, kEpsilon)
-            << "Average wind direction at altitude " << altitude;
+        // Compared as directions, modulo a full turn (Java: assertEquals on the two angles):
+        // atan2() gives the direction pi as pi or as -pi, depending on the last bit of the
+        // two sums, and both are that direction.
+        EXPECT_NEAR(std::remainder(avgDirection - expectedDirection, 2 * std::numbers::pi), 0.0,
+                    kEpsilon)
+            << "Average wind direction at altitude " << altitude << ": " << avgDirection
+            << ", expected " << expectedDirection;
     }
 
     /// importLevelsFromCsv(file, fieldSeparator) that must succeed.

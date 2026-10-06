@@ -580,9 +580,10 @@ class DirectScenario : public ::testing::TestWithParam<std::string>
 
 // "flight-conditions-...": calculateFlightConditions() at rest, below the velocity and the
 // lateral airspeed thresholds, flying backwards, in a wind, from a landing stepper, and with
-// the nozzles of thrusting motors. "landed-values-...": landedValues() from three kinds of
-// stepper. "empty-store...": a store without anything in it written to a point of the branch,
-// in flight and on the rod.
+// the nozzles of thrusting motors (also on the two rockets whose own configuration does not
+// list every motor: see setNozzleExitDiameters()). "landed-values-...": landedValues() from three
+// kinds of stepper. "empty-store...": a store without anything in it written to a point of the
+// branch, in flight and on the rod.
 TEST_P(DirectScenario, TheResultIsOpenRockets)
 {
     EXPECT_EQ(javaScenarioDifferences(GetParam()), "");
@@ -608,6 +609,8 @@ TEST(AbstractSimulationStepper, TheScenariosCoverTheThresholdsOfTheFlightConditi
         "flight-conditions-wind",
         "flight-conditions-landing-stepper",
         "flight-conditions-nozzles",
+        "flight-conditions-nozzles-motor-pods",
+        "flight-conditions-nozzles-second-motor",
         "empty-store",
         "empty-store-on-the-rod",
         "landed-values-rk4",

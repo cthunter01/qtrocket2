@@ -556,10 +556,12 @@ TEST(SimulationExtension, TheListenerOfAnInitializedExtensionActsOnTheSimulation
     QtRocket::SimulationListenerHelper::fireStartSimulation(fixture.status);
 
     EXPECT_TRUE(fixture.status.getRocketPosition().exactlyEquals(QtRocket::Coordinate{0, 0, 150}));
-    // The default conditions have a vertical rod: the velocity is straight up.
-    EXPECT_NEAR(fixture.status.getRocketVelocity().x, 0.0, 1e-12);
-    EXPECT_NEAR(fixture.status.getRocketVelocity().y, 0.0, 1e-12);
-    EXPECT_NEAR(fixture.status.getRocketVelocity().z, 20.0, 1e-12);
+    // The default conditions have a vertical rod: the velocity is straight up. It is 20 m/s
+    // rotated by the orientation, whose components went through sin() and cos(): relative
+    // 1e-12 (a library that is one ulp off per call moves the components by about 1e-14).
+    EXPECT_NEAR(fixture.status.getRocketVelocity().x, 0.0, 20.0 * 1e-12);
+    EXPECT_NEAR(fixture.status.getRocketVelocity().y, 0.0, 20.0 * 1e-12);
+    EXPECT_NEAR(fixture.status.getRocketVelocity().z, 20.0, 20.0 * 1e-12);
     const QtRocket::WarningSet& warnings = *fixture.status.getWarnings();
     EXPECT_TRUE(warnings.contains(QtRocket::Warning::kListenersAffected));
 }

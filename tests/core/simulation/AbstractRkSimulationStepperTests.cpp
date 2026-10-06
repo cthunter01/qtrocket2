@@ -320,8 +320,10 @@ class ThrustScenario : public ::testing::TestWithParam<std::string>
 { };
 
 // calculateThrust() after calculateFlightConditions(): the thrust of the active motors, the
-// correction for the air pressure with known nozzles (one motor, clusters, several stages), no
-// thrust before ignition and after burnout, and the listeners' thrust.
+// correction for the air pressure with known nozzles (one motor, clusters, several stages, and
+// the two rockets on which only the motor that the rocket's own configuration lists gets a
+// nozzle: see setNozzleExitDiameters()), no thrust before ignition and after burnout, and the
+// listeners' thrust.
 TEST_P(ThrustScenario, TheThrustIsOpenRockets)
 {
     EXPECT_EQ(javaScenarioDifferences(GetParam()), "");
@@ -366,6 +368,8 @@ TEST(AbstractRkSimulationStepper, TheScenariosCoverEveryHook)
         "thrust-falcon-nozzle",
         "thrust-clusterpods-nozzle",
         "thrust-multistage-nozzle",
+        "thrust-motor-pods-nozzle",
+        "thrust-second-motor-nozzle",
         "thrust-not-ignited",
         "thrust-burnt-out",
         "thrust-below-standard-altitude",

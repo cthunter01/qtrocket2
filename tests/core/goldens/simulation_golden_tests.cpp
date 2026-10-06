@@ -26,7 +26,8 @@
 // - its index, name and files in the manifest, the flight configuration (index, id, name), the
 //   source of the options, the variant, that it has no extensions and was not skipped;
 // - the options the run used with the golden "options", field by field and exactly (they are
-//   settings), and what makeReproducible() changed with the golden "harness";
+//   settings; the one that is computed, the rod direction of a launch into a multi-level wind,
+//   to 1e-12), and what makeReproducible() changed with the golden "harness";
 // - "result": the status, the exception's type and message, the number of jitter replacements;
 // - "summary": the ten values and the number of branches; "warnings", in order;
 // - per branch: its index, name and source component (as a golden path), the number of rows, the
@@ -82,13 +83,16 @@
 //   the options, the result's status, the branches, their names, sources and columns, the events
 //   with their types, sources and data, the warnings with their classes, priorities and sources.
 // - What is neither is counted as sensitive, and the sums are checked: compared plus sensitive is
-//   what the files hold (SimulationGoldenCoverage). On Linux 20 simulations are whole (the 19
+//   what the files hold (in the test of each rocket; SimulationGoldenCoverage pins what the
+//   files of the thirteen rockets hold in all). On Linux 20 simulations are whole (the 19
 //   that never leave the launch rod and the Falcon 9 Heavy, a flight of 148 records that ends in
 //   a tumble under thrust); of the 30 others the first 22 to 77 records are compared, which is
 //   the launch rod and the first 0.04 s to 0.3 s of free flight; in all, 1670 of the 22330 rows.
-// SimulationGoldenCoverage also holds the floor under this, so that a calculation that became
+// The test of each rocket also holds the floor under this, so that a calculation that became
 // sensitive throughout could not pass by comparing nothing: a simulation that never clears the
-// launch rod is whole, and every flight is reproducible at least until it has cleared the rod.
+// launch rod is whole, and every flight is reproducible at least until it has cleared the rod
+// (in rows: the reproducible rows of a branch are at least the golden rows up to the clearing,
+// 794 in the 31 flights and 26 in the 19 other simulations).
 // SimulationGoldenStrict holds the comparison the plan asked for (everything, the rows exactly,
 // the events in the order they were recorded in), disabled: it cannot pass.
 //
@@ -115,6 +119,10 @@
 // of the time series, a time, a summary value, a row count), removes an event and swaps two, and
 // expects the one line that reports it; a change within the tolerance is not reported, and a
 // value beyond the horizon is, as said, not compared.
+//
+// The tests are cut by what a process has to simulate, since ctest starts one process per test
+// and the runs are kept per process (goldenRun()): one test per rocket, one per simulation that
+// the mutations change (not one per mutation), and none that runs the simulations of another.
 //
 // Not compared in this tier: the sixteen example-* inputs. Their simulation files are in
 // tests/data/goldens, but the designs are .ork files, which need the .ork loader of the file
@@ -248,6 +256,13 @@ constexpr double kTimeAbsolute = 1e-6;
 /// A value of a time series is reproducible when the perturbed run moves it by no more than its
 /// tolerance divided by this (1e-12 of the scale of its column).
 constexpr double kSensitivityMargin = 1000.0;
+
+/// The relative tolerance of the one option that is computed with mathematical functions: the
+/// launch rod direction of a launch into a multi-level wind (see compareLaunchOptions()). With
+/// glibc it is the golden value to the last bit, because the sum the model reduces to a full
+/// turn (atan2() + 2 pi) absorbs a last-bit error of atan2(); a library that is three ulps off
+/// gives 1.5707963267948961 for 1.5707963267948966 (3e-16).
+constexpr double kComputedDirectionRelative = 1e-12;
 
 // =================================================================================== harness
 
@@ -1214,8 +1229,18 @@ void compareLaunchOptions(Mismatches& m, const json& expected, const SimulationO
               options.getLaunchIntoWind());
     m.exact("launchRodAngle", goldenValue(expected.at("launchRodAngle")),
             options.getLaunchRodAngle());
-    m.exact("launchRodDirection", goldenValue(expected.at("launchRodDirection")),
-            options.getLaunchRodDirection());
+    if (options.getLaunchIntoWind() && options.getWindModelType() == WindModelType::MULTI_LEVEL)
+    {
+        // Not a setting but a result: the direction of the model's wind at the launch site,
+        // atan2() of the components that sin() and cos() of the level's direction gave.
+        m.within("launchRodDirection", goldenValue(expected.at("launchRodDirection")),
+                 options.getLaunchRodDirection(), kComputedDirectionRelative, 0.0);
+    }
+    else
+    {
+        m.exact("launchRodDirection", goldenValue(expected.at("launchRodDirection")),
+                options.getLaunchRodDirection());
+    }
     m.exact("launchAltitude", goldenValue(expected.at("launchAltitude")),
             options.getLaunchAltitude());
     m.exact("launchLatitude", goldenValue(expected.at("launchLatitude")),
@@ -2101,14 +2126,97 @@ struct GoldenRun
     return cached->second;
 }
 
+/// When the rocket of the golden simulation @p document clears the launch rod (nullopt: it never
+/// does).
+[[nodiscard]] std::optional<double> goldenRodClearance(const json& document)
+{
+    for (const json& branch : document.at("branches"))
+    {
+        for (const json& event : branch.at("events"))
+        {
+            if (event.at("type").get<std::string>() == "LAUNCHROD")
+            {
+                return goldenValue(event.at("time"));
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+/// The number of rows of the golden time series @p table up to the time @p cleared at which the
+/// launch rod is cleared: the records on the rod and the first one after it (the LAUNCHROD event
+/// has the time of that record, a number of the same file). Every row for nullopt, a simulation
+/// that never clears the rod.
+[[nodiscard]] std::size_t rowsUpToTheClearance(const GoldenTable&           table,
+                                               const std::optional<double>& cleared)
+{
+    const std::optional<std::size_t> time = table.columnIndex("time");
+    if (!cleared.has_value() || !time.has_value())
+    {
+        return table.rows.size();
+    }
+    return static_cast<std::size_t>(std::ranges::count_if(
+        table.rows,
+        [&time, &cleared](const std::vector<double>& row) { return row[*time] <= *cleared; }));
+}
+
+/// The floor under the reproducible part of the golden simulation @p files: the rows of its
+/// branches up to the clearing of the launch rod (every row when it never clears it).
+[[nodiscard]] std::int64_t floorRows(const GoldenFiles& files)
+{
+    const std::optional<double> cleared = goldenRodClearance(files.document);
+    std::int64_t                rows    = 0;
+    for (const GoldenTable& table : files.tables)
+    {
+        rows += static_cast<std::int64_t>(rowsUpToTheClearance(table, cleared));
+    }
+    return rows;
+}
+
+/// What is wrong with the reproducible part of @p run, "" when nothing is: a simulation that
+/// never clears the launch rod has to be reproducible as a whole, and a flight in every branch
+/// at least until the rod is cleared. The floor is stated in rows, counted in the golden file
+/// alone: the reproducible rows of a branch must be at least the golden rows up to the
+/// clearance (comparing the time of the run's last reproducible row with the golden time of the
+/// clearance would compare two numbers of different origin for equality).
+[[nodiscard]] std::string floorProblem(const GoldenRun& run)
+{
+    const std::optional<double> cleared = goldenRodClearance(run.files.document);
+    if (!cleared.has_value())
+    {
+        return run.sensitivity.whole
+                   ? std::string{}
+                   : std::format(
+                         "{}: never clears the launch rod, but is not reproducible as a "
+                         "whole\n",
+                         run.context);
+    }
+    std::string problem;
+    for (std::size_t i = 0; i < run.sensitivity.horizons.size() && i < run.files.tables.size(); i++)
+    {
+        const std::size_t floor = rowsUpToTheClearance(run.files.tables[i], cleared);
+        if (run.sensitivity.horizons[i].rows < floor)
+        {
+            problem += std::format(
+                "{} branch {}: {} reproducible rows only, the launch rod is "
+                "cleared at row {} (t = {} s)\n",
+                run.context, i, run.sensitivity.horizons[i].rows, floor, *cleared);
+        }
+    }
+    return problem;
+}
+
 /// What the simulations of one golden input hold, and what their comparison compared and found.
 struct InputResult
 {
-    std::string      problems;
+    std::string      problems;  ///< a simulation that could not be run, a floor that does not hold
     SimulationCounts golden;
     SimulationCounts compared;
     SimulationCounts sensitive;
     std::string      report;
+    int              flights{0};    ///< the simulations whose rocket clears the launch rod
+    int              whole{0};      ///< the simulations that are reproducible as a whole
+    std::int64_t     floorRows{0};  ///< floorRows() of the simulations
 };
 
 /// Runs and compares every simulation of the golden input of @p maker.
@@ -2142,6 +2250,10 @@ struct InputResult
         result.compared += run.comparison.compared;
         result.sensitive += run.comparison.sensitive;
         result.report += run.comparison.report;
+        result.flights += goldenRodClearance(run.files.document).has_value() ? 1 : 0;
+        result.whole += run.sensitivity.whole ? 1 : 0;
+        result.floorRows += floorRows(run.files);
+        result.problems += floorProblem(run);
     }
     return result;
 }
@@ -2152,6 +2264,11 @@ struct InputResult
 class SimulationGolden : public ::testing::TestWithParam<TestRocketMaker>
 { };
 
+// Every simulation of the rocket is compared as far as it is reproducible: what was compared
+// and what is sensitive add up to what the files hold. And the reproducible part has a floor
+// (floorProblem(), among the problems), so that a calculation that became sensitive throughout
+// cannot pass by comparing nothing: a simulation that never clears the launch rod is
+// reproducible as a whole, and a flight in every branch at least until it has cleared the rod.
 TEST_P(SimulationGolden, EverySimulationOfTheRocket)
 {
     const InputResult result = compareInput(GetParam());
@@ -2161,6 +2278,14 @@ TEST_P(SimulationGolden, EverySimulationOfTheRocket)
     EXPECT_EQ(result.compared + result.sensitive, result.golden)
         << "what was compared or is sensitive, and what the files hold";
     EXPECT_GT(result.golden.simulations, 0);
+    // The structure is compared in every simulation, sensitive or not.
+    EXPECT_EQ(result.sensitive.simulations + result.sensitive.branches + result.sensitive.events +
+                  result.sensitive.columns + result.sensitive.warnings,
+              0);
+    // The floor, in sums: the simulations that never clear the rod are whole, and at least the
+    // rows up to the clearing of the rod were compared.
+    EXPECT_GE(result.whole, result.golden.simulations - result.flights);
+    EXPECT_GE(result.compared.rows, result.floorRows);
 }
 
 /// The test name of @p paramInfo's maker: its golden input with '-' as '_'.
@@ -2176,89 +2301,39 @@ INSTANTIATE_TEST_SUITE_P(Makers, SimulationGolden, ::testing::ValuesIn(testRocke
 
 // ================================================================================== coverage
 
-/// When the rocket of the golden simulation @p document clears the launch rod (nullopt: it never
-/// does).
-[[nodiscard]] std::optional<double> goldenRodClearance(const json& document)
-{
-    for (const json& branch : document.at("branches"))
-    {
-        for (const json& event : branch.at("events"))
-        {
-            if (event.at("type").get<std::string>() == "LAUNCHROD")
-            {
-                return goldenValue(event.at("time"));
-            }
-        }
-    }
-    return std::nullopt;
-}
-
-/// What is wrong with the reproducible part of @p run, "" when nothing is: a simulation that
-/// never clears the launch rod has to be reproducible as a whole, and a flight in every branch
-/// at least until the rod is cleared.
-[[nodiscard]] std::string floorProblem(const GoldenRun& run)
-{
-    const std::optional<double> cleared = goldenRodClearance(run.files.document);
-    if (!cleared.has_value())
-    {
-        return run.sensitivity.whole
-                   ? std::string{}
-                   : std::format(
-                         "{}: never clears the launch rod, but is not reproducible as a "
-                         "whole\n",
-                         run.context);
-    }
-    std::string problem;
-    for (std::size_t i = 0; i < run.sensitivity.horizons.size(); i++)
-    {
-        if (!(run.sensitivity.horizons[i].time >= *cleared))
-        {
-            problem += std::format(
-                "{} branch {}: reproducible until t = {} s only, the launch "
-                "rod is cleared at {} s\n",
-                run.context, i, run.sensitivity.horizons[i].time, *cleared);
-        }
-    }
-    return problem;
-}
-
-/// What the makers of TestRockets.h cover of the golden simulations of the test rockets.
-struct SimulationCoverage
+/// What the golden simulations of the test rockets hold, read from the files alone (no
+/// simulation is run), and whether each input has a maker in TestRockets.h, whose test
+/// (SimulationGolden) compares its simulations.
+struct GoldenCoverage
 {
     int              goldenInputs{0};  ///< the "testrocket" inputs of the manifest
     SimulationCounts golden;           ///< what their simulation files hold
-    SimulationCounts compared;         ///< what was compared
-    SimulationCounts sensitive;        ///< what is not reproducible
     int              flights{0};       ///< the simulations whose rocket clears the launch rod
-    int              whole{0};         ///< the simulations that are reproducible as a whole
-    std::string      problems;         ///< an input without a maker, a floor that does not hold
+    std::int64_t     floorRows{0};     ///< floorRows() of the simulations
+    std::string      problems;         ///< an input without a maker, a file that cannot be read
 };
 
-/// Adds the simulations of the golden input @p input, the one of @p maker, to @p coverage.
-void cover(SimulationCoverage& coverage, const TestRocketMaker& maker, const GoldenInput& input)
+/// Adds the simulations of the golden input @p input to @p coverage.
+void cover(GoldenCoverage& coverage, const GoldenInput& input)
 {
-    for (std::size_t i = 0; i < input.simulations.size(); i++)
+    for (const GoldenSimulation& simulation : input.simulations)
     {
-        const GoldenRun& run = goldenRun(maker, input, i);
-        if (!run.problem.empty())
+        const GoldenFiles files = loadGoldenFiles(simulation);
+        if (!files.problem.empty())
         {
-            coverage.problems += std::format("{}: {}\n", input.simulations[i].json, run.problem);
+            coverage.problems += std::format("{}: {}\n", simulation.json, files.problem);
             continue;
         }
-        coverage.golden += run.golden;
-        coverage.compared += run.comparison.compared;
-        coverage.sensitive += run.comparison.sensitive;
-        coverage.flights += goldenRodClearance(run.files.document).has_value() ? 1 : 0;
-        coverage.whole += run.sensitivity.whole ? 1 : 0;
-        coverage.problems += floorProblem(run);
+        coverage.golden += goldenCounts(files);
+        coverage.flights += goldenRodClearance(files.document).has_value() ? 1 : 0;
+        coverage.floorRows += floorRows(files);
     }
 }
 
-/// Compares every simulation of every "testrocket" input of the manifest with the run of its
-/// maker's rocket and sums what the files hold, what was compared and what is sensitive.
-[[nodiscard]] SimulationCoverage simulationCoverage()
+/// Reads every simulation of every "testrocket" input of the manifest.
+[[nodiscard]] GoldenCoverage goldenCoverage()
 {
-    SimulationCoverage coverage;
+    GoldenCoverage coverage;
     if (!manifest())
     {
         coverage.problems = manifest().error().message;
@@ -2272,29 +2347,27 @@ void cover(SimulationCoverage& coverage, const TestRocketMaker& maker, const Gol
             continue;
         }
         coverage.goldenInputs++;
-        const auto maker =
-            std::ranges::find(makers, std::string_view{input.name}, &TestRocketMaker::input);
-        if (maker == makers.end())
+        if (std::ranges::find(makers, std::string_view{input.name}, &TestRocketMaker::input) ==
+            makers.end())
         {
             coverage.problems += std::format("{}: no maker\n", input.name);
-            continue;
         }
-        cover(coverage, *maker, input);
+        cover(coverage, input);
     }
     return coverage;
 }
 
-/// Every simulation of the golden data of the test rockets is compared: what was compared and
-/// what is sensitive add up to what the files hold. And the reproducible part has a floor, so
-/// that a calculation that became sensitive throughout cannot pass by comparing nothing.
-TEST(SimulationGoldenCoverage, EveryGoldenSimulationIsComparedAsFarAsItIsReproducible)
+/// Every golden simulation of the test rockets is compared: each of the thirteen inputs has a
+/// maker, and the test of each maker (SimulationGolden) checks that what it compared and what
+/// is sensitive add up to what the files of its input hold, and that the floor holds. This
+/// test pins what the files hold in all, and the floor in all; it runs no simulation, so that
+/// the simulations are not run a second time for the sums (ctest starts a process per test).
+TEST(SimulationGoldenCoverage, EveryGoldenSimulationOfTheTestRocketsHasAMaker)
 {
-    const SimulationCoverage coverage = simulationCoverage();
+    const GoldenCoverage coverage = goldenCoverage();
     EXPECT_EQ(coverage.problems, "");
     EXPECT_EQ(coverage.goldenInputs, 13);
     EXPECT_EQ(static_cast<std::size_t>(coverage.goldenInputs), testRocketMakers().size());
-    EXPECT_EQ(coverage.compared + coverage.sensitive, coverage.golden)
-        << "what was compared or is sensitive, and what the files hold";
     EXPECT_EQ(coverage.golden.simulations, 50) << "one per configuration, and three variants";
     EXPECT_EQ(coverage.golden.branches, 53);
     EXPECT_EQ(coverage.golden.events, 437);
@@ -2303,18 +2376,11 @@ TEST(SimulationGoldenCoverage, EveryGoldenSimulationIsComparedAsFarAsItIsReprodu
     EXPECT_EQ(coverage.golden.numbers, 6920);
     EXPECT_EQ(coverage.golden.rows, 22330);
     EXPECT_EQ(coverage.golden.values, 1562004);
-    // The structure is compared in every simulation, sensitive or not.
-    EXPECT_EQ(coverage.sensitive.simulations + coverage.sensitive.branches +
-                  coverage.sensitive.events + coverage.sensitive.columns +
-                  coverage.sensitive.warnings,
-              0);
-    // The floor (floorProblem()): the 19 simulations that never clear the launch rod are
-    // reproducible as a whole, and the 31 flights until they have cleared it.
+    // The floor (floorProblem()): 31 flights, which are reproducible until they have cleared
+    // the rod, 794 rows in all, and 19 simulations that never clear it and are reproducible as
+    // a whole, 26 rows.
     EXPECT_EQ(coverage.flights, 31);
-    EXPECT_GE(coverage.whole, 19);
-    // The golden files have 794 rows up to the clearing of the rod in the flights, and 26 in the
-    // other simulations.
-    EXPECT_GE(coverage.compared.rows, 820);
+    EXPECT_EQ(coverage.floorRows, 820);
 }
 
 // ==================================================================================== strict
@@ -2514,18 +2580,12 @@ void shiftSeries(GoldenFiles& files, std::string_view key, std::size_t row, doub
 /// A change to the golden files of a simulation that the comparison has to report, in one line.
 struct Mutation
 {
-    std::string_view name;              ///< what is changed; it names the test
+    std::string_view name;              ///< what is changed; it names the change in a failure
     Subject          subject;           ///< the simulation
     void (*apply)(GoldenFiles& files);  ///< makes the change
     std::string_view heading;           ///< what follows the context in the report's heading
     std::string_view line;              ///< what its one line starts with
 };
-
-/// The name of @p mutation, for the messages of the tests.
-std::ostream& operator<<(std::ostream& out, const Mutation& mutation)
-{
-    return out << mutation.name;
-}
 
 /// The changes to what identifies a simulation, to its options and to how it ended.
 [[nodiscard]] std::vector<Mutation> settingMutations()
@@ -2808,38 +2868,6 @@ std::ostream& operator<<(std::ostream& out, const Mutation& mutation)
                              {.randomConfigurationId = run->randomConfigurationId});
 }
 
-/// A golden value changed in a copy of the files of a simulation.
-class SimulationGoldenMutation : public ::testing::TestWithParam<Mutation>
-{ };
-
-TEST_P(SimulationGoldenMutation, IsReportedInOneLine)
-{
-    const Mutation&  mutation = GetParam();
-    const GoldenRun* run      = subjectRun(mutation.subject);
-    ASSERT_NE(run, nullptr);
-    const std::string report = comparisonAfter(mutation.subject, mutation.apply).report;
-    const std::string start =
-        std::format("{}{}:\n{}", run->context, mutation.heading, mutation.line);
-    EXPECT_TRUE(report.starts_with(start)) << report << "\ndoes not start with\n" << start;
-    EXPECT_EQ(std::ranges::count(report, '\n'), 2) << report;
-}
-
-/// The test name of @p paramInfo's mutation.
-[[nodiscard]] std::string mutationTestName(const ::testing::TestParamInfo<Mutation>& paramInfo)
-{
-    return std::string{paramInfo.param.name};
-}
-
-INSTANTIATE_TEST_SUITE_P(Changes, SimulationGoldenMutation, ::testing::ValuesIn(mutations()),
-                         mutationTestName);
-
-TEST(SimulationGoldenMutations, TheFilesAsTheyAreMatch)
-{
-    EXPECT_EQ(comparisonAfter(kOnThePad, nullptr).report, "");
-    EXPECT_EQ(comparisonAfter(kFlight, nullptr).report, "");
-    EXPECT_EQ(comparisonAfter(kWithWarning, nullptr).report, "");
-}
-
 /// Changes within the tolerances to the [C6-5] flight: a value and a time of the time series,
 /// the times of two events, a summary value.
 void changeTheFlightWithinTheTolerances(GoldenFiles& files)
@@ -2860,10 +2888,142 @@ void changeTheRunOnThePadWithinTheTolerances(GoldenFiles& files)
     scale(files, "/branches/0/columns/0/max", kWithinTolerance);
 }
 
-TEST(SimulationGoldenMutations, ChangesWithinTheTolerancesAreNotReported)
+/// A simulation the mutations change, with the changes within the tolerances that go with it
+/// (null: none). The tests are per simulation, not per mutation: ctest starts a process per
+/// test, and a process runs the simulation (twice) before it can compare anything.
+struct SubjectCase
 {
-    EXPECT_EQ(comparisonAfter(kFlight, changeTheFlightWithinTheTolerances).report, "");
-    EXPECT_EQ(comparisonAfter(kOnThePad, changeTheRunOnThePadWithinTheTolerances).report, "");
+    std::string_view name;  ///< it names the tests
+    Subject          subject;
+    void (*withinTheTolerances)(GoldenFiles& files);
+};
+
+constexpr std::array<SubjectCase, 3> kSubjectCases{{
+    {.name                = "TheRunOnThePad",
+     .subject             = kOnThePad,
+     .withinTheTolerances = changeTheRunOnThePadWithinTheTolerances},
+    {.name                = "TheFlight",
+     .subject             = kFlight,
+     .withinTheTolerances = changeTheFlightWithinTheTolerances},
+    {.name = "TheRunWithAWarning", .subject = kWithWarning, .withinTheTolerances = nullptr},
+}};
+
+/// The name of @p subjectCase, for the messages of the tests.
+std::ostream& operator<<(std::ostream& out, const SubjectCase& subjectCase)
+{
+    return out << subjectCase.name;
+}
+
+/// The mutations of the simulation @p subject.
+[[nodiscard]] std::vector<Mutation> mutationsOf(const Subject& subject)
+{
+    std::vector<Mutation> own;
+    for (const Mutation& mutation : mutations())
+    {
+        if (mutation.subject.input == subject.input && mutation.subject.index == subject.index)
+        {
+            own.push_back(mutation);
+        }
+    }
+    return own;
+}
+
+/// What is wrong with the report of @p mutation, applied to a copy of the files of @p run: ""
+/// when the report is the heading and the one line that name the change.
+[[nodiscard]] std::string mutationProblem(const Mutation& mutation, const GoldenRun& run)
+{
+    const std::string report = comparisonAfter(mutation.subject, mutation.apply).report;
+    const std::string start =
+        std::format("{}{}:\n{}", run.context, mutation.heading, mutation.line);
+    if (!report.starts_with(start))
+    {
+        return std::format("{}: the report\n{}\ndoes not start with\n{}\n", mutation.name, report,
+                           start);
+    }
+    if (std::ranges::count(report, '\n') != 2)
+    {
+        return std::format("{}: the report is not one line:\n{}\n", mutation.name, report);
+    }
+    return {};
+}
+
+/// What is wrong with the reports of the mutations of the simulation @p subject, each named;
+/// "" when every one is reported in its one line.
+[[nodiscard]] std::string mutationProblems(const Subject& subject)
+{
+    const GoldenRun* run = subjectRun(subject);
+    if (run == nullptr)
+    {
+        return "no run";
+    }
+    std::string problems;
+    for (const Mutation& mutation : mutationsOf(subject))
+    {
+        problems += mutationProblem(mutation, *run);
+    }
+    return problems;
+}
+
+/// The report of the changes within the tolerances of @p subjectCase; "" when it has none.
+[[nodiscard]] std::string reportWithinTheTolerances(const SubjectCase& subjectCase)
+{
+    return subjectCase.withinTheTolerances == nullptr
+               ? std::string{}
+               : comparisonAfter(subjectCase.subject, subjectCase.withinTheTolerances).report;
+}
+
+/// The golden values of one simulation, changed one at a time in a copy of its files.
+class SimulationGoldenMutation : public ::testing::TestWithParam<SubjectCase>
+{ };
+
+TEST_P(SimulationGoldenMutation, EveryChangeIsReportedInOneLine)
+{
+    EXPECT_FALSE(mutationsOf(GetParam().subject).empty());
+    EXPECT_EQ(mutationProblems(GetParam().subject), "");
+}
+
+TEST_P(SimulationGoldenMutation, TheFilesAsTheyAreAndChangesWithinTheTolerancesMatch)
+{
+    EXPECT_EQ(comparisonAfter(GetParam().subject, nullptr).report, "");
+    EXPECT_EQ(reportWithinTheTolerances(GetParam()), "");
+}
+
+/// The test name of @p paramInfo's simulation.
+[[nodiscard]] std::string subjectTestName(const ::testing::TestParamInfo<SubjectCase>& paramInfo)
+{
+    return std::string{paramInfo.param.name};
+}
+
+INSTANTIATE_TEST_SUITE_P(Changes, SimulationGoldenMutation, ::testing::ValuesIn(kSubjectCases),
+                         subjectTestName);
+
+/// The names of @p all, sorted.
+[[nodiscard]] std::vector<std::string_view> sortedNames(const std::vector<Mutation>& all)
+{
+    std::vector<std::string_view> names;
+    names.reserve(all.size());
+    for (const Mutation& mutation : all)
+    {
+        names.push_back(mutation.name);
+    }
+    std::ranges::sort(names);
+    return names;
+}
+
+// The tests above run every mutation: each belongs to one of the three simulations, and each
+// has a name of its own for the report. No simulation is run here.
+TEST(SimulationGoldenMutations, EveryMutationBelongsToASimulationOfTheTests)
+{
+    const std::vector<Mutation> all = mutations();
+    EXPECT_EQ(all.size(), 33U);
+    std::size_t covered = 0;
+    for (const SubjectCase& subjectCase : kSubjectCases)
+    {
+        covered += mutationsOf(subjectCase.subject).size();
+    }
+    EXPECT_EQ(covered, all.size());
+    const std::vector<std::string_view> names = sortedNames(all);
+    EXPECT_EQ(std::ranges::adjacent_find(names), names.end()) << "two mutations of one name";
 }
 
 /// Changes to what is not reproducible in the [C6-5] flight: the last record, the time of the

@@ -75,6 +75,22 @@ using Type = FlightEvent::Type;
 /// functions of other platforms, and a hundredth of the plan's tolerance for an apogee.
 constexpr double kStableTolerance = 1e-6;
 
+/// The tolerances of a branch whose flight is not reproducible in OpenRocket itself, the
+/// tumbling booster of the two-stage flight: when it starts to tumble is decided by a threshold
+/// (TumbleDetector), and the flight from then on depends on the step at which it did.
+/// - Event times and the time to the optimum altitude: 0.05 s. Measured: six OpenRocket runs
+///   differ by up to 5e-3 s (the ground hit); this port differs from the pinned run by up to
+///   7.3e-5 s, and by up to 3.1e-3 s under the one-ulp libm shim (six patterns).
+/// - The optimum altitude: relative 1e-3. Measured: 2.9e-6 from the pin, and up to 1.23e-4
+///   under the shim.
+/// - The number of records: 1 %. Measured: 1022 in every run here.
+/// What they are for: a tumble drag coefficient that is 10 % too high moves the ground hit by
+/// 0.93 s, the apogee by 0.053 s and the optimum altitude by 4.1e-3 (and the number of records
+/// by 2, which is why the event times and not the records have to catch it).
+constexpr double kUnstableTimeTolerance     = 0.05;
+constexpr double kUnstableAltitudeTolerance = 1e-3;
+constexpr double kUnstableRowsTolerance     = 0.01;
+
 /// An event of a pinned run: its type and its time.
 struct EventPin
 {
@@ -84,8 +100,10 @@ struct EventPin
     constexpr EventPin(Type eventType, double eventTime) : type(eventType), time(eventTime) { }
 };
 
-/// A branch of a pinned run. The events of a branch whose flight is not reproducible in
-/// OpenRocket itself (a tumbling booster) are compared by type only from @p stableEvents on.
+/// A branch of a pinned run. In a branch whose flight is not reproducible in OpenRocket itself
+/// (@p stable false: a tumbling booster) the events from @p stableEvents on, the optimum
+/// altitude, the time to it and the number of records are compared with the looser tolerances
+/// above; the events before (those the motors time) with the stable tolerance.
 struct BranchPin
 {
     std::string           name;
@@ -155,6 +173,46 @@ void compare(std::vector<std::string>& mismatches, std::string_view what, double
     }
 }
 
+/// Notes in @p mismatches when the time @p actual is further than kUnstableTimeTolerance from
+/// @p pinned.
+void compareUnstableTime(std::vector<std::string>& mismatches, std::string_view what, double actual,
+                         double pinned)
+{
+    // Written so that a NaN fails.
+    if (!(std::abs(actual - pinned) <= kUnstableTimeTolerance))
+    {
+        mismatches.push_back(std::format("{}: {} s (OpenRocket: {} s; more than {} s apart)", what,
+                                         actual, pinned, kUnstableTimeTolerance));
+    }
+}
+
+/// The differences between a branch that is not reproducible and its pin @p pin, beyond the
+/// events: the number of records, the optimum altitude and the time to it.
+void compareUnstableBranch(std::vector<std::string>& mismatches, const FlightDataBranch& branch,
+                           const BranchPin& pin)
+{
+    const auto rows       = static_cast<double>(branch.getLength());
+    const auto pinnedRows = static_cast<double>(pin.rows);
+    if (std::abs(rows - pinnedRows) > kUnstableRowsTolerance * pinnedRows)
+    {
+        mismatches.push_back(
+            std::format("branch {}: {} records (OpenRocket: {}; more than {} % "
+                        "apart)",
+                        pin.name, branch.getLength(), pin.rows, 100 * kUnstableRowsTolerance));
+    }
+    const double altitude = branch.getOptimumAltitude();
+    if (!(std::abs(altitude - pin.optimumAltitude) <=
+          kUnstableAltitudeTolerance * std::abs(pin.optimumAltitude)))
+    {
+        mismatches.push_back(std::format(
+            "branch {} optimumAltitude: {} (OpenRocket: {}; relative difference {:.3e})", pin.name,
+            altitude, pin.optimumAltitude,
+            std::abs(altitude - pin.optimumAltitude) / std::abs(pin.optimumAltitude)));
+    }
+    compareUnstableTime(mismatches, std::format("branch {} timeToOptimumAltitude", pin.name),
+                        branch.getTimeToOptimumAltitude(), pin.timeToOptimumAltitude);
+}
+
 /// The differences between the events of @p branch and those of @p pin.
 void compareEvents(std::vector<std::string>& mismatches, const FlightDataBranch& branch,
                    const BranchPin& pin)
@@ -177,6 +235,10 @@ void compareEvents(std::vector<std::string>& mismatches, const FlightDataBranch&
         else if (i < pin.stableEvents)
         {
             compare(mismatches, what, events[i].getTime(), pin.events[i].time);
+        }
+        else
+        {
+            compareUnstableTime(mismatches, what, events[i].getTime(), pin.events[i].time);
         }
     }
 }
@@ -214,6 +276,7 @@ void compareEvents(std::vector<std::string>& mismatches, const FlightDataBranch&
         compareEvents(mismatches, branch, branchPin);
         if (!branchPin.stable)
         {
+            compareUnstableBranch(mismatches, branch, branchPin);
             continue;
         }
         if (branch.getLength() != branchPin.rows)
@@ -317,8 +380,11 @@ TEST(EngineStableRun, TheSingleStageFlightIsOpenRockets)
 // The two-stage flight: the booster separates at its burnout and tumbles down, the sustainer
 // ignites, and its recovery device opens before apogee, so its optimum altitude comes from the
 // nested coast run. The flight of the tumbling booster is not reproducible in OpenRocket itself
-// (six runs: the time of the TUMBLE event within 6e-4 s, the ground hit within 5e-3 s), so only
-// the order of its events and the times before it tumbles are compared.
+// (six runs: the time of the TUMBLE event within 6e-4 s, the ground hit within 5e-3 s), so its
+// events from the TUMBLE on, its optimum altitude and its number of records are compared with
+// the tolerances of an unstable branch (see kUnstableTimeTolerance): loose against the last
+// bits, tight against the tumbling descent itself, which no other whole-flight test checks
+// (BasicTumbleStepper is otherwise pinned one step at a time).
 TEST(EngineStableRun, TheTwoStageFlightIsOpenRockets)
 {
     const RunPin pin{

@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -23,6 +24,7 @@
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/mass/MotorClusterState.h"
+#include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/MotorConfigurationId.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -30,12 +32,15 @@
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
@@ -50,6 +55,7 @@
 #include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/exception/SimulationListenerException.h"
+#include "QtRocket/simulation/listeners/AbstractSimulationListener.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
@@ -64,7 +70,9 @@
 namespace
 {
 
+using QtRocket::AbstractSimulationListener;
 using QtRocket::AerodynamicForces;
+using QtRocket::AxialMethod;
 using QtRocket::BasicEventSimulationEngine;
 using QtRocket::CloneableSimulationListener;
 using QtRocket::Coordinate;
@@ -76,9 +84,12 @@ using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
 using QtRocket::FlightEvent;
+using QtRocket::IgnitionEvent;
+using QtRocket::InnerTube;
 using QtRocket::ModId;
 using QtRocket::Motor;
 using QtRocket::MotorClusterState;
+using QtRocket::MotorConfiguration;
 using QtRocket::MotorConfigurationId;
 using QtRocket::MotorMount;
 using QtRocket::Parachute;
@@ -111,6 +122,7 @@ using QtRocket::Test::simulatedData;
 using QtRocket::Test::simulateOrFail;
 using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
+using QtRocket::Test::TestEstesAlphaIIIWithSecondMotor;
 using QtRocket::Test::testFcid;
 using QtRocket::Test::TestMultiStageEventTestRocket;
 
@@ -132,6 +144,10 @@ static_assert(std::has_virtual_destructor_v<SimulationEngine>);
 // lines: the order of the listener calls, which of them reach the nested optimum-coast run (only
 // the system listener's), the events of every branch in order with their sources and data, the
 // warnings, and what happens to an exception.
+//
+// The probe is not part of the repository. Every scenario maker below is the C++ twin of a block
+// of TraceProbe.main() or TraceProbe.reviewScenarios(), statement for statement, so a scenario
+// can be rebuilt in Java from this file; the comment of each says what it is there to pin.
 //
 // The per-step hooks and the ALTITUDE events are left out, and no line holds a step-dependent
 // time, so the lines do not depend on the last bits of the mathematical functions.
@@ -336,6 +352,22 @@ public:
     }
 };
 
+/// TraceProbe.QueueAtStart: queues an event without a source when the simulation starts.
+class QueueAtStart final : public CloneableSimulationListener<QueueAtStart>
+{
+public:
+    QueueAtStart(Type type, double time) : m_type(type), m_time(time) { }
+
+    void startSimulation(SimulationStatus& status) override
+    {
+        status.addEvent(FlightEvent(m_type, m_time));
+    }
+
+private:
+    Type   m_type;
+    double m_time;
+};
+
 /// One scenario of TraceProbe: the rocket, the flight configuration, what is changed in the
 /// options and the listeners that come before the two recorders.
 struct Scenario
@@ -499,6 +531,153 @@ struct Scenario
     return scenario;
 }
 
+// ---- TraceProbe.reviewScenarios(): each pins one branch of the engine that the scenarios above
+// ---- do not reach.
+
+[[nodiscard]] Scenario alphaSecondMotor()
+{
+    // Two motors in one airframe: the ejection charge of the second, five seconds after its
+    // burnout, must not deploy the parachute again. The second motor ignites 0.1 s after the
+    // first, so that the order of the two ignitions does not depend on a hash order in Java.
+    TestEstesAlphaIIIWithSecondMotor fixture;
+    fixture.secondMount->getMotorConfig(testFcid(0)).setIgnitionDelay(0.1);
+    Scenario scenario;
+    scenario.rocket = std::move(fixture.rocket);
+    return scenario;
+}
+
+[[nodiscard]] Scenario alphaEjectionAfterLanding()
+{
+    // The ejection charge fires a minute after the burnout, long after the rocket has come down
+    // without a parachute: events after landing.
+    return alphaScenario([](const TestEstesAlphaIII& alpha) {
+        alpha.inner->getMotorConfig(testFcid(0)).setEjectionDelay(60.0);
+    });
+}
+
+[[nodiscard]] Scenario alphaDeploymentOnTheLaunchRod()
+{
+    // A launch rod longer than the flight is high: the parachute opens on the rod.
+    Scenario scenario = alphaScenario();
+    scenario.tweak    = [](SimulationOptions& options) { options.setLaunchRodLength(1000.0); };
+    return scenario;
+}
+
+[[nodiscard]] Scenario alphaDeploymentBeforeIgnition()
+{
+    // The parachute opens half a second after the launch, the motor ignites half a second later
+    // still: a deployment before lift-off, which counts as the lift-off.
+    return alphaScenario([](const TestEstesAlphaIII& alpha) {
+        DeploymentConfiguration atLaunch;
+        atLaunch.setDeployEvent(DeploymentConfiguration::DeployEvent::LAUNCH);
+        atLaunch.setDeployDelay(0.5);
+        alpha.chute->getDeploymentConfigurations().setDefault(atLaunch);
+        alpha.inner->getMotorConfig(testFcid(0)).setIgnitionDelay(1.0);
+    });
+}
+
+[[nodiscard]] Scenario betaMaxTimeAtSeparation()
+{
+    // The simulation ends at the very time the booster burns out and separates: the booster's
+    // branch holds the records it took over from the sustainer's and nothing of its own.
+    Scenario scenario = beta();
+    scenario.tweak    = [](SimulationOptions& options) { options.setMaxSimulationTime(2.0); };
+    return scenario;
+}
+
+[[nodiscard]] Scenario betaSeparationAtLaunchMaxTimeZero()
+{
+    // The booster separates at launch and the simulation ends at once: neither branch gets a
+    // record.
+    Scenario scenario = betaSeparationAtLaunch();
+    scenario.tweak    = [](SimulationOptions& options) { options.setMaxSimulationTime(0.0); };
+    return scenario;
+}
+
+[[nodiscard]] Scenario betaTwoBoosterMotors()
+{
+    // Two motors in the booster burn out at the same time: two ejection charges, and two
+    // ignition events for the one sustainer motor at the same simulation time. The second mount
+    // has the name and the motor of the first, so that the lines do not tell which of the two
+    // comes first (a hash order in Java).
+    TestBeta                    fixture;
+    const FlightConfigurationId fcid =
+        fixture.rocket->getSelectedConfiguration().getFlightConfigurationId();
+    auto second = std::make_unique<InnerTube>();
+    second->setName("Booster MMT");
+    second->setAxialOffset(0.005);
+    second->setAxialMethod(AxialMethod::BOTTOM);
+    second->setOuterRadius(0.019 / 2);
+    second->setInnerRadius(0.018 / 2);
+    second->setLength(0.05);
+    second->setMotorMount(true);
+    {
+        MotorConfiguration motorConfig{*second, fcid};
+        motorConfig.setMotor(fixture.boosterMmt->getMotorConfig(fcid).getMotor());
+        second->setMotorConfig(std::move(motorConfig), fcid);
+    }
+    fixture.boosterBody->addChild(std::move(second));
+    // The second motor's mass at the tail would make the rocket unstable: weight in the nose.
+    fixture.nose->setMassOverridden(true);
+    fixture.nose->setOverrideMass(0.1);
+    return allStagesScenario(std::move(fixture.rocket));
+}
+
+[[nodiscard]] Scenario alphaTumbleBeforeIgnition()
+{
+    // A TUMBLE event before the motor ignites (a second after the launch): the tumble stepper,
+    // which knows no thrust, takes the rocket from the pad downwards; the engine puts it back
+    // at every step until the burnout, which finds it on the pad.
+    Scenario scenario = alphaScenario([](const TestEstesAlphaIII& alpha) {
+        alpha.inner->getMotorConfig(testFcid(0)).setIgnitionDelay(1.0);
+    });
+    scenario.first.push_back(std::make_shared<QueueAtStart>(Type::TUMBLE, 0.1));
+    return scenario;
+}
+
+[[nodiscard]] Scenario alphaTumbleUnderLowThrust()
+{
+    // A TUMBLE event a tenth of a second after the ignition, while the motor gives less than a
+    // newton (9 N/s from zero): tumbling under thrust.
+    return alphaScenarioWith(std::make_shared<QueueAtStart>(Type::TUMBLE, 0.1));
+}
+
+[[nodiscard]] Scenario alphaDrogueAndMainAtApogee()
+{
+    // A drogue that opens at the ejection charge and a main parachute that opens at apogee,
+    // when the rocket hangs under the drogue: the main opens at low speed.
+    return alphaScenario([](const TestEstesAlphaIII& alpha) {
+        alpha.chute->setDrogue(true);
+        auto mainChute = std::make_unique<Parachute>();
+        mainChute->setName("Main");
+        DeploymentConfiguration atApogee;
+        atApogee.setDeployEvent(DeploymentConfiguration::DeployEvent::APOGEE);
+        mainChute->getDeploymentConfigurations().setDefault(atApogee);
+        alpha.body->addChild(std::move(mainChute));
+    });
+}
+
+[[nodiscard]] Scenario betaBoosterChuteAfterTheEjection()
+{
+    // A parachute in the booster that opens two seconds after the ejection charge: at the
+    // separation the recovery is not "soon", and the booster flies on with an open forward end.
+    TestBeta fixture;
+    auto     chute = std::make_unique<Parachute>();
+    chute->setName("Booster Chute");
+    DeploymentConfiguration afterEjection;
+    afterEjection.setDeployEvent(DeploymentConfiguration::DeployEvent::EJECTION);
+    afterEjection.setDeployDelay(2.0);
+    chute->getDeploymentConfigurations().setDefault(afterEjection);
+    fixture.boosterBody->addChild(std::move(chute));
+    // Weight at the top of the booster, so that it is stable on its own, and more in the nose,
+    // so that the whole rocket stays stable.
+    fixture.coupler->setMassOverridden(true);
+    fixture.coupler->setOverrideMass(0.05);
+    fixture.nose->setMassOverridden(true);
+    fixture.nose->setOverrideMass(0.2);
+    return allStagesScenario(std::move(fixture.rocket));
+}
+
 /// The scenarios of TraceProbe.main(), by name.
 [[nodiscard]] const std::map<std::string_view, std::function<Scenario()>>& scenarioMakers()
 {
@@ -528,6 +707,17 @@ struct Scenario
          [] { return alphaScenarioWith(std::make_shared<ThrowAtBranchStart>()); }},
         {"beta separation at launch", betaSeparationAtLaunch},
         {"beta booster only", betaBoosterOnly},
+        {"alpha second motor", alphaSecondMotor},
+        {"alpha ejection after landing", alphaEjectionAfterLanding},
+        {"alpha deployment on the launch rod", alphaDeploymentOnTheLaunchRod},
+        {"alpha deployment before ignition", alphaDeploymentBeforeIgnition},
+        {"beta max time at separation", betaMaxTimeAtSeparation},
+        {"beta separation at launch, max time 0 s", betaSeparationAtLaunchMaxTimeZero},
+        {"beta two booster motors", betaTwoBoosterMotors},
+        {"alpha tumble before ignition", alphaTumbleBeforeIgnition},
+        {"alpha tumble under low thrust", alphaTumbleUnderLowThrust},
+        {"alpha drogue and a main at apogee", alphaDrogueAndMainAtApogee},
+        {"beta booster chute two seconds after the ejection", betaBoosterChuteAfterTheEjection},
     };
     return kMakers;
 }
@@ -770,6 +960,17 @@ TEST(EngineTraceScenarios, ThePinsCoverTheScenarios)
         "alpha exception at branch start",
         "beta separation at launch",
         "beta booster only",
+        "alpha second motor",
+        "alpha ejection after landing",
+        "alpha deployment on the launch rod",
+        "alpha deployment before ignition",
+        "beta max time at separation",
+        "beta separation at launch, max time 0 s",
+        "beta two booster motors",
+        "alpha tumble before ignition",
+        "alpha tumble under low thrust",
+        "alpha drogue and a main at apogee",
+        "beta booster chute two seconds after the ejection",
     };
     EXPECT_EQ(pinnedScenarios(), expected);
 
@@ -1048,6 +1249,42 @@ TEST(BasicEventSimulationEngine, TheOptimumAltitudeIsTheApogeeWhenNothingOpensBe
     EXPECT_EQ(branch.getTimeToOptimumAltitude(), apogee->getTime());
 }
 
+// Before lift-off the engine puts a rocket that sank below its launch position back, with its
+// launch velocity (Java: "Avoid sinking into ground before liftoff"). The Runge-Kutta steppers
+// never let a rocket sink before lift-off themselves, so the engine's part only shows with
+// another stepper: here a TUMBLE event before the motor ignites puts the rocket on the tumble
+// stepper, which knows no thrust and lets it fall from the pad for the two seconds of the burn.
+// OpenRocket (probes/tier8b-fix/engine, TraceProbe "alpha tumble before ignition", whose rows
+// are in TumbleBeforeIgnition.rows.out): 2001 records from 1.0 s to 3.0 s, each with altitude
+// 0.0 and vertical velocity 0.0. The events of this run are pinned with the trace.
+TEST(BasicEventSimulationEngine, PutsARocketThatSinksBeforeLiftoffBackOnThePad)
+{
+    AlphaRun run;
+    run.alpha.inner->getMotorConfig(testFcid(0)).setIgnitionDelay(1.0);
+    const Result<void> result =
+        run.simulation.simulate({std::make_shared<QueueAtStart>(Type::TUMBLE, 0.1)});
+    ASSERT_TRUE(result.has_value());
+
+    const FlightData& data = simulatedData(run.simulation);
+    EXPECT_EQ(abortCauses(data, 0), std::vector<Cause>{Cause::NO_LIFTOFF});
+    const FlightDataBranch& branch = data.getBranch(0);
+    EXPECT_EQ(branch.getFirstEvent(Type::LIFTOFF), nullptr);
+    ASSERT_NE(branch.getFirstEvent(Type::TUMBLE), nullptr);
+
+    // The minimum time step from rest, 2000 times, and the record of the abort.
+    EXPECT_EQ(branch.getLength(), 2001U);
+    const std::vector<double>* altitude =
+        branch.getView(FlightDataType::builtin(FlightDataTypeId::TYPE_ALTITUDE));
+    const std::vector<double>* velocity =
+        branch.getView(FlightDataType::builtin(FlightDataTypeId::TYPE_VELOCITY_Z));
+    ASSERT_NE(altitude, nullptr);
+    ASSERT_NE(velocity, nullptr);
+    // Exact: the position and the velocity are assigned, not computed.
+    EXPECT_EQ(std::ranges::count(*altitude, 0.0), 2001);
+    EXPECT_EQ(std::ranges::count(*velocity, 0.0), 2001);
+    EXPECT_EQ(branch.getMinimum(FlightDataType::builtin(FlightDataTypeId::TYPE_ALTITUDE)), 0.0);
+}
+
 // The end of a branch at the maximum simulation time: a SIMULATION_END event at the current
 // time goes straight to the branch, and the time of the last record is below the limit.
 TEST(BasicEventSimulationEngine, EndsABranchAtTheMaximumSimulationTime)
@@ -1201,6 +1438,235 @@ TEST(BasicEventSimulationEngine, ANaNInTheStatusIsACalculationExceptionWithTheBr
     ASSERT_EQ(engine.getFlightData()->getBranchCount(), 1U);
     EXPECT_EQ(message, BasicEventSimulationEngine::kNaNResult);
     EXPECT_EQ(carried, engine.getFlightData()->getBranches().front());
+}
+
+/// TraceProbe.IgniteWithoutSource: queues, when the LAUNCH event is handled, an IGNITION event
+/// without a source for the first motor of the status, and writes down the mount its
+/// motorIgnition() hook is given.
+class IgniteWithoutSource final : public CloneableSimulationListener<IgniteWithoutSource>
+{
+public:
+    IgniteWithoutSource(bool system, std::shared_ptr<std::vector<std::string>> mounts)
+      : m_system(system), m_mounts(std::move(mounts))
+    {
+    }
+
+    [[nodiscard]] bool isSystemListener() const override { return m_system; }
+
+    [[nodiscard]] bool handleFlightEvent(SimulationStatus&  status,
+                                         const FlightEvent& event) override
+    {
+        if (event.getType() == Type::LAUNCH)
+        {
+            status.addEvent(FlightEvent(Type::IGNITION, 0.5, nullptr, status.getMotors().front()));
+        }
+        return true;
+    }
+
+    [[nodiscard]] bool motorIgnition(SimulationStatus& /*status*/,
+                                     const MotorConfigurationId& /*motorId*/,
+                                     const MotorMount& mount,
+                                     MotorClusterState& /*instance*/) override
+    {
+        m_mounts->push_back(asComponent(mount).getName());
+        return true;
+    }
+
+private:
+    bool                                      m_system;
+    std::shared_ptr<std::vector<std::string>> m_mounts;
+};
+
+/// What is wrong with the flight of the Alpha III in its [C6-5] configuration whose motor never
+/// ignites by itself and is ignited by an IGNITION event without a source that a listener
+/// (a system listener when @p system) queues for 0.5 s; "" when it is OpenRocket's flight.
+/// OpenRocket (probes/tier8b-fix/engine, TraceProbe.nullIgnitionRun(), NullIgnition.out), with a
+/// system listener and with a user listener alike: status UPTODATE, no warning, the events
+///     LAUNCH 0.0, IGNITION 0.5 (no source, C6), LIFTOFF, LAUNCHROD, BURNOUT 2.6 (no source, C6),
+///     APOGEE, EJECTION_CHARGE 7.6 (Stage), RECOVERY_DEVICE_DEPLOYMENT 7.601 (Parachute),
+///     GROUND_HIT, SIMULATION_END
+/// and a null mount for the listener's motorIgnition(), where the hook here gets the mount of
+/// the motor state.
+[[nodiscard]] std::string ignitionWithoutSourceProblems(bool system)
+{
+    AlphaRun run(3);
+    run.alpha.inner->getMotorConfig(testFcid(3)).setIgnitionEvent(IgnitionEvent::NEVER);
+    const auto         mounts = std::make_shared<std::vector<std::string>>();
+    const Result<void> result =
+        run.simulation.simulate({std::make_shared<IgniteWithoutSource>(system, mounts)});
+    if (!result.has_value())
+    {
+        return "simulate() failed: " + result.error().message;
+    }
+    const FlightData&       data   = simulatedData(run.simulation);
+    const FlightDataBranch& branch = data.getBranch(0);
+
+    std::string problems;
+    if (eventNames(data, 0) !=
+        std::vector<std::string>{"LAUNCH", "IGNITION", "LIFTOFF", "LAUNCHROD", "BURNOUT", "APOGEE",
+                                 "EJECTION_CHARGE", "RECOVERY_DEVICE_DEPLOYMENT", "GROUND_HIT",
+                                 "SIMULATION_END"})
+    {
+        problems += "the events are not OpenRocket's\n";
+    }
+    const FlightEvent* ignition = branch.getFirstEvent(Type::IGNITION);
+    const FlightEvent* burnout  = branch.getFirstEvent(Type::BURNOUT);
+    const FlightEvent* ejection = branch.getFirstEvent(Type::EJECTION_CHARGE);
+    if (ignition == nullptr || burnout == nullptr || ejection == nullptr)
+    {
+        return problems + "an event of the motor is missing\n";
+    }
+    // The ignition at the time of the event; the burnout 2.1 s later (0.5 + 2.1 is 2.6 exactly).
+    if (ignition->getTime() != 0.5 || ignition->getSource() != nullptr ||
+        ignition->getMotorState() == nullptr)
+    {
+        problems += "the IGNITION event is not the one that was queued\n";
+    }
+    if (burnout->getTime() != 2.6 || burnout->getSource() != nullptr ||
+        burnout->getMotorState() != ignition->getMotorState())
+    {
+        problems += "the BURNOUT event is not at 2.6 s without a source\n";
+    }
+    // Five seconds after the step that reached the burnout; its source is the stage of the
+    // simulated copy of the rocket.
+    if (std::abs(ejection->getTime() - 7.6) > 2e-3 ||
+        ejection->getSourceId() != run.alpha.stage->getId())
+    {
+        problems += "the EJECTION_CHARGE event is not at 7.6 s from the stage\n";
+    }
+    if (*mounts != std::vector<std::string>{"Motor Mount Tube"})
+    {
+        problems += "motorIgnition() was not called once with the mount of the motor state\n";
+    }
+    if (!data.getWarningSet().empty())
+    {
+        problems += "there are warnings\n";
+    }
+    if (run.simulation.getStatus() != Simulation::Status::UPTODATE)
+    {
+        problems += "the status is not UPTODATE\n";
+    }
+    return problems;
+}
+
+// The regression test of an IGNITION event without a source, which only a listener or an
+// extension can queue: the engine took the null source for a source of the wrong type and ended
+// the run in a BugError, after it had ignited the motor and recorded the event. Java casts the
+// null source to a MotorMount, which succeeds, and flies the flight.
+TEST(BasicEventSimulationEngine, AnIgnitionEventWithoutASourceIgnitesItsMotor)
+{
+    EXPECT_EQ(ignitionWithoutSourceProblems(true), "");
+    EXPECT_EQ(ignitionWithoutSourceProblems(false), "");
+}
+
+/// A listener that says how it is copied in the wrong way: it derives from
+/// AbstractSimulationListener and leaves clone() alone (see there). Writes down the hooks around
+/// a branch.
+class ListenerWithoutClone : public AbstractSimulationListener
+{
+public:
+    void startSimulation(SimulationStatus& /*status*/) override
+    {
+        m_calls.emplace_back("startSimulation");
+    }
+    void endSimulation(SimulationStatus& /*status*/,
+                       const SimulationException* /*exception*/) override
+    {
+        m_calls.emplace_back("endSimulation");
+    }
+    void startSimulationBranch(SimulationStatus& /*status*/) override
+    {
+        m_calls.emplace_back("startSimulationBranch");
+    }
+    void endSimulationBranch(SimulationStatus&          status,
+                             const SimulationException* exception) override
+    {
+        m_calls.push_back(std::format(
+            "endSimulationBranch exception={} conditions={} branch={}", exceptionText(exception),
+            status.getSimulationConditions() != nullptr, branchOf(status)));
+    }
+
+    [[nodiscard]] const std::vector<std::string>& calls() const noexcept { return m_calls; }
+
+private:
+    std::vector<std::string> m_calls;
+};
+
+/// The same, with a clone() that fails in its own way.
+class ListenerWhoseCloneThrows final : public ListenerWithoutClone
+{
+public:
+    [[nodiscard]] std::shared_ptr<SimulationListener> clone() const override
+    {
+        throw std::runtime_error("this listener cannot be cloned");
+    }
+};
+
+/// What the hooks of a listener whose first clone fails are called with, in Java
+/// (probes/tier8b-fix/steppers, MaskProbe.java: a listener whose clone() throws): the
+/// simulation and its first branch start, the stepper's initialize() fails to copy the status,
+/// the branch ends (without a SimulationException: null) on the status the engine still has,
+/// and the exception leaves; endSimulation() is not called.
+[[nodiscard]] std::vector<std::string> callsAroundAFailedInitialize()
+{
+    return {"startSimulation", "startSimulationBranch",
+            "endSimulationBranch exception=null conditions=true branch=Stage"};
+}
+
+/// Runs the simulation of @p run with @p listener, whose clone() is expected to end the run in
+/// an exception: a test failure when simulate() returns.
+void simulateExpectingAnException(AlphaRun&                                  run,
+                                  const std::shared_ptr<SimulationListener>& listener)
+{
+    const Result<void> result = run.simulation.simulate({listener});
+    ADD_FAILURE() << "simulate() returned, "
+                  << (result.has_value() ? "successfully" : result.error().message);
+}
+
+// The regression tests of an exception that leaves a stepper's initialize(): the engine had
+// moved its status into the call, so the handlers that end the branch found a hollow status,
+// and their BugError ("The simulation status has no simulation conditions") replaced the
+// exception that had been thrown. The first clone of a run is made by the Runge-Kutta
+// stepper's initialize(), so the library's own diagnostic for a listener without clone() could
+// not reach the caller of a simulation.
+TEST(BasicEventSimulationEngine, AListenerWithoutCloneIsReportedAsWhatItIs)
+{
+    AlphaRun   run;
+    const auto listener = std::make_shared<ListenerWithoutClone>();
+    EXPECT_EQ(bugText([&run, &listener] { simulateExpectingAnException(run, listener); }),
+              "clone() is not overridden by a simulation listener: derive it from "
+              "CloneableSimulationListener");
+    EXPECT_EQ(listener->calls(), callsAroundAFailedInitialize());
+
+    // The bookkeeping of Simulation::simulate() took place: the flight data of the run, with
+    // the branch that was started and no record.
+    const FlightData& data = simulatedData(run.simulation);
+    ASSERT_EQ(data.getBranchCount(), 1U);
+    EXPECT_EQ(data.getBranch(0).getLength(), 0U);
+}
+
+/// Runs the simulation of @p run with @p listener and returns the message of the
+/// std::runtime_error that leaves it; "<none>" when none does.
+[[nodiscard]] std::string runtimeErrorOf(AlphaRun&                                  run,
+                                         const std::shared_ptr<SimulationListener>& listener)
+{
+    try
+    {
+        simulateExpectingAnException(run, listener);
+    }
+    catch (const std::runtime_error& e)
+    {
+        return e.what();
+    }
+    return "<none>";
+}
+
+TEST(BasicEventSimulationEngine, AnExceptionOfAListenersCloneLeavesAsItIs)
+{
+    AlphaRun   run;
+    const auto listener = std::make_shared<ListenerWhoseCloneThrows>();
+    EXPECT_EQ(runtimeErrorOf(run, listener), "this listener cannot be cloned");
+    EXPECT_EQ(listener->calls(), callsAroundAFailedInitialize());
 }
 
 /// Takes the listeners of the status's conditions down when it is first called, to see that

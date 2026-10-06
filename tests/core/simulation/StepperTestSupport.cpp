@@ -745,10 +745,18 @@ AbstractSimulationStepper::DataStore& scenarioStore(AbstractSimulationStepper& s
 void setNozzleExitDiameters(FlightConfiguration&                 configuration,
                             const std::function<double(double)>& diameter)
 {
-    for (RocketComponent* component : configuration.getAllActiveComponents())
+    // The mounts of the motors the configuration lists (Java: getActiveMotors()).
+    std::vector<const MotorMount*> listed;
+    listed.reserve(configuration.getActiveMotors().size());
+    for (const MotorConfiguration& motor : configuration.getActiveMotors())
+    {
+        listed.push_back(&motor.getMount());
+    }
+    // Java sets the diameter in the listed object, which is the mount's own.
+    for (RocketComponent* component : configuration.getRocket().getAllChildren())
     {
         auto* mount = dynamic_cast<MotorMount*>(component);
-        if (mount == nullptr || !mount->getMotorConfig(configuration.getId()).hasMotor())
+        if (mount == nullptr || std::ranges::find(listed, mount) == listed.end())
         {
             continue;
         }
@@ -757,7 +765,6 @@ void setNozzleExitDiameters(FlightConfiguration&                 configuration,
             diameter(motorConfiguration.getMotor()->getDiameter()));
         EXPECT_TRUE(set.has_value()) << component->getName();
     }
-    configuration.update();
 }
 
 void igniteAllMotors(const SimulationStatus& status, double time)

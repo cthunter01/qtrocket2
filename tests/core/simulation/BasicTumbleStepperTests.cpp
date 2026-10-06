@@ -2,6 +2,7 @@
 
 #include <array>
 #include <format>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -15,6 +16,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/AbstractEulerStepper.h"
+#include "QtRocket/simulation/AbstractSimulationStepper.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "rocket/JavaValueDifferences.h"
@@ -26,6 +28,7 @@ namespace
 {
 
 using QtRocket::AbstractEulerStepper;
+using QtRocket::AbstractSimulationStepper;
 using QtRocket::BasicTumbleStepper;
 using QtRocket::FinSet;
 using QtRocket::FlightConfiguration;
@@ -33,6 +36,7 @@ using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::SimulationConditions;
 using QtRocket::SimulationStatus;
+using QtRocket::Test::InitializedScenario;
 using QtRocket::Test::javaScenarioDifferences;
 using QtRocket::Test::makeScenarioRocket;
 using QtRocket::Test::matchesPinnedValue;
@@ -153,7 +157,8 @@ class TumbleScenario : public ::testing::TestWithParam<std::string>
 
 // One step of a tumbling rocket: the Alpha III (three fins), Big Blue (four), the Alpha III
 // with pods, the cluster pods, the end plate rocket, Iso-Haisu, the separated boosters of the
-// Falcon 9 Heavy, and the extra step upon ground hit.
+// Falcon 9 Heavy, the extra step upon ground hit, and the cluster pods at their terminal
+// velocity, free and before an event (the tentative time step: see below).
 TEST_P(TumbleScenario, TheStepIsOpenRockets)
 {
     EXPECT_EQ(javaScenarioDifferences(GetParam()), "");
@@ -168,11 +173,63 @@ INSTANTIATE_TEST_SUITE_P(BasicTumbleStepper, TumbleScenario,
 TEST(BasicTumbleStepper, TheScenariosCoverFinsPodsAndBoosters)
 {
     const std::vector<std::string> expected{
-        "tumble-alpha",           "tumble-bigblue",    "tumble-pods",
-        "tumble-clusterpods",     "tumble-endplate",   "tumble-isohaisu",
-        "tumble-falcon-boosters", "tumble-ground-hit",
+        "tumble-alpha",
+        "tumble-bigblue",
+        "tumble-pods",
+        "tumble-clusterpods",
+        "tumble-endplate",
+        "tumble-isohaisu",
+        "tumble-falcon-boosters",
+        "tumble-ground-hit",
+        "tumble-terminal-velocity",
+        "tumble-terminal-velocity-before-event",
     };
     EXPECT_EQ(stepScenarioNames(isTumbleStep), expected);
+}
+
+/// The time step the tumble stepper takes from the state of the scenario @p name when the next
+/// event is @p maxTimeStep away, and the time that passed in the status; NaN for a scenario
+/// that does not exist.
+struct TumbleStep
+{
+    double timeStep{std::numeric_limits<double>::quiet_NaN()};
+    double timePassed{std::numeric_limits<double>::quiet_NaN()};
+};
+
+[[nodiscard]] TumbleStep tumbleStepOf(std::string_view name, double maxTimeStep)
+{
+    TumbleStep          taken;
+    BasicTumbleStepper  stepper;
+    InitializedScenario f(name, stepper);
+    if (f.status == nullptr)
+    {
+        return taken;
+    }
+    const double startTime = f.status->getSimulationTime();
+    stepper.step(*f.status, maxTimeStep);
+    taken.timeStep   = stepper.getStore().timeStep;
+    taken.timePassed = f.status->getSimulationTime() - startTime;
+    return taken;
+}
+
+// What the two "tumble-terminal-velocity" pins say, by name: the tentative time step of the
+// Euler steppers (RECOVERY_TIME_STEP, 0.5 s) is the step a body takes that falls at its terminal
+// velocity, when that is above g times one second (below it the oscillation test shortens the
+// step): the cluster rocket, which tumbles at 16 m/s. It is the step of every tumbling booster
+// near the end of its fall, and the other scenarios of the Euler steppers all end with a
+// shorter one (1/|a|, the oscillation test, the ground, the minimum). Java: 0.5 s, and 0.299 s
+// before an event that is 0.3 s away.
+TEST(BasicTumbleStepper, AtTerminalVelocityTheStepIsTheTentativeTimeStep)
+{
+    const TumbleStep free = tumbleStepOf("tumble-terminal-velocity", 10.0);
+    EXPECT_EQ(free.timeStep, 0.5);
+    EXPECT_EQ(free.timeStep, AbstractEulerStepper::kRecoveryTimeStep);
+    EXPECT_EQ(free.timePassed, 0.5);
+
+    // An event nearer than the tentative step: the step ends the minimum time step before it.
+    const TumbleStep before = tumbleStepOf("tumble-terminal-velocity-before-event", 0.3);
+    EXPECT_EQ(before.timeStep, 0.3 - AbstractSimulationStepper::kMinTimeStep);
+    EXPECT_EQ(before.timeStep, 0.299);
 }
 
 }  // namespace

@@ -440,7 +440,12 @@ void BasicEventSimulationEngine::selectStepper()
 void BasicEventSimulationEngine::switchStepper(SimulationStepper& stepper)
 {
     m_currentStepper = &stepper;
-    status()         = m_currentStepper->initialize(std::move(status()));
+    // Java's `currentStatus = currentStepper.initialize(currentStatus)` keeps the old status when
+    // initialize() throws (a listener that cannot be cloned), and the engine's finally block
+    // still calls endSimulationBranch() on it. So the stepper gets Java's shallow clone, which
+    // shares every object with the current status, and the current status stays whole until
+    // the result replaces it.
+    status() = m_currentStepper->initialize(status().clone());
 }
 
 void BasicEventSimulationEngine::simulateLoop(const SimulationConditions& simulationConditions)
@@ -866,13 +871,17 @@ bool BasicEventSimulationEngine::handleIgnition(const FlightEvent& event)
     status().setMotorIgnited(true);
     branchOf(status()).addEvent(event);
 
+    // Java casts the source: the cast of null succeeds (an IGNITION that a listener queued
+    // without a source; FlightEvent's validation allows it), and the listeners get a null
+    // mount. The hook takes a reference here, so they get the mount of the motor state.
     const MotorConfigurationId motorId = motorState->getId();
     const auto*                mount   = dynamic_cast<const MotorMount*>(event.getSource());
-    if (mount == nullptr)
+    if (mount == nullptr && event.getSource() != nullptr)
     {
         bug("The source of the IGNITION event is not a motor mount");
     }
-    if (!SimulationListenerHelper::fireMotorIgnition(status(), motorId, *mount, *motorState))
+    const MotorMount& ignitedMount = mount != nullptr ? *mount : motorState->getMount();
+    if (!SimulationListenerHelper::fireMotorIgnition(status(), motorId, ignitedMount, *motorState))
     {
         return false;
     }

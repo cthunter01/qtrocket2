@@ -1,15 +1,13 @@
 // Tests of the system listeners (simulation/listeners/system/): ApogeeEndListener,
-// GroundHitListener, InterruptListener, OptimumCoastListener, ProgressListener and
+// GroundHitListener, InterruptListener, OptimumCoastListener and
 // RecoveryDeviceDeploymentEndListener. OpenRocket has no test of its own for them; what they do
 // in a whole simulation is tested with the engine.
 
-#include <functional>
 #include <memory>
 #include <stop_token>
 #include <string>
 #include <string_view>
 #include <typeinfo>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -28,11 +26,9 @@
 #include "QtRocket/simulation/listeners/system/GroundHitListener.h"
 #include "QtRocket/simulation/listeners/system/InterruptListener.h"
 #include "QtRocket/simulation/listeners/system/OptimumCoastListener.h"
-#include "QtRocket/simulation/listeners/system/ProgressListener.h"
 #include "QtRocket/simulation/listeners/system/RecoveryDeviceDeploymentEndListener.h"
 #include "QtRocket/util/ModId.h"
 #include "simulation/SimulationStatusSupport.h"
-#include "simulation/SimulationTestSupport.h"
 
 namespace
 {
@@ -43,7 +39,6 @@ using QtRocket::GroundHitListener;
 using QtRocket::InterruptListener;
 using QtRocket::ModId;
 using QtRocket::OptimumCoastListener;
-using QtRocket::ProgressListener;
 using QtRocket::RecoveryDeviceDeploymentEndListener;
 using QtRocket::SimulationCancelledException;
 using QtRocket::SimulationException;
@@ -51,7 +46,6 @@ using QtRocket::SimulationListener;
 using QtRocket::SimulationListenerHelper;
 using QtRocket::SimulationStatus;
 using QtRocket::WarningSet;
-using QtRocket::Test::bugText;
 using QtRocket::Test::TestStatus;
 
 /// The warnings of a status.
@@ -366,107 +360,6 @@ TEST(InterruptListener, ThroughTheHelperTheExceptionLeavesTheStep)
     EXPECT_THROW(SimulationListenerHelper::firePostStep(fixture.status),
                  SimulationCancelledException);
     EXPECT_TRUE(SimulationListenerHelper::firePreStep(fixture.status)) << "only postStep() looks";
-}
-
-// ============================================================================ ProgressListener
-
-/// What a progress display keeps of the steps it was told about.
-struct Progress
-{
-    std::vector<double>                  times;
-    std::vector<const SimulationStatus*> statuses;
-};
-
-/// A callback that records the time and the status of every step in @p progress.
-[[nodiscard]] ProgressListener::Callback recordInto(const std::shared_ptr<Progress>& progress)
-{
-    return [progress](const SimulationStatus& status) {
-        progress->times.push_back(status.getSimulationTime());
-        progress->statuses.push_back(&status);
-    };
-}
-
-TEST(ProgressListener, CallsTheCallbackWithTheStatusAfterEveryStep)
-{
-    TestStatus       fixture;
-    const auto       progress = std::make_shared<Progress>();
-    ProgressListener listener(recordInto(progress));
-    EXPECT_TRUE(listener.isSystemListener());
-
-    fixture.status.setSimulationTime(0.5);
-    listener.postStep(fixture.status);
-    fixture.status.setSimulationTime(1.25);
-    listener.postStep(fixture.status);
-
-    EXPECT_EQ(progress->times, (std::vector<double>{0.5, 1.25}));
-    EXPECT_EQ(progress->statuses,
-              (std::vector<const SimulationStatus*>{&fixture.status, &fixture.status}));
-
-    // Only after a step.
-    EXPECT_TRUE(listener.preStep(fixture.status));
-    listener.startSimulation(fixture.status);
-    listener.endSimulation(fixture.status, nullptr);
-    EXPECT_EQ(progress->times.size(), 2U);
-}
-
-/// A callback with state of its own: it counts its calls and reports the count to @p seen.
-class CountingCallback
-{
-public:
-    explicit CountingCallback(std::shared_ptr<std::vector<int>> seen) : m_seen(std::move(seen)) { }
-
-    void operator()(const SimulationStatus& /*status*/)
-    {
-        m_calls++;
-        m_seen->push_back(m_calls);
-    }
-
-private:
-    int                               m_calls{0};
-    std::shared_ptr<std::vector<int>> m_seen;
-};
-
-TEST(ProgressListener, ItsClonesShareTheOneCallback)
-{
-    // The simulation runs on clones of its listeners (and on clones of the clones): the
-    // callback's own state goes on counting, where a copied callback would start again.
-    TestStatus                                fixture;
-    const auto                                seen = std::make_shared<std::vector<int>>();
-    const std::shared_ptr<SimulationListener> listener =
-        std::make_shared<ProgressListener>(CountingCallback(seen));
-    listener->postStep(fixture.status);
-    const std::shared_ptr<SimulationListener> clone = listener->clone();
-    clone->postStep(fixture.status);
-    clone->postStep(fixture.status);
-    const std::shared_ptr<SimulationListener> cloneOfClone = clone->clone();
-    cloneOfClone->postStep(fixture.status);
-    listener->postStep(fixture.status);
-    EXPECT_EQ(*seen, (std::vector<int>{1, 2, 3, 4, 5}));
-    EXPECT_TRUE(cloneOfClone->isSystemListener());
-    const SimulationListener& cloned = *cloneOfClone;
-    EXPECT_TRUE(typeid(cloned) == typeid(ProgressListener));
-}
-
-TEST(ProgressListener, NeedsACallback)
-{
-    EXPECT_EQ(bugText([] { const ProgressListener listener{ProgressListener::Callback{}}; }),
-              "A progress listener needs a callback");
-}
-
-TEST(ProgressListener, ThroughTheHelperItReportsEveryStepWithoutAWarning)
-{
-    TestStatus fixture;
-    const auto progress = std::make_shared<Progress>();
-    fixture.conditions->getSimulationListenerList().push_back(
-        std::make_shared<ProgressListener>(recordInto(progress)));
-    for (int step = 1; step <= 3; step++)
-    {
-        fixture.status.setSimulationTime(0.1 * step);
-        SimulationListenerHelper::firePostStep(fixture.status);
-    }
-    ASSERT_EQ(progress->times.size(), 3U);
-    EXPECT_EQ(progress->times.back(), 0.1 * 3);
-    EXPECT_TRUE(warningsOf(fixture.status).empty());
 }
 
 }  // namespace

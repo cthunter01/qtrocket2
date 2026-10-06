@@ -356,30 +356,36 @@ TEST(SimulationStatus, TheOrientationIsTheLaunchRodsWhateverTheRocket)
 {
     // The roll angle of least stability is that of new flight conditions, 0, so the orientation
     // depends on the rod alone; a vertical rod leaves the rocket's z axis up.
+    //
+    // The components went through the sines and cosines of three half angles and two quaternion
+    // products, and are compared with sin() and cos() of this platform: 1e-12, as for a value
+    // of a mathematical function (a library that is one ulp off per call moves them by up to
+    // 5e-16). Java's values of the same orientations are pinned in the test above.
+    constexpr double  kRotatedTolerance = 1e-12;
     const ProbeRocket probe("alpha");
     const auto        conditions = std::make_shared<SimulationConditions>();
     conditions->setLaunchRodDirection(1.25);
     const SimulationStatus vertical = probe.status(conditions);
     const Coordinate       up       = vertical.getRocketOrientationQuaternion().rotateZ();
-    EXPECT_NEAR(up.x, 0.0, 1e-15);
-    EXPECT_NEAR(up.y, 0.0, 1e-15);
-    EXPECT_NEAR(up.z, 1.0, 1e-15);
+    EXPECT_NEAR(up.x, 0.0, kRotatedTolerance);
+    EXPECT_NEAR(up.y, 0.0, kRotatedTolerance);
+    EXPECT_NEAR(up.z, 1.0, kRotatedTolerance);
 
     // A rod tilted by 0.2 rad towards the east (direction pi / 2, 0 being north): the axis
     // leans by sin(0.2) to +x.
     conditions->setLaunchRodAngle(0.2);
     conditions->setLaunchRodDirection(std::numbers::pi / 2);
     const Coordinate east = probe.status(conditions).getRocketOrientationQuaternion().rotateZ();
-    EXPECT_NEAR(east.x, std::sin(0.2), 1e-15);
-    EXPECT_NEAR(east.y, 0.0, 1e-15);
-    EXPECT_NEAR(east.z, std::cos(0.2), 1e-15);
+    EXPECT_NEAR(east.x, std::sin(0.2), kRotatedTolerance);
+    EXPECT_NEAR(east.y, 0.0, kRotatedTolerance);
+    EXPECT_NEAR(east.z, std::cos(0.2), kRotatedTolerance);
 
     // Towards the north (direction 0): to +y.
     conditions->setLaunchRodDirection(0);
     const Coordinate north = probe.status(conditions).getRocketOrientationQuaternion().rotateZ();
-    EXPECT_NEAR(north.x, 0.0, 1e-15);
-    EXPECT_NEAR(north.y, std::sin(0.2), 1e-15);
-    EXPECT_NEAR(north.z, std::cos(0.2), 1e-15);
+    EXPECT_NEAR(north.x, 0.0, kRotatedTolerance);
+    EXPECT_NEAR(north.y, std::sin(0.2), kRotatedTolerance);
+    EXPECT_NEAR(north.z, std::cos(0.2), kRotatedTolerance);
 }
 
 TEST(SimulationStatus, ANewStatusStartsAtTheLaunchConditions)

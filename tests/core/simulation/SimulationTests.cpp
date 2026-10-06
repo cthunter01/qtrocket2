@@ -5,7 +5,9 @@
 #include <cmath>
 #include <cstddef>
 #include <format>
+#include <functional>
 #include <initializer_list>
+#include <limits>
 #include <map>
 #include <memory>
 #include <numbers>
@@ -21,12 +23,15 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/logging/SimulationAbort.h"
+#include "QtRocket/mass/MotorClusterState.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
@@ -71,6 +76,7 @@ using QtRocket::FlightEvent;
 using QtRocket::InMemoryPreferences;
 using QtRocket::LineStyle;
 using QtRocket::ModId;
+using QtRocket::MotorClusterState;
 using QtRocket::PlotAppearance;
 using QtRocket::Result;
 using QtRocket::Rocket;
@@ -89,6 +95,7 @@ using QtRocket::Test::JavaTestPreferences;
 using QtRocket::Test::newBranch;
 using QtRocket::Test::simulatedData;
 using QtRocket::Test::simulateOrFail;
+using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::testFcid;
 
@@ -1293,6 +1300,111 @@ TEST(SimulationSimulate, ABugErrorPassesThroughAfterTheBookkeeping)
     // No EXCEPTION event: that is for SimulationExceptions.
     EXPECT_EQ(data->getBranch(0).getLastEvent(FlightEvent::Type::EXCEPTION), nullptr);
     EXPECT_NE(data->getSimulatedRocket(), nullptr);
+}
+
+/// How simulate() of the Alpha III ends after @p change has had the options: "ok", "error:
+/// <message>" for a failure that is returned, "bug: <message>" for a BugError that leaves.
+[[nodiscard]] std::string outcomeWith(const std::function<void(SimulationOptions&)>& change)
+{
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setRandomSeed(0);
+    change(l.getOptions());
+    std::string       outcome = "ok";
+    const std::string bug     = bugText([&l, &outcome] {
+        const Result<void> result = l.simulate();
+        if (!result.has_value())
+        {
+            outcome = "error: " + result.error().message;
+        }
+    });
+    return bug == "<none>" ? outcome : "bug: " + bug;
+}
+
+// The contract of simulate() for inputs that are not finite (see its comment): they are not
+// validated. As in OpenRocket they surface where the computation first meets them, most as a
+// BugError (Java: BugException), one as the error of the engine's NaN check. Whoever takes
+// such values from outside the program (the .ork loader, the command line) has to refuse them
+// before a simulation runs. This test pins what happens until then, so that a change of the
+// contract is a decision and not an accident.
+TEST(SimulationSimulate, NonFiniteOptionsAreNotValidated)
+{
+    constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+    constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    EXPECT_EQ(outcomeWith([](SimulationOptions& /*options*/) { }), "ok");
+    // AbstractSimulationStepper's NaN checks (Java: BugException), before the first step.
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchLatitude(kNaN); }),
+              "bug: Simulation resulted in not-a-number (NaN) value for gravity, please report a "
+              "bug.");
+    EXPECT_TRUE(outcomeWith([](SimulationOptions& o) {
+                    o.setTimeStep(kInf);
+                }).starts_with("bug: Simulation resulted in not-a-number (NaN) value for "));
+    // The engine's NaN check of the status (Java: SimulationCalculationException).
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchRodLength(kNaN); }),
+              "error: Simulation resulted in not-a-number (NaN) value, please report a bug.");
+}
+
+/// Everything @p data refer to, read through: the simulated rocket, and per branch its name, its
+/// last record, and every event with its source, the mount and the motor of its motor state
+/// and the sources of its warning; then the warnings of the flight.
+[[nodiscard]] std::string walked(const FlightData& data)
+{
+    std::string text = data.getSimulatedRocket()->getName() + "\n";
+    for (std::size_t b = 0; b < data.getBranchCount(); b++)
+    {
+        const FlightDataBranch& branch = data.getBranch(b);
+        text += std::format("{} {} {}\n", branch.getName(), branch.getLength(),
+                            branch.getLast(FlightDataType::builtin(FlightDataTypeId::TYPE_TIME)));
+        for (const FlightEvent& event : branch.getEvents())
+        {
+            text += event.toString();
+            if (event.getSource() != nullptr)
+            {
+                text += " from " + event.getSource()->getName() + " of " +
+                        event.getSource()->getRocket().getName();
+            }
+            if (const std::shared_ptr<MotorClusterState> state = event.getMotorState())
+            {
+                text += " motor " + state->toDescription() + " in " +
+                        asComponent(state->getMount()).getName();
+            }
+            text += '\n';
+        }
+    }
+    return text + data.getWarningSet().toString();
+}
+
+// The flight data stay usable after the simulation, the engine and the caller's rocket are
+// gone: they co-own the rocket that was simulated, which the sources of the events and the
+// mounts of the motor states are components of, and the copies made for a clone or an undo
+// share it. The address sanitizer is what finds a reference that does not hold.
+TEST(SimulationSimulate, TheFlightDataOutliveTheSimulationAndTheCallersRocket)
+{
+    std::shared_ptr<FlightData> data;
+    std::shared_ptr<FlightData> cloned;
+    std::string                 before;
+    {
+        TestBeta beta;
+        beta.rocket->getSelectedConfiguration().setAllStages();
+        Simulation l(*beta.rocket);
+        l.setFlightConfigurationId(
+            beta.rocket->getSelectedConfiguration().getFlightConfigurationId());
+        l.getOptions().setRandomSeed(0);
+        ASSERT_TRUE(l.simulate().has_value());
+        data = l.getSimulatedData();
+        ASSERT_NE(data, nullptr);
+        const std::unique_ptr<Simulation> clone = l.clone(true);
+        cloned                                  = clone->getSimulatedData();
+        ASSERT_NE(cloned, nullptr);
+        before = walked(*data);
+    }
+    ASSERT_EQ(data->getBranchCount(), 2U);
+    EXPECT_EQ(walked(*data), before);
+    EXPECT_EQ(walked(*cloned), before);
+    EXPECT_TRUE(before.starts_with("Kit-bash Beta\nSustainer Stage ")) << before;
+    EXPECT_TRUE(before.contains(" from Booster MMT of Kit-bash Beta motor ")) << before;
 }
 
 TEST(SimulationSimulate, TheDescriptionIsTheNameOfTheSimulatedConfiguration)

@@ -297,8 +297,9 @@ TEST(TumbleDetector, TheThresholdItselfIsNotTumbling)
 
 TEST(TumbleDetector, ANaNTimePoisonsTheFilterAsInJava)
 {
-    // Java: dt is NaN, which is not "<= 0", so the step counts and the filter becomes NaN;
-    // from then on every dt is NaN too (ConditionsProbe: "NaN time NaN false").
+    // Java: dt is NaN, which is not "<= 0", so the step counts and the filter becomes NaN. The
+    // next step is held (the last time is NaN, so dt is 0), and every later step keeps the NaN,
+    // since NaN + alpha * (aoa - NaN) is NaN (ConditionsProbe: "NaN time NaN false").
     TumbleDetector detector;
     detector.update(0, true, 1, 50, 1.2, 10);
     EXPECT_FALSE(detector.update(kNaN, true, 1, 50, 1.2, 10));
