@@ -293,6 +293,23 @@ types that are not built in (extension data), `custom:<name>`. Values use `Doubl
 OpenRocket stores in degrees. Rows keep OpenRocket's two-phase storage (a row is opened by
 `addPoint()` and filled by later `setValue` calls).
 
+How QtRocket compares them (`tests/core/goldens/simulation_golden_tests.cpp`, the test-rocket
+inputs): each rocket is built by its C++ maker, the options are set as the harness sets them, and
+the run has the same two listeners. `tests/core/simulation/JitterRemoval.h` is the port of
+`JitterRemoval`: the forces listener is the first simulation listener and the conditions listener
+the last, both are system listeners, the stepper draws its random numbers all the same, and the
+jittered forces are replaced by the calculator's result for the captured flight conditions (the
+port tells the Runge-Kutta steppers' hook from the landing and tumble steppers' by the normal force
+coefficient of the forces, which the latter leave NaN, where the harness walks the call stack);
+the number of replacements is compared with `result.jitterReplacements`. Compared per simulation:
+the options and the `harness` block, `result`, the summary values, the warnings, and per branch its
+header, the columns (key, name, symbol, order, minimum and maximum), the events in order (type,
+source, data and time) and every value of the CSV. Everything that is not a number of the trajectory
+is compared exactly (but for the one option that is computed with mathematical functions, the launch
+rod direction of a launch into a multi-level wind: 1e-12); the trajectory at 1e-9 of a column's
+scale (times: 1e-6 s) as far as the flight is reproducible (see
+[Reproducibility of the simulations](#reproducibility-of-the-simulations)).
+
 ### resave/rocket.ork
 
 The XML that `OpenRocketSaver.save` writes (file version 1.11, `creator="OpenRocket <version>"`),
@@ -320,6 +337,33 @@ digests are compared exactly and live in `motors.json`):
 OpenRocket's hash-map iteration orders are not reproduced by the port (whose instance maps are
 insertion ordered), so sums may differ in the last bits; that is why the tightest tolerances are
 relative 1e-9 rather than bit equality.
+
+### Reproducibility of the simulations
+
+The two simulation rows of the table assume that a calm run without jitter is deterministic. At the
+installation's time step of 0.05 s it is not: 30 of the 50 test-rocket simulations amplify a
+difference in the last bit (the pitch oscillation is integrated beyond the stability limit of the
+Runge-Kutta method, and the step size control follows it) until row counts, event times and maxima
+change. OpenRocket does so itself: with other random component ids, and so another summation order
+of its hash maps, the harness's own code gives other results for 8 of the 50 (the `[C6-5]` flight of
+the Estes Alpha III: 796 or 803 rows, apogee at 5.971 s or 5.954 s). A golden simulation is one such
+run. `tests/core/goldens/simulation_golden_tests.cpp` therefore compares every simulation as far as
+it is reproducible (it measures that with a second, last-bit perturbed run): everything that is not
+a number of the trajectory, and the trajectory up to its horizon, which for those 30 flights is the
+launch rod and the first tenths of a second of free flight, at relative 1e-9; its header has the
+measurements. A dump of the same simulations with a time step of 0.01 s (a probe, not committed)
+has the same row counts as the port in all but one branch (a tumbling booster) and summary values
+within 1e-8, so goldens generated with such a step would let the comparison cover whole flights.
+
+Until then whole flights are compared with OpenRocket outside the golden data, in tests whose
+expectations are pasted from Java probes run at a time step of 0.005 s:
+`tests/core/simulation/engine_stable_run_tests.cpp` (the jitter removed as here; a single-stage and
+a two-stage flight, the tumbling booster with tolerances of its own) and
+`tests/core/simulation/engine_jitter_run_tests.cpp` (with the jitter, which the port draws from a
+reproduction of `java.util.Random`: RK4 and RK6, two stages, a flight on lookup tables, and the
+sequence of the random numbers with the places where the stepper starts it anew). The structure of
+a run (the order of the events and of the listener calls, the warnings, the aborts) is pinned for
+32 scenarios in `tests/core/simulation/BasicEventSimulationEngineTests.cpp`.
 
 ## Regenerating
 

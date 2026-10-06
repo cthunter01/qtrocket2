@@ -97,7 +97,8 @@ WorldCoordinate addSpherical(const WorldCoordinate& location, const Coordinate& 
         nanLocation(location, delta, newLat, newLon);
     }
 
-    return {MathUtil::rad2deg(newLat), MathUtil::rad2deg(newLon), newAlt};
+    // Java: Math.toDegrees(), which WorldCoordinate turns back with Math.toRadians().
+    return {MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon), newAlt};
 }
 
 // ******************************************************************** //
@@ -224,7 +225,8 @@ WorldCoordinate addWgs84(const WorldCoordinate& location, const Coordinate& delt
         nanLocation(location, delta, newLat, newLon);
     }
 
-    return {MathUtil::rad2deg(newLat), MathUtil::rad2deg(newLon), newAlt};
+    // Java: Math.toDegrees(), which WorldCoordinate turns back with Math.toRadians().
+    return {MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon), newAlt};
 }
 
 Coordinate computeCoriolisAcceleration(const WorldCoordinate& latlon,

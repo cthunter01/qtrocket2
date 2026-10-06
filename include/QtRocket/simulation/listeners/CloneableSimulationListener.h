@@ -52,6 +52,9 @@ public:
     /// A copy of this listener, made with @p Derived's copy constructor (Java: clone()).
     /// @throws BugError when the object is of a class derived from @p Derived that does not
     ///         override clone()
+    // A translation unit that only passes a listener on (it never constructs one) does not
+    // instantiate this function with every compiler; the body is valid for every Derived.
+    // NOLINTNEXTLINE(portability-template-virtual-member-function)
     [[nodiscard]] std::shared_ptr<SimulationListener> clone() const override
     {
         // Java: Object.clone(), a shallow copy of the object's own class.

@@ -13,12 +13,14 @@ add_executable(QtRocket_core_tests
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/JavaRandomTests.cpp
     util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp
     util/LineStyleTests.cpp
     util/MathUtilTests.cpp
     util/Md5Tests.cpp
     util/ModIdTests.cpp
+    util/MonitorableSetTests.cpp
     util/MonitorableTests.cpp
     util/MutableTests.cpp
     util/PinkNoiseTests.cpp
@@ -172,23 +174,58 @@ add_executable(QtRocket_core_tests
     aero/SymmetricComponentCalcTests.cpp
     aero/TubeCalcTests.cpp
     aero/TubeFinSetCalcTests.cpp
+    simulation/AbstractEulerStepperTests.cpp
+    simulation/AbstractRkSimulationStepperTests.cpp
     simulation/AbstractSimulationListenerTests.cpp
+    simulation/AbstractSimulationStepperTests.cpp
     simulation/AccelerationDataTests.cpp
+    simulation/banshee_mk2_simulation_tests.cpp
+    simulation/BasicEventSimulationEngineTests.cpp
+    simulation/BasicLandingStepperTests.cpp
+    simulation/BasicTumbleStepperTests.cpp
     simulation/CloneableSimulationListenerTests.cpp
+    simulation/corrective_moment_coefficient_tests.cpp
+    simulation/damping_moment_coefficient_tests.cpp
+    simulation/damping_ratio_tests.cpp
     simulation/DataBranchTests.cpp
     simulation/DefaultSimulationOptionFactoryTests.cpp
+    simulation/disable_stage_tests.cpp
+    simulation/engine_jitter_run_tests.cpp
+    simulation/engine_stable_run_tests.cpp
     simulation/EventQueueTests.cpp
     simulation/flight_event_activation_tests.cpp
+    simulation/flight_events_tests.cpp
     simulation/FlightDataBranchTests.cpp
     simulation/FlightDataTests.cpp
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
     simulation/FlightEventTests.cpp
+    simulation/GroundStepperTests.cpp
+    simulation/motor_cluster_pods_tests.cpp
+    simulation/motor_pressure_correction_tests.cpp
+    simulation/natural_frequency_tests.cpp
+    simulation/PlotAppearanceTests.cpp
+    simulation/ProgressListenerTests.cpp
+    simulation/Rk4SimulationStepperTests.cpp
+    simulation/Rk6SimulationStepperTests.cpp
+    simulation/runge_kutta_simulation_stepper_tests.cpp
+    simulation/simulation_branch_listener_tests.cpp
+    simulation/simulation_threading_tests.cpp
+    simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp
+    simulation/SimulationListenerHelperTests.cpp
     simulation/SimulationOptionsInterfaceTests.cpp
     simulation/SimulationOptionsTests.cpp
+    simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
+    simulation/SimulationTests.cpp
+    simulation/StepperScenarioPins.cpp
+    simulation/StepperTestSupport.cpp
+    simulation/system_listener_tests.cpp
+    simulation/tumble_detector_simulation_tests.cpp
+    simulation/TumbleDetectorTests.cpp
+    simulation/wind_model_seed_reproducibility_tests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
@@ -213,7 +250,9 @@ add_executable(QtRocket_core_tests
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
+    goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/simulation_golden_tests.cpp
     goldens/test_rockets_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

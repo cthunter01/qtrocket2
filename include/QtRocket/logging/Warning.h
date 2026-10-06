@@ -241,10 +241,12 @@ public:
 /// findById() (equals()) and clone() (a shared reference) paths rely on and what the .ork loader
 /// needs when it sets a saved id back.
 ///
-/// Extension point: OpenRocket stores the FlightEvent itself. simulation/ does not exist yet, so
-/// the event is represented by the display name of its type (FlightEvent.Type.toString(), e.g.
-/// "Apogee"), which is all the message text needs. The .ork loader creates the warning without an
-/// event and attaches it afterwards (Java: setEvent()).
+/// The event: OpenRocket stores the FlightEvent itself. FlightEvent lives in simulation/, which
+/// builds on logging/ (logging/ never includes it), so the event is represented by the display
+/// name of its type (FlightEvent.Type.toString(), e.g. "Apogee"), which is all the message text
+/// needs: the simulation engine passes std::string{displayName(event.getType())}
+/// (BasicEventSimulationEngine, for an event that is handled after the ground hit). The .ork
+/// loader creates the warning without an event and attaches it afterwards (Java: setEvent()).
 class Warning::EventAfterLanding final : public Warning
 {
 public:

@@ -42,6 +42,12 @@ public:
     /// @p actual exactly @p expected: a value a component was given must come back unchanged.
     void exact(std::string_view field, double expected, double actual);
 
+    /// @p actual within @p relativeTolerance of @p expected, relative to the larger magnitude, or
+    /// within @p absoluteTolerance of it, for the values whose tolerances are not the two above
+    /// (the simulation goldens). Two NaNs match, and an infinity matches the same infinity only.
+    void within(std::string_view field, double expected, double actual, double relativeTolerance,
+                double absoluteTolerance);
+
     /// A position: each of x, y and z within kGoldenAbsolute.
     void position(std::string_view field, const Coordinate& expected, const Coordinate& actual);
 

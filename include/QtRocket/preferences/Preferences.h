@@ -65,6 +65,23 @@ using ComponentDefaults = std::span<const std::pair<std::string_view, std::strin
 /// answers with storeWindModelState(), three putDouble() calls and no fireChangeEvent(). A GUI
 /// refreshing on changed() wants the emission, and there is no model here to listen to instead.
 ///
+/// Threads: the store operations (get(), put(), remove(), clear(), keys(), childrenNames(),
+/// getNode() and findNode()) of every implementation must be safe to call from several threads
+/// at once, as those of java.util.prefs are. A simulation that runs on a worker thread reads
+/// the store it was made with (Simulation::simulate() takes the name of the simulated flight
+/// configuration from it, and SimulationOptions::setSimulationStepperMethodChoice() writes to
+/// it) while the thread that owns the store goes on writing to it; OpenRocket does the same
+/// with its global preferences. InMemoryPreferences locks each node; a store over an object
+/// that is not thread-safe itself (one QSettings object) has to lock around it. The typed
+/// accessors of this class add no state of their own (they convert, and call the store
+/// operations), so they may be called from any thread too, with three limits: a typed
+/// operation that reads and then writes (the setters that store only a changed value,
+/// getLaunchRodDirection()) is several store operations, not one atomic step; changed() is a
+/// Signal, which is not thread-safe: connecting to it, disconnecting from it and calling the
+/// setters that emit it belong to the thread that owns the store; and loadDefaultUnits() and
+/// storeDefaultUnits() read and write the default units of unit/, which are process-wide and
+/// not synchronised.
+///
 /// Not ported, to be added by the groups that own their types (each mirrors a method of
 /// ApplicationPreferences.java, in its order there):
 /// - getPreferences(): the raw java.util.prefs node is this object itself.

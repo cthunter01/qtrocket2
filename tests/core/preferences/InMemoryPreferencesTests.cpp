@@ -1,7 +1,10 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 
+#include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -266,6 +269,128 @@ TEST(InMemoryPreferences, EqualityComparesValuesAndChildren)
     EXPECT_EQ(a, b);
     static_cast<void>(b.getNode("m"));
     EXPECT_NE(a, b);  // different child names, same count would still differ
+}
+
+// A node may be compared with, and assigned from, a node of its own subtree: no method holds
+// the locks of two nodes it was merely given (a node and its own child with the same child
+// names would otherwise lock one mutex twice).
+TEST(InMemoryPreferences, ANodeAndItsOwnDescendantCanBeComparedAndAssigned)
+{
+    InMemoryPreferences root;
+    root.put("k", "root");
+    InMemoryPreferences& child = root.getNode("n");
+    child.put("k", "child");
+    child.getNode("n").put("k", "grandchild");
+
+    EXPECT_NE(root, child);
+    EXPECT_NE(child, root);
+    EXPECT_EQ(child, child);
+
+    const InMemoryPreferences childSnapshot(child);
+    root = child;  // the child is replaced by a copy of its own child while it is copied from
+    EXPECT_EQ(root, childSnapshot);
+    EXPECT_EQ(root.get("k"), "child");
+    ASSERT_NE(root.findNode("n"), nullptr);
+    EXPECT_EQ(root.findNode("n")->get("k"), "grandchild");
+    EXPECT_EQ(root.findNode("n/n"), nullptr);
+}
+
+/// Whether a snapshot of @p store, taken while the other threads write to it, holds @p value
+/// under @p key (which only the calling thread writes). The snapshot is also compared with the
+/// store: whatever the answer, the comparison must come back.
+[[nodiscard]] bool snapshotHolds(const InMemoryPreferences& store, const std::string& key,
+                                 const std::string& value)
+{
+    // The copy is what is tested.
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization)
+    const InMemoryPreferences snapshot(store);
+    static_cast<void>(snapshot == store);
+    return snapshot.get(key) == value;
+}
+
+/// What one thread of the store test does: @p rounds times it writes, reads back and removes
+/// keys of its own (so the maps keep changing their structure), writes a key every thread
+/// writes, walks to a child node every thread uses, lists the keys and the children, and takes
+/// and compares a snapshot of the whole store. Counts what did not read back in @p mismatches.
+void hammerTheStore(InMemoryPreferences& store, int thread, int rounds, int& mismatches)
+{
+    const std::string own = "thread." + std::to_string(thread);
+    for (int round = 0; round < rounds; round++)
+    {
+        const std::string key   = own + "." + std::to_string(round % 5);
+        const std::string value = std::to_string(round);
+        store.put(key, value);
+        mismatches += store.get(key) == value ? 0 : 1;
+        store.put("shared", value);
+        InMemoryPreferences& node = store.getNode("node/" + std::to_string(round % 3));
+        node.put(key, value);
+        mismatches += node.get(key) == value ? 0 : 1;
+        mismatches += store.findNode("node") != nullptr ? 0 : 1;
+        mismatches += store.keys().empty() ? 1 : 0;
+        mismatches += store.childrenNames() == Names{"node"} ? 0 : 1;
+        if (round % 16 == 0)
+        {
+            mismatches += snapshotHolds(store, key, value) ? 0 : 1;
+        }
+        node.remove(key);
+        store.remove(key);
+        mismatches += store.empty() ? 1 : 0;
+    }
+    store.put(own, "done");
+}
+
+/// Runs hammerTheStore() on @p threads threads at the same time, @p rounds rounds each, and
+/// returns the number of mismatches of each.
+[[nodiscard]] std::vector<int> hammerFromThreads(InMemoryPreferences& store, int threads,
+                                                 int rounds)
+{
+    std::vector<int> mismatches(static_cast<std::size_t>(threads), 0);
+    {
+        std::vector<std::jthread> running;
+        running.reserve(mismatches.size());
+        for (int thread = 0; thread < threads; thread++)
+        {
+            running.emplace_back(hammerTheStore, std::ref(store), thread, rounds,
+                                 std::ref(mismatches[static_cast<std::size_t>(thread)]));
+        }
+    }  // joins
+    return mismatches;
+}
+
+/// The names of the child nodes of @p node that hold something.
+[[nodiscard]] Names childrenThatAreNotEmpty(const InMemoryPreferences& node)
+{
+    Names names;
+    for (const std::string& name : node.childrenNames())
+    {
+        const InMemoryPreferences* child = node.findNode(name);
+        if (child == nullptr || !child->empty())
+        {
+            names.push_back(name);
+        }
+    }
+    return names;
+}
+
+// The store is used from several threads at once (see Preferences, "Threads"): a simulation on
+// a worker thread reads it while the thread that owns it writes. Every node locks itself. The
+// tsan preset is what finds an access that is not locked.
+TEST(InMemoryPreferences, IsSafeToUseFromSeveralThreadsAtOnce)
+{
+    constexpr int kThreads = 4;
+    constexpr int kRounds  = 400;
+
+    InMemoryPreferences store;
+    store.put("shared", "start");
+    EXPECT_EQ(hammerFromThreads(store, kThreads, kRounds), std::vector<int>(kThreads, 0));
+
+    // What is left: the key every thread wrote, with the last value one of them gave it, the
+    // "done" key of each thread, and the three child nodes, empty again.
+    EXPECT_EQ(store.keys(), (Names{"shared", "thread.0", "thread.1", "thread.2", "thread.3"}));
+    EXPECT_EQ(store.get("shared"), std::to_string(kRounds - 1));
+    ASSERT_NE(store.findNode("node"), nullptr);
+    EXPECT_EQ(store.findNode("node")->childrenNames(), (Names{"0", "1", "2"}));
+    EXPECT_EQ(childrenThatAreNotEmpty(*store.findNode("node")), Names{});
 }
 
 TEST(InMemoryPreferences, IsAPreferences)

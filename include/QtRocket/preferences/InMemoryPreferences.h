@@ -3,9 +3,11 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "QtRocket/preferences/Preferences.h"
@@ -26,6 +28,16 @@ namespace QtRocket
 ///
 /// Node references from getNode() and findNode() stay valid until the child is removed by
 /// reset() or an assignment, or its parent is destroyed.
+///
+/// Threads: every node guards its values and its list of child nodes with a mutex of its own,
+/// so that the store may be read and written from several threads at once, as java.util.prefs
+/// may (see Preferences, "Threads"): a simulation that runs on a worker thread reads the store
+/// it was made with while the thread that owns the store goes on writing to it. Every method
+/// is safe to call at any time, with the one limit that node references have anyway: reset()
+/// and an assignment destroy child nodes, so they must not run while another thread still uses
+/// a reference to a child (or copies or compares the node, which walks the children). A lock
+/// is held for one node at a time, or for a node and then its children while a snapshot is
+/// taken; never the other way round, so the methods cannot deadlock each other.
 class InMemoryPreferences final : public Preferences
 {
 public:
@@ -65,10 +77,26 @@ private:
     using Values   = std::map<std::string, std::string, std::less<>>;
     using Children = std::map<std::string, std::unique_ptr<InMemoryPreferences>, std::less<>>;
 
+    /// What a node holds at one moment: a copy of its values, and its children by name.
+    struct Contents
+    {
+        Values                                                               values;
+        std::vector<std::pair<std::string_view, const InMemoryPreferences*>> children;
+    };
+
+    /// The copy constructor's work, done while the caller holds @p lock on @p other's mutex.
+    InMemoryPreferences(const InMemoryPreferences& other, const std::scoped_lock<std::mutex>& lock);
+
     [[nodiscard]] static Children copyChildren(const Children& children);
 
-    Values   m_values;
-    Children m_children;
+    /// The contents of this node, read under its lock. The child pointers and their names stay
+    /// valid as node references do (see the class comment).
+    [[nodiscard]] Contents contents() const;
+
+    /// Guards m_values and m_children.
+    mutable std::mutex m_mutex;
+    Values             m_values;
+    Children           m_children;
 };
 
 }  // namespace QtRocket

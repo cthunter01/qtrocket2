@@ -18,6 +18,7 @@
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/ModId.h"
 #include "rocket/TestRockets.h"
 
 /// What the tests of simulation/ share: a rocket to take event sources from and two helpers.
@@ -77,6 +78,29 @@ struct EventTestRocket
         addMotor(*sustainerMount, fcid, motorA8(), 3.0);
         state = std::make_shared<MotorClusterState>(sustainerMount->getMotorConfig(fcid));
     }
+};
+
+/// Watches the modification id of an object (modId()): drew() tells whether the id changed since
+/// the last look, and expects that it did not go backwards. For the tests that pin where Java
+/// draws a new ModID.
+template <class T>
+class ModIdWatch
+{
+public:
+    explicit ModIdWatch(const T& object) : m_object(&object), m_last(object.modId()) { }
+
+    [[nodiscard]] bool drew()
+    {
+        const ModId now     = m_object->modId();
+        const bool  changed = now != m_last;
+        EXPECT_GE(now, m_last) << "an id never goes backwards";
+        m_last = now;
+        return changed;
+    }
+
+private:
+    const T* m_object;
+    ModId    m_last;
 };
 
 /// Runs @p body and returns the message of the BugError it throws, without BugError's "BUG: "

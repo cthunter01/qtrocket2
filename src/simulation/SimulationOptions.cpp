@@ -15,18 +15,31 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/aero/BarrowmanCalculator.h"
+#include "QtRocket/aero/BarrowmanDragCalculator.h"
+#include "QtRocket/aero/BarrowmanStabilityCalculator.h"
+#include "QtRocket/aero/DragCalculator.h"
+#include "QtRocket/aero/LookupTableDragCalculator.h"
+#include "QtRocket/aero/LookupTableStabilityCalculator.h"
+#include "QtRocket/aero/StabilityCalculator.h"
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 #include "QtRocket/aero/lookup/MachAoALookup.h"
+#include "QtRocket/mass/MassCalculator.h"
 #include "QtRocket/models/AtmosphericModel.h"
+#include "QtRocket/models/ConstantGravityModel.h"
 #include "QtRocket/models/ExtendedIsaModel.h"
+#include "QtRocket/models/GravityModel.h"
 #include "QtRocket/models/GravityModelType.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
+#include "QtRocket/models/WgsGravityModel.h"
 #include "QtRocket/models/WindModel.h"
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/simulation/AbstractRkSimulationStepper.h"
+#include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationOptionsInterface.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/BugError.h"
@@ -35,6 +48,7 @@
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Strings.h"
+#include "QtRocket/util/WorldCoordinate.h"
 
 namespace QtRocket
 {
@@ -44,9 +58,6 @@ namespace
 
 // The launch preferences clamp the rod angle to the limit of the simulation options.
 static_assert(SimulationOptions::kMaxLaunchRodAngle == Preferences::kMaxLaunchRodAngle);
-
-/// AbstractRKSimulationStepper.RECOMMENDED_ANGLE_STEP, the default maximum step angle, rad.
-constexpr double kRecommendedAngleStep = 3 * std::numbers::pi / 180;
 
 /// The limits of the maximum step angle, rad: 1 and 20 degrees, written as in Java.
 constexpr double kMinimumStepAngle = 1 * std::numbers::pi / 180;
@@ -174,6 +185,21 @@ void copyIfDifferent(T& field, const T& source, bool& isChanged)
     return "Spherical approximation";  // not reached: the switch covers every strategy
 }
 
+/// The gravity model of toSimulationConditions(): a new model of @p type (Java:
+/// IllegalArgumentException for an unknown type, which an enum class does not have).
+[[nodiscard]] std::shared_ptr<const GravityModel> makeGravityModel(GravityModelType type,
+                                                                   double           constantGravity)
+{
+    switch (type)
+    {
+        case GravityModelType::WGS:
+            return std::make_shared<const WgsGravityModel>();
+        case GravityModelType::CONSTANT:
+            return std::make_shared<const ConstantGravityModel>(constantGravity);
+    }
+    bug("Unknown gravity model type");
+}
+
 /// String.format("%f", value).
 [[nodiscard]] std::string fixed(double value)
 {
@@ -207,7 +233,7 @@ SimulationOptions::SimulationOptions(const Preferences& source, Preferences* sto
     m_launchRelativeHumidity(source.getLaunchRelativeHumidity()),
     m_timeStep(source.getTimeStep()),
     m_maxSimulationTime(source.getMaxSimulationTime()),
-    m_maximumAngle(kRecommendedAngleStep),
+    m_maximumAngle(AbstractRkSimulationStepper::kRecommendedAngleStep),
     m_randomSeed(drawRandomSeed()),
     m_averageWindModel(std::make_unique<PinkNoiseWindModel>(m_randomSeed)),
     m_multiLevelPinkNoiseWindModel(std::make_unique<MultiLevelPinkNoiseWindModel>(source)),
@@ -902,6 +928,68 @@ bool SimulationOptions::operator==(const SimulationOptions& other) const noexcep
                             other.m_recoveryDrogueMainLowSpeedWarning) &&
            m_randomSeedFixed == other.m_randomSeedFixed &&
            (!m_randomSeedFixed || m_randomSeed == other.m_randomSeed);
+}
+
+Result<SimulationConditions> SimulationOptions::toSimulationConditions() const
+{
+    SimulationConditions conditions;
+
+    conditions.setLaunchRodLength(getLaunchRodLength());
+    conditions.setLaunchRodAngle(getLaunchRodAngle());
+    conditions.setLaunchRodDirection(getLaunchRodDirection());
+    conditions.setLaunchSite(
+        WorldCoordinate(getLaunchLatitude(), getLaunchLongitude(), getLaunchAltitude()));
+    conditions.setGeodeticComputation(getGeodeticComputation());
+    conditions.setRandomSeed(m_randomSeed);
+
+    // Seed the throwaway clone rather than the configured model, so that the seed
+    // governs the run without becoming part of the configuration's identity.
+    std::shared_ptr<WindModel> windModel = getWindModel().clone();
+    windModel->setSeed(m_randomSeed);
+    conditions.setWindModel(std::move(windModel));
+    Result<std::shared_ptr<const AtmosphericModel>> atmosphericModel = getAtmosphericModel();
+    if (!atmosphericModel.has_value())
+    {
+        // Java: the IllegalArgumentException of the ExtendedISAModel constructor.
+        return std::unexpected(std::move(atmosphericModel.error()));
+    }
+    conditions.setAtmosphericModel(std::move(*atmosphericModel));
+
+    conditions.setGravityModel(makeGravityModel(m_gravityModelType, m_constantGravity));
+
+    std::unique_ptr<StabilityCalculator> stabilityCalculator;
+    if (m_stabilityLookupTable != nullptr)
+    {
+        stabilityCalculator =
+            std::make_unique<LookupTableStabilityCalculator>(m_stabilityLookupTable);
+    }
+    else
+    {
+        stabilityCalculator = std::make_unique<BarrowmanStabilityCalculator>();
+    }
+    std::unique_ptr<DragCalculator> dragCalculator;
+    if (m_dragLookupTable != nullptr)
+    {
+        dragCalculator = std::make_unique<LookupTableDragCalculator>(m_dragLookupTable);
+    }
+    else
+    {
+        dragCalculator = std::make_unique<BarrowmanDragCalculator>();
+    }
+    conditions.setAerodynamicCalculator(std::make_shared<BarrowmanCalculator>(
+        std::move(stabilityCalculator), std::move(dragCalculator)));
+    conditions.setMassCalculator(MassCalculator());
+
+    conditions.setTimeStep(getTimeStep());
+    conditions.setMaxSimulationTime(getMaxSimulationTime());
+    conditions.setMaximumAngleStep(getMaximumStepAngle());
+
+    conditions.setRecoverySpeedWarning(getRecoverySpeedWarning());
+    conditions.setDrogueLowSpeedWarning(getDrogueLowSpeedWarning());
+    conditions.setRecoveryDrogueMainHighSpeedWarning(getRecoveryDrogueMainHighSpeedWarning());
+    conditions.setRecoveryDrogueMainLowSpeedWarning(getRecoveryDrogueMainLowSpeedWarning());
+
+    return conditions;
 }
 
 std::string SimulationOptions::toString() const

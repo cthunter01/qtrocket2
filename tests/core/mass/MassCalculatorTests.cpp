@@ -50,6 +50,8 @@
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
@@ -90,6 +92,8 @@ using QtRocket::RigidBody;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::ShockCord;
+using QtRocket::SimulationConditions;
+using QtRocket::SimulationStatus;
 using QtRocket::ThrustCurveMotor;
 using QtRocket::Transition;
 using QtRocket::TrapezoidFinSet;
@@ -323,7 +327,9 @@ int expectGoldenMass(Rocket& rocket, const Json& mass, bool randomConfigurationI
 
 /// One motor state per motor of @p config, as SimulationStatus.populateMotors() makes them. (A
 /// simulation keeps its states at stable, shared addresses, see MotorClusterState; a vector of
-/// values is enough for these tests, which pass pointers to them through activeMotors().)
+/// values is enough for the tests of the calculator's entry points, which pass pointers to them
+/// through activeMotors(). The two cases of MassCalculatorTest that build a SimulationStatus
+/// build a real one: see statusOf().)
 std::vector<MotorClusterState> motorStates(const FlightConfiguration& config)
 {
     std::vector<MotorClusterState> states;
@@ -731,6 +737,40 @@ TEST(MassCalculator, MotorMassSkipsNonMotorTreeTraversal)
     EXPECT_GT(nonMotorComponent.getInstanceLocationCalls(), 0);
 }
 
+/// A simulation status of @p config on default simulation conditions (Java: new
+/// SimulationStatus(config, new SimulationConditions())). A status holds a configuration of its
+/// own, so it is given a clone; the motor states are those of the configuration's motors.
+[[nodiscard]] SimulationStatus statusOf(const FlightConfiguration& config)
+{
+    return {std::make_shared<FlightConfiguration>(config.clone()),
+            std::make_shared<SimulationConditions>()};
+}
+
+/// MassCalculator.calculateMotor(status): the motors of the status's configuration at its
+/// simulation time, each active motor at its own time since ignition.
+[[nodiscard]] RigidBody calculateMotor(const SimulationStatus& status)
+{
+    return MassCalculator::calculateMotor(status.getConfiguration(), status.getSimulationTime(),
+                                          status.getActiveMotorStates());
+}
+
+/// The motor state of @p status whose mount is @p mount (Java: status.getMotors().stream()
+/// .filter(state -> state.getMount() == mount).findFirst().orElseThrow()).
+[[nodiscard]] std::shared_ptr<MotorClusterState> stateOfMount(const SimulationStatus&     status,
+                                                              const QtRocket::MotorMount& mount)
+{
+    for (const std::shared_ptr<MotorClusterState>& state : status.getMotors())
+    {
+        const MotorClusterState& motorState = *state;
+        if (&motorState.getMount() == &mount)
+        {
+            return state;
+        }
+    }
+    return nullptr;
+}
+
+// MassCalculatorTest.testAlphaIIIMotorSimulationMass
 TEST(MassCalculator, AlphaIIIMotorSimulationMass)
 {
     TestEstesAlphaIII          alpha;
@@ -738,26 +778,28 @@ TEST(MassCalculator, AlphaIIIMotorSimulationMass)
     const Motor&       activeMotor    = *alpha.inner->getMotorConfig(config.getId()).getMotor();
     const std::string& desig          = activeMotor.getDesignation();
 
-    // One state per motor of the configuration, as a SimulationStatus makes them.
-    std::vector<MotorClusterState> states = motorStates(config);
-    ASSERT_EQ(states.size(), 1U);
+    // this is probably not enough for a full-up simulation, but it IS enough for a motor-mass
+    // calculation.
+    SimulationStatus status = statusOf(config);
+    ASSERT_EQ(status.getMotors().size(), 1U);
 
     // Ignite motor at 1.0 seconds
-    MotorClusterState& currentMotorState = states.front();
-    const double       ignitionTime      = 1.0;
-    currentMotorState.ignite(ignitionTime);
+    const std::shared_ptr<MotorClusterState> currentMotorState = status.getMotors().front();
+    const double                             ignitionTime      = 1.0;
+    currentMotorState->ignite(ignitionTime);
 
     for (const double simTime :
          {1.03 /* almost launch */, 2.03 /* middle */, 3.03 /* after burnout */})
     {
-        const RigidBody actualMotorData =
-            MassCalculator::calculateMotor(config, simTime, activeMotors(config, states));
-        const double expMass = activeMotor.getTotalMass(simTime - ignitionTime);
+        status.setSimulationTime(simTime);
+        const RigidBody actualMotorData = calculateMotor(status);
+        const double    expMass         = activeMotor.getTotalMass(simTime - ignitionTime);
         EXPECT_NEAR(expMass, actualMotorData.getMass(), kEpsilon)
             << " Motor Mass " << desig << " is incorrect: ";
     }
 }
 
+// MassCalculatorTest.testSimulationMotorMassUsesEachMountIgnitionTime
 TEST(MassCalculator, SimulationMotorMassUsesEachMountIgnitionTime)
 {
     TestEstesAlphaIII                  alpha;
@@ -775,20 +817,18 @@ TEST(MassCalculator, SimulationMotorMassUsesEachMountIgnitionTime)
     secondMount.setMotorConfig(std::move(secondConfig), fcid);
     config.update();
 
-    const std::vector<MotorClusterState> states = motorStates(config);
-    std::vector<MotorClusterState>       ignited;
-    for (const MotorClusterState& state : states)
-    {
-        MotorClusterState copy = state;
-        copy.ignite(
-            &state.getMount() == static_cast<const QtRocket::MotorMount*>(&firstMount) ? 0.0 : 1.0);
-        ignited.push_back(copy);
-    }
-    ASSERT_EQ(ignited.size(), 2U);
+    SimulationStatus                         status      = statusOf(config);
+    const std::shared_ptr<MotorClusterState> firstState  = stateOfMount(status, firstMount);
+    const std::shared_ptr<MotorClusterState> secondState = stateOfMount(status, secondMount);
+    ASSERT_NE(firstState, nullptr);
+    ASSERT_NE(secondState, nullptr);
+
+    firstState->ignite(0.0);
+    secondState->ignite(1.0);
+    status.setSimulationTime(1.5);
 
     const double    expectedMass = sharedMotor->getTotalMass(1.5) + sharedMotor->getTotalMass(0.5);
-    const RigidBody motorData =
-        MassCalculator::calculateMotor(config, 1.5, activeMotors(config, ignited));
+    const RigidBody motorData    = calculateMotor(status);
     EXPECT_NEAR(expectedMass, motorData.getMass(), kEpsilon)
         << "Each motor mount must use its own ignition time";
 }

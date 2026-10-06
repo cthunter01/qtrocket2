@@ -18,27 +18,41 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/aero/AerodynamicCalculator.h"
+#include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/BarrowmanCalculator.h"
+#include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/models/AtmosphericConditions.h"
 #include "QtRocket/models/AtmosphericModel.h"
+#include "QtRocket/models/ConstantGravityModel.h"
 #include "QtRocket/models/ExtendedIsaModel.h"
+#include "QtRocket/models/GravityModel.h"
 #include "QtRocket/models/GravityModelType.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
+#include "QtRocket/models/WgsGravityModel.h"
 #include "QtRocket/models/WindModel.h"
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
+#include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Signal.h"
+#include "QtRocket/util/WorldCoordinate.h"
 #include "TestTempDir.h"
+#include "rocket/JavaValueDifferences.h"
+#include "rocket/TestRockets.h"
 #include "simulation/SimulationOptionsSupport.h"
 
 namespace
@@ -46,6 +60,8 @@ namespace
 
 using QtRocket::AtmosphericModel;
 using QtRocket::BugError;
+using QtRocket::ConstantGravityModel;
+using QtRocket::Coordinate;
 using QtRocket::DefaultSimulationOptionFactory;
 using QtRocket::ErrorCode;
 using QtRocket::ExtendedIsaModel;
@@ -56,14 +72,17 @@ using QtRocket::MachAoALookup;
 using QtRocket::MultiLevelPinkNoiseWindModel;
 using QtRocket::PinkNoiseWindModel;
 using QtRocket::Result;
+using QtRocket::SimulationConditions;
 using QtRocket::SimulationOptions;
 using QtRocket::SimulationStepperMethod;
+using QtRocket::WgsGravityModel;
 using QtRocket::WindModel;
 using QtRocket::WindModelType;
 using QtRocket::Test::ChangeCounter;
 using QtRocket::Test::describe;
 using QtRocket::Test::describeLevels;
 using QtRocket::Test::isJavaValue;
+using QtRocket::Test::JavaValueDifferences;
 using QtRocket::Test::storeEverySimulationKey;
 
 namespace Keys = QtRocket::PreferenceKeys;
@@ -2592,6 +2611,38 @@ TEST(SimulationOptionsGravity, CloneWithGravity)
     EXPECT_NEAR(clone.getConstantGravity(), 8.87, 1e-6);
 }
 
+// SimulationOptionsGravityTest.testToSimulationConditionsWithWGS
+TEST(SimulationOptionsGravity, ToSimulationConditionsWithWGS)
+{
+    SimulationOptions options;
+    options.setGravityModelType(GravityModelType::WGS);
+
+    const Result<SimulationConditions> conditions = options.toSimulationConditions();
+    ASSERT_TRUE(conditions.has_value());
+    const std::shared_ptr<const QtRocket::GravityModel> model = conditions->getGravityModel();
+
+    ASSERT_NE(model, nullptr);
+    EXPECT_NE(dynamic_cast<const WgsGravityModel*>(model.get()), nullptr);
+}
+
+// SimulationOptionsGravityTest.testToSimulationConditionsWithConstant
+TEST(SimulationOptionsGravity, ToSimulationConditionsWithConstant)
+{
+    SimulationOptions options;
+    const double      customGravity = 3.71;  // Mars gravity
+    options.setGravityModelType(GravityModelType::CONSTANT);
+    options.setConstantGravity(customGravity);
+
+    const Result<SimulationConditions> conditions = options.toSimulationConditions();
+    ASSERT_TRUE(conditions.has_value());
+    const std::shared_ptr<const QtRocket::GravityModel> model = conditions->getGravityModel();
+
+    ASSERT_NE(model, nullptr);
+    const auto* constant = dynamic_cast<const ConstantGravityModel*>(model.get());
+    ASSERT_NE(constant, nullptr);
+    EXPECT_NEAR(customGravity, constant->getConstantGravity(), 1e-6);
+}
+
 // Beyond the JUnit test: equals() does include the gravity fields.
 TEST(SimulationOptionsGravity, EqualsIncludesTheGravityFields)
 {
@@ -2883,6 +2934,461 @@ TEST(WindModelSeedReproducibility, ClonedSimulationOptionsForwardWindChangesToTh
     EXPECT_EQ(copyEvents.count(), 2) << "multi-level wind edits must notify cloned options";
     EXPECT_EQ(originalEvents.count(), 0)
         << "multi-level wind edits must not notify original options";
+}
+
+// ============================================================== toSimulationConditions()
+//
+// The values are what OpenRocket's conditions give for the same options
+// (probes/tier8b-status/ConditionsProbe.java, "toSimulationConditions").
+
+/// ConditionsProbe.explicit(): options with every value that reaches the conditions set, not
+/// launching into the wind.
+[[nodiscard]] SimulationOptions explicitOptions()
+{
+    SimulationOptions o;
+    o.setLaunchIntoWind(false);
+    o.setLaunchRodLength(1.2);
+    o.setLaunchRodAngle(0.1);
+    o.setLaunchRodDirection(1.0);
+    o.setLaunchLatitude(45);
+    o.setLaunchLongitude(10);
+    o.setIsaAtmosphere(true);
+    o.setLaunchAltitude(100);
+    o.setGeodeticComputation(GeodeticComputationStrategy::WGS84);
+    o.setTimeStep(0.02);
+    o.setMaxSimulationTime(300);
+    o.setMaximumStepAngle(0.1);
+    o.setRandomSeedFixed(true);
+    o.setRandomSeed(42);
+    o.setGravityModelType(GravityModelType::WGS);
+    o.setConstantGravity(9.5);
+    o.setWindModelType(WindModelType::AVERAGE);
+    o.getAverageWindModel().setAverage(3);
+    o.getAverageWindModel().setStandardDeviation(0.5);
+    o.getAverageWindModel().setDirection(2.0);
+    o.getMultiLevelWindModel().clearLevels();
+    addLevel(o.getMultiLevelWindModel(), 0, 4.0, 0.5, 0.0);
+    addLevel(o.getMultiLevelWindModel(), 1000, 8.0, 1.5, 0.0);
+    o.setRecoverySpeedWarning(21);
+    o.setDrogueLowSpeedWarning(4);
+    o.setRecoveryDrogueMainHighSpeedWarning(31);
+    o.setRecoveryDrogueMainLowSpeedWarning(16);
+    return o;
+}
+
+/// The conditions of @p options, which must be made.
+[[nodiscard]] SimulationConditions conditionsOf(const SimulationOptions& options)
+{
+    Result<SimulationConditions> conditions = options.toSimulationConditions();
+    if (!conditions.has_value())
+    {
+        ADD_FAILURE() << conditions.error().toString();
+        return {};
+    }
+    return std::move(*conditions);
+}
+
+/// A wind velocity of the probe: the time, the altitude, and Java's x and y (z is 0).
+struct WindPin
+{
+    constexpr WindPin(double windTime, double windAltitude, double windX, double windY) noexcept
+      : time(windTime), altitude(windAltitude), x(windX), y(windY)
+    {
+    }
+
+    double time;
+    double altitude;
+    double x;
+    double y;
+};
+
+/// The differences between the wind of @p conditions and Java's, asked in the order of @p pins.
+[[nodiscard]] std::string windDifferences(const SimulationConditions& conditions,
+                                          std::span<const WindPin>    pins)
+{
+    JavaValueDifferences differences;
+    for (const WindPin& pin : pins)
+    {
+        const Coordinate wind = conditions.getWindModel()->getWindVelocity(pin.time, pin.altitude);
+        differences.coordinate(std::format("wind({}, {})", pin.time, pin.altitude),
+                               Coordinate{pin.x, pin.y, 0}, wind);
+    }
+    return differences.text();
+}
+
+/// The atmosphere of the probe at one altitude: Java's temperature, pressure and humidity.
+struct AtmospherePin
+{
+    constexpr AtmospherePin(double pinAltitude, double pinTemperature, double pinPressure,
+                            double pinHumidity) noexcept
+      : altitude(pinAltitude),
+        temperature(pinTemperature),
+        pressure(pinPressure),
+        humidity(pinHumidity)
+    {
+    }
+
+    double altitude;
+    double temperature;
+    double pressure;
+    double humidity;
+};
+
+/// The differences between the atmosphere of @p conditions and Java's.
+[[nodiscard]] std::string atmosphereDifferences(const SimulationConditions&    conditions,
+                                                std::span<const AtmospherePin> pins)
+{
+    JavaValueDifferences differences;
+    for (const AtmospherePin& pin : pins)
+    {
+        const QtRocket::AtmosphericConditions air =
+            conditions.getAtmosphericModel()->getConditions(pin.altitude);
+        differences.number(std::format("temperature({})", pin.altitude), pin.temperature,
+                           air.getTemperature());
+        differences.number(std::format("pressure({})", pin.altitude), pin.pressure,
+                           air.getPressure());
+        differences.number(std::format("humidity({})", pin.altitude), pin.humidity,
+                           air.getRelativeHumidity());
+    }
+    return differences.text();
+}
+
+TEST(SimulationOptionsToConditions, TheValuesOfTheOptionsReachTheConditions)
+{
+    // "-- explicit": "rod 1.2 0.1 1.0", "site 45.0 10.0 100.0 geodetic WGS84", "position (0.0,
+    // 0.0, 0.0) velocity (0.0, 0.0, 0.0)", "seed 42", "steps 0.02 300.0 0.1", "thresholds 21.0
+    // 4.0 31.0 16.0", "listeners 0 simulation null modID invalid false"
+    const SimulationOptions    o = explicitOptions();
+    const SimulationConditions c = conditionsOf(o);
+    EXPECT_EQ(c.getLaunchRodLength(), 1.2);
+    EXPECT_EQ(c.getLaunchRodAngle(), 0.1);
+    EXPECT_EQ(c.getLaunchRodDirection(), 1.0);
+    EXPECT_TRUE(isJavaValue(45.0, c.getLaunchSite().getLatitudeDeg()));
+    EXPECT_TRUE(isJavaValue(10.0, c.getLaunchSite().getLongitudeDeg()));
+    EXPECT_EQ(c.getLaunchSite().getAltitude(), 100.0);
+    EXPECT_EQ(c.getGeodeticComputation(), GeodeticComputationStrategy::WGS84);
+    EXPECT_TRUE(c.getLaunchPosition().exactlyEquals(Coordinate::kNul));
+    EXPECT_TRUE(c.getLaunchVelocity().exactlyEquals(Coordinate::kNul));
+    EXPECT_EQ(c.getRandomSeed(), 42);
+    EXPECT_EQ(c.getTimeStep(), 0.02);
+    EXPECT_EQ(c.getMaxSimulationTime(), 300.0);
+    EXPECT_EQ(c.getMaximumAngleStep(), 0.1);
+    EXPECT_EQ(c.getRecoverySpeedWarning(), 21.0);
+    EXPECT_EQ(c.getDrogueLowSpeedWarning(), 4.0);
+    EXPECT_EQ(c.getRecoveryDrogueMainHighSpeedWarning(), 31.0);
+    EXPECT_EQ(c.getRecoveryDrogueMainLowSpeedWarning(), 16.0);
+    EXPECT_TRUE(c.getSimulationListenerList().empty());
+    EXPECT_EQ(c.getSimulation(), nullptr);
+    EXPECT_NE(c.getModId(), QtRocket::ModId::invalid());
+    EXPECT_TRUE(c.getMassCalculator().has_value()) << "mass true";
+}
+
+TEST(SimulationOptionsToConditions, TheWindIsACloneOfTheModelInUse)
+{
+    // probes/tier8b-status/WindProbe.java: "wind PinkNoiseWindModel", "steady wind(t, 100) =
+    // (2.727892280477045, -1.2484405096414273, 0.0)" at every time (the same at 600 m: the
+    // average model does not look at the altitude), "steady 7.5 from 0.25: (1.8555296944089221,
+    // 7.266843162829836, 0.0)". A steady wind: the turbulence of this port is not OpenRocket's
+    // (see PinkNoise), so only the wind without it can be compared.
+    SimulationOptions o = explicitOptions();
+    o.getAverageWindModel().setStandardDeviation(0);
+    const SimulationConditions c = conditionsOf(o);
+    ASSERT_NE(c.getWindModel(), nullptr);
+    EXPECT_NE(dynamic_cast<const PinkNoiseWindModel*>(c.getWindModel().get()), nullptr);
+    EXPECT_NE(c.getWindModel().get(), &o.getAverageWindModel())
+        << "the options' own wind model is not the conditions'";
+    const std::array<WindPin, 5> pins{{
+        {0.0, 100.0, 2.727892280477045, -1.2484405096414273},
+        {0.0, 600.0, 2.727892280477045, -1.2484405096414273},
+        {0.05, 100.0, 2.727892280477045, -1.2484405096414273},
+        {1.0, 100.0, 2.727892280477045, -1.2484405096414273},
+        {7.5, 600.0, 2.727892280477045, -1.2484405096414273},
+    }};
+    EXPECT_EQ(windDifferences(c, pins), "");
+
+    o.getAverageWindModel().setDirection(0.25);
+    o.getAverageWindModel().setAverage(7.5);
+    const std::array<WindPin, 1> other{{{2.0, 100.0, 1.8555296944089221, 7.266843162829836}}};
+    EXPECT_EQ(windDifferences(conditionsOf(o), other), "");
+    // The conditions made before are not touched by what the options became.
+    EXPECT_EQ(windDifferences(c, pins), "");
+}
+
+/// The turbulent wind of the conditions of @p options at 1 s and 100 m.
+[[nodiscard]] Coordinate windOf(const SimulationOptions& options)
+{
+    return conditionsOf(options).getWindModel()->getWindVelocity(1.0, 100);
+}
+
+TEST(SimulationOptionsToConditions, TheSeedOfTheOptionsGovernsTheTurbulence)
+{
+    // WindProbe: "same seed same wind true, other seed same wind false", "the options' model
+    // gives the conditions' wind false", "multi-level: same seed same wind true, other seed same
+    // wind false". Every call gives a wind model of its own ("second call: wind same false"),
+    // seeded with the seed of the options, whether or not that seed is fixed.
+    SimulationOptions          o = explicitOptions();
+    const SimulationConditions c = conditionsOf(o);
+    EXPECT_NE(conditionsOf(o).getWindModel(), c.getWindModel());
+    EXPECT_EQ(c.getRandomSeed(), 42);
+    const Coordinate a = windOf(o);
+    EXPECT_TRUE(a.exactlyEquals(windOf(o))) << "the same seed, the same wind";
+    EXPECT_FALSE(a == o.getAverageWindModel().getWindVelocity(1.0, 100))
+        << "the configured model has a seed of its own";
+
+    o.setRandomSeed(43);
+    EXPECT_FALSE(a == windOf(o)) << "another seed, another wind";
+    o.setRandomSeedFixed(false);
+    o.setRandomSeed(42);
+    EXPECT_EQ(conditionsOf(o).getRandomSeed(), 42);
+    EXPECT_TRUE(a.exactlyEquals(windOf(o))) << "a seed that is not fixed governs all the same";
+
+    SimulationOptions m = explicitOptions();
+    m.setWindModelType(WindModelType::MULTI_LEVEL);
+    m.getMultiLevelWindModel().clearLevels();
+    addLevel(m.getMultiLevelWindModel(), 0, 4.0, 0.5, 1.0);
+    addLevel(m.getMultiLevelWindModel(), 1000, 8.0, 1.5, 2.0);
+    const Coordinate levels = windOf(m);
+    EXPECT_TRUE(levels.exactlyEquals(windOf(m)));
+    m.setRandomSeed(43);
+    EXPECT_FALSE(levels == windOf(m));
+}
+
+TEST(SimulationOptionsToConditions, TheConfiguredWindModelIsNotReseeded)
+{
+    // The seed goes to the throwaway clone: the options compare equal before and after, and
+    // their own model still gives the wind of its own seed.
+    SimulationOptions       o      = explicitOptions();
+    const SimulationOptions before = o;
+    const ChangeCounter     events(o.changed());
+    static_cast<void>(conditionsOf(o));
+    EXPECT_TRUE(o == before);
+    EXPECT_EQ(events.count(), 0);
+    PinkNoiseWindModel twin(before.getAverageWindModel());
+    EXPECT_TRUE(o.getAverageWindModel().getWindVelocity(1.0, 100).exactlyEquals(
+        twin.getWindVelocity(1.0, 100)));
+}
+
+TEST(SimulationOptionsToConditions, TheMultiLevelWindModelIsUsedWhenItIsChosen)
+{
+    // "-- multi-level wind": "wind MultiLevelPinkNoiseWindModel", "wind(t, 100.0) =
+    // (2.5239279282583746, 3.2158869841395044, 0.0)", "wind(t, 600.0) = (5.555056797466186,
+    // 1.7436706670295705, 0.0)" at every time (the levels have no turbulence)
+    SimulationOptions o = explicitOptions();
+    o.setWindModelType(WindModelType::MULTI_LEVEL);
+    const SimulationConditions c = conditionsOf(o);
+    ASSERT_NE(c.getWindModel(), nullptr);
+    EXPECT_NE(dynamic_cast<const MultiLevelPinkNoiseWindModel*>(c.getWindModel().get()), nullptr);
+    EXPECT_NE(c.getWindModel().get(), &o.getMultiLevelWindModel());
+    const std::array<WindPin, 4> pins{{
+        {0.0, 100.0, 2.5239279282583746, 3.2158869841395044},
+        {0.0, 600.0, 5.555056797466186, 1.7436706670295705},
+        {7.5, 100.0, 2.5239279282583746, 3.2158869841395044},
+        {7.5, 600.0, 5.555056797466186, 1.7436706670295705},
+    }};
+    EXPECT_EQ(windDifferences(c, pins), "");
+    EXPECT_EQ(c.getLaunchRodDirection(), 1.0) << "not launching into the wind";
+}
+
+TEST(SimulationOptionsToConditions, LaunchingIntoTheWindTurnsTheRodToTheWind)
+{
+    // "-- launch into wind (average, direction 2.0)": "rod 1.2 0.1 2.0"; "direction 7.0: rod
+    // 0.7168146928204138", "direction -1.0: rod 5.283185307179586" (reduced to 0 ... 2 pi)
+    SimulationOptions o = explicitOptions();
+    o.setLaunchIntoWind(true);
+    EXPECT_EQ(conditionsOf(o).getLaunchRodDirection(), 2.0);
+    EXPECT_EQ(conditionsOf(o).getLaunchRodAngle(), 0.1);
+    o.getAverageWindModel().setDirection(7.0);
+    EXPECT_TRUE(isJavaValue(0.7168146928204138, conditionsOf(o).getLaunchRodDirection()));
+    o.getAverageWindModel().setDirection(-1.0);
+    EXPECT_TRUE(isJavaValue(5.283185307179586, conditionsOf(o).getLaunchRodDirection()));
+
+    // "multi-level, into wind: rod 0.6654228956259569", "multi-level, into wind at 500 m: rod
+    // 1.1801270895652323": the direction of the wind at the launch altitude.
+    SimulationOptions m = explicitOptions();
+    m.setWindModelType(WindModelType::MULTI_LEVEL);
+    m.setLaunchIntoWind(true);
+    EXPECT_TRUE(isJavaValue(0.6654228956259569, conditionsOf(m).getLaunchRodDirection()));
+    m.setLaunchAltitude(500);
+    EXPECT_TRUE(isJavaValue(1.1801270895652323, conditionsOf(m).getLaunchRodDirection()));
+}
+
+TEST(SimulationOptionsToConditions, TheIsaAtmosphereIsTheOneSharedModel)
+{
+    // "atmosphere ExtendedISAModel", "atmosphere(0.0) = 288.15 101325.0 0.0", "atmosphere(100.0)
+    // = 287.5000511226052 100152.25761373011 0.0", "atmosphere(1000.0) = 281.6510223716947
+    // 89876.28248259629 0.0", "atmosphere(11000.0) = 216.77351270445553 22699.952216044647 0.0"
+    const SimulationOptions            o = explicitOptions();
+    const SimulationConditions         c = conditionsOf(o);
+    const std::array<AtmospherePin, 4> pins{{
+        {0.0, 288.15, 101325.0, 0.0},
+        {100.0, 287.5000511226052, 100152.25761373011, 0.0},
+        {1000.0, 281.6510223716947, 89876.28248259629, 0.0},
+        {11000.0, 216.77351270445553, 22699.952216044647, 0.0},
+    }};
+    ASSERT_NE(c.getAtmosphericModel(), nullptr);
+    EXPECT_EQ(atmosphereDifferences(c, pins), "");
+    // "second call: ... atmosphere same true": every simulation shares the ISA model.
+    EXPECT_EQ(conditionsOf(o).getAtmosphericModel(), c.getAtmosphericModel());
+    EXPECT_EQ(conditionsOf(SimulationOptions()).getAtmosphericModel(), c.getAtmosphericModel());
+}
+
+TEST(SimulationOptionsToConditions, ACustomAtmosphereIsFittedToTheLaunchConditions)
+{
+    // "-- custom atmosphere": "site 45.0 10.0 500.0", "atmosphere(0.0) = 303.96872058897577
+    // 95237.19409860326 0.3", "atmosphere(500.0) = 300.0 90000.0 0.3", "atmosphere(2000.0) =
+    // 288.097583035686 75609.44877343957 0.3", "atmosphere(11000.0) = 216.80083875985372
+    // 22241.221297643588 0.3", "atmosphere(20000.0) = 216.65 5418.4244608909785 0.3", "gravity
+    // WGSGravityModel 9.804660190551365"
+    SimulationOptions o = explicitOptions();
+    o.setIsaAtmosphere(false);
+    o.setLaunchAltitude(500);
+    o.setLaunchTemperature(300);
+    o.setLaunchPressure(90000);
+    o.setLaunchRelativeHumidity(0.3);
+    const SimulationConditions         c = conditionsOf(o);
+    const std::array<AtmospherePin, 5> pins{{
+        {0.0, 303.96872058897577, 95237.19409860326, 0.3},
+        {500.0, 300.0, 90000.0, 0.3},
+        {2000.0, 288.097583035686, 75609.44877343957, 0.3},
+        {11000.0, 216.80083875985372, 22241.221297643588, 0.3},
+        {20000.0, 216.65, 5418.4244608909785, 0.3},
+    }};
+    ASSERT_NE(c.getAtmosphericModel(), nullptr);
+    EXPECT_EQ(atmosphereDifferences(c, pins), "");
+    EXPECT_EQ(c.getLaunchSite().getAltitude(), 500.0);
+    EXPECT_TRUE(isJavaValue(9.804660190551365, c.getGravityModel()->getGravity(c.getLaunchSite())));
+    // A model of its own each time.
+    EXPECT_NE(conditionsOf(o).getAtmosphericModel(), c.getAtmosphericModel());
+}
+
+TEST(SimulationOptionsToConditions, ARefusedAtmosphereIsTheError)
+{
+    // "temperature -5: IllegalArgumentException: Temperature must be positive (Kelvin)"
+    SimulationOptions o = explicitOptions();
+    o.setIsaAtmosphere(false);
+    o.setLaunchTemperature(-5);
+    const Result<SimulationConditions> conditions = o.toSimulationConditions();
+    ASSERT_FALSE(conditions.has_value());
+    EXPECT_EQ(conditions.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(conditions.error().message, "Temperature must be positive (Kelvin)");
+}
+
+TEST(SimulationOptionsToConditions, TheGravityModelIsANewModelOfTheChosenType)
+{
+    // "gravity WGSGravityModel 9.805891371098026", "-- constant gravity": "gravity
+    // ConstantGravityModel 3.71", "second call: ... gravity same false"
+    SimulationOptions          o = explicitOptions();
+    const SimulationConditions c = conditionsOf(o);
+    ASSERT_NE(c.getGravityModel(), nullptr);
+    EXPECT_NE(dynamic_cast<const WgsGravityModel*>(c.getGravityModel().get()), nullptr);
+    EXPECT_TRUE(isJavaValue(9.805891371098026, c.getGravityModel()->getGravity(c.getLaunchSite())));
+    EXPECT_NE(conditionsOf(o).getGravityModel(), c.getGravityModel());
+
+    o.setGravityModelType(GravityModelType::CONSTANT);
+    o.setConstantGravity(3.71);
+    const SimulationConditions constant = conditionsOf(o);
+    ASSERT_NE(constant.getGravityModel(), nullptr);
+    EXPECT_NE(dynamic_cast<const ConstantGravityModel*>(constant.getGravityModel().get()), nullptr);
+    EXPECT_EQ(constant.getGravityModel()->getGravity(constant.getLaunchSite()), 3.71);
+}
+
+TEST(SimulationOptionsToConditions, TheLaunchSiteIsClampedAsAWorldCoordinate)
+{
+    // "clamped site 90.0 -180.0": the options clamp the latitude and the longitude.
+    SimulationOptions o = explicitOptions();
+    o.setLaunchLatitude(123);
+    o.setLaunchLongitude(-400);
+    const SimulationConditions c = conditionsOf(o);
+    EXPECT_TRUE(isJavaValue(90.0, c.getLaunchSite().getLatitudeDeg()));
+    EXPECT_TRUE(isJavaValue(-180.0, c.getLaunchSite().getLongitudeDeg()));
+}
+
+TEST(SimulationOptionsToConditions, TheCalculatorIsANewBarrowmanCalculator)
+{
+    // "aero BarrowmanCalculator stall 0.30543261909900765", "second call: ... aero same false"
+    const SimulationOptions    o = explicitOptions();
+    const SimulationConditions c = conditionsOf(o);
+    ASSERT_NE(c.getAerodynamicCalculator(), nullptr);
+    EXPECT_NE(
+        dynamic_cast<const QtRocket::BarrowmanCalculator*>(c.getAerodynamicCalculator().get()),
+        nullptr);
+    EXPECT_EQ(c.getAerodynamicCalculator()->getStallAngle(), 0.30543261909900765);
+    EXPECT_NE(conditionsOf(o).getAerodynamicCalculator(), c.getAerodynamicCalculator());
+
+    // Without lookup tables it is the Barrowman calculation.
+    QtRocket::Test::TestEstesAlphaIII    alpha;
+    const QtRocket::FlightConfiguration& config =
+        alpha.rocket->getFlightConfiguration(QtRocket::Test::testFcid(0));
+    const QtRocket::FlightConditions flight(config);
+    QtRocket::BarrowmanCalculator    barrowman;
+    EXPECT_EQ(c.getAerodynamicCalculator()->getCP(config, flight, nullptr).x,
+              barrowman.getCP(config, flight, nullptr).x);
+    EXPECT_EQ(c.getAerodynamicCalculator()->getAerodynamicForces(config, flight, nullptr).getCD(),
+              barrowman.getAerodynamicForces(config, flight, nullptr).getCD());
+}
+
+TEST(SimulationOptionsToConditions, ALookupTableReplacesItsHalfOfTheCalculation)
+{
+    // Java: new BarrowmanCalculator(stabilityLookupTable != null ? new
+    // LookupTableStabilityCalculator(...) : new BarrowmanStabilityCalculator(), dragLookupTable
+    // != null ? new LookupTableDragCalculator(...) : new BarrowmanDragCalculator()).
+    QtRocket::Test::TestEstesAlphaIII    alpha;
+    const QtRocket::FlightConfiguration& config =
+        alpha.rocket->getFlightConfiguration(QtRocket::Test::testFcid(0));
+    const QtRocket::FlightConditions flight(config);
+    QtRocket::BarrowmanCalculator    barrowman;
+    const double                     barrowmanCp = barrowman.getCP(config, flight, nullptr).x;
+    const double barrowmanCd = barrowman.getAerodynamicForces(config, flight, nullptr).getCD();
+
+    // Both tables: the CP and the drag are the tables' (0.125 everywhere).
+    const SimulationOptions    both = lookupOptions("0.125");
+    const SimulationConditions c    = conditionsOf(both);
+    EXPECT_EQ(c.getAerodynamicCalculator()->getCP(config, flight, nullptr).x, 0.125);
+    EXPECT_EQ(c.getAerodynamicCalculator()->getAerodynamicForces(config, flight, nullptr).getCD(),
+              0.125);
+
+    // The drag table only.
+    SimulationOptions drag = lookupOptions("0.125");
+    drag.clearStabilityLookup();
+    const SimulationConditions d = conditionsOf(drag);
+    EXPECT_EQ(d.getAerodynamicCalculator()->getCP(config, flight, nullptr).x, barrowmanCp);
+    EXPECT_EQ(d.getAerodynamicCalculator()->getAerodynamicForces(config, flight, nullptr).getCD(),
+              0.125);
+
+    // The stability table only.
+    SimulationOptions stability = lookupOptions("0.125");
+    stability.clearDragLookup();
+    const SimulationConditions t = conditionsOf(stability);
+    EXPECT_EQ(t.getAerodynamicCalculator()->getCP(config, flight, nullptr).x, 0.125);
+    EXPECT_EQ(t.getAerodynamicCalculator()->getAerodynamicForces(config, flight, nullptr).getCD(),
+              barrowmanCd);
+    EXPECT_NE(barrowmanCp, 0.125);
+    EXPECT_NE(barrowmanCd, 0.125);
+}
+
+TEST(SimulationOptionsToConditions, TheDefaultOptionsGiveConditions)
+{
+    // The built-in defaults: a vertical rod of 1 m, the rod direction of the calm wind (launching
+    // into the wind from the east: pi / 2), the default launch site, the stepper's
+    // recommendations, and the seed the options drew.
+    const SimulationOptions    o;
+    const SimulationConditions c = conditionsOf(o);
+    EXPECT_EQ(c.getLaunchRodLength(), 1.0);
+    EXPECT_EQ(c.getLaunchRodAngle(), 0.0);
+    EXPECT_EQ(c.getLaunchRodDirection(), o.getLaunchRodDirection());
+    EXPECT_EQ(c.getLaunchSite(),
+              QtRocket::WorldCoordinate(o.getLaunchLatitude(), o.getLaunchLongitude(), 0));
+    EXPECT_EQ(c.getGeodeticComputation(), GeodeticComputationStrategy::SPHERICAL);
+    EXPECT_EQ(c.getRandomSeed(), o.getRandomSeed());
+    EXPECT_EQ(c.getTimeStep(), 0.05);
+    EXPECT_EQ(c.getMaxSimulationTime(), 1200.0);
+    EXPECT_EQ(c.getMaximumAngleStep(), 3 * kPi / 180);
+    EXPECT_EQ(c.getRecoverySpeedWarning(), 20.0);
+    EXPECT_EQ(c.getDrogueLowSpeedWarning(), 3.048);
+    EXPECT_EQ(c.getRecoveryDrogueMainHighSpeedWarning(), 30.48);
+    EXPECT_EQ(c.getRecoveryDrogueMainLowSpeedWarning(), 15.24);
+    EXPECT_TRUE(c.getWindModel()->getWindVelocity(0, 0).exactlyEquals(Coordinate{0, 0, 0}))
+        << "calm";
 }
 
 }  // namespace

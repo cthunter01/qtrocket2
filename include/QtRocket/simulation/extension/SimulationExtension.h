@@ -28,9 +28,11 @@ class WarningSet;
 /// are the same object. clone() and SimulationExtensionProvider::getInstance(), which make a
 /// new extension, return a std::unique_ptr, which converts to the shared pointer of a list.
 ///
-/// SimulationConditions, Simulation and OpenRocketDocument are only declared here; later tiers
-/// define them. initialize() may throw a SimulationException (Java declares it), the one
-/// exception family that crosses the simulation loop.
+/// SimulationConditions and Simulation are only declared here (simulation/SimulationConditions.h
+/// and simulation/Simulation.h define them; Simulation::simulate() is what calls initialize()),
+/// and so is OpenRocketDocument, which the document tier defines. initialize() may throw a
+/// SimulationException (Java declares it), the one exception family that crosses the simulation
+/// loop.
 ///
 /// Deviation: getDescription() returns nullopt where Java returns null.
 class SimulationExtension

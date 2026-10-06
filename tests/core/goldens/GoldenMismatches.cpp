@@ -54,6 +54,24 @@ void GoldenMismatches::exact(std::string_view field, double expected, double act
     }
 }
 
+void GoldenMismatches::within(std::string_view field, double expected, double actual,
+                              double relativeTolerance, double absoluteTolerance)
+{
+    if ((std::isnan(expected) && std::isnan(actual)) || expected == actual)
+    {
+        return;
+    }
+    // An infinity on one side only, or a NaN, gives a difference that is not finite: a mismatch
+    // whatever the tolerances (an infinite scale would otherwise admit it).
+    const double difference = std::abs(actual - expected);
+    const double scale      = std::max(std::abs(expected), std::abs(actual));
+    if (!std::isfinite(difference) ||
+        (!(difference <= relativeTolerance * scale) && !(difference <= absoluteTolerance)))
+    {
+        add(field, expected, actual);
+    }
+}
+
 void GoldenMismatches::position(std::string_view field, const Coordinate& expected,
                                 const Coordinate& actual)
 {
