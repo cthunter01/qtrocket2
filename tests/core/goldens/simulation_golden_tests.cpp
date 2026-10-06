@@ -71,10 +71,11 @@
 //   reproducible part of the branch (its horizon). A branch whose every row is reproducible, in
 //   a run with as many rows, branches, jitter replacements and the same status, is whole.
 // - Compared with the golden files, at the tolerances below: the rows of the reproducible part;
-//   the time of an event the branch recorded in its reproducible part, or that the motors time
-//   (LAUNCH, IGNITION, BURNOUT, EJECTION_CHARGE, STAGE_SEPARATION: a fixed time after the event
-//   that queued them) and the separation time; the launch rod velocity when the rod is cleared
-//   in the reproducible part; for a whole branch its number of rows, optimum altitude and delay
+//   the time of an event the branch recorded in its reproducible part, or that the reproducible
+//   part fixes (the LAUNCH, and the BURNOUT of a motor that ignited in it: see
+//   isTimedInTheReproduciblePart()), and the separation time when the stage separated in it; the
+//   launch rod velocity when the rod is cleared in the reproducible part; for a whole branch its
+//   number of rows, optimum altitude and delay
 //   and the minimum and maximum of every column; for a whole run the other summary values, the
 //   number of jitter replacements (it counts the force calculations of the Runge-Kutta steppers,
 //   the nested optimum-coast runs included) and the parameter, description and text of a warning
@@ -1720,20 +1721,42 @@ void compareEventData(Mismatches& m, Comparison& c, const std::string& field, co
     }
 }
 
-/// Whether the time of an event of the type @p type follows from the launch and the motors
-/// alone: an ignition, a burnout, an ejection charge and a stage separation come a fixed time
-/// after the event that queued them, whatever the trajectory.
-[[nodiscard]] bool isTimedByTheMotors(FlightEvent::Type type)
+/// Whether the time of @p event is fixed by the reproducible part of its branch, whatever the
+/// trajectory after it: the LAUNCH, and the BURNOUT of a motor that ignited in that part (the
+/// time at which its IGNITION was handled plus the burn time).
+///
+/// The other events the motors time are not: OpenRocket gives a queued event a time relative to
+/// the simulation time at which the event that queues it is HANDLED (BasicEventSimulationEngine:
+/// an EJECTION_CHARGE is the handling time of its BURNOUT plus the delay, a later IGNITION the
+/// handling time of what ignites it plus the ignition delay, a STAGE_SEPARATION follows one of
+/// those), and an event is handled at the end of the first step that reaches its time. That is
+/// its time when the step is cut to end there, but a step that the angle limits push below a
+/// twentieth of the time step is raised to that minimum "even at the cost of not being quite on
+/// an event" (AbstractRKSimulationStepper.computeTimeStep()), so the handling time can lie up to
+/// 0.0025 s later. Beyond the horizon the sequence of steps is not reproducible, so neither is
+/// that handling time: on Windows (MSVC's math library) the BURNOUT at 2.1 s of the Estes
+/// Alpha III's C6 flights is handled at 2.100235 s, which moves the EJECTION_CHARGE by
+/// 0.000235 s, where OpenRocket, glibc under every pattern of the libm shim, and macOS all land
+/// on 2.1 s.
+[[nodiscard]] bool isTimedInTheReproduciblePart(const FlightEvent& event, const Horizon& horizon)
 {
-    return type == FlightEvent::Type::LAUNCH || type == FlightEvent::Type::IGNITION ||
-           type == FlightEvent::Type::BURNOUT || type == FlightEvent::Type::EJECTION_CHARGE ||
-           type == FlightEvent::Type::STAGE_SEPARATION;
+    if (event.getType() == FlightEvent::Type::LAUNCH)
+    {
+        return true;
+    }
+    if (event.getType() != FlightEvent::Type::BURNOUT)
+    {
+        return false;
+    }
+    const std::shared_ptr<QtRocket::MotorClusterState> state = event.getMotorState();
+    return state != nullptr && state->getIgnitionTime() <= horizon.time;
 }
 
 /// Compares the events of the branch with the golden "events": first their types and sources
 /// in order, as one text; then, when they are the same, the time and the data of each. The time
 /// of an event is reproducible when the branch recorded it in its reproducible part, or when
-/// the motors time it. Returns the number of golden events compared.
+/// that part fixes it (isTimedInTheReproduciblePart()). Returns the number of golden events
+/// compared.
 [[nodiscard]] int compareEvents(Mismatches& m, Comparison& c, const json& expected,
                                 const BranchOf& ours)
 {
@@ -1750,7 +1773,8 @@ void compareEventData(Mismatches& m, Comparison& c, const std::string& field, co
         const std::string  field = std::format("events[{}]", i);
         const FlightEvent& event = *events[i];
         compareTime(m, c, field + ".time", goldenValue(golden[i]->at("time")), event.getTime(),
-                    event.getTime() <= ours.horizon.time || isTimedByTheMotors(event.getType()));
+                    event.getTime() <= ours.horizon.time ||
+                        isTimedInTheReproduciblePart(event, ours.horizon));
         compareEventData(m, c, field + ".data", golden[i]->at("data"), event, ours);
         noteUncomparedKeys(m, field, *golden[i], kEventKeys);
     }
@@ -1900,9 +1924,9 @@ void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& col
 // ------------------------------------------------------------------------------------ branch
 
 /// Compares the header of the branch with the golden branch @p expected: its index, name and
-/// source component, the separation time (the time of an event the motors time), the name of
-/// its file and its excluded columns; and, when the whole branch is reproducible, its number of
-/// rows, the optimum altitude, the time to it and the optimum delay.
+/// source component, the name of its file and its excluded columns; the separation time when
+/// the stage separated in the reproducible part; and, when the whole branch is reproducible, its
+/// number of rows, the optimum altitude, the time to it and the optimum delay.
 void compareBranchHeader(Mismatches& m, Comparison& c, const json& expected, std::size_t index,
                          const BranchOf& ours, const PlannedSimulation& planned)
 {
@@ -1922,8 +1946,9 @@ void compareBranchHeader(Mismatches& m, Comparison& c, const json& expected, std
                 branch.getTimeToOptimumAltitude(), whole);
     compareTime(m, c, "optimumDelay", goldenValue(expected.at("optimumDelay")),
                 branch.getOptimumDelay(), whole);
+    // The time of the STAGE_SEPARATION event (NaN without one): reproducible like that event's.
     compareTime(m, c, "separationTime", goldenValue(expected.at("separationTime")),
-                branch.getSeparationTime(), true);
+                branch.getSeparationTime(), !(branch.getSeparationTime() > ours.horizon.time));
     m.text("csv", expected.at("csv").get<std::string>(),
            std::format("{}_branch{}.csv.gz", baseName(planned), index));
     m.text("excludedColumns", joined(expected.at("excludedColumns")), excludedKeys(branch));
