@@ -15,9 +15,12 @@ namespace QtRocket
 /// Deviations from OpenRocket:
 /// - clone() is not ported: this is a value type, so a copy is a clone.
 /// - hashCode() is the std::hash specialisation below.
-/// - The degree conversions are MathUtil::deg2rad / rad2deg (deg * pi / 180, two roundings),
-///   while Java's Math.toRadians / toDegrees multiply by a pre-rounded pi / 180 and 180 / pi; the
-///   two can differ in the last ulp.
+///
+/// The degree conversions are Java's Math.toRadians and Math.toDegrees (MathUtil::javaToRadians
+/// and javaToDegrees: one multiplication by the pre-rounded pi / 180 or 180 / pi), not
+/// MathUtil::deg2rad and rad2deg (deg * pi / 180, two roundings), which can differ from them in
+/// the last ulp: the simulation stores the latitude and the longitude of every step in degrees
+/// and takes gravity and the Coriolis acceleration from the latitude in radians.
 class WorldCoordinate
 {
 public:

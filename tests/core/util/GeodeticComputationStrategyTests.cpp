@@ -1,5 +1,6 @@
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 
+#include <array>
 #include <cmath>
 #include <format>
 #include <limits>
@@ -656,6 +657,58 @@ TEST(GeodeticComputationStrategy, Wgs84HugeDistanceGivesFiniteInRangeResult)
     EXPECT_FALSE(std::isnan(result.getLongitudeDeg()));
     EXPECT_LE(std::abs(result.getLatitudeDeg()), 90.0);
     EXPECT_LE(std::abs(result.getLongitudeDeg()), 180.0);
+}
+
+/// A start of a move due north and the longitude Java holds afterwards, in radians.
+struct DueNorthPin
+{
+    double latitudeDeg;
+    double longitudeDeg;
+    double longitudeRad;
+
+    constexpr DueNorthPin(double latitude, double longitude, double longitudeAfter) noexcept
+      : latitudeDeg(latitude), longitudeDeg(longitude), longitudeRad(longitudeAfter)
+    {
+    }
+};
+
+/// The longitude in radians after moving 1000 m due north (and 50 m up) from @p pin's start.
+[[nodiscard]] double longitudeAfterMovingNorth(GeodeticComputationStrategy strategy,
+                                               const DueNorthPin&          pin)
+{
+    return addCoordinate(strategy, WorldCoordinate(pin.latitudeDeg, pin.longitudeDeg, 0),
+                         Coordinate(0, 1000, 50))
+        .getLongitudeRad();
+}
+
+// Regression: the new latitude and longitude were converted to degrees with rad * 180 / pi,
+// where Java uses Math.toDegrees (one multiplication by a pre-rounded 180 / pi); the
+// WorldCoordinate then converts them back. A move due north has a bearing of exactly 0, so the
+// spherical and the WGS84 computation leave the longitude in radians as it was, on every
+// platform, and only the two conversions touch it: Java ends with the double it began with,
+// which the old conversion missed by one bit for the first two starts (-3.1234412293690528 and
+// -3.1030208771207177). The simulation makes this conversion in every step. The values are what
+// probes/tier8b-steppers/WorldProbe.java printed.
+TEST(GeodeticComputationStrategy, TheNewLocationIsConvertedToDegreesAsJavaDoes)
+{
+    static constexpr std::array<DueNorthPin, 7> kPins{{
+        {10.0, -178.96, -3.1234412293690523},
+        {10.0, -177.79, -3.103020877120718},
+        {45.0, -80.6, -1.4067353771074296},
+        {-20.0, 151.25, 2.6398104936414235},
+        {30.0, 0.07, 0.0012217304763960308},
+        {60.0, 99.99, 1.7451547190691301},
+        {5.0, -0.5, -0.008726646259971648},
+    }};
+    for (const DueNorthPin& pin : kPins)
+    {
+        EXPECT_EQ(longitudeAfterMovingNorth(GeodeticComputationStrategy::SPHERICAL, pin),
+                  pin.longitudeRad)
+            << "spherical, longitude " << pin.longitudeDeg;
+        EXPECT_EQ(longitudeAfterMovingNorth(GeodeticComputationStrategy::WGS84, pin),
+                  pin.longitudeRad)
+            << "WGS84, longitude " << pin.longitudeDeg;
+    }
 }
 
 }  // namespace

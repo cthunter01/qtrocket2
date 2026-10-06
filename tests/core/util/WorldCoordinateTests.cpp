@@ -1,5 +1,6 @@
 #include "QtRocket/util/WorldCoordinate.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <format>
@@ -131,8 +132,8 @@ TEST(WorldCoordinate, RadiansAndDegreesAgree)
     EXPECT_NEAR(MathUtil::deg2rad(151.25), wc.getLongitudeRad(), kEps);
     EXPECT_NEAR(-33.5, wc.getLatitudeDeg(), kEps);
     EXPECT_NEAR(151.25, wc.getLongitudeDeg(), kEps);
-    EXPECT_NEAR(MathUtil::rad2deg(wc.getLatitudeRad()), wc.getLatitudeDeg(), kEps);
-    EXPECT_NEAR(MathUtil::rad2deg(wc.getLongitudeRad()), wc.getLongitudeDeg(), kEps);
+    EXPECT_EQ(MathUtil::javaToDegrees(wc.getLatitudeRad()), wc.getLatitudeDeg());
+    EXPECT_EQ(MathUtil::javaToDegrees(wc.getLongitudeRad()), wc.getLongitudeDeg());
     EXPECT_EQ(12.5, wc.getAltitude());
 }
 
@@ -189,14 +190,88 @@ TEST(WorldCoordinate, ToString)
     EXPECT_EQ("WorldCoordinate[lat=10, lon=20, alt=12.5]",
               WorldCoordinate(10, 20, 12.5).toString());
 
-    // Other angles are whatever the degree getters give (-33.5 comes back as -33.49999...), in
-    // the shortest round-trip digits.
+    // Other angles are whatever the degree getters give, in the shortest round-trip digits.
+    // With Java's conversions -33.5 and 151.25 come back as they went in (Java prints the same
+    // text for this coordinate); 28.61 does not.
     const WorldCoordinate wc(-33.5, 151.25, 12.5);
     EXPECT_EQ(std::format("WorldCoordinate[lat={}, lon={}, alt={}]", wc.getLatitudeDeg(),
                           wc.getLongitudeDeg(), wc.getAltitude()),
               wc.toString());
-    EXPECT_TRUE(wc.toString().starts_with("WorldCoordinate[lat=-33.4"));
-    EXPECT_TRUE(wc.toString().ends_with(", alt=12.5]"));
+    EXPECT_EQ("WorldCoordinate[lat=-33.5, lon=151.25, alt=12.5]", wc.toString());
+    EXPECT_EQ("WorldCoordinate[lat=28.610000000000003, lon=-80.6, alt=0]",
+              WorldCoordinate(28.61, -80.6, 0).toString());
+}
+
+/// What Java's WorldCoordinate holds and gives back for a latitude and a longitude in degrees.
+struct JavaConversionPin
+{
+    double latitudeDeg;
+    double longitudeDeg;
+    double latitudeRad;
+    double longitudeRad;
+    double latitudeDegBack;
+    double longitudeDegBack;
+
+    constexpr JavaConversionPin(double latitude, double longitude, double latitudeRadians,
+                                double longitudeRadians, double latitudeBack,
+                                double longitudeBack) noexcept
+      : latitudeDeg(latitude),
+        longitudeDeg(longitude),
+        latitudeRad(latitudeRadians),
+        longitudeRad(longitudeRadians),
+        latitudeDegBack(latitudeBack),
+        longitudeDegBack(longitudeBack)
+    {
+    }
+};
+
+/// Whether a WorldCoordinate made of @p pin's degrees holds and gives back exactly Java's values.
+[[nodiscard]] bool convertsAsJava(const JavaConversionPin& pin)
+{
+    const WorldCoordinate wc(pin.latitudeDeg, pin.longitudeDeg, 12.5);
+    return wc.getLatitudeRad() == pin.latitudeRad && wc.getLongitudeRad() == pin.longitudeRad &&
+           wc.getLatitudeDeg() == pin.latitudeDegBack &&
+           wc.getLongitudeDeg() == pin.longitudeDegBack;
+}
+
+// Regression: the conversions were deg * pi / 180 and rad * 180 / pi, which differ from Java's
+// Math.toRadians and Math.toDegrees (one multiplication by a pre-rounded constant) in the last
+// bit for some angles: 28.61 degrees became 0.49933869899557765 rad and came back as 28.61, where
+// Java holds 0.4993386989955777 and gives back 28.610000000000003. The simulation stores the
+// latitude and longitude of every step and computes gravity from the latitude, so its results
+// carried that bit. The values are what probes/tier8b-steppers/WorldProbe.java printed (JDK 17);
+// the comparisons are exact, since a multiplication and the reduction of the angle are.
+TEST(WorldCoordinate, TheDegreeConversionsAreJavas)
+{
+    // Java's values, pasted digit for digit: pi and pi / 2 among them are what Java printed.
+    // NOLINTBEGIN(modernize-use-std-numbers)
+    static constexpr std::array<JavaConversionPin, 13> kPins{{
+        {0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+        {10.0, 20.0, 0.17453292519943295, 0.3490658503988659, 10.0, 20.0},
+        {-33.5, 151.25, -0.5846852994181004, 2.6398104936414235, -33.5, 151.25},
+        {28.61, -80.6, 0.4993386989955777, -1.4067353771074296, 28.610000000000003, -80.6},
+        {45.0, 10.0, 0.7853981633974483, 0.17453292519943295, 45.0, 10.0},
+        {60.0, -179.5, 1.0471975511965976, -3.1328660073298216, 59.99999999999999, -179.5},
+        {89.999, 0.001, 1.5707788735023767, 1.7453292519943296E-5, 89.999, 0.001},
+        {-90.0, 180.0, -1.5707963267948966, 3.141592653589793, -90.0, 180.0},
+        {51.4778, -0.0015, 0.898457101683137, -2.6179938779914945E-5, 51.4778, -0.0015},
+        {1.0E-300, -1.0E-300, 1.7453292519943295E-302, -1.7453292519943295E-302, 1.0E-300,
+         -1.0E-300},
+        {35.6762, 139.6503, 0.622667154600001, 2.437357536397837, 35.6762, 139.6503},
+        // Out of range: the latitude is clamped and the longitude reduced.
+        {95.0, 200.0, 1.5707963267948966, -2.792526803190927, 90.0, -160.0},
+        {-100.0, -200.0, -1.5707963267948966, 2.792526803190927, -90.0, 160.0},
+    }};
+    // NOLINTEND(modernize-use-std-numbers)
+    for (const JavaConversionPin& pin : kPins)
+    {
+        EXPECT_TRUE(convertsAsJava(pin))
+            << "latitude " << pin.latitudeDeg << ", longitude " << pin.longitudeDeg;
+    }
+
+    // The two conversions differ: the old one is not Java's.
+    EXPECT_NE(MathUtil::deg2rad(28.61), WorldCoordinate(28.61, 0, 0).getLatitudeRad());
+    EXPECT_EQ(MathUtil::javaToRadians(28.61), WorldCoordinate(28.61, 0, 0).getLatitudeRad());
 }
 
 TEST(WorldCoordinate, HashFollowsOpenRocket)

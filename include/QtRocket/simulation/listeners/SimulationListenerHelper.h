@@ -155,6 +155,16 @@ public:
     [[nodiscard]] static FlightConditions firePostFlightConditions(SimulationStatus& status,
                                                                    FlightConditions  conditions);
 
+    /// firePostFlightConditions(status, conditions), which also says in @p replaced whether a
+    /// listener's conditions replaced the given ones. Java's caller sees that by comparing the
+    /// returned object with the one it passed (AbstractSimulationStepper: `c !=
+    /// store.flightConditions`), which is true as soon as one listener's conditions were taken,
+    /// even if a later listener's then equal the original ones; a comparison of the values
+    /// could not tell that case.
+    [[nodiscard]] static FlightConditions firePostFlightConditions(SimulationStatus& status,
+                                                                   FlightConditions  conditions,
+                                                                   bool&             replaced);
+
     /// Fires preAerodynamicCalculation(). nullopt normally, or the overriding aerodynamic
     /// forces.
     [[nodiscard]] static std::optional<AerodynamicForces> firePreAerodynamicCalculation(

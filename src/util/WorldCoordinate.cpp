@@ -13,21 +13,21 @@ namespace QtRocket
 {
 
 WorldCoordinate::WorldCoordinate(double latitudeDeg, double longitudeDeg, double altitude) noexcept
-  : m_lat{MathUtil::clamp(MathUtil::deg2rad(latitudeDeg), -std::numbers::pi / 2,
+  : m_lat{MathUtil::clamp(MathUtil::javaToRadians(latitudeDeg), -std::numbers::pi / 2,
                           std::numbers::pi / 2)},
-    m_lon{MathUtil::reducePi(MathUtil::deg2rad(longitudeDeg))},
+    m_lon{MathUtil::reducePi(MathUtil::javaToRadians(longitudeDeg))},
     m_alt{altitude}
 {
 }
 
 double WorldCoordinate::getLongitudeDeg() const noexcept
 {
-    return MathUtil::rad2deg(m_lon);
+    return MathUtil::javaToDegrees(m_lon);
 }
 
 double WorldCoordinate::getLatitudeDeg() const noexcept
 {
-    return MathUtil::rad2deg(m_lat);
+    return MathUtil::javaToDegrees(m_lat);
 }
 
 bool WorldCoordinate::operator==(const WorldCoordinate& other) const noexcept

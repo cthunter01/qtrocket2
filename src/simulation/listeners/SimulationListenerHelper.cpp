@@ -187,12 +187,13 @@ template <class Hook>
 
 /// A `post` hook of SimulationComputationListener: @p hook(computationListener, current) for
 /// every listener that implements the interface; a value that differs from the current one
-/// replaces it.
+/// replaces it, and @p replaced (when not null) is then set to true.
 template <class T, class Hook>
-[[nodiscard]] T firePostHook(SimulationStatus& status, T current, Hook hook)
+[[nodiscard]] T firePostHook(SimulationStatus& status, T current, Hook hook,
+                             bool* replaced = nullptr)
 {
     ModIdWatch watch(status);
-    forEachListener(status, [&status, &watch, &hook, &current](SimulationListener& l) {
+    forEachListener(status, [&status, &watch, &hook, &current, replaced](SimulationListener& l) {
         auto* computationListener = dynamic_cast<SimulationComputationListener*>(&l);
         if (computationListener == nullptr)
         {
@@ -204,6 +205,10 @@ template <class T, class Hook>
         {
             warn(status, l);
             current = std::move(*value);
+            if (replaced != nullptr)
+            {
+                *replaced = true;
+            }
         }
         return true;
     });
@@ -384,11 +389,21 @@ std::optional<FlightConditions> SimulationListenerHelper::firePreFlightCondition
 FlightConditions SimulationListenerHelper::firePostFlightConditions(SimulationStatus& status,
                                                                     FlightConditions  conditions)
 {
+    bool replaced = false;
+    return firePostFlightConditions(status, std::move(conditions), replaced);
+}
+
+FlightConditions SimulationListenerHelper::firePostFlightConditions(SimulationStatus& status,
+                                                                    FlightConditions  conditions,
+                                                                    bool&             replaced)
+{
+    replaced = false;
     return firePostHook<FlightConditions>(
         status, std::move(conditions),
         [&status](SimulationComputationListener& l, const FlightConditions& current) {
             return l.postFlightConditions(status, current);
-        });
+        },
+        &replaced);
 }
 
 std::optional<AerodynamicForces> SimulationListenerHelper::firePreAerodynamicCalculation(

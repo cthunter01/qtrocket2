@@ -1505,4 +1505,53 @@ TEST(SimulationListenerHelper, TheValueOfAPostHookComesBackWhole)
     EXPECT_EQ(SimulationListenerHelper::firePostThrustCalculation(*f.status, 12.5), 12.5);
 }
 
+// Regression (the steppers of part B): Java's AbstractSimulationStepper recalculates the lateral
+// direction and the lateral pitch rate of its data store when `c != store.flightConditions`,
+// that is when the helper returned another object than it was given, which it does as soon as
+// one listener's conditions were taken. The helper here returns a value, so the overload with
+// the flag says it. A comparison of the values could not: the last case below ends with the
+// conditions it began with.
+TEST(SimulationListenerHelper, ThePostFlightConditionsHookSaysWhetherAListenerReplacedThem)
+{
+    Fixture f(true, true, true);
+
+    // No listener answers: nothing is replaced (and the flag is cleared, whatever it was).
+    bool             replaced = true;
+    FlightConditions conditions =
+        SimulationListenerHelper::firePostFlightConditions(*f.status, flight(0.3), replaced);
+    EXPECT_FALSE(replaced);
+    EXPECT_EQ(conditions.getMach(), 0.3);
+
+    // Conditions that equal the given ones are not taken.
+    f.b->value = 0.3;
+    replaced   = true;
+    conditions =
+        SimulationListenerHelper::firePostFlightConditions(*f.status, flight(0.3), replaced);
+    EXPECT_FALSE(replaced);
+    EXPECT_EQ(conditions.getMach(), 0.3);
+
+    // Other conditions are.
+    f.b->value = 0.7;
+    conditions =
+        SimulationListenerHelper::firePostFlightConditions(*f.status, flight(0.3), replaced);
+    EXPECT_TRUE(replaced);
+    EXPECT_EQ(conditions.getMach(), 0.7);
+
+    // Replaced by one listener and put back by a later one: the values are those given, and
+    // conditions were replaced all the same (Java returns the later listener's object).
+    f.a->value = 0.7;
+    f.b->value = std::numeric_limits<double>::quiet_NaN();
+    f.c->value = 0.3;
+    replaced   = false;
+    conditions =
+        SimulationListenerHelper::firePostFlightConditions(*f.status, flight(0.3), replaced);
+    EXPECT_TRUE(replaced);
+    EXPECT_EQ(conditions.getMach(), 0.3);
+    EXPECT_TRUE(conditions == flight(0.3));
+
+    // The overload without the flag gives the same conditions.
+    EXPECT_EQ(SimulationListenerHelper::firePostFlightConditions(*f.status, flight(0.3)).getMach(),
+              0.3);
+}
+
 }  // namespace

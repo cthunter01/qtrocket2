@@ -1,5 +1,10 @@
 target_sources(QtRocket_core PRIVATE
+    AbstractEulerStepper.cpp
+    AbstractRkSimulationStepper.cpp
+    AbstractSimulationStepper.cpp
     AccelerationData.cpp
+    BasicLandingStepper.cpp
+    BasicTumbleStepper.cpp
     DefaultSimulationOptionFactory.cpp
     EventQueue.cpp
     exception/SimulationCalculationException.cpp
@@ -12,6 +17,7 @@ target_sources(QtRocket_core PRIVATE
     FlightDataTypeGroup.cpp
     FlightEvent.cpp
     FlightEventActivation.cpp
+    GroundStepper.cpp
     listeners/AbstractSimulationListener.cpp
     listeners/SimulationListenerHelper.cpp
     listeners/system/ApogeeEndListener.cpp
@@ -20,6 +26,8 @@ target_sources(QtRocket_core PRIVATE
     listeners/system/OptimumCoastListener.cpp
     listeners/system/ProgressListener.cpp
     listeners/system/RecoveryDeviceDeploymentEndListener.cpp
+    Rk4SimulationStepper.cpp
+    Rk6SimulationStepper.cpp
     Simulation.cpp
     SimulationConditions.cpp
     SimulationOptions.cpp

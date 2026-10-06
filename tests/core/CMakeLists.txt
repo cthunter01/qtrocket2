@@ -13,6 +13,7 @@ add_executable(QtRocket_core_tests
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/JavaRandomTests.cpp
     util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp
     util/LineStyleTests.cpp
@@ -173,8 +174,13 @@ add_executable(QtRocket_core_tests
     aero/SymmetricComponentCalcTests.cpp
     aero/TubeCalcTests.cpp
     aero/TubeFinSetCalcTests.cpp
+    simulation/AbstractEulerStepperTests.cpp
+    simulation/AbstractRkSimulationStepperTests.cpp
     simulation/AbstractSimulationListenerTests.cpp
+    simulation/AbstractSimulationStepperTests.cpp
     simulation/AccelerationDataTests.cpp
+    simulation/BasicLandingStepperTests.cpp
+    simulation/BasicTumbleStepperTests.cpp
     simulation/CloneableSimulationListenerTests.cpp
     simulation/DataBranchTests.cpp
     simulation/DefaultSimulationOptionFactoryTests.cpp
@@ -185,7 +191,13 @@ add_executable(QtRocket_core_tests
     simulation/FlightDataTypeGroupTests.cpp
     simulation/FlightDataTypeTests.cpp
     simulation/FlightEventTests.cpp
+    simulation/GroundStepperTests.cpp
+    simulation/motor_cluster_pods_tests.cpp
+    simulation/motor_pressure_correction_tests.cpp
     simulation/PlotAppearanceTests.cpp
+    simulation/Rk4SimulationStepperTests.cpp
+    simulation/Rk6SimulationStepperTests.cpp
+    simulation/runge_kutta_simulation_stepper_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
     simulation/SimulationExtensionTests.cpp
@@ -195,6 +207,8 @@ add_executable(QtRocket_core_tests
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
     simulation/SimulationTests.cpp
+    simulation/StepperScenarioPins.cpp
+    simulation/StepperTestSupport.cpp
     simulation/system_listener_tests.cpp
     simulation/TumbleDetectorTests.cpp
     file/GzipStreamTests.cpp
