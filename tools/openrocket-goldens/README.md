@@ -293,6 +293,21 @@ types that are not built in (extension data), `custom:<name>`. Values use `Doubl
 OpenRocket stores in degrees. Rows keep OpenRocket's two-phase storage (a row is opened by
 `addPoint()` and filled by later `setValue` calls).
 
+How QtRocket compares them (`tests/core/goldens/simulation_golden_tests.cpp`, the test-rocket
+inputs): each rocket is built by its C++ maker, the options are set as the harness sets them, and
+the run has the same two listeners. `tests/core/simulation/JitterRemoval.h` is the port of
+`JitterRemoval`: the forces listener is the first simulation listener and the conditions listener
+the last, both are system listeners, the stepper draws its random numbers all the same, and the
+jittered forces are replaced by the calculator's result for the captured flight conditions (the
+port tells the Runge-Kutta steppers' hook from the landing and tumble steppers' by the normal force
+coefficient of the forces, which the latter leave NaN, where the harness walks the call stack);
+the number of replacements is compared with `result.jitterReplacements`. Compared per simulation:
+the options and the `harness` block, `result`, the summary values, the warnings, and per branch its
+header, the columns (key, name, symbol, order, minimum and maximum), the events in order (type,
+source, data and time) and every value of the CSV. Everything that is not a number of the trajectory
+is compared exactly; the trajectory at 1e-9 of a column's scale (times: 1e-6 s) as far as the flight
+is reproducible (see [Reproducibility of the simulations](#reproducibility-of-the-simulations)).
+
 ### resave/rocket.ork
 
 The XML that `OpenRocketSaver.save` writes (file version 1.11, `creator="OpenRocket <version>"`),

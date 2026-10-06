@@ -24,7 +24,8 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 //
 // The cases that drive the detector directly. The integration cases of the Java class
 // (testSteadyCrosswindDoesNotAbort, testRecoveredFlightReachesExpectedApogee,
-// testUnstableRocketIsStillDetected) run a simulation and are ported with the engine.
+// testUnstableRocketIsStillDetected) run a simulation: they are in
+// tumble_detector_simulation_tests.cpp.
 
 /// TumbleDetectorTest.SEA_LEVEL_DENSITY
 constexpr double kSeaLevelDensity = 1.225;

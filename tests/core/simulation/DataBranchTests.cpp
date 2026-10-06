@@ -137,6 +137,7 @@ static_assert(std::is_same_v<decltype(std::declval<const Branch&>().getView(time
 
 // ---- DataBranchViewTest.java (there on a FlightDataBranch, here on the DataBranch it extends) --
 
+// DataBranchViewTest.valuesViewReflectsBranchMutations
 TEST(DataBranch, ValuesViewReflectsBranchMutations)
 {
     Branch branch("test", {timeType()});
@@ -156,6 +157,7 @@ TEST(DataBranch, ValuesViewReflectsBranchMutations)
     EXPECT_EQ(view->at(1), 0.2);
 }
 
+// DataBranchViewTest.valuesViewIsUnmodifiable
 TEST(DataBranch, ValuesViewIsUnmodifiable)
 {
     // Java checks that add() throws UnsupportedOperationException; here the view is a pointer to
@@ -169,6 +171,8 @@ TEST(DataBranch, ValuesViewIsUnmodifiable)
     EXPECT_EQ(*view, std::vector<double>{1.0});
 }
 
+// DataBranchViewTest.valuesViewForMissingTypeIsEmptyAndUnmodifiable (which, despite its name,
+// expects null)
 TEST(DataBranch, ValuesViewForMissingTypeIsNull)
 {
     const Branch branch("test", {timeType()});

@@ -48,7 +48,7 @@ using QtRocket::SimulationStatus;
 // OpenRocket has no test of the extension classes themselves. The extensions below have the
 // shape of OpenRocket's own ones (example/AirStart and its provider), with the simulation
 // listener AirStart adds in initialize(). documentLoaded() takes an OpenRocketDocument, which
-// a later tier defines, so no test here can call it.
+// the document tier defines, so no test here can call it.
 
 static_assert(std::is_abstract_v<SimulationExtension>);
 static_assert(std::has_virtual_destructor_v<SimulationExtension>);

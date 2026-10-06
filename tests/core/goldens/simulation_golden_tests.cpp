@@ -829,6 +829,21 @@ public:
         return text;
     }
 
+    /// The largest difference of a value of the time series of the simulation @p context from
+    /// its golden value, whether compared or sensitive, as a multiple of its tolerance (which is
+    /// kValueRelative of the scale of its column).
+    [[nodiscard]] double largestOfTheTimeSeries(const std::string& context) const
+    {
+        const std::string prefix  = context + "\tcolumn:";
+        double            largest = 0;
+        for (auto entry = m_entries.lower_bound(prefix);
+             entry != m_entries.end() && entry->first.starts_with(prefix); ++entry)
+        {
+            largest = std::max(largest, entry->second.ofTolerance);
+        }
+        return largest;
+    }
+
     /// The largest difference of a compared value, as a multiple of its tolerance.
     [[nodiscard]] double largestComparedOfTolerance() const
     {
@@ -2351,17 +2366,59 @@ TEST(SimulationGoldenStrict, DISABLED_EverySimulationIsReproducedInFull)
     return text;
 }
 
+/// "848+283" for a flight of two branches with 848 and 283 rows.
+[[nodiscard]] std::string rowCounts(const std::vector<std::size_t>& rows)
+{
+    std::string text;
+    for (const std::size_t count : rows)
+    {
+        text += std::format("{}{}", text.empty() ? "" : "+", count);
+    }
+    return text;
+}
+
+/// One line of the overview of the measurement: the apogee (the maximum altitude) and the flight
+/// time of @p run and of its golden file, the rows of their branches, and the largest difference
+/// of a value of the time series (over the rows both have), as a fraction of its column's scale.
+[[nodiscard]] std::string overviewLine(const GoldenRun& run, const Measurements& measurements)
+{
+    if (run.run.data == nullptr)
+    {
+        return std::format("{}\tno flight data\n", run.context);
+    }
+    const json&              summary = run.files.document.at("summary");
+    std::vector<std::size_t> rows;
+    std::vector<std::size_t> goldenRows;
+    rows.reserve(run.run.data->getBranchCount());
+    goldenRows.reserve(run.files.tables.size());
+    for (std::size_t i = 0; i < run.run.data->getBranchCount(); i++)
+    {
+        rows.push_back(run.run.data->getBranch(i).getLength());
+    }
+    for (const GoldenTable& table : run.files.tables)
+    {
+        goldenRows.push_back(table.rows.size());
+    }
+    return std::format("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1e}\n", run.context,
+                       run.run.data->getMaxAltitude(), goldenValue(summary.at("maxAltitude")),
+                       run.run.data->getFlightTime(), goldenValue(summary.at("flightTime")),
+                       rowCounts(rows), rowCounts(goldenRows),
+                       measurements.largestOfTheTimeSeries(run.context) * kValueRelative);
+}
+
 /// The measurement behind the tolerances: prints, per simulation, how far it is reproducible,
 /// and a table of the largest differences from the golden files, one line per simulation and
 /// thing compared (a summary value, the times of the events, a column, ...), separately for what
 /// is compared and for what is sensitive: the number of values, the largest difference, and that
-/// difference as a multiple of its tolerance. Disabled; run it with
-/// --gtest_also_run_disabled_tests (under a libm of another platform, or the one-ulp shim, to
-/// see what the tolerances have to cover there).
+/// difference as a multiple of its tolerance; then an overview, one line per simulation: the
+/// apogee and the flight time here and in the golden file, the rows, and the largest difference
+/// of the time series. Disabled; run it with --gtest_also_run_disabled_tests (under a libm of
+/// another platform, or the one-ulp shim, to see what the tolerances have to cover there).
 TEST(SimulationGoldenMeasurement, DISABLED_PrintsTheDifferencesFromTheGoldenFiles)
 {
     Measurements measurements;
     std::string  sensitivity;
+    std::string  overview;
     for (const TestRocketMaker& maker : testRocketMakers())
     {
         const GoldenInput* input = inputOf(maker);
@@ -2376,6 +2433,7 @@ TEST(SimulationGoldenMeasurement, DISABLED_PrintsTheDifferencesFromTheGoldenFile
             sensitivity += run.sensitivity.whole
                                ? std::string{}
                                : std::format("{}:{}\n", run.context, sensitivityText(run));
+            overview += overviewLine(run, measurements);
         }
     }
     std::cout << "Not reproducible as a whole:\n"
@@ -2383,6 +2441,10 @@ TEST(SimulationGoldenMeasurement, DISABLED_PrintsTheDifferencesFromTheGoldenFile
               << "simulation\twhat\tcompared or sensitive\tvalues\tlargest difference\t"
                  "... as a multiple of its tolerance\n"
               << measurements.text()
+              << "simulation\tapogee (m)\t... in the golden file\tflight time (s)\t"
+                 "... in the golden file\trows per branch\t... in the golden file\t"
+                 "largest difference of the time series, of the column's scale\n"
+              << overview
               << std::format(
                      "The largest difference of a compared value is {:.3e} of its "
                      "tolerance.\n",

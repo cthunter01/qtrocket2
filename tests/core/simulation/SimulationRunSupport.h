@@ -3,8 +3,11 @@
 // What the tests that run whole simulations share: the preferences OpenRocket's JUnit tests run
 // under, and small helpers around Simulation::simulate(). Test-only.
 
+#include <cmath>
 #include <cstddef>
+#include <format>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,7 +21,10 @@
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationOptions.h"
+#include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/Error.h"
+#include "rocket/TestRockets.h"
 
 namespace QtRocket::Test
 {
@@ -109,6 +115,81 @@ inline void simulateOrFail(Simulation& simulation)
         }
     }
     return causes;
+}
+
+/// JUnit's assertEquals(double expected, double actual): the two values have the same bits
+/// (Double.doubleToLongBits), so any NaN equals any NaN and 0.0 is not -0.0.
+[[nodiscard]] inline ::testing::AssertionResult junitEquals(double expected, double actual)
+{
+    const bool same = (std::isnan(expected) || std::isnan(actual))
+                          ? (std::isnan(expected) && std::isnan(actual))
+                          : (expected == actual && std::signbit(expected) == std::signbit(actual));
+    if (same)
+    {
+        return ::testing::AssertionSuccess();
+    }
+    return ::testing::AssertionFailure() << std::format("expected {}, got {}", expected, actual);
+}
+
+/// JUnit's assertEquals(double expected, double actual, double delta): the same bits (so a NaN
+/// equals a NaN, whatever the delta), or no further apart than @p delta. A delta that is
+/// negative or NaN fails the assertion, as in JUnit ("positive delta expected").
+[[nodiscard]] inline ::testing::AssertionResult junitEquals(double expected, double actual,
+                                                            double delta)
+{
+    if (std::isnan(delta) || delta < 0.0)
+    {
+        return ::testing::AssertionFailure()
+               << std::format("positive delta expected but was: <{}>", delta);
+    }
+    if (junitEquals(expected, actual) || std::abs(expected - actual) <= delta)
+    {
+        return ::testing::AssertionSuccess();
+    }
+    return ::testing::AssertionFailure()
+           << std::format("expected {}, got {} (delta {})", expected, actual, delta);
+}
+
+/// The first value of @p values that is not NaN, or nullopt: what the loops of OpenRocket's
+/// stability-data tests look at ("continue" on a NaN, then one assertion and "break").
+[[nodiscard]] inline std::optional<double> firstNotNaN(const std::vector<double>& values)
+{
+    for (const double value : values)
+    {
+        if (!std::isnan(value))
+        {
+            return value;
+        }
+    }
+    return std::nullopt;
+}
+
+/// The simulation that CorrectiveMomentCoefficientTest, DampingMomentCoefficientTest,
+/// DampingRatioTest and NaturalFrequencyTest run, each for both stepper methods: the Estes
+/// Alpha III in TEST_FCID_0 under the preferences of OpenRocket's test set-up, the ISA
+/// atmosphere, a time step of 0.05 s and the random seed 0xC0FFEE.
+struct StabilityDataRun
+{
+    JavaTestPreferences preferences;
+    TestEstesAlphaIII   alpha;
+    Simulation          simulation;
+
+    explicit StabilityDataRun(SimulationStepperMethod stepperMethod)
+      : simulation(*alpha.rocket, preferences.store)
+    {
+        simulation.setFlightConfigurationId(testFcid(0));
+        simulation.getOptions().setIsaAtmosphere(true);
+        simulation.getOptions().setTimeStep(0.05);
+        simulation.getOptions().setRandomSeed(0xC0FFEE);
+        simulation.getOptions().setSimulationStepperMethodChoice(stepperMethod);
+    }
+};
+
+/// The name of a test parameterised over the stepper methods: "RK4" or "RK6".
+[[nodiscard]] inline std::string stepperMethodTestName(
+    const ::testing::TestParamInfo<SimulationStepperMethod>& paramInfo)
+{
+    return std::string{simulationStepperMethodName(paramInfo.param)};
 }
 
 }  // namespace QtRocket::Test
