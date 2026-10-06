@@ -35,9 +35,10 @@
 //   That is the one value of the files that cannot be compared for equality;
 //   AeroGoldenWorstTheta holds the strict comparison, disabled, and the tests of the check.
 // A warning is compared by its class, priority, description, text, sources (as paths) and
-// parameter, and the warnings of a set in their order. A golden field that nothing compares is
-// reported, in every object of the document (noteUncomparedKeys()). The file's "schema",
-// "schemaVersion" and "input" are checked by goldens_schema_tests.cpp.
+// parameter, and the warnings of a set in their order (compareWarnings() of GoldenWarnings.h,
+// which the simulation goldens share). A golden field that nothing compares is reported, in
+// every object of the document (noteUncomparedKeys()). The file's "schema", "schemaVersion" and
+// "input" are checked by goldens_schema_tests.cpp.
 //
 // Nothing is skipped silently: the numbers of configurations, points, force-analysis entries,
 // worst CPs and warnings compared have to be those of each golden file, and AeroGoldenCoverage
@@ -105,6 +106,7 @@
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
+#include "goldens/GoldenWarnings.h"
 #include "rocket/TestRockets.h"
 #include "unit/DefaultUnitsGuard.h"
 
@@ -126,11 +128,15 @@ using QtRocket::RocketComponent;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::Test::aeroResults;
+using QtRocket::Test::compareWarning;
+using QtRocket::Test::compareWarnings;
 using QtRocket::Test::componentAtGoldenPath;
 using QtRocket::Test::goldenCoordinate;
 using QtRocket::Test::goldenPathOf;
 using QtRocket::Test::goldenValue;
 using QtRocket::Test::kGoldenAbsolute;
+using QtRocket::Test::noteUncomparedKeys;
+using QtRocket::Test::parameterOf;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
 
@@ -182,26 +188,7 @@ constexpr std::array<std::string_view, 12> kConditionKeys{
     "mach",        "aoa",       "theta",   "rollRate", "pitchRate", "yawRate",
     "pitchCenter", "refLength", "refArea", "velocity", "beta",      "thrustingNozzleExitAreas"};
 constexpr std::array<std::string_view, 2> kNozzleKeys{"assembly", "area"};
-constexpr std::array<std::string_view, 6> kWarningKeys{"type", "priority", "description",
-                                                       "text", "sources",  "parameter"};
 constexpr std::array<std::string_view, 3> kWorstCpKeys{"mach", "cp", "theta"};
-
-/// Reports every key of the golden object @p object that is none of @p compared: a field a
-/// later version of the dumper adds must not go uncompared without notice. @p what names the
-/// object in the report ("" for the object the report is about).
-void noteUncomparedKeys(Mismatches& m, std::string_view what, const json& object,
-                        std::span<const std::string_view> compared)
-{
-    for (const auto& [key, value] : object.items())
-    {
-        if (std::ranges::find(compared, std::string_view{key}) != compared.end())
-        {
-            continue;
-        }
-        m.note(what.empty() ? std::format("{}: not compared", key)
-                            : std::format("{}.{}: not compared", what, key));
-    }
-}
 
 /// How much of an aero.json document there is to compare, or was compared.
 struct AeroCounts
@@ -279,96 +266,6 @@ struct AeroComparison
         }
     }
     return counts;
-}
-
-// ================================================================================== warnings
-
-/// The golden "parameter" of @p warning: the angle of a LargeAOA; nullopt for a warning without
-/// a parameter. (No aerodynamic calculator raises a warning with a parameter: OpenRocket's
-/// simulation adds the LargeAOA. The dumper writes the parameter of any warning that has one, so
-/// the comparison is made, and AeroGoldenWarnings tests it.)
-[[nodiscard]] std::optional<double> parameterOf(const Warning& warning)
-{
-    if (const auto* largeAoa = dynamic_cast<const Warning::LargeAOA*>(&warning))
-    {
-        return largeAoa->aoa();
-    }
-    return std::nullopt;
-}
-
-/// The golden paths of the sources of @p warning, separated by spaces; a source that is not in
-/// @p rocket is "?".
-[[nodiscard]] std::string sourcePaths(const Warning& warning, const Rocket& rocket)
-{
-    std::string paths;
-    for (const QtRocket::MessageSource& source : warning.sources())
-    {
-        const RocketComponent* component = rocket.findComponent(source.id);
-        paths += paths.empty() ? "" : " ";
-        paths += component != nullptr ? goldenPathOf(*component) : std::string{"?"};
-    }
-    return paths;
-}
-
-/// The paths of the golden list @p sources, separated by spaces.
-[[nodiscard]] std::string joinedPaths(const json& sources)
-{
-    std::string paths;
-    for (const json& source : sources)
-    {
-        paths += paths.empty() ? "" : " ";
-        paths += source.get<std::string>();
-    }
-    return paths;
-}
-
-/// Compares @p actual with the golden warning @p expected: its class, priority, description,
-/// text, sources and parameter.
-void compareWarning(Mismatches& m, const std::string& field, const json& expected,
-                    const Warning& actual, const Rocket& rocket)
-{
-    m.text(field + ".type", expected.at("type").get<std::string>(), actual.typeName());
-    m.text(field + ".priority", expected.at("priority").get<std::string>(),
-           QtRocket::exportLabel(actual.priority()));
-    m.text(field + ".description", expected.at("description").get<std::string>(),
-           actual.messageDescription());
-    m.text(field + ".text", expected.at("text").get<std::string>(), actual.toString());
-    m.text(field + ".sources", joinedPaths(expected.at("sources")), sourcePaths(actual, rocket));
-
-    const std::optional<double> parameter = parameterOf(actual);
-    m.boolean(field + " has a parameter", expected.contains("parameter"), parameter.has_value());
-    if (expected.contains("parameter") && parameter.has_value())
-    {
-        m.relative(field + ".parameter", goldenValue(expected.at("parameter")), *parameter);
-    }
-    noteUncomparedKeys(m, field, expected, kWarningKeys);
-}
-
-/// Compares the warnings @p actual with the golden list @p expected: as many, and each one, in
-/// order. Returns the number of golden warnings compared.
-[[nodiscard]] int compareWarnings(Mismatches& m, std::string_view field, const json& expected,
-                                  const WarningSet& actual, const Rocket& rocket)
-{
-    m.integer(std::format("{}: number", field), static_cast<std::int64_t>(expected.size()),
-              static_cast<std::int64_t>(actual.size()));
-    int         compared = 0;
-    std::size_t index    = 0;
-    for (const Warning& warning : actual)
-    {
-        if (index < expected.size())
-        {
-            compareWarning(m, std::format("{}[{}]", field, index), expected.at(index), warning,
-                           rocket);
-            compared++;
-        }
-        else
-        {
-            m.note(std::format("{}[{}]: not in the golden file: {}", field, index,
-                               warning.toString()));
-        }
-        index++;
-    }
-    return compared;
 }
 
 // ================================================================================ conditions

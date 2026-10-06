@@ -321,6 +321,23 @@ OpenRocket's hash-map iteration orders are not reproduced by the port (whose ins
 insertion ordered), so sums may differ in the last bits; that is why the tightest tolerances are
 relative 1e-9 rather than bit equality.
 
+### Reproducibility of the simulations
+
+The two simulation rows of the table assume that a calm run without jitter is deterministic. At the
+installation's time step of 0.05 s it is not: 30 of the 50 test-rocket simulations amplify a
+difference in the last bit (the pitch oscillation is integrated beyond the stability limit of the
+Runge-Kutta method, and the step size control follows it) until row counts, event times and maxima
+change. OpenRocket does so itself: with other random component ids, and so another summation order
+of its hash maps, the harness's own code gives other results for 8 of the 50 (the `[C6-5]` flight of
+the Estes Alpha III: 796 or 803 rows, apogee at 5.971 s or 5.954 s). A golden simulation is one such
+run. `tests/core/goldens/simulation_golden_tests.cpp` therefore compares every simulation as far as
+it is reproducible (it measures that with a second, last-bit perturbed run): everything that is not
+a number of the trajectory, and the trajectory up to its horizon, which for those 30 flights is the
+launch rod and the first tenths of a second of free flight, at relative 1e-9; its header has the
+measurements. A dump of the same simulations with a time step of 0.01 s (a probe, not committed)
+has the same row counts as the port in all but one branch (a tumbling booster) and summary values
+within 1e-8, so goldens generated with such a step would let the comparison cover whole flights.
+
 ## Regenerating
 
 Requirements: JDK 17 (`java` on the path, or `JAVA=...`; `generate.sh` refuses any other version,
