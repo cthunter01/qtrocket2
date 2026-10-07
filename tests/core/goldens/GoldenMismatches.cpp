@@ -27,12 +27,15 @@ GoldenMismatches::GoldenMismatches(std::string context) : m_context(std::move(co
 
 void GoldenMismatches::relative(std::string_view field, double expected, double actual)
 {
-    if (std::isnan(expected) && std::isnan(actual))
+    if ((std::isnan(expected) && std::isnan(actual)) || expected == actual)
     {
         return;
     }
-    const double scale = std::max(std::abs(expected), std::abs(actual));
-    if (!(std::abs(actual - expected) <= kGoldenRelative * scale))
+    // The difference of two equal infinities is NaN (they matched above); an infinity on one side
+    // only gives an infinite difference and an infinite scale, which would admit it: a mismatch.
+    const double difference = std::abs(actual - expected);
+    const double scale      = std::max(std::abs(expected), std::abs(actual));
+    if (!std::isfinite(difference) || !(difference <= kGoldenRelative * scale))
     {
         add(field, expected, actual);
     }

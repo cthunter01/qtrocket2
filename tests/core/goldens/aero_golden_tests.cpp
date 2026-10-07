@@ -52,17 +52,18 @@
 // relative 1e-7 for table-interpolated aerodynamics: on Linux the largest difference is below
 // 1e-15, relative and absolute.
 //
-// Not compared in this tier: the sixteen example-* inputs. Their aero.json files are in
+// The comparison itself (compareAero() and what it is made of) is in GoldenDesign.h, for the tests
+// of other designs to share.
+//
+// Not compared yet: the sixteen example-* inputs. Their aero.json files are in
 // tests/data/goldens, but the designs are .ork files, which need the .ork loader of the file
-// tier. That tier adds them here: load the design and hand it to compareAero(). (Their goldens
+// tier. Their tests are to load the design and hand it to compareAero(). (Their goldens
 // describe the design after OpenRocket's automatic dimensions have settled; see "Settled
 // automatic dimensions" in the README of tools/openrocket-goldens.)
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <expected>
 #include <format>
 #include <functional>
@@ -76,34 +77,26 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include "QtRocket/aero/AerodynamicForces.h"
 #include "QtRocket/aero/BarrowmanCalculator.h"
 #include "QtRocket/aero/FlightConditions.h"
-#include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
-#include "QtRocket/mass/MassCalculator.h"
-#include "QtRocket/models/AtmosphericConditions.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
-#include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
-#include "QtRocket/rocket/FlightConfigurationId.h"
-#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/MathUtil.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenDesign.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
 #include "goldens/GoldenWarnings.h"
@@ -114,854 +107,32 @@ namespace
 {
 
 using nlohmann::json;
-using QtRocket::AerodynamicForces;
 using QtRocket::BarrowmanCalculator;
-using QtRocket::ComponentAssembly;
 using QtRocket::Coordinate;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
-using QtRocket::FlightConfigurationId;
-using QtRocket::ForceMap;
-using QtRocket::MotorMount;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
-using QtRocket::Test::aeroResults;
+using QtRocket::Test::AeroComparison;
+using QtRocket::Test::AeroCounts;
+using QtRocket::Test::AeroSubject;
+using QtRocket::Test::compareAero;
 using QtRocket::Test::compareWarning;
-using QtRocket::Test::compareWarnings;
-using QtRocket::Test::componentAtGoldenPath;
-using QtRocket::Test::goldenCoordinate;
+using QtRocket::Test::compareWorstTheta;
+using QtRocket::Test::goldenCounts;
 using QtRocket::Test::goldenPathOf;
 using QtRocket::Test::goldenValue;
-using QtRocket::Test::kGoldenAbsolute;
-using QtRocket::Test::noteUncomparedKeys;
+using QtRocket::Test::isWorstCpDirection;
+using QtRocket::Test::kThetaBeforeWorstCp;
 using QtRocket::Test::parameterOf;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
+using QtRocket::Test::toText;
 
 /// The comparison collector of the golden tests.
 using Mismatches = QtRocket::Test::GoldenMismatches;
-
-/// AeroDumper.NOZZLE_EXIT_DIAMETER_FRACTION: the nozzle exit diameter of the nozzle point, as a
-/// fraction of the motor mount's diameter.
-constexpr double kNozzleExitDiameterFraction = 0.5;
-
-/// The index of the point whose pitch centre is the structure CG.
-constexpr std::size_t kStructureCgPoint = 23;
-
-/// The index of the point with thrusting nozzles.
-constexpr std::size_t kNozzlePoint = 24;
-
-/// AeroDumper.MACHS: the Mach numbers of the grid of points and of the worst CPs.
-constexpr std::array<double, 7> kDumperMachs{0.05, 0.3, 0.6, 0.9, 1.1, 1.5, 2.0};
-
-/// AeroDumper.AOAS_DEG: the angles of attack of the grid of points, in degrees.
-constexpr std::array<double, 3> kDumperAoasDegrees{0.0, 2.0, 10.0};
-
-/// The number of points of the grid: index = 3 * Mach index + angle index.
-constexpr std::size_t kGridPoints = kDumperMachs.size() * kDumperAoasDegrees.size();
-
-/// The number of points of a configuration: the grid and the four after it.
-constexpr std::size_t kDumperPoints = kGridPoints + 4;
-
-/// The keys of the objects of an aero.json document that the comparison reads (compares, sets
-/// as an input, follows or, for the first three of the file, leaves to goldens_schema_tests.cpp).
-/// Those of a "forces" object are kForceFields and isComparedForceKey().
-constexpr std::array<std::string_view, 6> kFileKeys{
-    "schema", "schemaVersion", "input", "atmosphere", "stallAngle", "configurations"};
-constexpr std::array<std::string_view, 6> kAtmosphereKeys{
-    "temperature", "pressure", "relativeHumidity", "machSpeed", "density", "kinematicViscosity"};
-constexpr std::array<std::string_view, 10> kConfigurationKeys{"index",
-                                                              "id",
-                                                              "name",
-                                                              "isDefault",
-                                                              "referenceLength",
-                                                              "referenceArea",
-                                                              "sameResultsAs",
-                                                              "geometryWarnings",
-                                                              "points",
-                                                              "worstCP"};
-constexpr std::array<std::string_view, 5>  kPointKeys{"conditions", "cp", "forces", "components",
-                                                      "warnings"};
-constexpr std::array<std::string_view, 12> kConditionKeys{
-    "mach",        "aoa",       "theta",   "rollRate", "pitchRate", "yawRate",
-    "pitchCenter", "refLength", "refArea", "velocity", "beta",      "thrustingNozzleExitAreas"};
-constexpr std::array<std::string_view, 2> kNozzleKeys{"assembly", "area"};
-constexpr std::array<std::string_view, 3> kWorstCpKeys{"mach", "cp", "theta"};
-
-/// How much of an aero.json document there is to compare, or was compared.
-struct AeroCounts
-{
-    int configurations{0};  ///< the configurations, those with "sameResultsAs" included
-    int points{0};          ///< the points of every configuration
-    int components{0};      ///< the entries of the force analyses of every point
-    int worstCPs{0};        ///< the worst CPs of every configuration
-    int warnings{0};        ///< the geometry warnings and the warnings of every point
-
-    [[nodiscard]] bool operator==(const AeroCounts&) const = default;
-
-    AeroCounts& operator+=(const AeroCounts& other)
-    {
-        configurations += other.configurations;
-        points += other.points;
-        components += other.components;
-        worstCPs += other.worstCPs;
-        warnings += other.warnings;
-        return *this;
-    }
-};
-
-/// "47 configurations, 1175 points, ...", for the messages of the tests.
-[[nodiscard]] std::string toText(const AeroCounts& counts)
-{
-    return std::format(
-        "{} configurations, {} points, {} force-analysis entries, {} worst CPs, {} warnings",
-        counts.configurations, counts.points, counts.components, counts.worstCPs, counts.warnings);
-}
-
-/// toText() of @p counts, for the messages of the tests.
-std::ostream& operator<<(std::ostream& out, const AeroCounts& counts)
-{
-    return out << toText(counts);
-}
-
-/// What the comparison of a rocket with an aero.json document compared and found.
-struct AeroComparison
-{
-    AeroCounts  compared;
-    std::string report;  ///< the mismatches, empty when everything matched
-    /// The worst CPs whose theta is not the golden one but an equally bad direction, one line
-    /// each (see compareWorstTheta()); they are not mismatches.
-    std::string otherThetas;
-};
-
-/// What the results @p results of one configuration hold.
-[[nodiscard]] AeroCounts goldenResultCounts(const json& results)
-{
-    AeroCounts counts;
-    counts.configurations = 1;
-    counts.warnings       = static_cast<int>(results.at("geometryWarnings").size());
-    for (const json& point : results.at("points"))
-    {
-        counts.points++;
-        counts.components += static_cast<int>(point.at("components").size());
-        counts.warnings += static_cast<int>(point.at("warnings").size());
-    }
-    counts.worstCPs = static_cast<int>(results.at("worstCP").size());
-    return counts;
-}
-
-/// What the document @p aero holds, every configuration counted with the results it has or
-/// refers to. A configuration without results counts as nothing, so that the comparison, which
-/// reports it, cannot match the count by skipping it.
-[[nodiscard]] AeroCounts goldenCounts(const json& aero)
-{
-    AeroCounts counts;
-    for (std::size_t i = 0; i < aero.at("configurations").size(); i++)
-    {
-        if (const json* results = aeroResults(aero, i))
-        {
-            counts += goldenResultCounts(*results);
-        }
-    }
-    return counts;
-}
-
-// ================================================================================ conditions
-
-/// The nozzle exit areas of the golden list @p expected (assembly path and area), for
-/// FlightConditions::setThrustingNozzleExitAreas(); an entry whose path is no assembly of
-/// @p rocket is reported and left out.
-[[nodiscard]] std::vector<FlightConditions::NozzleExitArea> goldenNozzleAreas(Mismatches& m,
-                                                                              const json& expected,
-                                                                              const Rocket& rocket)
-{
-    std::vector<FlightConditions::NozzleExitArea> areas;
-    for (const json& entry : expected)
-    {
-        const auto  path = entry.at("assembly").get<std::string>();
-        const auto* assembly =
-            dynamic_cast<const ComponentAssembly*>(componentAtGoldenPath(rocket, path));
-        if (assembly == nullptr)
-        {
-            m.note(std::format("thrustingNozzleExitAreas: {} is not an assembly", path));
-            continue;
-        }
-        areas.emplace_back(assembly, goldenValue(entry.at("area")));
-    }
-    return areas;
-}
-
-/// The nozzle exit areas the dumper gives the nozzle point (AeroDumper.nozzleExitAreas()): every
-/// active motor mount contributes getMotorCount() nozzles of half its motor mount diameter to its
-/// assembly, whether or not the configuration gives it a motor. By assembly path, in tree order
-/// of the first mount of each assembly.
-[[nodiscard]] std::vector<std::pair<std::string, double>> dumperNozzleAreas(
-    const Rocket& rocket, const FlightConfiguration& config)
-{
-    std::vector<std::pair<std::string, double>> areas;
-    for (const RocketComponent& component : rocket.subtree())
-    {
-        const auto* mount = dynamic_cast<const MotorMount*>(&component);
-        if (mount == nullptr || !mount->isMotorMount() || !config.isComponentActive(component))
-        {
-            continue;
-        }
-        const double radius = kNozzleExitDiameterFraction * mount->getMotorMountDiameter() / 2;
-        const double area =
-            mount->getMotorCount() * std::numbers::pi * QtRocket::MathUtil::pow2(radius);
-        const std::string path = goldenPathOf(component.getAssembly());
-        const auto same = std::ranges::find(areas, path, &std::pair<std::string, double>::first);
-        if (same == areas.end())
-        {
-            areas.emplace_back(path, area);
-        }
-        else
-        {
-            same->second += area;
-        }
-    }
-    return areas;
-}
-
-/// Compares the nozzle exit areas the motor mounts of @p config give (dumperNozzleAreas()) with
-/// the golden list @p expected of the nozzle point, which is in tree order of the assemblies.
-void compareDumperNozzleAreas(Mismatches& m, const json& expected, const Rocket& rocket,
-                              const FlightConfiguration& config)
-{
-    std::vector<std::pair<std::string, double>> areas = dumperNozzleAreas(rocket, config);
-    m.integer("nozzle areas of the motor mounts: number",
-              static_cast<std::int64_t>(expected.size()), static_cast<std::int64_t>(areas.size()));
-    for (const json& entry : expected)
-    {
-        const auto path = entry.at("assembly").get<std::string>();
-        const auto same = std::ranges::find(areas, path, &std::pair<std::string, double>::first);
-        if (same == areas.end())
-        {
-            m.note(std::format("nozzle areas of the motor mounts: none for {}", path));
-            continue;
-        }
-        m.relative(std::format("nozzle area of the motor mounts of {}", path),
-                   goldenValue(entry.at("area")), same->second);
-    }
-}
-
-/// One row of the dumper's table of points (AeroDumper.Point): the Mach number, the angle of
-/// attack in degrees (the dumper converts with Math.toRadians), theta and the three rates.
-struct DumperPoint
-{
-    double mach;
-    double aoaDegrees;
-    double theta;
-    double rollRate;
-    double pitchRate;
-    double yawRate;
-};
-
-/// The conditions the dumper gives point @p index (AeroDumper.points()): the grid of Mach
-/// numbers and angles of attack at theta 0 without rotation, then a wind direction off the fin
-/// planes (21), rotation about the nose tip (22) and about the structure CG (23), and thrusting
-/// nozzles (24). nullopt beyond them.
-[[nodiscard]] std::optional<DumperPoint> dumperPoint(std::size_t index)
-{
-    if (index < kGridPoints)
-    {
-        return DumperPoint{.mach       = kDumperMachs.at(index / kDumperAoasDegrees.size()),
-                           .aoaDegrees = kDumperAoasDegrees.at(index % kDumperAoasDegrees.size()),
-                           .theta      = 0.0,
-                           .rollRate   = 0.0,
-                           .pitchRate  = 0.0,
-                           .yawRate    = 0.0};
-    }
-    switch (index)
-    {
-        case kGridPoints:
-            return DumperPoint{.mach       = 0.3,
-                               .aoaDegrees = 5.0,
-                               .theta      = std::numbers::pi / 4,
-                               .rollRate   = 0.0,
-                               .pitchRate  = 0.0,
-                               .yawRate    = 0.0};
-        case kGridPoints + 1:
-        case kStructureCgPoint:
-            return DumperPoint{.mach       = 0.8,
-                               .aoaDegrees = 2.0,
-                               .theta      = 1.0,
-                               .rollRate   = 20.0,
-                               .pitchRate  = 2.0,
-                               .yawRate    = 1.0};
-        case kNozzlePoint:
-            return DumperPoint{.mach       = 0.6,
-                               .aoaDegrees = 0.0,
-                               .theta      = 0.0,
-                               .rollRate   = 0.0,
-                               .pitchRate  = 0.0,
-                               .yawRate    = 0.0};
-        default:
-            return std::nullopt;
-    }
-}
-
-/// Compares the inputs of the golden "conditions" @p expected of point @p index with the
-/// dumper's table: the conditions are set from the file, so a file whose inputs are not the
-/// dumper's would have the forces compared at other conditions than the README states. The
-/// pitch centre is the nose tip, but for its x at point 23, and there are no thrusting nozzles
-/// but at point 24 (compareResults() derives both of those).
-void compareWithDumperPoint(Mismatches& m, std::size_t index, const json& expected)
-{
-    const std::optional<DumperPoint> point = dumperPoint(index);
-    if (!point)
-    {
-        m.note(std::format("point {} is beyond the dumper's {} points", index, kDumperPoints));
-        return;
-    }
-    m.exact("the dumper's mach", point->mach, goldenValue(expected.at("mach")));
-    m.absolute("the dumper's aoa", point->aoaDegrees * std::numbers::pi / 180,
-               goldenValue(expected.at("aoa")));
-    m.absolute("the dumper's theta", point->theta, goldenValue(expected.at("theta")));
-    m.exact("the dumper's rollRate", point->rollRate, goldenValue(expected.at("rollRate")));
-    m.exact("the dumper's pitchRate", point->pitchRate, goldenValue(expected.at("pitchRate")));
-    m.exact("the dumper's yawRate", point->yawRate, goldenValue(expected.at("yawRate")));
-    const Coordinate pitchCenter = goldenCoordinate(expected.at("pitchCenter"));
-    if (index != kStructureCgPoint)
-    {
-        m.absolute("the dumper's pitchCenter.x", 0.0, pitchCenter.x);
-    }
-    m.absolute("the dumper's pitchCenter.y", 0.0, pitchCenter.y);
-    m.absolute("the dumper's pitchCenter.z", 0.0, pitchCenter.z);
-    if (index != kNozzlePoint)
-    {
-        m.integer("the dumper's thrustingNozzleExitAreas: number", 0,
-                  static_cast<std::int64_t>(expected.at("thrustingNozzleExitAreas").size()));
-    }
-}
-
-/// The flight conditions of the golden point @p expected (its "conditions") for @p config: new
-/// conditions as the dumper makes them, then every value set from the golden one, in the
-/// dumper's order (the reference length and area come first: the dumper's conditions take them
-/// from the configuration, and so must new conditions here, which is compared before they are
-/// set).
-[[nodiscard]] FlightConditions goldenConditions(Mismatches& m, const json& expected,
-                                                const Rocket&              rocket,
-                                                const FlightConfiguration& config)
-{
-    FlightConditions conditions(config);
-    m.relative("refLength of new conditions", goldenValue(expected.at("refLength")),
-               conditions.getRefLength());
-    m.relative("refArea of new conditions", goldenValue(expected.at("refArea")),
-               conditions.getRefArea());
-    conditions.setRefLength(goldenValue(expected.at("refLength")));
-    conditions.setRefArea(goldenValue(expected.at("refArea")));
-    conditions.setMach(goldenValue(expected.at("mach")));
-    conditions.setAOA(goldenValue(expected.at("aoa")));
-    conditions.setTheta(goldenValue(expected.at("theta")));
-    conditions.setRollRate(goldenValue(expected.at("rollRate")));
-    conditions.setPitchRate(goldenValue(expected.at("pitchRate")));
-    conditions.setYawRate(goldenValue(expected.at("yawRate")));
-    conditions.setPitchCenter(goldenCoordinate(expected.at("pitchCenter")));
-    conditions.setThrustingNozzleExitAreas(
-        goldenNozzleAreas(m, expected.at("thrustingNozzleExitAreas"), rocket));
-    return conditions;
-}
-
-/// Compares what @p actual answers with the golden "conditions" @p expected: the values that were
-/// set come back exactly (a setter that kept a slightly different value would show), the derived
-/// velocity and beta within the tolerance.
-void compareConditions(Mismatches& m, const json& expected, const FlightConditions& actual,
-                       const Rocket& rocket)
-{
-    m.exact("conditions.mach", goldenValue(expected.at("mach")), actual.getMach());
-    m.exact("conditions.aoa", goldenValue(expected.at("aoa")), actual.getAOA());
-    m.exact("conditions.theta", goldenValue(expected.at("theta")), actual.getTheta());
-    m.exact("conditions.rollRate", goldenValue(expected.at("rollRate")), actual.getRollRate());
-    m.exact("conditions.pitchRate", goldenValue(expected.at("pitchRate")), actual.getPitchRate());
-    m.exact("conditions.yawRate", goldenValue(expected.at("yawRate")), actual.getYawRate());
-    const Coordinate pitchCenter = goldenCoordinate(expected.at("pitchCenter"));
-    m.exact("conditions.pitchCenter.x", pitchCenter.x, actual.getPitchCenter().x);
-    m.exact("conditions.pitchCenter.y", pitchCenter.y, actual.getPitchCenter().y);
-    m.exact("conditions.pitchCenter.z", pitchCenter.z, actual.getPitchCenter().z);
-    m.exact("conditions.refLength", goldenValue(expected.at("refLength")), actual.getRefLength());
-    m.exact("conditions.refArea", goldenValue(expected.at("refArea")), actual.getRefArea());
-    m.relative("conditions.velocity", goldenValue(expected.at("velocity")), actual.getVelocity());
-    m.relative("conditions.beta", goldenValue(expected.at("beta")), actual.getBeta());
-
-    const json& nozzles = expected.at("thrustingNozzleExitAreas");
-    m.integer("conditions.thrustingNozzleExitAreas: number",
-              static_cast<std::int64_t>(nozzles.size()),
-              static_cast<std::int64_t>(actual.getThrustingNozzleExitAreas().size()));
-    for (const json& entry : nozzles)
-    {
-        const auto  path = entry.at("assembly").get<std::string>();
-        const auto* assembly =
-            dynamic_cast<const ComponentAssembly*>(componentAtGoldenPath(rocket, path));
-        if (assembly != nullptr)
-        {
-            m.exact(std::format("conditions.thrustingNozzleExitAreas {}", path),
-                    goldenValue(entry.at("area")), actual.getThrustingNozzleExitArea(*assembly));
-        }
-        noteUncomparedKeys(m, std::format("conditions.thrustingNozzleExitAreas {}", path), entry,
-                           kNozzleKeys);
-    }
-    noteUncomparedKeys(m, "conditions", expected, kConditionKeys);
-}
-
-// ==================================================================================== forces
-
-/// One coefficient of the golden "forces" and the getter that answers it.
-struct ForceField
-{
-    std::string_view key;
-    double (AerodynamicForces::*getter)() const;
-};
-
-/// The coefficients of a golden "forces" object (AeroDumper.forces()), read through the getters,
-/// so with the component's CD override applied; "cp" and "axisymmetric" are compared apart.
-constexpr std::array<ForceField, 15> kForceFields{{
-    {.key = "cn", .getter = &AerodynamicForces::getCN},
-    {.key = "cm", .getter = &AerodynamicForces::getCm},
-    {.key = "cside", .getter = &AerodynamicForces::getCside},
-    {.key = "cyaw", .getter = &AerodynamicForces::getCyaw},
-    {.key = "croll", .getter = &AerodynamicForces::getCroll},
-    {.key = "crollDamp", .getter = &AerodynamicForces::getCrollDamp},
-    {.key = "crollForce", .getter = &AerodynamicForces::getCrollForce},
-    {.key = "cd", .getter = &AerodynamicForces::getCD},
-    {.key = "cdAxial", .getter = &AerodynamicForces::getCDaxial},
-    {.key = "pressureCD", .getter = &AerodynamicForces::getPressureCD},
-    {.key = "baseCD", .getter = &AerodynamicForces::getBaseCD},
-    {.key = "frictionCD", .getter = &AerodynamicForces::getFrictionCD},
-    {.key = "overrideCD", .getter = &AerodynamicForces::getOverrideCD},
-    {.key = "pitchDampingMoment", .getter = &AerodynamicForces::getPitchDampingMoment},
-    {.key = "yawDampingMoment", .getter = &AerodynamicForces::getYawDampingMoment},
-}};
-
-/// Whether the golden forces key @p key is one compareForces() compares.
-[[nodiscard]] bool isComparedForceKey(std::string_view key)
-{
-    return key == "path" || key == "cp" || key == "axisymmetric" ||
-           std::ranges::find(kForceFields, key, &ForceField::key) != kForceFields.end();
-}
-
-/// Compares @p actual with the golden forces @p expected: the CP (its position within the
-/// absolute tolerance, its weight, CNa, within the relative one), every coefficient and the
-/// axisymmetric flag. A golden field that nothing compares is reported.
-void compareForces(Mismatches& m, std::string_view what, const json& expected,
-                   const AerodynamicForces& actual)
-{
-    m.cg(std::format("{}.cp", what), goldenCoordinate(expected.at("cp")), actual.getCP());
-    for (const ForceField& field : kForceFields)
-    {
-        m.relative(std::format("{}.{}", what, field.key), goldenValue(expected.at(field.key)),
-                   (actual.*field.getter)());
-    }
-    m.boolean(std::format("{}.axisymmetric", what), expected.at("axisymmetric").get<bool>(),
-              actual.isAxisymmetric());
-    for (const auto& [key, value] : expected.items())
-    {
-        if (!isComparedForceKey(key))
-        {
-            m.note(std::format("{}.{}: not compared", what, key));
-        }
-    }
-}
-
-/// The golden paths of the components of @p forceMap, in its order, separated by spaces.
-[[nodiscard]] std::string keyPaths(const ForceMap& forceMap)
-{
-    std::string paths;
-    for (const auto& [component, forces] : forceMap)
-    {
-        paths += paths.empty() ? "" : " ";
-        paths += component != nullptr ? goldenPathOf(*component) : std::string{"null"};
-    }
-    return paths;
-}
-
-/// The paths of the golden force-analysis entries @p expected, in their order (the tree's),
-/// separated by spaces.
-[[nodiscard]] std::string entryPaths(const json& expected)
-{
-    std::string paths;
-    for (const json& entry : expected)
-    {
-        paths += paths.empty() ? "" : " ";
-        paths += entry.at("path").get<std::string>();
-    }
-    return paths;
-}
-
-/// Compares the force analysis @p actual with the golden "components" @p expected: the same
-/// components in the same (tree) order, so none missing and none beyond them, and the forces of
-/// each. Returns the number of golden entries compared.
-[[nodiscard]] int compareForceAnalysis(Mismatches& m, const json& expected, const ForceMap& actual,
-                                       const Rocket& rocket)
-{
-    m.text("components", entryPaths(expected), keyPaths(actual));
-    int compared = 0;
-    for (const json& entry : expected)
-    {
-        const auto               path      = entry.at("path").get<std::string>();
-        const RocketComponent*   component = componentAtGoldenPath(rocket, path);
-        const AerodynamicForces* forces    = component != nullptr ? actual.get(component) : nullptr;
-        if (forces == nullptr)
-        {
-            m.note(std::format("components {}: not in the force analysis", path));
-            continue;
-        }
-        compareForces(m, std::format("components {}", path), entry, *forces);
-        compared++;
-    }
-    return compared;
-}
-
-// ============================================================================= configuration
-
-/// One configuration under comparison: its rocket, the configuration, selected, and the
-/// calculator that is its own.
-struct Subject
-{
-    const Rocket*              rocket;
-    const FlightConfiguration* config;
-    BarrowmanCalculator*       calculator;
-};
-
-/// Calculates the golden point @p expected, the one of index @p index, as the dumper does
-/// (getCP(), getAerodynamicForces() and getForceAnalysis() with one warning set) and compares
-/// everything it records. Adds what was compared to @p counts.
-void comparePoint(Mismatches& m, std::size_t index, const json& expected, const Subject& subject,
-                  AeroCounts& counts)
-{
-    const json& expectedConditions = expected.at("conditions");
-    compareWithDumperPoint(m, index, expectedConditions);
-    const FlightConditions conditions =
-        goldenConditions(m, expectedConditions, *subject.rocket, *subject.config);
-    compareConditions(m, expectedConditions, conditions, *subject.rocket);
-
-    WarningSet       warnings;
-    const Coordinate cp = subject.calculator->getCP(*subject.config, conditions, &warnings);
-    m.cg("cp", goldenCoordinate(expected.at("cp")), cp);
-
-    const AerodynamicForces total =
-        subject.calculator->getAerodynamicForces(*subject.config, conditions, &warnings);
-    compareForces(m, "forces", expected.at("forces"), total);
-
-    const ForceMap analysis =
-        subject.calculator->getForceAnalysis(*subject.config, conditions, &warnings);
-    counts.components +=
-        compareForceAnalysis(m, expected.at("components"), analysis, *subject.rocket);
-    counts.warnings +=
-        compareWarnings(m, "warnings", expected.at("warnings"), warnings, *subject.rocket);
-    noteUncomparedKeys(m, "", expected, kPointKeys);
-    counts.points++;
-}
-
-/// The theta put into the conditions before getWorstCP(): none of the 360 directions it tries.
-/// getWorstCP() works on a copy of the conditions and overwrites their theta with the one it
-/// found (OpenRocket's too: the probe VerifyTheta.java gives the same worst CP and theta whatever
-/// theta the conditions come with), so a theta that it did not set is seen. The dumper's
-/// conditions come with 0, which is a direction of the 360 and the answer for most rockets.
-constexpr double kThetaBeforeWorstCp = 1.0;
-
-/// Whether @p theta is one of the 360 directions getWorstCP() tries: 2 pi i / 360 for an i of 0
-/// to 359, the library's own expression, so exactly that double. False for NaN.
-[[nodiscard]] bool isWorstCpDirection(double theta)
-{
-    const double i = std::round(theta * 360 / (2 * std::numbers::pi));
-    return i >= 0 && i < 360 && theta == 2 * std::numbers::pi * i / 360;
-}
-
-/// The CP of the configuration of @p subject at the Mach number @p mach, an angle of attack of 0
-/// and the wind direction @p theta, from a calculator of its own (so that the compared one sees
-/// the dumper's calls only).
-[[nodiscard]] Coordinate cpAtTheta(const Subject& subject, double mach, double theta)
-{
-    FlightConditions conditions(*subject.config);
-    conditions.setMach(mach);
-    conditions.setAOA(0.0);
-    conditions.setTheta(theta);
-    BarrowmanCalculator calculator;
-    WarningSet          warnings;
-    return calculator.getCP(*subject.config, conditions, &warnings);
-}
-
-/// What is wrong with @p theta as the direction of the worst CP @p worst that getWorstCP() found
-/// at the Mach number @p mach, "" when nothing is: without a CP in any direction (a rocket
-/// without lift: the golden worst CP @p goldenWorst has no weight) getWorstCP() leaves 0;
-/// otherwise the theta is one of the 360 directions, and the CP at it is the worst CP found.
-///
-/// The CP at the theta is compared with the worst CP found, not with the golden one: the two
-/// worst CPs are compared by the caller, and a difference between them must not be reported
-/// twice, here only on the platforms whose theta is not the golden one.
-[[nodiscard]] std::string foundThetaProblem(const Subject& subject, double mach, double theta,
-                                            const Coordinate& worst, const Coordinate& goldenWorst)
-{
-    if (!(goldenWorst.weight > 0))
-    {
-        return "no direction has a CP, which leaves a theta of 0";
-    }
-    if (!isWorstCpDirection(theta))
-    {
-        return "it is none of the 360 directions getWorstCP() tries";
-    }
-    const Coordinate cp = cpAtTheta(subject, mach, theta);
-    if (!(std::abs(cp.x - worst.x) <= kGoldenAbsolute))
-    {
-        return std::format("the CP at the theta found, x = {}, is not the worst CP found, x = {}",
-                           cp.x, worst.x);
-    }
-    return "";
-}
-
-/// Compares the theta getWorstCP() left in the conditions, @p theta, with that of the golden
-/// worst CP @p expected ("mach", "cp" and "theta"); @p worst is the worst CP found, which the
-/// caller compares with the golden one. Returns whether the two thetas are the same direction; a
-/// problem is one line in @p m.
-///
-/// getWorstCP() takes the first of 360 directions whose CP is strictly ahead of every earlier
-/// one. Where the CP depends on the direction, that is a property of the rocket and the thetas
-/// are equal. Where it does not (three or four equal fins: the same CP in every direction, up to
-/// the rounding of the sum over the fins), the direction found is the one where the rounding
-/// happens to give the smallest x. No port reproduces that: OpenRocket sums the components in
-/// the order of their random ids, so it finds another direction itself with other ids, and the
-/// last bit of a sine differs between math libraries. A theta that is not the golden one is
-/// therefore checked for what can be checked, on both sides:
-/// - the theta found is a direction getWorstCP() tries, and the CP at it is the worst CP found,
-///   so, with the comparison of the two worst CPs, the golden worst CP (foundThetaProblem()): a
-///   stale theta, one off the grid, NaN, or a direction with another CP is reported;
-/// - the golden theta is an equally bad direction for QtRocket: the CP at it is within the CP
-///   tolerance of the worst CP found.
-/// What stays unchecked is which of several equally bad directions is found;
-/// AeroGoldenWorstTheta holds that strict comparison, disabled.
-[[nodiscard]] bool compareWorstTheta(Mismatches& m, const Subject& subject, const json& expected,
-                                     double theta, const Coordinate& worst)
-{
-    const double expectedTheta = goldenValue(expected.at("theta"));
-    if (std::abs(theta - expectedTheta) <= kGoldenAbsolute)
-    {
-        return true;
-    }
-    const double      mach = goldenValue(expected.at("mach"));
-    const std::string problem =
-        foundThetaProblem(subject, mach, theta, worst, goldenCoordinate(expected.at("cp")));
-    if (!problem.empty())
-    {
-        m.note(std::format("theta: expected {}, got {}; {}", expectedTheta, theta, problem));
-        return false;
-    }
-    const Coordinate cp = cpAtTheta(subject, mach, expectedTheta);
-    if (!(std::abs(cp.x - worst.x) <= kGoldenAbsolute))
-    {
-        m.note(
-            std::format("theta: expected {}, got {}; the CP at the golden theta, x = {}, is "
-                        "not the worst CP, x = {}",
-                        expectedTheta, theta, cp.x, worst.x));
-    }
-    return false;
-}
-
-/// Calculates the golden worst CP @p expected as the dumper does (new conditions with the Mach
-/// number at an angle of attack of 0; their theta is kThetaBeforeWorstCp, see there) and
-/// compares the CP and the theta found. Returns the theta found when it is not the golden one,
-/// else nullopt.
-[[nodiscard]] std::optional<double> compareWorstCP(Mismatches& m, const json& expected,
-                                                   const Subject& subject)
-{
-    const double     mach = goldenValue(expected.at("mach"));
-    FlightConditions conditions(*subject.config);
-    conditions.setMach(mach);
-    conditions.setAOA(0.0);
-    conditions.setTheta(kThetaBeforeWorstCp);
-    WarningSet       warnings;
-    const Coordinate cp = subject.calculator->getWorstCP(*subject.config, conditions, &warnings);
-    m.cg("cp", goldenCoordinate(expected.at("cp")), cp);
-    noteUncomparedKeys(m, "", expected, kWorstCpKeys);
-    const double theta = conditions.getTheta();
-    if (compareWorstTheta(m, subject, expected, theta, cp))
-    {
-        return std::nullopt;
-    }
-    return theta;
-}
-
-/// Compares the worst CPs of the configuration of @p subject with the golden list @p expected
-/// and adds what it found to @p result.
-void compareWorstCPs(AeroComparison& result, const json& expected, const Subject& subject,
-                     const std::string& context)
-{
-    for (const json& worst : expected)
-    {
-        const std::string what =
-            std::format("{} worst CP at Mach {}", context, goldenValue(worst.at("mach")));
-        Mismatches m(what);
-        if (const std::optional<double> theta = compareWorstCP(m, worst, subject))
-        {
-            result.otherThetas += std::format("{}: theta {}, golden {}\n", what, *theta,
-                                              goldenValue(worst.at("theta")));
-        }
-        result.report += m.report();
-        result.compared.worstCPs++;
-    }
-}
-
-/// Compares the Mach numbers of the golden worst CPs @p expected with the dumper's
-/// (AeroDumper.MACHS): as many, and each one.
-void compareWorstCpMachs(Mismatches& m, const json& expected)
-{
-    m.integer("worstCP: number", static_cast<std::int64_t>(kDumperMachs.size()),
-              static_cast<std::int64_t>(expected.size()));
-    for (std::size_t i = 0; i < std::min(kDumperMachs.size(), expected.size()); i++)
-    {
-        m.exact(std::format("worstCP[{}].mach", i), kDumperMachs.at(i),
-                goldenValue(expected.at(i).at("mach")));
-    }
-}
-
-/// Compares the results of the configuration @p config of @p rocket, which is selected, with the
-/// golden @p results, making the dumper's calls in the dumper's order on a calculator of its
-/// own. @p context names the configuration in the report.
-[[nodiscard]] AeroComparison compareResults(const json& results, const Rocket& rocket,
-                                            const FlightConfiguration& config,
-                                            const std::string&         context)
-{
-    AeroComparison      result;
-    BarrowmanCalculator calculator;
-    const Subject       subject{.rocket = &rocket, .config = &config, .calculator = &calculator};
-
-    Mismatches geometry(context + " geometry warnings");
-    WarningSet geometryWarnings;
-    calculator.checkGeometry(config, rocket, &geometryWarnings);
-    result.compared.warnings += compareWarnings(
-        geometry, "geometryWarnings", results.at("geometryWarnings"), geometryWarnings, rocket);
-    result.report += geometry.report();
-
-    // The dumper calculates the structure CG here, for the pitch centre of point 23, and takes
-    // the nozzle exit areas of point 24 from the motor mounts.
-    const json&  points       = results.at("points");
-    const double structureCgX = QtRocket::MassCalculator::calculateStructure(config).getCM().x;
-    Mismatches   inputs(context + " inputs of the points");
-    inputs.integer("points: number", static_cast<std::int64_t>(kDumperPoints),
-                   static_cast<std::int64_t>(points.size()));
-    compareWorstCpMachs(inputs, results.at("worstCP"));
-    if (points.size() > kNozzlePoint)
-    {
-        inputs.absolute(
-            "structure CG x (the pitch centre of point 23)",
-            goldenCoordinate(points.at(kStructureCgPoint).at("conditions").at("pitchCenter")).x,
-            structureCgX);
-        compareDumperNozzleAreas(
-            inputs, points.at(kNozzlePoint).at("conditions").at("thrustingNozzleExitAreas"), rocket,
-            config);
-    }
-    else
-    {
-        inputs.note("no structure CG point and no nozzle point");
-    }
-    result.report += inputs.report();
-
-    for (std::size_t i = 0; i < points.size(); i++)
-    {
-        const json& conditions = points.at(i).at("conditions");
-        Mismatches  m(std::format("{} point {} (Mach {}, angle of attack {})", context, i,
-                                  goldenValue(conditions.at("mach")),
-                                  goldenValue(conditions.at("aoa"))));
-        comparePoint(m, i, points.at(i), subject, result.compared);
-        result.report += m.report();
-    }
-
-    compareWorstCPs(result, results.at("worstCP"), subject, context);
-    result.compared.configurations = 1;
-    return result;
-}
-
-/// Compares the header and the reference values of @p config with the golden configuration
-/// @p expected. The id is compared unless it is one the maker draws at random.
-void compareHeader(Mismatches& m, const json& expected, const FlightConfiguration& config,
-                   bool randomConfigurationId)
-{
-    const QtRocket::InMemoryPreferences preferences;
-    m.boolean("isDefault", expected.at("isDefault").get<bool>(), config.getId().isDefaultId());
-    if (config.getId().isDefaultId() || !randomConfigurationId)
-    {
-        m.text("id", expected.at("id").get<std::string>(), config.getId().toString());
-    }
-    m.text("name", expected.at("name").get<std::string>(), config.getName(preferences));
-    m.relative("referenceLength", goldenValue(expected.at("referenceLength")),
-               config.getReferenceLength());
-    m.relative("referenceArea", goldenValue(expected.at("referenceArea")),
-               config.getReferenceArea());
-    noteUncomparedKeys(m, "", expected, kConfigurationKeys);
-}
-
-/// Compares what every file records once: the atmosphere of the default flight conditions, the
-/// stall angle, and the number of configurations, which is that of @p rocket with its default
-/// one (the dumper writes one entry per configuration of rocket.getFlightConfigurations(); a
-/// rocket with more configurations than the file would otherwise be compared without a
-/// mismatch, since the loop follows the file).
-void compareFileValues(Mismatches& m, const json& aero, const Rocket& rocket)
-{
-    const QtRocket::AtmosphericConditions atmosphere =
-        FlightConditions().getAtmosphericConditions();
-    const json& expected = aero.at("atmosphere");
-    m.relative("atmosphere.temperature", goldenValue(expected.at("temperature")),
-               atmosphere.getTemperature());
-    m.relative("atmosphere.pressure", goldenValue(expected.at("pressure")),
-               atmosphere.getPressure());
-    m.relative("atmosphere.relativeHumidity", goldenValue(expected.at("relativeHumidity")),
-               atmosphere.getRelativeHumidity());
-    m.relative("atmosphere.machSpeed", goldenValue(expected.at("machSpeed")),
-               atmosphere.getMachSpeed());
-    m.relative("atmosphere.density", goldenValue(expected.at("density")), atmosphere.getDensity());
-    m.relative("atmosphere.kinematicViscosity", goldenValue(expected.at("kinematicViscosity")),
-               atmosphere.getKinematicViscosity());
-    m.relative("stallAngle", goldenValue(aero.at("stallAngle")),
-               BarrowmanCalculator().getStallAngle());
-    m.integer("configurations: number", static_cast<std::int64_t>(aero.at("configurations").size()),
-              static_cast<std::int64_t>(rocket.getConfigurationCount()) + 1);
-    noteUncomparedKeys(m, "atmosphere", expected, kAtmosphereKeys);
-    noteUncomparedKeys(m, "", aero, kFileKeys);
-}
-
-/// Compares @p rocket with the aero.json document @p aero: the file's values, then every
-/// configuration, each one selected while it is calculated (as the dumper selects it) and the
-/// original selection restored afterwards. @p randomConfigurationId: whether the maker of the
-/// rocket draws the id of its configuration at random.
-[[nodiscard]] AeroComparison compareAero(Rocket& rocket, const json& aero,
-                                         bool randomConfigurationId)
-{
-    const QtRocket::Test::DefaultUnitsGuard units;  // checkGeometry() prints lengths
-    AeroComparison                          result;
-    Mismatches                              file("file");
-    compareFileValues(file, aero, rocket);
-    result.report += file.report();
-
-    const FlightConfigurationId selected       = rocket.getSelectedConfiguration().getId();
-    const json&                 configurations = aero.at("configurations");
-    for (std::size_t i = 0; i < configurations.size(); i++)
-    {
-        const std::string context = std::format("configuration {}", i);
-        Mismatches        m(context);
-        const json*       results = aeroResults(aero, i);
-        if (results == nullptr || std::cmp_greater(i, rocket.getConfigurationCount()))
-        {
-            m.note("no golden results, or no such configuration in the rocket");
-            result.report += m.report();
-            continue;
-        }
-        const FlightConfiguration& config =
-            rocket.getFlightConfigurationByIndex(static_cast<int>(i), true);
-        rocket.setSelectedConfiguration(config.getId());
-        m.integer("index", configurations.at(i).at("index").get<int>(), static_cast<int>(i));
-        compareHeader(m, configurations.at(i), config, randomConfigurationId);
-        result.report += m.report();
-
-        const AeroComparison compared = compareResults(*results, rocket, config, context);
-        result.compared += compared.compared;
-        result.report += compared.report;
-        result.otherThetas += compared.otherThetas;
-    }
-    rocket.setSelectedConfiguration(selected);
-    return result;
-}
 
 // ============================================================================== the goldens
 
@@ -1002,9 +173,10 @@ struct GoldenRun
         run.problem = aero.error().message;
         return run;
     }
-    const std::unique_ptr<Rocket> rocket = maker.make();
-    run.golden                           = goldenCounts(*aero);
-    run.comparison                       = compareAero(*rocket, *aero, maker.randomConfigurationId);
+    const std::unique_ptr<Rocket>       rocket = maker.make();
+    const QtRocket::InMemoryPreferences preferences;  // the golden names are an empty store's
+    run.golden     = goldenCounts(*aero);
+    run.comparison = compareAero(*rocket, *aero, maker.randomConfigurationId, preferences);
     return run;
 }
 
@@ -1434,8 +606,9 @@ constexpr std::string_view kMutatedInput = "testrocket-iso-haisu";
     {
         change(*aero);
     }
-    const std::unique_ptr<Rocket> rocket = maker->make();
-    return compareAero(*rocket, *aero, maker->randomConfigurationId).report;
+    const std::unique_ptr<Rocket>       rocket = maker->make();
+    const QtRocket::InMemoryPreferences preferences;  // the golden names are an empty store's
+    return compareAero(*rocket, *aero, maker->randomConfigurationId, preferences).report;
 }
 
 /// One changed golden value.
@@ -1535,8 +708,8 @@ struct ThetaVerdict
     const std::unique_ptr<Rocket> rocket = maker->make();
     const FlightConfiguration&    config = rocket->getSelectedConfiguration();
     BarrowmanCalculator           calculator;
-    const Subject    subject{.rocket = rocket.get(), .config = &config, .calculator = &calculator};
-    FlightConditions conditions(config);
+    const AeroSubject subject{.rocket = rocket.get(), .config = &config, .calculator = &calculator};
+    FlightConditions  conditions(config);
     conditions.setMach(goldenValue(expected.at("mach")));
     conditions.setAOA(0.0);
     const Coordinate worst = calculator.getWorstCP(config, conditions, nullptr);

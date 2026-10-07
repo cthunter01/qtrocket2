@@ -29,6 +29,7 @@
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenMismatches.h"
 
 namespace
 {
@@ -742,6 +743,41 @@ TEST(GoldenData, GoldenCheckMatchesInfinitiesExactly)
     EXPECT_EQ(check.failures().front(), "/a: inf differs from the golden 1.0");
     EXPECT_EQ(check.failures()[2], "/inf: 1 differs from the golden \"Infinity\"");
     EXPECT_EQ(check.failures()[3], "/minf: inf differs from the golden \"-Infinity\"");
+}
+
+/// The report of GoldenMismatches::relative() for @p actual against the golden @p expected; ""
+/// when they match.
+[[nodiscard]] std::string relativeReport(double expected, double actual)
+{
+    QtRocket::Test::GoldenMismatches m("value");
+    m.relative("x", expected, actual);
+    return m.report();
+}
+
+TEST(GoldenData, GoldenMismatchesRelativeMatchesInfinitiesExactly)
+{
+    // The ejection delay of a plugged motor is +infinity in the golden file and in the rocket.
+    // The difference of two equal infinities is NaN, and an infinite scale would admit any
+    // difference: an infinity matches the same infinity only, as in GoldenMismatches::within().
+    constexpr double kInf = std::numeric_limits<double>::infinity();
+    constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_EQ(relativeReport(kInf, kInf), "");
+    EXPECT_EQ(relativeReport(-kInf, -kInf), "");
+    EXPECT_EQ(relativeReport(kInf, -kInf),
+              "value:\n  x: expected inf, got -inf (difference -inf)\n");
+    EXPECT_EQ(relativeReport(kInf, 3.0), "value:\n  x: expected inf, got 3 (difference -inf)\n");
+    EXPECT_EQ(relativeReport(3.0, kInf), "value:\n  x: expected 3, got inf (difference inf)\n");
+    EXPECT_NE(relativeReport(-kInf, std::numeric_limits<double>::lowest()), "");
+    EXPECT_NE(relativeReport(kInf, kNaN), "");
+    // The finite numbers, zero and NaN, as before: within 1e-9 of the larger magnitude.
+    EXPECT_EQ(relativeReport(1.0, 1.0 + 5e-10), "");
+    EXPECT_NE(relativeReport(1.0, 1.0 + 2e-9), "");
+    EXPECT_EQ(relativeReport(0.0, 0.0), "");
+    EXPECT_EQ(relativeReport(0.0, -0.0), "");
+    EXPECT_NE(relativeReport(0.0, 1e-300), "") << "a golden 0 is matched exactly";
+    EXPECT_EQ(relativeReport(kNaN, kNaN), "");
+    EXPECT_NE(relativeReport(kNaN, 1.0), "");
+    EXPECT_NE(relativeReport(1.0, kNaN), "");
 }
 
 TEST(GoldenData, ParsesCsv)
