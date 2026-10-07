@@ -98,6 +98,28 @@ Result<GoldenSimulation> parseSimulation(const nlohmann::json& json, std::string
     return simulation;
 }
 
+/// Reads the list of simulations @p key of the input @p json into @p simulations; a missing list
+/// or a malformed entry is the failure.
+Result<void> readSimulations(const nlohmann::json& json, std::string_view key,
+                             std::string_view context, std::vector<GoldenSimulation>& simulations)
+{
+    const auto list = requireArray(json, key, context);
+    if (!list)
+    {
+        return std::unexpected(list.error());
+    }
+    for (const auto& simulationJson : **list)
+    {
+        auto simulation = parseSimulation(simulationJson, context);
+        if (!simulation)
+        {
+            return std::unexpected(simulation.error());
+        }
+        simulations.push_back(std::move(*simulation));
+    }
+    return {};
+}
+
 /// Reads the string members of an input; the first missing one is the failure.
 Result<void> readInputStrings(const nlohmann::json& json, std::string_view context,
                               GoldenInput& input)
@@ -135,21 +157,56 @@ Result<GoldenInput> parseInput(const nlohmann::json& json)
     {
         return std::unexpected(strings.error());
     }
-    const auto simulations = requireArray(json, "simulations", context);
-    if (!simulations)
+    if (auto read = readSimulations(json, "simulations", context, input.simulations); !read)
     {
-        return std::unexpected(simulations.error());
+        return std::unexpected(read.error());
     }
-    for (const auto& simulationJson : **simulations)
+    // An input without a stable-step set has no "stableSimulations".
+    if (json.contains("stableSimulations"))
     {
-        auto simulation = parseSimulation(simulationJson, context);
-        if (!simulation)
+        if (auto read =
+                readSimulations(json, "stableSimulations", context, input.stableSimulations);
+            !read)
         {
-            return std::unexpected(simulation.error());
+            return std::unexpected(read.error());
         }
-        input.simulations.push_back(std::move(*simulation));
     }
     return input;
+}
+
+/// Reads "settings" of the manifest: the time step of the stable-step set and the kinds of the
+/// inputs that have one.
+Result<void> readSettings(const nlohmann::json& manifest, GoldenManifest& result)
+{
+    constexpr std::string_view kContext = "manifest.json settings";
+    const auto                 settings = manifest.find("settings");
+    if (settings == manifest.end() || !settings->is_object())
+    {
+        return fail(ErrorCode::PARSE, R"(manifest.json: missing object "settings")");
+    }
+    const auto timeStep = settings->find("stableTimeStep");
+    if (timeStep == settings->end() || !timeStep->is_number())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: missing number "stableTimeStep")", kContext));
+    }
+    result.stableTimeStep = timeStep->get<double>();
+    const auto kinds      = requireArray(*settings, "stableSimulationsOf", kContext);
+    if (!kinds)
+    {
+        return std::unexpected(kinds.error());
+    }
+    for (const auto& kind : **kinds)
+    {
+        if (!kind.is_string())
+        {
+            return fail(
+                ErrorCode::PARSE,
+                std::format("{}: a kind of \"stableSimulationsOf\" is not a string", kContext));
+        }
+        result.stableSimulationsOf.push_back(kind.get<std::string>());
+    }
+    return {};
 }
 
 /// Parses one data line of a branch CSV into @p row (cleared first). The fields are split
@@ -396,6 +453,11 @@ const GoldenInput* GoldenManifest::find(std::string_view name) const
     return nullptr;
 }
 
+bool GoldenManifest::hasStableSimulations(const GoldenInput& input) const
+{
+    return std::ranges::find(stableSimulationsOf, input.kind) != stableSimulationsOf.end();
+}
+
 Result<GoldenManifest> parseGoldenManifest(const nlohmann::json& manifest)
 {
     constexpr std::string_view kContext = "manifest.json";
@@ -433,6 +495,10 @@ Result<GoldenManifest> parseGoldenManifest(const nlohmann::json& manifest)
     }
     result.openrocketCommit  = std::move(*commit);
     result.openrocketVersion = std::move(*openrocketVersion);
+    if (auto settings = readSettings(manifest, result); !settings)
+    {
+        return std::unexpected(settings.error());
+    }
     for (const auto& inputJson : **inputs)
     {
         auto input = parseInput(inputJson);

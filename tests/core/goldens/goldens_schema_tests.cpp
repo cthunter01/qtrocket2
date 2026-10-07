@@ -41,6 +41,10 @@ using QtRocket::Test::GoldenSimulation;
 
 constexpr std::size_t kExampleCount    = 16;
 constexpr std::size_t kTestRocketCount = 13;
+/// The simulations of the stable-step set (those of the thirteen test rockets), and its files:
+/// one document per simulation and one time series per branch (53).
+constexpr std::size_t kStableSimulationCount = 50;
+constexpr std::size_t kStableFileCount       = 103;
 /// The Mach x AoA grid (7 x 3) plus the four off-grid points of aero.json: a lateral wind
 /// direction, rotation about the nose tip and about the structure CG, thrusting nozzles.
 constexpr std::size_t kAeroPointCount = 25;
@@ -195,6 +199,56 @@ void checkExampleInput(const GoldenInput& input)
     EXPECT_TRUE(std::filesystem::is_regular_file(file)) << input.source;
 }
 
+/// The file @p file of the default-step set, as the stable-step set names it: in the directory
+/// "stable" next to it.
+std::string stableFileName(const std::string& file)
+{
+    const std::filesystem::path path{file};
+    return (path.parent_path() / "stable" / path.filename()).generic_string();
+}
+
+/// What is wrong with the entry @p stable of a stable-step set, which has to be the simulation
+/// @p simulation of the default-step set: the same name, the same file name in the directory
+/// "stable", and branch files named after it. (How many branches there are is a result: a
+/// flight can end otherwise at another time step.)
+std::string stableEntryProblems(const GoldenSimulation& stable, const GoldenSimulation& simulation)
+{
+    std::string problems;
+    if (stable.name != simulation.name || stable.json != stableFileName(simulation.json))
+    {
+        problems += std::format("{} ({}) is not the stable-step simulation of {} ({})\n",
+                                stable.json, stable.name, simulation.json, simulation.name);
+    }
+    const std::string base = stable.json.substr(0, stable.json.rfind(".json"));
+    for (std::size_t b = 0; b < stable.branches.size(); ++b)
+    {
+        if (stable.branches[b] != std::format("{}_branch{}.csv.gz", base, b))
+        {
+            problems += std::format("{}: branch {} is {}\n", stable.json, b, stable.branches[b]);
+        }
+    }
+    return problems;
+}
+
+/// The stable-step set of @p input: the simulations of the default-step set, one for one, with
+/// the same names and with the same file names in the directory "stable"; none when the inputs
+/// of its kind have no stable-step set (@p expected false).
+void checkStableList(const GoldenInput& input, bool expected)
+{
+    if (!expected)
+    {
+        EXPECT_TRUE(input.stableSimulations.empty()) << input.name;
+        return;
+    }
+    ASSERT_EQ(input.stableSimulations.size(), input.simulations.size()) << input.name;
+    std::string problems;
+    for (std::size_t i = 0; i < input.simulations.size(); ++i)
+    {
+        problems += stableEntryProblems(input.stableSimulations[i], input.simulations[i]);
+    }
+    EXPECT_EQ(problems, "") << input.name;
+}
+
 /// Checks one manifest input and counts it by kind.
 void checkManifestInput(const GoldenInput& input, std::size_t& examples, std::size_t& testRockets)
 {
@@ -230,13 +284,30 @@ std::set<std::string> listedFiles(const GoldenManifest& manifest)
     for (const auto& input : manifest.inputs)
     {
         listed.insert({input.geometry, input.mass, input.aero, input.resave});
-        for (const auto& simulation : input.simulations)
+        for (const auto* simulations : {&input.simulations, &input.stableSimulations})
         {
-            listed.insert(simulation.json);
-            listed.insert(simulation.branches.begin(), simulation.branches.end());
+            for (const auto& simulation : *simulations)
+            {
+                listed.insert(simulation.json);
+                listed.insert(simulation.branches.begin(), simulation.branches.end());
+            }
         }
     }
     return listed;
+}
+
+/// The number of files @p manifest lists for the stable-step sets.
+std::size_t countStableFiles(const GoldenManifest& manifest)
+{
+    std::size_t count = 0;
+    for (const auto& input : manifest.inputs)
+    {
+        for (const auto& simulation : input.stableSimulations)
+        {
+            count += 1 + simulation.branches.size();
+        }
+    }
+    return count;
 }
 
 /// Every file under the input's directory is in @p listed.
@@ -444,11 +515,12 @@ void checkEvents(const json& branch, const std::string& csvFile)
     }
 }
 
-void checkBranch(const json& branch, const std::string& csvFile, const std::string& inputName)
+/// @p directory: that of the simulation's document, in which "csv" names the time series.
+void checkBranch(const json& branch, const std::string& csvFile, const std::string& directory)
 {
     expectKeys(branch, {"index", "name", "rows", "csv", "columns", "events", "excludedColumns"},
                csvFile);
-    EXPECT_EQ(inputName + "/" + branch.value("csv", ""), csvFile);
+    EXPECT_EQ(directory + "/" + branch.value("csv", ""), csvFile);
     checkEvents(branch, csvFile);
 
     const auto table = QtRocket::Test::loadGoldenCsv(csvFile);
@@ -465,11 +537,13 @@ void checkBranch(const json& branch, const std::string& csvFile, const std::stri
     EXPECT_TRUE(std::ranges::is_sorted(time)) << csvFile;
 }
 
-void checkSimulation(const GoldenInput& input, std::size_t index)
+/// Checks the files of the simulation @p listed, number @p index of the input @p inputName (of
+/// its default-step set or of its stable-step set).
+void checkSimulation(const GoldenSimulation& listed, std::size_t index,
+                     const std::string& inputName)
 {
-    const GoldenSimulation& listed     = input.simulations[index];
-    const json              simulation = loadJsonOrFail(listed.json);
-    checkSimulationHeader(simulation, listed, index, input.name);
+    const json simulation = loadJsonOrFail(listed.json);
+    checkSimulationHeader(simulation, listed, index, inputName);
     if (simulation.value("skipped", false))
     {
         EXPECT_TRUE(listed.branches.empty()) << listed.json;
@@ -482,10 +556,67 @@ void checkSimulation(const GoldenInput& input, std::size_t index)
                listed.json);
     const auto& branches = simulation.value("branches", json::array());
     ASSERT_EQ(branches.size(), listed.branches.size()) << listed.json;
+    const std::string directory = std::filesystem::path{listed.json}.parent_path().generic_string();
     for (std::size_t b = 0; b < branches.size(); ++b)
     {
-        checkBranch(branches[b], listed.branches[b], input.name);
+        checkBranch(branches[b], listed.branches[b], directory);
     }
+}
+
+/// Removes the entry @p key of the object @p name of @p simulation, when there is one.
+void eraseEntry(json& simulation, std::string_view name, std::string_view key)
+{
+    const auto object = simulation.find(name);
+    if (object != simulation.end() && object->is_object())
+    {
+        object->erase(key);
+    }
+}
+
+/// What the harness was given to simulate, read from the document @p simulation: everything
+/// but the results, the time step of the options and the two entries of "harness" that record
+/// the stable time step.
+json settingsOf(json simulation)
+{
+    for (const std::string_view key : {"result", "summary", "warnings", "branches"})
+    {
+        simulation.erase(key);
+    }
+    eraseEntry(simulation, "options", "timeStep");
+    eraseEntry(simulation, "harness", "documentTimeStep");
+    eraseEntry(simulation, "harness", "timeStep");
+    return simulation;
+}
+
+/// The number @p key of the object @p name of @p simulation; NaN when there is none.
+double numberOf(const json& simulation, std::string_view name, std::string_view key)
+{
+    const auto object = simulation.find(name);
+    if (object == simulation.end() || !object->is_object() || !object->contains(key))
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return QtRocket::Test::goldenNumber(object->at(key))
+        .value_or(std::numeric_limits<double>::quiet_NaN());
+}
+
+/// Simulation @p index of the stable-step set of @p input is its simulation of the default-step
+/// set with the time step @p stableTimeStep and nothing else changed: the same flight
+/// configuration (with the same id), the same options otherwise, the same changes of the
+/// harness; "harness" records the stable time step and the one the simulation had.
+void checkStableSimulation(const GoldenInput& input, std::size_t index, double stableTimeStep)
+{
+    const std::string& file   = input.stableSimulations[index].json;
+    const json         stable = loadJsonOrFail(file);
+    const json         twin   = loadJsonOrFail(input.simulations[index].json);
+    EXPECT_EQ(numberOf(stable, "options", "timeStep"), stableTimeStep) << file;
+    EXPECT_EQ(numberOf(stable, "harness", "timeStep"), stableTimeStep) << file;
+    EXPECT_EQ(numberOf(stable, "harness", "documentTimeStep"),
+              numberOf(twin, "options", "timeStep"))
+        << file;
+    EXPECT_TRUE(std::isnan(numberOf(twin, "harness", "timeStep")))
+        << file << ": the default-step set records no stable time step";
+    EXPECT_EQ(settingsOf(stable), settingsOf(twin)) << file;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -736,17 +867,27 @@ TEST(GoldenData, ParsesManifest)
     const json manifest = json::parse(R"({
         "schemaVersion": 1,
         "openrocket": {"commit": "abc", "version": "26.xx"},
+        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["testrocket"]},
         "inputs": [{"name": "example-x", "kind": "example", "source": "data/examples/X.ork",
                     "geometry": "example-x/geometry.json", "mass": "example-x/mass.json",
                     "aero": "example-x/aero.json", "resave": "example-x/resave/rocket.ork",
                     "simulations": [{"name": "Simulation 1", "json": "example-x/sim_00.json",
-                                     "branches": ["example-x/sim_00_branch0.csv.gz"]}]}]})");
+                                     "branches": ["example-x/sim_00_branch0.csv.gz"]}]},
+                   {"name": "testrocket-y", "kind": "testrocket", "source": "makeY",
+                    "geometry": "g", "mass": "m", "aero": "a", "resave": "r",
+                    "simulations": [{"name": "[A8-3]", "json": "testrocket-y/sim_00.json",
+                                     "branches": []}],
+                    "stableSimulations": [
+                        {"name": "[A8-3]", "json": "testrocket-y/stable/sim_00.json",
+                         "branches": ["testrocket-y/stable/sim_00_branch0.csv.gz"]}]}]})");
     const auto parsed   = QtRocket::Test::parseGoldenManifest(manifest);
     ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
     EXPECT_EQ(parsed->schemaVersion, 1);
     EXPECT_EQ(parsed->openrocketCommit, "abc");
     EXPECT_EQ(parsed->openrocketVersion, "26.xx");
-    ASSERT_EQ(parsed->inputs.size(), 1U);
+    EXPECT_EQ(parsed->stableTimeStep, 0.01);
+    EXPECT_EQ(parsed->stableSimulationsOf, std::vector<std::string>{"testrocket"});
+    ASSERT_EQ(parsed->inputs.size(), 2U);
     const auto* input = parsed->find("example-x");
     ASSERT_NE(input, nullptr);
     EXPECT_EQ(input->kind, "example");
@@ -754,7 +895,19 @@ TEST(GoldenData, ParsesManifest)
     ASSERT_EQ(input->simulations.size(), 1U);
     EXPECT_EQ(input->simulations[0].branches,
               std::vector<std::string>{"example-x/sim_00_branch0.csv.gz"});
+    // An input without a stable-step set has no "stableSimulations".
+    EXPECT_TRUE(input->stableSimulations.empty());
+    EXPECT_FALSE(parsed->hasStableSimulations(*input));
     EXPECT_EQ(parsed->find("example-y"), nullptr);
+
+    const auto* testRocket = parsed->find("testrocket-y");
+    ASSERT_NE(testRocket, nullptr);
+    EXPECT_TRUE(parsed->hasStableSimulations(*testRocket));
+    ASSERT_EQ(testRocket->stableSimulations.size(), 1U);
+    EXPECT_EQ(testRocket->stableSimulations[0].name, "[A8-3]");
+    EXPECT_EQ(testRocket->stableSimulations[0].json, "testrocket-y/stable/sim_00.json");
+    EXPECT_EQ(testRocket->stableSimulations[0].branches,
+              std::vector<std::string>{"testrocket-y/stable/sim_00_branch0.csv.gz"});
 }
 
 const json& completeManifest()
@@ -762,27 +915,49 @@ const json& completeManifest()
     static const json kManifest = json::parse(R"({
         "schemaVersion": 1,
         "openrocket": {"commit": "abc", "version": "26.xx"},
+        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["example"]},
         "inputs": [{"name": "n", "kind": "example", "source": "s", "geometry": "g", "mass": "m",
                     "aero": "a", "resave": "r",
-                    "simulations": [{"name": "s", "json": "j", "branches": []}]}]})");
+                    "simulations": [{"name": "s", "json": "j", "branches": []}],
+                    "stableSimulations": [{"name": "s", "json": "k", "branches": []}]}]})");
     return kManifest;
 }
 
 TEST(GoldenData, RejectsManifestsWithoutARequiredField)
 {
     ASSERT_TRUE(manifestParses(completeManifest()));
-    for (const char* pointer :
-         {"/schemaVersion", "/openrocket", "/openrocket/commit", "/openrocket/version", "/inputs",
-          "/inputs/0/name", "/inputs/0/kind", "/inputs/0/source", "/inputs/0/geometry",
-          "/inputs/0/mass", "/inputs/0/aero", "/inputs/0/resave", "/inputs/0/simulations",
-          "/inputs/0/simulations/0/name", "/inputs/0/simulations/0/json",
-          "/inputs/0/simulations/0/branches"})
+    for (const char* pointer : {"/schemaVersion",
+                                "/openrocket",
+                                "/openrocket/commit",
+                                "/openrocket/version",
+                                "/settings",
+                                "/settings/stableTimeStep",
+                                "/settings/stableSimulationsOf",
+                                "/inputs",
+                                "/inputs/0/name",
+                                "/inputs/0/kind",
+                                "/inputs/0/source",
+                                "/inputs/0/geometry",
+                                "/inputs/0/mass",
+                                "/inputs/0/aero",
+                                "/inputs/0/resave",
+                                "/inputs/0/simulations",
+                                "/inputs/0/simulations/0/name",
+                                "/inputs/0/simulations/0/json",
+                                "/inputs/0/simulations/0/branches",
+                                "/inputs/0/stableSimulations/0/name",
+                                "/inputs/0/stableSimulations/0/json",
+                                "/inputs/0/stableSimulations/0/branches"})
     {
         const json::json_pointer removed{pointer};
         json                     broken = completeManifest();
         broken[removed.parent_pointer()].erase(removed.back());
         EXPECT_FALSE(manifestParses(broken)) << "accepted without " << pointer;
     }
+    // The list of the stable-step set itself may be missing: the input has none then.
+    json withoutStableSet = completeManifest();
+    withoutStableSet["inputs"][0].erase("stableSimulations");
+    EXPECT_TRUE(manifestParses(withoutStableSet));
 }
 
 TEST(GoldenData, RejectsManifestsWithWrongTypes)
@@ -802,6 +977,26 @@ TEST(GoldenData, RejectsManifestsWithWrongTypes)
     json badSimulation                        = completeManifest();
     badSimulation["inputs"][0]["simulations"] = json::array({42});
     EXPECT_FALSE(manifestParses(badSimulation));
+
+    json badStableSimulation                              = completeManifest();
+    badStableSimulation["inputs"][0]["stableSimulations"] = json::array({42});
+    EXPECT_FALSE(manifestParses(badStableSimulation));
+
+    json badStableList                              = completeManifest();
+    badStableList["inputs"][0]["stableSimulations"] = "none";
+    EXPECT_FALSE(manifestParses(badStableList));
+
+    json badTimeStep                          = completeManifest();
+    badTimeStep["settings"]["stableTimeStep"] = "0.01";
+    EXPECT_FALSE(manifestParses(badTimeStep));
+
+    json badKinds                               = completeManifest();
+    badKinds["settings"]["stableSimulationsOf"] = json::array({1});
+    EXPECT_FALSE(manifestParses(badKinds));
+
+    json badSettings        = completeManifest();
+    badSettings["settings"] = json::array();
+    EXPECT_FALSE(manifestParses(badSettings));
 
     EXPECT_FALSE(manifestParses(json::array()));
     EXPECT_EQ(errorCode(QtRocket::Test::parseGoldenManifest(json::array())), ErrorCode::PARSE);
@@ -854,6 +1049,25 @@ TEST(GoldenSchema, ManifestListsEveryInput)
     EXPECT_EQ(testRockets, kTestRocketCount);
     // Every example design has goldens.
     EXPECT_EQ(countExampleFiles(), kExampleCount);
+}
+
+// The stable-step set: the simulations of the test rockets once more, with the time step the
+// manifest records (the harness can write that of the example designs too; those files are not
+// committed).
+TEST(GoldenSchema, ManifestListsTheStableStepSetOfTheTestRockets)
+{
+    const auto manifest = loadManifestOrFail();
+    EXPECT_EQ(manifest.stableTimeStep, 0.01);
+    EXPECT_EQ(manifest.stableSimulationsOf, std::vector<std::string>{"testrocket"});
+    std::size_t simulations = 0;
+    for (const auto& input : manifest.inputs)
+    {
+        checkStableList(input, manifest.hasStableSimulations(input));
+        EXPECT_EQ(manifest.hasStableSimulations(input), input.kind == "testrocket") << input.name;
+        simulations += input.stableSimulations.size();
+    }
+    EXPECT_EQ(simulations, kStableSimulationCount);
+    EXPECT_EQ(countStableFiles(manifest), kStableFileCount);
 }
 
 /// A directory name the dumper owns (it deletes and rewrites these directories).
@@ -1012,13 +1226,18 @@ protected:
         ASSERT_TRUE(manifest.has_value()) << manifest.error().toString();
         const auto* input = manifest->find(GetParam());
         ASSERT_NE(input, nullptr) << GetParam();
-        m_input = *input;
+        m_input          = *input;
+        m_stableTimeStep = manifest->stableTimeStep;
     }
 
     [[nodiscard]] const GoldenInput& input() const { return m_input; }
 
+    /// The time step of the stable-step set (GoldenManifest::stableTimeStep).
+    [[nodiscard]] double stableTimeStep() const { return m_stableTimeStep; }
+
 private:
     GoldenInput m_input;
+    double      m_stableTimeStep{0};
 };
 
 TEST_P(GoldenInputSchema, DesignFilesHaveTheRequiredKeys)
@@ -1033,7 +1252,19 @@ TEST_P(GoldenInputSchema, SimulationsMatchTheirTimeSeries)
 {
     for (std::size_t s = 0; s < input().simulations.size(); ++s)
     {
-        checkSimulation(input(), s);
+        checkSimulation(input().simulations[s], s, input().name);
+    }
+}
+
+// The stable-step set of the input (none for an input without one): the same schema, and each
+// simulation is its default-step simulation with nothing but the time step changed.
+TEST_P(GoldenInputSchema, StableSimulationsMatchTheirTimeSeriesAndTheirDefaultStepSimulations)
+{
+    ASSERT_LE(input().stableSimulations.size(), input().simulations.size());
+    for (std::size_t s = 0; s < input().stableSimulations.size(); ++s)
+    {
+        checkSimulation(input().stableSimulations[s], s, input().name);
+        checkStableSimulation(input(), s, stableTimeStep());
     }
 }
 

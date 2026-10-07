@@ -39,14 +39,33 @@ import info.openrocket.core.util.Config;
 
 /**
  * sim_&lt;sim&gt;.json and sim_&lt;sim&gt;_branch&lt;i&gt;.csv.gz: one simulation run with calm wind, a
- * fixed seed and without the pitch/yaw jitter (see {@link JitterRemoval}).
+ * fixed seed and without the pitch/yaw jitter (see {@link JitterRemoval}). The stable-step set
+ * (stable/sim_&lt;sim&gt;...) is the same run with the time step {@link #STABLE_TIME_STEP}.
  */
 final class SimulationDumper {
 
 	/** The random seed every golden simulation runs with. */
 	static final int RANDOM_SEED = 0;
 
+	/**
+	 * The time step of the stable-step set, in seconds: small enough that the Runge-Kutta steppers
+	 * integrate the pitch oscillation of the test rockets within their stability limit, so that a whole
+	 * flight is reproducible (README.md, "Reproducibility of the simulations").
+	 */
+	static final double STABLE_TIME_STEP = 0.01;
+
 	private SimulationDumper() {
+	}
+
+	/**
+	 * Gives the simulation the stable time step {@link #STABLE_TIME_STEP} and nothing else, and adds what
+	 * was changed to {@code harness} (the result of {@link #makeReproducible}): the time step the
+	 * simulation had and the one it has now.
+	 */
+	static void useStableTimeStep(SimulationOptions options, Map<String, Object> harness) {
+		harness.put("documentTimeStep", options.getTimeStep());
+		options.setTimeStep(STABLE_TIME_STEP);
+		harness.put("timeStep", STABLE_TIME_STEP);
 	}
 
 	/**

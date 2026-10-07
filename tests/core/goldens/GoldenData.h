@@ -99,18 +99,29 @@ struct GoldenInput
     std::string                   aero;
     std::string                   resave;  ///< OpenRocket's re-save of the design (XML)
     std::vector<GoldenSimulation> simulations;
+    /// The stable-step set (<input>/stable/): the same simulations, in the same order, run with
+    /// GoldenManifest::stableTimeStep. Empty for an input that has none (its entry has no
+    /// "stableSimulations"; GoldenManifest::hasStableSimulations() says which inputs have them).
+    std::vector<GoldenSimulation> stableSimulations;
 };
 
 /// manifest.json: where the goldens came from and which files they are.
 struct GoldenManifest
 {
-    int                      schemaVersion{};
-    std::string              openrocketCommit;
-    std::string              openrocketVersion;
+    int         schemaVersion{};
+    std::string openrocketCommit;
+    std::string openrocketVersion;
+    /// The time step of the stable-step set, in s ("settings.stableTimeStep").
+    double stableTimeStep{};
+    /// The kinds of the inputs that have a stable-step set ("settings.stableSimulationsOf").
+    std::vector<std::string> stableSimulationsOf;
     std::vector<GoldenInput> inputs;
 
     /// The input named @p name, or null.
     [[nodiscard]] const GoldenInput* find(std::string_view name) const;
+
+    /// Whether the inputs of the kind of @p input have a stable-step set.
+    [[nodiscard]] bool hasStableSimulations(const GoldenInput& input) const;
 };
 
 /// Reads goldensDir()/manifest.json.

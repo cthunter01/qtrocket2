@@ -48,11 +48,16 @@ final class Json {
 
 	/** Writes {@code value} to {@code file} as UTF-8. */
 	static void write(Path file, Object value) throws IOException {
+		Files.createDirectories(file.getParent());
+		Files.write(file, bytes(value));
+	}
+
+	/** The bytes {@link #write} writes for {@code value}. */
+	static byte[] bytes(Object value) {
 		StringBuilder sb = new StringBuilder(1 << 16);
 		append(sb, value, 0);
 		sb.append('\n');
-		Files.createDirectories(file.getParent());
-		Files.write(file, sb.toString().getBytes(StandardCharsets.UTF_8));
+		return sb.toString().getBytes(StandardCharsets.UTF_8);
 	}
 
 	/** The JSON text of a double (see the class comment). */
