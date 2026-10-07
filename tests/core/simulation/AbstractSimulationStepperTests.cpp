@@ -31,6 +31,7 @@
 #include "QtRocket/simulation/SimulationStepper.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
 #include "rocket/JavaValueDifferences.h"
@@ -619,6 +620,74 @@ TEST(AbstractSimulationStepper, TheScenariosCoverTheThresholdsOfTheFlightConditi
         "landed-values-falcon",
     };
     EXPECT_EQ(stepScenarioNames(isDirectScenario), expected);
+}
+
+/// What calculateFlightConditions() makes of a lateral airspeed.
+struct LateralConditions
+{
+    double theta{kNaN};
+    double pitchRate{kNaN};
+    double yawRate{kNaN};
+    double rollRate{kNaN};
+    double lateralPitchRate{kNaN};  ///< of the store: what limits the time step
+    bool   calm{false};             ///< the wind of the status is exactly zero
+};
+
+/// calculateFlightConditions() of @p stepper for @p status flying at 20 m/s along its axis and
+/// at @p lateral m/s across it (along its y axis), turning at (0.1, 0.2, 0.3) rad/s. The
+/// orientation is the identity, so that the airspeed in rocket coordinates is the velocity and
+/// its lateral part is @p lateral to the last bit (the square root of its square).
+[[nodiscard]] LateralConditions conditionsAtLateralAirspeed(Rk4SimulationStepper& stepper,
+                                                            SimulationStatus&     status,
+                                                            double                lateral)
+{
+    DataStore& store = QtRocket::Test::scenarioStore(stepper);
+    status.setRocketOrientationQuaternion(Quaternion(1, 0, 0, 0));
+    status.setRocketRotationVelocity(Coordinate(0.1, 0.2, 0.3));
+    status.setRocketVelocity(Coordinate(0, lateral, 20.0));
+    stepper.calculateFlightConditions(status, store);
+    const FlightConditions& conditions = stored(store.flightConditions);
+    return {.theta            = conditions.getTheta(),
+            .pitchRate        = conditions.getPitchRate(),
+            .yawRate          = conditions.getYawRate(),
+            .rollRate         = conditions.getRollRate(),
+            .lateralPitchRate = store.lateralPitchRate,
+            .calm             = store.windVelocity.exactlyEquals(Coordinate::kZero)};
+}
+
+// The two thresholds of the lateral airspeed in calculateFlightConditions(), to the last bit:
+//   if (len > 0.0001) the direction of the lateral airspeed, else none (theta 0);
+//   if (len < 0.001) no pitch and no yaw rate, else those of the rocket.
+// The scenarios above stay a factor of two and more away from them (0.086 mm/s, 0.5 mm/s and
+// 0.36 m/s). The second one decides where a weathercocked rocket flies without pitch damping
+// (the "hunting" of the stable-step simulation goldens, rule H of simulation_golden_tests.cpp),
+// and that comparison leaves the rows nearest to the threshold to this test: it does not
+// compare the pitch rate of a row whose lateral airspeed is within 0.15 mm/s of it.
+TEST(AbstractSimulationStepper, TheThresholdsOfTheLateralAirspeedAreExact)
+{
+    Rk4SimulationStepper                stepper;
+    QtRocket::Test::InitializedScenario f("flight-conditions-lateral-small", stepper);
+    ASSERT_NE(f.status, nullptr);
+
+    // At 1 mm/s the rates are the rocket's; one bit below they are zero.
+    const LateralConditions at = conditionsAtLateralAirspeed(stepper, *f.status, 0.001);
+    ASSERT_TRUE(at.calm) << "the scenario has a wind";
+    EXPECT_EQ(at.pitchRate, 0.2);
+    EXPECT_EQ(at.yawRate, 0.1);
+    EXPECT_EQ(at.rollRate, 0.3);
+    EXPECT_EQ(at.lateralPitchRate, QtRocket::MathUtil::hypot(0.1, 0.2));
+    const LateralConditions below =
+        conditionsAtLateralAirspeed(stepper, *f.status, std::nextafter(0.001, 0.0));
+    EXPECT_EQ(below.pitchRate, 0.0);
+    EXPECT_EQ(below.yawRate, 0.0);
+    EXPECT_EQ(below.rollRate, 0.3) << "the roll rate is kept";
+    EXPECT_EQ(below.lateralPitchRate, 0.0);
+    EXPECT_EQ(below.theta, std::numbers::pi / 2) << "the direction is known down to 0.1 mm/s";
+
+    // At 0.1 mm/s there is no direction yet; one bit above there is.
+    EXPECT_EQ(conditionsAtLateralAirspeed(stepper, *f.status, 0.0001).theta, 0.0);
+    EXPECT_EQ(conditionsAtLateralAirspeed(stepper, *f.status, std::nextafter(0.0001, 1.0)).theta,
+              std::numbers::pi / 2);
 }
 
 // landedValues(): what the pins of the "landed-values" scenarios say, by name.

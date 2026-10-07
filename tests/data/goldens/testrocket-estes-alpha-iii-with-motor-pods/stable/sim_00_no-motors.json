@@ -1,0 +1,100 @@
+{
+ "schema": "simulation",
+ "schemaVersion": 1,
+ "input": "testrocket-estes-alpha-iii-with-motor-pods",
+ "index": 0,
+ "name": "[No motors]",
+ "flightConfiguration": {"index": 0, "id": "ffffffff-f4f2-f1f0-0000-00000000162c", "name": "[No motors]"},
+ "optionsSource": "applicationDefaults",
+ "variant": null,
+ "options": {
+  "launchRodLength": 1.0,
+  "launchIntoWind": true,
+  "launchRodAngle": 0.0,
+  "launchRodDirection": 1.5707963267948966,
+  "windModelType": "AVERAGE",
+  "averageWind": {"average": 2.0, "standardDeviation": 0.0, "turbulenceIntensity": 0.0, "direction": 1.5707963267948966},
+  "multiLevelWind": {
+   "altitudeReference": "MSL",
+   "levels": [
+    {"altitude": 0.0, "speed": 2.0, "direction": 1.5707963267948966, "standardDeviation": 0.0}
+   ]
+  },
+  "launchAltitude": 0.0,
+  "launchLatitude": 28.61,
+  "launchLongitude": -80.6,
+  "geodeticComputation": "SPHERICAL",
+  "isaAtmosphere": true,
+  "launchTemperature": 288.15,
+  "launchPressure": 101325.0,
+  "launchRelativeHumidity": 0.0,
+  "timeStep": 0.01,
+  "maxSimulationTime": 1200.0,
+  "maximumStepAngle": 0.05235987755982988,
+  "randomSeed": 0,
+  "randomSeedFixed": true,
+  "gravityModelType": "WGS",
+  "constantGravity": 9.807,
+  "stepperMethod": "RK4",
+  "recoverySpeedWarning": 20.0,
+  "drogueLowSpeedWarning": 3.048,
+  "recoveryDrogueMainHighSpeedWarning": 30.48,
+  "recoveryDrogueMainLowSpeedWarning": 15.24,
+  "hasDragLookup": false,
+  "hasStabilityLookup": false
+ },
+ "harness": {"documentRandomSeed": null, "documentAverageWindStandardDeviation": 0.2, "documentMultiLevelWindStandardDeviations": [0.2], "randomSeed": 0, "windStandardDeviation": 0.0, "pitchYawJitterRemoved": true, "documentTimeStep": 0.05, "timeStep": 0.01},
+ "extensions": [],
+ "skipped": false,
+ "skipReason": null,
+ "result": {"status": "completed", "exceptionType": null, "exceptionMessage": null, "jitterReplacements": 0},
+ "summary": {"maxAltitude": 0.0, "maxVelocity": 0.0, "maxAcceleration": "NaN", "maxMachNumber": "NaN", "timeToApogee": 0.0, "flightTime": 0.0, "groundHitVelocity": "NaN", "launchRodVelocity": "NaN", "deploymentVelocity": "NaN", "optimumDelay": "NaN", "branchCount": 1},
+ "warnings": [
+  {"type": "Other", "priority": "LOW", "description": "Open forward airframe (diameter > 0)", "text": "Open forward airframe (diameter > 0):  \"Pod Body Tube\"", "sources": ["/0/1/5/0"]}
+ ],
+ "branches": [
+  {
+   "index": 0,
+   "name": "Stage",
+   "sourceComponent": "/0",
+   "rows": 1,
+   "optimumAltitude": "NaN",
+   "timeToOptimumAltitude": "NaN",
+   "optimumDelay": "NaN",
+   "separationTime": "NaN",
+   "csv": "sim_00_no-motors_branch0.csv.gz",
+   "excludedColumns": ["computation_time"],
+   "columns": [
+    {"key": "time", "name": "Time", "symbol": "t", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "altitude", "name": "Altitude", "symbol": "h", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "altitude_above_sea", "name": "Altitude above sea level", "symbol": "ha", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "velocity_z", "name": "Vertical velocity", "symbol": "Vz", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "velocity_total", "name": "Total velocity", "symbol": "Vt", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "position_x", "name": "Position East of launch", "symbol": "Px", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "position_y", "name": "Position North of launch", "symbol": "Py", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "position_xy", "name": "Lateral distance", "symbol": "Pl", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "position_direction", "name": "Lateral direction", "symbol": "θl", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "velocity_xy", "name": "Lateral velocity", "symbol": "Vl", "builtin": true, "min": 0.0, "max": 0.0},
+    {"key": "latitude", "name": "Latitude", "symbol": "φ", "builtin": true, "min": 28.610000000000003, "max": 28.610000000000003},
+    {"key": "longitude", "name": "Longitude", "symbol": "λ", "builtin": true, "min": -80.6, "max": -80.6},
+    {"key": "orientation_theta", "name": "Vertical orientation (zenith)", "symbol": "Θ", "builtin": true, "min": 1.5707963267948966, "max": 1.5707963267948966},
+    {"key": "orientation_phi", "name": "Lateral orientation (azimuth)", "symbol": "Φ", "builtin": true, "min": 0.0, "max": 0.0}
+   ],
+   "events": [
+    {
+     "time": 0.0,
+     "type": "SIM_WARN",
+     "source": null,
+     "data": {"type": "Other", "priority": "LOW", "description": "Open forward airframe (diameter > 0)", "text": "Open forward airframe (diameter > 0):  \"Pod Body Tube\"", "sources": ["/0/1/5/0"]}
+    },
+    {
+     "time": 0.0,
+     "type": "SIM_ABORT",
+     "source": null,
+     "data": {"cause": "NO_MOTORS_DEFINED", "description": "No motors defined in the simulation"}
+    },
+    {"time": 0.0, "type": "LAUNCH", "source": "/", "data": null}
+   ]
+  }
+ ]
+}

@@ -8,10 +8,32 @@
 #   JAVA             the java executable (default: java on PATH); it must be Java 17
 #   ALLOW_DIRTY=1    accept an OpenRocket checkout with modified, untracked or ignored source files, or a
 #                    preset submodule that is not at its recorded commit (manifest.json records "dirty")
+#   STABLE_EXAMPLES=1  also write the stable-step set (<input>/stable/) of the example-* inputs; that of the
+#                    testrocket-* inputs is always written. Off by default: those files are not committed
+#   GOLDENS_OUT      write into this directory instead of tests/data/goldens (a scratch copy of the data)
+#   UUID_SALT        seed the component ids differently (any text), to measure how reproducible OpenRocket's
+#                    results are; needs GOLDENS_OUT naming another directory than tests/data/goldens, because
+#                    such a dump is never the committed data
+#
+# "--only <input name>" is the only argument: everything else GoldenDumper takes is set here, from the
+# checkout and the environment.
 #
 # The checkout is only read: OpenRocket's core is compiled into tools/openrocket-goldens/build.
 # motors.json (and tools/openrocket-goldens/motors/) are produced by motors/dump-motors.sh, not here.
 set -euo pipefail
+
+# GoldenDumper takes the last value of an option it is given twice, so an argument passed through could
+# replace what this script checks (the output directory, the salt, the examples' stable-step set).
+only=()
+while (($# > 0)); do
+    if [[ "$1" != --only || $# -lt 2 || -z "$2" || "$2" == --* ]]; then
+        echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
+        echo "       (see the head of the script for the environment variables)" >&2
+        exit 2
+    fi
+    only+=(--only "$2")
+    shift 2
+done
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -75,8 +97,21 @@ preset_commit="$(git -C "$openrocket" rev-parse "HEAD:$submodule_path")"
 
 echo "OpenRocket: $openrocket @ $commit (presets @ $preset_commit)" >&2
 
-out="$repo/tests/data/goldens"
-recorded="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$out/manifest.json" 2>/dev/null || true)"
+committed="$repo/tests/data/goldens"
+out="${GOLDENS_OUT:-$committed}"
+uuid_salt="${UUID_SALT:-}"
+# "-ef": the same directory under whatever name (a relative path, a symbolic link); false for a directory
+# that does not exist yet, which cannot be the committed one.
+if [[ -n "$uuid_salt" && (-z "${GOLDENS_OUT:-}" || "$out" -ef "$committed") ]]; then
+    echo "error: UUID_SALT gives a dump with other component ids, which is never the committed data;" >&2
+    echo "       set GOLDENS_OUT to a scratch directory for it (not $committed)" >&2
+    exit 1
+fi
+stable_examples=false
+if [[ "${STABLE_EXAMPLES:-0}" == 1 ]]; then
+    stable_examples=true
+fi
+recorded="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$committed/manifest.json" 2>/dev/null || true)"
 if [[ -n "$recorded" && "$recorded" != "$commit" ]]; then
     echo "warning: the committed goldens come from OpenRocket $recorded, the checkout is at $commit;" >&2
     echo "         check out $recorded (and run git submodule update --init) to reproduce them" >&2
@@ -88,13 +123,15 @@ fi
 
 work="$here/build/work"
 mkdir -p "$out" "$work"
+out="$(cd "$out" && pwd)"
 
 # A fixed locale, time zone and encoding; headless AWT (OpenRocket's core touches java.awt.geom).
 "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
     -Dfile.encoding=UTF-8 \
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \
     --openrocket "$openrocket" --examples "$repo/data/examples" --out "$out" --work "$work" \
-    --commit "$commit" --preset-commit "$preset_commit" --dirty "$dirty" "$@"
+    --commit "$commit" --preset-commit "$preset_commit" --dirty "$dirty" \
+    --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" ${only[@]+"${only[@]}"}
 
 echo "Golden data size:" >&2
 du -sh "$out" >&2

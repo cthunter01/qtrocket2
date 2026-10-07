@@ -1,8 +1,8 @@
 package info.qtrocket.goldens;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -65,7 +66,8 @@ import info.openrocket.core.util.TestRockets;
  * the file formats and how to regenerate.
  * <p>
  * Usage: {@code GoldenDumper --openrocket <checkout> --examples <dir> --out <dir> --work <dir>
- * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--only <input name>]...}
+ * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--stable-examples true|false]
+ * [--uuid-salt <text>] [--only <input name>]...}
  */
 public final class GoldenDumper {
 
@@ -75,6 +77,22 @@ public final class GoldenDumper {
 	/** Output directory prefixes owned by this dumper (anything else in the output directory is kept). */
 	private static final String EXAMPLE_PREFIX = "example-";
 	private static final String TEST_ROCKET_PREFIX = "testrocket-";
+
+	/** The subdirectory of an input directory that holds the input's stable-step set. */
+	private static final String STABLE_DIR = "stable";
+
+	/**
+	 * A pass over an input. The default pass writes every file of the input. The stable pass, which
+	 * follows it, builds or loads the design once more from the same UUID seed and repeats the default
+	 * pass call by call, so that its simulations meet the same objects with the same ids in the same
+	 * state; it writes only the simulations, each run with {@link SimulationDumper#STABLE_TIME_STEP},
+	 * into the input's {@value #STABLE_DIR}/ directory, and checks that every other file it would write
+	 * is, byte for byte, the one the default pass wrote. Nothing the default pass writes depends on
+	 * whether a stable pass follows.
+	 */
+	private enum Pass {
+		DEFAULT, STABLE
+	}
 
 	/** The TestRockets factories, in the order and under the directory names of the goldens. */
 	private static final Map<String, Supplier<Rocket>> TEST_ROCKETS = new LinkedHashMap<>();
@@ -139,6 +157,14 @@ public final class GoldenDumper {
 		String commit = "unknown";
 		String presetCommit = "unknown";
 		boolean dirty = false;
+		/** Whether the stable-step set of the example inputs is written too (the test rockets' always is). */
+		boolean stableExamples = false;
+		/**
+		 * Appended to the name of an input when the UUID sequence is seeded from it. Empty for the
+		 * committed goldens; anything else gives every component another id (and OpenRocket's hash maps
+		 * another order), to measure how reproducible OpenRocket's results are.
+		 */
+		String uuidSalt = "";
 		final Set<String> only = new LinkedHashSet<>();
 	}
 
@@ -209,6 +235,8 @@ public final class GoldenDumper {
 				case "--commit" -> a.commit = value;
 				case "--preset-commit" -> a.presetCommit = value;
 				case "--dirty" -> a.dirty = parseBoolean(option, value);
+				case "--stable-examples" -> a.stableExamples = parseBoolean(option, value);
+				case "--uuid-salt" -> a.uuidSalt = value;
 				case "--only" -> a.only.add(value);
 				default -> throw new IllegalArgumentException("Unknown option " + option);
 			}
@@ -216,7 +244,8 @@ public final class GoldenDumper {
 		if (a.openrocket == null || a.examples == null || a.out == null || a.work == null) {
 			throw new IllegalArgumentException(
 					"Usage: GoldenDumper --openrocket <dir> --examples <dir> --out <dir> --work <dir> "
-							+ "[--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--only <name>]...");
+							+ "[--commit <hash>] [--preset-commit <hash>] [--dirty true|false] "
+							+ "[--stable-examples true|false] [--uuid-salt <text>] [--only <name>]...");
 		}
 		return a;
 	}
@@ -390,38 +419,67 @@ public final class GoldenDumper {
 
 	private static Map<String, Object> dumpExample(Arguments a, String name, Path file) throws Exception {
 		log(name);
-		DeterministicUuids.reseed(name);
-		GeneralRocketLoader loader = new GeneralRocketLoader(file.toFile());
-		OpenRocketDocument doc = loader.load();
-
-		Path dir = a.out.resolve(name);
 		Map<String, Object> entry = Json.object();
 		entry.put("name", name);
 		entry.put("kind", "example");
 		entry.put("source", "data/examples/" + file.getFileName());
 		entry.put("sourceSha256", sha256(file));
 
-		resave(dir, doc);
+		List<Object> simulations = examplePass(a, name, file, Pass.DEFAULT, entry);
+		entry.put("simulations", simulations);
+		// An input without a stable-step set has no "stableSimulations" (see "stableSimulationsOf").
+		if (a.stableExamples) {
+			log(name + ": stable time step");
+			List<Object> stableSimulations = examplePass(a, name, file, Pass.STABLE, entry);
+			entry.put("stableSimulations", stableSimulations);
+		}
+		return entry;
+	}
+
+	/** One pass over an example design; returns the manifest entries of the simulations it wrote. */
+	private static List<Object> examplePass(Arguments a, String name, Path file, Pass pass, Map<String, Object> entry)
+			throws Exception {
+		DeterministicUuids.reseed(name + a.uuidSalt);
+		GeneralRocketLoader loader = new GeneralRocketLoader(file.toFile());
+		OpenRocketDocument doc = loader.load();
+
+		Path dir = a.out.resolve(name);
+		resave(pass, dir, doc);
 		Rocket rocket = doc.getRocket();
 		ComponentIndex index = new ComponentIndex(rocket);
-		dumpDesign(dir, name, rocket, index, loader.getWarnings(), entry);
+		dumpDesign(pass, dir, name, rocket, index, loader.getWarnings(), entry);
 
 		List<Object> sims = Json.array();
 		int simIndex = 0;
 		for (Simulation sim : doc.getSimulations()) {
 			Map<String, Object> harness = SimulationDumper.makeReproducible(sim.getOptions());
-			sims.add(simulationEntry(name, sim, SimulationDumper.dump(dir, name, simIndex, sim, rocket, index,
-					"document", null, harness)));
+			sims.add(dumpSimulation(pass, dir, name, simIndex, sim, rocket, index, "document", null, harness));
 			simIndex++;
 		}
-		entry.put("simulations", sims);
-		return entry;
+		return sims;
 	}
 
 	private static Map<String, Object> dumpTestRocket(Arguments a, String name, String key, Supplier<Rocket> factory)
 			throws Exception {
 		log(name);
-		DeterministicUuids.reseed(name);
+		Map<String, Object> entry = Json.object();
+		entry.put("name", name);
+		entry.put("kind", "testrocket");
+		entry.put("source", "info.openrocket.core.util.TestRockets." + TEST_ROCKET_METHODS.get(key) + "()");
+		entry.put("sourceSha256", null);
+
+		List<Object> simulations = testRocketPass(a, name, key, factory, Pass.DEFAULT, entry);
+		entry.put("simulations", simulations);
+		log(name + ": stable time step");
+		List<Object> stableSimulations = testRocketPass(a, name, key, factory, Pass.STABLE, entry);
+		entry.put("stableSimulations", stableSimulations);
+		return entry;
+	}
+
+	/** One pass over a test rocket; returns the manifest entries of the simulations it wrote. */
+	private static List<Object> testRocketPass(Arguments a, String name, String key, Supplier<Rocket> factory,
+			Pass pass, Map<String, Object> entry) throws Exception {
+		DeterministicUuids.reseed(name + a.uuidSalt);
 		Rocket rocket = factory.get();
 		OpenRocketDocument doc = OpenRocketDocumentFactory.createDocumentFromRocket(rocket);
 
@@ -455,25 +513,37 @@ public final class GoldenDumper {
 		}
 
 		Path dir = a.out.resolve(name);
-		Map<String, Object> entry = Json.object();
-		entry.put("name", name);
-		entry.put("kind", "testrocket");
-		entry.put("source", "info.openrocket.core.util.TestRockets." + TEST_ROCKET_METHODS.get(key) + "()");
-		entry.put("sourceSha256", null);
-
-		resave(dir, doc);
+		resave(pass, dir, doc);
 		ComponentIndex index = new ComponentIndex(rocket);
-		dumpDesign(dir, name, rocket, index, new WarningSet(), entry);
+		dumpDesign(pass, dir, name, rocket, index, new WarningSet(), entry);
 
 		List<Object> sims = Json.array();
 		int simIndex = 0;
 		for (Simulation sim : doc.getSimulations()) {
-			sims.add(simulationEntry(name, sim, SimulationDumper.dump(dir, name, simIndex, sim, rocket, index,
-					"applicationDefaults", variants.get(simIndex), harnesses.get(simIndex))));
+			sims.add(dumpSimulation(pass, dir, name, simIndex, sim, rocket, index, "applicationDefaults",
+					variants.get(simIndex), harnesses.get(simIndex)));
 			simIndex++;
 		}
-		entry.put("simulations", sims);
-		return entry;
+		return sims;
+	}
+
+	/**
+	 * Runs and writes one simulation of a pass and returns its manifest entry. The stable pass gives it
+	 * the stable time step first, at the last moment before the run, and writes into the input's
+	 * {@value #STABLE_DIR}/ directory.
+	 */
+	private static Map<String, Object> dumpSimulation(Pass pass, Path dir, String name, int simIndex, Simulation sim,
+			Rocket rocket, ComponentIndex index, String optionsSource, String variant, Map<String, Object> harness)
+			throws IOException {
+		Path simulationDir = dir;
+		String prefix = name + "/";
+		if (pass == Pass.STABLE) {
+			SimulationDumper.useStableTimeStep(sim.getOptions(), harness);
+			simulationDir = dir.resolve(STABLE_DIR);
+			prefix = name + "/" + STABLE_DIR + "/";
+		}
+		return simulationEntry(prefix, sim, SimulationDumper.dump(simulationDir, name, simIndex, sim, rocket, index,
+				optionsSource, variant, harness));
 	}
 
 	/**
@@ -520,29 +590,33 @@ public final class GoldenDumper {
 		throw new IllegalStateException("No flight configuration named " + name + " in " + rocket.getName());
 	}
 
-	private static void dumpDesign(Path dir, String name, Rocket rocket, ComponentIndex index, WarningSet loadWarnings,
-			Map<String, Object> entry) throws IOException {
+	private static void dumpDesign(Pass pass, Path dir, String name, Rocket rocket, ComponentIndex index,
+			WarningSet loadWarnings, Map<String, Object> entry) throws IOException {
 		// Geometry, mass and aero describe the settled automatic dimensions (see AutomaticDimensions).
 		int changedPasses = AutomaticDimensions.settle(rocket, index);
-		if (changedPasses > 0) {
+		if (changedPasses > 0 && pass == Pass.DEFAULT) {
 			log("  automatic dimensions: " + changedPasses + " settling pass(es) changed values");
 		}
-		Json.write(dir.resolve("geometry.json"), GeometryDumper.dump(name, rocket, index, loadWarnings));
-		Json.write(dir.resolve("mass.json"), MassDumper.dump(name, rocket, index));
-		Json.write(dir.resolve("aero.json"), AeroDumper.dump(name, rocket, index));
-		entry.put("geometry", name + "/geometry.json");
-		entry.put("mass", name + "/mass.json");
-		entry.put("aero", name + "/aero.json");
-		entry.put("resave", name + "/resave/rocket.ork");
+		writeOrVerify(pass, dir.resolve("geometry.json"),
+				Json.bytes(GeometryDumper.dump(name, rocket, index, loadWarnings)));
+		writeOrVerify(pass, dir.resolve("mass.json"), Json.bytes(MassDumper.dump(name, rocket, index)));
+		writeOrVerify(pass, dir.resolve("aero.json"), Json.bytes(AeroDumper.dump(name, rocket, index)));
+		if (pass == Pass.DEFAULT) {
+			entry.put("geometry", name + "/geometry.json");
+			entry.put("mass", name + "/mass.json");
+			entry.put("aero", name + "/aero.json");
+			entry.put("resave", name + "/resave/rocket.ork");
+		}
 	}
 
-	private static Map<String, Object> simulationEntry(String name, Simulation sim, List<String> files) {
+	/** The manifest entry of a simulation whose files {@code files} are in the directory {@code prefix}. */
+	private static Map<String, Object> simulationEntry(String prefix, Simulation sim, List<String> files) {
 		Map<String, Object> o = Json.object();
 		o.put("name", sim.getName());
-		o.put("json", name + "/" + files.get(0));
+		o.put("json", prefix + files.get(0));
 		List<Object> branches = Json.array();
 		for (String file : files.subList(1, files.size())) {
-			branches.add(name + "/" + file);
+			branches.add(prefix + file);
 		}
 		o.put("branches", branches);
 		return o;
@@ -552,18 +626,31 @@ public final class GoldenDumper {
 	 * resave/rocket.ork: OpenRocketSaver's XML for the document as loaded (as built, for TestRockets),
 	 * without simulation data (StorageOptions.setSaveSimulationData(false)).
 	 */
-	private static void resave(Path dir, OpenRocketDocument doc) throws IOException {
-		Path file = dir.resolve("resave/rocket.ork");
-		Files.createDirectories(file.getParent());
+	private static void resave(Pass pass, Path dir, OpenRocketDocument doc) throws IOException {
 		StorageOptions options = new StorageOptions();
 		options.setSaveSimulationData(false);
 		WarningSet warnings = new WarningSet();
 		ErrorSet errors = new ErrorSet();
-		try (OutputStream out = Files.newOutputStream(file)) {
-			new OpenRocketSaver().save(out, doc, options, warnings, errors);
-		}
+		ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
+		new OpenRocketSaver().save(out, doc, options, warnings, errors);
 		if (!errors.isEmpty()) {
 			throw new IOException("OpenRocketSaver reported errors: " + errors);
+		}
+		writeOrVerify(pass, dir.resolve("resave/rocket.ork"), out.toByteArray());
+	}
+
+	/**
+	 * The default pass writes {@code bytes} to {@code file}. The stable pass writes nothing here: it
+	 * checks that the default pass wrote these very bytes, which is what makes it a repetition of the
+	 * default pass (the same components with the same ids in the same state).
+	 */
+	private static void writeOrVerify(Pass pass, Path file, byte[] bytes) throws IOException {
+		if (pass == Pass.DEFAULT) {
+			Files.createDirectories(file.getParent());
+			Files.write(file, bytes);
+		} else if (!Arrays.equals(bytes, Files.readAllBytes(file))) {
+			throw new IllegalStateException(
+					"The stable pass does not repeat the default pass: it would write another " + file);
 		}
 	}
 
@@ -616,6 +703,16 @@ public final class GoldenDumper {
 		settings.put("windStandardDeviation", 0.0);
 		settings.put("pitchYawJitterRemoved", true);
 		settings.put("resaveIncludesSimulationData", false);
+		settings.put("stableTimeStep", SimulationDumper.STABLE_TIME_STEP);
+		List<Object> stableKinds = Json.array();
+		if (a.stableExamples) {
+			stableKinds.add("example");
+		}
+		stableKinds.add("testrocket");
+		settings.put("stableSimulationsOf", stableKinds);
+		if (!a.uuidSalt.isEmpty()) {
+			settings.put("uuidSalt", a.uuidSalt);
+		}
 		root.put("settings", settings);
 
 		Map<String, Object> tolerances = Json.object();
