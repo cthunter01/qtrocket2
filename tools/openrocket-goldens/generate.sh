@@ -12,11 +12,28 @@
 #                    testrocket-* inputs is always written. Off by default: those files are not committed
 #   GOLDENS_OUT      write into this directory instead of tests/data/goldens (a scratch copy of the data)
 #   UUID_SALT        seed the component ids differently (any text), to measure how reproducible OpenRocket's
-#                    results are; needs GOLDENS_OUT, because such a dump is never the committed data
+#                    results are; needs GOLDENS_OUT naming another directory than tests/data/goldens, because
+#                    such a dump is never the committed data
+#
+# "--only <input name>" is the only argument: everything else GoldenDumper takes is set here, from the
+# checkout and the environment.
 #
 # The checkout is only read: OpenRocket's core is compiled into tools/openrocket-goldens/build.
 # motors.json (and tools/openrocket-goldens/motors/) are produced by motors/dump-motors.sh, not here.
 set -euo pipefail
+
+# GoldenDumper takes the last value of an option it is given twice, so an argument passed through could
+# replace what this script checks (the output directory, the salt, the examples' stable-step set).
+only=()
+while (($# > 0)); do
+    if [[ "$1" != --only || $# -lt 2 || -z "$2" || "$2" == --* ]]; then
+        echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
+        echo "       (see the head of the script for the environment variables)" >&2
+        exit 2
+    fi
+    only+=(--only "$2")
+    shift 2
+done
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -83,9 +100,11 @@ echo "OpenRocket: $openrocket @ $commit (presets @ $preset_commit)" >&2
 committed="$repo/tests/data/goldens"
 out="${GOLDENS_OUT:-$committed}"
 uuid_salt="${UUID_SALT:-}"
-if [[ -n "$uuid_salt" && -z "${GOLDENS_OUT:-}" ]]; then
+# "-ef": the same directory under whatever name (a relative path, a symbolic link); false for a directory
+# that does not exist yet, which cannot be the committed one.
+if [[ -n "$uuid_salt" && (-z "${GOLDENS_OUT:-}" || "$out" -ef "$committed") ]]; then
     echo "error: UUID_SALT gives a dump with other component ids, which is never the committed data;" >&2
-    echo "       set GOLDENS_OUT to a scratch directory for it" >&2
+    echo "       set GOLDENS_OUT to a scratch directory for it (not $committed)" >&2
     exit 1
 fi
 stable_examples=false
@@ -112,7 +131,7 @@ out="$(cd "$out" && pwd)"
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \
     --openrocket "$openrocket" --examples "$repo/data/examples" --out "$out" --work "$work" \
     --commit "$commit" --preset-commit "$preset_commit" --dirty "$dirty" \
-    --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" "$@"
+    --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" ${only[@]+"${only[@]}"}
 
 echo "Golden data size:" >&2
 du -sh "$out" >&2

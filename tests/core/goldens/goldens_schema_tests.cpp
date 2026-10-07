@@ -887,6 +887,7 @@ TEST(GoldenData, ParsesManifest)
     EXPECT_EQ(parsed->openrocketVersion, "26.xx");
     EXPECT_EQ(parsed->stableTimeStep, 0.01);
     EXPECT_EQ(parsed->stableSimulationsOf, std::vector<std::string>{"testrocket"});
+    EXPECT_EQ(parsed->uuidSalt, "") << "no \"uuidSalt\": not a dump with other component ids";
     ASSERT_EQ(parsed->inputs.size(), 2U);
     const auto* input = parsed->find("example-x");
     ASSERT_NE(input, nullptr);
@@ -908,6 +909,13 @@ TEST(GoldenData, ParsesManifest)
     EXPECT_EQ(testRocket->stableSimulations[0].json, "testrocket-y/stable/sim_00.json");
     EXPECT_EQ(testRocket->stableSimulations[0].branches,
               std::vector<std::string>{"testrocket-y/stable/sim_00_branch0.csv.gz"});
+
+    // A dump made with UUID_SALT records the salt of its component ids.
+    json salted                    = manifest;
+    salted["settings"]["uuidSalt"] = "salt-b";
+    const auto dump                = QtRocket::Test::parseGoldenManifest(salted);
+    ASSERT_TRUE(dump.has_value()) << dump.error().toString();
+    EXPECT_EQ(dump->uuidSalt, "salt-b");
 }
 
 const json& completeManifest()
@@ -994,6 +1002,10 @@ TEST(GoldenData, RejectsManifestsWithWrongTypes)
     badKinds["settings"]["stableSimulationsOf"] = json::array({1});
     EXPECT_FALSE(manifestParses(badKinds));
 
+    json badSalt                    = completeManifest();
+    badSalt["settings"]["uuidSalt"] = 1;
+    EXPECT_FALSE(manifestParses(badSalt));
+
     json badSettings        = completeManifest();
     badSettings["settings"] = json::array();
     EXPECT_FALSE(manifestParses(badSettings));
@@ -1032,6 +1044,10 @@ TEST(GoldenSchema, ManifestDescribesItsSource)
     EXPECT_EQ(manifest.openrocketCommit.size(), 40U);
     EXPECT_TRUE(isLowerHex(manifest.openrocketCommit)) << manifest.openrocketCommit;
     EXPECT_FALSE(manifest.openrocketVersion.empty());
+    // The committed data is the harness's own run: a dump made with UUID_SALT (other component
+    // ids, to measure how reproducible OpenRocket's results are) records its salt and is never
+    // committed. Every other test would accept most of such a dump.
+    EXPECT_EQ(manifest.uuidSalt, "") << "the goldens are a dump with other component ids";
 }
 
 TEST(GoldenSchema, ManifestListsEveryInput)

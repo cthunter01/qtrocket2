@@ -132,11 +132,12 @@ file-system safe the same way as the directory names.
     the simulation's `harness` records the stable time step (`timeStep`) and the one the
     simulation had (`documentTimeStep`), and `options.timeStep` shows the step used.
   - Nothing the default pass writes depends on the stable pass: with the stable-step set added,
-    every other file of `tests/data/goldens` is byte-identical to before.
+    every other file of `tests/data/goldens` but `manifest.json`, which lists the new files, is
+    byte-identical to before.
   - The harness can write the stable-step set of the 16 example designs as well:
     `STABLE_EXAMPLES=1 tools/openrocket-goldens/generate.sh` (`--stable-examples true` of
     `GoldenDumper`). It is off by default and those files are not committed: QtRocket cannot run
-    the example designs before it reads `.ork` files, and the set would add 36 MB (54 simulations,
+    the example designs before it reads `.ork` files, and the set would add 37.5 MB (54 simulations,
     69 branches, 92286 rows). It changes no other file but `manifest.json`. Every simulation of
     the examples is given the 0.01 s; their own time steps are 0.05 s (49 simulations) and 0.04 s
     (the 5 of "Pods--airframes and winglets"), so none is coarsened by it. What to do with a
@@ -154,7 +155,9 @@ file-system safe the same way as the directory names.
   only logs).
 - **Determinism**: `DeterministicUuids` installs a seeded `SecureRandom` provider before OpenRocket
   starts, so `UUID.randomUUID()` (new components, flight configurations, simulations, events) gives
-  the same sequence on every run; the generator is reseeded from the input name before each input.
+  the same sequence on every run; the generator is reseeded from the input name (and the salt of
+  `UUID_SALT`, see [Regenerating](#regenerating)) before each pass over an input, the default
+  pass and the stable pass.
   This matters for the test rockets: OpenRocket's hash maps are keyed by those UUIDs, so summation
   orders (and the last bits of sums) would otherwise change from run to run. The CSV column
   `computation_time` (wall-clock time) is left out (branch `excludedColumns`). Nothing written holds
@@ -172,7 +175,11 @@ Conventions for every JSON file:
   `kGoldenSchemaVersion` in `GoldenData.h`) and, except the manifest, `"input"` (the input's name).
   The version is raised when a field changes its meaning or disappears, not for an addition: the
   stable-step set added files, manifest entries and two keys of `harness` in its own files, and
-  left it at 1.
+  left it at 1. (This rule was written down with that addition; before it the README only gave
+  the number.) The loader of a revision can still require what that revision's tests read:
+  `parseGoldenManifest()` fails on a manifest without `settings.stableTimeStep` and
+  `settings.stableSimulationsOf`, so the tests of this revision do not read the data of an
+  earlier one.
 - Numbers are written with Java's `Double.toString`, which reads back as exactly the same double.
   Values JSON cannot represent are the strings `"NaN"`, `"Infinity"` and `"-Infinity"`
   (`goldenNumber()` in `GoldenData.h` reads both forms).
@@ -204,7 +211,8 @@ count),
 `settings` (Mach numbers, angles of attack, seed, wind deviation, jitter removal;
 `stableTimeStep`, the time step of the stable-step set, and `stableSimulationsOf`, the kinds of the
 inputs that have one: `["testrocket"]`, or `["example", "testrocket"]` with `STABLE_EXAMPLES=1`; and
-`uuidSalt` in a dump made with `UUID_SALT`, which is never the committed data),
+`uuidSalt` in a dump made with `UUID_SALT`, which is never the committed data:
+`GoldenSchema.ManifestDescribesItsSource` fails on a manifest that has it),
 `tolerances` (below) and `inputs`: per input its `name`, `kind` (`example` or `testrocket`),
 `source` (the `data/examples/` file, or the TestRockets method), `sourceSha256` (example files),
 the paths of `geometry`, `mass`, `aero` and `resave`, `simulations` (`name`, `json`,
@@ -346,7 +354,11 @@ coefficient of the forces, which the latter leave NaN, where the harness walks t
 the number of replacements is compared with `result.jitterReplacements`. Compared per simulation:
 the options and the `harness` block, `result`, the summary values, the warnings, and per branch its
 header, the columns (key, name, symbol, order, minimum and maximum), the events in order (type,
-source, data and time) and every value of the CSV. Everything that is not a number of the trajectory
+source, data and time) and every value of the CSV. One order is not OpenRocket's to keep: an event
+that ignites the motors of several mounts queues their IGNITION events in the order of a hash map
+of the mounts' ids, so consecutive IGNITION events with the same time are compared as a set (10 of
+the 50 simulations of either set record such a pair, in an order that changes with the ids).
+Everything that is not a number of the trajectory
 is compared exactly (but for the one option that is computed with mathematical functions, the launch
 rod direction of a launch into a multi-level wind: 1e-12); the trajectory of the default-step set at
 1e-9 of a column's scale (times: 1e-6 s) as far as the flight is reproducible, and that of the
@@ -388,35 +400,51 @@ installation's time step of 0.05 s it is not: 30 of the 50 test-rocket simulatio
 difference in the last bit (the pitch oscillation is integrated beyond the stability limit of the
 Runge-Kutta method, and the step size control follows it) until row counts, event times and maxima
 change. OpenRocket does so itself: with other random component ids, and so another summation order
-of its hash maps, the harness's own code gives other results for 8 of the 50 (the `[C6-5]` flight of
-the Estes Alpha III: 796 or 803 rows, apogee at 5.971 s or 5.954 s). A golden simulation is one such
-run. `tests/core/goldens/simulation_golden_tests.cpp` therefore compares every simulation as far as
-it is reproducible (it measures that with a second, last-bit perturbed run): everything that is not
-a number of the trajectory, and the trajectory up to its horizon, which for those 30 flights is the
-launch rod and the first tenths of a second of free flight, at relative 1e-9; its header has the
-measurements.
+of its hash maps, the harness's own code gives other results. In each of eight dumps made with
+`UUID_SALT` (see [Regenerating](#regenerating)), 15 to 20 of the 50 simulations have another number
+of rows than the committed file (21 of them in at least one dump), 10 to 13 another maximum
+velocity (by more than 1e-6) and 7 another apogee time (by more than 1 ms); the `[C6-5]` flight of
+the Estes Alpha III has 796, 803 or 817 rows and its apogee at 5.971 s, 5.954 s or 5.967 s. A golden
+simulation is one such run. `tests/core/goldens/simulation_golden_tests.cpp` therefore compares
+every simulation as far as it is reproducible (it measures that with a second, last-bit perturbed
+run): everything that is not a number of the trajectory, and the trajectory up to its horizon, which
+for those 30 flights is the launch rod and the first tenths of a second of free flight, at relative
+1e-9; its header has the measurements.
 
 The stable-step set is there so that whole flights are compared. At 0.01 s the pitch oscillation is
 integrated within the stability limit and nothing is amplified by the step size any more; what is
 left is not rounding noise but four places where OpenRocket's algorithm itself decides by the last
-bit. Measured with OpenRocket against itself: five dumps of the harness that differ in nothing but
-the ids of the components (the committed set and four made with `UUID_SALT`, see
-[Regenerating](#regenerating)), every pair of them, 50 simulations with 53 branches and 35323 rows:
+bit. Measured with OpenRocket against itself: nine dumps of the harness that differ in nothing but
+the ids of the components (the committed set and eight made with `UUID_SALT=salt-b`, `salt-c`,
+`salt-d`, `salt-e`, `review-r1`, `review-r2`, `verify-v1` and `verify-v2`), every pair of them,
+50 simulations with 53 branches and 35323 rows:
 
 | What | Largest difference between two runs of OpenRocket |
 |---|---|
-| status, branches, warnings, event sequences, event data | none |
-| number of rows | differs in 4 of the 53 branches: the second stage of the multi-stage rocket, which tumbles (563, 568, 571, 571 and 575 rows), and by one row three flights that pass their apogee under the parachute |
+| status, branches, warnings, event sequences, event data | none, but for the order of IGNITION events with the same time, which follows the hash order of the motor mounts' ids: 10 of the 50 simulations (the flights of the two Estes Alpha III with a second motor mount) record such a pair in either order |
+| number of rows | differs in 7 of the 53 branches: the two stages that tumble before their apogee (the second stage of the multi-stage rocket: 563, 564, 567, 568, 571, 572 or 575 rows; the booster of the Beta: 631 or 632) and by one row five flights that pass their apogee under the parachute |
 | number of jitter replacements | differs in the multi-stage simulation only (6444 to 6548) |
-| maximum altitude, velocity, acceleration, Mach number | 4.9e-9, 5.6e-9, 1.0e-9, 4.4e-10 (relative) |
+| maximum altitude, velocity, acceleration, Mach number | 4.9e-9, 5.6e-9, 2.1e-9, 8.9e-10 (relative) |
 | time to apogee; optimum delay | 3.2e-8 s; 5.0e-11 s |
-| flight time | 1.3e-4 s; 8.0e-7 s between runs that step alike from the apogee |
-| times of the events the motors and the launch rod time | none; 1.4e-10 s after a late handling |
-| times of APOGEE, TUMBLE, GROUND_HIT | 2.1e-8 s, 9.1e-8 s, 8.0e-7 s; in the tumbling stage 5.6e-3 s, 7.5e-3 s, 1.5e-2 s |
+| flight time | 1.4e-4 s; 8.0e-7 s between runs that step alike from the apogee |
+| ground hit velocity | 3.9e-11 of itself, also between runs that step differently from the apogee |
+| times of the events the motors and the launch rod time | none; 2.6e-10 s after a late handling |
+| times of APOGEE, TUMBLE, GROUND_HIT | 2.1e-8 s, 1.2e-7 s, 8.0e-7 s between runs that step alike from the apogee; 1.0e-3 s (APOGEE) and 1.4e-4 s (GROUND_HIT, SIMULATION_END) where one run takes the extra 1 ms step; in a stage that tumbles before its apogee 6.3e-3 s, 8.9e-3 s, 1.7e-2 s |
 | time series on the launch rod | 2.7e-13 of a column's scale |
-| time series off the rod, where compared | 4.9e-9 (altitude), 2.3e-8 (velocity), 4.8e-7 (angle of attack), 2.7e-6 (pitch rate), 8.7e-6 (pitch damping moment coefficient) of the column's scale |
-| attitude columns in hunting rows | up to 8.7e-4 of the column's scale (lateral acceleration in body coordinates) |
-| out-of-plane columns of a planar flight | more than the column's scale |
+| time series off the rod, where compared at the column's tolerance | 4.9e-9 (altitude), 2.3e-8 (velocity), 4.8e-7 (angle of attack), 2.6e-6 (pitch rate), 8.7e-6 (pitch damping moment coefficient) of the column's scale |
+| attitude columns in hunting rows | six are noise there: up to 8.8e-4 of the column's scale (lateral acceleration in body coordinates), as much as their values; twelve keep their signal: 2.6e-7 (centre of pressure) to 1.8e-5 (lateral velocity) |
+| lateral airspeed near the hunting threshold of 1 mm/s | 1.1e-6 m/s within 0.15 mm/s of it; no row is decided otherwise by two runs |
+| out-of-plane columns of a planar flight, off the rod | 1.3 and 0.58 of the column's scale (lateral acceleration across the wind, in world and in body coordinates), 1.2e-3 (yaw rate), 1.2e-3 (position across the wind), 1.4e-4 (its direction) |
+| rows of an Euler stepper | drag coefficients, mass, centre of gravity, inertias: none (1e-16 of the scale at most); vertical velocity 5.6e-9 |
+
+How the numbers are computed (the scripts are not part of the repository; this is what they do): a
+difference of a time series is the largest absolute difference of two values in the same row and
+column, as a fraction of the column's scale, the largest finite magnitude of the column in the first
+dump of the pair; "relative" is relative to the larger of the two values; consecutive IGNITION
+events with the same time are sorted by their source before two event sequences are compared; the
+rows of the first three lines and the times are compared without any rule, the time series under
+the rules below (the plan of a pair is taken from its first dump, as the test takes it from the
+golden files), and a pair "steps alike from the apogee" when both runs have the same number of rows.
 
 The four places, each of which the golden rows show, and what
 `tests/core/goldens/simulation_golden_tests.cpp` (`SimulationStableGolden`) does about them:
@@ -425,30 +453,47 @@ The four places, each of which the golden rows show, and what
   the flight conditions to zero while the lateral airspeed is below 1 mm/s, which a weathercocked
   rocket reaches after a second of flight; without damping its attitude wanders within the
   threshold. In such a row (pitch rate and yaw rate exactly zero under a Runge-Kutta stepper in
-  free flight: 5552 rows of 30 branches) the columns that answer the angle of attack are not
-  compared; elsewhere they are, at 1e-5 to 1e-2 of their scales.
+  free flight: 5552 rows of 30 branches) the six columns that are noise there (the angle of attack
+  and what answers it in the row) are not compared; twelve attitude columns that keep their signal
+  (the orientation, the centre of pressure, the stability derivatives, ...) are compared at a
+  tolerance of their own, 1e-4 to 1e-2 of their scales, and every other column as elsewhere. The
+  decision itself is compared wherever it has room: the pitch rate of a hunting row has to be zero
+  in QtRocket as well. Only in the 517 rows whose lateral airspeed is within 0.15 mm/s of the
+  threshold (100 times what two runs differ by there) can a platform decide the other way, so the
+  pitch rate, the yaw rate and the pitch damping moment are not compared in those; the threshold
+  itself is pinned by a unit test of the stepper
+  (`AbstractSimulationStepper.TheThresholdsOfTheLateralAirspeedAreExact`).
 - **Noise-dominated columns**: the flights are planar but for the Coriolis acceleration, and the
-  out-of-plane columns (yaw rate, lateral acceleration and position across the wind) hold 2e-6 to
-  3e-4 of their counterparts in the plane, which the hunting scatters. A column below 1e-2 of its
-  counterpart is compared on the launch rod only (167 columns); in the one flight that leaves its
-  plane (multi-level wind) these columns are compared.
+  out-of-plane columns (yaw rate, lateral acceleration and position across the wind, its direction)
+  hold 2e-6 to 3e-4 of their counterparts in the plane, which the hunting scatters (see the table).
+  A column below 1e-2 of its counterpart is compared on the launch rod only (167 columns); in the
+  one flight that leaves its plane (multi-level wind) these columns are compared. The roll rate of
+  two branches (1e-7 of the pitch rate) is treated the same way: two runs reproduce it to 7.8e-7 of
+  its scale, but a relative perturbation of the rotation of 1e-10 after every step moves it by
+  3.8e-3 of it.
 - **The step to the apogee of an Euler stepper**: `AbstractEulerStepper.step` lands a step on the
-  apogee and leaves a vertical velocity of about 1e-17 m/s; its sign decides whether an extra step
-  of 1 ms follows (12 of 190 pairs of runs differ, in the 19 branches whose recovery device is out
-  before the apogee). Where a run and the golden run step differently from that row, the rows from
-  there on are not compared (one branch on Linux); the rest of the flight is on another time grid.
+  apogee and leaves a rounding error of the vertical velocity (nothing in nine runs of ten, else at
+  most 1.4e-16 of the velocity before, of either sign); when it is positive an extra step of 1 ms
+  follows, so the last bit decides (50 of 684 pairs of runs differ, in 5 of the 19 branches whose
+  recovery device is out before the apogee). Where a run and the golden run step differently from
+  that row, the rows from there on are not compared (one branch on Linux), since the rest of the
+  flight is on another time grid; but only when the run's own rows show the mechanism (a velocity
+  left of at most 1e-13 of the one before, and the short step exactly after a positive one):
+  anything else is reported.
 - **A stage that tumbles before its apogee** (the booster of the Beta and the second stage of the
   multi-stage rocket) amplifies what the hunting left: compared up to its stage separation.
 
 Everything else is compared over the whole flight: the structure exactly; the row counts; the
-summary values at 1e-6 of their scales; the times at 1e-4 s (1e-3 s for the events that follow a
-late handling, an event that a step overshot); the time series at 1e-9 of a column's scale on the
-launch rod and at 100 times the column's largest measured difference off it (1e-9 to 1e-2). QtRocket
-against the committed files differs by the same amounts as OpenRocket against itself, on glibc and
-under six patterns of a libm moved by one ulp; on Linux 34542 of the 35323 rows and 87 % of the
-values are compared, and the floor that holds on every platform is 26862 rows. The header of the
-test has the rules, the measurements and the sensitivity to a perturbation a million times larger
-than an ulp.
+summary values at 1e-6 of their scales (the ground hit velocity at 1e-6 of itself, the deployment
+velocity at 1e-5 and the launch rod velocity at 1e-9 of the velocity's scale); the times at 1e-4 s
+(1e-3 s for the events that follow a late handling, an event that a step overshot); the time series
+at 1e-9 of a column's scale on the launch rod and at 100 times the column's largest measured
+difference off it (1e-9 to 1e-2), with tighter tolerances in the rows of an Euler stepper for the
+columns that are constants there (1e-9) and for the vertical velocity (1e-6). QtRocket against the
+committed files differs by the same amounts as OpenRocket against itself, on glibc and under 46
+patterns of a libm moved by one ulp; on Linux 34542 of the 35323 rows and 90 % of the values are
+compared, and the floor that holds on every platform is 26862 rows. The header of the test has the
+rules, the measurements and the sensitivity to a perturbation a million times larger than an ulp.
 
 Whole flights are also compared with OpenRocket outside the golden data, in tests whose
 expectations are pasted from Java probes run at a time step of 0.005 s:
@@ -507,7 +552,7 @@ Three environment variables are for looking at other data than the committed set
 ```sh
 GOLDENS_OUT=/tmp/goldens tools/openrocket-goldens/generate.sh             # into a scratch directory
 STABLE_EXAMPLES=1 GOLDENS_OUT=/tmp/goldens tools/openrocket-goldens/generate.sh   # with the examples' stable-step set
-UUID_SALT=b GOLDENS_OUT=/tmp/goldens-b tools/openrocket-goldens/generate.sh       # other component ids
+UUID_SALT=salt-b GOLDENS_OUT=/tmp/goldens-b tools/openrocket-goldens/generate.sh  # other component ids
 ```
 
 `GOLDENS_OUT` writes everything into another directory instead of `tests/data/goldens` (the
@@ -515,10 +560,15 @@ UUID_SALT=b GOLDENS_OUT=/tmp/goldens-b tools/openrocket-goldens/generate.sh     
 `STABLE_EXAMPLES=1` adds the stable-step set of the example designs (see
 [How OpenRocket is run](#how-openrocket-is-run)). `UUID_SALT` seeds the UUID sequence of every
 input with its name and the salt, so that every component, flight configuration and event gets
-another id and OpenRocket's hash maps another order; `generate.sh` refuses it without `GOLDENS_OUT`.
+another id and OpenRocket's hash maps another order; `manifest.json` records the salt
+(`settings.uuidSalt`). Such a dump is never the committed data: `generate.sh` refuses the salt
+unless `GOLDENS_OUT` names another directory than `tests/data/goldens`, and takes no argument but
+`--only <input name>` (everything else `GoldenDumper` accepts is set by the script, so that nothing
+passed through can replace the output directory or the salt it checked).
 Two such dumps differ wherever OpenRocket's results depend on the summation order: that is the
 measurement behind [Reproducibility of the simulations](#reproducibility-of-the-simulations).
-Designs loaded from files keep the ids stored in them, so the salt changes little for the examples.
+Designs loaded from files keep the ids stored in them, so the salt changes none of the examples'
+files.
 
 Checking determinism after a change to the harness (same machine and JDK: the bytes must match):
 

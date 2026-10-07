@@ -174,8 +174,24 @@ Result<GoldenInput> parseInput(const nlohmann::json& json)
     return input;
 }
 
-/// Reads "settings" of the manifest: the time step of the stable-step set and the kinds of the
-/// inputs that have one.
+/// Reads "uuidSalt" of the manifest's @p settings, which only a dump made with UUID_SALT has.
+Result<void> readUuidSalt(const nlohmann::json& settings, GoldenManifest& result)
+{
+    const auto salt = settings.find("uuidSalt");
+    if (salt == settings.end())
+    {
+        return {};
+    }
+    if (!salt->is_string())
+    {
+        return fail(ErrorCode::PARSE, R"(manifest.json settings: "uuidSalt" is not a string)");
+    }
+    result.uuidSalt = salt->get<std::string>();
+    return {};
+}
+
+/// Reads "settings" of the manifest: the time step of the stable-step set, the kinds of the
+/// inputs that have one, and the salt of a dump with other component ids.
 Result<void> readSettings(const nlohmann::json& manifest, GoldenManifest& result)
 {
     constexpr std::string_view kContext = "manifest.json settings";
@@ -183,6 +199,10 @@ Result<void> readSettings(const nlohmann::json& manifest, GoldenManifest& result
     if (settings == manifest.end() || !settings->is_object())
     {
         return fail(ErrorCode::PARSE, R"(manifest.json: missing object "settings")");
+    }
+    if (auto salt = readUuidSalt(*settings, result); !salt)
+    {
+        return std::unexpected(salt.error());
     }
     const auto timeStep = settings->find("stableTimeStep");
     if (timeStep == settings->end() || !timeStep->is_number())

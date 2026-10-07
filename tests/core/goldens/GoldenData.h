@@ -115,6 +115,10 @@ struct GoldenManifest
     double stableTimeStep{};
     /// The kinds of the inputs that have a stable-step set ("settings.stableSimulationsOf").
     std::vector<std::string> stableSimulationsOf;
+    /// The salt of the component ids of a dump made with UUID_SALT ("settings.uuidSalt"); empty
+    /// when the manifest has no such key. The committed data is never such a dump
+    /// (GoldenSchema.ManifestDescribesItsSource).
+    std::string              uuidSalt;
     std::vector<GoldenInput> inputs;
 
     /// The input named @p name, or null.
