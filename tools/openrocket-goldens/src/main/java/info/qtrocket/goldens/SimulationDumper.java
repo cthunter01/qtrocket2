@@ -40,7 +40,8 @@ import info.openrocket.core.util.Config;
 /**
  * sim_&lt;sim&gt;.json and sim_&lt;sim&gt;_branch&lt;i&gt;.csv.gz: one simulation run with calm wind, a
  * fixed seed and without the pitch/yaw jitter (see {@link JitterRemoval}). The stable-step set
- * (stable/sim_&lt;sim&gt;...) is the same run with the time step {@link #STABLE_TIME_STEP}.
+ * (stable/sim_&lt;sim&gt;...) is the same run with the time step {@link #STABLE_TIME_STEP}; that of
+ * the example designs is written without the time series, as the documents alone.
  */
 final class SimulationDumper {
 
@@ -98,11 +99,15 @@ final class SimulationDumper {
 	 * Runs simulation {@code simIndex} of the document (unless it is skipped) and writes its files.
 	 *
 	 * @param variant what a harness-defined variant simulation changed in the default options, or null
-	 * @return the written file names, relative to {@code inputDir}
+	 * @param timeSeries whether the time series of the branches are written. Without them the document
+	 *        is the same but for the {@code csv} of its branches, which is null
+	 * @param perturbation the last-bit perturbation of a dump that measures OpenRocket's
+	 *        reproducibility, or null (the committed goldens)
+	 * @return the written file names, relative to {@code inputDir}: the document, then the time series
 	 */
 	static List<String> dump(Path inputDir, String inputName, int simIndex, Simulation sim, Rocket rocket,
-			ComponentIndex index, String optionsSource, String variant, Map<String, Object> harness)
-			throws IOException {
+			ComponentIndex index, String optionsSource, String variant, Map<String, Object> harness,
+			boolean timeSeries, LastBitPerturbation perturbation) throws IOException {
 		String base = String.format("sim_%02d_%s", simIndex, GoldenDumper.slug(sim.getName()));
 		List<String> files = new ArrayList<>();
 
@@ -147,6 +152,9 @@ final class SimulationDumper {
 		conditions.setSimulation(sim);
 		JitterRemoval jitterRemoval = new JitterRemoval();
 		conditions.getSimulationListenerList().add(jitterRemoval.forcesListener());
+		if (perturbation != null) {
+			conditions.getSimulationListenerList().add(perturbation.listener());
+		}
 		BasicEventSimulationEngine engine = new BasicEventSimulationEngine();
 		SimulationException exception = null;
 		try {
@@ -180,10 +188,12 @@ final class SimulationDumper {
 			List<Object> branches = Json.array();
 			for (int i = 0; i < data.getBranchCount(); i++) {
 				FlightDataBranch branch = data.getBranch(i);
-				String csv = base + "_branch" + i + ".csv.gz";
+				String csv = timeSeries ? base + "_branch" + i + ".csv.gz" : null;
 				branches.add(branch(i, branch, csv, index));
-				writeCsv(inputDir.resolve(csv), branch);
-				files.add(csv);
+				if (csv != null) {
+					writeCsv(inputDir.resolve(csv), branch);
+					files.add(csv);
+				}
 			}
 			root.put("branches", branches);
 		}
@@ -331,6 +341,7 @@ final class SimulationDumper {
 		return isBuiltin(type) ? type.getSaveKey() : "custom:" + type.getName();
 	}
 
+	/** @param csv the name of the branch's time series file, or null when it is not written */
 	private static Map<String, Object> branch(int branchIndex, FlightDataBranch branch, String csv,
 			ComponentIndex index) {
 		Map<String, Object> o = Json.object();

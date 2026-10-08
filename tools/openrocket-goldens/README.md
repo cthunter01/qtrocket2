@@ -11,8 +11,8 @@ files. The data is committed; neither CMake nor CI ever needs Java.
   from a local checkout (read only) together with the dumper.
 - `src/main/java/info/qtrocket/goldens/`: `GoldenDumper` (entry point, OpenRocket bootstrap, inputs,
   manifest) and its helpers `GeometryDumper`, `MassDumper`, `AeroDumper`, `SimulationDumper`,
-  `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`, `ApplicationDefaultsPreferences`,
-  `ComponentIndex`, `Values`, `Json`.
+  `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`, `LastBitPerturbation`,
+  `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`.
 - `motors/` (`MotorsDumper.java`, `dump-motors.sh`) belongs to the motor port: it writes
   `tests/data/goldens/motors.json` (digests and derived values of every curve of
   `initial_motors.db` and the test `.eng`/`.rse` files, plus the curves OpenRocket skips). This
@@ -38,7 +38,7 @@ Each input directory holds:
 | `aero.json` | per flight configuration: CP/CNα, total forces and the per-component force analysis of `BarrowmanCalculator` at 25 flight conditions, worst CP per Mach number, geometry warnings |
 | `sim_<NN>_<name>.json` | one simulation: options, what the harness changed, extensions, result, summary values, warnings, and per branch the columns, events and extremes |
 | `sim_<NN>_<name>_branch<i>.csv.gz` | the full time series of branch `i` of that simulation |
-| `stable/sim_<NN>_<name>.json`, `stable/sim_<NN>_<name>_branch<i>.csv.gz` | the stable-step set: the same simulation run with a time step of 0.01 s and nothing else changed, in the same format (test rockets only; see [How OpenRocket is run](#how-openrocket-is-run)) |
+| `stable/sim_<NN>_<name>.json`, `stable/sim_<NN>_<name>_branch<i>.csv.gz` | the stable-step set: the same simulation run with a time step of 0.01 s and nothing else changed, in the same format. The test rockets have both files; the example designs have the documents alone, without the time series (see [How OpenRocket is run](#how-openrocket-is-run)) |
 | `resave/rocket.ork` | `OpenRocketSaver`'s XML for the design as loaded (as built, for the test rockets), without simulation data |
 
 `<NN>` is the simulation's index in the document (two digits) and `<name>` its name made
@@ -111,8 +111,8 @@ file-system safe the same way as the directory names.
   `variant` (null for every other simulation). Not covered by any golden simulation: the
   nozzle-exit thrust and base-drag corrections (no design sets a nozzle exit diameter; see the
   thrusting-nozzle point of `aero.json` for the base drag).
-- **Stable-step set**: every simulation of a test rocket is run a second time with the time step
-  set to `SimulationDumper.STABLE_TIME_STEP` = 0.01 s and nothing else changed, and written to
+- **Stable-step set**: every simulation is run a second time with the time step set to
+  `SimulationDumper.STABLE_TIME_STEP` = 0.01 s and nothing else changed, and written to
   `<input>/stable/` under the same names and in the same format. It exists because the first set
   is run at the installation's time step of 0.05 s, at which most of the flights are not
   reproducible beyond their first tenths of a second (see
@@ -134,15 +134,23 @@ file-system safe the same way as the directory names.
   - Nothing the default pass writes depends on the stable pass: with the stable-step set added,
     every other file of `tests/data/goldens` but `manifest.json`, which lists the new files, is
     byte-identical to before.
-  - The harness can write the stable-step set of the 16 example designs as well:
-    `STABLE_EXAMPLES=1 tools/openrocket-goldens/generate.sh` (`--stable-examples true` of
-    `GoldenDumper`). It is off by default and those files are not committed: QtRocket cannot run
-    the example designs before it reads `.ork` files, and the set would add 37.5 MB (54 simulations,
-    69 branches, 92286 rows). It changes no other file but `manifest.json`. Every simulation of
-    the examples is given the 0.01 s; their own time steps are 0.05 s (49 simulations) and 0.04 s
-    (the 5 of "Pods--airframes and winglets"), so none is coarsened by it. What to do with a
-    simulation whose own step is already 0.01 s or smaller is not decided, since no document has
-    one.
+  - The stable-step set of the 13 test rockets has the time series of its branches. That of the
+    16 example designs is written as **documents alone**: `stable/sim_<NN>_<name>.json` with the
+    options, the result, the summary values, the warnings and, per branch, the number of rows, the
+    columns with their minima and maxima, the events, the optimum altitude and the separation
+    time; `csv` of such a branch is null, the manifest lists no branch file for the simulation,
+    and no `.csv.gz` is written (54 documents, 0.9 MB; the time series of their 69 branches and
+    92286 rows would add 36.6 MB). `manifest.json` says which kinds of inputs have a stable-step
+    set (`settings.stableSimulationsOf`) and which of those have its time series
+    (`settings.stableTimeSeriesOf`). The stable pass over an example is the same either way
+    (`--stable-examples documents` of `GoldenDumper`, the default): only the files of the time
+    series are left out, so a document is, but for its `csv` entries, the one a dump with time
+    series holds. `STABLE_EXAMPLES=full` writes the time series too and `STABLE_EXAMPLES=none`
+    no stable-step set of the examples at all, both into a scratch directory only (see
+    [Regenerating](#regenerating)). Every simulation of the examples is given the 0.01 s; their
+    own time steps are 0.05 s (49 simulations) and 0.04 s (the 5 of "Pods--airframes and
+    winglets"), so none is coarsened by it. What to do with a simulation whose own step is
+    already 0.01 s or smaller is not decided, since no document has one.
 - **Pitch/yaw jitter removed**: `AbstractRKSimulationStepper.calculateForces` adds up to ±0.0005 of
   `java.util.Random` noise to Cm and Cyaw after every aerodynamic calculation. The harness runs
   `Simulation.simulate()`'s steps itself with two extra system listeners (`JitterRemoval`): the first
@@ -159,7 +167,10 @@ file-system safe the same way as the directory names.
   `UUID_SALT`, see [Regenerating](#regenerating)) before each pass over an input, the default
   pass and the stable pass.
   This matters for the test rockets: OpenRocket's hash maps are keyed by those UUIDs, so summation
-  orders (and the last bits of sums) would otherwise change from run to run. The CSV column
+  orders (and the last bits of sums) would otherwise change from run to run. (A design loaded
+  from a file keeps the ids stored in it; to see how reproducible OpenRocket's results are for
+  those, a run can be perturbed in the last bit instead: `LAST_BIT`, see
+  [Regenerating](#regenerating).) The CSV column
   `computation_time` (wall-clock time) is left out (branch `excludedColumns`). Nothing written holds
   a timestamp or an absolute path, and running `generate.sh` twice on the same machine produces
   byte-identical files (see [Regenerating](#regenerating) for other machines). Because the UUID
@@ -176,10 +187,13 @@ Conventions for every JSON file:
   The version is raised when a field changes its meaning or disappears, not for an addition: the
   stable-step set added files, manifest entries and two keys of `harness` in its own files, and
   left it at 1. (This rule was written down with that addition; before it the README only gave
-  the number.) The loader of a revision can still require what that revision's tests read:
-  `parseGoldenManifest()` fails on a manifest without `settings.stableTimeStep` and
-  `settings.stableSimulationsOf`, so the tests of this revision do not read the data of an
-  earlier one.
+  the number.) So did the stable-step set of the examples, which added files, the manifest's
+  `settings.stableTimeSeriesOf` and, in its own files only, a null as the `csv` of a branch
+  (every file there was before is unchanged, and a branch of those still names its time series).
+  The loader of a revision can still require what that revision's tests read:
+  `parseGoldenManifest()` fails on a manifest without `settings.stableTimeStep`,
+  `settings.stableSimulationsOf` and `settings.stableTimeSeriesOf`, so the tests of this revision
+  do not read the data of an earlier one.
 - Numbers are written with Java's `Double.toString`, which reads back as exactly the same double.
   Values JSON cannot represent are the strings `"NaN"`, `"Infinity"` and `"-Infinity"`
   (`goldenNumber()` in `GoldenData.h` reads both forms).
@@ -209,16 +223,21 @@ let a checkout with local changes through, `javaVersion`), `databases` (motor da
 SHA-256 and motor count; the preset files, the SHA-256 of each (`presetFileSha256`) and the preset
 count),
 `settings` (Mach numbers, angles of attack, seed, wind deviation, jitter removal;
-`stableTimeStep`, the time step of the stable-step set, and `stableSimulationsOf`, the kinds of the
-inputs that have one: `["testrocket"]`, or `["example", "testrocket"]` with `STABLE_EXAMPLES=1`; and
-`uuidSalt` in a dump made with `UUID_SALT`, which is never the committed data:
-`GoldenSchema.ManifestDescribesItsSource` fails on a manifest that has it),
+`stableTimeStep`, the time step of the stable-step set; `stableSimulationsOf`, the kinds of the
+inputs that have one: `["example", "testrocket"]` (`["testrocket"]` with `STABLE_EXAMPLES=none`);
+`stableTimeSeriesOf`, the kinds of those whose stable-step set has the time series of its branches:
+`["testrocket"]` (`["example", "testrocket"]` with `STABLE_EXAMPLES=full`), the set of the other
+kinds being the documents alone; and, in a dump that is never the committed data, `uuidSalt` (made
+with `UUID_SALT`) or `lastBitPerturbation` (made with `LAST_BIT`: the pattern):
+`GoldenSchema.ManifestDescribesItsSource` fails on a manifest that has either),
 `tolerances` (below) and `inputs`: per input its `name`, `kind` (`example` or `testrocket`),
-`source` (the `data/examples/` file, or the TestRockets method), `sourceSha256` (example files),
+`source` (the `data/examples/` file, or the TestRockets method), `sourceSha256` (example files;
+`GoldenSchema.ManifestListsEveryInput` holds the files of `data/examples/` against it),
 the paths of `geometry`, `mass`, `aero` and `resave`, `simulations` (`name`, `json`,
 `branches`: the CSV files) and, for an input with a stable-step set, `stableSimulations`: the same
-simulations in the same order with their files in `<input>/stable/` (entries of the same shape; an
-input without the set has no such key). All paths are relative to `tests/data/goldens/`.
+simulations in the same order with their files in `<input>/stable/` (entries of the same shape,
+with an empty `branches` in a set without time series; an input without the set has no such key).
+All paths are relative to `tests/data/goldens/`.
 
 ### geometry.json
 
@@ -330,7 +349,9 @@ exception; `jitterReplacements`), `summary` (the `FlightData` values: `maxAltitu
 `maxVelocity`, `maxAcceleration`, `maxMachNumber`, `timeToApogee`, `flightTime`,
 `groundHitVelocity`, `launchRodVelocity`, `deploymentVelocity`, `optimumDelay`, `branchCount`),
 `warnings` and `branches`: `index`, `name`, `sourceComponent` (path), `rows`, `optimumAltitude`,
-`timeToOptimumAltitude`, `optimumDelay`, `separationTime`, `csv`, `excludedColumns`, `columns`
+`timeToOptimumAltitude`, `optimumDelay`, `separationTime`, `csv` (the name of the branch's time
+series file, or null in a stable-step set that is written without time series: everything else
+of the branch is there all the same), `excludedColumns`, `columns`
 (`key`, `name`, `symbol`, `builtin`, `min`, `max`, in OpenRocket's column order) and `events` in the
 order OpenRocket recorded them: `time`, `type` (`FlightEvent.Type` name), `source` (path or null)
 and `data` (motor events: `mount`, `designation`, `motorCount`; `SIM_ABORT`: `cause`,
@@ -343,8 +364,11 @@ types that are not built in (extension data), `custom:<name>`. Values use `Doubl
 OpenRocket stores in degrees. Rows keep OpenRocket's two-phase storage (a row is opened by
 `addPoint()` and filled by later `setValue` calls).
 
-How QtRocket compares them (`tests/core/goldens/simulation_golden_tests.cpp`, the test-rocket
-inputs): each rocket is built by its C++ maker, the options are set as the harness sets them, and
+How QtRocket compares them (the test-rocket inputs: `tests/core/goldens/simulation_golden_tests.cpp`
+for the default-step set and `simulation_stable_golden_tests.cpp` for the stable-step set, both on
+`GoldenSimulations.h`; the simulations of the example designs are not compared yet, since a design
+has to be loaded from its `.ork` file first): each rocket is built by its C++ maker, the options
+are set as the harness sets them, and
 the run has the same two listeners. `tests/core/simulation/JitterRemoval.h` is the port of
 `JitterRemoval`: the forces listener is the first simulation listener and the conditions listener
 the last, both are system listeners, the stepper draws its random numbers all the same, and the
@@ -407,9 +431,14 @@ velocity (by more than 1e-6) and 7 another apogee time (by more than 1 ms); the 
 the Estes Alpha III has 796, 803 or 817 rows and its apogee at 5.971 s, 5.954 s or 5.967 s. A golden
 simulation is one such run. `tests/core/goldens/simulation_golden_tests.cpp` therefore compares
 every simulation as far as it is reproducible (it measures that with a second, last-bit perturbed
-run): everything that is not a number of the trajectory, and the trajectory up to its horizon, which
-for those 30 flights is the launch rod and the first tenths of a second of free flight, at relative
-1e-9; its header has the measurements.
+run): everything that is not a number of the trajectory, and the trajectory up to its horizon, at
+relative 1e-9. A row on the launch rod is reproducible when the perturbed run moves no value of it
+by more than 1e-12 of its column's scale, a row after the rod when by no more than 1e-13 (a
+difference grows in free flight from wherever it started, and the golden run started elsewhere
+than the perturbed one); for those 30 flights that is the launch rod and the first 0.007 s to
+0.29 s of free flight, 1289 of the 22330 rows on Linux. The noise-dominated out-of-plane columns
+(below) are compared on the launch rod only, as in the stable-step set, and what that leaves out is
+counted. The header of the test has the measurements.
 
 The stable-step set is there so that whole flights are compared. At 0.01 s the pitch oscillation is
 integrated within the stability limit and nothing is amplified by the step size any more; what is
@@ -447,7 +476,7 @@ the rules below (the plan of a pair is taken from its first dump, as the test ta
 golden files), and a pair "steps alike from the apogee" when both runs have the same number of rows.
 
 The four places, each of which the golden rows show, and what
-`tests/core/goldens/simulation_golden_tests.cpp` (`SimulationStableGolden`) does about them:
+`tests/core/goldens/simulation_stable_golden_tests.cpp` (`SimulationStableGolden`) does about them:
 
 - **Hunting**: `AbstractSimulationStepper.calculateFlightConditions` sets the pitch and yaw rate of
   the flight conditions to zero while the lateral airspeed is below 1 mm/s, which a weathercocked
@@ -494,6 +523,61 @@ committed files differs by the same amounts as OpenRocket against itself, on gli
 patterns of a libm moved by one ulp; on Linux 34542 of the 35323 rows and 90 % of the values are
 compared, and the floor that holds on every platform is 26862 rows. The header of the test has the
 rules, the measurements and the sensitivity to a perturbation a million times larger than an ulp.
+
+**The example designs at the stable time step.** A design that is loaded from a file keeps the ids
+of its components, so `UUID_SALT` changes none of the examples' results; `LAST_BIT` (see
+[Regenerating](#regenerating)) perturbs every run in the last bit instead: after every step a
+listener moves components of the rocket's velocity, rotation velocity or position to a
+neighbouring representable number. Measured with thirteen dumps, the committed one and twelve
+with the patterns `both-away`, `both-toward`, `velocity-away`, `velocity-toward`, `rotation-away`,
+`rotation-toward`, `position-away`, `position-toward` and `all-random-a` to `all-random-d`, each
+with the time series (`STABLE_EXAMPLES=full`). For the test rockets these dumps give what the
+nine `UUID_SALT` dumps gave (maximum altitude 6.2e-9, maximum velocity 7.0e-9, time to apogee
+3.5e-8 s, flight time 1.0e-6 s between runs that step alike and 1.4e-4 s otherwise, 8 of the 53
+branches with other numbers of rows, the same two tumbling stages), so the perturbation stands in
+for another summation order. For the 54 simulations of the examples at 0.01 s (69 branches, 734
+events, 92286 rows), the largest difference between two of the thirteen runs:
+
+| What | Largest difference between two runs of OpenRocket |
+|---|---|
+| status, branches, warnings, event sequences, event data | none up to the last stage separation of a dropped stage that tumbles; after it one such stage (the first booster of "Three stage low power rocket", simulation 1) records no TUMBLE at all in one run |
+| number of rows | differs in 18 of the 69 branches: by one row in 12 of the 16 branches whose recovery device is out before the apogee (212 of the 1248 pairs of runs), and in 6 of the 7 dropped stages that tumble (602 to 1340 rows in the one named above) |
+| number of jitter replacements | differs in the 4 simulations with such a stage only (11100 to 14381) |
+| maximum altitude, velocity, acceleration, Mach number | 3.7e-9, 2.1e-9, 1.0e-11, 2.6e-11 (relative) |
+| deployment velocity; launch rod velocity | 2.0e-8; 2.8e-14 (of themselves) |
+| ground hit velocity | 2.4e-14 of itself between runs that step alike from the apogee; 9.2e-7 otherwise ("Pods--powered with recovery deployment", whose descent is still settling when it reaches the ground after 10 s: the landing stepper's steps of 0.5 s fall elsewhere) |
+| time to apogee; optimum delay; optimum altitude of a branch | 9.6e-11 s; 2.5e-9 s; 3.7e-9 (relative) |
+| flight time | 3.5e-7 s between runs that step alike from the apogee; 1.9e-4 s otherwise |
+| times of the events the motors and the launch rod time | none; 1.1e-11 s after a late handling |
+| times of APOGEE, RECOVERY_DEVICE_DEPLOYMENT, SIM_WARN, GROUND_HIT | 9.6e-11 s, 1.5e-7 s, 6.6e-8 s, 3.5e-7 s between runs that step alike from the apogee; 1.0e-3 s (APOGEE) and 1.9e-4 s (GROUND_HIT, SIMULATION_END) where one run takes the extra 1 ms step |
+| a dropped stage that tumbles, after its separation | APOGEE 9.2e-3 s, TUMBLE 0.39 s, GROUND_HIT 1.3 s, optimum altitude 9.9e-5 (relative) |
+| a warning's parameter | 9.0e-12 (relative) |
+| minimum and maximum of a column (branches that step alike, without the tumbling stages) | 30 of the 71 columns agree to 1e-9 of the column's scale; 10 differ by more than 1e-5: `acceleration_y` 2.8e-3, `position_y` 4.5e-4, `acceleration_bodyy` 4.2e-4, `yaw_rate` 4.0e-4, `stability` 1.4e-4, `acceleration_x` 1.1e-4, `position_direction` 1.0e-4, `corrective_moment_coeff` 4.3e-5, `natural_frequency` 2.2e-5, `cp_location` 1.2e-5 |
+
+So the examples meet the same four places as the test rockets, two of them more often and one in
+a new form:
+
+- **The step to the apogee of an Euler stepper** decides 12 branches of the examples (5 of the
+  test rockets), and in one of them the ground hit velocity follows the time grid as well. A
+  document says which step its run took from the apogee of the first branch: the APOGEE event is
+  1 ms after the summary's time to apogee exactly when the extra step was taken (it never says
+  otherwise in the 13 dumps).
+- **A dropped stage that tumbles** does so after its apogee in 5 of the 7 cases, which the rule of
+  the test rockets (TUMBLE before APOGEE) does not name. None of the 7 is reproducible after its
+  separation, whichever comes first: the times differ by tenths of a second and in one run of
+  thirteen the stage reaches the ground without having tumbled. The two sustainers that tumble
+  after their apogee and the dropped stages that descend under a recovery device are reproducible
+  like every other branch.
+- **Hunting** goes with the differences of 1e-9: they are largest in the flights with the most
+  hunting rows (3.7e-9 of the maximum altitude with 803 of them), and the six branches without
+  one that are no tumbling stages agree to 5.1e-13 in every value and to 1.6e-10 s in every time.
+- **Late handlings** (an event without a row at its time) are in 26 of the 69 branches: in 19 it
+  is a RECOVERY_DEVICE_DEPLOYMENT, which the engine queues 1 ms after the event that deploys the
+  device and handles at the end of the step, in 6 a BURNOUT that a step overshot by 0.06 to
+  0.13 ms, in one a SIM_WARN. The events after one do not move by more than the 3.5e-7 s above.
+
+The test that compares QtRocket with these documents does not exist yet (the examples have to be
+loaded first); its tolerances are to be taken from this table.
 
 Whole flights are also compared with OpenRocket outside the golden data, in tests whose
 expectations are pasted from Java probes run at a time step of 0.005 s:
@@ -547,28 +631,46 @@ is an error (before anything is deleted). Commit only the output of a full run: 
 process-wide state (the flight data type registry, the UUID sequence of earlier inputs), so a
 partial run can differ in labels such as a custom column's symbol.
 
-Three environment variables are for looking at other data than the committed set:
+Four environment variables are for looking at other data than the committed set:
 
 ```sh
 GOLDENS_OUT=/tmp/goldens tools/openrocket-goldens/generate.sh             # into a scratch directory
-STABLE_EXAMPLES=1 GOLDENS_OUT=/tmp/goldens tools/openrocket-goldens/generate.sh   # with the examples' stable-step set
+STABLE_EXAMPLES=full GOLDENS_OUT=/tmp/goldens tools/openrocket-goldens/generate.sh   # with the time series of the examples' stable-step set
 UUID_SALT=salt-b GOLDENS_OUT=/tmp/goldens-b tools/openrocket-goldens/generate.sh  # other component ids
+LAST_BIT=all-random-a GOLDENS_OUT=/tmp/goldens-c tools/openrocket-goldens/generate.sh  # runs perturbed in the last bit
 ```
 
 `GOLDENS_OUT` writes everything into another directory instead of `tests/data/goldens` (the
 `example-*` and `testrocket-*` directories and `manifest.json` there are replaced).
-`STABLE_EXAMPLES=1` adds the stable-step set of the example designs (see
-[How OpenRocket is run](#how-openrocket-is-run)). `UUID_SALT` seeds the UUID sequence of every
-input with its name and the salt, so that every component, flight configuration and event gets
-another id and OpenRocket's hash maps another order; `manifest.json` records the salt
-(`settings.uuidSalt`). Such a dump is never the committed data: `generate.sh` refuses the salt
-unless `GOLDENS_OUT` names another directory than `tests/data/goldens`, and takes no argument but
-`--only <input name>` (everything else `GoldenDumper` accepts is set by the script, so that nothing
-passed through can replace the output directory or the salt it checked).
-Two such dumps differ wherever OpenRocket's results depend on the summation order: that is the
-measurement behind [Reproducibility of the simulations](#reproducibility-of-the-simulations).
-Designs loaded from files keep the ids stored in them, so the salt changes none of the examples'
-files.
+`STABLE_EXAMPLES` says what is written of the stable-step set of the example designs (see
+[How OpenRocket is run](#how-openrocket-is-run)): `documents`, the default and the committed
+data; `full`, with the time series of the branches (36.6 MB more); or `none`. `UUID_SALT` seeds
+the UUID sequence of every input with its name and the salt, so that every component, flight
+configuration and event gets another id and OpenRocket's hash maps another order; `manifest.json`
+records the salt (`settings.uuidSalt`). Two such dumps differ wherever OpenRocket's results depend
+on the summation order: that is the measurement behind
+[Reproducibility of the simulations](#reproducibility-of-the-simulations). Designs loaded from
+files keep the ids stored in them, so the salt changes none of the examples' files.
+
+`LAST_BIT` is the measurement for those (`LastBitPerturbation`, `--last-bit` of `GoldenDumper`):
+every simulation run of the dump, of either pass, gets a system listener that, after every step,
+moves components of the rocket's state to a neighbouring representable number, which changes a
+run by as little as another summation order does. It is placed right after the forces listener of
+the jitter removal, as the perturbation of QtRocket's own golden tests is. The value is a pattern,
+`<quantity>-<direction>`: the quantity is `velocity`, `rotation` (the rotation velocity),
+`position`, `both` (velocity and rotation velocity: `LastBitListener` of the C++ tests) or `all`
+(the three); the direction is `away` (every component to the next number away from zero),
+`toward` (toward zero) or `random-<seed>` (every component, after every step, one number up, one
+down or not at all, drawn from a `java.util.Random` seeded from the pattern's text, the seed
+being any text). A zero, an infinity and NaN are never moved. `manifest.json` records the pattern
+(`settings.lastBitPerturbation`); nothing but the simulations' files and the manifest differs
+from an unperturbed dump.
+
+A dump made with `UUID_SALT`, with `LAST_BIT` or with another `STABLE_EXAMPLES` than `documents`
+is never the committed data: `generate.sh` refuses each of them unless `GOLDENS_OUT` names another
+directory than `tests/data/goldens`, and takes no argument but `--only <input name>` (everything
+else `GoldenDumper` accepts is set by the script, so that nothing passed through can replace the
+output directory, the salt or the pattern it checked).
 
 Checking determinism after a change to the harness (same machine and JDK: the bytes must match):
 
@@ -590,9 +692,10 @@ done
 ```
 
 `manifest.json` also records `javaVersion`, which changes with every JDK update. The committed data
-is about 47 MB (JSON 8.5 MB, time series 38 MB, re-saved designs 0.7 MB), of which the stable-step
-set of the test rockets is 13.4 MB (103 files: JSON 0.6 MB, time series 12.8 MB); `motors.json`,
-which the motor harness writes, is another 1.5 MB.
+is about 48 MB (JSON 9.4 MB, time series 37.7 MB, re-saved designs 0.7 MB), of which the
+stable-step set of the test rockets is 13.4 MB (103 files: JSON 0.6 MB, time series 12.8 MB) and
+that of the example designs 0.9 MB (54 documents); `motors.json`, which the motor harness writes,
+is another 1.5 MB.
 
 After regenerating, run the C++ tests (`goldens_schema_tests.cpp` checks the structure; the golden
 comparison tests check the values) and review the diff: a change of OpenRocket's results changes the

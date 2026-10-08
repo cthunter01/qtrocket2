@@ -1,6 +1,22 @@
 // Schema checks of the golden reference data in tests/data/goldens (tools/openrocket-goldens):
 // every file manifest.json lists parses, carries the schema version and has the keys the golden
 // comparison tests rely on. Also tests the GoldenData loader itself.
+//
+// The stable-step sets (every simulation once more at a time step of 0.01 s). That of the
+// thirteen test rockets has the time series of its branches, as the default-step set of every
+// input has. That of the sixteen example designs is the simulation documents alone: 54
+// documents with the summary values, the warnings, the result and, for each of their 69
+// branches, the number of rows, the columns with their minima and maxima, the events, the
+// optimum altitude and the separation time; "csv" of such a branch is null and no time series
+// is on file (the user's decision for tier 9: the time series would add 37 MB). The manifest
+// says which kinds of inputs have a stable-step set and which of those have time series, and a
+// branch without one is accepted only there.
+//
+// The checks here are of the files alone. No test compares QtRocket with the stable-step
+// documents of the examples yet: an example cannot be loaded before the .ork loader exists
+// (tier 9, run 9b), and the comparison of the 54 simulations with these documents is run 9c's.
+// The tolerances of that comparison come from a measurement of OpenRocket against itself
+// ("Reproducibility of the simulations" in tools/openrocket-goldens/README.md).
 
 #include <algorithm>
 #include <cmath>
@@ -9,6 +25,8 @@
 #include <format>
 #include <initializer_list>
 #include <limits>
+#include <map>
+#include <optional>
 #include <random>
 #include <set>
 #include <string>
@@ -27,6 +45,7 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "Sha256.h"
 #include "TestPaths.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenMismatches.h"
@@ -42,10 +61,14 @@ using QtRocket::Test::GoldenSimulation;
 
 constexpr std::size_t kExampleCount    = 16;
 constexpr std::size_t kTestRocketCount = 13;
-/// The simulations of the stable-step set (those of the thirteen test rockets), and its files:
+/// The stable-step set of the thirteen test rockets: its simulations, and its files, which are
 /// one document per simulation and one time series per branch (53).
-constexpr std::size_t kStableSimulationCount = 50;
-constexpr std::size_t kStableFileCount       = 103;
+constexpr std::size_t kStableTestRocketSimulationCount = 50;
+constexpr std::size_t kStableTestRocketFileCount       = 103;
+/// The stable-step set of the sixteen examples: its simulations, and its files, which are the
+/// documents alone.
+constexpr std::size_t kStableExampleSimulationCount = 54;
+constexpr std::size_t kStableExampleFileCount       = 54;
 /// The Mach x AoA grid (7 x 3) plus the four off-grid points of aero.json: a lateral wind
 /// direction, rotation about the nose tip and about the structure CG, thrusting nozzles.
 constexpr std::size_t kAeroPointCount = 25;
@@ -188,7 +211,9 @@ bool isLowerHex(std::string_view text)
         text, [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
 }
 
-/// An example input names its directory after, and has as its source, a data/examples file.
+/// An example input names its directory after, and has as its source, a data/examples file:
+/// the very file the goldens were made from, by its SHA-256 (the tests that load an example
+/// compare what they load with these goldens).
 void checkExampleInput(const GoldenInput& input)
 {
     constexpr std::string_view kExamplesPrefix = "data/examples/";
@@ -197,7 +222,10 @@ void checkExampleInput(const GoldenInput& input)
     const std::filesystem::path file =
         QtRocket::Test::dataDir() / "examples" /
         std::filesystem::path{input.source.substr(kExamplesPrefix.size())};
-    EXPECT_TRUE(std::filesystem::is_regular_file(file)) << input.source;
+    const auto bytes = QtRocket::readFile(file);
+    ASSERT_TRUE(bytes.has_value()) << input.source << ": " << bytes.error().toString();
+    EXPECT_EQ(QtRocket::Test::sha256Hex(*bytes), input.sourceSha256)
+        << input.source << " is not the file the goldens were made from";
 }
 
 /// The file @p file of the default-step set, as the stable-step set names it: in the directory
@@ -210,15 +238,24 @@ std::string stableFileName(const std::string& file)
 
 /// What is wrong with the entry @p stable of a stable-step set, which has to be the simulation
 /// @p simulation of the default-step set: the same name, the same file name in the directory
-/// "stable", and branch files named after it. (How many branches there are is a result: a
-/// flight can end otherwise at another time step.)
-std::string stableEntryProblems(const GoldenSimulation& stable, const GoldenSimulation& simulation)
+/// "stable", and branch files named after it; no branch file at all in a set without time
+/// series (@p timeSeries false). (How many branches there are is a result: a flight can end
+/// otherwise at another time step.)
+std::string stableEntryProblems(const GoldenSimulation& stable, const GoldenSimulation& simulation,
+                                bool timeSeries)
 {
     std::string problems;
     if (stable.name != simulation.name || stable.json != stableFileName(simulation.json))
     {
         problems += std::format("{} ({}) is not the stable-step simulation of {} ({})\n",
                                 stable.json, stable.name, simulation.json, simulation.name);
+    }
+    if (!timeSeries && !stable.branches.empty())
+    {
+        problems += std::format(
+            "{}: lists {} time series, but the stable-step set of its kind "
+            "is the documents alone\n",
+            stable.json, stable.branches.size());
     }
     const std::string base = stable.json.substr(0, stable.json.rfind(".json"));
     for (std::size_t b = 0; b < stable.branches.size(); ++b)
@@ -231,23 +268,31 @@ std::string stableEntryProblems(const GoldenSimulation& stable, const GoldenSimu
     return problems;
 }
 
-/// The stable-step set of @p input: the simulations of the default-step set, one for one, with
-/// the same names and with the same file names in the directory "stable"; none when the inputs
-/// of its kind have no stable-step set (@p expected false).
-void checkStableList(const GoldenInput& input, bool expected)
+/// The stable-step set of @p input, which every input has: the simulations of the default-step
+/// set, one for one, with the same names and with the same file names in the directory
+/// "stable"; with the time series of its branches for a test rocket, without for an example.
+void checkStableList(const GoldenInput& input, const GoldenManifest& manifest)
 {
-    if (!expected)
-    {
-        EXPECT_TRUE(input.stableSimulations.empty()) << input.name;
-        return;
-    }
+    EXPECT_TRUE(manifest.hasStableSimulations(input)) << input.name;
+    const bool timeSeries = manifest.hasStableTimeSeries(input);
+    EXPECT_EQ(timeSeries, input.kind == "testrocket") << input.name;
     ASSERT_EQ(input.stableSimulations.size(), input.simulations.size()) << input.name;
     std::string problems;
     for (std::size_t i = 0; i < input.simulations.size(); ++i)
     {
-        problems += stableEntryProblems(input.stableSimulations[i], input.simulations[i]);
+        problems +=
+            stableEntryProblems(input.stableSimulations[i], input.simulations[i], timeSeries);
     }
     EXPECT_EQ(problems, "") << input.name;
+}
+
+/// checkStableList() of every input of @p manifest.
+void checkStableLists(const GoldenManifest& manifest)
+{
+    for (const auto& input : manifest.inputs)
+    {
+        checkStableList(input, manifest);
+    }
 }
 
 /// Checks one manifest input and counts it by kind.
@@ -262,6 +307,7 @@ void checkManifestInput(const GoldenInput& input, std::size_t& examples, std::si
     }
     EXPECT_EQ(input.kind, "testrocket") << input.name;
     EXPECT_TRUE(input.name.starts_with("testrocket-")) << input.name;
+    EXPECT_EQ(input.sourceSha256, "") << input.name << ": a test rocket is not made from a file";
     ++testRockets;
 }
 
@@ -297,18 +343,30 @@ std::set<std::string> listedFiles(const GoldenManifest& manifest)
     return listed;
 }
 
-/// The number of files @p manifest lists for the stable-step sets.
-std::size_t countStableFiles(const GoldenManifest& manifest)
+/// How large the stable-step sets of the inputs of one kind are.
+struct StableSetSize
 {
-    std::size_t count = 0;
+    std::size_t simulations{0};
+    std::size_t files{0};  ///< the documents and the time series
+};
+
+/// What @p manifest lists for the stable-step sets of its inputs of the kind @p kind.
+StableSetSize stableSetSize(const GoldenManifest& manifest, std::string_view kind)
+{
+    StableSetSize size;
     for (const auto& input : manifest.inputs)
     {
+        if (input.kind != kind)
+        {
+            continue;
+        }
         for (const auto& simulation : input.stableSimulations)
         {
-            count += 1 + simulation.branches.size();
+            ++size.simulations;
+            size.files += 1 + simulation.branches.size();
         }
     }
-    return count;
+    return size;
 }
 
 /// Every file under the input's directory is in @p listed.
@@ -516,14 +574,152 @@ void checkEvents(const json& branch, const std::string& csvFile)
     }
 }
 
-/// @p directory: that of the simulation's document, in which "csv" names the time series.
-void checkBranch(const json& branch, const std::string& csvFile, const std::string& directory)
+/// The minimum and the maximum of the column @p column of a branch; nullopt when one of them
+/// is missing or not a number.
+std::optional<std::pair<double, double>> columnRange(const json& column)
 {
-    expectKeys(branch, {"index", "name", "rows", "csv", "columns", "events", "excludedColumns"},
-               csvFile);
-    EXPECT_EQ(directory + "/" + branch.value("csv", ""), csvFile);
-    checkEvents(branch, csvFile);
+    const auto minimum = column.find("min");
+    const auto maximum = column.find("max");
+    if (minimum == column.end() || maximum == column.end())
+    {
+        return std::nullopt;
+    }
+    const auto low  = QtRocket::Test::goldenNumber(*minimum);
+    const auto high = QtRocket::Test::goldenNumber(*maximum);
+    if (!low || !high)
+    {
+        return std::nullopt;
+    }
+    return std::pair{*low, *high};
+}
 
+/// Whether @p value is in @p range, its ends included (false for NaN).
+bool isWithin(double value, const std::pair<double, double>& range)
+{
+    return value >= range.first && value <= range.second;
+}
+
+/// The range of the time column of the branch @p branch; nullopt when it has none.
+std::optional<std::pair<double, double>> timeRange(const json& branch)
+{
+    for (const auto& column : branch.value("columns", json::array()))
+    {
+        if (column.value("key", "") == "time")
+        {
+            return columnRange(column);
+        }
+    }
+    return std::nullopt;
+}
+
+/// What is wrong with the column @p column of a branch: it has a key, a name, a symbol and the
+/// built-in flag, and a minimum that is not above its maximum (both NaN for a column without a
+/// number).
+std::string columnProblems(const json& column)
+{
+    const std::string key = column.value("key", "?");
+    for (const std::string_view member : {"key", "name", "symbol", "builtin"})
+    {
+        if (!column.contains(member))
+        {
+            return std::format("column {}: no \"{}\"\n", key, member);
+        }
+    }
+    const auto range = columnRange(column);
+    if (!range)
+    {
+        return std::format("column {}: no minimum and maximum\n", key);
+    }
+    const bool ordered =
+        std::isnan(range->first) ? std::isnan(range->second) : range->first <= range->second;
+    return ordered ? "" : std::format("column {}: its minimum is above its maximum\n", key);
+}
+
+/// What is wrong with what the document of a branch says of its time series, which holds
+/// whether or not the time series is on file: at least one row, columns with keys of their own
+/// (columnProblems()), and a time column that starts at zero in the first branch and has every
+/// event of the branch in its range.
+std::string branchProblems(const json& branch)
+{
+    std::string problems;
+    if (branch.value("rows", 0) < 1)
+    {
+        problems += "no rows\n";
+    }
+    std::set<std::string> keys;
+    for (const auto& column : branch.value("columns", json::array()))
+    {
+        problems += columnProblems(column);
+        if (!keys.insert(column.value("key", "")).second)
+        {
+            problems += std::format("two columns have the key {}\n", column.value("key", ""));
+        }
+    }
+    const auto time = timeRange(branch);
+    if (!time)
+    {
+        return problems + "no time column\n";
+    }
+    if (branch.value("index", -1) == 0 && time->first != 0.0)
+    {
+        problems += std::format("the first branch starts at {} s\n", time->first);
+    }
+    for (const auto& event : branch.value("events", json::array()))
+    {
+        const auto at = QtRocket::Test::goldenNumber(event.value("time", json()));
+        if (!at || !isWithin(*at, *time))
+        {
+            problems += std::format("the event {} is outside the time of the rows\n",
+                                    event.value("type", "?"));
+        }
+    }
+    return problems;
+}
+
+/// What the document of a branch holds, with or without its time series.
+void checkBranchDocument(const json& branch, const std::string& context)
+{
+    expectKeys(
+        branch,
+        {"index", "name", "sourceComponent", "rows", "optimumAltitude", "timeToOptimumAltitude",
+         "optimumDelay", "separationTime", "csv", "columns", "events", "excludedColumns"},
+        context);
+    checkEvents(branch, context);
+    EXPECT_EQ(branchProblems(branch), "") << context;
+}
+
+/// A branch of a set of documents alone: it names no time series.
+void checkBranchWithoutTimeSeries(const json& branch, const std::string& context)
+{
+    checkBranchDocument(branch, context);
+    const auto csv = QtRocket::Test::goldenBranchCsv(branch);
+    ASSERT_TRUE(csv.has_value()) << context << ": " << csv.error().toString();
+    EXPECT_EQ(csv->value_or(""), "")
+        << context << ": names a time series in a set of documents alone";
+}
+
+/// The name of the time series of the branch @p branch (its "csv"); "", after a test failure,
+/// when it names none: a branch without a time series ("csv": null) is legal only in a set of
+/// documents alone.
+std::string timeSeriesName(const json& branch, const std::string& context)
+{
+    const auto csv = QtRocket::Test::goldenBranchCsv(branch);
+    if (!csv)
+    {
+        ADD_FAILURE() << context << ": " << csv.error().toString();
+        return "";
+    }
+    if (!csv->has_value())
+    {
+        ADD_FAILURE() << context << ": the branch names no time series";
+    }
+    return csv->value_or("");
+}
+
+/// The time series @p csvFile of the branch @p branch: the columns and the number of rows its
+/// document gives, in the order of the time.
+void checkTimeSeries(const json& branch, const std::string& csvFile)
+{
     const auto table = QtRocket::Test::loadGoldenCsv(csvFile);
     ASSERT_TRUE(table.has_value()) << table.error().toString();
     std::vector<std::string> keys;
@@ -538,10 +734,43 @@ void checkBranch(const json& branch, const std::string& csvFile, const std::stri
     EXPECT_TRUE(std::ranges::is_sorted(time)) << csvFile;
 }
 
+/// A branch with its time series. @p directory: that of the simulation's document, in which
+/// "csv" names the time series.
+void checkBranch(const json& branch, const std::string& csvFile, const std::string& directory)
+{
+    checkBranchDocument(branch, csvFile);
+    EXPECT_EQ(directory + "/" + timeSeriesName(branch, csvFile), csvFile);
+    checkTimeSeries(branch, csvFile);
+}
+
+/// The branches @p branches of the document of the simulation @p listed, each with its time
+/// series.
+void checkBranchesWithTimeSeries(const json& branches, const GoldenSimulation& listed)
+{
+    ASSERT_EQ(branches.size(), listed.branches.size()) << listed.json;
+    const std::string directory = std::filesystem::path{listed.json}.parent_path().generic_string();
+    for (std::size_t b = 0; b < branches.size(); ++b)
+    {
+        checkBranch(branches[b], listed.branches[b], directory);
+    }
+}
+
+/// The branches @p branches of the document of the simulation @p listed in a set of documents
+/// alone: the manifest lists no time series and no branch names one.
+void checkBranchesWithoutTimeSeries(const json& branches, const GoldenSimulation& listed)
+{
+    EXPECT_TRUE(listed.branches.empty()) << listed.json;
+    for (std::size_t b = 0; b < branches.size(); ++b)
+    {
+        checkBranchWithoutTimeSeries(branches[b], std::format("{} branch {}", listed.json, b));
+    }
+}
+
 /// Checks the files of the simulation @p listed, number @p index of the input @p inputName (of
-/// its default-step set or of its stable-step set).
+/// its default-step set or of its stable-step set). @p timeSeries: whether the set has the time
+/// series of its branches (the default-step set always has).
 void checkSimulation(const GoldenSimulation& listed, std::size_t index,
-                     const std::string& inputName)
+                     const std::string& inputName, bool timeSeries)
 {
     const json simulation = loadJsonOrFail(listed.json);
     checkSimulationHeader(simulation, listed, index, inputName);
@@ -552,15 +781,18 @@ void checkSimulation(const GoldenSimulation& listed, std::size_t index,
         return;
     }
     expectKeys(simulation, {"result", "summary", "warnings", "branches"}, listed.json);
-    expectKeys(simulation.value("summary", json::object()),
-               {"maxAltitude", "maxVelocity", "timeToApogee", "flightTime", "branchCount"},
+    const auto& summary = simulation.value("summary", json::object());
+    expectKeys(summary, {"maxAltitude", "maxVelocity", "timeToApogee", "flightTime", "branchCount"},
                listed.json);
     const auto& branches = simulation.value("branches", json::array());
-    ASSERT_EQ(branches.size(), listed.branches.size()) << listed.json;
-    const std::string directory = std::filesystem::path{listed.json}.parent_path().generic_string();
-    for (std::size_t b = 0; b < branches.size(); ++b)
+    EXPECT_EQ(summary.value("branchCount", kMissing), branches.size()) << listed.json;
+    if (timeSeries)
     {
-        checkBranch(branches[b], listed.branches[b], directory);
+        checkBranchesWithTimeSeries(branches, listed);
+    }
+    else
+    {
+        checkBranchesWithoutTimeSeries(branches, listed);
     }
 }
 
@@ -618,6 +850,80 @@ void checkStableSimulation(const GoldenInput& input, std::size_t index, double s
     EXPECT_TRUE(std::isnan(numberOf(twin, "harness", "timeStep")))
         << file << ": the default-step set records no stable time step";
     EXPECT_EQ(settingsOf(stable), settingsOf(twin)) << file;
+}
+
+/// What the simulation documents of a stable-step set hold.
+struct DocumentCounts
+{
+    std::size_t simulations{0};
+    std::size_t branches{0};
+    std::size_t events{0};
+    std::size_t columns{0};
+    std::size_t warnings{0};
+    std::size_t rows{0};
+    /// The simulations by the time step they had ("harness.documentTimeStep"), in s; -1 for a
+    /// document that does not say.
+    std::map<double, std::size_t> documentTimeSteps;
+    /// The inputs with a simulation whose time step was not that of an installation, 0.05 s.
+    std::set<std::string> inputsWithATimeStepOfTheirOwn;
+};
+
+std::string toText(const DocumentCounts& counts)
+{
+    std::string text =
+        std::format("{} simulations, {} branches, {} events, {} columns, {} warnings, {} rows;",
+                    counts.simulations, counts.branches, counts.events, counts.columns,
+                    counts.warnings, counts.rows);
+    for (const auto& [timeStep, simulations] : counts.documentTimeSteps)
+    {
+        text += std::format(" {} with a time step of {} s", simulations, timeStep);
+    }
+    for (const std::string& input : counts.inputsWithATimeStepOfTheirOwn)
+    {
+        text += std::format(" ({})", input);
+    }
+    return text;
+}
+
+/// Adds what the stable-step document @p document of the input @p inputName holds to @p counts.
+void countDocument(const json& document, const std::string& inputName, DocumentCounts& counts)
+{
+    constexpr double kInstallationTimeStep = 0.05;
+    ++counts.simulations;
+    counts.warnings += document.value("warnings", json::array()).size();
+    // NaN is no key of a map: a document without the entry is counted under -1.
+    const double recorded = numberOf(document, "harness", "documentTimeStep");
+    const double timeStep = std::isnan(recorded) ? -1.0 : recorded;
+    ++counts.documentTimeSteps[timeStep];
+    if (timeStep != kInstallationTimeStep)
+    {
+        counts.inputsWithATimeStepOfTheirOwn.insert(inputName);
+    }
+    for (const auto& branch : document.value("branches", json::array()))
+    {
+        ++counts.branches;
+        counts.events += branch.value("events", json::array()).size();
+        counts.columns += branch.value("columns", json::array()).size();
+        counts.rows += branch.value("rows", std::size_t{0});
+    }
+}
+
+/// What the documents of the stable-step sets of the inputs of the kind @p kind hold.
+DocumentCounts stableDocumentCounts(const GoldenManifest& manifest, std::string_view kind)
+{
+    DocumentCounts counts;
+    for (const auto& input : manifest.inputs)
+    {
+        if (input.kind != kind)
+        {
+            continue;
+        }
+        for (const auto& simulation : input.stableSimulations)
+        {
+            countDocument(loadJsonOrFail(simulation.json), input.name, counts);
+        }
+    }
+    return counts;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -903,13 +1209,16 @@ TEST(GoldenData, ParsesManifest)
     const json manifest = json::parse(R"({
         "schemaVersion": 1,
         "openrocket": {"commit": "abc", "version": "26.xx"},
-        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["testrocket"]},
+        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["testrocket"],
+                     "stableTimeSeriesOf": ["testrocket"]},
         "inputs": [{"name": "example-x", "kind": "example", "source": "data/examples/X.ork",
+                    "sourceSha256": "0123abcd",
                     "geometry": "example-x/geometry.json", "mass": "example-x/mass.json",
                     "aero": "example-x/aero.json", "resave": "example-x/resave/rocket.ork",
                     "simulations": [{"name": "Simulation 1", "json": "example-x/sim_00.json",
                                      "branches": ["example-x/sim_00_branch0.csv.gz"]}]},
                    {"name": "testrocket-y", "kind": "testrocket", "source": "makeY",
+                    "sourceSha256": null,
                     "geometry": "g", "mass": "m", "aero": "a", "resave": "r",
                     "simulations": [{"name": "[A8-3]", "json": "testrocket-y/sim_00.json",
                                      "branches": []}],
@@ -923,11 +1232,15 @@ TEST(GoldenData, ParsesManifest)
     EXPECT_EQ(parsed->openrocketVersion, "26.xx");
     EXPECT_EQ(parsed->stableTimeStep, 0.01);
     EXPECT_EQ(parsed->stableSimulationsOf, std::vector<std::string>{"testrocket"});
+    EXPECT_EQ(parsed->stableTimeSeriesOf, std::vector<std::string>{"testrocket"});
     EXPECT_EQ(parsed->uuidSalt, "") << "no \"uuidSalt\": not a dump with other component ids";
+    EXPECT_EQ(parsed->lastBitPerturbation, "")
+        << "no \"lastBitPerturbation\": not a dump of perturbed runs";
     ASSERT_EQ(parsed->inputs.size(), 2U);
     const auto* input = parsed->find("example-x");
     ASSERT_NE(input, nullptr);
     EXPECT_EQ(input->kind, "example");
+    EXPECT_EQ(input->sourceSha256, "0123abcd");
     EXPECT_EQ(input->resave, "example-x/resave/rocket.ork");
     ASSERT_EQ(input->simulations.size(), 1U);
     EXPECT_EQ(input->simulations[0].branches,
@@ -935,11 +1248,14 @@ TEST(GoldenData, ParsesManifest)
     // An input without a stable-step set has no "stableSimulations".
     EXPECT_TRUE(input->stableSimulations.empty());
     EXPECT_FALSE(parsed->hasStableSimulations(*input));
+    EXPECT_FALSE(parsed->hasStableTimeSeries(*input));
     EXPECT_EQ(parsed->find("example-y"), nullptr);
 
     const auto* testRocket = parsed->find("testrocket-y");
     ASSERT_NE(testRocket, nullptr);
+    EXPECT_EQ(testRocket->sourceSha256, "") << "null: not made from a file";
     EXPECT_TRUE(parsed->hasStableSimulations(*testRocket));
+    EXPECT_TRUE(parsed->hasStableTimeSeries(*testRocket));
     ASSERT_EQ(testRocket->stableSimulations.size(), 1U);
     EXPECT_EQ(testRocket->stableSimulations[0].name, "[A8-3]");
     EXPECT_EQ(testRocket->stableSimulations[0].json, "testrocket-y/stable/sim_00.json");
@@ -952,6 +1268,85 @@ TEST(GoldenData, ParsesManifest)
     const auto dump                = QtRocket::Test::parseGoldenManifest(salted);
     ASSERT_TRUE(dump.has_value()) << dump.error().toString();
     EXPECT_EQ(dump->uuidSalt, "salt-b");
+    EXPECT_EQ(dump->lastBitPerturbation, "");
+
+    // A dump made with LAST_BIT records the pattern of the perturbation of its runs.
+    json perturbed                               = manifest;
+    perturbed["settings"]["lastBitPerturbation"] = "all-random-a";
+    const auto perturbedDump                     = QtRocket::Test::parseGoldenManifest(perturbed);
+    ASSERT_TRUE(perturbedDump.has_value()) << perturbedDump.error().toString();
+    EXPECT_EQ(perturbedDump->lastBitPerturbation, "all-random-a");
+    EXPECT_EQ(perturbedDump->uuidSalt, "");
+}
+
+// A stable-step set that is the documents alone: the kind of its inputs is one of
+// "stableSimulationsOf" and not one of "stableTimeSeriesOf", and its simulations list no branch
+// file.
+TEST(GoldenData, ParsesManifestWithAStableStepSetWithoutTimeSeries)
+{
+    const json manifest = json::parse(R"({
+        "schemaVersion": 1,
+        "openrocket": {"commit": "abc", "version": "26.xx"},
+        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["example", "testrocket"],
+                     "stableTimeSeriesOf": ["testrocket"]},
+        "inputs": [{"name": "example-x", "kind": "example", "source": "data/examples/X.ork",
+                    "geometry": "g", "mass": "m", "aero": "a", "resave": "r",
+                    "simulations": [{"name": "Simulation 1", "json": "example-x/sim_00.json",
+                                     "branches": ["example-x/sim_00_branch0.csv.gz"]}],
+                    "stableSimulations": [
+                        {"name": "Simulation 1", "json": "example-x/stable/sim_00.json",
+                         "branches": []}]},
+                   {"name": "testrocket-y", "kind": "testrocket", "source": "makeY",
+                    "geometry": "g", "mass": "m", "aero": "a", "resave": "r",
+                    "simulations": [{"name": "[A8-3]", "json": "testrocket-y/sim_00.json",
+                                     "branches": ["testrocket-y/sim_00_branch0.csv.gz"]}],
+                    "stableSimulations": [
+                        {"name": "[A8-3]", "json": "testrocket-y/stable/sim_00.json",
+                         "branches": ["testrocket-y/stable/sim_00_branch0.csv.gz"]}]}]})");
+    const auto parsed   = QtRocket::Test::parseGoldenManifest(manifest);
+    ASSERT_TRUE(parsed.has_value()) << parsed.error().toString();
+    EXPECT_EQ(parsed->stableSimulationsOf, (std::vector<std::string>{"example", "testrocket"}));
+    EXPECT_EQ(parsed->stableTimeSeriesOf, std::vector<std::string>{"testrocket"});
+    const auto* example = parsed->find("example-x");
+    ASSERT_NE(example, nullptr);
+    EXPECT_TRUE(parsed->hasStableSimulations(*example));
+    EXPECT_FALSE(parsed->hasStableTimeSeries(*example));
+    ASSERT_EQ(example->stableSimulations.size(), 1U);
+    EXPECT_EQ(example->stableSimulations[0].json, "example-x/stable/sim_00.json");
+    EXPECT_TRUE(example->stableSimulations[0].branches.empty());
+    const auto* testRocket = parsed->find("testrocket-y");
+    ASSERT_NE(testRocket, nullptr);
+    EXPECT_TRUE(parsed->hasStableSimulations(*testRocket));
+    EXPECT_TRUE(parsed->hasStableTimeSeries(*testRocket));
+}
+
+/// The message of the failure of goldenBranchCsv() for @p branch; "" when it succeeds.
+[[nodiscard]] std::string branchCsvFailure(const json& branch)
+{
+    const auto csv = QtRocket::Test::goldenBranchCsv(branch);
+    return csv.has_value() ? "" : csv.error().message;
+}
+
+TEST(GoldenData, GoldenBranchCsvIsTheFileNameOrNothing)
+{
+    // A branch with its time series names the file, which is in the document's directory.
+    const auto named =
+        QtRocket::Test::goldenBranchCsv(json::parse(R"({"csv": "sim_00_branch0.csv.gz"})"));
+    ASSERT_TRUE(named.has_value()) << named.error().toString();
+    EXPECT_EQ(*named, std::optional<std::string>{"sim_00_branch0.csv.gz"});
+    // A document without time series: "csv" is null, the rest of the branch is as ever.
+    const auto none = QtRocket::Test::goldenBranchCsv(json::parse(R"({"rows": 535, "csv": null})"));
+    ASSERT_TRUE(none.has_value()) << none.error().toString();
+    EXPECT_FALSE(none->has_value());
+
+    EXPECT_EQ(branchCsvFailure(json::parse(R"({"rows": 535})")), R"(a branch has no "csv")");
+    EXPECT_EQ(branchCsvFailure(json::parse(R"({"csv": 1})")),
+              R"("csv" of a branch is neither a file name nor null)");
+    EXPECT_EQ(branchCsvFailure(json::parse(R"({"csv": false})")),
+              R"("csv" of a branch is neither a file name nor null)");
+    EXPECT_EQ(branchCsvFailure(json::array()), "a branch is not an object");
+    EXPECT_EQ(errorCode(QtRocket::Test::goldenBranchCsv(json::array())), ErrorCode::PARSE);
+    EXPECT_EQ(errorCode(QtRocket::Test::goldenBranchCsv(json::object())), ErrorCode::PARSE);
 }
 
 const json& completeManifest()
@@ -959,7 +1354,8 @@ const json& completeManifest()
     static const json kManifest = json::parse(R"({
         "schemaVersion": 1,
         "openrocket": {"commit": "abc", "version": "26.xx"},
-        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["example"]},
+        "settings": {"stableTimeStep": 0.01, "stableSimulationsOf": ["example"],
+                     "stableTimeSeriesOf": ["example"]},
         "inputs": [{"name": "n", "kind": "example", "source": "s", "geometry": "g", "mass": "m",
                     "aero": "a", "resave": "r",
                     "simulations": [{"name": "s", "json": "j", "branches": []}],
@@ -977,6 +1373,7 @@ TEST(GoldenData, RejectsManifestsWithoutARequiredField)
                                 "/settings",
                                 "/settings/stableTimeStep",
                                 "/settings/stableSimulationsOf",
+                                "/settings/stableTimeSeriesOf",
                                 "/inputs",
                                 "/inputs/0/name",
                                 "/inputs/0/kind",
@@ -1038,9 +1435,25 @@ TEST(GoldenData, RejectsManifestsWithWrongTypes)
     badKinds["settings"]["stableSimulationsOf"] = json::array({1});
     EXPECT_FALSE(manifestParses(badKinds));
 
+    json badTimeSeriesKinds                              = completeManifest();
+    badTimeSeriesKinds["settings"]["stableTimeSeriesOf"] = json::array({1});
+    EXPECT_FALSE(manifestParses(badTimeSeriesKinds));
+
+    json badTimeSeriesList                              = completeManifest();
+    badTimeSeriesList["settings"]["stableTimeSeriesOf"] = "example";
+    EXPECT_FALSE(manifestParses(badTimeSeriesList));
+
     json badSalt                    = completeManifest();
     badSalt["settings"]["uuidSalt"] = 1;
     EXPECT_FALSE(manifestParses(badSalt));
+
+    json badPattern                               = completeManifest();
+    badPattern["settings"]["lastBitPerturbation"] = true;
+    EXPECT_FALSE(manifestParses(badPattern));
+
+    json badHash                         = completeManifest();
+    badHash["inputs"][0]["sourceSha256"] = 5;
+    EXPECT_FALSE(manifestParses(badHash));
 
     json badSettings        = completeManifest();
     badSettings["settings"] = json::array();
@@ -1048,6 +1461,30 @@ TEST(GoldenData, RejectsManifestsWithWrongTypes)
 
     EXPECT_FALSE(manifestParses(json::array()));
     EXPECT_EQ(errorCode(QtRocket::Test::parseGoldenManifest(json::array())), ErrorCode::PARSE);
+}
+
+// Time series without a stable-step set are a contradiction: a kind of "stableTimeSeriesOf" is
+// one of "stableSimulationsOf". A set without time series is fine (the documents alone), and
+// so is no set at all.
+TEST(GoldenData, RejectsManifestsWhoseTimeSeriesHaveNoStableStepSet)
+{
+    json contradiction                               = completeManifest();
+    contradiction["settings"]["stableSimulationsOf"] = json::array({"testrocket"});
+    const auto parsed = QtRocket::Test::parseGoldenManifest(contradiction);
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_EQ(parsed.error().code, ErrorCode::PARSE);
+    EXPECT_EQ(parsed.error().message,
+              R"(manifest.json settings: "stableTimeSeriesOf" names the kind "example", which )"
+              R"("stableSimulationsOf" does not)");
+
+    json documentsAlone                              = completeManifest();
+    documentsAlone["settings"]["stableTimeSeriesOf"] = json::array();
+    EXPECT_TRUE(manifestParses(documentsAlone));
+
+    json noSet                               = completeManifest();
+    noSet["settings"]["stableSimulationsOf"] = json::array();
+    noSet["settings"]["stableTimeSeriesOf"]  = json::array();
+    EXPECT_TRUE(manifestParses(noSet));
 }
 
 TEST(GoldenData, AeroResultsFollowSameResultsAs)
@@ -1084,6 +1521,9 @@ TEST(GoldenSchema, ManifestDescribesItsSource)
     // ids, to measure how reproducible OpenRocket's results are) records its salt and is never
     // committed. Every other test would accept most of such a dump.
     EXPECT_EQ(manifest.uuidSalt, "") << "the goldens are a dump with other component ids";
+    // Nor is a dump whose runs were perturbed in the last bit (LAST_BIT), which measures the same
+    // for the designs that are loaded from files.
+    EXPECT_EQ(manifest.lastBitPerturbation, "") << "the goldens are a dump of perturbed runs";
 }
 
 TEST(GoldenSchema, ManifestListsEveryInput)
@@ -1103,23 +1543,42 @@ TEST(GoldenSchema, ManifestListsEveryInput)
     EXPECT_EQ(countExampleFiles(), kExampleCount);
 }
 
-// The stable-step set: the simulations of the test rockets once more, with the time step the
-// manifest records (the harness can write that of the example designs too; those files are not
-// committed).
-TEST(GoldenSchema, ManifestListsTheStableStepSetOfTheTestRockets)
+// The stable-step sets: the simulations of every input once more, with the time step the
+// manifest records. That of the test rockets has the time series of its branches; that of the
+// example designs is the documents alone (the harness can write their time series too, into a
+// scratch directory: those files are not committed).
+TEST(GoldenSchema, ManifestListsTheStableStepSets)
 {
     const auto manifest = loadManifestOrFail();
     EXPECT_EQ(manifest.stableTimeStep, 0.01);
-    EXPECT_EQ(manifest.stableSimulationsOf, std::vector<std::string>{"testrocket"});
-    std::size_t simulations = 0;
-    for (const auto& input : manifest.inputs)
-    {
-        checkStableList(input, manifest.hasStableSimulations(input));
-        EXPECT_EQ(manifest.hasStableSimulations(input), input.kind == "testrocket") << input.name;
-        simulations += input.stableSimulations.size();
-    }
-    EXPECT_EQ(simulations, kStableSimulationCount);
-    EXPECT_EQ(countStableFiles(manifest), kStableFileCount);
+    EXPECT_EQ(manifest.stableSimulationsOf, (std::vector<std::string>{"example", "testrocket"}));
+    EXPECT_EQ(manifest.stableTimeSeriesOf, std::vector<std::string>{"testrocket"});
+    checkStableLists(manifest);
+    const StableSetSize examples = stableSetSize(manifest, "example");
+    EXPECT_EQ(examples.simulations, kStableExampleSimulationCount);
+    EXPECT_EQ(examples.files, kStableExampleFileCount);
+    const StableSetSize testRockets = stableSetSize(manifest, "testrocket");
+    EXPECT_EQ(testRockets.simulations, kStableTestRocketSimulationCount);
+    EXPECT_EQ(testRockets.files, kStableTestRocketFileCount);
+}
+
+// What the documents of the stable-step sets hold, read from the files alone. A comparison of
+// QtRocket with the documents of the examples (run 9c) has these numbers to account for: 54
+// simulations in 69 branches with 734 events (the default-step set of the examples has 733) and
+// 92286 rows, of which the documents give the number per branch only. The simulations of the
+// examples had the installation's time step of 0.05 s, but for the five of "Pods--airframes
+// and winglets", whose document sets 0.04 s; every one was run at 0.01 s.
+TEST(GoldenSchema, StableStepDocumentsHoldWhatIsPinned)
+{
+    const auto manifest = loadManifestOrFail();
+    EXPECT_EQ(toText(stableDocumentCounts(manifest, "example")),
+              "54 simulations, 69 branches, 734 events, 4832 columns, 20 warnings, 92286 rows;"
+              " 5 with a time step of 0.04 s 49 with a time step of 0.05 s"
+              " (example-pods-airframes-and-winglets)");
+    // The numbers of SimulationStableGoldenCoverage, which reads the time series as well.
+    EXPECT_EQ(toText(stableDocumentCounts(manifest, "testrocket")),
+              "50 simulations, 53 branches, 437 events, 2826 columns, 21 warnings, 35323 rows;"
+              " 50 with a time step of 0.05 s");
 }
 
 /// A directory name the dumper owns (it deletes and rewrites these directories).
@@ -1278,8 +1737,9 @@ protected:
         ASSERT_TRUE(manifest.has_value()) << manifest.error().toString();
         const auto* input = manifest->find(GetParam());
         ASSERT_NE(input, nullptr) << GetParam();
-        m_input          = *input;
-        m_stableTimeStep = manifest->stableTimeStep;
+        m_input            = *input;
+        m_stableTimeStep   = manifest->stableTimeStep;
+        m_stableTimeSeries = manifest->hasStableTimeSeries(*input);
     }
 
     [[nodiscard]] const GoldenInput& input() const { return m_input; }
@@ -1287,9 +1747,14 @@ protected:
     /// The time step of the stable-step set (GoldenManifest::stableTimeStep).
     [[nodiscard]] double stableTimeStep() const { return m_stableTimeStep; }
 
+    /// Whether the stable-step set of the input has the time series of its branches
+    /// (GoldenManifest::hasStableTimeSeries()); the documents alone otherwise.
+    [[nodiscard]] bool stableTimeSeries() const { return m_stableTimeSeries; }
+
 private:
     GoldenInput m_input;
     double      m_stableTimeStep{0};
+    bool        m_stableTimeSeries{false};
 };
 
 TEST_P(GoldenInputSchema, DesignFilesHaveTheRequiredKeys)
@@ -1304,18 +1769,19 @@ TEST_P(GoldenInputSchema, SimulationsMatchTheirTimeSeries)
 {
     for (std::size_t s = 0; s < input().simulations.size(); ++s)
     {
-        checkSimulation(input().simulations[s], s, input().name);
+        checkSimulation(input().simulations[s], s, input().name, /*timeSeries=*/true);
     }
 }
 
-// The stable-step set of the input (none for an input without one): the same schema, and each
-// simulation is its default-step simulation with nothing but the time step changed.
-TEST_P(GoldenInputSchema, StableSimulationsMatchTheirTimeSeriesAndTheirDefaultStepSimulations)
+// The stable-step set of the input: the same schema (with the time series of the branches for
+// a test rocket, the documents alone for an example), and each simulation is its default-step
+// simulation with nothing but the time step changed.
+TEST_P(GoldenInputSchema, StableSimulationsMatchTheirFilesAndTheirDefaultStepSimulations)
 {
-    ASSERT_LE(input().stableSimulations.size(), input().simulations.size());
+    ASSERT_EQ(input().stableSimulations.size(), input().simulations.size());
     for (std::size_t s = 0; s < input().stableSimulations.size(); ++s)
     {
-        checkSimulation(input().stableSimulations[s], s, input().name);
+        checkSimulation(input().stableSimulations[s], s, input().name, stableTimeSeries());
         checkStableSimulation(input(), s, stableTimeStep());
     }
 }

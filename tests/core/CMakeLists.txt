@@ -1,5 +1,7 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
+    Sha256.cpp
+    Sha256Tests.cpp
     ThirdPartyTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
@@ -233,6 +235,7 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorLoaderTests.cpp
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
+    file/openrocket/legacy_ork_files_tests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp
