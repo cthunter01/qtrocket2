@@ -1,6 +1,5 @@
 #include "QtRocket/file/ZipInputStream.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +15,7 @@
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "file/RawZip.h"
 
 namespace
 {
@@ -24,116 +24,18 @@ using QtRocket::ErrorCode;
 using QtRocket::Result;
 using QtRocket::ZipInputStream;
 
-constexpr std::uint16_t kStored   = 0;
-constexpr std::uint16_t kDeflated = 8;
-
-/// "hello", its CRC and its raw deflate stream.
-constexpr std::string_view            kHello    = "hello";
-constexpr std::uint32_t               kHelloCrc = 0x3610a686;
-constexpr std::array<std::uint8_t, 7> kHelloDeflated{0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x07, 0x00};
-
-/// A local file header and what follows it, laid out byte by byte.
-struct LocalEntry
-{
-    std::string_view       name;
-    std::vector<std::byte> data;
-    std::uint16_t          method{kStored};
-    std::uint16_t          flags{0};
-    std::uint32_t          crc{0};
-    std::uint32_t          compressedSize{0};
-    std::uint32_t          size{0};
-    std::vector<std::byte> extra;
-};
-
-/// The CRC-32 of @p data (bit by bit; the tests' entries are short).
-[[nodiscard]] std::uint32_t crc32(const std::vector<std::byte>& data)
-{
-    std::uint32_t crc = 0xFFFFFFFFU;
-    for (const std::byte b : data)
-    {
-        crc ^= std::to_integer<std::uint32_t>(b);
-        for (int bit = 0; bit < 8; bit++)
-        {
-            crc = (crc & 1U) != 0 ? (crc >> 1U) ^ 0xEDB88320U : crc >> 1U;
-        }
-    }
-    return ~crc;
-}
-
-void put16(std::vector<std::byte>& out, std::uint32_t value)
-{
-    out.push_back(static_cast<std::byte>(value & 0xFFU));
-    out.push_back(static_cast<std::byte>((value >> 8U) & 0xFFU));
-}
-
-void put32(std::vector<std::byte>& out, std::uint32_t value)
-{
-    put16(out, value & 0xFFFFU);
-    put16(out, value >> 16U);
-}
-
-void put64(std::vector<std::byte>& out, std::uint64_t value)
-{
-    put32(out, static_cast<std::uint32_t>(value & 0xFFFFFFFFU));
-    put32(out, static_cast<std::uint32_t>(value >> 32U));
-}
-
-void append(std::vector<std::byte>& out, const LocalEntry& entry)
-{
-    put32(out, 0x04034b50);
-    put16(out, 20);
-    put16(out, entry.flags);
-    put16(out, entry.method);
-    put32(out, 0);  // time and date
-    put32(out, entry.crc);
-    put32(out, entry.compressedSize);
-    put32(out, entry.size);
-    put16(out, static_cast<std::uint32_t>(entry.name.size()));
-    put16(out, static_cast<std::uint32_t>(entry.extra.size()));
-    const std::vector<std::byte> name = QtRocket::stringToBytes(entry.name);
-    out.insert(out.end(), name.begin(), name.end());
-    out.insert(out.end(), entry.extra.begin(), entry.extra.end());
-    out.insert(out.end(), entry.data.begin(), entry.data.end());
-}
-
-[[nodiscard]] LocalEntry stored(std::string_view name, std::string_view text)
-{
-    const std::vector<std::byte> data = QtRocket::stringToBytes(text);
-    LocalEntry                   entry{.name           = name,
-                                       .data           = data,
-                                       .method         = kStored,
-                                       .flags          = 0,
-                                       .crc            = crc32(data),
-                                       .compressedSize = static_cast<std::uint32_t>(data.size()),
-                                       .size           = static_cast<std::uint32_t>(data.size()),
-                                       .extra          = {}};
-    return entry;
-}
-
-[[nodiscard]] LocalEntry deflatedHello(std::string_view name)
-{
-    std::vector<std::byte> data(kHelloDeflated.size());
-    std::ranges::transform(kHelloDeflated, data.begin(),
-                           [](std::uint8_t b) { return static_cast<std::byte>(b); });
-    return {.name           = name,
-            .data           = data,
-            .method         = kDeflated,
-            .flags          = 0,
-            .crc            = kHelloCrc,
-            .compressedSize = static_cast<std::uint32_t>(kHelloDeflated.size()),
-            .size           = static_cast<std::uint32_t>(kHello.size()),
-            .extra          = {}};
-}
-
-[[nodiscard]] std::vector<std::byte> archive(std::initializer_list<LocalEntry> entries)
-{
-    std::vector<std::byte> out;
-    for (const LocalEntry& entry : entries)
-    {
-        append(out, entry);
-    }
-    return out;
-}
+using QtRocket::Test::archive;
+using QtRocket::Test::deflatedHello;
+using QtRocket::Test::kHello;
+using QtRocket::Test::kHelloCrc;
+using QtRocket::Test::kHelloDeflated;
+using QtRocket::Test::kJavaArchiveOf65Zeros;
+using QtRocket::Test::kJavaArchiveOfFourBytes;
+using QtRocket::Test::LocalEntry;
+using QtRocket::Test::put16;
+using QtRocket::Test::put32;
+using QtRocket::Test::put64;
+using QtRocket::Test::stored;
 
 /// The names and contents of every entry, or the first failure's message.
 [[nodiscard]] std::vector<std::string> read(const std::vector<std::byte>& data)
@@ -353,6 +255,169 @@ TEST(ZipInputStream, RejectsNamesThatAreNotUtf8)
     {
         EXPECT_EQ(failure(archive({stored(name, "")})), message) << name;
     }
+}
+
+/// The entry nextEntry() of @p zip gives, or one named "(none)" at the end of the entries.
+[[nodiscard]] ZipInputStream::Entry next(ZipInputStream& zip)
+{
+    return zip.nextEntry().value().value_or(
+        ZipInputStream::Entry{.name = "(none)", .directory = false, .size = -99});
+}
+
+/// The declared size of the first entry of @p data.
+[[nodiscard]] std::int64_t firstSize(const std::vector<std::byte>& data)
+{
+    ZipInputStream zip(data);
+    return next(zip).size;
+}
+
+TEST(ZipInputStream, GivesTheSizeTheLocalHeaderDeclares)
+{
+    // ZipEntry.getSize(): what the header says, true or not, and -1 behind a data descriptor.
+    EXPECT_EQ(firstSize(archive({stored("a", "hello")})), 5);
+    EXPECT_EQ(firstSize(archive({deflatedHello("b")})), 5);
+    EXPECT_EQ(firstSize(archive({stored("dir/", "")})), 0);
+    LocalEntry streamed = deflatedHello("streamed");
+    streamed.flags      = 8;
+    EXPECT_EQ(firstSize(archive({streamed})), -1);
+    LocalEntry lie = stored("lie", "hello");
+    lie.size       = 200;
+    EXPECT_EQ(firstSize(archive({lie})), 200);
+}
+
+TEST(ZipInputStream, GivesTheSizesOfJavasArchives)
+{
+    // Measured with java.util.zip.ZipInputStream on the same bytes: "size=-1".
+    const std::vector<std::byte> data = QtRocket::Test::bytesFromHex(kJavaArchiveOfFourBytes);
+    ZipInputStream               zip(data);
+    const ZipInputStream::Entry  entry = next(zip);
+    EXPECT_EQ(entry.name, "decal.png");
+    EXPECT_EQ(entry.size, -1);
+    EXPECT_FALSE(entry.directory);
+    EXPECT_EQ(zip.readEntry().value(),
+              (std::vector<std::byte>{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4}}));
+    EXPECT_FALSE(zip.nextEntry().value().has_value());
+}
+
+TEST(ZipInputStream, GivesAZip64SizeAsJavasLong)
+{
+    LocalEntry entry     = stored("a.eng", "hello");
+    entry.compressedSize = 0xFFFFFFFF;
+    entry.size           = 0xFFFFFFFF;
+    put16(entry.extra, 0x0001);
+    put16(entry.extra, 16);
+    put64(entry.extra, 0xFFFFFFFFFFFFFFFEULL);
+    put64(entry.extra, 0xFFFFFFFFFFFFFFFEULL);
+    const std::vector<std::byte> data = archive({entry});
+    ZipInputStream               zip(data);
+    EXPECT_EQ(next(zip).size, -2);
+}
+
+/// The contents of the first entry of @p data read with the limit @p maxBytes, or "error: " and
+/// the failure's code and message.
+[[nodiscard]] std::string readFirst(const std::vector<std::byte>& data, std::size_t maxBytes)
+{
+    ZipInputStream zip(data);
+    if (const Result<std::optional<ZipInputStream::Entry>> entry = zip.nextEntry(); !entry)
+    {
+        return "error: " + entry.error().message;
+    }
+    const Result<std::vector<std::byte>> contents = zip.readEntry(maxBytes);
+    if (!contents)
+    {
+        return "error: " + std::string(QtRocket::toString(contents.error().code)) + " " +
+               contents.error().message;
+    }
+    return QtRocket::bytesToString(*contents);
+}
+
+TEST(ZipInputStream, ReadsAnEntryUpToALimit)
+{
+    // FileUtils.readBytes(stream, maxBytes): measured on Java's own archives.
+    const std::vector<std::byte> four = QtRocket::Test::bytesFromHex(kJavaArchiveOfFourBytes);
+    EXPECT_EQ(readFirst(four, 4), "\x01\x02\x03\x04");
+    EXPECT_EQ(readFirst(four, 5), "\x01\x02\x03\x04");
+    EXPECT_EQ(readFirst(four, 3), "error: IO Input exceeds maximum size of 3 bytes");
+    EXPECT_EQ(readFirst(four, 0), "error: IO Input exceeds maximum size of 0 bytes");
+
+    const std::vector<std::byte> zeros = QtRocket::Test::bytesFromHex(kJavaArchiveOf65Zeros);
+    EXPECT_EQ(readFirst(zeros, 65), std::string(65, '\0'));
+    EXPECT_EQ(readFirst(zeros, 64), "error: IO Input exceeds maximum size of 64 bytes");
+
+    // A STORED entry, and one of no bytes, which no limit refuses.
+    EXPECT_EQ(readFirst(archive({stored("a", "hello")}), 5), "hello");
+    EXPECT_EQ(readFirst(archive({stored("a", "hello")}), 4),
+              "error: IO Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(readFirst(archive({stored("a", "")}), 0), "");
+    EXPECT_EQ(readFirst(archive({deflatedHello("a")}), 5), "hello");
+    EXPECT_EQ(readFirst(archive({deflatedHello("a")}), 4),
+              "error: IO Input exceeds maximum size of 4 bytes");
+}
+
+TEST(ZipInputStream, MeetsTheLimitBeforeTheEntrysEnd)
+{
+    // The limit is met while reading, so what is wrong with the end of an entry that is too
+    // long is never seen: its CRC, its sizes, the data after the limit.
+    LocalEntry crc = stored("a", "hello");
+    crc.crc        = 1;
+    EXPECT_EQ(readFirst(archive({crc}), 4), "error: IO Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(readFirst(archive({crc}), 5),
+              "error: PARSE invalid entry CRC (expected 0x1 but got 0x3610a686)");
+    LocalEntry size = deflatedHello("a");
+    size.size       = 4;
+    EXPECT_EQ(readFirst(archive({size}), 4), "error: IO Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(readFirst(archive({size}), 5),
+              "error: PARSE invalid entry size (expected 4 but got 5 bytes)");
+
+    // A STORED entry cut short: the limit when that many bytes are there, else the end.
+    LocalEntry cut = stored("a", "hello");
+    cut.data.resize(2);
+    EXPECT_EQ(readFirst(archive({cut}), 1), "error: IO Input exceeds maximum size of 1 bytes");
+    EXPECT_EQ(readFirst(archive({cut}), 2), "error: PARSE unexpected EOF");
+    EXPECT_EQ(readFirst(archive({cut}), 100), "error: PARSE unexpected EOF");
+
+    // Deflate data that ends or goes wrong before the limit is reported as that.
+    LocalEntry truncated = deflatedHello("a");
+    truncated.data.resize(3);
+    EXPECT_EQ(readFirst(archive({truncated}), 100),
+              "error: PARSE Unexpected end of ZLIB input stream");
+    LocalEntry corrupt = deflatedHello("a");
+    corrupt.data[0]    = std::byte{0xFF};
+    EXPECT_EQ(readFirst(archive({corrupt}), 100), "error: PARSE invalid deflate data in ZIP entry");
+}
+
+TEST(ZipInputStream, TheLimitHoldsForContentsOfAnySize)
+{
+    // An entry that inflates to far more than the limit (40 KiB of zeros in 59 bytes) is not
+    // read to its end to learn that.
+    QtRocket::ZipWriter writer;
+    writer.add("zeros", std::vector<std::byte>(std::size_t{40} * 1024));
+    const std::vector<std::byte> data = writer.finish().value();
+    EXPECT_EQ(readFirst(data, 40959), "error: IO Input exceeds maximum size of 40959 bytes");
+    EXPECT_EQ(readFirst(data, 100), "error: IO Input exceeds maximum size of 100 bytes");
+    EXPECT_EQ(readFirst(data, 40960).size(), 40960U);
+}
+
+TEST(ZipInputStream, ALimitedReadSkipsNothingOfTheNextEntry)
+{
+    const std::vector<std::byte> data = archive({deflatedHello("a"), stored("b", "two")});
+    ZipInputStream               zip(data);
+    ASSERT_TRUE(zip.nextEntry().value().has_value());
+    EXPECT_EQ(QtRocket::bytesToString(zip.readEntry(5).value()), "hello");
+    EXPECT_TRUE(zip.readEntry(0).value().empty());  // once read, the entry is empty
+    EXPECT_EQ(next(zip).name, "b");
+    EXPECT_EQ(QtRocket::bytesToString(zip.readEntry(3).value()), "two");
+}
+
+TEST(ZipInputStream, StopsAfterAnEntryWithAZip64DataDescriptorAsJava17Does)
+{
+    // "{decals/ size=0 read=0} end": java.util.zip.ZipInputStream of JDK 17.0.20 on the archive
+    // minizip makes of an empty entry and a second one (probe ZipListProbe of part D4). The
+    // descriptor's 8-byte sizes are read as 4-byte ones, which fit, and the next header is then
+    // looked for 8 bytes early.
+    const std::vector<std::byte> data =
+        archive({QtRocket::Test::zip64Empty("decals/"), stored("a", "A")});
+    EXPECT_EQ(read(data), std::vector<std::string>{"decals/="});
 }
 
 TEST(ZipInputStream, ReadEntryIsEmptyOnceRead)

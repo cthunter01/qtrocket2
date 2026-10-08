@@ -1,0 +1,94 @@
+#include "QtRocket/file/DocumentLoadingContext.h"
+
+#include <filesystem>
+#include <memory>
+
+#include <gtest/gtest.h>
+
+#include "QtRocket/document/Attachment.h"
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/document/attachments/FileSystemAttachment.h"
+#include "QtRocket/file/AttachmentFactory.h"
+#include "QtRocket/file/DatabaseMotorFinder.h"
+#include "QtRocket/file/FileSystemAttachmentFactory.h"
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+
+namespace
+{
+
+using QtRocket::Attachment;
+using QtRocket::AttachmentFactory;
+using QtRocket::DocumentLoadingContext;
+using QtRocket::FileSystemAttachment;
+
+TEST(DocumentLoadingContext, StartsAsJavasContextDoes)
+{
+    const DocumentLoadingContext context;
+    EXPECT_EQ(context.getFileVersion(), 0);
+    EXPECT_EQ(context.getMotorFinder(), nullptr);
+    EXPECT_EQ(context.getOpenRocketDocument(), nullptr);
+    // What Java takes from its globals is not there until someone hands it in.
+    EXPECT_EQ(context.getApplicationMaterials(), nullptr);
+    EXPECT_EQ(context.getPreferences(), nullptr);
+    EXPECT_EQ(context.getComponentPresetDatabase(), nullptr);
+    EXPECT_EQ(context.getSimulationExtensionRegistry(), nullptr);
+}
+
+TEST(DocumentLoadingContext, TheAttachmentFactoryIsNeverNull)
+{
+    // Java: "attachmentFactory = new FileSystemAttachmentFactory()", a factory without a base
+    // directory.
+    DocumentLoadingContext   context;
+    const AttachmentFactory* initial = context.getAttachmentFactory();
+    ASSERT_NE(initial, nullptr);
+    const std::shared_ptr<Attachment> attachment = initial->getAttachment("decals/a.png");
+    const auto* file = dynamic_cast<const FileSystemAttachment*>(attachment.get());
+    ASSERT_NE(file, nullptr);
+    EXPECT_EQ(file->getLocation(), std::filesystem::path("decals") / "a.png");
+
+    const QtRocket::FileSystemAttachmentFactory factory(std::filesystem::path("base"));
+    context.setAttachmentFactory(&factory);
+    EXPECT_EQ(context.getAttachmentFactory(), &factory);
+    context.setAttachmentFactory(nullptr);
+    EXPECT_EQ(context.getAttachmentFactory(), initial);
+    // One such factory serves every context.
+    EXPECT_EQ(DocumentLoadingContext().getAttachmentFactory(), initial);
+}
+
+TEST(DocumentLoadingContext, KeepsWhatItIsGiven)
+{
+    QtRocket::InMemoryPreferences                       preferences;
+    const QtRocket::MaterialStorage                     materials;
+    const QtRocket::ComponentPresetDatabase             presets;
+    const QtRocket::ThrustCurveMotorSetDatabase         motors;
+    const QtRocket::DatabaseMotorFinder                 finder(motors);
+    const std::unique_ptr<QtRocket::OpenRocketDocument> document =
+        QtRocket::OpenRocketDocumentFactory::createEmptyRocket();
+
+    DocumentLoadingContext context;
+    context.setFileVersion(110);
+    context.setMotorFinder(&finder);
+    context.setOpenRocketDocument(document.get());
+    context.setApplicationMaterials(&materials);
+    context.setPreferences(&preferences);
+    context.setComponentPresetDatabase(&presets);
+    EXPECT_EQ(context.getFileVersion(), 110);
+    EXPECT_EQ(context.getMotorFinder(), &finder);
+    EXPECT_EQ(context.getOpenRocketDocument(), document.get());
+    EXPECT_EQ(context.getApplicationMaterials(), &materials);
+    EXPECT_EQ(context.getPreferences(), &preferences);
+    EXPECT_EQ(context.getComponentPresetDatabase(), &presets);
+
+    // A context is a plain value: a copy refers to the same objects.
+    const DocumentLoadingContext copy = context;
+    EXPECT_EQ(copy.getFileVersion(), 110);
+    EXPECT_EQ(copy.getMotorFinder(), &finder);
+    EXPECT_EQ(copy.getOpenRocketDocument(), document.get());
+    EXPECT_EQ(copy.getPreferences(), &preferences);
+}
+
+}  // namespace

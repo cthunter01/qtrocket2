@@ -243,6 +243,9 @@ add_executable(QtRocket_core_tests
     document/OpenRocketDocumentFactoryTests.cpp
     document/OpenRocketDocumentTests.cpp
     document/StorageOptionsTests.cpp
+    file/DatabaseMotorFinderTests.cpp
+    file/DocumentLoadingContextTests.cpp
+    file/FileSystemAttachmentFactoryTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
@@ -250,13 +253,22 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorLoaderTests.cpp
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
+    file/openrocket/ConfigHandlerTests.cpp
+    file/openrocket/DocumentConfigTests.cpp
+    file/openrocket/EntryHandlerTests.cpp
+    file/openrocket/EntryHelperTests.cpp
+    file/openrocket/handler_test_support_tests.cpp
+    file/openrocket/MotorHandlerTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp
     file/simplesax/PlainTextHandlerTests.cpp
+    file/simplesax/simple_sax_bytes_tests.cpp
     file/simplesax/SimpleSaxTests.cpp
     file/XmlScannerTests.cpp
     file/ZipArchiveTests.cpp
+    file/ZipFileAttachmentFactoryTests.cpp
+    file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
     goldens/aero_golden_tests.cpp
     goldens/attachment_geometry_golden_tests.cpp

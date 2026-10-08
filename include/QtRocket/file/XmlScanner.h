@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "QtRocket/util/Error.h"
@@ -56,10 +57,28 @@ public:
         /// Whether the XML declaration makes this an XML 1.1 document, whose line ends include
         /// U+0085 and U+2028 besides "\r\n" and "\r".
         bool xml11{false};
+        /// The startElement() and endElement() calls made before the scan first needed a
+        /// character beyond the end of the text, which is where the JDK's parser asks its
+        /// reader for more characters; none when it never did, because it stopped at an error
+        /// before the end. A well-formed document is always read to its end. When the text is
+        /// only the part of a document that could be decoded, this is where the JDK's parser
+        /// meets the reader's failure instead: before the error of this report, with these
+        /// calls made. Xerces asks for as many characters as it then compares, so a document of
+        /// fewer than five characters is at its end before anything is scanned ("<?xml" is
+        /// looked for first).
+        std::optional<std::size_t> eventsBeforeEnd;
     };
 
     /// Scans @p text, the document decoded to UTF-8 (a malformed byte reads as U+FFFD).
     [[nodiscard]] static Report scan(std::string_view text);
+
+    /// The value of the encoding pseudo attribute of the XML declaration @p text starts with,
+    /// or nullopt when @p text has no XML declaration, the declaration names no encoding, or
+    /// Xerces does not read the declaration to its end (it then reports the declaration's
+    /// error and never looks at the encoding). The value is returned as it is written, valid as
+    /// a name or not. Only the declaration is read, so @p text need not be more than that: a
+    /// reader of bytes finds the encoding this way before it can decode the rest.
+    [[nodiscard]] static std::optional<std::string> declaredEncoding(std::string_view text);
 };
 
 }  // namespace QtRocket

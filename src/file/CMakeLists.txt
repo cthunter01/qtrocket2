@@ -1,4 +1,7 @@
 target_sources(QtRocket_core PRIVATE
+    DatabaseMotorFinder.cpp
+    DocumentLoadingContext.cpp
+    FileSystemAttachmentFactory.cpp
     GzipStream.cpp
     motor/AbstractMotorLoader.cpp
     motor/GeneralMotorLoader.cpp
@@ -7,6 +10,11 @@ target_sources(QtRocket_core PRIVATE
     motor/RockSimMotorLoader.cpp
     motor/RockSimMotorWriter.cpp
     motor/ZipFileMotorLoader.cpp
+    openrocket/ConfigHandler.cpp
+    openrocket/DocumentConfig.cpp
+    openrocket/EntryHandler.cpp
+    openrocket/EntryHelper.cpp
+    openrocket/MotorHandler.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp
@@ -14,5 +22,7 @@ target_sources(QtRocket_core PRIVATE
     simplesax/SimpleSax.cpp
     XmlScanner.cpp
     ZipArchive.cpp
+    ZipFileAttachment.cpp
+    ZipFileAttachmentFactory.cpp
     ZipInputStream.cpp
 )
