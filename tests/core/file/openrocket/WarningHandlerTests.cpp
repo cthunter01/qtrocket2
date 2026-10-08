@@ -191,7 +191,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd: warning id garbage",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <warning type="Other">
@@ -207,7 +207,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd: warning source garbage",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <warning type="Other">
@@ -576,7 +576,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: id padded",
-     .setup    = "@uuid [ cccccccc-0000-0000-0000-000000000001 ]\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><id> cccccccc-0000-0000-0000-000000000001 </id></warning>
 )xml",
@@ -588,7 +588,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: id empty",
-     .setup    = "@uuid []\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><id></id></warning>
 )xml",
@@ -600,7 +600,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: id garbage",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><id>not-a-uuid</id></warning>
 )xml",
@@ -702,7 +702,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: source empty",
-     .setup    = "@uuid []\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><source></source></warning>
 )xml",
@@ -714,7 +714,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: source padded",
-     .setup    = "@uuid [ aaaaaaaa-0000-0000-0000-000000000004]\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><source> aaaaaaaa-0000-0000-0000-000000000004</source></warning>
 )xml",
@@ -726,7 +726,7 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "w: source garbage",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <warning><source>not-a-uuid</source></warning>
 )xml",
@@ -1152,6 +1152,264 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
 )out",
      .qtrocket = "",
      .why      = ""},
+    {.name     = "rw: id with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>g-2-3-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "g"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1--3-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with an empty last group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a group beyond a long",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-12345678901234567</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 16 in: "12345678901234567"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with the largest group and one more",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><description>d</description><id>7fffffffffffffff-2-3-4-5</id><id>8000000000000000-2-3-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 15 in: "8000000000000000"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a group that is only a sign",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>+-2-3-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "+"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with signed groups",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><description>d</description><id>+1-+2-+3-+4-+5</id></warning>
+)xml",
+     .java     = R"out(
+  closed=warning {} []
+  set: 1
+    fw[Other,NORMAL] id=00000001-0002-0003-0004-000000000005 text='d' desc='d' sources=
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id of 36 characters with a letter that is no digit",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeeg</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 11 in: "eeeeeeeeeeeg"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id whose second and third groups are no numbers",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-x-y-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "x"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with five dashes",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-5-6</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: 1-2-3-4-5-6]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with three dashes",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: 1-2-3-4]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a blank in a group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-5 6</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "5 6"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id of 20 characters of two bytes",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: <U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9>]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a character of two bytes in a group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-5&#233;</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "5<U+00E9>"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id of 18 characters beyond the basic plane",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: <U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600><U+1F600>]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id of 19 characters beyond the basic plane",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;&#128512;</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [UUID string too large]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a character beyond the basic plane in a group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><id>1-2-3-4-a&#128512;b</id></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "a<U+1F600>b"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: id with a fullwidth digit",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><description>d</description><id>&#65297;-2-3-4-5</id></warning>
+)xml",
+     .java     = R"out(
+  closed=warning {} []
+  set: 1
+    fw[Other,NORMAL] id=00000001-0002-0003-0004-000000000005 text='d' desc='d' sources=
+)out",
+     .qtrocket = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "<U+FF11>"]
+  closed=(not closed)
+  set: 0
+)out",
+     .why = "The digits of an id are the ASCII ones here (see Uuid::javaFromString()). Java's "
+            "Character.digit() also takes the decimal digits of other scripts, so OpenRocket reads "
+            "the fullwidth digit one as 1."},
+    {.name     = "rw: source with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><source>1-2-3-4-5x</source></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "5x"]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: source with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><source>1-2--4-5</source></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rw: source of 20 characters of two bytes",
+     .setup    = "",
+     .xml      = R"xml(
+<warning><source>&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;</source></warning>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: <U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9>]
+  closed=(not closed)
+  set: 0
+)out",
+     .qtrocket = "",
+     .why      = ""},
     // END GENERATED: warning
 });
 
@@ -1323,8 +1581,9 @@ TEST(WarningHandler, AParameterThatIsNoNumberFailsAndAddsNothing)
     EXPECT_EQ(run.texts(), Texts{});
 }
 
-// The failure is the one of Uuid::javaFromString(), under the code of an argument a load fails
-// for; the cases compare its text.
+// The failure is the one of Uuid::javaFromString(), which has the message of Java's
+// UUID.fromString(), under the code of an argument a load fails for; the cases have the texts
+// of every kind of id that is none.
 TEST(WarningHandler, AnIdOrASourceThatIsNoUuidFailsAndAddsNothing)
 {
     FlightDataFixture fixture;
@@ -1333,14 +1592,28 @@ TEST(WarningHandler, AnIdOrASourceThatIsNoUuidFailsAndAddsNothing)
         runWarning(fixture, set, "<warning><id>no-uuid</id><description>d</description></warning>");
     ASSERT_FALSE(id.result.has_value());
     EXPECT_EQ(id.result.error().code, ErrorCode::INVALID_ARGUMENT);
-    EXPECT_TRUE(id.result.error().message.starts_with("Invalid UUID string: "));
-    EXPECT_TRUE(id.result.error().message.contains("no-uuid"));
+    EXPECT_EQ(id.result.error().message, "Invalid UUID string: no-uuid");
 
     const HandlerRun source = runWarning(
         fixture, set, "<warning><description>d</description><source>no-uuid</source></warning>");
     ASSERT_FALSE(source.result.has_value());
     EXPECT_EQ(source.result.error().code, ErrorCode::INVALID_ARGUMENT);
-    EXPECT_EQ(source.result.error().message, id.result.error().message);
+    EXPECT_EQ(source.result.error().message, "Invalid UUID string: no-uuid");
+
+    // Four dashes and a group that is no number: the message of Long.parseLong's
+    // NumberFormatException, which names the group and not the id.
+    const HandlerRun group = runWarning(
+        fixture, set, "<warning><description>d</description><id>1-2-3-4-5x</id></warning>");
+    ASSERT_FALSE(group.result.has_value());
+    EXPECT_EQ(group.result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(group.result.error().message, "Error at index 1 in: \"5x\"");
+
+    // An empty group fails without a message, as Java's exception has none.
+    const HandlerRun empty = runWarning(
+        fixture, set, "<warning><description>d</description><source>1--3-4-5</source></warning>");
+    ASSERT_FALSE(empty.result.has_value());
+    EXPECT_EQ(empty.result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(empty.result.error().message, "");
     EXPECT_TRUE(set.empty());
 }
 

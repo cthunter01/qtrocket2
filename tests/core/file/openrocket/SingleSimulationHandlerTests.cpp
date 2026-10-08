@@ -2374,6 +2374,54 @@ line two&#9;tab</name>
 )out",
      .qtrocket = "",
      .why      = ""},
+    {.name     = "r3: the extensions of OpenRocket that have no provider here",
+     .setup    = "",
+     .xml      = R"xml(
+<simulations>
+  <simulation status="uptodate">
+    <name>Sim</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <extension extensionid="info.openrocket.core.simulation.extension.example.CSVSave"/>
+    <extension extensionid="info.openrocket.core.simulation.extension.example.DampingMoment"><entry key="a" type="number">5</entry></extension>
+    <extension extensionid="info.openrocket.core.simulation.extension.example.PrintSimulation"/>
+    <extension extensionid="net.sf.openrocket.simulation.extension.example.StopSimulation"><entry key="reportRate" type="number">50</entry><entry key="stopStep" type="number">2000</entry><entry key="stopTime" type="number">3.5</entry></extension>
+    <flightdata maxaltitude="1.5"/>
+  </simulation>
+</simulations>
+)xml",
+     .java     = R"out(
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 1
+  sim[0] name='Sim' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    ext CSVSave id=info.openrocket.core.simulation.extension.example.CSVSave name='CSVSave' config={}
+    ext DampingMoment id=info.openrocket.core.simulation.extension.example.DampingMoment name='Damping moment coefficient (Cdm) (built-in)' config={a = Integer 5; }
+    ext PrintSimulation id=info.openrocket.core.simulation.extension.example.PrintSimulation name='Print Simulation Values' config={}
+    ext StopSimulation id=info.openrocket.core.simulation.extension.example.StopSimulation name='Stop Simulation' config={reportRate = Integer 50; stopStep = Integer 2000; stopTime = Double 3.5; }
+    data: branches=0 maxAlt=1.5 maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Simulation extension with id 'info.openrocket.core.simulation.extension.example.CSVSave' not found.
+  W[Other,NORMAL] Simulation extension with id 'info.openrocket.core.simulation.extension.example.DampingMoment' not found.
+  W[Other,NORMAL] Simulation extension with id 'info.openrocket.core.simulation.extension.example.PrintSimulation' not found.
+  W[Other,NORMAL] Simulation extension with id 'info.openrocket.core.simulation.extension.example.StopSimulation' not found.
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 1
+  sim[0] name='Sim' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    ext UnknownSimulationExtension id=info.openrocket.core.simulation.extension.example.CSVSave name='CSVSave' config={}
+    ext UnknownSimulationExtension id=info.openrocket.core.simulation.extension.example.DampingMoment name='DampingMoment' config={a = Integer 5; }
+    ext UnknownSimulationExtension id=info.openrocket.core.simulation.extension.example.PrintSimulation name='PrintSimulation' config={}
+    ext UnknownSimulationExtension id=info.openrocket.core.simulation.extension.example.StopSimulation name='StopSimulation' config={reportRate = Integer 50; stopStep = Integer 2000; stopTime = Double 3.5; }
+    data: branches=0 maxAlt=1.5 maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+)out",
+     .why =
+         "QtRocket ships providers for four of OpenRocket's eight extensions: AirStart, "
+         "RollControl, JavaCode and ScriptingExtension (decision U1; see "
+         "SimulationExtensionRegistry::bundled()). CSVSave, DampingMoment, PrintSimulation and "
+         "StopSimulation have none yet, so a file that uses one of them loads with the warning for "
+         "an extension nobody knows and keeps it as an UnknownSimulationExtension with its id and "
+         "entries (decision D11), where OpenRocket loads the extension without a warning."},
     // END GENERATED: simulation
 });
 

@@ -150,8 +150,10 @@ std::filesystem::path absolutePath(const std::filesystem::path& path)
 
 std::filesystem::path withoutRedundantSeparators(const std::filesystem::path& path)
 {
-    std::filesystem::path normalized;
-    for (const std::filesystem::path& element : path)
+    // The root first, its separators as one: a path of separators only ("///") can be a single
+    // element to the iteration, spelled as it was written.
+    std::filesystem::path normalized = path.root_path().lexically_normal();
+    for (const std::filesystem::path& element : path.relative_path())
     {
         // The element after a separator at the end is empty.
         if (!element.empty())

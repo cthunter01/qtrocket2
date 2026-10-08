@@ -11,10 +11,16 @@
 // another exception, and never with a simulation that Simulation::validateInputs() then refuses
 // for a number of its options that is not finite (decision U3). The sanitizer presets run this
 // test too, which is where a crash would show.
+//
+// The lookup elements of the document name files by relative names, and a sweep value in such a
+// place is the name of a file ("0", "abc", "NaN"). The loads therefore run with an empty
+// directory of the test's own as the current directory: a file of such a name in the directory
+// the tests are run from would be read and change the counts.
 
 #include <array>
 #include <cstddef>
 #include <exception>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <ostream>
@@ -29,6 +35,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
+#include "TestTempDir.h"
 #include "file/openrocket/ConditionsTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
 #include "file/openrocket/SimulationTestSupport.h"
@@ -42,10 +49,12 @@ using QtRocket::Result;
 using QtRocket::Simulation;
 using QtRocket::SimulationOptions;
 using QtRocket::SimulationsHandler;
+using QtRocket::Test::CurrentDirectoryGuard;
 using QtRocket::Test::DefaultUnitsGuard;
 using QtRocket::Test::HandlerRun;
 using QtRocket::Test::runHandler;
 using QtRocket::Test::SimulationFixture;
+using QtRocket::Test::TempDir;
 
 using Texts = std::vector<std::string>;
 
@@ -315,7 +324,8 @@ struct Outcomes
         outcomes.tally.failed++;
         outcomes.letters += 'F';
         // The one failure a handler of this side has: what is an IllegalArgumentException in
-        // OpenRocket, with its message.
+        // OpenRocket, with its message. (Only an id with nothing between two of its four
+        // dashes fails without a message, as in Java, and no value of the sweep is one.)
         if (run.result.error().code != ErrorCode::INVALID_ARGUMENT ||
             run.result.error().message.empty())
         {
@@ -338,12 +348,15 @@ struct Outcomes
 
 /// Loads the document once for every value of it, with @p value in the place of that value,
 /// and returns what went wrong, one text per load that did not end as a load may; @p outcomes
-/// receives how the loads ended.
+/// receives how the loads ended. The loads run with an empty directory of the test's own as the
+/// current directory (see the head of this file).
 [[nodiscard]] Texts sweep(std::string_view value, Outcomes& outcomes)
 {
-    const Template    document    = parseDocument();
-    const std::string replacement = sweepText(value);
-    Texts             problems;
+    const TempDir               directory;
+    const CurrentDirectoryGuard workingDirectory(directory.path());
+    const Template              document    = parseDocument();
+    const std::string           replacement = sweepText(value);
+    Texts                       problems;
     for (std::size_t slot = 0; slot < document.values.size(); slot++)
     {
         std::string problem;
@@ -371,8 +384,10 @@ constexpr std::size_t kValues = 129;
 // it stands it loads without a warning into two simulations that pass every check.
 TEST(SimulationValueSweepDocument, LoadsWithoutAWarningAsItIs)
 {
-    const DefaultUnitsGuard units;
-    const Template          document = parseDocument();
+    const DefaultUnitsGuard     units;
+    const TempDir               directory;
+    const CurrentDirectoryGuard workingDirectory(directory.path());
+    const Template              document = parseDocument();
     EXPECT_EQ(document.values.size(), kValues);
     EXPECT_EQ(document.texts.size(), kValues + 1);
 
@@ -483,5 +498,51 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
 
 INSTANTIATE_TEST_SUITE_P(Values, SimulationValueSweep, ::testing::ValuesIn(kSweepCases),
                          sweepTestName);
+
+/// The counts kSweepCases has for @p value.
+[[nodiscard]] Tally pinnedTally(std::string_view value)
+{
+    for (const SweepCase& sweepCase : kSweepCases)
+    {
+        if (sweepCase.value == value)
+        {
+            return sweepCase.tally;
+        }
+    }
+    return {};
+}
+
+// What lies in the directory the tests are run from does not reach the sweep. With a drag table
+// under the name "0" there, the sweep of the value "0" read it where the value stands for the
+// name of a file, and one load that warns of a missing file passed silently (run 9b, review).
+TEST(SimulationValueSweepDocument, TheSweepDoesNotReadTheDirectoryTheTestsAreRunFrom)
+{
+    const DefaultUnitsGuard units;
+    const TempDir           directory;
+    ASSERT_TRUE(std::filesystem::exists(directory.write("0", "Mach,Cd\n0,0.3\n1,0.5\n")));
+    const CurrentDirectoryGuard runFrom(directory.path());
+
+    // The table is there for a load that looks for it.
+    {
+        SimulationFixture  fixture;
+        SimulationsHandler handler(fixture.context());
+        const HandlerRun   run =
+            runHandler(handler,
+                       "<simulations><simulation status='uptodate'><conditions><configid>"
+                       "11111111-1111-1111-1111-111111111111</configid>"
+                       "<draglookup file='0'/></conditions></simulation></simulations>");
+        EXPECT_EQ(run.texts(), Texts{});
+        ASSERT_EQ(fixture.document().getSimulationCount(), 1U);
+        EXPECT_TRUE(fixture.document().getSimulation(0)->getOptions().hasDragLookup());
+    }
+
+    Outcomes    outcomes;
+    const Texts problems = sweep("0", outcomes);
+    EXPECT_EQ(problems, Texts{});
+    const Tally tally = outcomes.tally;
+    EXPECT_TRUE(tally == pinnedTally("0"))
+        << tally.failed << " failed, " << tally.warned << " warned, " << tally.silent << " silent, "
+        << tally.refusedForAnExtension << " refused for an extension: " << outcomes.letters;
+}
 
 }  // namespace

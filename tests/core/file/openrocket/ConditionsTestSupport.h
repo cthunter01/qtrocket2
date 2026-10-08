@@ -53,6 +53,8 @@ namespace QtRocket::Test
 inline constexpr std::string_view kDirectoryMark = "{DIR}";
 /// What stands for the current directory of the process in an outcome.
 inline constexpr std::string_view kCurrentDirectoryMark = "{CWD}";
+/// The directory under a test's directory that runConditions() makes the current one.
+inline constexpr std::string_view kWorkingDirectoryName = "cwd";
 
 /// The options an empty <conditions/> gives under OpenRocket's test preferences, as CondProbe
 /// prints them (the case "s1: empty conditions"): one line per group of options.
@@ -91,16 +93,27 @@ inline constexpr std::array<std::string_view, 10> kBaselineOptions{
 /// @p text with the directory @p directory written as kDirectoryMark, the current directory of
 /// the process as kCurrentDirectoryMark and every backslash as a slash, so that a text that
 /// names files reads the same on every platform and in every directory. An empty @p directory
-/// stands for no directory.
+/// stands for no directory. One of the two directories may lie in the other (the current one in
+/// the test's, or the system's temporary directory in the current one), and where the temporary
+/// directory is reached through a link the current directory is spelled without it: the longer
+/// name is replaced first, so that neither is taken for the start of the other.
 [[nodiscard]] inline std::string neutralPaths(std::string                  text,
                                               const std::filesystem::path& directory)
 {
-    text = replaceAll(std::move(text), "\\", "/");
-    if (!directory.empty())
+    text                         = replaceAll(std::move(text), "\\", "/");
+    const std::string current    = genericUtf8(absolutePath({}));
+    const std::string ofTheTest  = directory.empty() ? std::string() : genericUtf8(directory);
+    const bool        testsFirst = ofTheTest.size() >= current.size();
+    if (testsFirst && !ofTheTest.empty())
     {
-        text = replaceAll(std::move(text), genericUtf8(directory), kDirectoryMark);
+        text = replaceAll(std::move(text), ofTheTest, kDirectoryMark);
     }
-    return replaceAll(std::move(text), genericUtf8(absolutePath({})), kCurrentDirectoryMark);
+    text = replaceAll(std::move(text), current, kCurrentDirectoryMark);
+    if (!testsFirst && !ofTheTest.empty())
+    {
+        text = replaceAll(std::move(text), ofTheTest, kDirectoryMark);
+    }
+    return text;
 }
 
 /// A double as Java's string concatenation prints it.
@@ -305,23 +318,25 @@ public:
 
 /// Runs @p xml, a <conditions> element, through a new SimulationConditionsHandler under
 /// OpenRocket's test preferences and returns describeOutcome(). kDirectoryMark in @p xml
-/// stands for a temporary directory that holds the files of writeLookupFiles(); the directory
-/// is only made for an element that names it.
+/// stands for a temporary directory that holds the files of writeLookupFiles(), which are only
+/// written for an element that names it. The element is read with an empty directory of the
+/// test's own as the current directory (kWorkingDirectoryName under the temporary one), so
+/// that a file the element names by a relative name is missing whatever lies in the directory
+/// the tests are run from.
 [[nodiscard]] inline std::string runConditions(std::string_view xml)
 {
-    ConditionsFixture      fixture;
-    std::optional<TempDir> directory;
-    std::string            document(xml);
+    ConditionsFixture fixture;
+    const TempDir     directory;
+    std::string       document(xml);
     if (document.contains(kDirectoryMark))
     {
-        directory.emplace();
-        writeLookupFiles(*directory);
-        document = replaceAll(std::move(document), kDirectoryMark, genericUtf8(directory->path()));
+        writeLookupFiles(directory);
+        document = replaceAll(std::move(document), kDirectoryMark, genericUtf8(directory.path()));
     }
+    const CurrentDirectoryGuard workingDirectory(directory.resolve(kWorkingDirectoryName));
     SimulationConditionsHandler handler(fixture.context());
     const HandlerRun            run = runHandler(handler, document);
-    return describeOutcome(run, handler,
-                           directory.has_value() ? directory->path() : std::filesystem::path());
+    return describeOutcome(run, handler, directory.path());
 }
 
 /// One <conditions> element that CondProbe ran through OpenRocket, with what OpenRocket made

@@ -20,6 +20,7 @@
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
+#include "QtRocket/util/PinkNoise.h"
 #include "QtRocket/util/Signal.h"
 
 namespace
@@ -40,6 +41,12 @@ constexpr double      kPi         = std::numbers::pi;
 constexpr double      kNaN        = std::numeric_limits<double>::quiet_NaN();
 
 static_assert(QtRocket::Monitorable<PinkNoiseWindModel>);
+
+// The random source is no part of the model's own storage: it is made when the first velocity is
+// asked for. A design file can ask for a model per wind level and four per simulation, and with
+// the source inline (its generator is some 5000 bytes) 100,000 <windlevel> elements were 900 MB
+// (run 9b). The comparison holds whatever the sizes are on a platform.
+static_assert(sizeof(PinkNoiseWindModel) < sizeof(QtRocket::PinkNoise));
 
 /// Counts the emissions of a model's changed() while it lives.
 class ChangeCounter
@@ -345,6 +352,34 @@ TEST_F(PinkNoiseWindModelTest, CopyReproducesTheWindFromTheStart)
     fresh.setAverage(8.0);
     fresh.setStandardDeviation(2.0);
     EXPECT_TRUE(sameSequence(sampleVelocities(copy, 200), sampleVelocities(fresh, 200)));
+}
+
+TEST_F(PinkNoiseWindModelTest, AModelThatWasNeverAskedGivesTheWindOfItsSeedWheneverItIsAsked)
+{
+    // The random source is made at the first question, wherever the model has been since:
+    // configured, copied and moved without one, it gives the wind of a model that was asked at
+    // once.
+    m_model.setAverage(8.0);
+    m_model.setStandardDeviation(2.0);
+    const std::vector<Coordinate> expected = sampleVelocities(m_model, 200);
+
+    PinkNoiseWindModel late(42);
+    PinkNoiseWindModel copyBeforeTheValues{late};
+    late.setAverage(8.0);
+    late.setStandardDeviation(2.0);
+    PinkNoiseWindModel copy{late};
+    PinkNoiseWindModel moved{std::move(late)};
+    EXPECT_TRUE(sameSequence(expected, sampleVelocities(copy, 200)));
+    EXPECT_TRUE(sameSequence(expected, sampleVelocities(moved, 200)));
+
+    // A move after the source was made carries on where the source was.
+    PinkNoiseWindModel movedAgain{std::move(moved)};
+    EXPECT_TRUE(movedAgain.getWindVelocity(199 * kDeltaT, 0).exactlyEquals(expected.back()));
+    EXPECT_TRUE(sameSequence(expected, sampleVelocities(movedAgain, 200)));
+
+    copyBeforeTheValues.setAverage(8.0);
+    copyBeforeTheValues.setStandardDeviation(2.0);
+    EXPECT_TRUE(sameSequence(expected, sampleVelocities(copyBeforeTheValues, 200)));
 }
 
 TEST_F(PinkNoiseWindModelTest, DefaultConstructedModelsDrawTheirOwnSeeds)

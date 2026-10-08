@@ -1,5 +1,6 @@
 #include "QtRocket/util/FileIo.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -203,10 +204,14 @@ TEST(FileIo, PathFromUtf8ReadsABadSequenceAsTheReplacementCharacter)
     EXPECT_EQ(QtRocket::pathToUtf8(QtRocket::pathFromUtf8("cut\xC3")), "cut\xEF\xBF\xBD");
 }
 
-/// withoutRedundantSeparators() of @p text, with '/' between the elements on every platform.
+/// withoutRedundantSeparators() of @p text as the path spells it, with '/' for the platform's
+/// separator. (Not through generic_string(), which may leave out separators by itself.)
 [[nodiscard]] std::string spelledAsJava(std::string_view text)
 {
-    return QtRocket::withoutRedundantSeparators(std::filesystem::path(text)).generic_string();
+    std::string spelled =
+        QtRocket::pathToUtf8(QtRocket::withoutRedundantSeparators(std::filesystem::path(text)));
+    std::ranges::replace(spelled, '\\', '/');
+    return spelled;
 }
 
 // Java's File and Path keep no separator twice and none at the end; "." and ".." stay.
@@ -220,6 +225,19 @@ TEST(FileIo, WithoutRedundantSeparatorsSpellsAPathAsJavaDoes)
     EXPECT_EQ(spelledAsJava("rocket.ork"), "rocket.ork");
     EXPECT_EQ(spelledAsJava("/"), "/");
     EXPECT_EQ(spelledAsJava(""), "");
+}
+
+// A root written with more separators than it needs is the root: Java's Path.of("///") prints
+// "/". (Two separators and a name are left out here: on Windows they start a network path.)
+TEST(FileIo, WithoutRedundantSeparatorsSpellsARunOfSeparatorsAtTheRootAsOne)
+{
+    EXPECT_EQ(spelledAsJava("///"), "/");
+    EXPECT_EQ(spelledAsJava("////"), "/");
+    EXPECT_EQ(spelledAsJava("///a//b/"), "/a/b");
+    EXPECT_EQ(spelledAsJava("///a"), "/a");
+    EXPECT_EQ(spelledAsJava("/a/"), "/a");
+    EXPECT_EQ(spelledAsJava("a"), "a");
+    EXPECT_EQ(spelledAsJava("./"), ".");
 }
 
 }  // namespace

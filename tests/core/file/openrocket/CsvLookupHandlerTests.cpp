@@ -50,8 +50,10 @@ using QtRocket::Test::conditionsCaseTestName;
 using QtRocket::Test::ConditionsFixture;
 using QtRocket::Test::describeConditions;
 using QtRocket::Test::expectConditionsCase;
+using QtRocket::Test::genericUtf8;
 using QtRocket::Test::HandlerRun;
 using QtRocket::Test::neutralPaths;
+using QtRocket::Test::replaceAll;
 using QtRocket::Test::runHandler;
 using QtRocket::Test::TempDir;
 using QtRocket::Test::writeLookupFiles;
@@ -830,6 +832,36 @@ TEST(CsvLookupHandler, ADeviceNamedAsTheFileIsNotRead)
                      "table from /dev/zero",
                      "Failed to load stability lookup CSV '/dev/zero', ignoring. Reason: Failed "
                      "to read lookup table from /dev/zero"}));
+    EXPECT_FALSE(handler.getConditions().hasDragLookup());
+    EXPECT_FALSE(handler.getConditions().hasStabilityLookup());
+}
+
+// A file attribute of separators only names the root, and the warning spells it as Java's Path
+// does. Measured in OpenRocket for <draglookup file="///"/> (run 9b, review): "Failed to load
+// draglookup from file '/': Failed to read lookup table from /". The second path is the absolute
+// one, which has a drive in front on Windows.
+TEST(CsvLookupHandler, AFileOfSeparatorsOnlyIsNamedAsTheRoot)
+{
+    ConditionsFixture           fixture;
+    SimulationConditionsHandler handler(fixture.context());
+
+    const HandlerRun run = runHandler(handler,
+                                      "<conditions><draglookup file='///'/>"
+                                      "<stabilitylookup file=' // '/></conditions>");
+
+    EXPECT_TRUE(run.result.has_value());
+    const std::string root = genericUtf8(QtRocket::absolutePath(std::filesystem::path("/")));
+    Texts             texts;
+    for (const std::string& text : run.texts())
+    {
+        texts.push_back(replaceAll(text, "\\", "/"));
+    }
+    EXPECT_EQ(
+        texts,
+        (Texts{"Failed to load draglookup from file '/': Failed to read lookup table from " + root,
+               "Failed to load stabilitylookup from file '/': Failed to read lookup table "
+               "from " +
+                   root}));
     EXPECT_FALSE(handler.getConditions().hasDragLookup());
     EXPECT_FALSE(handler.getConditions().hasStabilityLookup());
 }

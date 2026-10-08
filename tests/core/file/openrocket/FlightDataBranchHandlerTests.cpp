@@ -269,7 +269,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd: event with garbage id",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time,altitude">
@@ -286,7 +286,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd: event with garbage source",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time,altitude">
@@ -303,7 +303,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd: event with garbage warnid",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time,altitude">
@@ -434,7 +434,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "fd2: garbage eventid",
-     .setup    = "@uuid [zzz]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <warning type="EventAfterLanding">
@@ -1237,7 +1237,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "s2: event with an empty id",
-     .setup    = "@uuid []\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time">
@@ -1254,7 +1254,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "s2: event with a padded id",
-     .setup    = "@uuid [ bbbbbbbb-0000-0000-0000-000000000001]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time">
@@ -1271,7 +1271,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "s2: event with an empty source",
-     .setup    = "@uuid []\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time">
@@ -1288,7 +1288,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "s2: event with an empty warnid",
-     .setup    = "@uuid []\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time">
@@ -1327,7 +1327,7 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
      .qtrocket = "",
      .why      = ""},
     {.name     = "s2: a bad id fails before the event is checked",
-     .setup    = "@uuid [not-a-uuid]\n",
+     .setup    = "",
      .xml      = R"xml(
 <flightdata>
   <databranch name="A" types="time">
@@ -1752,6 +1752,360 @@ constexpr auto kBranchCases = std::to_array<FlightDataCase>({
       types=Time{t,Time,time,s}
       event SIM_WARN t=2.0 id=(random) src=null data=[LargeAOA:Large angle of attack encountered (28.6<U+00B0>)]
       row: 0.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="g-2-3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "g"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="1--3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id with a group beyond a long",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="1-2-3-4-12345678901234567"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 16 in: "12345678901234567"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id with a group that is only a sign",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="+-2-3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "+"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id of 36 characters with a letter that is no digit",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeeg"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 11 in: "eeeeeeeeeeeg"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event id of 20 characters of two bytes",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: <U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9>]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event source with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" source="1-2-3-z-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "z"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event source with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" source="-2-3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event warnid with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="simwarn" warnid="q-2-3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 0 in: "q"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: event warnid with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="simwarn" warnid="1-2-3--5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid that is no id without a warning is not read",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="simwarn" eventid="1-2-3-4-"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  W[Other,NORMAL] Illegal parameters for FlightEvent: SIM_WARN events require Warning objects
+  closed=flightdata {} []
+  data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=0.0 vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+    branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+      types=Time{t,Time,time,s}
+      row: 0.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid with an empty group",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <warning type="EventAfterLanding"><id>cccccccc-0000-0000-0000-000000000003</id></warning>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="bbbbbbbb-0000-0000-0000-000000000003"/>
+    <event time="2" type="simwarn" warnid="cccccccc-0000-0000-0000-000000000003" eventid="1-2-3-4-"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT []
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid with a group that is no number",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <warning type="EventAfterLanding"><id>cccccccc-0000-0000-0000-000000000003</id></warning>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="bbbbbbbb-0000-0000-0000-000000000003"/>
+    <event time="2" type="simwarn" warnid="cccccccc-0000-0000-0000-000000000003" eventid="1-2-3-4-5x"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 1 in: "5x"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid with a group beyond a long",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <warning type="EventAfterLanding"><id>cccccccc-0000-0000-0000-000000000003</id></warning>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="bbbbbbbb-0000-0000-0000-000000000003"/>
+    <event time="2" type="simwarn" warnid="cccccccc-0000-0000-0000-000000000003" eventid="12345678901234567-2-3-4-5"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Error at index 16 in: "12345678901234567"]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid of 20 characters of two bytes",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <warning type="EventAfterLanding"><id>cccccccc-0000-0000-0000-000000000003</id></warning>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="bbbbbbbb-0000-0000-0000-000000000003"/>
+    <event time="2" type="simwarn" warnid="cccccccc-0000-0000-0000-000000000003" eventid="&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;&#233;"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Invalid UUID string: <U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9><U+00E9>]
+  closed=(not closed)
+  data: null
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: eventid in the lenient form",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <warning type="EventAfterLanding"><id>cccccccc-0000-0000-0000-000000000003</id></warning>
+  <databranch name="A" types="time">
+    <datapoint>0</datapoint>
+    <event time="1" type="apogee" id="bbbbbbbb-0000-0000-0000-000000000003"/>
+    <event time="2" type="simwarn" warnid="cccccccc-0000-0000-0000-000000000003" eventid="bbbbbbbb-0-0-0-3"/>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  closed=flightdata {} []
+  data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=0.0 vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+    fw[EventAfterLanding,NORMAL] id=cccccccc-0000-0000-0000-000000000003 text='Flight Event occurred after landing: Apogee' desc='Flight Event occurred after landing: Apogee' sources= event=Apogee@bbbbbbbb-0000-0000-0000-000000000003
+    branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+      types=Time{t,Time,time,s}
+      event APOGEE t=1.0 id=bbbbbbbb-0000-0000-0000-000000000003 src=null data=[null]
+      event SIM_WARN t=2.0 id=(random) src=null data=[EventAfterLanding:Flight Event occurred after landing: Apogee]
+      row: 0.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "rb: two names with a long s",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="qtrFd &#383;x,qtrFd sx">
+    <datapoint>1,2</datapoint>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  closed=flightdata {} []
+  data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+    branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+      types=qtrFd <U+017F>x{Unknown,Custom,-,<U+200B>} | qtrFd sx{Unknown,Custom,-,<U+200B>}
+      row: 1.0 2.0
+)out",
+     .qtrocket = R"out(
+  FAILED INVALID_ARGUMENT [Value type qtrFd sx already exists.]
+  closed=(not closed)
+  data: null
+)out",
+     .why = "The long s and the s are equal ignoring case, so the two names are one type twice and "
+            "the load fails, where OpenRocket loads two columns: its HashMap hashes the names in "
+            "lower case, which leaves the long s as it is (see FlightDataType::hashCode())."},
+    {.name     = "rb: two names with the two small sigmas",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="qtrFd &#963;x,qtrFd &#962;x">
+    <datapoint>1,2</datapoint>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  closed=flightdata {} []
+  data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+    branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+      types=qtrFd <U+03C3>x{Unknown,Custom,-,<U+200B>} | qtrFd <U+03C2>x{Unknown,Custom,-,<U+200B>}
+      row: 1.0 2.0
+)out",
+     .qtrocket = R"out(
+  FAILED INVALID_ARGUMENT [Value type qtrFd <U+03C2>x already exists.]
+  closed=(not closed)
+  data: null
+)out",
+     .why = "The sigma and the final sigma are equal ignoring case, so the two names are one type "
+            "twice and the load fails, where OpenRocket loads two columns: both letters are lower "
+            "case already and hash apart (see FlightDataType::hashCode())."},
+    {.name     = "rb: two names with a Kelvin sign",
+     .setup    = "",
+     .xml      = R"xml(
+<flightdata>
+  <databranch name="A" types="qtrFd &#8490;x,qtrFd kx">
+    <datapoint>1,2</datapoint>
+  </databranch>
+</flightdata>
+)xml",
+     .java     = R"out(
+  FAILED INVALID_ARGUMENT [Value type qtrFd kx already exists.]
+  closed=(not closed)
+  data: null
 )out",
      .qtrocket = "",
      .why      = ""},
@@ -2342,8 +2696,8 @@ TEST(FlightDataBranchHandler, AnIdThatIsNoUuidFailsTheLoad)
         *handler, "<databranch><event time='1' type='launch' source='no-uuid'/></databranch>");
     ASSERT_FALSE(run.result.has_value());
     EXPECT_EQ(run.result.error().code, ErrorCode::INVALID_ARGUMENT);
-    EXPECT_TRUE(run.result.error().message.starts_with("Invalid UUID string: "));
-    EXPECT_TRUE(run.result.error().message.contains("no-uuid"));
+    // The message of Java's UUID.fromString(); the cases have the other kinds of text.
+    EXPECT_EQ(run.result.error().message, "Invalid UUID string: no-uuid");
     EXPECT_TRUE(handler->getBranch()->getEvents().empty());
 }
 

@@ -4,11 +4,13 @@
 #include <string>
 #include <string_view>
 
+#include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/SingleSimulationHandler.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/simulation/customexpression/CustomExpression.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 
@@ -51,9 +53,18 @@ Result<void> SimulationsHandler::closeElement(std::string_view  element,
     Attributes others = attributes;
     others.erase("status");
 
-    // HOOK(custom-expression): Finished loading. Java rebuilds the custom expressions of the
-    // document here (exp.setExpression(exp.getExpressionString()) for each), in case something
-    // has changed such as listener variable come available.
+    // Finished loading. Java rebuilds the custom expressions of the document here
+    // (exp.setExpression(exp.getExpressionString()) for each), in case something has changed
+    // such as listener variable come available. Building an expression reads the flight data
+    // types of the document (CustomExpression.getAllSymbols()), which asks every expression
+    // for its type and so registers it again: that part a later column name can tell, and it
+    // is done here. One round leaves the registry as Java's several rounds leave it.
+    // HOOK(custom-expression): the rebuilding itself, with the milestone that evaluates them.
+    for (const CustomExpression& expression :
+         m_context->getOpenRocketDocument()->getCustomExpressions())
+    {
+        static_cast<void>(expression.getType());
+    }
 
     return AbstractElementHandler::closeElement(element, others, content, warnings);
 }

@@ -57,8 +57,9 @@ namespace QtRocket
 [[nodiscard]] std::filesystem::path absolutePath(const std::filesystem::path& path);
 
 /// @p path as Java's File and Path spell the same text: a run of separators as one separator
-/// and no separator at the end (a root stays what it is), so "a//b/" is "a/b". Nothing else
-/// changes: "." and ".." stay. The elements are joined with the platform's separator.
+/// and no separator at the end but the one of a root, so "a//b/" is "a/b" and "///" is "/".
+/// Nothing else changes: "." and ".." stay. The elements are joined with the platform's
+/// separator.
 [[nodiscard]] std::filesystem::path withoutRedundantSeparators(const std::filesystem::path& path);
 
 /// Reinterprets bytes as text without copying semantics surprises (a plain byte-for-byte copy).

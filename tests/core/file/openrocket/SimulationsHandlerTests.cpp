@@ -15,7 +15,9 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "document/DocumentTestSupport.h"
@@ -37,6 +39,7 @@ using QtRocket::BugError;
 using QtRocket::DocumentLoadingContext;
 using QtRocket::ElementHandler;
 using QtRocket::ErrorCode;
+using QtRocket::FlightDataType;
 using QtRocket::Simulation;
 using QtRocket::SimulationsHandler;
 using QtRocket::WarningSet;
@@ -466,6 +469,215 @@ constexpr auto kSimulationsCases = std::to_array<SimulationCase>({
 )out",
      .qtrocket = "",
      .why      = ""},
+    {.name     = "r3: an expression with the symbol Unknown names the columns without a name",
+     .setup    = "@expression Odd one|Unknown|m|h\n",
+     .xml      = R"xml(
+<simulations>
+  <simulation status="uptodate">
+    <name>one</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="A" types="Mystery"><datapoint>1</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>two</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="B" types=""><datapoint>2</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>three</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="C" types="Other"><datapoint>3</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>four</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="D" types=""><datapoint>4</datapoint></databranch>
+    </flightdata>
+  </simulation>
+</simulations>
+)xml",
+     .java     = R"out(
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 4
+  sim[0] name='one' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Mystery{Unknown,Custom,-,<U+200B>}
+        row: 1.0
+  sim[1] name='two' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'B' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Odd one{Unknown,Custom,-,<U+200B>}
+        row: 2.0
+  sim[2] name='three' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'C' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Other{Unknown,Custom,-,<U+200B>}
+        row: 3.0
+  sim[3] name='four' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'D' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Odd one{Unknown,Custom,-,<U+200B>}
+        row: 4.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "r3: columns without a name after unknown columns",
+     .setup    = "",
+     .xml      = R"xml(
+<simulations>
+  <simulation status="uptodate">
+    <name>one</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="A" types="Mystery"><datapoint>1</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>two</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="B" types=""><datapoint>2</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>three</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="C" types="Other"><datapoint>3</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>four</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="D" types=""><datapoint>4</datapoint></databranch>
+    </flightdata>
+  </simulation>
+</simulations>
+)xml",
+     .java     = R"out(
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 4
+  sim[0] name='one' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Mystery{Unknown,Custom,-,<U+200B>}
+        row: 1.0
+  sim[1] name='two' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'B' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Mystery{Unknown,Custom,-,<U+200B>}
+        row: 2.0
+  sim[2] name='three' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'C' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Other{Unknown,Custom,-,<U+200B>}
+        row: 3.0
+  sim[3] name='four' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'D' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Other{Unknown,Custom,-,<U+200B>}
+        row: 4.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "r3: two expressions of one symbol in two simulations",
+     .setup    = "@expression First|qtrSame|m|h\n"
+                 "@expression Second|qtrSame|m/s|Vt\n",
+     .xml      = R"xml(
+<simulations>
+  <simulation status="uptodate">
+    <name>one</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="A" types="First,Second"><datapoint>1,2</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>two</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="B" types="Second,First"><datapoint>2,1</datapoint></databranch>
+    </flightdata>
+  </simulation>
+</simulations>
+)xml",
+     .java     = R"out(
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 2
+  sim[0] name='one' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=First{qtrSame,Custom,-,m} | Second{qtrSame,Custom,-,m/s}
+        row: 1.0 2.0
+  sim[1] name='two' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'B' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Second{qtrSame,Custom,-,m/s} | First{qtrSame,Custom,-,m}
+        row: 2.0 1.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
+    {.name     = "r3: an expression without a name and the symbol Unknown",
+     .setup    = "@expression |Unknown|m|h\n",
+     .xml      = R"xml(
+<simulations>
+  <simulation status="uptodate">
+    <name>one</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="A" types="Mystery"><datapoint>1</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>two</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="B" types=""><datapoint>2</datapoint></databranch>
+    </flightdata>
+  </simulation>
+  <simulation status="uptodate">
+    <name>three</name>
+    <conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>
+    <flightdata>
+      <databranch name="C" types="Later"><datapoint>3</datapoint></databranch>
+    </flightdata>
+  </simulation>
+</simulations>
+)xml",
+     .java     = R"out(
+  closed=simulations {} []
+  configs: 11111111-1111-1111-1111-111111111111
+  sims: 3
+  sim[0] name='one' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Mystery{Unknown,Custom,-,<U+200B>}
+        row: 1.0
+  sim[1] name='two' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'B' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Mystery{Unknown,Custom,-,m}
+        row: 2.0
+  sim[2] name='three' stored=LOADED presync=OUTDATED status=LOADED fcid=11111111-1111-1111-1111-111111111111 simulated=equal
+    data: branches=1 maxAlt=NaN maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=NaN tFlight=NaN vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+      branch[0] 'C' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+        types=Later{Unknown,Custom,-,<U+200B>}
+        row: 3.0
+)out",
+     .qtrocket = "",
+     .why      = ""},
     // END GENERATED: simulations
 });
 
@@ -636,28 +848,186 @@ TEST(SimulationsHandler, AFailureOfASimulationEndsTheLoad)
     return document + "</simulations>";
 }
 
-/// The seconds a load of manySimulations(@p count) takes; -1 when it fails.
-[[nodiscard]] double secondsToLoad(int count)
+/// The seconds a load of @p document takes; -1 when it fails or does not give @p simulations
+/// simulations.
+[[nodiscard]] double secondsToLoad(const std::string& document, int simulations)
 {
-    const std::string                   document = manySimulations(count);
     SimulationFixture                   fixture;
     SimulationsHandler                  handler(fixture.context());
     const auto                          start = std::chrono::steady_clock::now();
     const HandlerRun                    run   = runHandler(handler, document);
     const std::chrono::duration<double> taken = std::chrono::steady_clock::now() - start;
-    const bool                          loaded =
-        run.result.has_value() && std::cmp_equal(fixture.document().getSimulationCount(), count);
+    const bool loaded = run.result.has_value() &&
+                        std::cmp_equal(fixture.document().getSimulationCount(), simulations);
     return loaded ? taken.count() : -1.0;
 }
 
+/// The seconds a load of manySimulations(@p count) takes; -1 when it fails.
+[[nodiscard]] double secondsToLoad(int count)
+{
+    return secondsToLoad(manySimulations(count), count);
+}
+
 // A measurement, not a test: how the time of a load grows with the number of simulations of
-// the file (every simulation that is added is an event of the document). Run it by name.
+// the file when all of them are of a flight configuration the rocket has (every simulation
+// that is added is an event of the document). Linear: 2000 simulations take 0.02 s in the
+// release build, in OpenRocket 0.06 s. Run it by name.
 TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingManySimulations)
 {
     RecordProperty("seconds_for_1000", std::format("{}", secondsToLoad(1000)));
     RecordProperty("seconds_for_2000", std::format("{}", secondsToLoad(2000)));
     RecordProperty("seconds_for_4000", std::format("{}", secondsToLoad(4000)));
     SUCCEED();
+}
+
+/// A <simulations> element with @p count simulations, each of a flight configuration of its
+/// own that the rocket does not have: named by an id of its own, or with @p emptyIds by an
+/// empty <configid>, which is a new random id.
+[[nodiscard]] std::string simulationsOfNewConfigurations(int count, bool emptyIds)
+{
+    std::string document = "<simulations>";
+    for (int i = 0; i < count; i++)
+    {
+        const std::string id = emptyIds ? "" : std::format("eeeeeeee-0000-0000-0000-{:012x}", i);
+        document += std::format(
+            "<simulation status='uptodate'><name>s</name><conditions>"
+            "<configid>{}</configid></conditions>"
+            "<flightdata maxaltitude='1'/></simulation>",
+            id);
+    }
+    return document + "</simulations>";
+}
+
+// A measurement, not a test: the time of a load in which every simulation makes a flight
+// configuration (Simulation::setFlightConfigurationId() for an id the rocket lacks). Making a
+// configuration costs time in proportion to the configurations the rocket has (the tree change
+// it fires updates every one of them), so the load is quadratic in the number of simulations:
+// 500, 1000 and 2000 simulations take 0.35, 1.5 and 6 s in the release build (the review of
+// run 9b measured 8000 in 140 s). OpenRocket does the same and takes 0.7, 1.8 and 6.5 s
+// (Simulation.setFlightConfigurationID(), Rocket.createFlightConfiguration() and
+// updateConfigurations()). Neither has a bound on the number of configurations the simulations
+// of a file may make: an open question. Run it by name; it takes minutes in a debug build.
+TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingSimulationsOfNewConfigurations)
+{
+    for (const int count : {500, 1000, 2000})
+    {
+        RecordProperty(
+            std::format("seconds_for_{}_distinct_ids", count),
+            std::format("{}", secondsToLoad(simulationsOfNewConfigurations(count, false), count)));
+        RecordProperty(
+            std::format("seconds_for_{}_empty_ids", count),
+            std::format("{}", secondsToLoad(simulationsOfNewConfigurations(count, true), count)));
+    }
+    SUCCEED();
+}
+
+/// A <simulations> element with one simulation that has @p count elements, each of which
+/// gives a warning of its own: `warning` for stored warnings of distinct texts in its flight
+/// data, `child` for children the handler does not know, `extension` for extensions whose ids
+/// no provider knows.
+[[nodiscard]] std::string simulationOfManyWarnings(std::string_view kind, int count)
+{
+    std::string elements;
+    for (int i = 0; i < count; i++)
+    {
+        if (kind == "warning")
+        {
+            elements += std::format("<warning>w{}</warning>", i);
+        }
+        else if (kind == "child")
+        {
+            elements += std::format("<u{}/>", i);
+        }
+        else
+        {
+            elements += std::format("<extension extensionid='x.E{}'/>", i);
+        }
+    }
+    const std::string_view conditions =
+        "<conditions><configid>11111111-1111-1111-1111-111111111111</configid></conditions>";
+    if (kind == "warning")
+    {
+        return std::format(
+            "<simulations><simulation status='uptodate'><name>s</name>{}"
+            "<flightdata>{}</flightdata></simulation></simulations>",
+            conditions, elements);
+    }
+    return std::format(
+        "<simulations><simulation status='uptodate'><name>s</name>{}{}</simulation></simulations>",
+        conditions, elements);
+}
+
+// A measurement, not a test: the time of a load of one simulation whose elements give one
+// warning each. A warning set looks for an equal warning in everything it holds before it adds
+// one (MessageSet::add(); Java: MessageSet.add() with messages.indexOf()), so a load is
+// quadratic in the number of distinct warnings, whichever handler adds them. In the release
+// build 10,000, 20,000 and 40,000 elements take:
+//   stored <warning> elements of distinct texts   0.9, 3.1 and 13 s    (OpenRocket: 0.9, 2.6, 16 s)
+//   unknown children of the <simulation>          0.4, 1.5 and 6.3 s   (OpenRocket: 0.6, 1.6, 5.3
+//   s) extensions with ids no provider knows         0.5, 1.6 and 6.8 s   (OpenRocket:
+//   0.4, 1.3, 3.6 s)
+// Neither has a bound on the warnings of a load: an open question for the whole loader, since
+// every handler adds its warnings to the same set. Run it by name; it takes many minutes in a
+// debug build.
+TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingManyWarnings)
+{
+    for (const std::string_view kind : {"warning", "child", "extension"})
+    {
+        for (const int count : {10000, 20000, 40000})
+        {
+            RecordProperty(
+                std::format("seconds_for_{}_{}_elements", count, kind),
+                std::format("{}", secondsToLoad(simulationOfManyWarnings(kind, count), 1)));
+        }
+    }
+    SUCCEED();
+}
+
+// Java's rebuild of the custom expressions when a <simulation> closes dies of a
+// PatternSyntaxException when a symbol of another expression of the document is no regular
+// expression (the symbols are joined into one): measured in OpenRocket, the load of this
+// document fails with "Unclosed group near index ...". Here the types are registered and
+// nothing is parsed, so the document loads (see SimulationsHandler and CustomExpression).
+TEST(SimulationsHandler, ASymbolThatIsNoRegularExpressionDoesNotFailTheLoad)
+{
+    SimulationFixture fixture;
+    fixture.apply("@expression First|qtrFirst|m|h\n@expression Second|(|m|h\n");
+    SimulationsHandler handler(fixture.context());
+    const HandlerRun   run = runHandler(handler, manySimulations(2));
+    EXPECT_TRUE(run.result.has_value());
+    EXPECT_EQ(run.texts(), Texts{});
+    EXPECT_EQ(fixture.document().getSimulationCount(), 2U);
+}
+
+// The types are registered when a <simulation> closes, and at no other element: an unknown
+// child of <simulations> is ignored without a call of closeElement().
+TEST(SimulationsHandler, ClosingASimulationRegistersTheTypesOfTheCustomExpressions)
+{
+    SimulationFixture fixture;
+    fixture.apply("@expression qtrClose name|qtrCloseSymbol|m|h\n");
+    SimulationsHandler handler(fixture.context());
+    // Another type takes the symbol, as a load of another document may leave it.
+    const FlightDataType& other =
+        FlightDataType::getType("qtrClose other", "qtrCloseSymbol", QtRocket::UnitGroupId::NONE);
+    ASSERT_EQ(FlightDataType::findBySymbol("qtrCloseSymbol"), &other);
+
+    EXPECT_TRUE(runHandler(handler, "<simulations><unknown/></simulations>").result.has_value());
+    EXPECT_EQ(FlightDataType::findBySymbol("qtrCloseSymbol"), &other);
+
+    WarningSet warnings;
+    EXPECT_TRUE(
+        handler.closeElement("simulation", {{"status", "uptodate"}}, "", warnings).has_value());
+    const FlightDataType* const registered = FlightDataType::findBySymbol("qtrCloseSymbol");
+    ASSERT_NE(registered, nullptr);
+    EXPECT_NE(registered, &other);
+    EXPECT_EQ(registered->getName(), "qtrClose name");
+    EXPECT_EQ(registered->getUnitGroupId(), QtRocket::UnitGroupId::ALL_LENGTHS);
+
+    // A second closing finds the type as it is and makes no new one.
+    EXPECT_TRUE(
+        handler.closeElement("simulation", {{"status", "uptodate"}}, "", warnings).has_value());
+    EXPECT_EQ(FlightDataType::findBySymbol("qtrCloseSymbol"), registered);
+    EXPECT_TRUE(warnings.empty());
 }
 
 }  // namespace

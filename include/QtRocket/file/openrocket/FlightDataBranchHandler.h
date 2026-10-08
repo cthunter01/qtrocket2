@@ -89,7 +89,8 @@ class OpenRocketDocument;
 /// - cause, read for every type: the cause of an abort as findEnum() matches it
 ///   ("nomotorsdefined"). When it names one, a SimulationAbort with that cause is the event's
 ///   data in place of the warning, whatever the event's type.
-/// An id, source or warnid that is no UUID fails the load. The event is then checked as
+/// An id, source or warnid that is no UUID fails the load, with the message of Java's
+/// UUID.fromString() for the text (Uuid::javaFromString()). The event is then checked as
 /// FlightEvent checks every event; a failure gives "Illegal parameters for FlightEvent:
 /// <message>" (FlightEvent::validate() lists the messages) and the event is dropped. So a
 /// SIM_WARN event needs a warning and must not have a source, a SIM_ABORT event needs a cause,
@@ -118,9 +119,14 @@ class OpenRocketDocument;
 /// Deviations from OpenRocket:
 /// - create() returns the failures Java's constructor throws, and makes them before a branch
 ///   exists (the FlightDataBranch constructor would throw BugError for them).
-/// - Two types are a type twice when FlightDataType::equals() says so. Java asks its HashMap,
-///   whose hash of a name is not always the same for two names that are equal ignoring case
-///   (see FlightDataType::hashCode()), so it lets a few such pairs through as two columns.
+/// - Two types are a type twice when FlightDataType::equals() says so, and the load then
+///   fails. Java asks its HashMap, whose hash of a name (the name in lower case) is not always
+///   the same for two names that are equal ignoring case (see FlightDataType::hashCode()), so
+///   OpenRocket loads a few such pairs as two columns where the load is refused here: names
+///   that differ only by the micro sign and the Greek mu, the long s and the s, the sigma and
+///   the final sigma, or the dotted capital I and the i (and the other letters
+///   FlightDataType::hashCode() names). No file OpenRocket writes for its own types has such
+///   a pair; two custom expressions or two unknown columns named so are what it takes.
 /// - The events keep the id of their source and no pointer to the component
 ///   (FlightEvent::createDetached()), and a SIM_WARN event holds a copy of its warning as it
 ///   was when the event was read, where Java's events share the warning object: read the

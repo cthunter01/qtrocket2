@@ -57,7 +57,17 @@ public:
     /// one or more hexadecimal digits of either case with a value up to 2^63 - 1, of which the
     /// low 32, 16, 16, 16 and 48 bits are kept ("1-2-3-4-5" is
     /// 00000001-0002-0003-0004-000000000005). The canonical form parses as parse() does.
-    /// Anything else fails with ErrorCode::PARSE (Java: IllegalArgumentException).
+    /// Anything else fails with ErrorCode::PARSE (Java: IllegalArgumentException) and the
+    /// message of Java's exception, which the .ork loader passes on when the <id> of a
+    /// component is no UUID:
+    /// - "UUID string too large" for more than 36 characters (UTF-16 code units, as Java
+    ///   counts them);
+    /// - "Invalid UUID string: <text>" for a text that does not hold exactly four dashes;
+    /// - else, for the first group that is no number, the message of Long.parseLong's
+    ///   NumberFormatException: an empty one for an empty group ("1--3-4-5"), and
+    ///   `Error at index <n> in: "<group>"` otherwise, n being the place in the group of the
+    ///   character that is no hexadecimal digit, of the end of a group that is only "+", or of
+    ///   the digit that would take the value beyond 2^63 - 1 (15 in "8000000000000000").
     /// Deviation: the digits are ASCII only; Java's Character.digit() also takes other Unicode
     /// digits and fullwidth letters.
     [[nodiscard]] static Result<Uuid> javaFromString(std::string_view text);

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <exception>
 #include <format>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -15,12 +16,14 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/WindModel.h"
+#include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/Strings.h"
+#include "TestTempDir.h"
 #include "file/openrocket/ConditionsTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
 #include "simulation/SimulationOptionsSupport.h"
@@ -1670,6 +1673,142 @@ TEST(SimulationConditionsHandler, StartsWithTheFlatGeodeticComputationWhateverTh
     EXPECT_EQ(handler.getConditions().getLaunchRodLength(), 2.5) << "a value of the store";
 }
 
+// ---- under the preferences of a product -----------------------------------------------------
+//
+// Every case of the tables runs under the preferences OpenRocket's tests run under, where
+// nearly every option starts as 0 or false. A product starts with a store that holds nothing,
+// and there an option starts with the default its reader asks with: a rod of 1 m that points
+// into the wind, the ISA atmosphere, a launch site at 28.61 and -80.6 degrees, a time step of
+// 0.05 s. What OpenRocket makes of the elements below under such a store was measured with a
+// variant of the probe whose preferences give the caller's default and keep what is put
+// (CondProbeDefaults, the review of run 9b; all 163 cases of the tables gave the same there
+// and here, but for the stated deviations).
+
+/// A <conditions> element with what OpenRocket makes of it under a preference store that holds
+/// nothing.
+struct EmptyStoreCase
+{
+    std::string_view xml;
+    /// The lines of describeConditions().
+    std::array<std::string_view, 10> options;
+    /// The stepper method the store holds afterwards; empty for none.
+    std::string_view storedStepper;
+};
+
+constexpr auto kEmptyStoreCases = std::to_array<EmptyStoreCase>({
+    // "s1: empty conditions"
+    {.xml     = "<conditions/>",
+     .options = {"rod=1.0 intoWind=true angle=0.0 dir=1.5707963267948966",
+                 "wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) "
+                 "multi=MSL(0.0,2.0,1.5707963267948966,0.2)",
+                 "site=0.0,28.61,-80.6 geo=FLAT",
+                 "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988", "seedFixed=false",
+                 "atmosphere=isa:true T=288.15 p=101325.0 hum=0.0", "gravity=WGS/9.807",
+                 "thresholds=20.0/3.048/30.48/15.24", "drag=path:null table:null rows:null",
+                 "stability=path:null table:null rows:null"},
+     .storedStepper = ""},
+    // "cond: enums other values": the stepper method is written to the store.
+    {.xml     = "<conditions><configid>11111111-1111-1111-1111-111111111111</configid>"
+                "<geodeticmethod> wgs84 </geodeticmethod>"
+                "<simulationsteppermethod>rk6</simulationsteppermethod>"
+                "<windmodeltype>multilevel</windmodeltype></conditions>",
+     .options = {"rod=1.0 intoWind=true angle=0.0 dir=1.5707963267948966",
+                 "wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) "
+                 "multi=MSL(0.0,2.0,1.5707963267948966,0.2)",
+                 "site=0.0,28.61,-80.6 geo=WGS84",
+                 "stepper=RK6 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988", "seedFixed=false",
+                 "atmosphere=isa:true T=288.15 p=101325.0 hum=0.0", "gravity=WGS/9.807",
+                 "thresholds=20.0/3.048/30.48/15.24", "drag=path:null table:null rows:null",
+                 "stability=path:null table:null rows:null"},
+     .storedStepper = "RK6"},
+    // "s1: rod angle in degrees and direction in degrees reduced": the rod stays into the wind.
+    {.xml     = "<conditions><launchrodangle>30</launchrodangle>"
+                "<launchroddirection>450</launchroddirection></conditions>",
+     .options = {"rod=1.0 intoWind=true angle=0.5235987755982988 dir=1.5707963267948966",
+                 "wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) "
+                 "multi=MSL(0.0,2.0,1.5707963267948966,0.2)",
+                 "site=0.0,28.61,-80.6 geo=FLAT",
+                 "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988", "seedFixed=false",
+                 "atmosphere=isa:true T=288.15 p=101325.0 hum=0.0", "gravity=WGS/9.807",
+                 "thresholds=20.0/3.048/30.48/15.24", "drag=path:null table:null rows:null",
+                 "stability=path:null table:null rows:null"},
+     .storedStepper = ""},
+    // "s1: legacy wind elements in the saver's order"
+    {.xml     = "<conditions><windaverage>5</windaverage><windturbulence>0.1</windturbulence>"
+                "<winddirection>1</winddirection></conditions>",
+     .options = {"rod=1.0 intoWind=true angle=0.0 dir=1.5707963267948966",
+                 "wind=AVERAGE avg=(5.0,1.0,0.5) multi=MSL(0.0,2.0,1.5707963267948966,0.2)",
+                 "site=0.0,28.61,-80.6 geo=FLAT",
+                 "stepper=RK4 dt=0.05 tmax=1200.0 maxAngle=0.05235987755982988", "seedFixed=false",
+                 "atmosphere=isa:true T=288.15 p=101325.0 hum=0.0", "gravity=WGS/9.807",
+                 "thresholds=20.0/3.048/30.48/15.24", "drag=path:null table:null rows:null",
+                 "stability=path:null table:null rows:null"},
+     .storedStepper = ""},
+    // "s1: every element as the saver writes it": nothing of the store is left to see.
+    {.xml     = "<conditions><configid>11111111-1111-1111-1111-111111111111</configid>"
+                "<launchrodlength>1.5</launchrodlength><launchintowind>false</launchintowind>"
+                "<launchrodangle>5.0</launchrodangle><launchroddirection>90.0</launchroddirection>"
+                "<windaverage>2.0</windaverage><windturbulence>0.1</windturbulence>"
+                "<winddirection>1.5707963267948966</winddirection>"
+                "<wind model='average'><speed>2.0</speed><direction>1.5707963267948966</direction>"
+                "<standarddeviation>0.2</standarddeviation></wind>"
+                "<wind model='multilevel' altituderef='msl'><windlevel altitude='0.0' speed='3.8' "
+                "direction='3.0' standarddeviation='1.52'/></wind>"
+                "<windmodeltype>Average</windmodeltype><launchaltitude>0.0</launchaltitude>"
+                "<launchlatitude>32.0</launchlatitude><launchlongitude>-106.0</launchlongitude>"
+                "<geodeticmethod>spherical</geodeticmethod>"
+                "<simulationsteppermethod>rk4</simulationsteppermethod><randomseed>-77</randomseed>"
+                "<atmosphere model='extendedisa'><basetemperature>293.15</basetemperature>"
+                "<basepressure>100000.0</basepressure>"
+                "<baserelativehumidity>0.25</baserelativehumidity></atmosphere>"
+                "<gravity model='constant'><value>9.5</value></gravity>"
+                "<timestep>0.02</timestep><maxtime>600.0</maxtime>"
+                "<recoveryspeedwarning>21.0</recoveryspeedwarning>"
+                "<drogueLowspeedwarning>4.0</drogueLowspeedwarning>"
+                "<recoverydroguemainhighspeedwarning>31.0</recoverydroguemainhighspeedwarning>"
+                "<recoverydroguemainlowspeedwarning>16.0</recoverydroguemainlowspeedwarning>"
+                "</conditions>",
+     .options = {"rod=1.5 intoWind=false angle=0.08726646259971647 dir=1.5707963267948966",
+                 "wind=AVERAGE avg=(2.0,1.5707963267948966,0.2) multi=MSL(0.0,3.8,3.0,1.52)",
+                 "site=0.0,32.0,-106.0 geo=SPHERICAL",
+                 "stepper=RK4 dt=0.02 tmax=600.0 maxAngle=0.05235987755982988",
+                 "seedFixed=true seed=-77", "atmosphere=isa:false T=293.15 p=100000.0 hum=0.25",
+                 "gravity=CONSTANT/9.5", "thresholds=21.0/4.0/31.0/16.0",
+                 "drag=path:null table:null rows:null", "stability=path:null table:null rows:null"},
+     .storedStepper = "RK4"},
+});
+
+/// What GoogleTest prints for the case of a test that failed: its element (and not its bytes).
+// NOLINTNEXTLINE(readability-identifier-naming): the name GoogleTest looks for
+void PrintTo(const EmptyStoreCase& emptyStoreCase, std::ostream* out)
+{
+    *out << emptyStoreCase.xml;
+}
+
+class ConditionsUnderAnEmptyStore : public ::testing::TestWithParam<EmptyStoreCase>
+{ };
+
+TEST_P(ConditionsUnderAnEmptyStore, LoadAsInOpenRocket)
+{
+    HandlerFixture fixture;  // its preference store holds nothing
+    ASSERT_EQ(
+        fixture.preferences().getString(QtRocket::PreferenceKeys::kSimulationStepperMethod, ""),
+        "");
+    SimulationConditionsHandler handler(fixture.context());
+
+    const HandlerRun run = runHandler(handler, GetParam().xml);
+
+    EXPECT_TRUE(run.result.has_value());
+    EXPECT_EQ(run.texts(), Texts{});
+    const Texts expected(GetParam().options.begin(), GetParam().options.end());
+    EXPECT_EQ(describeConditions(handler.getConditions()), expected);
+    EXPECT_EQ(
+        fixture.preferences().getString(QtRocket::PreferenceKeys::kSimulationStepperMethod, ""),
+        GetParam().storedStepper);
+}
+
+INSTANTIATE_TEST_SUITE_P(Probe, ConditionsUnderAnEmptyStore, ::testing::ValuesIn(kEmptyStoreCases));
+
 // Java asks the application's preferences, which are always there.
 TEST(SimulationConditionsHandler, NeedsThePreferenceStoreOfTheContext)
 {
@@ -1989,6 +2128,10 @@ constexpr auto kAnyValues = std::to_array<std::string_view>({
 // not finite, and what it fails with is the failure of a load.
 TEST(SimulationConditionsHandler, NoValueOfAFileMakesItThrowOrTakeANumberThatIsNotFinite)
 {
+    // A value in the place of a file's name is looked for in an empty directory of the test's
+    // own, whatever lies where the tests are run from.
+    const QtRocket::Test::TempDir               directory;
+    const QtRocket::Test::CurrentDirectoryGuard workingDirectory(directory.path());
     EXPECT_EQ(conditionsOfAnyValue().size(), (24U + 19U) * 49U);
     EXPECT_EQ(faultsOfAnyValue(), Texts{});
 }

@@ -34,7 +34,10 @@ class Rocket;
 /// which adds up):
 /// - <id>: the warning's id, read as java.util.UUID.fromString() reads it (Uuid::
 ///   javaFromString(): "1-2-3-4-5" is an id, a padded one is not). A text that is no id fails
-///   the load. Without the element the warning has a random id.
+///   the load with the message of Java's exception: "Invalid UUID string: <text>", "UUID
+///   string too large", or for a text with four dashes the message of Long.parseLong for its
+///   first group that is no number (`Error at index 0 in: "g"`; none for an empty group).
+///   Without the element the warning has a random id.
 /// - <description>: the text of a warning that is only its text, trimmed. An empty description
 ///   is one.
 /// - <priority>: "LOW", "NORMAL" or "HIGH", compared exactly and not trimmed; anything else is
@@ -90,8 +93,8 @@ class Rocket;
 ///   are two.
 /// - Two EventAfterLanding warnings with the same id are one here. In Java they are two, since
 ///   its equals() compares the UUID objects by reference (see Warning::EventAfterLanding).
-/// - The failure of a text that is no id is Uuid::javaFromString()'s, under
-///   ErrorCode::INVALID_ARGUMENT.
+/// - The digits of an id are the ASCII ones (see Uuid::javaFromString()): an id written with
+///   the digits of another script, which Java reads, fails the load here.
 class WarningHandler final : public AbstractElementHandler
 {
 public:

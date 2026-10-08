@@ -22,11 +22,9 @@
 #include <cstddef>
 #include <format>
 #include <memory>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -413,8 +411,7 @@ public:
     /// - "@expression <name>|<symbol>|<unit>|<expression>": a custom expression of the document;
     /// - "@unknown <name>": registers the flight data type <name> under the symbol "Unknown",
     ///   as a load that met that column name would have left it;
-    /// - "@ids" and "@digest": see FlightDescription;
-    /// - "@uuid [<text>]": not a directive of the fixture (see FlightDataCase).
+    /// - "@ids" and "@digest": see FlightDescription.
     /// @throws BugError for anything else
     void apply(std::string_view setup)
     {
@@ -473,7 +470,7 @@ private:
         {
             m_description.digest = true;
         }
-        else if (word != "@uuid")
+        else
         {
             bug("unknown directive: " + std::string(line));
         }
@@ -546,10 +543,10 @@ private:
 struct FlightDataCase
 {
     /// The probe's name of the case ("fd: ..." and "fd2: ..." for the cases of the scout's
-    /// EdgeProbe, "w: ..." and "s2: ..." for the ones added with the handlers).
+    /// EdgeProbe, "w: ..." and "s2: ..." for the ones added with the handlers, "rw: ..." and
+    /// "rb: ..." for the ones added after the review of run 9b).
     std::string_view name;
-    /// The directives of the case, one per line (FlightDataFixture::apply()), and for a case
-    /// that fails because a text is no UUID the line "@uuid [<that text>]".
+    /// The directives of the case, one per line (FlightDataFixture::apply()).
     std::string_view setup;
     /// The element.
     std::string_view xml;
@@ -575,59 +572,15 @@ inline void PrintTo(const FlightDataCase& flightDataCase, std::ostream* out)
     return conditionsTestName(info.param.name);
 }
 
-/// The text between the brackets of the "@uuid [<text>]" line of @p setup, or none without
-/// such a line.
-[[nodiscard]] inline std::optional<std::string> uuidDirective(std::string_view setup)
-{
-    constexpr std::string_view kMark = "@uuid [";
-    const std::size_t          start = setup.find(kMark);
-    if (start == std::string_view::npos)
-    {
-        return std::nullopt;
-    }
-    const std::size_t end = setup.find("]\n", start);
-    const std::size_t to  = end == std::string_view::npos ? setup.rfind(']') : end;
-    return std::string(setup.substr(start + kMark.size(), to - start - kMark.size()));
-}
-
-/// @p outcome with the message of its "FAILED INVALID_ARGUMENT [<message>]" line replaced by
-/// what Uuid::javaFromString() fails @p text with.
-///
-/// The failure of a text that is no id is Uuid::javaFromString()'s, passed on by the handlers.
-/// The expectations of the cases have the message of java.util.UUID.fromString(), which
-/// Uuid::javaFromString() is documented to give; UuidTests pins its messages. A case of such a
-/// failure names the text ("@uuid [<text>]"), and its expectation is compared with the message
-/// Uuid::javaFromString() gives for that text, so that the handlers are held to passing it on
-/// unchanged under the right code, whatever its wording.
-[[nodiscard]] inline std::string withUuidFailureOf(std::string outcome, std::string_view text)
-{
-    const Result<Uuid> id = Uuid::javaFromString(text);
-    if (id.has_value())
-    {
-        bug("the text of a @uuid directive is a UUID: " + std::string(text));
-    }
-    constexpr std::string_view kMark = "  FAILED INVALID_ARGUMENT [";
-    const std::size_t          start = outcome.find(kMark);
-    const std::size_t          end   = outcome.find("]\n", start);
-    if (start == std::string::npos || end == std::string::npos)
-    {
-        bug("no failure in the outcome of a case with a @uuid directive");
-    }
-    outcome.replace(start + kMark.size(), end - start - kMark.size(), ascii(id.error().message));
-    return outcome;
-}
-
 /// Expects that running the element of @p flightDataCase gives what the case says: OpenRocket's
-/// outcome, or QtRocket's own where the case states one with its reason.
+/// outcome, or QtRocket's own where the case states one with its reason. A case that fails
+/// because a text is no UUID has the message of java.util.UUID.fromString() for that text, as
+/// the probe printed it: the handlers pass on what Uuid::javaFromString() gives.
 inline void expectFlightDataCase(const FlightDataCase& flightDataCase)
 {
-    std::string expected(flightDataCase.qtrocket.empty() ? flightDataCase.java
-                                                         : flightDataCase.qtrocket);
-    if (const std::optional<std::string> text = uuidDirective(flightDataCase.setup))
-    {
-        expected = withUuidFailureOf(std::move(expected), *text);
-    }
-    EXPECT_EQ(runFlightDataCase(flightDataCase.setup, flightDataCase.xml), expected)
+    const std::string_view expected =
+        flightDataCase.qtrocket.empty() ? flightDataCase.java : flightDataCase.qtrocket;
+    EXPECT_EQ(runFlightDataCase(flightDataCase.setup, flightDataCase.xml), std::string(expected))
         << flightDataCase.name;
     // A deviation comes with its reason, and only a deviation has one.
     EXPECT_EQ(flightDataCase.qtrocket.empty(), flightDataCase.why.empty()) << flightDataCase.name;
