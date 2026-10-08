@@ -22,7 +22,9 @@ namespace QtRocket
 /// bytes or an Error. ErrorCode::NOT_FOUND means that the source does not exist or cannot be
 /// opened, Java's DecalNotFoundException and FileNotFoundException, which the motor loader takes
 /// silently and for which a decal image reports decalNotFound(); any other code means that the
-/// source exists and could not be read (Java: another IOException).
+/// source exists and could not be read (Java: another IOException). Since all the bytes are
+/// returned at once, the attachments of this port take kMaxAttachmentBytes at most unless they
+/// are made with another limit, so that no file can make a reader hold more.
 ///
 /// Order: by name, as Java's compareTo() (String.compareTo, see Strings::javaCompareTo()).
 ///
@@ -35,6 +37,10 @@ namespace QtRocket
 class Attachment
 {
 public:
+    /// The most bytes an attachment may have: 32 MiB (Java: ZipFileAttachment's
+    /// MAX_ATTACHMENT_BYTES, which there bounds the entries of an archive only).
+    static constexpr std::size_t kMaxAttachmentBytes = std::size_t{32} * 1024 * 1024;
+
     /// An attachment named @p name: the name the document refers to it by, such as
     /// "decals/logo.png".
     explicit Attachment(std::string name);

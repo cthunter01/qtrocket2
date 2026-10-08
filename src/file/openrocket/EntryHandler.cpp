@@ -1,6 +1,7 @@
 #include "QtRocket/file/openrocket/EntryHandler.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "QtRocket/util/BugError.h"
@@ -16,6 +17,17 @@ const Config::List* EntryHandler::getNestedList() const noexcept
         return &m_listHandler->m_list;
     }
     return nullptr;
+}
+
+std::optional<Config::List> EntryHandler::takeNestedList() noexcept
+{
+    if (m_listHandler == nullptr)
+    {
+        return std::nullopt;
+    }
+    std::optional<Config::List> values(std::move(m_listHandler->m_list));
+    m_listHandler.reset();
+    return values;
 }
 
 EntryHandler* EntryHandler::openList(std::unique_ptr<EntryHandler> handler)

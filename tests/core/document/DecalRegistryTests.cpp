@@ -26,8 +26,9 @@
 
 // OpenRocket has no test of DecalRegistry. Every expectation here is a value OpenRocket gave:
 // the scout's LoadProbe.out (tier9-scout-document, "DecalRegistry naming"), and DecalProbe.out of
-// this part (probes/tier9a-document-d2), whose sections the tests name. The four deviations from
-// the Java are tested as such and say so.
+// this part (probes/tier9a-document-d2), whose sections the tests name. The deviations from the
+// Java are tested as such and say so; the largest is what becomes of a removed image (the tests
+// under "removed images"), where the comments give what OpenRocket does instead.
 
 namespace
 {
@@ -460,9 +461,11 @@ TEST(DecalRegistry, TheThousandthCopyHasPlainDigits)
     EXPECT_EQ(registry.size(), 1002U);
     EXPECT_NE(registry.find("decals/a (1000).png"), nullptr);
     EXPECT_EQ(registry.find("decals/a (1,000).png"), nullptr);
-    // A gap is still filled first.
+    // The number of a removed copy is no gap: it is not given out again (see "removed images"
+    // below; Java gives out 500 here).
     EXPECT_TRUE(registry.removeDecal(registry.find("decals/a (500).png").get()));
-    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a (500).png");
+    EXPECT_EQ(registry.size(), 1001U);
+    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a (1002).png");
 }
 
 // -------------------------------------------------------------------------- getDecalImage
@@ -761,6 +764,8 @@ TEST(DecalRegistry, AnEmptyRegistry)
     EXPECT_TRUE(registry.getDecalList().empty());
     EXPECT_EQ(registry.find("decals/a.png"), nullptr);
     EXPECT_EQ(registry.find(""), nullptr);
+    EXPECT_FALSE(registry.isRegistered("decals/a.png"));
+    EXPECT_FALSE(registry.isRegistered(""));
 }
 
 TEST(DecalRegistry, RemoveDecalGoesByTheName)
@@ -788,14 +793,24 @@ TEST(DecalRegistry, RemoveDecalGoesByTheName)
     EXPECT_FALSE(registry.removeDecal(b.get()));
     // The image is still whole for whoever holds it.
     EXPECT_EQ(b->getName(), "b.png");
+    EXPECT_EQ(registry.size(), 7U);
 
-    // "asked again: same image=false": the name is free again.
+    // Deviation. Java: "asked again: same image=false", the name is free again and a new image
+    // takes it. Here the name still means the removed image, which is registered again.
     const std::shared_ptr<DecalImage> again = registry.getDecalImage(entry("b.png"));
-    EXPECT_NE(again, b);
+    EXPECT_EQ(again, b);
     EXPECT_EQ(registry.size(), 8U);
 }
 
-TEST(DecalRegistry, RemovingAnImageFreesItsNumber)
+// ---------------------------------------------------------------------------- removed images
+//
+// Not OpenRocket's. There the registry forgets a removed image and its name is free again, while
+// the components an undo brings back still hold the image object. A rocket/Decal here holds the
+// name, so the registry keeps the image and the name stays taken (see the class comment). The
+// Java lines are those of DecalProbe.out, section F, and of the probes DecalUndo and
+// DecalUndoFile of the review fixes (probes/tier9a-fix-document/out).
+
+TEST(DecalRegistry, ARemovedImageKeepsItsNameAndItsNumber)
 {
     DecalRegistry                     registry;
     const std::shared_ptr<DecalImage> a      = registry.getDecalImage(entry("decals/a.png"));
@@ -803,12 +818,149 @@ TEST(DecalRegistry, RemovingAnImageFreesItsNumber)
     const std::shared_ptr<DecalImage> second = registry.makeUniqueImage(a);
     EXPECT_EQ(second->getName(), "decals/a (2).png");
     EXPECT_TRUE(registry.removeDecal(first.get()));
-    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a (1).png");
-    // Without the original and the copies the name itself is free.
+    // Java: "decals/a (1).png", the number of the removed copy being free again.
+    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a (3).png");
+    // Java: without the original and the copies the name itself is free, "decals/a.png".
     EXPECT_TRUE(registry.removeDecal(a.get()));
     EXPECT_TRUE(registry.removeDecal(second.get()));
-    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a.png");
+    EXPECT_EQ(registry.makeUniqueName("a.png"), "decals/a (3).png");
     EXPECT_TRUE(registry.empty());
+    EXPECT_EQ(registry.size(), 0U);
+    EXPECT_EQ(listOf(registry), Names{});
+}
+
+TEST(DecalRegistry, ARemovedImageIsFoundByItsNameButNotListed)
+{
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> a = registry.getDecalImage(entry("decals/a.png", "first"));
+    static_cast<void>(registry.getDecalImage(entry("decals/b.png")));
+    EXPECT_TRUE(registry.isRegistered("decals/a.png"));
+    EXPECT_FALSE(registry.isRegistered("decals/c.png"));
+
+    EXPECT_TRUE(registry.removeDecal(a.get()));
+    // Java's list after a removal: "list=[]" for the one image there.
+    EXPECT_EQ(listOf(registry), Names{"decals/b.png"});
+    EXPECT_EQ(registry.size(), 1U);
+    EXPECT_FALSE(registry.isRegistered("decals/a.png"));
+    // The image a decal of that name means is still there, with its bytes.
+    EXPECT_EQ(registry.find("decals/a.png"), a);
+    EXPECT_EQ(bytesOrError(*registry.find("decals/a.png")), "bytes first");
+    // The registry keeps it, whoever else lets go of it.
+    EXPECT_EQ(a.use_count(), 2);
+    // "removeDecal(the removed image)=false": there is nothing in the list to take out.
+    EXPECT_FALSE(registry.removeDecal(a.get()));
+    EXPECT_EQ(registry.find("decals/a.png"), a);
+}
+
+TEST(DecalRegistry, AnAttachmentOfTheNameOfARemovedImageRegistersItAgain)
+{
+    // Java (DecalUndo): "another attachment of that name: same image=false ... bytes='first'
+    // list=[decals/a.png] usage(old)=1 usage(new)=0": a second image object of the same name,
+    // with the new attachment's bytes, beside the one the components hold. Here the name means
+    // one image: the first attachment of a name keeps supplying the bytes, as for a name that
+    // was never removed.
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> a = registry.getDecalImage(entry("decals/a.png", "first"));
+    EXPECT_TRUE(registry.removeDecal(a.get()));
+
+    const std::shared_ptr<DecalImage> again =
+        registry.getDecalImage(entry("decals/a.png", "second"));
+    EXPECT_EQ(again, a);
+    EXPECT_EQ(bytesOrError(*again), "bytes first");
+    EXPECT_EQ(listOf(registry), Names{"decals/a.png"});
+    EXPECT_TRUE(registry.isRegistered("decals/a.png"));
+    // Registered again, it can be removed again.
+    EXPECT_TRUE(registry.removeDecal(again.get()));
+    EXPECT_EQ(listOf(registry), Names{});
+}
+
+TEST(DecalRegistry, TheFileOfARemovedImageRegistersItAgainAndAnotherFileGetsANewName)
+{
+    const TempDir                     dir;
+    const std::filesystem::path       x = dir.write("x/a.png", "file-x");
+    const std::filesystem::path       y = dir.write("y/a.png", "file-y");
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> fromX = registry.getDecalImage(file(x));
+    EXPECT_EQ(fromX->getName(), "decals/a.png");
+    EXPECT_TRUE(registry.removeDecal(fromX.get()));
+
+    // Java (DecalUndoFile): "another file of that file name: name=decals/a.png same image=false
+    // bytes='file-y'", a second image named as the removed one. Here the name is taken.
+    const std::shared_ptr<DecalImage> fromY = registry.getDecalImage(file(y));
+    EXPECT_NE(fromY, fromX);
+    EXPECT_EQ(fromY->getName(), "decals/a (1).png");
+    EXPECT_EQ(bytesOrError(*fromY), "bytes file-y");
+    EXPECT_EQ(listOf(registry), Names{"decals/a (1).png"});
+    EXPECT_EQ(registry.find("decals/a.png"), fromX);
+    EXPECT_EQ(bytesOrError(*registry.find("decals/a.png")), "bytes file-x");
+
+    // Java: "the same file again: name=decals/a (1).png same image=false", a third image. Here
+    // the file leads back to its image.
+    EXPECT_EQ(registry.getDecalImage(file(x)), fromX);
+    EXPECT_EQ(listOf(registry), (Names{"decals/a (1).png", "decals/a.png"}));
+    // And once more it is the registered image of that file.
+    EXPECT_EQ(registry.getDecalImage(std::make_shared<FileSystemAttachment>("other name", x)),
+              fromX);
+    EXPECT_EQ(registry.size(), 2U);
+}
+
+TEST(DecalRegistry, ARegisteredImageOfAFileComesBeforeARemovedOne)
+{
+    // A copy shares its original's file. With the original removed, the file leads to the copy
+    // that is registered, and the removed original stays removed.
+    const TempDir                     dir;
+    const std::filesystem::path       y = dir.write("y/b.png", "file-y");
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> original = registry.getDecalImage(file(y));
+    const std::shared_ptr<DecalImage> copy     = registry.makeUniqueImage(original);
+    EXPECT_EQ(copy->getName(), "decals/b (1).png");
+    EXPECT_TRUE(registry.removeDecal(original.get()));
+
+    EXPECT_EQ(registry.getDecalImage(file(y)), copy);
+    EXPECT_EQ(listOf(registry), Names{"decals/b (1).png"});
+    EXPECT_FALSE(registry.isRegistered("decals/b.png"));
+}
+
+TEST(DecalRegistry, AnAttachmentNamedAsARemovedFileImageRegistersThatImageAgain)
+{
+    // As for a registered image ("a non-file attachment named as the file image: same
+    // image=true"), the name decides for an attachment that is no file.
+    const std::filesystem::path       x = std::filesystem::path("tmpdir") / "x" / "a.png";
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> fromFile = registry.getDecalImage(file(x));
+    EXPECT_TRUE(registry.removeDecal(fromFile.get()));
+    EXPECT_EQ(registry.getDecalImage(entry("decals/a.png")), fromFile);
+    EXPECT_EQ(fromFile->getDecalFile(), x);
+}
+
+TEST(DecalRegistry, ACopyOfARemovedImageGetsANewName)
+{
+    // Java: makeUniqueImage() of an image that is no longer registered hands the image itself
+    // back, since nothing has its name (DecalUndoFile: "makeUniqueDecal of a removed image two
+    // components use again: ... name=decals/a.png same image=true list=[]"). Here the name is
+    // still the removed image's, and a copy is another image.
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> a = registry.getDecalImage(entry("decals/a.png", "A"));
+    EXPECT_TRUE(registry.removeDecal(a.get()));
+
+    const std::shared_ptr<DecalImage> copy = registry.makeUniqueImage(a);
+    EXPECT_NE(copy, a);
+    EXPECT_EQ(copy->getName(), "decals/a (1).png");
+    EXPECT_EQ(bytesOrError(*copy), "bytes A");
+    EXPECT_EQ(listOf(registry), Names{"decals/a (1).png"});
+    EXPECT_EQ(registry.find("decals/a.png"), a);
+}
+
+TEST(DecalRegistry, ARemovedNameThePatternDoesNotMatchStaysTakenToo)
+{
+    // "noext" has neither base nor extension: it collides with itself, also when it was removed.
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> noext = registry.getDecalImage(entry("decals/noext"));
+    EXPECT_EQ(registry.makeUniqueName("noext"), " (1).");
+    EXPECT_TRUE(registry.removeDecal(noext.get()));
+    // Java: "decals/noext", the name being free again.
+    EXPECT_EQ(registry.makeUniqueName("noext"), " (1).");
+    EXPECT_EQ(registry.makeUniqueName("other"), "decals/other");
 }
 
 TEST(DecalRegistry, FindGivesTheImageOfAName)
@@ -833,6 +985,8 @@ TEST(DecalRegistry, FindGivesTheImageOfAName)
     EXPECT_EQ(registry.find("decals/a.png "), nullptr);
     // find() registers nothing.
     EXPECT_EQ(registry.size(), 3U);
+    EXPECT_TRUE(registry.isRegistered("decals/a.png"));
+    EXPECT_FALSE(registry.isRegistered("a.png"));
 }
 
 TEST(DecalRegistry, AnImageOutlivesItsRegistry)

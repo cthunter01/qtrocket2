@@ -19,9 +19,11 @@ namespace QtRocket
 ///   else; the content is not trimmed, so " true" is false.
 /// - "string": the content as it is.
 /// - "number": parseNumber(), below; a text that is no number gives no value.
-/// - "list": the values of the list entry the handler opened last
-///   (EntryHandler::getNestedList()); no value when it opened none.
+/// - "list": the values of the list entry the handler opened and is closing now
+///   (EntryHandler::takeNestedList()); no value when it opened none.
 /// - any other type, or none: no value.
+/// Whatever the type, the nested list of the handler is taken: it belongs to the entry that
+/// is being closed, and no later entry may find it (see EntryHandler).
 ///
 /// parseNumber() trims the content (String.trim()) and chooses the type as OpenRocket does, so
 /// that a saver writes the number back as it was read:
@@ -38,6 +40,8 @@ namespace QtRocket
 ///
 /// Deviations from OpenRocket:
 /// - The value is a Config::Value (Java: an Object), which is what both callers store.
+/// - The handler's nested list is moved out of it, where Java hands the list object out and
+///   leaves it with the handler: see EntryHandler for why.
 /// - BigDecimal::parse() takes ASCII digits only. Java's BigDecimal also reads the decimal
 ///   digits of other scripts in the second branch, so that the Arabic-Indic digit one (U+0661)
 ///   is the BigDecimal 1 there and no value here.
@@ -47,9 +51,10 @@ public:
     EntryHelper() = delete;
 
     /// The value of the entry with @p attributes and @p content that @p handler is closing
-    /// (getValueFromEntry()), or nullopt (Java: null) when it has none.
+    /// (getValueFromEntry()), or nullopt (Java: null) when it has none. Call it once for every
+    /// entry that closes: it takes the handler's nested list.
     [[nodiscard]] static std::optional<Config::Value> getValueFromEntry(
-        const EntryHandler& handler, const ElementHandler::Attributes& attributes,
+        EntryHandler& handler, const ElementHandler::Attributes& attributes,
         std::string_view content);
 
     /// The number @p text stands for, with the type OpenRocket gives it (parseNumber(), private

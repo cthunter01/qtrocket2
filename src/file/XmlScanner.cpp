@@ -861,20 +861,38 @@ private:
         }
     }
 
+    /// skipString() for the name of a pseudo attribute (scanPseudoAttributeName()). The entity
+    /// scanner of an XML 1.1 document compares it character by character and gives up at the
+    /// first that differs, so it asks its reader for more characters only when all that are
+    /// left agree with the name; the scanner of XML 1.0 asks first, as skipString() does.
+    bool skipPseudoAttributeName(std::u32string_view name) noexcept
+    {
+        if (m_xml11)
+        {
+            const std::u32string_view rest   = std::u32string_view(m_chars).substr(m_position);
+            const std::size_t         common = std::min(rest.size(), name.size());
+            if (rest.substr(0, common) != name.substr(0, common))
+            {
+                return false;
+            }
+        }
+        return skipString(name);
+    }
+
     /// scanPseudoAttribute(): the name, and the value in @p value.
     [[nodiscard]] std::string_view scanPseudoAttribute(std::u32string& value)
     {
         std::string_view name;
         const char32_t   c = peek();
-        if (c == U'v' && skipString(U"version"))
+        if (c == U'v' && skipPseudoAttributeName(U"version"))
         {
             name = "version";
         }
-        else if (c == U'e' && skipString(U"encoding"))
+        else if (c == U'e' && skipPseudoAttributeName(U"encoding"))
         {
             name = "encoding";
         }
-        else if (c == U's' && skipString(U"standalone"))
+        else if (c == U's' && skipPseudoAttributeName(U"standalone"))
         {
             name = "standalone";
         }

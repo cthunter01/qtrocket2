@@ -21,7 +21,10 @@ namespace QtRocket
 /// base directory, exactly as Java: nothing is checked, so "../x.png" and "/etc/x" name files
 /// outside the base directory (a decal may be anywhere; who must not follow a name out of the
 /// directory checks the name first, as the motor handler checks a digest). The attachment keeps
-/// the name it was asked by, whatever file it resolves to.
+/// the name it was asked by, whatever file it resolves to. What a name leads to is read with
+/// FileSystemAttachment's care: a regular file of at most Attachment::kMaxAttachmentBytes bytes,
+/// so that a name which leads to a device or to a huge file is an Error for its reader and
+/// nothing worse.
 ///
 /// Deviations from OpenRocket:
 /// - Java's constructor refuses a base that is not a directory (IllegalArgumentException "Base

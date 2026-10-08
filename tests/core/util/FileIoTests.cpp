@@ -1,8 +1,10 @@
 #include "QtRocket/util/FileIo.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -70,6 +72,85 @@ TEST(FileIo, ADirectoryIsAnIoErrorOnEveryPlatform)
     const auto text = QtRocket::readTextFile(dir.path());
     ASSERT_FALSE(text.has_value());
     EXPECT_EQ(text.error().code, ErrorCode::IO);
+}
+
+// ---- the bounded read ---------------------------------------------------------------------------
+
+/// What readFile(@p file, @p maxBytes) gives: "bytes <text>", or "<code>: <message>".
+[[nodiscard]] std::string readBounded(const std::filesystem::path& file, std::size_t maxBytes)
+{
+    const auto read = QtRocket::readFile(file, maxBytes);
+    if (read.has_value())
+    {
+        return "bytes " + QtRocket::bytesToString(*read);
+    }
+    return std::string(QtRocket::toString(read.error().code)) + ": " + read.error().message;
+}
+
+TEST(FileIo, ABoundedReadTakesAFileUpToItsLimit)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("five.txt", "12345");
+    EXPECT_EQ(readBounded(file, 100), "bytes 12345");
+    // The limit itself is allowed.
+    EXPECT_EQ(readBounded(file, 5), "bytes 12345");
+    // Java: FileUtils.readBytes(InputStream, int), "Input exceeds maximum size of 4 bytes".
+    EXPECT_EQ(readBounded(file, 4), "IO: Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(readBounded(file, 0), "IO: Input exceeds maximum size of 0 bytes");
+    EXPECT_EQ(readBounded(dir.write("empty.txt", ""), 0), "bytes ");
+}
+
+TEST(FileIo, ABoundedReadFailsAsAnUnboundedOneForWhatIsNoFile)
+{
+    const TempDir               dir;
+    const std::filesystem::path missing = dir.resolve("none.txt");
+    EXPECT_EQ(readBounded(missing, 100),
+              "IO: cannot open '" + QtRocket::pathToUtf8(missing) + "' for reading");
+    EXPECT_EQ(readBounded(dir.path(), 100),
+              "IO: cannot read '" + QtRocket::pathToUtf8(dir.path()) + "': is a directory");
+}
+
+/// A file under @p dir that says it holds a terabyte and holds nothing (a sparse file), or
+/// 64 MiB where the file system does not make one; an empty path when neither can be made.
+[[nodiscard]] std::filesystem::path makeHugeFile(const TempDir& dir)
+{
+    const std::filesystem::path file = dir.write("huge.bin", "x");
+    std::error_code             error;
+    std::filesystem::resize_file(file, std::uintmax_t{1} << 40U, error);
+    if (error)
+    {
+        std::filesystem::resize_file(file, std::uintmax_t{64} * 1024 * 1024, error);
+    }
+    return error ? std::filesystem::path() : file;
+}
+
+// Hostile input: a file that says it is huge is refused by what it says, before a byte is read
+// or reserved. A terabyte that is nothing but a size would otherwise end in std::bad_alloc.
+TEST(FileIo, ABoundedReadRefusesAHugeFileBeforeItReadsIt)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = makeHugeFile(dir);
+    ASSERT_FALSE(file.empty());
+    EXPECT_EQ(readBounded(file, 1024), "IO: Input exceeds maximum size of 1024 bytes");
+}
+
+/// Whether this machine has the device @p device (a POSIX system).
+[[nodiscard]] bool hasDevice(const std::filesystem::path& device)
+{
+    std::error_code error;
+    return std::filesystem::is_character_file(device, error);
+}
+
+// Hostile input: a source that has no size and no end. The read stops one byte beyond the
+// limit.
+TEST(FileIo, ABoundedReadGivesUpOnASourceWithoutEnd)
+{
+    if (!hasDevice("/dev/zero"))
+    {
+        GTEST_SKIP() << "no /dev/zero here";
+    }
+    EXPECT_EQ(readBounded("/dev/zero", 4096), "IO: Input exceeds maximum size of 4096 bytes");
+    EXPECT_EQ(readBounded("/dev/zero", 0), "IO: Input exceeds maximum size of 0 bytes");
 }
 
 TEST(FileIo, WritingIntoAMissingDirectoryIsAnIoError)

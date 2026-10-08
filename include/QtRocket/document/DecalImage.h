@@ -30,9 +30,11 @@ class Attachment;
 /// File.getAbsolutePath(), here std::filesystem::absolute()), even if the attachment could
 /// supply the bytes. A decal file that exists is read as FileSystemAttachment::readLocation()
 /// reads a file, with that function's errors (a directory is NOT_FOUND with its own message,
-/// as it is a FileNotFoundException and no DecalNotFoundException in Java). An attachment that
-/// reports ErrorCode::NOT_FOUND gives decalNotFound() with the attachment's name; any other
-/// Error is passed on unchanged.
+/// as it is a FileNotFoundException and no DecalNotFoundException in Java; a file of more than
+/// Attachment::kMaxAttachmentBytes bytes and one that is no regular file are ErrorCode::IO, a
+/// limit Java does not have: see FileSystemAttachment). An attachment that reports
+/// ErrorCode::NOT_FOUND gives decalNotFound() with the attachment's name; any other Error is
+/// passed on unchanged.
 ///
 /// Change notification (Java: ChangeSource): changed() is emitted by fireChangeEvent() and by
 /// nothing else, no setter included; OpenRocket fires it after an external editor rewrote the

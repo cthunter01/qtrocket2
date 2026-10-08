@@ -1,13 +1,16 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -16,6 +19,7 @@
 #include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/document/StorageOptions.h"
+#include "QtRocket/document/attachments/FileSystemAttachment.h"
 #include "QtRocket/document/events/DocumentChangeEvent.h"
 #include "QtRocket/preferences/DocumentPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
@@ -23,6 +27,7 @@
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
+#include "QtRocket/rocket/Decal.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/NoseCone.h"
@@ -40,6 +45,7 @@
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Signal.h"
+#include "TestTempDir.h"
 #include "document/DocumentTestSupport.h"
 #include "document/TestAttachments.h"
 #include "rocket/TestRockets.h"
@@ -52,7 +58,9 @@
 // the same steps and printed, after each, what the document's listeners heard and the state of
 // its undo history (read by reflection). The comments name the probe and the section:
 // - "DocumentProbe" and "DocumentProbe2": the tier 9 scout's (tier9-scout-document/logs/*.out);
-// - "DocumentProbe3" and "DocumentProbe4": this part's (probes/tier9a-document-d3/logs/*.txt).
+// - "DocumentProbe3" and "DocumentProbe4": this part's (probes/tier9a-document-d3/logs/*.txt);
+// - "Reenter", "DecalUndo", "DecalUndoFile" and "Files": the review fixes'
+//   (probes/tier9a-fix-document/out/*.txt).
 // The expected strings are the lines of those logs. Where this port deviates from OpenRocket by
 // decision, the test says what Java printed.
 //
@@ -73,9 +81,11 @@ using QtRocket::BugError;
 using QtRocket::Color;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::CustomExpression;
+using QtRocket::Decal;
 using QtRocket::DecalImage;
 using QtRocket::DocumentChangeEvent;
 using QtRocket::DocumentPreferences;
+using QtRocket::FileSystemAttachment;
 using QtRocket::FlightConfigurationId;
 using QtRocket::FlightDataType;
 using QtRocket::OpenRocketDocument;
@@ -93,6 +103,7 @@ using QtRocket::Test::RocketEventRecorder;
 using QtRocket::Test::simulateOrFail;
 using QtRocket::Test::state;
 using QtRocket::Test::stateWithConfigs;
+using QtRocket::Test::TempDir;
 using QtRocket::Test::testFcid;
 using QtRocket::Test::undoState;
 
@@ -1062,6 +1073,79 @@ TEST(OpenRocketDocumentFile, AnyOtherFileComesBackAsItWasSet)
     EXPECT_EQ(withoutExtension(d, "x.ork.gz"), std::filesystem::path("x.ork.gz"));
 }
 
+/// @p file as text, "none" without one.
+[[nodiscard]] std::string textOf(const std::optional<std::filesystem::path>& file)
+{
+    return file.has_value() ? QtRocket::pathToUtf8(*file) : "none";
+}
+
+/// @p base followed by @p separators separators and @p name: a path with a run of separators in
+/// it, which operator/ would not make.
+[[nodiscard]] std::filesystem::path withSeparators(std::filesystem::path base, int separators,
+                                                   const std::filesystem::path& name)
+{
+    for (int i = 0; i < separators; i++)
+    {
+        base += std::filesystem::path::preferred_separator;
+    }
+    base += name;
+    return base;
+}
+
+/// getFile() and getFileNoExtension() of a document whose file is @p file, as the probe prints
+/// them: "file='<file>' noext='<file without extension>'".
+[[nodiscard]] std::string fileAndNoExtension(OpenRocketDocument&          document,
+                                             const std::filesystem::path& file)
+{
+    document.setFile(file);
+    return std::format("file='{}' noext='{}'", textOf(document.getFile()),
+                       textOf(document.getFileNoExtension()));
+}
+
+/// The same for the file @p file and the cut file @p noExtension, as they are expected.
+[[nodiscard]] std::string expectedFiles(const std::filesystem::path& file,
+                                        const std::filesystem::path& noExtension)
+{
+    return std::format("file='{}' noext='{}'", QtRocket::pathToUtf8(file),
+                       QtRocket::pathToUtf8(noExtension));
+}
+
+// Files: "'/a/b.ork/' -> file='/a/b.ork' noext='/a/b'", "'/a//b.ork' -> file='/a/b.ork'
+// noext='/a/b'" and the lines after them. Java's File drops a separator at the end and takes a
+// run of separators as one when it is made; std::filesystem::path keeps both, so setFile() does
+// what File does. The probe's "/a" is "a" under the current directory here.
+TEST(OpenRocketDocumentFile, TheFileIsKeptAsJavasFileKeepsIt)
+{
+    const AlphaDocument         alpha;
+    OpenRocketDocument&         d    = alpha.document();
+    const std::filesystem::path cwd  = std::filesystem::current_path();
+    const std::filesystem::path base = cwd / "a";
+
+    EXPECT_EQ(fileAndNoExtension(d, base / "b.ork" / ""),
+              expectedFiles(base / "b.ork", base / "b"));
+    EXPECT_EQ(fileAndNoExtension(d, withSeparators(base, 2, "b.ork")),
+              expectedFiles(base / "b.ork", base / "b"));
+    // "'/a///b//x.ork//' -> file='/a/b/x.ork' noext='/a/b/x'"
+    EXPECT_EQ(fileAndNoExtension(d, withSeparators(withSeparators(base, 3, "b"), 2, "x.ork") / ""),
+              expectedFiles(base / "b" / "x.ork", base / "b" / "x"));
+    // "'/a/b/' -> file='/a/b' noext='/a/b'"
+    EXPECT_EQ(fileAndNoExtension(d, base / "b" / ""), expectedFiles(base / "b", base / "b"));
+    // "'a//b.ork' -> file='a/b.ork' noext='<cwd>/a/b'": a relative file stays relative.
+    EXPECT_EQ(fileAndNoExtension(d, withSeparators("a", 2, "b.ork")),
+              expectedFiles(std::filesystem::path("a") / "b.ork", cwd / "a" / "b"));
+    // "'sub/x.txt/' -> file='sub/x.txt' noext='sub/x.txt'"
+    EXPECT_EQ(fileAndNoExtension(d, std::filesystem::path("sub") / "x.txt" / ""),
+              expectedFiles(std::filesystem::path("sub") / "x.txt",
+                            std::filesystem::path("sub") / "x.txt"));
+    // "'/a/./b.ork' -> file='/a/./b.ork'": nothing else is changed.
+    d.setFile(base / "." / "b.ork");
+    EXPECT_EQ(textOf(d.getFile()), QtRocket::pathToUtf8(base / "." / "b.ork"));
+    // "'' -> file='' noext=''" and "'/' -> file='/' noext='/'"
+    EXPECT_EQ(fileAndNoExtension(d, std::filesystem::path()), "file='' noext=''");
+    EXPECT_EQ(fileAndNoExtension(d, cwd.root_path()),
+              expectedFiles(cwd.root_path(), cwd.root_path()));
+}
+
 // ============================================================================== saved or not
 
 // DocumentProbe3, section K ("clearUndo in a dirty state; setSaved; undo to the saved state"),
@@ -1559,6 +1643,469 @@ TEST(OpenRocketDocumentSlots, AFailureWhileAStateIsLoadedLeavesTheUndoMode)
     EXPECT_EQ(events.take(), "U D(Simulation)");
 }
 
+/// Runs an action once, when a document first passes on an event of its rocket itself (the
+/// event of an undo or redo): the listener of the probe Reenter.
+class OnFirstRocketEvent
+{
+public:
+    OnFirstRocketEvent(OpenRocketDocument& document, std::function<void()> action)
+      : m_action(std::move(action)),
+        m_connection(
+            document.documentChanged().connect([this, &document](const DocumentChangeEvent& event) {
+                if (event.getComponent() == &document.getRocket() && !m_done)
+                {
+                    m_done = true;
+                    m_action();
+                }
+            }))
+    {
+    }
+
+    [[nodiscard]] bool done() const noexcept { return m_done; }
+
+private:
+    std::function<void()>                                          m_action;
+    bool                                                           m_done{false};
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+/// The undo errors a document reports, in order.
+class UndoErrors
+{
+public:
+    explicit UndoErrors(OpenRocketDocument& document)
+      : m_connection(document.undoErrorOccurred().connect(
+            [this](const std::string& text) { m_texts.push_back(text); }))
+    {
+    }
+
+    [[nodiscard]] const std::vector<std::string>& texts() const noexcept { return m_texts; }
+
+private:
+    std::vector<std::string>                               m_texts;
+    QtRocket::Signal<const std::string&>::ScopedConnection m_connection;
+};
+
+/// The fixture of the probe Reenter: a simulation "A" in the list, an undo position, then the
+/// nose cone and the simulation renamed. An undo would put both names back.
+class OpenRocketDocumentReenter : public ::testing::Test
+{
+protected:
+    OpenRocketDocumentReenter() : m_simulation(m_alpha.newSimulation("A", testFcid(0)))
+    {
+        OpenRocketDocument& d = m_alpha.document();
+        d.addSimulation(m_simulation);
+        d.clearUndo();
+        d.addUndoPosition("Edit");
+        m_alpha.nose().setName("edited");
+        m_simulation->setName("A2");
+    }
+
+    [[nodiscard]] OpenRocketDocument& document() const noexcept { return m_alpha.document(); }
+
+    /// What the probe prints after the undo: "nose=<name> sim=<name> undoAvail=<bool>
+    /// redoAvail=<bool>".
+    [[nodiscard]] std::string outcome() const
+    {
+        return std::format("nose={} sim={} undoAvail={} redoAvail={}", m_alpha.nose().getName(),
+                           m_simulation->getName(), document().isUndoAvailable(),
+                           document().isRedoAvailable());
+    }
+
+private:
+    AlphaDocument               m_alpha;
+    std::shared_ptr<Simulation> m_simulation;
+};
+
+// Reenter: "clearUndo in the rocket's undo event: nose=Nose Cone sim=A2 undoAvail=false
+// redoAvail=false". Java asks its history for the simulations after the rocket is loaded, so
+// they are loaded from the state the slot made, which holds them as they are.
+TEST_F(OpenRocketDocumentReenter, AfterASlotClearedTheHistoryTheSimulationsStayAsTheyAre)
+{
+    OpenRocketDocument&      d = document();
+    const OnFirstRocketEvent clearing(d, [&d] { d.clearUndo(); });
+
+    d.undo();
+
+    ASSERT_TRUE(clearing.done());
+    EXPECT_EQ(outcome(), "nose=Nose Cone sim=A2 undoAvail=false redoAvail=false");
+    EXPECT_EQ(undoState(d), "pos=0 hist=1 desc=[null] next=Edit stored=null");
+}
+
+// Reenter: "ERR(Undo/Redo error: undo position inconsistency)" and "addUndoPosition in the
+// rocket's undo event: nose=Nose Cone sim=A2 undoAvail=true redoAvail=false".
+TEST_F(OpenRocketDocumentReenter, AfterASlotAddedAnUndoPositionTheSimulationsStayAsTheyAre)
+{
+    OpenRocketDocument&      d = document();
+    const UndoErrors         errors(d);
+    const OnFirstRocketEvent adding(d, [&d] { d.addUndoPosition("Inside"); });
+
+    d.undo();
+
+    ASSERT_TRUE(adding.done());
+    EXPECT_EQ(errors.texts(),
+              std::vector<std::string>{"Undo/Redo error: undo position inconsistency"});
+    EXPECT_EQ(outcome(), "nose=Nose Cone sim=A2 undoAvail=true redoAvail=false");
+    EXPECT_EQ(undoState(d), "pos=1 hist=2 desc=[Edit, null] next=Inside stored=null");
+}
+
+// ---- undo() and redo() from a slot ---------------------------------------------------------
+//
+// Not OpenRocket's, where a listener may undo while the rocket's event is delivered: the
+// replaced components are kept by the collector there. Here an undo frees them, so the call
+// is refused with a BugError before it changes anything, and whoever fired the event, the
+// later slots and the document go on with components that are still there. These tests are
+// the cases that read freed memory before (they run under the asan preset too).
+
+/// Calls undo() or redo() of a document once, when the document first passes on an event of a
+/// component, and keeps the text of the BugError the call ends in.
+class UndoInSlot
+{
+public:
+    enum class Call
+    {
+        UNDO,
+        REDO,
+    };
+
+    explicit UndoInSlot(OpenRocketDocument& document, Call call = Call::UNDO)
+      : m_call(call),
+        m_connection(
+            document.documentChanged().connect([this, &document](const DocumentChangeEvent& event) {
+                if (event.getComponent() != nullptr && !m_done)
+                {
+                    m_done = true;
+                    attempt(document);
+                }
+            }))
+    {
+    }
+
+    [[nodiscard]] bool               done() const noexcept { return m_done; }
+    [[nodiscard]] const std::string& refusal() const noexcept { return m_refusal; }
+
+private:
+    void attempt(OpenRocketDocument& document)
+    {
+        try
+        {
+            if (m_call == Call::UNDO)
+            {
+                document.undo();
+            }
+            else
+            {
+                document.redo();
+            }
+            m_refusal = "not refused";
+        }
+        catch (const BugError& error)
+        {
+            m_refusal = error.what();
+        }
+    }
+
+    Call                                                           m_call;
+    bool                                                           m_done{false};
+    std::string                                                    m_refusal;
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+/// Appends the name of the component of every event a document passes on.
+class ComponentNames
+{
+public:
+    explicit ComponentNames(OpenRocketDocument& document)
+      : m_connection(document.documentChanged().connect([this](const DocumentChangeEvent& event) {
+            if (const QtRocket::RocketComponent* const component = event.getComponent())
+            {
+                m_names += component->getName() + ";";
+            }
+        }))
+    {
+    }
+
+    [[nodiscard]] const std::string& names() const noexcept { return m_names; }
+
+private:
+    std::string                                                    m_names;
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+constexpr std::string_view kUndoRefused =
+    "OpenRocketDocument::undo() was called from a slot while the document delivers an event of "
+    "the rocket or loads a state";
+constexpr std::string_view kRedoRefused =
+    "OpenRocketDocument::redo() was called from a slot while the document delivers an event of "
+    "the rocket or loads a state";
+
+TEST(OpenRocketDocumentReentrantUndo, IsRefusedInASlotOfARocketEvent)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d = alpha.document();
+    d.addUndoPosition("a");
+    alpha.body().setLength(0.5);
+    d.addUndoPosition("b");
+    const UndoInSlot     undoing(d);
+    const ComponentNames reading(d);
+    const std::string    before = undoState(d);
+
+    alpha.body().setLength(0.7);
+
+    ASSERT_TRUE(undoing.done());
+    EXPECT_TRUE(undoing.refusal().contains(kUndoRefused)) << undoing.refusal();
+    // The second slot and the second emission read the component the event names.
+    EXPECT_EQ(reading.names(), "Body Tube;Body Tube;");
+    // The edit went through as if nobody had tried: nothing was undone.
+    EXPECT_EQ(alpha.body().getLength(), 0.7);
+    EXPECT_EQ(before, "pos=1 hist=2 desc=[a, null] next=b stored=null");
+    EXPECT_EQ(undoState(d), "pos=1 hist=2 desc=[a, b] next=b stored=null");
+    // Outside the event the undo is the caller's again.
+    d.undo();
+    EXPECT_EQ(alpha.body().getLength(), 0.5);
+}
+
+TEST(OpenRocketDocumentReentrantUndo, RedoIsRefusedToo)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d = alpha.document();
+    d.addUndoPosition("a");
+    alpha.body().setLength(0.5);
+    d.undo();
+    ASSERT_TRUE(d.isRedoAvailable());
+    const UndoInSlot redoing(d, UndoInSlot::Call::REDO);
+
+    alpha.nose().setName("renamed");
+
+    ASSERT_TRUE(redoing.done());
+    EXPECT_TRUE(redoing.refusal().contains(kRedoRefused)) << redoing.refusal();
+    EXPECT_EQ(alpha.nose().getName(), "renamed");
+}
+
+/// Calls undo() of a document whenever the document passes on an event, and catches nothing.
+class UndoOnEveryEvent
+{
+public:
+    explicit UndoOnEveryEvent(OpenRocketDocument& document)
+      : m_connection(document.documentChanged().connect(
+            [&document](const DocumentChangeEvent& /*event*/) { document.undo(); }))
+    {
+    }
+
+private:
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+/// Notes whether a document passed on an event of its rocket itself: the event of an undo or
+/// redo.
+class RocketEventSeen
+{
+public:
+    explicit RocketEventSeen(OpenRocketDocument& document)
+      : m_connection(
+            document.documentChanged().connect([this, &document](const DocumentChangeEvent& event) {
+                m_seen = m_seen || event.getComponent() == &document.getRocket();
+            }))
+    {
+    }
+
+    [[nodiscard]] bool seen() const noexcept { return m_seen; }
+
+private:
+    bool                                                           m_seen{false};
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+// Without a slot that catches it, the BugError leaves the call that fired the event.
+TEST(OpenRocketDocumentReentrantUndo, TheBugErrorLeavesTheSetterWhenNoSlotCatchesIt)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d = alpha.document();
+    d.addUndoPosition("a");
+    alpha.body().setLength(0.5);
+    d.addUndoPosition("b");
+    const RocketEventSeen  undone(d);
+    const UndoOnEveryEvent undoing(d);
+
+    EXPECT_THROW(alpha.body().setLength(0.7), BugError);
+    // No state was loaded.
+    EXPECT_FALSE(undone.seen());
+}
+
+/// In the rocket's event of an undo: tries to undo once more and then changes an option of a
+/// simulation, as a careless slot might. The nested undo used to end the undo mode of the
+/// outer one, and the change then replaced the state the outer one was still loading.
+class NestedUndoAndEdit
+{
+public:
+    NestedUndoAndEdit(OpenRocketDocument& document, std::shared_ptr<Simulation> simulation)
+      : m_simulation(std::move(simulation)),
+        m_connection(
+            document.documentChanged().connect([this, &document](const DocumentChangeEvent& event) {
+                if (event.getComponent() != nullptr && !m_done)
+                {
+                    m_done = true;
+                    act(document);
+                }
+            }))
+    {
+    }
+
+    [[nodiscard]] bool done() const noexcept { return m_done; }
+    /// Whether the nested undo() ended in a BugError.
+    [[nodiscard]] bool refused() const noexcept { return m_refused; }
+
+private:
+    void act(OpenRocketDocument& document)
+    {
+        try
+        {
+            document.undo();
+        }
+        catch (const BugError&)
+        {
+            m_refused = true;
+        }
+        m_simulation->getOptions().setLaunchRodLength(5.0);
+    }
+
+    std::shared_ptr<Simulation>                                    m_simulation;
+    bool                                                           m_done{false};
+    bool                                                           m_refused{false};
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+TEST(OpenRocketDocumentReentrantUndo, IsRefusedWhileAStateIsLoadedAndTheUndoModeStays)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d = alpha.document();
+    const std::shared_ptr<Simulation> a = alpha.newSimulation("A", testFcid(0));
+    d.addSimulation(a);
+    d.clearUndo();
+    d.addUndoPosition("one");
+    a->getOptions().setLaunchRodLength(1.0);
+    const NestedUndoAndEdit nesting(d, a);
+
+    d.undo();
+
+    ASSERT_TRUE(nesting.done());
+    EXPECT_TRUE(nesting.refused());
+    // The state was loaded to its end: the simulation has the rod length of the state, whatever
+    // the slot set meanwhile, and the history is the one of a single undo.
+    EXPECT_EQ(a->getOptions().getLaunchRodLength(), 0.0);
+    EXPECT_EQ(undoState(d), "pos=0 hist=2 desc=[one, null] next=one stored=null");
+    EXPECT_TRUE(d.isRedoAvailable());
+}
+
+// ---- a slot of the undo error -----------------------------------------------------------------
+
+/// Clears the undo history of a document when it reports an undo error: the obvious way for an
+/// application to recover from one.
+class ClearUndoOnError
+{
+public:
+    explicit ClearUndoOnError(OpenRocketDocument& document)
+      : m_connection(document.undoErrorOccurred().connect(
+            [&document](const std::string& /*text*/) { document.clearUndo(); }))
+    {
+    }
+
+private:
+    QtRocket::Signal<const std::string&>::ScopedConnection m_connection;
+};
+
+// Not Java's, whose error handler is no listener of the document. undo() used to carry on with
+// the position it had tested before the error went out: it moved back from position 0 of the
+// one state the slot had left and read beyond the history.
+TEST(OpenRocketDocumentUndoErrors, ASlotOfTheErrorMayClearTheHistoryBeforeAnUndo)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d = alpha.document();
+    d.addUndoPosition("a");
+    alpha.body().setLength(0.5);
+    d.addUndoPosition("b");
+    d.startUndo("c");
+    ASSERT_EQ(undoState(d), "pos=1 hist=2 desc=[a, null] next=c stored=b");
+    const ClearUndoOnError clearing(d);
+    DocumentRecorder       events(d);
+
+    d.undo();
+
+    // The U of the slot's clearUndo(), the error, and the U of an undo that found nothing left
+    // to undo.
+    EXPECT_EQ(events.take(), "U ERR(Undo/Redo error: undo() called with storedDescription=b) U");
+    EXPECT_EQ(undoState(d), "pos=0 hist=1 desc=[null] next=c stored=b");
+    EXPECT_FALSE(d.isUndoAvailable());
+    EXPECT_EQ(alpha.body().getLength(), 0.5);
+}
+
+TEST(OpenRocketDocumentUndoErrors, ASlotOfTheErrorMayClearTheHistoryBeforeARedo)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d        = alpha.document();
+    const double        original = alpha.body().getLength();
+    d.addUndoPosition("a");
+    alpha.body().setLength(0.5);
+    d.undo();
+    d.startUndo("c");
+    ASSERT_EQ(undoState(d), "pos=0 hist=2 desc=[a, null] next=c stored=a");
+    const ClearUndoOnError clearing(d);
+    DocumentRecorder       events(d);
+
+    d.redo();
+
+    EXPECT_EQ(events.take(), "U ERR(Undo/Redo error: redo() called with storedDescription=a) U");
+    EXPECT_EQ(undoState(d), "pos=0 hist=1 desc=[null] next=c stored=a");
+    EXPECT_FALSE(d.isRedoAvailable());
+    EXPECT_EQ(alpha.body().getLength(), original);
+}
+
+// ---- other slots that change the document ------------------------------------------------------
+
+/// Removes a simulation from a document's list when the document tells of its change.
+class RemoveChangedSimulation
+{
+public:
+    explicit RemoveChangedSimulation(OpenRocketDocument& document)
+      : m_connection(
+            document.documentChanged().connect([&document](const DocumentChangeEvent& event) {
+                Simulation* const simulation = event.getSimulation();
+                if (simulation != nullptr && document.getSimulationIndex(*simulation).has_value())
+                {
+                    document.removeSimulation(*simulation);
+                }
+            }))
+    {
+    }
+
+private:
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+// A slot may take the simulation it is told of out of the list when somebody else holds it (the
+// header's rule): the simulation goes on telling its own listeners and can still be run.
+TEST(OpenRocketDocumentSlots, ASlotMayRemoveTheSimulationItIsToldOf)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d = alpha.document();
+    const std::shared_ptr<Simulation> a = alpha.newSimulation("A", testFcid(0));
+    d.addSimulation(a);
+    d.clearUndo();
+    const RemoveChangedSimulation removing(d);
+    DocumentRecorder              events(d);
+
+    a->setName("gone");
+
+    EXPECT_EQ(d.getSimulationCount(), 0U);
+    // The slot's removal: U S(Simulation); then the recorder hears the change that started it.
+    EXPECT_EQ(events.take(), "U U S(Simulation) D(Simulation)");
+    // Out of the list, it is no longer heard.
+    a->setName("still mine");
+    EXPECT_EQ(events.take(), "");
+    simulateOrFail(*a);
+    EXPECT_EQ(a->getName(), "still mine");
+}
+
 // ============================================================= preferences, saving, fire
 
 // DocumentProbe3, section F ("document preferences, saving event, fire functions").
@@ -1928,7 +2475,9 @@ TEST_F(OpenRocketDocumentDecalEvents, RemovingAnImageTakesItOffTheComponents)
     EXPECT_EQ(events.lastEvent().value_or(DocumentChangeEvent{}).getDocument(), &d);
     EXPECT_TRUE(d.isSaved());
     EXPECT_EQ(decalList(d), "[decals/a.png]");
-    EXPECT_EQ(d.findDecalImage("decals/b.png"), nullptr);
+    // Out of the list, the image is still what its name means (Java: a Decal that an undo
+    // brought back would still hold the object).
+    EXPECT_EQ(d.findDecalImage("decals/b.png"), other());
 
     // The image in use: every component that loses it changes, then the document's event.
     EXPECT_TRUE(d.removeDecal(img().get()));
@@ -1977,22 +2526,207 @@ TEST_F(OpenRocketDocumentDecalEvents, TheNameOfAnImageDecidesNotTheObject)
     EXPECT_EQ(decalList(elsewhere.document()), "[decals/a.png]");
 }
 
-// An image that is registered again under the name of a removed one is heard again.
+// A removed image that is registered again is heard again. Deviation: in Java an attachment of
+// the name of a removed image gives a new image object under that name; here the name still
+// means the removed image, which comes back (see DecalRegistry).
 TEST_F(OpenRocketDocumentDecalEvents, AnImageRegisteredAgainIsHeardAgain)
 {
     OpenRocketDocument& d = document();
     ASSERT_TRUE(d.removeDecal(img().get()));
-
-    const std::shared_ptr<DecalImage> again = d.getDecalImage(entry("decals/a.png"));
-    ASSERT_NE(again, img());
-    alpha().nose().setAppearance(appearanceWith(*again));
+    alpha().nose().setAppearance(appearanceWith(*img()));
     RocketEventRecorder rocketEvents(alpha().rocket());
 
-    again->fireChangeEvent();
-    EXPECT_EQ(rocketEvents.take(), "C[NoseCone,texture,nonfunctional]");
-    // The removed image of that name stays silent.
+    // Removed, it is silent although a component uses it.
     img()->fireChangeEvent();
     EXPECT_EQ(rocketEvents.take(), "");
+
+    const std::shared_ptr<DecalImage> again = d.getDecalImage(entry("decals/a.png"));
+    ASSERT_EQ(again, img());
+    EXPECT_EQ(decalList(d), "[decals/a.png, decals/b.png]");
+    again->fireChangeEvent();
+    EXPECT_EQ(rocketEvents.take(), "C[NoseCone,texture,nonfunctional]");
+    // Once per change, however often the image was registered.
+    static_cast<void>(d.getDecalImage(entry("decals/a.png")));
+    again->fireChangeEvent();
+    EXPECT_EQ(rocketEvents.take(), "C[NoseCone,texture,nonfunctional]");
+}
+
+// ---- a removal and its undo -------------------------------------------------------------------
+//
+// Swing's "delete decal" calls removeDecal() without an undo position of its own, so the
+// cleared appearances are an ordinary undo step and Ctrl+Z after it brings the decals back. In
+// Java the Decal holds the image object, so the image and its bytes come back with it; here a
+// Decal holds the name, and the registry keeps a removed image under its name.
+
+/// The decal of the nose cone as the probes DecalUndo and DecalUndoFile print it: "<image name>
+/// bytes='<the image's bytes>'", "none" without a decal, and "<image name> without an image"
+/// when the document knows no image of the name.
+[[nodiscard]] std::string noseTexture(const AlphaDocument& alpha)
+{
+    const std::optional<Appearance>& appearance = alpha.nose().getAppearance();
+    if (!appearance.has_value())
+    {
+        return "none";
+    }
+    const std::optional<Decal>& texture = appearance->getTexture();
+    if (!texture.has_value())
+    {
+        return "none";
+    }
+    const std::string                 name  = texture->getImageName();
+    const std::shared_ptr<DecalImage> image = alpha.document().findDecalImage(name);
+    if (image == nullptr)
+    {
+        return name + " without an image";
+    }
+    const auto bytes = image->getBytes();
+    return std::format("{} bytes='{}'", name,
+                       bytes.has_value() ? QtRocket::bytesToString(*bytes) : "unreadable");
+}
+
+// DecalUndo.
+TEST(OpenRocketDocumentDecals, AnUndoOfARemovalBringsTheImageBackWithItsBytes)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d = alpha.document();
+    const std::shared_ptr<DecalImage> image =
+        d.getDecalImage(std::make_shared<MemoryAttachment>("decals/a.png", "first"));
+    alpha.nose().setAppearance(appearanceWith(*image));
+    d.clearUndo();
+    // "start: nose texture=decals/a.png bytes='first' list=[decals/a.png] usage=1"
+    EXPECT_EQ(noseTexture(alpha), "decals/a.png bytes='first'");
+    EXPECT_EQ(decalList(d), "[decals/a.png]");
+    EXPECT_EQ(d.countDecalUsage(*image), 1);
+
+    // "removeDecal=true", "removed: nose texture=none list=[] usage=0"
+    d.addUndoPosition("Remove decal");
+    EXPECT_TRUE(d.removeDecal(image.get()));
+    EXPECT_EQ(noseTexture(alpha), "none");
+    EXPECT_EQ(decalList(d), "[]");
+    EXPECT_EQ(d.countDecalUsage(*image), 0);
+
+    // "undone: nose texture=decals/a.png bytes='first' list=[] usage=1"
+    d.undo();
+    EXPECT_EQ(noseTexture(alpha), "decals/a.png bytes='first'");
+    EXPECT_EQ(d.findDecalImage("decals/a.png"), image);
+    EXPECT_EQ(decalList(d), "[]");
+    EXPECT_EQ(d.countDecalUsage(*image), 1);
+
+    // Deviation. Java: "another attachment of that name: same image=false nose
+    // texture=decals/a.png bytes='first' list=[decals/a.png] usage(old)=1 usage(new)=0", two
+    // image objects of one name. Here the name means the image the nose cone uses.
+    const std::shared_ptr<DecalImage> second =
+        d.getDecalImage(std::make_shared<MemoryAttachment>("decals/a.png", "second"));
+    EXPECT_EQ(second, image);
+    EXPECT_EQ(noseTexture(alpha), "decals/a.png bytes='first'");
+    EXPECT_EQ(decalList(d), "[decals/a.png]");
+    EXPECT_EQ(d.countDecalUsage(*second), 1);
+
+    // "redone: nose texture=none list=[decals/a.png]"
+    d.redo();
+    EXPECT_EQ(noseTexture(alpha), "none");
+    EXPECT_EQ(decalList(d), "[decals/a.png]");
+}
+
+/// The fixture of DecalUndoFile: the files x/a.png and y/a.png, and a document whose nose cone
+/// has the image of x/a.png, which was removed and whose removal was undone.
+class OpenRocketDocumentDecalUndo : public ::testing::Test
+{
+protected:
+    OpenRocketDocumentDecalUndo()
+      : m_x(m_dir.write("x/a.png", "file-x")),
+        m_y(m_dir.write("y/a.png", "file-y")),
+        m_image(document().getDecalImage(std::make_shared<FileSystemAttachment>("n", m_x)))
+    {
+        m_alpha.nose().setAppearance(appearanceWith(*m_image));
+        document().clearUndo();
+        document().addUndoPosition("Remove decal");
+        EXPECT_TRUE(document().removeDecal(m_image.get()));
+        document().undo();
+    }
+
+    [[nodiscard]] const AlphaDocument& alpha() const noexcept { return m_alpha; }
+    [[nodiscard]] OpenRocketDocument&  document() const noexcept { return m_alpha.document(); }
+    [[nodiscard]] const std::shared_ptr<DecalImage>& image() const noexcept { return m_image; }
+
+    /// The image the document gives for the file x/a.png or y/a.png.
+    [[nodiscard]] std::shared_ptr<DecalImage> imageOfX() const
+    {
+        return document().getDecalImage(std::make_shared<FileSystemAttachment>("n", m_x));
+    }
+    [[nodiscard]] std::shared_ptr<DecalImage> imageOfY() const
+    {
+        return document().getDecalImage(std::make_shared<FileSystemAttachment>("n", m_y));
+    }
+
+private:
+    TempDir                     m_dir;
+    std::filesystem::path       m_x;
+    std::filesystem::path       m_y;
+    AlphaDocument               m_alpha;
+    std::shared_ptr<DecalImage> m_image;
+};
+
+// DecalUndoFile.
+TEST_F(OpenRocketDocumentDecalUndo, AnotherFileOfTheSameNameIsAnotherImageAndTheSameFileTheSame)
+{
+    OpenRocketDocument& d = document();
+    // "undone: nose texture=decals/a.png bytes='file-x' list=[] usage=1"
+    EXPECT_EQ(noseTexture(alpha()), "decals/a.png bytes='file-x'");
+    EXPECT_EQ(decalList(d), "[]");
+    EXPECT_EQ(d.countDecalUsage(*image()), 1);
+
+    // Deviation. Java: "another file of that file name: name=decals/a.png same image=false
+    // bytes='file-y' nose texture=decals/a.png bytes='file-x' list=[decals/a.png] usage(old)=1
+    // usage(new)=0": two images of one name, told apart by the objects only (a save would write
+    // one of them). Here the other file's image gets a name of its own.
+    const std::shared_ptr<DecalImage> other = imageOfY();
+    ASSERT_NE(other, nullptr);
+    EXPECT_NE(other, image());
+    EXPECT_EQ(other->getName(), "decals/a (1).png");
+    EXPECT_EQ(QtRocket::bytesToString(other->getBytes().value_or(std::vector<std::byte>{})),
+              "file-y");
+    EXPECT_EQ(noseTexture(alpha()), "decals/a.png bytes='file-x'");
+    EXPECT_EQ(decalList(d), "[decals/a (1).png]");
+    EXPECT_EQ(d.countDecalUsage(*image()), 1);
+    EXPECT_EQ(d.countDecalUsage(*other), 0);
+
+    // Deviation. Java: "the same file again: name=decals/a (1).png same image=false same as
+    // other=false bytes='file-x' list=[decals/a (1).png, decals/a.png]", a third image. Here
+    // the file leads back to the image the nose cone uses.
+    EXPECT_EQ(imageOfX(), image());
+    EXPECT_EQ(decalList(d), "[decals/a (1).png, decals/a.png]");
+}
+
+TEST_F(OpenRocketDocumentDecalUndo, TheRemovedImageIsHeardOnceItIsRegisteredAgain)
+{
+    RocketEventRecorder rocketEvents(alpha().rocket());
+    // Not registered: nothing fires (in Java neither, for the components an undo made).
+    image()->fireChangeEvent();
+    EXPECT_EQ(rocketEvents.take(), "");
+
+    EXPECT_EQ(imageOfX(), image());
+    image()->fireChangeEvent();
+    EXPECT_EQ(rocketEvents.take(), "C[NoseCone,texture,nonfunctional]");
+}
+
+// DecalUndoFile: "makeUniqueDecal of a removed image two components use again: usage=2
+// name=decals/a.png same image=true list=[]". Deviation: Java's registry has forgotten the name,
+// finds nothing to rename and hands the image itself back, so the two components go on sharing
+// it; here the name is still the image's and the copy is another image.
+TEST_F(OpenRocketDocumentDecalUndo, AUniqueCopyOfTheRemovedImageGetsANewName)
+{
+    OpenRocketDocument& d = document();
+    alpha().body().setAppearance(appearanceWith(*image()));
+    EXPECT_EQ(d.countDecalUsage(*image()), 2);
+
+    const std::shared_ptr<DecalImage> unique = d.makeUniqueDecal(image());
+    ASSERT_NE(unique, nullptr);
+    EXPECT_NE(unique, image());
+    EXPECT_EQ(unique->getName(), "decals/a (1).png");
+    EXPECT_EQ(decalList(d), "[decals/a (1).png]");
+    EXPECT_EQ(QtRocket::bytesToString(unique->getBytes().value_or(std::vector<std::byte>{})),
+              "file-x");
 }
 
 // An image may outlive the document that registered it; it then has nobody to tell.
@@ -2006,6 +2740,123 @@ TEST(OpenRocketDocumentDecals, AnImageMayOutliveItsDocument)
     }
     img->fireChangeEvent();
     EXPECT_EQ(img->getName(), "decals/a.png");
+}
+
+// The two cases of a refused undo() (see OpenRocketDocumentReentrantUndo above) in which the
+// document itself walks the components while their events go out.
+
+TEST(OpenRocketDocumentReentrantUndo, IsRefusedWhileAChangedDecalImageTellsTheComponents)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d   = alpha.document();
+    const std::shared_ptr<DecalImage> img = d.getDecalImage(entry("decals/a.png"));
+    d.addUndoPosition("decal");
+    alpha.nose().setAppearance(appearanceWith(*img));
+    alpha.body().setAppearance(appearanceWith(*img));
+    d.addUndoPosition("more");
+    alpha.body().setLength(0.3);
+    const UndoInSlot    undoing(d);
+    RocketEventRecorder rocketEvents(alpha.rocket());
+
+    img->fireChangeEvent();
+
+    ASSERT_TRUE(undoing.done());
+    EXPECT_TRUE(undoing.refusal().contains(kUndoRefused)) << undoing.refusal();
+    // Every component that uses the image was told, the one after the refused undo too.
+    EXPECT_EQ(rocketEvents.take(),
+              "C[NoseCone,texture,nonfunctional] C[BodyTube,texture,nonfunctional]");
+    EXPECT_EQ(alpha.body().getLength(), 0.3);
+}
+
+TEST(OpenRocketDocumentReentrantUndo, IsRefusedWhileRemoveDecalClearsTheComponents)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d   = alpha.document();
+    const std::shared_ptr<DecalImage> img = d.getDecalImage(entry("decals/a.png"));
+    d.addUndoPosition("decal");
+    alpha.nose().setAppearance(appearanceWith(*img));
+    alpha.body().setAppearance(appearanceWith(*img));
+    d.addUndoPosition("remove");
+    const UndoInSlot undoing(d);
+
+    EXPECT_TRUE(d.removeDecal(img.get()));
+
+    ASSERT_TRUE(undoing.done());
+    EXPECT_TRUE(undoing.refusal().contains(kUndoRefused)) << undoing.refusal();
+    // The removal went on to the component after the one whose event the slot heard.
+    EXPECT_EQ(d.countDecalUsage(*img), 0);
+    EXPECT_EQ(decalList(d), "[]");
+    // And the removal is one undo step.
+    d.undo();
+    EXPECT_EQ(d.countDecalUsage(*img), 2);
+}
+
+/// Takes the component of the first event a document passes on out of the tree, as a slot must
+/// not while the document walks the components, and keeps it: the event that names it is
+/// still being delivered.
+class TakeTheComponentOfTheEvent
+{
+public:
+    explicit TakeTheComponentOfTheEvent(OpenRocketDocument& document)
+      : m_connection(document.documentChanged().connect([this](const DocumentChangeEvent& event) {
+            QtRocket::RocketComponent* const component = event.getComponent();
+            if (!m_done && component != nullptr && component->getParent() != nullptr)
+            {
+                // Before the removal, whose own event comes here too.
+                m_done  = true;
+                m_taken = component->getParent()->removeChild(component);
+            }
+        }))
+    {
+    }
+
+    [[nodiscard]] bool done() const noexcept { return m_taken != nullptr; }
+
+private:
+    bool                                                           m_done{false};
+    std::unique_ptr<QtRocket::RocketComponent>                     m_taken;
+    QtRocket::Signal<const DocumentChangeEvent&>::ScopedConnection m_connection;
+};
+
+// Java: a ConcurrentModificationException from the iterator of the walk. Here the walk ends
+// with a BugError before it touches a component again.
+TEST(OpenRocketDocumentSlots, ASlotThatChangesTheTreeEndsTheWalkOfRemoveDecal)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d   = alpha.document();
+    const std::shared_ptr<DecalImage> img = d.getDecalImage(entry("decals/a.png"));
+    alpha.nose().setAppearance(appearanceWith(*img));
+    alpha.body().setAppearance(appearanceWith(*img));
+    const TakeTheComponentOfTheEvent removing(d);
+
+    EXPECT_THROW(static_cast<void>(d.removeDecal(img.get())), BugError);
+
+    ASSERT_TRUE(removing.done());
+    // The nose cone is out of the tree; the body tube, which the walk did not reach, has its
+    // decal still.
+    EXPECT_EQ(alpha.stage().getChildCount(), 1U);
+    EXPECT_EQ(d.countDecalUsage(*img), 1);
+    // The document is whole: an undo is not refused afterwards.
+    d.undo();
+    EXPECT_EQ(alpha.stage().getChildCount(), 2U);
+}
+
+TEST(OpenRocketDocumentSlots, ASlotThatChangesTheTreeEndsTheWalkOfAChangedImage)
+{
+    const AlphaDocument               alpha;
+    OpenRocketDocument&               d   = alpha.document();
+    const std::shared_ptr<DecalImage> img = d.getDecalImage(entry("decals/a.png"));
+    alpha.nose().setAppearance(appearanceWith(*img));
+    alpha.body().setAppearance(appearanceWith(*img));
+    const TakeTheComponentOfTheEvent removing(d);
+    RocketEventRecorder              rocketEvents(alpha.rocket());
+
+    EXPECT_THROW(img->fireChangeEvent(), BugError);
+
+    ASSERT_TRUE(removing.done());
+    EXPECT_EQ(alpha.stage().getChildCount(), 1U);
+    // The nose cone's texture change, the removal the slot made, and no event of the body tube.
+    EXPECT_FALSE(rocketEvents.take().contains("BodyTube,texture"));
 }
 
 }  // namespace

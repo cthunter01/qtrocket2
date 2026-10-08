@@ -1,9 +1,11 @@
 #include "QtRocket/document/attachments/FileSystemAttachment.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <type_traits>
 #include <vector>
 
@@ -161,6 +163,130 @@ TEST(FileSystemAttachment, ReadLocationIsWhatGetBytesDoes)
     const auto directory = FileSystemAttachment::readLocation(dir.path());
     ASSERT_FALSE(directory.has_value());
     EXPECT_EQ(directory.error().code, ErrorCode::NOT_FOUND);
+}
+
+// ---- the size limit and what is no regular file (not OpenRocket's: see the class comment) ------
+
+/// What @p attachment's getBytes() gives: "bytes <text>", or "<code>: <message>".
+[[nodiscard]] std::string bytesOrError(const Result<std::vector<std::byte>>& bytes)
+{
+    if (bytes.has_value())
+    {
+        return "bytes " + QtRocket::bytesToString(*bytes);
+    }
+    return std::string(QtRocket::toString(bytes.error().code)) + ": " + bytes.error().message;
+}
+
+TEST(FileSystemAttachment, TheLimitIsTheOneOfAnArchiveEntryUnlessItIsGiven)
+{
+    // ZipFileAttachment.MAX_ATTACHMENT_BYTES: 32 MiB.
+    EXPECT_EQ(Attachment::kMaxAttachmentBytes, 33554432U);
+    EXPECT_EQ(FileSystemAttachment("n", "a.png").getMaxAttachmentBytes(),
+              Attachment::kMaxAttachmentBytes);
+    EXPECT_EQ(FileSystemAttachment("n", "a.png", 7).getMaxAttachmentBytes(), 7U);
+}
+
+TEST(FileSystemAttachment, AFileBeyondTheLimitIsRefusedWithTheTextsOfAnArchiveEntry)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("five.rse", "12345");
+
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("thrustcurves/five.rse", file, 5).getBytes()),
+              "bytes 12345");
+    // The file says it is too large: ZipFileAttachment's text for an entry that declares more.
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("thrustcurves/five.rse", file, 4).getBytes()),
+              "IO: Attachment 'thrustcurves/five.rse' exceeds the maximum size of 4 bytes");
+    // readLocation() knows no name: FileUtils' text.
+    EXPECT_EQ(bytesOrError(FileSystemAttachment::readLocation(file, 4)),
+              "IO: Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(bytesOrError(FileSystemAttachment::readLocation(file, 5)), "bytes 12345");
+}
+
+/// A file under @p dir that says it holds @p size bytes (sparse where the file system has
+/// sparse files); an empty path when it cannot be made.
+[[nodiscard]] std::filesystem::path makeFileOfSize(const TempDir& dir, std::uintmax_t size)
+{
+    const std::filesystem::path file = dir.write("big.png", "x");
+    std::error_code             error;
+    std::filesystem::resize_file(file, size, error);
+    return error ? std::filesystem::path() : file;
+}
+
+// Hostile input: with the default limit a file of 32 MiB and one byte is refused by its size,
+// unread.
+TEST(FileSystemAttachment, TheDefaultLimitRefusesAFileOfMoreThan32MiB)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = makeFileOfSize(dir, Attachment::kMaxAttachmentBytes + 1);
+    ASSERT_FALSE(file.empty());
+
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("decals/big.png", file).getBytes()),
+              "IO: Attachment 'decals/big.png' exceeds the maximum size of 33554432 bytes");
+    EXPECT_EQ(bytesOrError(FileSystemAttachment::readLocation(file)),
+              "IO: Input exceeds maximum size of 33554432 bytes");
+}
+
+/// Whether this machine has the device @p device (a POSIX system).
+[[nodiscard]] bool hasDevice(const std::filesystem::path& device)
+{
+    std::error_code error;
+    return std::filesystem::is_character_file(device, error);
+}
+
+/// What reading the device @p device as an attachment gives, by getBytes() and by
+/// readLocation(), which must agree; "differ" when they do not.
+[[nodiscard]] std::string readDevice(const std::string& device)
+{
+    const std::string byAttachment = bytesOrError(FileSystemAttachment("n", device).getBytes());
+    const std::string byLocation   = bytesOrError(FileSystemAttachment::readLocation(device, 16));
+    return byAttachment == byLocation ? byAttachment : "differ";
+}
+
+// Hostile input: a name can lead to a device. Java opens it and reads until its consumer gives
+// up (or for ever); here it is not opened.
+TEST(FileSystemAttachment, WhatIsNoRegularFileIsNotRead)
+{
+    if (!hasDevice("/dev/zero") || !hasDevice("/dev/null"))
+    {
+        GTEST_SKIP() << "no /dev/zero and /dev/null here";
+    }
+    EXPECT_EQ(readDevice("/dev/zero"), "IO: cannot read '/dev/zero': not a regular file");
+    EXPECT_EQ(readDevice("/dev/null"), "IO: cannot read '/dev/null': not a regular file");
+}
+
+/// Makes @p link a symbolic link to @p target; false where links cannot be made.
+[[nodiscard]] bool makeLink(const std::filesystem::path& target, const std::filesystem::path& link)
+{
+    std::error_code error;
+    std::filesystem::create_symlink(target, link, error);
+    return !error;
+}
+
+TEST(FileSystemAttachment, ALinkIsWhatItLeadsTo)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("real.png", "image");
+    const std::filesystem::path link = dir.resolve("link.png");
+    if (!makeLink(file, link))
+    {
+        GTEST_SKIP() << "cannot create links here";
+    }
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("n", link).getBytes()), "bytes image");
+    // A link to a file beyond the limit is beyond the limit.
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("n", link, 2).getBytes()),
+              "IO: Attachment 'n' exceeds the maximum size of 2 bytes");
+}
+
+TEST(FileSystemAttachment, ALinkToADeviceIsNotRead)
+{
+    const TempDir               dir;
+    const std::filesystem::path endless = dir.resolve("endless.png");
+    if (!hasDevice("/dev/zero") || !makeLink("/dev/zero", endless))
+    {
+        GTEST_SKIP() << "no /dev/zero or no links here";
+    }
+    EXPECT_EQ(bytesOrError(FileSystemAttachment("n", endless).getBytes()),
+              "IO: cannot read '" + pathToUtf8(endless) + "': not a regular file");
 }
 
 TEST(FileSystemAttachment, AFileNameOutsideAsciiIsRead)

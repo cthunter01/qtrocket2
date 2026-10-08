@@ -1878,6 +1878,65 @@ constexpr auto kAsciiBlocks = std::to_array<BytesCase>({
      .java = R"(=> PARSE: Byte "233" is not a member of the (7-bit) ASCII character set.)",
      .own = ""},
 });
+// J. the names of the pseudo attributes of an XML declaration, cut short by a byte that is no
+// UTF-8 (the review's sax-min cases, measured with the same probe). The scanner of an XML 1.0
+// document asks for as many characters as the name it expects has, and so meets the byte; the
+// scanner of an XML 1.1 document compares character by character and finds the name wrong
+// before it needs the byte.
+constexpr auto kPseudoAttributeNames = std::to_array<BytesCase>({
+    {.label = "1.0 decl x then E9",
+     .document = "<?xml version=\"1.0\" x\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.1 decl x then E9",
+     .document = "<?xml version=\"1.1\" x\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl saf then E9",
+     .document = "<?xml version=\"1.0\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+    {.label = "1.1 decl saf then E9",
+     .document = "<?xml version=\"1.1\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl enc saf then E9",
+     .document = "<?xml version=\"1.0\" encoding=\"UTF-8\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+    {.label = "1.1 decl enc saf then E9",
+     .document = "<?xml version=\"1.1\" encoding=\"UTF-8\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl enc x then E9",
+     .document = "<?xml version=\"1.0\" encoding=\"UTF-8\" x\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl enc latin1 saf then E9",
+     .document = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+    {.label = "1.1 decl enc latin1 saf then E9",
+     .document = "<?xml version=\"1.1\" encoding=\"ISO-8859-1\" saf\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl ex then E9",
+     .document = "<?xml version=\"1.0\" ex\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+    {.label = "1.1 decl ex then E9",
+     .document = "<?xml version=\"1.1\" ex\xE9?><r/>"sv,
+     .java = "=> PARSE: A pseudo attribute name is expected.",
+     .own = ""},
+    {.label = "1.0 decl enco then E9",
+     .document = "<?xml version=\"1.0\" enco\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+    {.label = "1.1 decl enco then E9",
+     .document = "<?xml version=\"1.1\" enco\xE9?><r/>"sv,
+     .java = "=> PARSE: Invalid byte 2 of 3-byte UTF-8 sequence.",
+     .own = ""},
+});
 // clang-format on
 
 TEST(SimpleSaxBytes, ReadsADocumentWithoutADeclarationAsUtf8)
@@ -1935,6 +1994,13 @@ TEST(SimpleSaxBytes, CallsNoHandlerForAnAsciiDocumentWithAHighByte)
 {
     check(kAsciiBlocks);
     EXPECT_EQ(deviations(kAsciiBlocks), 0U);
+}
+
+TEST(SimpleSaxBytes, ComparesThePseudoAttributeNamesAsTheScannerOfTheDocumentsVersionDoes)
+{
+    check(kPseudoAttributeNames);
+    EXPECT_EQ(deviations(kPseudoAttributeNames), 0U);
+    EXPECT_EQ(kPseudoAttributeNames.size(), 13U);
 }
 
 /// A document of @p count <p> elements after an <a>, and then @p tail.

@@ -35,7 +35,7 @@ using QtRocket::Test::describe;
 /// The value of an entry of type @p type with the text @p content, described, or "null".
 [[nodiscard]] std::string valueOf(std::optional<std::string_view> type, std::string_view content)
 {
-    const ConfigHandler        handler;
+    ConfigHandler              handler;
     ElementHandler::Attributes attributes;
     if (type.has_value())
     {
@@ -317,7 +317,7 @@ TEST(EntryHelper, AnotherTypeOrNoneHasNoValue)
 
 TEST(EntryHelper, OtherAttributesAreNotLookedAt)
 {
-    const ConfigHandler                handler;
+    ConfigHandler                      handler;
     const ElementHandler::Attributes   attributes{{"key", "k"}, {"type", "number"}, {"extra", "1"}};
     const std::optional<Config::Value> value =
         EntryHelper::getValueFromEntry(handler, attributes, "7");

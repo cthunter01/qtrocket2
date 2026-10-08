@@ -1,7 +1,9 @@
 #include "QtRocket/file/openrocket/ConfigHandler.h"
 
+#include <cstddef>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -305,6 +307,99 @@ TEST(ConfigHandler, AListHandlerOfItsOwnDepthCountsFromThere)
                    "</entry>");
     EXPECT_EQ(none.texts().at(0), "List entries nested too deeply, ignoring.");
     EXPECT_EQ(describe(Config::Value(full.getList())), "List[]");
+}
+
+// ---- hostile input: an entry that closes as a list it never opened -----------------------------
+//
+// DelegatorHandler hands an entry that has an ignored child element the attributes of that
+// child when it closes (OpenRocket's slip, kept: see AnEntryWithAChildElementLosesItsValue). So
+// a file can make any entry close with type='list'. OpenRocket loads no list at all and so has
+// nothing to give such an entry; with the lists loaded, such an entry must not find the list
+// of an entry before it.
+
+TEST(ConfigHandler, AnEntryThatClosesAsAListItNeverOpenedGetsNoList)
+{
+    // The review's probe: this stored the list of 'L' a second and a third time, under the
+    // keys 'stolen1' and 'stolen2'.
+    const Read stolen = read(
+        "<config><entry key='L' type='list'><entry type='number'>1</entry>"
+        "<entry type='number'>2</entry></entry>"
+        "<entry key='s1' type='string'>a<x type='list' key='stolen1'/></entry>"
+        "<entry key='s2' type='string'>b<x type='list' key='stolen2'/></entry></config>");
+    EXPECT_EQ(stolen.config, "{L = List[Integer 1, Integer 2, ]; }");
+    EXPECT_EQ(stolen.ownList, "List[]");
+    EXPECT_EQ(stolen.warnings, Texts{"Unknown element x, ignoring."});
+
+    // Without a key the copies went into the handler's own list.
+    const Read unkeyed = read(
+        "<config><entry key='a' type='list'><entry type='number'>1</entry></entry>"
+        "<entry key='b' type='string'>x<c type='list'/></entry></config>");
+    EXPECT_EQ(unkeyed.config, "{a = List[Integer 1, ]; }");
+    EXPECT_EQ(unkeyed.ownList, "List[]");
+}
+
+TEST(ConfigHandler, AListEntryWhoseCloseSlippedDoesNotLeaveItsListBehind)
+{
+    // The slip also goes outwards: here the list entry 'a' closes with the attributes and the
+    // text of the string entry inside it (which closed with those of its child), so 'a' is a
+    // string without a key, and its list, the number 7, is dropped. The entry after it claims
+    // to be a list under the key 'late': it used to get the list of 'a'.
+    const Read slipped = read(
+        "<config><entry key='a' type='list'><entry type='number'>7</entry>"
+        "<entry type='string'>x<c key='z' type='number'/></entry></entry>"
+        "<entry key='b' type='string'>y<d key='late' type='list'/></entry></config>");
+    EXPECT_EQ(slipped.config, "{}");
+    EXPECT_EQ(slipped.ownList, "List[String x, ]");
+}
+
+/// One level of the review's probe (level(depth, 2)): a list entry that holds the level below,
+/// then @p slips entries that close with the attributes of an ignored child and so asked for
+/// the stale list of the level below once more each, then an element that leaves {type=list}
+/// on the attribute stack for the close of this level's own entry.
+[[nodiscard]] std::string blowUpLevel(int depth, int slips)
+{
+    std::string text = "<entry type='list'>";
+    if (depth == 0)
+    {
+        return text + "<entry type='number'>1</entry></entry>";
+    }
+    text += blowUpLevel(depth - 1, slips);
+    for (int i = 0; i < slips; i++)
+    {
+        text += "<entry type='string'>a<x type='list'/></entry>";
+    }
+    return text + "<foo type='list'><x/></foo></entry>";
+}
+
+/// The number of values in @p value that are no lists, lists counted by what they hold.
+[[nodiscard]] std::size_t leaves(const Config::Value& value)
+{
+    const Config::List* const list = std::get_if<Config::List>(&value.variant());
+    if (list == nullptr)
+    {
+        return 1;
+    }
+    std::size_t count = 0;
+    for (const Config::Value& element : *list)
+    {
+        count += leaves(element);
+    }
+    return count;
+}
+
+// The review's probe: every level copied the list of the level below three times, so 32 levels
+// (4.7 kB of XML) asked for 3^32 values, and std::bad_alloc left the loader. Now a list is
+// moved, once, to the entry that opened it: the file's one number is one value.
+TEST(ConfigHandler, AFileCannotMultiplyAListThroughEntriesThatClaimIt)
+{
+    const std::string xml =
+        "<config>" + blowUpLevel(ConfigHandler::kMaxListDepth - 1, 2) + "</config>";
+    EXPECT_LT(xml.size(), 5000U);
+    ConfigHandler    handler;
+    const HandlerRun run = runHandler(handler, xml);
+    EXPECT_TRUE(run.result.has_value());
+    EXPECT_EQ(leaves(Config::Value(handler.getList())), 1U);
+    EXPECT_TRUE(handler.getConfig().keySet().empty());
 }
 
 TEST(ConfigHandler, AnEntryThatOnlyClaimsToBeAListAfterAnotherIsNotConfusedWithIt)

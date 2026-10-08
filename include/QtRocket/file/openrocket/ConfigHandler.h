@@ -33,7 +33,11 @@ namespace QtRocket
 /// goes into the Config of the list's own handler, which nobody reads, as the code is written
 /// in Java. A list entry nested more than kMaxListDepth deep in list entries is not read: it
 /// gives the warning "List entries nested too deeply, ignoring." and has no value, so that no
-/// file can make the handlers and the values nest without bound.
+/// file can make the handlers and the values nest without bound. And the values of a list
+/// entry are handed to that entry alone, once, when it closes (see EntryHandler): an entry
+/// whose close claims to be a list without having opened one (the attributes of an ignored
+/// child element slip onto it) has no value, so the values a file makes are no more than the
+/// entries it holds.
 class ConfigHandler final : public EntryHandler
 {
 public:

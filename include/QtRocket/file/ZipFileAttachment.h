@@ -43,8 +43,9 @@ namespace QtRocket
 class ZipFileAttachment final : public Attachment
 {
 public:
-    /// The most bytes an attachment may have: 32 MiB (MAX_ATTACHMENT_BYTES).
-    static constexpr std::size_t kMaxAttachmentBytes = std::size_t{32} * 1024 * 1024;
+    /// The most bytes an attachment may have: 32 MiB (MAX_ATTACHMENT_BYTES). The constant is
+    /// Attachment's, which the attachments that are files share.
+    static constexpr std::size_t kMaxAttachmentBytes = Attachment::kMaxAttachmentBytes;
 
     /// The bytes of an archive, shared by the attachments read from it.
     using Archive = std::shared_ptr<const std::vector<std::byte>>;

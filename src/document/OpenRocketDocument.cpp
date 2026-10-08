@@ -139,12 +139,13 @@ private:
 };
 
 /// Sets a flag for as long as it lives (Java: `flag = true; try { ... } finally { flag = false;
-/// }`).
+/// }`) and then puts back what it was, so that a scope inside another does not end the outer
+/// one.
 class FlagScope
 {
 public:
-    explicit FlagScope(bool& flag) noexcept : m_flag(&flag) { *m_flag = true; }
-    ~FlagScope() { *m_flag = false; }
+    explicit FlagScope(bool& flag) noexcept : m_flag(&flag), m_previous(flag) { *m_flag = true; }
+    ~FlagScope() { *m_flag = m_previous; }
 
     FlagScope(const FlagScope&)            = delete;
     FlagScope& operator=(const FlagScope&) = delete;
@@ -153,7 +154,54 @@ public:
 
 private:
     bool* m_flag;
+    bool  m_previous;
 };
+
+/// Counts one more for as long as it lives: the document is in a stretch of work during which
+/// undo() and redo() are refused (see OpenRocketDocument::m_busyDepth).
+class DepthScope
+{
+public:
+    explicit DepthScope(int& depth) noexcept : m_depth(&depth) { ++*m_depth; }
+    ~DepthScope() { --*m_depth; }
+
+    DepthScope(const DepthScope&)            = delete;
+    DepthScope& operator=(const DepthScope&) = delete;
+    DepthScope(DepthScope&&)                 = delete;
+    DepthScope& operator=(DepthScope&&)      = delete;
+
+private:
+    int* m_depth;
+};
+
+/// Ends a walk over the components of @p rocket when its tree is no longer the one of
+/// @p treeModId: a slot of an event the walk fired changed it, and the component the walk
+/// stands at may be gone (Java: the ConcurrentModificationException of the tree's iterator).
+void checkTreeUnchanged(const Rocket& rocket, ModId treeModId)
+{
+    if (rocket.getTreeModId() != treeModId)
+    {
+        bug("The component tree was changed from a slot while the document walks it for a "
+            "decal image");
+    }
+}
+
+/// @p file as the File Java makes of the same text: without a separator at its end and with
+/// runs of separators as one (a root stays what it is). Nothing else is changed: "." and ".."
+/// stay.
+[[nodiscard]] std::filesystem::path asJavaFile(const std::filesystem::path& file)
+{
+    std::filesystem::path normalized;
+    for (const std::filesystem::path& element : file)
+    {
+        // The element after a separator at the end is empty.
+        if (!element.empty())
+        {
+            normalized /= element;
+        }
+    }
+    return normalized;
+}
 
 }  // namespace
 
@@ -292,6 +340,10 @@ std::optional<std::filesystem::path> OpenRocketDocument::getFileNoExtension() co
 
 void OpenRocketDocument::setFile(std::optional<std::filesystem::path> file)
 {
+    if (file.has_value())
+    {
+        file = asJavaFile(*file);
+    }
     m_file = std::move(file);
 }
 
@@ -340,15 +392,13 @@ bool OpenRocketDocument::removeDecal(const DecalImage* decal)
     {
         return false;
     }
-    // The registry may hold the only reference to the image, and a slot of the events below may
-    // take the image out of it: the registered image is kept until the end. (An image of that
-    // name that is not the registered one is the caller's to keep.)
-    const std::string&                name       = decal->getName();
-    const std::shared_ptr<DecalImage> registered = m_decalRegistry.find(name);
+    // The image is the caller's to keep for the call, or the registry's own, which the registry
+    // keeps whatever a slot of the events below does: a removed image stays with it.
+    const std::string& name = decal->getName();
 
     const bool clearedUsage = clearDecalUsage(name);
     const bool removed      = m_decalRegistry.removeDecal(decal);
-    if (m_decalRegistry.find(name) == nullptr)
+    if (!m_decalRegistry.isRegistered(name))
     {
         m_decalConnections.erase(name);
     }
@@ -362,16 +412,22 @@ bool OpenRocketDocument::removeDecal(const DecalImage* decal)
 
 bool OpenRocketDocument::clearDecalUsage(std::string_view name)
 {
-    bool updated = false;
+    // The components are walked while their events go out: an undo or redo from a slot would
+    // free them (Java: a ConcurrentModificationException from the iterator).
+    const DepthScope busy(m_busyDepth);
+    const ModId      tree    = m_rocket->getTreeModId();
+    bool             updated = false;
     for (RocketComponent& component : m_rocket->subtree())
     {
         if (clearOutsideDecal(component, name))
         {
             updated = true;
+            checkTreeUnchanged(*m_rocket, tree);
         }
         if (clearInsideDecal(component, name))
         {
             updated = true;
+            checkTreeUnchanged(*m_rocket, tree);
         }
     }
     return updated;
@@ -411,8 +467,10 @@ void OpenRocketDocument::watchDecalImage(const std::shared_ptr<DecalImage>& imag
     }
     const std::string& name = image->getName();
     // makeUniqueImage() hands an image back that it did not have to rename and so did not
-    // register; one image is registered under a name until removeDecal() takes it out.
-    if (m_decalRegistry.find(name) != image || m_decalConnections.contains(name))
+    // register; one image is registered under a name until removeDecal() takes it out, and it
+    // is heard again when getDecalImage() registers it again.
+    if (!m_decalRegistry.isRegistered(name) || m_decalRegistry.find(name) != image ||
+        m_decalConnections.contains(name))
     {
         return;
     }
@@ -423,16 +481,25 @@ void OpenRocketDocument::watchDecalImage(const std::shared_ptr<DecalImage>& imag
 void OpenRocketDocument::decalImageChanged(std::string_view name)
 {
     // Java: the listener that RocketComponent.setAppearance() and
-    // InsideColorComponentHandler.setInsideAppearance() add to the image.
+    // InsideColorComponentHandler.setInsideAppearance() add to the image. The components are
+    // walked while their events go out, so undo() and redo(), which would free them, are refused
+    // meanwhile; and what a component uses is asked before its first event, whose slots may
+    // change it.
+    const DepthScope busy(m_busyDepth);
+    const ModId      tree = m_rocket->getTreeModId();
     for (RocketComponent& component : m_rocket->subtree())
     {
-        if (hasDecal(component.getAppearance(), name))
+        const bool outside = hasDecal(component.getAppearance(), name);
+        const bool inside  = hasDecalInside(component, name);
+        if (outside)
         {
             component.fireComponentChangeEvent(ComponentChangeEvent::kTextureChange);
+            checkTreeUnchanged(*m_rocket, tree);
         }
-        if (hasDecalInside(component, name))
+        if (inside)
         {
             component.fireComponentChangeEvent(ComponentChangeEvent::kTextureChange);
+            checkTreeUnchanged(*m_rocket, tree);
         }
     }
 }
@@ -556,7 +623,8 @@ std::string OpenRocketDocument::getNextSimulationName() const
         const std::string_view name = s->getName();
         if (name.starts_with(kSimulationNamePrefix))
         {
-            // Java: Integer.parseInt(), whose NumberFormatException is ignored.
+            // Java: Integer.parseInt(), whose NumberFormatException is ignored. (ASCII digits
+            // only: see the header.)
             const std::optional<int> value =
                 Strings::parseInt(name.substr(kSimulationNamePrefix.size()));
             if (value.has_value())
@@ -687,6 +755,9 @@ void OpenRocketDocument::clearUndo()
 
 void OpenRocketDocument::rocketChanged(const ComponentChangeEvent& event)
 {
+    // The event names a component, which an undo or redo from a slot would free while the
+    // later slots, the second emission below and whoever fired the event still use it.
+    const DepthScope          busy(m_busyDepth);
     const DocumentChangeEvent change{.kind   = DocumentChangeEvent::Kind::DOCUMENT,
                                      .source = event.getSource()};
 
@@ -806,6 +877,7 @@ std::optional<std::string> OpenRocketDocument::getRedoDescription() const
 
 void OpenRocketDocument::undo()
 {
+    refuseWhileBusy("undo()");
     if (!isUndoAvailable())
     {
         logUndoError("Undo not available");
@@ -815,6 +887,13 @@ void OpenRocketDocument::undo()
     if (m_storedDescription.has_value())
     {
         logUndoError(std::format("undo() called with storedDescription={}", *m_storedDescription));
+        // Not Java's, whose error handler is no listener of the document: a slot of the error
+        // may have changed the history (clearUndo() is the obvious way to recover).
+        if (!isUndoAvailable())
+        {
+            fireUndoRedoChangeEvent();
+            return;
+        }
     }
 
     // Update history position
@@ -839,6 +918,7 @@ void OpenRocketDocument::undo()
 
 void OpenRocketDocument::redo()
 {
+    refuseWhileBusy("redo()");
     if (!isRedoAvailable())
     {
         logUndoError("Redo not available");
@@ -848,6 +928,12 @@ void OpenRocketDocument::redo()
     if (m_storedDescription.has_value())
     {
         logUndoError(std::format("redo() called with storedDescription={}", *m_storedDescription));
+        // As in undo(): a slot of the error may have changed the history.
+        if (!isRedoAvailable())
+        {
+            fireUndoRedoChangeEvent();
+            return;
+        }
     }
 
     m_undoPosition++;
@@ -871,22 +957,54 @@ OpenRocketDocument::UndoDetail OpenRocketDocument::getUndoDetail() const
     return detail;
 }
 
+void OpenRocketDocument::refuseWhileBusy(std::string_view call) const
+{
+    if (m_busyDepth > 0)
+    {
+        bug(
+            std::format("OpenRocketDocument::{} was called from a slot while the document "
+                        "delivers an event of the rocket or loads a state",
+                        call));
+    }
+}
+
+std::shared_ptr<OpenRocketDocument::UndoState> OpenRocketDocument::stateAtPosition() const
+{
+    // Java: an IndexOutOfBoundsException of undoHistory.get(undoPosition).
+    if (m_undoPosition >= m_undoHistory.size())
+    {
+        bug(std::format("Undo position {} out of range, the history has {} states", m_undoPosition,
+                        m_undoHistory.size()));
+    }
+    return m_undoHistory[m_undoPosition];
+}
+
 void OpenRocketDocument::loadStateAtPosition(bool checkStructure)
 {
-    // Shared with the history, which a slot may change while the state is loaded.
-    const std::shared_ptr<UndoState> state = m_undoHistory[m_undoPosition];
     try
     {
-        const FlagScope inUndoRedo(m_inUndoRedo);
-        if (checkStructure)
+        // The rocket's components and the simulations are replaced while their events go out:
+        // undo() and redo() are refused until the state is loaded.
+        const DepthScope busy(m_busyDepth);
+        const FlagScope  inUndoRedo(m_inUndoRedo);
         {
-            m_rocket->checkComponentStructure();
+            // Shared with the history, which a slot may change while the rocket is loaded.
+            const std::shared_ptr<UndoState> state = stateAtPosition();
+            if (checkStructure)
+            {
+                m_rocket->checkComponentStructure();
+            }
+            m_rocket->loadFrom(*state->rocket);
+            if (checkStructure)
+            {
+                m_rocket->checkComponentStructure();
+            }
         }
-        m_rocket->loadFrom(*state->rocket);
-        if (checkStructure)
-        {
-            m_rocket->checkComponentStructure();
-        }
+        // As Java, which asks its history again now: when a slot of the rocket's event changed
+        // the history (clearUndo(), addUndoPosition()), the simulations are loaded from the state
+        // that is at the position afterwards. This state too is shared with the history, which a
+        // slot of the simulations' events may change in turn.
+        const std::shared_ptr<UndoState> state = stateAtPosition();
         loadSimulationsFrom(state->simulations);
     }
     catch (...)

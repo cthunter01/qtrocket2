@@ -75,9 +75,24 @@ class Simulation;
 /// - removeDecal(): the events of the components that lose the image, then D(document);
 /// - a change of a registered decal image: the events of the components that use it;
 /// - clearUndo(): U; addUndoPosition(), startUndo() and stopUndo(): nothing.
-/// A slot may change the document, with the care a listener needs in Java too; it must not
-/// destroy the document, and it must not make the simulation whose change it is told of leave
-/// the list unless somebody else holds that simulation.
+/// A slot may change the document, with the care a listener needs in Java too. Three things it
+/// must not do:
+/// - destroy the document;
+/// - make the simulation whose change it is told of leave the list, unless somebody else holds
+///   that simulation;
+/// - call undo() or redo() while the document delivers an event of the rocket, loads a state
+///   (the events of an undo or redo) or walks the components for a decal (removeDecal(), a
+///   changed image): either would free the components the event names and replace the state
+///   that is being loaded. This one is checked: the call throws a BugError before it changes
+///   anything. (Java keeps the replaced components alive and only invalidates them, and its
+///   iterators throw a ConcurrentModificationException.) A slot of the rocket itself must not
+///   do it either, which the document cannot check. Elsewhere (a slot of a simulation's
+///   change, of a change of the list, of undoErrorOccurred()) undo() and redo() are not refused.
+/// A slot that changes the component tree while removeDecal() or a changed image walks it ends
+/// that walk with a BugError when it returns, before the walk touches a component again (Java:
+/// the ConcurrentModificationException of the iterator). And a slot that takes the component
+/// an event names out of the tree keeps it until the event is delivered: the later slots and
+/// the second emission still name it (Java: the collector keeps it).
 ///
 /// Saved or not: the document has a modification id, drawn anew by every rocket event,
 /// simulation change, preference change and change of the simulation list, and remembers the id
@@ -106,7 +121,10 @@ class Simulation;
 ///   along.
 /// - undo() and redo() load a state into the rocket (Rocket::loadFrom()) and into the
 ///   simulations: Simulation::loadFrom() by position when their number is the same, else new
-///   simulations made from the state's (the list is replaced: see "The simulations").
+///   simulations made from the state's (the list is replaced: see "The simulations"). As in
+///   Java the history is asked again for the simulations once the rocket is loaded: when a slot
+///   of the rocket's event changed the history (clearUndo(), addUndoPosition()), the simulations
+///   are loaded from the state that is at the position then, which leaves them as they are.
 /// As in Java, the simulations an undo or redo makes do not emit changed() when their options
 /// change (Simulation::cloneForUndo()), so such a change is noticed only with the next event.
 ///
@@ -117,7 +135,10 @@ class Simulation;
 /// addUndoPosition(), startUndo(), undo() or redo() while a description is stored by
 /// startUndo(), and "undo position inconsistency" (the document is dirty although redo states
 /// exist, which a change of a simulation's extension list brings about, since that list changes
-/// without an event). They are not BugErrors: a caller can run into each of them.
+/// without an event). They are not BugErrors: a caller can run into each of them. A slot of the
+/// signal may change the document, clear the undo history for one: undo() and redo() look
+/// again after the error of a stored description and, when there is nothing left to undo or
+/// redo, emit undoRedoChanged() and return.
 ///
 /// Document materials: the materials the components of the rocket were given that belong to the
 /// document (Material::isDocumentMaterial()). The document adds each one when the rocket
@@ -129,7 +150,13 @@ class Simulation;
 /// Decal images: the document's registry keeps them by name, and a rocket/Decal names its image.
 /// When a registered image says that it changed (DecalImage::fireChangeEvent()), every component
 /// whose outside appearance names it fires TEXTURE_CHANGE, and once more when its inside
-/// appearance does.
+/// appearance does. An image that removeDecal() took out of the list is kept by the registry
+/// and its name stays taken (see DecalRegistry, "Removed images"), because an undo of the
+/// removal puts the name back on the components: findDecalImage() then still gives the image
+/// with its bytes, although getDecalList() does not list it (Java: the same, its Decal holding
+/// the object). The rule for whoever saves a document follows from it: the images to write are
+/// those the components name, looked up with findDecalImage(), not getDecalList() (Java's
+/// saver collects decal.getImage() from the components).
 ///
 /// Deviations from OpenRocket:
 /// - Simulations are heard while they are in the list (see above). Java's Simulation registers
@@ -158,6 +185,21 @@ class Simulation;
 /// - countDecalUsage(), makeUniqueDecal() and removeDecal() compare the name of the image with
 ///   the name a decal holds (Java compares the image objects; names are unique in a registry).
 ///   findDecalImage() is an addition, for whoever has a Decal and needs its image.
+/// - A removed image keeps its name (see "Decal images"). In Java the name is free again, and
+///   an attachment of that name, or the same file, registered after an undo of the removal
+///   gives a second image object of the same name beside the one the components hold again
+///   (countDecalUsage() of the new one is 0 there). Here getDecalImage() registers the removed
+///   image again for the same source, another file of the same file name gets a numbered name,
+///   and makeUniqueDecal() of a removed image that two components use again makes a copy under
+///   a new name where Java hands the image itself back. A removed image is not heard for
+///   texture changes until it is registered again.
+/// - undo() and redo() from a slot while the document delivers an event of the rocket or loads
+///   a state are a BugError (see what a slot must not do, above); Java lets a listener do it.
+/// - The file is kept as the File Java makes of its text (setFile()): std::filesystem::path
+///   keeps a separator at the end and doubled separators, which Java's File drops.
+/// - getNextSimulationName() reads ASCII digits only. Java's Integer.parseInt also takes the
+///   decimal digits of other scripts, so a simulation named "Simulation " and such digits counts
+///   there and not here.
 /// - makeUniqueDecal(null) is a BugError (Java: null comes back unless a component has a decal,
 ///   and then a NullPointerException).
 /// - getFlightDataTypes() returns a vector without repeats, in Java's order (Java: a
@@ -245,13 +287,16 @@ public:
 
     /// The file without its extension (".ork" removed), or nullopt without a file. As in Java:
     /// the absolute path (absolutePath()) is cut at its last dot when what follows the dot is
-    /// "ork" or "rkt", exactly; otherwise the file comes back as it was set, not made absolute.
+    /// "ork" or "rkt", exactly; otherwise the file comes back as setFile() keeps it, not made
+    /// absolute.
     /// "x.ork.gz" and "x.rkt.gz" therefore come back unchanged (their extension is "gz"; Java
     /// lists "ork.gz" and "rkt.gz", which what follows a last dot can never be), and so does
     /// "x.ORK". A separator the cut leaves at the end is dropped, as Java's File drops it.
     [[nodiscard]] std::optional<std::filesystem::path> getFileNoExtension() const;
 
-    /// Sets the file; nullopt for none.
+    /// Sets the file; nullopt for none. The path is kept as Java's File keeps its text: without
+    /// a separator at its end and with runs of separators as one ("/a/b.ork/" and "/a//b.ork"
+    /// are the file "/a/b.ork"); "." and ".." stay, and the path is not made absolute.
     void setFile(std::optional<std::filesystem::path> file);
 
     /// Whether the document is as it was when it was last saved (see the class comment).
@@ -270,7 +315,8 @@ public:
 
     // -------------------------------------------------------------------------- decals
 
-    /// The decal images registered in the document, sorted by name.
+    /// The decal images registered in the document, sorted by name. An image that removeDecal()
+    /// took out is not listed, also when an undo made a component use it again (as in Java).
     [[nodiscard]] std::vector<std::shared_ptr<DecalImage>> getDecalList() const;
 
     /// The number of uses of @p image in the rocket: one for every component whose appearance
@@ -279,9 +325,12 @@ public:
 
     /// Takes @p decal off every component that uses it (outside, then inside, component by
     /// component in tree order: the appearance is set again without the image, which fires the
-    /// component's NONFUNCTIONAL_CHANGE) and out of the registry. When either did something,
-    /// emits documentChanged() with the document as the source and returns true. Null gives
-    /// false. As in the registry the name of the image decides, not the object.
+    /// component's NONFUNCTIONAL_CHANGE) and out of the registry's list. When either did
+    /// something, emits documentChanged() with the document as the source and returns true.
+    /// Null gives false. As in the registry the name of the image decides, not the object. The
+    /// image stays findable by its name (findDecalImage()), for the components that an undo
+    /// gives it back to.
+    /// @throws BugError when a slot of one of the components' events changes the component tree
     bool removeDecal(const DecalImage* decal);
 
     /// An image for a component that is to change its decal without changing the others':
@@ -291,15 +340,17 @@ public:
     [[nodiscard]] std::shared_ptr<DecalImage> makeUniqueDecal(
         const std::shared_ptr<DecalImage>& image);
 
-    /// The decal image of @p attachment, registered now when it is new
-    /// (DecalRegistry::getDecalImage()). A Decal is made with the name of the image, which is
-    /// not always the attachment's.
+    /// The decal image of @p attachment, registered now when it is new, or again when it is
+    /// the image of that source that removeDecal() took out (DecalRegistry::getDecalImage()). A
+    /// Decal is made with the name of the image, which is not always the attachment's.
     /// @throws BugError when @p attachment is null
     [[nodiscard]] std::shared_ptr<DecalImage> getDecalImage(
         const std::shared_ptr<const Attachment>& attachment);
 
-    /// The registered image named exactly @p name (Decal::getImageName()), or null (an
-    /// addition: Java's Decal holds the image).
+    /// The image named exactly @p name (Decal::getImageName()), or null (an addition: Java's
+    /// Decal holds the image): a registered image, or one that removeDecal() took out of the
+    /// list, whose name an undo may have put back on a component. A saver finds the images of
+    /// the components with this.
     [[nodiscard]] std::shared_ptr<DecalImage> findDecalImage(std::string_view name) const;
 
     // --------------------------------------------------------------------- simulations
@@ -350,7 +401,8 @@ public:
     /// that a simulation named "Simulation <number>" has (Integer.parseInt of what follows the
     /// prefix: "Simulation +7" and "Simulation 007" count, "Simulation 12 " does not), 1 when
     /// there is none. As in Java the number wraps around: beside "Simulation 2147483647" the
-    /// answer is "Simulation -2147483648".
+    /// answer is "Simulation -2147483648". Deviation: the digits are ASCII digits; Java also
+    /// reads the decimal digits of other scripts (Arabic-Indic, fullwidth, ...).
     [[nodiscard]] std::string getNextSimulationName() const;
 
     // ---------------------------------------------------------------------------- undo
@@ -393,6 +445,8 @@ public:
     /// position stays; the state at the position is then loaded. When undo is not available an
     /// undo error is reported, undoRedoChanged() is emitted and nothing else happens. Whatever
     /// the loading does (Java: finally), undoRedoChanged() is emitted at the end.
+    /// @throws BugError when a slot calls it while the document delivers an event of the rocket
+    ///         or loads a state (see the class comment); nothing is changed then
     void undo();
 
     /// Performs a redo: the position moves forward one state, which is loaded. Otherwise as
@@ -554,8 +608,16 @@ private:
     /// What undo() and redo() share: loads the state at the position into the rocket and the
     /// simulations with the in-undo flag set, checking the component structure before and after
     /// the rocket is loaded when @p checkStructure (undo does, redo does not); whatever
-    /// happens, the flag is cleared and undoRedoChanged() emitted (Java: the finally block).
+    /// happens, the flag is put back and undoRedoChanged() emitted (Java: the finally block).
     void loadStateAtPosition(bool checkStructure);
+
+    /// The state of the history at the position, shared with the history.
+    /// @throws BugError when the position is beyond the history (Java:
+    ///         IndexOutOfBoundsException)
+    [[nodiscard]] std::shared_ptr<UndoState> stateAtPosition() const;
+
+    /// Throws a BugError naming @p call when the document is busy (see m_busyDepth).
+    void refuseWhileBusy(std::string_view call) const;
 
     /// The rocket; declared first, so that it is destroyed last: the simulations and the undo
     /// states refer to it.
@@ -576,6 +638,10 @@ private:
     /// being loaded survives a slot that changes the history.
     std::vector<std::shared_ptr<UndoState>> m_undoHistory;
     bool                                    m_inUndoRedo{false};
+
+    /// Above zero while the document delivers an event of the rocket, loads a state or walks
+    /// the components for a decal: undo() and redo() are refused then (see the class comment).
+    int m_busyDepth{0};
 
     /// The position in the undo history we are currently at. If modifications have been made,
     /// the document is in the dirty state and this points to the previous clean state.

@@ -45,6 +45,9 @@ Result<void> ConfigHandler::closeElement(std::string_view element, const Attribu
         return EntryHandler::closeElement(element, attributes, content, warnings);
     }
     std::optional<Config::Value> value = EntryHelper::getValueFromEntry(*this, attributes, content);
+    // The list of this entry, when it opened one, has been taken by now; said once more here,
+    // because everything rests on it: no later entry finds the list of this one.
+    closeList();
     if (value.has_value())
     {
         const auto key = attributes.find("key");

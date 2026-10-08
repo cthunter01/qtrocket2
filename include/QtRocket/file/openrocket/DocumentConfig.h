@@ -26,6 +26,11 @@ namespace QtRocket
 ///   Java takes the enum's class and reflects on it.
 /// - stringToDouble() returns a failure with the message of Java's NumberFormatException,
 ///   where Java throws it.
+/// - parseDouble() and parseInt() are Java's own Double.parseDouble and Integer.parseInt, which
+///   the handlers call directly: here they return a failure with the message of the
+///   NumberFormatException, so that every handler that lets one fail the load says what Java
+///   says. parseInt() reads ASCII digits only; Integer.parseInt also takes the decimal digits
+///   of other scripts (the fullwidth "12" is 12 there and a failure here).
 /// - parseFiniteDouble() and isSupportedVersion() have no counterpart: the first is the
 ///   loader's rule for a number it must not apply when it is not finite, the second the loop
 ///   OpenRocketHandler makes over SUPPORTED_VERSIONS.
@@ -59,7 +64,8 @@ public:
     /// trimmed as String.trim() trims (see Strings::orkEnumNameMatches()), so "notsimulated"
     /// and " notsimulated " match and "NOT_SIMULATED" and "not_simulated" do not. The first such
     /// constant in the order of @p constants is returned, as Java returns the first in declaration
-    /// order. No @p name (Java: null) finds nothing.
+    /// order. No @p name (Java: null) finds nothing. @p javaName may return a view, a reference
+    /// or a string of its own.
     template <std::ranges::forward_range Constants, class JavaName>
         requires std::convertible_to<
             std::invoke_result_t<JavaName&, const std::ranges::range_value_t<Constants>&>,
@@ -73,8 +79,10 @@ public:
         }
         for (const auto& constant : constants)
         {
-            const std::string_view enumName = std::invoke(javaName, constant);
-            if (Strings::orkEnumNameMatches(*name, enumName))
+            // The name is compared in the expression that makes it: a std::string that the
+            // function returns by value lives exactly that long, and a view of it kept in a
+            // variable would dangle.
+            if (Strings::orkEnumNameMatches(*name, std::invoke(javaName, constant)))
             {
                 return constant;
             }
@@ -84,12 +92,32 @@ public:
 
     /// A number as the flight data of an .ork file writes it (stringToDouble()): "NaN", "Inf"
     /// and "-Inf", each compared ignoring case and without trimming, are a NaN and the two
-    /// infinities; anything else is what Java's Double.parseDouble makes of it
-    /// (Strings::javaParseDouble(): white space trimmed, "Infinity", hexadecimal and "1.5d"
-    /// included). The failure is ErrorCode::INVALID_ARGUMENT (a NumberFormatException is an
-    /// IllegalArgumentException) with Java's message: "null string" for no text, "empty String"
-    /// for a text that trims to nothing, and else `For input string: "<the text, trimmed>"`.
+    /// infinities; anything else is what parseDouble() makes of it, with its failure. No text
+    /// (Java: null) fails with ErrorCode::INVALID_ARGUMENT and "null string".
     [[nodiscard]] static Result<double> stringToDouble(std::optional<std::string_view> text);
+
+    /// Java's Double.parseDouble (Strings::javaParseDouble(): white space trimmed, "NaN",
+    /// "Infinity", hexadecimal and "1.5d" included; "Inf" is no number here), for the handlers
+    /// that call it without catching what it throws. The failure is
+    /// ErrorCode::INVALID_ARGUMENT (a NumberFormatException is an IllegalArgumentException,
+    /// which fails a load with "Exception loading stream: " and the message) with Java's
+    /// message:
+    /// - "empty String" for a text that trims to nothing;
+    /// - "multiple points" when the digits and points that start the number, after one sign,
+    ///   hold a second point ("1..2", "0.0.0", "1.2.3e5"), unless the number starts as "NaN",
+    ///   "Infinity" or a hexadecimal one does;
+    /// - else `For input string: "<the text, trimmed>"`.
+    /// A handler that fails the load passes the message on under the error code its own rule
+    /// asks for. A missing text is not this function's case: Double.parseDouble(null) is a
+    /// NullPointerException in Java, which each handler answers for itself.
+    [[nodiscard]] static Result<double> parseDouble(std::string_view text);
+
+    /// Java's Integer.parseInt (Strings::parseInt(): one optional sign and ASCII digits, nothing
+    /// trimmed, within the int range). The failure is ErrorCode::INVALID_ARGUMENT with Java's
+    /// message: `For input string: "<the text as it is>"` for every text that is no int ("",
+    /// " 4", "+", "1.0", "2147483648"), and "Cannot parse null string" for no text (Java: null,
+    /// a missing attribute).
+    [[nodiscard]] static Result<int> parseInt(std::optional<std::string_view> text);
 
     /// What Java's Double.parseDouble makes of @p text when that is a finite number, and
     /// nullopt for a text that is no number, a NaN or an infinity. This is how a handler reads

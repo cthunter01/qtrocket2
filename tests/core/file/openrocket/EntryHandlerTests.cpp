@@ -1,12 +1,14 @@
 #include "QtRocket/file/openrocket/EntryHandler.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/EntryHelper.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -90,6 +92,86 @@ TEST(EntryHandler, ClosingTheListForgetsIt)
     static_cast<void>(handler.open(std::make_unique<TestEntryHandler>()));
     EXPECT_NE(handler.getNestedList(), nullptr);
     handler.close();
+    EXPECT_EQ(handler.getNestedList(), nullptr);
+}
+
+// ---- a nested list is read once (not OpenRocket's, which hands the same list out for ever) ----
+
+TEST(EntryHandler, TakingTheNestedListMovesItOutAndForgetsItsHandler)
+{
+    TestEntryHandler handler;
+    // Nothing to take before a list entry was opened.
+    EXPECT_EQ(handler.takeNestedList(), std::nullopt);
+
+    auto              nested = std::make_unique<TestEntryHandler>();
+    TestEntryHandler* opened = nested.get();
+    static_cast<void>(handler.open(std::move(nested)));
+    opened->add(Config::Value(1));
+    opened->add(Config::Value("two"));
+
+    const std::optional<Config::List> taken = handler.takeNestedList();
+    EXPECT_EQ(describe(Config::Value(taken.value_or(Config::List{}))),
+              "List[Integer 1, String two, ]");
+    // Taken once: the handler of the list entry is gone, and so is the list.
+    EXPECT_EQ(handler.getNestedList(), nullptr);
+    EXPECT_EQ(handler.takeNestedList(), std::nullopt);
+    // The handler's own list is another one and stays.
+    handler.add(Config::Value(true));
+    EXPECT_EQ(describe(Config::Value(handler.getList())), "List[Boolean true, ]");
+}
+
+TEST(EntryHandler, AnEmptyNestedListIsTakenAsAnEmptyList)
+{
+    TestEntryHandler handler;
+    static_cast<void>(handler.open(std::make_unique<TestEntryHandler>()));
+    const std::optional<Config::List> taken = handler.takeNestedList();
+    EXPECT_TRUE(taken.has_value());
+    EXPECT_TRUE(taken.value_or(Config::List{Config::Value(1)}).empty());
+}
+
+/// The value EntryHelper gives an entry of type @p type that @p handler closes, described, or
+/// "null".
+[[nodiscard]] std::string valueOfEntry(TestEntryHandler& handler, std::string_view type)
+{
+    const ElementHandler::Attributes   attributes{{"type", std::string(type)}};
+    const std::optional<Config::Value> value =
+        QtRocket::EntryHelper::getValueFromEntry(handler, attributes, "text");
+    return value.has_value() ? describe(*value) : "null";
+}
+
+/// A handler that has opened a list entry with the one value 1.
+void openListOfOne(TestEntryHandler& handler)
+{
+    auto              nested = std::make_unique<TestEntryHandler>();
+    TestEntryHandler* opened = nested.get();
+    static_cast<void>(handler.open(std::move(nested)));
+    opened->add(Config::Value(1));
+}
+
+// The rule the loader rests on: the close of an entry takes the nested list, whatever type the
+// attributes give the entry, so the entry after it finds none. Java's EntryHelper hands the
+// list of the last list entry to every later entry that closes as a list.
+TEST(EntryHandler, TheNestedListGoesToTheFirstEntryThatClosesAndToNoOther)
+{
+    TestEntryHandler handler;
+    openListOfOne(handler);
+    EXPECT_EQ(valueOfEntry(handler, "list"), "List[Integer 1, ]");
+    // Java: "List[Integer 1, ]" again, the same list object.
+    EXPECT_EQ(valueOfEntry(handler, "list"), "null");
+
+    // An entry that closes as something else takes the list away all the same: it was the
+    // list entry's close, with attributes that slipped (see DelegatorHandler).
+    openListOfOne(handler);
+    EXPECT_EQ(valueOfEntry(handler, "string"), "String text");
+    EXPECT_EQ(valueOfEntry(handler, "list"), "null");
+    openListOfOne(handler);
+    EXPECT_EQ(valueOfEntry(handler, "bogus"), "null");
+    EXPECT_EQ(handler.getNestedList(), nullptr);
+    // And an entry without a type attribute.
+    openListOfOne(handler);
+    EXPECT_FALSE(
+        QtRocket::EntryHelper::getValueFromEntry(handler, ElementHandler::Attributes{}, "x")
+            .has_value());
     EXPECT_EQ(handler.getNestedList(), nullptr);
 }
 

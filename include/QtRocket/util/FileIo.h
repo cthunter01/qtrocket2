@@ -17,6 +17,16 @@ namespace QtRocket
 /// it).
 [[nodiscard]] Result<std::vector<std::byte>> readFile(const std::filesystem::path& path);
 
+/// Reads a whole file that may hold @p maxBytes bytes at most, for a file whose name or contents
+/// come from untrusted input (Java: FileUtils.readBytes(InputStream, int)). Fails as
+/// readFile(path) does, and with ErrorCode::IO and "Input exceeds maximum size of <maxBytes>
+/// bytes" for a larger one: a file that says it is larger is refused before anything is read
+/// or reserved, and whatever gives no size or gives more than it said (a device, a pipe, a file
+/// that grows) is given up after @p maxBytes + 1 bytes. No more than @p maxBytes bytes are ever
+/// held.
+[[nodiscard]] Result<std::vector<std::byte>> readFile(const std::filesystem::path& path,
+                                                      std::size_t                  maxBytes);
+
 /// Reads a whole file as text (bytes are taken as-is; no newline or encoding conversion).
 [[nodiscard]] Result<std::string> readTextFile(const std::filesystem::path& path);
 

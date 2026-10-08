@@ -1,11 +1,14 @@
 #pragma once
 
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -58,7 +61,8 @@ concept ConfigInteger = std::signed_integral<T> && !std::same_as<T, char> &&
 /// - The getters return copies. Java hands out the stored objects, which are immutable except
 ///   for a list: there a caller could change the Config through the list getList() returned.
 /// - keySet() is a copy of the keys, where Java returns an unmodifiable view.
-/// - Lookup is linear in the number of keys: an extension has a handful of them.
+/// - The keys are found through an index beside the ordered entries (Java: one LinkedHashMap),
+///   so put() and the getters take constant time on average however many keys a file brings.
 class Config
 {
 public:
@@ -227,8 +231,21 @@ private:
     /// The value stored under @p key, or null.
     [[nodiscard]] const Value* find(std::string_view key) const noexcept;
 
+    /// Hashes a key for the index, whichever string type names it.
+    struct KeyHash
+    {
+        // NOLINTNEXTLINE(readability-identifier-naming) the name the standard library asks for
+        using is_transparent = void;
+        [[nodiscard]] std::size_t operator()(std::string_view key) const noexcept
+        {
+            return std::hash<std::string_view>{}(key);
+        }
+    };
+
     /// The entries in insertion order.
     std::vector<std::pair<std::string, Value>> m_entries;
+    /// Where each key stands in m_entries. No entry is ever removed, so a position stays valid.
+    std::unordered_map<std::string, std::size_t, KeyHash, std::equal_to<>> m_index;
 };
 
 }  // namespace QtRocket

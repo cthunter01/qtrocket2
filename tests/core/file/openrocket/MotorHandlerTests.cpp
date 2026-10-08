@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <format>
 #include <initializer_list>
 #include <limits>
@@ -10,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -38,7 +41,9 @@
 #include "QtRocket/util/Strings.h"
 #include "TestTempDir.h"
 #include "document/TestAttachments.h"
+#include "file/ExampleMotors.h"
 #include "file/openrocket/HandlerTestSupport.h"
+#include "motor/TestMotorDatabase.h"
 
 // Beyond the ten tests of OpenRocket's MotorHandlerTest, the expectations are what OpenRocket's
 // MotorHandler answers for the same elements, finder and attachments (probe MotorHandlerProbe
@@ -61,9 +66,11 @@ using QtRocket::MotorHandler;
 using QtRocket::RockSimMotorWriter;
 using QtRocket::ThrustCurveMotor;
 using QtRocket::WarningSet;
+using QtRocket::Test::ExampleMotor;
 using QtRocket::Test::FailingAttachment;
 using QtRocket::Test::HandlerFixture;
 using QtRocket::Test::HandlerRun;
+using QtRocket::Test::kExampleMotors;
 using QtRocket::Test::makeEmbeddedTestMotor;
 using QtRocket::Test::MemoryAttachment;
 using QtRocket::Test::raspStyleDigest;
@@ -1118,10 +1125,85 @@ TEST(MotorHandlerGetMotor, ReadsTheCurveFromAFileNextToAPlainDesign)
     EXPECT_EQ(resolve(fixture, withDigest("missing")).warnings, Texts{});
 }
 
-TEST(MotorHandlerGetMotor, ResolvesAgainstTheBundledDatabaseAsTheLoaderWill)
+// Hostile input next to a plain design: the file the digest names is read whole, so it may
+// not be of any size. OpenRocket hands the loader a stream and says of both files below
+// "Unable to load embedded motor attachment 'thrustcurves/big.rse': Content is not allowed in
+// prolog." (probe BigAttachmentProbe of the review); here std::bad_alloc left getMotor().
+
+/// A file under @p dir that says it holds @p size bytes (sparse where the file system has
+/// sparse files); false when it cannot be made.
+[[nodiscard]] bool makeFileOfSize(const QtRocket::Test::TempDir& dir,
+                                  const std::filesystem::path& name, std::uintmax_t size)
 {
-    // The chain a loader sets up: the handler, a DatabaseMotorFinder, a database. An Estes A8
-    // of an example design, whose digest is one of an older format of the second A8 curve.
+    const std::filesystem::path file = dir.write(name, "x");
+    std::error_code             error;
+    std::filesystem::resize_file(file, size, error);
+    return !error;
+}
+
+TEST(MotorHandlerGetMotor, ACurveFileBeyondTheLimitIsAWarning)
+{
+    const QtRocket::Test::TempDir temp;
+    ASSERT_TRUE(makeFileOfSize(temp, "thrustcurves/big.rse", Attachment::kMaxAttachmentBytes + 1));
+    const QtRocket::FileSystemAttachmentFactory factory(temp.path());
+    HandlerFixture                              fixture;
+    fixture.context().setAttachmentFactory(&factory);
+
+    const Resolved found = resolve(fixture, withDigest("big"));
+    EXPECT_EQ(found.motor, nullptr);
+    EXPECT_EQ(found.warnings,
+              Texts{unable("big",
+                           "Attachment 'thrustcurves/big.rse' exceeds the maximum size "
+                           "of 33554432 bytes")});
+
+    // With a motor from the database the design still loads with it.
+    const std::shared_ptr<const ThrustCurveMotor> approximate = different();
+    fixture.motorFinder().setMotor(approximate);
+    EXPECT_EQ(resolve(fixture, withDigest("big")).motor, approximate);
+}
+
+/// Makes @p link under @p dir a symbolic link to the device @p device; false where there is no
+/// such device or no links.
+[[nodiscard]] bool makeDeviceLink(const QtRocket::Test::TempDir& dir,
+                                  const std::filesystem::path&   link,
+                                  const std::filesystem::path&   device)
+{
+    std::error_code error;
+    if (!std::filesystem::is_character_file(device, error))
+    {
+        return false;
+    }
+    std::filesystem::create_directories(dir.resolve(link).parent_path(), error);
+    std::filesystem::create_symlink(device, dir.resolve(link), error);
+    return !error;
+}
+
+TEST(MotorHandlerGetMotor, ACurveFileThatIsADeviceIsAWarning)
+{
+    const QtRocket::Test::TempDir temp;
+    if (!makeDeviceLink(temp, "thrustcurves/zero.rse", "/dev/zero"))
+    {
+        GTEST_SKIP() << "no /dev/zero or no links here";
+    }
+    const QtRocket::FileSystemAttachmentFactory factory(temp.path());
+    HandlerFixture                              fixture;
+    fixture.context().setAttachmentFactory(&factory);
+
+    // The endless source is not opened, let alone read to the end of the memory.
+    const Resolved found = resolve(fixture, withDigest("zero"));
+    EXPECT_EQ(found.motor, nullptr);
+    EXPECT_EQ(
+        found.warnings,
+        Texts{unable("zero", "cannot read '" +
+                                 QtRocket::pathToUtf8(temp.path() / "thrustcurves" / "zero.rse") +
+                                 "': not a regular file")});
+}
+
+TEST(MotorHandlerGetMotor, ResolvesThroughADatabaseMotorFinderAsTheLoaderWill)
+{
+    // The chain a loader sets up: the handler, a DatabaseMotorFinder, a database (here one of
+    // two motors made for the test; the bundled database is MotorHandlerBundled's below). An
+    // Estes A8 whose digest is one of an older format of the second A8 curve.
     QtRocket::ThrustCurveMotorSetDatabase         database;
     const std::shared_ptr<const ThrustCurveMotor> first  = createMotor("A8", 8.0, "first");
     const std::shared_ptr<const ThrustCurveMotor> second = createMotor("A8", 9.0, "second");
@@ -1147,6 +1229,67 @@ TEST(MotorHandlerGetMotor, ResolvesAgainstTheBundledDatabaseAsTheLoaderWill)
         resolve(fixture, "<designation>Z9</designation><digest>nothing</digest>");
     EXPECT_EQ(missing.motor, nullptr);
     EXPECT_EQ(missing.warnings, Texts{"No motor with designation 'Z9' found."});
+}
+
+// ---- the motors of the example designs, through the handler ------------------------------------
+
+/// What the handler makes of the <motor> element of @p example as a file holds it (the type,
+/// the manufacturer, the designation and the digest), in @p fixture: "<designation>: <the
+/// digest of the motor found>", or "<designation>: no motor", then every warning.
+[[nodiscard]] std::string resolvedExample(HandlerFixture& fixture, const ExampleMotor& example)
+{
+    const Resolved found =
+        resolve(fixture, std::format("<type>{}</type><manufacturer>{}</manufacturer>"
+                                     "<designation>{}</designation><digest>{}</digest>",
+                                     QtRocket::orkName(example.type), example.manufacturer,
+                                     example.designation, example.digest));
+    const auto* const curve = dynamic_cast<const ThrustCurveMotor*>(found.motor.get());
+    std::string       text  = std::format("{}: {}", example.designation,
+                                          curve != nullptr ? curve->getDigest() : "no motor");
+    for (const std::string& warning : found.warnings)
+    {
+        text += " warning: " + warning;
+    }
+    return text;
+}
+
+/// resolvedExample() of every example motor, and what the table expects of each.
+struct ExampleResolutions
+{
+    Texts resolved;
+    Texts expected;
+};
+
+[[nodiscard]] ExampleResolutions resolveExamples(HandlerFixture& fixture)
+{
+    ExampleResolutions all;
+    for (const ExampleMotor& example : kExampleMotors)
+    {
+        all.resolved.push_back(resolvedExample(fixture, example));
+        all.expected.push_back(std::format("{}: {}", example.designation, example.found));
+    }
+    return all;
+}
+
+// The exit check of the loader infrastructure, end to end: every motor reference of the 16
+// example designs, read by the handler from its element in a file of format 1.10 and searched in
+// the bundled database, is the motor OpenRocket loads, without a warning. The seven whose digest
+// fits no curve of the database ask for an embedded curve first, find none and take the
+// database's motor, as OpenRocket does with these files. (One TEST: the database is read once
+// per test process.)
+TEST(MotorHandlerBundled, EveryMotorOfTheExamplesResolvesAsOpenRockets)
+{
+    const QtRocket::DatabaseMotorFinder finder(QtRocket::Test::bundledMotorDatabase());
+    HandlerFixture                      fixture;
+    fixture.context().setMotorFinder(&finder);
+    fixture.context().setFileVersion(110);
+
+    const ExampleResolutions all = resolveExamples(fixture);
+    EXPECT_EQ(all.resolved.size(), 41U);
+    EXPECT_EQ(all.resolved, all.expected);
+    // The embedded curves that were asked for: one for each reference the database's motor
+    // did not fit by its digest.
+    EXPECT_EQ(fixture.attachments().asked().size(), 7U);
 }
 
 TEST(MotorHandlerGetMotor, EveryCallSearchesAgain)

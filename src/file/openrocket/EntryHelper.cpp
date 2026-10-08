@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "QtRocket/file/openrocket/EntryHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
@@ -83,9 +84,12 @@ namespace
 }  // namespace
 
 std::optional<Config::Value> EntryHelper::getValueFromEntry(
-    const EntryHandler& handler, const ElementHandler::Attributes& attributes,
-    std::string_view content)
+    EntryHandler& handler, const ElementHandler::Attributes& attributes, std::string_view content)
 {
+    // The nested list is the closing entry's, whatever the attributes say the entry is: taken
+    // here, it cannot be found again by a later entry (not OpenRocket's: see EntryHandler).
+    std::optional<Config::List> nested = handler.takeNestedList();
+
     const auto type = attributes.find("type");
     if (type == attributes.end())
     {
@@ -103,14 +107,9 @@ std::optional<Config::Value> EntryHelper::getValueFromEntry(
     {
         return parseNumber(content);
     }
-    if (type->second == "list")
+    if (type->second == "list" && nested.has_value())
     {
-        const Config::List* list = handler.getNestedList();
-        if (list == nullptr)
-        {
-            return std::nullopt;
-        }
-        return Config::Value(*list);
+        return Config::Value(std::move(*nested));
     }
     return std::nullopt;
 }

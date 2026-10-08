@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <set>
@@ -162,9 +163,16 @@ std::shared_ptr<DecalImage> DecalRegistry::getDecalImage(
             dynamic_cast<const FileSystemAttachment*>(attachment.get()))
     {
         const std::filesystem::path& location = fileAttachment->getLocation();
-        if (std::shared_ptr<DecalImage> found = findDecalForFile(location))
+        if (std::shared_ptr<DecalImage> found = findDecalForFile(m_registeredDecals, location))
         {
             return found;
+        }
+        // Not OpenRocket's: a removed image of this file comes back under its name, which the
+        // rocket or an undo state may still hold (see the class comment).
+        if (const std::shared_ptr<DecalImage> removed =
+                findDecalForFile(m_detachedDecals, location))
+        {
+            return registerAgain(removed->getName());
         }
 
         // It's a new file, generate a name for it (Java: makeUniqueName(location.getName())).
@@ -181,8 +189,26 @@ std::shared_ptr<DecalImage> DecalRegistry::getDecalImage(
     {
         return found->second;
     }
+    // Not OpenRocket's: the removed image of this name comes back.
+    if (std::shared_ptr<DecalImage> removed = registerAgain(decalName))
+    {
+        return removed;
+    }
     std::shared_ptr<DecalImage> image = std::make_shared<DecalImage>(attachment);
     m_registeredDecals.insert_or_assign(decalName, image);
+    return image;
+}
+
+std::shared_ptr<DecalImage> DecalRegistry::registerAgain(std::string_view name)
+{
+    const auto removed = m_detachedDecals.find(name);
+    if (removed == m_detachedDecals.end())
+    {
+        return nullptr;
+    }
+    std::shared_ptr<DecalImage> image = removed->second;
+    m_registeredDecals.insert_or_assign(removed->first, image);
+    m_detachedDecals.erase(removed);
     return image;
 }
 
@@ -218,20 +244,25 @@ std::string DecalRegistry::makeUniqueName(std::string_view name) const
     std::set<int> counts;
     bool          needsRewrite = false;
 
-    for (const auto& [registeredName, image] : m_registeredDecals)
+    // Java walks the registered images. The removed ones count here too: their names stay
+    // taken (see the class comment).
+    for (const Images* const images : {&m_registeredDecals, &m_detachedDecals})
     {
-        const std::optional<FileNameParts> registered = matchFileName(registeredName);
-        if (registered.has_value())
+        for (const auto& [takenName, image] : *images)
         {
-            if (basename == registered->baseName && extension == registered->extension)
+            const std::optional<FileNameParts> taken = matchFileName(takenName);
+            if (taken.has_value())
             {
-                addNumber(counts, *registered);
+                if (basename == taken->baseName && extension == taken->extension)
+                {
+                    addNumber(counts, *taken);
+                    needsRewrite = true;
+                }
+            }
+            else if (newName == takenName)
+            {
                 needsRewrite = true;
             }
-        }
-        else if (newName == registeredName)
-        {
-            needsRewrite = true;
         }
     }
 
@@ -267,21 +298,40 @@ bool DecalRegistry::removeDecal(const DecalImage* decal)
     {
         return false;
     }
-    return m_registeredDecals.erase(decal->getName()) != 0;
+    const auto registered = m_registeredDecals.find(decal->getName());
+    if (registered == m_registeredDecals.end())
+    {
+        return false;
+    }
+    // Java: registeredDecals.remove(name). The image is kept, out of the list (see the class
+    // comment).
+    m_detachedDecals.insert_or_assign(registered->first, registered->second);
+    m_registeredDecals.erase(registered);
+    return true;
 }
 
 std::shared_ptr<DecalImage> DecalRegistry::find(std::string_view name) const
 {
-    const auto found = m_registeredDecals.find(name);
-    return found != m_registeredDecals.end() ? found->second : nullptr;
+    if (const auto found = m_registeredDecals.find(name); found != m_registeredDecals.end())
+    {
+        return found->second;
+    }
+    const auto removed = m_detachedDecals.find(name);
+    return removed != m_detachedDecals.end() ? removed->second : nullptr;
 }
 
-std::shared_ptr<DecalImage> DecalRegistry::findDecalForFile(const std::filesystem::path& file) const
+bool DecalRegistry::isRegistered(std::string_view name) const
+{
+    return m_registeredDecals.contains(name);
+}
+
+std::shared_ptr<DecalImage> DecalRegistry::findDecalForFile(const Images&                images,
+                                                            const std::filesystem::path& file)
 {
     const std::filesystem::path asked = withoutTrailingSeparator(file);
     // Of several images with that file, the first in name order (see the class comment).
     std::shared_ptr<DecalImage> found;
-    for (const auto& [name, image] : m_registeredDecals)
+    for (const auto& [name, image] : images)
     {
         const std::optional<std::filesystem::path>& decalFile = image->getDecalFile();
         if (!decalFile.has_value())

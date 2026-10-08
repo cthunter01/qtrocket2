@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/util/Config.h"
@@ -23,22 +24,40 @@ namespace QtRocket
 ///     </entry>
 ///
 /// The handler of the outer entry opens a list handler for it (openList()), which collects the
-/// inner values (addToList()); when the outer entry closes, EntryHelper asks getNestedList()
-/// for them.
+/// inner values (addToList()); when the outer entry closes, EntryHelper takes them
+/// (takeNestedList()).
+///
+/// A nested list belongs to the entry that opened it and is read once, by the close of that
+/// entry, which is the first close this handler sees after openList(): takeNestedList() moves
+/// the values out and forgets the list handler, and EntryHelper::getValueFromEntry() calls it
+/// for every entry it is asked about, whatever the entry's type. So a later entry never finds
+/// the list of an earlier one, although the attributes it is closed with may claim that it is
+/// a list (DelegatorHandler hands an entry the attributes of an ignored child element). A
+/// subclass that reads its entries through EntryHelper need not do anything for this.
 ///
 /// Deviations from OpenRocket:
 /// - Java's fields listHandler and list are protected; here they are reached through
-///   openList(), closeList(), addToList() and getList().
+///   openList(), closeList(), takeNestedList(), addToList() and getList().
 /// - The list handler is owned (std::unique_ptr) and the next list entry replaces it, where
 ///   Java leaves the old one to the garbage collector.
+/// - Java keeps the list handler of the last list entry for good and hands its list out by
+///   reference to every later entry that closes as a list. With the lists really loaded (see
+///   ConfigHandler) that would let a file store one list many times over, each copy holding
+///   the copies before it, so here the list is handed out once (takeNestedList()).
 /// - A value is a Config::Value (Java: an Object), so a list holds nothing but the types a
 ///   Config holds.
 class EntryHandler : public AbstractElementHandler
 {
 public:
-    /// The values of the list entry this handler opened last (getNestedList()): the list of
-    /// that entry's handler, or null when this handler has not opened a list entry.
+    /// The values of the list entry this handler opened and has not closed yet
+    /// (getNestedList()): the list of that entry's handler, or null when there is none. It only
+    /// looks; the close of an entry takes the values with takeNestedList().
     [[nodiscard]] const Config::List* getNestedList() const noexcept;
+
+    /// The values of the list entry this handler opened, moved out of that entry's handler,
+    /// which is forgotten (getNestedList() is null afterwards); nullopt when no list entry is
+    /// open. For the close of an entry: see the class comment.
+    [[nodiscard]] std::optional<Config::List> takeNestedList() noexcept;
 
     /// This handler's own list (Java: the field list): the values of the entries without a key
     /// it has closed.
@@ -53,8 +72,8 @@ protected:
     /// @throws BugError when @p handler is null
     EntryHandler* openList(std::unique_ptr<EntryHandler> handler);
 
-    /// Forgets the handler of the list entry opened last, so that getNestedList() is null
-    /// again: for a list entry this handler does not read.
+    /// Forgets the handler of the list entry opened last and its values, so that
+    /// getNestedList() is null again: for a list entry this handler does not read.
     void closeList() noexcept;
 
     /// Adds @p value to this handler's own list (Java: list.add(value)).
