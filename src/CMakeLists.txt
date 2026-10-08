@@ -13,7 +13,12 @@ QtRocket_configure_target(QtRocket_core)
 # before rocket/, another deviation: motor mounts and motor configurations hold motors, and the
 # motor classes need nothing from the rocket model. MotorClusterState and ThrustState, which
 # OpenRocket keeps in its simulation package, live in mass/: MassCalculation needs them, and
-# simulation/ builds on mass/ (its steppers call MassCalculator), never the reverse.
+# simulation/ builds on mass/ (its steppers call MassCalculator), never the reverse. document/ (the
+# document with its undo history, its attachments and its decal images) comes after simulation/
+# and before file/: Simulation, which OpenRocket keeps in its document package, lives in
+# simulation/ (the engine needs it), the document holds simulations, and the loaders and savers
+# of file/ fill and read a document. So document/ never includes file/ (the attachments that read
+# an archive are in file/), and simulation/ never includes document/.
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(logging)
@@ -25,6 +30,7 @@ add_subdirectory(models)
 add_subdirectory(mass)
 add_subdirectory(aero)
 add_subdirectory(simulation)
+add_subdirectory(document)
 add_subdirectory(file)
 
 add_subdirectory(cli)

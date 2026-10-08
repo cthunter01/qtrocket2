@@ -189,6 +189,7 @@ add_executable(QtRocket_core_tests
     simulation/BasicTumbleStepperTests.cpp
     simulation/CloneableSimulationListenerTests.cpp
     simulation/corrective_moment_coefficient_tests.cpp
+    simulation/customexpression/CustomExpressionTests.cpp
     simulation/damping_moment_coefficient_tests.cpp
     simulation/damping_ratio_tests.cpp
     simulation/DataBranchTests.cpp
@@ -214,6 +215,7 @@ add_executable(QtRocket_core_tests
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp
     simulation/simulation_branch_listener_tests.cpp
+    simulation/simulation_lookup_invalidation_tests.cpp
     simulation/simulation_threading_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
@@ -230,6 +232,12 @@ add_executable(QtRocket_core_tests
     simulation/tumble_detector_simulation_tests.cpp
     simulation/TumbleDetectorTests.cpp
     simulation/wind_model_seed_reproducibility_tests.cpp
+    document/attachments/FileSystemAttachmentTests.cpp
+    document/AttachmentTests.cpp
+    document/DecalImageTests.cpp
+    document/DecalRegistryTests.cpp
+    document/events/DocumentChangeEventTests.cpp
+    document/StorageOptionsTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
