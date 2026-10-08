@@ -248,7 +248,10 @@ public:
     /// lower-case letters that fold to another one (the micro sign, the dotless i, the long s,
     /// final sigma, Greek symbol forms such as U+03D1) and String.toLowerCase's special cases
     /// U+0130 and a word-final capital sigma. Java's hash of a name holding one of them can
-    /// differ from that of an equal name, which the fold avoids.
+    /// differ from that of an equal name, which the fold avoids. What follows: two types whose
+    /// names are equal and that Java hashes apart are two columns of a Java DataBranch and one
+    /// column here, and a design file that names both in one branch loads in OpenRocket and is
+    /// refused by the loader here (see FlightDataBranchHandler).
     [[nodiscard]] int hashCode() const noexcept { return m_hashCode; }
 
     /// FlightDataType.compareTo: by group (compareTo(FlightDataTypeGroup, FlightDataTypeGroup)),

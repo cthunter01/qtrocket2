@@ -81,6 +81,8 @@ inline constexpr std::array<GeodeticComputationStrategy, 3> kAllGeodeticComputat
 /// including the display names, is nullopt. Deviation: this merges Enum.valueOf() (exact) and
 /// DocumentConfig.findEnum() (case-sensitive against the lower-cased name) into one permissive
 /// parser; OpenRocket itself would reject "WGS84" in an .ork file and "wgs84" in the preferences.
+/// The .ork loader does not use it: SimulationConditionsHandler reads <geodeticmethod> with
+/// DocumentConfig::findEnum() over kAllGeodeticComputationStrategies and name(), which is exact.
 [[nodiscard]] std::optional<GeodeticComputationStrategy> geodeticComputationStrategyFromString(
     std::string_view text) noexcept;
 

@@ -117,6 +117,25 @@ TEST(Message, ASourceIsBuiltFromAComponentsIdAndName)
     static_assert(!QtRocket::MessageSourceComponent<MessageSource>);
 }
 
+// OpenRocket: RocketComponent.REMOVED, what findComponent() gives for an id no component has,
+// with the English text of "RemovedComponent.COMPONENT_REMOVED" as its name.
+TEST(Message, ASourceThatTheRocketDoesNotHaveIsNamedAsOpenRocketsRemovedComponent)
+{
+    EXPECT_EQ(MessageSource::kRemovedComponentName, "<i>Component Removed From Rocket</i>");
+    const Uuid          id      = componentId("gone-1");
+    const MessageSource removed = MessageSource::removed(id);
+    EXPECT_EQ(removed.id, id);
+    EXPECT_EQ(removed.name, "<i>Component Removed From Rocket</i>");
+    // A source is its id: the removed one equals any source of that id and no other.
+    EXPECT_TRUE(removed == source("gone-1", "Body tube"));
+    EXPECT_FALSE(removed == MessageSource::removed(componentId("gone-2")));
+
+    Warning::Other warning{"Gap in rocket airframe"};
+    warning.setSources(MessageSources{removed});
+    EXPECT_EQ(warning.toString(),
+              "Gap in rocket airframe:  \"<i>Component Removed From Rocket</i>\"");
+}
+
 TEST(Message, TestComponentIdsFollowTheirTags)
 {
     // The test helper: one Uuid per tag, up to the eight characters that fit in the packed half.

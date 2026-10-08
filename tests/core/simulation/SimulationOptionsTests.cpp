@@ -45,6 +45,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
@@ -1514,6 +1515,70 @@ TEST(SimulationOptions, SetDragLookupCsvPathFailsWithoutChangingAnything)
     EXPECT_EQ(parse.error().code, ErrorCode::PARSE);
     EXPECT_EQ(events.count(), 0);
     EXPECT_EQ(options.getDragLookupTable(), table);
+}
+
+// Not in OpenRocket: the table of a CSV file for a caller that looks at it before it takes it
+// (the .ork loader). It is read as setDragLookupCsvPath() reads it and fails as that does.
+TEST(SimulationOptions, ReadDragLookupCsvReadsTheTableOfSetDragLookupCsvPath)
+{
+    const QtRocket::Test::TempDir tempDir;
+    const std::filesystem::path   file = tempDir.write("drag.csv", "Mach,Cd\n0,0.5\n1,0.75\n");
+
+    const Result<std::shared_ptr<const MachAoALookup>> table =
+        SimulationOptions::readDragLookupCsv(tempDir.path() / "sub" / ".." / "drag.csv");
+    ASSERT_TRUE(table.has_value());
+    ASSERT_NE(*table, nullptr);
+    EXPECT_EQ((*table)->interpolate(0.5, 0, "cd"), 0.625);
+
+    // Storing it with the rows the options have is what setDragLookupCsvPath() does.
+    const std::vector<std::string> rows = dragRows("2");
+    SimulationOptions              stored;
+    stored.setDragLookup(std::nullopt, nullptr, rows);
+    ChangeCounter storedEvents(stored.changed());
+    stored.setDragLookup(tempDir.path() / "sub" / ".." / "drag.csv", *table,
+                         stored.getDragLookupCsvRows());
+    SimulationOptions set;
+    set.setDragLookup(std::nullopt, nullptr, rows);
+    ChangeCounter setEvents(set.changed());
+    ASSERT_TRUE(set.setDragLookupCsvPath(tempDir.path() / "sub" / ".." / "drag.csv"));
+    EXPECT_EQ(stored.getDragLookupCsvPath(), set.getDragLookupCsvPath());
+    EXPECT_EQ(stored.getDragLookupCsvPath(), file.lexically_normal());
+    EXPECT_EQ(stored.getDragLookupCsvRows(), set.getDragLookupCsvRows());
+    EXPECT_EQ(stored.getDragLookupTable()->interpolate(0.25, 0, "cd"),
+              set.getDragLookupTable()->interpolate(0.25, 0, "cd"));
+    EXPECT_EQ(storedEvents.count(), setEvents.count());
+}
+
+TEST(SimulationOptions, ReadLookupCsvFailsAsTheSettersDo)
+{
+    const QtRocket::Test::TempDir tempDir;
+    const std::filesystem::path   drag = tempDir.write("drag.csv", "Mach,Cd\n0,0.5\n1,0.75\n");
+    const std::filesystem::path   stability =
+        tempDir.write("stability.csv", "Mach,Cn,Cm,Cp\n0,1,2,3\n2,3,4,5\n");
+
+    // The message names the path made absolute and normalised, as the setter's does.
+    const Result<std::shared_ptr<const MachAoALookup>> missing =
+        SimulationOptions::readDragLookupCsv(tempDir.path() / "sub" / ".." / "none.csv");
+    ASSERT_FALSE(missing.has_value());
+    EXPECT_EQ(missing.error().code, ErrorCode::IO);
+    EXPECT_EQ(missing.error().message, "Failed to read lookup table from " +
+                                           QtRocket::pathToUtf8(tempDir.resolve("none.csv")));
+
+    // Each reader wants the columns of its table.
+    const Result<std::shared_ptr<const MachAoALookup>> noCd =
+        SimulationOptions::readDragLookupCsv(stability);
+    ASSERT_FALSE(noCd.has_value());
+    EXPECT_EQ(noCd.error().code, ErrorCode::PARSE);
+    const Result<std::shared_ptr<const MachAoALookup>> noCn =
+        SimulationOptions::readStabilityLookupCsv(drag);
+    ASSERT_FALSE(noCn.has_value());
+    EXPECT_EQ(noCn.error().code, ErrorCode::PARSE);
+
+    const Result<std::shared_ptr<const MachAoALookup>> table =
+        SimulationOptions::readStabilityLookupCsv(stability);
+    ASSERT_TRUE(table.has_value());
+    ASSERT_NE(*table, nullptr);
+    EXPECT_EQ((*table)->interpolate(1.0, 0, "cp"), 4.0);
 }
 
 TEST(SimulationOptions, SetStabilityLookup)

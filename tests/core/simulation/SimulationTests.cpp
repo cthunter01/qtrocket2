@@ -36,6 +36,7 @@
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationOptions.h"
@@ -74,6 +75,7 @@ using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
 using QtRocket::FlightEvent;
 using QtRocket::InMemoryPreferences;
+using QtRocket::LandingDispersionSettings;
 using QtRocket::LineStyle;
 using QtRocket::ModId;
 using QtRocket::MotorClusterState;
@@ -110,9 +112,8 @@ static_assert(!std::is_move_assignable_v<Simulation>);
 
 // ------------------------------------------------------------------- SimulationTest.java
 //
-// The cases that need neither a run of the engine nor a document. Not here:
-// testLandingDispersionSettingsAreOptionalAndCopied (Monte Carlo, not in Milestone 1). The
-// cases that run a simulation follow further down (SimulationRunTest).
+// The cases that need neither a run of the engine nor a document. The cases that run a
+// simulation follow further down (SimulationRunTest).
 
 /// SimulationTest.EPSILON
 constexpr double kEpsilon = 0.0001;
@@ -178,6 +179,78 @@ TEST_F(SimulationTest, SimulationCopy)
     // Verify copy is independent
     copy->setName("Modified Copy");
     EXPECT_NE(simulation().getName(), copy->getName());
+}
+
+/// What Java's test builds with MonteCarloSettings.builder(): 250 runs, the seed @p seed and a
+/// uniform uncertainty of the wind speed of 1.5, as a file states such settings. (Java's
+/// settings also have a number of threads, 2, which a file does not store.)
+[[nodiscard]] LandingDispersionSettings landingDispersionSettings(std::string_view seed)
+{
+    return LandingDispersionSettings(
+        {{"runs", "250"}, {"seed", std::string(seed)}},
+        {{{"parameter", "windspeed"}, {"distribution", "uniform"}, {"spread", "1.5"}}});
+}
+
+// SimulationTest.testLandingDispersionSettingsAreOptionalAndCopied, with the settings as a
+// design file states them (LandingDispersionSettings) in place of Java's MonteCarloSettings,
+// which the Monte Carlo milestone ports.
+TEST_F(SimulationTest, LandingDispersionSettingsAreOptionalAndCopied)
+{
+    EXPECT_FALSE(simulation().getLandingDispersionSettings().has_value());
+
+    const LandingDispersionSettings settings = landingDispersionSettings("12345");
+    simulation().setLandingDispersionSettings(settings);
+
+    // Java: assertSame; the settings are a value here.
+    EXPECT_TRUE(simulation().getLandingDispersionSettings() == settings);
+    EXPECT_TRUE(simulation().copy()->getLandingDispersionSettings() == settings);
+    EXPECT_TRUE(simulation().clone()->getLandingDispersionSettings() == settings);
+    const std::shared_ptr<Rocket> rocketCopy = rocket().copyRocketWithOriginalId();
+    EXPECT_TRUE(simulation().duplicateSimulation(*rocketCopy)->getLandingDispersionSettings() ==
+                settings);
+    EXPECT_TRUE(simulation().duplicateForIndependentSimulation()->getLandingDispersionSettings() ==
+                settings);
+
+    Simulation loaded(rocket());
+    loaded.loadFrom(simulation());
+    EXPECT_TRUE(loaded.getLandingDispersionSettings() == settings);
+
+    const std::unique_ptr<Simulation> different = simulation().copy();
+    different->setLandingDispersionSettings(landingDispersionSettings("54321"));
+    EXPECT_FALSE(simulation() == *different);
+
+    simulation().setLandingDispersionSettings(std::nullopt);
+    EXPECT_FALSE(simulation().getLandingDispersionSettings().has_value());
+}
+
+// Not in SimulationTest.java: the copy of the undo history has the settings too, a copy with
+// the same settings equals the simulation, and the setter tells of a change and of nothing
+// else (Java: Objects.equals() before fireChangeEvent()).
+TEST_F(SimulationTest, LandingDispersionSettingsChangeTheSimulationOnlyWhenTheyDiffer)
+{
+    const ChangeCounter changes(simulation().changed());
+    simulation().setLandingDispersionSettings(std::nullopt);
+    EXPECT_EQ(changes.count(), 0);
+
+    simulation().setLandingDispersionSettings(landingDispersionSettings("12345"));
+    EXPECT_EQ(changes.count(), 1);
+    simulation().setLandingDispersionSettings(landingDispersionSettings("12345"));
+    EXPECT_EQ(changes.count(), 1);
+    EXPECT_TRUE(simulation().cloneForUndo()->getLandingDispersionSettings() ==
+                landingDispersionSettings("12345"));
+    EXPECT_TRUE(simulation() == *simulation().copy());
+
+    simulation().setLandingDispersionSettings(landingDispersionSettings("54321"));
+    EXPECT_EQ(changes.count(), 2);
+    simulation().setLandingDispersionSettings(std::nullopt);
+    EXPECT_EQ(changes.count(), 3);
+
+    // loadFrom() takes the settings without an event of its own, as in Java; a simulation
+    // without settings takes them away.
+    Simulation source(rocket());
+    simulation().setLandingDispersionSettings(landingDispersionSettings("1"));
+    simulation().loadFrom(source);
+    EXPECT_FALSE(simulation().getLandingDispersionSettings().has_value());
 }
 
 // SimulationTest.testConfigurationManagement

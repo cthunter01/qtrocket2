@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "QtRocket/util/Error.h"
@@ -42,12 +43,24 @@ namespace QtRocket
 /// outside it.
 [[nodiscard]] std::string pathToUtf8(const std::filesystem::path& path);
 
+/// The path the UTF-8 text @p text names, the opposite of pathToUtf8(): the text is read as
+/// UTF-8 on every platform (a path made from a plain std::string goes through the Windows ANSI
+/// code page). A sequence that is not UTF-8 is read as U+FFFD (Strings::toValidUtf8()), so that
+/// no text, such as a file name out of a design file, can make the conversion throw.
+[[nodiscard]] std::filesystem::path pathFromUtf8(std::string_view text);
+
 /// Java's File.getAbsolutePath(): @p path resolved against the current directory, as
 /// std::filesystem::absolute() does it (no link is followed and the file need not exist; on POSIX
 /// "." and ".." stay, as in Java, while Windows resolves them), and the current directory itself
 /// for an empty path, which std::filesystem::absolute() refuses on some platforms. @p path as it
 /// is when the current directory cannot be asked.
 [[nodiscard]] std::filesystem::path absolutePath(const std::filesystem::path& path);
+
+/// @p path as Java's File and Path spell the same text: a run of separators as one separator
+/// and no separator at the end but the one of a root, so "a//b/" is "a/b" and "///" is "/".
+/// Nothing else changes: "." and ".." stay. The elements are joined with the platform's
+/// separator.
+[[nodiscard]] std::filesystem::path withoutRedundantSeparators(const std::filesystem::path& path);
 
 /// Reinterprets bytes as text without copying semantics surprises (a plain byte-for-byte copy).
 [[nodiscard]] std::string bytesToString(std::span<const std::byte> bytes);

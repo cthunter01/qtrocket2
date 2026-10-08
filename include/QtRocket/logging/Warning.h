@@ -8,6 +8,7 @@
 
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
 {
@@ -109,7 +110,8 @@ protected:
 class Warning::LargeAOA final : public Warning
 {
 public:
-    /// @param aoa the angle of attack in radians; NaN when unknown (the .ork loader passes NaN).
+    /// @param aoa the angle of attack in radians; NaN when unknown (the .ork loader passes the
+    ///            <parameter> of the stored warning, and NaN for a warning without one).
     explicit LargeAOA(double aoa);
 
     [[nodiscard]] double aoa() const noexcept { return m_aoa; }
@@ -242,21 +244,46 @@ public:
 /// needs when it sets a saved id back.
 ///
 /// The event: OpenRocket stores the FlightEvent itself. FlightEvent lives in simulation/, which
-/// builds on logging/ (logging/ never includes it), so the event is represented by the display
-/// name of its type (FlightEvent.Type.toString(), e.g. "Apogee"), which is all the message text
-/// needs: the simulation engine passes std::string{displayName(event.getType())}
+/// builds on logging/ (logging/ never includes it), so the event is represented by the two
+/// things the warning needs of it: the display name of its type (FlightEvent.Type.toString(),
+/// e.g. "Apogee"), which the message text prints, and its id (FlightEvent.getID()), which an
+/// .ork file stores as the eventid of the SIM_WARN event that carries the warning. The
+/// simulation engine passes std::string{displayName(event.getType())} and event.getId()
 /// (BasicEventSimulationEngine, for an event that is handled after the ground hit). The .ork
-/// loader creates the warning without an event and attaches it afterwards (Java: setEvent()).
+/// loader creates the warning without an event and attaches it afterwards (setEvent()), when
+/// it reads the SIM_WARN event with the eventid.
+///
+/// A warning has both or neither when the engine or the loader made it; the two can be set
+/// apart, and neither takes part in equals(), as in Java, whose equals() does not look at the
+/// event.
 class Warning::EventAfterLanding final : public Warning
 {
 public:
-    explicit EventAfterLanding(std::optional<std::string> eventType = std::nullopt);
+    /// A warning for the event whose type has the display name @p eventType and whose id is
+    /// @p eventId; none of either is a warning without an event (Java: a null event).
+    explicit EventAfterLanding(std::optional<std::string> eventType = std::nullopt,
+                               std::optional<Uuid>        eventId   = std::nullopt);
 
     [[nodiscard]] const std::optional<std::string>& eventType() const noexcept
     {
         return m_eventType;
     }
     void setEventType(std::optional<std::string> eventType) { m_eventType = std::move(eventType); }
+
+    /// The id of the event (Java: getEvent().getID()), or nullopt without an event. What a
+    /// saver writes as the eventid of the SIM_WARN event of this warning; Java's saver cannot
+    /// write a warning without an event (a NullPointerException), so a saver here leaves the
+    /// attribute out for nullopt.
+    [[nodiscard]] const std::optional<Uuid>& eventId() const noexcept { return m_eventId; }
+    void setEventId(std::optional<Uuid> eventId) noexcept { m_eventId = eventId; }
+
+    /// Replaces the event by the one with that type and id, or by none (Java: setEvent(), which
+    /// "is only used for patching the data structure while reading the .ork file").
+    void setEvent(std::optional<std::string> eventType, std::optional<Uuid> eventId)
+    {
+        m_eventType = std::move(eventType);
+        m_eventId   = eventId;
+    }
 
     /// "Flight Event occurred after landing: " followed by the event type, when there is one.
     [[nodiscard]] std::string messageDescription() const override;
@@ -271,6 +298,7 @@ public:
 
 private:
     std::optional<std::string> m_eventType;
+    std::optional<Uuid>        m_eventId;
 };
 
 /// A motor referenced by a design was not found in the database (Java: Warning.MissingMotor).

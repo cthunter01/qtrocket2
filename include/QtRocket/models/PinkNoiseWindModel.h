@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <numbers>
-#include <optional>
 #include <string_view>
 
 #include "QtRocket/models/WindModel.h"
@@ -29,7 +28,10 @@ class Preferences;
 /// velocity is asked for, and started again whenever an earlier time is asked for, so the wind
 /// is a function of the time for a given seed. Deviation: the Gaussian input comes from
 /// std::mt19937 (see PinkNoise), so a seeded run is reproducible within QtRocket (for one standard
-/// library) but never bit-identical to OpenRocket's java.util.Random sequence.
+/// library) but never bit-identical to OpenRocket's java.util.Random sequence. The source is
+/// made on the heap at that first question and not before, as Java makes its PinkNoise: its
+/// generator alone is some 5000 bytes (std::mt19937), and a design file can ask for a model per
+/// wind level and several per simulation, most of which are never asked for a velocity.
 ///
 /// Each setter of the average, direction or standard deviation emits changed() unless its
 /// argument equals the stored value, as in Java. The comparison comes before the value is
@@ -160,10 +162,11 @@ private:
 
     int m_seed;
 
-    std::optional<PinkNoise> m_randomSource;
-    double                   m_time1{0};
-    double                   m_value1{0};
-    double                   m_value2{0};
+    /// Null until the first velocity is asked for (see the class comment).
+    std::unique_ptr<PinkNoise> m_randomSource;
+    double                     m_time1{0};
+    double                     m_value1{0};
+    double                     m_value2{0};
 };
 
 }  // namespace QtRocket

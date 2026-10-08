@@ -705,7 +705,8 @@ void BasicEventSimulationEngine::handleEvent(const FlightEvent& event, bool& ret
     if (status().isLanded() && (event.getType() != Type::GROUND_HIT) &&
         (event.getType() != Type::ALTITUDE) && (event.getType() != Type::SIMULATION_END))
     {
-        status().addWarning(Warning::EventAfterLanding(std::string{displayName(event.getType())}));
+        status().addWarning(
+            Warning::EventAfterLanding(std::string{displayName(event.getType())}, event.getId()));
     }
 }
 

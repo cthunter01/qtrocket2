@@ -44,7 +44,8 @@ PinkNoiseWindModel::PinkNoiseWindModel(const PinkNoiseWindModel& other)
     m_standardDeviation(other.m_standardDeviation),
     m_seed(other.m_seed)
 {
-    // The random state is not copied: the clone starts its source afresh from the seed.
+    // The random state is not copied: the clone starts its source afresh from the seed, and has
+    // none until it is asked for a velocity.
 }
 
 void PinkNoiseWindModel::setSeed(int seed)
@@ -164,10 +165,11 @@ Coordinate PinkNoiseWindModel::getWindVelocity(double time, double /*altitude*/)
 
     // Java resets and recurses when an earlier time is asked for; starting the source again here
     // is the same, since the new source starts at time 0 <= time.
-    if (!m_randomSource.has_value() || time < m_time1)
+    if (m_randomSource == nullptr || time < m_time1)
     {
         // The seed keeps its bit pattern, as java.util.Random's long seed keeps the int's value.
-        m_randomSource.emplace(kAlpha, kPoles, static_cast<std::uint32_t>(m_seed));
+        m_randomSource =
+            std::make_unique<PinkNoise>(kAlpha, kPoles, static_cast<std::uint32_t>(m_seed));
         m_time1  = 0;
         m_value1 = m_randomSource->nextValue();
         m_value2 = m_randomSource->nextValue();

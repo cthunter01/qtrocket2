@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -371,6 +372,55 @@ TEST(Warning, EventAfterLandingCanBePatchedWithTheEvent)
     EXPECT_EQ(loaded.eventType().value_or(""), "Ejection charge");
     EXPECT_EQ(loaded.messageDescription(), "Flight Event occurred after landing: Ejection charge");
     EXPECT_TRUE(loaded == apogee);  // still the same warning
+}
+
+// Java's EventAfterLanding holds the FlightEvent; here the warning holds the two things it
+// needs of it, the display name of its type and its id (which an .ork file stores as eventid).
+TEST(Warning, EventAfterLandingKnowsTheIdOfItsEvent)
+{
+    const Uuid                       eventId = Uuid::random();
+    const Warning::EventAfterLanding apogee{"Apogee", eventId};
+    EXPECT_EQ(apogee.eventType().value_or(""), "Apogee");
+    EXPECT_EQ(apogee.eventId().value_or(Uuid::nil()), eventId);
+    EXPECT_EQ(apogee.messageDescription(), "Flight Event occurred after landing: Apogee");
+    EXPECT_EQ(apogee.priority(), MessagePriority::HIGH);
+    // Without an event, and with a type only.
+    EXPECT_FALSE(Warning::EventAfterLanding{}.eventId().has_value());
+    EXPECT_FALSE(Warning::EventAfterLanding{"Apogee"}.eventId().has_value());
+
+    // A copy has the event.
+    const std::unique_ptr<Message> copy = apogee.clone();
+    const auto* typed = dynamic_cast<const Warning::EventAfterLanding*>(copy.get());
+    ASSERT_NE(typed, nullptr);
+    EXPECT_EQ(typed->eventId().value_or(Uuid::nil()), eventId);
+    EXPECT_EQ(typed->eventType().value_or(""), "Apogee");
+}
+
+// Java: setEvent(FlightEvent), "only used for patching the data structure while reading the .ork
+// file". Equality is the warning's own id, as in Java, whatever its event.
+TEST(Warning, EventAfterLandingCanBeGivenAnotherEventOrNone)
+{
+    const Uuid                       first  = Uuid::random();
+    const Uuid                       second = Uuid::random();
+    Warning::EventAfterLanding       warning{"Apogee", first};
+    const Warning::EventAfterLanding before{warning};
+
+    warning.setEvent("Tumbling", second);
+    EXPECT_EQ(warning.eventType().value_or(""), "Tumbling");
+    EXPECT_EQ(warning.eventId().value_or(Uuid::nil()), second);
+    EXPECT_EQ(warning.messageDescription(), "Flight Event occurred after landing: Tumbling");
+    EXPECT_TRUE(warning == before);
+    EXPECT_FALSE(warning.replaceBy(before));
+
+    warning.setEventId(first);
+    EXPECT_EQ(warning.eventId().value_or(Uuid::nil()), first);
+    EXPECT_EQ(warning.eventType().value_or(""), "Tumbling");
+
+    warning.setEvent(std::nullopt, std::nullopt);
+    EXPECT_FALSE(warning.eventType().has_value());
+    EXPECT_FALSE(warning.eventId().has_value());
+    EXPECT_EQ(warning.messageDescription(), "Flight Event occurred after landing: ");
+    EXPECT_TRUE(warning == before);
 }
 
 TEST(Warning, MissingMotorDescribesTheMotor)

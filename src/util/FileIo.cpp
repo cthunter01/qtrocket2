@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -131,12 +132,36 @@ std::string pathToUtf8(const std::filesystem::path& path)
     return {text.begin(), text.end()};
 }
 
+std::filesystem::path pathFromUtf8(std::string_view text)
+{
+    // Through char8_t, so that the text is read as UTF-8 on every platform; made valid first,
+    // because the conversion to the platform's path may refuse a malformed sequence.
+    const std::string valid = Strings::toValidUtf8(text);
+    return {std::u8string(valid.begin(), valid.end())};
+}
+
 std::filesystem::path absolutePath(const std::filesystem::path& path)
 {
     std::error_code             error;
     const std::filesystem::path resolved = path.empty() ? std::filesystem::current_path(error)
                                                         : std::filesystem::absolute(path, error);
     return error ? path : resolved;
+}
+
+std::filesystem::path withoutRedundantSeparators(const std::filesystem::path& path)
+{
+    // The root first, its separators as one: a path of separators only ("///") can be a single
+    // element to the iteration, spelled as it was written.
+    std::filesystem::path normalized = path.root_path().lexically_normal();
+    for (const std::filesystem::path& element : path.relative_path())
+    {
+        // The element after a separator at the end is empty.
+        if (!element.empty())
+        {
+            normalized /= element;
+        }
+    }
+    return normalized;
 }
 
 std::string bytesToString(std::span<const std::byte> bytes)

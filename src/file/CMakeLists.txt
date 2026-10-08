@@ -23,6 +23,8 @@ target_sources(QtRocket_core PRIVATE
     openrocket/CustomExpressionHandler.cpp
     openrocket/DatatypeHandler.cpp
     openrocket/DeploymentConfigurationHandler.cpp
+    openrocket/AtmosphereHandler.cpp
+    openrocket/CsvLookupHandler.cpp
     openrocket/DocumentConfig.cpp
     openrocket/DocumentMaterialHandler.cpp
     openrocket/DocumentPreferencesHandler.cpp
@@ -44,6 +46,16 @@ target_sources(QtRocket_core PRIVATE
     openrocket/RadiusPositionSetter.cpp
     openrocket/StageSeparationConfigurationHandler.cpp
     openrocket/StringSetter.cpp
+    openrocket/FlightDataBranchHandler.cpp
+    openrocket/FlightDataHandler.cpp
+    openrocket/GravityHandler.cpp
+    openrocket/LandingDispersionSettingsHandler.cpp
+    openrocket/SimulationConditionsHandler.cpp
+    openrocket/SimulationPlotAppearanceHandler.cpp
+    openrocket/SimulationsHandler.cpp
+    openrocket/SingleSimulationHandler.cpp
+    openrocket/WarningHandler.cpp
+    openrocket/WindHandler.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp

@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -154,14 +155,39 @@ struct ParsedRow
     return row;
 }
 
+/// The contents of the file @p path, or nullopt when it cannot be read, is no regular file or
+/// holds more than @p maxBytes bytes.
+[[nodiscard]] std::optional<std::string> readBounded(const std::filesystem::path& path,
+                                                     std::size_t                  maxBytes)
+{
+    // Not OpenRocket's (see the header): a device or a pipe is not opened at all, since opening
+    // one may block and reading one may never end. (A file whose kind cannot be told is left to
+    // the attempt to open it; a directory is readFile()'s to refuse.)
+    std::error_code                    ignored;
+    const std::filesystem::file_status status = std::filesystem::status(path, ignored);
+    if (std::filesystem::exists(status) && !std::filesystem::is_regular_file(status) &&
+        !std::filesystem::is_directory(status) &&
+        status.type() != std::filesystem::file_type::unknown)
+    {
+        return std::nullopt;
+    }
+    const Result<std::vector<std::byte>> bytes = readFile(path, maxBytes);
+    if (!bytes)
+    {
+        return std::nullopt;
+    }
+    return bytesToString(*bytes);
+}
+
 }  // namespace
 
 Result<MachAoALookup> fromCsv(const std::filesystem::path& path,
-                              std::span<const std::string> requiredValueColumns, char separator)
+                              std::span<const std::string> requiredValueColumns, char separator,
+                              std::size_t maxBytes)
 {
-    const Result<std::string> text = readTextFile(path);
+    const std::optional<std::string> text = readBounded(path, maxBytes);
     // Java's Files.readAllLines() decodes UTF-8 strictly: malformed input is an IOException.
-    if (!text || Strings::toValidUtf8(*text) != *text)
+    if (!text.has_value() || Strings::toValidUtf8(*text) != *text)
     {
         return fail(ErrorCode::IO, "Failed to read lookup table from " + pathToUtf8(path));
     }

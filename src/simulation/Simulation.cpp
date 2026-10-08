@@ -41,6 +41,7 @@
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightEvent.h"
+#include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationOptions.h"
@@ -367,6 +368,8 @@ Simulation::Simulation(CloneKey /*key*/, const Simulation& other)
     m_name(other.m_name),
     m_status(other.m_status),
     m_options(other.m_options),
+    // Java: Object.clone() copies the reference to the settings, which are immutable there.
+    m_landingDispersionSettings(other.m_landingDispersionSettings),
     m_simulatedConditions(other.m_simulatedConditions),
     m_simulatedConfigurationDescription(other.m_simulatedConfigurationDescription),
     m_simulatedData(other.m_simulatedData),
@@ -438,6 +441,16 @@ void Simulation::setFlightConfigurationId(const FlightConfigurationId& fcid)
 void Simulation::copySimulationOptionsFrom(const SimulationOptions& options)
 {
     m_options.copyConditionsFrom(options);
+}
+
+void Simulation::setLandingDispersionSettings(std::optional<LandingDispersionSettings> settings)
+{
+    if (m_landingDispersionSettings == settings)
+    {
+        return;
+    }
+    m_landingDispersionSettings = std::move(settings);
+    fireChangeEvent();
 }
 
 void Simulation::copyExtensionsFrom(
@@ -762,7 +775,7 @@ void Simulation::loadFrom(const Simulation& simulation)
     m_simulatedConfigurationDescription = simulation.m_simulatedConfigurationDescription;
     m_simulatedConfigurationModId       = simulation.m_simulatedConfigurationModId;
     m_options.copyConditionsFrom(simulation.m_options);
-    // HOOK(monte-carlo): Java takes the landing dispersion settings here.
+    m_landingDispersionSettings = simulation.m_landingDispersionSettings;
     if (!simulation.m_simulatedConditions.has_value())
     {
         m_simulatedConditions.reset();
@@ -793,7 +806,7 @@ std::unique_ptr<Simulation> Simulation::duplicateSimulation(Rocket& newRocket) c
     newSim->m_name     = m_name;
     newSim->m_configId = m_configId;
     newSim->m_options.copyConditionsFrom(m_options);
-    // HOOK(monte-carlo): Java copies the landing dispersion settings here.
+    newSim->m_landingDispersionSettings         = m_landingDispersionSettings;
     newSim->m_simulatedConfigurationDescription = m_simulatedConfigurationDescription;
     for (const std::shared_ptr<SimulationExtension>& c : m_simulationExtensions)
     {
@@ -822,7 +835,7 @@ std::unique_ptr<Simulation> Simulation::duplicateForIndependentSimulation() cons
     // launch conditions, leaving the rest of the copy on preference defaults.
     copy->m_options = SimulationOptions(m_options);
     copy->connectConditionListener();
-    // HOOK(monte-carlo): Java copies the landing dispersion settings here.
+    copy->m_landingDispersionSettings = m_landingDispersionSettings;
     // Java: copy.listeners = new ArrayList<>(); the constructor's document listener is the only
     // one there could be, and there is no document.
     for (const std::shared_ptr<SimulationExtension>& extension : m_simulationExtensions)
@@ -844,9 +857,10 @@ bool Simulation::operator==(const Simulation& other) const
         return true;
     }
 
-    // HOOK(monte-carlo): Java compares the landing dispersion settings too.
     return m_name == other.m_name && m_configId == other.m_configId &&
-           m_options == other.m_options && *m_plotAppearances == *other.m_plotAppearances &&
+           m_options == other.m_options &&
+           m_landingDispersionSettings == other.m_landingDispersionSettings &&
+           *m_plotAppearances == *other.m_plotAppearances &&
            simulationExtensionsEqual(m_simulationExtensions, other.m_simulationExtensions);
 }
 
