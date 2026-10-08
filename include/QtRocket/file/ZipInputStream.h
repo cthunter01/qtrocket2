@@ -33,6 +33,9 @@ namespace QtRocket
 /// Deviations: a local header cut off inside its name or extra field, or a data descriptor cut
 /// off, fails with "Unexpected end of ZIP data" (Java's EOFException has no message), and corrupt
 /// deflate data fails with "invalid deflate data in ZIP entry" (Java reports zlib's message).
+///
+/// After a failure the stream is at no entry: Java's callers close the stream there, and so
+/// should a caller here stop reading.
 class ZipInputStream final
 {
 public:
@@ -41,6 +44,13 @@ public:
     {
         std::string name;              ///< the path inside the archive, decoded as UTF-8
         bool        directory{false};  ///< the name ends with '/' (ZipEntry.isDirectory())
+        /// The size of the contents the local header declares (ZipEntry.getSize()), which a
+        /// reader may test before it reads them, or -1 when the header does not say: an entry
+        /// with a data descriptor, as a writer that streams (Java's ZipOutputStream) makes every
+        /// deflated entry, has its sizes behind its data. The declared size is the header's
+        /// word and nothing more: readEntry() checks it against the contents. A ZIP64 field can
+        /// make it negative, as Java's long.
+        std::int64_t size{-1};
     };
 
     /// A reader of @p data, which must outlive it.
@@ -56,6 +66,15 @@ public:
     /// once read, or before the first entry.
     [[nodiscard]] Result<std::vector<std::byte>> readEntry();
 
+    /// readEntry() for contents of at most @p maxBytes bytes, as OpenRocket's
+    /// FileUtils.readBytes(stream, maxBytes) reads an entry: contents that are longer fail with
+    /// ErrorCode::IO and "Input exceeds maximum size of <maxBytes> bytes", and no more than
+    /// @p maxBytes bytes are ever held. As in Java the limit is met while reading, before the
+    /// entry's end is reached and checked: an entry that is too long fails with this message
+    /// whatever its CRC and sizes say, and a failure that comes first in the data (a STORED
+    /// entry cut short before the limit, corrupt deflate data) is reported as readEntry() does.
+    [[nodiscard]] Result<std::vector<std::byte>> readEntry(std::size_t maxBytes);
+
 private:
     /// The current entry's local header.
     struct Header
@@ -70,10 +89,13 @@ private:
     };
 
     /// Reads the data of the entry @p header describes to its end into @p contents (when not
-    /// null) and checks it.
-    [[nodiscard]] Result<void> readData(const Header& header, std::vector<std::byte>* contents);
-    [[nodiscard]] Result<void> readStored(const Header& header, std::vector<std::byte>* contents);
-    [[nodiscard]] Result<void> readDeflated(const Header& header, std::vector<std::byte>* contents);
+    /// null), which may take @p limit bytes, and checks it.
+    [[nodiscard]] Result<void> readData(const Header& header, std::vector<std::byte>* contents,
+                                        std::size_t limit);
+    [[nodiscard]] Result<void> readStored(const Header& header, std::vector<std::byte>* contents,
+                                          std::size_t limit);
+    [[nodiscard]] Result<void> readDeflated(const Header& header, std::vector<std::byte>* contents,
+                                            std::size_t limit);
 
     std::span<const std::byte> m_data;
     /// Where the next read starts.

@@ -52,8 +52,9 @@ class Rocket;
 ///
 /// Changes: setters fire a ComponentChangeEvent through fireComponentChangeEvent(), which goes to
 /// the root when it is a Rocket (see Rocket::fireComponentChangeEvent() for the algorithm) and is
-/// dropped for a detached component or while setBypassChangeEvent(true) is in force (the loader
-/// uses that). Cached absolute locations are cleared in componentChanged() only, as in
+/// dropped for a detached component or while setBypassChangeEvent(true) is in force (NoseCone
+/// uses that while it flips; no loader does: a file is loaded with the rocket's events enabled,
+/// as in OpenRocket). Cached absolute locations are cleared in componentChanged() only, as in
 /// OpenRocket: a component moved while events are off (a new Rocket, a detached subtree) keeps
 /// its cached getComponentLocations() until the next event reaches it.
 ///
@@ -89,7 +90,8 @@ class Rocket;
 /// - The multi-edit config listeners (addConfigListener(), removeConfigListener(),
 ///   clearConfigListeners(), getConfigListeners() and the loops over them in every setter) are not
 ///   ported, by decision: the GUI applies an edit to each selected component inside one undo step
-///   with the rocket frozen. setBypassChangeEvent() stays, for the loader.
+///   with the rocket frozen. setBypassChangeEvent() stays, for NoseCone::setFlipped() (in Java
+///   only it and the config listeners call it; the .ork loader does not).
 /// - getRocket(), getStage() and getAssembly() throw BugError where Java throws
 ///   IllegalStateException; findRocket(), findStage() and findAssembly() return nullptr instead.
 ///   addChild() and removeChild() skip the stage map, and setAfter() counts every sibling as
@@ -154,6 +156,17 @@ class Rocket;
 /// component that overrides only the one-argument form is skipped when params are passed, which
 /// only the .ork loader's Parachute setter does, and Parachute overrides both. loadPreset()
 /// therefore takes options for a parachute only.
+///
+/// Who owns a preset: the component co-owns the preset it is based on (a
+/// std::shared_ptr<const ComponentPreset>, as a motor configuration co-owns its motor), together
+/// with the ComponentPresetDatabase the preset comes from and with every copy of the component:
+/// the copies in undo snapshots, in a simulation's rocket and in the rocket a FlightData keeps
+/// all hold the preset, which therefore lives as long as any of them, also after the database
+/// is gone. That is what loadPreset(std::shared_ptr<const ComponentPreset>) sets up, the form
+/// the .ork loader and the GUI use. loadPreset(const ComponentPreset*) is the non-owning form
+/// for a preset the caller keeps alive itself (ComponentPresetFactory's temporary preset, a
+/// test's local one): the component and its copies then only point at it. Java's garbage
+/// collector makes the distinction unnecessary there.
 class RocketComponent
 {
 public:
@@ -281,7 +294,8 @@ public:
     }
 
     /// Sets the realistic appearance (nullopt for the default) and fires NONFUNCTIONAL_CHANGE.
-    /// (Java also subscribes to the decal image; see InsideColorComponentHandler.)
+    /// (Java also subscribes to the decal image; here the document fires the image's
+    /// TEXTURE_CHANGE, see InsideColorComponentHandler.)
     void setAppearance(std::optional<Appearance> appearance);
 
     /// The colour in 2D figures, or nullopt for the default.
@@ -325,27 +339,44 @@ public:
     /// "name/xxxxxxxx", the name and the first eight characters of the id.
     [[nodiscard]] std::string getDebugName() const;
 
-    /// The preset this component is based on, or nullptr. Presets are owned by their database.
+    /// The preset this component is based on, or nullptr. The pointer is valid while the
+    /// component keeps the preset (until clearPreset() or another loadPreset()) or something
+    /// else owns it; see "Who owns a preset" in the class comment.
     [[nodiscard]] const ComponentPreset* getPresetComponent() const noexcept
     {
-        return m_presetComponent;
+        return m_presetComponent.get();
     }
 
     /// Forgets the preset (the component's values stay) and fires NONFUNCTIONAL_CHANGE, unless
-    /// there is none or setIgnorePresetClearing(true) is in force.
+    /// there is none or setIgnorePresetClearing(true) is in force. The component gives up its
+    /// share of the preset before the event.
     void clearPreset();
 
     /// Bases this component on @p preset and loads its values (Java's final loadPreset()): does
-    /// nothing when @p preset is the current preset, and clearPreset() when it is nullptr.
-    /// Otherwise, with the Rocket at the root frozen (when the root is one), calls
+    /// nothing when @p preset is the current preset (the same object), and clearPreset() when it
+    /// is null. Otherwise, with the Rocket at the root frozen (when the root is one), calls
     /// loadFromPreset() and stores the preset, thaws the rocket (which fires the changes
     /// loadFromPreset() made, combined) and fires NONFUNCTIONAL_CHANGE. When loadFromPreset()
     /// throws, the rocket is thawed, the preset is not stored, no NONFUNCTIONAL_CHANGE fires and
-    /// the exception propagates. The component keeps a pointer to @p preset (presets are owned
-    /// by their database). Java's loop over the config listeners is not ported (see above).
-    /// @throws BugError when the Rocket is already frozen (see Rocket::freeze()), and when
-    ///         @p options are given (allowAutoRadius set) to a component that is not a PARACHUTE
-    ///         (Java would skip the overrides of one-argument loadFromPreset(); see above).
+    /// the exception propagates. Java's loop over the config listeners is not ported (see above).
+    ///
+    /// The component co-owns @p preset from then on, and so do its copies (see "Who owns a
+    /// preset" in the class comment). When @p preset is the current preset and the component
+    /// only points at it (it was loaded through the non-owning form), the component takes the
+    /// share offered and nothing else happens.
+    /// @throws BugError when the Rocket is already frozen (see Rocket::freeze(); Java reports it
+    ///         and goes on, so a loader must not hold the rocket frozen around a preset), and
+    ///         when @p options are given (allowAutoRadius set) to a component that is not a
+    ///         PARACHUTE (Java would skip the overrides of one-argument loadFromPreset(); see
+    ///         above).
+    void loadPreset(std::shared_ptr<const ComponentPreset> preset,
+                    const PresetLoadOptions&               options = {});
+
+    /// loadPreset() without ownership: the component only points at @p preset, which the caller
+    /// keeps alive for as long as this component or any copy of it is based on it (the copies
+    /// point at it too). Everything else is as above; a component that already co-owns
+    /// @p preset keeps its share. For a preset from a ComponentPresetDatabase use the owning
+    /// form.
     void loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options = {});
 
     /// The preset type that suits this component (getPresetType()), nullopt when it takes no
@@ -825,8 +856,9 @@ public:
     /// ComponentChangeEvent::k...Change constants).
     void fireComponentChangeEvent(int type);
 
-    /// While true, this component's events are dropped (the loader sets it; OpenRocket's config
-    /// listeners set it too, which are not ported).
+    /// While true, this component's events are dropped (NoseCone::setFlipped() sets it around
+    /// its changes; OpenRocket's config listeners set it too, which are not ported, and no
+    /// loader does). A document material is still announced (see notifyDocumentMaterial()).
     void setBypassChangeEvent(bool newValue) noexcept { m_bypassComponentChangeEvent = newValue; }
 
     [[nodiscard]] bool isBypassComponentChangeEvent() const noexcept
@@ -952,9 +984,25 @@ protected:
     /// @throws BugError when this component has a parent.
     virtual std::vector<std::unique_ptr<RocketComponent>> copyFrom(const RocketComponent& source);
 
-    /// Stores the preset without firing or loading its values (no Java counterpart: loadPreset()
-    /// is the way to base a component on a preset).
-    void setPresetComponent(const ComponentPreset* preset) noexcept { m_presetComponent = preset; }
+    /// Stores the preset, which the component co-owns from then on, without firing or loading
+    /// its values (no Java counterpart: loadPreset() is the way to base a component on a preset).
+    void setPresetComponent(std::shared_ptr<const ComponentPreset> preset) noexcept
+    {
+        m_presetComponent = std::move(preset);
+    }
+
+    /// Tells the document that this component now has the material @p material: when it is a
+    /// document material (Material::isDocumentMaterial()) and the root of the tree is a Rocket,
+    /// the rocket emits documentMaterialSet() with a copy of it; nothing happens otherwise (a
+    /// detached component, a tree without a Rocket, another material). It stands for Java's
+    /// `if (material.isDocumentMaterial() && getRoot() instanceof Rocket rocket &&
+    /// rocket.getDocument() != null) rocket.getDocument().getDocumentPreferences().addMaterial()`
+    /// in the material setters and loadFromPreset() of ExternalComponent, StructuralComponent,
+    /// RecoveryDevice and Parachute, and is called exactly where that statement stands: after
+    /// the assignment, before clearPreset() and before the change event. It does not depend on
+    /// the rocket's events being enabled, on freeze() or on setBypassChangeEvent(). A rocket
+    /// without a document has no listener, which is Java's null check.
+    void notifyDocumentMaterial(const Material& material);
 
     /// Loads the component's values from @p preset, which is of the component's preset type
     /// (Java's loadFromPreset(preset, params...)). The base version sets the length field to the
@@ -1101,7 +1149,7 @@ private:
     RocketComponent*                               m_massOverriddenBy{nullptr};
     RocketComponent*                               m_cgOverriddenBy{nullptr};
     RocketComponent*                               m_cdOverriddenBy{nullptr};
-    const ComponentPreset*                         m_presetComponent{nullptr};
+    std::shared_ptr<const ComponentPreset>         m_presetComponent;
     Uuid                                           m_id;
     std::string                                    m_comment;
     mutable std::optional<std::vector<Coordinate>> m_cachedComponentLocations;

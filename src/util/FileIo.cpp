@@ -1,15 +1,18 @@
 #include "QtRocket/util/FileIo.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <ios>
 #include <iterator>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "QtRocket/util/Error.h"
@@ -17,7 +20,12 @@
 namespace QtRocket
 {
 
-Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
+namespace
+{
+
+/// readFile(): all of @p path, or its first @p maxBytes bytes at most when there is a limit.
+[[nodiscard]] Result<std::vector<std::byte>> readWholeFile(const std::filesystem::path& path,
+                                                           std::optional<std::size_t>   maxBytes)
 {
     // Refused up front (the error_code overload never throws): libstdc++'s filebuf opens a
     // directory and then throws from underflow() (EISDIR), libc++'s reads it as empty and MSVC's
@@ -35,9 +43,16 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
     }
     std::vector<std::byte> bytes;
     std::error_code        ec;
-    const auto             size = std::filesystem::file_size(path, ec);
+    const std::uintmax_t   size = std::filesystem::file_size(path, ec);
     if (!ec)
     {
+        // What the file says of its size is believed for a refusal, and for the reservation
+        // only within the limit: a sparse file may say anything.
+        if (maxBytes.has_value() && std::cmp_greater(size, *maxBytes))
+        {
+            return fail(ErrorCode::IO,
+                        std::format("Input exceeds maximum size of {} bytes", *maxBytes));
+        }
         bytes.reserve(static_cast<std::size_t>(size));
     }
     // istreambuf_iterator yields chars; std::byte is the same width, so a plain transform copies
@@ -47,6 +62,13 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
     {
         for (std::istreambuf_iterator<char> it(in), end; it != end; ++it)
         {
+            // A source without a size, or with more than it said: a device, a pipe, a file that
+            // is being written.
+            if (maxBytes.has_value() && bytes.size() >= *maxBytes)
+            {
+                return fail(ErrorCode::IO,
+                            std::format("Input exceeds maximum size of {} bytes", *maxBytes));
+            }
             bytes.push_back(static_cast<std::byte>(*it));
         }
     }
@@ -59,6 +81,18 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
         return fail(ErrorCode::IO, std::format("error while reading '{}'", pathToUtf8(path)));
     }
     return bytes;
+}
+
+}  // namespace
+
+Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
+{
+    return readWholeFile(path, std::nullopt);
+}
+
+Result<std::vector<std::byte>> readFile(const std::filesystem::path& path, std::size_t maxBytes)
+{
+    return readWholeFile(path, maxBytes);
 }
 
 Result<std::string> readTextFile(const std::filesystem::path& path)
@@ -95,6 +129,14 @@ std::string pathToUtf8(const std::filesystem::path& path)
 {
     const std::u8string text = path.u8string();
     return {text.begin(), text.end()};
+}
+
+std::filesystem::path absolutePath(const std::filesystem::path& path)
+{
+    std::error_code             error;
+    const std::filesystem::path resolved = path.empty() ? std::filesystem::current_path(error)
+                                                        : std::filesystem::absolute(path, error);
+    return error ? path : resolved;
 }
 
 std::string bytesToString(std::span<const std::byte> bytes)

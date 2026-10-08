@@ -6,6 +6,7 @@ target_sources(QtRocket_core PRIVATE
     BasicEventSimulationEngine.cpp
     BasicLandingStepper.cpp
     BasicTumbleStepper.cpp
+    customexpression/CustomExpression.cpp
     DefaultSimulationOptionFactory.cpp
     EventQueue.cpp
     exception/SimulationCalculationException.cpp

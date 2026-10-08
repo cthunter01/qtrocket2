@@ -19,6 +19,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
+#include "file/RawZip.h"
 
 namespace
 {
@@ -143,13 +144,25 @@ TEST(ZipFileMotorLoader, SkipsEntriesOfUnknownTypeAndReadsEmptyOnes)
 
 TEST(ZipFileMotorLoader, ReadsTheEntriesAsJavasZipInputStreamDoes)
 {
-    // minizip writes an empty entry with a ZIP64 data descriptor, which ZipInputStream reads as a
-    // 32-bit one (its sizes fit): the next header is then looked for 8 bytes early, and the
-    // entries end there. OpenRocket (pinned by running it) and QtRocket load no motor.
+    // minizip left to itself writes an empty entry with a ZIP64 data descriptor, which
+    // ZipInputStream reads as a 32-bit one (its sizes fit): the next header is then looked for 8
+    // bytes early, and the entries end there. OpenRocket (pinned by running it) and QtRocket
+    // load no motor. (The archive is laid out by hand: ZipWriter no longer writes that form.)
+    const Result<std::vector<ThrustCurveMotor::Builder>> motors =
+        ZipFileMotorLoader().load(QtRocket::Test::archive({QtRocket::Test::zip64Empty("a.eng"),
+                                                           QtRocket::Test::stored("d.eng", kA8)}),
+                                  "x.zip");
+    ASSERT_TRUE(motors) << motors.error().toString();
+    EXPECT_TRUE(motors->empty());
+}
+
+TEST(ZipFileMotorLoader, AnEmptyEntryOfZipWriterHidesNoMotor)
+{
+    // ZipWriter writes an empty entry without ZIP64 fields, so the motor behind it is read.
     const Result<std::vector<ThrustCurveMotor::Builder>> motors =
         ZipFileMotorLoader().load(zip({{"a.eng", ""}, {"d.eng", kA8}}), "x.zip");
     ASSERT_TRUE(motors) << motors.error().toString();
-    EXPECT_TRUE(motors->empty());
+    EXPECT_EQ(digestsOf(motors), std::vector<std::string>{std::string(kDigestA8)});
 }
 
 TEST(ZipFileMotorLoader, ReadsTheLocalHeadersWithoutACentralDirectory)

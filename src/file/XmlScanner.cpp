@@ -366,8 +366,25 @@ public:
         {
             report.error = std::move(stopped.error);
         }
-        report.elementEvents = m_events;
+        report.elementEvents   = m_events;
+        report.eventsBeforeEnd = m_eventsBeforeEnd;
         return report;
+    }
+
+    /// The encoding the XML declaration names, when it is one Xerces reads to its end.
+    [[nodiscard]] std::optional<std::string> declaredEncoding()
+    {
+        try
+        {
+            m_xml11 = detectVersion();
+            normalizeLineEnds();
+            scanXmlDecl();
+        }
+        catch (const Stop&)
+        {
+            return std::nullopt;
+        }
+        return m_encoding;
     }
 
 private:
@@ -418,7 +435,25 @@ private:
 
     // ---- the entity scanner --------------------------------------------------------------------
 
-    [[nodiscard]] bool atEnd() const noexcept { return m_position >= m_chars.size(); }
+    /// Remembers that the scan needed a character beyond the end of the document, where
+    /// Xerces asks its reader for more: the first time counts.
+    void noteEnd() const noexcept
+    {
+        if (!m_eventsBeforeEnd.has_value())
+        {
+            m_eventsBeforeEnd = m_events;
+        }
+    }
+
+    [[nodiscard]] bool atEnd() const noexcept
+    {
+        if (m_position >= m_chars.size())
+        {
+            noteEnd();
+            return true;
+        }
+        return false;
+    }
 
     /// The end of the document where more is needed: XMLDocumentFragmentScannerImpl.endEntity()
     /// fails when markup is open, and otherwise the driver reports the premature end.
@@ -446,6 +481,7 @@ private:
     {
         if (m_position + offset >= m_chars.size())
         {
+            noteEnd();
             endOfDocument();
         }
         return m_chars[m_position + offset];
@@ -472,10 +508,16 @@ private:
         return true;
     }
 
-    /// skipString(): false, not an error, when the document ends first.
+    /// skipString(): false, not an error, when the document ends first. Xerces has its reader
+    /// fill the buffer with as many characters as @p text has before it compares them.
     bool skipString(std::u32string_view text) noexcept
     {
-        if (!std::u32string_view(m_chars).substr(m_position).starts_with(text))
+        const std::u32string_view rest = std::u32string_view(m_chars).substr(m_position);
+        if (rest.size() < text.size())
+        {
+            noteEnd();
+        }
+        if (!rest.starts_with(text))
         {
             return false;
         }
@@ -564,6 +606,10 @@ private:
         const std::size_t localStart = *colon + 1;
         // Deviation: when the document ends right after the colon, Xerces checks a stale
         // character of its buffer instead, and may report the end of the document.
+        if (localStart >= m_chars.size())
+        {
+            noteEnd();
+        }
         if (!isNcNameStart(localStart < m_chars.size() ? m_chars[localStart] : kEof))
         {
             fatal(
@@ -586,6 +632,7 @@ private:
         const auto  at       = [this, &position] -> char32_t {
             if (position >= m_chars.size())
             {
+                noteEnd();
                 fatal(std::string(kPrematureEof));
             }
             return m_chars[position];
@@ -600,7 +647,12 @@ private:
             return skipped;
         };
         const auto skipString = [this, &position](std::u32string_view text) {
-            if (!std::u32string_view(m_chars).substr(position).starts_with(text))
+            const std::u32string_view rest = std::u32string_view(m_chars).substr(position);
+            if (rest.size() < text.size())
+            {
+                noteEnd();  // as the scanner's skipString()
+            }
+            if (!rest.starts_with(text))
             {
                 return false;
             }
@@ -626,7 +678,11 @@ private:
             position++;
             if (c == U'\r')
             {
-                if (position < m_chars.size() && m_chars[position] == U'\n')
+                if (position >= m_chars.size())
+                {
+                    noteEnd();
+                }
+                else if (m_chars[position] == U'\n')
                 {
                     position++;
                 }
@@ -711,10 +767,15 @@ private:
         std::u32string value;
         while (peek() != U'?')
         {
-            dataFound                   = true;
-            const std::string_view name = scanPseudoAttribute(value);
-            state                       = acceptPseudoAttribute(state, name, sawSpace, value);
-            sawSpace                    = skipSpaces();
+            dataFound                       = true;
+            const std::string_view name     = scanPseudoAttribute(value);
+            const bool             encoding = state == DeclState::ENCODING && name == "encoding";
+            state                           = acceptPseudoAttribute(state, name, sawSpace, value);
+            if (encoding)
+            {
+                m_encoding = utf8(value);
+            }
+            sawSpace = skipSpaces();
         }
         if (!dataFound)
         {
@@ -800,20 +861,38 @@ private:
         }
     }
 
+    /// skipString() for the name of a pseudo attribute (scanPseudoAttributeName()). The entity
+    /// scanner of an XML 1.1 document compares it character by character and gives up at the
+    /// first that differs, so it asks its reader for more characters only when all that are
+    /// left agree with the name; the scanner of XML 1.0 asks first, as skipString() does.
+    bool skipPseudoAttributeName(std::u32string_view name) noexcept
+    {
+        if (m_xml11)
+        {
+            const std::u32string_view rest   = std::u32string_view(m_chars).substr(m_position);
+            const std::size_t         common = std::min(rest.size(), name.size());
+            if (rest.substr(0, common) != name.substr(0, common))
+            {
+                return false;
+            }
+        }
+        return skipString(name);
+    }
+
     /// scanPseudoAttribute(): the name, and the value in @p value.
     [[nodiscard]] std::string_view scanPseudoAttribute(std::u32string& value)
     {
         std::string_view name;
         const char32_t   c = peek();
-        if (c == U'v' && skipString(U"version"))
+        if (c == U'v' && skipPseudoAttributeName(U"version"))
         {
             name = "version";
         }
-        else if (c == U'e' && skipString(U"encoding"))
+        else if (c == U'e' && skipPseudoAttributeName(U"encoding"))
         {
             name = "encoding";
         }
-        else if (c == U's' && skipString(U"standalone"))
+        else if (c == U's' && skipPseudoAttributeName(U"standalone"))
         {
             name = "standalone";
         }
@@ -1767,6 +1846,10 @@ private:
     QName m_lastElementName{.rawname = U"null", .prefix = {}, .localpart = U"null", .uri = {}};
     QName m_lastAttributeName{.rawname = U"null", .prefix = {}, .localpart = U"null", .uri = {}};
     std::size_t m_events{0};
+    /// m_events when the scan first needed a character beyond the end; none while it has not.
+    mutable std::optional<std::size_t> m_eventsBeforeEnd;
+    /// The value of the XML declaration's encoding pseudo attribute.
+    std::optional<std::string> m_encoding;
 };
 
 }  // namespace
@@ -1774,6 +1857,11 @@ private:
 XmlScanner::Report XmlScanner::scan(std::string_view text)
 {
     return Scanner(Strings::toCodePoints(text)).run();
+}
+
+std::optional<std::string> XmlScanner::declaredEncoding(std::string_view text)
+{
+    return Scanner(Strings::toCodePoints(text)).declaredEncoding();
 }
 
 }  // namespace QtRocket

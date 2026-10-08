@@ -2,11 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/ZipInputStream.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestPaths.h"
@@ -56,6 +58,33 @@ TEST(ZipArchive, RoundTripsEntriesThroughWriter)
     EXPECT_EQ(*archive->find("thrustcurves/abc.rse"), binary);
     ASSERT_NE(archive->find("empty.txt"), nullptr);
     EXPECT_TRUE(archive->find("empty.txt")->empty());
+}
+
+TEST(ZipArchive, AnEmptyEntryDoesNotHideTheEntriesBehindItFromAStreamReader)
+{
+    // A reader of local headers (java.util.zip.ZipInputStream, which OpenRocket finds the
+    // attachments of a design with, and ZipInputStream here) reads the data descriptor of an
+    // entry with 4-byte sizes. minizip left to itself writes an empty entry in ZIP64 form, with
+    // 8-byte sizes, and such a reader then finds no entry behind it (measured with JDK 17.0.20:
+    // it lists "decals/" and stops). ZipWriter writes no ZIP64 entry; the same JDK lists all
+    // four entries of this archive.
+    ZipWriter writer;
+    writer.add("decals/", {});
+    writer.add("empty.txt", {});
+    writer.add("a", QtRocket::stringToBytes("A"));
+    writer.add("last", {});
+    const std::vector<std::byte> bytes = writer.finish().value();
+
+    QtRocket::ZipInputStream zip(bytes);
+    std::vector<std::string> entries;
+    for (std::optional<QtRocket::ZipInputStream::Entry> entry = zip.nextEntry().value();
+         entry.has_value(); entry                             = zip.nextEntry().value())
+    {
+        entries.push_back(entry->name + "=" + QtRocket::bytesToString(zip.readEntry().value()));
+    }
+    EXPECT_EQ(entries, (std::vector<std::string>{"decals/=", "empty.txt=", "a=A", "last="}));
+    // The central directory lists the same.
+    EXPECT_EQ(ZipArchive::fromBytes(bytes).value().entries().size(), 3U);
 }
 
 TEST(ZipArchive, ReadsOpenRocketMotorZip)

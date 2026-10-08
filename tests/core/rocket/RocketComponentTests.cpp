@@ -39,6 +39,7 @@
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
@@ -1140,6 +1141,320 @@ TEST(RocketComponentPresets, PresetTypeFollowsTheKind)
     EXPECT_EQ(QtRocket::MassComponent().getPresetType(), std::nullopt);
     EXPECT_EQ(Rocket().getPresetType(), std::nullopt);
     EXPECT_EQ(AxialStage().getPresetType(), std::nullopt);
+}
+
+// ---- Who owns a preset ----
+//
+// OpenRocket has no counterpart: its garbage collector keeps a preset while a component refers
+// to it. Here the component co-owns the preset that loadPreset(std::shared_ptr) gives it, and
+// only points at the one loadPreset(const ComponentPreset*) gives it.
+
+using SharedPreset = std::shared_ptr<const ComponentPreset>;
+
+/// bodyTubePreset() as a shared preset, the way a ComponentPresetDatabase holds one.
+[[nodiscard]] SharedPreset sharedBodyTubePreset(double length, const std::string& partNo)
+{
+    return std::make_shared<const ComponentPreset>(bodyTubePreset(length, partNo));
+}
+
+TEST(RocketComponentPresetOwnership, TheOwningFormKeepsThePresetAlive)
+{
+    SharedPreset                               preset = sharedBodyTubePreset(0.3, "BT-20");
+    const std::weak_ptr<const ComponentPreset> watch  = preset;
+    const ComponentPreset* const               object = preset.get();
+    TestComponent                              component;
+
+    component.loadPreset(preset);
+    EXPECT_EQ(component.getLength(), 0.3);
+    EXPECT_EQ(component.getPresetComponent(), object);
+    EXPECT_EQ(preset.use_count(), 2);
+
+    // The caller lets go: the component still has the preset.
+    preset.reset();
+    EXPECT_FALSE(watch.expired());
+    ASSERT_EQ(component.getPresetComponent(), object);
+    EXPECT_EQ(component.getPresetComponent()->getPartNo(), "BT-20");
+    EXPECT_EQ(component.getPresetComponent()->get(ComponentPreset::kLength), 0.3);
+
+    // Clearing the preset gives up the share.
+    component.clearPreset();
+    EXPECT_EQ(component.getPresetComponent(), nullptr);
+    EXPECT_TRUE(watch.expired());
+}
+
+TEST(RocketComponentPresetOwnership, TheRawPointerFormOnlyPointsAtThePreset)
+{
+    const SharedPreset preset = sharedBodyTubePreset(0.3, "BT-20");
+    TestComponent      component;
+
+    component.loadPreset(preset.get());
+    EXPECT_EQ(component.getLength(), 0.3);
+    EXPECT_EQ(component.getPresetComponent(), preset.get());
+    // No share was taken, nor by a copy of the component.
+    EXPECT_EQ(preset.use_count(), 1);
+    const std::unique_ptr<RocketComponent> copy = component.copyWithOriginalId();
+    EXPECT_EQ(copy->getPresetComponent(), preset.get());
+    EXPECT_EQ(preset.use_count(), 1);
+}
+
+TEST(RocketComponentPresetOwnership, APresetIsReleasedWhenAnotherReplacesIt)
+{
+    SharedPreset                               first  = sharedBodyTubePreset(0.3, "BT-20");
+    const SharedPreset                         second = sharedBodyTubePreset(0.4, "BT-50");
+    const std::weak_ptr<const ComponentPreset> watch  = first;
+    TestComponent                              component;
+
+    component.loadPreset(first);
+    first.reset();
+    EXPECT_FALSE(watch.expired());
+
+    component.loadPreset(second);
+    EXPECT_TRUE(watch.expired());
+    EXPECT_EQ(component.getPresetComponent(), second.get());
+    EXPECT_EQ(second.use_count(), 2);
+
+    // A null preset clears, as nullptr does in the raw form.
+    component.loadPreset(SharedPreset{});
+    EXPECT_EQ(component.getPresetComponent(), nullptr);
+    EXPECT_EQ(second.use_count(), 1);
+}
+
+TEST(RocketComponentPresetOwnership, TheComponentIsReleasedWithItsShare)
+{
+    const SharedPreset preset = sharedBodyTubePreset(0.3, "BT-20");
+    {
+        TestComponent component;
+        component.loadPreset(preset);
+        EXPECT_EQ(preset.use_count(), 2);
+    }
+    EXPECT_EQ(preset.use_count(), 1);
+}
+
+TEST_F(PropertyEventsTest, TheSameOwnedPresetAgainDoesNothing)
+{
+    const SharedPreset preset = sharedBodyTubePreset(0.3, "BT-20");
+    m_body->loadPreset(preset);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+    EXPECT_EQ(preset.use_count(), 2);
+
+    m_body->setLength(0.1);
+    m_types.clear();
+    m_body->loadPreset(preset);
+    EXPECT_EQ(m_body->getLength(), 0.1);
+    EXPECT_TRUE(m_types.empty());
+    EXPECT_EQ(preset.use_count(), 2);
+
+    // Nor does the raw pointer of the preset the component co-owns: the share stays.
+    m_body->loadPreset(preset.get());
+    EXPECT_EQ(m_body->getLength(), 0.1);
+    EXPECT_TRUE(m_types.empty());
+    EXPECT_EQ(preset.use_count(), 2);
+}
+
+TEST_F(PropertyEventsTest, AShareOfferedForAPresetOnlyPointedAtIsTaken)
+{
+    SharedPreset                               preset = sharedBodyTubePreset(0.3, "BT-20");
+    const std::weak_ptr<const ComponentPreset> watch  = preset;
+    m_body->loadPreset(preset.get());
+    EXPECT_EQ(preset.use_count(), 1);
+    m_body->setLength(0.1);
+    m_types.clear();
+
+    // The same preset: nothing is loaded and nothing fires, but the component owns it now.
+    m_body->loadPreset(preset);
+    EXPECT_EQ(preset.use_count(), 2);
+    EXPECT_EQ(m_body->getLength(), 0.1);
+    EXPECT_TRUE(m_types.empty());
+
+    preset.reset();
+    EXPECT_FALSE(watch.expired());
+    ASSERT_NE(m_body->getPresetComponent(), nullptr);
+    EXPECT_EQ(m_body->getPresetComponent()->getPartNo(), "BT-20");
+}
+
+TEST_F(PropertyEventsTest, ClearingIsIgnoredForAnOwnedPresetToo)
+{
+    SharedPreset                               preset = sharedBodyTubePreset(0.3, "BT-20");
+    const std::weak_ptr<const ComponentPreset> watch  = preset;
+    m_body->loadPreset(std::move(preset));
+    m_types.clear();
+
+    // What the .ork loader does around the elements of a component: its setters must not clear
+    // the preset the file names.
+    m_body->setIgnorePresetClearing(true);
+    m_body->clearPreset();
+    EXPECT_FALSE(watch.expired());
+    EXPECT_NE(m_body->getPresetComponent(), nullptr);
+    EXPECT_TRUE(m_types.empty());
+
+    m_body->setIgnorePresetClearing(false);
+    m_body->clearPreset();
+    EXPECT_TRUE(watch.expired());
+    EXPECT_EQ(m_body->getPresetComponent(), nullptr);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+}
+
+/// loadFails() with the owning form.
+[[nodiscard]] bool owningLoadFails(TestComponent& component, SharedPreset preset)
+{
+    component.setOnLoadFromPreset(
+        [&component](const ComponentPreset& /*preset*/,
+                     const RocketComponent::PresetLoadOptions& /*options*/) {
+            component.setMass(0.02);
+            throw std::runtime_error("load failed");
+        });
+    try
+    {
+        component.loadPreset(std::move(preset));
+    }
+    catch (const std::runtime_error&)
+    {
+        return true;
+    }
+    return false;
+}
+
+TEST_F(PropertyEventsTest, AFailedOwningLoadKeepsTheOldPresetAndNoShareOfTheNew)
+{
+    const SharedPreset first = sharedBodyTubePreset(0.3, "BT-20");
+    m_body->loadPreset(first);
+    m_types.clear();
+
+    const SharedPreset second = sharedBodyTubePreset(0.4, "BT-50");
+    EXPECT_TRUE(owningLoadFails(*m_body, second));
+    EXPECT_FALSE(m_rocket.isFrozen());
+    EXPECT_EQ(m_body->getPresetComponent(), first.get());
+    EXPECT_EQ(first.use_count(), 2);
+    EXPECT_EQ(second.use_count(), 1);
+    EXPECT_EQ(m_types, std::vector<int>{ComponentChangeEvent::kMassChange});
+}
+
+TEST_F(PropertyEventsTest, AnOwningLoadInAFrozenRocketIsABugAndTakesNoShare)
+{
+    const SharedPreset preset = sharedBodyTubePreset(0.3, "BT-20");
+    m_rocket.freeze();
+    EXPECT_THROW(m_body->loadPreset(preset), BugError);
+    EXPECT_EQ(m_body->getPresetComponent(), nullptr);
+    EXPECT_EQ(preset.use_count(), 1);
+    m_rocket.thaw();
+}
+
+TEST(RocketComponentPresetOwnership, CopiesOfAComponentShareThePreset)
+{
+    SharedPreset                               preset   = sharedBodyTubePreset(0.3, "BT-20");
+    const std::weak_ptr<const ComponentPreset> watch    = preset;
+    const ComponentPreset* const               object   = preset.get();
+    auto                                       original = std::make_unique<TestComponent>();
+    original->loadPreset(std::move(preset));
+
+    std::unique_ptr<RocketComponent> sameIds = original->copyWithOriginalId();
+    std::unique_ptr<RocketComponent> newIds  = original->copyWithNewIds();
+    EXPECT_EQ(watch.use_count(), 3);
+    EXPECT_EQ(sameIds->getPresetComponent(), object);
+    EXPECT_EQ(newIds->getPresetComponent(), object);
+
+    // Each copy holds the preset by itself.
+    original.reset();
+    sameIds.reset();
+    EXPECT_FALSE(watch.expired());
+    ASSERT_EQ(newIds->getPresetComponent(), object);
+    EXPECT_EQ(newIds->getPresetComponent()->getPartNo(), "BT-20");
+    newIds.reset();
+    EXPECT_TRUE(watch.expired());
+}
+
+/// A rocket whose body tube is based on a preset of a database that is gone again; with the
+/// tube's id and the preset's digest, both as they were while the database lived.
+struct RocketWithPreset
+{
+    std::unique_ptr<Rocket>              rocket;
+    QtRocket::Uuid                       tubeId;
+    std::string                          digest;
+    std::weak_ptr<const ComponentPreset> watch;
+};
+
+[[nodiscard]] RocketWithPreset makeRocketWithPreset()
+{
+    RocketWithPreset made{.rocket = std::make_unique<Rocket>(),
+                          .tubeId = QtRocket::Uuid::random(),
+                          .digest = {},
+                          .watch  = {}};
+    auto&            stage = made.rocket->addChild(std::make_unique<AxialStage>());
+    auto&            tube  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.025));
+    made.rocket->enableEvents();
+    made.tubeId = tube.getId();
+    {
+        // The database is the only other owner, and it goes first.
+        QtRocket::ComponentPresetDatabase database;
+        database.add(sharedBodyTubePreset(0.3, "BT-20"));
+        const SharedPreset found = database.find("ESTES", "BT-20").at(0);
+        made.digest              = found->getDigest();
+        made.watch               = found;
+        tube.loadPreset(found);
+    }
+    return made;
+}
+
+/// The preset of the component @p id of @p rocket, or nullptr.
+[[nodiscard]] const ComponentPreset* presetOf(const Rocket& rocket, const QtRocket::Uuid& id)
+{
+    const RocketComponent* component = rocket.findComponent(id);
+    return component != nullptr ? component->getPresetComponent() : nullptr;
+}
+
+TEST(RocketComponentPresetOwnership, ACopyOfTheRocketKeepsThePresetAfterTheDatabaseAndTheRocket)
+{
+    // The lifetimes of the product: an undo snapshot, a simulation's rocket and the rocket a
+    // FlightData co-owns are copies that may be read when the preset database, and even the
+    // document's rocket, are gone. The asan preset checks that the reads below are valid.
+    RocketWithPreset made = makeRocketWithPreset();
+    EXPECT_FALSE(made.watch.expired());
+
+    std::unique_ptr<Rocket>             snapshot  = made.rocket->copyRocketWithOriginalId();
+    const std::shared_ptr<const Rocket> simulated = made.rocket->copyRocketWithOriginalId();
+    made.rocket.reset();
+    EXPECT_FALSE(made.watch.expired());
+
+    const ComponentPreset* preset = presetOf(*snapshot, made.tubeId);
+    ASSERT_NE(preset, nullptr);
+    EXPECT_EQ(preset->getDigest(), made.digest);
+    EXPECT_EQ(preset->getPartNo(), "BT-20");
+    EXPECT_EQ(preset->get(ComponentPreset::kLength), 0.3);
+    EXPECT_EQ(preset->toOrkElement(),
+              R"(<preset type="BODY_TUBE" manufacturer="Estes" partno="BT-20" digest=")" +
+                  made.digest + R"("/>)");
+
+    // The snapshot gone too: the last holder still reads the same preset.
+    snapshot.reset();
+    EXPECT_FALSE(made.watch.expired());
+    const ComponentPreset* last = presetOf(*simulated, made.tubeId);
+    ASSERT_EQ(last, preset);
+    EXPECT_EQ(last->getDigest(), made.digest);
+}
+
+TEST(RocketComponentPresetOwnership, ThePresetGoesWithItsLastHolder)
+{
+    RocketWithPreset        made = makeRocketWithPreset();
+    std::unique_ptr<Rocket> copy = made.rocket->copyRocketWithOriginalId();
+    made.rocket.reset();
+    EXPECT_FALSE(made.watch.expired());
+    copy.reset();
+    EXPECT_TRUE(made.watch.expired());
+}
+
+TEST(RocketComponentPresetOwnership, LoadFromSharesThePresetsOfTheLoadedComponents)
+{
+    // Rocket::loadFrom() (undo) replaces the children by copies of the source's, which share the
+    // presets; the snapshot may go afterwards.
+    RocketWithPreset made = makeRocketWithPreset();
+    Rocket           target;
+    target.loadFrom(*made.rocket);
+    made.rocket.reset();
+    EXPECT_FALSE(made.watch.expired());
+
+    const ComponentPreset* preset = presetOf(target, made.tubeId);
+    ASSERT_NE(preset, nullptr);
+    EXPECT_EQ(preset->getDigest(), made.digest);
 }
 
 // ---- Mass, CG and overrides ----

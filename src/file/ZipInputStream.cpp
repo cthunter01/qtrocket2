@@ -43,6 +43,14 @@ constexpr std::int64_t     kRawDeflateWindowBits = -15;
 constexpr std::size_t      kChunkSize            = std::size_t{64} * 1024;
 constexpr std::size_t      kMaxWindow            = std::numeric_limits<std::int32_t>::max();
 constexpr std::string_view kUnexpectedEnd        = "Unexpected end of ZIP data";
+/// No limit on the contents of an entry.
+constexpr std::size_t kNoLimit = std::numeric_limits<std::size_t>::max();
+
+/// FileUtils.readBytes()'s failure for contents beyond @p maxBytes.
+[[nodiscard]] std::unexpected<Error> exceedsLimit(std::size_t maxBytes)
+{
+    return fail(ErrorCode::IO, std::format("Input exceeds maximum size of {} bytes", maxBytes));
+}
 
 [[nodiscard]] std::uint64_t littleEndian(std::span<const std::byte> bytes, std::size_t offset,
                                          std::size_t count) noexcept
@@ -237,9 +245,10 @@ struct Inflated
 };
 
 /// Inflates the raw deflate stream at the start of @p data to its end, into @p contents when not
-/// null (Java's InflaterInputStream).
+/// null (Java's InflaterInputStream), which may take @p limit bytes: more fails as
+/// exceedsLimit(), when the bytes are met and before the rest is read.
 [[nodiscard]] Result<Inflated> inflate(std::span<const std::byte> data,
-                                       std::vector<std::byte>*    contents)
+                                       std::vector<std::byte>* contents, std::size_t limit)
 {
     Detail::MemStream  source;
     Detail::ZlibStream inflater;
@@ -275,6 +284,10 @@ struct Inflated
         inflated.written += n;
         if (contents != nullptr)
         {
+            if (piece.size() > limit - contents->size())
+            {
+                return exceedsLimit(limit);
+            }
             contents->insert(contents->end(), piece.begin(), piece.end());
         }
     }
@@ -309,7 +322,7 @@ Result<std::optional<ZipInputStream::Entry>> ZipInputStream::nextEntry()
     if (m_current.has_value())
     {
         const Header current = *m_current;
-        if (Result<void> read = readData(current, nullptr); !read)
+        if (Result<void> read = readData(current, nullptr, kNoLimit); !read)
         {
             return std::unexpected(std::move(read.error()));
         }
@@ -373,16 +386,23 @@ Result<std::optional<ZipInputStream::Entry>> ZipInputStream::nextEntry()
     std::string text(nameLength, '\0');
     std::ranges::transform(name, text.begin(), [](std::byte b) { return static_cast<char>(b); });
     const bool directory = text.ends_with('/');
-    return Entry{.name = std::move(text), .directory = directory};
+    // ZipEntry.getSize(): the header's size, which an entry with a data descriptor leaves unset.
+    const std::int64_t size = (current.flag & kFlagDescriptor) == 0 ? current.size : -1;
+    return Entry{.name = std::move(text), .directory = directory, .size = size};
 }
 
 Result<std::vector<std::byte>> ZipInputStream::readEntry()
+{
+    return readEntry(kNoLimit);
+}
+
+Result<std::vector<std::byte>> ZipInputStream::readEntry(std::size_t maxBytes)
 {
     std::vector<std::byte> contents;
     if (m_current.has_value())
     {
         const Header current = *m_current;
-        if (Result<void> read = readData(current, &contents); !read)
+        if (Result<void> read = readData(current, &contents, maxBytes); !read)
         {
             return std::unexpected(std::move(read.error()));
         }
@@ -390,28 +410,37 @@ Result<std::vector<std::byte>> ZipInputStream::readEntry()
     return contents;
 }
 
-Result<void> ZipInputStream::readData(const Header& header, std::vector<std::byte>* contents)
+Result<void> ZipInputStream::readData(const Header& header, std::vector<std::byte>* contents,
+                                      std::size_t limit)
 {
     m_current.reset();
     switch (header.method)
     {
         case kStored:
-            return readStored(header, contents);
+            return readStored(header, contents, limit);
         case kDeflated:
-            return readDeflated(header, contents);
+            return readDeflated(header, contents, limit);
         default:
             return fail(ErrorCode::PARSE, "invalid compression method");
     }
 }
 
-Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::byte>* contents)
+Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::byte>* contents,
+                                        std::size_t limit)
 {
     // An entry of no (or a negative) size is at its end at once, without a CRC check.
     if (header.size <= 0)
     {
         return {};
     }
-    if (std::cmp_greater(header.size, m_data.size() - header.dataStart))
+    const std::size_t available = m_data.size() - header.dataStart;
+    // A bounded reader meets its limit as soon as more than that many bytes have come, which
+    // is before a cut-off entry runs out when the data holds that many.
+    if (contents != nullptr && std::cmp_greater(header.size, limit) && available > limit)
+    {
+        return exceedsLimit(limit);
+    }
+    if (std::cmp_greater(header.size, available))
     {
         return fail(ErrorCode::PARSE, "unexpected EOF");
     }
@@ -429,9 +458,10 @@ Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::b
     return {};
 }
 
-Result<void> ZipInputStream::readDeflated(const Header& header, std::vector<std::byte>* contents)
+Result<void> ZipInputStream::readDeflated(const Header& header, std::vector<std::byte>* contents,
+                                          std::size_t limit)
 {
-    const Result<Inflated> inflated = inflate(m_data.subspan(header.dataStart), contents);
+    const Result<Inflated> inflated = inflate(m_data.subspan(header.dataStart), contents, limit);
     if (!inflated)
     {
         return std::unexpected(inflated.error());

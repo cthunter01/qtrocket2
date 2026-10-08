@@ -226,13 +226,14 @@ bool Config::Value::operator==(const Value& other) const
 
 void Config::put(std::string_view key, Value value)
 {
-    const auto entry = std::ranges::find(m_entries, key, &std::pair<std::string, Value>::first);
-    if (entry != m_entries.end())
+    const auto known = m_index.find(key);
+    if (known != m_index.end())
     {
-        entry->second = std::move(value);
+        m_entries[known->second].second = std::move(value);
         return;
     }
     m_entries.emplace_back(std::string(key), std::move(value));
+    m_index.emplace(std::string(key), m_entries.size() - 1);
 }
 
 void Config::put(std::string_view key, const char* value)
@@ -242,8 +243,8 @@ void Config::put(std::string_view key, const char* value)
 
 const Config::Value* Config::find(std::string_view key) const noexcept
 {
-    const auto entry = std::ranges::find(m_entries, key, &std::pair<std::string, Value>::first);
-    return entry != m_entries.end() ? &entry->second : nullptr;
+    const auto known = m_index.find(key);
+    return known != m_index.end() ? &m_entries[known->second].second : nullptr;
 }
 
 std::optional<Config::Value> Config::get(std::string_view key) const

@@ -150,6 +150,12 @@ Result<std::vector<std::byte>> ZipWriter::finish() const
         info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
         info.modified_date      = now;
         info.uncompressed_size  = static_cast<std::int64_t>(pending.data.size());
+        // No ZIP64 for an entry: none comes near 4 GiB (see the check above), and left to
+        // itself minizip takes a size of 0 for "not known yet" and writes an empty entry in
+        // ZIP64 form, with a data descriptor of 8-byte sizes. java.util.zip.ZipInputStream
+        // (JDK 17), and ZipInputStream here, read 4-byte sizes there and find no entry after
+        // such a one, so OpenRocket would lose every attachment behind an empty entry.
+        info.zip64 = MZ_ZIP64_DISABLE;
         // minizip rejects a null buffer even for a zero-length entry, and an empty vector's data()
         // may be null.
         static constexpr std::byte kEmpty{};

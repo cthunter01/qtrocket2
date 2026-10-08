@@ -356,14 +356,21 @@ void RocketComponent::clearPreset()
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
 }
 
-void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options)
+void RocketComponent::loadPreset(std::shared_ptr<const ComponentPreset> preset,
+                                 const PresetLoadOptions&               options)
 {
     // Java dispatches to the two-argument loadFromPreset() only when params are given, which
     // skips the classes that override only the one-argument form; its callers pass params to
     // parachutes alone, so the single loadFromPreset() here is exact only for them.
     QTROCKET_ASSERT(!options.allowAutoRadius.has_value() || kind() == ComponentKind::PARACHUTE);
-    if (m_presetComponent == preset)
+    if (m_presetComponent.get() == preset.get())
     {
+        // The same preset: nothing is loaded. A share offered for a preset the component only
+        // points at is taken (no Java counterpart: ownership alone changes).
+        if (preset.use_count() != 0 && m_presetComponent.use_count() == 0)
+        {
+            m_presetComponent = std::move(preset);
+        }
         return;
     }
     if (preset == nullptr)
@@ -380,7 +387,7 @@ void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoad
     try
     {
         loadFromPreset(*preset, options);
-        m_presetComponent = preset;
+        m_presetComponent = std::move(preset);
     }
     catch (...)
     {
@@ -396,6 +403,13 @@ void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoad
     }
 
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+void RocketComponent::loadPreset(const ComponentPreset* preset, const PresetLoadOptions& options)
+{
+    // A pointer without an owner (the aliasing constructor with an empty owner): the caller keeps
+    // the preset alive.
+    loadPreset(std::shared_ptr<const ComponentPreset>{std::shared_ptr<void>{}, preset}, options);
 }
 
 std::optional<ComponentPresetType> RocketComponent::getPresetType() const
@@ -1975,6 +1989,24 @@ void RocketComponent::fireComponentChangeEvent(const ComponentChangeEvent& event
         return;
     }
     getRoot().fireComponentChangeEvent(event);
+}
+
+void RocketComponent::notifyDocumentMaterial(const Material& material)
+{
+    if (!material.isDocumentMaterial())
+    {
+        return;
+    }
+    Rocket* rocket = findRocket();
+    if (rocket == nullptr)
+    {
+        return;
+    }
+    // Java hands the listener the material object. A copy here: @p material is the component's
+    // own member, or refers into a preset or another component, which a slot may change.
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization): the copy outlives such a change
+    const Material registered = material;
+    rocket->documentMaterialSet().emit(registered);
 }
 
 // ================================================================================= copying

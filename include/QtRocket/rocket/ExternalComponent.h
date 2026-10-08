@@ -31,8 +31,10 @@ class Preferences;
 ///   it right away, which completes Java's constructor with the user's per-class default. The
 ///   exception is RailButton, which starts with RailButton::defaultMaterial() ("Delrin"), as its
 ///   Java constructor sets it after ExternalComponent's.
-/// - setMaterial() and loadFromPreset() do not register a document material with the document's
-///   preferences: rocket/ cannot see the document (see the HOOK in ExternalComponent.cpp).
+/// - Where Java's setMaterial() and loadFromPreset() add a document material to the document's
+///   preferences, the component tells its rocket (RocketComponent::notifyDocumentMaterial()),
+///   which emits Rocket::documentMaterialSet() for the document: rocket/ cannot see the
+///   document. Java's copyFrom() does not register the copied material, nor does this one.
 /// - setMaterial() of a material that is not BULK throws BugError (Java:
 ///   IllegalArgumentException).
 /// - The multi-edit config listeners are not ported (see RocketComponent).
@@ -59,8 +61,8 @@ public:
 
     [[nodiscard]] const Material& getMaterial() const noexcept { return m_material; }
 
-    /// Sets the material; when it differs (Material's ==), clears the preset and fires
-    /// MASS_CHANGE.
+    /// Sets the material; when it differs (Material's ==), announces a document material (see
+    /// the class comment), clears the preset and fires MASS_CHANGE.
     /// @throws BugError when @p mat is not a BULK material (Java: IllegalArgumentException).
     void setMaterial(const Material& mat);
 
@@ -89,7 +91,8 @@ protected:
     explicit ExternalComponent(AxialMethod relativePosition);
 
     /// Loads the base properties, then the preset's FINISH (through setFinish()) and MATERIAL
-    /// (stored directly: no event, the preset is kept).
+    /// (stored directly: no event, the preset is kept; a document material is announced
+    /// whatever the component's material was).
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
     /// Copies the finish and the material of @p source, which must be an ExternalComponent, then

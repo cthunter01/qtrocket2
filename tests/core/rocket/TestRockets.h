@@ -47,9 +47,10 @@
 /// draws the name, the dimensions, the colors and the finishes of its components from a
 /// java.util.Random seeded with the hash of a key, a stream that is not reproduced here (and
 /// OpenRocket does not promise the same rocket from one version to the next). Not ported either:
-/// the makers that return an OpenRocketDocument (makeTestRocket_v100() ... and
+/// the 16 makers that return an OpenRocketDocument (makeTestRocket_v100() ... and
 /// makeTestRocket_for_estimateFileSize(), with getTestMotor(), which only they use) and
-/// dumpRocket(), which wait for the document and file tiers.
+/// dumpRocket(). The document exists (QtRocket/document/OpenRocketDocument.h); the makers wait
+/// for tier 10, since only the tests of the .ork saver (OpenRocketSaverTest) use them.
 namespace QtRocket::Test
 {
 

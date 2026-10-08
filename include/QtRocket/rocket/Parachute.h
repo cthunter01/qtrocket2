@@ -98,7 +98,8 @@ public:
 
     /// Sets the line material; unless it equals the current one (Material::operator==), clears
     /// the preset and fires MASS_CHANGE when there are lines, else fires NONFUNCTIONAL_CHANGE.
-    /// HOOK(document): see RecoveryDevice.
+    /// A document material is announced first, with lines or without (see RecoveryDevice), as
+    /// is the LINE_MATERIAL a preset gives the parachute, after the preset's canopy material.
     /// @throws BugError when @p material is not a LINE material (Java: IllegalArgumentException
     ///         "Attempted to set non-line material").
     void setLineMaterial(const Material& material);

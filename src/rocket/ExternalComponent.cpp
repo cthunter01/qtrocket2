@@ -58,9 +58,7 @@ void ExternalComponent::setMaterial(const Material& mat)
         return;
     }
     m_material = mat;
-    // HOOK(document): Java adds a document material to the document's preferences here
-    // (rocket.getDocument().getDocumentPreferences().addMaterial(mat)) when the root is a Rocket
-    // that belongs to a document; rocket/ cannot reach OpenRocketDocument.
+    notifyDocumentMaterial(m_material);
     clearPreset();
     fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
 }
@@ -102,9 +100,9 @@ void ExternalComponent::loadFromPreset(const ComponentPreset&   preset,
 
     if (preset.has(ComponentPreset::kMaterial))
     {
+        // Java checks the material for null, which a preset value never is here.
         m_material = preset.get(ComponentPreset::kMaterial);
-        // HOOK(document): Java registers a document material with the document here too (see
-        // setMaterial()).
+        notifyDocumentMaterial(m_material);
     }
 }
 

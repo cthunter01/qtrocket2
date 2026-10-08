@@ -38,7 +38,10 @@ private:
     std::vector<Entry> m_entries;
 };
 
-/// Builds a zip archive in memory, deflate-compressed, with UTF-8 entry names.
+/// Builds a zip archive in memory, deflate-compressed, with UTF-8 entry names. Every entry is
+/// written as a streaming writer writes it, its sizes and CRC in a data descriptor behind its
+/// data (so ZipInputStream::Entry::size is -1 for it), and without ZIP64 fields, so that a reader
+/// of local headers such as java.util.zip.ZipInputStream reads on behind an entry of no bytes.
 class ZipWriter
 {
 public:

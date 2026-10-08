@@ -27,8 +27,7 @@ void StructuralComponent::loadFromPreset(const ComponentPreset&   preset,
     {
         // Java checks the material for null, which a preset value never is here.
         m_material = preset.get(ComponentPreset::kMaterial);
-        // HOOK(document): a document material goes to the document's preferences (see the
-        // class comment).
+        notifyDocumentMaterial(m_material);
     }
 }
 
@@ -44,8 +43,7 @@ void StructuralComponent::setMaterial(const Material& material)
         return;
     }
     m_material = material;
-    // HOOK(document): a document material goes to the document's preferences (see the class
-    // comment).
+    notifyDocumentMaterial(m_material);
     clearPreset();
     fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
 }

@@ -526,6 +526,76 @@ TEST(Config, KeysKeepTheOrderTheyWereFirstPutIn)
     EXPECT_EQ(config.keySet(), (std::vector<std::string>{"zeta", "alpha", "mid", "beta", "gamma"}));
 }
 
+/// The keys "k0" to "k<count - 1>".
+[[nodiscard]] std::vector<std::string> numberedKeys(int count)
+{
+    std::vector<std::string> keys;
+    keys.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; i++)
+    {
+        keys.push_back(std::format("k{}", i));
+    }
+    return keys;
+}
+
+/// A Config with the keys of numberedKeys(@p count), each put with its number.
+[[nodiscard]] Config numberedConfig(int count)
+{
+    Config config;
+    for (int i = 0; i < count; i++)
+    {
+        config.put(std::format("k{}", i), i);
+    }
+    return config;
+}
+
+// Hostile input: the <config> of an extension in a file may bring any number of keys. Java's
+// Config is a LinkedHashMap; a Config that searched its entries for every put() took 34 s for
+// these 200,000 keys in a release build, and with them a load took time quadratic in the size
+// of the file. The keys are found through an index now, in the order they were put.
+TEST(Config, ManyKeysKeepTheirOrderAndAreFoundThroughTheIndex)
+{
+    constexpr int                  kCount = 200000;
+    const std::vector<std::string> keys   = numberedKeys(kCount);
+    Config                         config = numberedConfig(kCount);
+    EXPECT_EQ(config.keySet(), keys);
+    EXPECT_EQ(config.getInt("k0"), 0);
+    EXPECT_EQ(config.getInt("k199999"), 199999);
+    EXPECT_FALSE(config.containsKey("k200000"));
+    EXPECT_FALSE(config.containsKey("k"));
+
+    // Putting a key again replaces its value where the key stands.
+    config.put("k100000", "again");
+    EXPECT_EQ(config.keySet(), keys);
+    EXPECT_EQ(config.getString("k100000"), "again");
+    EXPECT_EQ(config.getInt("k100001"), 100001);
+
+    // A copy finds its own entries, and the comparison of two Configs goes through the index
+    // too.
+    Config copy = config;
+    EXPECT_TRUE(copy.sameEntries(config));
+    copy.put("extra", 1);
+    copy.put("k7", "changed in the copy");
+    EXPECT_EQ(copy.keySet().size(), 200001U);
+    EXPECT_FALSE(config.containsKey("extra"));
+    EXPECT_EQ(config.getInt("k7"), 7);
+    EXPECT_FALSE(copy.sameEntries(config));
+}
+
+// An optional measurement of the above: the seconds put() takes for a growing number of keys,
+// which doubles with the number when the keys are found in constant time.
+TEST(Config, DISABLED_PrintsTheTimeOfPuttingManyKeys)
+{
+    for (const int count : {100000, 200000, 400000, 800000})
+    {
+        const auto                          start  = std::chrono::steady_clock::now();
+        const Config                        config = numberedConfig(count);
+        const std::chrono::duration<double> taken  = std::chrono::steady_clock::now() - start;
+        RecordProperty(std::format("seconds_for_{}_keys", count), std::format("{}", taken.count()));
+        EXPECT_TRUE(config.containsKey(std::format("k{}", count - 1)));
+    }
+}
+
 TEST(Config, AnEmptyConfig)
 {
     const Config config;

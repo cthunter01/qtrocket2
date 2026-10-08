@@ -63,7 +63,6 @@ Rocket::Rocket(const Rocket& other, CopyKey /*key*/)
     m_treeModId(other.m_treeModId),
     m_functionalModId(other.m_functionalModId),
     m_eventsEnabled(other.m_eventsEnabled),
-    m_document(other.m_document),
     m_refType(other.m_refType),
     m_customReferenceLength(other.m_customReferenceLength),
     m_designer(other.m_designer),
@@ -74,8 +73,10 @@ Rocket::Rocket(const Rocket& other, CopyKey /*key*/)
     m_configSet(FlightConfiguration{*this, FlightConfigurationId::defaultValueId()}),
     m_selectedConfigurationId(other.m_selectedConfigurationId)
 {
-    // Not copied: the listeners, the freeze state, the stage map and the configurations (rebuilt
-    // by copyWithOriginalId() once the children exist).
+    // Not copied: the listeners (of the change events and of documentMaterialSet()), the freeze
+    // state, the stage map and the configurations (rebuilt by copyWithOriginalId() once the
+    // children exist), and the document pointer: a copy belongs to no document (Java's clone
+    // keeps the reference; a copy here can outlive the document, see Rocket.h).
 }
 
 Rocket::~Rocket() = default;

@@ -20,10 +20,11 @@ class ComponentPreset;
 /// preferences; rocket/ has no access to them, so whoever creates a component for the user
 /// applies getDefaultComponentMaterial() (MaterialPreferences.h) with setMaterial().
 ///
-/// HOOK(document): when the material set (by setMaterial() or a preset) is a document material
-/// and the rocket belongs to a document, Java adds it to the document's preferences
-/// (DocumentPreferences.addMaterial()). document/ sits above rocket/, so the document does that
-/// itself once it exists (it can collect getAllMaterials() of every component).
+/// Document materials: when the material set (by setMaterial() or a preset) is a document
+/// material and the rocket belongs to a document, Java adds it to the document's preferences
+/// at once (DocumentPreferences.addMaterial()). document/ sits above rocket/, so the component
+/// tells its rocket instead (RocketComponent::notifyDocumentMaterial(), at the place of Java's
+/// call), and the rocket emits Rocket::documentMaterialSet(), which the document listens to.
 class StructuralComponent : public InternalComponent
 {
 public:
@@ -31,7 +32,8 @@ public:
     [[nodiscard]] const Material& getMaterial() const noexcept { return m_material; }
 
     /// Sets the material: nothing happens when it equals the current one (Material::operator==),
-    /// otherwise the preset is cleared and MASS_CHANGE fires.
+    /// otherwise a document material is announced (see the class comment), the preset is
+    /// cleared and MASS_CHANGE fires.
     /// @throws BugError when @p material is not a BULK material (Java:
     ///         IllegalArgumentException "Attempted to set non-bulk material").
     void setMaterial(const Material& material);
@@ -44,7 +46,8 @@ protected:
     StructuralComponent();
 
     /// The base class's values, then the preset's MATERIAL when it has one (stored directly,
-    /// without an event: the frozen rocket fires loadPreset()'s events).
+    /// without an event: the frozen rocket fires loadPreset()'s events; a document material is
+    /// announced whatever the component's material was).
     void loadFromPreset(const ComponentPreset& preset, const PresetLoadOptions& options) override;
 
 private:

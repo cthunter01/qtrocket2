@@ -158,8 +158,7 @@ void Parachute::setLineMaterial(const Material& material)
         return;
     }
     m_lineMaterial = material;
-    // HOOK(document): a document material goes to the document's preferences (see
-    // StructuralComponent).
+    notifyDocumentMaterial(m_lineMaterial);
     if (getLineCount() != 0)
     {
         clearPreset();
@@ -243,8 +242,7 @@ void Parachute::loadFromPreset(const ComponentPreset& preset, const PresetLoadOp
             bug("Attempted to load non-line material " + material.toString());
         }
         m_lineMaterial = material;
-        // HOOK(document): a document material goes to the document's preferences (see
-        // StructuralComponent).
+        notifyDocumentMaterial(m_lineMaterial);
     }
     else
     {

@@ -81,8 +81,7 @@ void RecoveryDevice::setMaterial(const Material& material)
         return;
     }
     m_material = material;
-    // HOOK(document): a document material goes to the document's preferences (see
-    // StructuralComponent).
+    notifyDocumentMaterial(m_material);
     clearPreset();
     fireComponentChangeEvent(ComponentChangeEvent::kMassChange);
 }
@@ -136,8 +135,7 @@ void RecoveryDevice::loadFromPreset(const ComponentPreset& preset, const PresetL
                 bug("Attempted to load non-surface material " + material.toString());
             }
             m_material = material;
-            // HOOK(document): a document material goes to the document's preferences (see
-            // StructuralComponent).
+            notifyDocumentMaterial(m_material);
         }
         else
         {

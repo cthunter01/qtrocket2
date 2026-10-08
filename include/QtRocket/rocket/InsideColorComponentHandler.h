@@ -21,9 +21,10 @@ class RocketComponent;
 /// the state.
 ///
 /// Deviation: Java's setInsideAppearance() also subscribes to the decal image, to fire
-/// TEXTURE_CHANGE when the image changes; images are named here and their bytes live in the
-/// document's decal registry, which fires that event (see Decal). The multi-edit config
-/// listeners are not ported, by decision.
+/// TEXTURE_CHANGE when the image changes; images are named here and kept by the document's
+/// decal registry, and the document fires that event on the components whose inside (or
+/// outside) appearance names an image that changed (see Decal and OpenRocketDocument). The
+/// multi-edit config listeners are not ported, by decision.
 class InsideColorComponentHandler
 {
 public:

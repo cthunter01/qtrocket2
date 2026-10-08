@@ -30,9 +30,11 @@ class FlightConfigurationId;
 /// (getDefaultComponentMaterial(RecoveryDevice.class, SURFACE), the RecoveryDevice class chain
 /// for a parachute and a streamer alike) and keeps the default in a final field; rocket/ has no
 /// access to the preferences (see StructuralComponent), so whoever creates a device for the user
-/// applies that material with setDefaultMaterial() and setMaterial(). HOOK(document): Java adds
-/// a document material set from a preset to the document's preferences (see
-/// StructuralComponent).
+/// applies that material with setDefaultMaterial() and setMaterial(). A document material set
+/// by setMaterial() or taken from a preset is announced to the rocket's document, where Java
+/// adds it to the document's preferences (RocketComponent::notifyDocumentMaterial(); see
+/// StructuralComponent); the default material a preset without a usable MATERIAL leaves is not,
+/// as in Java.
 ///
 /// Not ported: the multi-edit config listener overrides (addConfigListener() and friends), by
 /// decision (see RocketComponent).
@@ -70,7 +72,8 @@ public:
     [[nodiscard]] const Material& getMaterial() const noexcept { return m_material; }
 
     /// Sets the material; nothing happens when it equals the current one (Material::operator==),
-    /// otherwise the preset is cleared and MASS_CHANGE fires.
+    /// otherwise a document material is announced (see the class comment), the preset is
+    /// cleared and MASS_CHANGE fires.
     /// @throws BugError when @p material is not a SURFACE material (Java:
     ///         IllegalArgumentException "Attempted to set non-surface material").
     void setMaterial(const Material& material);

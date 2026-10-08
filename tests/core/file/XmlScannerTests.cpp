@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <format>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -317,6 +318,105 @@ TEST(XmlScanner, ReadsMalformedUtf8AsReplacementCharacters)
 {
     // U+FFFD is a valid character; the decoder makes it of any malformed byte.
     EXPECT_EQ(errorOf(XmlScanner::scan("<a>\xff\xfe</a>")), "");
+}
+
+TEST(XmlScanner, GivesTheEncodingTheDeclarationNames)
+{
+    using Encoding = std::optional<std::string>;
+    EXPECT_EQ(XmlScanner::declaredEncoding("<?xml version='1.0' encoding='ISO-8859-1'?><a/>"),
+              Encoding("ISO-8859-1"));
+    EXPECT_EQ(XmlScanner::declaredEncoding(R"(<?xml version="1.0" encoding="utf-8"?>)"),
+              Encoding("utf-8"));
+    EXPECT_EQ(
+        XmlScanner::declaredEncoding("<?xml version = '1.0'  encoding =  'x'  standalone='yes' ?>"),
+        Encoding("x"));
+    // As it is written, a name or not: the reader of bytes judges it.
+    EXPECT_EQ(XmlScanner::declaredEncoding("<?xml version='1.0' encoding=''?>"), Encoding(""));
+    EXPECT_EQ(XmlScanner::declaredEncoding("<?xml version='1.0' encoding='a b'?>"),
+              Encoding("a b"));
+    EXPECT_EQ(XmlScanner::declaredEncoding("<?xml version='1.0' encoding='?>'?><a/>"),
+              Encoding("?>"));
+    // XML 1.1 takes U+0085 for white space in the declaration.
+    EXPECT_EQ(XmlScanner::declaredEncoding("<?xml version='1.1'\xC2\x85"
+                                           "encoding='latin1'?>"),
+              Encoding("latin1"));
+}
+
+TEST(XmlScanner, GivesNoEncodingWhereXercesNeverLooksAtIt)
+{
+    for (const std::string_view text :
+         {""sv, "<a/>"sv, "<?xml version='1.0'?><a/>"sv, "<?xml version='1.0' standalone='yes'?>"sv,
+          // not a declaration
+          "<?xml-stylesheet encoding='x'?>"sv, " <?xml version='1.0' encoding='x'?>"sv,
+          "<a><?xml version='1.0' encoding='x'?></a>"sv,
+          // a declaration with an error: the error is reported and the encoding never applied
+          "<?xml encoding='x' version='1.0'?>"sv, "<?xml version='2.0' encoding='x'?>"sv,
+          "<?xml version='1.0' encoding='x' standalone='maybe'?>"sv,
+          "<?xml version='1.0' encoding='x' bogus='1'?>"sv, "<?xml version='1.0' encoding='x'"sv,
+          "<?xml version='1.0' encoding='x' ?"sv, "<?xml version='1.0'encoding='x'?>"sv,
+          "<?xml version='1.0' encoding='x?>"sv, "<?xml version='1.0' encoding=x?>"sv})
+    {
+        EXPECT_EQ(XmlScanner::declaredEncoding(text), std::nullopt) << text;
+    }
+}
+
+/// The element events made before the scan of @p text needed a character beyond its end, or -1
+/// when it stopped before the end.
+[[nodiscard]] int eventsBeforeEnd(std::string_view text)
+{
+    const XmlScanner::Report report = XmlScanner::scan(text);
+    return report.eventsBeforeEnd.has_value() ? static_cast<int>(*report.eventsBeforeEnd) : -1;
+}
+
+TEST(XmlScanner, CountsTheEventsBeforeItNeedsMoreThanTheText)
+{
+    // A well-formed document is read to its end, with every event made.
+    EXPECT_EQ(eventsBeforeEnd("<a><b/><c>x</c></a>"), 6);
+    EXPECT_EQ(eventsBeforeEnd("<?xml version='1.0'?><a/>\n<!-- c -->\n"), 2);
+    // A document cut off: the events of what is complete. (The JDK's parser makes the same
+    // calls before a reader that fails after these characters: probe SaxBytesProbe of part D4,
+    // section F.)
+    EXPECT_EQ(eventsBeforeEnd("<r><a>1</a><b x=\"2\"/><c>"), 6);
+    EXPECT_EQ(eventsBeforeEnd("<r><a>1</a"), 2);
+    EXPECT_EQ(eventsBeforeEnd("<r><a>1</a>"), 3);
+    EXPECT_EQ(eventsBeforeEnd("<root>text</roo"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<root>text</root"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<r a='1'"), 0);
+    EXPECT_EQ(eventsBeforeEnd("<r>&am"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<r><![CDA"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<r><!--x-"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<r><a/><b/><c/"), 5);
+    EXPECT_EQ(eventsBeforeEnd("<r><a/><b/><c/>"), 7);
+    EXPECT_EQ(eventsBeforeEnd("<r>a</r>\n<!--"), 2);
+    EXPECT_EQ(eventsBeforeEnd("     "), 0);
+}
+
+TEST(XmlScanner, FewerThanFiveCharactersAreAtTheirEndBeforeAnythingIsScanned)
+{
+    // Xerces looks for "<?xml" first and asks for five characters to compare.
+    EXPECT_EQ(eventsBeforeEnd(""), 0);
+    EXPECT_EQ(eventsBeforeEnd("<"), 0);
+    EXPECT_EQ(eventsBeforeEnd("<r>a"), 0);
+    EXPECT_EQ(eventsBeforeEnd("<r/>"), 0);
+    EXPECT_EQ(eventsBeforeEnd("<r>]"), 0);
+    EXPECT_EQ(eventsBeforeEnd("1234"), 0);
+    // With five the document is scanned.
+    EXPECT_EQ(eventsBeforeEnd("<r>ab"), 1);
+    EXPECT_EQ(eventsBeforeEnd("<r/> "), 2);
+    EXPECT_EQ(eventsBeforeEnd("<r>]]"), 1);
+    // The element events of the report are what a document that simply ends there gives.
+    EXPECT_EQ(XmlScanner::scan("<r/>").elementEvents, 2U);
+    EXPECT_EQ(XmlScanner::scan("<r>a").elementEvents, 1U);
+}
+
+TEST(XmlScanner, AnErrorBeforeTheEndIsNoEnd)
+{
+    // The scan stopped at an error with text left: it never asked for more.
+    EXPECT_EQ(eventsBeforeEnd("12345"), -1);
+    EXPECT_EQ(eventsBeforeEnd("<r><a></b></r>"), -1);
+    EXPECT_EQ(eventsBeforeEnd("<r>&bad;</r>"), -1);
+    EXPECT_EQ(eventsBeforeEnd("<?xml version='2.0'?><r/>"), -1);
+    EXPECT_EQ(eventsBeforeEnd("<r/>junk"), -1);
 }
 
 }  // namespace
