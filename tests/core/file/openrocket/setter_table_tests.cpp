@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,6 +17,7 @@
 #include "QtRocket/rocket/DesignType.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/EngineBlock.h"
+#include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
 #include "QtRocket/rocket/FreeformFinSet.h"
@@ -27,17 +29,23 @@
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/RailButton.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/ReferenceType.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/Streamer.h"
+#include "QtRocket/rocket/StructuralComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/TubeFinSet.h"
+#include "QtRocket/rocket/position/AngleMethod.h"
+#include "QtRocket/rocket/position/AnglePositionable.h"
+#include "QtRocket/rocket/position/AxialMethod.h"
+#include "QtRocket/rocket/position/RadiusMethod.h"
 #include "file/openrocket/SetterTestSupport.h"
 
 // One application of every setter of the .ork loader's setter table (DocumentConfig): the
@@ -56,6 +64,9 @@
 namespace
 {
 
+using QtRocket::angleMethodName;
+using QtRocket::AnglePositionable;
+using QtRocket::axialMethodName;
 using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::Bulkhead;
@@ -66,8 +77,10 @@ using QtRocket::designTypeName;
 using QtRocket::DocumentConfig;
 using QtRocket::EllipticalFinSet;
 using QtRocket::EngineBlock;
+using QtRocket::ExternalComponent;
 using QtRocket::finCrossSectionName;
 using QtRocket::finishName;
+using QtRocket::FinSet;
 using QtRocket::FreeformFinSet;
 using QtRocket::InnerTube;
 using QtRocket::LaunchLug;
@@ -77,13 +90,16 @@ using QtRocket::NoseCone;
 using QtRocket::Parachute;
 using QtRocket::ParallelStage;
 using QtRocket::PodSet;
+using QtRocket::radiusMethodName;
 using QtRocket::RailButton;
+using QtRocket::RecoveryDevice;
 using QtRocket::referenceTypeName;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::separationEventName;
 using QtRocket::ShockCord;
 using QtRocket::Streamer;
+using QtRocket::StructuralComponent;
 using QtRocket::Transition;
 using QtRocket::transitionShapeName;
 using QtRocket::TrapezoidFinSet;
@@ -94,9 +110,13 @@ using QtRocket::Test::asText;
 using QtRocket::Test::checkSetterCases;
 using QtRocket::Test::colorOf;
 using QtRocket::Test::count;
+using QtRocket::Test::describeMaterial;
 using QtRocket::Test::flag;
 using QtRocket::Test::list;
+using QtRocket::Test::listInOrder;
 using QtRocket::Test::num;
+using QtRocket::Test::presetDigestOf;
+using QtRocket::Test::presetPartNoOf;
 using QtRocket::Test::SetterCase;
 using QtRocket::Test::styleOf;
 
@@ -672,6 +692,81 @@ readBodyTubeSubcomponentsOverriddenMassAndSubcomponentsOverriddenCGAndSubcompone
     return num(as<TubeFinSet>(c).getThickness());
 }
 // ---- generated: one row per key and line, in the order of OpenRocket's DocumentConfig.java
+// ---- the readers of the position, fin tab, cluster, material and preset setters (part R2)
+[[nodiscard]] std::string readAxialPosition(const RocketComponent& c)
+{
+    return listInOrder({asText(axialMethodName(c.getAxialMethod())), num(c.getAxialOffset()),
+                        num(c.getPosition().x)});
+}
+
+[[nodiscard]] std::string readRadiusPosition(const RocketComponent& c)
+{
+    return listInOrder({asText(radiusMethodName(c.getRadiusMethod())), num(c.getRadiusOffset())});
+}
+
+[[nodiscard]] std::string readAnglePosition(const RocketComponent& c)
+{
+    return listInOrder({asText(angleMethodName(as<AnglePositionable>(c).getAngleMethod())),
+                        num(c.getAngleOffset())});
+}
+
+[[nodiscard]] std::string readFinTabPosition(const RocketComponent& c)
+{
+    return listInOrder({asText(axialMethodName(as<FinSet>(c).getTabOffsetMethod())),
+                        num(as<FinSet>(c).getTabOffset()), num(as<FinSet>(c).getTabFrontEdge())});
+}
+
+[[nodiscard]] std::string readInnerTubeCluster(const RocketComponent& c)
+{
+    return listInOrder({asText(as<InnerTube>(c).getClusterConfiguration().getXmlName()),
+                        count(c.getInstanceCount())});
+}
+
+[[nodiscard]] std::string readExternalComponentMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<ExternalComponent>(c).getMaterial());
+}
+
+[[nodiscard]] std::string readFinSetFilletMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<FinSet>(c).getFilletMaterial());
+}
+
+[[nodiscard]] std::string readStructuralComponentMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<StructuralComponent>(c).getMaterial());
+}
+
+[[nodiscard]] std::string readShockCordMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<ShockCord>(c).getMaterial());
+}
+
+[[nodiscard]] std::string readRecoveryDeviceMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<RecoveryDevice>(c).getMaterial());
+}
+
+[[nodiscard]] std::string readParachuteLineMaterial(const RocketComponent& c)
+{
+    return describeMaterial(as<Parachute>(c).getLineMaterial());
+}
+
+[[nodiscard]] std::string readBodyTubePreset(const RocketComponent& c)
+{
+    return listInOrder({presetPartNoOf(c), presetDigestOf(c), c.getName(), num(c.getLength()),
+                        num(as<BodyTube>(c).getOuterRadius()),
+                        flag(as<BodyTube>(c).isOuterRadiusAutomatic()),
+                        num(as<BodyTube>(c).getThickness())});
+}
+
+[[nodiscard]] std::string readParachutePreset(const RocketComponent& c)
+{
+    return listInOrder({presetPartNoOf(c), presetDigestOf(c), c.getName(),
+                        num(as<Parachute>(c).getDiameter()), count(as<Parachute>(c).getLineCount()),
+                        num(as<Parachute>(c).getLineLength())});
+}
+
 // clang-format off
 constexpr auto kTable = std::to_array<SetterCase>({
     {.key = "RocketComponent:name", .kind = ComponentKind::BODY_TUBE, .text = " padded name ", .read = &readBodyTubeName, .expected = " padded name "},
@@ -782,6 +877,30 @@ constexpr auto kTable = std::to_array<SetterCase>({
     {.key = "AxialStage:separationevent", .kind = ComponentKind::AXIAL_STAGE, .text = "upperignition", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "UPPER_IGNITION, 200.0, 0.0"},
     {.key = "AxialStage:separationaltitude", .kind = ComponentKind::PARALLEL_STAGE, .text = "120", .read = &readParallelStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 120.0, 0.0"},
     {.key = "AxialStage:separationdelay", .kind = ComponentKind::AXIAL_STAGE, .text = "2.5", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 2.5"},
+    // The entries of the position, fin tab, cluster, material and preset setters (part R2).
+    // OpenRocket's answers are those of the probe SpecialSetterProbe; the comment names the case.
+    {.key = "RocketComponent:position", .kind = ComponentKind::BULKHEAD, .attributes = "type=bottom", .text = "-0.01", .read = &readAxialPosition, .expected = "BOTTOM, -0.01, 0.188"},  // x006
+    {.key = "RocketComponent:axialoffset", .kind = ComponentKind::TRAPEZOID_FIN_SET, .attributes = "method=middle", .text = "0.002", .read = &readAxialPosition, .expected = "MIDDLE, 0.002, 0.07700000000000001"},  // x087
+    {.key = "RocketComponent:preset", .kind = ComponentKind::BODY_TUBE, .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7", .text = "", .read = &readBodyTubePreset, .expected = "BT-50FE, 30359, e9c3e97d32e96762f65e051d74cb9fd7, Body Tube, 0.1651, 0.012395199999999999, false, 3.3019999999999924E-4"},  // p023
+    {.key = "ExternalComponent:material", .kind = ComponentKind::LAUNCH_LUG, .attributes = "type=bulk|density=1850.0", .text = "Fiberglass", .read = &readExternalComponentMaterial, .expected = "BULK|Fiberglass|1850.0|4.14E9|Composites, false, false"},  // m058
+    {.key = "ParallelStage:angleoffset", .kind = ComponentKind::PARALLEL_STAGE, .attributes = "method=fixed", .text = "30", .read = &readAnglePosition, .expected = "FIXED, 0.5235987755982988"},  // x303
+    {.key = "ParallelStage:radiusoffset", .kind = ComponentKind::PARALLEL_STAGE, .attributes = "method=free", .text = "0.1", .read = &readRadiusPosition, .expected = "FREE, 0.1"},  // x171
+    {.key = "LaunchLug:angleoffset", .kind = ComponentKind::LAUNCH_LUG, .text = "60", .read = &readAnglePosition, .expected = "RELATIVE, 1.0471975511965976"},  // x334
+    {.key = "RailButton:angleoffset", .kind = ComponentKind::RAIL_BUTTON, .attributes = "method=relative", .text = "45", .read = &readAnglePosition, .expected = "RELATIVE, 0.7853981633974483"},  // x358
+    {.key = "FinSet:angleoffset", .kind = ComponentKind::TRAPEZOID_FIN_SET, .attributes = "method=mirrorxy", .text = "90", .read = &readAnglePosition, .expected = "MIRROR_XY, 1.5707963267948966"},  // x386
+    {.key = "FinSet:radiusoffset", .kind = ComponentKind::ELLIPTICAL_FIN_SET, .attributes = "method=free", .text = "0.1", .read = &readRadiusPosition, .expected = "SURFACE, 0.0"},  // x213
+    {.key = "FinSet:tabposition", .kind = ComponentKind::TRAPEZOID_FIN_SET, .attributes = "relativeto=middle", .text = "0.01", .read = &readFinTabPosition, .expected = "MIDDLE, 0.01, 0.01"},  // x524
+    {.key = "FinSet:filletmaterial", .kind = ComponentKind::TRAPEZOID_FIN_SET, .attributes = "type=bulk|density=1250.0", .text = "Epoxy of mine", .read = &readFinSetFilletMaterial, .expected = "BULK|Epoxy of mine|1250.0|0.0|Custom, true, true"},  // m063
+    {.key = "TubeFinSet:angleoffset", .kind = ComponentKind::TUBE_FIN_SET, .text = "60", .read = &readAnglePosition, .expected = "RELATIVE, 1.0471975511965976"},  // x469
+    {.key = "TubeFinSet:radiusoffset", .kind = ComponentKind::TUBE_FIN_SET, .attributes = "method=free", .text = "0.1", .read = &readRadiusPosition, .expected = "COAXIAL, 0.0"},  // x255
+    {.key = "StructuralComponent:material", .kind = ComponentKind::CENTERING_RING, .attributes = "type=bulk|density=630.0", .text = "Plywood (birch)", .read = &readStructuralComponentMaterial, .expected = "BULK|Plywood (birch)|630.0|6.13E8|Woods, false, false"},  // m066
+    {.key = "InnerTube:clusterconfiguration", .kind = ComponentKind::INNER_TUBE, .text = "4-ring", .read = &readInnerTubeCluster, .expected = "4-ring, 4"},  // x596
+    {.key = "ShockCord:material", .kind = ComponentKind::SHOCK_CORD, .attributes = "type=line|density=0.005", .text = "Cord of mine", .read = &readShockCordMaterial, .expected = "LINE|Cord of mine|0.005|0.0|Custom, true, true"},  // m074
+    {.key = "RecoveryDevice:material", .kind = ComponentKind::STREAMER, .attributes = "type=surface|density=0.5", .text = "Sail cloth", .read = &readRecoveryDeviceMaterial, .expected = "SURFACE|Sail cloth|0.5|0.0|Custom, true, true"},  // m077
+    {.key = "Parachute:linematerial", .kind = ComponentKind::PARACHUTE, .attributes = "type=line|density=0.0003", .text = "Thread (heavy-duty)", .read = &readParachuteLineMaterial, .expected = "LINE|Thread (heavy-duty)|3.0E-4|0.0|Other, false, false"},  // m079
+    {.key = "Parachute:preset", .kind = ComponentKind::PARACHUTE, .attributes = "type=PARACHUTE|manufacturer=Estes|partno=PK-10, 2262|digest=b595c8a31baaf325291d5c957f3940f8", .text = "", .read = &readParachutePreset, .expected = "PK-10, 2262, b595c8a31baaf325291d5c957f3940f8, Parachute, 0.254, 6, 0.254"},  // p028
+    {.key = "PodSet:radiusoffset", .kind = ComponentKind::POD_SET, .attributes = "method=relative", .text = "0.02", .read = &readRadiusPosition, .expected = "RELATIVE, 0.02"},  // x151
+    {.key = "PodSet:angleoffset", .kind = ComponentKind::POD_SET, .attributes = "method=relative", .text = "45", .read = &readAnglePosition, .expected = "RELATIVE, 0.7853981633974483"},  // x277
 });
 // clang-format on
 // ---- end of the generated part
@@ -808,6 +927,72 @@ TEST(SetterTable, EverySetterReachesThePropertyOfItsClassAsInOpenRocket)
 TEST(SetterTable, HasACaseForEverySetterOfTheTable)
 {
     EXPECT_EQ(keysWithoutACase(), Texts{});
+    // OpenRocket's 135 entries without the five that refuse their element.
+    EXPECT_EQ(DocumentConfig::setterKeys().size(), 130U);
+}
+
+/// The setters that none of the committed design files reaches (the 16 examples and the saved
+/// test rockets; the scouts of tier 9 counted): only the rows of kTable show that they are wired
+/// to the right property.
+constexpr auto kSettersNoFileExercises = std::to_array<std::string_view>({
+    "RadiusRingComponent:innerradius",
+    "RecoveryDevice:isdrogue",
+    "Rocket:customreference",
+    "Rocket:kitname",
+    "RocketComponent:linestyle",
+    "RocketComponent:overridecd",
+    "RocketComponent:overridecg",
+    "RocketComponent:overridesubcomponents",
+    "RocketComponent:overridesubcomponentscd",
+    "RocketComponent:overridesubcomponentscg",
+});
+
+/// The keys of @p keys that have no row in kTable.
+[[nodiscard]] Texts withoutACase(std::span<const std::string_view> keys)
+{
+    Texts missing;
+    for (const std::string_view key : keys)
+    {
+        if (std::ranges::none_of(kTable, [key](const SetterCase& row) { return row.key == key; }))
+        {
+            missing.emplace_back(key);
+        }
+    }
+    return missing;
+}
+
+TEST(SetterTable, HasACaseForTheTenSettersNoCommittedFileExercises)
+{
+    EXPECT_EQ(kSettersNoFileExercises.size(), 10U);
+    EXPECT_EQ(withoutACase(kSettersNoFileExercises), Texts{});
+}
+
+/// What the walk for @p kind finds for each element a nose cone refuses: "<element>=<class>"
+/// with a setter, "<element>=!<class>" for a refusal.
+[[nodiscard]] Texts walkForTheRefusedElements(ComponentKind kind)
+{
+    Texts found;
+    for (const std::string_view key : DocumentConfig::refusedKeys())
+    {
+        const std::string_view             element = key.substr(key.find(':') + 1);
+        const DocumentConfig::SetterLookup lookup  = DocumentConfig::findSetter(kind, element);
+        found.push_back(std::string(element) + (lookup.isRefused() ? "=!" : "=") +
+                        std::string(lookup.owner));
+    }
+    return found;
+}
+
+// OpenRocket's five null entries: a nose cone has no fore end to set, and a transition has.
+TEST(SetterTable, TheFiveEntriesWithoutASetterRefuseTheirElementForANoseConeOnly)
+{
+    EXPECT_EQ(walkForTheRefusedElements(ComponentKind::NOSE_CONE),
+              (Texts{"foreradius=!NoseCone", "foreshouldercapped=!NoseCone",
+                     "foreshoulderlength=!NoseCone", "foreshoulderradius=!NoseCone",
+                     "foreshoulderthickness=!NoseCone"}));
+    EXPECT_EQ(walkForTheRefusedElements(ComponentKind::TRANSITION),
+              (Texts{"foreradius=Transition", "foreshouldercapped=Transition",
+                     "foreshoulderlength=Transition", "foreshoulderradius=Transition",
+                     "foreshoulderthickness=Transition"}));
 }
 
 }  // namespace

@@ -10,17 +10,24 @@ target_sources(QtRocket_core PRIVATE
     motor/RockSimMotorLoader.cpp
     motor/RockSimMotorWriter.cpp
     motor/ZipFileMotorLoader.cpp
+    openrocket/AnglePositionSetter.cpp
+    openrocket/AxialPositionSetter.cpp
     openrocket/BooleanSetter.cpp
+    openrocket/ClusterConfigurationSetter.cpp
     openrocket/ColorSetter.cpp
+    openrocket/ComponentPresetSetter.cpp
     openrocket/ConfigHandler.cpp
     openrocket/DocumentConfig.cpp
     openrocket/DoubleSetter.cpp
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
     openrocket/EnumSetter.cpp
+    openrocket/FinTabPositionSetter.cpp
     openrocket/IntSetter.cpp
+    openrocket/MaterialSetter.cpp
     openrocket/MotorHandler.cpp
     openrocket/OverrideSetter.cpp
+    openrocket/RadiusPositionSetter.cpp
     openrocket/StringSetter.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp

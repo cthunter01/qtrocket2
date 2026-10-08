@@ -7,6 +7,7 @@
 #include <optional>
 #include <ranges>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -45,10 +46,6 @@ class Setter;
 /// the one table, the old names next to the new ones (position and axialoffset, fincount and
 /// instancecount, rotation and angleoffset, overridesubcomponents and the three flags it sets).
 ///
-/// HOOK(R2): 22 of Java's 135 entries are not in the table yet, those of the setters that part
-/// R2 of run 9b adds (the position, material, preset, fin tab and cluster setters). Each has a
-/// HOOK(R2) line at its place in DocumentConfig.cpp. Until then their elements are unknown.
-///
 /// Deviations from OpenRocket:
 /// - The tables are private and reached through createComponent(), componentElements(),
 ///   findSetter(), setterKeys() and refusedKeys() (Java: two package-private HashMaps). The
@@ -64,6 +61,8 @@ class Setter;
 ///   ErrorCode::INVALID_ARGUMENT and the message of Java's exception (Uuid::javaFromString()).
 /// - attribute() has no counterpart: it is HashMap.get() for an element's attributes, which
 ///   every handler and setter that reads one needs.
+/// - javaClassName() has no counterpart: it is Class.getCanonicalName() of a component, which
+///   the warnings of the position setters contain.
 /// - findEnum() takes the constants and a function that gives a constant's Java name, where
 ///   Java takes the enum's class and reflects on it.
 /// - stringToDouble() returns a failure with the message of Java's NumberFormatException,
@@ -155,6 +154,12 @@ public:
     /// @p attributes.
     [[nodiscard]] static std::optional<std::string_view> attribute(
         const ElementHandler::Attributes& attributes, std::string_view name);
+
+    /// The canonical name of the Java class of @p component, as three warnings of the position
+    /// setters have it (Java: c.getClass().getCanonicalName()):
+    /// "info.openrocket.core.rocketcomponent." and className() of the component's kind, e.g.
+    /// "info.openrocket.core.rocketcomponent.TrapezoidFinSet".
+    [[nodiscard]] static std::string javaClassName(const RocketComponent& component);
 
     /// Whether @p version is one of kSupportedVersions, compared exactly ("1.10" is, "1.1 "
     /// and "01.1" are not).

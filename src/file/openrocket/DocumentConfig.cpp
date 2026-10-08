@@ -17,15 +17,23 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/file/openrocket/AnglePositionSetter.h"
+#include "QtRocket/file/openrocket/AxialPositionSetter.h"
 #include "QtRocket/file/openrocket/BooleanSetter.h"
+#include "QtRocket/file/openrocket/ClusterConfigurationSetter.h"
 #include "QtRocket/file/openrocket/ColorSetter.h"
+#include "QtRocket/file/openrocket/ComponentPresetSetter.h"
 #include "QtRocket/file/openrocket/DoubleSetter.h"
 #include "QtRocket/file/openrocket/EnumSetter.h"
+#include "QtRocket/file/openrocket/FinTabPositionSetter.h"
 #include "QtRocket/file/openrocket/IntSetter.h"
+#include "QtRocket/file/openrocket/MaterialSetter.h"
 #include "QtRocket/file/openrocket/OverrideSetter.h"
+#include "QtRocket/file/openrocket/RadiusPositionSetter.h"
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/file/openrocket/StringSetter.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
@@ -57,6 +65,7 @@
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/Streamer.h"
+#include "QtRocket/rocket/StructuralComponent.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/ThicknessRingComponent.h"
 #include "QtRocket/rocket/Transition.h"
@@ -64,6 +73,7 @@
 #include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/TubeFinSet.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
@@ -206,8 +216,7 @@ template <class Set>
     return {};
 }
 
-// One function per class of the Java source, in its order, each entry at its place. An entry
-// that waits for a setter class of part R2 is a HOOK(R2) line.
+// One function per class of the Java source, in its order, each entry at its place.
 
 void addRocketComponentSetters(SetterTable& table)
 {
@@ -221,8 +230,9 @@ void addRocketComponentSetters(SetterTable& table)
         "RocketComponent:linestyle",
         std::make_unique<EnumSetter>(&lineStyleFromOrkName,
                                      [](RocketComponent& c, LineStyle v) { c.setLineStyle(v); }));
-    // HOOK(R2): "RocketComponent:position", new AxialPositionSetter()
-    // HOOK(R2): "RocketComponent:axialoffset", new AxialPositionSetter()
+    // The element of files up to format 1.8, which the saver still writes next to the new one.
+    table.put("RocketComponent:position", std::make_unique<AxialPositionSetter>());
+    table.put("RocketComponent:axialoffset", std::make_unique<AxialPositionSetter>());
     table.put("RocketComponent:overridemass",
               std::make_unique<OverrideSetter>(
                   [](RocketComponent& c, double v) { c.setOverrideMass(v); },
@@ -250,7 +260,11 @@ void addRocketComponentSetters(SetterTable& table)
                   [](RocketComponent& c, bool v) { c.setSubcomponentsOverriddenCD(v); }));
     table.put("RocketComponent:comment",
               textSetter([](RocketComponent& c, std::string_view v) { c.setComment(v); }));
-    // HOOK(R2): "RocketComponent:preset", new ComponentPresetSetter(RocketComponent.loadPreset)
+    table.put("RocketComponent:preset",
+              std::make_unique<ComponentPresetSetter>(
+                  [](RocketComponent& c, std::shared_ptr<const ComponentPreset> preset) {
+                      c.loadPreset(std::move(preset));
+                  }));
 }
 
 void addExternalComponentSetters(SetterTable& table)
@@ -259,7 +273,11 @@ void addExternalComponentSetters(SetterTable& table)
               std::make_unique<EnumSetter>(&finishFromOrkName, [](RocketComponent& c, Finish v) {
                   as<ExternalComponent>(c).setFinish(v);
               }));
-    // HOOK(R2): "ExternalComponent:material", new MaterialSetter(setMaterial, Material.Type.BULK)
+    table.put("ExternalComponent:material", std::make_unique<MaterialSetter>(
+                                                [](RocketComponent& c, const Material& v) {
+                                                    as<ExternalComponent>(c).setMaterial(v);
+                                                },
+                                                Material::Type::BULK));
 }
 
 void addBodyComponentSetters(SetterTable& table)
@@ -285,8 +303,8 @@ void addParallelStageSetters(SetterTable& table)
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<ParallelStage>(c).setInstanceCount(v); },
                   DocumentConfig::kMaxCount));
-    // HOOK(R2): "ParallelStage:angleoffset", new AnglePositionSetter()
-    // HOOK(R2): "ParallelStage:radiusoffset", new RadiusPositionSetter()
+    table.put("ParallelStage:angleoffset", std::make_unique<AnglePositionSetter>());
+    table.put("ParallelStage:radiusoffset", std::make_unique<RadiusPositionSetter>());
 }
 
 void addSymmetricComponentSetters(SetterTable& table)
@@ -311,7 +329,7 @@ void addLaunchLugSetters(SetterTable& table)
         "LaunchLug:radialdirection",
         std::make_unique<DoubleSetter>(
             [](RocketComponent& c, double v) { as<LaunchLug>(c).setAngleOffset(v); }, kDegrees));
-    // HOOK(R2): "LaunchLug:angleoffset", new AnglePositionSetter()
+    table.put("LaunchLug:angleoffset", std::make_unique<AnglePositionSetter>());
     table.put("LaunchLug:radius", std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<LaunchLug>(c).setOuterRadius(v);
               }));
@@ -333,7 +351,7 @@ void addRailButtonSetters(SetterTable& table)
               std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<RailButton>(c).setInstanceSeparation(v);
               }));
-    // HOOK(R2): "RailButton:angleoffset", new AnglePositionSetter()
+    table.put("RailButton:angleoffset", std::make_unique<AnglePositionSetter>());
     table.put("RailButton:height", std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<RailButton>(c).setTotalHeight(v);
               }));
@@ -437,8 +455,8 @@ void addFinSetSetters(SetterTable& table)
         "FinSet:rotation",
         std::make_unique<DoubleSetter>(
             [](RocketComponent& c, double v) { as<FinSet>(c).setBaseRotation(v); }, kDegrees));
-    // HOOK(R2): "FinSet:angleoffset", new AnglePositionSetter()
-    // HOOK(R2): "FinSet:radiusoffset", new RadiusPositionSetter()
+    table.put("FinSet:angleoffset", std::make_unique<AnglePositionSetter>());
+    table.put("FinSet:radiusoffset", std::make_unique<RadiusPositionSetter>());
     table.put("FinSet:thickness", std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<FinSet>(c).setThickness(v);
               }));
@@ -455,11 +473,14 @@ void addFinSetSetters(SetterTable& table)
     table.put("FinSet:tablength", std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<FinSet>(c).setTabLength(v);
               }));
-    // HOOK(R2): "FinSet:tabposition", new FinTabPositionSetter()
+    table.put("FinSet:tabposition", std::make_unique<FinTabPositionSetter>());
     table.put("FinSet:filletradius",
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<FinSet>(c).setFilletRadius(v); }));
-    // HOOK(R2): "FinSet:filletmaterial", new MaterialSetter(setFilletMaterial, Material.Type.BULK)
+    table.put("FinSet:filletmaterial",
+              std::make_unique<MaterialSetter>(
+                  [](RocketComponent& c, const Material& v) { as<FinSet>(c).setFilletMaterial(v); },
+                  Material::Type::BULK));
 }
 
 void addTrapezoidFinSetSetters(SetterTable& table)
@@ -513,15 +534,19 @@ void addTubeFinSetSetters(SetterTable& table)
     table.put("TubeFinSet:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<TubeFinSet>(c).setInstanceCount(v); }));
-    // HOOK(R2): "TubeFinSet:angleoffset", new AnglePositionSetter()
-    // HOOK(R2): "TubeFinSet:radiusoffset", new RadiusPositionSetter()
+    table.put("TubeFinSet:angleoffset", std::make_unique<AnglePositionSetter>());
+    table.put("TubeFinSet:radiusoffset", std::make_unique<RadiusPositionSetter>());
 }
 
 // InternalComponent - nothing
 
-void addStructuralComponentSetters(SetterTable& /*table*/)
+void addStructuralComponentSetters(SetterTable& table)
 {
-    // HOOK(R2): "StructuralComponent:material", new MaterialSetter(setMaterial, Material.Type.BULK)
+    table.put("StructuralComponent:material", std::make_unique<MaterialSetter>(
+                                                  [](RocketComponent& c, const Material& v) {
+                                                      as<StructuralComponent>(c).setMaterial(v);
+                                                  },
+                                                  Material::Type::BULK));
 }
 
 void addRingComponentSetters(SetterTable& table)
@@ -570,7 +595,7 @@ void addInnerTubeSetters(SetterTable& table)
     table.put("InnerTube:outerradius",
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<InnerTube>(c).setOuterRadius(v); }));
-    // HOOK(R2): "InnerTube:clusterconfiguration", new ClusterConfigurationSetter()
+    table.put("InnerTube:clusterconfiguration", std::make_unique<ClusterConfigurationSetter>());
     table.put("InnerTube:clusterscale",
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<InnerTube>(c).setClusterScale(v); }));
@@ -659,7 +684,10 @@ void addShockCordSetters(SetterTable& table)
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<ShockCord>(c).setCordLength(v); }, "auto",
                   [](RocketComponent& c, bool v) { as<ShockCord>(c).setCordLengthAutomatic(v); }));
-    // HOOK(R2): "ShockCord:material", new MaterialSetter(setMaterial, Material.Type.LINE)
+    table.put("ShockCord:material",
+              std::make_unique<MaterialSetter>(
+                  [](RocketComponent& c, const Material& v) { as<ShockCord>(c).setMaterial(v); },
+                  Material::Type::LINE));
 }
 
 void addRecoveryDeviceSetters(SetterTable& table)
@@ -688,7 +716,11 @@ void addRecoveryDeviceSetters(SetterTable& table)
         std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
             as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployDelay(v);
         }));
-    // HOOK(R2): "RecoveryDevice:material", new MaterialSetter(setMaterial, Material.Type.SURFACE)
+    table.put("RecoveryDevice:material", std::make_unique<MaterialSetter>(
+                                             [](RocketComponent& c, const Material& v) {
+                                                 as<RecoveryDevice>(c).setMaterial(v);
+                                             },
+                                             Material::Type::SURFACE));
     table.put("RecoveryDevice:isdrogue",
               std::make_unique<BooleanSetter>(
                   [](RocketComponent& c, bool v) { as<RecoveryDevice>(c).setDrogue(v); }));
@@ -707,8 +739,19 @@ void addParachuteSetters(SetterTable& table)
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<Parachute>(c).setLineLength(v); }, "auto",
                   [](RocketComponent& c, bool v) { as<Parachute>(c).setLineLengthAutomatic(v); }));
-    // HOOK(R2): "Parachute:linematerial", new MaterialSetter(setLineMaterial, Material.Type.LINE)
-    // HOOK(R2): "Parachute:preset", new ComponentPresetSetter(Parachute.loadPreset, false)
+    table.put("Parachute:linematerial", std::make_unique<MaterialSetter>(
+                                            [](RocketComponent& c, const Material& v) {
+                                                as<Parachute>(c).setLineMaterial(v);
+                                            },
+                                            Material::Type::LINE));
+    // A parachute's own entry, which hides the one of RocketComponent: the preset is loaded with
+    // Java's extra parameter `false`, so that a preset with packed dimensions does not make the
+    // packed radius automatic.
+    table.put("Parachute:preset",
+              std::make_unique<ComponentPresetSetter>(
+                  [](RocketComponent& c, std::shared_ptr<const ComponentPreset> preset) {
+                      as<Parachute>(c).loadPreset(std::move(preset), {.allowAutoRadius = false});
+                  }));
 }
 
 void addPodSetSetters(SetterTable& table)
@@ -717,8 +760,8 @@ void addPodSetSetters(SetterTable& table)
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<PodSet>(c).setInstanceCount(v); },
                   DocumentConfig::kMaxCount));
-    // HOOK(R2): "PodSet:radiusoffset", new RadiusPositionSetter()
-    // HOOK(R2): "PodSet:angleoffset", new AnglePositionSetter()
+    table.put("PodSet:radiusoffset", std::make_unique<RadiusPositionSetter>());
+    table.put("PodSet:angleoffset", std::make_unique<AnglePositionSetter>());
 }
 
 void addStreamerSetters(SetterTable& table)
@@ -895,6 +938,11 @@ std::optional<std::string_view> DocumentConfig::attribute(
         return std::nullopt;
     }
     return std::string_view(found->second);
+}
+
+std::string DocumentConfig::javaClassName(const RocketComponent& component)
+{
+    return std::format("info.openrocket.core.rocketcomponent.{}", className(component.kind()));
 }
 
 bool DocumentConfig::isSupportedVersion(std::string_view version) noexcept

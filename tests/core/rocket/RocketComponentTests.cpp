@@ -169,6 +169,43 @@ TEST_F(EstesTreeTest, SmallPositionsSnapToZeroAndNaNIsABug)
                  BugError);
 }
 
+// OpenRocket throws its BugException for every position that comes out NaN, also when every
+// component recomputes its position at an event (probe n000 of tier 9b, part R2: a mass object
+// whose length a packed radius of 1e300 has made NaN, at the next element of the file). Here
+// only a NaN that is asked for is a bug; one that the tree's own lengths make is stored.
+TEST_F(EstesTreeTest, APositionThatComesOutNaNFromTheTreeIsStoredAndOnlyANaNAskedForIsABug)
+{
+    const double        infinity = std::numeric_limits<double>::infinity();
+    QtRocket::Bulkhead& ring     = m_body->addChild(std::make_unique<QtRocket::Bulkhead>());
+    ASSERT_EQ(ring.getAxialMethod(), AxialMethod::BOTTOM);
+
+    m_body->setLength(infinity);
+    EXPECT_EQ(ring.getPosition().x, infinity);  // 0 + (infinity - 0.002)
+    // The event of this setter makes every component compute its position again: 0 +
+    // (infinity - infinity).
+    EXPECT_NO_THROW(ring.setLength(infinity));
+    EXPECT_TRUE(std::isnan(ring.getPosition().x));
+    EXPECT_EQ(ring.getAxialOffset(), 0.0);
+
+    // An offset that is a number is taken, whatever comes of it in such a tree.
+    EXPECT_NO_THROW(ring.setAxialOffset(0.1));
+    EXPECT_EQ(ring.getAxialOffset(), 0.1);
+    EXPECT_TRUE(std::isnan(ring.getPosition().x));
+    // Another method takes its offset from the position, a NaN, and fires.
+    EXPECT_NO_THROW(ring.setAxialMethod(AxialMethod::TOP));
+    EXPECT_TRUE(std::isnan(ring.getAxialOffset()));
+    EXPECT_NO_THROW(m_rocket.update());
+
+    // Asking for a NaN is the caller's mistake, as ever.
+    EXPECT_THROW(ring.setAxialOffset(std::numeric_limits<double>::quiet_NaN()), BugError);
+
+    // With lengths that are numbers again the ring is placed as any other.
+    m_body->setLength(0.2);
+    ring.setLength(0.002);
+    ring.setAxialOffset(0.01);
+    EXPECT_EQ(ring.getPosition().x, 0.01);
+}
+
 TEST_F(EstesTreeTest, AfterSkipsEmptyStages)
 {
     // A second stage after an empty one: the empty stage is inactive, so the reference point

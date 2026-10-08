@@ -16,12 +16,19 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/AnglePositionSetter.h"
+#include "QtRocket/file/openrocket/AxialPositionSetter.h"
 #include "QtRocket/file/openrocket/BooleanSetter.h"
+#include "QtRocket/file/openrocket/ClusterConfigurationSetter.h"
 #include "QtRocket/file/openrocket/ColorSetter.h"
+#include "QtRocket/file/openrocket/ComponentPresetSetter.h"
 #include "QtRocket/file/openrocket/DoubleSetter.h"
 #include "QtRocket/file/openrocket/EnumSetter.h"
+#include "QtRocket/file/openrocket/FinTabPositionSetter.h"
 #include "QtRocket/file/openrocket/IntSetter.h"
+#include "QtRocket/file/openrocket/MaterialSetter.h"
 #include "QtRocket/file/openrocket/OverrideSetter.h"
+#include "QtRocket/file/openrocket/RadiusPositionSetter.h"
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/file/openrocket/StringSetter.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
@@ -640,31 +647,6 @@ constexpr auto kJavaRefused = std::to_array<std::string_view>({
     "NoseCone:foreshoulderthickness",
 });
 
-constexpr auto kPendingKeys = std::to_array<std::string_view>({
-    "ExternalComponent:material",      // MaterialSetter
-    "FinSet:angleoffset",              // AnglePositionSetter
-    "FinSet:filletmaterial",           // MaterialSetter
-    "FinSet:radiusoffset",             // RadiusPositionSetter
-    "FinSet:tabposition",              // FinTabPositionSetter
-    "InnerTube:clusterconfiguration",  // ClusterConfigurationSetter
-    "LaunchLug:angleoffset",           // AnglePositionSetter
-    "Parachute:linematerial",          // MaterialSetter
-    "Parachute:preset",                // ComponentPresetSetter
-    "ParallelStage:angleoffset",       // AnglePositionSetter
-    "ParallelStage:radiusoffset",      // RadiusPositionSetter
-    "PodSet:angleoffset",              // AnglePositionSetter
-    "PodSet:radiusoffset",             // RadiusPositionSetter
-    "RailButton:angleoffset",          // AnglePositionSetter
-    "RecoveryDevice:material",         // MaterialSetter
-    "RocketComponent:axialoffset",     // AxialPositionSetter
-    "RocketComponent:position",        // AxialPositionSetter
-    "RocketComponent:preset",          // ComponentPresetSetter
-    "ShockCord:material",              // MaterialSetter
-    "StructuralComponent:material",    // MaterialSetter
-    "TubeFinSet:angleoffset",          // AnglePositionSetter
-    "TubeFinSet:radiusoffset",         // RadiusPositionSetter
-});
-
 // "walk <class> found <n> refused <m> : <element>=<owner> ..." of SetterProbe --walk.
 constexpr auto kJavaWalks = std::to_array<JavaWalk>({
     {.kind = ComponentKind::ROCKET,
@@ -911,12 +893,6 @@ constexpr auto kJavaWalks = std::to_array<JavaWalk>({
          "preset=RocketComponent radialdirection=MassObject radialposition=MassObject "
          "striplength=Streamer stripwidth=Streamer"},
 });
-// HOOK(R2): kPendingKeys above holds the keys of the entries whose setter classes part R2 of
-// run 9b adds, so that the tests below compare what is registered so far. Take a key out of
-// the list when its entry is registered; when the list is empty, delete it, isPending() and
-// the lines that use them, and correct the counts in
-// TheSetterTableHasOpenRocketsEntriesWithItsSetterClasses.
-
 /// The Java class of the component createComponent() makes for @p element, or "null".
 [[nodiscard]] std::string madeClass(std::string_view element)
 {
@@ -1038,6 +1014,41 @@ template <class S>
     return dynamic_cast<const S*>(&setter) != nullptr;
 }
 
+/// The Java name of the class of @p setter when it is one of the seven that serve one kind of
+/// element each (the position, fin tab, cluster, material and preset setters).
+[[nodiscard]] std::string_view specialSetterClass(const Setter& setter)
+{
+    if (isA<QtRocket::AxialPositionSetter>(setter))
+    {
+        return "AxialPositionSetter";
+    }
+    if (isA<QtRocket::RadiusPositionSetter>(setter))
+    {
+        return "RadiusPositionSetter";
+    }
+    if (isA<QtRocket::AnglePositionSetter>(setter))
+    {
+        return "AnglePositionSetter";
+    }
+    if (isA<QtRocket::FinTabPositionSetter>(setter))
+    {
+        return "FinTabPositionSetter";
+    }
+    if (isA<QtRocket::ClusterConfigurationSetter>(setter))
+    {
+        return "ClusterConfigurationSetter";
+    }
+    if (isA<QtRocket::MaterialSetter>(setter))
+    {
+        return "MaterialSetter";
+    }
+    if (isA<QtRocket::ComponentPresetSetter>(setter))
+    {
+        return "ComponentPresetSetter";
+    }
+    return "a class the test does not know";
+}
+
 /// The Java name of the class of @p setter.
 [[nodiscard]] std::string_view setterClass(const Setter& setter)
 {
@@ -1069,7 +1080,7 @@ template <class S>
     {
         return "EnumSetter";
     }
-    return "a class the test does not know";
+    return specialSetterClass(setter);
 }
 
 /// "<key> <setter class>" for every entry of the setter table that has a setter.
@@ -1085,39 +1096,15 @@ template <class S>
     return rows;
 }
 
-/// Whether @p key is an entry that part R2 has still to register.
-[[nodiscard]] bool isPending(std::string_view key)
-{
-    return std::ranges::find(kPendingKeys, key) != kPendingKeys.end();
-}
-
-/// "<key> <setter class>" for every entry of OpenRocket's table that is registered so far.
-[[nodiscard]] Texts javaSettersRegisteredSoFar()
+/// "<key> <setter class>" for every entry of OpenRocket's table that has a setter.
+[[nodiscard]] Texts javaSetters()
 {
     Texts rows;
     for (const JavaSetter& row : kJavaSetters)
     {
-        if (!isPending(row.key))
-        {
-            rows.push_back(std::format("{} {}", row.key, row.setterClass));
-        }
+        rows.push_back(std::format("{} {}", row.key, row.setterClass));
     }
     return rows;
-}
-
-/// The keys of @p keys that are in the setter table although they are said to be pending.
-[[nodiscard]] Texts pendingKeysInTheTable()
-{
-    Texts                               found;
-    const std::vector<std::string_view> keys = DocumentConfig::setterKeys();
-    for (const std::string_view key : kPendingKeys)
-    {
-        if (std::ranges::find(keys, key) != keys.end())
-        {
-            found.emplace_back(key);
-        }
-    }
-    return found;
 }
 
 [[nodiscard]] Texts asTexts(std::span<const std::string_view> views)
@@ -1132,11 +1119,9 @@ TEST(DocumentConfig, TheSetterTableHasOpenRocketsEntriesWithItsSetterClasses)
     EXPECT_EQ(kJavaRefused.size(), 5U);
     // Every entry is one of OpenRocket's, with a setter of the class OpenRocket has there, and
     // can be reached by the walk of some kind.
-    EXPECT_EQ(settersOfTheTable(), javaSettersRegisteredSoFar());
-    // 108 entries of the seven generic setter classes; 22 wait for part R2.
-    EXPECT_EQ(DocumentConfig::setterKeys().size(), 108U);
-    EXPECT_EQ(kPendingKeys.size(), 22U);
-    EXPECT_EQ(pendingKeysInTheTable(), Texts{});
+    EXPECT_EQ(settersOfTheTable(), javaSetters());
+    // 108 entries of the seven generic setter classes and 22 of the seven others.
+    EXPECT_EQ(DocumentConfig::setterKeys().size(), 130U);
 }
 
 TEST(DocumentConfig, RefusesTheFiveElementsOfANoseConeThatOpenRocketRefuses)
@@ -1197,27 +1182,10 @@ TEST(DocumentConfig, RefusesTheFiveElementsOfANoseConeThatOpenRocketRefuses)
     return std::format("{} found {} refused {} :{}", className(kind), found, refused, entries);
 }
 
-/// @p walk in the form of walkOf(), the entries that part R2 has still to register left out.
+/// @p walk in the form of walkOf().
 [[nodiscard]] std::string javaWalkOf(const JavaWalk& walk)
 {
-    int         found   = 0;
-    int         refused = 0;
-    std::string entries;
-    // "found <n> refused <m> : <entries>": the counts are made again from the entries kept.
-    const std::string_view listed = walk.entries.substr(walk.entries.find(" : ") + 3);
-    for (const std::string& entry : QtRocket::Strings::split(listed, ' '))
-    {
-        const std::size_t      equal     = entry.find('=');
-        const bool             isRefused = entry.at(equal + 1) == '!';
-        const std::string_view owner = std::string_view(entry).substr(equal + (isRefused ? 2 : 1));
-        if (isPending(std::format("{}:{}", owner, entry.substr(0, equal))))
-        {
-            continue;
-        }
-        (isRefused ? refused : found) += 1;
-        entries += " " + entry;
-    }
-    return std::format("{} found {} refused {} :{}", className(walk.kind), found, refused, entries);
+    return std::format("{} {}", className(walk.kind), walk.entries);
 }
 
 [[nodiscard]] Texts walksOfTheTable()
