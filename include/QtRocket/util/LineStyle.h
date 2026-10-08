@@ -39,4 +39,11 @@ inline constexpr std::array<LineStyle, 4> kAllLineStyles{LineStyle::SOLID, LineS
 /// spelling "dashdot" and the preference spelling "DASHDOT" both match. Anything else is nullopt.
 [[nodiscard]] std::optional<LineStyle> lineStyleFromString(std::string_view text) noexcept;
 
+/// The style @p text names in an .ork file, matched as DocumentConfig.findEnum() does: @p text,
+/// trimmed as String.trim() trims, equals the style's toString() ("dashdot", " solid "). Nothing
+/// else matches, "DASHED", "Solid" and "dash_dot" included, where lineStyleFromString() is the
+/// lookup of the preference store and takes the first two. The .ork loader reads a component's
+/// <linestyle> and a plot's line style with this one, as OpenRocket does.
+[[nodiscard]] std::optional<LineStyle> lineStyleFromOrkName(std::string_view text);
+
 }  // namespace QtRocket

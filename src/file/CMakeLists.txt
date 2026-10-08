@@ -10,11 +10,40 @@ target_sources(QtRocket_core PRIVATE
     motor/RockSimMotorLoader.cpp
     motor/RockSimMotorWriter.cpp
     motor/ZipFileMotorLoader.cpp
+    openrocket/AnglePositionSetter.cpp
+    openrocket/AppearanceHandler.cpp
+    openrocket/AxialPositionSetter.cpp
+    openrocket/BooleanSetter.cpp
+    openrocket/ClusterConfigurationSetter.cpp
+    openrocket/ColorSetter.cpp
+    openrocket/ComponentHandler.cpp
+    openrocket/ComponentParameterHandler.cpp
+    openrocket/ComponentPresetSetter.cpp
     openrocket/ConfigHandler.cpp
+    openrocket/CustomExpressionHandler.cpp
+    openrocket/DatatypeHandler.cpp
+    openrocket/DeploymentConfigurationHandler.cpp
     openrocket/DocumentConfig.cpp
+    openrocket/DocumentMaterialHandler.cpp
+    openrocket/DocumentPreferencesHandler.cpp
+    openrocket/DoubleSetter.cpp
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
+    openrocket/EnumSetter.cpp
+    openrocket/FinSetPointHandler.cpp
+    openrocket/FinTabPositionSetter.cpp
+    openrocket/IgnitionConfigurationHandler.cpp
+    openrocket/InsideAppearanceHandler.cpp
+    openrocket/IntSetter.cpp
+    openrocket/MaterialSetter.cpp
+    openrocket/MotorConfigurationHandler.cpp
     openrocket/MotorHandler.cpp
+    openrocket/MotorMountHandler.cpp
+    openrocket/OverrideSetter.cpp
+    openrocket/PhotoStudioHandler.cpp
+    openrocket/RadiusPositionSetter.cpp
+    openrocket/StageSeparationConfigurationHandler.cpp
+    openrocket/StringSetter.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp

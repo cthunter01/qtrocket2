@@ -322,7 +322,7 @@ void FreeformFinSet::update(bool validateFinTab)
 {
     const double oldLength = m_length;
     m_length               = m_points.back().x - m_points.front().x;
-    setAxialOffset(m_axialMethod, m_axialOffset);
+    updateAxialPosition();
 
     if (getParent() != nullptr)
     {

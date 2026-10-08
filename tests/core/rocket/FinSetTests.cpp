@@ -34,6 +34,7 @@
 #include "QtRocket/rocket/RingInstanceable.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
@@ -1566,10 +1567,12 @@ TEST(FinSet, AParentThatIsNotABodyIsABug)
     EXPECT_EQ(fins.calculateFilletVolumeCentroid(), Coordinate::kZero);
 }
 
-TEST(FinSet, ACantedRootOfNegativeLengthIsABug)
+// Deviation: a freeform outline that runs forwards has a negative length; OpenRocket then finds
+// no root point for a canted fin and fails with an IndexOutOfBoundsException wherever the fin's
+// outline is asked for. Here the root is its two ends, as it is without the cant: an .ork file
+// can hold such a fin set, and the rocket must stay usable.
+TEST(FinSet, ACantedRootOfNegativeLengthHasItsTwoEnds)
 {
-    // A freeform outline that runs forwards has a negative length; OpenRocket then finds no root
-    // point for a canted fin and fails with an IndexOutOfBoundsException.
     BodyTube        tube(0.5, 0.03);
     FreeformFinSet& fins = tube.addChild(std::make_unique<FreeformFinSet>());
     fins.setAxialMethod(AxialMethod::TOP);
@@ -1581,7 +1584,38 @@ TEST(FinSet, ACantedRootOfNegativeLengthIsABug)
     EXPECT_EQ(fins.getRootPoints().size(), 2U) << "a straight root has its two ends";
 
     fins.setCantAngle(0.1);
-    EXPECT_THROW(static_cast<void>(fins.getRootPoints()), BugError);
+    const std::vector<Coordinate> root = fins.getRootPoints();
+    ASSERT_EQ(root.size(), 2U);
+    // From the fin's front to its end, which lies before it.
+    EXPECT_EQ(root.front().x, 0.0);
+    EXPECT_NEAR(root.back().x, -0.1, 1e-15);
+    EXPECT_NO_THROW(static_cast<void>(fins.getFinPoints()));
+    EXPECT_NO_THROW(static_cast<void>(fins.getInstanceBoundingBox()));
+
+    // The division count is the caller's to get right: a negative one is still a bug.
+    EXPECT_THROW(static_cast<void>(fins.getRootPoints(-1)), BugError);
+}
+
+// The same for the fin set a file can give a negative length most easily, and for what asks a
+// rocket for its bounds while a file loads: a shock cord that takes its length from the rocket's
+// (OpenRocket: an IndexOutOfBoundsException out of ShockCord.setCordLengthAutomatic()).
+TEST(FinSet, ARocketWithACantedFinSetOfNegativeLengthStillHasBounds)
+{
+    Rocket            rocket;
+    AxialStage&       stage = rocket.addChild(std::make_unique<AxialStage>());
+    BodyTube&         tube  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.03));
+    EllipticalFinSet& fins  = tube.addChild(std::make_unique<EllipticalFinSet>());
+    fins.setLength(-0.1);
+    fins.setCantAngle(0.05);
+    ASSERT_EQ(fins.getLength(), -0.1);
+
+    EXPECT_EQ(fins.getRootPoints().size(), 2U);
+    EXPECT_NO_THROW(static_cast<void>(fins.getFinPoints()));
+    EXPECT_NO_THROW(static_cast<void>(rocket.getLength()));
+
+    QtRocket::ShockCord& cord = tube.addChild(std::make_unique<QtRocket::ShockCord>());
+    EXPECT_NO_THROW(cord.setCordLengthAutomatic(true));
+    EXPECT_TRUE(cord.isCordLengthAutomatic());
 }
 
 // ============================================================================ copies, splits

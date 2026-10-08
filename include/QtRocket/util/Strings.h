@@ -79,12 +79,18 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// fraction digit ("980.0", "0.001", "123456.789"); anything else as one digit, a point, at least
 /// one fraction digit, "E" and the exponent ("1.0E7", "3.0E-4", "2.6E10"). The digits are the
 /// ones doubleToString() takes from Java, so an integer between 2^53 and 2^63 keeps Java's exact
-/// digits (2^60 is "1.15292150460684698E18"). Deviation: from 2^63 upwards, and for subnormals,
-/// JDK 17's FloatingDecimal digits often differ from the shortest ones (JDK-4511638), being
-/// longer (6.8423234599999996E19 for 6.84232346E19, 9.999999999999999E22 for 1e23, 4.9E-324 for
-/// Double.MIN_VALUE) or not the closest (-3.8189059803482716E25 where the shortest is
-/// -3.8189059803482717E25). This prints the shortest digits, as JDK 19+ does; both forms read
-/// back as the same double.
+/// digits (2^60 is "1.15292150460684698E18"). Deviations:
+/// - JDK 17's FloatingDecimal digits are not always the shortest ones (JDK-4511638). For some
+///   doubles of any magnitude they are longer (4.3368086899420177E-19 for 2^-61, whose
+///   shortest digits are 4.336808689942018E-19; 6.8423234599999996E19 for 6.84232346E19;
+///   9.999999999999999E22 for 1e23), and from 2^63 upwards they may not be the closest
+///   (-3.8189059803482716E25 where the shortest is -3.8189059803482717E25). This prints the
+///   shortest digits, as JDK 19+ does.
+/// - A double whose shortest decimal has one digit gets ".0" behind that digit here. For some
+///   of the smallest subnormals Java prints a decimal of two digits instead: Double.MIN_VALUE
+///   is "5.0E-324" here and "4.9E-324" in JDK 17 and in JDK 19+, ten times that "5.0E-323"
+///   here and "4.9E-323" in JDK 17 (twice Double.MIN_VALUE is "1.0E-323" here and in JDK 17).
+/// Every form reads back as the same double.
 [[nodiscard]] std::string javaDoubleToString(double value);
 
 /// Parses what Java's Double.parseDouble accepts of the values OpenRocket writes: an optional

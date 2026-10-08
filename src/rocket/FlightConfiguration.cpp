@@ -1109,6 +1109,21 @@ void FlightConfiguration::addMotor(const MotorConfiguration& motorConfig)
     m_modId = ModId{};
 }
 
+void FlightConfiguration::refreshMotor(const MotorConfiguration& motorConfig)
+{
+    // Java: nothing, the lists holding the mount's own object.
+    const auto refresh = [&motorConfig](std::vector<MotorConfiguration>& motors) {
+        const auto it =
+            std::ranges::find(motors, motorConfig.getMid(), &MotorConfiguration::getMid);
+        if (it != motors.end())
+        {
+            *it = motorConfig;
+        }
+    };
+    refresh(m_motors);
+    refresh(m_activeMotors);
+}
+
 void FlightConfiguration::updateMotors()
 {
     m_motors.clear();

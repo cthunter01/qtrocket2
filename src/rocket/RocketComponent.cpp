@@ -761,6 +761,17 @@ void RocketComponent::setAxialOffset(double newOffset)
 
 void RocketComponent::setAxialOffset(AxialMethod requestedMethod, double requestedOffset)
 {
+    placeAxially(requestedMethod, requestedOffset, true);
+}
+
+void RocketComponent::updateAxialPosition()
+{
+    placeAxially(m_axialMethod, m_axialOffset, false);
+}
+
+void RocketComponent::placeAxially(AxialMethod requestedMethod, double requestedOffset,
+                                   bool isRequest)
+{
     double newX = std::numeric_limits<double>::quiet_NaN();
 
     if (nullptr == m_parent)
@@ -789,8 +800,9 @@ void RocketComponent::setAxialOffset(AxialMethod requestedMethod, double request
     {
         newX = 0.0;
     }
-    else if (std::isnan(newX))
+    else if (std::isnan(newX) && isRequest && std::isnan(requestedOffset))
     {
+        // Java throws for every NaN; see "Deviations" in the class comment for the others.
         bug("setAxialOffset is broken -- attempted to update as NaN: " + toDebugDetail());
     }
 
@@ -801,7 +813,7 @@ void RocketComponent::setAxialOffset(AxialMethod requestedMethod, double request
 
 void RocketComponent::update()
 {
-    setAxialOffset(m_axialMethod, m_axialOffset);
+    updateAxialPosition();
 }
 
 void RocketComponent::updateBounds()

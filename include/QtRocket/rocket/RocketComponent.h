@@ -132,6 +132,15 @@ class Rocket;
 ///   way Java's does. The result is the same, getComponentName() being constant per class.
 /// - accept(RocketComponentVisitor) is not ported (no visitor exists in QtRocket), nor
 ///   updateChildren() (private and unused in Java).
+/// - A position that comes out NaN is a BugError only when the offset asked for is a NaN
+///   (setAxialOffset()). Java throws its BugException for every position that comes out NaN,
+///   also in update(), which every component runs at every event of the rocket: there the NaN
+///   is not a caller's mistake but the state of the tree, whose lengths and positions a design
+///   file can make infinite or NaN with numbers that are finite (two lengths near the largest
+///   double add up to an infinity, and a packed radius of 1e300 gives a mass object a length of
+///   NaN). OpenRocket's loader dies of such a file, at whatever element fires the next event.
+///   Here the NaN is stored like the lengths that made it, and the loader refuses the NaN and
+///   the infinity a file asks for outright (AxialPositionSetter).
 ///
 /// In aero/ (they need BarrowmanCalculator and FlightConditions, and rocket/ does not include
 /// aero/): the free functions of aero/ComponentDrag.h.
@@ -921,9 +930,9 @@ public:
 
     // ========================================================================= maintenance
 
-    /// Recomputes the position from the stored method and offset (setAxialOffset(method,
-    /// offset)); componentChanged() calls it. Public, as in Rocket and FreeformFinSet (Java's
-    /// base version is protected), so that every override can be.
+    /// Recomputes the position from the stored method and offset (updateAxialPosition());
+    /// componentChanged() calls it. Public, as in Rocket and FreeformFinSet (Java's base version
+    /// is protected), so that every override can be.
     virtual void update();
 
     /// Updates cached bounds after the children change; does nothing unless overridden
@@ -961,8 +970,17 @@ protected:
     /// to nothing without a parent, to the parent's absolute location for ABSOLUTE, through
     /// setAfter() for a component positioned AFTER, else with the enum's arithmetic. Positions
     /// within 1e-6 of zero snap to zero.
-    /// @throws BugError when the position comes out NaN.
+    /// @throws BugError when @p requestedOffset is a NaN and the position comes out NaN with
+    ///         it (Java: a BugException). A position that comes out NaN from an offset that is
+    ///         a number, because a length or a position of the tree is not finite, is stored
+    ///         (see "Deviations" in the class comment).
     void setAxialOffset(AxialMethod requestedMethod, double requestedOffset);
+
+    /// The position again from the method and the offset the component holds, as
+    /// setAxialOffset(getAxialMethod(), getAxialOffset()) computes it, for update(). It never
+    /// throws: a position that comes out NaN is stored, also when the stored offset is a NaN
+    /// (setAxialMethod() computes the offset from a position that may be one).
+    void updateAxialPosition();
 
     /// Fires @p event: hands it to the root when this component has a parent and is not
     /// bypassing events (a detached tree has no listeners). Rocket overrides it.
@@ -1124,6 +1142,10 @@ private:
 
     /// Fires TREE_CHANGE plus AERODYNAMIC_CHANGE / MASS_CHANGE for @p component's subtree.
     void fireAddRemoveEvent(const RocketComponent& component);
+
+    /// What setAxialOffset(AxialMethod, double) and updateAxialPosition() share. @p isRequest:
+    /// whether a caller asks for @p requestedOffset, so that a NaN is its mistake.
+    void placeAxially(AxialMethod requestedMethod, double requestedOffset, bool isRequest);
 
     void updateChildrenMassOverriddenBy();
     void updateChildrenCGOverriddenBy();
