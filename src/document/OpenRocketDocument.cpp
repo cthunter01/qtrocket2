@@ -186,23 +186,6 @@ void checkTreeUnchanged(const Rocket& rocket, ModId treeModId)
     }
 }
 
-/// @p file as the File Java makes of the same text: without a separator at its end and with
-/// runs of separators as one (a root stays what it is). Nothing else is changed: "." and ".."
-/// stay.
-[[nodiscard]] std::filesystem::path asJavaFile(const std::filesystem::path& file)
-{
-    std::filesystem::path normalized;
-    for (const std::filesystem::path& element : file)
-    {
-        // The element after a separator at the end is empty.
-        if (!element.empty())
-        {
-            normalized /= element;
-        }
-    }
-    return normalized;
-}
-
 }  // namespace
 
 /// A state of the undo history: Java's entries of undoHistory, undoDescription and
@@ -342,7 +325,8 @@ void OpenRocketDocument::setFile(std::optional<std::filesystem::path> file)
 {
     if (file.has_value())
     {
-        file = asJavaFile(*file);
+        // The File Java makes of the same text.
+        file = withoutRedundantSeparators(*file);
     }
     m_file = std::move(file);
 }

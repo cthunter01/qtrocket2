@@ -9,7 +9,6 @@
 #include "QtRocket/document/Attachment.h"
 #include "QtRocket/document/attachments/FileSystemAttachment.h"
 #include "QtRocket/util/FileIo.h"
-#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -27,10 +26,8 @@ std::shared_ptr<Attachment> FileSystemAttachmentFactory::getFileAttachment(
 
 std::shared_ptr<Attachment> FileSystemAttachmentFactory::getAttachment(std::string_view name) const
 {
-    // Through char8_t, so that the name is read as UTF-8 on every platform; made valid first,
-    // because the conversion to the platform's path may refuse a malformed sequence.
-    const std::string     valid = Strings::toValidUtf8(name);
-    std::filesystem::path file(std::u8string(valid.begin(), valid.end()));
+    // Read as UTF-8 on every platform, and no name can make the conversion throw.
+    std::filesystem::path file = pathFromUtf8(name);
     if (!file.is_absolute() && m_baseDirectory.has_value())
     {
         // Java's File(parent, child) appends the child whatever it starts with. On Windows a

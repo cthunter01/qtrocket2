@@ -2,9 +2,11 @@
 
 // A directory of its own for a test, removed with everything in it when the test ends.
 
+#include <algorithm>
 #include <filesystem>
 #include <format>
 #include <random>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -22,9 +24,12 @@ public:
     TempDir()
     {
         const ::testing::TestInfo* info = ::testing::UnitTest::GetInstance()->current_test_info();
-        m_path = std::filesystem::temp_directory_path() /
-                 std::format("qtrocket_{}_{}_{}", info->test_suite_name(), info->name(),
-                             std::random_device{}());
+        std::string name = std::format("qtrocket_{}_{}_{}", info->test_suite_name(), info->name(),
+                                       std::random_device{}());
+        // A parameterised test has '/' in the names of its suite and of the test. They must not
+        // become directories of their own, which would stay behind when this one is removed.
+        std::ranges::replace(name, '/', '_');
+        m_path = std::filesystem::temp_directory_path() / name;
         std::filesystem::create_directories(m_path);
     }
     ~TempDir()

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -182,6 +183,43 @@ TEST(FileIo, AbsolutePathResolvesAgainstTheCurrentDirectory)
     EXPECT_TRUE(QtRocket::absolutePath("rocket.ork").is_absolute());
     // std::filesystem::absolute("") is an error on some platforms.
     EXPECT_EQ(QtRocket::absolutePath(std::filesystem::path{}), cwd);
+}
+
+// The opposite of pathToUtf8(): the text is UTF-8 on every platform.
+TEST(FileIo, PathFromUtf8ReadsTheTextAsUtf8OnEveryPlatform)
+{
+    const std::string           text = "dir/r\xC3\xA9sum\xC3\xA9 \xCF\x80.csv";
+    const std::filesystem::path path = QtRocket::pathFromUtf8(text);
+    EXPECT_EQ(QtRocket::pathToUtf8(path), text);
+    EXPECT_EQ(QtRocket::pathToUtf8(path.filename()), "r\xC3\xA9sum\xC3\xA9 \xCF\x80.csv");
+    EXPECT_TRUE(QtRocket::pathFromUtf8("").empty());
+    EXPECT_EQ(QtRocket::pathFromUtf8("plain.csv"), std::filesystem::path("plain.csv"));
+}
+
+// A name out of a file may hold any bytes; none of them makes the conversion throw.
+TEST(FileIo, PathFromUtf8ReadsABadSequenceAsTheReplacementCharacter)
+{
+    EXPECT_EQ(QtRocket::pathToUtf8(QtRocket::pathFromUtf8("a\xFF.csv")), "a\xEF\xBF\xBD.csv");
+    EXPECT_EQ(QtRocket::pathToUtf8(QtRocket::pathFromUtf8("cut\xC3")), "cut\xEF\xBF\xBD");
+}
+
+/// withoutRedundantSeparators() of @p text, with '/' between the elements on every platform.
+[[nodiscard]] std::string spelledAsJava(std::string_view text)
+{
+    return QtRocket::withoutRedundantSeparators(std::filesystem::path(text)).generic_string();
+}
+
+// Java's File and Path keep no separator twice and none at the end; "." and ".." stay.
+TEST(FileIo, WithoutRedundantSeparatorsSpellsAPathAsJavaDoes)
+{
+    EXPECT_EQ(spelledAsJava("a//b///c.csv"), "a/b/c.csv");
+    EXPECT_EQ(spelledAsJava("a/b/"), "a/b");
+    EXPECT_EQ(spelledAsJava("a/b//"), "a/b");
+    EXPECT_EQ(spelledAsJava("/a//b"), "/a/b");
+    EXPECT_EQ(spelledAsJava("a/./b/../c"), "a/./b/../c");
+    EXPECT_EQ(spelledAsJava("rocket.ork"), "rocket.ork");
+    EXPECT_EQ(spelledAsJava("/"), "/");
+    EXPECT_EQ(spelledAsJava(""), "");
 }
 
 }  // namespace

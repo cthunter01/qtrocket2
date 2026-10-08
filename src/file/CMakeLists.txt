@@ -10,11 +10,16 @@ target_sources(QtRocket_core PRIVATE
     motor/RockSimMotorLoader.cpp
     motor/RockSimMotorWriter.cpp
     motor/ZipFileMotorLoader.cpp
+    openrocket/AtmosphereHandler.cpp
     openrocket/ConfigHandler.cpp
+    openrocket/CsvLookupHandler.cpp
     openrocket/DocumentConfig.cpp
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
+    openrocket/GravityHandler.cpp
     openrocket/MotorHandler.cpp
+    openrocket/SimulationConditionsHandler.cpp
+    openrocket/WindHandler.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp

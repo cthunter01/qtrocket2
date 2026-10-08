@@ -264,13 +264,18 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorLoaderTests.cpp
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
+    file/openrocket/AtmosphereHandlerTests.cpp
     file/openrocket/ConfigHandlerTests.cpp
+    file/openrocket/CsvLookupHandlerTests.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
+    file/openrocket/GravityHandlerTests.cpp
     file/openrocket/handler_test_support_tests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
     file/openrocket/MotorHandlerTests.cpp
+    file/openrocket/SimulationConditionsHandlerTests.cpp
+    file/openrocket/WindHandlerTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp

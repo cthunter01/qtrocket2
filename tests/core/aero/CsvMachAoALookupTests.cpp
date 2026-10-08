@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -209,6 +210,58 @@ TEST(CsvMachAoALookup, TheIoErrorNamesThePathInUtf8)
     ASSERT_FALSE(table.has_value());
     EXPECT_EQ(table.error().code, ErrorCode::IO);
     EXPECT_TRUE(table.error().message.ends_with("tabl\xC3\xA9.csv")) << table.error().message;
+}
+
+// Not OpenRocket's, which reads a file of any size: a design file names the CSV file of its
+// lookup tables, so the read is bounded.
+TEST(CsvMachAoALookup, AFileBeyondTheLimitIsAnIoError)
+{
+    const TempDir               dir;
+    const std::string           text = "mach,cd\n0,0.2\n1,0.6\n";
+    const std::filesystem::path file = dir.write("table.csv", text);
+
+    const auto atTheLimit = CsvMachAoALookup::fromCsv(file, cdColumns(), ',', text.size());
+    ASSERT_TRUE(atTheLimit.has_value());
+    EXPECT_EQ(atTheLimit->interpolate(0.5, 0, "cd"), 0.4);
+
+    const auto beyond = CsvMachAoALookup::fromCsv(file, cdColumns(), ',', text.size() - 1);
+    ASSERT_FALSE(beyond.has_value());
+    EXPECT_EQ(beyond.error().code, ErrorCode::IO);
+    EXPECT_EQ(beyond.error().message,
+              "Failed to read lookup table from " + QtRocket::pathToUtf8(file));
+
+    // Without a limit of the caller's it is 32 MiB.
+    EXPECT_EQ(CsvMachAoALookup::kMaxFileBytes, 33554432U);
+    EXPECT_TRUE(CsvMachAoALookup::fromCsv(file, cdColumns()).has_value());
+}
+
+/// Whether this machine has the device @p device (a POSIX system).
+[[nodiscard]] bool hasDevice(const std::filesystem::path& device)
+{
+    std::error_code error;
+    return std::filesystem::is_character_file(device, error);
+}
+
+/// The failure of reading the table of @p path: "IO: <message>".
+[[nodiscard]] std::string failureOf(const std::filesystem::path& path)
+{
+    const auto table = CsvMachAoALookup::fromCsv(path, cdColumns());
+    return table.has_value()
+               ? "a table"
+               : std::string(toString(table.error().code)) + ": " + table.error().message;
+}
+
+// Not OpenRocket's, which opens whatever the path names: a device is not opened, since reading
+// one may never end (/dev/zero) and opening one may block. (OpenRocket reads /dev/null as an
+// empty file, "Lookup table is missing a header row".)
+TEST(CsvMachAoALookup, ADeviceIsNotRead)
+{
+    if (!hasDevice("/dev/zero") || !hasDevice("/dev/null"))
+    {
+        GTEST_SKIP() << "no /dev/zero and /dev/null here";
+    }
+    EXPECT_EQ(failureOf("/dev/zero"), "IO: Failed to read lookup table from /dev/zero");
+    EXPECT_EQ(failureOf("/dev/null"), "IO: Failed to read lookup table from /dev/null");
 }
 
 }  // namespace

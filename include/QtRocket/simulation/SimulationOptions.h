@@ -331,6 +331,14 @@ public:
     /// Error when the file cannot be read or parsed; nothing changes then.
     [[nodiscard]] Result<void> setDragLookupCsvPath(
         const std::optional<std::filesystem::path>& csvPath);
+    /// The drag table that setDragLookupCsvPath(@p csvPath) would store, read from the CSV file
+    /// @p csvPath in the same way (the path made absolute and normalised, the column "cd"
+    /// required) and with the same failures, without storing anything. Not in OpenRocket: it is
+    /// for a caller that looks at a table before it takes it (the .ork loader does not take one
+    /// that holds a number that is not finite). setDragLookup(csvPath, table,
+    /// getDragLookupCsvRows()) then stores what setDragLookupCsvPath(csvPath) would have stored.
+    [[nodiscard]] static Result<std::shared_ptr<const MachAoALookup>> readDragLookupCsv(
+        const std::filesystem::path& csvPath);
     /// setDragLookup(csvPath, table, nullopt).
     void setDragLookup(const std::optional<std::filesystem::path>& csvPath,
                        std::shared_ptr<const MachAoALookup>        table);
@@ -365,6 +373,9 @@ public:
     }
     [[nodiscard]] Result<void> setStabilityLookupCsvPath(
         const std::optional<std::filesystem::path>& csvPath);
+    /// readDragLookupCsv() for the stability table (the columns "cn", "cm" and "cp").
+    [[nodiscard]] static Result<std::shared_ptr<const MachAoALookup>> readStabilityLookupCsv(
+        const std::filesystem::path& csvPath);
     void               setStabilityLookup(const std::optional<std::filesystem::path>& csvPath,
                                           std::shared_ptr<const MachAoALookup>        table);
     void               setStabilityLookup(const std::optional<std::filesystem::path>& csvPath,

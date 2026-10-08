@@ -679,6 +679,12 @@ Result<void> SimulationOptions::setDragLookupCsvPath(
     return {};
 }
 
+Result<std::shared_ptr<const MachAoALookup>> SimulationOptions::readDragLookupCsv(
+    const std::filesystem::path& csvPath)
+{
+    return readLookup(normalizePath(csvPath), dragValueColumns());
+}
+
 void SimulationOptions::setDragLookup(const std::optional<std::filesystem::path>& csvPath,
                                       std::shared_ptr<const MachAoALookup>        table)
 {
@@ -716,6 +722,12 @@ Result<void> SimulationOptions::setStabilityLookupCsvPath(
     }
     updateStabilityLookup(std::move(normalized), std::move(*table));
     return {};
+}
+
+Result<std::shared_ptr<const MachAoALookup>> SimulationOptions::readStabilityLookupCsv(
+    const std::filesystem::path& csvPath)
+{
+    return readLookup(normalizePath(csvPath), stabilityValueColumns());
 }
 
 void SimulationOptions::setStabilityLookup(const std::optional<std::filesystem::path>& csvPath,
