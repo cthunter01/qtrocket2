@@ -37,7 +37,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES rocket_element
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 48> kJava{{
+constexpr std::array<RocketCase, 56> kJava{{
     {.name = "scout-flightconfiguration-element", .xml = R"xml(<flightconfiguration configid="11111111-2222-3333-4444-555555555555" default="true"><name>Cfg</name></flightconfiguration>
 <subcomponents><stage><name>S</name></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown parameter type 'flightconfiguration' for Rocket, ignoring.
@@ -254,6 +254,77 @@ EVENTS 8 {mass=3, mass,aero,tree=1, mass,tree=3, tree=1}
 |       InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.13 len=0.07 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.0095:false inner=0.009:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
 |       InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.13 len=0.07 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.0095:false inner=0.009:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
 |       InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.13 len=0.07 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.0095:false inner=0.009:false radial=0.0:0.0 cluster=4-ring:2.0:0.7853981633974483 mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-basic", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><paint red="10" green="20" blue="30" alpha="40"/><shine>0.5</shine><opacityaffectstexture>TRUE</opacityaffectstexture><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal></appearance><insideappearance><edgessameasinside>true</edgessameasinside><insidesameasoutside>true</insidesameasoutside><paint red="1" green="2" blue="3"/><shine>0.1</shine></insideappearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 6 {mass,aero,tree=1, nonfunc=4, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=10,20,30,40 shine=0.5 opacity=true decal='decals/a.png':1.5:STICKER:center=0.1,0.2:offset=0.3,0.4:scale=2.0,3.0] inside=[paint=1,2,3,255 shine=0.1 opacity=false] insideflags=true,true
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-bad-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="x" edgemode="STICKER"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT FAILED INVALID_ARGUMENT: For input string: "x"
+EVENTS 2 {mass,aero,tree=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-bad-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="sticker"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT FAILED INVALID_ARGUMENT: No enum constant info.openrocket.core.appearance.Decal.EdgeMode.sticker
+EVENTS 2 {mass,aero,tree=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-bad-shine", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><shine>abc</shine></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT FAILED INVALID_ARGUMENT: For input string: "abc"
+EVENTS 2 {mass,aero,tree=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-bad-paint", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><paint red="10" green="20"/><shine> 0.7 </shine><opacityaffectstexture> true </opacityaffectstexture><bogus x="1">text</bogus><center x="1" y="2"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown text in element 'bogus', ignoring.
+W Unknown attributes in element 'bogus', ignoring.
+W Unknown attributes in element 'center', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.7 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-decal-extras2", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="REPEAT" extra="1">text<bogus/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown text in element 'decal', ignoring.
+W Unknown attributes in element 'decal', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-appearance-two-decals", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="REPEAT"/><decal name="decals/b.png" rotation="1" edgemode="CLAMP"/></appearance><appearance><shine>0.9</shine></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 4 {mass,aero,tree=1, nonfunc=2, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.9 opacity=false]
+| decals='decals/a.png','decals/b.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "scout-insideappearance-on-stage", .xml = R"xml(<subcomponents><stage><insideappearance><edgessameasinside>true</edgessameasinside><paint red="1" green="2" blue="3"/></insideappearance><appearance><shine>0.9</shine></appearance><subcomponents><bodytube><inside-appearance><edgesSameAsInside>true</edgesSameAsInside><insideSameAsOutside>false</insideSameAsOutside><shine>0.2</shine></inside-appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 5 {mass,aero,tree=1, nonfunc=3, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0 app=[paint=187,187,187,255 shine=0.9 opacity=false]
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false inside=[paint=187,187,187,255 shine=0.2 opacity=false] insideflags=true,false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     {.name = "scout-motormount-illegal", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><motormount><overhang>1</overhang></motormount><finpoints/><deploymentconfiguration/><separationconfiguration/></nosecone><bodytube><motorconfiguration/><flightconfiguration/></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
@@ -641,7 +712,7 @@ EVENTS 77 {mass,aero=29, mass,aero,tree=11, mass,tree=1, motor=4, nonfunc=20, tr
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 11> kOwn{{
+constexpr std::array<RocketCase, 15> kOwn{{
     // Decision L3 in OverrideSetter (part R1): an override mass of NaN is refused (OpenRocket stores it).
     // OpenRocket: EVENTS 7 {aero,treechild=1, mass=2, mass,treechild=2, nonfunc=1, tree=1}
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 massovr=NaN cgovr=0.5 subovr=true,true,true stage=0 sep=EJECTION:0.0:200.0
@@ -653,6 +724,63 @@ EVENTS 6 {aero,treechild=1, mass=1, mass,treechild=2, nonfunc=1, tree=1}
 |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 cgovr=0.5 subovr=true,true,true stage=0 sep=EJECTION:0.0:200.0
 | selected=default
 | config default name='[{motors}]' preload=null active=[false] motors=0)out"},
+    // Decision L4: a decal without rotation, of which OpenRocket dies (the image registered by then); here the decal is ignored with a warning and registers nothing.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "String.trim()" because "in" is null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
+    // OpenRocket: | decals='decals/a.png'
+    {.name = "scout-appearance-no-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" edgemode="STICKER"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a decal without edgemode, of which OpenRocket dies (the image registered by then); here the decal is ignored with a warning and registers nothing.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: Name is null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
+    // OpenRocket: | decals='decals/a.png'
+    {.name = "scout-appearance-no-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a decal without name, of which OpenRocket dies; here the decal is ignored with a warning.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
+    {.name = "scout-appearance-no-name", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal rotation="0" edgemode="REPEAT"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a center without y, of which OpenRocket dies; here it is passed over with a warning, and the decal's text and attribute are warned of.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "String.trim()" because "in" is null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
+    {.name = "scout-appearance-decal-extras", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="REPEAT" extra="1">text<center x="1"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+W Unknown text in element 'decal', ignoring.
+W Unknown attributes in element 'decal', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L4: without a delay OpenRocket dies of a NullPointerException; here the event is applied (to the default, the id having no motor) and a warning added.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "java.lang.Double.doubleValue()" because "this.ignitionConfigHandler.ignitionDelay" is nul ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
@@ -820,24 +948,27 @@ COMPONENTS 10
 STATE 854c013e3e888b20c90c16357459a72d5ceca1dbf01ae75101018969fc3356a0)out"},
     {.file = "v1.6-a-simple-model-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 78 {mass=19, mass,aero=18, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=22, tree=7}
+EVENTS 83 {mass=19, mass,aero=18, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=27, tree=7}
 COMPONENTS 13
-STATE 2573bc9684cdb8a7575dd91bb6d07ead82ce554105fe6e82a882a8db27ee5e0d)out"},
+STATE 77763b6a0a2ab2d9213d5d8fb4f16458222baaf5c11547dce643ad382b68a5f1)out"},
     {.file = "v1.6-apocd.ork", .expected = R"out(RESULT ok
+W Unknown attributes in element 'ambient', ignoring.
+W Unknown attributes in element 'diffuse', ignoring.
+W Unknown attributes in element 'specular', ignoring.
 ROOT rocket {} []
-EVENTS 301 {aero=22, aero,treechild=1, mass=99, mass,aero=103, mass,aero,tree=20, mass,tree=9, mass,treechild=2, motor=1, nonfunc=43, tree=1}
+EVENTS 321 {aero=22, aero,treechild=1, mass=99, mass,aero=103, mass,aero,tree=20, mass,tree=9, mass,treechild=2, motor=1, nonfunc=63, tree=1}
 COMPONENTS 31
-STATE 7eb8676a8af4ce5bef6c95b6ea0fb265aff70f17e365b37382fe33f69ab20e54)out"},
+STATE b1e453db2e2ba8313597be32b21054edf3992870bc232c564772ea72198345cc)out"},
     {.file = "v1.6-boosted-dart.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 201 {aero,treechild=1, mass=45, mass,aero=83, mass,aero,tree=18, mass,tree=5, mass,treechild=2, motor=1, nonfunc=40, tree=6}
+EVENTS 218 {aero,treechild=1, mass=45, mass,aero=83, mass,aero,tree=18, mass,tree=5, mass,treechild=2, motor=1, nonfunc=57, tree=6}
 COMPONENTS 26
-STATE 491763fb1d1763e154d8a3477dc2adce3be9c79e3db5258806eb0b2dbca45dfa)out"},
+STATE 056b18cfbb1b1f41b1a870ee93d7d5e5c04b52c51ea6523242aa447936061b7f)out"},
     {.file = "v1.6-high-power-airstart.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 127 {mass=48, mass,aero=26, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=28, tree=7}
+EVENTS 135 {mass=48, mass,aero=26, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=36, tree=7}
 COMPONENTS 18
-STATE c02e294ec4369bd6ec3c042b867281380d89b29466e606d7a84135055fbc8c57)out"},
+STATE 96dd1574020de05c59e272c9125f8848239dd8fae37205c2e7acaa7585ea4d17)out"},
     {.file = "v1.6-preset-usage-decals-first.ork", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component Nose cone found matching SEMROC Astronautics BNC-55F
 W No matching ComponentPreset for component Body tube found matching SEMROC Astronautics BT-55
@@ -846,29 +977,29 @@ W No matching ComponentPreset for component Inner Tube found matching SEMROC Ast
 W No matching ComponentPreset for component Launch lug found matching SEMROC Astronautics LL-117
 W No matching ComponentPreset for component Parachute found matching SEMROC Astronautics PN-18
 ROOT rocket {} []
-EVENTS 68 {mass=27, mass,aero=17, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=12, tree=3}
+EVENTS 73 {mass=27, mass,aero=17, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=17, tree=3}
 COMPONENTS 10
-STATE 6ab8aba018ec84f09ab9ff163c627b76f6073840afcbfc927c54bb5bd7763056)out"},
+STATE c302efe611b2a3afebea23dffa4d4e2b56db56839908acea4e59d33c1c3c7d86)out"},
     {.file = "v1.6-simulation-listeners.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 194 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=38, tree=3}
+EVENTS 203 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=47, tree=3}
 COMPONENTS 24
-STATE 796b2932e75ea95b5279970494ba048bb562039436e717eaeabf2cba9a9e945e)out"},
+STATE 1a6f74d83b63a096a0b421389a0fe56e0d16a754a2b759e71ce88ec735be7bd9)out"},
     {.file = "v1.6-tarc-payloader.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 103 {mass=28, mass,aero=33, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=22, tree=5}
+EVENTS 111 {mass=28, mass,aero=33, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=30, tree=5}
 COMPONENTS 17
-STATE 8aa963dba25edd93dbff5ad5d1f4f1ccc3ef567f800635a2d2e04af1bd605726)out"},
+STATE bc284d6a991574fc3e4cc0d6db95d81d8f7c9793533c6d92b49de7cba52dae0e)out"},
     {.file = "v1.6-three-stage-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 143 {mass=23, mass,aero=42, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=42, tree=9}
+EVENTS 153 {mass=23, mass,aero=42, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=52, tree=9}
 COMPONENTS 28
-STATE 3ce5dc3a7b414ade470080b077492c7db4ff2bd2a2532ec1bf3a78850c544083)out"},
+STATE 9fce0e4d65b082dc4776e1dc83f927a4bf058aaa7ce9a1e654ee4a683bb6eb72)out"},
     {.file = "v1.7-simulation-extensions-and-scripting.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 194 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=38, tree=3}
+EVENTS 203 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=47, tree=3}
 COMPONENTS 24
-STATE 8c99230c4dce305df83400008c1314a525f575ca6e14c4deef61dc476d92d738)out"},
+STATE 7c6ec0df632a1778988289966a006ddb4a688dda0dbf6a56f7121302b7516bc2)out"},
     {.file = "v1.7-tube-fin.ork", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component Body tube found matching FlisKits BT-50-18
 ROOT rocket {} []
@@ -877,9 +1008,9 @@ COMPONENTS 6
 STATE 9c4830bc98bd4219014db81b025b867413474ef59f5229bb334bd4086a54a75b)out"},
     {.file = "v1.8-logo-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 43 {mass=1, mass,aero=28, mass,aero,tree=6, nonfunc=5, tree=3}
+EVENTS 49 {mass=1, mass,aero=28, mass,aero,tree=6, nonfunc=11, tree=3}
 COMPONENTS 9
-STATE 4ea1ecbdb0e6cd1b1503cff276d31b6fed1e3eeac8fd6326699233fa446bff14)out"},
+STATE c61b5e0a2ff9bb0d2df58098ed3d77e71e7fa67202e5501a35c2f516254f65b2)out"},
     {.file = "v1.8-parallel-staging-example.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 101 {mass=28, mass,aero=31, mass,aero,tree=8, mass,tree=4, motor=2, nonfunc=21, tree=7}
@@ -892,48 +1023,48 @@ COMPONENTS 17
 STATE 767340ee47c77cfe17661f9231b4b22aa507eafd375a6c44e9f17d5850ee9b49)out"},
     {.file = "v1.9-chute-release.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 149 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=38, tree=4}
+EVENTS 155 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=44, tree=4}
 COMPONENTS 15
-STATE 9b7c85357879f7c635dc2288e7906a5a9e7c12b81f3b5a568612eaf9b562a805)out"},
+STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
 }};
 // END GENERATED TABLES legacy_files
 // BEGIN GENERATED TABLES example_files
 constexpr std::array<DesignFileCase, 16> kExampleFiles{{
     {.file = "3D printable nose cone and fins.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 150 {aero=6, mass=42, mass,aero=40, mass,aero,tree=5, mass,tree=9, motor=1, nonfunc=40, tree=7}
+EVENTS 161 {aero=6, mass=42, mass,aero=40, mass,aero,tree=5, mass,tree=9, motor=1, nonfunc=51, tree=7}
 COMPONENTS 16
-STATE 5fb1a9241ea257deffbb6111e25c1d31560c4cede8107a49396ca2b86d564fe3)out"},
+STATE 82b3bdf8b73a0a5350928524806203f86d4aab55baff78fcb93b647f80e7db92)out"},
     {.file = "A simple model rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 102 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=30, tree=7}
+EVENTS 107 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=35, tree=7}
 COMPONENTS 13
-STATE 3d0d76a1adaa16691d3dd3327cfbf7f03f3c4bebaaf6d42e0127157a39d5499f)out"},
+STATE b0a39754488aad4ed30ed2fed2b85e63d84ac84c3f2c20d84a0e36b2f0ce0c1b)out"},
     {.file = "ARC payload rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 145 {aero=2, mass=40, mass,aero=50, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=33, tree=5}
+EVENTS 153 {aero=2, mass=40, mass,aero=50, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=41, tree=5}
 COMPONENTS 17
-STATE fd79e66e05e7fc0f39a9f64fe49b9c758b2ce99915a6f20f37a617bc9d97b2f6)out"},
+STATE c14300573110a705a6ac764f329f51740ca8cb34f572ce40cd880d0afb523536)out"},
     {.file = "Airstart timing.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 170 {aero=2, mass=59, mass,aero=41, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=43, tree=7}
+EVENTS 178 {aero=2, mass=59, mass,aero=41, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=51, tree=7}
 COMPONENTS 18
-STATE b4dd530eccf0594d3ad6a5e478d2087dc044f64cee3646f2e87548f68a97491b)out"},
+STATE 8d115736d939d4bec9918d2ee3f5b23df64e302dde8c7808b4407fa14e71e43c)out"},
     {.file = "Chute release.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 150 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=39, tree=4}
+EVENTS 156 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=45, tree=4}
 COMPONENTS 15
-STATE 9b7c85357879f7c635dc2288e7906a5a9e7c12b81f3b5a568612eaf9b562a805)out"},
+STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
     {.file = "Clustered motors.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 134 {aero=2, mass=23, mass,aero=43, mass,aero,tree=5, mass,tree=10, motor=1, nonfunc=43, tree=7}
+EVENTS 141 {aero=2, mass=23, mass,aero=43, mass,aero,tree=5, mass,tree=10, motor=1, nonfunc=50, tree=7}
 COMPONENTS 17
-STATE 3f6cbad94ba24643d11fad249290aee5550c11c4801301d3d9ef90568e600687)out"},
+STATE a26759fd7ff9f165380cbe91f9bd27ec02dcc52f898527eca5dc36b4dd20d3f4)out"},
     {.file = "Deployable payload.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 141 {aero=1, mass=23, mass,aero=46, mass,aero,tree=5, mass,tree=11, motor=1, nonfunc=45, tree=9}
+EVENTS 147 {aero=1, mass=23, mass,aero=46, mass,aero,tree=5, mass,tree=11, motor=1, nonfunc=51, tree=9}
 COMPONENTS 19
-STATE 28f980e102ec48dea1b48fe4e2c8609a54ea10cda8a44d39af1aff214ab74e68)out"},
+STATE d43774b51cd0e298d61559d92148af3a961c6c3571dc388b67264723846183b5)out"},
     {.file = "Dual parachute deployment.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 182 {aero=3, mass=48, mass,aero=59, mass,aero,tree=7, mass,tree=11, mass,treechild=1, motor=1, nonfunc=44, tree=8}
@@ -941,46 +1072,196 @@ COMPONENTS 20
 STATE 6e40ee345f45b5abd97fffd727a4d68663c8bd1bebca6fc456de5df8ef3f8c12)out"},
     {.file = "Parallel booster staging.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 162 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=27, tree=5}
+EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=49, tree=5}
 COMPONENTS 18
-STATE ffdcc7318586a97c920863948d00ef64a97cdb498e664029869114c7546dbed8)out"},
+STATE 4d5e2cfb47fe69284ea3c55f7b51e71581290141fbc3831b2dd46b51beb5dcda)out"},
     {.file = "Pods--airframes and winglets.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 235 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=44, tree=9}
+EVENTS 247 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=56, tree=9}
 COMPONENTS 24
-STATE 51a1013ca7a70c28d780c8251e2815b2cccba19f892e9d6a0feea0d588972bfd)out"},
+STATE 87d27ce2507175b77334448bd3674b72031877b4496fcd896e49a3e95cb2fdb2)out"},
     {.file = "Pods--powered with recovery deployment.ork", .expected = R"out(RESULT ok
+W Embedded motor attachment 'thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse' contains no motor matching digest 'e5b53def203dd437ebf0d67846f6cd3b'.
 ROOT rocket {} []
-EVENTS 104 {mass=17, mass,aero=46, mass,aero,tree=7, mass,tree=5, motor=2, nonfunc=23, tree=4}
+EVENTS 111 {mass=17, mass,aero=46, mass,aero,tree=7, mass,tree=5, motor=2, nonfunc=30, tree=4}
 COMPONENTS 15
-STATE a795dad9d78ac894b452f7630ead292d4730bbe49e030b42b8ed419ed04067c8)out"},
+STATE 7752c1472ef360b96f5031300822a5e936d9feb9f029a771fb19efe7daa4652f)out"},
     {.file = "Simulation extensions.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 242 {aero=6, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=54, tree=3}
+EVENTS 251 {aero=6, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=63, tree=3}
 COMPONENTS 24
-STATE c87763ed91dcd641c34171b0b663aeae060be1f1e7f2b8167809071c5dd4772a)out"},
+STATE 2388e0fb0a0c50eb34ef5322e92ace0584b3bfef7459f1d060f90fead65381c8)out"},
     {.file = "Simulation scripting.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 240 {aero=5, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=53, tree=3}
+EVENTS 249 {aero=5, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=62, tree=3}
 COMPONENTS 24
-STATE 6f89b02264da5a93862dcaff750d9b26d84da446a9a0243698217099e8810b42)out"},
+STATE dc31be59e5ffd036a2e9474543fbc7ec9812cc8768a3529b453e2c6a202d578b)out"},
     {.file = "Three stage low power rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 190 {aero=2, mass=23, mass,aero=71, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=58, tree=9}
+EVENTS 200 {aero=2, mass=23, mass,aero=71, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=68, tree=9}
 COMPONENTS 28
-STATE aa1fba1092e554f0f4f2b66e1b508856a957577fa7c8fc443c379390b2c70fd5)out"},
+STATE 8cd3405be368311d076e4fe4eda1d68fe5fb0d8c5b2ef5165522c37d523bbcc2)out"},
     {.file = "Tube fin rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 75 {aero=1, mass=23, mass,aero=25, mass,aero,tree=4, mass,tree=3, motor=1, nonfunc=15, tree=3}
+EVENTS 81 {aero=1, mass=23, mass,aero=25, mass,aero,tree=4, mass,tree=3, motor=1, nonfunc=21, tree=3}
 COMPONENTS 9
-STATE 3ae2e9470e917e3151ed54ab2c3fbac92cc7b47198f62b29a6e875449ac0972c)out"},
+STATE cf4b3e1636823d88cb05ecc496718960a5a35cdf13df29ed84961ef407e68bf4)out"},
     {.file = "Two stage high power rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
-EVENTS 433 {aero=2, mass=159, mass,aero=124, mass,aero,tree=13, mass,tree=34, motor=2, nonfunc=93, tree=6}
+EVENTS 444 {aero=2, mass=159, mass,aero=124, mass,aero,tree=13, mass,tree=34, motor=2, nonfunc=104, tree=6}
 COMPONENTS 50
-STATE 1c1140eb42ccab8b91451f870b77455e18b8e5666a626c2872c8da29f90ce528)out"},
+STATE 4406d223493f92882918335dcbd49fb6c21988cea75e2b7689c7caa88903098f)out"},
 }};
 // END GENERATED TABLES example_files
+// BEGIN GENERATED TABLES resave_files
+constexpr std::array<DesignFileCase, 29> kResaveFiles{{
+    {.file = "example-3d-printable-nose-cone-and-fins/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 161 {aero=6, mass=42, mass,aero=40, mass,aero,tree=5, mass,tree=9, motor=1, nonfunc=51, tree=7}
+COMPONENTS 16
+STATE 82b3bdf8b73a0a5350928524806203f86d4aab55baff78fcb93b647f80e7db92)out"},
+    {.file = "example-a-simple-model-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 107 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=35, tree=7}
+COMPONENTS 13
+STATE b0a39754488aad4ed30ed2fed2b85e63d84ac84c3f2c20d84a0e36b2f0ce0c1b)out"},
+    {.file = "example-airstart-timing/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 178 {aero=2, mass=59, mass,aero=41, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=51, tree=7}
+COMPONENTS 18
+STATE 8d115736d939d4bec9918d2ee3f5b23df64e302dde8c7808b4407fa14e71e43c)out"},
+    {.file = "example-arc-payload-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 153 {aero=2, mass=40, mass,aero=50, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=41, tree=5}
+COMPONENTS 17
+STATE c14300573110a705a6ac764f329f51740ca8cb34f572ce40cd880d0afb523536)out"},
+    {.file = "example-chute-release/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 156 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=45, tree=4}
+COMPONENTS 15
+STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
+    {.file = "example-clustered-motors/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 141 {aero=2, mass=23, mass,aero=43, mass,aero,tree=5, mass,tree=10, motor=1, nonfunc=50, tree=7}
+COMPONENTS 17
+STATE a26759fd7ff9f165380cbe91f9bd27ec02dcc52f898527eca5dc36b4dd20d3f4)out"},
+    {.file = "example-deployable-payload/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 147 {aero=1, mass=23, mass,aero=46, mass,aero,tree=5, mass,tree=11, motor=1, nonfunc=51, tree=9}
+COMPONENTS 19
+STATE d43774b51cd0e298d61559d92148af3a961c6c3571dc388b67264723846183b5)out"},
+    {.file = "example-dual-parachute-deployment/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 182 {aero=3, mass=48, mass,aero=59, mass,aero,tree=7, mass,tree=11, mass,treechild=1, motor=1, nonfunc=44, tree=8}
+COMPONENTS 20
+STATE 6e40ee345f45b5abd97fffd727a4d68663c8bd1bebca6fc456de5df8ef3f8c12)out"},
+    {.file = "example-parallel-booster-staging/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=49, tree=5}
+COMPONENTS 18
+STATE c86943bd165f0d44961991cbbc99ace81e1fb040115255103272df4769b6a6c2)out"},
+    {.file = "example-pods-airframes-and-winglets/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 247 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=56, tree=9}
+COMPONENTS 24
+STATE 87d27ce2507175b77334448bd3674b72031877b4496fcd896e49a3e95cb2fdb2)out"},
+    {.file = "example-pods-powered-with-recovery-deployment/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 111 {mass=17, mass,aero=46, mass,aero,tree=7, mass,tree=5, motor=2, nonfunc=30, tree=4}
+COMPONENTS 15
+STATE 7f950eaf661a84fe89ca58f2c7942c3969dd9735c4bc0bf173877c9bf55914f5)out"},
+    {.file = "example-simulation-extensions/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 251 {aero=6, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=63, tree=3}
+COMPONENTS 24
+STATE 2388e0fb0a0c50eb34ef5322e92ace0584b3bfef7459f1d060f90fead65381c8)out"},
+    {.file = "example-simulation-scripting/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 249 {aero=5, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=62, tree=3}
+COMPONENTS 24
+STATE dc31be59e5ffd036a2e9474543fbc7ec9812cc8768a3529b453e2c6a202d578b)out"},
+    {.file = "example-three-stage-low-power-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 200 {aero=2, mass=23, mass,aero=71, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=68, tree=9}
+COMPONENTS 28
+STATE 8cd3405be368311d076e4fe4eda1d68fe5fb0d8c5b2ef5165522c37d523bbcc2)out"},
+    {.file = "example-tube-fin-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 81 {aero=1, mass=23, mass,aero=25, mass,aero,tree=4, mass,tree=3, motor=1, nonfunc=21, tree=3}
+COMPONENTS 9
+STATE cf4b3e1636823d88cb05ecc496718960a5a35cdf13df29ed84961ef407e68bf4)out"},
+    {.file = "example-two-stage-high-power-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 444 {aero=2, mass=159, mass,aero=124, mass,aero,tree=13, mass,tree=34, motor=2, nonfunc=104, tree=6}
+COMPONENTS 50
+STATE 7947f7bec6254cfed98a839c8a1a5d80f43ae62c2e0510b4c1c73cd558f0871a)out"},
+    {.file = "testrocket-beta/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 110 {mass=15, mass,aero=44, mass,aero,tree=8, mass,tree=6, motor=2, nonfunc=26, tree=9}
+COMPONENTS 17
+STATE 14f0ab6378aac423ee6e538764c0d0b2cda194837b5883aa300960d58c136c97)out"},
+    {.file = "testrocket-big-blue/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 26 {mass=5, mass,aero=12, mass,aero,tree=3, mass,tree=1, nonfunc=3, tree=2}
+COMPONENTS 6
+STATE e353538fd25357f9dcf5e344ab66147ead9aca0f368d163cd4b16fb3dc629647)out"},
+    {.file = "testrocket-cluster-pods/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 37 {mass=2, mass,aero=13, mass,aero,tree=2, mass,tree=2, motor=2, nonfunc=12, tree=4}
+COMPONENTS 7
+STATE 149aece86538e6a704074ed773752a9ef9f67c9e90bc7a884b994fcd96c2faea)out"},
+    {.file = "testrocket-end-plate-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 43 {mass=1, mass,aero=24, mass,aero,tree=5, nonfunc=10, tree=3}
+COMPONENTS 8
+STATE da185645c68ed7849afabb7b3f33ddcd776177ffbb76024da953d3bae1e73a09)out"},
+    {.file = "testrocket-estes-alpha-iii-with-inline-pod/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 87 {mass=14, mass,aero=34, mass,aero,tree=6, mass,tree=4, motor=1, nonfunc=21, tree=7}
+COMPONENTS 13
+STATE 159fa34d834be17496add9305adc767a145781ddd26b37d9812cc352875bdf10)out"},
+    {.file = "testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 90 {mass=16, mass,aero=32, mass,aero,tree=5, mass,tree=5, motor=2, nonfunc=23, tree=7}
+COMPONENTS 13
+STATE 1b1daa6b902de0ec36a9bacea778eb31a753981fe9517e3c574831a7cd174a12)out"},
+    {.file = "testrocket-estes-alpha-iii-with-pods/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 79 {mass=12, mass,aero=31, mass,aero,tree=5, mass,tree=4, motor=1, nonfunc=19, tree=7}
+COMPONENTS 12
+STATE 9b71cc5456ef745a2261dbb6c2d2eb8ec00ad23705b62bf2ab5cee22c2363351)out"},
+    {.file = "testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 75 {mass=15, mass,aero=26, mass,aero,tree=4, mass,tree=5, motor=2, nonfunc=17, tree=6}
+COMPONENTS 11
+STATE 21cc7ad18ee5117df61b07acf3e041f5719fbe249e83a6b29b6a04bf8d34a3f0)out"},
+    {.file = "testrocket-estes-alpha-iii/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 65 {mass=12, mass,aero=24, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=14, tree=6}
+COMPONENTS 10
+STATE b0bcdccc25bd9052fa74794e94409a46f4981d40fcafe00e31a89c49bdcf46f9)out"},
+    {.file = "testrocket-falcon-9-heavy/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 109 {mass=22, mass,aero=43, mass,aero,tree=9, mass,tree=3, motor=2, nonfunc=23, tree=7}
+COMPONENTS 16
+STATE a2bc12bfa5f00ced82ef6fbaa3480d3dd9d76788f265dcce33f82b4daf7e0ac8)out"},
+    {.file = "testrocket-iso-haisu/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 137 {mass=38, mass,aero=52, mass,aero,tree=7, mass,tree=12, nonfunc=26, tree=2}
+COMPONENTS 21
+STATE 435adb82db99cb95dcee74a6d59ff26588c35d26716ad73ae4796413ecfd3dda)out"},
+    {.file = "testrocket-multi-stage-event-test-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 61 {mass,aero=25, mass,aero,tree=6, mass,tree=2, motor=3, nonfunc=18, tree=7}
+COMPONENTS 12
+STATE 54b89827c2674fff50c17e5eb5fb49f0c1bebe790617e48a624d843636eb4842)out"},
+    {.file = "testrocket-simple-2-stage/resave/rocket.ork", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 18 {mass=2, mass,aero=4, mass,aero,tree=2, nonfunc=5, tree=5}
+COMPONENTS 5
+STATE 2109e4c36013f35af67c9f322a5136cee3bbad13cbd314732e487b614d6e55b5)out"},
+}};
+// END GENERATED TABLES resave_files
 // clang-format on
 
 TEST(RocketElement, ReadsItsCasesAsOpenRocket)
@@ -1023,23 +1304,24 @@ TEST(RocketElement, NoCaseThrowsWhenItsTextIsCutOff)
 //     mass,tree=7, motor=1, nonfunc=35, tree=7}
 //   Parallel booster staging.ork: 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8,
 //     mass,tree=7, motor=2, nonfunc=49, tree=5}
-// The rocket elements give exactly these but for one NONFUNCTIONAL_CHANGE per appearance
-// element, which are taken out here (HOOK(R4)): the first design has 5 <appearance>, the second
-// 15 and 7 <insideappearance>. With part R4's handlers the counts are the scout's.
+// The rocket elements give exactly these: every event of OpenRocket's load of a design comes
+// from its rocket element. (One NONFUNCTIONAL_CHANGE is of each appearance element: the first
+// design has 5 <appearance>, the second 15 and 7 <insideappearance>.)
 TEST(RocketElement, FiresTheEventsOfOpenRocketsLoad)
 {
     EXPECT_EQ(eventsOfExample("A simple model rocket.ork"),
-              "EVENTS 102 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, "
-              "nonfunc=30, tree=7}");
+              "EVENTS 107 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, "
+              "nonfunc=35, tree=7}");
     EXPECT_EQ(eventsOfExample("Parallel booster staging.ork"),
-              "EVENTS 162 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, "
-              "nonfunc=27, tree=5}");
+              "EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, "
+              "nonfunc=49, tree=5}");
 }
 
 // The rocket elements of the 18 designs of tests/data/ork, which OpenRocket 0.9.3 to 23.09 wrote
-// in the formats 1.0 to 1.9, read without their appearance elements (HOOK(R4)) and without a
-// preset database: the warnings, the rocket's change events by kind, the number of components
-// and the digest of the state are OpenRocket's.
+// in the formats 1.0 to 1.9, read without a preset database and with the attachments of each
+// file (the entries of an archive, the files beside any other design): the warnings, the
+// rocket's change events by kind, the number of components and the digest of the state, the
+// appearances and the names of the decal images included, are OpenRocket's.
 TEST(RocketElement, ReadsTheLegacyDesignsAsOpenRocket)
 {
     EXPECT_EQ(failedDesignFiles(QtRocket::Test::testDataDir() / "ork", kLegacyFiles, false),
@@ -1054,8 +1336,24 @@ TEST(RocketElement, ReadsTheExampleDesignsAsOpenRocket)
               Texts{});
 }
 
+// The same for the 29 designs of the golden data as OpenRocket saved them again
+// (tests/data/goldens/<design>/resave/rocket.ork, format 1.11): the 16 examples, now files by
+// themselves whose images the decal registry names anew, and the 13 test rockets, which no
+// other design file of the tests holds.
+TEST(RocketElement, ReadsTheResavedDesignsAsOpenRocket)
+{
+    EXPECT_EQ(failedDesignFiles(QtRocket::Test::testDataDir() / "goldens", kResaveFiles, true),
+              Texts{});
+}
+
 // Not tests: they print what QtRocket makes of the design files, for scripts/make_tables.py,
 // and the states behind the digests, to compare with the probe's dump files.
+TEST(RocketElement, DISABLED_PrintsTheResavedDesigns)
+{
+    std::cout << printedDesignFiles(QtRocket::Test::testDataDir() / "goldens", kResaveFiles, true,
+                                    false);
+}
+
 TEST(RocketElement, DISABLED_PrintsTheLegacyDesigns)
 {
     std::cout << printedDesignFiles(QtRocket::Test::testDataDir() / "ork", kLegacyFiles, false,

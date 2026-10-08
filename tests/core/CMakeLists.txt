@@ -265,6 +265,7 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
     file/openrocket/AnglePositionSetterTests.cpp
+    file/openrocket/AppearanceHandlerTests.cpp
     file/openrocket/AxialPositionSetterTests.cpp
     file/openrocket/BooleanSetterTests.cpp
     file/openrocket/ClusterConfigurationSetterTests.cpp
@@ -275,8 +276,14 @@ add_executable(QtRocket_core_tests
     file/openrocket/ComponentParameterHandlerTests.cpp
     file/openrocket/ComponentPresetSetterTests.cpp
     file/openrocket/ConfigHandlerTests.cpp
+    file/openrocket/CustomExpressionHandlerTests.cpp
+    file/openrocket/DatatypeHandlerTests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
+    file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DocumentConfigTests.cpp
+    file/openrocket/DocumentHandlerTestSupport.cpp
+    file/openrocket/DocumentMaterialHandlerTests.cpp
+    file/openrocket/DocumentPreferencesHandlerTests.cpp
     file/openrocket/DoubleSetterTests.cpp
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
@@ -285,13 +292,16 @@ add_executable(QtRocket_core_tests
     file/openrocket/FinTabPositionSetterTests.cpp
     file/openrocket/handler_test_support_tests.cpp
     file/openrocket/IgnitionConfigurationHandlerTests.cpp
+    file/openrocket/InsideAppearanceHandlerTests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
+    file/openrocket/loader_value_sweep_tests.cpp
     file/openrocket/MaterialSetterTests.cpp
     file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp
     file/openrocket/MotorMountHandlerTests.cpp
     file/openrocket/OverrideSetterTests.cpp
+    file/openrocket/PhotoStudioHandlerTests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
     file/openrocket/rocket_element_tests.cpp
     file/openrocket/setter_robustness_tests.cpp

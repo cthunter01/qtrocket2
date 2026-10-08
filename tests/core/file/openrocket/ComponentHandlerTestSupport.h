@@ -14,6 +14,8 @@
 //     ROOT rocket {name=value, ...} [<text>]      what the element's parent is told at its end
 //     EVENTS <n> {<kinds>=<n>, ...}               the rocket's change events, by kind
 //     | <component> ...                           the rocket, read through getters
+//     | decals='<name>','<name>'                  the images of the document's decal registry,
+//                                                 when it has any
 //     | selected=...                              the selected flight configuration
 //     | config ...                                every flight configuration, the default first
 //
@@ -66,8 +68,8 @@ private:
 [[nodiscard]] std::set<Uuid> knownIds(std::string_view xml);
 
 /// The state of @p rocket, one line per component in tree order (two blanks deeper per level),
-/// then the selected configuration and every flight configuration. Ids outside @p known are
-/// "random".
+/// then the decal images of its document, when it has a document and that has images, the
+/// selected configuration and every flight configuration. Ids outside @p known are "random".
 [[nodiscard]] std::vector<std::string> describeRocket(const Rocket&         rocket,
                                                       const Preferences&    preferences,
                                                       const std::set<Uuid>& known);
@@ -77,10 +79,26 @@ private:
 /// ByDesignationMotorFinder; with @p withPresets the preset database holds the six presets of
 /// the example designs (the probe's holds all of OpenRocket's), without it there is none. The
 /// default units are OpenRocket's while the fixture lives.
+///
+/// The attachments a design names (the images of its decals, its embedded thrust curves) are
+/// files without a base directory, as of a design that is read from a stream and as the probe
+/// has them; the decal registry names the image of a file "decals/<file name>". With
+/// Attachments::ARCHIVE they are the entries of an archive, whose images keep the name the
+/// design gives them: the map of the HandlerFixture (fixture().attachments()), in which every
+/// attachment is missing until a test puts one. A case of a table is read that way when its
+/// name has "archive" in it (attachmentsOfCase()), which is also the probe's rule.
 class RocketLoadFixture
 {
 public:
-    explicit RocketLoadFixture(bool withPresets = false);
+    /// Where the attachments of the design come from.
+    enum class Attachments
+    {
+        FILES,
+        ARCHIVE,
+    };
+
+    explicit RocketLoadFixture(bool        withPresets = false,
+                               Attachments attachments = Attachments::FILES);
     ~RocketLoadFixture() = default;
 
     // The context points at the members.
@@ -118,8 +136,14 @@ private:
     HandlerFixture           m_fixture;
 };
 
-/// RocketLoadFixture(withPresets).loadAndDescribe(xml) in a fixture of its own.
-[[nodiscard]] std::string runRocketCase(std::string_view xml, bool withPresets = false);
+/// RocketLoadFixture(withPresets, attachments).loadAndDescribe(xml) in a fixture of its own.
+[[nodiscard]] std::string runRocketCase(
+    std::string_view xml, bool withPresets = false,
+    RocketLoadFixture::Attachments attachments = RocketLoadFixture::Attachments::FILES);
+
+/// How the case named @p name of a table is read: with the attachments of an archive when the
+/// name has "archive" in it, else with files.
+[[nodiscard]] RocketLoadFixture::Attachments attachmentsOfCase(std::string_view name) noexcept;
 
 /// One case of a table: the content of a rocket element and what reading it gives.
 struct RocketCase
@@ -153,7 +177,9 @@ struct RocketCase
 /// What reading @p xml (RocketLoadFixture::load()) and then using the rocket
 /// (whatUsingTheRocketThrows()) throws, or "": the failure policy of the loader is that
 /// nothing a file can hold makes it throw. A load that fails is as good as one that succeeds.
-[[nodiscard]] std::string whatReadingThrows(std::string_view xml, bool withPresets = false);
+[[nodiscard]] std::string whatReadingThrows(
+    std::string_view xml, bool withPresets = false,
+    RocketLoadFixture::Attachments attachments = RocketLoadFixture::Attachments::FILES);
 
 /// The cases of @p cases that make the loader or the use of the rocket throw when their text
 /// is cut off behind any of its '>' (a document that ends too early is one a file can hold:
@@ -162,10 +188,12 @@ struct RocketCase
 [[nodiscard]] std::vector<std::string> casesThatThrowWhenCutOff(std::span<const RocketCase> cases,
                                                                 bool withPresets = false);
 
-/// The rocket element of the design file @p path, without its appearance elements: the file
-/// may be the XML document itself, a gzip of it or a zip archive, whose first entry with a name
-/// that ends in ".ork" is the document. (The appearance elements are taken out because their
-/// handlers are part R4's: HOOK(R4).)
+/// The XML document of the design file @p path: the file itself, what its gzip holds, or the
+/// first entry of its zip archive whose name ends in ".ork".
+/// @throws BugError when the file cannot be read or is an archive without such an entry
+[[nodiscard]] std::string documentOfDesignFile(const std::filesystem::path& path);
+
+/// The rocket element of the design file @p path (see documentOfDesignFile()).
 /// @throws BugError when the file cannot be read or holds no rocket element
 [[nodiscard]] std::string rocketElementOfDesignFile(const std::filesystem::path& path);
 
@@ -179,7 +207,9 @@ struct DesignFileCase
 };
 
 /// What reading each file of @p cases in @p directory gives that is not what the case expects;
-/// empty when every file agrees.
+/// empty when every file agrees. A file is read with its own attachments, from where the
+/// top-level loader takes them: the entries of the file when it is an archive, else the files
+/// beside it.
 [[nodiscard]] std::vector<std::string> failedDesignFiles(const std::filesystem::path&    directory,
                                                          std::span<const DesignFileCase> cases,
                                                          bool withPresets);

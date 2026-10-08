@@ -32,8 +32,8 @@ class RocketComponent;
 ///
 /// A child element is handed on by its name:
 /// - "subcomponents": a ComponentHandler for the components below this one;
-/// - "appearance", and "insideappearance" or "inside-appearance" (the name of some development
-///   versions): the appearance handlers (HOOK(R4): see below);
+/// - "appearance": an AppearanceHandler, and "insideappearance" or "inside-appearance" (the
+///   name of some development versions): an InsideAppearanceHandler, whatever the component;
 /// - "motormount": a MotorMountHandler, when the component can hold motors (a body tube or an
 ///   inner tube); else "Illegal component defined as motor mount.";
 /// - "finpoints": a FinSetPointHandler, for a freeform fin set; else "Illegal component defined
@@ -62,10 +62,6 @@ class RocketComponent;
 /// DelegatorHandler's slip is not corrected here (see DelegatorHandler): a parameter that holds
 /// an element, such as `<length>0.5<x/></length>`, is set from the text behind the ignored
 /// element, and the component's own element then closes with the parameter's text.
-///
-/// HOOK(R4): until part R4 of run 9b adds AppearanceHandler and InsideAppearanceHandler, the
-/// three appearance elements are passed over with everything in them, without a warning. Part
-/// R4 replaces the two marked lines of openElement() and deletes the stand-in.
 ///
 /// Deviation from OpenRocket: Java walks the superclasses of the component's class and looks
 /// "Class:element" up in the setter table at each; that walk is DocumentConfig::findSetter().

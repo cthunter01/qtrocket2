@@ -15,7 +15,12 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/document/DecalImage.h"
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/file/AttachmentFactory.h"
+#include "QtRocket/file/FileSystemAttachmentFactory.h"
 #include "QtRocket/file/GzipStream.h"
+#include "QtRocket/file/ZipFileAttachmentFactory.h"
 #include "QtRocket/file/ZipInputStream.h"
 #include "QtRocket/file/openrocket/ComponentParameterHandler.h"
 #include "QtRocket/logging/Warning.h"
@@ -25,10 +30,12 @@
 #include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/Decal.h"
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/DesignType.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
@@ -39,6 +46,8 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/FreeformFinSet.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/InsideColorComponent.h"
+#include "QtRocket/rocket/InsideColorComponentHandler.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/MassObject.h"
@@ -500,6 +509,49 @@ void describeMount(const RocketComponent& c, const std::set<Uuid>& known, std::s
     }
 }
 
+/// An appearance: "[paint=r,g,b,a shine=s opacity=flag decal='image':rotation:EDGE:center=u,v:
+/// offset=u,v:scale=u,v]", the decal only when it has one.
+[[nodiscard]] std::string appearanceText(const Appearance& appearance)
+{
+    const Color& paint = appearance.getPaint();
+    std::string  text  = std::format(
+        "[paint={},{},{},{} shine={} opacity={}", paint.red(), paint.green(), paint.blue(),
+        paint.alpha(), num(appearance.getShine()), appearance.isOpacityAffectsTexture());
+    if (const std::optional<Decal>& decal = appearance.getTexture(); decal.has_value())
+    {
+        text += std::format(
+            " decal={}:{}:{}:center={},{}:offset={},{}:scale={},{}", quote(decal->getImageName()),
+            num(decal->getRotation()), edgeModeName(decal->getEdgeMode()),
+            num(decal->getCenter().x), num(decal->getCenter().y), num(decal->getOffset().x),
+            num(decal->getOffset().y), num(decal->getScale().x), num(decal->getScale().y));
+    }
+    return text + "]";
+}
+
+void describeAppearance(const RocketComponent& c, std::string& line)
+{
+    if (const std::optional<Appearance>& appearance = c.getAppearance(); appearance.has_value())
+    {
+        line += " app=" + appearanceText(*appearance);
+    }
+    const auto* const inside = dynamic_cast<const InsideColorComponent*>(&c);
+    if (inside == nullptr)
+    {
+        return;
+    }
+    const InsideColorComponentHandler& handler = inside->getInsideColorComponentHandler();
+    if (const std::optional<Appearance>& appearance = handler.getInsideAppearance();
+        appearance.has_value())
+    {
+        line += " inside=" + appearanceText(*appearance);
+    }
+    if (handler.isEdgesSameAsInside() || handler.isSeparateInsideOutside())
+    {
+        line += std::format(" insideflags={},{}", handler.isEdgesSameAsInside(),
+                            handler.isSeparateInsideOutside());
+    }
+}
+
 /// One line for a component: its Java class and its name, then "key=value" for what it holds.
 [[nodiscard]] std::string describeComponent(const RocketComponent& c, const std::set<Uuid>& known)
 {
@@ -517,6 +569,7 @@ void describeMount(const RocketComponent& c, const std::set<Uuid>& known, std::s
     describeMassObjects(c, line);
     describeRecovery(c, known, line);
     describeMount(c, known, line);
+    describeAppearance(c, line);
     return line;
 }
 
@@ -687,6 +740,19 @@ std::vector<std::string> describeRocket(const Rocket& rocket, const Preferences&
 {
     std::vector<std::string> lines;
     describeTree(rocket, 0, known, lines);
+    // The images of the document's decal registry, in its order (by name); no line without one.
+    if (const OpenRocketDocument* const document = rocket.getDocument(); document != nullptr)
+    {
+        std::string decals;
+        for (const std::shared_ptr<DecalImage>& image : document->getDecalList())
+        {
+            decals += (decals.empty() ? "decals=" : ",") + quote(image->getName());
+        }
+        if (!decals.empty())
+        {
+            lines.push_back(std::move(decals));
+        }
+    }
     const FlightConfigurationId& selected =
         rocket.getSelectedConfiguration().getFlightConfigurationId();
     lines.push_back("selected=" + (selected.isDefaultId() ? std::string("default")
@@ -701,10 +767,16 @@ std::vector<std::string> describeRocket(const Rocket& rocket, const Preferences&
     return lines;
 }
 
-RocketLoadFixture::RocketLoadFixture(bool withPresets)
+RocketLoadFixture::RocketLoadFixture(bool withPresets, Attachments attachments)
 {
     addBuiltinMaterials(m_fixture.materials());
     m_fixture.context().setMotorFinder(&m_motorFinder);
+    if (attachments == Attachments::FILES)
+    {
+        // The context's own factory: files without a base directory, as the probe's context
+        // has them. (The fixture's map of attachments stays the factory of an archive.)
+        m_fixture.context().setAttachmentFactory(nullptr);
+    }
     if (withPresets)
     {
         m_presets = makeExamplePresetDatabase();
@@ -766,7 +838,8 @@ std::string RocketLoadFixture::loadAndSummarize(std::string_view          xml,
     {
         all += line;
         all += '\n';
-        if (!line.starts_with("selected=") && !line.starts_with("config "))
+        if (!line.starts_with("selected=") && !line.starts_with("config ") &&
+            !line.starts_with("decals="))
         {
             ++components;
         }
@@ -779,10 +852,17 @@ std::string RocketLoadFixture::loadAndSummarize(std::string_view          xml,
     return text;
 }
 
-std::string runRocketCase(std::string_view xml, bool withPresets)
+std::string runRocketCase(std::string_view xml, bool withPresets,
+                          RocketLoadFixture::Attachments attachments)
 {
-    RocketLoadFixture fixture(withPresets);
+    RocketLoadFixture fixture(withPresets, attachments);
     return fixture.loadAndDescribe(xml);
+}
+
+RocketLoadFixture::Attachments attachmentsOfCase(std::string_view name) noexcept
+{
+    return name.contains("archive") ? RocketLoadFixture::Attachments::ARCHIVE
+                                    : RocketLoadFixture::Attachments::FILES;
 }
 
 std::vector<std::string> failedRocketCases(std::span<const RocketCase> cases, bool withPresets)
@@ -790,7 +870,7 @@ std::vector<std::string> failedRocketCases(std::span<const RocketCase> cases, bo
     std::vector<std::string> failed;
     for (const RocketCase& one : cases)
     {
-        const std::string found = runRocketCase(one.xml, withPresets);
+        const std::string found = runRocketCase(one.xml, withPresets, attachmentsOfCase(one.name));
         if (found != one.expected)
         {
             failed.push_back(std::format("case {}\n{}\n--- expected\n{}\n--- found\n{}\n", one.name,
@@ -805,7 +885,8 @@ std::string printedRocketCases(std::span<const RocketCase> cases, bool withPrese
     std::string printed;
     for (const RocketCase& one : cases)
     {
-        printed += std::format("=== {}\n{}\n", one.name, runRocketCase(one.xml, withPresets));
+        printed += std::format("=== {}\n{}\n", one.name,
+                               runRocketCase(one.xml, withPresets, attachmentsOfCase(one.name)));
     }
     return printed;
 }
@@ -834,11 +915,12 @@ std::string whatUsingTheRocketThrows(RocketLoadFixture& fixture)
     return {};
 }
 
-std::string whatReadingThrows(std::string_view xml, bool withPresets)
+std::string whatReadingThrows(std::string_view xml, bool withPresets,
+                              RocketLoadFixture::Attachments attachments)
 {
     try
     {
-        RocketLoadFixture fixture(withPresets);
+        RocketLoadFixture fixture(withPresets, attachments);
         static_cast<void>(fixture.load(xml));
         return whatUsingTheRocketThrows(fixture);
     }
@@ -858,8 +940,9 @@ std::vector<std::string> casesThatThrowWhenCutOff(std::span<const RocketCase> ca
         for (std::size_t end = element.find('>'); end != std::string::npos;
              end             = element.find('>', end + 1))
         {
-            const std::string_view cut   = std::string_view(element).substr(0, end + 1);
-            const std::string      wrong = whatReadingThrows(cut, withPresets);
+            const std::string_view cut = std::string_view(element).substr(0, end + 1);
+            const std::string      wrong =
+                whatReadingThrows(cut, withPresets, attachmentsOfCase(one.name));
             if (!wrong.empty())
             {
                 thrown.push_back(
@@ -871,12 +954,7 @@ std::vector<std::string> casesThatThrowWhenCutOff(std::span<const RocketCase> ca
     return thrown;
 }
 
-namespace
-{
-
-/// The XML document of a design file: the file itself, what its gzip holds, or the first entry
-/// of its zip archive whose name ends in ".ork".
-[[nodiscard]] std::string documentOfDesignFile(const std::filesystem::path& path)
+std::string documentOfDesignFile(const std::filesystem::path& path)
 {
     Result<std::vector<std::byte>> bytes = readFile(path);
     if (!bytes)
@@ -917,35 +995,35 @@ namespace
     return bytesToString(*bytes);
 }
 
-/// @p text without the elements named @p name (none of them holds one of its own name).
-[[nodiscard]] std::string withoutElements(std::string_view text, std::string_view name)
+namespace
 {
-    const std::string open  = std::format("<{}", name);
-    const std::string close = std::format("</{}>", name);
-    std::string       out;
-    std::size_t       pos = 0;
-    while (true)
+
+/// The attachments of a design file, from where GeneralRocketLoader takes them: the entries of
+/// the file when it is an archive, else the files beside it.
+[[nodiscard]] std::unique_ptr<AttachmentFactory> attachmentsOfDesignFile(
+    const std::filesystem::path& path)
+{
+    Result<std::vector<std::byte>> bytes = readFile(path);
+    if (!bytes)
     {
-        const std::size_t i = text.find(open, pos);
-        if (i == std::string_view::npos)
-        {
-            break;
-        }
-        const char c = text.at(i + open.size());
-        if (c != '>' && c != ' ' && c != '/')
-        {
-            out += text.substr(pos, i + open.size() - pos);
-            pos = i + open.size();
-            continue;
-        }
-        const std::size_t tagEnd = text.find('>', i);
-        const std::size_t end =
-            text.at(tagEnd - 1) == '/' ? tagEnd + 1 : text.find(close, tagEnd) + close.size();
-        out += text.substr(pos, i - pos);
-        pos = end;
+        bug(std::format("cannot read {}: {}", pathToUtf8(path), bytes.error().message));
     }
-    out += text.substr(pos);
-    return out;
+    if (bytes->size() > 2 && (*bytes)[0] == std::byte{'P'} && (*bytes)[1] == std::byte{'K'})
+    {
+        return std::make_unique<ZipFileAttachmentFactory>(std::move(*bytes));
+    }
+    return std::make_unique<FileSystemAttachmentFactory>(absolutePath(path).parent_path());
+}
+
+/// What RocketLoadFixture::loadAndSummarize() gives for the rocket element of the design file
+/// @p path, read with the attachments of that file.
+[[nodiscard]] std::string summaryOfDesignFile(const std::filesystem::path& path, bool withPresets,
+                                              std::vector<std::string>* state)
+{
+    const std::unique_ptr<AttachmentFactory> attachments = attachmentsOfDesignFile(path);
+    RocketLoadFixture                        fixture(withPresets);
+    fixture.context().setAttachmentFactory(attachments.get());
+    return fixture.loadAndSummarize(rocketElementOfDesignFile(path), state);
 }
 
 }  // namespace
@@ -960,11 +1038,7 @@ std::string rocketElementOfDesignFile(const std::filesystem::path& path)
     {
         bug(std::format("no rocket element in {}", pathToUtf8(path)));
     }
-    const std::string_view rocket =
-        std::string_view(document).substr(begin, end + kEnd.size() - begin);
-    return withoutElements(
-        withoutElements(withoutElements(rocket, "appearance"), "insideappearance"),
-        "inside-appearance");
+    return document.substr(begin, end + kEnd.size() - begin);
 }
 
 std::vector<std::string> failedDesignFiles(const std::filesystem::path&    directory,
@@ -973,9 +1047,7 @@ std::vector<std::string> failedDesignFiles(const std::filesystem::path&    direc
     std::vector<std::string> failed;
     for (const DesignFileCase& one : cases)
     {
-        RocketLoadFixture fixture(withPresets);
-        const std::string found =
-            fixture.loadAndSummarize(rocketElementOfDesignFile(directory / one.file));
+        const std::string found = summaryOfDesignFile(directory / one.file, withPresets, nullptr);
         if (found != one.expected)
         {
             failed.push_back(std::format("file {}\n--- expected\n{}\n--- found\n{}\n", one.file,
@@ -992,11 +1064,9 @@ std::string printedDesignFiles(const std::filesystem::path&    directory,
     std::string printed;
     for (const DesignFileCase& one : cases)
     {
-        RocketLoadFixture        fixture(withPresets);
         std::vector<std::string> state;
-        printed += std::format(
-            "=== {}\n{}\n", one.file,
-            fixture.loadAndSummarize(rocketElementOfDesignFile(directory / one.file), &state));
+        printed += std::format("=== {}\n{}\n", one.file,
+                               summaryOfDesignFile(directory / one.file, withPresets, &state));
         if (withState)
         {
             for (const std::string& line : state)

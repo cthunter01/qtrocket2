@@ -36,7 +36,6 @@ using QtRocket::ElementHandler;
 using QtRocket::ErrorCode;
 using QtRocket::PlainTextHandler;
 using QtRocket::Result;
-using QtRocket::Rocket;
 using QtRocket::WarningSet;
 using QtRocket::Test::casesThatThrowWhenCutOff;
 using QtRocket::Test::failedRocketCases;
@@ -55,7 +54,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES ComponentParameterHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 16> kJava{{
+constexpr std::array<RocketCase, 17> kJava{{
     {.name = "cp-document-order", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><name>first</name><length>0.1</length><name>second</name><length>0.3</length><radius>0.02</radius><thickness>0.03</thickness><radius>0.05</radius></bodytube></subcomponents></stage></subcomponents><name>R1</name><name>R2</name>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 11 {mass=1, mass,aero=4, mass,aero,tree=1, nonfunc=4, tree=1}
@@ -227,6 +226,14 @@ EVENTS 1 {nonfunc=1}
 | Rocket 'R' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
 | selected=default
 | config default name='[{motors}]' preload=null active=[] motors=0)out"},
+    {.name = "cp-appearance-elements", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><paint red="10" green="20" blue="30"/><shine>0.5</shine></appearance><insideappearance><edgessameasinside>true</edgessameasinside><insidesameasoutside>true</insidesameasoutside><paint red="1" green="2" blue="3"/><shine>0.1</shine></insideappearance><name>N</name></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 7 {mass,aero,tree=1, nonfunc=5, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'N' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=10,20,30,255 shine=0.5 opacity=false] inside=[paint=1,2,3,255 shine=0.1 opacity=false] insideflags=true,true
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     {.name = "cp-preset-without-database", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><name>BT</name><preset type="BODY_TUBE" manufacturer="Estes" partno="BT-50, 30352" digest="a59dec8e4034a2fee5955dbf4ff07f1c"/><length>0.3</length></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component BT found matching Estes BT-50, 30352
 ROOT rocket {} []
@@ -240,18 +247,7 @@ EVENTS 4 {mass,aero=1, mass,aero,tree=1, nonfunc=1, tree=1}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 1> kOwn{{
-    // HOOK(R4): the appearance elements are passed over until part R4 adds their handlers, so the four events of OpenRocket's appearance setters are missing.
-    // OpenRocket: EVENTS 7 {mass,aero,tree=1, nonfunc=5, tree=1}
-    {.name = "cp-appearance-elements", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><paint red="10" green="20" blue="30"/><shine>0.5</shine></appearance><insideappearance><edgessameasinside>true</edgessameasinside><insidesameasoutside>true</insidesameasoutside><paint red="1" green="2" blue="3"/><shine>0.1</shine></insideappearance><name>N</name></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
-|     NoseCone 'N' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false
-| selected=default
-| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-}};
+constexpr std::array<RocketCase, 0> kOwn{};
 // END GENERATED TABLES ComponentParameterHandler
 // BEGIN GENERATED TABLES ComponentParameterHandler.presets
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
@@ -448,21 +444,6 @@ TEST(ComponentParameterHandler, PassesTheFailureOfASetterOn)
     EXPECT_EQ(closed.error().code, ErrorCode::INVALID_ARGUMENT);
     EXPECT_EQ(closed.error().message, "Invalid UUID string: not-a-uuid");
     EXPECT_TRUE(warnings.empty());
-}
-
-// HOOK(R4): until the appearance handlers exist an appearance element is passed over with
-// everything in it. Part R4 replaces this test with the tests of its handlers.
-TEST(ComponentParameterHandler, PassesTheAppearanceElementsOverUntilTheirHandlersExist)
-{
-    RocketLoadFixture fixture;
-    const HandlerRun  run = fixture.load(
-        R"xml(<subcomponents><stage><subcomponents><nosecone a="1"><appearance x="1">text<bogus><deeper/></bogus><decal/></appearance><insideappearance><y/></insideappearance><inside-appearance>t</inside-appearance><name>N</name></nosecone></subcomponents></stage></subcomponents>)xml");
-    ASSERT_TRUE(run.result.has_value());
-    // Nothing of them is warned of, and nothing slips: the attribute of the nose cone's own
-    // element is the one its closing sees.
-    EXPECT_EQ(run.texts(), Texts{"Unknown attributes in element 'nosecone', ignoring."});
-    const Rocket& rocket = fixture.rocket();
-    EXPECT_EQ(rocket.getChild(0).getChild(0).getName(), "N");
 }
 
 }  // namespace

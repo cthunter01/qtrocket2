@@ -8,10 +8,12 @@
 #include <string_view>
 
 #include "QtRocket/file/DocumentLoadingContext.h"
+#include "QtRocket/file/openrocket/AppearanceHandler.h"
 #include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/DeploymentConfigurationHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/FinSetPointHandler.h"
+#include "QtRocket/file/openrocket/InsideAppearanceHandler.h"
 #include "QtRocket/file/openrocket/MotorConfigurationHandler.h"
 #include "QtRocket/file/openrocket/MotorMountHandler.h"
 #include "QtRocket/file/openrocket/Setter.h"
@@ -54,43 +56,6 @@ constexpr std::array<std::string_view, 9> kHandledElements{"subcomponents",
     return std::ranges::find(kHandledElements, element) != kHandledElements.end();
 }
 
-/// HOOK(R4): what stands in for AppearanceHandler and InsideAppearanceHandler until part R4 of
-/// run 9b adds them: it takes an appearance element with everything in it and does nothing.
-/// Delete it with the two lines of openElement() that return it.
-class PendingAppearanceHandler final : public ElementHandler
-{
-public:
-    [[nodiscard]] static PendingAppearanceHandler& instance() noexcept
-    {
-        static PendingAppearanceHandler s_instance;
-        return s_instance;
-    }
-
-    [[nodiscard]] Result<ElementHandler*> openElement(std::string_view /*element*/,
-                                                      const Attributes& /*attributes*/,
-                                                      WarningSet& /*warnings*/) override
-    {
-        return this;
-    }
-    [[nodiscard]] Result<void> closeElement(std::string_view /*element*/,
-                                            const Attributes& /*attributes*/,
-                                            std::string_view /*content*/,
-                                            WarningSet& /*warnings*/) override
-    {
-        return {};
-    }
-    [[nodiscard]] Result<void> endHandler(std::string_view /*element*/,
-                                          const Attributes& /*attributes*/,
-                                          std::string_view /*content*/,
-                                          WarningSet& /*warnings*/) override
-    {
-        return {};
-    }
-
-private:
-    PendingAppearanceHandler() = default;
-};
-
 }  // namespace
 
 ComponentParameterHandler::ComponentParameterHandler(RocketComponent&              component,
@@ -128,15 +93,15 @@ Result<ElementHandler*> ComponentParameterHandler::openElement(std::string_view 
     }
     if (element == "appearance")
     {
-        // HOOK(R4): an AppearanceHandler for the component and the context.
-        return &PendingAppearanceHandler::instance();
+        m_childHandler = std::make_unique<AppearanceHandler>(*m_component, *m_context);
+        return m_childHandler.get();
     }
     // TODO: delete 'inside-appearance' when backward compatibility with
     // 22.02.beta.01-22.02.beta.05 is not needed anymore
     if (element == "insideappearance" || element == "inside-appearance")
     {
-        // HOOK(R4): an InsideAppearanceHandler for the component and the context.
-        return &PendingAppearanceHandler::instance();
+        m_childHandler = std::make_unique<InsideAppearanceHandler>(*m_component, *m_context);
+        return m_childHandler.get();
     }
     if (element == "motormount")
     {
