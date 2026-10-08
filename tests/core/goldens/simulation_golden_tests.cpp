@@ -104,7 +104,10 @@
 // - What is neither is counted as sensitive, what the rule of the out-of-plane noise columns
 //   leaves out as excluded, and the sums are checked: compared plus sensitive plus excluded is
 //   what the files hold (in the test of each rocket; SimulationGoldenCoverage pins what the
-//   files of the thirteen rockets hold in all, and what the rule excludes of it). On Linux 20
+//   files of the thirteen rockets hold in all, and what the rule excludes of it). A value of
+//   the time series is counted as compared where it is compared, one by one, and the two other
+//   counts follow from the rows and the columns: the sum holds only when the loop over the rows
+//   compared every value it had to. On Linux 20
 //   simulations are whole (the 19 that never leave the launch rod and the Falcon 9 Heavy, a
 //   flight of 148 records that ends in a tumble under thrust, which the perturbed run
 //   reproduces to 6.4e-13 of a column's scale throughout); of the 30 others the first 19 to 51
@@ -145,7 +148,9 @@
 // columns hold a signal (0.2 to 2 times their counterparts) and are compared like every other.
 // A minimum or maximum of a noise column is compared in a branch that is reproducible as a
 // whole, unless the golden column or the run's attains it only after the rod: then it is one of
-// the excluded values. The strict comparison knows no rule.
+// the excluded values (extremeTreatment() of GoldenSimulations.h decides it; the test of each
+// rocket holds the number of them between what the golden columns alone exclude and two per
+// noise column of a whole branch). The strict comparison knows no rule.
 //
 // One more difference is not a matter of rounding: an event that ignites the motors of several
 // mounts queues their IGNITION events in the order of a hash map in OpenRocket (it changes from
@@ -168,7 +173,12 @@
 // motors set can differ by, which is the rounding of the simulation time it is counted from
 // (6e-11 s between OpenRocket and QtRocket in a run of the three-stage rocket with a time step
 // of 0.01 s).
-// The factor of 199 is what kFlightSensitivityMargin is for. With the margin of the launch rod
+// The factor of 199 is what kFlightSensitivityMargin is for. That margin is not part of the
+// user's decision on the noise columns, which is the rule above and no more: it was added with
+// the rule, by the work that took the rule over, because the rule alone does not leave the
+// tolerance a hundred times the largest measurement, and whether it stays is the user's to
+// decide (the alternatives: the margin of the launch rod in every row, with a factor of 8; or a
+// wider tolerance after the rod). With the margin of the launch rod
 // in every row (the comparison had no other one before) the largest difference in the same 47
 // runs is 1.2e-10 of the scale, an eighth of the tolerance, and more than a hundredth of it in
 // 10 runs, for two reasons:
@@ -208,6 +218,12 @@
 // not noticed: a value beyond the horizon, and, by the rule above, a value of a noise-dominated
 // out-of-plane column in a row after the launch rod (each has a test in
 // SimulationGoldenMutations that changes such values and expects the same counts and no line).
+// A column in the plane is compared after the rod as far as the flight is reproducible, and
+// that has a test of its own, since the changes above are all in rows on the rod: a value of
+// the altitude in the first row after it is reported. How far the perturbed run of a platform
+// takes a flight as reproducible beyond the rod is not something a test can rely on (the floor
+// covers the rows on the rod), so the two tests that look at the first row after it compare
+// with a reproducible part that is fixed by hand to end with that row.
 //
 // The tests are cut by what a process has to simulate, since ctest starts one process per test
 // and the runs are kept per process (goldenRun()): one test per rocket, one per simulation that
@@ -274,6 +290,7 @@ using QtRocket::Test::Comparison;
 using QtRocket::Test::comparisonOrder;
 using QtRocket::Test::csvTypes;
 using QtRocket::Test::EventKey;
+using QtRocket::Test::extremeTreatment;
 using QtRocket::Test::floorRows;
 using QtRocket::Test::goldenCounts;
 using QtRocket::Test::GoldenFiles;
@@ -318,6 +335,8 @@ using QtRocket::Test::SubjectCase;
 using QtRocket::Test::subjectTestName;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
+using QtRocket::Test::Treatment;
+using QtRocket::Test::treatmentName;
 
 /// The comparison collector of the golden tests.
 using Mismatches = QtRocket::Test::GoldenMismatches;
@@ -461,6 +480,82 @@ std::ostream& operator<<(std::ostream& out, const NoiseCounts& counts)
     return counts;
 }
 
+/// The golden minima and maxima of column @p column of branch @p branch of @p files that the
+/// golden column attains only off the launch rod (0, 1 or 2): what the rule @p rule of the
+/// branch excludes of them whatever the run has.
+[[nodiscard]] std::int64_t goldenExtremesOffTheRod(const GoldenFiles& files, std::size_t branch,
+                                                   const RodOnlyRule& rule, std::size_t column)
+{
+    const GoldenTable&        table  = files.tables.at(branch);
+    const json&               golden = files.document.at("branches").at(branch).at("columns");
+    const std::vector<double> values =
+        table.column(table.columns.at(column)).value_or(std::vector<double>{});
+    std::int64_t excluded = 0;
+    for (const char* extreme : {"min", "max"})
+    {
+        excluded +=
+            column < golden.size() &&
+                    rule.excludesExtreme(column, values, goldenValue(golden.at(column).at(extreme)))
+                ? 1
+                : 0;
+    }
+    return excluded;
+}
+
+/// How many minima and maxima the rule of the out-of-plane noise columns can exclude from the
+/// comparison of a run: in a branch that is reproducible as a whole at least those that the
+/// golden column attains only off the launch rod (the files alone say so) and at most two per
+/// noise column (the run's column can attain its own only there as well); in any other branch
+/// none, since its minima and maxima are sensitive.
+struct ExtremeBounds
+{
+    std::int64_t atLeast{0};
+    std::int64_t atMost{0};
+};
+[[nodiscard]] ExtremeBounds extremeBounds(const GoldenRun& run)
+{
+    ExtremeBounds               bounds;
+    const std::optional<double> cleared = goldenRodClearance(run.files.document);
+    for (std::size_t i = 0; i < run.sensitivity.horizons.size() && i < run.files.tables.size(); i++)
+    {
+        if (!run.sensitivity.horizons[i].whole)
+        {
+            continue;
+        }
+        const RodOnlyRule rule = rodOnlyRule(run.files.tables[i], cleared);
+        bounds.atMost += 2 * rule.noiseColumnCount();
+        for (std::size_t column = 0; column < rule.noise.size(); column++)
+        {
+            bounds.atLeast += goldenExtremesOffTheRod(run.files, i, rule, column);
+        }
+    }
+    return bounds;
+}
+
+/// What is wrong with what the rule of the out-of-plane noise columns excluded from the
+/// comparison of @p run, "" when nothing is: nothing at all in a simulation that never clears
+/// the launch rod (it has no row off the rod), and of the minima and maxima no more and no fewer
+/// than extremeBounds() allows (a comparison that excluded none of them, or every one of every
+/// column, would add up to what the files hold all the same).
+[[nodiscard]] std::string exclusionProblem(const GoldenRun& run)
+{
+    const SimulationCounts& excluded = run.comparison.excluded;
+    if (!goldenRodClearance(run.files.document).has_value() && excluded != SimulationCounts{})
+    {
+        return std::format("{}: never clears the launch rod, but the rule excluded {}\n",
+                           run.context, toText(excluded));
+    }
+    const ExtremeBounds bounds = extremeBounds(run);
+    if (excluded.numbers < bounds.atLeast || excluded.numbers > bounds.atMost)
+    {
+        return std::format(
+            "{}: {} minima and maxima excluded, the rule allows {} to {} in the branches that "
+            "are reproducible as a whole\n",
+            run.context, excluded.numbers, bounds.atLeast, bounds.atMost);
+    }
+    return {};
+}
+
 /// What the simulations of one golden input hold, and what their comparison compared and found.
 struct InputResult
 {
@@ -513,6 +608,7 @@ struct InputResult
         result.floorRows += floorRows(run.files);
         result.noise += noiseCounts(run.files);
         result.problems += floorProblem(run);
+        result.problems += exclusionProblem(run);
     }
     return result;
 }
@@ -529,7 +625,9 @@ class SimulationGolden : public ::testing::TestWithParam<TestRocketMaker>
 // that a calculation that became sensitive throughout cannot pass by comparing nothing: a
 // simulation that never clears the launch rod is reproducible as a whole, and a flight in every
 // branch at least until it has cleared the rod. What the rule excludes of the time series is
-// what the files alone say it does (noiseCounts()): nothing of it depends on the run.
+// what the files alone say it does (noiseCounts()): nothing of it depends on the run. Of the
+// minima and maxima it excludes at most two per noise column, and per simulation what
+// exclusionProblem() allows (among the problems as well).
 TEST_P(SimulationGolden, EverySimulationOfTheRocket)
 {
     const InputResult result = compareInput(GetParam());
@@ -549,6 +647,7 @@ TEST_P(SimulationGolden, EverySimulationOfTheRocket)
                   result.excluded.columns + result.excluded.warnings + result.excluded.rows,
               0);
     EXPECT_EQ(result.excluded.values, result.noise.values) << result.noise;
+    EXPECT_LE(result.excluded.numbers, 2 * result.noise.columns) << result.noise;
     // The floor, in sums: the simulations that never clear the rod are whole, and at least the
     // rows up to the clearing of the rod were compared.
     EXPECT_GE(result.whole, result.golden.simulations - result.flights);
@@ -965,6 +1064,10 @@ TEST(SimulationGoldenMeasurement, DISABLED_PrintsTheSensitivityRowByRow)
 // value of a noise-dominated out-of-plane column in a row after the launch rod, within the
 // horizon or not (AValueOfANoiseColumnOffTheRodIsCountedAsExcludedNotCompared). The same column
 // is compared on the rod: the mutation ValueOfANoiseColumnOnTheRod changes its last row there.
+// And a column in the plane is compared after the rod as far as the flight is reproducible:
+// AValueOfAColumnInThePlaneIsComparedInTheFirstRowOffTheRod (the mutations of the list below
+// are all in rows on the rod, so without it nothing would notice a comparison that stopped at
+// the rod for every column).
 
 /// Four times the tolerance of a value.
 constexpr double kBeyondTolerance = 4 * kValueRelative;
@@ -1278,6 +1381,58 @@ constexpr std::size_t kFirstRowOffTheRod = 20;
                              {.randomConfigurationId = run->randomConfigurationId});
 }
 
+/// A sensitivity made by hand for the [C6-5] flight @p run: the rows up to and including the
+/// first one after the launch rod are the reproducible part, whatever the perturbed run of the
+/// platform says of that row. The floor under the reproducible part (floorProblem()) covers the
+/// rows on the rod and not this one: the perturbed run moves a value of it by 2.1e-14 to
+/// 4.8e-14 of the scale of its column under 122 patterns of the libm shim, against the limit of
+/// 1e-13 after the rod, and by more than the limit in the same row of four other flights. The
+/// run itself differs from the golden file in that row by 6.8e-15 of a scale at most, a hundred
+/// thousand times less than the tolerance of the comparison, so the comparison of the row is
+/// safe where its place within the horizon is not.
+[[nodiscard]] Sensitivity sensitivityUpToTheFirstRowOffTheRod(const GoldenRun& run)
+{
+    Horizon horizon;
+    horizon.rows  = kFirstRowOffTheRod + 1;
+    horizon.whole = false;
+    // The time of the last reproducible row, as horizonOf() takes it: the run's own.
+    const std::vector<double>* times =
+        run.run.data == nullptr || run.run.data->getBranchCount() == 0
+            ? nullptr
+            : run.run.data->getBranch(0).getView(
+                  FlightDataType::builtin(FlightDataTypeId::TYPE_TIME));
+    if (times != nullptr && times->size() > kFirstRowOffTheRod)
+    {
+        horizon.time = (*times)[kFirstRowOffTheRod];
+    }
+    Sensitivity sensitivity;
+    sensitivity.whole    = false;
+    sensitivity.horizons = {horizon};
+    return sensitivity;
+}
+
+/// comparisonAfter() of the [C6-5] flight with sensitivityUpToTheFirstRowOffTheRod() in the
+/// place of the sensitivity that the two runs of the platform gave: what the comparison does in
+/// the first row after the launch rod then depends on no platform.
+[[nodiscard]] SimulationComparison comparisonUpToTheFirstRowOffTheRodAfter(
+    void (*change)(GoldenFiles& files))
+{
+    const GoldenRun* run = subjectRun(kFlight);
+    if (run == nullptr)
+    {
+        SimulationComparison none;
+        none.report = "no run";
+        return none;
+    }
+    GoldenFiles files = run->files;
+    if (change != nullptr)
+    {
+        change(files);
+    }
+    return compareSimulation(files, run->run, sensitivityUpToTheFirstRowOffTheRod(*run),
+                             run->context, {.randomConfigurationId = run->randomConfigurationId});
+}
+
 /// Changes within the tolerances to the [C6-5] flight: a value and a time of the time series,
 /// a value of a noise-dominated out-of-plane column on the launch rod, the times of two events,
 /// a summary value.
@@ -1434,10 +1589,86 @@ constexpr std::array<std::string_view, 6> kNoiseColumnsOfTheFlight{
     "yaw_rate",   "roll_rate",          "acceleration_y",
     "position_y", "position_direction", "acceleration_bodyy"};
 
+/// Changes to the altitude of the [C6-5] flight in the first row after the launch rod: beyond
+/// its tolerance and within it; and beyond it one row later.
+void changeTheAltitudeOffTheRodBeyondItsTolerance(GoldenFiles& files)
+{
+    shiftSeries(files, "altitude", kFirstRowOffTheRod, kBeyondTolerance);
+}
+void changeTheAltitudeOffTheRodWithinItsTolerance(GoldenFiles& files)
+{
+    shiftSeries(files, "altitude", kFirstRowOffTheRod, kWithinTolerance);
+}
+void changeTheAltitudeOneRowLater(GoldenFiles& files)
+{
+    shiftSeries(files, "altitude", kFirstRowOffTheRod + 1, kBeyondTolerance);
+}
+
+/// What is wrong with the report @p report of a comparison of the [C6-5] flight in which the
+/// altitude of the first row after the launch rod was changed beyond its tolerance: "" when it
+/// is the heading of the branch and the one line that names the row, of the 21 rows compared.
+[[nodiscard]] std::string altitudeOffTheRodProblem(const std::string& report)
+{
+    const GoldenRun* run = subjectRun(kFlight);
+    if (run == nullptr)
+    {
+        return "no run";
+    }
+    const std::string start =
+        std::format("{} branch 0:\n  column altitude: 1 of 21 rows differ, the first at row 20: ",
+                    run->context);
+    if (!report.starts_with(start) || std::ranges::count(report, '\n') != 2)
+    {
+        return std::format("the report\n{}\nis not the one line\n{}...\n", report, start);
+    }
+    return {};
+}
+
+// A column in the plane is compared after the launch rod as well, as far as the flight is
+// reproducible: a value of the altitude in the first row after the rod, changed beyond its
+// tolerance, is reported. (Every mutation of SimulationGoldenMutation changes a row on the rod.
+// Without this test a comparison that compared no column after the rod would pass every test:
+// the rule makes the number of compared rows depend on the column, RodOnlyRule::comparedRows().)
+// The reproducible part is fixed by hand, see sensitivityUpToTheFirstRowOffTheRod(). The values
+// are counted where they are compared, so the count says what the loop over the rows did: every
+// column in the 20 rows on the rod, and every column but the six noise columns in the row after.
+TEST(SimulationGoldenMutations, AValueOfAColumnInThePlaneIsComparedInTheFirstRowOffTheRod)
+{
+    const GoldenRun* run = subjectRun(kFlight);
+    ASSERT_NE(run, nullptr);
+    const auto         columns = static_cast<std::int64_t>(run->files.tables.at(0).columns.size());
+    const auto         rows    = static_cast<std::int64_t>(run->files.tables.at(0).rows.size());
+    const std::int64_t rodRows = kFirstRowOffTheRod;
+    ASSERT_GT(columns, 6);
+    ASSERT_GT(rows, rodRows + 1);
+
+    const SimulationComparison unchanged = comparisonUpToTheFirstRowOffTheRodAfter(nullptr);
+    EXPECT_EQ(unchanged.report, "");
+    EXPECT_EQ(unchanged.compared.rows, rodRows + 1);
+    EXPECT_EQ(unchanged.compared.values, (rodRows * columns) + (columns - 6));
+    EXPECT_EQ(unchanged.sensitive.rows, rows - (rodRows + 1));
+    EXPECT_EQ(unchanged.sensitive.values, (rows - (rodRows + 1)) * (columns - 6));
+    EXPECT_EQ(unchanged.excluded.values, 6 * (rows - rodRows));
+    EXPECT_EQ(unchanged.compared + unchanged.sensitive + unchanged.excluded, run->golden);
+
+    // Beyond the tolerance: the one line. Within it: nothing.
+    const SimulationComparison changed =
+        comparisonUpToTheFirstRowOffTheRodAfter(changeTheAltitudeOffTheRodBeyondItsTolerance);
+    EXPECT_EQ(altitudeOffTheRodProblem(changed.report), "");
+    EXPECT_EQ(changed.compared, unchanged.compared);
+    EXPECT_EQ(comparisonUpToTheFirstRowOffTheRodAfter(changeTheAltitudeOffTheRodWithinItsTolerance)
+                  .report,
+              "");
+    // One row later the same change is beyond this reproducible part: sensitive, not compared.
+    EXPECT_EQ(comparisonUpToTheFirstRowOffTheRodAfter(changeTheAltitudeOneRowLater).report, "");
+}
+
 /// Changes to what the rule of the out-of-plane noise columns excludes in the [C6-5] flight:
-/// the value of each of its six noise columns in the first row after the launch rod (which is
-/// within the horizon of the flight on every platform, by the floor), the lateral acceleration
-/// across the wind in every later row, and the last value of the lateral position across it.
+/// the value of each of its six noise columns in the first row after the launch rod (the test
+/// compares with a reproducible part that holds that row: the floor covers the rows on the rod
+/// only, and how much further the perturbed run of a platform goes is not to be relied on), the
+/// lateral acceleration across the wind in every later row, and the last value of the lateral
+/// position across it.
 void changeTheNoiseColumnsOffTheRod(GoldenFiles& files)
 {
     for (const std::string_view key : kNoiseColumnsOfTheFlight)
@@ -1478,8 +1709,15 @@ void changeTheNoiseColumnsOffTheRod(GoldenFiles& files)
 // reported: the mutation ValueOfANoiseColumnOnTheRod.)
 TEST(SimulationGoldenMutations, AValueOfANoiseColumnOffTheRodIsCountedAsExcludedNotCompared)
 {
-    const SimulationComparison unchanged = comparisonAfter(kFlight, nullptr);
-    const SimulationComparison changed   = comparisonAfter(kFlight, changeTheNoiseColumnsOffTheRod);
+    // The rows after the rod that the comparison takes as reproducible hold these columns too:
+    // what is not compared there is excluded by the rule, not by the horizon. That the first
+    // row after the rod is such a row is given here by hand
+    // (sensitivityUpToTheFirstRowOffTheRod()), not taken from the perturbed run of the platform.
+    const SimulationComparison unchanged = comparisonUpToTheFirstRowOffTheRodAfter(nullptr);
+    const SimulationComparison changed =
+        comparisonUpToTheFirstRowOffTheRodAfter(changeTheNoiseColumnsOffTheRod);
+    EXPECT_EQ(unchanged.report, "");
+    EXPECT_EQ(unchanged.compared.rows, static_cast<std::int64_t>(kFirstRowOffTheRod) + 1);
     EXPECT_EQ(changed.report, "");
     EXPECT_EQ(changed.compared, unchanged.compared);
     EXPECT_EQ(changed.sensitive, unchanged.sensitive);
@@ -1503,10 +1741,9 @@ TEST(SimulationGoldenMutations, AValueOfANoiseColumnOffTheRodIsCountedAsExcluded
     GoldenFiles files = run->files;
     changeTheNoiseColumnsOffTheRod(files);
     EXPECT_EQ(firstRule(files).noise, rule.noise);
-    // The rows after the rod that the comparison takes as reproducible hold these columns too:
-    // what is not compared there is excluded by the rule, not by the horizon.
-    ASSERT_FALSE(run->sensitivity.horizons.empty());
-    EXPECT_GT(run->sensitivity.horizons.front().rows, kFirstRowOffTheRod);
+    // With the sensitivity of the platform's own two runs the changes are not noticed either,
+    // wherever its horizon is: beyond it they are sensitive or excluded, within it excluded.
+    EXPECT_EQ(comparisonAfter(kFlight, changeTheNoiseColumnsOffTheRod).report, "");
 }
 
 // ============================================================================ the comparison
@@ -1699,6 +1936,102 @@ TEST(SimulationGoldenNoiseColumns, AnExtremeAttainedOnlyOffTheRodIsExcludedWithI
     EXPECT_FALSE(rule.excludesExtreme(3, yaw, 1e-4));
     // A run that never clears the rod: nothing is off it.
     EXPECT_FALSE(rodOnlyRule(table, std::nullopt).excludesExtreme(2, yaw, 1e-4));
+}
+
+/// What extremeTreatment() does with the extreme @p expected of column @p column of @p table
+/// (the golden one) against the extreme @p actual of the run's column @p values, in a branch
+/// that is reproducible as a whole (@p whole) or not.
+struct ExtremeCase
+{
+    std::size_t         column{0};
+    double              expected{0};
+    double              actual{0};
+    std::vector<double> values;
+};
+[[nodiscard]] Treatment treatmentOf(const GoldenTable& table, const RodOnlyRule& rule,
+                                    const ExtremeCase& extreme, bool whole)
+{
+    return extremeTreatment(table, rule,
+                            {.column   = extreme.column,
+                             .expected = extreme.expected,
+                             .actual   = extreme.actual,
+                             .values   = extreme.values},
+                            whole);
+}
+
+/// The names of the treatments of @p extremes (treatmentOf()), one after the other.
+[[nodiscard]] std::string treatmentsOf(const GoldenTable& table, const RodOnlyRule& rule,
+                                       std::span<const ExtremeCase> extremes, bool whole)
+{
+    std::string names;
+    for (const ExtremeCase& extreme : extremes)
+    {
+        names += names.empty() ? "" : " ";
+        names += treatmentName(treatmentOf(table, rule, extreme, whole));
+    }
+    return names;
+}
+
+// The decision of the comparison for the minimum or maximum of a column: compared, sensitive or
+// excluded. (compareSimulation() asks extremeTreatment() for every minimum and maximum; the
+// test of each rocket holds the number it excluded between what the golden files alone exclude
+// and two per noise column of a whole branch, exclusionProblem().)
+TEST(SimulationGoldenNoiseColumns, AnExtremeIsComparedSensitiveOrExcluded)
+{
+    // A planar flight that clears the launch rod at 0.1 s (two rows on the rod). The yaw rate
+    // is noise (1e-4 of the pitch rate): the golden column attains its minimum on the rod, in
+    // row 1, and its maximum off the rod only, in row 2.
+    const GoldenTable         table{.columns = {"time", "pitch_rate", "yaw_rate"},
+                                    .rows    = {{0.0, 0.0, 0.0},
+                                                {0.1, 0.5, -6e-5},
+                                                {0.2, 1.0, 1e-4},
+                                                {0.3, -2.0, -5e-5},
+                                                {0.4, 1.5, 1e-5}}};
+    const RodOnlyRule         rule  = rodOnlyRule(table, 0.1);
+    const std::vector<double> pitch = table.column("pitch_rate").value_or(std::vector<double>{});
+    const std::vector<double> yaw   = table.column("yaw_rate").value_or(std::vector<double>{});
+    ASSERT_EQ(rule.rodRows, 2U);
+    ASSERT_EQ(rule.noise, (std::vector<bool>{false, false, true}));
+
+    // A column in the plane: compared, wherever it attains its extreme (here off the rod).
+    const ExtremeCase inThePlane{.column = 1, .expected = -2.0, .actual = -2.0, .values = pitch};
+    EXPECT_EQ(treatmentOf(table, rule, inThePlane, true), Treatment::COMPARED);
+    // A noise column whose extreme is a value of a row on the rod, in both columns: compared.
+    const ExtremeCase onTheRod{.column = 2, .expected = -6e-5, .actual = -6e-5, .values = yaw};
+    EXPECT_EQ(treatmentOf(table, rule, onTheRod, true), Treatment::COMPARED);
+    // One that both columns attain off the rod only: excluded.
+    const ExtremeCase offTheRod{.column = 2, .expected = 1e-4, .actual = 1e-4, .values = yaw};
+    EXPECT_EQ(treatmentOf(table, rule, offTheRod, true), Treatment::EXCLUDED);
+    // One that the golden column attains on the rod and the run's off it only: excluded.
+    const ExtremeCase runOffTheRod{
+        .column = 2, .expected = -6e-5, .actual = -7e-5, .values = {0.0, -6e-5, 1e-4, -7e-5, 1e-5}};
+    EXPECT_EQ(treatmentOf(table, rule, runOffTheRod, true), Treatment::EXCLUDED);
+    // One that the golden column attains off the rod only and the run's on it: excluded.
+    const ExtremeCase goldenOffTheRod{
+        .column = 2, .expected = 1e-4, .actual = 2e-4, .values = {0.0, 2e-4, 1e-4, -5e-5, 1e-5}};
+    EXPECT_EQ(treatmentOf(table, rule, goldenOffTheRod, true), Treatment::EXCLUDED);
+    // A golden extreme that is no value of the golden column (a file that contradicts itself)
+    // is compared when the run attains its own on the rod, so that it is reported.
+    const ExtremeCase noValue{.column = 2, .expected = -9e-5, .actual = -6e-5, .values = yaw};
+    EXPECT_EQ(treatmentOf(table, rule, noValue, true), Treatment::COMPARED);
+
+    // In a branch that is not reproducible as a whole every extreme is sensitive: none is
+    // compared, and none is excluded.
+    const std::array<ExtremeCase, 6> cases{inThePlane,   onTheRod,        offTheRod,
+                                           runOffTheRod, goldenOffTheRod, noValue};
+    EXPECT_EQ(treatmentsOf(table, rule, cases, true),
+              "compared compared excluded excluded excluded compared");
+    EXPECT_EQ(treatmentsOf(table, rule, cases, false),
+              "sensitive sensitive sensitive sensitive sensitive sensitive");
+
+    // A simulation that never clears the rod has no row off it, and the strict comparison a
+    // rule without a noise column: nothing is excluded. Nor of a column the time series lacks.
+    EXPECT_EQ(treatmentOf(table, rodOnlyRule(table, std::nullopt), offTheRod, true),
+              Treatment::COMPARED);
+    const RodOnlyRule noRule{.rows = 5, .rodRows = 5, .noise = std::vector<bool>(3, false)};
+    EXPECT_EQ(treatmentOf(table, noRule, offTheRod, true), Treatment::COMPARED);
+    const ExtremeCase noColumn{.column = 7, .expected = 1e-4, .actual = 1e-4, .values = yaw};
+    EXPECT_EQ(treatmentOf(table, rule, noColumn, true), Treatment::COMPARED);
 }
 
 /// A row of the synthetic flights: the time, the pitch rate and the yaw rate.

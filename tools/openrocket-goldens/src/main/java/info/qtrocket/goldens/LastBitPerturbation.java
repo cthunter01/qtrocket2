@@ -8,6 +8,7 @@ import info.openrocket.core.simulation.SimulationStatus;
 import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.CoordinateIF;
+import info.openrocket.core.util.Quaternion;
 
 /**
  * A perturbation of a simulation run in the last bit, to measure how reproducible OpenRocket's own
@@ -24,8 +25,11 @@ import info.openrocket.core.util.CoordinateIF;
  * A pattern is {@code <quantity>-<direction>} or {@code <quantity>-random-<seed>}:
  * <ul>
  * <li>quantity: {@code velocity} (the rocket's velocity), {@code rotation} (its rotation velocity),
- * {@code position} (its position), {@code both} (velocity and rotation velocity: what
- * {@code LastBitListener} of QtRocket's golden tests moves) or {@code all} (the three);</li>
+ * {@code position} (its position), {@code orientation} (the four components of its orientation
+ * quaternion), {@code both} (velocity and rotation velocity: what {@code LastBitListener} of
+ * QtRocket's golden tests moves) or {@code all} (the three vectors: velocity, rotation velocity and
+ * position; the orientation is not among them, so that a pattern keeps the meaning it had in the
+ * measurements made before the orientation could be moved);</li>
  * <li>direction: {@code away} (every component to the next number away from zero), {@code toward}
  * (to the next number toward zero) or {@code random} (every component, after every step, one number
  * up, one down or not at all, drawn from a {@code java.util.Random} seeded from the pattern's text;
@@ -42,17 +46,20 @@ final class LastBitPerturbation {
 
 	/** What of the rocket's state is moved. */
 	private enum Quantity {
-		VELOCITY(true, false, false), ROTATION(false, true, false), POSITION(false, false, true),
-		BOTH(true, true, false), ALL(true, true, true);
+		VELOCITY(true, false, false, false), ROTATION(false, true, false, false),
+		POSITION(false, false, true, false), ORIENTATION(false, false, false, true),
+		BOTH(true, true, false, false), ALL(true, true, true, false);
 
 		private final boolean velocity;
 		private final boolean rotation;
 		private final boolean position;
+		private final boolean orientation;
 
-		Quantity(boolean velocity, boolean rotation, boolean position) {
+		Quantity(boolean velocity, boolean rotation, boolean position, boolean orientation) {
 			this.velocity = velocity;
 			this.rotation = rotation;
 			this.position = position;
+			this.orientation = orientation;
 		}
 	}
 
@@ -62,8 +69,8 @@ final class LastBitPerturbation {
 	}
 
 	/** The grammar, for error messages. */
-	static final String GRAMMAR = "<velocity|rotation|position|both|all>-<away|toward> or "
-			+ "<velocity|rotation|position|both|all>-random-<seed text>";
+	static final String GRAMMAR = "<velocity|rotation|position|orientation|both|all>-<away|toward> or "
+			+ "<velocity|rotation|position|orientation|both|all>-random-<seed text>";
 
 	private final String pattern;
 	private final Quantity quantity;
@@ -177,6 +184,9 @@ final class LastBitPerturbation {
 			if (quantity.position) {
 				status.setRocketPosition(moved(status.getRocketPosition()));
 			}
+			if (quantity.orientation) {
+				status.setRocketOrientationQuaternion(moved(status.getRocketOrientationQuaternion()));
+			}
 		}
 
 		private CoordinateIF moved(CoordinateIF c) {
@@ -184,6 +194,15 @@ final class LastBitPerturbation {
 			double y = LastBitPerturbation.moved(c.getY(), direction, random);
 			double z = LastBitPerturbation.moved(c.getZ(), direction, random);
 			return new Coordinate(x, y, z, c.getWeight());
+		}
+
+		/** The quaternion with each of its components moved, in the order w, x, y, z. */
+		private Quaternion moved(Quaternion q) {
+			double w = LastBitPerturbation.moved(q.getW(), direction, random);
+			double x = LastBitPerturbation.moved(q.getX(), direction, random);
+			double y = LastBitPerturbation.moved(q.getY(), direction, random);
+			double z = LastBitPerturbation.moved(q.getZ(), direction, random);
+			return new Quaternion(w, x, y, z);
 		}
 	}
 }

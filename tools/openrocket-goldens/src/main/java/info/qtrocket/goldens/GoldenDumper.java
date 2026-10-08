@@ -230,8 +230,7 @@ public final class GoldenDumper {
 		}
 		checkOnlyNames(a.only, examplesByName.keySet());
 
-		useSqliteExtractionDirectory(a.work);
-		Map<String, Object> databases = bootstrap(core, a.work);
+		Map<String, Object> databases = bootstrap(core, useProcessDirectory(a.work));
 
 		List<Map<String, Object>> inputs = new ArrayList<>();
 		cleanOutput(a.out, a.only);
@@ -316,17 +315,20 @@ public final class GoldenDumper {
 	}
 
 	/**
-	 * Gives sqlite-jdbc a per-process directory for its native library. It extracts the library into
-	 * java.io.tmpdir under a name built from UUID.randomUUID(), which DeterministicUuids makes the same
-	 * in every process, so concurrent dumpers would otherwise share (and delete) one file. The
-	 * directory is deleted when the JVM exits (after the extracted files, which sqlite-jdbc registers
-	 * for deletion later).
+	 * Makes the directory of this process under the work directory, for the files that concurrent
+	 * dumpers must not share, and returns it. sqlite-jdbc gets it for its native library: it extracts
+	 * the library into java.io.tmpdir under a name built from UUID.randomUUID(), which
+	 * DeterministicUuids makes the same in every process, so concurrent dumpers would otherwise share
+	 * (and delete) one file. The private copy of the motor database goes there as well
+	 * ({@link #bootstrap}). The directory is deleted when the JVM exits (after the files in it, which
+	 * are registered for deletion later).
 	 */
-	private static void useSqliteExtractionDirectory(Path work) throws IOException {
-		Path dir = work.resolve("sqlite-native-" + ProcessHandle.current().pid());
+	private static Path useProcessDirectory(Path work) throws IOException {
+		Path dir = work.resolve("process-" + ProcessHandle.current().pid());
 		Files.createDirectories(dir);
 		dir.toFile().deleteOnExit();
 		System.setProperty("org.sqlite.tmpdir", dir.toString());
+		return dir;
 	}
 
 	static void log(String message) {
@@ -362,9 +364,11 @@ public final class GoldenDumper {
 	 * ServicesForTesting overridden by PluginModule), then, as ExampleFilesTest.setUp() does for the
 	 * example files, a second injector that also binds the component preset database (the .orc files
 	 * of {@link #presetFiles}, sorted) and the bundled thrust curve database (initial_motors.db, read
-	 * with ThrustCurveMotorSQLiteDatabase from a private copy).
+	 * with ThrustCurveMotorSQLiteDatabase from a private copy in {@code processDirectory}, the
+	 * directory of this process: a copy at a path that every dumper shares could be replaced by a
+	 * concurrent one while this one reads it).
 	 */
-	private static Map<String, Object> bootstrap(Path core, Path work) throws Exception {
+	private static Map<String, Object> bootstrap(Path core, Path processDirectory) throws Exception {
 		// BaseTestCase.setUp()
 		Module testModule = new ServicesForTesting();
 		Application.setInjector(Guice.createInjector(Modules.override(testModule).with(new PluginModule())));
@@ -381,9 +385,9 @@ public final class GoldenDumper {
 		}
 
 		Path bundledDb = core.resolve("src/main/resources/datafiles/thrustcurves/initial_motors.db");
-		Files.createDirectories(work);
-		Path dbCopy = work.resolve("initial_motors.db");
+		Path dbCopy = processDirectory.resolve("initial_motors.db");
 		Files.copy(bundledDb, dbCopy, StandardCopyOption.REPLACE_EXISTING);
+		dbCopy.toFile().deleteOnExit();
 		List<ThrustCurveMotor> motorList = ThrustCurveMotorSQLiteDatabase.readDatabase(dbCopy.toFile());
 		ThrustCurveMotorSetDatabase motors = new ThrustCurveMotorSetDatabase();
 		for (ThrustCurveMotor motor : motorList) {

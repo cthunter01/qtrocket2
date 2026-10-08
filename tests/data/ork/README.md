@@ -49,13 +49,14 @@ are those of `data/examples/`.
 
 ## Where they come from
 
-The tag is the first release tag of OpenRocket's repository that holds the blob, the path is the
-one in that tag's tree, and the creator is the `creator` attribute of the root element.
+The tag is the first release tag of OpenRocket's repository that holds the blob (the earliest by
+the date of the tag, of all its 46 tags), the path is the one in that tag's tree, and the creator
+is the `creator` attribute of the root element.
 
 | File | Tag | Path in the tag | Blob id | Creator |
 |---|---|---|---|---|
-| `simplerocket.ork` | `release-1.1.4` | `test/net/sf/openrocket/simplerocket.ork` | `453cdec9a03e132a5609755c1a233304bfb853f2` | OpenRocket 1.1.3pre |
-| `v1.0-roll-stabilized.ork` | `release-0.9.4` | `datafiles/examples/Roll-stabilized rocket.ork` | `6661d0a3335868629c80b35895c1c4cce3edf17c` | OpenRocket 0.9.3 |
+| `simplerocket.ork` | `release-1.1.3` | `test/net/sf/openrocket/simplerocket.ork` | `453cdec9a03e132a5609755c1a233304bfb853f2` | OpenRocket 1.1.3pre |
+| `v1.0-roll-stabilized.ork` | `release-0.9.3` | `datafiles/examples/Roll-stabilized rocket.ork` | `6661d0a3335868629c80b35895c1c4cce3edf17c` | OpenRocket 0.9.3 |
 | `v1.4-roll-stabilized.ork` | `release-12.03` | `core/resources/datafiles/examples/Roll-stabilized rocket.ork` | `fe1799721b4d8c591efdc881f0cc163529281968` | OpenRocket 12.03 |
 | `v1.5-preset-usage.ork` | `release-12.09` | `core/resources/datafiles/examples/Preset Usage.ork` | `9e78075fc3f0be5ff4ccd4a0bf679790918b6dd3` | OpenRocket 12.03dev |
 | `v1.6-a-simple-model-rocket.ork` | `release-13.05` | `core/resources/datafiles/examples/A simple model rocket.ork` | `febaadaeb62cbb70c86e35d634a1faafb38ba40a` | OpenRocket 13.04beta1 |

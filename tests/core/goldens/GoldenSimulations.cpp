@@ -1032,9 +1032,10 @@ void measureColumn(const Comparison& c, const ColumnOf& column, std::size_t rows
 /// Compares the values of the column @p column in the first @p rows rows with the golden ones,
 /// row by row: each within kValueRelative of the scale of the column. A noise-dominated
 /// out-of-plane column is compared in the rows on the launch rod only (RodOnlyRule). The rows
-/// that differ are reported in one line: how many, and the first of them.
-void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& column,
-                         std::size_t rows)
+/// that differ are reported in one line: how many, and the first of them. A value is counted as
+/// compared here, where it is compared, and not by a formula of the rows and the columns: the
+/// sum the tests hold against what the files hold then says what this loop did.
+void compareColumnValues(Mismatches& m, Comparison& c, const ColumnOf& column, std::size_t rows)
 {
     if (c.measurements != nullptr)
     {
@@ -1046,6 +1047,7 @@ void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& col
     std::size_t       first     = 0;
     for (std::size_t row = 0; row < compared; row++)
     {
+        c.compared.values++;
         if (differs(column.table->rows[row][column.column], (*column.values)[row], tolerance))
         {
             first = differing == 0 ? row : first;
@@ -1075,24 +1077,21 @@ struct ExtremeOf
 /// golden one, within kValueRelative of the scale of the column, when the whole branch is
 /// reproducible (@p whole): it is sensitive otherwise. Of a noise-dominated out-of-plane
 /// column of such a branch an extreme that the golden column or the run's attains only off the
-/// launch rod is one of the values the rule excludes (RodOnlyRule::excludesExtreme()).
+/// launch rod is one of the values the rule excludes. extremeTreatment() decides which it is.
 void compareExtreme(Mismatches& m, Comparison& c, const ColumnOf& column, const ExtremeOf& extreme,
                     bool whole)
 {
-    if (whole && column.values != nullptr && column.rule->isNoise(column.column))
+    const ColumnExtreme sides{.column   = column.column,
+                              .expected = extreme.expected,
+                              .actual   = extreme.actual,
+                              .values   = *column.values};
+    if (extremeTreatment(*column.table, *column.rule, sides, whole) == Treatment::EXCLUDED)
     {
-        const std::vector<double> golden =
-            column.table->column(column.table->columns[column.column])
-                .value_or(std::vector<double>{});
-        if (column.rule->excludesExtreme(column.column, golden, extreme.expected) ||
-            column.rule->excludesExtreme(column.column, *column.values, extreme.actual))
-        {
-            excludeNumber(
-                c, extreme.field, extreme.expected, extreme.actual,
-                kValueRelative * referenceOf(column.scale, extreme.expected, extreme.actual));
-            return;
-        }
+        excludeNumber(c, extreme.field, extreme.expected, extreme.actual,
+                      kValueRelative * referenceOf(column.scale, extreme.expected, extreme.actual));
+        return;
     }
+    // Compared, or sensitive (which the strict comparison compares as well).
     compareValue(m, c, extreme.field, extreme.expected, extreme.actual, whole, column.scale);
 }
 
@@ -1199,11 +1198,12 @@ struct GoldenBranch
             .noise   = std::vector<bool>(golden.table->columns.size(), false)};
 }
 
-/// Counts the rows and the values of a branch with the rule @p rule whose first @p rows rows
-/// are compared, @p whole saying whether the branch is reproducible as a whole: the values that
-/// are compared (those of the rows, without what the rule excludes in them), the values the
-/// rule excludes in any row, and the rows from the horizon on with what the rule leaves of
-/// their values, which are sensitive.
+/// Counts the rows of a branch with the rule @p rule whose first @p rows rows are compared, and
+/// its values that are not compared, @p whole saying whether the branch is reproducible as a
+/// whole: the values the rule excludes in any row, and the rows from the horizon on with what
+/// the rule leaves of their values, which are sensitive. (The values that are compared are not
+/// counted here: compareColumnValues() counts each one where it compares it, so that the three
+/// counts add up to what the files hold only when the loop there compared what it had to.)
 void countBranch(Comparison& c, const RodOnlyRule& rule, std::size_t rows, bool whole)
 {
     const auto noise    = rule.noiseColumnCount();
@@ -1212,7 +1212,6 @@ void countBranch(Comparison& c, const RodOnlyRule& rule, std::size_t rows, bool 
     // The rows in which a noise column is compared: those of the rows that are on the rod.
     const auto onTheRod = static_cast<std::int64_t>(std::min(rows, rule.rodRows));
     c.compared.rows += compared;
-    c.compared.values += (compared * (columns - noise)) + (onTheRod * noise);
     c.excluded.values += rule.excludedValues();
     if (!c.strict && !whole)
     {
@@ -1620,6 +1619,24 @@ RodOnlyRule rodOnlyRule(const GoldenTable& table, const std::optional<double>& c
     return {.rows    = table.rows.size(),
             .rodRows = rowsUpToTheClearance(table, cleared),
             .noise   = noiseColumns(table)};
+}
+
+Treatment extremeTreatment(const GoldenTable& table, const RodOnlyRule& rule,
+                           const ColumnExtreme& extreme, bool whole)
+{
+    if (!whole)
+    {
+        return Treatment::SENSITIVE;
+    }
+    if (!rule.isNoise(extreme.column) || extreme.column >= table.columns.size())
+    {
+        return Treatment::COMPARED;
+    }
+    const std::vector<double> golden =
+        table.column(table.columns[extreme.column]).value_or(std::vector<double>{});
+    const bool offTheRodOnly = rule.excludesExtreme(extreme.column, golden, extreme.expected) ||
+                               rule.excludesExtreme(extreme.column, extreme.values, extreme.actual);
+    return offTheRodOnly ? Treatment::EXCLUDED : Treatment::COMPARED;
 }
 
 // =============================================================================== sensitivity

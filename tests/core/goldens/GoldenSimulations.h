@@ -464,6 +464,27 @@ struct RodOnlyRule
 [[nodiscard]] RodOnlyRule rodOnlyRule(const GoldenTable&           table,
                                       const std::optional<double>& cleared);
 
+/// The minimum or maximum of a column of a branch on both sides of the comparison: the golden
+/// number (the values of its column are those of the golden time series) and the run's, with the
+/// values of the run's column.
+struct ColumnExtreme
+{
+    std::size_t             column{0};    ///< the index of the column in the golden time series
+    double                  expected{0};  ///< the golden minimum or maximum
+    double                  actual{0};    ///< the run's
+    std::span<const double> values;       ///< the values of the run's column
+};
+
+/// What the comparison of the default-step set does with the minimum or maximum @p extreme of a
+/// column of a branch whose golden time series is @p table, with the rule @p rule. In a branch
+/// that is not reproducible as a whole (@p whole) it is sensitive, whatever the column. In one
+/// that is, it is compared, unless the column is a noise-dominated out-of-plane one and the
+/// golden column or the run's attains the extreme only off the launch rod
+/// (RodOnlyRule::excludesExtreme()): then it is one of the values the rule excludes. (The strict
+/// comparison compares what is sensitive as well, and its rule names no noise column.)
+[[nodiscard]] Treatment extremeTreatment(const GoldenTable& table, const RodOnlyRule& rule,
+                                         const ColumnExtreme& extreme, bool whole);
+
 // =============================================================================== sensitivity
 
 /// Whether a value is reproducible: the perturbed run's value @p twin is within 1/@p margin of

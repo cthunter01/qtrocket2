@@ -175,7 +175,9 @@ file-system safe the same way as the directory names.
   a timestamp or an absolute path, and running `generate.sh` twice on the same machine produces
   byte-identical files (see [Regenerating](#regenerating) for other machines). Because the UUID
   sequence is the same in every process, sqlite-jdbc's native library (extracted under a UUID-based
-  name) goes into a per-process directory under `build/work`, so concurrent runs cannot collide.
+  name) goes into a per-process directory under `build/work` (`process-<pid>`, deleted when the
+  dumper exits), and so does the dumper's private copy of the motor database: concurrent runs
+  that write into different directories (`GOLDENS_OUT`) share no file and cannot collide.
 
 ## File formats
 
@@ -329,8 +331,8 @@ damping geometry of the active components across configurations):
   direction. A port compares the `cp`; of the `theta` it can check that the one it finds is one of
   the 360 directions `getWorstCP` tries, that the CP at it is the golden worst CP, and that the
   golden `theta` is an equally bad direction for the port (`compareWorstTheta()` in
-  `tests/core/goldens/aero_golden_tests.cpp`), but not which of several equally bad directions is
-  found.
+  `tests/core/goldens/GoldenDesign.h`, tested in `aero_golden_tests.cpp`), but not which of
+  several equally bad directions is found.
 
 ### sim_&lt;NN&gt;_&lt;name&gt;.json and the branch CSV files
 
@@ -527,57 +529,78 @@ rules, the measurements and the sensitivity to a perturbation a million times la
 **The example designs at the stable time step.** A design that is loaded from a file keeps the ids
 of its components, so `UUID_SALT` changes none of the examples' results; `LAST_BIT` (see
 [Regenerating](#regenerating)) perturbs every run in the last bit instead: after every step a
-listener moves components of the rocket's velocity, rotation velocity or position to a
-neighbouring representable number. Measured with thirteen dumps, the committed one and twelve
-with the patterns `both-away`, `both-toward`, `velocity-away`, `velocity-toward`, `rotation-away`,
-`rotation-toward`, `position-away`, `position-toward` and `all-random-a` to `all-random-d`, each
-with the time series (`STABLE_EXAMPLES=full`). For the test rockets these dumps give what the
-nine `UUID_SALT` dumps gave (maximum altitude 6.2e-9, maximum velocity 7.0e-9, time to apogee
-3.5e-8 s, flight time 1.0e-6 s between runs that step alike and 1.4e-4 s otherwise, 8 of the 53
-branches with other numbers of rows, the same two tumbling stages), so the perturbation stands in
-for another summation order. For the 54 simulations of the examples at 0.01 s (69 branches, 734
-events, 92286 rows), the largest difference between two of the thirteen runs:
+listener moves components of the rocket's velocity, rotation velocity, position or orientation to
+a neighbouring representable number. Measured with 22 dumps, the committed one and 21 with the
+patterns `both-away`, `both-toward`, `velocity-away`, `velocity-toward`, `rotation-away`,
+`rotation-toward`, `position-away`, `position-toward`, `orientation-away`, `orientation-toward`,
+`all-random-a` to `all-random-d`, `all-random-review1`, `all-random-review2`, `both-random-rv`,
+`velocity-random-rv`, `rotation-random-rv`, `position-random-rv` and `orientation-random-rv`, each
+with the time series (`STABLE_EXAMPLES=full`). For the test rockets the committed dump and the
+twelve patterns that were measured first (the eight without a seed and without the orientation,
+and `all-random-a` to `all-random-d`) give what the nine `UUID_SALT` dumps gave (maximum altitude
+6.2e-9, maximum velocity 7.0e-9, time to apogee 3.5e-8 s, flight time 1.0e-6 s between runs that
+step alike and 1.4e-4 s otherwise, 8 of the 53 branches with other numbers of rows, the same two
+tumbling stages), so the perturbation stands in for another summation order; all 22 give a
+little more (maximum altitude 6.5e-9, maximum velocity 9.5e-9, flight time 1.1e-6 s, 11 of the 53
+branches with other numbers of rows).
 
-| What | Largest difference between two runs of OpenRocket |
+For the 54 simulations of the examples at 0.01 s (69 branches, 734 events, 92286 rows), the
+largest difference between two of the 22 runs. **An entry is the largest difference seen in these
+22 runs, not a bound**: the thirteen dumps that were measured first gave 3.7e-9 for the maximum
+altitude, 3.5e-7 s for the flight time, 2.8e-14 for the launch rod velocity and 0.39 s for the
+TUMBLE of a dropped stage, and nine more patterns raised them to the values below; other
+patterns, another JDK or another machine can raise them again. No entry left the rule it stands
+under, and nothing of the structure differed before the last stage separation of a tumbling
+dropped stage, in any run.
+
+| What | Largest difference between two of the 22 runs of OpenRocket |
 |---|---|
-| status, branches, warnings, event sequences, event data | none up to the last stage separation of a dropped stage that tumbles; after it one such stage (the first booster of "Three stage low power rocket", simulation 1) records no TUMBLE at all in one run |
-| number of rows | differs in 18 of the 69 branches: by one row in 12 of the 16 branches whose recovery device is out before the apogee (212 of the 1248 pairs of runs), and in 6 of the 7 dropped stages that tumble (602 to 1340 rows in the one named above) |
-| number of jitter replacements | differs in the 4 simulations with such a stage only (11100 to 14381) |
-| maximum altitude, velocity, acceleration, Mach number | 3.7e-9, 2.1e-9, 1.0e-11, 2.6e-11 (relative) |
-| deployment velocity; launch rod velocity | 2.0e-8; 2.8e-14 (of themselves) |
+| status, branches, warnings, event sequences, event data | none up to the last stage separation of a dropped stage that tumbles; after it a tumbling dropped stage may record no TUMBLE at all: two of the seven did (the lowest stage of "Three stage low power rocket" in simulation 1, in three runs, and in simulation 2, in one) |
+| number of rows | differs in 19 of the 69 branches: by one row in 13 of the 16 branches whose recovery device is out before the apogee (603 of the 3696 pairs of runs), and in 6 of the 7 dropped stages that tumble (589 to 1429 rows in the lowest stage of simulation 2 of the rocket named above) |
+| number of jitter replacements | differs in the 4 simulations with such a stage only (13696 to 17188 in the one just named) |
+| maximum altitude, velocity, acceleration, Mach number | 6.1e-9, 2.1e-9, 1.0e-11, 2.6e-11 (relative) |
+| deployment velocity; launch rod velocity | 2.0e-8; 1.1e-13 (of themselves) |
 | ground hit velocity | 2.4e-14 of itself between runs that step alike from the apogee; 9.2e-7 otherwise ("Pods--powered with recovery deployment", whose descent is still settling when it reaches the ground after 10 s: the landing stepper's steps of 0.5 s fall elsewhere) |
-| time to apogee; optimum delay; optimum altitude of a branch | 9.6e-11 s; 2.5e-9 s; 3.7e-9 (relative) |
-| flight time | 3.5e-7 s between runs that step alike from the apogee; 1.9e-4 s otherwise |
-| times of the events the motors and the launch rod time | none; 1.1e-11 s after a late handling |
-| times of APOGEE, RECOVERY_DEVICE_DEPLOYMENT, SIM_WARN, GROUND_HIT | 9.6e-11 s, 1.5e-7 s, 6.6e-8 s, 3.5e-7 s between runs that step alike from the apogee; 1.0e-3 s (APOGEE) and 1.9e-4 s (GROUND_HIT, SIMULATION_END) where one run takes the extra 1 ms step |
-| a dropped stage that tumbles, after its separation | APOGEE 9.2e-3 s, TUMBLE 0.39 s, GROUND_HIT 1.3 s, optimum altitude 9.9e-5 (relative) |
+| time to apogee; optimum delay; optimum altitude of a branch | 1.35e-10 s; 2.9e-9 s; 6.1e-9 (relative) |
+| flight time | 5.7e-7 s between runs that step alike from the apogee; 1.9e-4 s otherwise |
+| times of the events the motors and the launch rod time | none; 1.2e-11 s after a late handling |
+| times of APOGEE, RECOVERY_DEVICE_DEPLOYMENT, SIM_WARN, GROUND_HIT | 1.35e-10 s, 2.4e-7 s, 6.6e-8 s, 5.7e-7 s between runs that step alike from the apogee; 1.0e-3 s (APOGEE) and 1.9e-4 s (GROUND_HIT, SIMULATION_END) where one run takes the extra 1 ms step |
+| a dropped stage that tumbles, after its separation | APOGEE 9.2e-3 s, TUMBLE 2.1 s, GROUND_HIT 1.3 s, optimum altitude 1.0e-4 (relative) |
 | a warning's parameter | 9.0e-12 (relative) |
-| minimum and maximum of a column (branches that step alike, without the tumbling stages) | 30 of the 71 columns agree to 1e-9 of the column's scale; 10 differ by more than 1e-5: `acceleration_y` 2.8e-3, `position_y` 4.5e-4, `acceleration_bodyy` 4.2e-4, `yaw_rate` 4.0e-4, `stability` 1.4e-4, `acceleration_x` 1.1e-4, `position_direction` 1.0e-4, `corrective_moment_coeff` 4.3e-5, `natural_frequency` 2.2e-5, `cp_location` 1.2e-5 |
+| minimum and maximum of a column (branches that step alike, without the tumbling stages) | 30 of the 71 columns agree to 1e-9 of the column's scale; 10 differ by more than 1e-5: `acceleration_y` 2.8e-3, `acceleration_bodyy` 5.2e-4, `position_y` 5.2e-4, `yaw_rate` 5.1e-4, `stability` 1.5e-4, `acceleration_x` 1.1e-4, `position_direction` 1.0e-4, `corrective_moment_coeff` 5.5e-5, `natural_frequency` 2.7e-5, `cp_location` 1.2e-5 |
 
 So the examples meet the same four places as the test rockets, two of them more often and one in
 a new form:
 
-- **The step to the apogee of an Euler stepper** decides 12 branches of the examples (5 of the
-  test rockets), and in one of them the ground hit velocity follows the time grid as well. A
-  document says which step its run took from the apogee of the first branch: the APOGEE event is
-  1 ms after the summary's time to apogee exactly when the extra step was taken (it never says
-  otherwise in the 13 dumps).
+- **The step to the apogee of an Euler stepper** decides 13 branches of the examples (9 of the
+  test rockets in the same 22 dumps), and in one of them the ground hit velocity follows the time
+  grid as well. A document says which step its run took from the apogee of the first branch: the
+  APOGEE event is 1 ms after the summary's time to apogee exactly when the extra step was taken
+  (it never says otherwise in the 22 dumps). For a later branch the document does not say (the
+  booster of "Deployable payload" in its simulations 3 and 4: the committed runs took the
+  regular step, and two of the 22 runs each the extra one).
 - **A dropped stage that tumbles** does so after its apogee in 5 of the 7 cases, which the rule of
   the test rockets (TUMBLE before APOGEE) does not name. None of the 7 is reproducible after its
-  separation, whichever comes first: the times differ by tenths of a second and in one run of
-  thirteen the stage reaches the ground without having tumbled. The two sustainers that tumble
-  after their apogee and the dropped stages that descend under a recovery device are reproducible
-  like every other branch.
+  separation, whichever comes first: the times differ by up to two seconds, and a stage can reach
+  the ground without having tumbled (two of the seven did, in three and in one of the 22 runs).
+  The two sustainers that tumble after their apogee and the dropped stages that descend under a
+  recovery device are reproducible like every other branch.
 - **Hunting** goes with the differences of 1e-9: they are largest in the flights with the most
-  hunting rows (3.7e-9 of the maximum altitude with 803 of them), and the six branches without
-  one that are no tumbling stages agree to 5.1e-13 in every value and to 1.6e-10 s in every time.
+  hunting rows (6.1e-9 of the maximum altitude with 803 of them), and the six branches without
+  one that are no tumbling stages agree to 1.4e-12 in every value and to 2.4e-10 s in every time.
 - **Late handlings** (an event without a row at its time) are in 26 of the 69 branches: in 19 it
   is a RECOVERY_DEVICE_DEPLOYMENT, which the engine queues 1 ms after the event that deploys the
   device and handles at the end of the step, in 6 a BURNOUT that a step overshot by 0.06 to
-  0.13 ms, in one a SIM_WARN. The events after one do not move by more than the 3.5e-7 s above.
+  0.13 ms, in one a SIM_WARN. The events after one do not move by more than the 5.7e-7 s above.
 
 The test that compares QtRocket with these documents does not exist yet (the examples have to be
-loaded first); its tolerances are to be taken from this table.
+loaded first). Its tolerances are to be chosen with this table, not computed from it: an entry is
+a largest difference seen, so a hundred times an entry is no safe tolerance (a hundred times the
+3.7e-9 of the first thirteen dumps would be 60 times the 6.1e-9 of the 22). The tolerances of
+the test rockets' stable-step comparison, 1e-6 for a summary value, 1e-5 for the deployment
+velocity and 1e-4 s for a time, are 163, 494 and 174 times the entries above; the ground hit
+velocity between runs that step differently from the apogee would hold at 1e-6 by a factor of
+1.08 only, so it is not to be compared there.
 
 Whole flights are also compared with OpenRocket outside the golden data, in tests whose
 expectations are pasted from Java probes run at a time step of 0.005 s:
@@ -658,8 +681,11 @@ moves components of the rocket's state to a neighbouring representable number, w
 run by as little as another summation order does. It is placed right after the forces listener of
 the jitter removal, as the perturbation of QtRocket's own golden tests is. The value is a pattern,
 `<quantity>-<direction>`: the quantity is `velocity`, `rotation` (the rotation velocity),
-`position`, `both` (velocity and rotation velocity: `LastBitListener` of the C++ tests) or `all`
-(the three); the direction is `away` (every component to the next number away from zero),
+`position`, `orientation` (the four components of the orientation quaternion), `both` (velocity
+and rotation velocity: `LastBitListener` of the C++ tests) or `all` (the three vectors, velocity,
+rotation velocity and position; not the orientation, which was added later, so that the patterns
+of the measurement keep their meaning); the direction is `away` (every component to the next
+number away from zero),
 `toward` (toward zero) or `random-<seed>` (every component, after every step, one number up, one
 down or not at all, drawn from a `java.util.Random` seeded from the pattern's text, the seed
 being any text). A zero, an infinity and NaN are never moved. `manifest.json` records the pattern
