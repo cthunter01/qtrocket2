@@ -2,6 +2,7 @@
 
 #include <array>
 #include <concepts>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -58,14 +59,41 @@ class Setter;
 ///   that about; only a caller that picks a setter by hand can.
 /// - The setters of the instance counts that no component bounds, and of a parachute's line
 ///   count, refuse a number above kMaxCount (decision L6 of the loader; see IntSetter).
+/// - A file cannot give a rocket more than kMaxInstances component instances over all its
+///   flight configurations (see kMaxInstances): what would take the rocket beyond that is
+///   refused where the file asks for it, by the setters of the instance and fin counts
+///   (IntSetter), the cluster setter (ClusterConfigurationSetter), the handler that attaches a
+///   component (ComponentHandler) and the two handlers that make a flight configuration
+///   (MotorConfigurationHandler, MotorMountHandler). instanceLoad(), instanceCountFits(),
+///   childFits() and flightConfigurationFits() are that one rule. OpenRocket has no bound and
+///   runs out of memory.
 /// - "RocketComponent:id" fails the load for a text that is no UUID, as in Java, with
-///   ErrorCode::INVALID_ARGUMENT and the message of Java's exception (Uuid::javaFromString()).
+///   ErrorCode::INVALID_ARGUMENT and the message of Java's exception (Uuid::javaFromString(),
+///   which reads ASCII digits only: an id written with the digits of another script or with
+///   fullwidth letters loads in OpenRocket and fails the load here).
+/// - "RocketComponent:id" refuses an id that another component of the tree has already, with
+///   Warning::kFileInvalidParameter, and the component keeps the random id it was made with
+///   (the id it has, set once more, is accepted). OpenRocket takes the id: two of its
+///   components are then equal whenever they are of one class (RocketComponent.equals() is
+///   class and id), so that the later one is taken for the earlier wherever the tree is
+///   searched (the second of two such body tubes stands at the place of the first, two such
+///   motor mounts fly one motor), and when a stage's id is found first on another component
+///   the load dies of a ClassCastException in Rocket.copyWithOriginalID(), which
+///   OpenRocketDocument.clearUndo() calls at the end of every load. Here a component is told
+///   by identity (see RocketComponent), the stages of a copy are found by id
+///   (Rocket::copyWithOriginalId(), a BugError for a stage that is not found), and so are a
+///   motor configuration's mount and a flight configuration's stage flags: ids that are not
+///   unique have no right answer, and a file OpenRocket wrote has none.
 /// - attribute() has no counterpart: it is HashMap.get() for an element's attributes, which
 ///   every handler and setter that reads one needs.
 /// - javaClassName() has no counterpart: it is Class.getCanonicalName() of a component, which
 ///   the warnings of the position setters contain.
 /// - configurationId() has no counterpart: it is new FlightConfigurationId(attributes.get(
-///   "configid")), which five handlers call for the element of one flight configuration.
+///   "configid")), which five handlers call for the element of one flight configuration. A
+///   configid written with the digits of another script or with fullwidth letters is a UUID
+///   for java.util.UUID.fromString() and none for Uuid::javaFromString(): OpenRocket takes
+///   the id the digits spell, QtRocket the id made of the text's hash code, so such an id and
+///   its ASCII spelling name one configuration there and two here.
 /// - findEnum() takes the constants and a function that gives a constant's Java name, where
 ///   Java takes the enum's class and reflects on it.
 /// - stringToDouble() returns a failure with the message of Java's NumberFormatException,
@@ -104,6 +132,26 @@ public:
     /// loader build that many instances at every later change.
     static constexpr int kMaxCount = 10000;
 
+    /// The most component instances a file may give a rocket, counted over all its flight
+    /// configurations: instanceLoad(). A deviation that extends decision L6, whose bound holds
+    /// for each count by itself while the counts multiply: every instance of a component
+    /// holds every instance of each of its children, and every flight configuration of the
+    /// rocket, the default one too, keeps a map with an entry per instance, which it builds
+    /// anew at every change of the rocket (FlightConfiguration::update()), the rocket's events
+    /// being on while a file loads. A pod set of 10000 instances with a launch lug of 10000
+    /// instances, 324 bytes of a file, are 10^8 instances; inner tubes in a "9-grid" cluster
+    /// nested nine deep are 9^9, with no number above 9 in the file; 800 empty
+    /// <motorconfiguration/> elements beside one launch lug of 10000 instances are 8 * 10^6.
+    /// Each of them ended a load in std::bad_alloc or in gigabytes of memory, and OpenRocket's
+    /// in an OutOfMemoryError. So whatever would take the load above this number is refused
+    /// with a warning where the file asks for it, and nothing is set.
+    ///
+    /// The number is ten times kMaxCount: a single count of kMaxCount stays allowed in a rocket
+    /// of up to eight flight configurations beside the default one (measured in a release
+    /// build: about 450 bytes and 150 ns per instance and change). The largest of the 63 designs
+    /// of the repository reaches 180 (its instances times its flight configurations).
+    static constexpr std::uint64_t kMaxInstances = 100000;
+
     /// The element names of the components a file can hold (the keys of Java's constructors),
     /// sorted: the 22 names createComponent() knows.
     [[nodiscard]] static std::span<const std::string_view> componentElements() noexcept;
@@ -115,7 +163,9 @@ public:
     /// entry, although componentKindFromXmlName() knows it.
     ///
     /// Java's constructors take a new component's materials from the application's
-    /// preferences; here a new component has the built-in defaults (see ExternalComponent).
+    /// preferences; here a new component has the built-in defaults (see ExternalComponent),
+    /// and ComponentHandler, which makes the components of a file, gives it the defaults of
+    /// the loading context's preferences.
     [[nodiscard]] static std::unique_ptr<RocketComponent> createComponent(std::string_view element);
 
     /// What the walk along a component's classes found for an element.
@@ -151,6 +201,30 @@ public:
     /// The keys of the setter table that refuse their element (Java: the null entries), sorted:
     /// the five of NoseCone.
     [[nodiscard]] static std::vector<std::string_view> refusedKeys();
+
+    /// What the instance maps of a rocket hold, as far as a file decides it: the number of
+    /// instances of all the components of the tree @p component stands in, times the number of
+    /// flight configurations of its rocket, the default one counted. A component has as many
+    /// instances as the instance counts (RocketComponent::getInstanceCount()) from the root
+    /// down to itself multiply to: a launch lug of 3 instances on the body tube of a pod set
+    /// of 2 has 6. Every component counts, also one in a stage that no configuration flies.
+    /// A tree whose root is no rocket has one configuration. The arithmetic saturates: a
+    /// number beyond 2^64 - 1 is that number.
+    [[nodiscard]] static std::uint64_t instanceLoad(const RocketComponent& component);
+
+    /// Whether instanceLoad() stays within kMaxInstances when @p component has @p count
+    /// instances. A count that is not above the one the component has always fits: a file may
+    /// make a rocket smaller, also one that is beyond the bound already.
+    [[nodiscard]] static bool instanceCountFits(const RocketComponent& component, int count);
+
+    /// Whether instanceLoad() stays within kMaxInstances when @p child, with what stands below
+    /// it, becomes a child of @p parent.
+    [[nodiscard]] static bool childFits(const RocketComponent& parent,
+                                        const RocketComponent& child);
+
+    /// Whether instanceLoad() stays within kMaxInstances when the rocket @p component belongs
+    /// to gets one more flight configuration.
+    [[nodiscard]] static bool flightConfigurationFits(const RocketComponent& component);
 
     /// The attribute @p name of an element, or nullopt when the element has none (Java:
     /// attributes.get(name), null when absent). The name is compared exactly. The view is into

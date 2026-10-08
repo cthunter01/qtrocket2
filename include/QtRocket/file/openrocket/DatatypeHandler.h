@@ -41,8 +41,12 @@ class OpenRocketDocument;
 ///   but custom expression elements and loads alike in both.
 /// - A <type> without the attribute source is an unknown datatype, with that warning
 ///   (OpenRocket: a NullPointerException).
-/// - Java removes source from the attribute map before it warns of the others; the attributes
-///   being const here, the warning is decided on a copy without it.
+/// - Java removes source from the attribute map before it warns of the others, when the
+///   element closes; the attributes being const here, the warning is decided on a copy
+///   without it. Nothing differs by that: the map is the closing element's own, which nobody
+///   is handed afterwards, and neither this handler nor CustomExpressionHandler ignores an
+///   element, so that no map of this element is ever shifted to another one
+///   (DelegatorHandler).
 /// - The types of the expressions are not registered with FlightDataType while the file loads
 ///   (see CustomExpressionHandler); CustomExpression::getType() registers one when it is asked.
 /// - The constructor takes the loading context only (Java: the content handler, which it asks

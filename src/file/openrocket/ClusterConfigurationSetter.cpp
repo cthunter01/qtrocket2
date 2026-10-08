@@ -2,6 +2,8 @@
 
 #include <string_view>
 
+#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/Clusterable.h"
@@ -28,6 +30,14 @@ Result<void> ClusterConfigurationSetter::set(RocketComponent& component, std::st
     if (config == nullptr)
     {
         warnings.add("Illegal cluster configuration specified.");
+        return {};
+    }
+
+    // Not OpenRocket's: a layout that would take the rocket beyond its instance budget is
+    // refused (see the class comment).
+    if (!DocumentConfig::instanceCountFits(component, config->getClusterCount()))
+    {
+        warnings.add(Warning::kFileInvalidParameter);
         return {};
     }
 

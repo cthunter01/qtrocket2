@@ -103,6 +103,17 @@ void MotorMountHandler::closeMotor(const Attributes& attributes, WarningSet& war
         warnings.add(Warning::fromString("Illegal motor specification, ignoring."));
         return;
     }
+    // Not OpenRocket's: a motor whose flight configuration would take the rocket beyond its
+    // instance budget is ignored (see the class comment), before anything is set: the flight
+    // configuration of an id the rocket does not have is its default one, which must not be
+    // told of a motor.
+    Rocket& rocket = asComponent(*m_mount).getRocket();
+    if (!rocket.containsFlightConfigurationId(fcid) &&
+        !DocumentConfig::flightConfigurationFits(rocket))
+    {
+        warnings.add(Warning::kFileInvalidParameter);
+        return;
+    }
     std::shared_ptr<const Motor> motor = m_motorHandler->getMotor(warnings);
     MotorConfiguration           motorConfig(*m_mount, fcid, m_mount->getDefaultMotorConfig());
     motorConfig.setMotor(std::move(motor));
@@ -117,7 +128,6 @@ void MotorMountHandler::closeMotor(const Attributes& attributes, WarningSet& war
 
     m_mount->setMotorConfig(std::move(motorConfig), fcid);
 
-    Rocket& rocket = asComponent(*m_mount).getRocket();
     rocket.createFlightConfiguration(fcid);
     // Java hands the flight configuration the object the mount holds; here it gets a copy of
     // the one the mount stored.
@@ -151,6 +161,16 @@ void MotorMountHandler::closeIgnitionConfiguration(const Attributes& attributes,
     if (const std::optional<IgnitionEvent> event = m_ignitionConfigHandler->getIgnitionEvent())
     {
         inst.setIgnitionEvent(*event);
+    }
+
+    // Java's flight configuration holds `inst` itself and so has the new ignition already;
+    // here it holds a copy, made when the <motor> of this id closed or at the last update,
+    // and neither setter fires an event that would renew it. (Nothing to do for the mount's
+    // default configuration, which no flight configuration holds.)
+    if (auto* const rocket = dynamic_cast<Rocket*>(&asComponent(*m_mount).getRoot());
+        rocket != nullptr)
+    {
+        rocket->getFlightConfiguration(fcid).refreshMotor(inst);
     }
 }
 

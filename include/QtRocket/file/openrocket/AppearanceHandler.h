@@ -57,7 +57,18 @@ class RocketComponent;
 ///   OpenRocket dies there of a NullPointerException (for a missing rotation or edge mode
 ///   after it has registered the image). The attributes are looked at in Java's order, so a
 ///   rotation that is no number fails the load also when the edge mode is missing (and, as in
-///   OpenRocket, with the image registered). As after every ignored element, DelegatorHandler
+///   OpenRocket, with the image registered). A missing name is looked at first, so a decal
+///   without one is ignored whatever its rotation and edge mode are. That is what OpenRocket
+///   dies of when the attachments are files (FileSystemAttachmentFactory: a
+///   NullPointerException for the name). When they are the entries of an archive
+///   (ZipFileAttachmentFactory, which every archived design is read with) OpenRocket does
+///   not die of the missing name: it registers an image without a name and goes on, so that
+///   a nameless decal with a rotation and an edge mode loads there (and whoever then lists
+///   the document's images dies of the name that is null), and one whose rotation is no
+///   number or whose edge mode is none FAILS THE LOAD there, where it is ignored with the
+///   warning here, as with files. Whether such a decal should fail the load when the
+///   attachments are an archive's is an open question. As after every ignored element,
+///   DelegatorHandler
 ///   then closes the enclosing elements with the attributes and the text of the element one
 ///   level below: the <appearance> with the decal's, which nobody looks at, and the
 ///   component's element with those of the <appearance>, so that an attribute or a text of
@@ -68,10 +79,21 @@ class RocketComponent;
 ///   y, so an x that is no number fails the load also when y is missing.
 /// - Java removes name, rotation and edgemode from the attribute map of a <decal> when it
 ///   opens, so that only the others are warned of when it closes. The attributes being const
-///   here, the warning is decided on a copy without the three. It differs when an element
-///   ignored inside the <decal> has shifted the attributes (DelegatorHandler) and the ones the
-///   <decal> closes with are nothing but some of those three names: OpenRocket then warns of
-///   unknown attributes and QtRocket does not.
+///   here, the warning is decided on a copy without the three. It differs in two ways once
+///   ignored elements have shifted the attributes (DelegatorHandler). When an element ignored
+///   inside the <decal> has shifted them and the ones the <decal> closes with are nothing but
+///   some of those three names, OpenRocket warns of unknown attributes and QtRocket does not.
+///   And when two or more elements are ignored behind the opening of the <decal>, in it
+///   (<decal ...><foo><bar/></foo><foo><bar/></foo></decal>, or two <bar/> in one <foo>) or
+///   one in it and one behind it in the <appearance>, the decal's OWN map is handed on to an
+///   enclosing element: OpenRocket's is the one it emptied, QtRocket's still holds the three.
+///   The component's element then closes with "Unknown attributes in element '<component>',
+///   ignoring." here and without a warning there, and with six such elements the three
+///   reach the parent of the <rocket> element (which the content handler of the whole file
+///   would warn of).
+/// - The channels of a <paint> are read by Strings::parseInt(), whose digits are ASCII only:
+///   a channel written with the decimal digits of another script (the Arabic-Indic four) is
+///   one for Integer.parseInt and none here, so that the paint is passed over.
 /// - The numbers of an appearance are no input of a simulation, so a NaN and an infinity are
 ///   taken as OpenRocket takes them (decision U3 does not apply): a rotation of NaN is stored.
 /// - A decal holds the name of its image (see Decal); OpenRocket's holds the image.

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <format>
 #include <set>
@@ -206,10 +207,17 @@ constexpr int kTextCount = static_cast<int>(kShortTexts.size()) + 2;
 }
 
 /// Something of @p rocket that is as large as a number of a file should never make it: a
-/// component with more instances than the loader's bound, or a parachute with more lines; ""
-/// when there is none.
+/// component with more instances than the loader's bound, a parachute with more lines, or more
+/// instances of all components over all flight configurations than the loader's budget
+/// (DocumentConfig::kMaxInstances: the counts of nested components multiply); "" when there is
+/// none.
 [[nodiscard]] std::string whatIsBuiltByTheNumber(const QtRocket::Rocket& rocket)
 {
+    if (const std::uint64_t load = DocumentConfig::instanceLoad(rocket);
+        load > DocumentConfig::kMaxInstances)
+    {
+        return std::format("{} component instances over all flight configurations", load);
+    }
     for (const RocketComponent& component : rocket.subtree())
     {
         if (component.getInstanceCount() > DocumentConfig::kMaxCount)
@@ -381,6 +389,12 @@ constexpr auto kHandlerValues =
         R"(<subcomponents><stage><subcomponents><bodytube><insideappearance><paint red="{}" green="{}" blue="{}" alpha="{}"/><shine>{}</shine></insideappearance></bodytube></subcomponents></stage></subcomponents>)",
         R"(<subcomponents><stage><subcomponents><bodytube><inside-appearance><decal name="{}" rotation="0" edgemode="REPEAT"><center x="{}" y="1"/></decal></inside-appearance></bodytube></subcomponents></stage></subcomponents>)",
         R"(<subcomponents><stage><insideappearance><decal name="a.png" rotation="{}" edgemode="REPEAT"/></insideappearance></stage></subcomponents>)",
+        // What the review of the group found: counts that multiply down the tree and with the
+        // flight configurations, and an id that another component has.
+        R"(<subcomponents><stage><subcomponents><bodytube><subcomponents><podset><instancecount>{}</instancecount><subcomponents><bodytube><subcomponents><launchlug><instancecount>{}</instancecount></launchlug><trapezoidfinset><fincount>{}</fincount></trapezoidfinset><innertube><clusterconfiguration>9-grid</clusterconfiguration><subcomponents><innertube><clusterconfiguration>{}</clusterconfiguration></innertube></subcomponents></innertube></subcomponents></bodytube></subcomponents></podset></subcomponents></bodytube></subcomponents></stage></subcomponents>)",
+        R"(<subcomponents><stage><subcomponents><bodytube><subcomponents><launchlug><instancecount>{}</instancecount></launchlug></subcomponents><motormount><motor configid="1-1-1-1-1"/><motor configid="{}"/></motormount></bodytube></subcomponents></stage></subcomponents><motorconfiguration configid="2-2-2-2-2"/><motorconfiguration configid="{}"/><motorconfiguration/>)",
+        R"(<id>1-2-3-4-5</id><subcomponents><stage><id>1-2-3-4-5</id><name>{}</name><subcomponents><bodytube><id>1-2-3-4-5</id><name>{}</name></bodytube></subcomponents></stage><stage><id>1-2-3-4-5</id></stage></subcomponents>)",
+        R"(<subcomponents><stage><id>{}</id></stage><stage><id>{}</id></stage></subcomponents>)",
     });
 
 /// The elements of the sweep over the values of the handlers of a document's own elements: a
@@ -589,6 +603,26 @@ TEST(LoaderValueSweepCoverage, HasAFormForEverySettingOfThePhotoStudio)
     EXPECT_EQ(photoSettingForms().size(), 24U + (6U * 4U));
 }
 
+/// What whatIsBuiltByTheNumber() says of a rocket whose launch lug was given @p count
+/// instances in each of 400 pods, past the loader.
+[[nodiscard]] std::string whatIsSaidOfLaunchLugsInPods(int count)
+{
+    RocketLoadFixture fixture;
+    static_cast<void>(fixture.load(
+        "<subcomponents><stage><subcomponents><bodytube><subcomponents><podset>"
+        "<instancecount>400</instancecount><subcomponents><bodytube><subcomponents><launchlug/>"
+        "</subcomponents></bodytube></subcomponents></podset></subcomponents></bodytube>"
+        "</subcomponents></stage></subcomponents>"));
+    for (RocketComponent& component : fixture.rocket().subtree())
+    {
+        if (component.kind() == ComponentKind::LAUNCH_LUG)
+        {
+            component.setInstanceCount(count);
+        }
+    }
+    return whatIsBuiltByTheNumber(fixture.rocket());
+}
+
 /// What whatIsBuiltByTheNumber() says of a rocket whose launch lug was given more instances
 /// than the loader lets a file give.
 [[nodiscard]] std::string whatIsSaidOfTooManyLaunchLugs()
@@ -611,6 +645,10 @@ TEST(LoaderValueSweepCoverage, TellsOfWhatGoesWrong)
 {
     EXPECT_EQ(whatGoesWrong("<name>fine</name>"), "");
     EXPECT_EQ(whatIsSaidOfTooManyLaunchLugs(), "10001 instances of Launch Lug");
+    // Counts that are each within the bound and multiply beyond the budget.
+    EXPECT_EQ(whatIsSaidOfLaunchLugsInPods(247), "");
+    EXPECT_EQ(whatIsSaidOfLaunchLugsInPods(248),
+              "100003 component instances over all flight configurations");
 }
 
 }  // namespace

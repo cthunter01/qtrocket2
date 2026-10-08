@@ -29,6 +29,7 @@
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/RailButton.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/rocket/Streamer.h"
@@ -43,6 +44,7 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Strings.h"
 #include "file/openrocket/SetterTestSupport.h"
 #include "rocket/preset/ExamplePresets.h"
 
@@ -755,6 +757,118 @@ TEST(ComponentPresetSetter, AParachutesEntryKeepsThePackedRadiusOfThePreset)
               "PK-PACKED, Parachute, 0.3, 8, 0.35, 0.023, true, 0.007561436672967866");
     EXPECT_EQ(loadThePackedPreset("Parachute:preset", "0.01"),
               "PK-PACKED, Parachute, 0.3, 8, 0.35, 0.01, false, 0.04");
+}
+
+/// A body tube preset whose material is the bulk material @p materialName of @p density: the
+/// presets of the probe ShortMaterialProbe (tier 9b, the fixer of the rocket side), from the
+/// same property values.
+[[nodiscard]] std::shared_ptr<const ComponentPreset> makeTubePreset(std::string_view partNo,
+                                                                    std::string_view materialName,
+                                                                    double           density)
+{
+    TypedPropertyMap props;
+    props.put(ComponentPreset::kLegacy, false);
+    props.put(ComponentPreset::kManufacturer, Manufacturer::getManufacturer("Estes"));
+    props.put(ComponentPreset::kPartNo, std::string(partNo));
+    props.put(ComponentPreset::kDescription, std::format("Body tube {}", partNo));
+    props.put(ComponentPreset::kType, ComponentPresetType::BODY_TUBE);
+    props.put(ComponentPreset::kLength, 0.2);
+    props.put(ComponentPreset::kOuterDiameter, 0.03);
+    props.put(ComponentPreset::kInnerDiameter, 0.028);
+    props.put(ComponentPreset::kMaterial,
+              Material::newMaterial(Material::Type::BULK, std::string(materialName), density,
+                                    MaterialGroup::OTHER, true, true));
+    const MaterialStorage materials;
+    return std::make_shared<const ComponentPreset>(
+        ComponentPresetFactory::create(props, materials).value());
+}
+
+/// The digest of the preset makeTubePreset() makes and the length of its material's text as
+/// Java counts it (Material.toString().length()).
+[[nodiscard]] std::string tubePresetFacts(std::string_view partNo, std::string_view materialName,
+                                          double density)
+{
+    const std::shared_ptr<const ComponentPreset> preset =
+        makeTubePreset(partNo, materialName, density);
+    return std::format(
+        "{} {}", preset->getDigest(),
+        QtRocket::Strings::javaLength(preset->get(ComponentPreset::kMaterial).toString()));
+}
+
+/// What a recovery device of @p kind holds after <preset> of the body tube preset
+/// makeTubePreset() makes through the entry @p key: the part number of its preset, its name,
+/// its length and its material; then the warnings in brackets.
+[[nodiscard]] std::string loadATubePresetIntoADevice(std::string_view key, ComponentKind kind,
+                                                     std::string_view partNo,
+                                                     std::string_view materialName, double density)
+{
+    ApplicationSetterFixture                     fixture;
+    const std::shared_ptr<const ComponentPreset> preset =
+        makeTubePreset(partNo, materialName, density);
+    fixture.presets().add(preset);
+    RocketComponent&  device = fixture.make(kind);
+    WarningSet        warnings;
+    const std::string attributes = std::format(
+        "type=BODY_TUBE|manufacturer=Estes|partno={}|digest={}", partNo, preset->getDigest());
+    if (!applyKey(fixture, device, key, attributes, "", warnings))
+    {
+        return "no setter, or it failed";
+    }
+    return withWarnings(
+        listInOrder({presetPartNoOf(device), device.getName(), num(device.getLength()),
+                     as<QtRocket::RecoveryDevice>(device).getMaterial().toStorableString()}),
+        warnings);
+}
+
+// The review's finding: the setter refused every preset whose material is no surface material
+// for a parachute or streamer. OpenRocket's devices (and RecoveryDevice::loadFromPreset()) take
+// a preset's material only when its text, "name (density)", is longer than 12 characters; a
+// preset with a shorter one is loaded whatever the material's type, and the device keeps its
+// default material. Pinned with OpenRocket (ShortMaterialProbe.out): texts of 11 and 12
+// characters load, texts of 13 and 22 end in its ClassCastException.
+TEST(ComponentPresetSetter, ARecoveryDeviceTakesAPresetWhoseShortMaterialItPassesOver)
+{
+    EXPECT_EQ(tubePresetFacts("BT-SHORT", "A", 0.0), "5f37a9028648c49d5ed3b959a1a787c3 11");
+    EXPECT_EQ(tubePresetFacts("BT-TWELVE", "Ab", 0.0), "fb3eae768385e4feeeb2ff2cabcc044b 12");
+
+    constexpr std::string_view kNylon = "SURFACE|Ripstop nylon|0.067|0.0|Fabrics";
+    EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE, "BT-SHORT",
+                                         "A", 0.0),
+              std::format("BT-SHORT, Parachute, 0.2, {}", kNylon));
+    EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
+                                         "BT-SHORT", "A", 0.0),
+              std::format("BT-SHORT, Streamer, 0.05, {}", kNylon));
+    EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE, "BT-TWELVE",
+                                         "Ab", 0.0),
+              std::format("BT-TWELVE, Parachute, 0.2, {}", kNylon));
+    EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
+                                         "BT-TWELVE", "Ab", 0.0),
+              std::format("BT-TWELVE, Streamer, 0.05, {}", kNylon));
+}
+
+// One character more, and the device would take the material: a bulk material, of which
+// OpenRocket dies (with the preset's length of 0.2 set already) and which is refused here
+// before anything is loaded, so the length stays the device's 0.025.
+TEST(ComponentPresetSetter, ARecoveryDeviceIsNotGivenAPresetWhoseLongerMaterialDoesNotFit)
+{
+    EXPECT_EQ(tubePresetFacts("BT-THIRTEEN", "Abc", 0.0), "70cf22c9b062f0b346f760c5cbcd31e8 13");
+    EXPECT_EQ(tubePresetFacts("BT-LONG", "Cardboard", 680.0),
+              "0c6814453f6f6eeb0838d327a6426dfd 22");
+
+    constexpr std::string_view kRefused =
+        "0.025, SURFACE|Ripstop nylon|0.067|0.0|Fabrics [Invalid parameter encountered, ignoring.]";
+    EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE,
+                                         "BT-THIRTEEN", "Abc", 0.0),
+              std::format("null, Parachute, {}", kRefused));
+    EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
+                                         "BT-THIRTEEN", "Abc", 0.0),
+              std::format("null, Streamer, {}", kRefused));
+    EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE, "BT-LONG",
+                                         "Cardboard", 680.0),
+              std::format("null, Parachute, {}", kRefused));
+    EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
+                                         "BT-LONG", "Cardboard", 680.0),
+              std::format("null, Streamer, {}", kRefused));
 }
 
 /// What a setter of the test's own, whose function only notes the preset it is handed, does

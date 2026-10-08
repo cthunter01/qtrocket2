@@ -383,7 +383,7 @@ EVENTS 14 {mass,aero,tree=1, tree=13}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 1> kOwn{{
+constexpr std::array<RocketCase, 3> kOwn{{
     // A configid that spells out the error id's key is the error id here: the configuration is refused with the handler's warning for an id that is not valid.
     // OpenRocket: W Unknown attributes in element 'motorconfiguration', ignoring.
     // OpenRocket: EVENTS 4 {mass,aero,tree=1, nonfunc=1, tree=2}
@@ -398,6 +398,42 @@ EVENTS 2 {mass,aero,tree=1, tree=1}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The instance budget is over all flight configurations: a rocket of twelve refuses a launch lug of 10000 instances (OpenRocket takes it).
+    // OpenRocket: EVENTS 16 {mass,aero=1, mass,aero,tree=2, tree=13}
+    // OpenRocket: |       LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=10000 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4 ...
+    {.name = "mc-fix-instances-beyond-the-budget-of-its-configurations", .xml = R"xml(<motorconfiguration configid="00000001-0000-0000-0000-000000000001"/><motorconfiguration configid="00000002-0000-0000-0000-000000000001"/><motorconfiguration configid="00000003-0000-0000-0000-000000000001"/><motorconfiguration configid="00000004-0000-0000-0000-000000000001"/><motorconfiguration configid="00000005-0000-0000-0000-000000000001"/><motorconfiguration configid="00000006-0000-0000-0000-000000000001"/><motorconfiguration configid="00000007-0000-0000-0000-000000000001"/><motorconfiguration configid="00000008-0000-0000-0000-000000000001"/><motorconfiguration configid="00000009-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000a-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000b-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000c-0000-0000-0000-000000000001"/><subcomponents><stage><subcomponents><bodytube><subcomponents><launchlug><instancecount>10000</instancecount></launchlug></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 15 {mass,aero,tree=2, tree=13}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0
+| config 00000001-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000002-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000003-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000004-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000005-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000006-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000007-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000008-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 00000009-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 0000000a-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 0000000b-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0
+| config 0000000c-0000-0000-0000-000000000001 name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Uuid::javaFromString() reads ASCII digits only: a configid with a fullwidth digit is no UUID, so the id is made of the text's hash code and is another configuration than its ASCII spelling (one configuration in OpenRocket).
+    // OpenRocket: EVENTS 3 {nonfunc=1, tree=2}
+    {.name = "mc-fix-configid-with-other-digits", .xml = R"xml(<motorconfiguration configid="&#65297;-2-3-4-5"><name>n</name></motorconfiguration><motorconfiguration configid="1-2-3-4-5" default="true"><name>ascii</name></motorconfiguration><subcomponents><stage/></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 4 {nonfunc=1, tree=3}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+| selected=00000001-0002-0003-0004-000000000005
+| config default name='[{motors}]' preload=null active=[false] motors=0
+| config 00000000-0000-0000-ffff-ffffea57d42b name='n' preload=null active=[false] motors=0
+| config 00000001-0002-0003-0004-000000000005 name='ascii' preload=null active=[false] motors=0)out"},
 }};
 // END GENERATED TABLES MotorConfigurationHandler
 // clang-format on

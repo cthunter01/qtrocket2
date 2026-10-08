@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/motor/IgnitionEvent.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -1084,6 +1085,68 @@ TEST_F(ConfigurationTest, AddMotorReplacesByIdAndBumpsTheModId)
     ASSERT_EQ(config.getAllMotors().size(), 1U) << "one entry per motor configuration id";
     EXPECT_EQ(config.getAllMotors().front().getEjectionDelay(), 5.0);
     EXPECT_TRUE(config.getActiveMotors().empty()) << "addMotor() does not touch the active motors";
+}
+
+// No Java original: refreshMotor() is what the copies in the motor lists need where Java's lists
+// hold the mounts' own objects (found by the review of the .ork loader: an
+// <ignitionconfiguration> behind its <motor> changed the mount's configuration only).
+TEST_F(ConfigurationTest, RefreshMotorBringsBothListsUpToDateWithoutAnEvent)
+{
+    const FlightConfigurationId fcid;
+    FlightConfiguration&        config = m_rocket.createFlightConfiguration(fcid);
+    addMotor(*m_mount, fcid, motorD21(), 3);
+    m_rocket.fireComponentChangeEvent(QtRocket::MotorConfigurationSet::kDefaultMotorEventType);
+    ASSERT_EQ(config.getAllMotors().size(), 1U);
+    ASSERT_EQ(config.getActiveMotors().size(), 1U);
+
+    // The ignition setters of a motor configuration fire no event, so the lists stay behind.
+    MotorConfiguration& ofMount = m_mount->getMotorConfig(fcid);
+    ofMount.setIgnitionDelay(7);
+    ofMount.setIgnitionEvent(QtRocket::IgnitionEvent::NEVER);
+    EXPECT_EQ(config.getAllMotors().front().getIgnitionDelay(), 0.0);
+    EXPECT_EQ(config.getActiveMotors().front().getIgnitionDelay(), 0.0);
+
+    const ModId before = config.getModId();
+    config.refreshMotor(ofMount);
+    EXPECT_EQ(config.getModId(), before) << "refreshMotor() draws no modification id";
+    ASSERT_EQ(config.getAllMotors().size(), 1U);
+    ASSERT_EQ(config.getActiveMotors().size(), 1U);
+    EXPECT_EQ(config.getAllMotors().front().getIgnitionDelay(), 7.0);
+    EXPECT_EQ(config.getAllMotors().front().getIgnitionEvent(), QtRocket::IgnitionEvent::NEVER);
+    EXPECT_EQ(config.getActiveMotors().front().getIgnitionDelay(), 7.0);
+    EXPECT_EQ(config.getActiveMotors().front().getIgnitionEvent(), QtRocket::IgnitionEvent::NEVER);
+    EXPECT_EQ(config.getActiveMotors().front().getMid(), ofMount.getMid());
+}
+
+TEST_F(ConfigurationTest, RefreshMotorAddsNothing)
+{
+    const FlightConfigurationId fcid;
+    FlightConfiguration&        config = m_rocket.createFlightConfiguration(fcid);
+    ASSERT_FALSE(config.hasMotors());
+
+    // A motor configuration the lists do not hold: the mount's default one, which no list ever
+    // holds, and one of another flight configuration.
+    config.refreshMotor(m_mount->getDefaultMotorConfig());
+    EXPECT_FALSE(config.hasMotors());
+    EXPECT_TRUE(config.getActiveMotors().empty());
+
+    const FlightConfigurationId other;
+    m_rocket.createFlightConfiguration(other);
+    addMotor(*m_mount, other, motorD21(), 3);
+    m_rocket.fireComponentChangeEvent(QtRocket::MotorConfigurationSet::kDefaultMotorEventType);
+    config.refreshMotor(m_mount->getMotorConfig(other));
+    EXPECT_FALSE(config.hasMotors()) << "a motor of another flight configuration is not added";
+    EXPECT_TRUE(config.getActiveMotors().empty());
+
+    // An inactive stage's motor is in neither list (see MotorsFollowTheMountsAndStages), and a
+    // refresh leaves it out.
+    FlightConfiguration& flown = m_rocket.getFlightConfiguration(other);
+    ASSERT_EQ(flown.getAllMotors().size(), 1U);
+    flown.setStageActive(1, false);
+    ASSERT_TRUE(flown.getAllMotors().empty());
+    flown.refreshMotor(m_mount->getMotorConfig(other));
+    EXPECT_TRUE(flown.getAllMotors().empty());
+    EXPECT_TRUE(flown.getActiveMotors().empty());
 }
 
 TEST_F(ConfigurationTest, CopyCopiesTheMotorsIntoTheMounts)

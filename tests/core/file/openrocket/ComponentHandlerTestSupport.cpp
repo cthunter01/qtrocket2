@@ -1,6 +1,8 @@
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <format>
@@ -23,6 +25,7 @@
 #include "QtRocket/file/ZipFileAttachmentFactory.h"
 #include "QtRocket/file/ZipInputStream.h"
 #include "QtRocket/file/openrocket/ComponentParameterHandler.h"
+#include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/BuiltinMaterials.h"
@@ -599,6 +602,56 @@ void describeTree(const RocketComponent& c, std::size_t depth, const std::set<Uu
     return text + "}";
 }
 
+/// How many components stand before @p wanted when the tree below @p c is listed as
+/// describeTree() lists it, counted on in @p index; true when @p wanted is in that tree.
+[[nodiscard]] bool findInTreeOrder(const RocketComponent& c, const RocketComponent& wanted,
+                                   int& index)
+{
+    if (&c == &wanted)
+    {
+        return true;
+    }
+    ++index;
+    for (const RocketComponent* child : c.getChildren())
+    {
+        if (findInTreeOrder(*child, wanted, index))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// The motors of a flight configuration: "[#<n>:<designation>:<event>:<delay>:<override>,...]",
+/// n being the place of the motor's mount among the lines of the tree (the rocket is 0; -1
+/// for a mount that is not in the tree), in the order of those places. OpenRocket keeps the
+/// motors in the order of a hash map, so the order of the list itself is not compared.
+[[nodiscard]] std::string motorsText(const Rocket&                          rocket,
+                                     const std::vector<MotorConfiguration>& motors)
+{
+    std::vector<std::pair<int, std::string>> entries;
+    for (const MotorConfiguration& config : motors)
+    {
+        int index = 0;
+        if (!findInTreeOrder(rocket, asComponent(config.getMount()), index))
+        {
+            index = -1;
+        }
+        entries.emplace_back(
+            index, std::format("#{}:{}:{}", index,
+                               config.getMotor() == nullptr ? std::string("none")
+                                                            : config.getMotor()->getDesignation(),
+                               ignitionText(config)));
+    }
+    std::ranges::sort(entries);
+    std::string text = "[";
+    for (const auto& [index, entry] : entries)
+    {
+        text += (text.size() > 1 ? "," : "") + entry;
+    }
+    return text + "]";
+}
+
 [[nodiscard]] std::string describeConfiguration(const Rocket&              rocket,
                                                 const FlightConfiguration& config,
                                                 std::string_view           label,
@@ -612,6 +665,13 @@ void describeTree(const RocketComponent& c, std::size_t depth, const std::set<Uu
                             config.isStageActive(static_cast<int>(stage)));
     }
     line += std::format("] motors={}", config.getAllMotors().size());
+    // The motors themselves, as the configuration has them (in OpenRocket the mounts' own
+    // objects, here copies of them): all of them, and the ones whose mount is active.
+    if (!config.getAllMotors().empty() || !config.getActiveMotors().empty())
+    {
+        line += " all=" + motorsText(rocket, config.getAllMotors());
+        line += " flying=" + motorsText(rocket, config.getActiveMotors());
+    }
     return line;
 }
 
@@ -1055,6 +1115,79 @@ std::vector<std::string> failedDesignFiles(const std::filesystem::path&    direc
         }
     }
     return failed;
+}
+
+namespace
+{
+
+/// What a motor configuration holds that a flight configuration's copy has to have too.
+[[nodiscard]] std::string motorText(const MotorConfiguration& config)
+{
+    return std::format(
+        "{}:{}:{}",
+        config.getMotor() == nullptr ? std::string("none") : config.getMotor()->getDesignation(),
+        ignitionText(config), num(config.getEjectionDelay()));
+}
+
+/// The motors of @p motors, a list of the configuration @p id, that differ from their mounts'.
+void addMotorsThatAreNotTheirMounts(const FlightConfigurationId&           id,
+                                    const std::vector<MotorConfiguration>& motors,
+                                    std::string_view list, std::vector<std::string>& lines)
+{
+    for (const MotorConfiguration& copy : motors)
+    {
+        const MotorConfiguration& ofMount = copy.getMount().getMotorConfig(id);
+        if (motorText(copy) != motorText(ofMount) || copy.getMid() != ofMount.getMid())
+        {
+            lines.push_back(std::format(
+                "configuration {} {}: {} in {}, the mount has {}", id.key().toString(), list,
+                motorText(copy), asComponent(copy.getMount()).getName(), motorText(ofMount)));
+        }
+    }
+}
+
+}  // namespace
+
+std::vector<std::string> motorsThatAreNotTheirMounts(const Rocket& rocket)
+{
+    std::vector<std::string> lines;
+    for (const FlightConfigurationId& id : rocket.getIds())
+    {
+        const FlightConfiguration& config = rocket.getFlightConfiguration(id);
+        addMotorsThatAreNotTheirMounts(id, config.getAllMotors(), "all", lines);
+        addMotorsThatAreNotTheirMounts(id, config.getActiveMotors(), "flying", lines);
+    }
+    return lines;
+}
+
+std::vector<std::string> motorsThatAreNotTheirMountsAsLoaded(const std::filesystem::path& directory,
+                                                             std::span<const DesignFileCase> cases,
+                                                             bool withPresets)
+{
+    std::vector<std::string> lines;
+    for (const DesignFileCase& one : cases)
+    {
+        RocketLoadFixture fixture(withPresets);
+        static_cast<void>(fixture.load(rocketElementOfDesignFile(directory / one.file)));
+        for (const std::string& line : motorsThatAreNotTheirMounts(fixture.rocket()))
+        {
+            lines.push_back(std::format("{}: {}", one.file, line));
+        }
+    }
+    return lines;
+}
+
+std::uint64_t largestInstanceLoad(const std::filesystem::path&    directory,
+                                  std::span<const DesignFileCase> cases, bool withPresets)
+{
+    std::uint64_t largest = 0;
+    for (const DesignFileCase& one : cases)
+    {
+        RocketLoadFixture fixture(withPresets);
+        static_cast<void>(fixture.load(rocketElementOfDesignFile(directory / one.file)));
+        largest = std::max(largest, DocumentConfig::instanceLoad(fixture.rocket()));
+    }
+    return largest;
 }
 
 std::string printedDesignFiles(const std::filesystem::path&    directory,

@@ -17,13 +17,16 @@
 //     | decals='<name>','<name>'                  the images of the document's decal registry,
 //                                                 when it has any
 //     | selected=...                              the selected flight configuration
-//     | config ...                                every flight configuration, the default first
+//     | config ...                                every flight configuration, the default first,
+//                                                 with its motors when it has any: all=[...]
+//                                                 and flying=[...], see motorsText()
 //
 // A component's line is its Java class, its name and "key=value" for what it holds; see
 // describeComponent() in the source for the keys. An id that the case's text does not spell out
 // is random and printed as "random".
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -213,6 +216,26 @@ struct DesignFileCase
 [[nodiscard]] std::vector<std::string> failedDesignFiles(const std::filesystem::path&    directory,
                                                          std::span<const DesignFileCase> cases,
                                                          bool withPresets);
+
+/// The motors of the flight configurations of @p rocket that are not what their mount has for
+/// that configuration (the motor, its ignition and its ejection delay), in both lists of each
+/// configuration, one line each; empty when every one is. In OpenRocket the lists hold the
+/// mounts' own objects, so none can differ; here they hold copies (see FlightConfiguration).
+[[nodiscard]] std::vector<std::string> motorsThatAreNotTheirMounts(const Rocket& rocket);
+
+/// motorsThatAreNotTheirMounts() of each file of @p cases in @p directory as its rocket element
+/// leaves the rocket when it has been read, WITHOUT the update the top-level loader ends with
+/// (Rocket::enableEvents()), each line with the file's name in front; empty when there is none.
+[[nodiscard]] std::vector<std::string> motorsThatAreNotTheirMountsAsLoaded(
+    const std::filesystem::path& directory, std::span<const DesignFileCase> cases,
+    bool withPresets);
+
+/// The largest DocumentConfig::instanceLoad() a file of @p cases in @p directory leaves when
+/// its rocket element has been read: the instances of all components over all flight
+/// configurations, which the loader bounds (DocumentConfig::kMaxInstances).
+[[nodiscard]] std::uint64_t largestInstanceLoad(const std::filesystem::path&    directory,
+                                                std::span<const DesignFileCase> cases,
+                                                bool                            withPresets);
 
 /// The files of @p cases, each followed by what QtRocket makes of its rocket element, as the
 /// probe prints it; with @p withState the lines of the state follow each file, as the probe

@@ -61,6 +61,13 @@ class Rocket;
 ///   the error id's key. A configid that spells out the key of the default id names the
 ///   rocket's default configuration here as in Java: its name and stage entries go to that
 ///   one.
+/// - A flight configuration the rocket does not have yet is not made when it would take the
+///   rocket beyond DocumentConfig::kMaxInstances component instances over all its flight
+///   configurations (DocumentConfig::flightConfigurationFits()): Warning::kFileInvalidParameter,
+///   and nothing else happens, as for an id that is not valid. Every flight configuration
+///   keeps the instances of the whole rocket and builds them anew at every change, so 800
+///   empty <motorconfiguration/> elements beside one launch lug of 10000 instances held 4 GB.
+///   OpenRocket has no bound and runs out of memory.
 /// - Java removes configid and default from the attribute map before it warns of the others;
 ///   the attributes being const here, the warning is decided on a copy without the two.
 /// - The constructor takes the loading context, as every handler of the loader does, and does

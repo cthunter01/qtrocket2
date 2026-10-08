@@ -88,7 +88,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES AppearanceHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 50> kJava{{
+constexpr std::array<RocketCase, 52> kJava{{
     {.name = "ap-empty", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
@@ -575,11 +575,31 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | decals='/datafiles/textures/balsa.jpg'
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "ap-fix-decal-attributes-with-one-ignored-element", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar/></foo></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "ap-fix-decal-attributes-reach-the-component-from-two-deep", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar><baz/></bar></foo></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
 }};
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 14> kOwn{{
+constexpr std::array<RocketCase, 24> kOwn{{
     // Decision L4: a decal without name, of which OpenRocket dies; here it is ignored with everything in it and a warning, and the rest of the appearance is applied.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
@@ -771,6 +791,128 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
 |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
 | decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The attributes are const: two elements ignored in the <decal> hand its map to the component's element, which warns of name, rotation and edgemode here; OpenRocket took them out when the decal opened.
+    {.name = "ap-fix-decal-attributes-reach-the-component", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar/></foo><foo><bar/></foo></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+W Unknown attributes in element 'bodytube', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The attributes are const: two elements ignored in one element of the <decal> hand its map to the component's element, which warns of the three here (OpenRocket took them out).
+    {.name = "ap-fix-decal-attributes-reach-the-component-from-one-element", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar/><bar/></foo></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+W Unknown attributes in element 'bodytube', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The attributes are const: an element ignored in the <decal> and one ignored behind it hand its map to the component's element, which warns of the three here (OpenRocket took them out).
+    {.name = "ap-fix-decal-attributes-reach-the-component-from-behind", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar/></foo></decal><paint red="1" green="2" blue="3"><x/></paint></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+W Unknown element x, ignoring.
+W Unknown attributes in element 'bodytube', ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The attributes are const: six elements ignored in the <decal> hand its map to the parent of the rocket element, with the three here and empty in OpenRocket.
+    // OpenRocket: ROOT rocket {} []
+    {.name = "ap-fix-decal-attributes-reach-the-root", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal name="a.png" rotation="0" edgemode="REPEAT"><foo><bar/></foo><foo><bar/></foo><foo><bar/></foo><foo><bar/></foo><foo><bar/></foo><foo><bar/></foo></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Unknown element bar, ignoring.
+ROOT rocket {edgemode=REPEAT, name=a.png, rotation=0} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':0.0:REPEAT:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a <decal> without name is ignored. With the attachments of an archive OpenRocket registers an image without a name and goes on; whoever lists the images then dies (the probe's dump).
+    // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.replace(java.lang.CharSequence, java.lang.CharSequence)" because "<parameter1>" is n ...
+    {.name = "ap-fix-archive-nameless-decal", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="REPEAT"><center x="1" y="2"/></decal><shine>0.7</shine></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.7 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a <decal> without name is ignored before its rotation is looked at. With the attachments of an archive OpenRocket registers an image without a name and fails the load for the rotation.
+    // OpenRocket: RESULT THROWN java.lang.NumberFormatException: For input string: "x"
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.compareTo(String)" because the return value of "info.openrocket.core.document.DecalR ...
+    {.name = "ap-fix-archive-nameless-decal-bad-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="x" edgemode="REPEAT"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a <decal> without name is ignored before its edge mode is looked at. With the attachments of an archive OpenRocket registers an image without a name and fails the load for the edge mode.
+    // OpenRocket: RESULT THROWN java.lang.IllegalArgumentException: No enum constant info.openrocket.core.appearance.Decal.EdgeMode.nothing
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.compareTo(String)" because the return value of "info.openrocket.core.document.DecalR ...
+    {.name = "ap-fix-archive-nameless-decal-bad-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="nothing"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a <decal> without name is ignored, of which OpenRocket dies with files as attachments (a NullPointerException), before its rotation is looked at.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    {.name = "ap-fix-nameless-decal-bad-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="x" edgemode="REPEAT"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision L4: a <decal> without name is ignored, of which OpenRocket dies with files as attachments (a NullPointerException), before its edge mode is looked at.
+    // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
+    // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    {.name = "ap-fix-nameless-decal-bad-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="nothing"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Strings::parseInt() reads ASCII digits only: a channel written with an Arabic-Indic digit makes no colour and the paint stays (Integer.parseInt reads it as 4).
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    {.name = "ap-fix-paint-with-other-digits", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><paint red="&#1636;" green="2" blue="3"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
 }};

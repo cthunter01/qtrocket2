@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <format>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -7,6 +9,11 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "TestPaths.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 
@@ -22,6 +29,8 @@ using QtRocket::Test::casesThatThrowWhenCutOff;
 using QtRocket::Test::DesignFileCase;
 using QtRocket::Test::failedDesignFiles;
 using QtRocket::Test::failedRocketCases;
+using QtRocket::Test::largestInstanceLoad;
+using QtRocket::Test::motorsThatAreNotTheirMountsAsLoaded;
 using QtRocket::Test::printedDesignFiles;
 using QtRocket::Test::printedRocketCases;
 using QtRocket::Test::RocketCase;
@@ -381,8 +390,8 @@ EVENTS 5 {mass,aero,tree=1, motor=1, tree=3}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:AUTOMATIC:0.0:false motor[random]=F12X:Infinity:0.0:AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1
-| config random name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X:AUTOMATIC:0.0:false]
+| config random name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X:AUTOMATIC:0.0:false])out"},
     {.name = "scout-deployment", .xml = R"xml(<motorconfiguration configid="11111111-2222-3333-4444-555555555555"/>
 <subcomponents><stage><subcomponents><bodytube><subcomponents><parachute><deployevent>altitude</deployevent><deployaltitude>100</deployaltitude><deploydelay>1</deploydelay><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployevent> apogee </deployevent><deploydelay>x</deploydelay><bogus a="1">t</bogus></deploymentconfiguration><deploymentconfiguration><deployevent>bogus</deployevent></deploymentconfiguration><cd>AUTO</cd><linelength>auto</linelength><isdrogue>true</isdrogue></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Invalid parameter encountered, ignoring.
@@ -469,7 +478,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[random]=F12X:3.0:0.0:AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config random name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config random name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X:AUTOMATIC:0.0:false])out"},
     {.name = "scout-slip-param", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>0.5<x/></length><radius>0.03</radius><name>N<b/>M</name></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown element x, ignoring.
 W Invalid parameter encountered, ignoring. data: '' - Body Tube
@@ -562,8 +571,8 @@ EVENTS 38 {mass=5, mass,aero=12, mass,aero,tree=4, mass,tree=2, motor=1, nonfunc
 |       Parachute 'Chute' axial=TOP:0.02 x=0.02 len=0.025 massovr=0.01 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=EJECTION:0.0:200.0 diameter=0.3 lines=6:0.3:false linemat=[LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|0.0|Custom]
 | selected=00000000-0000-0000-0000-000000018405
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 00000000-0000-0000-0000-000000017862 name='one' preload=null active=[true] motors=1
-| config 00000000-0000-0000-0000-000000018405 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 00000000-0000-0000-0000-000000017862 name='one' preload=null active=[true] motors=1 all=[#6:F12X:AUTOMATIC:0.0:true] flying=[#6:F12X:AUTOMATIC:0.0:true]
+| config 00000000-0000-0000-0000-000000018405 name='[{motors}]' preload=null active=[true] motors=1 all=[#6:F12X:AUTOMATIC:0.0:true] flying=[#6:F12X:AUTOMATIC:0.0:true])out"},
     {.name = "legacy-position-with-type", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><innertube><name>top</name><position type="top">0.1</position></innertube><innertube><name>middle</name><position type="middle">0.1</position></innertube><innertube><name>bottom</name><position type="bottom">-0.1</position></innertube><innertube><name>absolute</name><position type="absolute">0.4</position></innertube><innertube><name>after</name><position type="after">0.1</position></innertube><trapezoidfinset><name>fins</name><position type="bottom">0.0</position></trapezoidfinset><launchlug><name>lug</name><position type="top">0.05</position></launchlug><parachute><name>chute</name><position type="top">0.02</position></parachute><masscomponent><name>both</name><axialoffset method="top">0.3</axialoffset><position type="top">0.3</position></masscomponent><masscomponent><name>both, differing</name><axialoffset method="top">0.3</axialoffset><position type="bottom">-0.2</position></masscomponent><masscomponent><name>method and type</name><position method="middle" type="top">0.1</position></masscomponent><masscomponent><name>no type</name><position>0.1</position></masscomponent><masscomponent><name>unknown type</name><position type="front">0.1</position></masscomponent></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Invalid parameter encountered, ignoring.
 ROOT rocket {} []
@@ -681,7 +690,7 @@ EVENTS 29 {mass,aero=13, mass,aero,tree=3, motor=1, nonfunc=6, tree=6}
 |       ParallelStage 'New name' axial=BOTTOM:0.0 x=1.0 len=0.0 stage=2 sep=EJECTION:0.0:200.0 inst=3 radius=RELATIVE:0.0 angle=RELATIVE:0.0
 | selected=default
 | config default name='[{motors}]' preload=null active=[true,true,false] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true,true,false] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true,true,false] motors=1 all=[#5:F12X:AUTOMATIC:0.0:false] flying=[#5:F12X:AUTOMATIC:0.0:false])out"},
     {.name = "nested-stages-pods-and-boosters", .xml = R"xml(<name>Nested</name><motorconfiguration configid="11111111-2222-3333-4444-555555555555" default="true"><name>all</name><stage number="0" active="true"/><stage number="1" active="true"/><stage number="2" active="true"/><stage number="3" active="false"/></motorconfiguration><motorconfiguration configid="22222222-3333-4444-5555-666666666666"><stage number="0" active="true"/><stage number="1" active="false"/><stage number="2" active="false"/><stage number="3" active="false"/></motorconfiguration><subcomponents><stage><name>Sustainer</name><subcomponents><nosecone><name>Nose</name><length>0.15</length><aftradius>0.03</aftradius></nosecone><bodytube><name>Sustainer tube</name><length>0.5</length><radius>0.03</radius><motormount><ignitionevent>ejectioncharge</ignitionevent><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount><subcomponents><podset><name>Pods</name><instancecount>3</instancecount><radiusoffset method="surface">0.0</radiusoffset><angleoffset method="relative">60.0</angleoffset><axialoffset method="top">0.1</axialoffset><subcomponents><nosecone><name>Pod nose</name><length>0.05</length><aftradius>0.01</aftradius></nosecone><bodytube><name>Pod tube</name><length>0.2</length><radius>0.01</radius><subcomponents><parachute><name>Pod chute</name><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployevent>apogee</deployevent><deploydelay>1.5</deploydelay><deployaltitude>120</deployaltitude></deploymentconfiguration></parachute><podset><name>Pods on a pod</name><instancecount>2</instancecount><subcomponents><bodytube><name>Pod pod tube</name><length>0.05</length><radius>0.004</radius></bodytube></subcomponents></podset></subcomponents></bodytube></subcomponents></podset><parallelstage><name>Boosters</name><instancecount>2</instancecount><radiusoffset method="surface">0.0</radiusoffset><angleoffset method="relative">0.0</angleoffset><axialoffset method="bottom">0.0</axialoffset><separationevent>burnout</separationevent><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationevent>burnout</separationevent><separationdelay>1.5</separationdelay><separationaltitude>120</separationaltitude></separationconfiguration><subcomponents><nosecone><name>Booster nose</name><length>0.1</length><aftradius>0.02</aftradius></nosecone><bodytube><name>Booster tube</name><length>0.4</length><radius>0.02</radius><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor></motormount><subcomponents><trapezoidfinset><name>Booster fins</name><instancecount>2</instancecount></trapezoidfinset><parallelstage><name>Boosters on a booster</name><instancecount>2</instancecount><subcomponents><bodytube><name>Small booster tube</name><length>0.1</length><radius>0.008</radius><motormount><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>5.0</delay></motor></motormount></bodytube></subcomponents></parallelstage></subcomponents></bodytube></subcomponents></parallelstage><trapezoidfinset><name>Fins</name><instancecount>3</instancecount></trapezoidfinset></subcomponents></bodytube></subcomponents></stage><stage><name>Lower stage</name><separationevent>upperignition</separationevent><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationevent>ejection</separationevent></separationconfiguration><separationconfiguration configid="22222222-3333-4444-5555-666666666666"><separationdelay>2</separationdelay></separationconfiguration><subcomponents><bodytube><name>Lower tube</name><length>0.3</length><radius>0.03</radius><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 77 {mass,aero=29, mass,aero,tree=11, mass,tree=1, motor=4, nonfunc=20, tree=12}
@@ -706,8 +715,8 @@ EVENTS 77 {mass,aero=29, mass,aero,tree=11, mass,tree=1, motor=4, nonfunc=20, tr
 |     BodyTube 'Lower tube' axial=AFTER:0.0 x=0.0 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.03:false thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:AUTOMATIC:0.0:false
 | selected=11111111-2222-3333-4444-555555555555
 | config default name='[{motors}]' preload=null active=[true,true,true,true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='all' preload={0=true, 1=true, 2=true, 3=false} active=[true,true,true,true] motors=3
-| config 22222222-3333-4444-5555-666666666666 name='[{motors}]' preload={0=true, 1=false, 2=false, 3=false} active=[true,true,true,true] motors=2)out"},
+| config 11111111-2222-3333-4444-555555555555 name='all' preload={0=true, 1=true, 2=true, 3=false} active=[true,true,true,true] motors=3 all=[#3:F12X:BURNOUT:2.0:true,#12:F12X:AUTOMATIC:0.0:false,#18:F12X:AUTOMATIC:0.0:false] flying=[#3:F12X:BURNOUT:2.0:true,#12:F12X:AUTOMATIC:0.0:false]
+| config 22222222-3333-4444-5555-666666666666 name='[{motors}]' preload={0=true, 1=false, 2=false, 3=false} active=[true,true,true,true] motors=2 all=[#3:F12X:EJECTION_CHARGE:0.0:true,#15:F12X:AUTOMATIC:0.0:false] flying=[#3:F12X:EJECTION_CHARGE:0.0:true,#15:F12X:AUTOMATIC:0.0:false])out"},
 }};
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
@@ -924,17 +933,17 @@ constexpr std::array<DesignFileCase, 18> kLegacyFiles{{
 ROOT rocket {} []
 EVENTS 80 {mass=21, mass,aero=19, mass,aero,tree=4, mass,tree=8, motor=1, nonfunc=24, tree=3}
 COMPONENTS 14
-STATE 9c68f2cfd96b7652ab4a226382d10121ebc2e59fa8abb6bb9486c8f8db01be3a)out"},
+STATE 8b6923f737b53cab4003f432b3cae84fb474be52b4d912cd651fe8452a13cddd)out"},
     {.file = "v1.0-roll-stabilized.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 90 {aero=1, mass=21, mass,aero=25, mass,aero,tree=5, mass,tree=7, motor=1, nonfunc=26, tree=4}
 COMPONENTS 14
-STATE 6106b63d4a201cc2ebc8acaf504edfef422ece4027f8a4cd6293b60b62196e60)out"},
+STATE b91b5d4169b4c5970a86e53a9d12ebfb2598912cf356cfa725948f34053c8999)out"},
     {.file = "v1.4-roll-stabilized.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 90 {aero=1, mass=21, mass,aero=25, mass,aero,tree=5, mass,tree=7, motor=1, nonfunc=26, tree=4}
 COMPONENTS 14
-STATE 3aa2b4a1e490f85532eb574c6a5fae1ffe4433d99b52063182880d1b7a9a09c4)out"},
+STATE 225ead53af816182a4f762ff85ebbe8a048d0d6d24440313c6c4492f9d4ad8d8)out"},
     {.file = "v1.5-preset-usage.ork", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component Nose cone found matching SEMROC Astronautics BNC-55F
 W No matching ComponentPreset for component Body tube found matching SEMROC Astronautics BT-55
@@ -945,12 +954,12 @@ W No matching ComponentPreset for component Parachute found matching SEMROC Astr
 ROOT rocket {} []
 EVENTS 68 {mass=27, mass,aero=17, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=12, tree=3}
 COMPONENTS 10
-STATE 854c013e3e888b20c90c16357459a72d5ceca1dbf01ae75101018969fc3356a0)out"},
+STATE fbb3ae41c17654b5dc85b20537244f89f723d5d1028e54fd62a59d7c82b49d32)out"},
     {.file = "v1.6-a-simple-model-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 83 {mass=19, mass,aero=18, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=27, tree=7}
 COMPONENTS 13
-STATE 77763b6a0a2ab2d9213d5d8fb4f16458222baaf5c11547dce643ad382b68a5f1)out"},
+STATE 5f6f0ed98ddb94b2a50dcae3b9364730ed8e47f5de25fc1f7c7219871c015eb6)out"},
     {.file = "v1.6-apocd.ork", .expected = R"out(RESULT ok
 W Unknown attributes in element 'ambient', ignoring.
 W Unknown attributes in element 'diffuse', ignoring.
@@ -963,12 +972,12 @@ STATE b1e453db2e2ba8313597be32b21054edf3992870bc232c564772ea72198345cc)out"},
 ROOT rocket {} []
 EVENTS 218 {aero,treechild=1, mass=45, mass,aero=83, mass,aero,tree=18, mass,tree=5, mass,treechild=2, motor=1, nonfunc=57, tree=6}
 COMPONENTS 26
-STATE 056b18cfbb1b1f41b1a870ee93d7d5e5c04b52c51ea6523242aa447936061b7f)out"},
+STATE 6509b5f7e8db72dd8e99c3203b18610fab51f7d2bb4e9a80e73a74d399174bb3)out"},
     {.file = "v1.6-high-power-airstart.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 135 {mass=48, mass,aero=26, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=36, tree=7}
 COMPONENTS 18
-STATE 96dd1574020de05c59e272c9125f8848239dd8fae37205c2e7acaa7585ea4d17)out"},
+STATE 6737676a4e0ee3b5ee03807be7dbe0ed6cf63e8bfc480d5b7112fe54eb4ff966)out"},
     {.file = "v1.6-preset-usage-decals-first.ork", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component Nose cone found matching SEMROC Astronautics BNC-55F
 W No matching ComponentPreset for component Body tube found matching SEMROC Astronautics BT-55
@@ -979,33 +988,33 @@ W No matching ComponentPreset for component Parachute found matching SEMROC Astr
 ROOT rocket {} []
 EVENTS 73 {mass=27, mass,aero=17, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=17, tree=3}
 COMPONENTS 10
-STATE c302efe611b2a3afebea23dffa4d4e2b56db56839908acea4e59d33c1c3c7d86)out"},
+STATE dbfc4dbde7a371066df2eaa9f14ba12ea3fe82e09006005c863ae941d1cadf9f)out"},
     {.file = "v1.6-simulation-listeners.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 203 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=47, tree=3}
 COMPONENTS 24
-STATE 1a6f74d83b63a096a0b421389a0fe56e0d16a754a2b759e71ce88ec735be7bd9)out"},
+STATE bb2a5b7ef8f2ce412d7c42d7c04b50638a8d3eaf0ef58aa6ebeb3365290df536)out"},
     {.file = "v1.6-tarc-payloader.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 111 {mass=28, mass,aero=33, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=30, tree=5}
 COMPONENTS 17
-STATE bc284d6a991574fc3e4cc0d6db95d81d8f7c9793533c6d92b49de7cba52dae0e)out"},
+STATE 6cd2ca9eff6fe8430a2b2c9888cb9abd2f24219238071b1470b37a04919f56ed)out"},
     {.file = "v1.6-three-stage-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 153 {mass=23, mass,aero=42, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=52, tree=9}
 COMPONENTS 28
-STATE 9fce0e4d65b082dc4776e1dc83f927a4bf058aaa7ce9a1e654ee4a683bb6eb72)out"},
+STATE 31ba5fab0d8a56f95339a8d247e00ceb2ff3d80cd1e25b71dd880f4ee6aa968c)out"},
     {.file = "v1.7-simulation-extensions-and-scripting.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 203 {aero=3, mass=71, mass,aero=56, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=47, tree=3}
 COMPONENTS 24
-STATE 7c6ec0df632a1778988289966a006ddb4a688dda0dbf6a56f7121302b7516bc2)out"},
+STATE 270d4286b3c8445e57fee20ccbae6dda72fa5bda4c15f8382fcd890c4d55328b)out"},
     {.file = "v1.7-tube-fin.ork", .expected = R"out(RESULT ok
 W No matching ComponentPreset for component Body tube found matching FlisKits BT-50-18
 ROOT rocket {} []
 EVENTS 24 {mass=2, mass,aero=8, mass,aero,tree=3, mass,tree=1, motor=1, nonfunc=6, tree=3}
 COMPONENTS 6
-STATE 9c4830bc98bd4219014db81b025b867413474ef59f5229bb334bd4086a54a75b)out"},
+STATE 598e2d510ffb1056293a7e76b5803e3508225bb60c13a69f775d5f880017deca)out"},
     {.file = "v1.8-logo-rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 49 {mass=1, mass,aero=28, mass,aero,tree=6, nonfunc=11, tree=3}
@@ -1015,17 +1024,17 @@ STATE c61b5e0a2ff9bb0d2df58098ed3d77e71e7fa67202e5501a35c2f516254f65b2)out"},
 ROOT rocket {} []
 EVENTS 101 {mass=28, mass,aero=31, mass,aero,tree=8, mass,tree=4, motor=2, nonfunc=21, tree=7}
 COMPONENTS 16
-STATE efafd3d49ec1a0ec5302bfc1f6f0833351803a142725dbfbc9198cd1d8467f8b)out"},
+STATE 85ffe60fce38765fd1f26653e0e623a664195eef6a51a1ae384400d226481b84)out"},
     {.file = "v1.8-pods-example.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 112 {mass=32, mass,aero=34, mass,aero,tree=8, mass,tree=5, motor=2, nonfunc=25, tree=6}
 COMPONENTS 17
-STATE 767340ee47c77cfe17661f9231b4b22aa507eafd375a6c44e9f17d5850ee9b49)out"},
+STATE 98352b5d9189536cf9a5d0974ddab32c273209b002d49d07fc199ab62c5107a0)out"},
     {.file = "v1.9-chute-release.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 155 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=44, tree=4}
 COMPONENTS 15
-STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
+STATE 1c151d5cfeead15df30dd6a60bd6adce976092c1045375fbe1df7329135e4121)out"},
 }};
 // END GENERATED TABLES legacy_files
 // BEGIN GENERATED TABLES example_files
@@ -1034,83 +1043,83 @@ constexpr std::array<DesignFileCase, 16> kExampleFiles{{
 ROOT rocket {} []
 EVENTS 161 {aero=6, mass=42, mass,aero=40, mass,aero,tree=5, mass,tree=9, motor=1, nonfunc=51, tree=7}
 COMPONENTS 16
-STATE 82b3bdf8b73a0a5350928524806203f86d4aab55baff78fcb93b647f80e7db92)out"},
+STATE a738cecd168ff3844535c0470409563046d4490f8ba21ade909d8246715608bb)out"},
     {.file = "A simple model rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 107 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=35, tree=7}
 COMPONENTS 13
-STATE b0a39754488aad4ed30ed2fed2b85e63d84ac84c3f2c20d84a0e36b2f0ce0c1b)out"},
+STATE 5c7155a2cb0ed0f3bc8ab8a7b3577e4a1914d9b2211b6548f7e1f3aa2d3144c5)out"},
     {.file = "ARC payload rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 153 {aero=2, mass=40, mass,aero=50, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=41, tree=5}
 COMPONENTS 17
-STATE c14300573110a705a6ac764f329f51740ca8cb34f572ce40cd880d0afb523536)out"},
+STATE 59321ab23b6c08731cc736242b3ce4276037b30ab232d10b8ed347ff5fba6d5f)out"},
     {.file = "Airstart timing.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 178 {aero=2, mass=59, mass,aero=41, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=51, tree=7}
 COMPONENTS 18
-STATE 8d115736d939d4bec9918d2ee3f5b23df64e302dde8c7808b4407fa14e71e43c)out"},
+STATE 89fc415402b461fe9fb8c3ac9753f03f829cac2a8cf03b1972a20aaad3658c7b)out"},
     {.file = "Chute release.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 156 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=45, tree=4}
 COMPONENTS 15
-STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
+STATE 1c151d5cfeead15df30dd6a60bd6adce976092c1045375fbe1df7329135e4121)out"},
     {.file = "Clustered motors.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 141 {aero=2, mass=23, mass,aero=43, mass,aero,tree=5, mass,tree=10, motor=1, nonfunc=50, tree=7}
 COMPONENTS 17
-STATE a26759fd7ff9f165380cbe91f9bd27ec02dcc52f898527eca5dc36b4dd20d3f4)out"},
+STATE 72c9b7d15d979ebad04d39f85ee4be365351539b599c97fba78dd2cc898d3374)out"},
     {.file = "Deployable payload.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 147 {aero=1, mass=23, mass,aero=46, mass,aero,tree=5, mass,tree=11, motor=1, nonfunc=51, tree=9}
 COMPONENTS 19
-STATE d43774b51cd0e298d61559d92148af3a961c6c3571dc388b67264723846183b5)out"},
+STATE 4180b5ef3367a3e676b783142a7de3757147d9371b5bbb0154f42bdce1cb5587)out"},
     {.file = "Dual parachute deployment.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 182 {aero=3, mass=48, mass,aero=59, mass,aero,tree=7, mass,tree=11, mass,treechild=1, motor=1, nonfunc=44, tree=8}
 COMPONENTS 20
-STATE 6e40ee345f45b5abd97fffd727a4d68663c8bd1bebca6fc456de5df8ef3f8c12)out"},
+STATE 470e4791fc8729c5937c58819bb7a845ea5b89e213ee2fd75bc2f11c7b1a0311)out"},
     {.file = "Parallel booster staging.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=49, tree=5}
 COMPONENTS 18
-STATE 4d5e2cfb47fe69284ea3c55f7b51e71581290141fbc3831b2dd46b51beb5dcda)out"},
+STATE 661ea836f6e7a38358d4e40e103c978b19b21cb9bac7ad5a211e0b01adca4f13)out"},
     {.file = "Pods--airframes and winglets.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 247 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=56, tree=9}
 COMPONENTS 24
-STATE 87d27ce2507175b77334448bd3674b72031877b4496fcd896e49a3e95cb2fdb2)out"},
+STATE 00d795a316b7b02097a40613f6f29726332ad5c3ad56093720f2732eaf926095)out"},
     {.file = "Pods--powered with recovery deployment.ork", .expected = R"out(RESULT ok
 W Embedded motor attachment 'thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse' contains no motor matching digest 'e5b53def203dd437ebf0d67846f6cd3b'.
 ROOT rocket {} []
 EVENTS 111 {mass=17, mass,aero=46, mass,aero,tree=7, mass,tree=5, motor=2, nonfunc=30, tree=4}
 COMPONENTS 15
-STATE 7752c1472ef360b96f5031300822a5e936d9feb9f029a771fb19efe7daa4652f)out"},
+STATE 31900a352752142e76a33fd360fa3861aa0637884dbc509aab2d7619da8337b3)out"},
     {.file = "Simulation extensions.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 251 {aero=6, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=63, tree=3}
 COMPONENTS 24
-STATE 2388e0fb0a0c50eb34ef5322e92ace0584b3bfef7459f1d060f90fead65381c8)out"},
+STATE f5c7b399185f2320c2bd215f2b4cee11ad901d389fb4f193b5ad91841cca514c)out"},
     {.file = "Simulation scripting.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 249 {aero=5, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=62, tree=3}
 COMPONENTS 24
-STATE dc31be59e5ffd036a2e9474543fbc7ec9812cc8768a3529b453e2c6a202d578b)out"},
+STATE 3b16e1f68e2b0b7a8ff706ddc20681ba3e5c3d38989eb9e28a6b0a7af589daf9)out"},
     {.file = "Three stage low power rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 200 {aero=2, mass=23, mass,aero=71, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=68, tree=9}
 COMPONENTS 28
-STATE 8cd3405be368311d076e4fe4eda1d68fe5fb0d8c5b2ef5165522c37d523bbcc2)out"},
+STATE e6b97ac2e4c032174393248738aef290f7dada1edb61d6a803b3090278c8b2ee)out"},
     {.file = "Tube fin rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 81 {aero=1, mass=23, mass,aero=25, mass,aero,tree=4, mass,tree=3, motor=1, nonfunc=21, tree=3}
 COMPONENTS 9
-STATE cf4b3e1636823d88cb05ecc496718960a5a35cdf13df29ed84961ef407e68bf4)out"},
+STATE 93aa067dc510762c5ce7821741a341a6a60bcea4b0e2f9f64faf4b92d47a375d)out"},
     {.file = "Two stage high power rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 444 {aero=2, mass=159, mass,aero=124, mass,aero,tree=13, mass,tree=34, motor=2, nonfunc=104, tree=6}
 COMPONENTS 50
-STATE 4406d223493f92882918335dcbd49fb6c21988cea75e2b7689c7caa88903098f)out"},
+STATE b64cc3beb16d2c66004f4d739bcb104accd96441306e8e088b6b09a2286d7453)out"},
 }};
 // END GENERATED TABLES example_files
 // BEGIN GENERATED TABLES resave_files
@@ -1119,87 +1128,87 @@ constexpr std::array<DesignFileCase, 29> kResaveFiles{{
 ROOT rocket {} []
 EVENTS 161 {aero=6, mass=42, mass,aero=40, mass,aero,tree=5, mass,tree=9, motor=1, nonfunc=51, tree=7}
 COMPONENTS 16
-STATE 82b3bdf8b73a0a5350928524806203f86d4aab55baff78fcb93b647f80e7db92)out"},
+STATE a738cecd168ff3844535c0470409563046d4490f8ba21ade909d8246715608bb)out"},
     {.file = "example-a-simple-model-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 107 {aero=1, mass=19, mass,aero=33, mass,aero,tree=4, mass,tree=7, motor=1, nonfunc=35, tree=7}
 COMPONENTS 13
-STATE b0a39754488aad4ed30ed2fed2b85e63d84ac84c3f2c20d84a0e36b2f0ce0c1b)out"},
+STATE 5c7155a2cb0ed0f3bc8ab8a7b3577e4a1914d9b2211b6548f7e1f3aa2d3144c5)out"},
     {.file = "example-airstart-timing/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 178 {aero=2, mass=59, mass,aero=41, mass,aero,tree=5, mass,tree=11, motor=2, nonfunc=51, tree=7}
 COMPONENTS 18
-STATE 8d115736d939d4bec9918d2ee3f5b23df64e302dde8c7808b4407fa14e71e43c)out"},
+STATE 89fc415402b461fe9fb8c3ac9753f03f829cac2a8cf03b1972a20aaad3658c7b)out"},
     {.file = "example-arc-payload-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 153 {aero=2, mass=40, mass,aero=50, mass,aero,tree=6, mass,tree=8, motor=1, nonfunc=41, tree=5}
 COMPONENTS 17
-STATE c14300573110a705a6ac764f329f51740ca8cb34f572ce40cd880d0afb523536)out"},
+STATE 59321ab23b6c08731cc736242b3ce4276037b30ab232d10b8ed347ff5fba6d5f)out"},
     {.file = "example-chute-release/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 156 {aero=3, mass=44, mass,aero=46, mass,aero,tree=5, mass,tree=8, motor=1, nonfunc=45, tree=4}
 COMPONENTS 15
-STATE 95120346d8f1c120ba5fd76b2102a2e1396b705a4fa59331520d92afe38155b3)out"},
+STATE 1c151d5cfeead15df30dd6a60bd6adce976092c1045375fbe1df7329135e4121)out"},
     {.file = "example-clustered-motors/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 141 {aero=2, mass=23, mass,aero=43, mass,aero,tree=5, mass,tree=10, motor=1, nonfunc=50, tree=7}
 COMPONENTS 17
-STATE a26759fd7ff9f165380cbe91f9bd27ec02dcc52f898527eca5dc36b4dd20d3f4)out"},
+STATE 72c9b7d15d979ebad04d39f85ee4be365351539b599c97fba78dd2cc898d3374)out"},
     {.file = "example-deployable-payload/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 147 {aero=1, mass=23, mass,aero=46, mass,aero,tree=5, mass,tree=11, motor=1, nonfunc=51, tree=9}
 COMPONENTS 19
-STATE d43774b51cd0e298d61559d92148af3a961c6c3571dc388b67264723846183b5)out"},
+STATE 4180b5ef3367a3e676b783142a7de3757147d9371b5bbb0154f42bdce1cb5587)out"},
     {.file = "example-dual-parachute-deployment/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 182 {aero=3, mass=48, mass,aero=59, mass,aero,tree=7, mass,tree=11, mass,treechild=1, motor=1, nonfunc=44, tree=8}
 COMPONENTS 20
-STATE 6e40ee345f45b5abd97fffd727a4d68663c8bd1bebca6fc456de5df8ef3f8c12)out"},
+STATE 470e4791fc8729c5937c58819bb7a845ea5b89e213ee2fd75bc2f11c7b1a0311)out"},
     {.file = "example-parallel-booster-staging/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=49, tree=5}
 COMPONENTS 18
-STATE c86943bd165f0d44961991cbbc99ace81e1fb040115255103272df4769b6a6c2)out"},
+STATE 9a7b54263ef927de251a58ec474c72c762e5f950584e585ca317ae8cdc20cd4e)out"},
     {.file = "example-pods-airframes-and-winglets/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 247 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=56, tree=9}
 COMPONENTS 24
-STATE 87d27ce2507175b77334448bd3674b72031877b4496fcd896e49a3e95cb2fdb2)out"},
+STATE 00d795a316b7b02097a40613f6f29726332ad5c3ad56093720f2732eaf926095)out"},
     {.file = "example-pods-powered-with-recovery-deployment/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 111 {mass=17, mass,aero=46, mass,aero,tree=7, mass,tree=5, motor=2, nonfunc=30, tree=4}
 COMPONENTS 15
-STATE 7f950eaf661a84fe89ca58f2c7942c3969dd9735c4bc0bf173877c9bf55914f5)out"},
+STATE c2894f2e129e3433257e834f4ec11be605ac2ed0309bb11c58ac23dc0f03add1)out"},
     {.file = "example-simulation-extensions/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 251 {aero=6, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=63, tree=3}
 COMPONENTS 24
-STATE 2388e0fb0a0c50eb34ef5322e92ace0584b3bfef7459f1d060f90fead65381c8)out"},
+STATE f5c7b399185f2320c2bd215f2b4cee11ad901d389fb4f193b5ad91841cca514c)out"},
     {.file = "example-simulation-scripting/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 249 {aero=5, mass=75, mass,aero=81, mass,aero,tree=8, mass,tree=14, motor=1, nonfunc=62, tree=3}
 COMPONENTS 24
-STATE dc31be59e5ffd036a2e9474543fbc7ec9812cc8768a3529b453e2c6a202d578b)out"},
+STATE 3b16e1f68e2b0b7a8ff706ddc20681ba3e5c3d38989eb9e28a6b0a7af589daf9)out"},
     {.file = "example-three-stage-low-power-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 200 {aero=2, mass=23, mass,aero=71, mass,aero,tree=9, mass,tree=15, motor=3, nonfunc=68, tree=9}
 COMPONENTS 28
-STATE 8cd3405be368311d076e4fe4eda1d68fe5fb0d8c5b2ef5165522c37d523bbcc2)out"},
+STATE e6b97ac2e4c032174393248738aef290f7dada1edb61d6a803b3090278c8b2ee)out"},
     {.file = "example-tube-fin-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 81 {aero=1, mass=23, mass,aero=25, mass,aero,tree=4, mass,tree=3, motor=1, nonfunc=21, tree=3}
 COMPONENTS 9
-STATE cf4b3e1636823d88cb05ecc496718960a5a35cdf13df29ed84961ef407e68bf4)out"},
+STATE 93aa067dc510762c5ce7821741a341a6a60bcea4b0e2f9f64faf4b92d47a375d)out"},
     {.file = "example-two-stage-high-power-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 444 {aero=2, mass=159, mass,aero=124, mass,aero,tree=13, mass,tree=34, motor=2, nonfunc=104, tree=6}
 COMPONENTS 50
-STATE 7947f7bec6254cfed98a839c8a1a5d80f43ae62c2e0510b4c1c73cd558f0871a)out"},
+STATE bdfc5b6fe060cd38159cd6f492d6f49d0a3ef0bd3e81d363fd7b05be276a58d6)out"},
     {.file = "testrocket-beta/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 110 {mass=15, mass,aero=44, mass,aero,tree=8, mass,tree=6, motor=2, nonfunc=26, tree=9}
 COMPONENTS 17
-STATE 14f0ab6378aac423ee6e538764c0d0b2cda194837b5883aa300960d58c136c97)out"},
+STATE 9045f29acbc4c75cf7a65b4b0e9cb9b644ba048d3d395421442eaf4e1c51f873)out"},
     {.file = "testrocket-big-blue/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 26 {mass=5, mass,aero=12, mass,aero,tree=3, mass,tree=1, nonfunc=3, tree=2}
@@ -1209,7 +1218,7 @@ STATE e353538fd25357f9dcf5e344ab66147ead9aca0f368d163cd4b16fb3dc629647)out"},
 ROOT rocket {} []
 EVENTS 37 {mass=2, mass,aero=13, mass,aero,tree=2, mass,tree=2, motor=2, nonfunc=12, tree=4}
 COMPONENTS 7
-STATE 149aece86538e6a704074ed773752a9ef9f67c9e90bc7a884b994fcd96c2faea)out"},
+STATE 8e828c5fcb91a5e696e57001ed164f000d43c893985d8a6aee8df69293e732fd)out"},
     {.file = "testrocket-end-plate-rocket/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 43 {mass=1, mass,aero=24, mass,aero,tree=5, nonfunc=10, tree=3}
@@ -1219,32 +1228,32 @@ STATE da185645c68ed7849afabb7b3f33ddcd776177ffbb76024da953d3bae1e73a09)out"},
 ROOT rocket {} []
 EVENTS 87 {mass=14, mass,aero=34, mass,aero,tree=6, mass,tree=4, motor=1, nonfunc=21, tree=7}
 COMPONENTS 13
-STATE 159fa34d834be17496add9305adc767a145781ddd26b37d9812cc352875bdf10)out"},
+STATE e010f9e8b31db85050581a6c3f6af8b415e2504fdd297ac39c6c46231a4a5f55)out"},
     {.file = "testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 90 {mass=16, mass,aero=32, mass,aero,tree=5, mass,tree=5, motor=2, nonfunc=23, tree=7}
 COMPONENTS 13
-STATE 1b1daa6b902de0ec36a9bacea778eb31a753981fe9517e3c574831a7cd174a12)out"},
+STATE 6d1e4d32baeced3351c9b108e1e60bbb52ac18467d6bc2605404ca4b372f80f0)out"},
     {.file = "testrocket-estes-alpha-iii-with-pods/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 79 {mass=12, mass,aero=31, mass,aero,tree=5, mass,tree=4, motor=1, nonfunc=19, tree=7}
 COMPONENTS 12
-STATE 9b71cc5456ef745a2261dbb6c2d2eb8ec00ad23705b62bf2ab5cee22c2363351)out"},
+STATE 31dae2abe09f6d6002e4f1a76f4a4c145d5d45578efc49f3d9a3bd0514db721b)out"},
     {.file = "testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 75 {mass=15, mass,aero=26, mass,aero,tree=4, mass,tree=5, motor=2, nonfunc=17, tree=6}
 COMPONENTS 11
-STATE 21cc7ad18ee5117df61b07acf3e041f5719fbe249e83a6b29b6a04bf8d34a3f0)out"},
+STATE abef207b35f64b1bb9633442ce60ab73a89c448d26450ae02993bb848ab28375)out"},
     {.file = "testrocket-estes-alpha-iii/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 65 {mass=12, mass,aero=24, mass,aero,tree=4, mass,tree=4, motor=1, nonfunc=14, tree=6}
 COMPONENTS 10
-STATE b0bcdccc25bd9052fa74794e94409a46f4981d40fcafe00e31a89c49bdcf46f9)out"},
+STATE 152ecdf2a393c4f48ab361cbbce2ebda0ec2b686698f63e9823a18d38e9a68b9)out"},
     {.file = "testrocket-falcon-9-heavy/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 109 {mass=22, mass,aero=43, mass,aero,tree=9, mass,tree=3, motor=2, nonfunc=23, tree=7}
 COMPONENTS 16
-STATE a2bc12bfa5f00ced82ef6fbaa3480d3dd9d76788f265dcce33f82b4daf7e0ac8)out"},
+STATE 1816d11b830c7bc7c194a7a613120c46fd8a4ff638041be19d574123f8b61f66)out"},
     {.file = "testrocket-iso-haisu/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 137 {mass=38, mass,aero=52, mass,aero,tree=7, mass,tree=12, nonfunc=26, tree=2}
@@ -1254,7 +1263,7 @@ STATE 435adb82db99cb95dcee74a6d59ff26588c35d26716ad73ae4796413ecfd3dda)out"},
 ROOT rocket {} []
 EVENTS 61 {mass,aero=25, mass,aero,tree=6, mass,tree=2, motor=3, nonfunc=18, tree=7}
 COMPONENTS 12
-STATE 54b89827c2674fff50c17e5eb5fb49f0c1bebe790617e48a624d843636eb4842)out"},
+STATE 87d87806daad07b2e4f83e916d7cae6aff18a06b5e4ff1b85320ffa7c83e9265)out"},
     {.file = "testrocket-simple-2-stage/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 18 {mass=2, mass,aero=4, mass,aero,tree=2, nonfunc=5, tree=5}
@@ -1348,6 +1357,67 @@ TEST(RocketElement, ReadsTheResavedDesignsAsOpenRocket)
 
 // Not tests: they print what QtRocket makes of the design files, for scripts/make_tables.py,
 // and the states behind the digests, to compare with the probe's dump files.
+// The review's finding: an <ignitionconfiguration> behind the <motor> of its flight
+// configuration, the order OpenRocket's saver writes, changed the mount's motor configuration
+// and left the flight configuration's copy as it was until the next change of the rocket. The
+// last mount of "Airstart timing.ork" is the last element of its rocket, so its four airstart
+// delays (2, 1, 4 and 6 s) were 0 in the flight configurations as loaded. In OpenRocket the
+// flight configuration holds the mount's own object. Here the rocket is looked at as the
+// handlers leave it, without the update the top-level loader ends with.
+TEST(RocketElement, TheFlightConfigurationsHaveTheMotorsOfTheirMountsAsLoaded)
+{
+    EXPECT_EQ(motorsThatAreNotTheirMountsAsLoaded(QtRocket::Test::dataDir() / "examples",
+                                                  kExampleFiles, true),
+              std::vector<std::string>{});
+    EXPECT_EQ(motorsThatAreNotTheirMountsAsLoaded(QtRocket::Test::testDataDir() / "goldens",
+                                                  kResaveFiles, true),
+              std::vector<std::string>{});
+    EXPECT_EQ(motorsThatAreNotTheirMountsAsLoaded(QtRocket::Test::testDataDir() / "ork",
+                                                  kLegacyFiles, false),
+              std::vector<std::string>{});
+}
+
+// The loader lets a file give a rocket no more than DocumentConfig::kMaxInstances component
+// instances over all its flight configurations (see instance_budget_tests.cpp). The designs of
+// the repository are nowhere near: the largest, pinned here, is under a fifth of a percent of
+// it, so the bound takes nothing from them (their states equal OpenRocket's, see above).
+TEST(RocketElement, NoDesignComesNearTheInstanceBudget)
+{
+    EXPECT_EQ(QtRocket::DocumentConfig::kMaxInstances, 100000U);
+    EXPECT_EQ(largestInstanceLoad(QtRocket::Test::dataDir() / "examples", kExampleFiles, true),
+              180U);
+    EXPECT_EQ(largestInstanceLoad(QtRocket::Test::testDataDir() / "goldens", kResaveFiles, true),
+              180U);
+    EXPECT_EQ(largestInstanceLoad(QtRocket::Test::testDataDir() / "ork", kLegacyFiles, false),
+              136U);
+}
+
+[[nodiscard]] std::string airstartDelaysAsLoaded()
+{
+    RocketLoadFixture fixture(true);
+    static_cast<void>(fixture.load(QtRocket::Test::rocketElementOfDesignFile(
+        QtRocket::Test::dataDir() / "examples" / "Airstart timing.ork")));
+    std::string delays;
+    for (const QtRocket::FlightConfigurationId& id : fixture.rocket().getIds())
+    {
+        double latest = 0;
+        for (const QtRocket::MotorConfiguration& motor :
+             fixture.rocket().getFlightConfiguration(id).getAllMotors())
+        {
+            latest = std::max(latest, motor.getIgnitionDelay());
+        }
+        delays += std::format("{} ", latest);
+    }
+    return delays;
+}
+
+// The delays themselves, in the order of the file's flight configurations (OpenRocket's:
+// out/files/Airstart timing.ork.java.dump of the fixer's probe).
+TEST(RocketElement, TheAirstartsOfTheExampleHaveTheirDelaysAsLoaded)
+{
+    EXPECT_EQ(airstartDelaysAsLoaded(), "0 2 1 4 6 ");
+}
+
 TEST(RocketElement, DISABLED_PrintsTheResavedDesigns)
 {
     std::cout << printedDesignFiles(QtRocket::Test::testDataDir() / "goldens", kResaveFiles, true,

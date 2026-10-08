@@ -20,6 +20,7 @@
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -50,11 +51,20 @@ using PresetPtr = std::shared_ptr<const ComponentPreset>;
     return nullptr;
 }
 
-/// Whether @p preset has a material under @p key that is not of @p type.
-[[nodiscard]] bool hasMaterialOfAnotherType(const ComponentPreset&    preset,
-                                            const TypedKey<Material>& key, Material::Type type)
+/// Whether a recovery device would take the material @p preset has under @p key and that
+/// material is not of @p type. RecoveryDevice::loadFromPreset() and Parachute::loadFromPreset()
+/// take a preset's material only when its text ("name (density)", Material::toString()) is
+/// longer than 12 characters, as OpenRocket's do, and have the device's default material in
+/// the place of a shorter one, whatever its type.
+[[nodiscard]] bool takesMaterialOfAnotherType(const ComponentPreset&    preset,
+                                              const TypedKey<Material>& key, Material::Type type)
 {
-    return preset.has(key) && preset.get(key).getType() != type;
+    if (!preset.has(key))
+    {
+        return false;
+    }
+    const Material& material = preset.get(key);
+    return Strings::javaLength(material.toString()) > 12 && material.getType() != type;
 }
 
 /// Whether RocketComponent::loadPreset() can load @p preset into @p component: false where it
@@ -63,12 +73,12 @@ using PresetPtr = std::shared_ptr<const ComponentPreset>;
 {
     const ComponentKind kind = component.kind();
     if (isRecoveryDevice(kind) &&
-        hasMaterialOfAnotherType(preset, ComponentPreset::kMaterial, Material::Type::SURFACE))
+        takesMaterialOfAnotherType(preset, ComponentPreset::kMaterial, Material::Type::SURFACE))
     {
         return false;
     }
     if (kind == ComponentKind::PARACHUTE &&
-        hasMaterialOfAnotherType(preset, ComponentPreset::kLineMaterial, Material::Type::LINE))
+        takesMaterialOfAnotherType(preset, ComponentPreset::kLineMaterial, Material::Type::LINE))
     {
         return false;
     }

@@ -1,9 +1,12 @@
 #include "QtRocket/file/openrocket/ComponentParameterHandler.h"
 
 #include <array>
+#include <cstddef>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,9 +19,11 @@
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Uuid.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
 
@@ -54,7 +59,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES ComponentParameterHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 17> kJava{{
+constexpr std::array<RocketCase, 18> kJava{{
     {.name = "cp-document-order", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><name>first</name><length>0.1</length><name>second</name><length>0.3</length><radius>0.02</radius><thickness>0.03</thickness><radius>0.05</radius></bodytube></subcomponents></stage></subcomponents><name>R1</name><name>R2</name>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 11 {mass=1, mass,aero=4, mass,aero,tree=1, nonfunc=4, tree=1}
@@ -243,11 +248,120 @@ EVENTS 4 {mass,aero=1, mass,aero,tree=1, nonfunc=1, tree=1}
 |     BodyTube 'BT' axial=AFTER:0.0 x=0.0 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    {.name = "cp-fix-id-set-again", .xml = R"xml(<subcomponents><stage><id>11111111-2222-3333-4444-555555555555</id><name>one</name><id>11111111-2222-3333-4444-555555555555</id><id>22222222-3333-4444-5555-666666666666</id><id>11111111-2222-3333-4444-555555555555</id></stage><stage><id>22222222-3333-4444-5555-666666666666</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 3 {tree=3}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'one' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+|   AxialStage 'Stage' id=22222222-3333-4444-5555-666666666666 axial=AFTER:0.0 x=0.0 len=0.0 stage=1 sep=EJECTION:0.0:200.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[false,false] motors=0)out"},
 }};
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 0> kOwn{};
+constexpr std::array<RocketCase, 8> kOwn{{
+    // An id another component has is refused with a warning. OpenRocket takes it and its load then dies in Rocket.copyWithOriginalID() (a ClassCastException: the rocket is found for the stage's id), which the probe does not call.
+    // OpenRocket: |   AxialStage 'Stage' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+    {.name = "cp-fix-id-of-the-rocket-on-a-stage", .xml = R"xml(<id>11111111-2222-3333-4444-555555555555</id><subcomponents><stage><id>11111111-2222-3333-4444-555555555555</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 1 {tree=1}
+| Rocket 'Rocket' id=11111111-2222-3333-4444-555555555555 axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[false] motors=0)out"},
+    // An id another component has is refused with a warning. OpenRocket takes it and its load then dies in Rocket.copyWithOriginalID() (the body tube is found for the stage's id).
+    // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.2 x=0.2 len=0.0 stage=1 sep=EJECTION:0.0:200.0
+    {.name = "cp-fix-id-of-a-tube-on-a-later-stage", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><id>1-2-3-4-5</id></bodytube></subcomponents></stage><stage><id>1-2-3-4-5</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {mass,aero,tree=1, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.0 stage=1 sep=EJECTION:0.0:200.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[true,false] motors=0)out"},
+    // An id another component has is refused with a warning. OpenRocket takes it, and the second stage, equal to the first, stands at the first one's place.
+    // OpenRocket: |   AxialStage 'Stage' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 stage=1 sep=EJECTION:0.0:200.0
+    {.name = "cp-fix-id-twice-stages", .xml = R"xml(<subcomponents><stage><id>11111111-2222-3333-4444-555555555555</id><subcomponents><bodytube/></subcomponents></stage><stage><id>11111111-2222-3333-4444-555555555555</id><subcomponents><bodytube/></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 4 {mass,aero,tree=2, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
+    // An id another component has is refused with a warning. OpenRocket takes it, and the second tube stands at the place of the first, the third behind it at 0.5.
+    // OpenRocket: |     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.5 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperPr ...
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.5 len=0.1 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    {.name = "cp-fix-id-twice-tubes", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>0.3</length><id>11111111-2222-3333-4444-555555555555</id></bodytube><bodytube><length>0.5</length><id>11111111-2222-3333-4444-555555555555</id></bodytube><bodytube><length>0.1</length></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 7 {mass,aero=3, mass,aero,tree=3, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.9 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.3 len=0.5 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.8 len=0.1 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // An id another component has is refused with a warning (OpenRocket takes it).
+    // OpenRocket: |       Bulkhead 'Bulkhead' id=11111111-2222-3333-4444-555555555555 axial=TOP:0.2 x=0.2 len=0.002 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts ...
+    {.name = "cp-fix-id-twice-bulkheads", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><subcomponents><bulkhead><id>11111111-2222-3333-4444-555555555555</id><axialoffset method="top">0.1</axialoffset></bulkhead><bulkhead><id>11111111-2222-3333-4444-555555555555</id><axialoffset method="top">0.2</axialoffset></bulkhead></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 9 {mass,aero=3, mass,aero,tree=1, mass,tree=2, nonfunc=2, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=1.0 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=1.0 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       Bulkhead 'Bulkhead' id=11111111-2222-3333-4444-555555555555 axial=TOP:0.1 x=0.1 len=0.002 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.023:true inner=0.0:false radial=0.0:0.0 spacing=0.0
+|       Bulkhead 'Bulkhead' axial=TOP:0.2 x=0.2 len=0.002 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.023:true inner=0.0:false radial=0.0:0.0 spacing=0.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // An id another component has is refused with a warning. OpenRocket takes it, and its flight configuration then has one motor for the two mounts, another in each of its two lists.
+    // OpenRocket: |     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperPr ...
+    // OpenRocket: | config 22222222-3333-4444-5555-666666666666 name='[{motors}]' preload=null active=[true] motors=1 all=[#3:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X: ...
+    {.name = "cp-fix-id-twice-mounts", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><id>11111111-2222-3333-4444-555555555555</id><motormount><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>3</delay></motor></motormount></bodytube><bodytube><id>11111111-2222-3333-4444-555555555555</id><motormount><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>5</delay></motor></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 6 {mass,aero,tree=2, motor=2, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[22222222-3333-4444-5555-666666666666]=F12X:3.0:0.0:AUTOMATIC:0.0:false
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.2 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[22222222-3333-4444-5555-666666666666]=F12X:5.0:0.0:AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0
+| config 22222222-3333-4444-5555-666666666666 name='[{motors}]' preload=null active=[true] motors=2 all=[#2:F12X:AUTOMATIC:0.0:false,#3:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X:AUTOMATIC:0.0:false])out"},
+    // An id another component has is refused with a warning, however it is spelled (OpenRocket takes it).
+    // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.0 stage=1 sep=EJECTION:0.0:200.0
+    // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.0 stage=2 sep=EJECTION:0.0:200.0
+    {.name = "cp-fix-id-in-other-spellings", .xml = R"xml(<subcomponents><stage><id>1-2-3-4-5</id></stage><stage><id>00000001-0002-0003-0004-000000000005</id></stage><stage><id>+1-2-3-4-5</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 3 {tree=3}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 stage=1 sep=EJECTION:0.0:200.0
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 stage=2 sep=EJECTION:0.0:200.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[false,false,false] motors=0)out"},
+    // Strings::parseInt() reads ASCII digits only: a channel written with an Arabic-Indic digit makes no colour (Integer.parseInt reads it as 4).
+    // OpenRocket: EVENTS 2 {nonfunc=1, tree=1}
+    // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 color=4,2,3,255 stage=0 sep=EJECTION:0.0:200.0
+    {.name = "cp-fix-color-with-other-digits", .xml = R"xml(<subcomponents><stage><color red="&#1636;" green="2" blue="3"/></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 1 {tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
+| selected=default
+| config default name='[{motors}]' preload=null active=[false] motors=0)out"},
+}};
 // END GENERATED TABLES ComponentParameterHandler
 // BEGIN GENERATED TABLES ComponentParameterHandler.presets
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
@@ -444,6 +558,118 @@ TEST(ComponentParameterHandler, PassesTheFailureOfASetterOn)
     EXPECT_EQ(closed.error().code, ErrorCode::INVALID_ARGUMENT);
     EXPECT_EQ(closed.error().message, "Invalid UUID string: not-a-uuid");
     EXPECT_TRUE(warnings.empty());
+}
+
+/// What reading @p xml leaves of its ids: the warnings, "ids <different ids> of <components>",
+/// and what using the rocket as the top-level loader does throws ("" when nothing).
+[[nodiscard]] std::string idsLeftBy(std::string_view xml)
+{
+    RocketLoadFixture fixture;
+    const HandlerRun  run = fixture.load(xml);
+    std::string       text;
+    for (const std::string& warning : run.texts())
+    {
+        text += warning + " | ";
+    }
+    std::set<QtRocket::Uuid> ids;
+    std::size_t              components = 0;
+    for (const QtRocket::RocketComponent& component : fixture.rocket().subtree())
+    {
+        ids.insert(component.getId());
+        ++components;
+    }
+    return std::format("{}ids {} of {} | use {}", text, ids.size(), components,
+                       QtRocket::Test::whatUsingTheRocketThrows(fixture));
+}
+
+// The review's finding. The first two documents loaded and then ended in a BugError, "Stage
+// not found in copy", when the document's undo history was cleared, which copies the rocket
+// (Rocket::copyWithOriginalId() finds the stages of the copy by id) and which the top-level
+// loader does at the end of every load. OpenRocket dies there too (a ClassCastException: the
+// rocket, or the body tube, is found for the stage's id), so by decision D9 the id is refused
+// with a warning and the component keeps the id it was made with. The other documents loaded,
+// with components the tree could not tell apart; their ids are refused as well (see the cases
+// "cp-fix-id-..." of the tables for what OpenRocket makes of each).
+TEST(ComponentParameterHandler, AnIdAnotherComponentHasIsRefused)
+{
+    constexpr std::string_view kWarned = "Invalid parameter encountered, ignoring. | ";
+    constexpr std::string_view kId     = "11111111-2222-3333-4444-555555555555";
+
+    // The rocket's id on a stage.
+    EXPECT_EQ(idsLeftBy(std::format("<id>{0}</id><subcomponents><stage><id>{0}</id></stage>"
+                                    "</subcomponents>",
+                                    kId)),
+              std::format("{}ids 2 of 2 | use ", kWarned));
+    // A body tube's id on a later stage.
+    EXPECT_EQ(idsLeftBy("<subcomponents><stage><subcomponents><bodytube><id>1-2-3-4-5</id>"
+                        "</bodytube></subcomponents></stage><stage><id>1-2-3-4-5</id></stage>"
+                        "</subcomponents>"),
+              std::format("{}ids 4 of 4 | use ", kWarned));
+    // Two stages, two body tubes, a stage before its tube.
+    EXPECT_EQ(idsLeftBy(std::format("<subcomponents><stage><id>{0}</id></stage><stage><id>{0}"
+                                    "</id></stage></subcomponents>",
+                                    kId)),
+              std::format("{}ids 3 of 3 | use ", kWarned));
+    EXPECT_EQ(idsLeftBy(std::format("<subcomponents><stage><subcomponents><bodytube><id>{0}</id>"
+                                    "</bodytube><bodytube><id>{0}</id></bodytube></subcomponents>"
+                                    "</stage></subcomponents>",
+                                    kId)),
+              std::format("{}ids 4 of 4 | use ", kWarned));
+    EXPECT_EQ(idsLeftBy(std::format("<subcomponents><stage><id>{0}</id><subcomponents><bodytube>"
+                                    "<id>{0}</id></bodytube></subcomponents></stage>"
+                                    "</subcomponents>",
+                                    kId)),
+              std::format("{}ids 3 of 3 | use ", kWarned));
+}
+
+/// How reading a stage with the id @p id ends: "ok", or the code and the message of the failure.
+[[nodiscard]] std::string resultOfTheId(std::string_view id)
+{
+    RocketLoadFixture fixture;
+    const HandlerRun  run =
+        fixture.load(std::format("<subcomponents><stage><id>{}</id></stage></subcomponents>", id));
+    if (run.result.has_value())
+    {
+        return "ok";
+    }
+    return std::format("{}: {}",
+                       run.result.error().code == ErrorCode::INVALID_ARGUMENT ? "INVALID_ARGUMENT"
+                                                                              : "another code",
+                       run.result.error().message);
+}
+
+// A deviation (see DocumentConfig and Uuid::javaFromString()): java.util.UUID.fromString() reads
+// each group with Character.digit(), which knows the decimal digits of every script and the
+// fullwidth letters, so OpenRocket loads both documents ("RESULT ok" for the fixer's probe cases
+// cp-fix-id-with-other-digits and cp-fix-id-with-a-fullwidth-letter). Here only ASCII digits
+// are digits: the text is no UUID, which fails the load as any other text that is none does,
+// with a message Java never gives for it. (The characters are U+FF11, the fullwidth digit one,
+// and U+FF21, the fullwidth letter A, written as character references and as UTF-8 bytes.)
+TEST(ComponentParameterHandler, AnIdWithFullwidthDigitsFailsTheLoad)
+{
+    EXPECT_EQ(resultOfTheId("&#65297;-2-3-4-5"),
+              "INVALID_ARGUMENT: Error at index 0 in: \"\xEF\xBC\x91\"");
+    EXPECT_EQ(resultOfTheId("1-2-3-4-&#65313;"),
+              "INVALID_ARGUMENT: Error at index 0 in: \"\xEF\xBC\xA1\"");
+    EXPECT_EQ(resultOfTheId("1-2-3-4-a"), "ok");
+}
+
+TEST(ComponentParameterHandler, AnIdNoOtherComponentHasIsTaken)
+{
+    constexpr std::string_view kId = "11111111-2222-3333-4444-555555555555";
+    // The id a component has, given once more; and the id another component had before it was
+    // given a new one.
+    RocketLoadFixture fixture;
+    const HandlerRun  run = fixture.load(
+        std::format("<subcomponents><stage><id>{0}</id><id>{0}</id><id>1-2-3-4-5</id></stage>"
+                    "<stage><id>{0}</id></stage></subcomponents>",
+                    kId));
+    EXPECT_TRUE(run.texts().empty());
+    ASSERT_EQ(fixture.rocket().getChildCount(), 2U);
+    EXPECT_EQ(fixture.rocket().getChild(0).getId().toString(),
+              "00000001-0002-0003-0004-000000000005");
+    EXPECT_EQ(fixture.rocket().getChild(1).getId().toString(), kId);
+    EXPECT_EQ(QtRocket::Test::whatUsingTheRocketThrows(fixture), "");
 }
 
 }  // namespace

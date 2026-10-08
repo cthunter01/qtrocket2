@@ -26,6 +26,13 @@ class RocketComponent;
 /// component defined as cluster." and nothing is set. With the key the setter table has,
 /// "InnerTube:clusterconfiguration", no file brings this about: for any other component the
 /// element is an unknown parameter.
+///
+/// Deviation from OpenRocket: a layout that would give the rocket more component instances
+/// than DocumentConfig::kMaxInstances over all its flight configurations is refused with
+/// Warning::kFileInvalidParameter, and the tube keeps the layout it has
+/// (DocumentConfig::instanceCountFits()). The tubes of a cluster each hold everything below
+/// the tube, so inner tubes in a "9-grid" nested nine deep are 9^9 instances with no number
+/// above 9 in the file. OpenRocket has no bound and runs out of memory.
 class ClusterConfigurationSetter final : public Setter
 {
 public:

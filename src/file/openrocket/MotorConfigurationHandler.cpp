@@ -82,6 +82,15 @@ Result<void> MotorConfigurationHandler::endHandler(std::string_view  element,
         return {};
     }
 
+    // Not OpenRocket's: a configuration that would take the rocket beyond its instance budget
+    // is not made (see the class comment). One the rocket has is never refused.
+    if (!m_rocket->containsFlightConfigurationId(fcid) &&
+        !DocumentConfig::flightConfigurationFits(*m_rocket))
+    {
+        warnings.add(Warning::kFileInvalidParameter);
+        return {};
+    }
+
     m_rocket->createFlightConfiguration(fcid);
 
     if (m_name.has_value() && !Strings::trim(*m_name).empty())

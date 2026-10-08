@@ -62,13 +62,15 @@ class RocketComponent;
 /// - The function the setter is made with loads the preset (Java: the method loadPreset() and
 ///   the extra parameters of the setter's second constructor). The table's function for a
 ///   parachute passes PresetLoadOptions{.allowAutoRadius = false}, Java's `false`.
-/// - A parachute or streamer is not given a preset whose material is not a surface material,
-///   nor a parachute one whose line material is not a line material: the warning
-///   Warning::kFileInvalidParameter, and nothing is loaded. OpenRocket dies there of a
-///   ClassCastException, after it has set the length (a body tube preset named in a <parachute>
-///   or <streamer> element), unless the material's text ("name (density)") is 12 characters or
-///   shorter, in which case it takes the device's default material; RecoveryDevice::
-///   loadFromPreset() and Parachute::loadFromPreset() have a BugError there (decisions D9, L4).
+/// - A parachute or streamer is not given a preset whose material it would take and that is
+///   not a surface material, nor a parachute one whose line material it would take and that is
+///   not a line material: the warning Warning::kFileInvalidParameter, and nothing is loaded.
+///   OpenRocket dies there of a ClassCastException, after it has set the length (a body tube
+///   preset named in a <parachute> or <streamer> element); RecoveryDevice::loadFromPreset() and
+///   Parachute::loadFromPreset() have a BugError there (decisions D9, L4). A device takes a
+///   preset's material only when its text ("name (density)", Material::toString()) is longer
+///   than 12 characters; a preset with a shorter one is loaded whatever the material's type,
+///   and the device has its default material, as in OpenRocket.
 /// - A rocket that is frozen (Rocket::freeze()) loads no preset: the same warning. No loader
 ///   freezes the rocket, and RocketComponent::loadPreset() has a BugError for it where
 ///   OpenRocket reports an error and goes on.

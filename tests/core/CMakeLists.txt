@@ -293,6 +293,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/handler_test_support_tests.cpp
     file/openrocket/IgnitionConfigurationHandlerTests.cpp
     file/openrocket/InsideAppearanceHandlerTests.cpp
+    file/openrocket/instance_budget_tests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
     file/openrocket/loader_value_sweep_tests.cpp

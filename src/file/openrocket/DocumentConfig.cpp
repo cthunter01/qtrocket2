@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <functional>
 #include <limits>
@@ -33,6 +34,8 @@
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/file/openrocket/StringSetter.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -80,6 +83,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Strings.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
 {
@@ -207,15 +211,38 @@ template <class Set>
 }
 
 /// RocketComponent.setID(String): UUID.fromString(), whose IllegalArgumentException leaves the
-/// loader and fails the load ("Exception loading stream: Invalid UUID string: x").
-[[nodiscard]] Result<void> setId(RocketComponent& component, std::string_view text)
+/// loader and fails the load ("Exception loading stream: Invalid UUID string: x"). Not
+/// OpenRocket's: an id that another component of the tree has is refused with a warning (see
+/// the class comment).
+[[nodiscard]] Result<void> setId(RocketComponent& component, std::string_view text,
+                                 WarningSet& warnings)
 {
-    if (const Result<void> result = component.setId(text); !result.has_value())
+    const Result<Uuid> id = Uuid::javaFromString(text);
+    if (!id.has_value())
     {
-        return fail(ErrorCode::INVALID_ARGUMENT, result.error().message);
+        return fail(ErrorCode::INVALID_ARGUMENT, id.error().message);
     }
+    // The first component of the tree that has the id: the component itself when the file
+    // gives it the id it has.
+    const RocketComponent* const holder = std::as_const(component).getRoot().findComponent(*id);
+    if (holder != nullptr && holder != &component)
+    {
+        warnings.add(Warning::kFileInvalidParameter);
+        return {};
+    }
+    component.setId(*id);
     return {};
 }
+
+/// What the number of a setter means when it is how many instances its component has, for a
+/// component that keeps any number (a launch lug, a rail button, a ring, a pod set, a booster
+/// set): above DocumentConfig::kMaxCount it is refused (decision L6).
+constexpr IntSetter::InstanceCount kUnboundedInstances{.kept        = DocumentConfig::kMaxCount,
+                                                       .refuseAbove = true};
+
+/// The same for the fins of a fin set and of a tube fin set, which keep 8 of a larger number
+/// (FinSet::setFinCount(), TubeFinSet::setFinCount()), as OpenRocket's do.
+constexpr IntSetter::InstanceCount kFinInstances{.kept = 8, .refuseAbove = false};
 
 // One function per class of the Java source, in its order, each entry at its place.
 
@@ -303,7 +330,7 @@ void addParallelStageSetters(SetterTable& table)
     table.put("ParallelStage:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<ParallelStage>(c).setInstanceCount(v); },
-                  DocumentConfig::kMaxCount));
+                  kUnboundedInstances));
     table.put("ParallelStage:angleoffset", std::make_unique<AnglePositionSetter>());
     table.put("ParallelStage:radiusoffset", std::make_unique<RadiusPositionSetter>());
 }
@@ -322,7 +349,7 @@ void addLaunchLugSetters(SetterTable& table)
     table.put("LaunchLug:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<LaunchLug>(c).setInstanceCount(v); },
-                  DocumentConfig::kMaxCount));
+                  kUnboundedInstances));
     table.put("LaunchLug:instanceseparation",
               std::make_unique<DoubleSetter>(
                   [](RocketComponent& c, double v) { as<LaunchLug>(c).setInstanceSeparation(v); }));
@@ -347,7 +374,7 @@ void addRailButtonSetters(SetterTable& table)
     table.put("RailButton:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<RailButton>(c).setInstanceCount(v); },
-                  DocumentConfig::kMaxCount));
+                  kUnboundedInstances));
     table.put("RailButton:instanceseparation",
               std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<RailButton>(c).setInstanceSeparation(v);
@@ -446,12 +473,13 @@ void addNoseConeSetters(SetterTable& table)
 void addFinSetSetters(SetterTable& table)
 {
     // FinSet::setFinCount() bounds the count itself (1 to 8), so these two have no maximum.
-    table.put("FinSet:fincount", std::make_unique<IntSetter>([](RocketComponent& c, int v) {
-                  as<FinSet>(c).setFinCount(v);
-              }));
-    table.put("FinSet:instancecount", std::make_unique<IntSetter>([](RocketComponent& c, int v) {
-                  as<FinSet>(c).setInstanceCount(v);
-              }));
+    table.put("FinSet:fincount",
+              std::make_unique<IntSetter>(
+                  [](RocketComponent& c, int v) { as<FinSet>(c).setFinCount(v); }, kFinInstances));
+    table.put(
+        "FinSet:instancecount",
+        std::make_unique<IntSetter>(
+            [](RocketComponent& c, int v) { as<FinSet>(c).setInstanceCount(v); }, kFinInstances));
     table.put(
         "FinSet:rotation",
         std::make_unique<DoubleSetter>(
@@ -514,9 +542,10 @@ void addEllipticalFinSetSetters(SetterTable& table)
 void addTubeFinSetSetters(SetterTable& table)
 {
     // TubeFinSet::setFinCount() bounds the count itself (1 to 8): no maximum here either.
-    table.put("TubeFinSet:fincount", std::make_unique<IntSetter>([](RocketComponent& c, int v) {
-                  as<TubeFinSet>(c).setFinCount(v);
-              }));
+    table.put(
+        "TubeFinSet:fincount",
+        std::make_unique<IntSetter>(
+            [](RocketComponent& c, int v) { as<TubeFinSet>(c).setFinCount(v); }, kFinInstances));
     table.put(
         "TubeFinSet:rotation",
         std::make_unique<DoubleSetter>(
@@ -534,7 +563,8 @@ void addTubeFinSetSetters(SetterTable& table)
             [](RocketComponent& c, bool v) { as<TubeFinSet>(c).setOuterRadiusAutomatic(v); }));
     table.put("TubeFinSet:instancecount",
               std::make_unique<IntSetter>(
-                  [](RocketComponent& c, int v) { as<TubeFinSet>(c).setInstanceCount(v); }));
+                  [](RocketComponent& c, int v) { as<TubeFinSet>(c).setInstanceCount(v); },
+                  kFinInstances));
     table.put("TubeFinSet:angleoffset", std::make_unique<AnglePositionSetter>());
     table.put("TubeFinSet:radiusoffset", std::make_unique<RadiusPositionSetter>());
 }
@@ -611,7 +641,7 @@ void addRadiusRingComponentSetters(SetterTable& table)
     table.put("RadiusRingComponent:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<RadiusRingComponent>(c).setInstanceCount(v); },
-                  DocumentConfig::kMaxCount));
+                  kUnboundedInstances));
     table.put("RadiusRingComponent:instanceseparation",
               std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
                   as<RadiusRingComponent>(c).setInstanceSeparation(v);
@@ -760,7 +790,7 @@ void addPodSetSetters(SetterTable& table)
     table.put("PodSet:instancecount",
               std::make_unique<IntSetter>(
                   [](RocketComponent& c, int v) { as<PodSet>(c).setInstanceCount(v); },
-                  DocumentConfig::kMaxCount));
+                  kUnboundedInstances));
     table.put("PodSet:radiusoffset", std::make_unique<RadiusPositionSetter>());
     table.put("PodSet:angleoffset", std::make_unique<AnglePositionSetter>());
 }
@@ -928,6 +958,109 @@ std::vector<std::string_view> DocumentConfig::setterKeys()
 std::vector<std::string_view> DocumentConfig::refusedKeys()
 {
     return keysOf(false);
+}
+
+namespace
+{
+
+constexpr std::uint64_t kSaturated = std::numeric_limits<std::uint64_t>::max();
+
+[[nodiscard]] constexpr std::uint64_t saturatingMultiply(std::uint64_t a, std::uint64_t b) noexcept
+{
+    return a != 0 && b > kSaturated / a ? kSaturated : a * b;
+}
+
+[[nodiscard]] constexpr std::uint64_t saturatingAdd(std::uint64_t a, std::uint64_t b) noexcept
+{
+    return b > kSaturated - a ? kSaturated : a + b;
+}
+
+/// A candidate change of the instance budget: @p component with @p count instances in the
+/// place of the count it has. Without a component nothing is changed.
+struct CountChange
+{
+    const RocketComponent* component{nullptr};
+    int                    count{0};
+};
+
+/// The instance count of @p component, or the one @p change gives it.
+[[nodiscard]] std::uint64_t instanceCountOf(const RocketComponent& component,
+                                            const CountChange&     change)
+{
+    const int count = &component == change.component ? change.count : component.getInstanceCount();
+    return count > 0 ? static_cast<std::uint64_t>(count) : 0;
+}
+
+/// The instances of @p component and of everything below it, each instance of what stands
+/// above it holding @p above of them.
+[[nodiscard]] std::uint64_t instancesOfSubtree(const RocketComponent& component,
+                                               std::uint64_t above, const CountChange& change)
+{
+    const std::uint64_t own   = saturatingMultiply(above, instanceCountOf(component, change));
+    std::uint64_t       total = own;
+    for (const RocketComponent* child : component.getChildren())
+    {
+        total = saturatingAdd(total, instancesOfSubtree(*child, own, change));
+    }
+    return total;
+}
+
+/// How many instances of @p component there are: the product of the instance counts from the
+/// root down to it.
+[[nodiscard]] std::uint64_t instancesAt(const RocketComponent& component)
+{
+    std::uint64_t instances = 1;
+    for (const RocketComponent* c = &component; c != nullptr; c = c->getParent())
+    {
+        instances = saturatingMultiply(instances, instanceCountOf(*c, CountChange{}));
+    }
+    return instances;
+}
+
+/// The flight configurations of the tree with the root @p root, the default one counted: every
+/// one keeps an instance map of its own.
+[[nodiscard]] std::uint64_t configurationsOf(const RocketComponent& root)
+{
+    const auto* const rocket = dynamic_cast<const Rocket*>(&root);
+    return rocket == nullptr
+               ? 1
+               : static_cast<std::uint64_t>(rocket->getFlightConfigurationCount()) + 1;
+}
+
+}  // namespace
+
+std::uint64_t DocumentConfig::instanceLoad(const RocketComponent& component)
+{
+    const RocketComponent& root = component.getRoot();
+    return saturatingMultiply(instancesOfSubtree(root, 1, CountChange{}), configurationsOf(root));
+}
+
+bool DocumentConfig::instanceCountFits(const RocketComponent& component, int count)
+{
+    if (count <= component.getInstanceCount())
+    {
+        return true;
+    }
+    const RocketComponent& root = component.getRoot();
+    const std::uint64_t    instances =
+        instancesOfSubtree(root, 1, CountChange{.component = &component, .count = count});
+    return saturatingMultiply(instances, configurationsOf(root)) <= kMaxInstances;
+}
+
+bool DocumentConfig::childFits(const RocketComponent& parent, const RocketComponent& child)
+{
+    const RocketComponent& root = parent.getRoot();
+    const std::uint64_t    instances =
+        saturatingAdd(instancesOfSubtree(root, 1, CountChange{}),
+                      instancesOfSubtree(child, instancesAt(parent), CountChange{}));
+    return saturatingMultiply(instances, configurationsOf(root)) <= kMaxInstances;
+}
+
+bool DocumentConfig::flightConfigurationFits(const RocketComponent& component)
+{
+    const RocketComponent& root = component.getRoot();
+    return saturatingMultiply(instancesOfSubtree(root, 1, CountChange{}),
+                              saturatingAdd(configurationsOf(root), 1)) <= kMaxInstances;
 }
 
 std::optional<std::string_view> DocumentConfig::attribute(

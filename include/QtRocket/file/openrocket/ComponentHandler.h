@@ -26,6 +26,17 @@ class RocketComponent;
 ///   everything in it, with "<component name> cannot be attached to <parent's component name>;
 ///   ignoring this component and its subcomponents." (the names being getComponentName():
 ///   "Trapezoidal Fin Set", "Stage"). The elements that follow are read as usual;
+/// - the new component is given the default materials the context's preferences name for its
+///   class, which OpenRocket's constructors ask the application's preferences for: the
+///   material of an external and of a structural component and the fillets of a fin set
+///   (BULK), the canopy of a parachute or streamer (SURFACE; asked for RecoveryDevice whatever
+///   the device, so a default stored for Parachute or Streamer does not reach it), the lines
+///   of a parachute and the material of a shock cord (LINE). The nearest class of the
+///   component's Java classes that has a default decides, and one of another type than asked
+///   for gives the built-in default (getDefaultComponentMaterial() in MaterialPreferences.h);
+///   a rail button is made of Delrin whatever the preferences say. This is done before the
+///   component is attached, so nothing is fired, as nothing is by a Java constructor. A
+///   <material> of the element then replaces the default as any setter does;
 /// - the component is added as the parent's last child, with the values its constructor gives
 ///   it, BEFORE anything of its element is read. So every setter finds the component in the
 ///   tree and fires its events into the rocket, whose events are on while a file loads, and the
@@ -46,10 +57,34 @@ class RocketComponent;
 ///   walk of the tree that calls itself per level, the destruction of the rocket among them,
 ///   goes as deep as the file says too; no stack overflow was seen up to 1000 levels, and
 ///   deeper trees were not reached.
-/// - A new component has the built-in default materials (see
-///   DocumentConfig::createComponent()); Java's constructors ask the application's preferences
-///   for the default material of the component's class. It shows only in a component whose
-///   element has no <material>, which no file OpenRocket wrote has.
+/// - Nor may a file give the rocket component instances without bound: a component whose
+///   instances (as many as the instance counts of the components above it multiply to, times
+///   its own count as its constructor gives it: 2 for a pod set, 3 for a fin set) would take
+///   the rocket beyond DocumentConfig::kMaxInstances over all its flight configurations is
+///   ignored, with everything in it, with "<component name> would give the rocket too many
+///   component instances; ignoring this component and its subcomponents." (QtRocket's own
+///   text; DocumentConfig::childFits()). The setters of the counts refuse a number that would
+///   do the same (IntSetter, ClusterConfigurationSetter). OpenRocket has no bound and runs
+///   out of memory: see DocumentConfig::kMaxInstances.
+/// - The two bounds above leave the time of a load open. With the rocket's events on, every
+///   element that changes the rocket makes every flight configuration build its instances
+///   anew, so the time grows with the square of what a file holds, also within the bounds:
+///   measured in a release build through the test root, 3200 body tubes side by side (35 KB)
+///   took 34 s, 1600 empty flight configurations behind a stage of 20 tubes 65 s, 1600 motors
+///   in one mount 10 s, 100000 separation configurations of one stage 17.5 s, and 80000
+///   different unknown elements 28 s (WarningSet looks for a warning it has before it adds
+///   one). OpenRocket is as slow or slower (108 s for 1600 tubes, 108 s for the 1600
+///   configurations). Whether the number of components, of configurations and of warnings of
+///   a file should have bounds of their own is an open question.
+/// - The default materials of the preferences are given by this handler (decision D2: what
+///   Java asks the application for is handed in, here with the loading context), where
+///   OpenRocket's constructors take them themselves: a component of this library is made with
+///   the built-in defaults (see ExternalComponent, StructuralComponent, RecoveryDevice,
+///   Parachute). The handler does it only when the context has preferences and application
+///   materials, and those hold the three built-in materials the lookup falls back on
+///   (OpenRocket's databases always do; getDefaultComponentMaterial() has a BugError for a
+///   storage without one). Otherwise a new component keeps the built-in defaults, which are
+///   what preferences that name no default give.
 class ComponentHandler final : public AbstractElementHandler
 {
 public:

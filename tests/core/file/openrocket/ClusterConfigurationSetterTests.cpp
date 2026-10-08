@@ -2,14 +2,21 @@
 
 #include <algorithm>
 #include <array>
+#include <format>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/InnerTube.h"
+#include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "file/openrocket/SetterTestSupport.h"
 
@@ -23,17 +30,23 @@
 namespace
 {
 
+using QtRocket::BodyTube;
 using QtRocket::ClusterConfigurationSetter;
 using QtRocket::ComponentKind;
+using QtRocket::DocumentConfig;
 using QtRocket::InnerTube;
+using QtRocket::PodSet;
 using QtRocket::RocketComponent;
+using QtRocket::WarningSet;
 using QtRocket::Test::ApplicationSetterFixture;
 using QtRocket::Test::applyByHand;
 using QtRocket::Test::as;
 using QtRocket::Test::asText;
 using QtRocket::Test::checkSetterScripts;
 using QtRocket::Test::count;
+using QtRocket::Test::joinedWarnings;
 using QtRocket::Test::listInOrder;
+using QtRocket::Test::SetterFixture;
 using QtRocket::Test::SetterScript;
 
 using Texts = std::vector<std::string>;
@@ -123,6 +136,52 @@ TEST(ClusterConfigurationSetter, TakesTheTextAsItIs)
               "5-ring, 5");
     EXPECT_EQ(applyByHand(setter, ComponentKind::INNER_TUBE, "", " 3-ring ", &readInnerTube),
               "single, 1 [Illegal cluster configuration specified.]");
+}
+
+/// The layout of @p inner after @p setter was given @p text for it, and the warnings in
+/// brackets; "FAILED" when the setter fails.
+[[nodiscard]] std::string layoutAfter(SetterFixture&                    fixture,
+                                      const ClusterConfigurationSetter& setter, InnerTube& inner,
+                                      std::string_view text)
+{
+    WarningSet warnings;
+    if (!setter.set(inner, text, {}, warnings, fixture.context()).has_value())
+    {
+        return "FAILED";
+    }
+    return std::format("{} [{}]", inner.getClusterConfiguration().getXmlName(),
+                       joinedWarnings(warnings));
+}
+
+// The instance budget of a rocket (DocumentConfig::kMaxInstances), QtRocket's own: the tubes of
+// a cluster each hold what is in the tube, and each stands in every instance of what is above
+// it. OpenRocket has no bound and runs out of memory (inner tubes in a "9-grid" nested nine
+// deep are 9^9 instances with no number above 9 in the file).
+TEST(ClusterConfigurationSetter, RefusesALayoutTheRocketCannotHold)
+{
+    SetterFixture fixture;
+    PodSet&       pods = fixture.tube().addChild(std::make_unique<PodSet>());
+    pods.setInstanceCount(DocumentConfig::kMaxCount);
+    InnerTube& inner =
+        pods.addChild(std::make_unique<BodyTube>()).addChild(std::make_unique<InnerTube>());
+    // The rocket, the stage, the tube, 10000 pods, their tubes and an inner tube in each.
+    ASSERT_EQ(DocumentConfig::instanceLoad(inner), 30003U);
+
+    const ClusterConfigurationSetter setter;
+    // Nine tubes in each of the 10000 pods: 110003 instances.
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "9-grid"),
+              "single [Invalid parameter encountered, ignoring.]");
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "9-star"),
+              "single [Invalid parameter encountered, ignoring.]");
+    // Six fit: 80003.
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "6-ring"), "6-ring []");
+    EXPECT_EQ(DocumentConfig::instanceLoad(inner), 80003U);
+    // A layout of as many tubes, and one of fewer, always fit.
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "6-star"), "6-star []");
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "double"), "double []");
+    // The budget is asked about after the name: a name that is none keeps its own warning.
+    EXPECT_EQ(layoutAfter(fixture, setter, inner, "9"),
+              "double [Illegal cluster configuration specified.]");
 }
 
 }  // namespace

@@ -42,6 +42,11 @@ class MotorMount;
 ///   by an IgnitionConfigurationHandler and set on MotorMount::getMotorConfig() of that id.
 ///   That is the mount's DEFAULT configuration when the id has no motor in this mount, so such
 ///   an element changes the ignition of every configuration made later, as in OpenRocket.
+///   The rocket's flight configuration of that id is then told of the change
+///   (FlightConfiguration::refreshMotor()), so that its motors have the ignition the mount
+///   has, as in OpenRocket, where they are the mount's own objects: the saver writes the
+///   <ignitionconfiguration> behind the <motor> of its id, and nothing else would renew the
+///   flight configuration's copy before the next change of the rocket.
 /// - any other child is ignored with "Unknown element '<name>' encountered, ignoring.".
 ///
 /// The id of a <motor> and of an <ignitionconfiguration> is DocumentConfig::configurationId():
@@ -64,6 +69,18 @@ class MotorMount;
 ///   "no motor").
 /// - A mount that is not in a rocket is a BugError at the first <motor> (Java: an
 ///   IllegalStateException); the component handler attaches a component before it reads it.
+/// - A <motor> of a flight configuration the rocket does not have yet is ignored with
+///   Warning::kFileInvalidParameter, before its motor is looked for, when that configuration
+///   would take the rocket beyond DocumentConfig::kMaxInstances component instances over all
+///   its flight configurations (DocumentConfig::flightConfigurationFits(); see
+///   MotorConfigurationHandler). OpenRocket has no bound and runs out of memory.
+/// - The flight configuration gets a copy of the motor configuration the mount stored (Java:
+///   the object itself), which the handler keeps in step with the mount's as said above. One
+///   case stays apart: two <motor> elements of one configid in one mount and no change of the
+///   rocket between the second and an <ignitionconfiguration> of that id. OpenRocket's list
+///   of the active motors then still holds the first motor's object, which the ignition does
+///   not reach, until the next change of the rocket; here both lists have the second motor
+///   with the new ignition at once.
 class MotorMountHandler final : public AbstractElementHandler
 {
 public:

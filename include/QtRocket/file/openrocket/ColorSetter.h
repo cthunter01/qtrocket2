@@ -24,6 +24,10 @@ class RocketComponent;
 /// Warning::kFileInvalidParameter and set nothing. Otherwise the colour is set, and a text in
 /// the element that is not blank (String.trim()) then adds the same warning: the colour stays
 /// set.
+///
+/// Deviation from OpenRocket: Integer.parseInt also takes the decimal digits of other scripts
+/// (red="&#1636;", the Arabic-Indic digit four, is 4 there); here only ASCII digits are digits
+/// (Strings::parseInt()), so such attributes make no colour: the warning, and nothing is set.
 class ColorSetter final : public Setter
 {
 public:

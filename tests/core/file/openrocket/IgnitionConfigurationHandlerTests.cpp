@@ -49,7 +49,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-delay-first", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>2</ignitiondelay><ignitionevent>never</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -58,7 +58,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:NEVER:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:NEVER:2.0:true] flying=[#2:F12X:NEVER:2.0:true])out"},
     {.name = "ic-trimmed", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent> ejectioncharge
 </ignitionevent><ignitiondelay> 2 </ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
@@ -68,7 +68,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:EJECTION_CHARGE:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:EJECTION_CHARGE:2.0:true] flying=[#2:F12X:EJECTION_CHARGE:2.0:true])out"},
     {.name = "ic-every-event", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>automatic</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>launch</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>ejectioncharge</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>never</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 12 {mass,aero,tree=5, motor=5, tree=2}
@@ -81,7 +81,7 @@ EVENTS 12 {mass,aero,tree=5, motor=5, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.8 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:NEVER:1.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=5)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=5 all=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:LAUNCH:1.0:true,#4:F12X:EJECTION_CHARGE:1.0:true,#5:F12X:BURNOUT:1.0:true,#6:F12X:NEVER:1.0:true] flying=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:LAUNCH:1.0:true,#4:F12X:EJECTION_CHARGE:1.0:true,#5:F12X:BURNOUT:1.0:true])out"},
     {.name = "ic-second-event-unknown", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent><ignitionevent>bogus</ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -90,7 +90,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-first-event-unknown", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>bogus</ignitionevent><ignitionevent>burnout</ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown ignition event type 'bogus', ignoring.
 ROOT rocket {} []
@@ -100,7 +100,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-two-events", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent><ignitionevent>never</ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -109,7 +109,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:NEVER:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:NEVER:2.0:true] flying=[#2:F12X:NEVER:2.0:true])out"},
     {.name = "ic-two-delays", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>2</ignitiondelay><ignitiondelay>3</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -118,7 +118,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:3.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:3.0:true] flying=[#2:F12X:BURNOUT:3.0:true])out"},
     {.name = "ic-second-delay-unreadable", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>2</ignitiondelay><ignitiondelay>x</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Illegal ignition delay specified, ignoring.
 ROOT rocket {} []
@@ -128,7 +128,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-delay-forms", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>0x1p1</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -137,7 +137,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-negative-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>-2.5</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -146,7 +146,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:-2.5:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:-2.5:true] flying=[#2:F12X:BURNOUT:-2.5:true])out"},
     {.name = "ic-unknown-children", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><bogus a="1">t</bogus><ignitionevent>burnout</ignitionevent><other/><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown text in element 'bogus', ignoring.
 W Unknown attributes in element 'bogus', ignoring.
@@ -157,7 +157,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
     {.name = "ic-text-and-attributes", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555" a="1">text<ignitionevent b="2">burnout</ignitionevent><ignitiondelay c="3">2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -166,7 +166,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
 }};
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
@@ -177,7 +177,7 @@ constexpr std::array<RocketCase, 4> kOwn{{
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.2 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.4 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.6000000000000001 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thic ...
-    // OpenRocket: ... (1 more lines differ)
+    // OpenRocket: ... (2 more lines differ)
     {.name = "ic-names-that-are-none", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>BURNOUT</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>ejection_charge</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>Launch</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burn out</ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent></ignitionevent><ignitiondelay>1</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown ignition event type 'BURNOUT', ignoring.
 W Unknown ignition event type 'ejection_charge', ignoring.
@@ -195,9 +195,10 @@ EVENTS 12 {mass,aero,tree=5, motor=5, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.8 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:AUTOMATIC:1.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=5)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=5 all=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:AUTOMATIC:1.0:true,#4:F12X:AUTOMATIC:1.0:true,#5:F12X:AUTOMATIC:1.0:true,#6:F12X:AUTOMATIC:1.0:true] flying=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:AUTOMATIC:1.0:true,#4:F12X:AUTOMATIC:1.0:true,#5:F12X:AUTOMATIC:1.0:true])out"},
     // Decision L3: a delay of NaN is refused (OpenRocket stores it); the element then has no delay, which is the second warning, and its event is applied.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:NaN:true] flying=[#2:F12X:BUR ...
     {.name = "ic-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>NaN</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Illegal ignition delay specified, ignoring.
 W Invalid parameter encountered, ignoring.
@@ -208,9 +209,10 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:0.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:0.0:true] flying=[#2:F12X:BURNOUT:0.0:true])out"},
     // Decision L3: an infinite delay is refused (OpenRocket stores it) and the delay read before it stays.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:Infinity:true] flying=[#2:F12 ...
     {.name = "ic-infinite-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>3</ignitiondelay><ignitiondelay>Infinity</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Illegal ignition delay specified, ignoring.
 ROOT rocket {} []
@@ -220,7 +222,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:3.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:3.0:true] flying=[#2:F12X:BURNOUT:3.0:true])out"},
     // The child takes the event's text away (DelegatorHandler's slip), so the element has no event: OpenRocket stores null as the ignition event (of the default: the slip took the configid too); here the event stays.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "ic-child-in-a-value", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout<x/></ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
@@ -233,7 +235,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:2.0:true motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1)out"},
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X:AUTOMATIC:0.0:false])out"},
 }};
 // END GENERATED TABLES IgnitionConfigurationHandler
 // clang-format on

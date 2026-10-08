@@ -1551,6 +1551,42 @@ TEST(Strings, JavaDoubleToStringMatchesJdk)
     EXPECT_EQ(Strings::javaDoubleToString(-kInf), "-Infinity");
 }
 
+// Known deviations from JDK 17.0.20 (Double.toString; the probe DoubleText.java of tier 9b's
+// fixer of the loader's rocket side), pinned so that a change of them is seen. Each text reads
+// back as the double it was printed for.
+//
+// JDK 17's digits are not always the shortest (JDK-4511638); this prints the shortest ones, as
+// JDK 19 and later do.
+TEST(Strings, JavaDoubleToStringPrintsTheShortestDigitsWhereJdk17DoesNot)
+{
+    // JDK 17: "4.3368086899420177E-19" for 2^-61.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -61)), "4.336808689942018E-19");
+    // JDK 17: "2.1684043449710089E-19" for 2^-62.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -62)), "2.168404344971009E-19");
+    // JDK 17: "9.999999999999999E22" for 1e23.
+    EXPECT_EQ(Strings::javaDoubleToString(1e23), "1.0E23");
+    // Where the two agree: 2^-60 and 2^63.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -60)), "8.673617379884035E-19");
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 63)), "9.223372036854776E18");
+}
+
+// A shortest decimal of one digit gets ".0" here; for some of the smallest subnormals Java
+// prints a decimal of two digits.
+TEST(Strings, JavaDoubleToStringOfTheSmallestDoubles)
+{
+    const double smallest = std::numeric_limits<double>::denorm_min();
+    // JDK 17 and JDK 19+: "4.9E-324" for Double.MIN_VALUE.
+    EXPECT_EQ(Strings::javaDoubleToString(smallest), "5.0E-324");
+    EXPECT_EQ(Strings::javaDoubleToString(-smallest), "-5.0E-324");
+    // JDK 17: "4.9E-323" for ten times Double.MIN_VALUE.
+    EXPECT_EQ(Strings::javaDoubleToString(10 * smallest), "5.0E-323");
+    // Where the two agree: twice and three times Double.MIN_VALUE.
+    EXPECT_EQ(Strings::javaDoubleToString(2 * smallest), "1.0E-323");
+    EXPECT_EQ(Strings::javaDoubleToString(3 * smallest), "1.5E-323");
+    EXPECT_EQ(Strings::javaParseDouble("5.0E-324"), smallest);
+    EXPECT_EQ(Strings::javaParseDouble("4.9E-324"), smallest);
+}
+
 TEST(Strings, OrkEnumNameIsLowerCaseWithoutUnderscores)
 {
     EXPECT_EQ(Strings::toOrkEnumName("UPPER_IGNITION"), "upperignition");

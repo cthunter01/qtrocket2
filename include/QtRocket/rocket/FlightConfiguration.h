@@ -84,7 +84,9 @@ class RocketComponent;
 /// - The motors keep the order in which updateMotors() found their mounts (Java: a HashMap in
 ///   hash order of the random motor configuration ids). The motor lists hold copies of the mounts'
 ///   configurations (Java shares the objects), refreshed by every update: see getAllMotors() for
-///   how long a reference into them lives.
+///   how long a reference into them lives. Between two updates a copy is behind its mount's
+///   configuration when that was changed without an event (its ignition delay or event set on
+///   the object MotorMount::getMotorConfig() hands out), until refreshMotor() is called for it.
 /// - A flag setter given a stage without a flag, or a sub-stage without one, ignores it where
 ///   Java logs an error or throws a NullPointerException; the instance walk counts a booster set
 ///   without a flag as inactive (Java: NullPointerException); getAllStages() leaves out the
@@ -355,6 +357,19 @@ public:
     /// modification id; the active motors are not touched. An empty configuration is added too
     /// (Java logs an error).
     void addMotor(const MotorConfiguration& motorConfig);
+
+    /// Brings this configuration's copies of @p motorConfig up to date: the motor configuration
+    /// of the same id in getAllMotors() and the one in getActiveMotors(), where there is one,
+    /// become @p motorConfig. Nothing is added (an id neither list holds changes nothing) and no
+    /// modification id is drawn.
+    ///
+    /// Java has no such method and needs none: its lists hold the mounts' own objects, so a
+    /// change of a mount's motor configuration that fires no event (MotorConfiguration's
+    /// setIgnitionDelay() and setIgnitionEvent()) shows in the flight configuration at once.
+    /// Here the lists hold copies, and whoever changes a mount's configuration that way calls
+    /// this for the copies to follow: the .ork loader does, when an <ignitionconfiguration>
+    /// follows the <motor> of its flight configuration (MotorMountHandler).
+    void refreshMotor(const MotorConfiguration& motorConfig);
 
     /// Whether any mount has a motor in this configuration (as of the last update).
     [[nodiscard]] bool hasMotors() const noexcept { return !m_motors.empty(); }

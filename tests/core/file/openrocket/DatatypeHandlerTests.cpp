@@ -49,7 +49,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES DatatypeHandler
 // What OpenRocket makes of each case (DocumentProbe.java of part R4), which QtRocket has to
 // make of it too.
-constexpr std::array<DocumentCase, 12> kJava{{
+constexpr std::array<DocumentCase, 15> kJava{{
     {.name = "dt-empty", .xml = R"xml(<datatypes></datatypes>)xml", .expected = R"out(RESULT ok
 ROOT datatypes {} []
 EVENTS 0)out"},
@@ -123,6 +123,21 @@ W Unknown datatype bogus defined, ignoring
 ROOT datatypes {} []
 EVENTS 0
 | expression name='My expr r4j' symbol='qr4j' unit='m/s' expression='Vt*2')out"},
+    {.name = "dt-fix-source-reaches-the-parent", .xml = R"xml(<datatypes><type source="customexpression"><name>Fix r5a</name><symbol>qr5a</symbol><unit unittype="auto">m</unit><expression>h<x/></expression></type></datatypes>)xml", .expected = R"out(RESULT ok
+ROOT datatypes {} []
+EVENTS 0
+| expression name='Fix r5a' symbol='qr5a' unit='m' expression='h')out"},
+    {.name = "dt-fix-source-of-an-unknown-type-reaches-the-parent", .xml = R"xml(<datatypes><type source="other"><name>n<x/></name></type></datatypes>)xml", .expected = R"out(RESULT ok
+W Unknown datatype type defined, ignoring
+W Unknown datatype name defined, ignoring
+W Unknown datatype x defined, ignoring
+W Unknown text in element 'name', ignoring.
+ROOT datatypes {} []
+EVENTS 0)out"},
+    {.name = "dt-fix-source-stays-with-two-ignored-elements", .xml = R"xml(<datatypes><type source="customexpression"><name>Fix r5b</name><symbol>qr5b</symbol><unit unittype="auto">m</unit><expression>h<x/><y/></expression></type></datatypes>)xml", .expected = R"out(RESULT ok
+ROOT datatypes {} []
+EVENTS 0
+| expression name='Fix r5b' symbol='qr5b' unit='m' expression='h')out"},
 }};
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the

@@ -5,6 +5,7 @@
 #include <format>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -14,6 +15,11 @@
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/material/BuiltinMaterials.h"
+#include "QtRocket/material/Material.h"
+#include "QtRocket/material/MaterialPreferences.h"
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -37,13 +43,17 @@ using QtRocket::ComponentHandler;
 using QtRocket::ComponentKind;
 using QtRocket::DocumentConfig;
 using QtRocket::ElementHandler;
+using QtRocket::Material;
+using QtRocket::MaterialStorage;
 using QtRocket::PodSet;
+using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::WarningSet;
 using QtRocket::Test::casesThatThrowWhenCutOff;
 using QtRocket::Test::failedRocketCases;
+using QtRocket::Test::HandlerFixture;
 using QtRocket::Test::HandlerRun;
 using QtRocket::Test::printedRocketCases;
 using QtRocket::Test::RocketCase;
@@ -310,7 +320,38 @@ EVENTS 0 {}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 0> kOwn{};
+constexpr std::array<RocketCase, 2> kOwn{{
+    // The instance budget: 400 launch lugs in each of 400 pods are 160000 instances, so the count is refused and the lug stays one (OpenRocket takes it); the 2 of the second lug fit.
+    // OpenRocket: EVENTS 9 {mass,aero=3, mass,aero,tree=4, tree=2}
+    // OpenRocket: |           LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=400 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0 ...
+    {.name = "ch-fix-instances-pod-and-lug", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><subcomponents><podset><instancecount>400</instancecount><subcomponents><bodytube><subcomponents><launchlug><instancecount>400</instancecount></launchlug><launchlug><instancecount>2</instancecount></launchlug></subcomponents></bodytube></subcomponents></podset></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 8 {mass,aero=2, mass,aero,tree=4, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       PodSet 'Pod Set' axial=BOTTOM:0.0 x=0.0 len=0.2 inst=400 radius=RELATIVE:0.0 angle=RELATIVE:0.0
+|         BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|           LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06
+|           LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=2 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // The instance budget: 300 pods would each hold the 400 launch lugs, so the count of the pod set is refused and stays 2 (OpenRocket takes it); 3 pods fit.
+    // OpenRocket: EVENTS 8 {mass,aero=3, mass,aero,tree=3, tree=2}
+    {.name = "ch-fix-instances-count-of-the-parent", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><subcomponents><podset><subcomponents><bodytube><subcomponents><launchlug><instancecount>400</instancecount></launchlug></subcomponents></bodytube></subcomponents><instancecount>300</instancecount><instancecount>3</instancecount></podset></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Invalid parameter encountered, ignoring.
+ROOT rocket {} []
+EVENTS 7 {mass,aero=2, mass,aero,tree=3, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       PodSet 'Pod Set' axial=BOTTOM:0.0 x=0.0 len=0.2 inst=3 radius=RELATIVE:0.0 angle=RELATIVE:0.0
+|         BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|           LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=400 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+}};
 // END GENERATED TABLES ComponentHandler
 // clang-format on
 
@@ -568,6 +609,233 @@ TEST(ComponentHandler, MakesTheComponentOfEveryNameOfTheTable)
                                         "trapezoidfinset: TRAPEZOID_FIN_SET",
                                         "tubecoupler: TUBE_COUPLER",
                                         "tubefinset: TUBE_FIN_SET"}));
+}
+
+// ------------------------------------------------------- the default materials of a class
+//
+// The review's finding: a component the loader made kept the built-in default materials, where
+// OpenRocket's constructors ask the application's preferences for the default material of the
+// component's class. It shows in a component whose element names no material. The handler now
+// completes a new component from the preferences of the loading context, before it attaches
+// it. Pinned with OpenRocket: HandlerProbe.java read the two documents below with preferences
+// that name twelve defaults (DefaultMaterials.java and out/DefaultMaterials.java.out of the
+// probes of tier 9b's fixer of the rocket side).
+
+/// One default material of the preferences: the Java class it is stored for, and a built-in
+/// material by its type and name.
+struct DefaultMaterial
+{
+    std::string_view className;
+    Material::Type   type;
+    std::string_view material;
+};
+
+/// The defaults DefaultMaterials.java stores.
+constexpr auto kDefaultMaterials = std::to_array<DefaultMaterial>({
+    {.className = "BodyTube", .type = Material::Type::BULK, .material = "Fiberglass"},
+    {.className = "FinSet", .type = Material::Type::BULK, .material = "Balsa"},
+    {.className = "NoseCone", .type = Material::Type::BULK, .material = "Polystyrene"},
+    {.className = "RingComponent", .type = Material::Type::BULK, .material = "Plywood (birch)"},
+    {.className = "CenteringRing", .type = Material::Type::BULK, .material = "Aluminum"},
+    {.className = "ExternalComponent", .type = Material::Type::BULK, .material = "Carbon fiber"},
+    // A material of another type than the class takes: it is passed over, and nothing further
+    // up the classes is looked at.
+    {.className = "LaunchLug", .type = Material::Type::SURFACE, .material = "Silk"},
+    // A rail button is made of Delrin whatever the preferences say.
+    {.className = "RailButton", .type = Material::Type::BULK, .material = "Brass"},
+    {.className = "RecoveryDevice", .type = Material::Type::SURFACE, .material = "Mylar"},
+    // The canopy's default is asked for RecoveryDevice, so this one is not seen.
+    {.className = "Streamer", .type = Material::Type::SURFACE, .material = "Silk"},
+    {.className = "Parachute",
+     .type      = Material::Type::LINE,
+     .material  = "Braided nylon (2 mm, 1/16 in)"},
+    {.className = "ShockCord",
+     .type      = Material::Type::LINE,
+     .material  = "Tubular nylon (11 mm, 7/16 in)"},
+});
+
+/// Stores kDefaultMaterials in @p preferences, each material taken from @p materials, and
+/// returns what it stored: a line "<class> = <the material's storable string>" each.
+std::string nameDefaultMaterials(Preferences& preferences, const MaterialStorage& materials)
+{
+    std::string stored;
+    for (const DefaultMaterial& one : kDefaultMaterials)
+    {
+        const std::optional<Material> material = materials.findMaterial(one.type, one.material);
+        QtRocket::setDefaultComponentMaterial(preferences, one.className, material);
+        stored += std::format("{} = {}\n", one.className,
+                              material.has_value() ? material->toStorableString() : "none");
+    }
+    return stored;
+}
+
+// clang-format off
+/// What DefaultMaterials.java stored in OpenRocket's preferences, as its preferences print it.
+constexpr std::string_view kStoredDefaults =
+    "BodyTube = BULK|Fiberglass|1850.0|4.14E9|Composites\n"
+    "FinSet = BULK|Balsa|170.0|2.3E8|Woods\n"
+    "NoseCone = BULK|Polystyrene|1050.0|1.23E9|Plastics\n"
+    "RingComponent = BULK|Plywood (birch)|630.0|6.13E8|Woods\n"
+    "CenteringRing = BULK|Aluminum|2700.0|2.6E10|Metals\n"
+    "ExternalComponent = BULK|Carbon fiber|1780.0|4.14E9|Composites\n"
+    "LaunchLug = SURFACE|Silk|0.06|0.0|Fabrics\n"
+    "RailButton = BULK|Brass|8600.0|3.89E10|Metals\n"
+    "RecoveryDevice = SURFACE|Mylar|0.021|0.0|Plastics\n"
+    "Streamer = SURFACE|Silk|0.06|0.0|Fabrics\n"
+    "Parachute = LINE|Braided nylon (2 mm, 1/16 in)|0.001|0.0|Nylons\n"
+    "ShockCord = LINE|Tubular nylon (11 mm, 7/16 in)|0.013|0.0|Nylons\n";
+
+constexpr std::string_view kEveryElement = R"xml(<subcomponents><stage><subcomponents><nosecone/><bodytube><subcomponents><trapezoidfinset/><ellipticalfinset/><freeformfinset/><tubefinset/><launchlug/><railbutton/><engineblock/><innertube/><tubecoupler/><bulkhead/><centeringring/><masscomponent/><shockcord/><parachute/><streamer/><podset/><parallelstage/></subcomponents></bodytube><transition/></subcomponents></stage></subcomponents>)xml";
+/// OpenRocket's answer to it with those preferences (the case dm-every-element of out/DefaultMaterials.java.out).
+constexpr std::string_view kEveryElementInOpenRocket = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 22 {mass,aero=1, mass,aero,tree=9, mass,tree=9, tree=3}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.42500000000000004 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Polystyrene|1050.0|1.23E9|Plastics] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.15000000000000002 len=0.2 finish=NORMAL mat=[BULK|Fiberglass|1850.0|4.14E9|Composites] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.15000000000000002 len=0.05 inst=3 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=3 cant=0.0 thick=0.003 cross=SQUARE tab=0.0:0.05:MIDDLE:0.0:0.0 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.05:0.05 sweep=0.025 height=0.03
+|       EllipticalFinSet 'Elliptical Fin Set' axial=BOTTOM:0.0 x=0.15000000000000002 len=0.05 inst=3 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=3 cant=0.0 thick=0.003 cross=SQUARE tab=0.0:0.05:MIDDLE:0.0:0.0 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] height=0.05
+|       FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.15000000000000002 len=0.05 inst=3 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=3 cant=0.0 thick=0.003 cross=SQUARE tab=0.0:0.05:MIDDLE:0.0:0.0 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.025,0.05;0.075,0.05;0.04999999999999999,0.0
+|       TubeFinSet 'Tube Fin Set' axial=BOTTOM:0.0 x=0.1 len=0.1 inst=6 radius=COAXIAL:0.0 angle=FIXED:0.0 finish=NORMAL mat=[BULK|Carbon fiber|1780.0|4.14E9|Composites] fins=6 autoradius=true thick=0.002
+|       LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06
+|       RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.1 len=0.0 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.0582
+|       EngineBlock 'Engine Block' axial=BOTTOM:0.0 x=0.195 len=0.005 mat=[BULK|Plywood (birch)|630.0|6.13E8|Woods] outer=0.023:true inner=0.023:false radial=0.0:0.0
+|       InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.13 len=0.07 mat=[BULK|Plywood (birch)|630.0|6.13E8|Woods] outer=0.0095:false inner=0.009:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       TubeCoupler 'Tube Coupler' axial=BOTTOM:0.0 x=0.14 len=0.06 mat=[BULK|Plywood (birch)|630.0|6.13E8|Woods] outer=0.023:true inner=0.023:false radial=0.0:0.0
+|       Bulkhead 'Bulkhead' axial=BOTTOM:0.0 x=0.198 len=0.002 inst=1 mat=[BULK|Plywood (birch)|630.0|6.13E8|Woods] outer=0.023:true inner=0.0:false radial=0.0:0.0 spacing=0.0
+|       CenteringRing 'Centering Ring' axial=BOTTOM:0.0 x=0.198 len=0.002 inst=1 mat=[BULK|Aluminum|2700.0|2.6E10|Metals] outer=0.023:true inner=0.0095:true radial=0.0:0.0 spacing=0.0
+|       MassComponent 'Mass Component' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.0 type=MASSCOMPONENT
+|       ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=1.2750000000000001:true mat=[LINE|Tubular nylon (11 mm, 7/16 in)|0.013|0.0|Nylons]
+|       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Mylar|0.021|0.0|Plastics] deploy=EJECTION:0.0:200.0 diameter=0.3 lines=6:0.44999999999999996:true linemat=[LINE|Braided nylon (2 mm, 1/16 in)|0.001|0.0|Nylons]
+|       Streamer 'Streamer' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.04468571428571429:true drogue=false mat=[SURFACE|Mylar|0.021|0.0|Plastics] deploy=EJECTION:0.0:200.0 strip=0.5:0.05
+|       PodSet 'Pod Set' axial=BOTTOM:0.0 x=0.2 len=0.0 inst=2 radius=RELATIVE:0.0 angle=RELATIVE:0.0
+|       ParallelStage 'Booster Set' axial=BOTTOM:0.0 x=0.2 len=0.0 stage=1 sep=EJECTION:0.0:200.0 inst=2 radius=RELATIVE:0.0 angle=RELATIVE:0.0
+|     Transition 'Transition' axial=AFTER:0.0 x=0.35000000000000003 len=0.07500000000000001 finish=NORMAL mat=[BULK|Carbon fiber|1780.0|4.14E9|Composites] shape=CONICAL:0.0:false fore=0.025:true aft=0.025:true thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true,false] motors=0)out";
+
+constexpr std::string_view kMaterialsOfTheFile = R"xml(<subcomponents><stage><subcomponents><bodytube><material type="bulk" density="680.0" group="PaperProducts">Cardboard</material><subcomponents><trapezoidfinset><material type="bulk" density="1250.0" group="Plastics">PLA - 100% infill</material><filletmaterial type="bulk" density="680.0" group="PaperProducts">Cardboard</filletmaterial></trapezoidfinset><centeringring><material type="bulk" density="630.0" group="Woods">Plywood (birch)</material></centeringring><parachute><material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material><linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial></parachute><shockcord><material type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</material></shockcord><streamer/></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml";
+/// OpenRocket's answer to it with those preferences (the case dm-the-materials-of-the-file of out/DefaultMaterials.java.out).
+constexpr std::string_view kMaterialsOfTheFileInOpenRocket = R"out(RESULT ok
+ROOT rocket {} []
+EVENTS 14 {mass=7, mass,aero,tree=2, mass,tree=4, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.15000000000000002 len=0.05 inst=3 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|PLA - 100% infill|1250.0|2.4E9|Plastics] fins=3 cant=0.0 thick=0.003 cross=SQUARE tab=0.0:0.05:MIDDLE:0.0:0.0 fillet=0.0:[BULK|Cardboard|680.0|4.0E8|PaperProducts] chord=0.05:0.05 sweep=0.025 height=0.03
+|       CenteringRing 'Centering Ring' axial=BOTTOM:0.0 x=0.198 len=0.002 inst=1 mat=[BULK|Plywood (birch)|630.0|6.13E8|Woods] outer=0.023:true inner=0.0:true radial=0.0:0.0 spacing=0.0
+|       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=EJECTION:0.0:200.0 diameter=0.3 lines=6:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]
+|       ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.675:true mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]
+|       Streamer 'Streamer' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.04468571428571429:true drogue=false mat=[SURFACE|Mylar|0.021|0.0|Plastics] deploy=EJECTION:0.0:200.0 strip=0.5:0.05
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out";
+
+// clang-format on
+
+/// What reading @p xml gives in a fixture whose preferences name kDefaultMaterials, in the
+/// probe's notation; "other defaults" when the preferences do not hold what the probe's held.
+[[nodiscard]] std::string readWithDefaultMaterials(std::string_view xml)
+{
+    RocketLoadFixture fixture;
+    if (nameDefaultMaterials(fixture.fixture().preferences(), fixture.fixture().materials()) !=
+        kStoredDefaults)
+    {
+        return "other defaults";
+    }
+    return fixture.loadAndDescribe(xml);
+}
+
+TEST(ComponentHandler, GivesANewComponentTheDefaultMaterialOfItsClassAsOpenRocket)
+{
+    RocketLoadFixture fixture;
+    EXPECT_EQ(nameDefaultMaterials(fixture.fixture().preferences(), fixture.fixture().materials()),
+              kStoredDefaults);
+    // Fiberglass for the tube, Balsa for the fins and their fillets, Polystyrene for the nose,
+    // Carbon fiber for what has no default nearer than ExternalComponent's (the transition, the
+    // tube fins), Cardboard for the launch lug, Delrin for the rail button, Aluminum for the
+    // centering ring and Plywood for the other rings, Mylar for both canopies; and no event
+    // more than without the defaults (22: the case ch-every-element has two components less).
+    EXPECT_EQ(readWithDefaultMaterials(kEveryElement), kEveryElementInOpenRocket);
+}
+
+TEST(ComponentHandler, TheMaterialsOfAFileReplaceTheDefaultsAsInOpenRocket)
+{
+    // The streamer, whose element names no material, has the default; the others the file's.
+    EXPECT_EQ(readWithDefaultMaterials(kMaterialsOfTheFile), kMaterialsOfTheFileInOpenRocket);
+}
+
+/// The material of the body tube a ComponentHandler makes below a new stage of the rocket of
+/// @p fixture, as its storable string; "none made" when it makes none.
+[[nodiscard]] std::string materialOfANewTube(HandlerFixture& fixture)
+{
+    AxialStage&                   stage = fixture.rocket().addChild(std::make_unique<AxialStage>());
+    ComponentHandler              handler(stage, fixture.context());
+    WarningSet                    warnings;
+    const Result<ElementHandler*> opened = handler.openElement("bodytube", {}, warnings);
+    if (!opened.has_value() || stage.getChildCount() != 1 || !warnings.empty())
+    {
+        return "none made";
+    }
+    const auto* const tube = dynamic_cast<const BodyTube*>(&stage.getChild(0));
+    return tube == nullptr ? "none made" : tube->getMaterial().toStorableString();
+}
+
+/// What a loading context may be without.
+enum class Lacking
+{
+    NOTHING,
+    PREFERENCES,
+    MATERIALS,
+};
+
+/// materialOfANewTube() in a fixture whose preferences name kDefaultMaterials and whose context
+/// was then left without @p lacking.
+[[nodiscard]] std::string materialOfANewTubeLacking(Lacking lacking)
+{
+    RocketLoadFixture fixture;
+    static_cast<void>(
+        nameDefaultMaterials(fixture.fixture().preferences(), fixture.fixture().materials()));
+    if (lacking == Lacking::PREFERENCES)
+    {
+        fixture.context().setPreferences(nullptr);
+    }
+    if (lacking == Lacking::MATERIALS)
+    {
+        fixture.context().setApplicationMaterials(nullptr);
+    }
+    return materialOfANewTube(fixture.fixture());
+}
+
+/// materialOfANewTube() with application materials that do not hold the built-in ones: the
+/// storage of a HandlerFixture as it is made, which holds none. The preferences name
+/// kDefaultMaterials (taken from another storage).
+[[nodiscard]] std::string materialOfANewTubeWithoutTheBuiltInMaterials()
+{
+    MaterialStorage builtIn;
+    QtRocket::addBuiltinMaterials(builtIn);
+    HandlerFixture bare;
+    static_cast<void>(nameDefaultMaterials(bare.preferences(), builtIn));
+    return materialOfANewTube(bare);
+}
+
+// The defaults are given only when the loading context has preferences and application
+// materials with the built-in materials the lookup falls back on. Without them a new component
+// keeps the built-in default, and nothing is thrown (getDefaultComponentMaterial() has a
+// BugError for a storage without the fallback).
+TEST(ComponentHandler, KeepsTheBuiltInMaterialWithoutPreferencesOrMaterials)
+{
+    constexpr std::string_view kFiberglass = "BULK|Fiberglass|1850.0|4.14E9|Composites";
+    constexpr std::string_view kCardboard  = "BULK|Cardboard|680.0|4.0E8|PaperProducts";
+
+    EXPECT_EQ(materialOfANewTubeLacking(Lacking::NOTHING), kFiberglass);
+    EXPECT_EQ(materialOfANewTubeLacking(Lacking::PREFERENCES), kCardboard);
+    EXPECT_EQ(materialOfANewTubeLacking(Lacking::MATERIALS), kCardboard);
+    EXPECT_EQ(materialOfANewTubeWithoutTheBuiltInMaterials(), kCardboard);
+
+    // Preferences that name nothing give what the built-in default is.
+    RocketLoadFixture unnamed;
+    EXPECT_EQ(materialOfANewTube(unnamed.fixture()), kCardboard);
 }
 
 }  // namespace

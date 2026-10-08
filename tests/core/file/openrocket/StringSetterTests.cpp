@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
@@ -21,6 +23,8 @@ using QtRocket::ErrorCode;
 using QtRocket::Result;
 using QtRocket::RocketComponent;
 using QtRocket::StringSetter;
+using QtRocket::Warning;
+using QtRocket::WarningSet;
 using QtRocket::Test::SetterRecorder;
 
 /// A function for a setter that notes "text [<the text>]" with @p recorder and succeeds.
@@ -64,9 +68,36 @@ TEST(StringSetter, PassesTheFailureOfItsFunctionOn)
     EXPECT_EQ(recorder.apply(setter, ""), "FAILED INVALID_ARGUMENT: Invalid UUID string: ");
 }
 
+// No Java original: the form whose function is handed the warnings of the load, for a text it
+// refuses without failing the load (the table's setter of a component's id).
+TEST(StringSetter, HandsTheWarningsToAFunctionThatTakesThem)
+{
+    SetterRecorder     recorder;
+    const StringSetter setter(
+        StringSetter::WarningFunction([&recorder](RocketComponent& component, std::string_view text,
+                                                  WarningSet& warnings) -> Result<void> {
+            if (text == "taken")
+            {
+                warnings.add(Warning::kFileInvalidParameter);
+                return {};
+            }
+            if (text == "none")
+            {
+                return QtRocket::fail(ErrorCode::INVALID_ARGUMENT, "Invalid UUID string: none");
+            }
+            recorder.note(component, "text [" + std::string(text) + "]");
+            return {};
+        }));
+
+    EXPECT_EQ(recorder.apply(setter, " as it is "), "text [ as it is ]");
+    EXPECT_EQ(recorder.apply(setter, "taken"), "[Invalid parameter encountered, ignoring.]");
+    EXPECT_EQ(recorder.apply(setter, "none"), "FAILED INVALID_ARGUMENT: Invalid UUID string: none");
+}
+
 TEST(StringSetter, AnEmptyFunctionIsAProgrammingError)
 {
     EXPECT_THROW(static_cast<void>(StringSetter(StringSetter::SetFunction{})), BugError);
+    EXPECT_THROW(static_cast<void>(StringSetter(StringSetter::WarningFunction{})), BugError);
 }
 
 }  // namespace
