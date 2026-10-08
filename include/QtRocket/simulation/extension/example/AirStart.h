@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
@@ -35,6 +36,13 @@ class SimulationConditions;
 /// - The listener takes the two settings when initialize() makes it; Java's listener is an
 ///   inner class that reads them from the extension when the simulation starts.
 /// - The constructor is public (Java: implicit, for the provider's injector).
+/// - getInputNumbers() lists the two numbers of the configuration, so that
+///   Simulation::simulate() refuses a run in which one of them is a NaN or an infinity
+///   (Simulation::validateInputs(), QtRocket's own). OpenRocket ends in a BugException for a
+///   launch altitude that is no number and for any such launch velocity, and in a
+///   SimulationException ("Simulation values exceeded limits") for an infinite launch altitude.
+///   Its reader of .ork files cannot give a setting such a value, except an infinity for an
+///   integer too large for a double.
 class AirStart final : public AbstractSimulationExtension
 {
 public:
@@ -56,6 +64,10 @@ public:
 
     /// "Start simulation with a configurable altitude and velocity".
     [[nodiscard]] std::optional<std::string> getDescription() const override;
+
+    /// The two numbers the listener takes: "the 'launchAltitude' of the simulation extension
+    /// 'Air-start'" and "the 'launchVelocity' ..." (see the class comment, "Deviations").
+    [[nodiscard]] std::vector<InputNumber> getInputNumbers() const override;
 
     [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override;
 

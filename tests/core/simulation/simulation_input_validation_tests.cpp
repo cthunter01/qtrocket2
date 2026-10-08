@@ -2,22 +2,26 @@
 // does with what it finds.
 //
 // The validation is QtRocket's own; OpenRocket has none, and a NaN or an infinity among the
-// options or the delays of a design ends there in a BugException or in an abort somewhere in
-// the flight. The tests go through the list in the comment of validateInputs() value by
-// value: every number a run reads is set to NaN and to each infinity, and simulate() has to
-// refuse it with ErrorCode::INVALID_ARGUMENT and a text that names the value, or, where the
-// setter of the value stores a finite number for it (a clamped angle, the plugged ejection
-// delay), fly; the values a setter keeps finite are tried again through a preferences store,
-// from which the options take them as they are. Never a BugError, and never an abort of the
-// flight. What a run does not read is not refused, and nothing valid is: every flight
-// configuration of the test rockets passes.
+// options, the delays of a design or the settings of an extension ends there in a BugException
+// or in an abort somewhere in the flight. The tests go through the list in the comment of
+// validateInputs() value by value: every number a run reads is set to NaN and to each
+// infinity, and simulate() has to refuse it with ErrorCode::INVALID_ARGUMENT and a text that
+// names the value, or, where the setter of the value stores a finite number for it (a clamped
+// angle, the plugged ejection delay), fly; the values a setter keeps finite are tried again
+// through a preferences store, from which the options take them as they are. Never a BugError,
+// and never an abort of the flight. What a run does not read is not refused (an altitude of a
+// device or a stage that some other event triggers, for example, with which OpenRocket flies:
+// probes/tier9a-review-extensions-fidelity, UnreadAltitude.java), and nothing valid is: every
+// flight configuration of the test rockets passes.
 
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -37,14 +41,21 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
+#include "QtRocket/simulation/extension/example/AirStart.h"
+#include "QtRocket/simulation/extension/example/RollControl.h"
+#include "QtRocket/util/BigDecimal.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Config.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Signal.h"
 #include "rocket/TestRockets.h"
@@ -52,14 +63,18 @@
 namespace
 {
 
+using QtRocket::AirStart;
 using QtRocket::BugError;
+using QtRocket::Config;
 using QtRocket::ErrorCode;
 using QtRocket::FlightConfigurationId;
 using QtRocket::GravityModelType;
 using QtRocket::MachAoALookup;
 using QtRocket::Result;
 using QtRocket::Rocket;
+using QtRocket::RollControl;
 using QtRocket::Simulation;
+using QtRocket::SimulationExtension;
 using QtRocket::SimulationOptions;
 using QtRocket::WindModelType;
 using QtRocket::Test::TestBeta;
@@ -67,6 +82,9 @@ using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::testFcid;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
+
+using DeployEvent     = QtRocket::DeploymentConfiguration::DeployEvent;
+using SeparationEvent = QtRocket::StageSeparationConfiguration::SeparationEvent;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -93,6 +111,13 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
     {
         return std::string("bug: ") + error.what();
     }
+}
+
+/// The message of validateInputs() of @p simulation; "valid" when it passes.
+[[nodiscard]] std::string validationMessage(const Simulation& simulation)
+{
+    const Result<void> result = simulation.validateInputs();
+    return result.has_value() ? std::string("valid") : result.error().message;
 }
 
 /// The text of the refusal of the value called @p what that is @p value.
@@ -523,6 +548,20 @@ TEST(SimulationInputValidation, TheStepperLimitsAndTheWarningThresholds)
     expectOutcomes(cases);
 }
 
+// A finite value is not the validation's business, however absurd it is (the comment of
+// validateInputs(), "Not checked"). Only the validation is asked here: with this time step the
+// first step of the run would not end, here as in OpenRocket.
+TEST(SimulationInputValidation, AHugeFiniteTimeStepIsNotRefused)
+{
+    AlphaRun           run;
+    SimulationOptions& o = run.simulation.getOptions();
+    o.setTimeStep(1e300);
+    ASSERT_EQ(o.getTimeStep(), 1e300);
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+    o.setTimeStep(std::numeric_limits<double>::max());
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+}
+
 // What the run does not read is not refused: the wind model that is not in use, the launch
 // conditions under the ISA atmosphere, the constant gravity under the WGS model, the stored
 // rod direction of a launch into the wind.
@@ -621,7 +660,8 @@ enum class AlphaValue
     EJECTION_DELAY,
     IGNITION_DELAY_OF_ANOTHER_CONFIGURATION,
     DEPLOYMENT_DELAY,
-    DEPLOYMENT_ALTITUDE,
+    DEPLOYMENT_ALTITUDE,        ///< under the event of the design, the ejection charge
+    DEPLOYMENT_AT_AN_ALTITUDE,  ///< the altitude, with the parachute deploying at it
 };
 
 /// Sets the value @p which of the design of @p run to @p value.
@@ -646,6 +686,14 @@ void setAlphaValue(const AlphaRun& run, AlphaValue which, double value)
                 .get(testFcid(0))
                 .setDeployAltitude(value);
             return;
+        case AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE:
+        {
+            QtRocket::DeploymentConfiguration& deployment =
+                run.alpha.chute->getDeploymentConfigurations().get(testFcid(0));
+            deployment.setDeployEvent(DeployEvent::ALTITUDE);
+            deployment.setDeployAltitude(value);
+            return;
+        }
     }
 }
 
@@ -689,13 +737,99 @@ TEST(SimulationInputValidation, TheDeploymentOfARecoveryDevice)
     EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_DELAY, -kInf),
               refusal(delayName, "-Infinity"));
 
+    // A device that deploys at an altitude: the engine compares that altitude with every step
+    // of the descent.
     const std::string_view altitudeName = "the deployment altitude of 'Parachute'";
-    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_ALTITUDE, kNaN),
+    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, kNaN),
               refusal(altitudeName, "NaN"));
-    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_ALTITUDE, kInf),
+    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, kInf),
               refusal(altitudeName, "Infinity"));
-    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_ALTITUDE, -kInf),
+    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, -kInf),
               refusal(altitudeName, "-Infinity"));
+    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, 50.0), "ok");
+}
+
+/// The deployment events with which validateInputs() refuses the Alpha III whose parachute has
+/// the deployment altitude @p altitude.
+[[nodiscard]] std::vector<DeployEvent> deployEventsRefusedWith(double altitude)
+{
+    std::vector<DeployEvent> refused;
+    for (const DeployEvent event : QtRocket::DeploymentConfiguration::kAllDeployEvents)
+    {
+        const AlphaRun                     run;
+        QtRocket::DeploymentConfiguration& deployment =
+            run.alpha.chute->getDeploymentConfigurations().get(testFcid(0));
+        deployment.setDeployEvent(event);
+        deployment.setDeployAltitude(altitude);
+        if (validationMessage(run.simulation) != "valid")
+        {
+            refused.push_back(event);
+        }
+    }
+    return refused;
+}
+
+/// What two runs of one design share when they are the same flight.
+struct Flight
+{
+    double      maxAltitude{0};
+    double      flightTime{0};
+    std::size_t rows{0};
+    std::size_t events{0};
+
+    [[nodiscard]] bool operator==(const Flight&) const = default;
+};
+
+/// For a failed expectation.
+std::ostream& operator<<(std::ostream& out, const Flight& flight)
+{
+    return out << std::format("maximum altitude {}, flight time {}, {} rows, {} events",
+                              flight.maxAltitude, flight.flightTime, flight.rows, flight.events);
+}
+
+/// The flight @p simulation has simulated; all zeros without one.
+[[nodiscard]] Flight flightOf(const Simulation& simulation)
+{
+    const std::shared_ptr<QtRocket::FlightData>& data = simulation.getSimulatedData();
+    if (data == nullptr || data->getBranchCount() == 0)
+    {
+        return {};
+    }
+    return {.maxAltitude = data->getMaxAltitude(),
+            .flightTime  = data->getFlightTime(),
+            .rows        = data->getBranch(0).getLength(),
+            .events      = data->getBranch(0).getEvents().size()};
+}
+
+// The engine reads the deployment altitude for one deployment event only, a given altitude
+// during the descent. The parachute of the Alpha III opens at the ejection charge, and its
+// flight with a deployment altitude that is no number is its flight with any other, as in
+// OpenRocket, which flies such a design (UnreadAltitude.java: 133.004 m and the same eleven
+// events with NaN, with -Infinity and with 200 m).
+TEST(SimulationInputValidation, ADeploymentAltitudeThatTheEventDoesNotReadIsNotRefused)
+{
+    const std::vector<DeployEvent> onlyAtAnAltitude{DeployEvent::ALTITUDE};
+    EXPECT_EQ(deployEventsRefusedWith(kNaN), onlyAtAnAltitude);
+    EXPECT_EQ(deployEventsRefusedWith(kInf), onlyAtAnAltitude);
+    EXPECT_EQ(deployEventsRefusedWith(-kInf), onlyAtAnAltitude);
+    EXPECT_TRUE(deployEventsRefusedWith(200.0).empty());
+
+    AlphaRun plain;
+    ASSERT_EQ(plain.alpha.chute->getDeploymentConfigurations().get(testFcid(0)).getDeployEvent(),
+              DeployEvent::EJECTION);
+    ASSERT_EQ(outcomeOf(plain.simulation), "ok");
+    const Flight flight = flightOf(plain.simulation);
+    EXPECT_GT(flight.maxAltitude, 10.0);
+
+    AlphaRun withNaN;
+    setAlphaValue(withNaN, AlphaValue::DEPLOYMENT_ALTITUDE, kNaN);
+    EXPECT_EQ(outcomeOf(withNaN.simulation), "ok");
+    EXPECT_EQ(flightOf(withNaN.simulation), flight);
+
+    AlphaRun withInfinity;
+    setAlphaValue(withInfinity, AlphaValue::DEPLOYMENT_ALTITUDE, -kInf);
+    EXPECT_EQ(outcomeOf(withInfinity.simulation), "ok");
+    EXPECT_EQ(flightOf(withInfinity.simulation), flight);
 }
 
 /// A simulation of the two-stage Beta in its configuration (TEST_FCID_1), with the built-in
@@ -758,6 +892,41 @@ void setBetaValue(const BetaRun& run, BetaValue which, double value)
     return outcomeOf(run.simulation);
 }
 
+/// Makes the booster of @p run separate at @p event, with the separation altitude @p altitude.
+void setSeparation(const BetaRun& run, SeparationEvent event, double altitude)
+{
+    QtRocket::StageSeparationConfiguration& separation =
+        run.beta.boosterStage->getSeparationConfigurations().get(testFcid(1));
+    separation.setSeparationEvent(event);
+    separation.setSeparationAltitude(altitude);
+}
+
+/// The outcome of the Beta's simulation whose booster separates at @p event and has the
+/// separation altitude @p altitude.
+[[nodiscard]] std::string outcomeWithSeparation(SeparationEvent event, double altitude)
+{
+    BetaRun run;
+    setSeparation(run, event, altitude);
+    return outcomeOf(run.simulation);
+}
+
+/// The separation events with which validateInputs() refuses the Beta whose booster has the
+/// separation altitude @p altitude.
+[[nodiscard]] std::vector<SeparationEvent> separationEventsRefusedWith(double altitude)
+{
+    std::vector<SeparationEvent> refused;
+    for (const SeparationEvent event : QtRocket::StageSeparationConfiguration::kAllSeparationEvents)
+    {
+        const BetaRun run;
+        setSeparation(run, event, altitude);
+        if (validationMessage(run.simulation) != "valid")
+        {
+            refused.push_back(event);
+        }
+    }
+    return refused;
+}
+
 TEST(SimulationInputValidation, TheSeparationOfAStage)
 {
     EXPECT_EQ(outcomeWithBeta(BetaValue::NONE, 0.0), "ok");
@@ -767,11 +936,14 @@ TEST(SimulationInputValidation, TheSeparationOfAStage)
     EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_DELAY, kInf), refusal(delayName, "Infinity"));
     EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_DELAY, -kInf), refusal(delayName, "-Infinity"));
 
+    // A stage that separates at an altitude, on the way up or on the way down: the engine
+    // compares that altitude with every step.
     const std::string_view altitudeName = "the separation altitude of 'Booster Stage'";
-    EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_ALTITUDE, kNaN), refusal(altitudeName, "NaN"));
-    EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_ALTITUDE, kInf),
+    EXPECT_EQ(outcomeWithSeparation(SeparationEvent::ALTITUDE_ASCENDING, kNaN),
+              refusal(altitudeName, "NaN"));
+    EXPECT_EQ(outcomeWithSeparation(SeparationEvent::ALTITUDE_ASCENDING, kInf),
               refusal(altitudeName, "Infinity"));
-    EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_ALTITUDE, -kInf),
+    EXPECT_EQ(outcomeWithSeparation(SeparationEvent::ALTITUDE_DESCENDING, -kInf),
               refusal(altitudeName, "-Infinity"));
 
     // The topmost stage has nothing to separate from: the engine never reads its settings.
@@ -780,6 +952,34 @@ TEST(SimulationInputValidation, TheSeparationOfAStage)
     // The motor of the booster is one of the flight.
     EXPECT_EQ(outcomeWithBeta(BetaValue::IGNITION_DELAY_OF_THE_BOOSTER, kNaN),
               refusal("the ignition delay of the motor in 'Booster MMT'", "NaN"));
+}
+
+// The engine reads the separation altitude for the two separation events at an altitude only.
+// The booster of the Beta separates at its ejection charge, and the flight with a separation
+// altitude that is no number is the flight with any other, as in OpenRocket (UnreadAltitude.java:
+// 539.28 m and fourteen events with NaN and with Infinity).
+TEST(SimulationInputValidation, ASeparationAltitudeThatTheEventDoesNotReadIsNotRefused)
+{
+    const std::vector<SeparationEvent> onlyAtAnAltitude{SeparationEvent::ALTITUDE_ASCENDING,
+                                                        SeparationEvent::ALTITUDE_DESCENDING};
+    EXPECT_EQ(separationEventsRefusedWith(kNaN), onlyAtAnAltitude);
+    EXPECT_EQ(separationEventsRefusedWith(kInf), onlyAtAnAltitude);
+    EXPECT_EQ(separationEventsRefusedWith(-kInf), onlyAtAnAltitude);
+    EXPECT_TRUE(separationEventsRefusedWith(100.0).empty());
+
+    BetaRun plain;
+    ASSERT_EQ(plain.beta.boosterStage->getSeparationConfigurations()
+                  .get(testFcid(1))
+                  .getSeparationEvent(),
+              SeparationEvent::EJECTION);
+    ASSERT_EQ(outcomeOf(plain.simulation), "ok");
+    const Flight flight = flightOf(plain.simulation);
+    EXPECT_GT(flight.maxAltitude, 10.0);
+
+    BetaRun withNaN;
+    setBetaValue(withNaN, BetaValue::SEPARATION_ALTITUDE, kNaN);
+    EXPECT_EQ(outcomeOf(withNaN.simulation), "ok");
+    EXPECT_EQ(flightOf(withNaN.simulation), flight);
 }
 
 // A stage that is not active in the simulated configuration does not fly, and nothing of it
@@ -798,13 +998,6 @@ TEST(SimulationInputValidation, AStageThatIsNotActiveIsNotChecked)
 }
 
 // ----------------------------------------------------------------- the order and the state
-
-/// The message of validateInputs() of @p simulation; "valid" when it passes.
-[[nodiscard]] std::string validationMessage(const Simulation& simulation)
-{
-    const Result<void> result = simulation.validateInputs();
-    return result.has_value() ? std::string("valid") : result.error().message;
-}
 
 // The first value that is not finite is the one named: the options in the order of the list
 // in the comment of validateInputs(), then the design.
@@ -839,6 +1032,45 @@ TEST(SimulationInputValidation, NamesTheFirstValueThatIsNotFinite)
     // validateInputs() only looks.
     EXPECT_EQ(run.simulation.getStoredStatus(), Simulation::Status::NOT_SIMULATED);
     EXPECT_EQ(run.simulation.getSimulatedData(), nullptr);
+}
+
+// The design is gone through component by component, in the order of the configuration's
+// active components, and not kind by kind: in the Beta the parachute of the sustainer comes
+// before the motor mount of the booster, so it is the one named. The stages follow the
+// components, and the extensions the design.
+TEST(SimulationInputValidation, NamesTheComponentsInTheOrderOfTheConfiguration)
+{
+    BetaRun                            run;
+    const std::shared_ptr<RollControl> roll = std::make_shared<RollControl>();
+    roll->setKP(kNaN);
+    run.simulation.getSimulationExtensions().push_back(roll);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the 'KP' of the simulation extension 'Roll Control' is not "
+              "finite (NaN).");
+
+    setBetaValue(run, BetaValue::SEPARATION_DELAY, kInf);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the separation delay of 'Booster Stage' is not finite "
+              "(Infinity).");
+
+    setBetaValue(run, BetaValue::IGNITION_DELAY_OF_THE_BOOSTER, kNaN);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the ignition delay of the motor in 'Booster MMT' is not finite "
+              "(NaN).");
+
+    run.beta.chute->getDeploymentConfigurations().get(testFcid(1)).setDeployDelay(kNaN);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the deployment delay of 'Parachute' is not finite (NaN).");
+
+    // The motor mount of the sustainer comes before its parachute.
+    run.beta.inner->getMotorConfig(testFcid(1)).setEjectionDelay(-kInf);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the ejection delay of the motor in 'Motor Mount Tube' is not "
+              "finite (-Infinity).");
+
+    run.simulation.getOptions().setMaxSimulationTime(kNaN);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the maximum simulation time is not finite (NaN).");
 }
 
 /// Counts the emissions of a signal while it lives.
@@ -935,6 +1167,210 @@ TEST(SimulationInputValidation, AnImportedSimulationIsRefusedFirst)
     EXPECT_FALSE(simulation.validateInputs().has_value());
 }
 
+// ---------------------------------------------------------------------------- the extensions
+
+/// What a refusal calls the setting of key @p key of a RollControl.
+[[nodiscard]] std::string rollControlSetting(std::string_view key)
+{
+    return std::format("the '{}' of the simulation extension 'Roll Control'", key);
+}
+
+/// What a refusal calls the setting of key @p key of an AirStart.
+[[nodiscard]] std::string airStartSetting(std::string_view key)
+{
+    return std::format("the '{}' of the simulation extension 'Air-start'", key);
+}
+
+/// The outcome of the Alpha III's simulation with a RollControl on its fins whose setter
+/// @p set was given @p value.
+[[nodiscard]] std::string outcomeWithRollControl(void (RollControl::*set)(double), double value)
+{
+    AlphaRun                           run;
+    const std::shared_ptr<RollControl> roll = std::make_shared<RollControl>();
+    roll->setControlFinName("3 Fin Set");
+    (*roll.*set)(value);
+    run.simulation.getSimulationExtensions().push_back(roll);
+    return outcomeOf(run.simulation);
+}
+
+/// The outcome of the Alpha III's simulation with an AirStart whose setter @p set was given
+/// @p value.
+[[nodiscard]] std::string outcomeWithAirStart(void (AirStart::*set)(double), double value)
+{
+    AlphaRun                        run;
+    const std::shared_ptr<AirStart> airStart = std::make_shared<AirStart>();
+    (*airStart.*set)(value);
+    run.simulation.getSimulationExtensions().push_back(airStart);
+    return outcomeOf(run.simulation);
+}
+
+/// The three outcomes of @p outcome, a function of the value a setting is given: with NaN,
+/// with +infinity and with -infinity.
+[[nodiscard]] Expected outcomesOf(const std::function<std::string(double)>& outcome)
+{
+    return {.nan              = outcome(kNaN),
+            .positiveInfinity = outcome(kInf),
+            .negativeInfinity = outcome(-kInf)};
+}
+
+/// Expects @p actual to be the three outcomes @p expected.
+void expectSame(const Expected& actual, const Expected& expected)
+{
+    EXPECT_EQ(actual.nan, expected.nan);
+    EXPECT_EQ(actual.positiveInfinity, expected.positiveInfinity);
+    EXPECT_EQ(actual.negativeInfinity, expected.negativeInfinity);
+}
+
+// The six numbers the listener of a RollControl reads. OpenRocket flies with some of these
+// values and dies of a BugException in the middle of the flight with the others ("Counted 0
+// parallel fins ..." after 51 or 150 rows: probes/tier9a-fix-extensions, ExtNonFinite.java);
+// here each is refused before anything runs.
+TEST(SimulationInputValidation, TheNumbersOfARollControl)
+{
+    struct Setting
+    {
+        std::string_view key;
+        void (RollControl::*set)(double);
+    };
+    const std::vector<Setting> settings{
+        {.key = "startTime", .set = &RollControl::setStartTime},
+        {.key = "setPoint", .set = &RollControl::setSetPoint},
+        {.key = "finRate", .set = &RollControl::setFinRate},
+        {.key = "maxFinAngle", .set = &RollControl::setMaxFinAngle},
+        {.key = "KP", .set = &RollControl::setKP},
+        {.key = "KI", .set = &RollControl::setKI},
+    };
+    for (const Setting& setting : settings)
+    {
+        SCOPED_TRACE(setting.key);
+        expectSame(outcomesOf([&setting](double value) {
+                       return outcomeWithRollControl(setting.set, value);
+                   }),
+                   allRefused(rollControlSetting(setting.key)));
+    }
+    // With numbers the simulation flies.
+    EXPECT_EQ(outcomeWithRollControl(&RollControl::setKP, 0.01), "ok");
+}
+
+// The two numbers the listener of an AirStart reads. In OpenRocket a launch altitude that is
+// no number and any such launch velocity end in a BugException, an infinite launch altitude in
+// the SimulationException "Simulation values exceeded limits" (ExtNonFinite.java).
+TEST(SimulationInputValidation, TheNumbersOfAnAirStart)
+{
+    expectSame(outcomesOf([](double value) {
+                   return outcomeWithAirStart(&AirStart::setLaunchAltitude, value);
+               }),
+               allRefused(airStartSetting("launchAltitude")));
+    expectSame(outcomesOf([](double value) {
+                   return outcomeWithAirStart(&AirStart::setLaunchVelocity, value);
+               }),
+               allRefused(airStartSetting("launchVelocity")));
+    EXPECT_EQ(outcomeWithAirStart(&AirStart::setLaunchVelocity, 20.0), "ok");
+}
+
+/// The BigDecimal @p text.
+[[nodiscard]] QtRocket::BigDecimal big(std::string_view text)
+{
+    const std::optional<QtRocket::BigDecimal> value = QtRocket::BigDecimal::parse(text);
+    if (!value.has_value())
+    {
+        ADD_FAILURE() << "not a BigDecimal: " << text;
+        return QtRocket::BigDecimal::valueOf(0);
+    }
+    return *value;
+}
+
+// The settings as a .ork file gives them, a Config: the one number of a file that is not
+// finite as a double is an integer too large for one, which the reader keeps as a big number
+// (OpenRocket: a BigInteger, whose doubleValue() is Infinity). An entry that is no number at
+// all is the default of the setting, and that is finite.
+TEST(SimulationInputValidation, TheNumbersOfAnExtensionAsAFileGivesThem)
+{
+    AlphaRun                        run;
+    const std::shared_ptr<AirStart> airStart = std::make_shared<AirStart>();
+    run.simulation.getSimulationExtensions().push_back(airStart);
+
+    Config huge;
+    huge.put("launchAltitude", big("1" + std::string(400, '0')));
+    airStart->setConfig(huge);
+    ASSERT_EQ(airStart->getLaunchAltitude(), kInf);
+    EXPECT_EQ(outcomeOf(run.simulation), refusal(airStartSetting("launchAltitude"), "Infinity"));
+
+    Config texts;
+    texts.put("launchAltitude", "NaN");
+    texts.put("launchVelocity", "Infinity");
+    airStart->setConfig(texts);
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+    EXPECT_EQ(outcomeOf(run.simulation), "ok");
+}
+
+/// An extension that lists the numbers it was given as its inputs.
+class ListingExtension final : public QtRocket::AbstractSimulationExtension
+{
+public:
+    ListingExtension(std::string name, std::vector<double> numbers)
+      : AbstractSimulationExtension("test.Listing", std::move(name)), m_numbers(std::move(numbers))
+    {
+    }
+
+    void initialize(QtRocket::SimulationConditions& /*conditions*/) override { }
+
+    [[nodiscard]] std::vector<InputNumber> getInputNumbers() const override
+    {
+        std::vector<InputNumber> inputs;
+        inputs.reserve(m_numbers.size());
+        for (std::size_t i = 0; i < m_numbers.size(); i++)
+        {
+            inputs.push_back(inputNumber(getName(), std::format("n{}", i), m_numbers[i]));
+        }
+        return inputs;
+    }
+
+    [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override
+    {
+        return std::make_unique<ListingExtension>(*this);
+    }
+
+private:
+    std::vector<double> m_numbers;
+};
+
+// The extensions are asked in the order of the simulation's list and each for its numbers in
+// its own order; an extension that lists none is not looked at (the default of the interface),
+// and a null in the list is no input: simulate() reports that as the bug it is.
+TEST(SimulationInputValidation, AsksEveryExtensionForItsNumbersInOrder)
+{
+    AlphaRun                                           run;
+    std::vector<std::shared_ptr<SimulationExtension>>& extensions =
+        run.simulation.getSimulationExtensions();
+    const std::shared_ptr<int> initialised = std::make_shared<int>(0);
+    extensions.push_back(std::make_shared<CountingExtension>(initialised));
+    extensions.push_back(std::make_shared<ListingExtension>(
+        "first", std::vector<double>{1.0, std::numeric_limits<double>::max(), -0.0}));
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+
+    extensions.push_back(
+        std::make_shared<ListingExtension>("second", std::vector<double>{2.0, kInf, kNaN}));
+    extensions.push_back(std::make_shared<ListingExtension>("third", std::vector<double>{kNaN}));
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the 'n1' of the simulation extension 'second' is not finite "
+              "(Infinity).");
+    // Refused before any extension was initialised, also one that comes first in the list.
+    EXPECT_EQ(outcomeOf(run.simulation),
+              refusal("the 'n1' of the simulation extension 'second'", "Infinity"));
+    EXPECT_EQ(*initialised, 0);
+
+    extensions.insert(extensions.begin(), nullptr);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the 'n1' of the simulation extension 'second' is not finite "
+              "(Infinity).");
+    extensions.resize(3);
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+    EXPECT_TRUE(outcomeOf(run.simulation)
+                    .starts_with("bug: BUG: The simulation holds a null "
+                                 "extension"));
+}
+
 // ------------------------------------------------------------------- nothing valid is refused
 
 class SimulationInputValidationOfTestRockets : public ::testing::TestWithParam<TestRocketMaker>
@@ -942,8 +1378,8 @@ class SimulationInputValidationOfTestRockets : public ::testing::TestWithParam<T
 
 // Every flight configuration of every test rocket, the default one included, with the options
 // a new simulation of the application has (a wind of 2 m/s, the launch into it): the inputs
-// are valid, plugged motors and all, and simulate() does not refuse them. (Some of these
-// flights abort, the ones without a motor for example: that is an outcome of the flight.)
+// are valid, and simulate() does not refuse them. (Some of these flights abort, the ones
+// without a motor for example: that is an outcome of the flight.)
 TEST_P(SimulationInputValidationOfTestRockets, EveryConfigurationIsValid)
 {
     const std::unique_ptr<Rocket> rocket = GetParam().make();
@@ -962,6 +1398,65 @@ TEST_P(SimulationInputValidationOfTestRockets, EveryConfigurationIsValid)
         const std::string outcome = outcomeOf(simulation);
         EXPECT_TRUE(outcome == "ok" || outcome == "ok, aborted") << outcome;
     }
+}
+
+/// Plugs every motor that @p rocket has in the configuration @p fcid (no test rocket is made
+/// with a plugged motor), and returns how many those are.
+[[nodiscard]] int plugEveryMotor(const Rocket& rocket, const FlightConfigurationId& fcid)
+{
+    int plugged = 0;
+    for (QtRocket::RocketComponent* component :
+         rocket.getFlightConfiguration(fcid).getAllComponents())
+    {
+        auto* mount = dynamic_cast<QtRocket::MotorMount*>(component);
+        if (mount == nullptr || !mount->isMotorMount() || mount->getMotorConfig(fcid).isEmpty())
+        {
+            continue;
+        }
+        mount->getMotorConfig(fcid).setEjectionDelay(QtRocket::Motor::kPluggedDelay);
+        plugged++;
+    }
+    return plugged;
+}
+
+/// How many flight configurations of the rocket of @p maker, each with every one of its motors
+/// plugged, validateInputs() refuses; @p motors gets the number of motors that were plugged.
+[[nodiscard]] int refusedWithPluggedMotors(const TestRocketMaker& maker, int& motors)
+{
+    const std::unique_ptr<Rocket> rocket  = maker.make();
+    int                           refused = 0;
+    for (int i = 0; i <= rocket->getConfigurationCount(); i++)
+    {
+        const FlightConfigurationId fcid =
+            rocket->getFlightConfigurationByIndex(i, true).getFlightConfigurationId();
+        motors += plugEveryMotor(*rocket, fcid);
+        Simulation simulation(*rocket);
+        simulation.setFlightConfigurationId(fcid);
+        if (!simulation.validateInputs().has_value())
+        {
+            refused++;
+        }
+    }
+    return refused;
+}
+
+// The same configurations with every motor plugged: the plugged ejection delay is +infinity,
+// and it is a valid value wherever a motor is.
+TEST_P(SimulationInputValidationOfTestRockets, EveryConfigurationIsValidWithItsMotorsPlugged)
+{
+    int motors = 0;
+    EXPECT_EQ(refusedWithPluggedMotors(GetParam(), motors), 0);
+}
+
+// Not vacuous: the test rockets have motors to plug.
+TEST(SimulationInputValidation, TheTestRocketsHaveMotorsToPlug)
+{
+    int motors = 0;
+    for (const TestRocketMaker& maker : testRocketMakers())
+    {
+        static_cast<void>(refusedWithPluggedMotors(maker, motors));
+    }
+    EXPECT_GE(motors, 20);
 }
 
 INSTANTIATE_TEST_SUITE_P(Makers, SimulationInputValidationOfTestRockets,

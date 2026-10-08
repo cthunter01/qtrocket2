@@ -42,7 +42,21 @@ class SimulationConditions;
 ///   flight data column finCantType() of the row the step began with. The fin angle starts at
 ///   0, not at the cant the fin set has, so the first controlled step turns a canted fin set
 ///   back towards 0.
-/// - When the simulation ends, the fin set gets the cant it had at the start.
+/// - When the simulation ends, the fin set gets the cant it had at the start. That is the
+///   engine's endSimulation() hook, which is called, as in Java, at the normal end of a run and
+///   for a SimulationException inside the loop of a branch. It is not called for an exception
+///   that leaves the start of a later branch (a listener's startSimulationBranch()), nor for a
+///   BugError. Java throws its simulated rocket away then; here the flight data keep theirs
+///   (FlightData::getSimulatedRocket()), whose fin set still has the controller's cant after
+///   such an ending. Nothing reads that cant, and the caller's rocket is the design in every
+///   case.
+/// The cant reaches the aerodynamics through the change events of the simulated rocket, a copy
+/// of the caller's that has its events as the caller's has them: the aerodynamic calculator
+/// voids what it has worked out when the aerodynamic modification id of the rocket changes, and
+/// a rocket whose events are disabled keeps its ids. On such a rocket (one that no document
+/// holds and that was never given enableEvents()) the controller turns the fins to its limit
+/// and the flight is the flight without the extension, as in OpenRocket.
+///
 /// As in Java the listener is cloned with the status of the simulation (see SimulationListener,
 /// "Clones"), and every clone points at the same fin set: after a stage separation the listener
 /// of the sustainer's branch and the one of the dropped stage's branch each go on with the
@@ -60,6 +74,14 @@ class SimulationConditions;
 /// - Java prints "Attempting to set angle ... clamping." to the standard error stream whenever
 ///   the fin angle is limited; that is not ported.
 /// - The constructor is public (Java: package-private, for the provider's injector).
+/// - getInputNumbers() lists the six numbers of the configuration, so that
+///   Simulation::simulate() refuses a run in which one of them is a NaN or an infinity
+///   (Simulation::validateInputs(), QtRocket's own). OpenRocket flies with some of them (any
+///   such start time or limit, an infinite setpoint or turn rate) and ends in a BugException in
+///   the middle of the flight with the others (a setpoint, a turn rate or a gain that is no
+///   number makes the cant no number; an infinite gain does on some rockets). Its reader of
+///   .ork files cannot give a setting such a value, except an infinity for an integer too large
+///   for a double.
 class RollControl final : public AbstractSimulationExtension
 {
 public:
@@ -95,6 +117,11 @@ public:
 
     /// finCantType(), once (see the class comment).
     [[nodiscard]] std::vector<const FlightDataType*> getFlightDataTypes() const override;
+
+    /// The six numbers the listener takes, in the order of the list in the class comment: "the
+    /// 'startTime' of the simulation extension 'Roll Control'" and so on (see the class comment,
+    /// "Deviations").
+    [[nodiscard]] std::vector<InputNumber> getInputNumbers() const override;
 
     [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override;
 

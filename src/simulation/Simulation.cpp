@@ -212,7 +212,8 @@ void checkOptions(const SimulationOptions& options, InputCheck& check)
 }
 
 /// The delays of the motor that @p component, when it is an acting motor mount, has in @p fcid,
-/// and the deployment settings it has there when it is a recovery device.
+/// and, when it is a recovery device, the deployment delay it has there and the deployment
+/// altitude when that is what deploys it.
 void checkComponent(const RocketComponent& component, const FlightConfigurationId& fcid,
                     InputCheck& check)
 {
@@ -235,12 +236,25 @@ void checkComponent(const RocketComponent& component, const FlightConfigurationI
         const DeploymentConfiguration& deployment = device->getDeploymentConfigurations().get(fcid);
         check.finite(std::format("the deployment delay of '{}'", component.getName()),
                      deployment.getDeployDelay());
-        check.finite(std::format("the deployment altitude of '{}'", component.getName()),
-                     deployment.getDeployAltitude());
+        // The engine reads the altitude of a deployment at an altitude only.
+        if (deployment.getDeployEvent() == DeploymentConfiguration::DeployEvent::ALTITUDE)
+        {
+            check.finite(std::format("the deployment altitude of '{}'", component.getName()),
+                         deployment.getDeployAltitude());
+        }
     }
 }
 
-/// Every delay and altitude the engine reads from @p config, the configuration @p fcid.
+/// Whether the engine reads the separation altitude of a stage that separates at @p event.
+[[nodiscard]] bool separatesAtAnAltitude(StageSeparationConfiguration::SeparationEvent event)
+{
+    using SeparationEvent = StageSeparationConfiguration::SeparationEvent;
+    return event == SeparationEvent::ALTITUDE_ASCENDING ||
+           event == SeparationEvent::ALTITUDE_DESCENDING;
+}
+
+/// The delays of @p config, the configuration @p fcid, and the altitudes the engine reads from
+/// it: component by component, and then the stages.
 void checkDesign(const FlightConfiguration& config, const FlightConfigurationId& fcid,
                  InputCheck& check)
 {
@@ -258,8 +272,30 @@ void checkDesign(const FlightConfiguration& config, const FlightConfigurationId&
             stage->getSeparationConfigurations().get(fcid);
         check.finite(std::format("the separation delay of '{}'", stage->getName()),
                      separation.getSeparationDelay());
-        check.finite(std::format("the separation altitude of '{}'", stage->getName()),
-                     separation.getSeparationAltitude());
+        if (separatesAtAnAltitude(separation.getSeparationEvent()))
+        {
+            check.finite(std::format("the separation altitude of '{}'", stage->getName()),
+                         separation.getSeparationAltitude());
+        }
+    }
+}
+
+/// The numbers that @p extensions, the extensions of a simulation in their order, say their part
+/// of a run reads (SimulationExtension::getInputNumbers()).
+void checkExtensions(const std::vector<std::shared_ptr<SimulationExtension>>& extensions,
+                     InputCheck&                                              check)
+{
+    for (const std::shared_ptr<SimulationExtension>& extension : extensions)
+    {
+        if (extension == nullptr)
+        {
+            // Not an input: simulate() reports a null extension as the bug it is.
+            continue;
+        }
+        for (const SimulationExtension::InputNumber& number : extension->getInputNumbers())
+        {
+            check.finite(number.what, number.value);
+        }
     }
 }
 
@@ -508,6 +544,10 @@ Result<void> Simulation::validateInputs() const
         // What the engine simulates: the configuration of the id in the rocket, and the
         // settings the components have for that id.
         checkDesign(getActiveConfiguration(), m_configId, check);
+    }
+    if (!check.failed())
+    {
+        checkExtensions(m_simulationExtensions, check);
     }
     return check.result();
 }

@@ -1,10 +1,12 @@
 #pragma once
 
 // The scenarios of the flights with OpenRocket's example extensions RollControl and AirStart,
-// built and run as the Java probe that pinned them builds and runs them
-// (probes/tier9a-extensions/java: ExtPins2.java), and printed as that probe prints them, so that
-// a run here and a run of OpenRocket can be compared line by line (ExtensionFlightPins.h holds
-// the probe's lines). Test-only; used by extension_flight_tests.cpp.
+// built and run as the Java probes that pinned them build and run them
+// (probes/tier9a-extensions/java: ExtPins2.java; for the last three scenarios, which the review
+// asked for, probes/tier9a-fix-extensions/java: ExtPins3.java, the same program with those
+// scenarios), and printed as the probes print them, so that a run here and a run of OpenRocket
+// can be compared line by line (ExtensionFlightPins.h holds the probes' lines). Test-only; used
+// by extension_flight_tests.cpp.
 
 #include <cstddef>
 #include <memory>
@@ -37,6 +39,15 @@ struct ExtensionFlightScenario
     bool jitterRemoved{false};
     /// The start time of the scenario's RollControl.
     double startTime{0.5};
+    /// The launch rod: its angle from the vertical and its direction, rad.
+    double rodAngle{0.0};
+    double rodDirection{0.0};
+    /// Whether the flight is the probe's "windy" one: a steady wind of 3 m/s from the direction
+    /// 0.7 rad (without turbulence, which is not OpenRocket's random sequence here), a launch
+    /// site at 350 m, 28.61 degrees north and 80.6 degrees west with 293.15 K and 97000 Pa in
+    /// place of the ISA atmosphere, the WGS84 geodetic computation and the RK6 stepper; else
+    /// calm air, the ISA atmosphere at sea level, flat-earth coordinates and RK4.
+    bool windy{false};
 };
 
 /// The ids of the probe's scenarios, in its order.

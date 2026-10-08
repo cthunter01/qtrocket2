@@ -259,6 +259,42 @@ private:
     return s;
 }
 
+/// The scenarios of ExtPins3 (all on the Iso-Haisu): an AirStart on a launch rod that is not
+/// vertical, and a flight in a steady wind with RK6, WGS84 and a launch site of its own, without
+/// the extensions and with both.
+[[nodiscard]] std::optional<ExtensionFlightScenario> makeReviewScenario(std::string_view id)
+{
+    if (id != "haisu-airstart-tilted" && id != "haisu-plain-windy" &&
+        id != "haisu-roll-airstart-windy")
+    {
+        return std::nullopt;
+    }
+    ExtensionFlightScenario s = haisu(id);
+    if (id == "haisu-airstart-tilted")
+    {
+        s.rodAngle     = 0.3;
+        s.rodDirection = 1.0;
+    }
+    else
+    {
+        s.rodAngle     = 0.1;
+        s.rodDirection = 2.0;
+        s.windy        = true;
+    }
+    if (id == "haisu-roll-airstart-windy")
+    {
+        s.extensions.push_back(rollControl());
+    }
+    if (id != "haisu-plain-windy")
+    {
+        const std::shared_ptr<AirStart> airStart = std::make_shared<AirStart>();
+        airStart->setLaunchAltitude(250.0);
+        airStart->setLaunchVelocity(20.0);
+        s.extensions.push_back(airStart);
+    }
+    return s;
+}
+
 /// The scenarios on the Estes Alpha III and on the Beta.
 [[nodiscard]] std::optional<ExtensionFlightScenario> makeSmallRocketScenario(std::string_view id)
 {
@@ -301,13 +337,32 @@ private:
     return std::nullopt;
 }
 
-/// The options the probe gives every simulation.
-void setProbeOptions(SimulationOptions& o, double rodLength, double timeStep)
+/// The options of a "windy" scenario that differ from the probe's (ExtPins3.windyOptions()).
+/// The wind is steady: its turbulence is a random sequence, and QtRocket's is drawn from another
+/// generator than Java's (a documented deviation of PinkNoise), so a turbulent flight cannot be
+/// compared number by number (it differs from OpenRocket's in the fourth digit).
+void setWindyOptions(SimulationOptions& o)
 {
-    o.setLaunchRodLength(rodLength);
+    o.getAverageWindModel().setAverage(3.0);
+    o.getAverageWindModel().setStandardDeviation(0.0);
+    o.getAverageWindModel().setDirection(0.7);
+    o.setLaunchAltitude(350);
+    o.setLaunchLatitude(28.61);
+    o.setLaunchLongitude(-80.6);
+    o.setGeodeticComputation(GeodeticComputationStrategy::WGS84);
+    o.setIsaAtmosphere(false);
+    o.setLaunchTemperature(293.15);
+    o.setLaunchPressure(97000);
+    o.setSimulationStepperMethodChoice(SimulationStepperMethod::RK6);
+}
+
+/// The options the probe gives the simulation of @p scenario.
+void setProbeOptions(SimulationOptions& o, const ExtensionFlightScenario& scenario, double timeStep)
+{
+    o.setLaunchRodLength(scenario.rodLength);
     o.setLaunchIntoWind(false);
-    o.setLaunchRodAngle(0);
-    o.setLaunchRodDirection(0);
+    o.setLaunchRodAngle(scenario.rodAngle);
+    o.setLaunchRodDirection(scenario.rodDirection);
     o.setWindModelType(WindModelType::AVERAGE);
     o.getAverageWindModel().setAverage(0);
     o.getAverageWindModel().setStandardDeviation(0);
@@ -323,6 +378,10 @@ void setProbeOptions(SimulationOptions& o, double rodLength, double timeStep)
     o.setRandomSeedFixed(true);
     o.setGravityModelType(GravityModelType::WGS);
     o.setSimulationStepperMethodChoice(SimulationStepperMethod::RK4);
+    if (scenario.windy)
+    {
+        setWindyOptions(o);
+    }
 }
 
 /// The cant of the fin set named @p name in @p rocket (the last one of that name, as the
@@ -543,12 +602,19 @@ const std::vector<std::string>& extensionFlightScenarioIds()
         "beta-roll-sustainer",
         "beta-plain-sustainercant",
         "beta-roll-booster",
+        "haisu-airstart-tilted",
+        "haisu-plain-windy",
+        "haisu-roll-airstart-windy",
     };
     return kIds;
 }
 
 ExtensionFlightScenario makeExtensionFlightScenario(std::string_view id)
 {
+    if (std::optional<ExtensionFlightScenario> scenario = makeReviewScenario(id))
+    {
+        return std::move(*scenario);
+    }
     if (std::optional<ExtensionFlightScenario> scenario = makeHaisuScenario(id))
     {
         return std::move(*scenario);
@@ -568,7 +634,7 @@ std::vector<std::string> runExtensionFlightScenario(
     JavaTestPreferences preferences;
     Simulation          sim(rocket, preferences.store);
     sim.setFlightConfigurationId(scenario.fcid);
-    setProbeOptions(sim.getOptions(), scenario.rodLength, timeStep);
+    setProbeOptions(sim.getOptions(), scenario, timeStep);
     for (const std::shared_ptr<SimulationExtension>& extension : scenario.extensions)
     {
         sim.getSimulationExtensions().push_back(extension);

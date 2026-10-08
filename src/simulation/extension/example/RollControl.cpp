@@ -209,6 +209,17 @@ std::vector<const FlightDataType*> RollControl::getFlightDataTypes() const
     return {&finCantType()};
 }
 
+std::vector<SimulationExtension::InputNumber> RollControl::getInputNumbers() const
+{
+    constexpr std::string_view kName = "Roll Control";
+    return {inputNumber(kName, "startTime", getStartTime()),
+            inputNumber(kName, "setPoint", getSetPoint()),
+            inputNumber(kName, "finRate", getFinRate()),
+            inputNumber(kName, "maxFinAngle", getMaxFinAngle()),
+            inputNumber(kName, "KP", getKP()),
+            inputNumber(kName, "KI", getKI())};
+}
+
 std::unique_ptr<SimulationExtension> RollControl::clone() const
 {
     return std::make_unique<RollControl>(*this);

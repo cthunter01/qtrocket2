@@ -15,7 +15,9 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/FlightConditions.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightDataTypeGroup.h"
 #include "QtRocket/simulation/SimulationConditions.h"
@@ -29,6 +31,7 @@
 #include "QtRocket/util/BigDecimal.h"
 #include "QtRocket/util/Config.h"
 #include "QtRocket/util/Signal.h"
+#include "rocket/TestRockets.h"
 #include "simulation/SimulationStatusSupport.h"
 
 namespace
@@ -45,12 +48,15 @@ using QtRocket::SimulationConditions;
 using QtRocket::SimulationException;
 using QtRocket::SimulationExtension;
 using QtRocket::SimulationListener;
+using QtRocket::SimulationStatus;
+using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestStatus;
 
 // OpenRocket has no test of RollControl. The expectations here are the Java source's, and for
-// the listener the output of a Java probe on OpenRocket's compiled core
-// (probes/tier9a-extensions/java: RollHooks.java, out/rollhooks-java.txt). The flights are in
-// extension_flight_tests.cpp.
+// the listener the output of Java probes on OpenRocket's compiled core
+// (probes/tier9a-extensions/java: RollHooks.java, out/rollhooks-java.txt; for the search of the
+// fin set on the two-stage Beta probes/tier9a-fix-extensions/java: FixHooks.java, the "ROLL"
+// lines of out/fixhooks-java.txt). The flights are in extension_flight_tests.cpp.
 
 static_assert(std::is_final_v<RollControl>);
 static_assert(!std::is_copy_assignable_v<RollControl>);
@@ -254,6 +260,73 @@ TEST(RollControl, PublishesTheFinCantTypeOnce)
     // extension ever constructed: [Control fin cant, Control fin cant, ...] in the probe).
     EXPECT_EQ(third.getFlightDataTypes(), (std::vector<const FlightDataType*>{&type}));
     EXPECT_EQ(first.getFlightDataTypes(), (std::vector<const FlightDataType*>{&type}));
+}
+
+/// What the numbers @p numbers are called, in order.
+[[nodiscard]] std::vector<std::string> namesOf(
+    const std::vector<SimulationExtension::InputNumber>& numbers)
+{
+    std::vector<std::string> names;
+    names.reserve(numbers.size());
+    for (const SimulationExtension::InputNumber& number : numbers)
+    {
+        names.push_back(number.what);
+    }
+    return names;
+}
+
+/// The values of the numbers @p numbers, in order.
+[[nodiscard]] std::vector<double> valuesOf(
+    const std::vector<SimulationExtension::InputNumber>& numbers)
+{
+    std::vector<double> values;
+    values.reserve(numbers.size());
+    for (const SimulationExtension::InputNumber& number : numbers)
+    {
+        values.push_back(number.value);
+    }
+    return values;
+}
+
+// QtRocket's own, for Simulation::validateInputs(): the six numbers the listener takes, each
+// called by its key in the configuration, with the value the getter gives (the default while
+// the key is absent or no number).
+TEST(RollControl, ListsTheNumbersItsListenerReads)
+{
+    RollControl roll;
+    EXPECT_EQ(namesOf(roll.getInputNumbers()),
+              (std::vector<std::string>{
+                  "the 'startTime' of the simulation extension 'Roll Control'",
+                  "the 'setPoint' of the simulation extension 'Roll Control'",
+                  "the 'finRate' of the simulation extension 'Roll Control'",
+                  "the 'maxFinAngle' of the simulation extension 'Roll Control'",
+                  "the 'KP' of the simulation extension 'Roll Control'",
+                  "the 'KI' of the simulation extension 'Roll Control'",
+              }));
+    EXPECT_EQ(valuesOf(roll.getInputNumbers()),
+              (std::vector<double>{0.5, 0.0, 0.17453292519943295, 0.2617993877991494, 0.007, 0.2}));
+
+    Config config;
+    config.put("controlFinName", "Fins");
+    config.put("startTime", 2);
+    config.put("setPoint", std::numeric_limits<double>::infinity());
+    config.put("finRate", 1.5F);
+    config.put("maxFinAngle", "wide");
+    config.put("KP", big("0.25"));
+    config.put("KI", -std::numeric_limits<double>::infinity());
+    roll.setConfig(config);
+    EXPECT_EQ(
+        valuesOf(roll.getInputNumbers()),
+        (std::vector<double>{2.0, std::numeric_limits<double>::infinity(), 1.5, 0.2617993877991494,
+                             0.25, -std::numeric_limits<double>::infinity()}));
+
+    roll.setKP(kNaN);
+    EXPECT_TRUE(std::isnan(valuesOf(roll.getInputNumbers()).at(4)));
+    // The clone lists its own.
+    const std::unique_ptr<SimulationExtension> copy = roll.clone();
+    roll.setKP(1.0);
+    EXPECT_TRUE(std::isnan(valuesOf(copy->getInputNumbers()).at(4)));
+    EXPECT_EQ(valuesOf(roll.getInputNumbers()).at(4), 1.0);
 }
 
 TEST(RollControlProvider, MakesRollControlsUnderOpenRocketsMenuName)
@@ -550,6 +623,147 @@ TEST(RollControlListener, ACloneGoesOnFromTheStateOfTheOriginal)
     // Either puts the cant of the start back.
     clone->endSimulation(hooked.s.status, nullptr);
     EXPECT_EQ(hooked.cant(), 0.1);
+}
+
+// ------------------------------------------------------ the search of the fin set (FixHooks)
+
+/// The listener of a RollControl on a hand-made status of the two-stage Beta (TEST_FCID_1), as
+/// FixHooks.java drives it: the sustainer's fins ("3 Fin Set") canted by 0.01 rad and the
+/// booster's by 0.03 rad, the booster's fins renamed, and one stage active or both.
+struct HookedBeta
+{
+    TestBeta                              beta;
+    std::shared_ptr<SimulationConditions> conditions   = std::make_shared<SimulationConditions>();
+    std::shared_ptr<QtRocket::FlightDataBranch> branch = QtRocket::Test::newBranch();
+    SimulationStatus                            status;
+    std::shared_ptr<SimulationListener>         listener;
+
+    /// A status with the booster's fins called @p boosterFinsName and only the stage
+    /// @p onlyStage active (-1: both), and the listener of a RollControl on the fin set called
+    /// @p controlled.
+    HookedBeta(std::string_view boosterFinsName, int onlyStage, std::string_view controlled)
+      : status(configurationOf(beta, boosterFinsName, onlyStage), conditions),
+        listener(listenerOf(*conditions, controlled))
+    {
+        status.setFlightDataBranch(branch);
+    }
+
+    /// The listener that a RollControl on the fin set called @p controlled adds to
+    /// @p conditions.
+    [[nodiscard]] static std::shared_ptr<SimulationListener> listenerOf(
+        SimulationConditions& conditions, std::string_view controlled)
+    {
+        RollControl roll;
+        roll.setControlFinName(controlled);
+        roll.initialize(conditions);
+        return conditions.getSimulationListenerList().back();
+    }
+
+    /// The configuration of the status: a clone of the Beta's, as the engine makes one.
+    [[nodiscard]] static std::shared_ptr<QtRocket::FlightConfiguration> configurationOf(
+        const TestBeta& beta, std::string_view boosterFinsName, int onlyStage)
+    {
+        beta.boosterFins->setName(boosterFinsName);
+        beta.fins->setCantAngle(0.01);
+        beta.boosterFins->setCantAngle(0.03);
+        std::shared_ptr<QtRocket::FlightConfiguration> config =
+            QtRocket::Test::statusConfiguration(*beta.rocket, QtRocket::Test::testFcid(1));
+        if (onlyStage >= 0)
+        {
+            config->setOnlyStage(onlyStage);
+        }
+        return config;
+    }
+
+    /// The message of the SimulationException startSimulation() throws; "<none>" without one.
+    [[nodiscard]] std::string start()
+    {
+        try
+        {
+            listener->startSimulation(status);
+        }
+        catch (const SimulationException& e)
+        {
+            return e.what();
+        }
+        return "<none>";
+    }
+
+    /// The probe's three steps: idle at 0.4 s, then two controlled ones.
+    void threeSteps()
+    {
+        step(0.4, 5.0);
+        step(0.6, 2.0);
+        step(0.7, -1.0);
+    }
+
+    void step(double time, double rollRate)
+    {
+        FlightConditions flightConditions;
+        flightConditions.setRollRate(rollRate);
+        auto* computation = dynamic_cast<SimulationComputationListener*>(listener.get());
+        ASSERT_NE(computation, nullptr);
+        EXPECT_EQ(computation->postFlightConditions(status, flightConditions), std::nullopt);
+        status.setSimulationTime(time);
+        branch->addPoint();
+        listener->postStep(status);
+    }
+
+    [[nodiscard]] double sustainerCant() const { return beta.fins->getCantAngle(); }
+    [[nodiscard]] double boosterCant() const { return beta.boosterFins->getCantAngle(); }
+};
+
+// FixHooks: ROLL booster-inactive and booster-inactive-sustainer-controlled. The fin set is
+// searched among the ACTIVE components of the configuration: with only the sustainer active,
+// the fins of the booster are not found, though the rocket has them.
+TEST(RollControlListener, LooksForTheFinSetAmongTheActiveComponents)
+{
+    HookedBeta boosterWanted("Booster Fins", 0, "Booster Fins");
+    EXPECT_EQ(boosterWanted.start(), "A fin set with name 'Booster Fins' was not found");
+
+    HookedBeta sustainerWanted("Booster Fins", 0, "3 Fin Set");
+    ASSERT_EQ(sustainerWanted.start(), "<none>");
+    sustainerWanted.threeSteps();
+    EXPECT_EQ(sustainerWanted.sustainerCant(), -0.052359877559829876);
+    EXPECT_EQ(sustainerWanted.boosterCant(), 0.03);
+
+    // FixHooks: ROLL all-active. With both stages active the booster's fins are found.
+    HookedBeta bothActive("Booster Fins", -1, "Booster Fins");
+    ASSERT_EQ(bothActive.start(), "<none>");
+    bothActive.threeSteps();
+    EXPECT_EQ(bothActive.sustainerCant(), 0.01);
+    EXPECT_EQ(bothActive.boosterCant(), -0.052359877559829876);
+    bothActive.listener->endSimulation(bothActive.status, nullptr);
+    EXPECT_EQ(bothActive.boosterCant(), 0.03);
+}
+
+// FixHooks: ROLL same-name and same-name-booster-only. Of two fin sets of the name, the first
+// among the active components is the one that is turned, the sustainer's here, and the other
+// keeps its cant; with the sustainer not active, the first active one is the booster's.
+TEST(RollControlListener, TurnsTheFirstActiveFinSetOfTheName)
+{
+    HookedBeta sameName("3 Fin Set", -1, "3 Fin Set");
+    ASSERT_EQ(sameName.start(), "<none>");
+    sameName.step(0.4, 5.0);
+    EXPECT_EQ(sameName.sustainerCant(), 0.01);
+    EXPECT_EQ(sameName.boosterCant(), 0.03);
+    sameName.step(0.6, 2.0);
+    EXPECT_EQ(sameName.sustainerCant(), -0.034906585039886584);
+    EXPECT_EQ(sameName.boosterCant(), 0.03);
+    sameName.step(0.7, -1.0);
+    EXPECT_EQ(sameName.sustainerCant(), -0.052359877559829876);
+    EXPECT_EQ(sameName.boosterCant(), 0.03);
+    sameName.listener->endSimulation(sameName.status, nullptr);
+    EXPECT_EQ(sameName.sustainerCant(), 0.01);
+    EXPECT_EQ(sameName.boosterCant(), 0.03);
+
+    HookedBeta boosterOnly("3 Fin Set", 1, "3 Fin Set");
+    ASSERT_EQ(boosterOnly.start(), "<none>");
+    boosterOnly.threeSteps();
+    EXPECT_EQ(boosterOnly.sustainerCant(), 0.01);
+    EXPECT_EQ(boosterOnly.boosterCant(), -0.052359877559829876);
+    boosterOnly.listener->endSimulation(boosterOnly.status, nullptr);
+    EXPECT_EQ(boosterOnly.boosterCant(), 0.03);
 }
 
 }  // namespace

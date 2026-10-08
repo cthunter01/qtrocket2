@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "QtRocket/simulation/extension/SimulationExtension.h"
@@ -40,6 +41,8 @@ class WarningSet;
 ///   translation layer, and a subclass writes its texts in English.
 /// - Only the protected fireChangeEvent() is ported, not AbstractChangeSource's public
 ///   fireChangeEvent(Object source): changed() carries no source.
+/// - inputNumber() is an addition, for a subclass's getInputNumbers() (which OpenRocket does not
+///   have).
 class AbstractSimulationExtension : public SimulationExtension
 {
 public:
@@ -87,6 +90,13 @@ protected:
     /// Copies the id, the name and the configuration, not the connections to changed() (see
     /// the class comment); for a subclass's clone().
     AbstractSimulationExtension(const AbstractSimulationExtension& other);
+
+    /// For a subclass's getInputNumbers(): the number @p value, which the subclass's getter gave
+    /// for the key @p key of the configuration, called "the '<key>' of the simulation extension
+    /// '<extensionName>'". @p extensionName is the name without what getName() may add from the
+    /// configuration: "Air-start", not "Air-start (100 m, 50 m/s)".
+    [[nodiscard]] static InputNumber inputNumber(std::string_view extensionName,
+                                                 std::string_view key, double value);
 
     /// Emits changed() (Java's fireChangeEvent()): a subclass calls it from every setter that
     /// changes its configuration.

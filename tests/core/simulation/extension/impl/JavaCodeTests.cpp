@@ -68,6 +68,7 @@ TEST(JavaCode, ANewOneHasNoClass)
     EXPECT_EQ(extension.getDescription(), std::nullopt);
     EXPECT_TRUE(extension.isMonteCarloSafe());
     EXPECT_TRUE(extension.getFlightDataTypes().empty());
+    EXPECT_TRUE(extension.getInputNumbers().empty());
     EXPECT_EQ(extension.getClassName(), "");
     EXPECT_TRUE(extension.getConfig().keySet().empty());
 }

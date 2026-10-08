@@ -75,6 +75,7 @@ TEST(ScriptingExtension, ANewOneIsAnEnabledEmptyJavaScript)
     EXPECT_EQ(extension.getDescription(), "Extend OpenRocket simulations by custom scripts.");
     EXPECT_FALSE(extension.isMonteCarloSafe());
     EXPECT_TRUE(extension.getFlightDataTypes().empty());
+    EXPECT_TRUE(extension.getInputNumbers().empty());
     EXPECT_EQ(extension.getLanguage(), "JavaScript");
     EXPECT_EQ(extension.getScript(), "");
     EXPECT_TRUE(extension.isEnabled());

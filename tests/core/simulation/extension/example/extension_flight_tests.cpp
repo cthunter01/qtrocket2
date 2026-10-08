@@ -2,10 +2,11 @@
 //
 // OpenRocket has no test of the two extensions. The pins are the output of a Java probe on
 // OpenRocket's compiled core (probes/tier9a-extensions/java: ExtPins2.java, './run.sh ExtPins2
-// 0.01' and '... 0.05'), turned into ExtensionFlightPins.h by gen_flight_pins.py. The probe and
-// ExtensionFlightSupport.cpp build the same fourteen scenarios, run them the same way and print
-// the same lines, so a flight here is compared with OpenRocket's line by line and number by
-// number:
+// 0.01' and '... 0.05'; for the last three scenarios probes/tier9a-fix-extensions/java:
+// ExtPins3.java, the same program with those scenarios), turned into ExtensionFlightPins.h by
+// gen_flight_pins.py. The probe and ExtensionFlightSupport.cpp build the same seventeen
+// scenarios, run them the same way and print the same lines, so a flight here is compared with
+// OpenRocket's line by line and number by number:
 // - the Iso-Haisu test rocket (a heavy single stage with two "CONTROL" fins and no recovery
 //   device) with an M1350 and its main fins canted by 0.02 rad: without an extension; with
 //   RollControl; with RollControl and AirStart; with an AirStart of 250 m and 20 m/s; with a
@@ -18,10 +19,19 @@
 //   by 0.02 rad: without, and with a RollControl that turns those same fins;
 // - the two-stage Beta: the booster's fins canted and a RollControl on the sustainer's fins,
 //   and the sustainer's fins canted and a RollControl on the fins of the booster that is
-//   dropped, each with its flight without the extension.
-// Every simulation is in calm air with the options of the probe, the random seed 0, and a
-// listener after those of the extensions that watches the cant of the controlled fin set in
-// the rocket the engine simulates.
+//   dropped, each with its flight without the extension;
+// - the Iso-Haisu again, in what the fourteen scenarios above leave out (ExtPins3): with the
+//   AirStart of 250 m and 20 m/s on a launch rod tilted by 0.3 rad towards 1 rad, where the
+//   launch velocity is turned by the orientation of the rocket (every scenario above has a
+//   vertical rod); and on a rod tilted by 0.1 rad in a steady wind of 3 m/s, from a launch
+//   site at 350 m with a temperature and a pressure of its own, with the WGS84 geodetic
+//   computation and the RK6 stepper: without an extension, and with RollControl and that
+//   AirStart. The wind has no turbulence: that is a random sequence, of which this port draws
+//   another than OpenRocket (a stated deviation of PinkNoise), so that a turbulent flight
+//   differs from OpenRocket's in the fourth digit.
+// Every simulation but those two is in calm air with the options of the probe; all have the
+// random seed 0 and a listener after those of the extensions that watches the cant of the
+// controlled fin set in the rocket the engine simulates.
 //
 // WHAT THE PINS SHOW (and the comparison checks):
 // - The caller's rocket is never touched: the cant before and after a run is the design's.
@@ -70,6 +80,13 @@
 //   simulation_golden_tests.cpp). The extremes of the Iso-Haisu's fin cant are those of the
 //   end of its flight, when it tumbles (J 2.2e-5, and up to 3.1e-7 under a small kick): at
 //   5e-3 (COARSE); what the controller does in flight is compared at 1e-6 in three rows.
+// - The three scenarios of ExtPins3 end without tumbling (the Iso-Haisu comes down nose
+//   first from a tilted rod) and are the most reproducible of all: J at most 4.8e-10 of a
+//   value (the altitude of the last row, below the ground) and 2e-12 elsewhere, C the same
+//   (3.5e-10 and 8e-13), and under the kicks they move in proportion: by 0.2 of the 1e-6
+//   under those up to 7e-11 and by 0.29 of it under 1e-10, without a count or an event
+//   changing in any of the fifty-three runs. They are compared as the other flights of the
+//   Iso-Haisu are.
 // - The Alpha III with RollControl: the controller overshoots, and its loop decides the step
 //   sizes, so a row index is no longer a time. An event is handled at the end of the step that
 //   reaches it, and a step that is cut short may not be shorter than a millisecond: in 4 of
@@ -141,6 +158,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/example/AirStart.h"
 #include "QtRocket/simulation/extension/example/RollControl.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
@@ -149,6 +167,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
+#include "rocket/TestRockets.h"
 #include "simulation/SimulationRunSupport.h"
 #include "simulation/extension/example/ExtensionFlightPins.h"
 #include "simulation/extension/example/ExtensionFlightSupport.h"
@@ -816,7 +835,7 @@ INSTANTIATE_TEST_SUITE_P(Scenarios, ExtensionFlightDefault,
 
 TEST(ExtensionFlightPins, HoldEveryScenarioOfTheProbeAtBothTimeSteps)
 {
-    EXPECT_EQ(extensionFlightScenarioIds().size(), 14U);
+    EXPECT_EQ(extensionFlightScenarioIds().size(), 17U);
     EXPECT_EQ(misplacedPins(kExtensionFlightStablePins, "0.01"), std::vector<std::string>{});
     EXPECT_EQ(misplacedPins(kExtensionFlightDefaultPins, "0.05"), std::vector<std::string>{});
 }
@@ -1155,6 +1174,146 @@ TEST(ExtensionFlight, AirStartStartsTheFlightInTheAir)
     EXPECT_LT(liftoff->getTime(), 0.01);
 }
 
+/// A simulation of the two-stage Beta (TEST_FCID_1) at the default time step with a
+/// RollControl on the fin set called @p controlled, on @p beta and @p preferences.
+[[nodiscard]] std::unique_ptr<Simulation> betaSimulation(const QtRocket::Test::TestBeta& beta,
+                                                         QtRocket::InMemoryPreferences& preferences,
+                                                         std::string_view               controlled)
+{
+    std::unique_ptr<Simulation> sim = std::make_unique<Simulation>(*beta.rocket, preferences);
+    sim->setFlightConfigurationId(QtRocket::Test::testFcid(1));
+    sim->getOptions().setRandomSeed(0);
+    sim->getOptions().setTimeStep(0.05);
+    const std::shared_ptr<RollControl> roll = std::make_shared<RollControl>();
+    roll->setControlFinName(controlled);
+    sim->getSimulationExtensions().push_back(roll);
+    return sim;
+}
+
+// The fin set is searched among the ACTIVE components of the simulated configuration: with
+// only the sustainer of the Beta active, a RollControl on the booster's fins finds none,
+// though the rocket has them, and one on the sustainer's fins flies (FixHooks.java, the
+// "FLIGHT" lines: the same error and no branch in OpenRocket, and one branch).
+TEST(ExtensionFlight, AFinSetOfAStageThatIsNotActiveIsNotFound)
+{
+    const QtRocket::Test::TestBeta      beta;
+    QtRocket::Test::JavaTestPreferences preferences;
+    beta.rocket->getFlightConfiguration(QtRocket::Test::testFcid(1)).setOnlyStage(0);
+
+    const std::unique_ptr<Simulation> booster =
+        betaSimulation(beta, preferences.store, "Booster Fins");
+    const Result<void> missing = booster->simulate();
+    ASSERT_FALSE(missing.has_value());
+    EXPECT_EQ(missing.error().code, ErrorCode::SIMULATION_ABORTED);
+    EXPECT_EQ(missing.error().message, "A fin set with name 'Booster Fins' was not found");
+    ASSERT_NE(booster->getSimulatedData(), nullptr);
+    EXPECT_EQ(booster->getSimulatedData()->getBranchCount(), 0U);
+
+    const std::unique_ptr<Simulation> sustainer =
+        betaSimulation(beta, preferences.store, "3 Fin Set");
+    const Result<void> found = sustainer->simulate();
+    ASSERT_TRUE(found.has_value()) << found.error().message;
+    ASSERT_NE(sustainer->getSimulatedData(), nullptr);
+    EXPECT_EQ(sustainer->getSimulatedData()->getBranchCount(), 1U);
+    EXPECT_TRUE(sustainer->getSimulatedData()->getBranch(0).hasType(RollControl::finCantType()));
+}
+
+/// A listener that ends the simulation with a SimulationException: from the hook after the
+/// first step at or after a simulation time, or from the start of the second branch it sees
+/// (the listener of a dropped stage's branch is a clone of the sustainer's, made at the
+/// separation, which has seen the first).
+class Thrower final : public QtRocket::CloneableSimulationListener<Thrower>
+{
+public:
+    enum class Where
+    {
+        AFTER_A_STEP,
+        AT_THE_START_OF_THE_SECOND_BRANCH,
+    };
+
+    Thrower(Where where, double time) noexcept : m_where(where), m_time(time) { }
+
+    void startSimulationBranch(SimulationStatus& /*status*/) override
+    {
+        m_branches++;
+        if (m_where == Where::AT_THE_START_OF_THE_SECOND_BRANCH && m_branches == 2)
+        {
+            throw QtRocket::SimulationException("thrower: the start of the second branch");
+        }
+    }
+
+    void postStep(SimulationStatus& status) override
+    {
+        if (m_where == Where::AFTER_A_STEP && status.getSimulationTime() >= m_time)
+        {
+            throw QtRocket::SimulationException("thrower: after a step");
+        }
+    }
+
+private:
+    Where  m_where;
+    double m_time;
+    int    m_branches{0};
+};
+
+/// What a run of the Beta with a RollControl on its sustainer's fins (canted by 0.02 rad in
+/// the design) and a Thrower left behind.
+struct ThrownRun
+{
+    std::string error;
+    double      callerCant{0};
+    double      simulatedCant{0};
+    std::size_t branches{0};
+};
+
+[[nodiscard]] ThrownRun runWithThrower(Thrower::Where where, double time)
+{
+    const QtRocket::Test::TestBeta      beta;
+    QtRocket::Test::JavaTestPreferences preferences;
+    beta.fins->setCantAngle(0.02);
+    const std::unique_ptr<Simulation> sim = betaSimulation(beta, preferences.store, "3 Fin Set");
+
+    const Result<void> result = sim->simulate({std::make_shared<Thrower>(where, time)});
+
+    ThrownRun run;
+    run.error                               = result.has_value() ? "" : result.error().message;
+    run.callerCant                          = beta.fins->getCantAngle();
+    const std::shared_ptr<FlightData>& data = sim->getSimulatedData();
+    if (data == nullptr || data->getSimulatedRocket() == nullptr)
+    {
+        ADD_FAILURE() << "the run left no flight data with a simulated rocket";
+        return run;
+    }
+    run.branches                      = data->getBranchCount();
+    const QtRocket::FinSet* simulated = finSetOf(*data->getSimulatedRocket(), "3 Fin Set");
+    run.simulatedCant = simulated == nullptr ? std::nan("") : simulated->getCantAngle();
+    return run;
+}
+
+// The cant is put back by the engine's endSimulation() hook, which it calls, as OpenRocket's,
+// at the normal end of a run and for a SimulationException inside the loop of a branch, but
+// not for one that leaves the start of a later branch. OpenRocket throws its simulated rocket
+// away; here the flight data keep it, and its fin set then still has the cant the controller
+// gave it (the header of RollControl says so). The caller's rocket is the design either way.
+TEST(ExtensionFlight, TheCantOfTheSimulatedRocketIsPutBackWhereTheEngineEndsTheSimulation)
+{
+    // Inside the loop of the first branch, after the controller has turned the fins.
+    const ThrownRun inTheLoop = runWithThrower(Thrower::Where::AFTER_A_STEP, 1.0);
+    EXPECT_EQ(inTheLoop.error, "thrower: after a step");
+    EXPECT_EQ(inTheLoop.branches, 1U);
+    EXPECT_EQ(inTheLoop.callerCant, 0.02);
+    EXPECT_EQ(inTheLoop.simulatedCant, 0.02);
+
+    // At the start of the branch of the dropped booster, after the sustainer's whole flight.
+    const ThrownRun atTheStart =
+        runWithThrower(Thrower::Where::AT_THE_START_OF_THE_SECOND_BRANCH, 0.0);
+    EXPECT_EQ(atTheStart.error, "thrower: the start of the second branch");
+    EXPECT_EQ(atTheStart.branches, 2U);
+    EXPECT_EQ(atTheStart.callerCant, 0.02);
+    EXPECT_NE(atTheStart.simulatedCant, 0.02);
+    EXPECT_LE(std::abs(atTheStart.simulatedCant), 0.2617993877991494);
+}
+
 /// The number of key @p key in the first line of @p lines that starts (after its indentation)
 /// with @p start; NaN when there is no such line or number.
 [[nodiscard]] double numberIn(const std::vector<std::string>& lines, std::string_view start,
@@ -1200,6 +1359,40 @@ TEST(ExtensionFlight, TheNestedOptimumCoastRunFliesWithoutTheRollControl)
     EXPECT_EQ(numberIn(plain, "branch", "types") + 1, numberIn(roll, "branch", "types"));
     EXPECT_LT(numberIn(roll, "spy", "cantLast"), 0.02);
     EXPECT_EQ(numberIn(roll, "spy", "cantEnd"), 0.02);
+}
+
+// The cant the controller sets reaches the aerodynamics through the change events of the
+// rocket: the aerodynamic calculator voids what it has worked out when the aerodynamic
+// modification id of the rocket is another one, and a rocket whose events are disabled keeps
+// its ids. On such a rocket (one that no document holds and that was never given
+// enableEvents()) the controller turns the fins to its limit without any effect: the flight is
+// the flight without the extension, to the last bit. That is OpenRocket's behaviour
+// (probes/tier9a-fix-extensions, NoEvents.java: the plain flight's numbers, and the fin angle at
+// the limit; this port agrees with that run to 5e-14).
+TEST(ExtensionFlight, OnARocketWithoutChangeEventsTheControllerTurnsTheFinsInVain)
+{
+    const DefaultUnitsGuard units;
+    ExtensionFlightScenario plainScenario = makeExtensionFlightScenario("haisu-plain");
+    ExtensionFlightScenario rollScenario  = makeExtensionFlightScenario("haisu-roll");
+    rollScenario.rocket->enableEvents(false);
+    const std::vector<std::string> plain = runExtensionFlightScenario(plainScenario, 0.05);
+    const std::vector<std::string> roll  = runExtensionFlightScenario(rollScenario, 0.05);
+
+    ASSERT_FALSE(std::isnan(numberIn(plain, "summary", "maxAltitude")));
+    EXPECT_EQ(numberIn(roll, "summary", "maxAltitude"), numberIn(plain, "summary", "maxAltitude"));
+    EXPECT_EQ(numberIn(roll, "summary", "flightTime"), numberIn(plain, "summary", "flightTime"));
+    EXPECT_EQ(numberIn(roll, "branch", "rows"), numberIn(plain, "branch", "rows"));
+    // The fins were turned all the same, as far as they go, and put back.
+    EXPECT_EQ(numberIn(roll, "spy", "cantMaxAbs"), 0.2617993877991494);
+    EXPECT_EQ(numberIn(roll, "spy", "cantEnd"), 0.0);
+    EXPECT_EQ(numberIn(plain, "branch", "types") + 1, numberIn(roll, "branch", "types"));
+
+    // With the events enabled, as every rocket of a document has them, the flight is another.
+    ExtensionFlightScenario        enabledScenario = makeExtensionFlightScenario("haisu-roll");
+    const std::vector<std::string> enabled = runExtensionFlightScenario(enabledScenario, 0.05);
+    EXPECT_NE(numberIn(enabled, "summary", "maxAltitude"),
+              numberIn(plain, "summary", "maxAltitude"));
+    EXPECT_LT(numberIn(enabled, "spy", "cantMaxAbs"), 0.25);
 }
 
 /// What a run on a thread of its own gave: the error, or the three numbers compared.

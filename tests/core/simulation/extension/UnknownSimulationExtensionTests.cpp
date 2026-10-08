@@ -62,6 +62,8 @@ TEST(UnknownSimulationExtension, KeepsTheIdAndTheConfiguration)
     EXPECT_EQ(extension.getDescription(), std::nullopt);
     EXPECT_FALSE(extension.isMonteCarloSafe());
     EXPECT_TRUE(extension.getFlightDataTypes().empty());
+    // It reads none of its numbers: there is nothing for Simulation::validateInputs() to check.
+    EXPECT_TRUE(extension.getInputNumbers().empty());
 
     // Entry for entry, in the file's order, with the types of the file.
     const Config kept = extension.getConfig();

@@ -4,6 +4,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
@@ -73,6 +75,13 @@ std::string AirStart::getName() const
 std::optional<std::string> AirStart::getDescription() const
 {
     return "Start simulation with a configurable altitude and velocity";
+}
+
+std::vector<SimulationExtension::InputNumber> AirStart::getInputNumbers() const
+{
+    constexpr std::string_view kName = "Air-start";
+    return {inputNumber(kName, "launchAltitude", getLaunchAltitude()),
+            inputNumber(kName, "launchVelocity", getLaunchVelocity())};
 }
 
 std::unique_ptr<SimulationExtension> AirStart::clone() const

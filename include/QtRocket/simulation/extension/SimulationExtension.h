@@ -34,10 +34,22 @@ class WarningSet;
 /// SimulationException (Java declares it), the one exception family that crosses the simulation
 /// loop.
 ///
-/// Deviation: getDescription() returns nullopt where Java returns null.
+/// Deviations from OpenRocket:
+/// - getDescription() returns nullopt where Java returns null.
+/// - getInputNumbers() is an addition: OpenRocket does not validate what a simulation is given
+///   (see Simulation::validateInputs()).
 class SimulationExtension
 {
 public:
+    /// A number of an extension's configuration that a run reads, for
+    /// Simulation::validateInputs(): what a message calls it, for example "the 'launchVelocity'
+    /// of the simulation extension 'Air-start'", and its value.
+    struct InputNumber
+    {
+        std::string what;
+        double      value{0.0};
+    };
+
     virtual ~SimulationExtension() = default;
 
     /// Whether this extension is safe to execute repeatedly and concurrently as part of a Monte
@@ -69,6 +81,13 @@ public:
     /// to them.
     /// @throws SimulationException when the extension cannot run
     virtual void initialize(SimulationConditions& conditions) = 0;
+
+    /// The numbers of the configuration that this extension's part of a run reads, in the order
+    /// it reads them, each with what a message calls it. QtRocket's own (OpenRocket has nothing
+    /// like it): Simulation::validateInputs() refuses a run in which one of them is not finite,
+    /// before initialize() is called, as it refuses such a simulation option. By default none:
+    /// for an extension that reads no number, and for one that copes with any value.
+    [[nodiscard]] virtual std::vector<InputNumber> getInputNumbers() const { return {}; }
 
     /// The flight data types this extension creates: only new types, not existing types that
     /// the extension adds to the flight data. (A FlightDataType is a process-wide object, so

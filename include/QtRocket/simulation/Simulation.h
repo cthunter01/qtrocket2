@@ -298,8 +298,9 @@ public:
     ///
     /// Checked, in this order: every number SimulationOptions::toSimulationConditions() reads
     /// from the options (the steppers and the engine get nothing else of them but choices, such
-    /// as the stepper method, and the random seed), and then every delay and altitude the engine
-    /// reads from the flight configuration that is simulated:
+    /// as the stepper method, and the random seed), then the delays of the flight configuration
+    /// that is simulated and the altitudes the engine reads from it, and then the numbers the
+    /// extensions read:
     /// - the launch rod length and the launch rod angle;
     /// - the launch latitude, longitude and altitude;
     /// - of the wind model in use (SimulationOptions::getWindModelType()): the speed, the
@@ -316,20 +317,44 @@ public:
     ///   beforehand, and a table read from CSV can hold "NaN");
     /// - the time step, the maximum simulation time and the maximum step angle;
     /// - the four recovery speed warning thresholds;
-    /// - of the motor of every active motor mount that has one in the configuration: the
-    ///   ignition delay, and the ejection delay, for which Motor::kPluggedDelay (+infinity: a
-    ///   plugged motor, without an ejection charge) is a valid value as well;
-    /// - of every active recovery device: the deployment delay and the deployment altitude;
-    /// - of every active stage but stage 0, which has nothing above it to separate from: the
-    ///   separation delay and the separation altitude.
+    /// - for every active component, in the order of FlightConfiguration::getActiveComponents()
+    ///   (so a recovery device that comes before a motor mount there is named first): when it is
+    ///   a motor mount with a motor in the configuration, the ignition delay of the motor and
+    ///   its ejection delay, for which Motor::kPluggedDelay (+infinity: a plugged motor, without
+    ///   an ejection charge) is a valid value as well; when it is a recovery device, its
+    ///   deployment delay and, when it deploys at an altitude (DeployEvent::ALTITUDE), its
+    ///   deployment altitude;
+    /// - then, for every active stage but stage 0, which has nothing above it to separate from:
+    ///   the separation delay and, when the stage separates at an altitude
+    ///   (SeparationEvent::ALTITUDE_ASCENDING or ALTITUDE_DESCENDING), the separation altitude;
+    /// - then, for every extension in the order of getSimulationExtensions(): the numbers it
+    ///   says its part of the run reads (SimulationExtension::getInputNumbers(): the six of a
+    ///   RollControl, the two of an AirStart; "Cannot simulate: the 'KP' of the simulation
+    ///   extension 'Roll Control' is not finite (NaN).").
+    /// A delay is checked whatever event it follows, also one that never comes (NEVER). An
+    /// altitude is checked only for the events that read it: OpenRocket flies a design whose
+    /// parachute opens at the ejection charge with whatever deployment altitude it holds.
+    ///
     /// Not checked: what the run does not read (the wind model that is not in use, the launch
     /// temperature, pressure and humidity under the ISA atmosphere, the constant gravity under
-    /// the WGS model, the stored rod direction of a launch into the wind, the components of
-    /// stages that are not active, the motors and the settings of other flight configurations),
-    /// the dimensions and masses of the design and the thrust curves of its motors, and whether
-    /// a finite value is a sensible one: a finite value that the atmospheric model refuses is
-    /// toSimulationConditions()'s error, and one that is merely absurd is flown as it is (a
-    /// wind of 1e300 m/s overflows on the way and still ends in a BugError).
+    /// the WGS model, the stored rod direction of a launch into the wind, the deployment
+    /// altitude of a device that does not deploy at an altitude and the separation altitude of
+    /// a stage that does not separate at one, the components of stages that are not active, the
+    /// motors and the settings of other flight configurations), the dimensions and masses of
+    /// the design and the thrust curves of its motors, the settings of an extension that does
+    /// not list them, and whether a finite value is a sensible one. A finite value that the
+    /// atmospheric model refuses is toSimulationConditions()'s error. One that is merely absurd
+    /// is passed on and treated as OpenRocket treats it, which is not always a flight:
+    /// - a wind of 1e300 m/s overflows on the way and still ends in a BugError;
+    /// - a huge time step makes one step very long. The Runge-Kutta steppers never take a step
+    ///   shorter than a twentieth of the time step, also past the next event, and
+    ///   PinkNoiseWindModel::getWindVelocity() catches up with the time it is asked for one
+    ///   sample of 0.05 s at a time, so the first step costs about as many wind samples as the
+    ///   time step has seconds. No listener hook runs inside a step, so a stop that is requested
+    ///   (simulate(stop_token)) waits for the step to end. Measured in a Release build: about
+    ///   4 s for a time step of 1e8 s and 30 s for 1e9 s; from about 1e12 s on (half a day) the
+    ///   run does not end in practice, and above about 1e16 s the loop is endless, because the
+    ///   time no longer changes when 0.05 s is added to it. OpenRocket behaves the same way.
     [[nodiscard]] Result<void> validateInputs() const;
 
     /// Simulates the flight (Java: simulate(SimulationListener...)).
@@ -375,7 +400,10 @@ public:
     /// does its part earlier: it does not apply a NaN or an infinity that a file holds for a
     /// simulation option or for a delay or altitude of the design (it adds a warning, and the
     /// value stays what it was), so that a loaded simulation passes the validation; the plugged
-    /// ejection delay ("none" in a file) is a value like any other there.
+    /// ejection delay ("none" in a file) is a value like any other there. A number of an
+    /// extension's configuration cannot be a NaN in a file read as OpenRocket reads it (the
+    /// grammar of a "number" entry is BigDecimal's), and can be an infinity only as an integer
+    /// too large for a double; the validation refuses it then.
     [[nodiscard]] Result<void> simulate(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 
