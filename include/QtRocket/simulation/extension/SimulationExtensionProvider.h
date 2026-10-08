@@ -16,8 +16,9 @@ namespace QtRocket
 /// file names, and what the GUI lists in its "add extension" menu.
 ///
 /// Not ported: the discovery of providers. OpenRocket collects every provider through its
-/// plugin system (the @Plugin annotation and a Guice multibinding); here the tier that loads
-/// .ork files keeps the registry of providers.
+/// plugin system (the @Plugin annotation and a Guice multibinding); here a
+/// SimulationExtensionRegistry holds the providers a program knows, and whoever needs them
+/// (the .ork reader, a menu) is handed that registry.
 ///
 /// Deviation: getName() returns nullopt where Java returns null.
 class SimulationExtensionProvider

@@ -1,8 +1,11 @@
 #include "QtRocket/simulation/Simulation.h"
 
+#include <cmath>
 #include <cstddef>
 #include <expected>
+#include <format>
 #include <initializer_list>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -13,13 +16,26 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/logging/SimulationAbort.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/models/GravityModelType.h"
+#include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
+#include "QtRocket/models/PinkNoiseWindModel.h"
+#include "QtRocket/models/WindModelType.h"
+#include "QtRocket/motor/Motor.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorConfiguration.h"
+#include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/simulation/BasicEventSimulationEngine.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
 #include "QtRocket/simulation/FlightData.h"
@@ -40,6 +56,250 @@
 
 namespace QtRocket
 {
+
+namespace
+{
+
+/// The numbers of a run as Simulation::validateInputs() goes through them: it keeps the first
+/// one that is not finite.
+class InputCheck
+{
+public:
+    /// Notes @p value, which is called @p what ("the launch rod length"), when it is the first
+    /// value that is neither finite nor @p alsoValid.
+    void finite(std::string_view what, double value,
+                double alsoValid = std::numeric_limits<double>::quiet_NaN())
+    {
+        if (m_problem.has_value() || std::isfinite(value) || value == alsoValid)
+        {
+            return;
+        }
+        m_problem = std::format("Cannot simulate: {} is not finite ({}).", what,
+                                Strings::javaDoubleToString(value));
+    }
+
+    /// Whether a value was noted.
+    [[nodiscard]] bool failed() const noexcept { return m_problem.has_value(); }
+
+    /// What validateInputs() returns.
+    [[nodiscard]] Result<void> result() const
+    {
+        if (m_problem.has_value())
+        {
+            return fail(ErrorCode::INVALID_ARGUMENT, *m_problem);
+        }
+        return {};
+    }
+
+private:
+    std::optional<std::string> m_problem;
+};
+
+/// The wind model that @p options use.
+void checkWind(const SimulationOptions& options, InputCheck& check)
+{
+    switch (options.getWindModelType())
+    {
+        case WindModelType::AVERAGE:
+        {
+            const PinkNoiseWindModel& wind = options.getAverageWindModel();
+            check.finite("the average wind speed", wind.getAverage());
+            check.finite("the standard deviation of the wind speed", wind.getStandardDeviation());
+            check.finite("the wind direction", wind.getDirection());
+            return;
+        }
+        case WindModelType::MULTI_LEVEL:
+        {
+            const MultiLevelPinkNoiseWindModel& wind   = options.getMultiLevelWindModel();
+            std::size_t                         number = 0;
+            for (const MultiLevelPinkNoiseWindModel::LevelWindModel* level : wind.getLevels())
+            {
+                number++;
+                check.finite(std::format("the altitude of wind level {}", number),
+                             level->getAltitude());
+                check.finite(std::format("the wind speed of wind level {}", number),
+                             level->getSpeed());
+                check.finite(std::format("the wind direction of wind level {}", number),
+                             level->getDirection());
+                check.finite(
+                    std::format("the standard deviation of the wind speed of wind level {}",
+                                number),
+                    level->getStandardDeviation());
+            }
+            return;
+        }
+    }
+    bug("Unknown wind model type");
+}
+
+/// Every number of @p table, a lookup table of the options that is called @p name ("the drag
+/// lookup table"); null: the options have none. Which rows a flight reads is not known
+/// beforehand, so the whole table has to be finite.
+void checkLookupTable(const std::shared_ptr<const MachAoALookup>& table, std::string_view name,
+                      InputCheck& check)
+{
+    if (table == nullptr)
+    {
+        return;
+    }
+    const std::optional<MachAoALookup::NonFiniteNumber> number = table->findNonFinite();
+    if (!number.has_value())
+    {
+        return;
+    }
+    const std::string mach = Strings::javaDoubleToString(number->mach);
+    switch (number->kind)
+    {
+        case MachAoALookup::NonFiniteNumber::Kind::MACH:
+            check.finite(std::format("a Mach number of {}", name), number->value);
+            return;
+        case MachAoALookup::NonFiniteNumber::Kind::AOA:
+            check.finite(std::format("an angle of attack of {} at Mach {}", name, mach),
+                         number->value);
+            return;
+        case MachAoALookup::NonFiniteNumber::Kind::VALUE:
+        {
+            // The angle of the row is no number in a table without angles of attack.
+            const std::string angle = std::isnan(number->aoa)
+                                          ? std::string{}
+                                          : std::format(" and an angle of attack of {} degrees",
+                                                        Strings::javaDoubleToString(number->aoa));
+            check.finite(
+                std::format("the '{}' of {} at Mach {}{}", number->column, name, mach, angle),
+                number->value);
+            return;
+        }
+    }
+    bug("Unknown kind of a lookup table's number");
+}
+
+/// Every number SimulationOptions::toSimulationConditions() reads from @p options.
+void checkOptions(const SimulationOptions& options, InputCheck& check)
+{
+    check.finite("the launch rod length", options.getLaunchRodLength());
+    check.finite("the launch rod angle", options.getLaunchRodAngle());
+    check.finite("the launch latitude", options.getLaunchLatitude());
+    check.finite("the launch longitude", options.getLaunchLongitude());
+    check.finite("the launch altitude", options.getLaunchAltitude());
+    checkWind(options, check);
+    if (check.failed())
+    {
+        // The rod direction of a launch into the wind is worked out from the wind model.
+        return;
+    }
+    check.finite("the launch rod direction", options.getLaunchRodDirection());
+    if (!options.isIsaAtmosphere())
+    {
+        check.finite("the launch temperature", options.getLaunchTemperature());
+        check.finite("the launch pressure", options.getLaunchPressure());
+        check.finite("the launch relative humidity", options.getLaunchRelativeHumidity());
+    }
+    if (options.getGravityModelType() == GravityModelType::CONSTANT)
+    {
+        check.finite("the constant gravity", options.getConstantGravity());
+    }
+    checkLookupTable(options.getStabilityLookupTable(), "the stability lookup table", check);
+    checkLookupTable(options.getDragLookupTable(), "the drag lookup table", check);
+    check.finite("the time step", options.getTimeStep());
+    check.finite("the maximum simulation time", options.getMaxSimulationTime());
+    check.finite("the maximum step angle", options.getMaximumStepAngle());
+    check.finite("the recovery speed warning threshold", options.getRecoverySpeedWarning());
+    check.finite("the drogue low speed warning threshold", options.getDrogueLowSpeedWarning());
+    check.finite("the main high speed warning threshold",
+                 options.getRecoveryDrogueMainHighSpeedWarning());
+    check.finite("the main low speed warning threshold",
+                 options.getRecoveryDrogueMainLowSpeedWarning());
+}
+
+/// The delays of the motor that @p component, when it is an acting motor mount, has in @p fcid,
+/// and, when it is a recovery device, the deployment delay it has there and the deployment
+/// altitude when that is what deploys it.
+void checkComponent(const RocketComponent& component, const FlightConfigurationId& fcid,
+                    InputCheck& check)
+{
+    if (const auto* mount = dynamic_cast<const MotorMount*>(&component);
+        mount != nullptr && mount->isMotorMount())
+    {
+        const MotorConfiguration& motor = mount->getMotorConfig(fcid);
+        if (!motor.isEmpty())
+        {
+            check.finite(
+                std::format("the ignition delay of the motor in '{}'", component.getName()),
+                motor.getIgnitionDelay());
+            check.finite(
+                std::format("the ejection delay of the motor in '{}'", component.getName()),
+                motor.getEjectionDelay(), Motor::kPluggedDelay);
+        }
+    }
+    if (const auto* device = dynamic_cast<const RecoveryDevice*>(&component))
+    {
+        const DeploymentConfiguration& deployment = device->getDeploymentConfigurations().get(fcid);
+        check.finite(std::format("the deployment delay of '{}'", component.getName()),
+                     deployment.getDeployDelay());
+        // The engine reads the altitude of a deployment at an altitude only.
+        if (deployment.getDeployEvent() == DeploymentConfiguration::DeployEvent::ALTITUDE)
+        {
+            check.finite(std::format("the deployment altitude of '{}'", component.getName()),
+                         deployment.getDeployAltitude());
+        }
+    }
+}
+
+/// Whether the engine reads the separation altitude of a stage that separates at @p event.
+[[nodiscard]] bool separatesAtAnAltitude(StageSeparationConfiguration::SeparationEvent event)
+{
+    using SeparationEvent = StageSeparationConfiguration::SeparationEvent;
+    return event == SeparationEvent::ALTITUDE_ASCENDING ||
+           event == SeparationEvent::ALTITUDE_DESCENDING;
+}
+
+/// The delays of @p config, the configuration @p fcid, and the altitudes the engine reads from
+/// it: component by component, and then the stages.
+void checkDesign(const FlightConfiguration& config, const FlightConfigurationId& fcid,
+                 InputCheck& check)
+{
+    for (const RocketComponent* component : config.getActiveComponents())
+    {
+        checkComponent(*component, fcid, check);
+    }
+    for (const AxialStage* stage : config.getActiveStages())
+    {
+        if (stage->getStageNumber() == 0)
+        {
+            continue;
+        }
+        const StageSeparationConfiguration& separation =
+            stage->getSeparationConfigurations().get(fcid);
+        check.finite(std::format("the separation delay of '{}'", stage->getName()),
+                     separation.getSeparationDelay());
+        if (separatesAtAnAltitude(separation.getSeparationEvent()))
+        {
+            check.finite(std::format("the separation altitude of '{}'", stage->getName()),
+                         separation.getSeparationAltitude());
+        }
+    }
+}
+
+/// The numbers that @p extensions, the extensions of a simulation in their order, say their part
+/// of a run reads (SimulationExtension::getInputNumbers()).
+void checkExtensions(const std::vector<std::shared_ptr<SimulationExtension>>& extensions,
+                     InputCheck&                                              check)
+{
+    for (const std::shared_ptr<SimulationExtension>& extension : extensions)
+    {
+        if (extension == nullptr)
+        {
+            // Not an input: simulate() reports a null extension as the bug it is.
+            continue;
+        }
+        for (const SimulationExtension::InputNumber& number : extension->getInputNumbers())
+        {
+            check.finite(number.what, number.value);
+        }
+    }
+}
+
+}  // namespace
 
 Simulation::Simulation(Rocket& rocket) : Simulation(nullptr, rocket) { }
 
@@ -85,8 +345,9 @@ Simulation::Simulation(OpenRocketDocument* document, Rocket& rocket, Status stat
     m_simulatedData(std::move(data))
 {
     m_simulatedConditions.emplace(m_options);
-    // HOOK(document): Java adds the document as a change listener here
-    // (addChangeListener(this.document)).
+    // Java adds the document as a change listener here (addChangeListener(this.document)). The
+    // document connects itself to changed() when the simulation enters its list (see the class
+    // comment).
 
     connectConditionListener();
 
@@ -133,8 +394,9 @@ void Simulation::initialize()
     setFlightConfigurationId(fcid);
 
     connectConditionListener();
-    // HOOK(document): Java adds the document as a change listener here
-    // (addChangeListener(document)).
+    // Java adds the document as a change listener here (addChangeListener(document)). The
+    // document connects itself to changed() when the simulation enters its list, and
+    // disconnects when it leaves (see the class comment).
 }
 
 void Simulation::connectConditionListener()
@@ -273,6 +535,23 @@ void Simulation::syncModId()
     fireChangeEvent();
 }
 
+Result<void> Simulation::validateInputs() const
+{
+    InputCheck check;
+    checkOptions(m_options, check);
+    if (!check.failed())
+    {
+        // What the engine simulates: the configuration of the id in the rocket, and the
+        // settings the components have for that id.
+        checkDesign(getActiveConfiguration(), m_configId, check);
+    }
+    if (!check.failed())
+    {
+        checkExtensions(m_simulationExtensions, check);
+    }
+    return check.result();
+}
+
 Result<void> Simulation::simulate(
     std::span<const std::shared_ptr<SimulationListener>> additionalListeners)
 {
@@ -321,6 +600,13 @@ Result<void> Simulation::runSimulation(
         if (m_status == Status::EXTERNAL)
         {
             throw SimulationException("Cannot simulate imported simulation.");
+        }
+
+        // Not in Java: a NaN or an infinity among the inputs is refused here, before an
+        // extension or the engine sees it (see validateInputs()).
+        if (Result<void> valid = validateInputs(); !valid.has_value())
+        {
+            return std::unexpected(std::move(valid.error()));
         }
 
         Result<SimulationConditions> conditions = m_options.toSimulationConditions();

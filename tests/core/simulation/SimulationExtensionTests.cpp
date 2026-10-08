@@ -343,6 +343,7 @@ TEST(AbstractSimulationExtension, Defaults)
     EXPECT_TRUE(named.getFlightDataTypes().empty());
     EXPECT_FALSE(named.isMonteCarloSafe());
     EXPECT_TRUE(named.getConfig().keySet().empty());
+    EXPECT_TRUE(named.getInputNumbers().empty());
 }
 
 TEST(AbstractSimulationExtension, ASubclassOverridesTheDefaults)
@@ -480,6 +481,9 @@ TEST(SimulationExtension, AnExtensionOnTheInterfaceAlone)
     // The interface's default: an extension is not safe for a Monte Carlo analysis unless it
     // says so.
     EXPECT_FALSE(bare.isMonteCarloSafe());
+    // And it lists no number for Simulation::validateInputs() to check unless it says so
+    // (QtRocket's own).
+    EXPECT_TRUE(bare.getInputNumbers().empty());
     ASSERT_EQ(bare.getFlightDataTypes().size(), 1U);
     EXPECT_EQ(bare.getFlightDataTypes()[0], &FlightDataType::builtin(FlightDataTypeId::TYPE_TIME));
 

@@ -1322,28 +1322,41 @@ TEST(SimulationSimulate, ABugErrorPassesThroughAfterTheBookkeeping)
     return bug == "<none>" ? outcome : "bug: " + bug;
 }
 
-// The contract of simulate() for inputs that are not finite (see its comment): they are not
-// validated. As in OpenRocket they surface where the computation first meets them, most as a
-// BugError (Java: BugException), one as the error of the engine's NaN check. Whoever takes
-// such values from outside the program (the .ork loader, the command line) has to refuse them
-// before a simulation runs. This test pins what happens until then, so that a change of the
-// contract is a decision and not an accident.
-TEST(SimulationSimulate, NonFiniteOptionsAreNotValidated)
+// The contract of simulate() for inputs that are not finite (see its comment and
+// validateInputs()): they are refused before anything runs, as an ordinary error with
+// ErrorCode::INVALID_ARGUMENT and a text that names the value. OpenRocket does not validate,
+// and until QtRocket did, this test pinned where these three values surfaced: the latitude as
+// a BugError before the first step ("Simulation resulted in not-a-number (NaN) value for
+// gravity, please report a bug."), the time step as one in the stepper, and the rod length as
+// the SIMULATION_ABORTED error of the engine's NaN check. A BugError means a defect of the
+// program, and these values come from outside it. simulation_input_validation_tests.cpp goes
+// through every input.
+TEST(SimulationSimulate, NonFiniteInputsAreRefused)
 {
     constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
     constexpr double kInf = std::numeric_limits<double>::infinity();
 
     EXPECT_EQ(outcomeWith([](SimulationOptions& /*options*/) { }), "ok");
-    // AbstractSimulationStepper's NaN checks (Java: BugException), before the first step.
     EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchLatitude(kNaN); }),
-              "bug: Simulation resulted in not-a-number (NaN) value for gravity, please report a "
-              "bug.");
-    EXPECT_TRUE(outcomeWith([](SimulationOptions& o) {
-                    o.setTimeStep(kInf);
-                }).starts_with("bug: Simulation resulted in not-a-number (NaN) value for "));
-    // The engine's NaN check of the status (Java: SimulationCalculationException).
+              "error: Cannot simulate: the launch latitude is not finite (NaN).");
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setTimeStep(kInf); }),
+              "error: Cannot simulate: the time step is not finite (Infinity).");
     EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchRodLength(kNaN); }),
-              "error: Simulation resulted in not-a-number (NaN) value, please report a bug.");
+              "error: Cannot simulate: the launch rod length is not finite (NaN).");
+
+    // The error is one of the caller's arguments, not an aborted simulation, and the engine
+    // made no data.
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setLaunchRodLength(-kInf);
+    const Result<void> result = l.simulate();
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(result.error().message,
+              "Cannot simulate: the launch rod length is not finite (-Infinity).");
+    EXPECT_EQ(l.getSimulatedData(), nullptr);
+    EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
 }
 
 /// Everything @p data refer to, read through: the simulated rocket, and per branch its name, its

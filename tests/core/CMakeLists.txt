@@ -198,6 +198,14 @@ add_executable(QtRocket_core_tests
     simulation/engine_jitter_run_tests.cpp
     simulation/engine_stable_run_tests.cpp
     simulation/EventQueueTests.cpp
+    simulation/extension/example/AirStartTests.cpp
+    simulation/extension/example/extension_flight_tests.cpp
+    simulation/extension/example/ExtensionFlightSupport.cpp
+    simulation/extension/example/RollControlTests.cpp
+    simulation/extension/impl/JavaCodeTests.cpp
+    simulation/extension/impl/ScriptingExtensionTests.cpp
+    simulation/extension/SimulationExtensionRegistryTests.cpp
+    simulation/extension/UnknownSimulationExtensionTests.cpp
     simulation/flight_event_activation_tests.cpp
     simulation/flight_events_tests.cpp
     simulation/FlightDataBranchTests.cpp
@@ -216,6 +224,7 @@ add_executable(QtRocket_core_tests
     simulation/runge_kutta_simulation_stepper_tests.cpp
     simulation/simulation_branch_listener_tests.cpp
     simulation/simulation_lookup_invalidation_tests.cpp
+    simulation/simulation_input_validation_tests.cpp
     simulation/simulation_threading_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp

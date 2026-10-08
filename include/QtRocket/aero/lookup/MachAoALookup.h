@@ -53,6 +53,39 @@ public:
         return m_valueColumns;
     }
 
+    /// A number of a table that is not finite, and where it is (see findNonFinite()).
+    struct NonFiniteNumber
+    {
+        /// What a number of a row is.
+        enum class Kind
+        {
+            MACH,   ///< the Mach number of the row
+            AOA,    ///< the angle of attack of the row
+            VALUE,  ///< a value of the row
+        };
+
+        Kind kind;
+        /// The value column of a VALUE; empty for a Mach number and an angle of attack.
+        std::string column;
+        /// The Mach number of the row.
+        double mach;
+        /// The angle of attack of the row, degrees; NaN in a table without angles of attack.
+        double aoa;
+        /// The number: a NaN or an infinity.
+        double value;
+    };
+
+    /// The first number of the table that is a NaN or an infinity, or nullopt when every Mach
+    /// number, every angle of attack and every value is finite. The rows are gone through in
+    /// the table's order (by Mach number, a NaN last, and for one Mach number by angle of
+    /// attack), and the numbers of a row as the Mach number, the angle of attack (in a table
+    /// that has angles) and the values in the order of getValueColumns().
+    ///
+    /// Not in OpenRocket, whose tables hold whatever their rows held: its CSV reader takes "NaN"
+    /// and "Infinity" as numbers, and so does CsvMachAoALookup. A table is data from a file, so
+    /// Simulation::validateInputs() asks this before a run interpolates in it.
+    [[nodiscard]] std::optional<NonFiniteNumber> findNonFinite() const;
+
     /// The value of @p column at @p mach and @p aoaDegrees: the Mach number and the angle are
     /// clamped to the table's range (a NaN passes), the rows of the two Mach numbers around it
     /// are interpolated in the angle of attack (when the table has angles and the Mach number

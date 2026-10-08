@@ -1,8 +1,10 @@
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 
 #include <cstddef>
+#include <format>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -64,6 +66,13 @@ void AbstractSimulationExtension::documentLoaded(OpenRocketDocument& /*document*
                                                  Simulation& /*simulation*/,
                                                  WarningSet& /*warnings*/)
 {
+}
+
+SimulationExtension::InputNumber AbstractSimulationExtension::inputNumber(
+    std::string_view extensionName, std::string_view key, double value)
+{
+    return {.what  = std::format("the '{}' of the simulation extension '{}'", key, extensionName),
+            .value = value};
 }
 
 Config AbstractSimulationExtension::getConfig() const

@@ -1,6 +1,7 @@
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <expected>
 #include <iterator>
@@ -122,6 +123,40 @@ double MachAoALookup::interpolate(double mach, double aoaDegrees, std::string_vi
 
     const double fraction = (clampedMach - lower->first) / (upper->first - lower->first);
     return MathUtil::interpolate(lowerValue, upperValue, fraction);
+}
+
+std::optional<MachAoALookup::NonFiniteNumber> MachAoALookup::findNonFinite() const
+{
+    using Kind = NonFiniteNumber::Kind;
+    for (const auto& [mach, rows] : m_rowsByMach)
+    {
+        for (const Row& row : rows)
+        {
+            const double aoa = m_hasAoA ? row.aoa : kNaN;
+            if (!std::isfinite(mach))
+            {
+                return NonFiniteNumber{
+                    .kind = Kind::MACH, .column = {}, .mach = mach, .aoa = aoa, .value = mach};
+            }
+            if (m_hasAoA && !std::isfinite(aoa))
+            {
+                return NonFiniteNumber{
+                    .kind = Kind::AOA, .column = {}, .mach = mach, .aoa = aoa, .value = aoa};
+            }
+            for (std::size_t column = 0; column < row.values.size(); column++)
+            {
+                if (!std::isfinite(row.values[column]))
+                {
+                    return NonFiniteNumber{.kind   = Kind::VALUE,
+                                           .column = m_valueColumns[column],
+                                           .mach   = mach,
+                                           .aoa    = aoa,
+                                           .value  = row.values[column]};
+                }
+            }
+        }
+    }
+    return std::nullopt;
 }
 
 double MachAoALookup::interpolateAoA(std::span<const Row> rows, double aoaDegrees,
