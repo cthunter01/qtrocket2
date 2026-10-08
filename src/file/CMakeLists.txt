@@ -12,6 +12,7 @@ target_sources(QtRocket_core PRIVATE
     motor/ZipFileMotorLoader.cpp
     openrocket/AnglePositionSetter.cpp
     openrocket/AppearanceHandler.cpp
+    openrocket/AtmosphereHandler.cpp
     openrocket/AxialPositionSetter.cpp
     openrocket/BooleanSetter.cpp
     openrocket/ClusterConfigurationSetter.cpp
@@ -20,11 +21,10 @@ target_sources(QtRocket_core PRIVATE
     openrocket/ComponentParameterHandler.cpp
     openrocket/ComponentPresetSetter.cpp
     openrocket/ConfigHandler.cpp
+    openrocket/CsvLookupHandler.cpp
     openrocket/CustomExpressionHandler.cpp
     openrocket/DatatypeHandler.cpp
     openrocket/DeploymentConfigurationHandler.cpp
-    openrocket/AtmosphereHandler.cpp
-    openrocket/CsvLookupHandler.cpp
     openrocket/DocumentConfig.cpp
     openrocket/DocumentMaterialHandler.cpp
     openrocket/DocumentPreferencesHandler.cpp
@@ -34,9 +34,13 @@ target_sources(QtRocket_core PRIVATE
     openrocket/EnumSetter.cpp
     openrocket/FinSetPointHandler.cpp
     openrocket/FinTabPositionSetter.cpp
+    openrocket/FlightDataBranchHandler.cpp
+    openrocket/FlightDataHandler.cpp
+    openrocket/GravityHandler.cpp
     openrocket/IgnitionConfigurationHandler.cpp
     openrocket/InsideAppearanceHandler.cpp
     openrocket/IntSetter.cpp
+    openrocket/LandingDispersionSettingsHandler.cpp
     openrocket/MaterialSetter.cpp
     openrocket/MotorConfigurationHandler.cpp
     openrocket/MotorHandler.cpp
@@ -44,16 +48,12 @@ target_sources(QtRocket_core PRIVATE
     openrocket/OverrideSetter.cpp
     openrocket/PhotoStudioHandler.cpp
     openrocket/RadiusPositionSetter.cpp
-    openrocket/StageSeparationConfigurationHandler.cpp
-    openrocket/StringSetter.cpp
-    openrocket/FlightDataBranchHandler.cpp
-    openrocket/FlightDataHandler.cpp
-    openrocket/GravityHandler.cpp
-    openrocket/LandingDispersionSettingsHandler.cpp
     openrocket/SimulationConditionsHandler.cpp
     openrocket/SimulationPlotAppearanceHandler.cpp
     openrocket/SimulationsHandler.cpp
     openrocket/SingleSimulationHandler.cpp
+    openrocket/StageSeparationConfigurationHandler.cpp
+    openrocket/StringSetter.cpp
     openrocket/WarningHandler.cpp
     openrocket/WindHandler.cpp
     simplesax/AbstractElementHandler.cpp
