@@ -225,8 +225,8 @@ add_executable(QtRocket_core_tests
     simulation/Rk6SimulationStepperTests.cpp
     simulation/runge_kutta_simulation_stepper_tests.cpp
     simulation/simulation_branch_listener_tests.cpp
-    simulation/simulation_lookup_invalidation_tests.cpp
     simulation/simulation_input_validation_tests.cpp
+    simulation/simulation_lookup_invalidation_tests.cpp
     simulation/simulation_threading_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp
@@ -269,8 +269,8 @@ add_executable(QtRocket_core_tests
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
     file/openrocket/handler_test_support_tests.cpp
-    file/openrocket/MotorHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
+    file/openrocket/MotorHandlerTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp

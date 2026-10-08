@@ -16,6 +16,7 @@
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
 
 namespace
 {
@@ -68,6 +69,8 @@ TEST(DocumentLoadingContext, KeepsWhatItIsGiven)
     const QtRocket::DatabaseMotorFinder                 finder(motors);
     const std::unique_ptr<QtRocket::OpenRocketDocument> document =
         QtRocket::OpenRocketDocumentFactory::createEmptyRocket();
+    const QtRocket::SimulationExtensionRegistry extensions =
+        QtRocket::SimulationExtensionRegistry::bundled();
 
     DocumentLoadingContext context;
     context.setFileVersion(110);
@@ -76,12 +79,14 @@ TEST(DocumentLoadingContext, KeepsWhatItIsGiven)
     context.setApplicationMaterials(&materials);
     context.setPreferences(&preferences);
     context.setComponentPresetDatabase(&presets);
+    context.setSimulationExtensionRegistry(&extensions);
     EXPECT_EQ(context.getFileVersion(), 110);
     EXPECT_EQ(context.getMotorFinder(), &finder);
     EXPECT_EQ(context.getOpenRocketDocument(), document.get());
     EXPECT_EQ(context.getApplicationMaterials(), &materials);
     EXPECT_EQ(context.getPreferences(), &preferences);
     EXPECT_EQ(context.getComponentPresetDatabase(), &presets);
+    EXPECT_EQ(context.getSimulationExtensionRegistry(), &extensions);
 
     // A context is a plain value: a copy refers to the same objects.
     const DocumentLoadingContext copy = context;
@@ -89,6 +94,7 @@ TEST(DocumentLoadingContext, KeepsWhatItIsGiven)
     EXPECT_EQ(copy.getMotorFinder(), &finder);
     EXPECT_EQ(copy.getOpenRocketDocument(), document.get());
     EXPECT_EQ(copy.getPreferences(), &preferences);
+    EXPECT_EQ(copy.getSimulationExtensionRegistry(), &extensions);
 }
 
 }  // namespace

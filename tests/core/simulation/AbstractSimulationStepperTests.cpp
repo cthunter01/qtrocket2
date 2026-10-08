@@ -660,7 +660,8 @@ struct LateralConditions
 //   if (len < 0.001) no pitch and no yaw rate, else those of the rocket.
 // The scenarios above stay a factor of two and more away from them (0.086 mm/s, 0.5 mm/s and
 // 0.36 m/s). The second one decides where a weathercocked rocket flies without pitch damping
-// (the "hunting" of the stable-step simulation goldens, rule H of simulation_golden_tests.cpp),
+// (the "hunting" of the stable-step simulation goldens, rule H of
+// simulation_stable_golden_tests.cpp),
 // and that comparison leaves the rows nearest to the threshold to this test: it does not
 // compare the pitch rate of a row whose lateral airspeed is within 0.15 mm/s of it.
 TEST(AbstractSimulationStepper, TheThresholdsOfTheLateralAirspeedAreExact)
