@@ -83,9 +83,11 @@ TEST(Material, Material)
     EXPECT_EQ("BULK|Test Material|1.0|0.0|Woods", storable);
 }
 
-// testDocumentDatabase and testLoadFromPreset assign materials to a BodyTube of a document, which
-// the rocket model will bring; the material side of them is kept here with a MaterialStorage in
-// the role of the document's material database.
+// testDocumentDatabase and testLoadFromPreset assign materials to a BodyTube of a document. The
+// material side of them is kept here, with a MaterialStorage in the role of the document's
+// material database; tests/core/rocket/document_material_tests.cpp runs both with a BodyTube in a
+// rocket whose Rocket::documentMaterialSet() such a storage listens to, and the document tier
+// with the document itself.
 TEST(Material, DocumentDatabase)
 {
     MaterialStorage document;

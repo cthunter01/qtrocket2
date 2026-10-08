@@ -19,12 +19,14 @@
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/ModId.h"
+#include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
 {
 
 class AxialStage;
+class Material;
 class OpenRocketDocument;
 class Preferences;
 
@@ -90,6 +92,15 @@ class Preferences;
 /// - getTopmostStage() and getBottomCoreStage() take a reference (Java: a null configuration
 ///   gives null).
 /// - toDebugConfigs() takes the Preferences that give the default configuration name.
+/// - Document materials: where a Java component registers a document material with
+///   rocket.getDocument().getDocumentPreferences().addMaterial(), the component tells its rocket
+///   (RocketComponent::notifyDocumentMaterial()) and the rocket emits documentMaterialSet(), to
+///   which the document connects: rocket/ is below document/ and cannot call it.
+/// - A copy of a rocket belongs to no document (getDocument() is nullptr) and has no
+///   documentMaterialSet() listeners. Java's clone keeps the reference, so a document material
+///   set on a component of a copy (an undo snapshot, a simulation's rocket) is registered with
+///   the original's document there; here a copy can outlive the document (the simulated rocket
+///   that a FlightData co-owns), so it does not refer to it.
 class Rocket : public ComponentAssembly
 {
 public:
@@ -150,9 +161,31 @@ public:
     /// Sets the finish; fires AERODYNAMIC_CHANGE when it changes.
     void setPerfectFinish(bool perfectFinish);
 
-    /// The document this rocket belongs to, or nullptr (non-owning; the document owns the rocket).
+    /// The document this rocket belongs to, or nullptr (non-owning: the document owns the rocket,
+    /// sets the pointer when it takes the rocket and outlives it). Only the document's own rocket
+    /// has it: a copy (cloneShallow(), and so copyWithOriginalId(), copyRocketWithOriginalId()
+    /// and copyWithNewIds()) starts with nullptr, and loadFrom() changes the pointer of neither
+    /// rocket (see the class comment for the difference from Java). Nothing in rocket/ reads it.
     [[nodiscard]] OpenRocketDocument* getDocument() const noexcept { return m_document; }
     void setDocument(OpenRocketDocument* document) noexcept { m_document = document; }
+
+    /// Emitted when a component of this rocket is given a document material
+    /// (Material::isDocumentMaterial()), with that material: by setMaterial() of an
+    /// ExternalComponent, a StructuralComponent or a RecoveryDevice and by
+    /// Parachute::setLineMaterial() when the material differs from the current one, and by
+    /// loadPreset() for the MATERIAL (and a parachute's LINE_MATERIAL) the preset gives the
+    /// component, whatever the component had. It is emitted at the moment Java registers the
+    /// material with the document: once the component holds it, before the preset is cleared
+    /// and before the change event; also while events are disabled, the rocket is frozen or the
+    /// component bypasses its change events. A parachute preset emits its canopy material
+    /// before its line material. The document connects to it and adds the material to its
+    /// document materials, so the order of emission is the order in which they are registered.
+    /// A slot gets a copy of the material, so it may change the rocket. Copies of the rocket
+    /// start without listeners, and loadFrom() leaves the listeners alone.
+    [[nodiscard]] Signal<const Material&>& documentMaterialSet() noexcept
+    {
+        return m_documentMaterialSet;
+    }
 
     // --------------------------------------------------------------- modification ids
 
@@ -316,7 +349,8 @@ public:
     ComponentChangeSignal::Connection addComponentChangeListener(
         ComponentChangeSignal::Slot slot) override;
 
-    /// Disconnects every listener (Java: resetListeners()).
+    /// Disconnects every listener of the change events (Java: resetListeners()). The
+    /// connections to documentMaterialSet() stay, as Java's rocket keeps its document.
     void resetListeners() noexcept { m_listeners.disconnectAll(); }
 
     /// The number of connected listeners.
@@ -390,9 +424,11 @@ private:
     };
 
 public:
-    /// The copy cloneShallow() makes (Java's clone()): every field but the listeners, the freeze
-    /// state, the stage map and the flight configurations (a new default only), which
-    /// copyWithOriginalId() rebuilds. Only Rocket can call it (the key type is private).
+    /// The copy cloneShallow() makes (Java's clone()): every field but the listeners (of the
+    /// change events and of documentMaterialSet()), the freeze state, the document pointer
+    /// (nullptr, see getDocument()), the stage map and the flight configurations (a new default
+    /// only), which copyWithOriginalId() rebuilds. Only Rocket can call it (the key type is
+    /// private).
     Rocket(const Rocket& other, CopyKey key);
 
 private:
@@ -462,6 +498,7 @@ private:
     void restoreStageActiveness(std::span<const StageActiveness> saved);
 
     ComponentChangeSignal                   m_listeners;
+    Signal<const Material&>                 m_documentMaterialSet;
     std::optional<std::vector<FrozenEvent>> m_freezeList;
 
     ModId m_modId;

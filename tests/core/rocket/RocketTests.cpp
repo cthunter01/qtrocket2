@@ -1950,6 +1950,89 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
                                     ComponentChangeEvent::kTreeChange);
 }
 
+// ---- The document pointer ----
+
+/// A pointer that stands for a document. OpenRocketDocument is defined above rocket/, and a
+/// Rocket only stores the pointer, so any address will do; it is never dereferenced.
+[[nodiscard]] QtRocket::OpenRocketDocument* documentAt(void* address) noexcept
+{
+    return static_cast<QtRocket::OpenRocketDocument*>(address);
+}
+
+TEST_F(RocketTest, TheDocumentPointerIsStoredAsGiven)
+{
+    int                                 place    = 0;
+    QtRocket::OpenRocketDocument* const document = documentAt(&place);
+    m_rocket.setDocument(document);
+    EXPECT_EQ(m_rocket.getDocument(), document);
+    // It is no property of the design: setting it fires nothing.
+    EXPECT_TRUE(m_events.empty());
+    m_rocket.setDocument(nullptr);
+    EXPECT_EQ(m_rocket.getDocument(), nullptr);
+}
+
+TEST_F(RocketTest, ACopyBelongsToNoDocument)
+{
+    // Deviation from OpenRocket, whose clone keeps the reference (snapshot.getDocument() == d
+    // there): a copy can outlive the document here, so it does not point at it.
+    int                                 place    = 0;
+    QtRocket::OpenRocketDocument* const document = documentAt(&place);
+    m_rocket.setDocument(document);
+
+    const std::unique_ptr<Rocket> copy = m_rocket.copyRocketWithOriginalId();
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->getDocument(), nullptr);
+
+    const std::unique_ptr<RocketComponent> base =
+        static_cast<const RocketComponent&>(m_rocket).copyWithOriginalId();
+    EXPECT_EQ(dynamic_cast<Rocket&>(*base).getDocument(), nullptr);
+
+    const std::unique_ptr<RocketComponent> fresh = m_rocket.copyWithNewIds();
+    EXPECT_EQ(dynamic_cast<Rocket&>(*fresh).getDocument(), nullptr);
+
+    // A copy of a copy that was given a document of its own.
+    copy->setDocument(document);
+    EXPECT_EQ(copy->copyRocketWithOriginalId()->getDocument(), nullptr);
+
+    // The original keeps its document.
+    EXPECT_EQ(m_rocket.getDocument(), document);
+}
+
+TEST_F(RocketTest, LoadFromChangesTheDocumentOfNeitherRocket)
+{
+    // As in OpenRocket (DocumentMaterialProbe.java of the tier 9a probes, part J): undo and
+    // redo load a snapshot into the document's rocket, which stays the document's.
+    int                                 firstPlace  = 0;
+    int                                 secondPlace = 0;
+    QtRocket::OpenRocketDocument* const first       = documentAt(&firstPlace);
+    QtRocket::OpenRocketDocument* const second      = documentAt(&secondPlace);
+    m_rocket.setDocument(first);
+
+    Rocket other;
+    other.addChild(std::make_unique<AxialStage>());
+    other.setDocument(second);
+    Rocket without;
+    without.addChild(std::make_unique<AxialStage>());
+
+    m_rocket.loadFrom(other);
+    EXPECT_EQ(m_rocket.getDocument(), first);
+    EXPECT_EQ(other.getDocument(), second);
+
+    m_rocket.loadFrom(without);
+    EXPECT_EQ(m_rocket.getDocument(), first);
+    EXPECT_EQ(without.getDocument(), nullptr);
+
+    without.loadFrom(m_rocket);
+    EXPECT_EQ(without.getDocument(), nullptr);
+    EXPECT_EQ(m_rocket.getDocument(), first);
+
+    // A snapshot, as undo uses one.
+    const std::unique_ptr<Rocket> snapshot = m_rocket.copyRocketWithOriginalId();
+    m_rocket.loadFrom(*snapshot);
+    EXPECT_EQ(m_rocket.getDocument(), first);
+    EXPECT_EQ(snapshot->getDocument(), nullptr);
+}
+
 // ========================================================================= automatic radii
 
 /// RocketTest's tolerance (MathUtil.EPSILON).

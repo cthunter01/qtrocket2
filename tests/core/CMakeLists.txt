@@ -85,6 +85,7 @@ add_executable(QtRocket_core_tests
     rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
     rocket/DeploymentConfigurationTests.cpp
+    rocket/document_material_tests.cpp
     rocket/EllipticalFinSetTests.cpp
     rocket/EngineBlockTests.cpp
     rocket/ExternalComponentTests.cpp
@@ -110,9 +111,12 @@ add_executable(QtRocket_core_tests
     rocket/ParachuteTests.cpp
     rocket/ParallelStageTests.cpp
     rocket/PodSetTests.cpp
+    rocket/preset/ComponentPresetDatabaseTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp
+    rocket/preset/example_presets_tests.cpp
+    rocket/preset/ExamplePresets.cpp
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RadiusRingComponentTests.cpp
