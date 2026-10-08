@@ -66,8 +66,9 @@ import info.openrocket.core.util.TestRockets;
  * the file formats and how to regenerate.
  * <p>
  * Usage: {@code GoldenDumper --openrocket <checkout> --examples <dir> --out <dir> --work <dir>
- * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false] [--stable-examples true|false]
- * [--uuid-salt <text>] [--only <input name>]...}
+ * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false]
+ * [--stable-examples documents|full|none] [--uuid-salt <text>] [--last-bit <pattern>]
+ * [--only <input name>]...}
  */
 public final class GoldenDumper {
 
@@ -92,6 +93,38 @@ public final class GoldenDumper {
 	 */
 	private enum Pass {
 		DEFAULT, STABLE
+	}
+
+	/**
+	 * What is written of the stable-step set of the example inputs (that of the test rockets is always
+	 * written with its time series). The stable pass is the same whatever is written: only
+	 * {@link SimulationDumper#dump} leaves the time series out.
+	 */
+	private enum StableExamples {
+		/**
+		 * The simulation documents without the time series of their branches: the committed goldens
+		 * (the time series of the examples' stable-step set would add 37 MB).
+		 */
+		DOCUMENTS("documents"),
+		/** The documents and the time series, as for the test rockets: scratch dumps. */
+		FULL("full"),
+		/** No stable-step set of the examples (no stable pass over them). */
+		NONE("none");
+
+		private final String option;
+
+		StableExamples(String option) {
+			this.option = option;
+		}
+
+		static StableExamples parse(String option, String value) {
+			for (StableExamples choice : values()) {
+				if (choice.option.equals(value)) {
+					return choice;
+				}
+			}
+			throw new IllegalArgumentException(option + " expects documents, full or none, not " + value);
+		}
 	}
 
 	/** The TestRockets factories, in the order and under the directory names of the goldens. */
@@ -157,14 +190,20 @@ public final class GoldenDumper {
 		String commit = "unknown";
 		String presetCommit = "unknown";
 		boolean dirty = false;
-		/** Whether the stable-step set of the example inputs is written too (the test rockets' always is). */
-		boolean stableExamples = false;
+		/** What is written of the stable-step set of the example inputs (the test rockets' always is). */
+		StableExamples stableExamples = StableExamples.DOCUMENTS;
 		/**
 		 * Appended to the name of an input when the UUID sequence is seeded from it. Empty for the
 		 * committed goldens; anything else gives every component another id (and OpenRocket's hash maps
 		 * another order), to measure how reproducible OpenRocket's results are.
 		 */
 		String uuidSalt = "";
+		/**
+		 * The last-bit perturbation of every simulation run, or null for the committed goldens. It does
+		 * for the designs loaded from files, which keep their component ids, what the salt does for the
+		 * test rockets (see {@link LastBitPerturbation}).
+		 */
+		LastBitPerturbation perturbation = null;
 		final Set<String> only = new LinkedHashSet<>();
 	}
 
@@ -191,8 +230,7 @@ public final class GoldenDumper {
 		}
 		checkOnlyNames(a.only, examplesByName.keySet());
 
-		useSqliteExtractionDirectory(a.work);
-		Map<String, Object> databases = bootstrap(core, a.work);
+		Map<String, Object> databases = bootstrap(core, useProcessDirectory(a.work));
 
 		List<Map<String, Object>> inputs = new ArrayList<>();
 		cleanOutput(a.out, a.only);
@@ -235,8 +273,9 @@ public final class GoldenDumper {
 				case "--commit" -> a.commit = value;
 				case "--preset-commit" -> a.presetCommit = value;
 				case "--dirty" -> a.dirty = parseBoolean(option, value);
-				case "--stable-examples" -> a.stableExamples = parseBoolean(option, value);
+				case "--stable-examples" -> a.stableExamples = StableExamples.parse(option, value);
 				case "--uuid-salt" -> a.uuidSalt = value;
+				case "--last-bit" -> a.perturbation = LastBitPerturbation.parse(value);
 				case "--only" -> a.only.add(value);
 				default -> throw new IllegalArgumentException("Unknown option " + option);
 			}
@@ -245,7 +284,8 @@ public final class GoldenDumper {
 			throw new IllegalArgumentException(
 					"Usage: GoldenDumper --openrocket <dir> --examples <dir> --out <dir> --work <dir> "
 							+ "[--commit <hash>] [--preset-commit <hash>] [--dirty true|false] "
-							+ "[--stable-examples true|false] [--uuid-salt <text>] [--only <name>]...");
+							+ "[--stable-examples documents|full|none] [--uuid-salt <text>] "
+							+ "[--last-bit <pattern>] [--only <name>]...");
 		}
 		return a;
 	}
@@ -275,17 +315,20 @@ public final class GoldenDumper {
 	}
 
 	/**
-	 * Gives sqlite-jdbc a per-process directory for its native library. It extracts the library into
-	 * java.io.tmpdir under a name built from UUID.randomUUID(), which DeterministicUuids makes the same
-	 * in every process, so concurrent dumpers would otherwise share (and delete) one file. The
-	 * directory is deleted when the JVM exits (after the extracted files, which sqlite-jdbc registers
-	 * for deletion later).
+	 * Makes the directory of this process under the work directory, for the files that concurrent
+	 * dumpers must not share, and returns it. sqlite-jdbc gets it for its native library: it extracts
+	 * the library into java.io.tmpdir under a name built from UUID.randomUUID(), which
+	 * DeterministicUuids makes the same in every process, so concurrent dumpers would otherwise share
+	 * (and delete) one file. The private copy of the motor database goes there as well
+	 * ({@link #bootstrap}). The directory is deleted when the JVM exits (after the files in it, which
+	 * are registered for deletion later).
 	 */
-	private static void useSqliteExtractionDirectory(Path work) throws IOException {
-		Path dir = work.resolve("sqlite-native-" + ProcessHandle.current().pid());
+	private static Path useProcessDirectory(Path work) throws IOException {
+		Path dir = work.resolve("process-" + ProcessHandle.current().pid());
 		Files.createDirectories(dir);
 		dir.toFile().deleteOnExit();
 		System.setProperty("org.sqlite.tmpdir", dir.toString());
+		return dir;
 	}
 
 	static void log(String message) {
@@ -321,9 +364,11 @@ public final class GoldenDumper {
 	 * ServicesForTesting overridden by PluginModule), then, as ExampleFilesTest.setUp() does for the
 	 * example files, a second injector that also binds the component preset database (the .orc files
 	 * of {@link #presetFiles}, sorted) and the bundled thrust curve database (initial_motors.db, read
-	 * with ThrustCurveMotorSQLiteDatabase from a private copy).
+	 * with ThrustCurveMotorSQLiteDatabase from a private copy in {@code processDirectory}, the
+	 * directory of this process: a copy at a path that every dumper shares could be replaced by a
+	 * concurrent one while this one reads it).
 	 */
-	private static Map<String, Object> bootstrap(Path core, Path work) throws Exception {
+	private static Map<String, Object> bootstrap(Path core, Path processDirectory) throws Exception {
 		// BaseTestCase.setUp()
 		Module testModule = new ServicesForTesting();
 		Application.setInjector(Guice.createInjector(Modules.override(testModule).with(new PluginModule())));
@@ -340,9 +385,9 @@ public final class GoldenDumper {
 		}
 
 		Path bundledDb = core.resolve("src/main/resources/datafiles/thrustcurves/initial_motors.db");
-		Files.createDirectories(work);
-		Path dbCopy = work.resolve("initial_motors.db");
+		Path dbCopy = processDirectory.resolve("initial_motors.db");
 		Files.copy(bundledDb, dbCopy, StandardCopyOption.REPLACE_EXISTING);
+		dbCopy.toFile().deleteOnExit();
 		List<ThrustCurveMotor> motorList = ThrustCurveMotorSQLiteDatabase.readDatabase(dbCopy.toFile());
 		ThrustCurveMotorSetDatabase motors = new ThrustCurveMotorSetDatabase();
 		for (ThrustCurveMotor motor : motorList) {
@@ -428,7 +473,7 @@ public final class GoldenDumper {
 		List<Object> simulations = examplePass(a, name, file, Pass.DEFAULT, entry);
 		entry.put("simulations", simulations);
 		// An input without a stable-step set has no "stableSimulations" (see "stableSimulationsOf").
-		if (a.stableExamples) {
+		if (a.stableExamples != StableExamples.NONE) {
 			log(name + ": stable time step");
 			List<Object> stableSimulations = examplePass(a, name, file, Pass.STABLE, entry);
 			entry.put("stableSimulations", stableSimulations);
@@ -449,11 +494,14 @@ public final class GoldenDumper {
 		ComponentIndex index = new ComponentIndex(rocket);
 		dumpDesign(pass, dir, name, rocket, index, loader.getWarnings(), entry);
 
+		// The stable-step set of the examples is written without its time series, unless asked for.
+		boolean timeSeries = pass == Pass.DEFAULT || a.stableExamples == StableExamples.FULL;
 		List<Object> sims = Json.array();
 		int simIndex = 0;
 		for (Simulation sim : doc.getSimulations()) {
 			Map<String, Object> harness = SimulationDumper.makeReproducible(sim.getOptions());
-			sims.add(dumpSimulation(pass, dir, name, simIndex, sim, rocket, index, "document", null, harness));
+			sims.add(dumpSimulation(a, pass, dir, name, simIndex, sim, rocket, index, "document", null, harness,
+					timeSeries));
 			simIndex++;
 		}
 		return sims;
@@ -520,8 +568,8 @@ public final class GoldenDumper {
 		List<Object> sims = Json.array();
 		int simIndex = 0;
 		for (Simulation sim : doc.getSimulations()) {
-			sims.add(dumpSimulation(pass, dir, name, simIndex, sim, rocket, index, "applicationDefaults",
-					variants.get(simIndex), harnesses.get(simIndex)));
+			sims.add(dumpSimulation(a, pass, dir, name, simIndex, sim, rocket, index, "applicationDefaults",
+					variants.get(simIndex), harnesses.get(simIndex), true));
 			simIndex++;
 		}
 		return sims;
@@ -531,10 +579,13 @@ public final class GoldenDumper {
 	 * Runs and writes one simulation of a pass and returns its manifest entry. The stable pass gives it
 	 * the stable time step first, at the last moment before the run, and writes into the input's
 	 * {@value #STABLE_DIR}/ directory.
+	 *
+	 * @param timeSeries whether the time series of the branches are written (else the document alone,
+	 *        and the manifest entry lists no branch file)
 	 */
-	private static Map<String, Object> dumpSimulation(Pass pass, Path dir, String name, int simIndex, Simulation sim,
-			Rocket rocket, ComponentIndex index, String optionsSource, String variant, Map<String, Object> harness)
-			throws IOException {
+	private static Map<String, Object> dumpSimulation(Arguments a, Pass pass, Path dir, String name, int simIndex,
+			Simulation sim, Rocket rocket, ComponentIndex index, String optionsSource, String variant,
+			Map<String, Object> harness, boolean timeSeries) throws IOException {
 		Path simulationDir = dir;
 		String prefix = name + "/";
 		if (pass == Pass.STABLE) {
@@ -543,7 +594,7 @@ public final class GoldenDumper {
 			prefix = name + "/" + STABLE_DIR + "/";
 		}
 		return simulationEntry(prefix, sim, SimulationDumper.dump(simulationDir, name, simIndex, sim, rocket, index,
-				optionsSource, variant, harness));
+				optionsSource, variant, harness, timeSeries, a.perturbation));
 	}
 
 	/**
@@ -609,7 +660,10 @@ public final class GoldenDumper {
 		}
 	}
 
-	/** The manifest entry of a simulation whose files {@code files} are in the directory {@code prefix}. */
+	/**
+	 * The manifest entry of a simulation whose files {@code files} (the document, then the time series
+	 * of its branches, if they were written) are in the directory {@code prefix}.
+	 */
 	private static Map<String, Object> simulationEntry(String prefix, Simulation sim, List<String> files) {
 		Map<String, Object> o = Json.object();
 		o.put("name", sim.getName());
@@ -704,14 +758,25 @@ public final class GoldenDumper {
 		settings.put("pitchYawJitterRemoved", true);
 		settings.put("resaveIncludesSimulationData", false);
 		settings.put("stableTimeStep", SimulationDumper.STABLE_TIME_STEP);
+		// The kinds of the inputs that have a stable-step set, and those of them whose set has the time
+		// series of its branches (the others have the simulation documents alone).
 		List<Object> stableKinds = Json.array();
-		if (a.stableExamples) {
+		List<Object> timeSeriesKinds = Json.array();
+		if (a.stableExamples != StableExamples.NONE) {
 			stableKinds.add("example");
 		}
+		if (a.stableExamples == StableExamples.FULL) {
+			timeSeriesKinds.add("example");
+		}
 		stableKinds.add("testrocket");
+		timeSeriesKinds.add("testrocket");
 		settings.put("stableSimulationsOf", stableKinds);
+		settings.put("stableTimeSeriesOf", timeSeriesKinds);
 		if (!a.uuidSalt.isEmpty()) {
 			settings.put("uuidSalt", a.uuidSalt);
+		}
+		if (a.perturbation != null) {
+			settings.put("lastBitPerturbation", a.perturbation.pattern());
 		}
 		root.put("settings", settings);
 

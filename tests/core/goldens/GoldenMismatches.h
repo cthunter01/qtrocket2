@@ -32,7 +32,8 @@ public:
     explicit GoldenMismatches(std::string context);
 
     /// @p actual within kGoldenRelative of @p expected, relative to the larger magnitude (exact
-    /// for 0); two NaNs match.
+    /// for 0); two NaNs match, and an infinity matches the same infinity only (the ejection delay
+    /// of a plugged motor).
     void relative(std::string_view field, double expected, double actual);
 
     /// @p actual within kGoldenAbsolute of @p expected (a position or an offset in m, an angle

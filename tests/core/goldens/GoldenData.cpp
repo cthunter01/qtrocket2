@@ -98,6 +98,26 @@ Result<GoldenSimulation> parseSimulation(const nlohmann::json& json, std::string
     return simulation;
 }
 
+/// Reads the string @p key of @p object into @p target, when there is one (a missing entry and a
+/// null leave @p target as it is): what only some manifests or inputs have ("uuidSalt" and
+/// "lastBitPerturbation" of a dump that is not the committed data, "sourceSha256" of an input
+/// that is made from a file). Anything else than a string is a PARSE failure naming @p context.
+Result<void> readOptionalString(const nlohmann::json& object, std::string_view key,
+                                std::string_view context, std::string& target)
+{
+    const auto value = object.find(key);
+    if (value == object.end() || value->is_null())
+    {
+        return {};
+    }
+    if (!value->is_string())
+    {
+        return fail(ErrorCode::PARSE, std::format(R"({}: "{}" is not a string)", context, key));
+    }
+    target = value->get<std::string>();
+    return {};
+}
+
 /// Reads the list of simulations @p key of the input @p json into @p simulations; a missing list
 /// or a malformed entry is the failure.
 Result<void> readSimulations(const nlohmann::json& json, std::string_view key,
@@ -157,6 +177,10 @@ Result<GoldenInput> parseInput(const nlohmann::json& json)
     {
         return std::unexpected(strings.error());
     }
+    if (auto hash = readOptionalString(json, "sourceSha256", context, input.sourceSha256); !hash)
+    {
+        return std::unexpected(hash.error());
+    }
     if (auto read = readSimulations(json, "simulations", context, input.simulations); !read)
     {
         return std::unexpected(read.error());
@@ -174,59 +198,82 @@ Result<GoldenInput> parseInput(const nlohmann::json& json)
     return input;
 }
 
-/// Reads "uuidSalt" of the manifest's @p settings, which only a dump made with UUID_SALT has.
-Result<void> readUuidSalt(const nlohmann::json& settings, GoldenManifest& result)
+constexpr std::string_view kSettingsContext = "manifest.json settings";
+
+/// Reads the list of input kinds @p key of the manifest's @p settings into @p kinds.
+Result<void> readKinds(const nlohmann::json& settings, std::string_view key,
+                       std::vector<std::string>& kinds)
 {
-    const auto salt = settings.find("uuidSalt");
-    if (salt == settings.end())
+    const auto list = requireArray(settings, key, kSettingsContext);
+    if (!list)
     {
-        return {};
+        return std::unexpected(list.error());
     }
-    if (!salt->is_string())
+    for (const auto& kind : **list)
     {
-        return fail(ErrorCode::PARSE, R"(manifest.json settings: "uuidSalt" is not a string)");
+        if (!kind.is_string())
+        {
+            return fail(ErrorCode::PARSE, std::format(R"({}: a kind of "{}" is not a string)",
+                                                      kSettingsContext, key));
+        }
+        kinds.push_back(kind.get<std::string>());
     }
-    result.uuidSalt = salt->get<std::string>();
     return {};
 }
 
-/// Reads "settings" of the manifest: the time step of the stable-step set, the kinds of the
-/// inputs that have one, and the salt of a dump with other component ids.
+/// Reads the stable-step entries of the manifest's @p settings: the time step, the kinds of the
+/// inputs that have a stable-step set, and those of them whose set has its time series.
+Result<void> readStableSettings(const nlohmann::json& settings, GoldenManifest& result)
+{
+    const auto timeStep = settings.find("stableTimeStep");
+    if (timeStep == settings.end() || !timeStep->is_number())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: missing number "stableTimeStep")", kSettingsContext));
+    }
+    result.stableTimeStep = timeStep->get<double>();
+    if (auto kinds = readKinds(settings, "stableSimulationsOf", result.stableSimulationsOf); !kinds)
+    {
+        return std::unexpected(kinds.error());
+    }
+    if (auto kinds = readKinds(settings, "stableTimeSeriesOf", result.stableTimeSeriesOf); !kinds)
+    {
+        return std::unexpected(kinds.error());
+    }
+    for (const std::string& kind : result.stableTimeSeriesOf)
+    {
+        if (std::ranges::find(result.stableSimulationsOf, kind) == result.stableSimulationsOf.end())
+        {
+            return fail(ErrorCode::PARSE,
+                        std::format(R"({}: "stableTimeSeriesOf" names the kind "{}", which )"
+                                    R"("stableSimulationsOf" does not)",
+                                    kSettingsContext, kind));
+        }
+    }
+    return {};
+}
+
+/// Reads "settings" of the manifest: the stable-step entries, and what marks a dump that is not
+/// the committed data (the salt of other component ids, the pattern of a last-bit perturbation).
 Result<void> readSettings(const nlohmann::json& manifest, GoldenManifest& result)
 {
-    constexpr std::string_view kContext = "manifest.json settings";
-    const auto                 settings = manifest.find("settings");
+    const auto settings = manifest.find("settings");
     if (settings == manifest.end() || !settings->is_object())
     {
         return fail(ErrorCode::PARSE, R"(manifest.json: missing object "settings")");
     }
-    if (auto salt = readUuidSalt(*settings, result); !salt)
+    if (auto salt = readOptionalString(*settings, "uuidSalt", kSettingsContext, result.uuidSalt);
+        !salt)
     {
         return std::unexpected(salt.error());
     }
-    const auto timeStep = settings->find("stableTimeStep");
-    if (timeStep == settings->end() || !timeStep->is_number())
+    if (auto pattern = readOptionalString(*settings, "lastBitPerturbation", kSettingsContext,
+                                          result.lastBitPerturbation);
+        !pattern)
     {
-        return fail(ErrorCode::PARSE,
-                    std::format(R"({}: missing number "stableTimeStep")", kContext));
+        return std::unexpected(pattern.error());
     }
-    result.stableTimeStep = timeStep->get<double>();
-    const auto kinds      = requireArray(*settings, "stableSimulationsOf", kContext);
-    if (!kinds)
-    {
-        return std::unexpected(kinds.error());
-    }
-    for (const auto& kind : **kinds)
-    {
-        if (!kind.is_string())
-        {
-            return fail(
-                ErrorCode::PARSE,
-                std::format("{}: a kind of \"stableSimulationsOf\" is not a string", kContext));
-        }
-        result.stableSimulationsOf.push_back(kind.get<std::string>());
-    }
-    return {};
+    return readStableSettings(*settings, result);
 }
 
 /// Parses one data line of a branch CSV into @p row (cleared first). The fields are split
@@ -461,6 +508,28 @@ Result<GoldenTable> loadGoldenCsv(const std::filesystem::path& path)
     return table;
 }
 
+Result<std::optional<std::string>> goldenBranchCsv(const nlohmann::json& branch)
+{
+    if (!branch.is_object())
+    {
+        return fail(ErrorCode::PARSE, "a branch is not an object");
+    }
+    const auto csv = branch.find("csv");
+    if (csv == branch.end())
+    {
+        return fail(ErrorCode::PARSE, R"(a branch has no "csv")");
+    }
+    if (csv->is_null())
+    {
+        return std::optional<std::string>{};
+    }
+    if (!csv->is_string())
+    {
+        return fail(ErrorCode::PARSE, R"("csv" of a branch is neither a file name nor null)");
+    }
+    return std::optional<std::string>{csv->get<std::string>()};
+}
+
 const GoldenInput* GoldenManifest::find(std::string_view name) const
 {
     for (const auto& input : inputs)
@@ -476,6 +545,11 @@ const GoldenInput* GoldenManifest::find(std::string_view name) const
 bool GoldenManifest::hasStableSimulations(const GoldenInput& input) const
 {
     return std::ranges::find(stableSimulationsOf, input.kind) != stableSimulationsOf.end();
+}
+
+bool GoldenManifest::hasStableTimeSeries(const GoldenInput& input) const
+{
+    return std::ranges::find(stableTimeSeriesOf, input.kind) != stableTimeSeriesOf.end();
 }
 
 Result<GoldenManifest> parseGoldenManifest(const nlohmann::json& manifest)

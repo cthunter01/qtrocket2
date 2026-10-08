@@ -1,5 +1,7 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
+    Sha256.cpp
+    Sha256Tests.cpp
     ThirdPartyTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
@@ -268,6 +270,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/EntryHelperTests.cpp
     file/openrocket/handler_test_support_tests.cpp
     file/openrocket/MotorHandlerTests.cpp
+    file/openrocket/legacy_ork_files_tests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp
@@ -281,16 +284,21 @@ add_executable(QtRocket_core_tests
     file/ZipInputStreamTests.cpp
     goldens/aero_golden_tests.cpp
     goldens/attachment_geometry_golden_tests.cpp
+    goldens/AutomaticDimensions.cpp
+    goldens/AutomaticDimensionsTests.cpp
     goldens/body_geometry_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
+    goldens/GoldenDesign.cpp
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
+    goldens/GoldenSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
+    goldens/simulation_stable_golden_tests.cpp
     goldens/test_rockets_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

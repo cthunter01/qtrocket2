@@ -3,16 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <memory>
-#include <optional>
-#include <set>
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -56,9 +52,8 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
-#include "QtRocket/util/Strings.h"
 #include "goldens/GoldenData.h"
-#include "goldens/GoldenGeometry.h"
+#include "goldens/GoldenDesign.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -98,6 +93,8 @@ using QtRocket::ThrustCurveMotor;
 using QtRocket::Transition;
 using QtRocket::TrapezoidFinSet;
 using QtRocket::Test::addMotor;
+using QtRocket::Test::expectGoldenLocations;
+using QtRocket::Test::expectGoldenMass;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::testFcid;
@@ -121,206 +118,6 @@ Json loadGolden(const std::string& input, const std::string& file)
         throw std::runtime_error(loaded.error().toString());
     }
     return std::move(*loaded);
-}
-
-/// A number of a golden file.
-/// @throws std::runtime_error when @p value is not one.
-double number(const Json& value)
-{
-    const std::optional<double> parsed = QtRocket::Test::goldenNumber(value);
-    if (!parsed)
-    {
-        throw std::runtime_error("not a golden number: " + value.dump());
-    }
-    return *parsed;
-}
-
-/// A golden [x, y, z] or [x, y, z, w].
-Coordinate coordinate(const Json& value)
-{
-    const double weight = value.size() > 3 ? number(value.at(3)) : 0.0;
-    return Coordinate{number(value.at(0)), number(value.at(1)), number(value.at(2)), weight};
-}
-
-/// The component at the golden @p path ("/", "/0", "/0/1/2": child indices from the root).
-/// @throws std::runtime_error when @p root has no such component.
-RocketComponent& componentAt(RocketComponent& root, std::string_view path)
-{
-    RocketComponent* const component = QtRocket::Test::componentAtGoldenPath(root, path);
-    if (component == nullptr)
-    {
-        throw std::runtime_error("no component at the golden path " + std::string{path});
-    }
-    return *component;
-}
-
-/// The golden vector of coordinates @p values.
-std::vector<Coordinate> coordinates(const Json& values)
-{
-    std::vector<Coordinate> result;
-    for (const Json& value : values)
-    {
-        result.push_back(coordinate(value));
-    }
-    return result;
-}
-
-/// Expects @p actual within 1e-12 of @p expected in x, y and z.
-void expectLocation(const Coordinate& actual, const Coordinate& expected, const std::string& what)
-{
-    EXPECT_NEAR(actual.x, expected.x, 1e-12) << what;
-    EXPECT_NEAR(actual.y, expected.y, 1e-12) << what;
-    EXPECT_NEAR(actual.z, expected.z, 1e-12) << what;
-}
-
-/// Expects every component of @p rocket at the absolute locations its OpenRocket counterpart
-/// has in @p geometry.
-void expectGoldenLocations(Rocket& rocket, const Json& geometry)
-{
-    for (const Json& golden : geometry.at("components"))
-    {
-        const auto                    path     = golden.at("path").get<std::string>();
-        const std::vector<Coordinate> actual   = componentAt(rocket, path).getComponentLocations();
-        const std::vector<Coordinate> expected = coordinates(golden.at("componentLocations"));
-        ASSERT_EQ(actual.size(), expected.size()) << path;
-        for (std::size_t i = 0; i < actual.size(); i++)
-        {
-            expectLocation(actual[i], expected[i], std::format("{} #{}", path, i));
-        }
-    }
-}
-
-/// Expects @p actual within relative 1e-9 of @p expected (and 1e-15 absolute, for zeros).
-void expectClose(double actual, double expected, const std::string& what)
-{
-    EXPECT_NEAR(actual, expected, (1e-9 * std::abs(expected)) + 1e-15) << what;
-}
-
-/// Expects @p actual within relative 1e-9 of @p expected, weight included.
-void expectCloseCoordinate(const Coordinate& actual, const Coordinate& expected,
-                           const std::string& what)
-{
-    expectClose(actual.x, expected.x, what + " x");
-    expectClose(actual.y, expected.y, what + " y");
-    expectClose(actual.z, expected.z, what + " z");
-    expectClose(actual.weight, expected.weight, what + " weight");
-}
-
-/// Expects @p actual to be the golden rigid body @p expected (mass, CM, the three inertias).
-void expectRigidBody(const RigidBody& actual, const Json& expected, const std::string& what)
-{
-    expectClose(actual.getMass(), number(expected.at("mass")), what + " mass");
-    expectCloseCoordinate(actual.getCM(), coordinate(expected.at("cm")), what + " cm");
-    expectClose(actual.getIxx(), number(expected.at("ixx")), what + " ixx");
-    expectClose(actual.getIyy(), number(expected.at("iyy")), what + " iyy");
-    expectClose(actual.getIzz(), number(expected.at("izz")), what + " izz");
-    expectClose(actual.getRotationalInertia(), number(expected.at("rotationalInertia")),
-                what + " rotationalInertia");
-    expectClose(actual.getLongitudinalInertia(), number(expected.at("longitudinalInertia")),
-                what + " longitudinalInertia");
-}
-
-/// The key of the golden CM analysis row @p row: a motor's designation hash, else the key of
-/// the component at its path. Expects the row's kind to fit its path: a "motor" has none, the
-/// rocket's row is the "total" and every other row a "component".
-std::int32_t analysisKey(Rocket& rocket, const Json& row, const std::string& what)
-{
-    const auto kind = row.at("kind").get<std::string>();
-    if (kind == "motor")
-    {
-        EXPECT_TRUE(row.at("path").is_null()) << what;
-        return QtRocket::Strings::javaHashCode(row.at("name").get<std::string>());
-    }
-    const auto path = row.at("path").get<std::string>();
-    EXPECT_EQ(kind, path == "/" ? "total" : "component") << what;
-    return CMAnalysisEntry::keyOf(componentAt(rocket, path));
-}
-
-/// Expects @p analysis to hold exactly the golden CM analysis @p rows.
-void expectGoldenAnalysis(Rocket& rocket, const CMAnalysisMap& analysis, const Json& rows,
-                          const std::string& configName)
-{
-    std::set<std::int32_t> keys;
-    for (const Json& row : rows)
-    {
-        const auto         rowName = row.at("name").get<std::string>();
-        const std::string  what    = std::format("{} analysis {}", configName, rowName);
-        const std::int32_t key     = analysisKey(rocket, row, what);
-        keys.insert(key);
-        const auto entry = analysis.find(key);
-        ASSERT_TRUE(entry != analysis.end()) << what;
-        EXPECT_EQ(entry->second.name, rowName) << what;
-        expectClose(entry->second.eachMass, number(row.at("eachMass")), what + " eachMass");
-        expectCloseCoordinate(entry->second.totalCM, coordinate(row.at("totalCM")),
-                              what + " totalCM");
-    }
-    EXPECT_EQ(analysis.size(), keys.size()) << configName;
-    // The rows end with the rocket's.
-    ASSERT_FALSE(rows.empty()) << configName;
-    EXPECT_EQ(rows.back().at("kind").get<std::string>(), "total") << configName;
-}
-
-/// Expects the four rigid bodies and the CM analysis of @p config to be the @p golden
-/// configuration's.
-void expectGoldenBodies(Rocket& rocket, const FlightConfiguration& config, const Json& golden,
-                        const std::string& name)
-{
-    expectRigidBody(MassCalculator::calculateStructure(config), golden.at("structure"),
-                    name + " structure");
-    expectRigidBody(MassCalculator::calculateLaunch(config), golden.at("launch"), name + " launch");
-    expectRigidBody(MassCalculator::calculateBurnout(config), golden.at("burnout"),
-                    name + " burnout");
-    expectRigidBody(MassCalculator::calculateMotor(config), golden.at("motor"), name + " motor");
-    expectGoldenAnalysis(rocket, MassCalculator::getCMAnalysis(config), golden.at("cmAnalysis"),
-                         name);
-}
-
-/// Expects the header of the @p golden configuration to be that of @p config: the default flag,
-/// the name and, unless @p randomConfigurationId says that the maker draws it, the id.
-void expectGoldenHeader(const FlightConfiguration& config, const Json& golden,
-                        bool randomConfigurationId)
-{
-    const QtRocket::InMemoryPreferences preferences;
-    const auto                          name = golden.at("name").get<std::string>();
-    EXPECT_EQ(config.getId().isDefaultId(), golden.at("isDefault").get<bool>()) << name;
-    if (config.getId().isDefaultId() || !randomConfigurationId)
-    {
-        EXPECT_EQ(config.getId().toString(), golden.at("id").get<std::string>()) << name;
-    }
-    EXPECT_EQ(config.getName(preferences), name);
-}
-
-/// Expects the mass calculations of every flight configuration of @p rocket to give the golden
-/// values of @p mass: the header (see expectGoldenHeader()), the four rigid bodies and the CM
-/// analysis rows. Each configuration is selected while it is calculated, as the golden harness
-/// does. The golden configurations are the rocket's, in order (the default first): each `index`
-/// is its place in the list, so none is compared twice. Returns the number of configurations
-/// compared.
-int expectGoldenMass(Rocket& rocket, const Json& mass, bool randomConfigurationId)
-{
-    const FlightConfigurationId selected = rocket.getSelectedConfiguration().getId();
-    int                         compared = 0;
-    int                         position = 0;
-    for (const Json& golden : mass.at("configurations"))
-    {
-        const auto name  = golden.at("name").get<std::string>();
-        const int  index = golden.at("index").get<int>();
-        EXPECT_EQ(index, position) << name << ": the golden configurations are in order";
-        position++;
-        if (index < 0 || index > rocket.getConfigurationCount())
-        {
-            ADD_FAILURE() << "the rocket has no configuration " << index << " (" << name << ")";
-            continue;
-        }
-        FlightConfiguration& config = rocket.getFlightConfigurationByIndex(index, true);
-        rocket.setSelectedConfiguration(config.getId());
-
-        expectGoldenHeader(config, golden, randomConfigurationId);
-        expectGoldenBodies(rocket, config, golden, name);
-        compared++;
-    }
-    rocket.setSelectedConfiguration(selected);
-    return compared;
 }
 
 // ============================================================================ motor states
@@ -372,7 +169,9 @@ void expectIdenticalBodies(const RigidBody& actual, const RigidBody& expected,
 // maker draws at random), STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies and CM analysis rows
 // are compared with tests/data/goldens/testrocket-<name>/mass.json. The number of configurations
 // compared is taken from the golden file: none is skipped, and none is compared twice. (The
-// file's "schema", "schemaVersion" and "input" are checked by goldens_schema_tests.cpp.)
+// file's "schema", "schemaVersion" and "input" are checked by goldens_schema_tests.cpp.) The
+// comparisons themselves (expectGoldenLocations() and expectGoldenMass()) are in
+// tests/core/goldens/GoldenDesign.h, for the tests of other designs to share.
 
 /// One test rocket of TestRockets.h against its golden mass data.
 class MassCalculatorGolden : public ::testing::TestWithParam<TestRocketMaker>
@@ -385,7 +184,9 @@ TEST_P(MassCalculatorGolden, RigidBodiesAndCMAnalysis)
     const Json                    mass   = loadGolden(input, "mass.json");
 
     expectGoldenLocations(*rocket, loadGolden(input, "geometry.json"));
-    const int compared = expectGoldenMass(*rocket, mass, GetParam().randomConfigurationId);
+    const QtRocket::InMemoryPreferences preferences;  // the golden names are an empty store's
+    const int                           compared =
+        expectGoldenMass(*rocket, mass, GetParam().randomConfigurationId, preferences);
     EXPECT_EQ(compared, static_cast<int>(mass.at("configurations").size()));
     EXPECT_EQ(rocket->getConfigurationCount() + 1, compared)
         << "the rocket has a configuration the golden file does not hold";

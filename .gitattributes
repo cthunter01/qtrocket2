@@ -8,3 +8,8 @@
 # Motor test files whose exact bytes are the point (CRLF and CR line ends, byte-order marks,
 # malformed UTF-8): no line-end conversion.
 tests/data/motors-edge/** -text
+
+# OpenRocket designs of old file format versions, copied byte for byte from OpenRocket's git history
+# (tests/data/ork/README.md lists the size and the SHA-256 of each; three of them are plain XML): no
+# line-end conversion.
+tests/data/ork/** -text

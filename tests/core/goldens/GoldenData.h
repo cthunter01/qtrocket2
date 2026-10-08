@@ -73,6 +73,15 @@ struct GoldenTable
 /// Reads a gzip-compressed branch CSV. A relative @p path is taken relative to goldensDir().
 [[nodiscard]] Result<GoldenTable> loadGoldenCsv(const std::filesystem::path& path);
 
+/// The time series of the branch @p branch of a simulation document (an entry of its "branches"):
+/// the name of the file its "csv" gives, which is in the document's directory, or nullopt when
+/// "csv" is null. A document without time series is what a stable-step set holds that is written
+/// as documents alone (GoldenManifest::hasStableTimeSeries()): the branch then still has its
+/// number of rows, its columns with their minima and maxima, its events, its optimum altitude
+/// and its separation time. Fails with ErrorCode::PARSE when @p branch is not an object or its
+/// "csv" is missing or neither a string nor null.
+[[nodiscard]] Result<std::optional<std::string>> goldenBranchCsv(const nlohmann::json& branch);
+
 /// Parses branch CSV text: a header line of column keys, then one line of values per row
 /// (Java's Double.toString, "NaN" and "Infinity" included), every line ended by '\n'. Fails with
 /// ErrorCode::PARSE on an empty text, a row whose length differs from the header's, or a value
@@ -82,18 +91,24 @@ struct GoldenTable
 /// One simulation of a golden input, as listed in manifest.json.
 struct GoldenSimulation
 {
-    std::string              name;
-    std::string              json;      ///< sim_<sim>.json, relative to goldensDir()
-    std::vector<std::string> branches;  ///< the branch CSV files (none for a skipped simulation)
+    std::string name;
+    std::string json;  ///< sim_<sim>.json, relative to goldensDir()
+    /// The branch CSV files. None for a skipped simulation, and none for a simulation of a
+    /// stable-step set without time series (GoldenManifest::hasStableTimeSeries()), whose
+    /// document alone says how many branches it has.
+    std::vector<std::string> branches;
 };
 
 /// One input design (an example file or a TestRockets factory), as listed in manifest.json.
 /// File names are relative to goldensDir().
 struct GoldenInput
 {
-    std::string                   name;    ///< e.g. "example-a-simple-model-rocket"
-    std::string                   kind;    ///< "example" or "testrocket"
-    std::string                   source;  ///< the data/examples file or the TestRockets method
+    std::string name;    ///< e.g. "example-a-simple-model-rocket"
+    std::string kind;    ///< "example" or "testrocket"
+    std::string source;  ///< the data/examples file or the TestRockets method
+    /// The SHA-256 of the data/examples file the goldens were made from, as 64 hexadecimal
+    /// digits ("sourceSha256"); empty for a test rocket, which is not made from a file.
+    std::string                   sourceSha256;
     std::string                   geometry;
     std::string                   mass;
     std::string                   aero;
@@ -115,10 +130,18 @@ struct GoldenManifest
     double stableTimeStep{};
     /// The kinds of the inputs that have a stable-step set ("settings.stableSimulationsOf").
     std::vector<std::string> stableSimulationsOf;
+    /// The kinds of stableSimulationsOf whose stable-step set has the time series of its branches
+    /// ("settings.stableTimeSeriesOf"). The set of the other kinds is the simulation documents
+    /// alone: no branch CSV file, and "csv" of every branch is null (goldenBranchCsv()).
+    std::vector<std::string> stableTimeSeriesOf;
     /// The salt of the component ids of a dump made with UUID_SALT ("settings.uuidSalt"); empty
     /// when the manifest has no such key. The committed data is never such a dump
     /// (GoldenSchema.ManifestDescribesItsSource).
-    std::string              uuidSalt;
+    std::string uuidSalt;
+    /// The pattern of a dump whose simulation runs were perturbed in the last bit, made with
+    /// LAST_BIT ("settings.lastBitPerturbation"); empty when the manifest has no such key. The
+    /// committed data is never such a dump either.
+    std::string              lastBitPerturbation;
     std::vector<GoldenInput> inputs;
 
     /// The input named @p name, or null.
@@ -126,13 +149,17 @@ struct GoldenManifest
 
     /// Whether the inputs of the kind of @p input have a stable-step set.
     [[nodiscard]] bool hasStableSimulations(const GoldenInput& input) const;
+
+    /// Whether the stable-step set of the inputs of the kind of @p input has the time series of
+    /// its branches (false also for a kind without a stable-step set).
+    [[nodiscard]] bool hasStableTimeSeries(const GoldenInput& input) const;
 };
 
 /// Reads goldensDir()/manifest.json.
 [[nodiscard]] Result<GoldenManifest> loadGoldenManifest();
 
 /// Interprets parsed manifest JSON (ErrorCode::PARSE when a required field is missing or has the
-/// wrong type).
+/// wrong type, or when "settings.stableTimeSeriesOf" names a kind that has no stable-step set).
 [[nodiscard]] Result<GoldenManifest> parseGoldenManifest(const nlohmann::json& manifest);
 
 /// The results of configuration @p index of an aero.json document: that configuration's own

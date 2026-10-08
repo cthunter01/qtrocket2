@@ -8,12 +8,19 @@
 #   JAVA             the java executable (default: java on PATH); it must be Java 17
 #   ALLOW_DIRTY=1    accept an OpenRocket checkout with modified, untracked or ignored source files, or a
 #                    preset submodule that is not at its recorded commit (manifest.json records "dirty")
-#   STABLE_EXAMPLES=1  also write the stable-step set (<input>/stable/) of the example-* inputs; that of the
-#                    testrocket-* inputs is always written. Off by default: those files are not committed
 #   GOLDENS_OUT      write into this directory instead of tests/data/goldens (a scratch copy of the data)
+#   STABLE_EXAMPLES  what is written of the stable-step set (<input>/stable/) of the example-* inputs:
+#                    "documents" (the default, which is the committed data: the simulation documents without
+#                    the time series of their branches), "full" (with the time series, as the set of the
+#                    testrocket-* inputs is always written) or "none"
 #   UUID_SALT        seed the component ids differently (any text), to measure how reproducible OpenRocket's
-#                    results are; needs GOLDENS_OUT naming another directory than tests/data/goldens, because
-#                    such a dump is never the committed data
+#                    results are for the test rockets
+#   LAST_BIT         perturb every simulation run in the last bit (a pattern such as "both-away" or
+#                    "all-random-a", see README.md), to measure the same for the designs loaded from files,
+#                    whose component ids the salt cannot change
+#
+# STABLE_EXAMPLES other than "documents", UUID_SALT and LAST_BIT need GOLDENS_OUT naming another directory
+# than tests/data/goldens, because such a dump is never the committed data.
 #
 # "--only <input name>" is the only argument: everything else GoldenDumper takes is set here, from the
 # checkout and the environment.
@@ -23,7 +30,8 @@
 set -euo pipefail
 
 # GoldenDumper takes the last value of an option it is given twice, so an argument passed through could
-# replace what this script checks (the output directory, the salt, the examples' stable-step set).
+# replace what this script checks (the output directory, the salt, the perturbation, the examples'
+# stable-step set).
 only=()
 while (($# > 0)); do
     if [[ "$1" != --only || $# -lt 2 || -z "$2" || "$2" == --* ]]; then
@@ -100,16 +108,34 @@ echo "OpenRocket: $openrocket @ $commit (presets @ $preset_commit)" >&2
 committed="$repo/tests/data/goldens"
 out="${GOLDENS_OUT:-$committed}"
 uuid_salt="${UUID_SALT:-}"
+last_bit="${LAST_BIT:-}"
+stable_examples="${STABLE_EXAMPLES:-documents}"
+case "$stable_examples" in
+documents | full | none) ;;
+*)
+    echo "error: STABLE_EXAMPLES is documents (the default), full or none, not $stable_examples" >&2
+    exit 2
+    ;;
+esac
+# What makes a dump that is never the committed data.
+scratch_only=()
+if [[ -n "$uuid_salt" ]]; then
+    scratch_only+=("UUID_SALT (other component ids)")
+fi
+if [[ -n "$last_bit" ]]; then
+    scratch_only+=("LAST_BIT (runs perturbed in the last bit)")
+fi
+if [[ "$stable_examples" != documents ]]; then
+    scratch_only+=("STABLE_EXAMPLES=$stable_examples (another stable-step set of the examples)")
+fi
 # "-ef": the same directory under whatever name (a relative path, a symbolic link); false for a directory
 # that does not exist yet, which cannot be the committed one.
-if [[ -n "$uuid_salt" && (-z "${GOLDENS_OUT:-}" || "$out" -ef "$committed") ]]; then
-    echo "error: UUID_SALT gives a dump with other component ids, which is never the committed data;" >&2
+if ((${#scratch_only[@]} > 0)) && [[ -z "${GOLDENS_OUT:-}" || "$out" -ef "$committed" ]]; then
+    for setting in "${scratch_only[@]}"; do
+        echo "error: $setting gives a dump that is never the committed data;" >&2
+    done
     echo "       set GOLDENS_OUT to a scratch directory for it (not $committed)" >&2
     exit 1
-fi
-stable_examples=false
-if [[ "${STABLE_EXAMPLES:-0}" == 1 ]]; then
-    stable_examples=true
 fi
 recorded="$(sed -n 's/^ *"openrocket": {"commit": "\([0-9a-f]*\)".*/\1/p' "$committed/manifest.json" 2>/dev/null || true)"
 if [[ -n "$recorded" && "$recorded" != "$commit" ]]; then
@@ -131,7 +157,8 @@ out="$(cd "$out" && pwd)"
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \
     --openrocket "$openrocket" --examples "$repo/data/examples" --out "$out" --work "$work" \
     --commit "$commit" --preset-commit "$preset_commit" --dirty "$dirty" \
-    --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" ${only[@]+"${only[@]}"}
+    --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" --last-bit "$last_bit" \
+    ${only[@]+"${only[@]}"}
 
 echo "Golden data size:" >&2
 du -sh "$out" >&2
