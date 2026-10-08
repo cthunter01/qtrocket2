@@ -269,24 +269,35 @@ add_executable(QtRocket_core_tests
     file/openrocket/BooleanSetterTests.cpp
     file/openrocket/ClusterConfigurationSetterTests.cpp
     file/openrocket/ColorSetterTests.cpp
+    file/openrocket/component_handler_robustness_tests.cpp
+    file/openrocket/ComponentHandlerTests.cpp
+    file/openrocket/ComponentHandlerTestSupport.cpp
+    file/openrocket/ComponentParameterHandlerTests.cpp
     file/openrocket/ComponentPresetSetterTests.cpp
     file/openrocket/ConfigHandlerTests.cpp
+    file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/DoubleSetterTests.cpp
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
     file/openrocket/EnumSetterTests.cpp
+    file/openrocket/FinSetPointHandlerTests.cpp
     file/openrocket/FinTabPositionSetterTests.cpp
     file/openrocket/handler_test_support_tests.cpp
+    file/openrocket/IgnitionConfigurationHandlerTests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
     file/openrocket/MaterialSetterTests.cpp
+    file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp
+    file/openrocket/MotorMountHandlerTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
+    file/openrocket/rocket_element_tests.cpp
     file/openrocket/setter_robustness_tests.cpp
     file/openrocket/setter_table_tests.cpp
     file/openrocket/setter_vectors_tests.cpp
+    file/openrocket/StageSeparationConfigurationHandlerTests.cpp
     file/openrocket/StringSetterTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp

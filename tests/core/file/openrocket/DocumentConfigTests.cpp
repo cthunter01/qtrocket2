@@ -36,6 +36,7 @@
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/BugError.h"
@@ -1362,6 +1363,64 @@ TEST(DocumentConfig, AttributeIsTheValueOfAnAttributeOrNothing)
     EXPECT_EQ(DocumentConfig::attribute(attributes, "METHOD"), std::nullopt);
     EXPECT_EQ(DocumentConfig::attribute(attributes, ""), std::nullopt);
     EXPECT_EQ(DocumentConfig::attribute(ElementHandler::Attributes{}, "method"), std::nullopt);
+}
+
+/// The text of DocumentConfig::configurationId() for an element whose configid is @p configId.
+[[nodiscard]] std::string idOf(std::string_view configId)
+{
+    return DocumentConfig::configurationId({{"configid", std::string(configId)}}).toString();
+}
+
+// The ids are OpenRocket's (HandlerProbe.java of part R3, out/MotorConfigurationHandler.java.out,
+// case mc-text-configids).
+TEST(DocumentConfig, ConfigurationIdIsTheIdOpenRocketMakesOfTheAttribute)
+{
+    // A UUID as java.util.UUID.fromString() reads one, short groups and capital letters included.
+    EXPECT_EQ(idOf("11111111-2222-3333-4444-555555555555"), "11111111-2222-3333-4444-555555555555");
+    EXPECT_EQ(idOf("AAAAAAAA-2222-3333-4444-555555555555"), "aaaaaaaa-2222-3333-4444-555555555555");
+    EXPECT_EQ(idOf("1-2-3-4-5"), "00000001-0002-0003-0004-000000000005");
+    // Any other text: new UUID(0, text.hashCode()), as the oldest files name their
+    // configurations. The hash is Java's, of the UTF-16 form, and may be negative.
+    EXPECT_EQ(idOf("abc"), "00000000-0000-0000-0000-000000017862");
+    EXPECT_EQ(idOf("def"), "00000000-0000-0000-0000-000000018405");
+    EXPECT_EQ(idOf("zzzzzzzzzz"), "00000000-0000-0000-ffff-ffffa1c42c40");
+    EXPECT_EQ(idOf(" "), "00000000-0000-0000-0000-000000000020");
+    EXPECT_EQ(idOf("\u00e4\u20ac\U0001d11e"), "00000000-0000-0000-0000-000000fd55b2");
+}
+
+TEST(DocumentConfig, ConfigurationIdIsANewRandomIdWithoutAText)
+{
+    // No attribute, and an empty one: a random id each time, never one of the two reserved ids.
+    const QtRocket::FlightConfigurationId none  = DocumentConfig::configurationId({});
+    const QtRocket::FlightConfigurationId again = DocumentConfig::configurationId({});
+    const QtRocket::FlightConfigurationId empty =
+        DocumentConfig::configurationId({{"configid", ""}});
+    EXPECT_NE(none, again);
+    EXPECT_NE(none, empty);
+    EXPECT_TRUE(none.isValid());
+    EXPECT_FALSE(none.isDefaultId());
+    EXPECT_TRUE(empty.isValid());
+    EXPECT_FALSE(empty.isDefaultId());
+    // Other attributes are not looked at, and the name is compared exactly.
+    EXPECT_NE(DocumentConfig::configurationId({{"ConfigId", "abc"}, {"id", "abc"}}).toString(),
+              "00000000-0000-0000-0000-000000017862");
+}
+
+// In OpenRocket no text makes one of the two reserved ids (it tells them by the identity of
+// their key objects); here ids are values, and a text that spells out a reserved key is that
+// id. Each handler says what it does with them.
+TEST(DocumentConfig, ConfigurationIdCanBeAReservedIdWhenTheTextSpellsItOut)
+{
+    const QtRocket::FlightConfigurationId error =
+        DocumentConfig::configurationId({{"configid", "ffffffff-f4f2-f1f0-0000-0000000009b9"}});
+    EXPECT_FALSE(error.isValid());
+    EXPECT_EQ(error, QtRocket::FlightConfigurationId::errorId());
+
+    const QtRocket::FlightConfigurationId standard =
+        DocumentConfig::configurationId({{"configid", "ffffffff-f4f2-f1f0-0000-00000000162c"}});
+    EXPECT_TRUE(standard.isValid());
+    EXPECT_TRUE(standard.isDefaultId());
+    EXPECT_EQ(standard, QtRocket::FlightConfigurationId::defaultValueId());
 }
 
 }  // namespace

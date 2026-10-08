@@ -46,6 +46,7 @@
 #include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/FreeformFinSet.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/LaunchLug.h"
@@ -938,6 +939,13 @@ std::optional<std::string_view> DocumentConfig::attribute(
         return std::nullopt;
     }
     return std::string_view(found->second);
+}
+
+FlightConfigurationId DocumentConfig::configurationId(const ElementHandler::Attributes& attributes)
+{
+    const std::optional<std::string_view> text = attribute(attributes, "configid");
+    // Java's null and the empty text alike: a new random id.
+    return text.has_value() ? FlightConfigurationId::fromString(*text) : FlightConfigurationId{};
 }
 
 std::string DocumentConfig::javaClassName(const RocketComponent& component)

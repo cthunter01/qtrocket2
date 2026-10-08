@@ -14,6 +14,7 @@
 
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
@@ -63,6 +64,8 @@ class Setter;
 ///   every handler and setter that reads one needs.
 /// - javaClassName() has no counterpart: it is Class.getCanonicalName() of a component, which
 ///   the warnings of the position setters contain.
+/// - configurationId() has no counterpart: it is new FlightConfigurationId(attributes.get(
+///   "configid")), which five handlers call for the element of one flight configuration.
 /// - findEnum() takes the constants and a function that gives a constant's Java name, where
 ///   Java takes the enum's class and reflects on it.
 /// - stringToDouble() returns a failure with the message of Java's NumberFormatException,
@@ -154,6 +157,20 @@ public:
     /// @p attributes.
     [[nodiscard]] static std::optional<std::string_view> attribute(
         const ElementHandler::Attributes& attributes, std::string_view name);
+
+    /// The flight configuration an element is for, as its attribute "configid" names it (Java:
+    /// new FlightConfigurationId(attributes.get("configid"))): a new random id when the element
+    /// has no such attribute or an empty one, the id the text gives when it is a UUID as
+    /// java.util.UUID.fromString() reads one, and otherwise the id OpenRocket makes of any
+    /// other text, new UUID(0, text.hashCode()) (the files of the oldest formats number their
+    /// configurations with short texts). See FlightConfigurationId::fromString().
+    ///
+    /// The result can be one of the two reserved ids, when the file spells out its key:
+    /// FlightConfigurationId::errorId(), which is not valid, and defaultValueId(). In Java
+    /// neither can come out of a text (see FlightConfigurationId); each handler says what it
+    /// does with them.
+    [[nodiscard]] static FlightConfigurationId configurationId(
+        const ElementHandler::Attributes& attributes);
 
     /// The canonical name of the Java class of @p component, as three warnings of the position
     /// setters have it (Java: c.getClass().getCanonicalName()):

@@ -15,19 +15,27 @@ target_sources(QtRocket_core PRIVATE
     openrocket/BooleanSetter.cpp
     openrocket/ClusterConfigurationSetter.cpp
     openrocket/ColorSetter.cpp
+    openrocket/ComponentHandler.cpp
+    openrocket/ComponentParameterHandler.cpp
     openrocket/ComponentPresetSetter.cpp
     openrocket/ConfigHandler.cpp
+    openrocket/DeploymentConfigurationHandler.cpp
     openrocket/DocumentConfig.cpp
     openrocket/DoubleSetter.cpp
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
     openrocket/EnumSetter.cpp
+    openrocket/FinSetPointHandler.cpp
     openrocket/FinTabPositionSetter.cpp
+    openrocket/IgnitionConfigurationHandler.cpp
     openrocket/IntSetter.cpp
     openrocket/MaterialSetter.cpp
+    openrocket/MotorConfigurationHandler.cpp
     openrocket/MotorHandler.cpp
+    openrocket/MotorMountHandler.cpp
     openrocket/OverrideSetter.cpp
     openrocket/RadiusPositionSetter.cpp
+    openrocket/StageSeparationConfigurationHandler.cpp
     openrocket/StringSetter.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
