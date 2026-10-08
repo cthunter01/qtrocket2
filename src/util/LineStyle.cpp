@@ -97,4 +97,16 @@ std::optional<LineStyle> lineStyleFromString(std::string_view text) noexcept
     return std::nullopt;
 }
 
+std::optional<LineStyle> lineStyleFromOrkName(std::string_view text)
+{
+    for (const LineStyle style : kAllLineStyles)
+    {
+        if (Strings::orkEnumNameMatches(text, lineStyleName(style)))
+        {
+            return style;
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace QtRocket

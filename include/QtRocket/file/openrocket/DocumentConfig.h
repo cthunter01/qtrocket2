@@ -3,25 +3,67 @@
 #include <array>
 #include <concepts>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <ranges>
+#include <span>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
+#include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
 
+class RocketComponent;
+class Setter;
+
 /// What every handler of the .ork loader shares (OpenRocket's
-/// file/openrocket/importt/DocumentConfig): the format versions the loader knows, and the
+/// file/openrocket/importt/DocumentConfig): the format versions the loader knows, the table of
+/// the components a file can hold, the table of the setters of their parameters, and the
 /// helpers that read an enum constant and a number as an .ork file writes them.
 ///
-/// Not here yet: Java's DocumentConfig also holds the table of component constructors by
-/// element name and the table of setters by "Class:element" (see the HOOK line in the class).
+/// The component table (Java: constructors) makes a component for an element name:
+/// createComponent(). It has 22 names for 21 classes, "boosterset" being the old name of a
+/// "parallelstage". "rocket" is not among them: a file's one rocket is the document's, and a
+/// second <rocket> below it is an unknown element.
+///
+/// The setter table (Java: setters) has one entry per parameter of a class, under the key
+/// "Class:element" with the class's Java name: a setter ("BodyTube:radius"), or the refusal of
+/// the element for that class and the classes below it (Java: a null entry; a nose cone has no
+/// fore shoulder, so "NoseCone:foreradius" and four more refuse what "Transition:foreradius"
+/// would set). findSetter() walks the Java superclasses of a component's kind, nearest first,
+/// as ComponentParameterHandler does, and stops at the first class that has an entry. So an
+/// entry of a class hides the entry of the same element higher up ("Parachute:preset" before
+/// "RocketComponent:preset"), and a booster set finds the entries of AxialStage.
+///
+/// The loader has no version switch: every element of every format version from 1.0 on is in
+/// the one table, the old names next to the new ones (position and axialoffset, fincount and
+/// instancecount, rotation and angleoffset, overridesubcomponents and the three flags it sets).
+///
+/// HOOK(R2): 22 of Java's 135 entries are not in the table yet, those of the setters that part
+/// R2 of run 9b adds (the position, material, preset, fin tab and cluster setters). Each has a
+/// HOOK(R2) line at its place in DocumentConfig.cpp. Until then their elements are unknown.
 ///
 /// Deviations from OpenRocket:
+/// - The tables are private and reached through createComponent(), componentElements(),
+///   findSetter(), setterKeys() and refusedKeys() (Java: two package-private HashMaps). The
+///   setters call the components' methods through functions the table makes, not through
+///   reflection, so a class with no entry of its own needs none: the walk is over the names
+///   componentClassChain() gives.
+/// - A setter that is applied to a component of another class than the one of its key throws
+///   BugError (Java: a BugException out of Reflection.Method.invoke()). The walk cannot bring
+///   that about; only a caller that picks a setter by hand can.
+/// - The setters of the instance counts that no component bounds, and of a parachute's line
+///   count, refuse a number above kMaxCount (decision L6 of the loader; see IntSetter).
+/// - "RocketComponent:id" fails the load for a text that is no UUID, as in Java, with
+///   ErrorCode::INVALID_ARGUMENT and the message of Java's exception (Uuid::javaFromString()).
+/// - attribute() has no counterpart: it is HashMap.get() for an element's attributes, which
+///   every handler and setter that reads one needs.
 /// - findEnum() takes the constants and a function that gives a constant's Java name, where
 ///   Java takes the enum's class and reflects on it.
 /// - stringToDouble() returns a failure with the message of Java's NumberFormatException,
@@ -52,7 +94,67 @@ public:
     /// of its own, which a JUnit test compares with this).
     static constexpr int kFileVersionDivisor = 100;
 
-    // HOOK(loader-registry): run 9b adds the constructor and setter registries
+    /// The largest count a file may set where the component has no bound of its own (decision
+    /// L6 of the loader): the instances of a launch lug, a rail button, a centering ring or
+    /// bulkhead, a pod set and a booster set, and the lines of a parachute. A larger number is
+    /// refused with Warning::kFileInvalidParameter. OpenRocket has no such bound; with the
+    /// rocket's events on while a file loads, a count of two thousand million would make the
+    /// loader build that many instances at every later change.
+    static constexpr int kMaxCount = 10000;
+
+    /// The element names of the components a file can hold (the keys of Java's constructors),
+    /// sorted: the 22 names createComponent() knows.
+    [[nodiscard]] static std::span<const std::string_view> componentElements() noexcept;
+
+    /// A new component of the class the component table has for @p element, as its default
+    /// constructor makes it, or null when the table has no such element (Java:
+    /// constructors.get(element), then newInstance()). The name is compared exactly. "stage"
+    /// is an AxialStage, "boosterset" and "parallelstage" a ParallelStage; "rocket" has no
+    /// entry, although componentKindFromXmlName() knows it.
+    ///
+    /// Java's constructors take a new component's materials from the application's
+    /// preferences; here a new component has the built-in defaults (see ExternalComponent).
+    [[nodiscard]] static std::unique_ptr<RocketComponent> createComponent(std::string_view element);
+
+    /// What the walk along a component's classes found for an element.
+    struct SetterLookup
+    {
+        /// The setter to apply; null when the element is refused or no class knows it.
+        const Setter* setter{nullptr};
+        /// The Java name of the class whose entry ended the walk ("Transition" for the shape
+        /// of a nose cone); empty when no class of the chain has an entry for the element.
+        std::string_view owner;
+
+        /// Whether a class of the chain refuses the element (Java: a null entry).
+        [[nodiscard]] bool isRefused() const noexcept
+        {
+            return setter == nullptr && !owner.empty();
+        }
+    };
+
+    /// The setter of the parameter element @p element for a component of @p kind (the search
+    /// of ComponentParameterHandler.closeElement()): for each class of
+    /// componentClassChain(kind), nearest first, the entry "Class:element" of the setter table;
+    /// the first class that has one ends the walk, with its setter or with its refusal. The
+    /// name is compared exactly.
+    ///
+    /// The caller applies the setter, and for a null setter, refused or unknown alike, adds
+    /// OpenRocket's warning "Unknown parameter type '<element>' for <component name>,
+    /// ignoring.".
+    [[nodiscard]] static SetterLookup findSetter(ComponentKind kind, std::string_view element);
+
+    /// The keys of the setter table that have a setter ("BodyTube:radius"), sorted.
+    [[nodiscard]] static std::vector<std::string_view> setterKeys();
+
+    /// The keys of the setter table that refuse their element (Java: the null entries), sorted:
+    /// the five of NoseCone.
+    [[nodiscard]] static std::vector<std::string_view> refusedKeys();
+
+    /// The attribute @p name of an element, or nullopt when the element has none (Java:
+    /// attributes.get(name), null when absent). The name is compared exactly. The view is into
+    /// @p attributes.
+    [[nodiscard]] static std::optional<std::string_view> attribute(
+        const ElementHandler::Attributes& attributes, std::string_view name);
 
     /// Whether @p version is one of kSupportedVersions, compared exactly ("1.10" is, "1.1 "
     /// and "01.1" are not).

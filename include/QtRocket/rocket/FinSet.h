@@ -136,8 +136,14 @@ inline constexpr std::array<FinCrossSection, 3> kAllFinCrossSections{
 /// - A parent that is not a SymmetricComponent throws BugError where Java throws
 ///   ClassCastException (no component other than a body component accepts a fin set), and so do
 ///   setFilletMaterial() of a material that is not BULK (Java: IllegalArgumentException) and a
-///   root for which no point can be made (a canted fin set of negative length; Java: an
-///   IndexOutOfBoundsException).
+///   root for which no point can be made because of the division count a caller of
+///   getRootPoints(int) asks for (a negative one; Java: an IndexOutOfBoundsException).
+/// - A canted fin set, or one on a curved body, whose length is negative has a root of its two
+///   ends, as it has on a simple body. OpenRocket makes no root point for it and fails with an
+///   IndexOutOfBoundsException wherever the fin's outline or the rocket's bounds are asked for.
+///   An .ork file can hold such a fin set (an elliptical one with a negative root chord, a
+///   freeform outline that runs forwards) next to a shock cord whose automatic length asks
+///   for the rocket's length while the file loads: the loader must not fail on it.
 /// - calculateCurveIntegral(), translatePoints() and calculateFilletVolumeCentroid() are public
 ///   (Java: protected, used by the tests of the same package), and reverse() is static.
 /// - splitFins() hands the replaced fin set back (see RocketComponent::splitInstances()).

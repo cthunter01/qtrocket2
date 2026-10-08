@@ -10,11 +10,18 @@ target_sources(QtRocket_core PRIVATE
     motor/RockSimMotorLoader.cpp
     motor/RockSimMotorWriter.cpp
     motor/ZipFileMotorLoader.cpp
+    openrocket/BooleanSetter.cpp
+    openrocket/ColorSetter.cpp
     openrocket/ConfigHandler.cpp
     openrocket/DocumentConfig.cpp
+    openrocket/DoubleSetter.cpp
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
+    openrocket/EnumSetter.cpp
+    openrocket/IntSetter.cpp
     openrocket/MotorHandler.cpp
+    openrocket/OverrideSetter.cpp
+    openrocket/StringSetter.cpp
     simplesax/AbstractElementHandler.cpp
     simplesax/DelegatorHandler.cpp
     simplesax/NullElementHandler.cpp

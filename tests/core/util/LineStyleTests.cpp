@@ -14,6 +14,7 @@ using QtRocket::dashes;
 using QtRocket::displayKey;
 using QtRocket::kAllLineStyles;
 using QtRocket::LineStyle;
+using QtRocket::lineStyleFromOrkName;
 using QtRocket::lineStyleFromString;
 using QtRocket::lineStyleName;
 using QtRocket::toString;
@@ -71,9 +72,35 @@ TEST(LineStyle, NameIsTheEnumConstant)
     }
 }
 
+TEST(LineStyle, FromOrkNameMatchesAsOpenRocketsFindEnumDoes)
+{
+    // DocumentConfig.findEnum(text, LineStyle.class): the text trimmed as String.trim() trims,
+    // compared exactly with the constant's name in lower case (probe SetterProbe of tier 9b,
+    // the cases of "RocketComponent:linestyle", and DocumentConfigProbe of tier 9a).
+    EXPECT_EQ(lineStyleFromOrkName("solid"), LineStyle::SOLID);
+    EXPECT_EQ(lineStyleFromOrkName("dashed"), LineStyle::DASHED);
+    EXPECT_EQ(lineStyleFromOrkName("dotted"), LineStyle::DOTTED);
+    EXPECT_EQ(lineStyleFromOrkName("dashdot"), LineStyle::DASHDOT);
+    EXPECT_EQ(lineStyleFromOrkName(" solid "), LineStyle::SOLID);
+    EXPECT_EQ(lineStyleFromOrkName("\tdashdot\n"), LineStyle::DASHDOT);
+
+    // Where lineStyleFromString() ignores case, this does not.
+    EXPECT_EQ(lineStyleFromOrkName("DASHED"), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("Solid"), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("SOLID"), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("dash_dot"), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("dash-dot"), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName(""), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("   "), std::nullopt);
+    EXPECT_EQ(lineStyleFromOrkName("solids"), std::nullopt);
+    // A no-break space is no white space to String.trim().
+    EXPECT_EQ(lineStyleFromOrkName("\xC2\xA0solid"), std::nullopt);
+}
+
 TEST(LineStyle, FromStringTrimsAndIgnoresCase)
 {
-    // DocumentConfig.findEnum trims; the preference store keeps the upper-case enum name.
+    // The preference store keeps the upper-case enum name; this lookup takes it and the .ork
+    // spelling alike. (OpenRocket's own lookup for .ork files is lineStyleFromOrkName().)
     EXPECT_EQ(lineStyleFromString(" dashed\n"), LineStyle::DASHED);
     EXPECT_EQ(lineStyleFromString("DASHDOT"), LineStyle::DASHDOT);
     EXPECT_EQ(lineStyleFromString("Dotted"), LineStyle::DOTTED);

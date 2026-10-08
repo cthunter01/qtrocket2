@@ -647,6 +647,16 @@ std::vector<Coordinate> FinSet::getMountPoints(double xStart, double xEnd, doubl
         const double xWidth = 0.0025;  // width (in metres) of each individual iteration
         divisionCount       = MathUtil::javaIntCast(std::ceil(intervalLength / xWidth));
 
+        // Deviation: a root of negative length (an elliptical fin set with a negative root
+        // chord, a freeform outline that runs forwards: an .ork file can hold either) gives a
+        // negative count, for which OpenRocket makes no point and then fails with an
+        // IndexOutOfBoundsException. Such a root is one increment here, as the root of a simple
+        // body is whatever its length, so that asking a rocket for its bounds cannot fail on it.
+        if (divisionCount < 0)
+        {
+            divisionCount = 1;
+        }
+
         // When creating body curves, don't create more than this many divisions; only relevant
         // on very large components.
         divisionCount = std::min(maximumBodyDivisionCount, divisionCount);
@@ -675,7 +685,8 @@ std::vector<Coordinate> FinSet::getMountPoints(double xStart, double xEnd, doubl
     }
     if (points.empty())
     {
-        // Java: an IndexOutOfBoundsException below (a canted or curved root of negative length).
+        // Java: an IndexOutOfBoundsException below. Only a caller's division count can bring it
+        // about now: a negative one, or Integer.MAX_VALUE for a root that long.
         bug("the fin set " + getName() + " has no root points");
     }
 

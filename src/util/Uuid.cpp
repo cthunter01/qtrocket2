@@ -1,17 +1,19 @@
 #include "QtRocket/util/Uuid.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <format>
 #include <limits>
 #include <mutex>
-#include <optional>
 #include <random>
 #include <string>
 #include <string_view>
 
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -44,34 +46,55 @@ constexpr std::size_t kTextLength = 36;  // 32 hexadecimal digits and 4 dashes
     return -1;
 }
 
-/// Java's Long.parseLong(group, 16) for one group of a UUID: an optional '+', then one or more
-/// hexadecimal digits whose value fits a signed 64-bit long; nullopt otherwise (Java:
-/// NumberFormatException). A '-' sign cannot occur, the groups being split at the dashes.
-[[nodiscard]] std::optional<std::uint64_t> parseJavaHexLong(std::string_view group) noexcept
+/// The largest value of a Java long.
+constexpr auto kLongMax = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+
+/// The message of the NumberFormatException Long.parseLong(name, begin, end, 16) throws for the
+/// character at the byte @p index of @p group (NumberFormatException.forCharSequence()): the
+/// place is counted in UTF-16 code units, as Java counts.
+[[nodiscard]] std::unexpected<std::string> errorAt(std::string_view group, std::size_t index)
 {
-    if (!group.empty() && group.front() == '+')
-    {
-        group.remove_prefix(1);
-    }
+    return std::unexpected(std::format("Error at index {} in: \"{}\"",
+                                       Strings::javaLength(group.substr(0, index)), group));
+}
+
+/// Java's Long.parseLong(name, begin, end, 16) for one group of a UUID: an optional '+', then
+/// one or more hexadecimal digits whose value fits a signed 64-bit long. A group that is not
+/// that gives the message of Java's NumberFormatException instead: an empty one for an empty
+/// group, else errorAt() the first character that is wrong: a character that is no digit, the
+/// end of a group that is only a sign, or the digit that would take the value beyond
+/// Long.MAX_VALUE. A '-' sign cannot occur, the groups being split at the dashes.
+[[nodiscard]] std::expected<std::uint64_t, std::string> parseJavaHexLong(std::string_view group)
+{
     if (group.empty())
     {
-        return std::nullopt;
+        return std::unexpected(std::string{});
     }
-    constexpr auto kLimit = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
-    std::uint64_t  value  = 0;
-    for (const char ch : group)
+    std::size_t index = 0;
+    // "if (firstChar < '0')": a possible sign; of the characters below '0' only '+' is one here.
+    if (static_cast<unsigned char>(group.front()) < static_cast<unsigned char>('0'))
     {
-        const int digit = hexValue(ch);
-        if (digit < 0)
+        if (group.front() != '+')
         {
-            return std::nullopt;
+            return errorAt(group, 0);
         }
-        const auto digitValue = static_cast<std::uint64_t>(digit);
-        if (value > (kLimit - digitValue) / 16)
+        index = 1;
+        if (group.size() == 1)
         {
-            return std::nullopt;  // beyond Long.MAX_VALUE
+            return errorAt(group, 1);  // Cannot have lone "+"
         }
-        value = (value * 16) + digitValue;
+    }
+    std::uint64_t value = 0;
+    for (; index < group.size(); ++index)
+    {
+        const int digit = hexValue(group[index]);
+        // "digit < 0 || result < multmin": no digit, or sixteen times the value so far is
+        // beyond Long.MAX_VALUE.
+        if (digit < 0 || value > kLongMax / 16)
+        {
+            return errorAt(group, index);
+        }
+        value = (value * 16) + static_cast<std::uint64_t>(digit);
     }
     return value;
 }
@@ -145,38 +168,32 @@ Result<Uuid> Uuid::parse(std::string_view text)
 
 Result<Uuid> Uuid::javaFromString(std::string_view text)
 {
-    // JDK 17's UUID.fromString(): at most 36 characters, exactly four dashes, five groups.
-    if (text.size() > kTextLength)
+    // JDK 17's UUID.fromString(), that is its fromString1(): the quick path it has for the
+    // canonical form gives the same value and leaves every other text to fromString1().
+    if (Strings::javaLength(text) > kTextLength)
     {
-        return fail(ErrorCode::PARSE, std::format("UUID string too large: '{}'", text));
+        return fail(ErrorCode::PARSE, "UUID string too large");
+    }
+    // "dash4 < 0" and "dash5 >= 0": exactly four dashes, whatever stands between them.
+    if (std::ranges::count(text, '-') != 4)
+    {
+        return fail(ErrorCode::PARSE, std::format("Invalid UUID string: {}", text));
     }
     std::array<std::uint64_t, 5> groups{};
-    std::size_t                  groupIndex = 0;
-    std::string_view             rest       = text;
-    while (true)
+    std::string_view             rest = text;
+    for (std::uint64_t& group : groups)
     {
-        const std::size_t      dash  = rest.find('-');
-        const std::string_view group = rest.substr(0, dash);
-        if (groupIndex >= groups.size())
+        // Long.parseLong(name, begin, end, 16) of each group in turn: the first that is no
+        // number fails with its NumberFormatException.
+        const std::size_t                               dash = rest.find('-');
+        const std::expected<std::uint64_t, std::string> value =
+            parseJavaHexLong(rest.substr(0, dash));
+        if (!value.has_value())
         {
-            return fail(ErrorCode::PARSE, std::format("Invalid UUID string: '{}'", text));
+            return fail(ErrorCode::PARSE, value.error());
         }
-        const std::optional<std::uint64_t> value = parseJavaHexLong(group);
-        if (!value)
-        {
-            return fail(ErrorCode::PARSE, std::format("Invalid UUID string: '{}'", text));
-        }
-        groups.at(groupIndex) = *value;
-        ++groupIndex;
-        if (dash == std::string_view::npos)
-        {
-            break;
-        }
-        rest = rest.substr(dash + 1);
-    }
-    if (groupIndex != groups.size())
-    {
-        return fail(ErrorCode::PARSE, std::format("Invalid UUID string: '{}'", text));
+        group = *value;
+        rest  = dash == std::string_view::npos ? std::string_view{} : rest.substr(dash + 1);
     }
 
     // The low 32, 16, 16, 16 and 48 bits of the groups.

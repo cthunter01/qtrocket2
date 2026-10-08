@@ -236,29 +236,114 @@ TEST(Uuid, JavaFromStringTakesWhatJavaUtilUuidTakes)
               "ffffffff-0000-0000-0000-000000000000");
 }
 
+/// What javaFromString() fails @p text with, as "<code>: <message>", or "parsed <uuid>".
+[[nodiscard]] std::string javaFailure(std::string_view text)
+{
+    const auto parsed = Uuid::javaFromString(text);
+    if (parsed.has_value())
+    {
+        return "parsed " + parsed->toString();
+    }
+    return std::string(QtRocket::toString(parsed.error().code)) + ": " + parsed.error().message;
+}
+
+/// @p count times @p text.
+[[nodiscard]] std::string repeated(std::string_view text, int count)
+{
+    std::string result;
+    for (int i = 0; i < count; ++i)
+    {
+        result.append(text);
+    }
+    return result;
+}
+
+// The messages are the ones of JDK 17's UUID.fromString() (probes UuidProbe and UuidProbe2 of
+// tier 9b, part R1): an IllegalArgumentException of its own for the length and the dashes, and
+// the NumberFormatException of Long.parseLong for a group that is no number. The .ork loader
+// fails a load with them when the <id> of a component is no UUID.
 TEST(Uuid, JavaFromStringRejectsWhatJavaUtilUuidRejects)
 {
-    const std::vector<std::string_view> bad = {
-        "",
-        "not a uuid",
-        "1-2-3-4",                                // four groups
-        "1-2-3-4-5-6",                            // six groups
-        "1--3-4-5",                               // an empty group
-        "1-2-3-4-",                               // an empty last group
-        "+-2-3-4-5",                              // a lone sign
-        "1-2-3-4-5g",                             // not a hexadecimal digit
-        " 1-2-3-4-5",                             // whitespace
-        "8000000000000000-0-0-0-0",               // beyond Long.MAX_VALUE
-        "123e4567-e89b-12d3-a456-4266141740000",  // 37 characters
-        "{123e4567-e89b-12d3-a456-426614174000}",
-    };
-    for (const std::string_view text : bad)
-    {
-        const auto parsed = Uuid::javaFromString(text);
-        ASSERT_FALSE(parsed.has_value()) << "'" << text << "' parsed";
-        EXPECT_EQ(parsed.error().code, ErrorCode::PARSE) << text;
-        EXPECT_NE(parsed.error().message.find("UUID"), std::string::npos) << text;
-    }
+    // Not four dashes.
+    EXPECT_EQ(javaFailure(""), "PARSE: Invalid UUID string: ");
+    EXPECT_EQ(javaFailure("not a uuid"), "PARSE: Invalid UUID string: not a uuid");
+    EXPECT_EQ(javaFailure("not-a-uuid"), "PARSE: Invalid UUID string: not-a-uuid");
+    EXPECT_EQ(javaFailure("1-2-3-4"), "PARSE: Invalid UUID string: 1-2-3-4");
+    EXPECT_EQ(javaFailure("1-2-3-4-5-6"), "PARSE: Invalid UUID string: 1-2-3-4-5-6");
+    EXPECT_EQ(javaFailure("-----"), "PARSE: Invalid UUID string: -----");
+    EXPECT_EQ(javaFailure("-a-b-c-d-e"), "PARSE: Invalid UUID string: -a-b-c-d-e");
+    EXPECT_EQ(javaFailure("1-2-3-4--5"), "PARSE: Invalid UUID string: 1-2-3-4--5");
+    EXPECT_EQ(javaFailure("123e4567ze89b-12d3-a456-426614174000"),
+              "PARSE: Invalid UUID string: 123e4567ze89b-12d3-a456-426614174000");
+    // More than 36 characters: the text is not named.
+    EXPECT_EQ(javaFailure("123e4567-e89b-12d3-a456-4266141740000"), "PARSE: UUID string too large");
+    EXPECT_EQ(javaFailure("{123e4567-e89b-12d3-a456-426614174000}"),
+              "PARSE: UUID string too large");
+    EXPECT_EQ(javaFailure("0000000000000000000000000000001-2-3-4-5"),
+              "PARSE: UUID string too large");
+    // An empty group: a NumberFormatException without a message.
+    EXPECT_EQ(javaFailure("1--3-4-5"), "PARSE: ");
+    EXPECT_EQ(javaFailure("1-2-3-4-"), "PARSE: ");
+    EXPECT_EQ(javaFailure("-2-3-4-5"), "PARSE: ");
+    EXPECT_EQ(javaFailure("----"), "PARSE: ");
+    // A group that is no number: where it goes wrong, and the group.
+    EXPECT_EQ(javaFailure("+-2-3-4-5"), "PARSE: Error at index 1 in: \"+\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-+"), "PARSE: Error at index 1 in: \"+\"");
+    EXPECT_EQ(javaFailure("++1-2-3-4-5"), "PARSE: Error at index 1 in: \"++1\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-5g"), "PARSE: Error at index 1 in: \"5g\"");
+    EXPECT_EQ(javaFailure("g-2-3-4-5"), "PARSE: Error at index 0 in: \"g\"");
+    EXPECT_EQ(javaFailure("1-2-x-4-5"), "PARSE: Error at index 0 in: \"x\"");
+    EXPECT_EQ(javaFailure(" 1-2-3-4-5"), "PARSE: Error at index 0 in: \" 1\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-5 "), "PARSE: Error at index 1 in: \"5 \"");
+    EXPECT_EQ(javaFailure("1-2-3-4-/"), "PARSE: Error at index 0 in: \"/\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-:"), "PARSE: Error at index 0 in: \":\"");
+    EXPECT_EQ(javaFailure("12345678-12g4-1234-1234-123456789012"),
+              "PARSE: Error at index 2 in: \"12g4\"");
+    EXPECT_EQ(javaFailure("123e4567-e89b-12d3-a456-42661417400g"),
+              "PARSE: Error at index 11 in: \"42661417400g\"");
+    // The first group that is no number is the one named.
+    EXPECT_EQ(javaFailure("1-x-y-4-5"), "PARSE: Error at index 0 in: \"x\"");
+    // Beyond Long.MAX_VALUE: the digit that would take the value there.
+    EXPECT_EQ(javaFailure("8000000000000000-0-0-0-0"),
+              "PARSE: Error at index 15 in: \"8000000000000000\"");
+    EXPECT_EQ(javaFailure("ffffffffffffffffff-0-0-0-0"),
+              "PARSE: Error at index 15 in: \"ffffffffffffffffff\"");
+    EXPECT_EQ(javaFailure("7ffffffffffffffff-0-0-0-0"),
+              "PARSE: Error at index 16 in: \"7ffffffffffffffff\"");
+    EXPECT_EQ(javaFailure("+8000000000000000-0-0-0-0"),
+              "PARSE: Error at index 16 in: \"+8000000000000000\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-10000000000000000"),
+              "PARSE: Error at index 16 in: \"10000000000000000\"");
+    // And what is just within it.
+    EXPECT_EQ(javaFailure("7ffffffffffffff0-0-0-0-0"),
+              "parsed fffffff0-0000-0000-0000-000000000000");
+    EXPECT_EQ(javaFailure("+7fffffffffffffff-0-0-0-0"),
+              "parsed ffffffff-0000-0000-0000-000000000000");
+    EXPECT_EQ(javaFailure("1-2-3-+4-5"), "parsed 00000001-0002-0003-0004-000000000005");
+}
+
+TEST(Uuid, JavaFromStringCountsCharactersAsJavaDoes)
+{
+    // U+00E9 is two bytes and one character; U+1F600 is four bytes and two UTF-16 code units.
+    constexpr std::string_view kEAcute = "\xC3\xA9";
+    constexpr std::string_view kEmoji  = "\xF0\x9F\x98\x80";
+
+    // 36 characters are not too large, however many bytes they are.
+    EXPECT_EQ(javaFailure(repeated(kEAcute, 36)),
+              "PARSE: Invalid UUID string: " + repeated(kEAcute, 36));
+    EXPECT_EQ(javaFailure(repeated(kEAcute, 37)), "PARSE: UUID string too large");
+    EXPECT_EQ(javaFailure(repeated(kEmoji, 18)),
+              "PARSE: Invalid UUID string: " + repeated(kEmoji, 18));
+    EXPECT_EQ(javaFailure(repeated(kEmoji, 19)), "PARSE: UUID string too large");
+
+    // The place of a wrong character is its place among the characters.
+    EXPECT_EQ(javaFailure("\xC3\xA9-2-3-4-5"), "PARSE: Error at index 0 in: \"\xC3\xA9\"");
+    EXPECT_EQ(javaFailure("1\xC3\xA9-2-3-4-5"), "PARSE: Error at index 1 in: \"1\xC3\xA9\"");
+    EXPECT_EQ(javaFailure("1-2-3-4-5\xC3\xA9"), "PARSE: Error at index 1 in: \"5\xC3\xA9\"");
+    EXPECT_EQ(javaFailure("ab\xF0\x9F\x98\x80"
+                          "c-2-3-4-5"),
+              "PARSE: Error at index 2 in: \"ab\xF0\x9F\x98\x80"
+              "c\"");
 }
 
 TEST(Uuid, HashesConsistentlyWithEquality)
