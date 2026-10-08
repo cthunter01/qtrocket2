@@ -45,6 +45,24 @@ struct MessageSource
         return MessageSource{component.getId(), component.getName()};
     }
 
+    /// The name of a component that the rocket does not have (any more): the name of
+    /// OpenRocket's RocketComponent.REMOVED, which its findComponent() gives for an id that
+    /// names no component (the English text of "RemovedComponent.COMPONENT_REMOVED", with its
+    /// markup).
+    static constexpr std::string_view kRemovedComponentName =
+        "<i>Component Removed From Rocket</i>";
+
+    /// The source that stands for a component with the id @p componentId that the rocket does
+    /// not have: that id under kRemovedComponentName. The .ork loader makes one for a source
+    /// id of a stored warning that names no component. Deviation: Java's source is then the one
+    /// REMOVED object, whose id is its own and not the one read, so two such sources are equal
+    /// there whatever ids the file had; here they are equal when the ids are (the id is kept so
+    /// that a save writes it back).
+    [[nodiscard]] static MessageSource removed(Uuid componentId)
+    {
+        return MessageSource{componentId, std::string{kRemovedComponentName}};
+    }
+
     /// The component's id (Java: RocketComponent.getID()).
     Uuid id;
     /// The component's name, e.g. "Body tube".

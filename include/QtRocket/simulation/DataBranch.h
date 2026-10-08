@@ -137,11 +137,12 @@ public:
         m_mutable.check();
         if (this != &other)
         {
-            m_name    = std::move(other.m_name);
-            m_columns = std::move(other.m_columns);
-            m_index   = std::move(other.m_index);
-            m_mutable = other.m_mutable;
-            m_modId   = other.m_modId;
+            m_name      = std::move(other.m_name);
+            m_columns   = std::move(other.m_columns);
+            m_index     = std::move(other.m_index);
+            m_hashIndex = std::move(other.m_hashIndex);
+            m_mutable   = other.m_mutable;
+            m_modId     = other.m_modId;
         }
         return *this;
     }
@@ -336,21 +337,23 @@ private:
         double              maximum{std::numeric_limits<double>::quiet_NaN()};
     };
 
-    /// The column of @p type: the one keyed by its address, else the first whose type equals it
-    /// (Java's map compares the hash codes, then equals()).
+    /// The column of @p type: the one keyed by its address, else the one whose type equals it
+    /// (Java's map compares the hash codes, then equals()). No two columns have equal types, so
+    /// at most one does. The columns of a hash code are found through m_hashIndex, so that a
+    /// branch of many columns is made in a time that grows with their number and not with its
+    /// square (a branch read from a file has as many columns as the file names).
     [[nodiscard]] std::optional<std::size_t> indexOf(const T& type) const
     {
         if (const auto found = m_index.find(&type); found != m_index.end())
         {
             return found->second;
         }
-        const int hash = type.hashCode();
-        for (std::size_t i = 0; i < m_columns.size(); i++)
+        const auto [first, last] = m_hashIndex.equal_range(type.hashCode());
+        for (auto entry = first; entry != last; ++entry)
         {
-            const T& key = *m_columns.at(i).type;
-            if (key.hashCode() == hash && key.equals(type))
+            if (m_columns.at(entry->second).type->equals(type))
             {
-                return i;
+                return entry->second;
             }
         }
         return std::nullopt;
@@ -370,9 +373,11 @@ private:
         try
         {
             m_index.emplace(&type, m_columns.size() - 1);
+            m_hashIndex.emplace(type.hashCode(), m_columns.size() - 1);
         }
         catch (...)
         {
+            m_index.erase(&type);
             m_columns.pop_back();
             throw;
         }
@@ -385,6 +390,8 @@ private:
     std::deque<Column> m_columns;
     /// Column index by type address.
     std::unordered_map<const T*, std::size_t> m_index;
+    /// Column indices by the hash code of their type, for a type that is no key of m_index.
+    std::unordered_multimap<int, std::size_t> m_hashIndex;
     Mutable                                   m_mutable;
     ModId                                     m_modId{ModId::invalid()};
 };

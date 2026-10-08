@@ -15,6 +15,7 @@
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
 {
@@ -200,8 +201,9 @@ std::unique_ptr<Message> Warning::RecoveryDrogueWithoutMain::clone() const
 
 // ---- EventAfterLanding ------------------------------------------------------------------------
 
-Warning::EventAfterLanding::EventAfterLanding(std::optional<std::string> eventType)
-  : m_eventType(std::move(eventType))
+Warning::EventAfterLanding::EventAfterLanding(std::optional<std::string> eventType,
+                                              std::optional<Uuid>        eventId)
+  : m_eventType(std::move(eventType)), m_eventId(eventId)
 {
     setPriority(MessagePriority::HIGH);
 }

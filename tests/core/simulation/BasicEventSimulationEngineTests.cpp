@@ -61,6 +61,7 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
+#include "QtRocket/util/Uuid.h"
 #include "rocket/TestRockets.h"
 #include "simulation/EngineTracePins.h"
 #include "simulation/SimulationRunSupport.h"
@@ -110,6 +111,7 @@ using QtRocket::SimulationOptions;
 using QtRocket::SimulationStatus;
 using QtRocket::SimulationStepperMethod;
 using QtRocket::StageSeparationConfiguration;
+using QtRocket::Uuid;
 using QtRocket::Warning;
 using QtRocket::Test::abortCauses;
 using QtRocket::Test::bugText;
@@ -977,6 +979,63 @@ TEST(EngineTraceScenarios, ThePinsCoverTheScenarios)
     std::vector<std::string> sorted = expected;
     std::ranges::sort(sorted);
     EXPECT_EQ(knownScenarios(), sorted);
+}
+
+/// For every EventAfterLanding warning of a run of the scenario @p scenarioName, in the order of
+/// the warning set: "<the event type the warning names> -> <the type of the event of the first
+/// branch that has the id the warning names>"; "no id" for a warning without an event id and
+/// "no event" when no event of the branch has it.
+[[nodiscard]] std::vector<std::string> eventsAfterLanding(std::string_view scenarioName)
+{
+    const auto maker = scenarioMakers().find(scenarioName);
+    if (maker == scenarioMakers().end())
+    {
+        return {std::format("no scenario '{}'", scenarioName)};
+    }
+    const Scenario scenario = maker->second();
+
+    JavaTestPreferences preferences;
+    Simulation          sim(*scenario.rocket, preferences.store);
+    sim.setFlightConfigurationId(scenario.fcid);
+    sim.getOptions().setIsaAtmosphere(true);
+    sim.getOptions().setTimeStep(0.05);
+    sim.getOptions().setRandomSeed(0);
+    if (scenario.tweak)
+    {
+        scenario.tweak(sim.getOptions());
+    }
+    simulateOrFail(sim);
+
+    const FlightData&        data = simulatedData(sim);
+    std::vector<std::string> lines;
+    for (const Warning& warning : data.getWarningSet())
+    {
+        const auto* landing = dynamic_cast<const Warning::EventAfterLanding*>(&warning);
+        if (landing == nullptr)
+        {
+            continue;
+        }
+        std::string found = "no id";
+        if (const std::optional<Uuid>& id = landing->eventId())
+        {
+            const FlightEvent* event = data.getBranch(0).findEvent(*id);
+            found = event != nullptr ? std::string(name(event->getType())) : "no event";
+        }
+        lines.push_back(std::format("{} -> {}", landing->eventType().value_or("null"), found));
+    }
+    return lines;
+}
+
+// Java's warning holds the FlightEvent that was handled after the landing, and the saver writes
+// that event's id as the eventid of the SIM_WARN event. Here the warning holds the id: it is the
+// id of the event the branch has stored.
+TEST(EngineEventAfterLanding, TheWarningNamesTheEventThatWasHandledAfterTheLanding)
+{
+    const DefaultUnitsGuard units;
+    EXPECT_EQ(eventsAfterLanding("alpha ejection after landing"),
+              (std::vector<std::string>{"Ejection charge -> EJECTION_CHARGE",
+                                        "Recovery device deployment -> "
+                                        "RECOVERY_DEVICE_DEPLOYMENT"}));
 }
 
 // =============================================================================== the engine

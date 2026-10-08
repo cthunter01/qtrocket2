@@ -1,8 +1,10 @@
 #include "QtRocket/simulation/DataBranch.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -821,6 +823,86 @@ TEST(DataBranch, WorksWithAnyDataType)
     EXPECT_EQ(branch.getLast(first), 2.5);
     EXPECT_EQ(branch.getMinimum(first), 1.5);
     EXPECT_EQ(branch.getTypes(), (std::vector<const TestType*>{&second, &first}));
+}
+
+/// @p count types named "type 0", "type 1", ..., all of one priority.
+[[nodiscard]] std::vector<TestType> numberedTypes(std::size_t count)
+{
+    std::vector<TestType> types;
+    types.reserve(count);
+    for (std::size_t i = 0; i < count; i++)
+    {
+        types.emplace_back(std::format("type {}", i), 0);
+    }
+    return types;
+}
+
+/// The addresses of @p types, in order.
+[[nodiscard]] std::vector<const TestType*> addressesOf(const std::vector<TestType>& types)
+{
+    std::vector<const TestType*> addresses;
+    addresses.reserve(types.size());
+    for (const TestType& type : types)
+    {
+        addresses.push_back(&type);
+    }
+    return addresses;
+}
+
+// A column is found by a type that is another object but equal to the column's type, however
+// many columns the branch has and however many of their types share a hash code (TestType's is
+// the length of the name, so every ten or hundred types here have the same one).
+TEST(DataBranch, AnEqualTypeIsFoundAmongManyColumns)
+{
+    const std::vector<TestType>        types     = numberedTypes(2000);
+    const std::vector<const TestType*> addresses = addressesOf(types);
+    QtRocket::DataBranch<TestType>     branch("many", std::span<const TestType* const>(addresses));
+    branch.addPoint();
+    branch.setValue(TestType("type 1999", 7), 4.5);
+    branch.setValue(TestType("type 0", 7), 1.5);
+    branch.setValue(TestType("type 1000", 7), 2.5);
+    EXPECT_EQ(branch.getLast(types.at(1999)), 4.5);
+    EXPECT_EQ(branch.getLast(types.at(0)), 1.5);
+    EXPECT_EQ(branch.getLast(types.at(1000)), 2.5);
+    EXPECT_TRUE(std::isnan(branch.getLast(types.at(1001))));
+    EXPECT_TRUE(branch.hasType(TestType("type 1234", 7)));
+    EXPECT_FALSE(branch.hasType(TestType("type 2000", 7)));
+    EXPECT_FALSE(branch.hasType(TestType("Type 5", 7)));
+    // A type equal to a column's is refused as a new column, the last one too.
+    EXPECT_EQ(bugMessage([&branch] { branch.addType(TestType("type 1999", 7)); }),
+              bugMessage([&branch] { branch.addType(TestType("type 1999", 8)); }));
+    EXPECT_NE(bugMessage([&branch] { branch.addType(TestType("type 1999", 7)); }), "");
+    // A copy and a moved branch find it too.
+    const QtRocket::DataBranch<TestType> copy(branch);
+    EXPECT_EQ(copy.getLast(TestType("type 1000", 9)), 2.5);
+    QtRocket::DataBranch<TestType> target("target");
+    target = std::move(branch);
+    EXPECT_EQ(target.getLast(TestType("type 1999", 9)), 4.5);
+    EXPECT_FALSE(target.hasType(TestType("type 2000", 9)));
+}
+
+// An optional measurement: the seconds it takes to make a branch with a growing number of
+// columns whose types have hash codes of their own, which doubles with the number when a
+// column is found in constant time (Java keeps its columns in a LinkedHashMap).
+TEST(DataBranch, DISABLED_PrintsTheTimeOfMakingABranchOfManyColumns)
+{
+    for (const std::size_t count : {std::size_t{25000}, std::size_t{50000}, std::size_t{100000}})
+    {
+        std::vector<const FlightDataType*> types;
+        types.reserve(count);
+        for (std::size_t i = 0; i < count; i++)
+        {
+            types.push_back(&FlightDataType::getType(std::format("qtrMany {} {}", count, i),
+                                                     std::format("qtrMany{}x{}", count, i),
+                                                     UnitGroupId::NONE));
+        }
+        const auto   start = std::chrono::steady_clock::now();
+        const Branch branch("many", std::span<const FlightDataType* const>(types));
+        const std::chrono::duration<double> taken = std::chrono::steady_clock::now() - start;
+        RecordProperty(std::format("seconds_for_{}_columns", count),
+                       std::format("{}", taken.count()));
+        EXPECT_EQ(branch.getTypes().size(), count);
+    }
 }
 
 }  // namespace
