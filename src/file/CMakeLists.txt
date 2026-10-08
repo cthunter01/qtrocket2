@@ -19,8 +19,12 @@ target_sources(QtRocket_core PRIVATE
     openrocket/FlightDataBranchHandler.cpp
     openrocket/FlightDataHandler.cpp
     openrocket/GravityHandler.cpp
+    openrocket/LandingDispersionSettingsHandler.cpp
     openrocket/MotorHandler.cpp
     openrocket/SimulationConditionsHandler.cpp
+    openrocket/SimulationPlotAppearanceHandler.cpp
+    openrocket/SimulationsHandler.cpp
+    openrocket/SingleSimulationHandler.cpp
     openrocket/WarningHandler.cpp
     openrocket/WindHandler.cpp
     simplesax/AbstractElementHandler.cpp

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
@@ -83,10 +84,11 @@ class WarningSet;
 /// and the next getStatus() of a simulation whose data was up to date finds it OUTDATED.
 ///
 /// Change events (Java: ChangeSource; addChangeListener()/removeChangeListener() are
-/// changed().connect()/disconnect()): changed() is emitted by setFlightConfigurationId() and
-/// setName() when they change something, by syncModId(), setPlotAppearance() and simulate()
-/// always, and whenever the options emit theirs (Java: the ConditionListener), except for the
-/// options of a copy() or a cloneForUndo(), which Java leaves without that listener.
+/// changed().connect()/disconnect()): changed() is emitted by setFlightConfigurationId(),
+/// setName() and setLandingDispersionSettings() when they change something, by syncModId(),
+/// setPlotAppearance() and simulate() always, and whenever the options emit theirs (Java: the
+/// ConditionListener), except for the options of a copy() or a cloneForUndo(), which Java
+/// leaves without that listener.
 ///
 /// Copies, with exactly what Java's Object.clone() shares: a copy(), a clone() and a
 /// cloneForUndo() refer to the same rocket and document, share the plot appearances with the
@@ -111,8 +113,10 @@ class WarningSet;
 ///   and the configuration description are null/nullopt while the simulation has not run.
 /// - Java's fields simulationEngineClass, simulationStepperClass, aerodynamicCalculatorClass and
 ///   massCalculatorClass, which nothing ever changes, are not ported; equals() compared them.
-/// - The landing dispersion settings (getLandingDispersionSettings() and its setter, and their
-///   part of equals() and of the copying methods) are not ported: HOOK(monte-carlo).
+/// - The landing dispersion settings are what a design file states for them, kept as text
+///   (LandingDispersionSettings), where Java holds a MonteCarloSettings: they are compared,
+///   copied and loaded wherever Java compares, copies and loads its settings, and nothing
+///   reads them yet (HOOK(monte-carlo)).
 /// - hasErrors(branch) throws BugError without simulated data (Java: NullPointerException).
 /// - The plot appearances are kept in a std::map, so getPlotAppearances() is ordered by symbol
 ///   (Java: a HashMap).
@@ -159,7 +163,8 @@ public:
     Simulation(OpenRocketDocument* document, Rocket& rocket);
     Simulation(OpenRocketDocument* document, Rocket& rocket, Preferences& preferences);
 
-    /// A simulation as a file describes it (Java: the constructor OpenRocket's loader uses):
+    /// A simulation as a file describes it (Java: the constructor OpenRocket's loader uses, as
+    /// does the .ork reader here, SingleSimulationHandler):
     /// with @p status, @p name, @p options (moved in, with their connections; a copy of them
     /// becomes the simulated conditions), @p extensions (the same objects, in order), the
     /// simulated @p data (null: none) and, of @p plotAppearances, those that are not empty. The
@@ -239,6 +244,21 @@ public:
     /// shared with whoever holds them, as in Java). Given this simulation's own list, the list
     /// ends up empty, as in Java (it is cleared before it is read).
     void copyExtensionsFrom(const std::vector<std::shared_ptr<SimulationExtension>>& extensions);
+
+    // ----------------------------------------------------------------- landing dispersion
+
+    /// The landing dispersion settings saved for this simulation, or nullopt when it has none
+    /// (Java: getLandingDispersionSettings(), null for none). See LandingDispersionSettings
+    /// for what they are until the Monte Carlo analysis exists.
+    [[nodiscard]] const std::optional<LandingDispersionSettings>& getLandingDispersionSettings()
+        const noexcept
+    {
+        return m_landingDispersionSettings;
+    }
+
+    /// Saves landing dispersion settings for this simulation; nullopt removes them. Emits
+    /// changed() when the settings change (LandingDispersionSettings::operator==).
+    void setLandingDispersionSettings(std::optional<LandingDispersionSettings> settings);
 
     // ----------------------------------------------------------------------------- name
 
@@ -467,10 +487,10 @@ public:
     // -------------------------------------------------------------------------- copying
 
     /// A copy for cut, copy and paste: the same rocket, document, name, configuration id and
-    /// plot appearances (shared, see the class comment), copies of the options and clones of
-    /// the extensions, and nothing simulated: the status NOT_SIMULATED, no simulated
-    /// conditions, description or data. As in Java, a change of the copy's options does not
-    /// emit the copy's changed().
+    /// plot appearances (shared, see the class comment), copies of the options and of the
+    /// landing dispersion settings and clones of the extensions, and nothing simulated: the
+    /// status NOT_SIMULATED, no simulated conditions, description or data. As in Java, a
+    /// change of the copy's options does not emit the copy's changed().
     [[nodiscard]] std::unique_ptr<Simulation> copy() const;
 
     /// clone(true).
@@ -489,7 +509,8 @@ public:
 
     /// Loads @p simulation into this simulation: its name, configuration id, description and
     /// simulated modification id; the conditions of its options (copyConditionsFrom(), which
-    /// emits changed() when they differ); its simulated conditions (none, a copy, or their
+    /// emits changed() when they differ); its landing dispersion settings (without an event,
+    /// as in Java); its simulated conditions (none, a copy, or their
     /// conditions when this simulation has some already); its extensions (the same objects);
     /// its status and its simulated data (shared). When the loaded status says that the data
     /// is up to date and the configuration id is valid, the simulated modification id becomes
@@ -499,14 +520,15 @@ public:
     /// A new simulation of @p newRocket in non-simulated state with this simulation's document,
     /// preferences, name, configuration id (as it is: the configuration is not created in
     /// @p newRocket), conditions (copyConditionsFrom() onto the new simulation's default
-    /// options), configuration description, clones of the extensions and copies of the plot
-    /// appearances. @p newRocket must outlive the duplicate.
+    /// options), landing dispersion settings, configuration description, clones of the
+    /// extensions and copies of the plot appearances. @p newRocket must outlive the duplicate.
     [[nodiscard]] std::unique_ptr<Simulation> duplicateSimulation(Rocket& newRocket) const;
 
     /// A deep copy of this simulation for a run of its own: a not yet simulated simulation of a
     /// copy of the rocket (Rocket::copyRocketWithOriginalId()), which the duplicate owns,
-    /// without a document, with the name, the configuration id, a full copy of the options and
-    /// clones of the extensions. It may run on another thread without touching this simulation
+    /// without a document, with the name, the configuration id, a full copy of the options, the
+    /// landing dispersion settings and clones of the extensions. It may run on another thread
+    /// without touching this simulation
     /// or its rocket; making it reads this simulation and its rocket, so it belongs to their
     /// thread. The one thing the duplicate shares with this simulation is the preference store
     /// (Java: the application preferences): simulate() reads the naming of the flight
@@ -525,7 +547,8 @@ public:
 
     /// Java's equals(): the same simulation, or the same name, the same configuration id, equal
     /// options (SimulationOptions::operator==, so never for two independently made simulations,
-    /// whose wind models differ in their seeds), equal plot appearances, and extension lists of
+    /// whose wind models differ in their seeds), equal landing dispersion settings (both none,
+    /// or LandingDispersionSettings::operator==), equal plot appearances, and extension lists of
     /// the same length whose extensions are pairwise the same object or have the same id and the
     /// same configuration entries (Config::sameEntries()). The status and everything simulated
     /// do not count.
@@ -603,10 +626,9 @@ private:
     /** The conditions to use */
     SimulationOptions m_options;
 
-    // HOOK(monte-carlo): Java keeps the optional landing dispersion settings (MonteCarloSettings)
-    // here, with a getter, a setter that fires a change, their part of equals() and of copy(),
-    // clone(), cloneForUndo(), loadFrom(), duplicateSimulation() and
-    // duplicateForIndependentSimulation().
+    /// Optional user configuration for a landing-dispersion analysis, as a file states it.
+    // HOOK(monte-carlo): Java's MonteCarloSettings, which the analysis reads, takes this place.
+    std::optional<LandingDispersionSettings> m_landingDispersionSettings;
 
     std::vector<std::shared_ptr<SimulationExtension>> m_simulationExtensions;
 

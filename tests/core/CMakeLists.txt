@@ -216,6 +216,7 @@ add_executable(QtRocket_core_tests
     simulation/FlightDataTypeTests.cpp
     simulation/FlightEventTests.cpp
     simulation/GroundStepperTests.cpp
+    simulation/LandingDispersionSettingsTests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
     simulation/natural_frequency_tests.cpp
@@ -270,13 +271,19 @@ add_executable(QtRocket_core_tests
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
+    file/openrocket/example_simulations_tests.cpp
     file/openrocket/FlightDataBranchHandlerTests.cpp
     file/openrocket/FlightDataHandlerTests.cpp
     file/openrocket/GravityHandlerTests.cpp
     file/openrocket/handler_test_support_tests.cpp
+    file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
     file/openrocket/MotorHandlerTests.cpp
+    file/openrocket/simulation_value_sweep_tests.cpp
     file/openrocket/SimulationConditionsHandlerTests.cpp
+    file/openrocket/SimulationPlotAppearanceHandlerTests.cpp
+    file/openrocket/SimulationsHandlerTests.cpp
+    file/openrocket/SingleSimulationHandlerTests.cpp
     file/openrocket/WarningHandlerTests.cpp
     file/openrocket/WindHandlerTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp

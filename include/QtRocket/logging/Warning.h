@@ -110,7 +110,8 @@ protected:
 class Warning::LargeAOA final : public Warning
 {
 public:
-    /// @param aoa the angle of attack in radians; NaN when unknown (the .ork loader passes NaN).
+    /// @param aoa the angle of attack in radians; NaN when unknown (the .ork loader passes the
+    ///            <parameter> of the stored warning, and NaN for a warning without one).
     explicit LargeAOA(double aoa);
 
     [[nodiscard]] double aoa() const noexcept { return m_aoa; }

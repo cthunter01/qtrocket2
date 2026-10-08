@@ -15,8 +15,8 @@ class SimulationConditions;
 /// A simulation listener written in Java, named by its class (OpenRocket's
 /// simulation/extension/impl/JavaCode), as a class that never executes anything: QtRocket cannot
 /// load a Java class. OpenRocket's .ork reader makes one for every <listener> element of an old
-/// file. The class exists so that such a design loads, shows the extension by name and keeps
-/// the class name for a later save.
+/// file, and so does QtRocket's (SingleSimulationHandler). The class exists so that such a
+/// design loads, shows the extension by name and keeps the class name for a later save.
 ///
 /// The configuration (the key of the Config, which a .ork file stores): "className" (""), the
 /// fully qualified name of the listener class.

@@ -17,8 +17,8 @@ class SimulationConditions;
 /// for an extension whose id no SimulationExtensionProvider knows. It has no counterpart in
 /// OpenRocket, whose .ork reader adds the warning "Simulation extension with id '<id>' not
 /// found." and drops such an extension, so that saving the design loses it. Here the reader
-/// adds the same warning and keeps the extension as one of these: the id and the configuration
-/// are there for a later save, entry for entry.
+/// (SingleSimulationHandler) adds the same warning and keeps the extension as one of these: the
+/// id and the configuration are there for a later save, entry for entry.
 ///
 /// What it cannot do is act on a simulation, and a simulation that says it has an extension
 /// must not silently fly without it: initialize() throws a SimulationException with
