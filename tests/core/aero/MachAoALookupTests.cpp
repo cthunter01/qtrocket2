@@ -2,7 +2,9 @@
 
 #include <array>
 #include <cmath>
+#include <format>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -11,6 +13,7 @@
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
 #include "TestTempDir.h"
 
 namespace
@@ -298,6 +301,155 @@ TEST(MachAoALookup, StabilityBuilderTakesTheThreeColumns)
     ASSERT_TRUE(reordered.has_value()) << reordered.error().toString();
     EXPECT_EQ(reordered->interpolate(0, 5, "cp"), 0.3);
     EXPECT_TRUE(reordered->hasAoA());
+}
+
+// ---- findNonFinite(): QtRocket's own (OpenRocket has no such question) ----
+
+/// What the number @p number is: "mach", "aoa", or the value column of a value.
+[[nodiscard]] std::string whatOf(const MachAoALookup::NonFiniteNumber& number)
+{
+    switch (number.kind)
+    {
+        case MachAoALookup::NonFiniteNumber::Kind::MACH:
+            return "mach" + number.column;
+        case MachAoALookup::NonFiniteNumber::Kind::AOA:
+            return "aoa" + number.column;
+        case MachAoALookup::NonFiniteNumber::Kind::VALUE:
+            break;
+    }
+    return number.column;
+}
+
+/// findNonFinite() of @p table as "<what> at Mach <mach>, <angle> degrees: <number>", the
+/// numbers as Java prints them and <what> being "mach", "aoa" or the column of a value (a Mach
+/// number and an angle have no column: one would show after the word); "finite" when every
+/// number of the table is finite, and "no table: <message>" when @p table is the error of a
+/// builder or of the CSV reader.
+[[nodiscard]] std::string nonFinite(const QtRocket::Result<MachAoALookup>& table)
+{
+    if (!table.has_value())
+    {
+        return "no table: " + table.error().message;
+    }
+    const std::optional<MachAoALookup::NonFiniteNumber> number = table->findNonFinite();
+    if (!number.has_value())
+    {
+        return "finite";
+    }
+    return std::format("{} at Mach {}, {} degrees: {}", whatOf(*number),
+                       QtRocket::Strings::javaDoubleToString(number->mach),
+                       QtRocket::Strings::javaDoubleToString(number->aoa),
+                       QtRocket::Strings::javaDoubleToString(number->value));
+}
+
+TEST(MachAoALookup, ATableOfFiniteNumbersHasNoNonFiniteOne)
+{
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder().addDragData(0, 0.3).build()), "finite");
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder()
+                            .addDragData(0, 0, 0.3)
+                            .addDragData(0, 10, 0.4)
+                            .addDragData(2, 0, -1e300)
+                            .build()),
+              "finite");
+    EXPECT_EQ(nonFinite(MachAoALookup::stabilityBuilder()
+                            .addStabilityData(0, 0.1, 0.2, 0.3)
+                            .addStabilityData(1, 0.3, 0.4, 0.5)
+                            .build()),
+              "finite");
+}
+
+TEST(MachAoALookup, FindsANonFiniteValueOfAnyColumn)
+{
+    // Without angles of attack the angle of the row is no number.
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder()
+                            .addDragData(0, 0.3)
+                            .addDragData(1, kNaN)
+                            .addDragData(2, 0.5)
+                            .build()),
+              "cd at Mach 1.0, NaN degrees: NaN");
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder().addDragData(0.5, kInf).build()),
+              "cd at Mach 0.5, NaN degrees: Infinity");
+    EXPECT_EQ(
+        nonFinite(
+            MachAoALookup::dragBuilder().addDragData(0, 0, 0.3).addDragData(0, 10, -kInf).build()),
+        "cd at Mach 0.0, 10.0 degrees: -Infinity");
+    // The columns of a row in the order of the table's columns.
+    EXPECT_EQ(nonFinite(MachAoALookup::stabilityBuilder()
+                            .addStabilityData(0, 0.1, 0.2, 0.3)
+                            .addStabilityData(1, 0.3, 0.4, kNaN)
+                            .build()),
+              "cp at Mach 1.0, NaN degrees: NaN");
+    EXPECT_EQ(
+        nonFinite(
+            MachAoALookup::stabilityBuilder().addStabilityData(1, 4, 0.3, kInf, kNaN).build()),
+        "cm at Mach 1.0, 4.0 degrees: Infinity");
+    EXPECT_EQ(nonFinite(MachAoALookup::builder(std::vector<std::string>{"CP", "CN", "CM"})
+                            .addStabilityData(1, kNaN, kNaN, 0.5)
+                            .build()),
+              "cn at Mach 1.0, NaN degrees: NaN");
+}
+
+TEST(MachAoALookup, FindsANonFiniteMachNumberOrAngleOfAttack)
+{
+    EXPECT_EQ(
+        nonFinite(MachAoALookup::dragBuilder().addDragData(kNaN, 0.3).addDragData(1, 0.4).build()),
+        "mach at Mach NaN, NaN degrees: NaN");
+    EXPECT_EQ(
+        nonFinite(MachAoALookup::dragBuilder().addDragData(0, 0.3).addDragData(kInf, 0.4).build()),
+        "mach at Mach Infinity, NaN degrees: Infinity");
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder()
+                            .addDragData(0, 0, 0.3)
+                            .addDragData(0, kNaN, 0.4)
+                            .addDragData(1, 0, 0.3)
+                            .build()),
+              "aoa at Mach 0.0, NaN degrees: NaN");
+    EXPECT_EQ(
+        nonFinite(
+            MachAoALookup::dragBuilder().addDragData(1, -kInf, 0.3).addDragData(1, 2, 0.4).build()),
+        "aoa at Mach 1.0, -Infinity degrees: -Infinity");
+    // In a row the Mach number comes first, then the angle, then the values.
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder().addDragData(-kInf, kInf, kNaN).build()),
+              "mach at Mach -Infinity, Infinity degrees: -Infinity");
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder().addDragData(1, kInf, kNaN).build()),
+              "aoa at Mach 1.0, Infinity degrees: Infinity");
+}
+
+// The rows in the table's order, whatever order they were added in: by Mach number, with a NaN
+// last, and for one Mach number by angle of attack.
+TEST(MachAoALookup, FindsTheFirstNonFiniteNumberInTheOrderOfTheTable)
+{
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder()
+                            .addDragData(2, kNaN)
+                            .addDragData(1, kInf)
+                            .addDragData(0, 0.3)
+                            .build()),
+              "cd at Mach 1.0, NaN degrees: Infinity");
+    EXPECT_EQ(
+        nonFinite(MachAoALookup::dragBuilder().addDragData(kNaN, 0.3).addDragData(3, kInf).build()),
+        "cd at Mach 3.0, NaN degrees: Infinity");
+    EXPECT_EQ(nonFinite(MachAoALookup::dragBuilder()
+                            .addDragData(1, 10, kNaN)
+                            .addDragData(1, 5, kInf)
+                            .addDragData(1, 0, 0.3)
+                            .build()),
+              "cd at Mach 1.0, 5.0 degrees: Infinity");
+}
+
+// The CSV reader takes "NaN" and "Infinity" for numbers, as OpenRocket's does: a table from a
+// file can hold them.
+TEST(MachAoALookup, FindsANonFiniteNumberOfATableReadFromCsv)
+{
+    const TempDir dir;
+    EXPECT_EQ(nonFinite(CsvMachAoALookup::fromCsv(
+                  dir.write("finite.csv", "mach,cd\n0,0.30\n1,0.50\n"), cdColumns())),
+              "finite");
+    EXPECT_EQ(nonFinite(CsvMachAoALookup::fromCsv(dir.write("nan.csv", "mach,cd\n0,0.30\n1,NaN\n"),
+                                                  cdColumns())),
+              "cd at Mach 1.0, NaN degrees: NaN");
+    EXPECT_EQ(
+        nonFinite(CsvMachAoALookup::fromCsv(
+            dir.write("infinity.csv", "mach,aoa,cd\n0,0,0.30\n0,Infinity,0.4\n"), cdColumns())),
+        "aoa at Mach 0.0, Infinity degrees: Infinity");
 }
 
 }  // namespace

@@ -12,6 +12,16 @@ target_sources(QtRocket_core PRIVATE
     exception/SimulationException.cpp
     extension/AbstractSimulationExtension.cpp
     extension/AbstractSimulationExtensionProvider.cpp
+    extension/example/AirStart.cpp
+    extension/example/AirStartProvider.cpp
+    extension/example/RollControl.cpp
+    extension/example/RollControlProvider.cpp
+    extension/impl/JavaCode.cpp
+    extension/impl/JavaCodeProvider.cpp
+    extension/impl/ScriptingExtension.cpp
+    extension/impl/ScriptingProvider.cpp
+    extension/SimulationExtensionRegistry.cpp
+    extension/UnknownSimulationExtension.cpp
     FlightData.cpp
     FlightDataBranch.cpp
     FlightDataType.cpp

@@ -39,8 +39,18 @@ class WarningSet;
 /// live in simulation/ here, because SimulationConditions and the simulation engine need the
 /// Simulation, and document/ builds on simulation/, never the reverse (MotorClusterState, which
 /// OpenRocket keeps in simulation and which lives in mass/ here, is the precedent). The
-/// document is only declared: every place where Java's Simulation talks to its document is
-/// marked "HOOK(document)".
+/// document is only declared here, and a Simulation never calls it.
+///
+/// The document and changed(): Java's Simulation adds its document as a change listener of
+/// itself in its constructors (addChangeListener(document)) and never takes it away. Here it
+/// is the document that listens: OpenRocketDocument connects itself to changed() when a
+/// simulation enters its list of simulations, and disconnects when the simulation leaves the
+/// list. What differs from Java through that:
+/// - a simulation made with a document but not yet added to it does not tell the document of
+///   its changes (in Java such a change already marks the document as not saved);
+/// - a simulation made without a document and then added to one is heard by that document (in
+///   Java it never is);
+/// - a simulation that was removed from its document is no longer heard (in Java it still is).
 ///
 /// The rocket: the caller owns it. A Simulation refers to its rocket without owning it, so the
 /// rocket must outlive the simulation and every copy(), clone() and cloneForUndo() of it. The
@@ -94,6 +104,8 @@ class WarningSet;
 ///
 /// Deviations from OpenRocket:
 /// - simulate() returns a Result where Java throws: see there.
+/// - simulate() refuses inputs that are not finite before anything runs (validateInputs()),
+///   which OpenRocket does not: there such a value ends in a BugException.
 /// - The simulated data is held by std::shared_ptr (Java: a reference), because
 ///   cloneForUndo() and loadFrom() share it; null while there is none. The simulated conditions
 ///   and the configuration description are null/nullopt while the simulation has not run.
@@ -141,9 +153,9 @@ public:
     /// comment). @p preferences must outlive the simulation and its copies.
     Simulation(Rocket& rocket, Preferences& preferences);
 
-    /// A new simulation of @p rocket that belongs to @p document (null: none).
-    // HOOK(document): Java adds the document as a change listener of the simulation here;
-    // tier 9 connects OpenRocketDocument to changed() (Java: addChangeListener(document)).
+    /// A new simulation of @p rocket that belongs to @p document (null: none). The document is
+    /// only remembered (getDocument()): it starts to listen to changed() when the simulation is
+    /// added to it (see the class comment; Java: addChangeListener(document) here).
     Simulation(OpenRocketDocument* document, Rocket& rocket);
     Simulation(OpenRocketDocument* document, Rocket& rocket, Preferences& preferences);
 
@@ -278,10 +290,53 @@ public:
 
     // ------------------------------------------------------------------------- simulate
 
+    /// Whether every number a run reads is finite. Fails with ErrorCode::INVALID_ARGUMENT for
+    /// a NaN or an infinity, with a text that names the first such value, for example "Cannot
+    /// simulate: the launch rod length is not finite (NaN)." simulate() calls this before
+    /// anything runs; a caller may ask beforehand. The validation is QtRocket's own: OpenRocket
+    /// has none (see simulate(), "Inputs that are not finite").
+    ///
+    /// Checked, in this order: every number SimulationOptions::toSimulationConditions() reads
+    /// from the options (the steppers and the engine get nothing else of them but choices, such
+    /// as the stepper method, and the random seed), and then every delay and altitude the engine
+    /// reads from the flight configuration that is simulated:
+    /// - the launch rod length and the launch rod angle;
+    /// - the launch latitude, longitude and altitude;
+    /// - of the wind model in use (SimulationOptions::getWindModelType()): the speed, the
+    ///   standard deviation and the direction of the average wind (its turbulence intensity is
+    ///   the quotient of the first two), or the altitude, the speed, the direction and the
+    ///   standard deviation of every level of the multi-level wind;
+    /// - the launch rod direction as the run uses it (SimulationOptions::
+    ///   getLaunchRodDirection(): the wind direction when launching into the wind);
+    /// - without the ISA atmosphere: the launch temperature, pressure and relative humidity;
+    /// - with the constant gravity model: the constant gravity;
+    /// - of the stability lookup table and of the drag lookup table, when the options have one:
+    ///   every Mach number, angle of attack and coefficient of the table
+    ///   (MachAoALookup::findNonFinite(); which rows a flight interpolates in is not known
+    ///   beforehand, and a table read from CSV can hold "NaN");
+    /// - the time step, the maximum simulation time and the maximum step angle;
+    /// - the four recovery speed warning thresholds;
+    /// - of the motor of every active motor mount that has one in the configuration: the
+    ///   ignition delay, and the ejection delay, for which Motor::kPluggedDelay (+infinity: a
+    ///   plugged motor, without an ejection charge) is a valid value as well;
+    /// - of every active recovery device: the deployment delay and the deployment altitude;
+    /// - of every active stage but stage 0, which has nothing above it to separate from: the
+    ///   separation delay and the separation altitude.
+    /// Not checked: what the run does not read (the wind model that is not in use, the launch
+    /// temperature, pressure and humidity under the ISA atmosphere, the constant gravity under
+    /// the WGS model, the stored rod direction of a launch into the wind, the components of
+    /// stages that are not active, the motors and the settings of other flight configurations),
+    /// the dimensions and masses of the design and the thrust curves of its motors, and whether
+    /// a finite value is a sensible one: a finite value that the atmospheric model refuses is
+    /// toSimulationConditions()'s error, and one that is merely absurd is flown as it is (a
+    /// wind of 1e300 m/s overflows on the way and still ends in a BugError).
+    [[nodiscard]] Result<void> validateInputs() const;
+
     /// Simulates the flight (Java: simulate(SimulationListener...)).
     ///
     /// The simulated data is dropped first. Then, in Java's order: a simulation whose status is
-    /// EXTERNAL cannot be simulated; the options are turned into simulation conditions
+    /// EXTERNAL cannot be simulated; the inputs are validated (validateInputs(), a step
+    /// OpenRocket does not have); the options are turned into simulation conditions
     /// (SimulationOptions::toSimulationConditions()) that belong to this simulation; every
     /// extension is initialised with them (SimulationExtension::initialize()), in order;
     /// @p additionalListeners are appended to the conditions' listener list, in order (the very
@@ -304,22 +359,23 @@ public:
     ///   simulation, an extension that cannot run, a listener's exception, a calculation that
     ///   went wrong), with the exception's message;
     /// - toSimulationConditions()'s Error when the atmospheric model refuses the launch
-    ///   conditions (Java: an IllegalArgumentException that leaves simulate()).
+    ///   conditions (Java: an IllegalArgumentException that leaves simulate());
+    /// - ErrorCode::INVALID_ARGUMENT when an input is not finite, with validateInputs()'s text,
+    ///   which names the value. Nothing has run then: neither an extension nor the engine was
+    ///   asked, and the bookkeeping above is that of an imported simulation (no simulated data,
+    ///   the status UPTODATE, changed() emitted).
     /// A simulation that aborts (a SIM_ABORT event) is not a failure: simulate() succeeds and
     /// getStatus() is ABORTED. A BugError passes through, after the bookkeeping above.
     ///
-    /// Inputs that are not finite: simulate() does not validate the options or the design, as
-    /// OpenRocket's does not. A NaN or an infinity among the options (the launch site, the
-    /// constant gravity, the wind, the launch pressure or temperature, the time step) or among
-    /// the delays of the design (a motor's ignition delay, a recovery device's deployment
-    /// delay) surfaces where the computation first meets it: mostly as a BugError (Java: a
-    /// BugException or an IllegalStateException), some of them in the middle of the flight, and
-    /// a NaN launch rod length as the SIMULATION_ABORTED error of the engine's NaN check. A
-    /// BugError means a defect of the program, so such values must not come from outside it:
-    // HOOK(file): the .ork loader (tier 10) has to refuse or replace, with a warning, every
-    // simulation option and every ignition, ejection, separation and deployment delay that is
-    // not finite (OpenRocket's DocumentConfig.stringToDouble() accepts "NaN"), and a command
-    // line that sets options from its arguments has to do the same, before simulate() runs.
+    /// Inputs that are not finite: OpenRocket's simulate() does not validate the options or the
+    /// design, and a NaN or an infinity among them surfaces where the computation first meets
+    /// it, mostly as a BugException, some of them in the middle of the flight. A BugError
+    /// means a defect of the program, and these values come from outside it, so simulate()
+    /// refuses them before anything runs (see validateInputs() for the list). The .ork reader
+    /// does its part earlier: it does not apply a NaN or an infinity that a file holds for a
+    /// simulation option or for a delay or altitude of the design (it adds a warning, and the
+    /// value stays what it was), so that a loaded simulation passes the validation; the plugged
+    /// ejection delay ("none" in a file) is a value like any other there.
     [[nodiscard]] Result<void> simulate(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 
