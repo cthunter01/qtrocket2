@@ -35,7 +35,8 @@
 // rocket.getDocument().getDocumentPreferences().addMaterial(material) in the material setters and
 // preset loaders of ExternalComponent, StructuralComponent, RecoveryDevice and Parachute (eight
 // places). OpenRocket's only tests of it are MaterialTest.testDocumentDatabase and
-// testLoadFromPreset, which need a document (tier 9a, part D3). The expectations here are what
+// testLoadFromPreset, which need a document and are ported in full in
+// tests/core/document/open_rocket_document_material_tests.cpp. The expectations here are what
 // OpenRocket itself does for the same steps: DocumentMaterialProbe.java of the tier 9a probes
 // (commit 5f164fd0e, JDK 17) watches the three material databases of a document's preferences
 // and prints what each step registers; the comments name its parts (A to K).
@@ -695,10 +696,10 @@ TEST_F(DocumentMaterialMomentTest, APresetAnnouncesWhileItIsLoadedBeforeTheEvent
 
 /// What MaterialTest's two document tests need of OpenRocketDocumentFactory.createNewRocket():
 /// a rocket with one stage, events enabled, whose document adds the document materials it
-/// hears of to its material databases. The document itself arrives with part D3 of tier 9a,
-/// which ports the two tests again with the real one; until then a MaterialStorage connected
-/// to the rocket's signal takes its place (tests/core/material/MaterialTests.cpp has the
-/// material side alone).
+/// hears of to its material databases. Here a MaterialStorage connected to the rocket's signal
+/// takes the document's place, so that the signal is tested without the subsystem above it
+/// (tests/core/document/open_rocket_document_material_tests.cpp has the two tests with the
+/// document itself, tests/core/material/MaterialTests.cpp the material side alone).
 class StandInDocumentTest : public ::testing::Test
 {
 protected:

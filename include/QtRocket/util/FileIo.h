@@ -32,6 +32,13 @@ namespace QtRocket
 /// outside it.
 [[nodiscard]] std::string pathToUtf8(const std::filesystem::path& path);
 
+/// Java's File.getAbsolutePath(): @p path resolved against the current directory, as
+/// std::filesystem::absolute() does it (no link is followed and the file need not exist; on POSIX
+/// "." and ".." stay, as in Java, while Windows resolves them), and the current directory itself
+/// for an empty path, which std::filesystem::absolute() refuses on some platforms. @p path as it
+/// is when the current directory cannot be asked.
+[[nodiscard]] std::filesystem::path absolutePath(const std::filesystem::path& path);
+
 /// Reinterprets bytes as text without copying semantics surprises (a plain byte-for-byte copy).
 [[nodiscard]] std::string bytesToString(std::span<const std::byte> bytes);
 

@@ -294,7 +294,8 @@ public:
     }
 
     /// Sets the realistic appearance (nullopt for the default) and fires NONFUNCTIONAL_CHANGE.
-    /// (Java also subscribes to the decal image; see InsideColorComponentHandler.)
+    /// (Java also subscribes to the decal image; here the document fires the image's
+    /// TEXTURE_CHANGE, see InsideColorComponentHandler.)
     void setAppearance(std::optional<Appearance> appearance);
 
     /// The colour in 2D figures, or nullopt for the default.

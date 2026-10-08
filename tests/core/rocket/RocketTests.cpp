@@ -1953,7 +1953,8 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
 // ---- The document pointer ----
 
 /// A pointer that stands for a document. OpenRocketDocument is defined above rocket/, and a
-/// Rocket only stores the pointer, so any address will do; it is never dereferenced.
+/// Rocket only stores the pointer, so any address will do; it is never dereferenced. (The
+/// tests of document/ check the pointer of a real document's rocket.)
 [[nodiscard]] QtRocket::OpenRocketDocument* documentAt(void* address) noexcept
 {
     return static_cast<QtRocket::OpenRocketDocument*>(address);

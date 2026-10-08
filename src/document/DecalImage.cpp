@@ -20,23 +20,6 @@
 namespace QtRocket
 {
 
-namespace
-{
-
-/// Java's File.getAbsolutePath(): @p file resolved against the current directory, as
-/// std::filesystem::absolute() does it (without following links; on POSIX "." and ".." stay, as
-/// in Java), and the current directory itself for an empty path. The path as given when the
-/// current directory cannot be asked.
-[[nodiscard]] std::filesystem::path absolutePath(const std::filesystem::path& file)
-{
-    std::error_code             error;
-    const std::filesystem::path resolved = file.empty() ? std::filesystem::current_path(error)
-                                                        : std::filesystem::absolute(file, error);
-    return error ? file : resolved;
-}
-
-}  // namespace
-
 DecalImage::DecalImage(std::shared_ptr<const Attachment> attachment)
   : m_attachment(std::move(attachment))
 {

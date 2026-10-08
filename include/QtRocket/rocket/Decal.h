@@ -15,9 +15,11 @@ namespace QtRocket
 /// and y of Coordinates), its rotation in radians and what happens at its edges. Immutable.
 ///
 /// Java's DecalImage (a file or document attachment with its bytes and change listeners) is not
-/// ported here: a decal names its image, and the image bytes live in the document's decal
-/// registry (document/, later). The registry fires the TEXTURE_CHANGE events that Java's
-/// DecalImage listener fired on the components using the image.
+/// held here: a decal names its image, and the image with its bytes is kept by the decal
+/// registry of the document (document/DecalImage.h and DecalRegistry.h;
+/// OpenRocketDocument::findDecalImage() gives the image of a name). The document fires the
+/// TEXTURE_CHANGE events that Java's DecalImage listeners fire, on the components that use the
+/// image when it changes.
 class Decal
 {
 public:

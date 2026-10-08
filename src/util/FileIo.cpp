@@ -97,6 +97,14 @@ std::string pathToUtf8(const std::filesystem::path& path)
     return {text.begin(), text.end()};
 }
 
+std::filesystem::path absolutePath(const std::filesystem::path& path)
+{
+    std::error_code             error;
+    const std::filesystem::path resolved = path.empty() ? std::filesystem::current_path(error)
+                                                        : std::filesystem::absolute(path, error);
+    return error ? path : resolved;
+}
+
 std::string bytesToString(std::span<const std::byte> bytes)
 {
     std::string text;

@@ -86,8 +86,9 @@ TEST(Material, Material)
 // testDocumentDatabase and testLoadFromPreset assign materials to a BodyTube of a document. The
 // material side of them is kept here, with a MaterialStorage in the role of the document's
 // material database; tests/core/rocket/document_material_tests.cpp runs both with a BodyTube in a
-// rocket whose Rocket::documentMaterialSet() such a storage listens to, and the document tier
-// with the document itself.
+// rocket whose Rocket::documentMaterialSet() such a storage listens to, and
+// tests/core/document/open_rocket_document_material_tests.cpp ports both in full, with the
+// document itself.
 TEST(Material, DocumentDatabase)
 {
     MaterialStorage document;

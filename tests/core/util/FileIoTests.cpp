@@ -89,4 +89,18 @@ TEST(FileIo, PathToUtf8IsTheUtf8FormOnEveryPlatform)
     EXPECT_EQ(QtRocket::pathToUtf8(std::filesystem::path{}), "");
 }
 
+// Java's File.getAbsolutePath(): the current directory in front of a relative path, without a
+// look at the file system; an absolute path as it is; the current directory for an empty path.
+TEST(FileIo, AbsolutePathResolvesAgainstTheCurrentDirectory)
+{
+    const std::filesystem::path cwd = std::filesystem::current_path();
+
+    EXPECT_EQ(QtRocket::absolutePath("no-such-directory/rocket.ork"),
+              cwd / "no-such-directory" / "rocket.ork");
+    EXPECT_EQ(QtRocket::absolutePath(cwd / "a" / "rocket.ork"), cwd / "a" / "rocket.ork");
+    EXPECT_TRUE(QtRocket::absolutePath("rocket.ork").is_absolute());
+    // std::filesystem::absolute("") is an error on some platforms.
+    EXPECT_EQ(QtRocket::absolutePath(std::filesystem::path{}), cwd);
+}
+
 }  // namespace

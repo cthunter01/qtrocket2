@@ -3,5 +3,7 @@ target_sources(QtRocket_core PRIVATE
     attachments/FileSystemAttachment.cpp
     DecalImage.cpp
     DecalRegistry.cpp
+    OpenRocketDocument.cpp
+    OpenRocketDocumentFactory.cpp
     StorageOptions.cpp
 )

@@ -237,6 +237,11 @@ add_executable(QtRocket_core_tests
     document/DecalImageTests.cpp
     document/DecalRegistryTests.cpp
     document/events/DocumentChangeEventTests.cpp
+    document/open_rocket_document_material_tests.cpp
+    document/open_rocket_document_preferences_tests.cpp
+    document/open_rocket_document_simulation_undo_redo_tests.cpp
+    document/OpenRocketDocumentFactoryTests.cpp
+    document/OpenRocketDocumentTests.cpp
     document/StorageOptionsTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
