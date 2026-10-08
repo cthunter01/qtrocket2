@@ -103,7 +103,9 @@
 //   (1.5e-7 rad/s), it is reproducible to 7.8e-7 of its own scale between two runs of
 //   OpenRocket and to 1.1e-6 here, but the kick below moves it by 3.8e-3 of it, four times a
 //   tolerance from those measurements: what moves it is any change of the rotation of
-//   1e-10 rad/s, so it is left a noise column.
+//   1e-10 rad/s, so it is left a noise column. (The rule is noiseColumns() of
+//   GoldenSimulations.h, with its table and its ratio: the comparison of the default-step set
+//   applies it too, see "The out-of-plane noise columns" in simulation_golden_tests.cpp.)
 // - E, the step to the apogee of an Euler stepper. A rocket whose recovery device is deployed
 //   on the way up passes its apogee under BasicLandingStepper, and AbstractEulerStepper.step()
 //   then makes one step that ends on the apogee (t = |v / a|), which leaves a rounding error
@@ -366,6 +368,7 @@ using QtRocket::Test::makeReproducible;
 using QtRocket::Test::makerTestName;
 using QtRocket::Test::manifest;
 using QtRocket::Test::Mutation;
+using QtRocket::Test::noiseColumns;
 using QtRocket::Test::orderedEvents;
 using QtRocket::Test::orderedGoldenEvents;
 using QtRocket::Test::parameterOf;
@@ -423,12 +426,6 @@ constexpr double kStableSummaryRelative = 1e-6;
 /// velocity of the flight. Measured: 1.4e-8 (the velocity is read off a steep part of the
 /// trajectory, between two rows around the deployment).
 constexpr double kDeploymentVelocityRelative = 1e-5;
-
-/// An out-of-plane column is noise-dominated when its largest magnitude is below this fraction
-/// of that of its counterpart in the plane of the flight (kOutOfPlaneColumns). In the planar
-/// flights of the test rockets the fractions are 2e-6 to 3e-4, in the one flight that leaves
-/// its plane (the multi-level wind turns with the altitude) 0.2 to 2.
-constexpr double kNoiseRatio = 1e-2;
 
 /// A vertical velocity below this, in m/s, in a row of an Euler stepper: the row on which the
 /// stepper landed its step to the apogee (AbstractEulerStepper.step(): t = |v / a|, which
@@ -603,27 +600,8 @@ constexpr std::array<std::string_view, 6> kHuntingNoiseColumns{"aoa",
 constexpr std::array<std::string_view, 3> kSwitchedColumns{"pitch_rate", "yaw_rate",
                                                            "pitch_damping_moment_coeff"};
 
-/// An out-of-plane column, the column whose scale measures it and its counterpart in the plane
-/// of a planar flight. Rule N: when the measure is below kNoiseRatio of the counterpart (and
-/// not a column of zeros, which is compared like any other), the column is compared on the
-/// launch rod only.
-struct OutOfPlaneColumn
-{
-    std::string_view key;
-    std::string_view measure;
-    std::string_view counterpart;
-};
-constexpr std::array<OutOfPlaneColumn, 6> kOutOfPlaneColumns{{
-    {.key = "yaw_rate", .measure = "yaw_rate", .counterpart = "pitch_rate"},
-    {.key = "roll_rate", .measure = "roll_rate", .counterpart = "pitch_rate"},
-    {.key = "acceleration_y", .measure = "acceleration_y", .counterpart = "acceleration_x"},
-    {.key         = "acceleration_bodyy",
-     .measure     = "acceleration_bodyy",
-     .counterpart = "acceleration_bodyx"},
-    {.key = "position_y", .measure = "position_y", .counterpart = "position_x"},
-    // The direction of the lateral position is atan2() of its two components.
-    {.key = "position_direction", .measure = "position_y", .counterpart = "position_x"},
-}};
+// Rule N, the noise-dominated out-of-plane columns, is shared with the comparison of the
+// default-step set: kOutOfPlaneColumns, kNoiseRatio and noiseColumns() of GoldenSimulations.h.
 
 /// The tolerance the table @p columns lists for the column @p key; nullopt when it does not
 /// list it.
@@ -970,16 +948,14 @@ struct ApogeeStep
              .switched  = std::ranges::find(kSwitchedColumns, key) != kSwitchedColumns.end(),
              .kind      = hunting < 0 ? ColumnKind::NOT_WHILE_HUNTING : ColumnKind::EVERY_ROW});
     }
-    for (const OutOfPlaneColumn& outOfPlane : kOutOfPlaneColumns)
+    // Rule N: the columns that noiseColumns() of GoldenSimulations.h names, as in the
+    // comparison of the default-step set.
+    const std::vector<bool> noise = noiseColumns(table);
+    for (std::size_t i = 0; i < columns.size(); i++)
     {
-        const std::optional<std::size_t> column      = table.columnIndex(outOfPlane.key);
-        const std::optional<std::size_t> measure     = table.columnIndex(outOfPlane.measure);
-        const std::optional<std::size_t> counterpart = table.columnIndex(outOfPlane.counterpart);
-        if (column.has_value() && measure.has_value() && counterpart.has_value() &&
-            columns[*measure].scale > 0 &&
-            columns[*measure].scale < kNoiseRatio * columns[*counterpart].scale)
+        if (noise[i])
         {
-            columns[*column].kind = ColumnKind::ON_THE_ROD_ONLY;
+            columns[i].kind = ColumnKind::ON_THE_ROD_ONLY;
         }
     }
     return columns;

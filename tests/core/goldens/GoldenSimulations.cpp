@@ -275,27 +275,36 @@ void simulate(SimulationRun& run, const std::shared_ptr<QtRocket::SimulationList
 // =============================================================================== sensitivity
 
 /// One column of a branch in the two runs, with the tolerance of the comparison of the column
-/// with the golden time series.
+/// with the golden time series, and whether it is a noise-dominated out-of-plane column, which
+/// is compared on the launch rod only (RodOnlyRule).
 struct TwinColumn
 {
     const std::vector<double>* values{nullptr};
     const std::vector<double>* twin{nullptr};
     double                     tolerance{0};
+    bool                       rodOnly{false};
 };
 
-/// Whether row @p row is reproducible in every one of @p columns.
-[[nodiscard]] bool rowIsReproducible(const std::vector<TwinColumn>& columns, std::size_t row)
+/// Whether row @p row is reproducible in every one of @p columns that is compared in it: every
+/// column in a row on the launch rod (@p onTheRod), at the margin kSensitivityMargin; every
+/// column but the noise-dominated out-of-plane ones in a later row, at the margin
+/// @p flightMargin.
+[[nodiscard]] bool rowIsReproducible(const std::vector<TwinColumn>& columns, std::size_t row,
+                                     bool onTheRod, double flightMargin)
 {
-    return std::ranges::all_of(columns, [row](const TwinColumn& column) {
-        return reproducible((*column.values)[row], (*column.twin)[row], column.tolerance);
+    const double margin = onTheRod ? kSensitivityMargin : flightMargin;
+    return std::ranges::all_of(columns, [row, onTheRod, margin](const TwinColumn& column) {
+        return (column.rodOnly && !onTheRod) ||
+               reproducible((*column.values)[row], (*column.twin)[row], column.tolerance, margin);
     });
 }
 
 /// The columns of @p branch and of the perturbed run's branch @p twin, with the tolerances of
-/// the comparison with the golden time series @p table; none when @p twin lacks one of them.
+/// the comparison with the golden time series @p table, whose noise-dominated out-of-plane
+/// columns @p rule names; none when @p twin lacks one of them.
 [[nodiscard]] std::vector<TwinColumn> twinColumns(const FlightDataBranch& branch,
                                                   const FlightDataBranch& twin,
-                                                  const GoldenTable&      table)
+                                                  const GoldenTable& table, const RodOnlyRule& rule)
 {
     const std::vector<const FlightDataType*> types = csvTypes(branch);
     std::vector<TwinColumn>                  columns;
@@ -308,30 +317,36 @@ struct TwinColumn
         }
         columns.push_back({.values    = branch.getView(*types[i]),
                            .twin      = twinValues,
-                           .tolerance = kValueRelative * columnScale(table, i)});
+                           .tolerance = kValueRelative * columnScale(table, i),
+                           .rodOnly   = rule.isNoise(i)});
     }
     return columns;
 }
 
 /// How far @p branch is reproducible: up to the first row in which a value of the perturbed
-/// run's branch @p twin (null: it has none) differs from the run's by more than
-/// 1/kSensitivityMargin of the tolerance of its column, the tolerances being those of the
-/// comparison with the golden time series @p table.
+/// run's branch @p twin (null: it has none) differs from the run's by more than the tolerance
+/// of its column over the margin of the row (kSensitivityMargin on the launch rod,
+/// @p flightMargin after it), the tolerances being those of the comparison with the golden time
+/// series @p table. A value that @p rule excludes from that comparison (a noise-dominated
+/// out-of-plane column, off the launch rod) does not count.
 [[nodiscard]] Horizon horizonOf(const FlightDataBranch& branch, const FlightDataBranch* twin,
-                                const GoldenTable& table)
+                                const GoldenTable& table, const RodOnlyRule& rule,
+                                double flightMargin)
 {
     if (twin == nullptr)
     {
         return {};
     }
-    const std::vector<TwinColumn> columns = twinColumns(branch, *twin, table);
+    const std::vector<TwinColumn> columns = twinColumns(branch, *twin, table, rule);
     if (columns.empty())
     {
         return {};
     }
     const std::size_t rows             = std::min(branch.getLength(), twin->getLength());
     std::size_t       reproducibleRows = 0;
-    while (reproducibleRows < rows && rowIsReproducible(columns, reproducibleRows))
+    while (
+        reproducibleRows < rows &&
+        rowIsReproducible(columns, reproducibleRows, reproducibleRows < rule.rodRows, flightMargin))
     {
         reproducibleRows++;
     }
@@ -352,6 +367,31 @@ struct TwinColumn
     return horizon;
 }
 
+/// How far @p run, which has flight data as the perturbed run @p twin has, is reproducible when a
+/// row after the launch rod is judged at the margin @p flightMargin: the horizons of its
+/// branches, and whether the whole run is reproducible (every branch to its last row, in a
+/// perturbed run with as many branches and jitter replacements and the same status).
+[[nodiscard]] Sensitivity sensitivityAt(const GoldenFiles& golden, const SimulationRun& run,
+                                        const SimulationRun& twin, double flightMargin)
+{
+    Sensitivity sensitivity;
+    sensitivity.whole = run.data->getBranchCount() == twin.data->getBranchCount() &&
+                        run.jitterReplacements == twin.jitterReplacements &&
+                        run.status == twin.status;
+    const GoldenTable           noTable;
+    const std::optional<double> cleared = goldenRodClearance(golden.document);
+    for (std::size_t i = 0; i < run.data->getBranchCount(); i++)
+    {
+        const FlightDataBranch* twinBranch =
+            i < twin.data->getBranchCount() ? &twin.data->getBranch(i) : nullptr;
+        const GoldenTable& table = i < golden.tables.size() ? golden.tables[i] : noTable;
+        sensitivity.horizons.push_back(horizonOf(run.data->getBranch(i), twinBranch, table,
+                                                 rodOnlyRule(table, cleared), flightMargin));
+        sensitivity.whole = sensitivity.whole && sensitivity.horizons.back().whole;
+    }
+    return sensitivity;
+}
+
 // ================================================================================ comparison
 
 /// Compares the number @p actual with the golden number @p expected, within @p tolerance,
@@ -362,7 +402,9 @@ void compareNumber(Mismatches& m, Comparison& c, const std::string& field, doubl
     const bool compared = stable || c.strict;
     if (c.measurements != nullptr && std::isfinite(expected) && std::isfinite(actual))
     {
-        c.measurements->record(c.context, field, !compared, std::abs(actual - expected), tolerance);
+        c.measurements->record(c.context, field,
+                               compared ? Treatment::COMPARED : Treatment::SENSITIVE,
+                               std::abs(actual - expected), tolerance);
     }
     if (!compared)
     {
@@ -371,6 +413,19 @@ void compareNumber(Mismatches& m, Comparison& c, const std::string& field, doubl
     }
     c.compared.numbers++;
     m.within(field, expected, actual, 0.0, tolerance);
+}
+
+/// Counts the number @p actual, whose golden number is @p expected, as one that the rule of
+/// the out-of-plane noise columns excludes (RodOnlyRule): it is not compared.
+void excludeNumber(Comparison& c, const std::string& field, double expected, double actual,
+                   double tolerance)
+{
+    if (c.measurements != nullptr && std::isfinite(expected) && std::isfinite(actual))
+    {
+        c.measurements->record(c.context, field, Treatment::EXCLUDED, std::abs(actual - expected),
+                               tolerance);
+    }
+    c.excluded.numbers++;
 }
 
 /// compareNumber() of a value: within kValueRelative of @p scale or of the larger magnitude of
@@ -808,6 +863,9 @@ struct BranchOf
     const Rocket*           rocket{nullptr};
     Horizon                 horizon;       ///< how far the branch is reproducible
     bool                    whole{false};  ///< whether the whole run is
+    /// The noise-dominated out-of-plane columns of its golden time series, which are compared
+    /// on the launch rod only (none in the strict comparison).
+    RodOnlyRule rule;
 };
 
 /// Compares the data of @p event with the golden "data" @p expected, by its kind.
@@ -947,10 +1005,12 @@ struct ColumnOf
     std::size_t                column{0};
     const std::vector<double>* values{nullptr};
     double                     scale{0};
+    const RodOnlyRule*         rule{nullptr};  ///< of the golden time series
 };
 
 /// Records the differences of the column @p column from the golden one: those of the first
-/// @p rows rows, which are compared, and those of the later ones, which are sensitive.
+/// @p rows rows, which are compared, and those of the later ones, which are sensitive; but
+/// those of the rows in which the rule of the noise columns excludes the column as excluded.
 void measureColumn(const Comparison& c, const ColumnOf& column, std::size_t rows)
 {
     const std::size_t common = std::min(column.values->size(), column.table->rows.size());
@@ -960,15 +1020,19 @@ void measureColumn(const Comparison& c, const ColumnOf& column, std::size_t rows
         const double actual   = (*column.values)[row];
         if (std::isfinite(expected) && std::isfinite(actual))
         {
-            c.measurements->record(c.context, "column:" + column.key, row >= rows,
-                                   std::abs(actual - expected), kValueRelative * column.scale);
+            const Treatment sensitive = row >= rows ? Treatment::SENSITIVE : Treatment::COMPARED;
+            c.measurements->record(
+                c.context, "column:" + column.key,
+                column.rule->excludes(column.column, row) ? Treatment::EXCLUDED : sensitive,
+                std::abs(actual - expected), kValueRelative * column.scale);
         }
     }
 }
 
-/// Compares the first @p rows values of the column @p column with the golden ones, row by row:
-/// each within kValueRelative of the scale of the column. The rows that differ are reported in
-/// one line: how many, and the first of them.
+/// Compares the values of the column @p column in the first @p rows rows with the golden ones,
+/// row by row: each within kValueRelative of the scale of the column. A noise-dominated
+/// out-of-plane column is compared in the rows on the launch rod only (RodOnlyRule). The rows
+/// that differ are reported in one line: how many, and the first of them.
 void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& column,
                          std::size_t rows)
 {
@@ -976,10 +1040,11 @@ void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& col
     {
         measureColumn(c, column, rows);
     }
-    const double tolerance = kValueRelative * column.scale;
-    std::size_t  differing = 0;
-    std::size_t  first     = 0;
-    for (std::size_t row = 0; row < rows; row++)
+    const double      tolerance = kValueRelative * column.scale;
+    const std::size_t compared  = column.rule->comparedRows(column.column, rows);
+    std::size_t       differing = 0;
+    std::size_t       first     = 0;
+    for (std::size_t row = 0; row < compared; row++)
     {
         if (differs(column.table->rows[row][column.column], (*column.values)[row], tolerance))
         {
@@ -991,17 +1056,51 @@ void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& col
     {
         const double expected = column.table->rows[first][column.column];
         const double actual   = (*column.values)[first];
-        m.note(
-            std::format("column {}: {} of {} rows differ, the first at row {}: expected {}, "
-                        "got {} (difference {})",
-                        column.key, differing, rows, first, expected, actual, actual - expected));
+        m.note(std::format(
+            "column {}: {} of {} rows differ, the first at row {}: expected {}, "
+            "got {} (difference {})",
+            column.key, differing, compared, first, expected, actual, actual - expected));
     }
+}
+
+/// The golden minimum or maximum @p expected of a column of a branch against the run's.
+struct ExtremeOf
+{
+    std::string field;  ///< "columns[3].min (altitude)"
+    double      expected{0};
+    double      actual{0};
+};
+
+/// Compares the minimum or maximum @p extreme of the column @p column of the branch with the
+/// golden one, within kValueRelative of the scale of the column, when the whole branch is
+/// reproducible (@p whole): it is sensitive otherwise. Of a noise-dominated out-of-plane
+/// column of such a branch an extreme that the golden column or the run's attains only off the
+/// launch rod is one of the values the rule excludes (RodOnlyRule::excludesExtreme()).
+void compareExtreme(Mismatches& m, Comparison& c, const ColumnOf& column, const ExtremeOf& extreme,
+                    bool whole)
+{
+    if (whole && column.values != nullptr && column.rule->isNoise(column.column))
+    {
+        const std::vector<double> golden =
+            column.table->column(column.table->columns[column.column])
+                .value_or(std::vector<double>{});
+        if (column.rule->excludesExtreme(column.column, golden, extreme.expected) ||
+            column.rule->excludesExtreme(column.column, *column.values, extreme.actual))
+        {
+            excludeNumber(
+                c, extreme.field, extreme.expected, extreme.actual,
+                kValueRelative * referenceOf(column.scale, extreme.expected, extreme.actual));
+            return;
+        }
+    }
+    compareValue(m, c, extreme.field, extreme.expected, extreme.actual, whole, column.scale);
 }
 
 /// Compares the columns of the branch with the golden "columns" (key, name, symbol, whether
 /// built in, in order; minimum and maximum when the whole branch is reproducible) and with the
-/// golden time series @p table: every value of the first @p rows rows. Returns the number of
-/// golden columns compared.
+/// golden time series @p table: the values of the first @p rows rows, a noise-dominated
+/// out-of-plane column in those on the launch rod only. Returns the number of golden columns
+/// compared.
 [[nodiscard]] int compareColumns(Mismatches& m, Comparison& c, const json& expected,
                                  const GoldenTable& table, const BranchOf& ours, std::size_t rows)
 {
@@ -1021,19 +1120,24 @@ void compareColumnValues(Mismatches& m, const Comparison& c, const ColumnOf& col
         m.text(field + ".name", column.at("name").get<std::string>(), type.getName());
         m.text(field + ".symbol", column.at("symbol").get<std::string>(), type.getSymbol());
         m.boolean(field + ".builtin", column.at("builtin").get<bool>(), type.isBuiltin());
-        const double scale = columnScale(table, i);
-        compareValue(m, c, std::format("{}.min ({})", field, key), goldenValue(column.at("min")),
-                     branch.getMinimum(type), ours.horizon.whole, scale);
-        compareValue(m, c, std::format("{}.max ({})", field, key), goldenValue(column.at("max")),
-                     branch.getMaximum(type), ours.horizon.whole, scale);
+        const ColumnOf series{.key    = key,
+                              .table  = &table,
+                              .column = i,
+                              .values = branch.getView(type),
+                              .scale  = columnScale(table, i),
+                              .rule   = &ours.rule};
+        compareExtreme(m, c, series,
+                       {.field    = std::format("{}.min ({})", field, key),
+                        .expected = goldenValue(column.at("min")),
+                        .actual   = branch.getMinimum(type)},
+                       ours.horizon.whole);
+        compareExtreme(m, c, series,
+                       {.field    = std::format("{}.max ({})", field, key),
+                        .expected = goldenValue(column.at("max")),
+                        .actual   = branch.getMaximum(type)},
+                       ours.horizon.whole);
         noteUncomparedKeys(m, field, column, kColumnKeys);
-        compareColumnValues(m, c,
-                            {.key    = key,
-                             .table  = &table,
-                             .column = i,
-                             .values = branch.getView(type),
-                             .scale  = scale},
-                            rows);
+        compareColumnValues(m, c, series, rows);
         compared++;
     }
     return compared;
@@ -1073,35 +1177,75 @@ void compareBranchHeader(Mismatches& m, Comparison& c, const json& expected, std
     noteUncomparedKeys(m, "", expected, kBranchKeys);
 }
 
-/// Compares branch @p index of @p run with the golden branch @p expected and its time series
-/// @p table; @p sensitivity says how far the run is reproducible.
-void compareBranch(Comparison& c, std::size_t index, const json& expected, const GoldenTable& table,
+/// The golden branch @p expected of a simulation whose rocket clears the launch rod at
+/// @p cleared (nullopt: never), and its time series @p table.
+struct GoldenBranch
+{
+    const json*           expected{nullptr};
+    const GoldenTable*    table{nullptr};
+    std::optional<double> cleared;
+};
+
+/// The rule of the out-of-plane noise columns for the golden time series @p golden, as the
+/// comparison @p c applies it: not at all when it is strict.
+[[nodiscard]] RodOnlyRule ruleOf(const Comparison& c, const GoldenBranch& golden)
+{
+    if (!c.strict)
+    {
+        return rodOnlyRule(*golden.table, golden.cleared);
+    }
+    return {.rows    = golden.table->rows.size(),
+            .rodRows = golden.table->rows.size(),
+            .noise   = std::vector<bool>(golden.table->columns.size(), false)};
+}
+
+/// Counts the rows and the values of a branch with the rule @p rule whose first @p rows rows
+/// are compared, @p whole saying whether the branch is reproducible as a whole: the values that
+/// are compared (those of the rows, without what the rule excludes in them), the values the
+/// rule excludes in any row, and the rows from the horizon on with what the rule leaves of
+/// their values, which are sensitive.
+void countBranch(Comparison& c, const RodOnlyRule& rule, std::size_t rows, bool whole)
+{
+    const auto noise    = rule.noiseColumnCount();
+    const auto columns  = static_cast<std::int64_t>(rule.noise.size());
+    const auto compared = static_cast<std::int64_t>(rows);
+    // The rows in which a noise column is compared: those of the rows that are on the rod.
+    const auto onTheRod = static_cast<std::int64_t>(std::min(rows, rule.rodRows));
+    c.compared.rows += compared;
+    c.compared.values += (compared * (columns - noise)) + (onTheRod * noise);
+    c.excluded.values += rule.excludedValues();
+    if (!c.strict && !whole)
+    {
+        // The rows of the golden time series from the horizon on.
+        const auto sensitive = static_cast<std::int64_t>(rule.rows - rows);
+        c.sensitive.rows += sensitive;
+        c.sensitive.values += (sensitive * (columns - noise)) +
+                              ((static_cast<std::int64_t>(rule.rodRows) - onTheRod) * noise);
+    }
+}
+
+/// Compares branch @p index of @p run with the golden branch @p golden; @p sensitivity says how
+/// far the run is reproducible.
+void compareBranch(Comparison& c, std::size_t index, const GoldenBranch& golden,
                    const SimulationRun& run, const Sensitivity& sensitivity)
 {
-    Mismatches     m(std::format("{} branch {}", c.context, index));
-    const BranchOf ours{.data    = run.data.get(),
-                        .branch  = &run.data->getBranch(index),
-                        .rocket  = run.rocket.get(),
-                        .horizon = sensitivity.horizons.at(index),
-                        .whole   = sensitivity.whole};
-    compareBranchHeader(m, c, expected, index, ours, run.planned);
+    Mismatches         m(std::format("{} branch {}", c.context, index));
+    const GoldenTable& table = *golden.table;
+    const BranchOf     ours{.data    = run.data.get(),
+                            .branch  = &run.data->getBranch(index),
+                            .rocket  = run.rocket.get(),
+                            .horizon = sensitivity.horizons.at(index),
+                            .whole   = sensitivity.whole,
+                            .rule    = ruleOf(c, golden)};
+    compareBranchHeader(m, c, *golden.expected, index, ours, run.planned);
 
     // The rows compared: those that are reproducible, as far as both sides have them.
     const std::size_t rows = std::min({c.strict ? ours.branch->getLength() : ours.horizon.rows,
                                        ours.branch->getLength(), table.rows.size()});
     c.compared.branches++;
-    c.compared.columns += compareColumns(m, c, expected.at("columns"), table, ours, rows);
-    c.compared.events += compareEvents(m, c, expected.at("events"), ours);
-    const auto columns = static_cast<std::int64_t>(table.columns.size());
-    c.compared.rows += static_cast<std::int64_t>(rows);
-    c.compared.values += static_cast<std::int64_t>(rows) * columns;
-    if (!c.strict && !ours.horizon.whole)
-    {
-        // The rows of the golden time series from the horizon on.
-        const auto sensitive = static_cast<std::int64_t>(table.rows.size() - rows);
-        c.sensitive.rows += sensitive;
-        c.sensitive.values += sensitive * columns;
-    }
+    c.compared.columns += compareColumns(m, c, golden.expected->at("columns"), table, ours, rows);
+    c.compared.events += compareEvents(m, c, golden.expected->at("events"), ours);
+    countBranch(c, ours.rule, rows, ours.horizon.whole);
     c.report += m.report();
 }
 
@@ -1129,10 +1273,13 @@ void compareData(Comparison& c, const GoldenFiles& golden, const SimulationRun& 
     m.integer("branches: number", static_cast<std::int64_t>(branches.size()),
               static_cast<std::int64_t>(run.data->getBranchCount()));
     c.report += m.report();
+    const std::optional<double> cleared = goldenRodClearance(document);
     for (std::size_t i = 0;
          i < std::min({branches.size(), run.data->getBranchCount(), golden.tables.size()}); i++)
     {
-        compareBranch(c, i, branches.at(i), golden.tables[i], run, sensitivity);
+        compareBranch(c, i,
+                      {.expected = &branches.at(i), .table = &golden.tables[i], .cleared = cleared},
+                      run, sensitivity);
     }
 }
 
@@ -1381,15 +1528,109 @@ SimulationCounts goldenCounts(const GoldenFiles& files)
     return counts;
 }
 
+// ============================================================================== measurements
+
+std::string_view treatmentName(Treatment treatment)
+{
+    switch (treatment)
+    {
+        case Treatment::COMPARED:
+            return "compared";
+        case Treatment::SENSITIVE:
+            return "sensitive";
+        case Treatment::EXCLUDED:
+            break;
+    }
+    return "excluded";
+}
+
+// ============================================================ the out-of-plane noise columns
+
+std::vector<bool> noiseColumns(const GoldenTable& table)
+{
+    std::vector<bool> noise(table.columns.size(), false);
+    for (const OutOfPlaneColumn& outOfPlane : kOutOfPlaneColumns)
+    {
+        const std::optional<std::size_t> column      = table.columnIndex(outOfPlane.key);
+        const std::optional<std::size_t> measure     = table.columnIndex(outOfPlane.measure);
+        const std::optional<std::size_t> counterpart = table.columnIndex(outOfPlane.counterpart);
+        if (!column.has_value() || !measure.has_value() || !counterpart.has_value())
+        {
+            continue;
+        }
+        const double scale = columnScale(table, *measure);
+        noise[*column]     = scale > 0 && scale < kNoiseRatio * columnScale(table, *counterpart);
+    }
+    return noise;
+}
+
+bool RodOnlyRule::isNoise(std::size_t column) const
+{
+    return column < noise.size() && noise[column];
+}
+
+bool RodOnlyRule::excludes(std::size_t column, std::size_t row) const
+{
+    return row >= rodRows && isNoise(column);
+}
+
+std::size_t RodOnlyRule::comparedRows(std::size_t column, std::size_t compared) const
+{
+    return isNoise(column) ? std::min(compared, rodRows) : compared;
+}
+
+bool RodOnlyRule::excludesExtreme(std::size_t column, std::span<const double> values,
+                                  double extreme) const
+{
+    if (!isNoise(column))
+    {
+        return false;
+    }
+    bool onTheRod  = false;
+    bool offTheRod = false;
+    for (std::size_t row = 0; row < values.size(); row++)
+    {
+        if (values[row] == extreme)
+        {
+            onTheRod  = onTheRod || row < rodRows;
+            offTheRod = offTheRod || row >= rodRows;
+        }
+    }
+    return offTheRod && !onTheRod;
+}
+
+std::int64_t RodOnlyRule::noiseColumnCount() const
+{
+    // (A loop: a vector<bool> is no range of bool for the algorithms of every standard library.)
+    std::int64_t count = 0;
+    for (const bool flag : noise)
+    {
+        count += flag ? 1 : 0;
+    }
+    return count;
+}
+
+std::int64_t RodOnlyRule::excludedValues() const
+{
+    return noiseColumnCount() * static_cast<std::int64_t>(rows - std::min(rows, rodRows));
+}
+
+RodOnlyRule rodOnlyRule(const GoldenTable& table, const std::optional<double>& cleared)
+{
+    return {.rows    = table.rows.size(),
+            .rodRows = rowsUpToTheClearance(table, cleared),
+            .noise   = noiseColumns(table)};
+}
+
 // =============================================================================== sensitivity
 
-bool reproducible(double actual, double twin, double tolerance)
+bool reproducible(double actual, double twin, double tolerance, double margin)
 {
     if (std::isnan(actual) || std::isnan(twin))
     {
         return std::isnan(actual) == std::isnan(twin);
     }
-    return actual == twin || std::abs(actual - twin) <= tolerance / kSensitivityMargin;
+    return actual == twin || std::abs(actual - twin) <= tolerance / margin;
 }
 
 std::vector<const FlightDataType*> csvTypes(const FlightDataBranch& branch)
@@ -1425,26 +1666,17 @@ double columnScale(const GoldenTable& table, std::size_t column)
 Sensitivity sensitivityOf(const GoldenFiles& golden, const SimulationRun& run,
                           const SimulationRun& twin)
 {
-    Sensitivity sensitivity;
     if (run.data == nullptr || twin.data == nullptr)
     {
-        sensitivity.whole = run.data == nullptr && twin.data == nullptr;
-        return sensitivity;
+        Sensitivity none;
+        none.whole = run.data == nullptr && twin.data == nullptr;
+        return none;
     }
-    sensitivity.whole = run.data->getBranchCount() == twin.data->getBranchCount() &&
-                        run.jitterReplacements == twin.jitterReplacements &&
-                        run.status == twin.status;
-    const GoldenTable noTable;
-    for (std::size_t i = 0; i < run.data->getBranchCount(); i++)
-    {
-        const FlightDataBranch* twinBranch =
-            i < twin.data->getBranchCount() ? &twin.data->getBranch(i) : nullptr;
-        sensitivity.horizons.push_back(
-            horizonOf(run.data->getBranch(i), twinBranch,
-                      i < golden.tables.size() ? golden.tables[i] : noTable));
-        sensitivity.whole = sensitivity.whole && sensitivity.horizons.back().whole;
-    }
-    return sensitivity;
+    // A run that the perturbed run reproduces to its last row at the margin of the launch rod
+    // is whole: nothing grows in it. Any other run diverges somewhere, and the reproducible
+    // part of its free flight ends at the margin of the free flight.
+    const Sensitivity steady = sensitivityAt(golden, run, twin, kSensitivityMargin);
+    return steady.whole ? steady : sensitivityAt(golden, run, twin, kFlightSensitivityMargin);
 }
 
 // ================================================================================ comparison
@@ -1477,7 +1709,8 @@ void compareSimulationWarning(Mismatches& m, Comparison& c, const std::string& f
     const bool compared = whole || c.strict;
     if (c.measurements != nullptr && expected.contains("parameter"))
     {
-        c.measurements->record(c.context, field + ".parameter", !compared,
+        c.measurements->record(c.context, field + ".parameter",
+                               compared ? Treatment::COMPARED : Treatment::SENSITIVE,
                                std::abs(*parameter - goldenValue(expected.at("parameter"))),
                                kValueRelative * std::abs(*parameter));
     }
@@ -1634,7 +1867,10 @@ SimulationComparison compareSimulation(const GoldenFiles& golden, const Simulati
 
     compareData(c, golden, run, sensitivity);
     c.compared.simulations = 1;
-    return {.compared = c.compared, .sensitive = c.sensitive, .report = c.report};
+    return {.compared  = c.compared,
+            .sensitive = c.sensitive,
+            .excluded  = c.excluded,
+            .report    = c.report};
 }
 
 // ============================================================================== the goldens

@@ -8,15 +8,17 @@
 // default-step set, the harness's set-up of a simulation of a test rocket (the options of a fresh
 // installation, the variants, makeReproducible()), the run (with the jitter removal and, for the
 // sensitivity analysis, a perturbation), the golden files of a simulation and what they hold, the
-// measurements, the sensitivity analysis, the comparison of a run with its files
-// (compareSimulation()), the manifest and the floor under the reproducible part, and the
-// scaffolding of the mutation tests.
+// measurements, the rule of the out-of-plane noise columns (rodOnlyRule()), the sensitivity
+// analysis, the comparison of a run with its files (compareSimulation()), the manifest and the
+// floor under the reproducible part, and the scaffolding of the mutation tests.
 //
 // simulation_golden_tests.cpp compares the default-step set with it (time step 0.05 s: what is
 // reproducible of a flight, and why no more is, is described at the top of that file) and
 // simulation_stable_golden_tests.cpp the stable-step set (0.01 s, whole flights, with rules of its
 // own that live in that file). The comparison of the default-step set, compareSimulation(), also
-// compares everything of a stable-step simulation that is not a number of the trajectory.
+// compares everything of a stable-step simulation that is not a number of the trajectory. One rule
+// is the same in both comparisons and lives here: an out-of-plane column that is noise-dominated
+// is compared on the launch rod only (rule N of the stable-step set).
 //
 // The set-up and the run are those of a test rocket of tests/core/rocket/TestRockets.h
 // (runSimulation() builds the rocket and the harness's document from a TestRocketMaker).
@@ -31,6 +33,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -73,9 +76,26 @@ inline constexpr double kValueRelative = 1e-9;
 /// seconds.
 inline constexpr double kTimeAbsolute = 1e-6;
 
-/// A value of a time series is reproducible when the perturbed run moves it by no more than its
-/// tolerance divided by this (1e-12 of the scale of its column).
+/// A value of a time series in a row on the launch rod is reproducible when the perturbed run
+/// moves it by no more than its tolerance divided by this (1e-12 of the scale of its column).
+/// On the rod nothing amplifies a difference: over the 47 runs of the measurement (glibc and 46
+/// patterns of the one-ulp libm shim) the perturbed run moves a value there by 7.3e-14 of its
+/// scale at most, and the run differs from the golden file by as little.
 inline constexpr double kSensitivityMargin = 1000.0;
+
+/// ... and a value in a row after the launch rod, of a run that is not reproducible as a whole
+/// at that margin, when the perturbed run moves it by no more than its tolerance divided by
+/// this (1e-13 of the scale of its column): ten times less. In such a flight a difference grows
+/// from row to row, at a rate that the perturbed run shows, from a start that it does not: the
+/// golden run of OpenRocket and a run under another mathematical library start elsewhere. The
+/// margin is the least power of ten for which the largest difference from the golden files
+/// among the values compared stays a hundredth of the tolerance in each of the 47 runs of the
+/// measurement: 5.0e-12 of the scale at this margin, 1.2e-10 at a margin of 1000 or 3000 (see
+/// "Tolerances" at the top of simulation_golden_tests.cpp, and
+/// SimulationGoldenMeasurement.DISABLED_PrintsTheSensitivityRowByRow, which prints what any
+/// margin would give). A run that the perturbed run reproduces to its last row at
+/// kSensitivityMargin has nothing that grows, and is whole as it is (sensitivityOf()).
+inline constexpr double kFlightSensitivityMargin = 10000.0;
 
 /// The relative tolerance of the one option that is computed with mathematical functions: the
 /// launch rod direction of a launch into a multi-level wind (see compareLaunchOptions()). With
@@ -269,18 +289,29 @@ std::ostream& operator<<(std::ostream& out, const SimulationCounts& counts);
 
 // ============================================================================== measurements
 
+/// What the comparison of the default-step set does with a number of the trajectory.
+enum class Treatment : std::uint8_t
+{
+    COMPARED,   ///< compared with its golden value, at its tolerance
+    SENSITIVE,  ///< not compared: beyond what is reproducible of the run (its horizon)
+    EXCLUDED    ///< not compared: of a noise-dominated out-of-plane column, off the launch rod
+};
+
+/// "compared", "sensitive" or "excluded": what the table of the measurements calls @p treatment.
+[[nodiscard]] std::string_view treatmentName(Treatment treatment);
+
 /// The largest differences from the golden files, by simulation and by what was compared; see
 /// SimulationGoldenMeasurement.
 class Measurements
 {
 public:
     /// A difference from a golden value: @p difference against the tolerance @p tolerance, of a
-    /// value that was compared, or (@p sensitive) one that was not.
-    void record(const std::string& context, const std::string& what, bool sensitive,
+    /// value that was compared, or one that was not (@p treatment).
+    void record(const std::string& context, const std::string& what, Treatment treatment,
                 double difference, double tolerance)
     {
-        Entry& entry = m_entries[std::format("{}\t{}\t{}", context, what,
-                                             sensitive ? "sensitive" : "compared")];
+        Entry& entry =
+            m_entries[std::format("{}\t{}\t{}", context, what, treatmentName(treatment))];
         entry.count++;
         entry.absolute = std::max(entry.absolute, difference);
         if (tolerance > 0)
@@ -307,7 +338,7 @@ public:
     }
 
     /// The largest difference of a value of the time series of the simulation @p context from
-    /// its golden value, whether compared or sensitive, as a multiple of its tolerance (which is
+    /// its golden value, whether compared or not, as a multiple of its tolerance (which is
     /// kValueRelative of the scale of its column).
     [[nodiscard]] double largestOfTheTimeSeries(const std::string& context) const
     {
@@ -345,14 +376,106 @@ private:
     std::map<std::string, Entry> m_entries;
 };
 
+// ============================================================ the out-of-plane noise columns
+
+/// An out-of-plane column is noise-dominated when its largest magnitude is below this fraction
+/// of that of its counterpart in the plane of the flight (kOutOfPlaneColumns). In the planar
+/// flights of the test rockets the fractions are 2e-6 to 3e-4 in the stable-step set and 2e-6 to
+/// 2e-3 in the default-step set (the roll rate, in the flights that have one: 7e-11 to 1e-4 of
+/// the pitch rate), in the one flight that leaves its plane (the multi-level wind turns with the
+/// altitude) 0.2 to 2 in both.
+inline constexpr double kNoiseRatio = 1e-2;
+
+/// An out-of-plane column, the column whose scale measures it and its counterpart in the plane
+/// of a planar flight. When the measure is below kNoiseRatio of the counterpart (and not a
+/// column of zeros, which is compared like any other), the column is noise-dominated and is
+/// compared on the launch rod only (rodOnlyRule()). The flights of the test rockets are planar
+/// but for the Coriolis acceleration (the wind blows along one axis), so such a column holds a
+/// signal of a millionth to a thousandth of its counterpart's, at a tolerance that is as much
+/// smaller: what rounding leaves of the motion in the plane is larger than that. In the stable-step
+/// set it is rule N (the hunting scatters these columns; two runs of OpenRocket differ in them by
+/// up to their own scale). In the default-step set a mathematical library that rounds a
+/// result otherwise moves them by more than their tolerance within the first rows of free
+/// flight, which the perturbed run of the sensitivity analysis cannot show (it moves every
+/// component of the velocities by its own last bit, so what it does to an out-of-plane
+/// component is in proportion to that component and not to the motion in the plane): see "The
+/// out-of-plane noise columns" at the top of simulation_golden_tests.cpp.
+struct OutOfPlaneColumn
+{
+    std::string_view key;
+    std::string_view measure;
+    std::string_view counterpart;
+};
+inline constexpr std::array<OutOfPlaneColumn, 6> kOutOfPlaneColumns{{
+    {.key = "yaw_rate", .measure = "yaw_rate", .counterpart = "pitch_rate"},
+    {.key = "roll_rate", .measure = "roll_rate", .counterpart = "pitch_rate"},
+    {.key = "acceleration_y", .measure = "acceleration_y", .counterpart = "acceleration_x"},
+    {.key         = "acceleration_bodyy",
+     .measure     = "acceleration_bodyy",
+     .counterpart = "acceleration_bodyx"},
+    {.key = "position_y", .measure = "position_y", .counterpart = "position_x"},
+    // The direction of the lateral position is atan2() of its two components.
+    {.key = "position_direction", .measure = "position_y", .counterpart = "position_x"},
+}};
+
+/// Which columns of the golden time series @p table are noise-dominated out-of-plane columns
+/// (kOutOfPlaneColumns, kNoiseRatio), by the index of the column. The golden files alone decide
+/// it: nothing depends on the run that is compared with them.
+[[nodiscard]] std::vector<bool> noiseColumns(const GoldenTable& table);
+
+/// The rule of the noise-dominated out-of-plane columns for the golden time series of one
+/// branch: such a column is compared in the rows on the launch rod, where it is as reproducible
+/// as every other column, and in no row after them.
+struct RodOnlyRule
+{
+    std::size_t rows{0};  ///< the rows of the golden time series
+    /// Its first rodRows rows are on the launch rod (rowsUpToTheClearance(): the records on
+    /// the rod and the first one after it; every row of a simulation that never clears the rod).
+    std::size_t       rodRows{0};
+    std::vector<bool> noise;  ///< noiseColumns() of the time series
+
+    /// Whether column @p column is a noise-dominated one (false for a column the time series
+    /// does not have).
+    [[nodiscard]] bool isNoise(std::size_t column) const;
+
+    /// Whether the rule excludes the value of column @p column in row @p row.
+    [[nodiscard]] bool excludes(std::size_t column, std::size_t row) const;
+
+    /// In how many of the first @p compared rows of a branch column @p column is compared.
+    [[nodiscard]] std::size_t comparedRows(std::size_t column, std::size_t compared) const;
+
+    /// Whether the rule excludes the minimum or maximum @p extreme of column @p column, whose
+    /// values are @p values (of the golden time series, or of a run): it does when the column
+    /// attains the extreme only in rows in which the rule excludes it. (An extreme that is no
+    /// value of the column at all, NaN among them, is not excluded: it is compared.)
+    [[nodiscard]] bool excludesExtreme(std::size_t column, std::span<const double> values,
+                                       double extreme) const;
+
+    /// The number of noise-dominated columns.
+    [[nodiscard]] std::int64_t noiseColumnCount() const;
+
+    /// The number of values the rule excludes: those of the noise-dominated columns in the rows
+    /// off the launch rod.
+    [[nodiscard]] std::int64_t excludedValues() const;
+};
+
+/// The rule for the golden time series @p table of a branch of a simulation whose rocket clears
+/// the launch rod at @p cleared (goldenRodClearance(); nullopt: never).
+[[nodiscard]] RodOnlyRule rodOnlyRule(const GoldenTable&           table,
+                                      const std::optional<double>& cleared);
+
 // =============================================================================== sensitivity
 
-/// Whether a value is reproducible: the perturbed run's value @p twin is within
-/// 1/kSensitivityMargin of @p tolerance of the run's value @p actual (NaN equals NaN, and an
-/// infinity the same infinity).
-[[nodiscard]] bool reproducible(double actual, double twin, double tolerance);
+/// Whether a value is reproducible: the perturbed run's value @p twin is within 1/@p margin of
+/// @p tolerance of the run's value @p actual (NaN equals NaN, and an infinity the same
+/// infinity). The margin is kSensitivityMargin or kFlightSensitivityMargin (sensitivityOf()).
+[[nodiscard]] bool reproducible(double actual, double twin, double tolerance, double margin);
 
-/// How far the time series of a branch is reproducible.
+/// How far the time series of a branch is reproducible: up to the first row of which the
+/// perturbed run moves a value by more than its tolerance over the margin of the row (see
+/// sensitivityOf()). A noise-dominated out-of-plane column counts in the rows on the launch rod
+/// only (RodOnlyRule): the perturbed run says nothing about such a column after them, and the
+/// comparison does not compare it there.
 struct Horizon
 {
     std::size_t rows{0};       ///< the rows [0, rows) are reproducible
@@ -376,7 +499,12 @@ struct Sensitivity
 };
 
 /// The sensitivity of @p run, measured with the perturbed run @p twin against the tolerances of
-/// the comparison with the golden files @p golden.
+/// the comparison with the golden files @p golden. A row on the launch rod is reproducible at
+/// the margin kSensitivityMargin. When every row of every branch is at that margin (in a
+/// perturbed run with as many rows, branches and jitter replacements and the same status), the
+/// run is whole: nothing grows in it. In any other run a row after the launch rod is
+/// reproducible at the margin kFlightSensitivityMargin, and the first row that is not ends the
+/// reproducible part of its branch.
 [[nodiscard]] Sensitivity sensitivityOf(const GoldenFiles& golden, const SimulationRun& run,
                                         const SimulationRun& twin);
 
@@ -388,7 +516,10 @@ struct Comparison
     std::string      context;    ///< "testrocket-beta/sim_02_b4-3-d21-0"
     SimulationCounts compared;   ///< what was compared with the golden files
     SimulationCounts sensitive;  ///< the numbers, rows and values that are not reproducible
-    std::string      report;     ///< the mismatches
+    /// The values of the noise-dominated out-of-plane columns off the launch rod, and the
+    /// minima and maxima those columns attain only there (RodOnlyRule).
+    SimulationCounts excluded;
+    std::string      report;  ///< the mismatches
     /// Whether everything is compared, reproducible or not, and the events in the order they
     /// were recorded in (the strict comparison, which no implementation passes).
     bool          strict{false};
@@ -480,15 +611,18 @@ struct SimulationComparison
 {
     SimulationCounts compared;
     SimulationCounts sensitive;
-    std::string      report;  ///< the mismatches, empty when everything matched
+    SimulationCounts excluded;  ///< see Comparison::excluded
+    std::string      report;    ///< the mismatches, empty when everything matched
 };
 
 /// How compareSimulation() compares.
 struct ComparisonMode
 {
-    bool          randomConfigurationId{false};  ///< the maker draws the configuration's id
-    bool          strict{false};                 ///< see Comparison::strict
-    Measurements* measurements{nullptr};         ///< where the differences are recorded, or null
+    bool randomConfigurationId{false};  ///< the maker draws the configuration's id
+    /// See Comparison::strict. The strict comparison knows no rule either: it compares the
+    /// noise-dominated out-of-plane columns in every row.
+    bool          strict{false};
+    Measurements* measurements{nullptr};  ///< where the differences are recorded, or null
     /// A simulation of the stable-step set: its "harness" also records the time step.
     bool stableSet{false};
 };
