@@ -21,7 +21,8 @@ using Attributes = LandingDispersionSettings::Attributes;
 
 static_assert(std::is_copy_constructible_v<LandingDispersionSettings>);
 static_assert(std::is_copy_assignable_v<LandingDispersionSettings>);
-static_assert(std::is_nothrow_move_constructible_v<LandingDispersionSettings>);
+// Movable, but not nothrow on every platform: MSVC's std::map allocates in its move constructor.
+static_assert(std::is_move_constructible_v<LandingDispersionSettings>);
 
 TEST(LandingDispersionSettings, AreEmptyAsTheyAreMade)
 {
