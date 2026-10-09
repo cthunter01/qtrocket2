@@ -1,7 +1,6 @@
 #include "QtRocket/file/ZipInputStream.h"
 
 #include <mz.h>
-#include <mz_crypt.h>
 #include <mz_strm.h>
 #include <mz_strm_mem.h>
 
@@ -15,11 +14,11 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "MinizipHandle.h"
+#include "QtRocket/file/GzipStream.h"
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket
@@ -28,21 +27,20 @@ namespace QtRocket
 namespace
 {
 
-constexpr std::uint32_t    kLocalHeaderSignature = 0x04034b50;
-constexpr std::uint32_t    kDescriptorSignature  = 0x08074b50;
-constexpr std::size_t      kLocalHeaderSize      = 30;
-constexpr std::size_t      kDescriptorSize       = 16;
-constexpr std::size_t      kZip64DescriptorSize  = 24;
-constexpr std::uint16_t    kStored               = 0;
-constexpr std::uint16_t    kDeflated             = 8;
-constexpr std::uint16_t    kFlagEncrypted        = 0x1;
-constexpr std::uint16_t    kFlagDescriptor       = 0x8;
-constexpr std::int64_t     kZip64Magic           = 0xFFFFFFFF;
-constexpr std::uint16_t    kZip64ExtraId         = 0x0001;
-constexpr std::int64_t     kRawDeflateWindowBits = -15;
-constexpr std::size_t      kChunkSize            = std::size_t{64} * 1024;
-constexpr std::size_t      kMaxWindow            = std::numeric_limits<std::int32_t>::max();
-constexpr std::string_view kUnexpectedEnd        = "Unexpected end of ZIP data";
+constexpr std::uint32_t kLocalHeaderSignature = 0x04034b50;
+constexpr std::uint32_t kDescriptorSignature  = 0x08074b50;
+constexpr std::size_t   kLocalHeaderSize      = 30;
+constexpr std::size_t   kDescriptorSize       = 16;
+constexpr std::size_t   kZip64DescriptorSize  = 24;
+constexpr std::uint16_t kStored               = 0;
+constexpr std::uint16_t kDeflated             = 8;
+constexpr std::uint16_t kFlagEncrypted        = 0x1;
+constexpr std::uint16_t kFlagDescriptor       = 0x8;
+constexpr std::int64_t  kZip64Magic           = 0xFFFFFFFF;
+constexpr std::uint16_t kZip64ExtraId         = 0x0001;
+constexpr std::int64_t  kRawDeflateWindowBits = -15;
+constexpr std::size_t   kChunkSize            = std::size_t{64} * 1024;
+constexpr std::size_t   kMaxWindow            = std::numeric_limits<std::int32_t>::max();
 /// No limit on the contents of an entry.
 constexpr std::size_t kNoLimit = std::numeric_limits<std::size_t>::max();
 
@@ -77,20 +75,6 @@ constexpr std::size_t kNoLimit = std::numeric_limits<std::size_t>::max();
 [[nodiscard]] std::int64_t get64(std::span<const std::byte> bytes, std::size_t offset) noexcept
 {
     return static_cast<std::int64_t>(littleEndian(bytes, offset, 8));
-}
-
-[[nodiscard]] std::uint32_t crc32(std::uint32_t crc, std::span<const std::byte> bytes)
-{
-    // Pieces of at most 2 GiB, as minizip counts in int32.
-    while (!bytes.empty())
-    {
-        const std::size_t piece = std::min(bytes.size(), kMaxWindow);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        const auto* data = reinterpret_cast<const std::uint8_t*>(bytes.data());
-        crc              = mz_crypt_crc32_update(crc, data, static_cast<std::int32_t>(piece));
-        bytes            = bytes.subspan(piece);
-    }
-    return crc;
 }
 
 [[nodiscard]] std::string crcMismatch(std::uint32_t expected, std::uint32_t actual)
@@ -280,7 +264,7 @@ struct Inflated
                                static_cast<std::int32_t>(chunk.size()))) > 0)
     {
         const std::span<const std::byte> piece(chunk.data(), static_cast<std::size_t>(n));
-        inflated.crc = crc32(inflated.crc, piece);
+        inflated.crc = Detail::crc32(inflated.crc, piece);
         inflated.written += n;
         if (contents != nullptr)
         {
@@ -291,10 +275,23 @@ struct Inflated
             contents->insert(contents->end(), piece.begin(), piece.end());
         }
     }
+    if (n < 0 && contents != nullptr)
+    {
+        // What the failing call inflated before it failed is in the chunk: a reader of the
+        // entry's start (readEntryInto()) gets it, as Java's reader has what came before the
+        // exception.
+        std::int64_t total = 0;
+        mz_stream_get_prop_int64(inflater.get(), MZ_STREAM_PROP_TOTAL_OUT, &total);
+        const std::size_t pending =
+            std::min({static_cast<std::size_t>(std::max<std::int64_t>(total - inflated.written, 0)),
+                      chunk.size(), limit - contents->size()});
+        const std::span<const std::byte> rest(chunk.data(), pending);
+        contents->insert(contents->end(), rest.begin(), rest.end());
+    }
     if (n == MZ_BUF_ERROR)
     {
         // the deflate data ends before its last block: InflaterInputStream.fill()
-        return fail(ErrorCode::PARSE, "Unexpected end of ZLIB input stream");
+        return fail(ErrorCode::PARSE, std::string(kUnexpectedEndOfZlibStream));
     }
     if (n < 0)
     {
@@ -410,6 +407,17 @@ Result<std::vector<std::byte>> ZipInputStream::readEntry(std::size_t maxBytes)
     return contents;
 }
 
+Result<void> ZipInputStream::readEntryInto(std::vector<std::byte>& contents, std::size_t maxBytes)
+{
+    contents.clear();
+    if (!m_current.has_value())
+    {
+        return {};
+    }
+    const Header current = *m_current;
+    return readData(current, &contents, maxBytes);
+}
+
 Result<void> ZipInputStream::readData(const Header& header, std::vector<std::byte>* contents,
                                       std::size_t limit)
 {
@@ -442,6 +450,13 @@ Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::b
     }
     if (std::cmp_greater(header.size, available))
     {
+        if (contents != nullptr)
+        {
+            // What there is of the entry, for a reader of its start (readEntryInto()).
+            const std::span<const std::byte> start =
+                m_data.subspan(header.dataStart, std::min(available, limit));
+            contents->assign(start.begin(), start.end());
+        }
         return fail(ErrorCode::PARSE, "unexpected EOF");
     }
     const std::span<const std::byte> data =
@@ -451,7 +466,7 @@ Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::b
     {
         contents->assign(data.begin(), data.end());
     }
-    if (const std::uint32_t crc = crc32(0, data); crc != header.crc)
+    if (const std::uint32_t crc = Detail::crc32(0, data); crc != header.crc)
     {
         return fail(ErrorCode::PARSE, crcMismatch(header.crc, crc));
     }

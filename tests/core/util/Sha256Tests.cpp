@@ -1,7 +1,7 @@
-// Tests of the SHA-256 of the test support (Sha256.h), against the answers of FIPS 180-4's
-// examples and of sha256sum for the lengths at which the padding changes its shape.
+// Tests of sha256Hex() against the answers of FIPS 180-4's examples and of sha256sum for the
+// lengths at which the padding changes its shape.
 
-#include "Sha256.h"
+#include "QtRocket/util/Sha256.h"
 
 #include <cstddef>
 #include <string>
@@ -15,7 +15,7 @@
 namespace
 {
 
-using QtRocket::Test::sha256Hex;
+using QtRocket::sha256Hex;
 
 /// The digest of @p text.
 [[nodiscard]] std::string digestOf(std::string_view text)

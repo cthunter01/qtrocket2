@@ -74,6 +74,45 @@ TEST(FileSystemAttachmentFactory, ChecksNothingOfTheName)
     EXPECT_EQ(QtRocket::bytesToString(attachment->getBytes().value()), "outside");
 }
 
+// Java's File(parent, child) and File(name) normalise what they are given: separators that are
+// doubled or stand at the end are not part of the path. So a decal named "decals/a.png/" is the
+// file "decals/a.png", which OpenRocket reads (the probe of the reviewer of tier 9c, lens
+// fidelity: out/sniff_rv3.java.out, "plain decal [decals/a.png/]" gives "decals/a.png=5").
+// The name of the attachment stays what was asked for.
+TEST(FileSystemAttachmentFactory, SpellsTheFileWithoutRedundantSeparators)
+{
+    const TempDir                     temp;
+    const std::filesystem::path       image = temp.write("decals/a.png", "image");
+    const FileSystemAttachmentFactory factory(temp.path());
+
+    const std::shared_ptr<Attachment> atTheEnd = factory.getAttachment("decals/a.png/");
+    EXPECT_EQ(atTheEnd->getName(), "decals/a.png/");
+    EXPECT_EQ(locationOf(atTheEnd), temp.path() / "decals" / "a.png");
+    EXPECT_EQ(QtRocket::bytesToString(atTheEnd->getBytes().value()), "image");
+
+    const std::shared_ptr<Attachment> doubled = factory.getAttachment("decals//a.png");
+    EXPECT_EQ(doubled->getName(), "decals//a.png");
+    EXPECT_EQ(locationOf(doubled), temp.path() / "decals" / "a.png");
+    EXPECT_EQ(QtRocket::bytesToString(doubled->getBytes().value()), "image");
+
+    // An absolute name, and a name without a base directory, are spelled the same way.
+    const std::string                 absolute     = QtRocket::pathToUtf8(image) + "/";
+    const std::shared_ptr<Attachment> absoluteFile = factory.getAttachment(absolute);
+    EXPECT_EQ(absoluteFile->getName(), absolute);
+    EXPECT_EQ(locationOf(absoluteFile), QtRocket::withoutRedundantSeparators(image));
+    EXPECT_EQ(QtRocket::bytesToString(absoluteFile->getBytes().value()), "image");
+    const FileSystemAttachmentFactory noBase;
+    EXPECT_EQ(locationOf(noBase.getAttachment("decals//a.png/")),
+              std::filesystem::path("decals") / "a.png");
+
+    // Nothing else of a name is changed: "." and ".." stay, and so does the case of a letter.
+    EXPECT_EQ(locationOf(factory.getAttachment("./decals/../decals/a.png")),
+              temp.path() / "." / "decals" / ".." / "decals" / "a.png");
+    EXPECT_EQ(QtRocket::bytesToString(
+                  factory.getAttachment("./decals/../decals/a.png")->getBytes().value()),
+              "image");
+}
+
 TEST(FileSystemAttachmentFactory, AMissingFileIsFoundOutWhenItIsRead)
 {
     const TempDir                     temp;

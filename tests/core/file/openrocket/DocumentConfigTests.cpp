@@ -1326,7 +1326,7 @@ TEST(DocumentConfig, ASetterAppliedToAComponentOfAnotherClassIsAProgrammingError
 }
 
 // cases1.out, bad-id: "THROWN ... RocketLoadException: Exception loading stream: Invalid UUID
-// string: not-a-uuid". The loader of run 9c puts the prefix before the message.
+// string: not-a-uuid". GeneralRocketLoader puts the prefix before the message.
 TEST(DocumentConfig, AnIdThatIsNoUuidFailsTheLoadWithJavasMessage)
 {
     SetterFixture        fixture;

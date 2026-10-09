@@ -30,21 +30,37 @@ class WarningSet;
 /// and false: a script is disabled unless its configuration says otherwise.
 ///
 /// What an enabled script does here:
-/// - documentLoaded() disables it and adds OpenRocket's warning kDisabledWarning to the load
-///   warnings. OpenRocket does that with every script the user has not marked as trusted on the
-///   computer; QtRocket trusts no script.
-/// - initialize() throws a SimulationException, so Simulation::simulate() fails with
+/// - documentLoaded() leaves it enabled, without a warning, when OpenRocket trusts it whoever
+///   the user is (isTrustedScript()): a script that is empty once its carriage returns are
+///   removed and it is trimmed, which is the state of an extension the user has just added,
+///   and the one script OpenRocket knows by its hash, the roll control script that its example
+///   design of the file format 1.7 stored enabled (today's example holds another script, and
+///   stores it disabled). Every other enabled script is disabled there, with OpenRocket's
+///   warning kDisabledWarning among the load warnings. OpenRocket also leaves enabled what the
+///   user has marked as trusted on the computer; QtRocket keeps no such list.
+/// - initialize() does nothing for an enabled script that holds nothing but blanks, tabs and
+///   line ends in a language OpenRocket has an engine for (hasScriptEngine()): OpenRocket runs
+///   such a script, and it defines no function for the simulation to call, so the flight is
+///   that of the simulation without the extension. For every other enabled script initialize()
+///   throws a SimulationException, so Simulation::simulate() fails with
 ///   ErrorCode::SIMULATION_ABORTED instead of running the flight without the script. The text
 ///   is that of OpenRocket for a language it has no engine for, with the program's name:
 ///   "QtRocket does not support the scripting language '<language>'" (Java: "Your JRE does not
-///   support the scripting language '<language>'").
-/// A disabled script does nothing in either.
+///   support the scripting language '<language>'", which it also has for a script that holds
+///   nothing in such a language).
+/// A disabled script does nothing in either. So a design that stores that roll control script
+/// enabled loads with the script enabled, as in OpenRocket, and its simulation does not run
+/// until the script is disabled.
 ///
 /// Deviations from OpenRocket:
-/// - No script is ever run, and nothing of ScriptingUtil and ScriptingSimulationListener is
-///   ported (the engines, the trusted hashes kept in the preferences, the listener that calls
-///   the script's functions). The two places where they would be used are marked
-///   "HOOK(scripting)" in the source file.
+/// - No script is ever run, and of ScriptingUtil and ScriptingSimulationListener only what
+///   decides whether a script is trusted is ported, as static functions of this class
+///   (normalizeScript(), scriptHash(), isTrustedScript(), hasScriptEngine()): not the engines,
+///   the trusted hashes kept in the preferences, nor the listener that calls the script's
+///   functions. The places where they would be used are marked "HOOK(scripting)" in the source
+///   file.
+/// - An enabled script that holds nothing adds no listener in initialize() (Java: the listener
+///   of a script without functions, which never acts).
 /// - getName() puts the language into the text as it is. Java's L10N.replace() gives it to
 ///   Matcher.replaceAll() as a replacement pattern, where a '$' or a backslash is special: a
 ///   language such as "a$b" throws there, and "a\\b" loses its backslash.
@@ -84,14 +100,41 @@ public:
     void documentLoaded(OpenRocketDocument& document, Simulation& simulation,
                         WarningSet& warnings) override;
 
-    /// What documentLoaded() does: an enabled script is disabled, and kDisabledWarning is added
-    /// to @p warnings (a warning set holds the text once, however many scripts add it). Nothing
-    /// happens for a disabled script.
+    /// What documentLoaded() does: an enabled script that is not trusted (isTrustedScript() of
+    /// its language and text) is disabled, and kDisabledWarning is added to @p warnings (a
+    /// warning set holds the text once, however many scripts add it). Nothing happens for a
+    /// disabled script and for a trusted one.
     void disableUntrustedScript(WarningSet& warnings);
 
-    /// Nothing for a disabled script.
-    /// @throws SimulationException for an enabled script (see the class comment)
+    /// Nothing for a disabled script, and for an enabled one that holds nothing but blanks,
+    /// tabs and line ends in a language OpenRocket has an engine for.
+    /// @throws SimulationException for every other enabled script (see the class comment)
     void initialize(SimulationConditions& conditions) override;
+
+    /// ScriptingUtil.normalize(): @p script without its carriage returns (U+000D), then without
+    /// leading and trailing characters at or below U+0020 (String.trim(): a no-break space
+    /// U+00A0 stays).
+    [[nodiscard]] static std::string normalizeScript(std::string_view script);
+
+    /// ScriptingUtil.hash(): "SHA-256:" and the 64 lower-case hexadecimal digits of the
+    /// SHA-256 digest of the bytes of @p language, a '|' and the bytes of @p script (UTF-8),
+    /// the key under which OpenRocket remembers a trusted script. OpenRocket hashes the
+    /// normalised script; the language is hashed as it is written.
+    [[nodiscard]] static std::string scriptHash(std::string_view language, std::string_view script);
+
+    /// ScriptingUtil.isTrustedScript() of a computer on which the user has marked no script as
+    /// trusted: whether normalizeScript(@p script) is empty, or its scriptHash() with
+    /// @p language is one of DEFAULT_TRUSTED_HASHES, which holds one script, the roll control
+    /// script of OpenRocket's example design of the file format 1.7 under the language
+    /// "JavaScript".
+    [[nodiscard]] static bool isTrustedScript(std::string_view language, std::string_view script);
+
+    /// Whether OpenRocket has a script engine for @p language (ScriptingUtil.getEngineByName()
+    /// is not null): one of the names of its JavaScript engine, "js", "JavaScript",
+    /// "ECMAScript", "Graal.js", "Graal-js", "GraalJS" and "GraalJSPolyglot", compared as
+    /// String.equalsIgnoreCase() compares. No other language has one ("Python", "nashorn", "",
+    /// " JavaScript").
+    [[nodiscard]] static bool hasScriptEngine(std::string_view language) noexcept;
 
     [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override;
 

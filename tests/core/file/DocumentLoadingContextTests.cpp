@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 
 #include <gtest/gtest.h>
 
@@ -95,6 +96,31 @@ TEST(DocumentLoadingContext, KeepsWhatItIsGiven)
     EXPECT_EQ(copy.getOpenRocketDocument(), document.get());
     EXPECT_EQ(copy.getPreferences(), &preferences);
     EXPECT_EQ(copy.getSimulationExtensionRegistry(), &extensions);
+}
+
+// The directory of the design that is being loaded (not OpenRocket's: a file a design names
+// will be confined to it): there is none until the loader says where the design comes from,
+// it is kept as it is given, relative or not, and a copy of the context has its own.
+TEST(DocumentLoadingContext, KeepsTheDirectoryOfTheDesign)
+{
+    DocumentLoadingContext context;
+    EXPECT_EQ(context.getDesignDirectory(), std::nullopt);
+
+    context.setDesignDirectory(std::filesystem::path("designs") / "mine");
+    ASSERT_TRUE(context.getDesignDirectory().has_value());
+    EXPECT_EQ(context.getDesignDirectory(), std::filesystem::path("designs") / "mine");
+
+    DocumentLoadingContext copy = context;
+    EXPECT_EQ(copy.getDesignDirectory(), std::filesystem::path("designs") / "mine");
+    copy.setDesignDirectory(std::filesystem::path("."));
+    EXPECT_EQ(copy.getDesignDirectory(), std::filesystem::path("."));
+    EXPECT_EQ(context.getDesignDirectory(), std::filesystem::path("designs") / "mine");
+
+    context.setDesignDirectory(std::nullopt);
+    EXPECT_EQ(context.getDesignDirectory(), std::nullopt);
+    // An empty path is a directory that was given, not "none".
+    context.setDesignDirectory(std::filesystem::path());
+    EXPECT_TRUE(context.getDesignDirectory().has_value());
 }
 
 }  // namespace

@@ -35,7 +35,11 @@ std::shared_ptr<Attachment> FileSystemAttachmentFactory::getAttachment(std::stri
         // alone would let its root replace the base directory's.
         file = *m_baseDirectory / file.relative_path();
     }
-    return std::make_shared<FileSystemAttachment>(std::string(name), std::move(file));
+    // Java's File spells a path without doubled separators and without one at its end, so a
+    // name such as "decals/a.png/" names the file "decals/a.png" (which opening the name as
+    // it is written would not find).
+    return std::make_shared<FileSystemAttachment>(std::string(name),
+                                                  withoutRedundantSeparators(file));
 }
 
 }  // namespace QtRocket

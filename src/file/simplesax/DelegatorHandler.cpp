@@ -1,5 +1,6 @@
 #include "QtRocket/file/simplesax/DelegatorHandler.h"
 
+#include <cstddef>
 #include <expected>
 #include <string>
 #include <string_view>
@@ -12,6 +13,15 @@
 
 namespace QtRocket
 {
+
+namespace
+{
+
+/// The unreachable layers that are left lying before any are dropped, beyond as many as there
+/// are reachable ones.
+constexpr std::size_t kSpareLayers = 16;
+
+}  // namespace
 
 DelegatorHandler::DelegatorHandler(ElementHandler& initialHandler, WarningSet& warnings)
   : m_warnings(&warnings), m_handlerStack{&initialHandler}
@@ -30,6 +40,7 @@ Result<void> DelegatorHandler::startElement(std::string_view           localName
     }
 
     // Add layer to data stacks
+    dropUnreachableLayers();
     m_elementData.emplace_back();
     m_elementAttributes.push_back(std::move(attributes));
 
@@ -50,6 +61,28 @@ Result<void> DelegatorHandler::startElement(std::string_view           localName
         m_ignore++;
     }
     return {};
+}
+
+void DelegatorHandler::dropUnreachableLayers()
+{
+    // Every element that ends takes one layer off each stack, and only an element with a
+    // handler does: so the layers that can still be read are the top ones, a text buffer for
+    // each handler of the stack (the one at the bottom takes the text outside the elements)
+    // and an attribute map for each but the first. What an ignored element left below them
+    // stays unread for good. It is dropped when it has become as much as what is kept, so
+    // that the dropping costs no more than the pushing did.
+    const std::size_t texts = m_handlerStack.size();
+    if (m_elementData.size() > (2 * texts) + kSpareLayers)
+    {
+        m_elementData.erase(m_elementData.begin(),
+                            m_elementData.end() - static_cast<std::ptrdiff_t>(texts));
+    }
+    const std::size_t maps = m_handlerStack.size() - 1;
+    if (m_elementAttributes.size() > (2 * maps) + kSpareLayers)
+    {
+        m_elementAttributes.erase(m_elementAttributes.begin(),
+                                  m_elementAttributes.end() - static_cast<std::ptrdiff_t>(maps));
+    }
 }
 
 void DelegatorHandler::characters(std::string_view text)

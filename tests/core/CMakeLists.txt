@@ -1,7 +1,5 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
-    Sha256.cpp
-    Sha256Tests.cpp
     ThirdPartyTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
@@ -29,6 +27,7 @@ add_executable(QtRocket_core_tests
     util/PolyInterpolatorTests.cpp
     util/QuaternionTests.cpp
     util/Rotation2DTests.cpp
+    util/Sha256Tests.cpp
     util/SignalTests.cpp
     util/StringsTests.cpp
     util/TransformationTests.cpp
@@ -258,7 +257,9 @@ add_executable(QtRocket_core_tests
     file/DatabaseMotorFinderTests.cpp
     file/DocumentLoadingContextTests.cpp
     file/FileSystemAttachmentFactoryTests.cpp
+    file/GeneralRocketLoaderTests.cpp
     file/GzipStreamTests.cpp
+    file/loader_hostile_input_tests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
     file/motor/RaspMotorLoaderTests.cpp
@@ -283,6 +284,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/DatatypeHandlerTests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
+    file/openrocket/DesignFileState.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/DocumentMaterialHandlerTests.cpp
@@ -291,6 +293,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
     file/openrocket/EnumSetterTests.cpp
+    file/openrocket/example_files_tests.cpp
     file/openrocket/example_simulations_tests.cpp
     file/openrocket/FinSetPointHandlerTests.cpp
     file/openrocket/FinTabPositionSetterTests.cpp
@@ -301,6 +304,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/IgnitionConfigurationHandlerTests.cpp
     file/openrocket/InsideAppearanceHandlerTests.cpp
     file/openrocket/instance_budget_tests.cpp
+    file/openrocket/integration_tests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
@@ -309,9 +313,13 @@ add_executable(QtRocket_core_tests
     file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp
     file/openrocket/MotorMountHandlerTests.cpp
+    file/openrocket/OpenRocketContentHandlerTests.cpp
+    file/openrocket/OpenRocketHandlerTests.cpp
+    file/openrocket/OpenRocketLoaderTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
+    file/openrocket/recorded_ork_files_tests.cpp
     file/openrocket/rocket_element_tests.cpp
     file/openrocket/setter_robustness_tests.cpp
     file/openrocket/setter_table_tests.cpp
@@ -345,6 +353,8 @@ add_executable(QtRocket_core_tests
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
     goldens/GoldenDesign.cpp
+    goldens/GoldenExamples.cpp
+    goldens/GoldenExamplesTests.cpp
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
@@ -358,8 +368,10 @@ add_executable(QtRocket_core_tests
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # The third-party canary tests use the libraries directly; everything else goes through QtRocket::core, except
 # nlohmann_json, which reads the golden reference data (tests/core/goldens over tests/data/goldens).
-target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main pugixml::pugixml SQLite::SQLite3
-    nlohmann_json::nlohmann_json)
+# GTest::gmock: the loader tests use GoogleMock's matchers (EXPECT_THAT, ElementsAre). A GoogleTest that is built
+# from source, as in CI, has <gmock/gmock.h> on the include path only through this target.
+target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main GTest::gmock pugixml::pugixml
+    SQLite::SQLite3 nlohmann_json::nlohmann_json)
 # Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from
 # any working directory.
 target_compile_definitions(QtRocket_core_tests PRIVATE

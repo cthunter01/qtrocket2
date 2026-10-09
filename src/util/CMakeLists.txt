@@ -21,6 +21,7 @@ target_sources(QtRocket_core PRIVATE
     PolyInterpolator.cpp
     Quaternion.cpp
     Rotation2D.cpp
+    Sha256.cpp
     Strings.cpp
     Transformation.cpp
     Uuid.cpp

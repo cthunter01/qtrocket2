@@ -1,4 +1,4 @@
-#include "Sha256.h"
+#include "QtRocket/util/Sha256.h"
 
 #include <array>
 #include <bit>
@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace QtRocket::Test
+namespace QtRocket
 {
 
 namespace
@@ -126,4 +126,4 @@ std::string sha256Hex(std::span<const std::byte> data)
     return hex;
 }
 
-}  // namespace QtRocket::Test
+}  // namespace QtRocket

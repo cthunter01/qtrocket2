@@ -11,8 +11,8 @@
 // from converting the three plain XML files), the directory holds no other design, the
 // container is of the recorded kind, QtRocket's gzip and zip readers get the document and the
 // attachments out of it, and the document starts with the root element of the recorded version
-// and creator. No design is loaded: the .ork loader is run 9b of tier 9, whose tests load these
-// files.
+// and creator. No design is loaded here: recorded_ork_files_tests.cpp loads each of them through
+// GeneralRocketLoader and compares what comes of it with what OpenRocket makes of the file.
 
 #include <algorithm>
 #include <array>
@@ -33,7 +33,7 @@
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/ZipInputStream.h"
 #include "QtRocket/util/FileIo.h"
-#include "Sha256.h"
+#include "QtRocket/util/Sha256.h"
 #include "TestPaths.h"
 
 namespace
@@ -308,7 +308,7 @@ TEST_P(LegacyOrkFiles, IsTheRecordedFile)
     const LegacyFile&            file  = GetParam();
     const std::vector<std::byte> bytes = bytesOf(file);
     EXPECT_EQ(bytes.size(), file.size);
-    EXPECT_EQ(QtRocket::Test::sha256Hex(bytes), file.sha256);
+    EXPECT_EQ(QtRocket::sha256Hex(bytes), file.sha256);
 }
 
 TEST_P(LegacyOrkFiles, ContainerHoldsTheDocumentOfTheRecordedVersion)

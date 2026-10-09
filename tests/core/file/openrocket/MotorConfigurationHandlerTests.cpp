@@ -518,8 +518,8 @@ constexpr std::string_view kTwoStages =
 }
 
 // The handler only hands the stage entries to the configuration: the stages do not exist while
-// the <motorconfiguration> elements are read. The top-level loader (run 9c) applies them when
-// the file has been read; this is that step, and a stage number no stage has does no harm in it.
+// the <motorconfiguration> elements are read. OpenRocketLoader applies them when the file has
+// been read; this is that step, and a stage number no stage has does no harm in it.
 TEST(MotorConfigurationHandler, LeavesTheStageEntriesForTheEndOfTheLoad)
 {
     RocketLoadFixture fixture;

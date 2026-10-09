@@ -5,6 +5,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "QtRocket/util/Error.h"
@@ -31,8 +32,9 @@ namespace QtRocket
 /// one), and for a name that is not valid UTF-8 (whatever the header's UTF-8 flag says, as Java
 /// decodes names in UTF-8 either way) "malformed input off : <offset>, length : <length>".
 /// Deviations: a local header cut off inside its name or extra field, or a data descriptor cut
-/// off, fails with "Unexpected end of ZIP data" (Java's EOFException has no message), and corrupt
-/// deflate data fails with "invalid deflate data in ZIP entry" (Java reports zlib's message).
+/// off, fails with kUnexpectedEnd, "Unexpected end of ZIP data" (Java's EOFException has no
+/// message), and corrupt deflate data fails with "invalid deflate data in ZIP entry" (Java
+/// reports zlib's message).
 ///
 /// After a failure the stream is at no entry: Java's callers close the stream there, and so
 /// should a caller here stop reading.
@@ -52,6 +54,12 @@ public:
         /// make it negative, as Java's long.
         std::int64_t size{-1};
     };
+
+    /// The message of the failure for an archive that ends inside the name or the extra field
+    /// of a local header, or inside a data descriptor: where Java's ZipInputStream throws an
+    /// EOFException without a message. (Java's XML parser takes that exception for the end of
+    /// its input, which is why a loader asks for it.)
+    static constexpr std::string_view kUnexpectedEnd = "Unexpected end of ZIP data";
 
     /// A reader of @p data, which must outlive it.
     explicit ZipInputStream(std::span<const std::byte> data) noexcept;
@@ -74,6 +82,18 @@ public:
     /// whatever its CRC and sizes say, and a failure that comes first in the data (a STORED
     /// entry cut short before the limit, corrupt deflate data) is reported as readEntry() does.
     [[nodiscard]] Result<std::vector<std::byte>> readEntry(std::size_t maxBytes);
+
+    /// readEntry(maxBytes) for a reader that wants the start of an entry also when the entry
+    /// is damaged further on, as Java's reader of a stream has the bytes that came before the
+    /// exception (the loader of a design file looks at the first bytes of the document before
+    /// it reads the rest). @p contents is emptied and then filled with the entry's contents;
+    /// when the entry fails, it holds what the entry gave before the failure, @p maxBytes
+    /// bytes at most: everything of a DEFLATED entry that could be inflated before its data
+    /// ended or went wrong, the bytes there are of a STORED entry that is cut short, and the
+    /// whole contents of an entry that fails the checks at its end (CRC and sizes). The
+    /// failures are readEntry(maxBytes)'s.
+    [[nodiscard]] Result<void> readEntryInto(std::vector<std::byte>& contents,
+                                             std::size_t             maxBytes);
 
 private:
     /// The current entry's local header.

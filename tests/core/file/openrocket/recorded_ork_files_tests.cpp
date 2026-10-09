@@ -1,0 +1,710 @@
+// The designs of tests/data/ork (OpenRocket 0.9.3 to 23.09, the file formats 1.0 to 1.9, plain
+// XML, gzip and zip; tests/data/ork/README.md) loaded as files through GeneralRocketLoader, each
+// compared with what OpenRocket's GeneralRocketLoader makes of the same file in the same
+// environment (DesignFileEnvironment: the bundled motor database, the six component presets of
+// the example designs, the bundled simulation extensions, OpenRocket's test preferences).
+//
+// The expectations are OpenRocket's own answers, printed by the Java probe RecordedProbe of the
+// probes of tier 9c, part "recorded-files" and put into RecordedOrkFiles.h by its script. The
+// state of a file as loaded, before anything is settled, is these lines (designFileState() of
+// DesignFileState.h, which the tests of the example designs share):
+//
+//     version=<n>             the file version OpenRocketHandler leaves in the loading context
+//     W <text>                the warnings of the load, in order
+//     rocket ... decals=[..]  documentLines() of RocketLoaderTestSupport.h: the rocket, the
+//                             stages each flight configuration has active, the simulations
+//                             with status, branches and extensions, the storage options, the
+//                             saved and undo state, the modification ids, the document
+//                             materials, the photo settings and the decal images
+//     events rocket=<n>       the change events of the rocket during the load
+//     | <line>                describeRocket() of ComponentHandlerTestSupport.h: every component
+//                             in depth-first order with its class, its name and what it holds,
+//                             the selected and every flight configuration with its id, its
+//                             stages and its motors
+//     name <n> '<name>'       the name each flight configuration shows
+//     simulation <n> config=<n>   the place of each simulation's configuration in the rocket
+//     motor ...               every motor mount in every flight configuration: its motor
+//                             with manufacturer, designation, digest and ejection delay, or
+//                             "none"
+//     decal '<name>' ...      every decal image and the number of its bytes, or "unreadable"
+//       sim[<n>] ...          describeSimulation() of SimulationTestSupport.h: the options, the
+//                             extensions with their configuration, the stored summary, the
+//                             stored warnings, and every branch with its types, its events and
+//                             a digest of every column
+//
+// and, from a second load of the file on which nothing else was asked before (an automatic
+// dimension stores what it computes, so the order of the questions is part of the state): the
+// structure mass and its centre with every stage active, the launch mass and its centre of
+// every flight configuration with every stage active, and the length, compared to a relative
+// 1e-9 (the positions of the lugs and fins go through sines and cosines).
+//
+// The component presets. OpenRocket's own preset database holds 5228 presets, among them six
+// that these files name and the tests do not have (five parts of SEMROC in
+// v1.5-preset-usage.ork and v1.6-preset-usage-decals-first.ork, one of FlisKits in
+// v1.7-tube-fin.ork; reading .orc preset files is Milestone 3). With its whole database
+// OpenRocket therefore gives one warning for v1.5-preset-usage.ork (the nose cone's BNC-55F,
+// which it does not find either) and none for v1.7-tube-fin.ork, which is what
+// tests/data/ork/README.md records. With the six presets of the examples, as here, OpenRocket
+// gives the six and the one warning that QtRocket gives, and the components keep what the
+// files store.
+
+#include <algorithm>
+#include <cstddef>
+#include <filesystem>
+#include <format>
+#include <iostream>
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "QtRocket/document/DecalImage.h"
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/file/GeneralRocketLoader.h"
+#include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/FlightDataBranch.h"
+#include "QtRocket/simulation/FlightDataType.h"
+#include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
+#include "QtRocket/simulation/extension/SimulationExtension.h"
+#include "QtRocket/simulation/extension/UnknownSimulationExtension.h"
+#include "QtRocket/simulation/extension/impl/JavaCode.h"
+#include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
+#include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
+#include "TestPaths.h"
+#include "file/DesignFileEnvironment.h"
+#include "file/RocketLoaderTestSupport.h"
+#include "file/openrocket/DesignFileState.h"
+#include "file/openrocket/FlightDataTestSupport.h"
+#include "file/openrocket/HandlerTestSupport.h"
+#include "file/openrocket/RecordedOrkFiles.h"
+#include "file/openrocket/SimulationTestSupport.h"
+
+namespace
+{
+
+using QtRocket::DecalImage;
+using QtRocket::FlightData;
+using QtRocket::FlightDataBranch;
+using QtRocket::FlightDataType;
+using QtRocket::GeneralRocketLoader;
+using QtRocket::JavaCode;
+using QtRocket::LoadedDocument;
+using QtRocket::OpenRocketDocument;
+using QtRocket::Result;
+using QtRocket::Rocket;
+using QtRocket::ScriptingExtension;
+using QtRocket::Simulation;
+using QtRocket::SimulationExtension;
+using QtRocket::ThrustCurveMotorSetDatabase;
+using QtRocket::UnknownSimulationExtension;
+using QtRocket::Test::DesignFileEnvironment;
+using QtRocket::Test::designFileState;
+using QtRocket::Test::DesignNumber;
+using QtRocket::Test::firstDifference;
+using QtRocket::Test::kOwnRecordedLines;
+using QtRocket::Test::kRecordedOrkFiles;
+using QtRocket::Test::linesOf;
+using QtRocket::Test::LoadEvents;
+using QtRocket::Test::massAndLength;
+using QtRocket::Test::RecordedOrkFile;
+using QtRocket::Test::wrongNumbers;
+
+using Presets = DesignFileEnvironment::Presets;
+using Lines   = std::vector<std::string>;
+
+[[nodiscard]] std::filesystem::path orkDir()
+{
+    return QtRocket::Test::testDataDir() / "ork";
+}
+
+/// The design @p file of tests/data/ork, loaded as a file with a loader of @p environment; with
+/// @p events the events of the load are counted there.
+[[nodiscard]] Result<LoadedDocument> loadRecorded(
+    const DesignFileEnvironment& environment, std::string_view file,
+    const std::shared_ptr<LoadEvents>& events = nullptr)
+{
+    const GeneralRocketLoader loader(environment.context(),
+                                     events == nullptr ? GeneralRocketLoader::Options{}
+                                                       : QtRocket::Test::countingOptions(events));
+    return loader.load(orkDir() / file);
+}
+
+/// The warnings of a load of @p file with @p environment, as "W <text>" lines; the failure of
+/// a load that fails.
+[[nodiscard]] Lines warningsOf(const DesignFileEnvironment& environment, std::string_view file)
+{
+    const Result<LoadedDocument> loaded = loadRecorded(environment, file);
+    return linesOf(loaded ? QtRocket::Test::warningLines(loaded->warnings)
+                          : QtRocket::Test::failureLine(loaded.error()));
+}
+
+/// An environment whose motor database holds nothing: every motor of a design is missing.
+/// For the tests that do not look at motors (the bundled database is read once per test
+/// process, and ctest runs every test in a process of its own).
+class EnvironmentWithoutMotors
+{
+public:
+    explicit EnvironmentWithoutMotors(Presets presets = Presets::EXAMPLES)
+      : m_environment(presets, m_motors)
+    {
+    }
+
+    [[nodiscard]] const DesignFileEnvironment& get() const noexcept { return m_environment; }
+
+private:
+    ThrustCurveMotorSetDatabase m_motors;
+    DesignFileEnvironment       m_environment;
+};
+
+/// The designs of the table whose state as loaded is not the one of the table, each with the
+/// first line that differs; "" when every state is.
+[[nodiscard]] std::string wrongStates()
+{
+    std::string report;
+    for (const RecordedOrkFile& file : kRecordedOrkFiles)
+    {
+        DesignFileEnvironment environment;
+        const std::string     difference =
+            firstDifference(file.state, designFileState(environment, orkDir() / file.file));
+        if (!difference.empty())
+        {
+            report += std::format("{}: {}\n", file.file, difference);
+        }
+    }
+    return report;
+}
+
+/// The designs of the table whose masses, centres of mass or length, asked of a freshly loaded
+/// document before anything else, are not the ones of the table; "" when all are.
+[[nodiscard]] std::string wrongMassesAndLengths()
+{
+    std::string report;
+    for (const RecordedOrkFile& file : kRecordedOrkFiles)
+    {
+        const DesignFileEnvironment  environment;
+        const Result<LoadedDocument> loaded = loadRecorded(environment, file.file);
+        const std::string            wrong =
+            loaded ? wrongNumbers(file.numbers, massAndLength(loaded->document->getRocket()))
+                   : loaded.error().toString();
+        if (!wrong.empty())
+        {
+            report += std::format("{}:\n{}\n", file.file, wrong);
+        }
+    }
+    return report;
+}
+
+/// The designs of the table that give other warnings than the table lists when they are loaded
+/// without component presets and without a motor; "" when none does.
+[[nodiscard]] std::string wrongBareWarnings()
+{
+    std::string report;
+    for (const RecordedOrkFile& file : kRecordedOrkFiles)
+    {
+        const EnvironmentWithoutMotors environment(Presets::NONE);
+        const std::string              difference =
+            firstDifference(file.bareWarnings, warningsOf(environment.get(), file.file));
+        if (!difference.empty())
+        {
+            report += std::format("{}: {}\n", file.file, difference);
+        }
+    }
+    return report;
+}
+
+// The state of each of the 18 files as loaded is OpenRocket's: the file version, the warnings
+// with their texts, every component with what it holds, the flight configurations with their
+// ids, names and motors, the simulations with their status, options, extensions, stored
+// summaries, warnings, branches, events and columns, the decal images, the storage options and
+// the undo state (see the top of this file). One test for all files: each test is a process of
+// its own under ctest, and the bundled motor database is read once per process.
+TEST(RecordedOrkFiles, LoadIntoOpenRocketsState)
+{
+    EXPECT_EQ(wrongStates(), "");
+}
+
+// Asked of a freshly loaded document before anything else: the structure mass and its centre,
+// the launch mass and its centre in every flight configuration, and the length are
+// OpenRocket's. They are computed from the values the load left, stale automatic ones
+// included, which the settled goldens cannot show.
+TEST(RecordedOrkFiles, HaveOpenRocketsMassAndLengthAsLoaded)
+{
+    EXPECT_EQ(wrongMassesAndLengths(), "");
+}
+
+// Without component presets and with a motor database that holds nothing, each file gives the
+// warnings OpenRocket gives then, in OpenRocket's order: one "No motor with designation ..."
+// per motor the design names (once for a motor that several configurations use), between the
+// "No matching ComponentPreset ..." warnings where the motor mount stands among the components
+// with a preset.
+TEST(RecordedOrkFiles, WarnAsOpenRocketWithoutPresetsAndMotors)
+{
+    EXPECT_EQ(wrongBareWarnings(), "");
+}
+
+/// The names of the designs of the table, sorted.
+[[nodiscard]] Lines recordedNames()
+{
+    Lines names;
+    for (const RecordedOrkFile& file : kRecordedOrkFiles)
+    {
+        names.emplace_back(file.file);
+    }
+    std::ranges::sort(names);
+    return names;
+}
+
+/// The names of the designs of tests/data/ork, sorted.
+[[nodiscard]] Lines designsOfTheDirectory()
+{
+    Lines names;
+    for (const auto& entry : std::filesystem::directory_iterator(orkDir()))
+    {
+        if (entry.path().extension() == ".ork")
+        {
+            names.push_back(entry.path().filename().string());
+        }
+    }
+    std::ranges::sort(names);
+    return names;
+}
+
+// The table is the directory: every design of tests/data/ork is loaded and compared.
+TEST(RecordedOrkFilesTable, HoldsEveryDesignOfTheDirectory)
+{
+    EXPECT_EQ(recordedNames(), designsOfTheDirectory());
+    EXPECT_EQ(recordedNames().size(), 18U);
+}
+
+/// The warnings of a load of @p file in the environment of the tests, as texts.
+[[nodiscard]] Lines loadWarnings(std::string_view file, Presets presets = Presets::EXAMPLES)
+{
+    const DesignFileEnvironment  environment(presets);
+    const Result<LoadedDocument> loaded = loadRecorded(environment, file);
+    if (!loaded)
+    {
+        return {"FAILED: " + loaded.error().message};
+    }
+    return QtRocket::Test::warningTexts(loaded->warnings);
+}
+
+/// The warnings of a design whose seven <preset> elements name six parts of SEMROC: one per
+/// part that no preset database of the tests has (the two centering rings give one).
+[[nodiscard]] Lines semrocPresetWarnings()
+{
+    const std::string_view start = "No matching ComponentPreset for component ";
+    const std::string_view maker = " found matching SEMROC Astronautics ";
+    Lines                  warnings;
+    for (const auto& [component, part] :
+         {std::pair<std::string_view, std::string_view>{"Nose cone", "BNC-55F"},
+          {"Body tube", "BT-55"},
+          {"Centering ring", "RA-5055"},
+          {"Inner Tube", "BT-50J"},
+          {"Launch lug", "LL-117"},
+          {"Parachute", "PN-18"}})
+    {
+        warnings.push_back(std::format("{}{}{}{}", start, component, maker, part));
+    }
+    return warnings;
+}
+
+// The warnings of the 18 loads, written out (the table holds the same): the numbers the scouts
+// of tier 9 measured with OpenRocket, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 3, 1, 0, 0, 0, 0, 0 for the
+// 17 legacy files in the order of the README and 1 for simplerocket.ork, with two
+// exceptions: the designs with presets of SEMROC and FlisKits, which the six presets of the
+// tests do not hold (see the top of this file and the next test): 6 for v1.5-preset-usage.ork
+// (not 1), 1 for v1.7-tube-fin.ork (not 0), in OpenRocket too when it has those six presets
+// only.
+TEST(RecordedOrkFilesWarnings, AreTheOnesOpenRocketGives)
+{
+    const std::string_view missingD7 =
+        "No motor with designation 'D7' for manufacturer 'WECO Feuerwerk' found.";
+    EXPECT_EQ(loadWarnings("simplerocket.ork"),
+              Lines{"Multiple motors with designation 'A8' for manufacturer 'Estes' found, one "
+                    "chosen arbitrarily."});
+    EXPECT_EQ(loadWarnings("v1.0-roll-stabilized.ork"), Lines{std::string(missingD7)});
+    EXPECT_EQ(loadWarnings("v1.4-roll-stabilized.ork"), Lines{std::string(missingD7)});
+    EXPECT_EQ(loadWarnings("v1.6-a-simple-model-rocket.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.6-boosted-dart.ork"),
+              Lines{"No motor with designation 'J1000-LW' for manufacturer 'Loki Research' "
+                    "found."});
+    EXPECT_EQ(loadWarnings("v1.6-high-power-airstart.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.6-simulation-listeners.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.6-tarc-payloader.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.6-three-stage-rocket.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.6-apocd.ork"),
+              (Lines{"Unknown attributes in element 'ambient', ignoring.",
+                     "Unknown attributes in element 'diffuse', ignoring.",
+                     "Unknown attributes in element 'specular', ignoring."}));
+    // The two scripts of this design are stored enabled, and no warning says that they were
+    // disabled: they are the roll control script that OpenRocket trusts by its hash.
+    EXPECT_EQ(loadWarnings("v1.7-simulation-extensions-and-scripting.ork"),
+              Lines{"Simulation extension with id "
+                    "'info.openrocket.core.simulation.extension.impl.AirStart' not found."});
+    EXPECT_EQ(loadWarnings("v1.8-logo-rocket.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.8-parallel-staging-example.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.8-pods-example.ork"), Lines{});
+    EXPECT_EQ(loadWarnings("v1.9-chute-release.ork"), Lines{});
+
+    // The designs with presets the tests do not have: OpenRocket's warning for each part, with
+    // the six presets of the examples and without any, as OpenRocket gives them in both
+    // set-ups (with its whole database it finds them all but the nose cone's).
+    const std::string_view tube =
+        "No matching ComponentPreset for component Body tube found matching FlisKits BT-50-18";
+    EXPECT_EQ(loadWarnings("v1.5-preset-usage.ork"), semrocPresetWarnings());
+    EXPECT_EQ(loadWarnings("v1.5-preset-usage.ork", Presets::NONE), semrocPresetWarnings());
+    EXPECT_EQ(loadWarnings("v1.6-preset-usage-decals-first.ork"), semrocPresetWarnings());
+    EXPECT_EQ(loadWarnings("v1.7-tube-fin.ork"), Lines{std::string(tube)});
+    EXPECT_EQ(loadWarnings("v1.7-tube-fin.ork", Presets::NONE), Lines{std::string(tube)});
+}
+
+// Without a motor in the database every motor a design names is missing, with OpenRocket's
+// warning, once per motor and in the order of the document: the three stages of
+// v1.6-three-stage-rocket.ork hold A8 and C6 (the sustainer) and B6 and C6 (the boosters).
+TEST(RecordedOrkFilesWarnings, NameEveryMotorThatIsNotFound)
+{
+    const EnvironmentWithoutMotors environment;
+    EXPECT_EQ(warningsOf(environment.get(), "v1.6-three-stage-rocket.ork"),
+              (Lines{"W No motor with designation 'A8' for manufacturer 'Estes' found.",
+                     "W No motor with designation 'C6' for manufacturer 'Estes' found.",
+                     "W No motor with designation 'B6' for manufacturer 'Estes' found."}));
+    EXPECT_EQ(warningsOf(environment.get(), "simplerocket.ork"),
+              Lines{"W No motor with designation 'A8' for manufacturer 'Estes' found."});
+}
+
+/// The extensions of the simulations of @p document, one line per simulation: its name and
+/// "<class>:<name of the extension>" for each of its extensions.
+[[nodiscard]] Lines extensionsOf(const OpenRocketDocument& document)
+{
+    Lines lines;
+    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
+    {
+        std::string line = simulation->getName() + ":";
+        for (const std::shared_ptr<SimulationExtension>& extension :
+             simulation->getSimulationExtensions())
+        {
+            line += std::format(" [{}:{}]", QtRocket::Test::extensionClassName(*extension),
+                                extension->getName());
+        }
+        lines.push_back(std::move(line));
+    }
+    return lines;
+}
+
+// The three <listener> elements of v1.6-simulation-listeners.ork are JavaCode extensions that
+// keep the class names of the file, as in OpenRocket; nothing is run.
+TEST(RecordedOrkFilesExtensions, AListenerIsAJavaCodeExtension)
+{
+    const EnvironmentWithoutMotors environment;
+    const Result<LoadedDocument>   loaded =
+        loadRecorded(environment.get(), "v1.6-simulation-listeners.ork");
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    const std::string_view package = "net.sf.openrocket.simulation.listeners.example.";
+    EXPECT_EQ(extensionsOf(*loaded->document),
+              (Lines{"No controlling:",
+                     std::format("Active roll control: [JavaCode:Java code: {}RollControlListener]",
+                                 package),
+                     std::format("Roll control + air-start: [JavaCode:Java code: "
+                                 "{0}RollControlListener] [JavaCode:Java code: {0}AirStart]",
+                                 package)}));
+    const auto* const code = dynamic_cast<const JavaCode*>(
+        loaded->document->getSimulation(1)->getSimulationExtensions().front().get());
+    ASSERT_NE(code, nullptr);
+    EXPECT_EQ(code->getClassName(), std::string(package) + "RollControlListener");
+}
+
+/// What initialize() of @p script does: "ok", or the message of its SimulationException.
+[[nodiscard]] std::string initializing(ScriptingExtension& script)
+{
+    QtRocket::SimulationConditions conditions;
+    try
+    {
+        script.initialize(conditions);
+    }
+    catch (const QtRocket::SimulationException& refused)
+    {
+        return refused.what();
+    }
+    return "ok";
+}
+
+/// What loading a document does to a copy of @p script that is enabled and has the language
+/// @p language and the text @p text: "enabled" or "disabled", with " warned" behind it when a
+/// warning was added.
+[[nodiscard]] std::string trustIn(const ScriptingExtension& script, std::string_view language,
+                                  std::string_view text)
+{
+    ScriptingExtension copy = script;
+    copy.setLanguage(language);
+    copy.setScript(text);
+    copy.setEnabled(true);
+    QtRocket::WarningSet warnings;
+    copy.disableUntrustedScript(warnings);
+    return std::string(copy.isEnabled() ? "enabled" : "disabled") +
+           (warnings.empty() ? "" : " warned");
+}
+
+/// @p text with every line feed written as a carriage return and a line feed.
+[[nodiscard]] std::string withCarriageReturns(std::string_view text)
+{
+    std::string out;
+    for (const char c : text)
+    {
+        out += c == '\n' ? std::string("\r\n") : std::string(1, c);
+    }
+    return out;
+}
+
+// v1.7-simulation-extensions-and-scripting.ork names the extension
+// net.sf.openrocket.simulation.extension.impl.AirStart, which the loader looks up as
+// info.openrocket.core.simulation.extension.impl.AirStart: no provider knows that id (the class
+// is example.AirStart today). OpenRocket warns and drops the extension; QtRocket warns and
+// keeps it as an UnknownSimulationExtension with its configuration, so that a save can write
+// it back (decision D11). The two scripts are stored as enabled, and stay so without a warning,
+// in OpenRocket and here: they are the roll control script of OpenRocket's example, which is
+// trusted on every computer by its hash (ScriptingUtil.DEFAULT_TRUSTED_HASHES;
+// ScriptingExtension::isTrustedScript()). (The motor database of this test holds nothing: the
+// first warning is the design's motor.)
+TEST(RecordedOrkFilesExtensions, AnIdNoProviderKnowsIsKeptAndTheTrustedScriptsStayEnabled)
+{
+    const EnvironmentWithoutMotors environment;
+    const Result<LoadedDocument>   loaded =
+        loadRecorded(environment.get(), "v1.7-simulation-extensions-and-scripting.ork");
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    EXPECT_EQ(
+        extensionsOf(*loaded->document),
+        (Lines{"No controlling:", "Active roll control: [ScriptingExtension:JavaScript script]",
+               "Roll control + air-start: [UnknownSimulationExtension:AirStart] "
+               "[ScriptingExtension:JavaScript script]"}));
+    const std::string_view unknown = "info.openrocket.core.simulation.extension.impl.AirStart";
+    EXPECT_EQ(QtRocket::Test::warningTexts(loaded->warnings),
+              (Lines{"No motor with designation 'L540' for manufacturer 'HyperTEK' found.",
+                     UnknownSimulationExtension::notFoundText(unknown)}));
+    const std::shared_ptr<SimulationExtension>& kept =
+        loaded->document->getSimulation(2)->getSimulationExtensions().front();
+    EXPECT_EQ(kept->getId(), unknown);
+    EXPECT_EQ(kept->getConfig().getDouble("launchAltitude", 0.0), 1000.0);
+    auto* const script = dynamic_cast<ScriptingExtension*>(
+        loaded->document->getSimulation(1)->getSimulationExtensions().front().get());
+    ASSERT_NE(script, nullptr);
+    EXPECT_TRUE(script->isEnabled());
+    EXPECT_EQ(script->getScript().size(), 1233U);
+    const auto* const second = dynamic_cast<const ScriptingExtension*>(
+        loaded->document->getSimulation(2)->getSimulationExtensions().back().get());
+    ASSERT_NE(second, nullptr);
+    EXPECT_TRUE(second->isEnabled());
+
+    // The hash is that of the language and of the script without its carriage returns and
+    // without the white space around it (OpenRocket's value: the probe of the verifier of
+    // tier 9c, out/script.java.out).
+    const std::string text   = script->getScript();
+    const std::string normal = ScriptingExtension::normalizeScript(text);
+    EXPECT_EQ(normal.size(), 1232U);
+    EXPECT_EQ(ScriptingExtension::scriptHash("JavaScript", normal),
+              "SHA-256:9bf364ce4d4a75f09b29178bf9d6872b232084f73dae20dc7b5b073e54e95a42");
+    EXPECT_EQ(trustIn(*script, "JavaScript", text), "enabled");
+    EXPECT_EQ(trustIn(*script, "JavaScript", "\r\n  " + withCarriageReturns(text) + "\t"),
+              "enabled");
+    // Another script, or the same one under another name of its language, is not that one.
+    EXPECT_EQ(trustIn(*script, "JavaScript", text + ";"), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "JavaScript", "/" + text), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "javascript", text), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "js", text), "disabled warned");
+
+    // QtRocket runs no script (decision D11): a simulation with the enabled script does not
+    // run until the script is disabled, where OpenRocket would let the script steer the fins.
+    EXPECT_EQ(initializing(*script),
+              "QtRocket does not support the scripting language 'JavaScript'");
+    script->setEnabled(false);
+    EXPECT_EQ(initializing(*script), "ok");
+}
+
+/// The decal images of @p document, "<name> <number of bytes>" each, in the order of the names;
+/// the failure in place of the number for an image that cannot be read.
+[[nodiscard]] Lines decalSizes(const OpenRocketDocument& document)
+{
+    Lines lines;
+    for (const std::shared_ptr<DecalImage>& image : document.getDecalList())
+    {
+        const Result<std::vector<std::byte>> bytes = image->getBytes();
+        lines.push_back(image->getName() + " " +
+                        (bytes ? std::to_string(bytes->size()) : bytes.error().message));
+    }
+    std::ranges::sort(lines);
+    return lines;
+}
+
+// The first entry of v1.6-preset-usage-decals-first.ork is the directory "decals/". OpenRocket
+// looks at the first entry only and returns the empty rocket, without a warning (a rocket
+// "Rocket" without a stage). QtRocket takes the first entry named *.ork (decision T3): the
+// "Preset Usage" example of OpenRocket 13.05 with its simulation, and its two decal images are
+// read from the archive, one of them a stored entry.
+TEST(RecordedOrkFilesArchive, TheDocumentBehindADirectoryEntryIsLoadedWithItsDecals)
+{
+    const EnvironmentWithoutMotors environment;
+    const Result<LoadedDocument>   loaded =
+        loadRecorded(environment.get(), "v1.6-preset-usage-decals-first.ork");
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    const Rocket& rocket = loaded->document->getRocket();
+    EXPECT_EQ(rocket.getName(), "3FNC Using Presets");
+    EXPECT_EQ(rocket.getStageCount(), 1U);
+    EXPECT_EQ(rocket.getFlightConfigurationCount(), 1U);
+    EXPECT_EQ(loaded->document->getSimulationCount(), 1U);
+    EXPECT_EQ(decalSizes(*loaded->document),
+              (Lines{"decals/beta.png 674", "decals/open.png 1901"}));
+}
+
+// A plain XML design looks for its decal images beside the file: v1.6-apocd.ork names five,
+// and tests/data/ork has none of them. The load says nothing (as OpenRocket's); reading an
+// image fails.
+TEST(RecordedOrkFilesArchive, TheDecalsOfAPlainDocumentAreFilesBesideIt)
+{
+    const EnvironmentWithoutMotors environment;
+    const Result<LoadedDocument>   loaded = loadRecorded(environment.get(), "v1.6-apocd.ork");
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    const std::vector<std::shared_ptr<DecalImage>> images = loaded->document->getDecalList();
+    ASSERT_EQ(images.size(), 5U);
+    EXPECT_EQ(images.front()->getName(), "decals/Apocalypse_CONE_pointsFrfl.jpg");
+    EXPECT_FALSE(images.front()->getBytes().has_value());
+    // The file it would be read from: decals/<name> in the directory of the design.
+    const std::filesystem::path file =
+        images.front()->getDecalFile().value_or(std::filesystem::path());
+    EXPECT_EQ(file.filename(), "Apocalypse_CONE_pointsFrfl.jpg");
+    EXPECT_EQ(file.parent_path().filename(), "decals");
+    std::error_code failure;
+    EXPECT_TRUE(std::filesystem::equivalent(file.parent_path().parent_path(), orkDir(), failure))
+        << file << " " << failure.message();
+}
+
+/// The types of the first stored branch of simulation @p number of @p document that are not
+/// built in, "<name>{<symbol>}" each, in the order of the columns.
+[[nodiscard]] Lines foreignTypes(const OpenRocketDocument& document, std::size_t number)
+{
+    Lines                              types;
+    const std::shared_ptr<FlightData>& data = document.getSimulation(number)->getSimulatedData();
+    if (data == nullptr || data->getBranchCount() == 0)
+    {
+        return {"no branch"};
+    }
+    for (const FlightDataType* type : data->getBranch(0).getTypes())
+    {
+        if (QtRocket::Test::describeFlightDataType(*type).contains(",-,"))
+        {
+            types.push_back(std::format("{}{{{}}}", type->getName(), type->getSymbol()));
+        }
+    }
+    return types;
+}
+
+// A stored column whose name today's OpenRocket does not know ("Position parallel to wind" of
+// the formats 1.0 to 1.7, "Propellant mass" of 1.7) becomes a type of that name with the
+// symbol "Unknown" and no unit, without a warning of the load, and keeps its values.
+TEST(RecordedOrkFilesFlightData, AStoredTypeNobodyKnowsIsAnUnknownType)
+{
+    const EnvironmentWithoutMotors environment;
+    const Result<LoadedDocument>   first =
+        loadRecorded(environment.get(), "v1.0-roll-stabilized.ork");
+    ASSERT_TRUE(first.has_value()) << first.error().toString();
+    EXPECT_EQ(foreignTypes(*first->document, 0), Lines{"Position parallel to wind{Unknown}"});
+
+    const Result<LoadedDocument> tube = loadRecorded(environment.get(), "v1.7-tube-fin.ork");
+    ASSERT_TRUE(tube.has_value()) << tube.error().toString();
+    EXPECT_EQ(foreignTypes(*tube->document, 0),
+              (Lines{"Position parallel to wind{Unknown}", "Propellant mass{Unknown}"}));
+    const FlightDataBranch& branch =
+        tube->document->getSimulation(0)->getSimulatedData()->getBranch(0);
+    EXPECT_EQ(branch.getLength(), 257U);
+    EXPECT_EQ(branch.getTypes().size(), 54U);
+}
+
+/// The lines of @p file in kRecordedOrkFiles, or none when the table has no such file.
+[[nodiscard]] std::span<const std::string_view> stateOfRecorded(std::string_view file)
+{
+    for (const RecordedOrkFile& row : kRecordedOrkFiles)
+    {
+        if (row.file == file)
+        {
+            return row.state;
+        }
+    }
+    return {};
+}
+
+/// What is wrong with the rows of kOwnRecordedLines, a line for each fault; empty when every
+/// row has a reason, differs from OpenRocket's line, and has each of its lines in the state
+/// that the table holds for its file.
+[[nodiscard]] std::string faultsOfTheOwnLines()
+{
+    std::string faults;
+    for (const QtRocket::Test::OwnRecordedLine& own : kOwnRecordedLines)
+    {
+        if (own.why.empty())
+        {
+            faults += std::format("{}: a row without a reason\n", own.file);
+        }
+        if (own.openRocket == own.qtRocket)
+        {
+            faults += std::format("{}: a row that is OpenRocket's line\n", own.file);
+        }
+        const std::span<const std::string_view> state = stateOfRecorded(own.file);
+        for (const std::string& line : QtRocket::Strings::split(own.qtRocket, '\n'))
+        {
+            if (std::ranges::find(state, std::string_view(line)) == state.end())
+            {
+                faults += std::format("{}: not a line of the state: {}\n", own.file, line);
+            }
+        }
+    }
+    return faults;
+}
+
+// Every line of a state that is not OpenRocket's has its reason, differs from OpenRocket's and
+// is a line of the state that the table holds for its file. (That the loader still gives these
+// lines is the comparison of RecordedOrkFiles.LoadIntoOpenRocketsState: a deviation that the
+// loader no longer makes fails there.) There are two, both of the one design with an extension
+// that no provider knows.
+TEST(RecordedOrkFilesTable, EveryOwnLineHasItsReason)
+{
+    EXPECT_EQ(faultsOfTheOwnLines(), "");
+    EXPECT_EQ(kOwnRecordedLines.size(), 2U);
+}
+
+// The states as the Java probe prints them, for a comparison with its output (the probes of
+// tier 9c, part "recorded-files": scripts/compare.sh).
+TEST(RecordedOrkFilesTable, DISABLED_PrintsTheStates)
+{
+    for (const RecordedOrkFile& file : kRecordedOrkFiles)
+    {
+        DesignFileEnvironment environment;
+        std::cout << "=== " << file.file << "\n";
+        for (const std::string& line : designFileState(environment, orkDir() / file.file))
+        {
+            std::cout << line << "\n";
+        }
+        std::cout << "#numbers\n";
+        const Result<LoadedDocument> loaded = loadRecorded(environment, file.file);
+        if (loaded)
+        {
+            for (const DesignNumber& number : massAndLength(loaded->document->getRocket()))
+            {
+                std::cout << number.name << "="
+                          << QtRocket::Strings::javaDoubleToString(number.value) << "\n";
+            }
+        }
+    }
+}
+
+}  // namespace
