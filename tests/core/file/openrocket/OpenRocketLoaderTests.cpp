@@ -7,6 +7,7 @@
 #include "QtRocket/file/openrocket/OpenRocketLoader.h"
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <span>
 #include <string>
@@ -25,7 +26,10 @@
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
@@ -54,6 +58,7 @@ using QtRocket::Test::documentOfLoadCase;
 using QtRocket::Test::HandlerFixture;
 using QtRocket::Test::warningTexts;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 
 /// A document read into the document of a HandlerFixture whose extension registry is the
@@ -303,9 +308,70 @@ TEST(OpenRocketLoader, ASimulationWithStoredDataMakesTheDocumentSaveSimulatedDat
                      .getDefaultStorageOptions()
                      .getSaveSimulationData());
     EXPECT_FALSE(loaded("p-undo").document().getDefaultStorageOptions().getSaveSimulationData());
-    // One of several is enough.
+    // One of several is enough, wherever it stands: the first and the last of three have a
+    // stored flight in the one case, the one in the middle alone has in the other (which a
+    // loader that looked at the first simulation only, or at the last, would get wrong).
     EXPECT_TRUE(
         loaded("m-sim-three").document().getDefaultStorageOptions().getSaveSimulationData());
+    EXPECT_TRUE(loaded("m-sim-data-in-the-middle")
+                    .document()
+                    .getDefaultStorageOptions()
+                    .getSaveSimulationData());
+}
+
+/// The lines of the document (documentLines()) after the loader's steps ran on a document that
+/// holds one simulation of the status @p status with the stored flight of the case
+/// m-sim-uptodate, a file without simulations being loaded into it.
+[[nodiscard]] std::string stepsWithASimulationOf(Simulation::Status status)
+{
+    Reading             read     = onlyRead("m-sim-uptodate");
+    OpenRocketDocument& document = read.document();
+    if (!read.result.has_value() || document.getSimulationCount() != 1)
+    {
+        QtRocket::bug("the case m-sim-uptodate was not read");
+    }
+    const std::shared_ptr<QtRocket::FlightData> flight =
+        document.getSimulation(0)->getSimulatedData();
+    static_cast<void>(document.removeSimulation(0));
+    document.addSimulation(std::make_shared<Simulation>(
+        &document, read.fixture.rocket(), status, "S",
+        QtRocket::SimulationOptions(read.fixture.preferences()),
+        std::vector<std::shared_ptr<QtRocket::SimulationExtension>>{}, flight,
+        std::map<std::string, QtRocket::PlotAppearance>{}, &read.fixture.preferences()));
+
+    WarningSet                   warnings;
+    const std::vector<std::byte> bytes = stringToBytes(R"(<openrocket version="1.10"/>)");
+    if (!OpenRocketLoader::load(read.fixture.context(), bytes, warnings).has_value())
+    {
+        QtRocket::bug("the empty document was not loaded");
+    }
+    return QtRocket::Test::documentLines(document, nullptr);
+}
+
+// Step 2, the half of the storage rule that no file reaches: a simulation whose status is
+// EXTERNAL or NOT_SIMULATED does not count, whatever data it holds. As a file is read, a
+// simulation with a stored flight comes out LOADED whatever status the file names, and one
+// without is NOT_SIMULATED (the cases m-sim-external and m-sim-notsimulated), so here the
+// document is given a simulation with one of the two statuses and a stored flight before a
+// file without simulations is loaded into it. The same flight in a simulation that is LOADED
+// or UPTODATE makes the document save simulated data.
+TEST(OpenRocketLoader, ASimulationOfImportedDataDoesNotMakeTheDocumentSaveSimulatedData)
+{
+    const std::string external = stepsWithASimulationOf(Simulation::Status::EXTERNAL);
+    EXPECT_THAT(external, HasSubstr("sim 'S' status=EXTERNAL branches=1 ext=[]\n"));
+    EXPECT_THAT(external, HasSubstr(" saveSimulationData=false "));
+
+    const std::string notSimulated = stepsWithASimulationOf(Simulation::Status::NOT_SIMULATED);
+    EXPECT_THAT(notSimulated, HasSubstr("sim 'S' status=NOT_SIMULATED branches=1 ext=[]\n"));
+    EXPECT_THAT(notSimulated, HasSubstr(" saveSimulationData=false "));
+
+    const std::string fromAFile = stepsWithASimulationOf(Simulation::Status::LOADED);
+    EXPECT_THAT(fromAFile, HasSubstr("sim 'S' status=LOADED branches=1 ext=[]\n"));
+    EXPECT_THAT(fromAFile, HasSubstr(" saveSimulationData=true "));
+
+    const std::string flown = stepsWithASimulationOf(Simulation::Status::UPTODATE);
+    EXPECT_THAT(flown, HasSubstr("sim 'S' status=UPTODATE branches=1 ext=[]\n"));
+    EXPECT_THAT(flown, HasSubstr(" saveSimulationData=true "));
 }
 
 // Step 3: the storage options are those of a design file that nobody chose: not explicitly
@@ -342,8 +408,9 @@ TEST(OpenRocketLoader, MarksTheStorageOptionsAsThoseOfADesignFile)
 }
 
 // Step 4: every extension of every simulation is told that the document was loaded, with the
-// load's warnings. The scripting extension disables an enabled script there and says so, once
-// for all the scripts of a file; a script that was disabled gives no warning.
+// load's warnings. The scripting extension disables an enabled script that it does not trust
+// there and says so, once for all the scripts of a file; a script that was disabled gives no
+// warning.
 TEST(OpenRocketLoader, TellsEveryExtensionThatTheDocumentWasLoaded)
 {
     Reading read = onlyRead("m-ext-script-enabled");
@@ -364,6 +431,48 @@ TEST(OpenRocketLoader, TellsEveryExtensionThatTheDocumentWasLoaded)
     EXPECT_THAT(three.texts(), ElementsAre(std::string(ScriptingExtension::kDisabledWarning)));
 
     EXPECT_THAT(loaded("p-ext-script-disabled").texts(), IsEmpty());
+}
+
+/// "enabled" or "disabled" for the scripting extension of simulation 0 of the case @p name
+/// once it is loaded, with " warned" behind it when the load has a warning.
+[[nodiscard]] std::string scriptAfterLoading(std::string_view name)
+{
+    Reading load = loaded(name);
+    if (!load.result.has_value() || load.document().getSimulationCount() == 0)
+    {
+        return "not loaded";
+    }
+    return std::string(scriptOf(load.document(), 0).isEnabled() ? "enabled" : "disabled") +
+           (load.texts().empty() ? "" : " warned");
+}
+
+// Step 4 again: the scripts OpenRocket trusts on every computer stay enabled, without a
+// warning (ScriptingUtil.isTrustedScript()): what holds nothing once its carriage returns are
+// gone and it is trimmed, in whatever language. That is the scripting extension a user has
+// just added to a simulation. OpenRocket's answers: the cases p-ext-script-* of the table.
+TEST(OpenRocketLoader, LeavesAnEnabledScriptThatHoldsNothingEnabled)
+{
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-empty-enabled"), "enabled");
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-blank-enabled"), "enabled");
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-missing-enabled"), "enabled");
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-empty-no-language"), "enabled");
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-empty-python"), "enabled");
+    // Not enabled in the file: nothing to disable, and nothing is said.
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-empty-no-enabled"), "disabled");
+    // A script, and a no-break space is one: disabled with the warning.
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-text-no-language"), "disabled warned");
+    EXPECT_EQ(scriptAfterLoading("p-ext-script-nbsp"), "disabled warned");
+
+    // Three scripts in two simulations, of which the middle one is a script: it alone is
+    // disabled, and the warning is there once.
+    Reading mixed = loaded("p-ext-script-empty-and-text");
+    ASSERT_TRUE(mixed.result.has_value());
+    ASSERT_EQ(mixed.document().getSimulationCount(), 2U);
+    EXPECT_EQ(QtRocket::Test::extensionNames(*mixed.document().getSimulation(0)),
+              "ScriptingExtension(enabled)");
+    EXPECT_EQ(QtRocket::Test::extensionNames(*mixed.document().getSimulation(1)),
+              "ScriptingExtension(disabled) ScriptingExtension(enabled)");
+    EXPECT_THAT(mixed.texts(), ElementsAre(std::string(ScriptingExtension::kDisabledWarning)));
 }
 
 // The warnings of the extensions come behind those of the handlers.

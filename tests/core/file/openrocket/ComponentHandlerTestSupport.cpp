@@ -87,10 +87,10 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/LineStyle.h"
+#include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Signal.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Uuid.h"
-#include "Sha256.h"
 #include "file/openrocket/HandlerTestSupport.h"
 #include "rocket/preset/ExamplePresets.h"
 

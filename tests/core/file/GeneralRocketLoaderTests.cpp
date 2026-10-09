@@ -38,12 +38,16 @@
 #include "QtRocket/file/GzipStream.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/ZipFileAttachmentFactory.h"
+#include "QtRocket/file/openrocket/OpenRocketLoader.h"
 #include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
 #include "QtRocket/util/BugError.h"
@@ -155,6 +159,57 @@ constexpr std::string_view kTail = "</name></rocket></openrocket>";
         QtRocket::bug("gzipDeflate failed: " + stream.error().message);
     }
     return std::move(*stream);
+}
+
+/// The header of a gzip member: the ten bytes without optional fields, with the flags @p flags
+/// and the compression method @p method.
+[[nodiscard]] Bytes gzipHeader(unsigned flags = 0, unsigned method = 8)
+{
+    return {std::byte{0x1f},
+            std::byte{0x8b},
+            static_cast<std::byte>(method),
+            static_cast<std::byte>(flags),
+            std::byte{0},
+            std::byte{0},
+            std::byte{0},
+            std::byte{0},
+            std::byte{0},
+            std::byte{3}};
+}
+
+/// Deflate data that holds @p bytes as they are, in one stored block: the last block of its
+/// stream when @p last, and announcing @p declared bytes when that is not the number there
+/// are (a block that is cut off). Written by hand, so that every length is what the test says
+/// (the length of what a compressor writes is the compressor's).
+[[nodiscard]] Bytes storedBlock(const Bytes& bytes, bool last = true,
+                                std::optional<std::size_t> declared = std::nullopt)
+{
+    const auto length = static_cast<std::uint32_t>(declared.value_or(bytes.size()));
+    Bytes      out{last ? std::byte{1} : std::byte{0}};
+    QtRocket::Test::put16(out, length);
+    QtRocket::Test::put16(out, ~length & 0xFFFFU);
+    out.insert(out.end(), bytes.begin(), bytes.end());
+    return out;
+}
+
+/// A gzip member that holds @p bytes in one stored block behind @p header: the header, the
+/// block, the check sum and the length.
+[[nodiscard]] Bytes storedMember(const Bytes& bytes, const Bytes& header = gzipHeader())
+{
+    Bytes out = joined({header, storedBlock(bytes)});
+    QtRocket::Test::put32(out, QtRocket::Test::zipCrc32(bytes));
+    QtRocket::Test::put32(out, static_cast<std::uint32_t>(bytes.size()));
+    return out;
+}
+
+/// @p bytes from @p begin to @p end (to their end by default).
+[[nodiscard]] Bytes part(const Bytes& bytes, std::size_t begin,
+                         std::size_t end = std::string_view::npos)
+{
+    const std::span<const std::byte> all(bytes);
+    const std::span<const std::byte> piece =
+        all.subspan(begin, std::min(end, bytes.size()) - begin);
+    return {piece.begin(), piece.end()};
 }
 
 /// A little-endian number of four bytes at @p offset of @p bytes.
@@ -360,8 +415,9 @@ enum class Deviation
     DOCUMENT_TYPE,
     /// A damaged stream fails in both, with another text: QtRocket unpacks a stream whole
     /// before it looks at the document, OpenRocket reads it through buffers and notices the
-    /// damage when it gets there, and the reason is QtRocket's own text where it comes from
-    /// zlib.
+    /// damage when it gets there (a stored entry with a wrong check sum), and the reason is
+    /// QtRocket's own text where Java's exception has no message (a header or a data
+    /// descriptor that is cut off).
     DAMAGE,
 };
 
@@ -686,6 +742,224 @@ constexpr std::string_view kScoutsCorruptArchive =
     inputs.push_back(input("zip with a later .rkt", true,
                            zipOf({{"preview.png", image()}, {"x.rkt", design}}), kUnsupported,
                            Deviation::ARCHIVE_ENTRY, kEmptyRocket));
+    // The ten bytes are asked of the file before anything else: nine bytes that start as a
+    // gzip stream are no file, and ten are a gzip stream, which here ends behind its header.
+    const Bytes header = gzipHeader();
+    inputs.push_back(input("9 bytes of a gzip header", true, firstBytes(header, 9), kUnsupported));
+    inputs.push_back(
+        input("10 bytes of a gzip header", true, header,
+              "FAILED PARSE: Exception loading stream: Unexpected end of ZLIB input stream"));
+    // Two bytes make an archive, "PK": what follows them is read as local headers, and a
+    // design document is none.
+    inputs.push_back(
+        input("PK and a design", true, joined({stringToBytes("PK"), design}), kUnsupported));
+    return inputs;
+}
+
+constexpr std::string_view kSmallLoaded    = "LOADED 'x' components=1 warnings=[] decals=[]";
+constexpr std::string_view kCorruptTrailer = "FAILED PARSE: I/O error: Corrupt GZIP trailer";
+constexpr std::string_view kEndOfZlibAtOnce =
+    "FAILED PARSE: Exception loading stream: Unexpected end of ZLIB input stream";
+
+/// The small design, 71 bytes: a rocket named "x".
+[[nodiscard]] Bytes smallDesign()
+{
+    return stringToBytes(std::string(kHead) + "x" + std::string(kTail));
+}
+
+/// The small design with a comment behind it that makes it @p size bytes.
+[[nodiscard]] Bytes smallDesignOfSize(std::size_t size)
+{
+    const std::string start = std::string(kHead) + "x" + std::string(kTail) + "<!--";
+    return stringToBytes(start + std::string(size - start.size() - 3, 'c') + "-->");
+}
+
+/// Gzip streams with the optional fields of a header, each loaded as a file: GZIPInputStream
+/// reads the fields it knows, checks the header's check sum when there is one, and looks at no
+/// other flag.
+[[nodiscard]] std::vector<Input> gzipHeaderInputs()
+{
+    const Bytes design  = stringToBytes(kDesign);
+    const Bytes fields  = joined({{std::byte{4}, std::byte{0}},
+                                  stringToBytes("abcd"),
+                                  stringToBytes(std::string_view("name\0", 5)),
+                                  stringToBytes(std::string_view("comment\0", 8))});
+    Bytes       checked = joined({gzipHeader(0x1E), fields});
+    Bytes       wrong   = checked;
+    QtRocket::Test::put16(checked, QtRocket::Test::zipCrc32(checked) & 0xFFFFU);
+    QtRocket::Test::put16(wrong, (QtRocket::Test::zipCrc32(wrong) + 1U) & 0xFFFFU);
+
+    std::vector<Input> inputs;
+    inputs.push_back(
+        input("gzip of a stored block", true, storedMember(design), kDesignBesideImage));
+    inputs.push_back(
+        input("gzip with a name", true,
+              storedMember(design, joined({gzipHeader(0x08),
+                                           stringToBytes(std::string_view("rocket.ork\0", 11))})),
+              kDesignBesideImage));
+    inputs.push_back(input("gzip with an extra field, a name and a comment", true,
+                           storedMember(design, joined({gzipHeader(0x1C), fields})),
+                           kDesignBesideImage));
+    inputs.push_back(input("gzip with a header check sum", true, storedMember(design, checked),
+                           kDesignBesideImage));
+    inputs.push_back(input("gzip with a wrong header check sum", true, storedMember(design, wrong),
+                           "FAILED PARSE: Exception loading stream: Corrupt GZIP header"));
+    inputs.push_back(input("gzip with the text flag", true, storedMember(design, gzipHeader(0x01)),
+                           kDesignBesideImage));
+    inputs.push_back(input("gzip with the reserved flags", true,
+                           storedMember(design, gzipHeader(0xE0)), kDesignBesideImage));
+    inputs.push_back(
+        input("gzip of another compression method", true, storedMember(design, gzipHeader(0, 7)),
+              "FAILED PARSE: Exception loading stream: Unsupported compression method"));
+    // A header that ends in its name: Java's EOFException has no message.
+    inputs.push_back(input("gzip header cut off in its name", true,
+                           joined({gzipHeader(0x08), stringToBytes("rocket.ork")}),
+                           "FAILED PARSE: Exception loading stream: Unexpected end of GZIP data",
+                           Deviation::DAMAGE, "FAILED: Exception loading stream: null"));
+    inputs.push_back(input("gzip of nothing", true, storedMember({}), kUnsupported));
+    return inputs;
+}
+
+/// Gzip streams of several members, and with other data behind the last, each loaded as a
+/// file. GZIPInputStream reads one member after the other; its first read ends with the data
+/// of the first member, so that is where OpenRocket looks for a document; and what follows a
+/// member and is no header of another ends the stream without a failure.
+[[nodiscard]] std::vector<Input> gzipMemberInputs()
+{
+    const Bytes design      = stringToBytes(kDesign);
+    const Bytes whole       = storedMember(design);
+    const Bytes spaces      = stringToBytes("          ");
+    Bytes       wrongSecond = joined({whole, storedMember(stringToBytes("\n"))});
+    wrongSecond.at(wrongSecond.size() - 8) ^= std::byte{0x55};
+
+    std::vector<Input> inputs;
+    inputs.push_back(
+        input("gzip of two members", true,
+              joined({storedMember(part(design, 0, 200)), storedMember(part(design, 200))}),
+              kDesignBesideImage));
+    inputs.push_back(
+        input("gzip of two members", false,
+              joined({storedMember(part(design, 0, 200)), storedMember(part(design, 200))}),
+              kDesignFromMemory));
+    inputs.push_back(
+        input("gzip of three members", true,
+              joined({storedMember(part(design, 0, 350)), storedMember(part(design, 350, 351)),
+                      storedMember(part(design, 351))}),
+              kDesignBesideImage));
+    inputs.push_back(input("gzip of two designs", true, joined({whole, whole}), kMalformed));
+    inputs.push_back(input("gzip with a second member of a line feed", true,
+                           joined({whole, storedMember(stringToBytes("\n"))}), kDesignBesideImage));
+    inputs.push_back(input("gzip with a second member of a comment", true,
+                           joined({whole, storedMember(stringToBytes("<!-- more -->"))}),
+                           kDesignBesideImage));
+    // The first member is all that is looked at for the kind of the document.
+    inputs.push_back(input(
+        "gzip whose first member has no signature", true,
+        joined({storedMember(part(design, 0, 30)), storedMember(part(design, 30))}), kUnsupported));
+    inputs.push_back(input(
+        "gzip whose first member has 5 bytes", true,
+        joined({storedMember(part(design, 0, 5)), storedMember(part(design, 5))}), kUnsupported));
+    inputs.push_back(input("gzip with an empty first member", true,
+                           joined({storedMember({}), whole}), kDesignBesideImage));
+    // What follows the last member is not looked at.
+    inputs.push_back(input("gzip with other data behind it", true,
+                           joined({whole, stringToBytes("garbage after the stream")}),
+                           kDesignBesideImage));
+    inputs.push_back(
+        input("gzip with zeros behind it", true, joined({whole, Bytes(64)}), kDesignBesideImage));
+    inputs.push_back(input("gzip with a member of another method behind it", true,
+                           joined({whole, storedMember(design, gzipHeader(0, 7))}),
+                           kDesignBesideImage));
+    // A later member that ends too early is the end of the document, with nothing lost; one
+    // whose check sum is wrong is met when the document has been read.
+    inputs.push_back(input("gzip with a second member that is cut off", true,
+                           joined({whole, gzipHeader(), storedBlock(spaces, true, 32)}),
+                           kDesignBesideImage));
+    inputs.push_back(input("gzip with a document that is cut off in its second member", true,
+                           joined({storedMember(part(design, 0, 400)), gzipHeader(),
+                                   storedBlock(part(design, 400, 500), true, design.size() - 400)}),
+                           kMalformed));
+    inputs.push_back(input("gzip with a second member with a wrong check sum", true, wrongSecond,
+                           kCorruptTrailer));
+    return inputs;
+}
+
+/// The bytes behind a member are always looked at for another member (GZIPInputStream once
+/// looked only when its stream had more bytes available or more than 26 were left over in its
+/// inflater, which takes 512 bytes at a time: by that rule the 18 bytes of the first and of
+/// the fifth row would go unread and those designs would load; the JDK 17.0.20 of the probes
+/// always looks). Here 18 or 19 bytes follow a design, the header of a member and the start of
+/// a stored block with "<x>" or "<x/>" in it, which make the document malformed. Each is
+/// loaded as a file.
+[[nodiscard]] std::vector<Input> gzipLeftoverInputs()
+{
+    const Bytes small    = smallDesign();
+    const Bytes eighteen = joined({gzipHeader(), storedBlock(stringToBytes("<x>"), true, 16)});
+    const Bytes nineteen = joined({gzipHeader(), storedBlock(stringToBytes("<x/>"), true, 16)});
+
+    std::vector<Input> inputs;
+    // The file ends within the first 512 bytes behind the header.
+    inputs.push_back(input("gzip with 18 bytes of a member behind it", true,
+                           joined({storedMember(small), eighteen}), kMalformed));
+    inputs.push_back(input("gzip with 19 bytes of a member behind it", true,
+                           joined({storedMember(small), nineteen}), kMalformed));
+    // The data of the member ends at byte 505, and the 18 bytes reach beyond byte 522.
+    inputs.push_back(input("gzip with 18 bytes behind it that the inflater has not read", true,
+                           joined({storedMember(smallDesignOfSize(490)), eighteen}), kMalformed));
+    // A second member that begins and ends within the 512 bytes of the first.
+    inputs.push_back(
+        input("gzip of two members within the first 512 bytes", true,
+              joined({storedMember(small), storedMember(Bytes(399, std::byte{' '})), eighteen}),
+              kMalformed));
+    // A second member whose header reaches beyond the first 512 bytes, in a file that ends
+    // within 512 bytes of that header's end.
+    inputs.push_back(input("gzip whose inflater reads anew behind a header", true,
+                           joined({storedMember(smallDesignOfSize(500)),
+                                   storedMember(Bytes(475, std::byte{' '})), eighteen}),
+                           kMalformed));
+    // Nine bytes are no header of a member: they are not looked at further.
+    inputs.push_back(input("gzip with 9 bytes of a header behind it", true,
+                           joined({storedMember(small), firstBytes(eighteen, 9)}), kSmallLoaded));
+    return inputs;
+}
+
+/// Gzip streams that are cut off or changed at their end, each loaded as a file, with a
+/// design of less than 300 bytes (which Java's first read takes whole) and with one of more.
+[[nodiscard]] std::vector<Input> gzipEndInputs()
+{
+    const Bytes design = stringToBytes(kDesign);
+    const Bytes small  = smallDesign();
+    const Bytes member = storedMember(small);
+    // The deflate data of a design in two blocks, of which the second, the last, holds
+    // nothing: cut off in it, all of the design can be unpacked and the data has no end.
+    const auto openEnded = [](const Bytes& bytes) {
+        return joined({gzipHeader(), storedBlock(bytes, false), {std::byte{1}, std::byte{0}}});
+    };
+    // The '<' of "<name>" and the 'x' of the name, in the stored block behind the header.
+    const std::size_t tag  = 10 + 5 + std::string(kHead).size() - std::string_view("<name>").size();
+    const std::size_t name = 10 + 5 + std::string(kHead).size();
+
+    std::vector<Input> inputs;
+    // The check sum and the length are not read before the document is: cut off, they are
+    // the end of the document, which is complete.
+    inputs.push_back(input("short gzip cut by 1 byte", true, firstBytes(member, member.size() - 1),
+                           kSmallLoaded));
+    inputs.push_back(input("short gzip cut by 8 bytes", true, firstBytes(member, member.size() - 8),
+                           kSmallLoaded));
+    inputs.push_back(input("short gzip with a wrong length", true,
+                           withByteFlipped(member, member.size() - 1), kCorruptTrailer));
+    // A changed byte of the data: the document is read before the check sum is, and its own
+    // failure comes first when it has one.
+    inputs.push_back(input("short gzip with a changed name", true, withByteFlipped(member, name),
+                           kCorruptTrailer));
+    inputs.push_back(
+        input("short gzip with a changed tag", true, withByteFlipped(member, tag), kMalformed));
+    // Data that ends too early: before 300 bytes could be unpacked the stream fails at once;
+    // further on the document never loads, although all of it could be unpacked.
+    inputs.push_back(
+        input("short gzip without the end of its data", true, openEnded(small), kEndOfZlibAtOnce));
+    inputs.push_back(
+        input("gzip without the end of its data", true, openEnded(design), kMalformed));
     return inputs;
 }
 
@@ -711,8 +985,6 @@ constexpr std::string_view kScoutsCorruptArchive =
         return input(name, true, std::move(bytes), expected,
                      openRocket.empty() ? Deviation::NONE : Deviation::DAMAGE, openRocket);
     };
-    constexpr std::string_view kGzipDamage = "gzip: corrupt or truncated stream (minizip error -3)";
-    constexpr std::string_view kGzipTrailer = "FAILED: I/O error: Corrupt GZIP trailer";
 
     std::vector<Input> inputs;
     // A gzip stream that ends too early. Java's XML parser takes the end of such a stream for
@@ -728,16 +1000,27 @@ constexpr std::string_view kScoutsCorruptArchive =
                              firstBytes(smallGzip, smallGzip.size() - 12),
                              "FAILED PARSE: Exception loading stream: Unexpected end of ZLIB input "
                              "stream"));
-    // A gzip stream whose check sum or length is wrong.
+    // A gzip stream whose check sum or length is wrong: Java meets that when the document has
+    // been read, however short it is.
     inputs.push_back(damaged("gzip with a wrong check sum", withByteFlipped(gzip, gzip.size() - 8),
-                             std::format("FAILED PARSE: I/O error: {}", kGzipDamage),
-                             kGzipTrailer));
+                             kCorruptTrailer));
     inputs.push_back(damaged("gzip with a wrong length", withByteFlipped(gzip, gzip.size() - 4),
-                             std::format("FAILED PARSE: I/O error: {}", kGzipDamage),
-                             kGzipTrailer));
-    inputs.push_back(damaged(
-        "short gzip with a wrong check sum", withByteFlipped(smallGzip, smallGzip.size() - 8),
-        std::format("FAILED PARSE: Exception loading stream: {}", kGzipDamage), kGzipTrailer));
+                             kCorruptTrailer));
+    inputs.push_back(damaged("short gzip with a wrong check sum",
+                             withByteFlipped(smallGzip, smallGzip.size() - 8), kCorruptTrailer));
+    // An archive whose deflated design ends too early: in its data, and in the data
+    // descriptor behind its data, where all of the design could be unpacked. To Java's XML
+    // parser the document ends too early in both (the bytes its last read had gathered are
+    // lost with the exception); cut before 300 bytes, the stream fails at once.
+    inputs.push_back(damaged("zip cut in its data", firstBytes(zip, zip.size() - 40), kMalformed));
+    inputs.push_back(
+        damaged("zip cut in its data descriptor", firstBytes(zip, zip.size() - 4), kMalformed));
+    inputs.push_back(
+        damaged("zip without its data descriptor", firstBytes(zip, zip.size() - 16), kMalformed));
+    inputs.push_back(damaged("short zip cut in its data descriptor",
+                             firstBytes(smallZip, smallZip.size() - 4),
+                             "FAILED PARSE: Exception loading stream: Unexpected end of ZIP data",
+                             "FAILED: Exception loading stream: null"));
     // An archive whose deflated design has a wrong check sum or size behind it.
     inputs.push_back(damaged("zip with a wrong check sum", withByteFlipped(zip, zip.size() - 12),
                              "FAILED PARSE: I/O error: invalid entry CRC (expected 0x8f0ba04b but "
@@ -865,8 +1148,9 @@ TEST(GeneralRocketLoaderInputs, EveryInputOfTheScoutsGivesItsOutcome)
     EXPECT_EQ(failedInputs(inputs), "");
 }
 
-// The edges of the rules: the 300 bytes, the ten bytes, the signature in a comment and Java's
-// matcher, a stored archive, the names of the entries.
+// The edges of the rules: the 300 bytes, the ten bytes of a document and of a file, the two
+// bytes of an archive, the signature in a comment and Java's matcher, a stored archive, the
+// names of the entries.
 TEST(GeneralRocketLoaderInputs, TheEdgesOfTheRulesGiveTheirOutcomes)
 {
     EXPECT_EQ(failedInputs(moreInputs()), "");
@@ -917,32 +1201,79 @@ TEST(GeneralRocketLoaderInputs, ADocumentTypeWithDeclarationsIsTheOneOtherDeviat
 // OpenRocket meets the damage while it reads:
 // - damage before 300 bytes of the document could be unpacked is "Exception loading stream:
 //   <reason>";
-// - a deflate stream that ends too early further on is, to Java's XML parser, the end of the
-//   document: "Malformed XML in input.", or a load when the document is complete all the same;
+// - a stream that ends too early in its data further on is, to Java's XML parser, the end of
+//   the document, and the bytes its last read had gathered are lost: "Malformed XML in
+//   input.", although all of the document may have been unpacked; a gzip stream that ends in
+//   the check sum behind its data loses nothing, and its document loads;
+// - a wrong check sum or length behind a gzip stream is met after the document was read,
+//   however short that is: "I/O error: Corrupt GZIP trailer";
 // - other damage further on is "I/O error: <reason>" when the first bytes are a document's,
 //   and "Unsupported or corrupt file." when they are not.
-// Where OpenRocket meets a damage depends on its buffers, and five rows differ by that (three
-// of them also in the reason, which is Java's own there): a wrong check sum or length behind a gzip
-// stream is met after the document was read, however short that is ("I/O error: Corrupt GZIP
-// trailer"), and a stored entry with a wrong check sum is refused with its last block of up
-// to 8192 bytes ("Exception loading stream: invalid entry CRC ..." for a design of that
-// size). Each of them fails in both.
+// Three rows differ from OpenRocket, each a failure in both: a data descriptor that is cut
+// off, for which Java's exception has no message ("Exception loading stream: null"), and a
+// stored entry with a wrong check sum, which Java refuses with its last block of up to 8192
+// bytes ("Exception loading stream: invalid entry CRC ..." for a design of that size).
 TEST(GeneralRocketLoaderInputs, ADamagedStreamIsReadAsFarAsOpenRocketReadsIt)
 {
     const std::vector<Input> inputs = damagedInputs();
     EXPECT_EQ(failedInputs(inputs), "");
     EXPECT_THAT(inputsWith(inputs, Deviation::DAMAGE),
-                ElementsAre("gzip with a wrong check sum (file)", "gzip with a wrong length (file)",
-                            "short gzip with a wrong check sum (file)",
+                ElementsAre("short zip cut in its data descriptor (file)",
                             "stored zip with a changed byte (file)",
                             "stored zip with a changed signature (file)"));
+}
+
+// A gzip stream is read as java.util.zip.GZIPInputStream reads it: the optional fields of its
+// header, with the header's check sum checked and the reserved flags not looked at. The one
+// row that is not OpenRocket's is a header that is cut off, for which Java's exception has no
+// message.
+TEST(GeneralRocketLoaderInputs, AGzipHeaderIsReadAsJavaReadsIt)
+{
+    const std::vector<Input> inputs = gzipHeaderInputs();
+    EXPECT_EQ(failedInputs(inputs), "");
+    EXPECT_THAT(inputsWith(inputs, Deviation::DAMAGE),
+                ElementsAre("gzip header cut off in its name (file)"));
+    EXPECT_THAT(openRocketsOutcomesWith(inputs, Deviation::DAMAGE),
+                ElementsAre("FAILED: Exception loading stream: null"));
+}
+
+// A gzip stream of several members holds the data of all of them, and what follows the last
+// is not looked at. OpenRocket looks for the document in the first member only when that
+// holds less than 300 bytes. Every row is OpenRocket's outcome.
+TEST(GeneralRocketLoaderInputs, AGzipStreamOfSeveralMembersIsReadAsJavaReadsIt)
+{
+    const std::vector<Input> inputs = gzipMemberInputs();
+    EXPECT_EQ(failedInputs(inputs), "");
+    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), inputs.size());
+}
+
+// The bytes behind a member are looked at for another member wherever the member ends in the
+// file and however few they are, as the GZIPInputStream of the probes' JDK does. Every row is
+// OpenRocket's outcome.
+TEST(GeneralRocketLoaderInputs, TheBytesBehindAGzipMemberAreAlwaysLookedAt)
+{
+    const std::vector<Input> inputs = gzipLeftoverInputs();
+    EXPECT_EQ(failedInputs(inputs), "");
+    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), inputs.size());
+}
+
+// The end of a gzip stream: the check sum and length behind the data are not read before the
+// document is, and data that ends too early never gives a document. Every row is OpenRocket's
+// outcome.
+TEST(GeneralRocketLoaderInputs, TheEndOfAGzipStreamIsMetWhereJavaMeetsIt)
+{
+    const std::vector<Input> inputs = gzipEndInputs();
+    EXPECT_EQ(failedInputs(inputs), "");
+    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), inputs.size());
 }
 
 // For the probe Sniff3.java: the inputs, and what OpenRocket has to make of each.
 TEST(GeneralRocketLoaderInputs, DISABLED_PrintsTheInputs)
 {
     std::cout << printedInputs(scoutInputs()) << printedInputs(moreInputs())
-              << printedInputs(damagedInputs());
+              << printedInputs(damagedInputs()) << printedInputs(gzipHeaderInputs())
+              << printedInputs(gzipMemberInputs()) << printedInputs(gzipLeftoverInputs())
+              << printedInputs(gzipEndInputs());
 }
 
 // ------------------------------------------------------------------- the cases of the probe
@@ -1213,6 +1544,119 @@ TEST(GeneralRocketLoader, TheAttachmentsOfBytesWithoutADirectoryAreNamedAgainstT
     EXPECT_EQ(outcomeOf(loaded, true), kDesignBesideImage);
 }
 
+/// What loading @p bytes with the base directory @p base gives: "loaded", or the failure as
+/// "<code>: <message>".
+[[nodiscard]] std::string outcomeWithBase(const Bytes& bytes, const std::filesystem::path& base)
+{
+    LoaderEnvironment            environment;
+    const GeneralRocketLoader    loader(environment.context());
+    const Result<LoadedDocument> loaded = loader.load(bytes, base);
+    return loaded.has_value()
+               ? std::string("loaded")
+               : std::format("{}: {}", toString(loaded.error().code), loaded.error().message);
+}
+
+// A base directory that is none: OpenRocket's loader of a file, asked to load a stream, makes
+// its FileSystemAttachmentFactory of the file's directory before it reads the document, and
+// that refuses what is no directory (the probe of the reviewer of tier 9c, lens fidelity,
+// RvMisc.java: "RocketLoadException: Exception loading stream: Base file for
+// FileSystemAttachmentFactory is not a directory" for a directory that does not exist and
+// for a file). So does load(bytes, baseDirectory), for a plain and for a gzip document; an
+// archive has its own attachments and is loaded whatever the directory.
+TEST(GeneralRocketLoader, ABaseDirectoryThatIsNoneFailsTheLoadOfADocumentThatIsNoArchive)
+{
+    const DesignDirectory       directory;
+    const Bytes                 design  = stringToBytes(kDesign);
+    const std::filesystem::path missing = directory.path() / "missing-dir";
+    const std::filesystem::path file    = directory.write("plain-file", design);
+    const std::string_view      refused =
+        "INVALID_ARGUMENT: Exception loading stream: Base file for FileSystemAttachmentFactory "
+        "is not a directory";
+
+    EXPECT_EQ(outcomeWithBase(design, missing), refused);
+    EXPECT_EQ(outcomeWithBase(design, file), refused);
+    EXPECT_EQ(outcomeWithBase(gzipOf(design), missing), refused);
+    EXPECT_EQ(outcomeWithBase(gzipOf(design), file), refused);
+    EXPECT_EQ(outcomeWithBase(design, std::filesystem::path()), refused);
+    EXPECT_EQ(outcomeWithBase(design, directory.path()), "loaded");
+    EXPECT_EQ(outcomeWithBase(gzipOf(design), directory.path()), "loaded");
+    // The directory is asked for before the document is looked at, but after the ten bytes
+    // that every file must have.
+    EXPECT_EQ(outcomeWithBase(stringToBytes("no design at all"), missing), refused);
+    EXPECT_EQ(outcomeWithBase(stringToBytes("too short"), missing),
+              "UNSUPPORTED_FORMAT: Unsupported or corrupt file.");
+    // An archive.
+    EXPECT_EQ(outcomeWithBase(zipOf({{"rocket.ork", design}}), missing), "loaded");
+    EXPECT_EQ(outcomeWithBase(zipOf({{"rocket.ork", design}}), file), "loaded");
+}
+
+// ------------------------------------------------------------------------ the last steps
+
+// The materials of the document are collected from the components when the document has been
+// read (GeneralRocketLoader.java:259-260, OpenRocketDocument::reloadDocumentMaterials()). Most
+// materials are the document's from the moment a component takes them; the line material of
+// a shock cord in a file of the format 1.0, which is none of OpenRocket's and has no group, is
+// one only by this step (the case p-materials-cord, with OpenRocket's answer in the table: the
+// recorded designs v1.0- and v1.4-roll-stabilized.ork hold such a cord). The same document read
+// by OpenRocketLoader alone, which is the load without the step, has no document material.
+TEST(GeneralRocketLoader, CollectsTheMaterialsOfTheDocumentWhenItHasBeenRead)
+{
+    const std::string_view document = QtRocket::Test::documentOfLoadCase("p-materials-cord");
+
+    QtRocket::Test::HandlerFixture fixture;
+    QtRocket::WarningSet           warnings;
+    const Bytes                    bytes = stringToBytes(document);
+    ASSERT_TRUE(QtRocket::OpenRocketLoader::load(fixture.context(), bytes, warnings).has_value());
+    EXPECT_THAT(QtRocket::Test::documentLines(fixture.document(), nullptr),
+                HasSubstr("\nmaterials=[]\n"));
+
+    LoaderEnvironment            environment;
+    const GeneralRocketLoader    loader(environment.context());
+    const Result<LoadedDocument> loaded = loader.load(bytes);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().message;
+    EXPECT_THAT(QtRocket::Test::documentLines(*loaded->document, nullptr),
+                HasSubstr("\nmaterials=[Elastic cord (flat  6mm, 1/4 in):Line:0.0043]\n"));
+    EXPECT_THAT(QtRocket::Test::warningTexts(loaded->warnings), IsEmpty());
+}
+
+// The last step (GeneralRocketLoader.java:103): a load ends with Rocket::enableEvents(), which
+// switches the events of the rocket on and fires the event that updates the rocket. The events
+// are on all through a load (decision D3), so no file makes the step visible. A listener does,
+// that switches them off when it hears the first event of the reading: OpenRocket then ends the
+// load with the events on again, and the listener has heard two events, that first one and
+// the AEROMASS_CHANGE of the last step (the probe of the verifier of tier 9c, VerifyTop.java:
+// "eventsEnabled=true stages=1 heard=2"). A loader without the step, or with the step anywhere
+// before the reading, would leave the events off, with one event heard.
+TEST(GeneralRocketLoader, EndsALoadByEnablingTheEventsOfTheRocket)
+{
+    LoaderEnvironment            environment;
+    const std::shared_ptr<int>   heard = std::make_shared<int>(0);
+    GeneralRocketLoader::Options options;
+    options.beforeReading = [heard](const DocumentLoadingContext& context) {
+        // The connection is the rocket's from here on, so the rocket outlives the listener.
+        QtRocket::Rocket* const rocket = &context.getOpenRocketDocument()->getRocket();
+        static_cast<void>(rocket->addComponentChangeListener(
+            [heard, rocket](const QtRocket::ComponentChangeEvent& /*event*/) {
+                if (++*heard == 1)
+                {
+                    rocket->enableEvents(false);
+                }
+            }));
+    };
+    const GeneralRocketLoader loader(environment.context(), options);
+
+    const Result<LoadedDocument> loaded = loader.load(
+        stringToBytes(R"(<openrocket version="1.10"><rocket><name>R</name><subcomponents><stage>)"
+                      R"(<name>S</name></stage></subcomponents></rocket></openrocket>)"));
+
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().message;
+    EXPECT_TRUE(loaded->document->getRocket().isEventsEnabled());
+    EXPECT_EQ(*heard, 2);
+    // The file was read all the same, its events unheard.
+    EXPECT_EQ(loaded->document->getRocket().getStageCount(), 1U);
+    EXPECT_EQ(loaded->document->getRocket().getName(), "R");
+}
+
 // ------------------------------------------------------------------------ the two forms
 
 /// The state of a loaded document: the lines of the probe (documentLines()) and everything
@@ -1461,6 +1905,40 @@ TEST(GeneralRocketLoader, AFailedLoadLeavesNothingToTheNextOne)
     EXPECT_THAT(QtRocket::Test::warningTexts(next->warnings), IsEmpty());
 }
 
+// What a failed load leaves changed outside the document it discards, as the header lists it:
+// the stepper method that a <simulationsteppermethod> element named is in the preference
+// store, where OpenRocket writes it when the element is read (decision L8), and the name of a
+// stored column that no flight data type has is in the registry of the process, as the type
+// of the symbol "Unknown". (The column here is one the recorded designs of the formats 1.0 to
+// 1.7 hold too.)
+TEST(GeneralRocketLoader, AFailedLoadLeavesTheStepperMethodAndTheStoredTypeNamesBehind)
+{
+    LoaderEnvironment         environment;
+    const GeneralRocketLoader loader(environment.context());
+    ASSERT_EQ(environment.preferences().getSimulationStepperMethodName(), "RK4");
+
+    const Result<LoadedDocument> failed = loader.load(
+        stringToBytes(R"(<openrocket version="1.10"><rocket><name>R</name></rocket><simulations>)"
+                      R"(<simulation status="uptodate"><name>A</name><conditions>)"
+                      R"(<configid>11111111-1111-1111-1111-111111111111</configid>)"
+                      R"(<simulationsteppermethod>rk6</simulationsteppermethod></conditions>)"
+                      R"(<flightdata><databranch name="b" types="Time,Position parallel to wind">)"
+                      R"(<datapoint>0.0,0.0</datapoint></databranch></flightdata></simulation>)"
+                      R"(<simulation status="uptodate"><name>B</name></simulation>)"
+                      R"(</simulations></openrocket>)"));
+
+    ASSERT_FALSE(failed.has_value());
+    EXPECT_EQ(failed.error().message,
+              "Exception loading stream: Attempted to set the "
+              "configuration to an error id. Not Allowed!");
+    EXPECT_EQ(environment.preferences().getSimulationStepperMethodName(), "RK6");
+    // The type that the symbol "Unknown" stands for is the one of the column read last.
+    const QtRocket::FlightDataType* const unknown =
+        QtRocket::FlightDataType::findBySymbol("Unknown");
+    ASSERT_NE(unknown, nullptr);
+    EXPECT_EQ(unknown->getName(), "Position parallel to wind");
+}
+
 /// What loading @p document throws, or "" when it throws nothing: a document or an Error is
 /// as good as the other.
 [[nodiscard]] std::string whatLoadingThrows(std::string_view document)
@@ -1572,7 +2050,12 @@ TEST(GeneralRocketLoader, AGzipStreamIsGivenUpAtTheBound)
     // what it says: it is unpacked, and then is a stream with a wrong length.
     Bytes overstated                     = gzipOf(documentOfSize(900));
     overstated.at(overstated.size() - 1) = std::byte{0x7F};
-    EXPECT_THAT(boundedOutcome(overstated, 1000), StartsWith("FAILED PARSE: I/O error: gzip: "));
+    EXPECT_EQ(boundedOutcome(overstated, 1000), kCorruptTrailer);
+
+    // The bound is that of the whole document, whatever the number of members it comes in.
+    const Bytes half = storedMember(Bytes(600, std::byte{' '}));
+    EXPECT_EQ(boundedOutcome(joined({storedMember(documentOfSize(400)), half}), 1000), kBigLoaded);
+    EXPECT_EQ(boundedOutcome(joined({storedMember(documentOfSize(401)), half}), 1000), kBeyond1000);
 }
 
 // An archive entry that says in its header that it holds more than the bound is refused

@@ -79,15 +79,19 @@ std::string goldenExampleTestName(const ::testing::TestParamInfo<GoldenExample>&
     return name;
 }
 
-DesignFileEnvironment& goldenExampleEnvironment(DesignFileEnvironment::Presets presets)
+const DesignFileEnvironment& goldenExampleEnvironment(DesignFileEnvironment::Presets presets)
 {
     // Made on first use and never destroyed before the process ends: they outlive every
-    // document a test loads (the simulations of a document keep the preference store).
+    // document a test loads (the simulations of a document keep the preference store). The
+    // objects are no constants themselves: the loads write to their preference stores,
+    // through the pointer the context holds.
     if (presets == DesignFileEnvironment::Presets::NONE)
     {
+        // NOLINTNEXTLINE(misc-const-correctness): written to through its context, see above
         static DesignFileEnvironment s_withoutPresets(DesignFileEnvironment::Presets::NONE);
         return s_withoutPresets;
     }
+    // NOLINTNEXTLINE(misc-const-correctness): written to through its context, see above
     static DesignFileEnvironment s_withPresets(DesignFileEnvironment::Presets::EXAMPLES);
     return s_withPresets;
 }

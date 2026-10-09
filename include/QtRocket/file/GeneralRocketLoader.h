@@ -38,7 +38,9 @@ namespace QtRocket
 ///
 /// WHAT A FILE IS, as OpenRocket decides it, byte for byte (loadStep1() and loadRocket()):
 /// - fewer than 10 bytes: "Unsupported or corrupt file.";
-/// - the bytes 1f 8b first: a gzip stream, which is unpacked;
+/// - the bytes 1f 8b first: a gzip stream, which is unpacked as java.util.zip.GZIPInputStream
+///   reads it (gzipInflatePrefix()): the data of all its members, one after the other, and
+///   whatever follows the last member is not looked at;
 /// - the bytes "PK" first: a zip archive, read from its local headers as
 ///   java.util.zip.ZipInputStream reads it (not from its central directory). An archive
 ///   without a first entry is "Unsupported or corrupt file.". When the name of the first
@@ -57,14 +59,19 @@ namespace QtRocket
 /// element starts after byte 300, one in UTF-16 and one with a prefixed root
 /// (<or:openrocket>) are not recognised, a gzip stream in a gzip stream or in an archive is
 /// not unpacked twice, and a document whose root is <openrocketx> is read (and gives "Unknown
-/// element openrocketx, ignoring." and the empty rocket).
+/// element openrocketx, ignoring." and the empty rocket). Of a gzip stream of several members
+/// whose first member holds less than 300 bytes only those are looked at (Java's first read
+/// of such a stream gets no more): a document that is split so that its first member holds
+/// fewer than 10 bytes, or not the whole "<openrocket", is "Unsupported or corrupt file.".
 ///
 /// THE ATTACHMENTS (decal images, embedded thrust curves): from an archive they are its
 /// entries, found by their exact name, a leading slash included (ZipFileAttachmentFactory),
 /// also when the archive was given as bytes. For a plain or gzip document they are files
 /// (FileSystemAttachmentFactory): beside the design for load(file), in the base directory of
 /// load(bytes), and resolved against the current directory of the process when there is
-/// neither. Nothing is read before an attachment is asked for its bytes.
+/// neither. Nothing is read before an attachment is asked for its bytes. (OpenRocket's loader
+/// made for a jar URL, GeneralRocketLoader(URL), is load(bytes) with the bytes of that file:
+/// the entries of an archive, and files without a base directory otherwise.)
 ///
 /// AFTER THE DOCUMENT IS READ, in OpenRocket's order: the steps of OpenRocketLoader (stage
 /// activeness, the simulations' modification ids, the storage options, documentLoaded() of
@@ -91,27 +98,43 @@ namespace QtRocket
 ///   Java's exception ("Invalid UUID string: x", "Attempted to set the configuration to an
 ///   error id. Not Allowed!"). The message can be empty, and the text is then the prefix
 ///   alone;
+/// - "Exception loading stream: Base file for FileSystemAttachmentFactory is not a directory",
+///   ErrorCode::INVALID_ARGUMENT: load(bytes, baseDirectory) of a plain or gzip document with a
+///   base directory that is none (it does not exist, or is a file). It is found before the
+///   document is read, as in Java, and never for an archive, which has its own attachments;
 /// - a gzip stream or an archive that is damaged, ErrorCode::PARSE, as OpenRocket meets the
-///   damage while it reads the stream:
-///   - before 300 bytes of the document could be unpacked, or on the way to a later entry of
-///     an archive: "Exception loading stream: <reason>" ("Unexpected end of ZLIB input
-///     stream", "invalid entry CRC (expected 0x... but got 0x...)", "encrypted ZIP entry not
-///     supported" and the other texts of ZipInputStream and gzipInflatePrefix());
+///   damage while it reads the stream through its buffers:
+///   - when it asks for the first 300 bytes of the document: "Exception loading stream:
+///     <reason>". That is damage in the header of a gzip stream ("Unsupported compression
+///     method", "Corrupt GZIP header"), damage before 300 bytes of the document could be
+///     unpacked ("Unexpected end of ZLIB input stream"), every failure of an archive entry of
+///     less than 300 bytes ("invalid entry CRC (expected 0x... but got 0x...)"), and damage on
+///     the way to a later entry of an archive ("encrypted ZIP entry not supported" and the
+///     other texts of ZipInputStream). Not the check sum and length behind the data of a gzip
+///     stream, however short the document: Java's first read does not get that far;
 ///   - further on, in a stream whose first 300 bytes are not a document's: "Unsupported or
 ///     corrupt file.", the damage unseen;
-///   - further on in an OpenRocket document, when the data of a deflate stream ends too early
-///     (kUnexpectedEndOfZlibStream): what could be unpacked is read as the document, because
-///     Java's XML parser takes the end of such a stream for the end of its input. It is
-///     "Malformed XML in input." then, unless the document is complete all the same (a gzip
-///     stream that lacks only its last bytes, the check sum), and then it loads;
-///   - any other damage further on in an OpenRocket document (a wrong check sum or size, a
-///     stored entry that is cut short): "I/O error: <reason>".
+///   - further on in an OpenRocket document:
+///     - the data of a gzip stream, or of an archive entry (its data descriptor included),
+///       ends too early: "Malformed XML in input.", whatever could be unpacked. Java's XML
+///       parser takes the end of such a stream for the end of its input, and the bytes that
+///       the failing read had gathered before never reach it;
+///     - a gzip stream ends inside the check sum and length behind its data, or in a later
+///       member: to Java's parser the document ends there and nothing is lost, so the
+///       document loads when it is complete, and is "Malformed XML in input." when not;
+///     - a gzip stream whose check sum or length is wrong: the document is read first, and
+///       its failure is the load's when it has one; a document that loads is "I/O error:
+///       Corrupt GZIP trailer";
+///     - any other damage (deflate data that is none, a wrong check sum or size of an archive
+///       entry, a stored entry that is cut short): "I/O error: <reason>".
 /// - a document beyond the document bound, ErrorCode::IO: "Exception loading stream: Input
 ///   exceeds maximum size of <n> bytes";
 /// - a RockSim or RASAero document, ErrorCode::UNSUPPORTED_FORMAT, with a text that names the
 ///   program;
-/// - a document type declaration with declarations of its own, ErrorCode::UNSUPPORTED_FORMAT
-///   with XmlScanner's text (OpenRocket reads such a document).
+/// - a document type declaration with declarations of its own (an internal subset) or with
+///   an external subset (a SYSTEM or PUBLIC identifier), ErrorCode::UNSUPPORTED_FORMAT with
+///   XmlScanner's text. OpenRocket reads the former, and for the latter tries to read the file
+///   the declaration names.
 /// What a failed load leaves changed outside the document it discards: a stepper method that
 /// a <simulationsteppermethod> element named is written to the preference store when the
 /// element is read, as in OpenRocket; the flight data types a stored branch named stay in
@@ -137,16 +160,28 @@ namespace QtRocket
 /// - An archive given as bytes has its attachments (Java: a NullPointerException for a zip
 ///   read from a stream without a file).
 /// - A gzip stream or an archive entry is unpacked whole before the document is looked at
-///   (Java reads a stream through buffers). Three things follow for a damaged stream, which
-///   fails in both: with damage that gives "I/O error: <reason>" nothing of the document is
-///   read, where Java's handlers have read the part before the damage and may fail first; a
-///   gzip stream with a wrong check sum or length behind its data, which Java meets after
-///   the document however short that is ("I/O error: Corrupt GZIP trailer"), is "Exception
-///   loading stream: <reason>" here for a document of less than 300 bytes, and the reason is
-///   QtRocket's own text; and a stored entry with a wrong check sum, which Java refuses
-///   together with its last block of up to 8192 bytes ("Exception loading stream: invalid
-///   entry CRC ..." for a design of that size), is judged by the rule of the 300 bytes here.
-///   Only the first member of a gzip stream of several is read.
+///   (Java reads a stream through buffers), and the rules above say how Java would have met
+///   its damage. They are Java's outcome for every stream of the tests and of the probes but
+///   in these points, in all of which the load fails on both sides:
+///   - with damage that gives "I/O error: <reason>" or, for a stream that ends too early,
+///     "Malformed XML in input." nothing of the document is read, where Java's handlers have
+///     read the part before the damage and may fail first, with their own text;
+///   - a document that is not well-formed is "Malformed XML in input." also behind a wrong
+///     check sum of a gzip stream, where Java, for a document that merely ends too early,
+///     reports the check sum;
+///   - a stream that ends too early in its data loads in OpenRocket in the one case that the
+///     document was complete before the read in which the end is met (its length would have
+///     to fall on the edge of a buffer); here it never loads;
+///   - a stored entry with a wrong check sum, which Java refuses together with its last block
+///     of up to 8192 bytes ("Exception loading stream: invalid entry CRC ..." for a design of
+///     that size), is judged by the rule of the 300 bytes;
+///   - what Java's first read sees of a gzip stream whose first members hold nothing depends
+///     on the pieces its inflater delivers; here members without data are passed over;
+///   - a reason that Java takes from zlib ("invalid block type", "invalid distance too far
+///     back") is "invalid deflate data in GZIP stream" or "... in ZIP entry", and where
+///     Java's exception has no message (a header, a check sum or a data descriptor that is
+///     cut off: "Exception loading stream: null") the reason is "Unexpected end of GZIP data"
+///     or "Unexpected end of ZIP data".
 /// - RockSim and RASAero documents are not read (not part of this milestone).
 /// - The bounds above.
 /// - What the environment must hold is checked when the loader is made: a context without a
@@ -199,6 +234,8 @@ public:
     /// String)). Its attachments are the entries of @p bytes when they are an archive, and
     /// otherwise the files of @p baseDirectory, or files named against the current directory
     /// when there is none; @p baseDirectory is also the design's directory of the context.
+    /// For bytes that are no archive a @p baseDirectory that is given must be a directory: the
+    /// load fails otherwise, as OpenRocket's does (see FAILURES).
     /// The bytes are taken over: an archive is kept by the attachments of the document.
     [[nodiscard]] Result<LoadedDocument> load(
         std::vector<std::byte>                      bytes,

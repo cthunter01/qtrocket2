@@ -68,12 +68,15 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/extension/UnknownSimulationExtension.h"
 #include "QtRocket/simulation/extension/impl/JavaCode.h"
@@ -320,11 +323,11 @@ TEST(RecordedOrkFilesTable, HoldsEveryDesignOfTheDirectory)
 
 // The warnings of the 18 loads, written out (the table holds the same): the numbers the scouts
 // of tier 9 measured with OpenRocket, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 3, 1, 0, 0, 0, 0, 0 for the
-// 17 legacy files in the order of the README and 1 for simplerocket.ork, with three
-// exceptions. The designs with presets of SEMROC and FlisKits, which the six presets of the
+// 17 legacy files in the order of the README and 1 for simplerocket.ork, with two
+// exceptions: the designs with presets of SEMROC and FlisKits, which the six presets of the
 // tests do not hold (see the top of this file and the next test): 6 for v1.5-preset-usage.ork
 // (not 1), 1 for v1.7-tube-fin.ork (not 0), in OpenRocket too when it has those six presets
-// only. And the design with the scripts, for which QtRocket has a warning of its own.
+// only.
 TEST(RecordedOrkFilesWarnings, AreTheOnesOpenRocketGives)
 {
     const std::string_view missingD7 =
@@ -346,12 +349,11 @@ TEST(RecordedOrkFilesWarnings, AreTheOnesOpenRocketGives)
               (Lines{"Unknown attributes in element 'ambient', ignoring.",
                      "Unknown attributes in element 'diffuse', ignoring.",
                      "Unknown attributes in element 'specular', ignoring."}));
-    // OpenRocket gives the first of the two; the second is QtRocket's, which trusts no script.
+    // The two scripts of this design are stored enabled, and no warning says that they were
+    // disabled: they are the roll control script that OpenRocket trusts by its hash.
     EXPECT_EQ(loadWarnings("v1.7-simulation-extensions-and-scripting.ork"),
-              (Lines{"Simulation extension with id "
-                     "'info.openrocket.core.simulation.extension.impl.AirStart' not found.",
-                     "Untrusted scripts have been disabled.  You need to manually enable them in "
-                     "the Simulation options."}));
+              Lines{"Simulation extension with id "
+                    "'info.openrocket.core.simulation.extension.impl.AirStart' not found."});
     EXPECT_EQ(loadWarnings("v1.8-logo-rocket.ork"), Lines{});
     EXPECT_EQ(loadWarnings("v1.8-parallel-staging-example.ork"), Lines{});
     EXPECT_EQ(loadWarnings("v1.8-pods-example.ork"), Lines{});
@@ -424,16 +426,59 @@ TEST(RecordedOrkFilesExtensions, AListenerIsAJavaCodeExtension)
     EXPECT_EQ(code->getClassName(), std::string(package) + "RollControlListener");
 }
 
+/// What initialize() of @p script does: "ok", or the message of its SimulationException.
+[[nodiscard]] std::string initializing(ScriptingExtension& script)
+{
+    QtRocket::SimulationConditions conditions;
+    try
+    {
+        script.initialize(conditions);
+    }
+    catch (const QtRocket::SimulationException& refused)
+    {
+        return refused.what();
+    }
+    return "ok";
+}
+
+/// What loading a document does to a copy of @p script that is enabled and has the language
+/// @p language and the text @p text: "enabled" or "disabled", with " warned" behind it when a
+/// warning was added.
+[[nodiscard]] std::string trustIn(const ScriptingExtension& script, std::string_view language,
+                                  std::string_view text)
+{
+    ScriptingExtension copy = script;
+    copy.setLanguage(language);
+    copy.setScript(text);
+    copy.setEnabled(true);
+    QtRocket::WarningSet warnings;
+    copy.disableUntrustedScript(warnings);
+    return std::string(copy.isEnabled() ? "enabled" : "disabled") +
+           (warnings.empty() ? "" : " warned");
+}
+
+/// @p text with every line feed written as a carriage return and a line feed.
+[[nodiscard]] std::string withCarriageReturns(std::string_view text)
+{
+    std::string out;
+    for (const char c : text)
+    {
+        out += c == '\n' ? std::string("\r\n") : std::string(1, c);
+    }
+    return out;
+}
+
 // v1.7-simulation-extensions-and-scripting.ork names the extension
 // net.sf.openrocket.simulation.extension.impl.AirStart, which the loader looks up as
 // info.openrocket.core.simulation.extension.impl.AirStart: no provider knows that id (the class
 // is example.AirStart today). OpenRocket warns and drops the extension; QtRocket warns and
 // keeps it as an UnknownSimulationExtension with its configuration, so that a save can write
-// it back (decision D11). The two scripts are stored as enabled. OpenRocket leaves them so,
-// because it trusts the roll control script of its own example by its hash; QtRocket trusts no
-// script, disables both and says so once (ScriptingExtension::documentLoaded()). (The motor
-// database of this test holds nothing: the first warning is the design's motor.)
-TEST(RecordedOrkFilesExtensions, AnIdNoProviderKnowsIsKeptAndTheScriptsAreDisabled)
+// it back (decision D11). The two scripts are stored as enabled, and stay so without a warning,
+// in OpenRocket and here: they are the roll control script of OpenRocket's example, which is
+// trusted on every computer by its hash (ScriptingUtil.DEFAULT_TRUSTED_HASHES;
+// ScriptingExtension::isTrustedScript()). (The motor database of this test holds nothing: the
+// first warning is the design's motor.)
+TEST(RecordedOrkFilesExtensions, AnIdNoProviderKnowsIsKeptAndTheTrustedScriptsStayEnabled)
 {
     const EnvironmentWithoutMotors environment;
     const Result<LoadedDocument>   loaded =
@@ -447,17 +492,44 @@ TEST(RecordedOrkFilesExtensions, AnIdNoProviderKnowsIsKeptAndTheScriptsAreDisabl
     const std::string_view unknown = "info.openrocket.core.simulation.extension.impl.AirStart";
     EXPECT_EQ(QtRocket::Test::warningTexts(loaded->warnings),
               (Lines{"No motor with designation 'L540' for manufacturer 'HyperTEK' found.",
-                     UnknownSimulationExtension::notFoundText(unknown),
-                     std::string(ScriptingExtension::kDisabledWarning)}));
+                     UnknownSimulationExtension::notFoundText(unknown)}));
     const std::shared_ptr<SimulationExtension>& kept =
         loaded->document->getSimulation(2)->getSimulationExtensions().front();
     EXPECT_EQ(kept->getId(), unknown);
     EXPECT_EQ(kept->getConfig().getDouble("launchAltitude", 0.0), 1000.0);
-    const auto* const script = dynamic_cast<const ScriptingExtension*>(
+    auto* const script = dynamic_cast<ScriptingExtension*>(
         loaded->document->getSimulation(1)->getSimulationExtensions().front().get());
     ASSERT_NE(script, nullptr);
-    EXPECT_FALSE(script->isEnabled());
+    EXPECT_TRUE(script->isEnabled());
     EXPECT_EQ(script->getScript().size(), 1233U);
+    const auto* const second = dynamic_cast<const ScriptingExtension*>(
+        loaded->document->getSimulation(2)->getSimulationExtensions().back().get());
+    ASSERT_NE(second, nullptr);
+    EXPECT_TRUE(second->isEnabled());
+
+    // The hash is that of the language and of the script without its carriage returns and
+    // without the white space around it (OpenRocket's value: the probe of the verifier of
+    // tier 9c, out/script.java.out).
+    const std::string text   = script->getScript();
+    const std::string normal = ScriptingExtension::normalizeScript(text);
+    EXPECT_EQ(normal.size(), 1232U);
+    EXPECT_EQ(ScriptingExtension::scriptHash("JavaScript", normal),
+              "SHA-256:9bf364ce4d4a75f09b29178bf9d6872b232084f73dae20dc7b5b073e54e95a42");
+    EXPECT_EQ(trustIn(*script, "JavaScript", text), "enabled");
+    EXPECT_EQ(trustIn(*script, "JavaScript", "\r\n  " + withCarriageReturns(text) + "\t"),
+              "enabled");
+    // Another script, or the same one under another name of its language, is not that one.
+    EXPECT_EQ(trustIn(*script, "JavaScript", text + ";"), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "JavaScript", "/" + text), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "javascript", text), "disabled warned");
+    EXPECT_EQ(trustIn(*script, "js", text), "disabled warned");
+
+    // QtRocket runs no script (decision D11): a simulation with the enabled script does not
+    // run until the script is disabled, where OpenRocket would let the script steer the fins.
+    EXPECT_EQ(initializing(*script),
+              "QtRocket does not support the scripting language 'JavaScript'");
+    script->setEnabled(false);
+    EXPECT_EQ(initializing(*script), "ok");
 }
 
 /// The decal images of @p document, "<name> <number of bytes>" each, in the order of the names;
@@ -558,15 +630,56 @@ TEST(RecordedOrkFilesFlightData, AStoredTypeNobodyKnowsIsAnUnknownType)
     EXPECT_EQ(branch.getTypes().size(), 54U);
 }
 
-// Every line of a state that is not OpenRocket's has its reason, and is a line the table
-// holds: a deviation that the loader no longer makes fails here.
-TEST(RecordedOrkFilesTable, EveryOwnLineHasItsReason)
+/// The lines of @p file in kRecordedOrkFiles, or none when the table has no such file.
+[[nodiscard]] std::span<const std::string_view> stateOfRecorded(std::string_view file)
 {
+    for (const RecordedOrkFile& row : kRecordedOrkFiles)
+    {
+        if (row.file == file)
+        {
+            return row.state;
+        }
+    }
+    return {};
+}
+
+/// What is wrong with the rows of kOwnRecordedLines, a line for each fault; empty when every
+/// row has a reason, differs from OpenRocket's line, and has each of its lines in the state
+/// that the table holds for its file.
+[[nodiscard]] std::string faultsOfTheOwnLines()
+{
+    std::string faults;
     for (const QtRocket::Test::OwnRecordedLine& own : kOwnRecordedLines)
     {
-        EXPECT_FALSE(own.why.empty()) << own.file;
-        EXPECT_NE(own.openRocket, own.qtRocket) << own.file;
+        if (own.why.empty())
+        {
+            faults += std::format("{}: a row without a reason\n", own.file);
+        }
+        if (own.openRocket == own.qtRocket)
+        {
+            faults += std::format("{}: a row that is OpenRocket's line\n", own.file);
+        }
+        const std::span<const std::string_view> state = stateOfRecorded(own.file);
+        for (const std::string& line : QtRocket::Strings::split(own.qtRocket, '\n'))
+        {
+            if (std::ranges::find(state, std::string_view(line)) == state.end())
+            {
+                faults += std::format("{}: not a line of the state: {}\n", own.file, line);
+            }
+        }
     }
+    return faults;
+}
+
+// Every line of a state that is not OpenRocket's has its reason, differs from OpenRocket's and
+// is a line of the state that the table holds for its file. (That the loader still gives these
+// lines is the comparison of RecordedOrkFiles.LoadIntoOpenRocketsState: a deviation that the
+// loader no longer makes fails there.) There are two, both of the one design with an extension
+// that no provider knows.
+TEST(RecordedOrkFilesTable, EveryOwnLineHasItsReason)
+{
+    EXPECT_EQ(faultsOfTheOwnLines(), "");
+    EXPECT_EQ(kOwnRecordedLines.size(), 2U);
 }
 
 // The states as the Java probe prints them, for a comparison with its output (the probes of

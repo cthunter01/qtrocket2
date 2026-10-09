@@ -1,8 +1,10 @@
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
 
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -181,8 +183,8 @@ TEST(ScriptingExtension, CloneCopiesTheConfiguration)
 }
 
 // What documentLoaded() does (it takes an OpenRocketDocument, which only the document tier can
-// make; its body is this call): QtRocket trusts no script, so an enabled one is disabled, with
-// OpenRocket's warning for an untrusted script.
+// make; its body is this call): an enabled script that OpenRocket does not trust on every
+// computer is disabled, with OpenRocket's warning for an untrusted script.
 TEST(ScriptingExtension, AnEnabledScriptIsDisabledWhenItsDocumentIsLoaded)
 {
     ScriptingExtension extension;
@@ -206,6 +208,7 @@ TEST(ScriptingExtension, AnEnabledScriptIsDisabledWhenItsDocumentIsLoaded)
 
     // A second script of the document adds the same warning: the set holds it once.
     ScriptingExtension second;
+    second.setScript("var a = 1;");
     second.disableUntrustedScript(warnings);
     EXPECT_FALSE(second.isEnabled());
     EXPECT_EQ(warnings.size(), 1U);
@@ -217,9 +220,161 @@ TEST(ScriptingExtension, AnEnabledScriptIsDisabledWhenItsDocumentIsLoaded)
     EXPECT_TRUE(none.empty());
 }
 
+/// What disableUntrustedScript() makes of an enabled extension with @p language and @p script:
+/// "enabled" or "disabled", and " warned" when it added a warning.
+[[nodiscard]] std::string afterLoading(std::string_view language, std::string_view script)
+{
+    ScriptingExtension extension;
+    extension.setLanguage(language);
+    extension.setScript(script);
+    WarningSet warnings;
+    extension.disableUntrustedScript(warnings);
+    return std::string(extension.isEnabled() ? "enabled" : "disabled") +
+           (warnings.empty() ? "" : " warned");
+}
+
+// ScriptingExtension.documentLoaded() with ScriptingUtil.isTrustedScript(): a script that is
+// empty once its carriage returns are gone and it is trimmed is trusted, whatever its language,
+// and stays enabled without a warning. That is the extension a user has just added. OpenRocket's
+// answers: probes/tier9c-verify-top-level/out/script.java.out and
+// tier9c-fix-top-level/out/engines.java.out.
+TEST(ScriptingExtension, AnEnabledScriptThatHoldsNothingStaysEnabledWhenItsDocumentIsLoaded)
+{
+    ScriptingExtension fresh;
+    WarningSet         warnings;
+    fresh.disableUntrustedScript(warnings);
+    EXPECT_TRUE(fresh.isEnabled());
+    EXPECT_TRUE(warnings.empty());
+
+    EXPECT_EQ(afterLoading("JavaScript", ""), "enabled");
+    EXPECT_EQ(afterLoading("JavaScript", "  \r\n  "), "enabled");
+    EXPECT_EQ(afterLoading("JavaScript", "\t\n\x0B\x1F \r"), "enabled");
+    EXPECT_EQ(afterLoading("Python", ""), "enabled");
+    EXPECT_EQ(afterLoading("", " "), "enabled");
+
+    // Without the "script" key the script is the empty one.
+    Config enabledOnly;
+    enabledOnly.put("enabled", true);
+    ScriptingExtension noScript = loaded(enabledOnly);
+    noScript.disableUntrustedScript(warnings);
+    EXPECT_TRUE(noScript.isEnabled());
+    EXPECT_TRUE(warnings.empty());
+
+    // String.trim() takes off what is at or below U+0020 only: a no-break space, an
+    // ideographic space and a byte order mark are a script, which is not trusted.
+    EXPECT_EQ(afterLoading("JavaScript", "\xC2\xA0"), "disabled warned");
+    EXPECT_EQ(afterLoading("JavaScript", "\xE3\x80\x80"), "disabled warned");
+    EXPECT_EQ(afterLoading("JavaScript", "\xEF\xBB\xBF"), "disabled warned");
+    EXPECT_EQ(afterLoading("JavaScript", "var a = 1;"), "disabled warned");
+    EXPECT_EQ(afterLoading("JavaScript", " ; "), "disabled warned");
+}
+
+// ScriptingUtil.normalize() and hash(), with the hashes OpenRocket computes (FixEngines.java,
+// VerifyScriptProbe.java).
+TEST(ScriptingExtension, NormalisesAndHashesAScriptAsOpenRocketDoes)
+{
+    EXPECT_EQ(ScriptingExtension::normalizeScript(""), "");
+    EXPECT_EQ(ScriptingExtension::normalizeScript(" \r\n\t"), "");
+    EXPECT_EQ(ScriptingExtension::normalizeScript("a\rb"), "ab");
+    EXPECT_EQ(ScriptingExtension::normalizeScript(" a \r\n"), "a");
+    EXPECT_EQ(ScriptingExtension::normalizeScript("\r\n  var a = 1;\r\n"), "var a = 1;");
+    EXPECT_EQ(ScriptingExtension::normalizeScript("a\r\nb\n"), "a\nb");
+    EXPECT_EQ(ScriptingExtension::normalizeScript("\xC2\xA0"), "\xC2\xA0");
+    // A carriage return inside what is left after the trimming would be: it is removed first.
+    EXPECT_EQ(ScriptingExtension::normalizeScript("\r a\r \r"), "a");
+
+    EXPECT_EQ(ScriptingExtension::scriptHash("JavaScript", ""),
+              "SHA-256:f8bcdb9b5562cad29646ebe97bd57cfa448d69692abd0b1d7f463cc5b76fea3a");
+    EXPECT_EQ(ScriptingExtension::scriptHash("Python", ""),
+              "SHA-256:8a0d35941e60f6971455f250b7f9453a4e4591a12aed79a89953a418430077c6");
+    EXPECT_EQ(ScriptingExtension::scriptHash("JavaScript", "var a = 1;"),
+              "SHA-256:f7b11f4ec67602eb5b74ee00ffe2fdea520516a1ce59b72258851dcdb6c4bfda");
+    // The language is hashed as it is written.
+    EXPECT_EQ(ScriptingExtension::scriptHash("js", "var a = 1;"),
+              "SHA-256:eaac56c3dd8fb5c5277569e47126dda74c99f1352a4f0f2d2ed3434258903862");
+    EXPECT_EQ(ScriptingExtension::scriptHash("", "x"),
+              "SHA-256:ba7dc87563c00a0bc9636a69a7b7e4dbdc9d68dfa34f7f7436808eb2ebb7dbde");
+    // The bytes are those of UTF-8: a no-break space, and "Caf<e acute>" with "gr<u umlaut>n".
+    EXPECT_EQ(ScriptingExtension::scriptHash("JavaScript", "\xC2\xA0"),
+              "SHA-256:f66ce07e80db291279b8909c4a50df1f03067d700bf86c3cc421871d8e71ef5e");
+    EXPECT_EQ(ScriptingExtension::scriptHash("Caf\xC3\xA9",
+                                             "gr\xC3\xBC"
+                                             "n"),
+              "SHA-256:541271f3d59b6405a8e51380dccd3e75888f7854a8ea6ce427442756c53c514a");
+
+    EXPECT_TRUE(ScriptingExtension::isTrustedScript("JavaScript", ""));
+    EXPECT_TRUE(ScriptingExtension::isTrustedScript("Python", " \r\n"));
+    EXPECT_FALSE(ScriptingExtension::isTrustedScript("JavaScript", "var a = 1;"));
+    EXPECT_FALSE(ScriptingExtension::isTrustedScript("JavaScript", "\r\n  var a = 1;\r\n"));
+    EXPECT_FALSE(ScriptingExtension::isTrustedScript("JavaScript", "\xC2\xA0"));
+}
+
+/// Those of @p names for which hasScriptEngine() does not answer @p expected, each in quotes.
+[[nodiscard]] std::string namesAnsweredOtherwise(std::initializer_list<std::string_view> names,
+                                                 bool                                    expected)
+{
+    std::string wrong;
+    for (const std::string_view name : names)
+    {
+        if (ScriptingExtension::hasScriptEngine(name) != expected)
+        {
+            wrong += "'" + std::string(name) + "' ";
+        }
+    }
+    return wrong;
+}
+
+// ScriptingUtil.getEngineByName(): OpenRocket has one engine, which answers to the names of
+// GraalJSScriptEngineFactory, compared as String.equalsIgnoreCase() does (FixEngines.java:
+// out/engines.java.out, 45 names).
+TEST(ScriptingExtension, KnowsTheLanguagesOpenRocketHasAnEngineFor)
+{
+    EXPECT_EQ(namesAnsweredOtherwise({"JavaScript",
+                                      "javascript",
+                                      "JAVASCRIPT",
+                                      "js",
+                                      "JS",
+                                      "Js",
+                                      "ECMAScript",
+                                      "ecmascript",
+                                      "ECMASCRIPT",
+                                      "Graal.js",
+                                      "graal.js",
+                                      "GRAAL.JS",
+                                      "Graal-js",
+                                      "graal-js",
+                                      "GRAAL-JS",
+                                      "Graal.JS",
+                                      "Graal-JS",
+                                      "GraalJS",
+                                      "graaljs",
+                                      "GRAALJS",
+                                      "GraalJSPolyglot",
+                                      "graaljspolyglot"},
+                                     true),
+              "");
+    EXPECT_EQ(
+        namesAnsweredOtherwise({"nashorn", "Nashorn", "Python", "python", "", " ", " JavaScript",
+                                "JavaScript ", "Java Script", "java", "application/javascript",
+                                "mjs", "ecma", "ECMAScript 262 Edition 11", "JavaScript\n", "\tjs"},
+                               false),
+        "");
+    // Beyond ASCII, as equalsIgnoreCase() folds: the long s, the dotted capital I, the dotless i.
+    EXPECT_TRUE(ScriptingExtension::hasScriptEngine("j\xC5\xBF"));
+    EXPECT_TRUE(
+        ScriptingExtension::hasScriptEngine("Java\xC5\xBF"
+                                            "cript"));
+    EXPECT_TRUE(ScriptingExtension::hasScriptEngine("JAVASCR\xC4\xB0PT"));
+    EXPECT_TRUE(ScriptingExtension::hasScriptEngine("javascr\xC4\xB1pt"));
+    EXPECT_FALSE(ScriptingExtension::hasScriptEngine("Graal\xE2\x84\xAA"));
+}
+
 // StandIns: "script initialize disabled" and "... empty config": a disabled script adds no
-// listener. An enabled one cannot run here.
-TEST(ScriptingExtension, InitializeDoesNothingForADisabledScriptAndRefusesAnEnabledOne)
+// listener. An enabled one cannot run here, unless there is nothing in it to run: OpenRocket
+// evaluates a script that holds nothing, which gives the simulation no function to call
+// (VerifyScriptProbe.java: the flights "FLY ..." of out/script.java.out), but only in a
+// language it has an engine for; in another it throws, as for any script in that language.
+TEST(ScriptingExtension, InitializeRefusesAnEnabledScriptUnlessItHoldsNothing)
 {
     ScriptingExtension disabled;
     disabled.setEnabled(false);
@@ -228,22 +383,60 @@ TEST(ScriptingExtension, InitializeDoesNothingForADisabledScriptAndRefusesAnEnab
     EXPECT_EQ(initialized(empty), "ok listeners=0");
 
     ScriptingExtension enabled;
-    EXPECT_EQ(initialized(enabled),
-              "error:QtRocket does not support the scripting language 'JavaScript'");
+    EXPECT_EQ(initialized(enabled), "ok listeners=0");
+    enabled.setScript("  \r\n\t  ");
+    EXPECT_EQ(initialized(enabled), "ok listeners=0");
+    enabled.setLanguage("js");
+    EXPECT_EQ(initialized(enabled), "ok listeners=0");
+
     enabled.setLanguage("Python");
     EXPECT_EQ(initialized(enabled),
               "error:QtRocket does not support the scripting language 'Python'");
+    enabled.setScript("");
+    EXPECT_EQ(initialized(enabled),
+              "error:QtRocket does not support the scripting language 'Python'");
+    enabled.setLanguage("");
+    EXPECT_EQ(initialized(enabled), "error:QtRocket does not support the scripting language ''");
+
+    enabled.setLanguage("JavaScript");
+    enabled.setScript("var a = 1;");
+    EXPECT_EQ(initialized(enabled),
+              "error:QtRocket does not support the scripting language 'JavaScript'");
+    // A no-break space is white space to JavaScript, but nothing here looks into a script
+    // beyond blanks, tabs and line ends; a control character is no white space to it at all.
+    enabled.setScript("\xC2\xA0");
+    EXPECT_EQ(initialized(enabled),
+              "error:QtRocket does not support the scripting language 'JavaScript'");
+    enabled.setScript("\x01");
+    EXPECT_EQ(initialized(enabled),
+              "error:QtRocket does not support the scripting language 'JavaScript'");
+}
+
+/// The maximum altitude and the flight time of @p simulation once it has flown, as text, or
+/// the failure of simulate().
+[[nodiscard]] std::string flightOf(QtRocket::Simulation& simulation)
+{
+    const QtRocket::Result<void> flown = simulation.simulate();
+    if (!flown.has_value())
+    {
+        return std::string(toString(flown.error().code)) + ": " + flown.error().message;
+    }
+    const std::shared_ptr<QtRocket::FlightData>& data = simulation.getSimulatedData();
+    return std::to_string(data->getMaxAltitude()) + " m, " + std::to_string(data->getFlightTime()) +
+           " s, listeners affected: " +
+           (data->getWarningSet().contains(QtRocket::Warning::kListenersAffected) ? "yes" : "no");
 }
 
 // A simulation flies with a disabled script as without it, and does not fly with an enabled
-// one: simulate() returns the extension's exception as an ordinary error.
-TEST(ScriptingExtension, ASimulationRunsWithADisabledScriptOnly)
+// one that holds a script: simulate() returns the extension's exception as an ordinary error.
+TEST(ScriptingExtension, ASimulationDoesNotRunWithAnEnabledScript)
 {
     QtRocket::Test::TestEstesAlphaIII alpha;
     QtRocket::Simulation              simulation(*alpha.rocket);
     simulation.setFlightConfigurationId(QtRocket::Test::testFcid(0));
     simulation.getOptions().setRandomSeed(0);
     const std::shared_ptr<ScriptingExtension> script = std::make_shared<ScriptingExtension>();
+    script->setScript("function startSimulation() {}");
     simulation.getSimulationExtensions().push_back(script);
 
     const QtRocket::Result<void> refused = simulation.simulate();
@@ -262,6 +455,35 @@ TEST(ScriptingExtension, ASimulationRunsWithADisabledScriptOnly)
     EXPECT_EQ(data->getBranchCount(), 1U);
     // No listener of the script took part: nothing says that a listener affected the flight.
     EXPECT_FALSE(data->getWarningSet().contains(QtRocket::Warning::kListenersAffected));
+}
+
+// A simulation with an enabled script that holds nothing flies as the simulation without the
+// extension does (OpenRocket, VerifyScriptProbe.java: the same maximum altitude and flight
+// time to the last digit, with the script "", with "  <CR><LF>  " and without the extension),
+// and in a language OpenRocket has no engine for it does not fly.
+TEST(ScriptingExtension, ASimulationFliesWithAnEnabledScriptThatHoldsNothing)
+{
+    QtRocket::Test::TestEstesAlphaIII alpha;
+    QtRocket::Simulation              plain(*alpha.rocket);
+    plain.setFlightConfigurationId(QtRocket::Test::testFcid(0));
+    plain.getOptions().setRandomSeed(0);
+    const std::string without = flightOf(plain);
+    ASSERT_TRUE(without.ends_with("listeners affected: no")) << without;
+
+    QtRocket::Simulation simulation(*alpha.rocket);
+    simulation.setFlightConfigurationId(QtRocket::Test::testFcid(0));
+    simulation.getOptions().setRandomSeed(0);
+    const std::shared_ptr<ScriptingExtension> script = std::make_shared<ScriptingExtension>();
+    simulation.getSimulationExtensions().push_back(script);
+    ASSERT_TRUE(script->isEnabled());
+
+    EXPECT_EQ(flightOf(simulation), without);
+    script->setScript("  \r\n  ");
+    EXPECT_EQ(flightOf(simulation), without);
+
+    script->setLanguage("Python");
+    EXPECT_EQ(flightOf(simulation),
+              "SIMULATION_ABORTED: QtRocket does not support the scripting language 'Python'");
 }
 
 TEST(ScriptingProvider, MakesScriptingExtensionsUnderOpenRocketsMenuName)

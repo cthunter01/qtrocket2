@@ -1,7 +1,6 @@
 #include "QtRocket/file/ZipInputStream.h"
 
 #include <mz.h>
-#include <mz_crypt.h>
 #include <mz_strm.h>
 #include <mz_strm_mem.h>
 
@@ -15,7 +14,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -29,21 +27,20 @@ namespace QtRocket
 namespace
 {
 
-constexpr std::uint32_t    kLocalHeaderSignature = 0x04034b50;
-constexpr std::uint32_t    kDescriptorSignature  = 0x08074b50;
-constexpr std::size_t      kLocalHeaderSize      = 30;
-constexpr std::size_t      kDescriptorSize       = 16;
-constexpr std::size_t      kZip64DescriptorSize  = 24;
-constexpr std::uint16_t    kStored               = 0;
-constexpr std::uint16_t    kDeflated             = 8;
-constexpr std::uint16_t    kFlagEncrypted        = 0x1;
-constexpr std::uint16_t    kFlagDescriptor       = 0x8;
-constexpr std::int64_t     kZip64Magic           = 0xFFFFFFFF;
-constexpr std::uint16_t    kZip64ExtraId         = 0x0001;
-constexpr std::int64_t     kRawDeflateWindowBits = -15;
-constexpr std::size_t      kChunkSize            = std::size_t{64} * 1024;
-constexpr std::size_t      kMaxWindow            = std::numeric_limits<std::int32_t>::max();
-constexpr std::string_view kUnexpectedEnd        = "Unexpected end of ZIP data";
+constexpr std::uint32_t kLocalHeaderSignature = 0x04034b50;
+constexpr std::uint32_t kDescriptorSignature  = 0x08074b50;
+constexpr std::size_t   kLocalHeaderSize      = 30;
+constexpr std::size_t   kDescriptorSize       = 16;
+constexpr std::size_t   kZip64DescriptorSize  = 24;
+constexpr std::uint16_t kStored               = 0;
+constexpr std::uint16_t kDeflated             = 8;
+constexpr std::uint16_t kFlagEncrypted        = 0x1;
+constexpr std::uint16_t kFlagDescriptor       = 0x8;
+constexpr std::int64_t  kZip64Magic           = 0xFFFFFFFF;
+constexpr std::uint16_t kZip64ExtraId         = 0x0001;
+constexpr std::int64_t  kRawDeflateWindowBits = -15;
+constexpr std::size_t   kChunkSize            = std::size_t{64} * 1024;
+constexpr std::size_t   kMaxWindow            = std::numeric_limits<std::int32_t>::max();
 /// No limit on the contents of an entry.
 constexpr std::size_t kNoLimit = std::numeric_limits<std::size_t>::max();
 
@@ -78,20 +75,6 @@ constexpr std::size_t kNoLimit = std::numeric_limits<std::size_t>::max();
 [[nodiscard]] std::int64_t get64(std::span<const std::byte> bytes, std::size_t offset) noexcept
 {
     return static_cast<std::int64_t>(littleEndian(bytes, offset, 8));
-}
-
-[[nodiscard]] std::uint32_t crc32(std::uint32_t crc, std::span<const std::byte> bytes)
-{
-    // Pieces of at most 2 GiB, as minizip counts in int32.
-    while (!bytes.empty())
-    {
-        const std::size_t piece = std::min(bytes.size(), kMaxWindow);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        const auto* data = reinterpret_cast<const std::uint8_t*>(bytes.data());
-        crc              = mz_crypt_crc32_update(crc, data, static_cast<std::int32_t>(piece));
-        bytes            = bytes.subspan(piece);
-    }
-    return crc;
 }
 
 [[nodiscard]] std::string crcMismatch(std::uint32_t expected, std::uint32_t actual)
@@ -281,7 +264,7 @@ struct Inflated
                                static_cast<std::int32_t>(chunk.size()))) > 0)
     {
         const std::span<const std::byte> piece(chunk.data(), static_cast<std::size_t>(n));
-        inflated.crc = crc32(inflated.crc, piece);
+        inflated.crc = Detail::crc32(inflated.crc, piece);
         inflated.written += n;
         if (contents != nullptr)
         {
@@ -483,7 +466,7 @@ Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::b
     {
         contents->assign(data.begin(), data.end());
     }
-    if (const std::uint32_t crc = crc32(0, data); crc != header.crc)
+    if (const std::uint32_t crc = Detail::crc32(0, data); crc != header.crc)
     {
         return fail(ErrorCode::PARSE, crcMismatch(header.crc, crc));
     }

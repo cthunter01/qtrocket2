@@ -1,18 +1,40 @@
 #pragma once
 
-// RAII owners for minizip-ng's opaque handles (internal to the file/ subsystem).
+// RAII owners for minizip-ng's opaque handles, and its CRC-32 (internal to the file/ subsystem).
 
 #include <mz.h>
+#include <mz_crypt.h>
 #include <mz_strm.h>
 #include <mz_strm_mem.h>
 #include <mz_strm_zlib.h>
 #include <mz_zip.h>
 #include <mz_zip_rw.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <span>
 
 namespace QtRocket::Detail
 {
+
+/// The CRC-32 of @p bytes, carried on from @p crc (0 for the start of the data), which a zip
+/// entry and a gzip member have behind their data.
+[[nodiscard]] inline std::uint32_t crc32(std::uint32_t crc, std::span<const std::byte> bytes)
+{
+    // Pieces of at most 2 GiB, as minizip counts in int32.
+    constexpr std::size_t kMaxPiece = std::numeric_limits<std::int32_t>::max();
+    while (!bytes.empty())
+    {
+        const std::size_t piece = std::min(bytes.size(), kMaxPiece);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        const auto* data = reinterpret_cast<const std::uint8_t*>(bytes.data());
+        crc              = mz_crypt_crc32_update(crc, data, static_cast<std::int32_t>(piece));
+        bytes            = bytes.subspan(piece);
+    }
+    return crc;
+}
 
 /// Owns a handle whose Delete function also releases everything the handle acquired (zip reader and
 /// writer).

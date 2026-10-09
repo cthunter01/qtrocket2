@@ -128,8 +128,10 @@ inline void PrintTo(const GoldenExample& example, std::ostream* out)
 
 /// The environment the examples are loaded in (see the top of this file), with the six
 /// presets of the examples or with none. One per choice and test process; it lives until the
-/// process ends.
-[[nodiscard]] DesignFileEnvironment& goldenExampleEnvironment(
+/// process ends. It is handed out as a constant: every load of the process shares its
+/// preference store, so a test reads the store and does not write to it (a test that needs
+/// other preferences makes a DesignFileEnvironment of its own).
+[[nodiscard]] const DesignFileEnvironment& goldenExampleEnvironment(
     DesignFileEnvironment::Presets presets = DesignFileEnvironment::Presets::EXAMPLES);
 
 /// Loads @p example from @p source in the environment of @p presets: a new document in the

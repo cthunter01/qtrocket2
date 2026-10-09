@@ -254,7 +254,7 @@ struct StoreAfterALoad
 // file version 1.11 names, and names as RK4.
 TEST(GoldenExamples, LoadFromBothSourcesAndSettleIntoTheStateOfTheGoldens)
 {
-    DesignFileEnvironment& environment = goldenExampleEnvironment();
+    const DesignFileEnvironment& environment = goldenExampleEnvironment();
     EXPECT_TRUE(isAsTheFixtureMadeIt(environment.preferences()));
 
     EXPECT_EQ(problemsOfTheExamples(ExampleSource::ORIGINAL), "");
@@ -266,7 +266,7 @@ TEST(GoldenExamples, LoadFromBothSourcesAndSettleIntoTheStateOfTheGoldens)
 
 /// What the context of @p environment holds: "motor finder, preferences, materials, <n>
 /// presets, <n> extension providers", with "no" in front of what is missing.
-[[nodiscard]] std::string contextOf(DesignFileEnvironment& environment)
+[[nodiscard]] std::string contextOf(const DesignFileEnvironment& environment)
 {
     const DocumentLoadingContext& context = environment.context();
     return std::format("{}motor finder, {}, {}materials, {} presets, {} extension providers",
@@ -289,8 +289,8 @@ TEST(GoldenExamples, LoadFromBothSourcesAndSettleIntoTheStateOfTheGoldens)
 // with the settling done at once (loadSettledGoldenExample()) is in the settled state.
 TEST(GoldenExamples, ShareOneEnvironmentPerChoiceOfPresets)
 {
-    DesignFileEnvironment& withPresets = goldenExampleEnvironment(Presets::EXAMPLES);
-    DesignFileEnvironment& withoutAny  = goldenExampleEnvironment(Presets::NONE);
+    const DesignFileEnvironment& withPresets = goldenExampleEnvironment(Presets::EXAMPLES);
+    const DesignFileEnvironment& withoutAny  = goldenExampleEnvironment(Presets::NONE);
     EXPECT_EQ(&withPresets, &goldenExampleEnvironment());
     EXPECT_EQ(&withoutAny, &goldenExampleEnvironment(Presets::NONE));
     EXPECT_NE(&withPresets, &withoutAny);

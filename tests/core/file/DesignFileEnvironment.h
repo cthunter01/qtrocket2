@@ -87,7 +87,10 @@ public:
     /// The context a GeneralRocketLoader is made with.
     [[nodiscard]] const DocumentLoadingContext& context() const noexcept { return m_context; }
     /// The preference store of the loads, which the simulations of the loaded documents keep.
-    [[nodiscard]] InMemoryPreferences& preferences() noexcept { return m_preferences; }
+    /// Who has the environment as a constant one (the shared one of the examples) can read
+    /// the store and cannot write to it; the loads write through the context.
+    [[nodiscard]] InMemoryPreferences&       preferences() noexcept { return m_preferences; }
+    [[nodiscard]] const InMemoryPreferences& preferences() const noexcept { return m_preferences; }
 
 private:
     InMemoryPreferences         m_preferences;

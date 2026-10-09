@@ -2161,6 +2161,34 @@ struct LoadedMotor
            problems;
 }
 
+/// The examples that, freshly loaded from @p source with nothing asked before, have other
+/// masses, centres of mass or another length than OpenRocket finds in the original as loaded
+/// (the section "numbers" of ExampleOrkFiles.h; in OpenRocket the re-save has the numbers of
+/// the original, digit for digit), each with the numbers that differ; "" when none has.
+[[nodiscard]] std::string examplesWithOtherMasses(ExampleSource source)
+{
+    std::string report;
+    for (const GoldenExample& example : goldenExamples())
+    {
+        const ExampleOrkFile* const  row    = tableOf(example.file);
+        const Result<LoadedDocument> loaded = loadGoldenExample(example, source);
+        if (row == nullptr || !loaded)
+        {
+            report += std::format(
+                "{}: {}\n", example.file,
+                row == nullptr ? "not in ExampleOrkFiles.h" : loaded.error().toString());
+            continue;
+        }
+        const std::string wrong = QtRocket::Test::wrongNumbers(
+            row->numbers, QtRocket::Test::massAndLength(loaded->document->getRocket()));
+        if (!wrong.empty())
+        {
+            report += std::format("{}:\n{}", example.file, wrong);
+        }
+    }
+    return report;
+}
+
 // The state of each of the sixteen examples as loaded is OpenRocket's, line for line (see the
 // top of this file and DesignFileState.h), and altogether they hold what OpenRocket counts in
 // them. One test for all files: the bundled motor database is read once per process.
@@ -2195,6 +2223,10 @@ TEST(ExampleFiles, LoadIntoOpenRocketsState)
               "65 motors: 6 with the digest of the file, 52 with a digest "
               "of an older form of the same curve, 7 taken by their "
               "designation; 41 references used");
+    // The masses, the centres of mass and the length of each example, asked first of a load
+    // of its own (an automatic dimension stores what it computes, so the state above, which
+    // asks for much else, is no place to ask for them).
+    EXPECT_EQ(examplesWithOtherMasses(ExampleSource::ORIGINAL), "");
 }
 
 /// The number named @p name among @p numbers; NaN when there is none.
@@ -2490,34 +2522,6 @@ template <class Line>
     return report;
 }
 
-/// The examples whose re-save, freshly loaded, has other masses, centres of mass or another
-/// length than OpenRocket finds in the original as loaded (the section "numbers" of
-/// ExampleOrkFiles.h; in OpenRocket the re-save has the numbers of the original, digit for
-/// digit), each with the numbers that differ; "" when none has.
-[[nodiscard]] std::string resavesWithOtherMasses()
-{
-    std::string report;
-    for (const GoldenExample& example : goldenExamples())
-    {
-        const ExampleOrkFile* const  row    = tableOf(example.file);
-        const Result<LoadedDocument> loaded = loadGoldenExample(example, ExampleSource::RESAVE);
-        if (row == nullptr || !loaded)
-        {
-            report += std::format(
-                "{}: {}\n", example.file,
-                row == nullptr ? "not in ExampleOrkFiles.h" : loaded.error().toString());
-            continue;
-        }
-        const std::string wrong = QtRocket::Test::wrongNumbers(
-            row->numbers, QtRocket::Test::massAndLength(loaded->document->getRocket()));
-        if (!wrong.empty())
-        {
-            report += std::format("{}:\n{}", example.file, wrong);
-        }
-    }
-    return report;
-}
-
 // OpenRocket's re-save of each example (resave/rocket.ork of its goldens: the design as
 // OpenRocket loaded it, saved before anything was settled, as plain XML of file version 1.11
 // without the stored flights) loads without a warning, and holds the design of the original:
@@ -2541,7 +2545,7 @@ TEST(ExampleFilesResaves, LoadWithoutAWarningIntoTheDesignOfTheOriginal)
               "configurations, 65 motors and 1 mounts without one; 54 simulations, 54 loaded, 4 "
               "with 6 extensions; 0 branches, 0 rows, 0 events, 20 stored warnings; 23 decal "
               "images, 23 unreadable; 112 document materials");
-    EXPECT_EQ(resavesWithOtherMasses(), "");
+    EXPECT_EQ(examplesWithOtherMasses(ExampleSource::RESAVE), "");
 }
 
 // ============================================================ for a comparison with the probe

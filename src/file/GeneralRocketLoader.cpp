@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -11,6 +12,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -126,28 +128,120 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
 }
 
 /// The attachments of a document that is no archive: the files of @p directory, or files
-/// named against the current directory when there is none (setAttachmentFactory()).
-[[nodiscard]] std::unique_ptr<const AttachmentFactory> fileAttachments(
+/// named against the current directory when there is none (setAttachmentFactory()). As in
+/// Java, a directory that is given and is none fails the load before the document is read.
+[[nodiscard]] Result<std::unique_ptr<const AttachmentFactory>> fileAttachments(
     const std::optional<std::filesystem::path>& directory)
 {
-    if (directory.has_value())
+    if (!directory.has_value())
     {
-        return std::make_unique<const FileSystemAttachmentFactory>(*directory);
+        return std::make_unique<const FileSystemAttachmentFactory>();
     }
-    return std::make_unique<const FileSystemAttachmentFactory>();
+    // Java: the IllegalArgumentException of FileSystemAttachmentFactory's constructor, which
+    // load(InputStream, String) words. (For load(file) the directory is that of a file that
+    // was just read.)
+    std::error_code ignored;
+    if (!std::filesystem::is_directory(*directory, ignored))
+    {
+        return fail(ErrorCode::INVALID_ARGUMENT,
+                    "Exception loading stream: Base file for FileSystemAttachmentFactory is not "
+                    "a directory");
+    }
+    return std::make_unique<const FileSystemAttachmentFactory>(*directory);
 }
 
-/// The document a gzip stream holds: what could be unpacked of it, with the damage that ended
-/// it; or the failure for a stream of more than @p maxBytes bytes.
-[[nodiscard]] Result<InflatedPrefix> documentOfGzip(std::span<const std::byte> stream,
-                                                    std::size_t                maxBytes)
+/// How the stream a document came from ended, as OpenRocket meets that while it reads the
+/// stream through its buffers.
+enum class StreamEnd : std::uint8_t
 {
-    InflatedPrefix document = gzipInflatePrefix(stream, maxBytes);
-    // Everything but damage (the bound, a stream that could not be set up) ends the load here.
-    if (document.failure.has_value() && document.failure->code != ErrorCode::PARSE)
+    /// As it should (or the document is no stream's: a plain file).
+    WHOLE,
+    /// With a failure that OpenRocket meets when it asks for the first bytes of the document,
+    /// to see what it is: the load fails with the failure of the stream.
+    FAILS_AT_ONCE,
+    /// Too early, in data that Java's reader has asked for together with the bytes before:
+    /// those are lost with the exception, and the XML parser, which takes the end of such a
+    /// stream for the end of its input, is left with a document that ends too early.
+    LOSES_ITS_END,
+    /// Too early, where nothing is lost: to the XML parser the document ends there.
+    JUST_ENDS,
+    /// With a failure of the check behind the data, which OpenRocket meets when the XML
+    /// parser has read the whole document and asks for more.
+    FAILS_BEHIND_THE_DOCUMENT,
+    /// With any other failure, met while the XML parser reads.
+    FAILS_IN_THE_DOCUMENT,
+};
+
+/// A document as a file gave it.
+struct UnpackedDocument
+{
+    /// What a stream gave before it ended or failed; unused for a plain file.
+    std::vector<std::byte> unpacked;
+    /// The document: the bytes of the plain file, or what was unpacked.
+    std::span<const std::byte> bytes;
+    /// How many of the bytes OpenRocket's first look at the document can see.
+    std::size_t firstRead{0};
+    /// How the stream ended as OpenRocket meets it, and, unless it ended as it should, why it
+    /// gave no more.
+    StreamEnd end{StreamEnd::WHOLE};
+    Error     failure;
+};
+
+/// How OpenRocket meets the failure of a gzip stream that gave @p prefix.
+[[nodiscard]] StreamEnd endOfGzip(const InflatedPrefix& prefix)
+{
+    if (!prefix.failure.has_value())
     {
-        return streamFailure(*document.failure);
+        return StreamEnd::WHOLE;
     }
+    const std::string_view message = prefix.failure->message;
+    if (prefix.failedBehindData)
+    {
+        // The first read of a GZIPInputStream stops where the data of a member ends, without
+        // looking behind it, unless it has no byte yet.
+        if (prefix.bytes.empty())
+        {
+            return StreamEnd::FAILS_AT_ONCE;
+        }
+        return message == kUnexpectedEndOfGzipStream ? StreamEnd::JUST_ENDS
+                                                     : StreamEnd::FAILS_BEHIND_THE_DOCUMENT;
+    }
+    if (!prefix.firstMemberEnd.has_value())
+    {
+        // In the first member that holds data, or before it.
+        if (prefix.bytes.size() < kReadBytes)
+        {
+            return StreamEnd::FAILS_AT_ONCE;
+        }
+        return message == kUnexpectedEndOfZlibStream ? StreamEnd::LOSES_ITS_END
+                                                     : StreamEnd::FAILS_IN_THE_DOCUMENT;
+    }
+    // In a later member: a GZIPInputStream whose first member has ended says that nothing is
+    // available, so Java's reader asks it for one piece at a time and loses nothing.
+    return message == kUnexpectedEndOfZlibStream ? StreamEnd::JUST_ENDS
+                                                 : StreamEnd::FAILS_IN_THE_DOCUMENT;
+}
+
+/// The document a gzip stream holds: what could be unpacked of it, with how the stream ended;
+/// or the failure for a stream of more than @p maxBytes bytes.
+[[nodiscard]] Result<UnpackedDocument> documentOfGzip(std::span<const std::byte> stream,
+                                                      std::size_t                maxBytes)
+{
+    InflatedPrefix prefix = gzipInflatePrefix(stream, maxBytes);
+    // Everything but damage (the bound, a stream that could not be set up) ends the load here.
+    if (prefix.failure.has_value() && prefix.failure->code != ErrorCode::PARSE)
+    {
+        return streamFailure(*prefix.failure);
+    }
+    UnpackedDocument document;
+    document.end = endOfGzip(prefix);
+    // Java's first read gets no more than the data of the first member that holds any.
+    document.firstRead = std::min(kReadBytes, prefix.firstMemberEnd.value_or(prefix.bytes.size()));
+    if (prefix.failure.has_value())
+    {
+        document.failure = std::move(*prefix.failure);
+    }
+    document.unpacked = std::move(prefix.bytes);
     return document;
 }
 
@@ -189,9 +283,27 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
     }
 }
 
+/// How OpenRocket meets the failure @p failure of an archive entry that gave @p size bytes.
+[[nodiscard]] StreamEnd endOfEntry(const Error& failure, std::size_t size)
+{
+    // The first read of a ZipInputStream goes on to the end of a short entry and its checks.
+    if (size < kReadBytes)
+    {
+        return StreamEnd::FAILS_AT_ONCE;
+    }
+    // An entry that ends too early, in its deflate data or in the data descriptor behind it,
+    // is an EOFException in Java, met in a read that has gathered bytes before.
+    if (failure.message == kUnexpectedEndOfZlibStream ||
+        failure.message == ZipInputStream::kUnexpectedEnd)
+    {
+        return StreamEnd::LOSES_ITS_END;
+    }
+    return StreamEnd::FAILS_IN_THE_DOCUMENT;
+}
+
 /// The document a zip archive holds, as documentOfGzip() gives a gzip stream's.
-[[nodiscard]] Result<InflatedPrefix> documentOfArchive(std::span<const std::byte> archive,
-                                                       std::size_t                maxBytes)
+[[nodiscard]] Result<UnpackedDocument> documentOfArchive(std::span<const std::byte> archive,
+                                                         std::size_t                maxBytes)
 {
     ZipInputStream                      zip(archive);
     const Result<ZipInputStream::Entry> entry = documentEntry(zip);
@@ -204,37 +316,48 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
     {
         return exceedsBound(maxBytes);
     }
-    InflatedPrefix document;
-    if (Result<void> read = zip.readEntryInto(document.bytes, maxBytes); !read)
+    UnpackedDocument document;
+    if (Result<void> read = zip.readEntryInto(document.unpacked, maxBytes); !read)
     {
         if (read.error().code != ErrorCode::PARSE)
         {
             return streamFailure(read.error());
         }
+        document.end     = endOfEntry(read.error(), document.unpacked.size());
         document.failure = std::move(read.error());
     }
+    document.firstRead = std::min(kReadBytes, document.unpacked.size());
     return document;
 }
 
-/// Reads @p document, which is OpenRocket's by its first bytes, into the document of
-/// @p context (loadUsing() with the OpenRocket loader). @p damage is what ended the stream the
-/// document came from, when it did not simply end.
-[[nodiscard]] Result<void> loadOpenRocketDocument(DocumentLoadingContext&     context,
-                                                  std::span<const std::byte>  document,
-                                                  const std::optional<Error>& damage,
-                                                  WarningSet&                 warnings)
+/// The failure of a stream that OpenRocket's XML parser meets (AbstractRocketLoader.load():
+/// the IOException).
+[[nodiscard]] std::unexpected<Error> failureWhileParsing(const Error& failure)
 {
-    // A deflate stream whose data ends too early is, to Java's XML parser, a document that
-    // ends there: the parser takes the EOFException of the stream for the end of its input.
-    // So what could be unpacked is read as the document, and is malformed unless it happens
-    // to be complete. Any other damage is the IOException that the parser meets when it has
-    // read the part before it (AbstractRocketLoader.load()); here the stream was unpacked
-    // first, so nothing of the document is read.
-    if (damage.has_value() && damage->message != kUnexpectedEndOfZlibStream)
+    return fail(failure.code, "I/O error: " + failure.message);
+}
+
+/// Reads @p document, which is OpenRocket's by its first bytes, into the document of
+/// @p context (loadUsing() with the OpenRocket loader).
+[[nodiscard]] Result<void> loadOpenRocketDocument(DocumentLoadingContext& context,
+                                                  const UnpackedDocument& document,
+                                                  WarningSet&             warnings)
+{
+    if (document.end == StreamEnd::LOSES_ITS_END)
     {
-        return fail(damage->code, "I/O error: " + damage->message);
+        // Java's XML parser takes the EOFException of the stream for the end of its input, and
+        // the bytes the failing read had gathered never reach it: whatever could be unpacked,
+        // the document it sees ends too early.
+        return fail(ErrorCode::PARSE, "Malformed XML in input.");
     }
-    if (Result<void> loaded = OpenRocketLoader::load(context, document, warnings); !loaded)
+    if (document.end == StreamEnd::FAILS_IN_THE_DOCUMENT)
+    {
+        // The IOException that the parser meets when it has read the part before it; here the
+        // stream was unpacked first, so nothing of the document is read.
+        return failureWhileParsing(document.failure);
+    }
+    // A stream that just ends is, to the parser, a document that ends there: complete or not.
+    if (Result<void> loaded = OpenRocketLoader::load(context, document.bytes, warnings); !loaded)
     {
         const ErrorCode code = loaded.error().code;
         if (code == ErrorCode::PARSE || code == ErrorCode::IO ||
@@ -246,6 +369,11 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
         // A handler's or a setter's (Java: the IllegalArgumentException).
         return streamFailure(loaded.error());
     }
+    if (document.end == StreamEnd::FAILS_BEHIND_THE_DOCUMENT)
+    {
+        // The parser has read the whole document, asks for more and meets the failed check.
+        return failureWhileParsing(document.failure);
+    }
 
     // Check for custom materials that need to be added to the document material database
     context.getOpenRocketDocument()->reloadDocumentMaterials();
@@ -253,17 +381,16 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
 }
 
 /// Finds out what @p document is and loads it into the document of @p context (loadRocket()).
-[[nodiscard]] Result<void> loadRocket(DocumentLoadingContext&     context,
-                                      std::span<const std::byte>  document,
-                                      const std::optional<Error>& damage, WarningSet& warnings)
+[[nodiscard]] Result<void> loadRocket(DocumentLoadingContext& context,
+                                      const UnpackedDocument& document, WarningSet& warnings)
 {
     // Java reads the first bytes of the stream here: a stream that fails before it has given
     // them fails the load with its exception.
-    if (damage.has_value() && document.size() < kReadBytes)
+    if (document.end == StreamEnd::FAILS_AT_ONCE)
     {
-        return streamFailure(*damage);
+        return streamFailure(document.failure);
     }
-    const std::span<const std::byte> start = document.first(std::min(document.size(), kReadBytes));
+    const std::span<const std::byte> start = document.bytes.first(document.firstRead);
     if (start.size() < kMinimumBytes)
     {
         return unsupported();
@@ -272,7 +399,7 @@ constexpr std::array<std::string_view, 5> kLineTerminators{"\n", "\r", "\xC2\x85
     // Check for OpenRocket
     if (hasOpenRocketSignature(start))
     {
-        return loadOpenRocketDocument(context, document, damage, warnings);
+        return loadOpenRocketDocument(context, document, warnings);
     }
 
     // Check for RockSim
@@ -361,43 +488,54 @@ Result<LoadedDocument> GeneralRocketLoader::loadBytes(
         return unsupported();
     }
     std::unique_ptr<const AttachmentFactory> attachments;
-    // What a stream gave, and the document, which is that or the bytes themselves.
-    InflatedPrefix             unpacked;
-    std::span<const std::byte> document;
+    UnpackedDocument                         document;
     // The bytes of an archive, which its attachments keep.
     ZipFileAttachment::Archive archive;
 
     if (looksLikeGzip(bytes))
     {
-        attachments                     = fileAttachments(attachmentDirectory);
-        Result<InflatedPrefix> inflated = documentOfGzip(bytes, m_options.maxDocumentBytes);
+        Result<std::unique_ptr<const AttachmentFactory>> files =
+            fileAttachments(attachmentDirectory);
+        if (!files)
+        {
+            return std::unexpected(std::move(files.error()));
+        }
+        attachments                       = std::move(*files);
+        Result<UnpackedDocument> inflated = documentOfGzip(bytes, m_options.maxDocumentBytes);
         if (!inflated)
         {
             return std::unexpected(std::move(inflated.error()));
         }
-        unpacked = std::move(*inflated);
-        document = unpacked.bytes;
+        document       = std::move(*inflated);
+        document.bytes = document.unpacked;
     }
     else if (startsWith(bytes, "PK"))
     {
         archive     = std::make_shared<const std::vector<std::byte>>(std::move(bytes));
         attachments = std::make_unique<const ZipFileAttachmentFactory>(archive);
-        Result<InflatedPrefix> entry = documentOfArchive(*archive, m_options.maxDocumentBytes);
+        Result<UnpackedDocument> entry = documentOfArchive(*archive, m_options.maxDocumentBytes);
         if (!entry)
         {
             return std::unexpected(std::move(entry.error()));
         }
-        unpacked = std::move(*entry);
-        document = unpacked.bytes;
+        document       = std::move(*entry);
+        document.bytes = document.unpacked;
     }
     else
     {
+        Result<std::unique_ptr<const AttachmentFactory>> files =
+            fileAttachments(attachmentDirectory);
+        if (!files)
+        {
+            return std::unexpected(std::move(files.error()));
+        }
+        attachments = std::move(*files);
         if (bytes.size() > m_options.maxDocumentBytes)
         {
             return exceedsBound(m_options.maxDocumentBytes);
         }
-        attachments = fileAttachments(attachmentDirectory);
-        document    = bytes;
+        document.bytes     = bytes;
+        document.firstRead = std::min(kReadBytes, bytes.size());
     }
     context.setAttachmentFactory(attachments.get());
     if (m_options.beforeReading)
@@ -405,7 +543,7 @@ Result<LoadedDocument> GeneralRocketLoader::loadBytes(
         m_options.beforeReading(context);
     }
 
-    if (Result<void> read = loadRocket(context, document, unpacked.failure, loaded.warnings); !read)
+    if (Result<void> read = loadRocket(context, document, loaded.warnings); !read)
     {
         return std::unexpected(std::move(read.error()));
     }

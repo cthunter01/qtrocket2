@@ -33,7 +33,7 @@
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/ZipInputStream.h"
 #include "QtRocket/util/FileIo.h"
-#include "Sha256.h"
+#include "QtRocket/util/Sha256.h"
 #include "TestPaths.h"
 
 namespace
@@ -308,7 +308,7 @@ TEST_P(LegacyOrkFiles, IsTheRecordedFile)
     const LegacyFile&            file  = GetParam();
     const std::vector<std::byte> bytes = bytesOf(file);
     EXPECT_EQ(bytes.size(), file.size);
-    EXPECT_EQ(QtRocket::Test::sha256Hex(bytes), file.sha256);
+    EXPECT_EQ(QtRocket::sha256Hex(bytes), file.sha256);
 }
 
 TEST_P(LegacyOrkFiles, ContainerHoldsTheDocumentOfTheRecordedVersion)

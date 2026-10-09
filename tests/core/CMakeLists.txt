@@ -1,7 +1,5 @@
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
-    Sha256.cpp
-    Sha256Tests.cpp
     ThirdPartyTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
@@ -29,6 +27,7 @@ add_executable(QtRocket_core_tests
     util/PolyInterpolatorTests.cpp
     util/QuaternionTests.cpp
     util/Rotation2DTests.cpp
+    util/Sha256Tests.cpp
     util/SignalTests.cpp
     util/StringsTests.cpp
     util/TransformationTests.cpp
@@ -369,8 +368,10 @@ add_executable(QtRocket_core_tests
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # The third-party canary tests use the libraries directly; everything else goes through QtRocket::core, except
 # nlohmann_json, which reads the golden reference data (tests/core/goldens over tests/data/goldens).
-target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main pugixml::pugixml SQLite::SQLite3
-    nlohmann_json::nlohmann_json)
+# GTest::gmock: the loader tests use GoogleMock's matchers (EXPECT_THAT, ElementsAre). A GoogleTest that is built
+# from source, as in CI, has <gmock/gmock.h> on the include path only through this target.
+target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main GTest::gmock pugixml::pugixml
+    SQLite::SQLite3 nlohmann_json::nlohmann_json)
 # Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from
 # any working directory.
 target_compile_definitions(QtRocket_core_tests PRIVATE

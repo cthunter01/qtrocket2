@@ -401,7 +401,7 @@ TEST(LoaderHostileInput, TheSweepFindsTheElementsOfADocument)
 // A gzip stream and an archive, cut off at every 97th byte and with 60 single bytes replaced at
 // places and by values drawn from a generator with a fixed seed: every outcome is a document
 // or an Error. Most damage of this kind is met by the container (a check sum, a length, a
-// stream that ends too early, after which what could be unpacked is read as the document).
+// stream that ends too early, which never gives a document when it ends in its data).
 TEST(LoaderHostileInput, NoDamagedContainerMakesTheLoaderThrow)
 {
     const SweepLoader loader;

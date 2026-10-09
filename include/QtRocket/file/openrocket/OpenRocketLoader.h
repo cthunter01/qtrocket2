@@ -31,7 +31,9 @@ class DocumentLoadingContext;
 /// 3. the storage options are marked as not chosen by the user and get the file type
 ///    OPENROCKET;
 /// 4. SimulationExtension::documentLoaded() of every extension of every simulation, with the
-///    load's warnings (the scripting extension disables an enabled script there and says so);
+///    load's warnings (the scripting extension disables an enabled script there and says so,
+///    unless the script is one OpenRocket trusts on every computer: an empty one, and the
+///    roll control script of its own example);
 /// 5. the undo history of the document is cleared.
 /// The document is filled with the events of its rocket enabled, as it was made
 /// (OpenRocketDocumentFactory::createEmptyRocket()); nothing here switches them off.
