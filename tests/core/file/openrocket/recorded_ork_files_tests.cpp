@@ -6,7 +6,8 @@
 //
 // The expectations are OpenRocket's own answers, printed by the Java probe RecordedProbe of the
 // probes of tier 9c, part "recorded-files" and put into RecordedOrkFiles.h by its script. The
-// state of a file as loaded, before anything is settled, is these lines:
+// state of a file as loaded, before anything is settled, is these lines (designFileState() of
+// DesignFileState.h, which the tests of the example designs share):
 //
 //     version=<n>             the file version OpenRocketHandler leaves in the loading context
 //     W <text>                the warnings of the load, in order
@@ -48,12 +49,10 @@
 // files store.
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <filesystem>
 #include <format>
 #include <iostream>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -67,25 +66,10 @@
 
 #include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/OpenRocketDocument.h"
-#include "QtRocket/document/OpenRocketDocumentFactory.h"
-#include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/file/openrocket/OpenRocketHandler.h"
-#include "QtRocket/file/simplesax/SimpleSax.h"
-#include "QtRocket/logging/WarningSet.h"
-#include "QtRocket/mass/MassCalculator.h"
-#include "QtRocket/mass/RigidBody.h"
-#include "QtRocket/motor/Motor.h"
-#include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
-#include "QtRocket/preferences/Preferences.h"
-#include "QtRocket/rocket/FlightConfiguration.h"
-#include "QtRocket/rocket/FlightConfigurationId.h"
-#include "QtRocket/rocket/MotorConfiguration.h"
-#include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
-#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
@@ -95,54 +79,45 @@
 #include "QtRocket/simulation/extension/impl/JavaCode.h"
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
-#include "file/openrocket/ComponentHandlerTestSupport.h"
+#include "file/openrocket/DesignFileState.h"
 #include "file/openrocket/FlightDataTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
 #include "file/openrocket/RecordedOrkFiles.h"
 #include "file/openrocket/SimulationTestSupport.h"
-#include "unit/DefaultUnitsGuard.h"
 
 namespace
 {
 
 using QtRocket::DecalImage;
-using QtRocket::DocumentLoadingContext;
-using QtRocket::FlightConfiguration;
-using QtRocket::FlightConfigurationId;
 using QtRocket::FlightData;
 using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::GeneralRocketLoader;
 using QtRocket::JavaCode;
 using QtRocket::LoadedDocument;
-using QtRocket::MassCalculator;
-using QtRocket::MotorConfiguration;
-using QtRocket::MotorMount;
 using QtRocket::OpenRocketDocument;
-using QtRocket::OpenRocketDocumentFactory;
-using QtRocket::OpenRocketHandler;
-using QtRocket::Preferences;
 using QtRocket::Result;
-using QtRocket::RigidBody;
 using QtRocket::Rocket;
-using QtRocket::RocketComponent;
 using QtRocket::ScriptingExtension;
 using QtRocket::Simulation;
 using QtRocket::SimulationExtension;
-using QtRocket::ThrustCurveMotor;
 using QtRocket::ThrustCurveMotorSetDatabase;
 using QtRocket::UnknownSimulationExtension;
-using QtRocket::WarningSet;
 using QtRocket::Test::DesignFileEnvironment;
+using QtRocket::Test::designFileState;
+using QtRocket::Test::DesignNumber;
+using QtRocket::Test::firstDifference;
 using QtRocket::Test::kOwnRecordedLines;
 using QtRocket::Test::kRecordedOrkFiles;
+using QtRocket::Test::linesOf;
 using QtRocket::Test::LoadEvents;
+using QtRocket::Test::massAndLength;
 using QtRocket::Test::RecordedOrkFile;
+using QtRocket::Test::wrongNumbers;
 
 using Presets = DesignFileEnvironment::Presets;
 using Lines   = std::vector<std::string>;
@@ -162,279 +137,6 @@ using Lines   = std::vector<std::string>;
                                      events == nullptr ? GeneralRocketLoader::Options{}
                                                        : QtRocket::Test::countingOptions(events));
     return loader.load(orkDir() / file);
-}
-
-/// "version=<n>": the file version OpenRocketHandler leaves in a loading context of
-/// @p environment when it has read the document @p text (it starts at 0); a failure of the
-/// read comes first, on a line of its own.
-[[nodiscard]] std::string versionLine(const DesignFileEnvironment& environment,
-                                      std::string_view             text)
-{
-    DocumentLoadingContext                    context = environment.context();
-    const std::unique_ptr<OpenRocketDocument> document =
-        OpenRocketDocumentFactory::createEmptyRocket();
-    context.setOpenRocketDocument(document.get());
-    context.setFileVersion(0);
-    OpenRocketHandler            handler(context);
-    WarningSet                   warnings;
-    const std::vector<std::byte> bytes = QtRocket::stringToBytes(text);
-    const Result<void>           read  = QtRocket::SimpleSax::readXml(bytes, handler, warnings);
-    return (read ? std::string() : QtRocket::Test::failureLine(read.error())) +
-           std::format("version={}\n", context.getFileVersion());
-}
-
-/// "name default '<name>'" and "name <n> '<name>'": the name each flight configuration of
-/// @p rocket shows (FlightConfiguration::getName()), the default one first and then in the
-/// order of Rocket::getIds(); then "simulation <n> config=<n>" for every simulation of
-/// @p document: the place of its configuration in that order, or -1.
-[[nodiscard]] std::string nameLines(const OpenRocketDocument& document,
-                                    const Preferences&        preferences)
-{
-    const Rocket& rocket = document.getRocket();
-    std::string   lines =
-        std::format("name default '{}'\n",
-                    QtRocket::Test::onOneLine(rocket.getEmptyConfiguration().getName(preferences)));
-    const std::vector<FlightConfigurationId> ids = rocket.getIds();
-    for (std::size_t index = 0; index < ids.size(); index++)
-    {
-        lines += std::format("name {} '{}'\n", index,
-                             QtRocket::Test::onOneLine(
-                                 rocket.getFlightConfiguration(ids[index]).getName(preferences)));
-    }
-    std::size_t number = 0;
-    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
-    {
-        const auto at = std::ranges::find(ids, simulation->getFlightConfigurationId());
-        lines += std::format("simulation {} config={}\n", number++,
-                             at == ids.end() ? -1 : std::ranges::distance(ids.begin(), at));
-    }
-    return lines;
-}
-
-/// A motor mount of a rocket and its place among the lines of describeRocket() (the rocket is
-/// 0).
-struct PlacedMount
-{
-    int               place;
-    const MotorMount* mount;
-};
-
-/// The components of @p rocket that are motor mounts (MotorMount::isMotorMount()), in the order
-/// of the tree.
-[[nodiscard]] std::vector<PlacedMount> motorMounts(const Rocket& rocket)
-{
-    std::vector<PlacedMount> mounts;
-    int                      place = 0;
-    rocket.forEach([&mounts, &place](const RocketComponent& component) {
-        const auto* const mount = dynamic_cast<const MotorMount*>(&component);
-        if (mount != nullptr && mount->isMotorMount())
-        {
-            mounts.push_back({.place = place, .mount = mount});
-        }
-        place++;
-    });
-    return mounts;
-}
-
-/// What @p motorConfig holds, as a motor line ends: "<manufacturer>|<designation>|<digest>|
-/// delay=<ejection delay>", or "none" without a motor.
-[[nodiscard]] std::string motorText(const MotorConfiguration& motorConfig)
-{
-    const auto* const motor = dynamic_cast<const ThrustCurveMotor*>(motorConfig.getMotor().get());
-    if (motor == nullptr)
-    {
-        return "none";
-    }
-    return std::format("{}|{}|{}|delay={}", motor->getManufacturer().getDisplayName(),
-                       motor->getDesignation(), motor->getDigest(),
-                       QtRocket::Strings::javaDoubleToString(motorConfig.getEjectionDelay()));
-}
-
-/// "motor config=<n> mount=#<place> <motorText()>" for every motor mount of @p rocket in every
-/// flight configuration: by configuration in the order of Rocket::getIds(), then by mount in
-/// the order of the tree.
-[[nodiscard]] std::string motorLines(const Rocket& rocket)
-{
-    const std::vector<PlacedMount> mounts = motorMounts(rocket);
-    std::string                    lines;
-    int                            config = 0;
-    for (const FlightConfigurationId& id : rocket.getIds())
-    {
-        for (const PlacedMount& placed : mounts)
-        {
-            lines += std::format("motor config={} mount=#{} {}\n", config, placed.place,
-                                 motorText(placed.mount->getMotorConfig(id)));
-        }
-        config++;
-    }
-    return lines;
-}
-
-/// "decal '<name>' bytes=<n>" for every image of the decal registry of @p document, in the
-/// order of the names, or "decal '<name>' unreadable" for one whose bytes cannot be read.
-[[nodiscard]] std::string decalLines(const OpenRocketDocument& document)
-{
-    Lines lines;
-    for (const std::shared_ptr<DecalImage>& image : document.getDecalList())
-    {
-        const Result<std::vector<std::byte>> bytes = image->getBytes();
-        lines.push_back(std::format(
-            "decal '{}' {}\n", image->getName(),
-            bytes ? std::format("bytes={}", bytes->size()) : std::string("unreadable")));
-    }
-    std::ranges::sort(lines);
-    std::string text;
-    for (const std::string& line : lines)
-    {
-        text += line;
-    }
-    return text;
-}
-
-/// describeSimulation() of every simulation of @p document, the columns of the stored branches
-/// as digests.
-[[nodiscard]] std::string simulationLines(const OpenRocketDocument& document)
-{
-    std::string text;
-    std::size_t index = 0;
-    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
-    {
-        text += QtRocket::Test::describeSimulation(index++, *simulation, document.getRocket(),
-                                                   {.allIds = false, .digest = true});
-    }
-    return text;
-}
-
-/// @p text as its lines, without the line feeds.
-[[nodiscard]] Lines linesOf(std::string_view text)
-{
-    Lines lines = QtRocket::Strings::split(text, '\n');
-    if (!lines.empty() && lines.back().empty())
-    {
-        lines.pop_back();
-    }
-    return lines;
-}
-
-/// The state of the design @p file as @p environment loads it, in the lines the top of this
-/// file lists; a load that fails gives its failure after the version.
-[[nodiscard]] Lines stateOf(DesignFileEnvironment& environment, std::string_view file)
-{
-    const QtRocket::Test::DefaultUnitsGuard units;
-    const std::string document = QtRocket::Test::documentOfDesignFile(orkDir() / file);
-    std::string       text     = versionLine(environment, document);
-    const std::shared_ptr<LoadEvents> events = std::make_shared<LoadEvents>();
-    const Result<LoadedDocument>      loaded = loadRecorded(environment, file, events);
-    if (!loaded)
-    {
-        return linesOf(text + QtRocket::Test::failureLine(loaded.error()));
-    }
-    const Rocket& rocket = loaded->document->getRocket();
-    text += QtRocket::Test::warningLines(loaded->warnings);
-    text += QtRocket::Test::documentLines(*loaded->document, nullptr);
-    text += std::format("events rocket={}\n", events->rocket);
-    for (const std::string& line : QtRocket::Test::describeRocket(
-             rocket, environment.preferences(), QtRocket::Test::knownIds(document)))
-    {
-        text += "| " + line + "\n";
-    }
-    text += nameLines(*loaded->document, environment.preferences());
-    text += motorLines(rocket);
-    text += decalLines(*loaded->document);
-    text += simulationLines(*loaded->document);
-    return linesOf(text);
-}
-
-/// A number of a design, with its name.
-struct Number
-{
-    std::string name;
-    double      value;
-};
-
-/// What mass and length @p rocket has as it was loaded, asked in this order: the structure
-/// mass and its centre with every stage active (a copy of the default flight configuration),
-/// then the launch mass and the place of its centre for a copy of every flight configuration
-/// with every stage active, then the length of the first copy.
-[[nodiscard]] std::vector<Number> numbersOf(const Rocket& rocket)
-{
-    FlightConfiguration all = rocket.getEmptyConfiguration().clone();
-    all.setAllStages();
-    const RigidBody     structure = MassCalculator::calculateStructure(all);
-    std::vector<Number> numbers{
-        {.name = "structure.mass", .value = structure.getMass()},
-        {.name = "structure.cm.x", .value = structure.getCM().x},
-        {.name = "structure.cm.y", .value = structure.getCM().y},
-        {.name = "structure.cm.z", .value = structure.getCM().z},
-    };
-    int index = 0;
-    for (const FlightConfigurationId& id : rocket.getIds())
-    {
-        FlightConfiguration config = rocket.getFlightConfiguration(id).clone();
-        config.setAllStages();
-        const RigidBody launch = MassCalculator::calculateLaunch(config);
-        numbers.push_back(
-            {.name = std::format("launch[{}].mass", index), .value = launch.getMass()});
-        numbers.push_back(
-            {.name = std::format("launch[{}].cm.x", index), .value = launch.getCM().x});
-        index++;
-    }
-    numbers.push_back({.name = "length", .value = all.getLength()});
-    return numbers;
-}
-
-/// Where @p found is not @p expected: "" when they are the same lines, else the first line
-/// that differs, numbered from 1, with both texts, and the two numbers of lines.
-[[nodiscard]] std::string firstDifference(std::span<const std::string_view> expected,
-                                          const Lines&                      found)
-{
-    const std::size_t common = std::min(expected.size(), found.size());
-    for (std::size_t i = 0; i < common; i++)
-    {
-        if (expected[i] != found[i])
-        {
-            return std::format("line {} of {} (found {}):\nexpected: {}\nfound:    {}", i + 1,
-                               expected.size(), found.size(), expected[i], found[i]);
-        }
-    }
-    if (expected.size() == found.size())
-    {
-        return "";
-    }
-    return std::format("{} lines expected, {} found; the first one more: {}", expected.size(),
-                       found.size(),
-                       expected.size() > common ? std::string(expected[common]) : found[common]);
-}
-
-/// Whether @p found is @p expected to a relative 1e-9 (and to 1e-15 around zero).
-[[nodiscard]] bool isCloseTo(double expected, double found) noexcept
-{
-    return std::abs(found - expected) <= (1e-9 * std::abs(expected)) + 1e-15;
-}
-
-/// The numbers of @p found that are not the ones @p expected lists ("<name>=<value>", in the
-/// same order), one line each; "" when all of them are.
-[[nodiscard]] std::string wrongNumbers(std::span<const std::string_view> expected,
-                                       const std::vector<Number>&        found)
-{
-    if (expected.size() != found.size())
-    {
-        return std::format("{} numbers expected, {} found", expected.size(), found.size());
-    }
-    std::string report;
-    for (std::size_t i = 0; i < found.size(); i++)
-    {
-        const std::size_t           equals = expected[i].find('=');
-        const std::optional<double> value =
-            QtRocket::Strings::javaParseDouble(expected[i].substr(equals + 1));
-        if (expected[i].substr(0, equals) != found[i].name || !value.has_value() ||
-            !isCloseTo(*value, found[i].value))
-        {
-            report += std::format("expected {}, found {}={}\n", expected[i], found[i].name,
-                                  QtRocket::Strings::javaDoubleToString(found[i].value));
-        }
-    }
-    return report;
 }
 
 /// The warnings of a load of @p file with @p environment, as "W <text>" lines; the failure of
@@ -472,7 +174,8 @@ private:
     for (const RecordedOrkFile& file : kRecordedOrkFiles)
     {
         DesignFileEnvironment environment;
-        const std::string difference = firstDifference(file.state, stateOf(environment, file.file));
+        const std::string     difference =
+            firstDifference(file.state, designFileState(environment, orkDir() / file.file));
         if (!difference.empty())
         {
             report += std::format("{}: {}\n", file.file, difference);
@@ -491,7 +194,7 @@ private:
         const DesignFileEnvironment  environment;
         const Result<LoadedDocument> loaded = loadRecorded(environment, file.file);
         const std::string            wrong =
-            loaded ? wrongNumbers(file.numbers, numbersOf(loaded->document->getRocket()))
+            loaded ? wrongNumbers(file.numbers, massAndLength(loaded->document->getRocket()))
                    : loaded.error().toString();
         if (!wrong.empty())
         {
@@ -874,7 +577,7 @@ TEST(RecordedOrkFilesTable, DISABLED_PrintsTheStates)
     {
         DesignFileEnvironment environment;
         std::cout << "=== " << file.file << "\n";
-        for (const std::string& line : stateOf(environment, file.file))
+        for (const std::string& line : designFileState(environment, orkDir() / file.file))
         {
             std::cout << line << "\n";
         }
@@ -882,7 +585,7 @@ TEST(RecordedOrkFilesTable, DISABLED_PrintsTheStates)
         const Result<LoadedDocument> loaded = loadRecorded(environment, file.file);
         if (loaded)
         {
-            for (const Number& number : numbersOf(loaded->document->getRocket()))
+            for (const DesignNumber& number : massAndLength(loaded->document->getRocket()))
             {
                 std::cout << number.name << "="
                           << QtRocket::Strings::javaDoubleToString(number.value) << "\n";

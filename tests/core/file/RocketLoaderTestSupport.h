@@ -265,22 +265,19 @@ struct LoadEvents
     return at == ids.end() ? "-1" : std::to_string(std::ranges::distance(ids.begin(), at));
 }
 
-/// The document materials of @p document as the probe prints OpenRocket's (a sorted
-/// database): "name:Type:density" of each, sorted, separated by spaces.
+/// The document materials of @p document as the probe prints OpenRocket's: "name:Type:density"
+/// of each, separated by spaces, in the order of the database of all of them
+/// (DocumentPreferences.getAllMaterials(), here MaterialStorage::allMaterials()), which is the
+/// order a save writes them in (Material::compareTo(): by name, then by density, and materials
+/// that compare equal in the order in which the document got them).
 [[nodiscard]] inline std::string documentMaterials(const OpenRocketDocument& document)
 {
-    std::vector<std::string> materials;
+    std::string text;
     for (const Material& material : document.getDocumentMaterials().allMaterials())
     {
-        materials.push_back(std::format("{}:{}:{}", material.getName(),
-                                        materialTypeText(material.getType()),
-                                        Strings::javaDoubleToString(material.getDensity())));
-    }
-    std::ranges::sort(materials);
-    std::string text;
-    for (const std::string& material : materials)
-    {
-        text += (text.empty() ? "" : " ") + material;
+        text += std::format("{}{}:{}:{}", text.empty() ? "" : " ", material.getName(),
+                            materialTypeText(material.getType()),
+                            Strings::javaDoubleToString(material.getDensity()));
     }
     return text;
 }

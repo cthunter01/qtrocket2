@@ -285,6 +285,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/DatatypeHandlerTests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
+    file/openrocket/DesignFileState.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/DocumentMaterialHandlerTests.cpp
@@ -293,6 +294,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/EntryHandlerTests.cpp
     file/openrocket/EntryHelperTests.cpp
     file/openrocket/EnumSetterTests.cpp
+    file/openrocket/example_files_tests.cpp
     file/openrocket/example_simulations_tests.cpp
     file/openrocket/FinSetPointHandlerTests.cpp
     file/openrocket/FinTabPositionSetterTests.cpp
@@ -352,6 +354,8 @@ add_executable(QtRocket_core_tests
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
     goldens/GoldenDesign.cpp
+    goldens/GoldenExamples.cpp
+    goldens/GoldenExamplesTests.cpp
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
     goldens/goldens_schema_tests.cpp
