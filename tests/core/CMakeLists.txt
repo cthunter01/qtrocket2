@@ -260,6 +260,7 @@ add_executable(QtRocket_core_tests
     file/FileSystemAttachmentFactoryTests.cpp
     file/GeneralRocketLoaderTests.cpp
     file/GzipStreamTests.cpp
+    file/loader_hostile_input_tests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
     file/motor/RaspMotorLoaderTests.cpp
@@ -302,6 +303,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/IgnitionConfigurationHandlerTests.cpp
     file/openrocket/InsideAppearanceHandlerTests.cpp
     file/openrocket/instance_budget_tests.cpp
+    file/openrocket/integration_tests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
@@ -316,6 +318,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
+    file/openrocket/recorded_ork_files_tests.cpp
     file/openrocket/rocket_element_tests.cpp
     file/openrocket/setter_robustness_tests.cpp
     file/openrocket/setter_table_tests.cpp

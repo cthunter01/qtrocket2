@@ -40,6 +40,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
+#include "QtRocket/simulation/extension/UnknownSimulationExtension.h"
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
@@ -194,7 +195,8 @@ struct LoadEvents
 
 /// The extensions of @p simulation, as the probe prints them: the simple names of their Java
 /// classes, a scripting extension with "(enabled)" or "(disabled)", separated by spaces. An
-/// extension of an unknown id, which OpenRocket does not keep, is "UnknownSimulationExtension".
+/// extension of an unknown id, which OpenRocket does not keep, is "UnknownSimulationExtension",
+/// also when its id is one of OpenRocket's package.
 [[nodiscard]] inline std::string extensionNames(const Simulation& simulation)
 {
     std::string names;
@@ -212,6 +214,7 @@ struct LoadEvents
                                          : "ScriptingExtension(disabled)";
         }
         else if (const std::size_t dot = id.rfind('.');
+                 dynamic_cast<const UnknownSimulationExtension*>(extension.get()) == nullptr &&
                  dot != std::string::npos && id.starts_with("info.openrocket.core."))
         {
             names += id.substr(dot + 1);
