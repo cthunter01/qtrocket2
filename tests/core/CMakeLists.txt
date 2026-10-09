@@ -258,6 +258,7 @@ add_executable(QtRocket_core_tests
     file/DatabaseMotorFinderTests.cpp
     file/DocumentLoadingContextTests.cpp
     file/FileSystemAttachmentFactoryTests.cpp
+    file/GeneralRocketLoaderTests.cpp
     file/GzipStreamTests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
     file/motor/MotorDatabaseLoaderTests.cpp
@@ -309,6 +310,9 @@ add_executable(QtRocket_core_tests
     file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp
     file/openrocket/MotorMountHandlerTests.cpp
+    file/openrocket/OpenRocketContentHandlerTests.cpp
+    file/openrocket/OpenRocketHandlerTests.cpp
+    file/openrocket/OpenRocketLoaderTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp

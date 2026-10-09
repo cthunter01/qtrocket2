@@ -43,8 +43,8 @@ class Rocket;
 /// - a name that is not blank (String.trim()) becomes the configuration's name, untrimmed;
 /// - when there are <stage> entries and none of them said "active", stage 0 is made active;
 /// - every entry is handed to FlightConfiguration::preloadStageActiveness(): the stages do not
-///   exist yet, the <motorconfiguration> elements standing before the <subcomponents>, so the
-///   top-level loader applies the entries when the whole file has been read
+///   exist yet, the <motorconfiguration> elements standing before the <subcomponents>, so
+///   OpenRocketLoader applies the entries when the whole file has been read
 ///   (applyPreloadedStageActiveness());
 /// - default="true", exactly so, selects the configuration
 ///   (Rocket::setSelectedConfiguration());

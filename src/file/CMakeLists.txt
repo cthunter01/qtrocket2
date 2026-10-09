@@ -2,6 +2,7 @@ target_sources(QtRocket_core PRIVATE
     DatabaseMotorFinder.cpp
     DocumentLoadingContext.cpp
     FileSystemAttachmentFactory.cpp
+    GeneralRocketLoader.cpp
     GzipStream.cpp
     motor/AbstractMotorLoader.cpp
     motor/GeneralMotorLoader.cpp
@@ -45,6 +46,9 @@ target_sources(QtRocket_core PRIVATE
     openrocket/MotorConfigurationHandler.cpp
     openrocket/MotorHandler.cpp
     openrocket/MotorMountHandler.cpp
+    openrocket/OpenRocketContentHandler.cpp
+    openrocket/OpenRocketHandler.cpp
+    openrocket/OpenRocketLoader.cpp
     openrocket/OverrideSetter.cpp
     openrocket/PhotoStudioHandler.cpp
     openrocket/RadiusPositionSetter.cpp

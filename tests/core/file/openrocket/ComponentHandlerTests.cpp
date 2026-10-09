@@ -380,7 +380,7 @@ TEST(ComponentHandler, NoCaseThrowsWhenItsTextIsCutOff)
 
 // ComponentHandlerTest.testIncompatibleComponentIsIgnoredWithWarning. The Java test loads the
 // document with GeneralRocketLoader; here its rocket element is read by the handlers, which is
-// all of the document that matters to it (run 9c has the top-level loader).
+// all of the document that matters to it (GeneralRocketLoaderTests.cpp has the whole loader).
 TEST(ComponentHandler, IncompatibleComponentIsIgnoredWithWarning)
 {
     constexpr std::string_view kXml = R"xml(<rocket>

@@ -75,6 +75,18 @@ public:
     /// entry cut short before the limit, corrupt deflate data) is reported as readEntry() does.
     [[nodiscard]] Result<std::vector<std::byte>> readEntry(std::size_t maxBytes);
 
+    /// readEntry(maxBytes) for a reader that wants the start of an entry also when the entry
+    /// is damaged further on, as Java's reader of a stream has the bytes that came before the
+    /// exception (the loader of a design file looks at the first bytes of the document before
+    /// it reads the rest). @p contents is emptied and then filled with the entry's contents;
+    /// when the entry fails, it holds what the entry gave before the failure, @p maxBytes
+    /// bytes at most: everything of a DEFLATED entry that could be inflated before its data
+    /// ended or went wrong, the bytes there are of a STORED entry that is cut short, and the
+    /// whole contents of an entry that fails the checks at its end (CRC and sizes). The
+    /// failures are readEntry(maxBytes)'s.
+    [[nodiscard]] Result<void> readEntryInto(std::vector<std::byte>& contents,
+                                             std::size_t             maxBytes);
+
 private:
     /// The current entry's local header.
     struct Header

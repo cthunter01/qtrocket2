@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "MinizipHandle.h"
+#include "QtRocket/file/GzipStream.h"
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket
@@ -291,10 +292,23 @@ struct Inflated
             contents->insert(contents->end(), piece.begin(), piece.end());
         }
     }
+    if (n < 0 && contents != nullptr)
+    {
+        // What the failing call inflated before it failed is in the chunk: a reader of the
+        // entry's start (readEntryInto()) gets it, as Java's reader has what came before the
+        // exception.
+        std::int64_t total = 0;
+        mz_stream_get_prop_int64(inflater.get(), MZ_STREAM_PROP_TOTAL_OUT, &total);
+        const std::size_t pending =
+            std::min({static_cast<std::size_t>(std::max<std::int64_t>(total - inflated.written, 0)),
+                      chunk.size(), limit - contents->size()});
+        const std::span<const std::byte> rest(chunk.data(), pending);
+        contents->insert(contents->end(), rest.begin(), rest.end());
+    }
     if (n == MZ_BUF_ERROR)
     {
         // the deflate data ends before its last block: InflaterInputStream.fill()
-        return fail(ErrorCode::PARSE, "Unexpected end of ZLIB input stream");
+        return fail(ErrorCode::PARSE, std::string(kUnexpectedEndOfZlibStream));
     }
     if (n < 0)
     {
@@ -410,6 +424,17 @@ Result<std::vector<std::byte>> ZipInputStream::readEntry(std::size_t maxBytes)
     return contents;
 }
 
+Result<void> ZipInputStream::readEntryInto(std::vector<std::byte>& contents, std::size_t maxBytes)
+{
+    contents.clear();
+    if (!m_current.has_value())
+    {
+        return {};
+    }
+    const Header current = *m_current;
+    return readData(current, &contents, maxBytes);
+}
+
 Result<void> ZipInputStream::readData(const Header& header, std::vector<std::byte>* contents,
                                       std::size_t limit)
 {
@@ -442,6 +467,13 @@ Result<void> ZipInputStream::readStored(const Header& header, std::vector<std::b
     }
     if (std::cmp_greater(header.size, available))
     {
+        if (contents != nullptr)
+        {
+            // What there is of the entry, for a reader of its start (readEntryInto()).
+            const std::span<const std::byte> start =
+                m_data.subspan(header.dataStart, std::min(available, limit));
+            contents->assign(start.begin(), start.end());
+        }
         return fail(ErrorCode::PARSE, "unexpected EOF");
     }
     const std::span<const std::byte> data =

@@ -431,4 +431,87 @@ TEST(ZipInputStream, ReadEntryIsEmptyOnceRead)
     EXPECT_FALSE(zip.nextEntry().value().has_value());
 }
 
+/// What readEntryInto() gives for the first entry of @p data with the limit @p maxBytes: the
+/// contents it left, and "ok" or the failure, as "<contents> | <code> <message>".
+[[nodiscard]] std::string readInto(const std::vector<std::byte>& data, std::size_t maxBytes)
+{
+    ZipInputStream zip(data);
+    if (const auto entry = zip.nextEntry(); !entry || !entry->has_value())
+    {
+        return "no entry";
+    }
+    // What the vector held before is gone.
+    std::vector<std::byte> contents = QtRocket::stringToBytes("stale");
+    const Result<void>     read     = zip.readEntryInto(contents, maxBytes);
+    return QtRocket::bytesToString(contents) + " | " +
+           (read ? std::string("ok")
+                 : std::string(toString(read.error().code)) + " " + read.error().message);
+}
+
+// readEntryInto() of an intact entry is readEntry(): the contents, of a stored and of a
+// deflated entry, and nothing once the entry was read.
+TEST(ZipInputStream, ReadEntryIntoGivesTheContentsOfAnIntactEntry)
+{
+    EXPECT_EQ(readInto(archive({stored("a", "hello")}), 5), "hello | ok");
+    EXPECT_EQ(readInto(archive({deflatedHello("a")}), 5), "hello | ok");
+    EXPECT_EQ(readInto(archive({stored("a", "")}), 0), " | ok");
+
+    const std::vector<std::byte> data = archive({stored("a", "x")});
+    ZipInputStream               zip(data);
+    std::vector<std::byte>       contents = QtRocket::stringToBytes("stale");
+    ASSERT_TRUE(zip.readEntryInto(contents, 10).has_value());  // before the first entry
+    EXPECT_TRUE(contents.empty());
+    ASSERT_TRUE(zip.nextEntry().value().has_value());
+    ASSERT_TRUE(zip.readEntryInto(contents, 10).has_value());
+    EXPECT_EQ(QtRocket::bytesToString(contents), "x");
+    ASSERT_TRUE(zip.readEntryInto(contents, 10).has_value());  // once read
+    EXPECT_TRUE(contents.empty());
+}
+
+// A damaged entry leaves what it gave before the failure, as Java's reader has the bytes that
+// came before the exception: the whole contents of an entry whose check sum or size is wrong,
+// the bytes there are of a stored entry that is cut short, and what could be inflated of a
+// deflated entry whose data ends too early.
+TEST(ZipInputStream, ReadEntryIntoLeavesWhatADamagedEntryGave)
+{
+    LocalEntry wrongSum = stored("a", "hello");
+    wrongSum.crc ^= 1U;
+    EXPECT_EQ(readInto(archive({wrongSum}), 5),
+              "hello | PARSE invalid entry CRC (expected 0x3610a687 but got 0x3610a686)");
+    LocalEntry wrongDeflatedSum = deflatedHello("a");
+    wrongDeflatedSum.crc ^= 1U;
+    EXPECT_EQ(readInto(archive({wrongDeflatedSum}), 5),
+              "hello | PARSE invalid entry CRC (expected 0x3610a687 but got 0x3610a686)");
+    LocalEntry wrongSize = deflatedHello("a");
+    wrongSize.size       = 4;
+    EXPECT_EQ(readInto(archive({wrongSize}), 5),
+              "hello | PARSE invalid entry size (expected 4 but got 5 bytes)");
+
+    // A stored entry of five bytes of which three are there.
+    std::vector<std::byte> cutStored = archive({stored("a", "hello")});
+    cutStored.resize(cutStored.size() - 2);
+    EXPECT_EQ(readInto(cutStored, 5), "hel | PARSE unexpected EOF");
+    EXPECT_EQ(readInto(cutStored, 3), "hel | PARSE unexpected EOF");
+    // The limit comes first, as for readEntry(maxBytes).
+    EXPECT_EQ(readInto(cutStored, 2), " | IO Input exceeds maximum size of 2 bytes");
+
+    // A deflated entry whose last byte is missing: its five bytes are inflated all the same.
+    std::vector<std::byte> cutDeflated = archive({deflatedHello("a")});
+    cutDeflated.resize(cutDeflated.size() - 1);
+    EXPECT_EQ(readInto(cutDeflated, 5), "hello | PARSE Unexpected end of ZLIB input stream");
+    // With one more byte missing nothing can be inflated.
+    cutDeflated.resize(cutDeflated.size() - 5);
+    EXPECT_EQ(readInto(cutDeflated, 5), " | PARSE Unexpected end of ZLIB input stream");
+}
+
+// The limit holds for readEntryInto() as for readEntry(maxBytes): contents beyond it fail with
+// the bounded read's failure, and no more than the limit is left.
+TEST(ZipInputStream, ReadEntryIntoHoldsNoMoreThanTheLimit)
+{
+    EXPECT_EQ(readInto(archive({stored("a", "hello")}), 4),
+              " | IO Input exceeds maximum size of 4 bytes");
+    EXPECT_EQ(readInto(archive({deflatedHello("a")}), 4),
+              " | IO Input exceeds maximum size of 4 bytes");
+}
+
 }  // namespace
