@@ -407,9 +407,11 @@ std::ostream& operator<<(std::ostream& out, const Mutation& mutation)
              },
          .context = "configuration 0 point 13 (",
          .line    = "  components /0/1/5.cp.x: expected "},
+        // Twice the floor of a coefficient that is zero but for rounding (GoldenDesign.cpp: within
+        // 1e-15 such a coefficient is the platform's rounding and matches).
         {.name = "AGoldenZero",
          .apply =
-             [](json& aero) { valueAt(aero, "/configurations/0/points/0/forces/cside") = 1e-300; },
+             [](json& aero) { valueAt(aero, "/configurations/0/points/0/forces/cside") = 2e-15; },
          .context = "configuration 0 point 0 (",
          .line    = "  forces.cside: expected "},
         {.name = "Axisymmetric",

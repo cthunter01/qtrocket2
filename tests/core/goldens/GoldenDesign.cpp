@@ -1295,6 +1295,16 @@ constexpr std::array<ForceField, 15> kForceFields{{
     {.key = "yawDampingMoment", .getter = &AerodynamicForces::getYawDampingMoment},
 }};
 
+/// A coefficient of a golden "forces" object that differs from the computed one by no more than
+/// this matches whatever its size. A coefficient that is zero but for rounding cannot be held by
+/// a relative tolerance: its digits are those of the platform's sine and cosine. The fin sets on
+/// the boosters of two examples ("Parallel booster staging.ork" and "Pods--powered with recovery
+/// deployment.ork") have such a normal force coefficient at an angle of attack of 5 degrees,
+/// 3.9e-32 and 1.9e-31 in OpenRocket and with glibc, 4.3e-32 and 2.1e-31 with Apple's math
+/// library, where the coefficients of a rocket are of order one. The floor is the one the mass
+/// goldens have for their zeros.
+constexpr double kForceCoefficientFloor = 1e-15;
+
 /// Whether the golden forces key @p key is one compareForces() compares.
 [[nodiscard]] bool isComparedForceKey(std::string_view key)
 {
@@ -1303,16 +1313,17 @@ constexpr std::array<ForceField, 15> kForceFields{{
 }
 
 /// Compares @p actual with the golden forces @p expected: the CP (its position within the
-/// absolute tolerance, its weight, CNa, within the relative one), every coefficient and the
-/// axisymmetric flag. A golden field that nothing compares is reported.
+/// absolute tolerance, its weight, CNa, within the relative one), every coefficient (within the
+/// relative tolerance, or within kForceCoefficientFloor for one that is zero but for rounding)
+/// and the axisymmetric flag. A golden field that nothing compares is reported.
 void compareForces(Mismatches& m, std::string_view what, const json& expected,
                    const AerodynamicForces& actual)
 {
     m.cg(std::format("{}.cp", what), goldenCoordinate(expected.at("cp")), actual.getCP());
     for (const ForceField& field : kForceFields)
     {
-        m.relative(std::format("{}.{}", what, field.key), goldenValue(expected.at(field.key)),
-                   (actual.*field.getter)());
+        m.within(std::format("{}.{}", what, field.key), goldenValue(expected.at(field.key)),
+                 (actual.*field.getter)(), kGoldenRelative, kForceCoefficientFloor);
     }
     m.boolean(std::format("{}.axisymmetric", what), expected.at("axisymmetric").get<bool>(),
               actual.isAxisymmetric());

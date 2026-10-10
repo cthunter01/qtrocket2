@@ -1075,6 +1075,26 @@ void moveBeyondTheMassTolerances(DesignGoldens& goldens)
     moveTheMassValues(goldens, 2e-9, 2e-15, 2e-12);
 }
 
+/// Moves a coefficient of aero.json that is zero, the side force coefficient of the rocket at
+/// the first point of the first configuration, to @p value.
+void moveAZeroCoefficient(DesignGoldens& goldens, double value)
+{
+    json& point = goldens.aero.at("configurations").at(0).at("points").at(0);
+    point.at("components").at(0).at("cside") = value;
+}
+
+/// To half the floor of a coefficient (GoldenDesign.cpp: 1e-15).
+void moveAZeroCoefficientWithinItsFloor(DesignGoldens& goldens)
+{
+    moveAZeroCoefficient(goldens, 5e-16);
+}
+
+/// To twice that floor.
+void moveAZeroCoefficientBeyondItsFloor(DesignGoldens& goldens)
+{
+    moveAZeroCoefficient(goldens, 2e-15);
+}
+
 /// How often @p part is in @p text.
 [[nodiscard]] int occurrences(std::string_view text, std::string_view part)
 {
@@ -1117,6 +1137,20 @@ TEST(ExampleDesignGoldenMutations, AChangedValueOfTheMassOrTheAerodynamicsIsRepo
     EXPECT_TRUE(beyond.contains("[D12-7] launch cm z")) << beyond;
     EXPECT_TRUE(beyond.contains("/0/1 #0")) << beyond;
     EXPECT_FALSE(beyond.contains(": expected ")) << "geometry.json or aero.json: " << beyond;
+}
+
+// A coefficient of aero.json that is zero but for rounding is held to an absolute floor, not to
+// the relative tolerance: its digits are those of the platform's sine and cosine (the fin sets
+// on the boosters of two examples have such a normal force coefficient, 3.9e-32 in OpenRocket
+// and with glibc and 4.3e-32 with Apple's math library). Moved by half the floor a zero is still
+// the design's; moved by twice the floor it is reported.
+TEST(ExampleDesignGoldenMutations, ACoefficientThatIsZeroButForRoundingIsHeldToAFloor)
+{
+    EXPECT_EQ(designReportAfter(moveAZeroCoefficientWithinItsFloor), "");
+
+    const std::string beyond = designReportAfter(moveAZeroCoefficientBeyondItsFloor);
+    EXPECT_TRUE(beyond.contains("cside: expected 2e-15, got 0")) << beyond;
+    EXPECT_FALSE(beyond.contains("mass.json")) << beyond;
 }
 
 // ---------------------------------------------------------------------------------- settings

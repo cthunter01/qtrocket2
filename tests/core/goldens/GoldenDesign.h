@@ -26,7 +26,8 @@
 //
 // The comparisons of geometry.json and aero.json collect their mismatches in a report
 // (GoldenMismatches; tolerances of plan section 6.4: geometry, mass and aerodynamic coefficients
-// relative 1e-9, positions, CGs and CPs absolute 1e-9 m); those of mass.json report through
+// relative 1e-9, positions, CGs and CPs absolute 1e-9 m; a coefficient of aero.json that is zero
+// but for rounding matches within 1e-15, see GoldenDesign.cpp); those of mass.json report through
 // GoogleTest's EXPECT macros (relative 1e-9; locations absolute 1e-12 m).
 
 #include <ostream>
