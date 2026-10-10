@@ -9,8 +9,12 @@
 // and run, the jitter removal, what is compared of a simulation and why most flights of that set
 // are not reproducible beyond their first tenths of a second. Both files work with
 // GoldenSimulations.h (the set-up, the run, the golden files, compareSimulation() and the
-// scaffolding of the mutation tests); the rules and the tolerances of the stable-step set are in
-// this file.
+// scaffolding of the mutation tests); the rules of the stable-step set of the test rockets and
+// the tolerances of its time series are in this file. What it shares with the comparison of the
+// stable-step set of the examples (example_simulation_stable_golden_tests.cpp, which has the
+// golden documents alone to compare with, and no time series) is in GoldenStableSimulations.h:
+// the tolerances of the summary values and of the times, the comparison of a number that a rule
+// may exclude, the table of the measurements, and rule E's reading of the rows of a run.
 //
 // THE STABLE-STEP SET (SimulationStableGolden, one test per rocket). The harness runs every
 // simulation once more with the time step set to 0.01 s (SimulationDumper.useStableTimeStep(),
@@ -315,20 +319,18 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/SimulationStatus.h"
-#include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
-#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
 #include "goldens/GoldenSimulations.h"
+#include "goldens/GoldenStableSimulations.h"
 #include "goldens/GoldenWarnings.h"
 #include "rocket/TestRockets.h"
 #include "unit/DefaultUnitsGuard.h"
@@ -337,23 +339,30 @@ namespace
 {
 
 using nlohmann::json;
-using QtRocket::Coordinate;
 using QtRocket::FlightData;
 using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::FlightEvent;
 using QtRocket::Rocket;
-using QtRocket::SimulationStatus;
-using QtRocket::Warning;
+using QtRocket::Test::ApogeeStep;
+using QtRocket::Test::apogeeStepOf;
+using QtRocket::Test::apogeeStepProblem;
 using QtRocket::Test::baseName;
-using QtRocket::Test::columnKey;
 using QtRocket::Test::columnScale;
 using QtRocket::Test::compareSimulation;
+using QtRocket::Test::compareStableCount;
+using QtRocket::Test::compareStableNumber;
+using QtRocket::Test::compareStableWarning;
+using QtRocket::Test::compareStableWarnings;
 using QtRocket::Test::csvTypes;
 using QtRocket::Test::differs;
+using QtRocket::Test::eulerApogeeRow;
+using QtRocket::Test::eventNumbers;
+using QtRocket::Test::eventTime;
+using QtRocket::Test::firstLateHandling;
 using QtRocket::Test::goldenCounts;
 using QtRocket::Test::GoldenFiles;
-using QtRocket::Test::goldenFormOf;
+using QtRocket::Test::goldenFilesOf;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::goldenRodClearance;
 using QtRocket::Test::GoldenSimulation;
@@ -361,7 +370,18 @@ using QtRocket::Test::GoldenTable;
 using QtRocket::Test::goldenValue;
 using QtRocket::Test::inputOf;
 using QtRocket::Test::InstallationDefaults;
+using QtRocket::Test::kApogeeResidual;
+using QtRocket::Test::kDeploymentVelocityRelative;
+using QtRocket::Test::KickListener;
+using QtRocket::Test::kKickSize;
+using QtRocket::Test::kLateHandlingAbsolute;
+using QtRocket::Test::kOnTime;
 using QtRocket::Test::kStableHarnessKeys;
+using QtRocket::Test::kStableSummaryRelative;
+using QtRocket::Test::kStableSummaryValues;
+using QtRocket::Test::kStableTimeAbsolute;
+using QtRocket::Test::kStableTimeStep;
+using QtRocket::Test::kToleranceMargin;
 using QtRocket::Test::kValueRelative;
 using QtRocket::Test::loadGoldenFiles;
 using QtRocket::Test::makeReproducible;
@@ -371,8 +391,6 @@ using QtRocket::Test::Mutation;
 using QtRocket::Test::noiseColumns;
 using QtRocket::Test::orderedEvents;
 using QtRocket::Test::orderedGoldenEvents;
-using QtRocket::Test::parameterOf;
-using QtRocket::Test::pathOrNull;
 using QtRocket::Test::plannedSimulations;
 using QtRocket::Test::referenceOf;
 using QtRocket::Test::rowsUpToTheClearance;
@@ -386,11 +404,17 @@ using QtRocket::Test::SimulationComparison;
 using QtRocket::Test::SimulationCounts;
 using QtRocket::Test::SimulationRun;
 using QtRocket::Test::sortedNames;
+using QtRocket::Test::StableComparison;
+using QtRocket::Test::StableMeasurements;
+using QtRocket::Test::StableResult;
+using QtRocket::Test::StableSummaryValue;
 using QtRocket::Test::Subject;
 using QtRocket::Test::SubjectCase;
 using QtRocket::Test::subjectTestName;
+using QtRocket::Test::SummaryExtent;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
+using QtRocket::Test::timeSeriesOf;
 using QtRocket::Test::useStableTimeStep;
 
 /// The comparison collector of the golden tests.
@@ -399,52 +423,6 @@ using Mismatches = QtRocket::Test::GoldenMismatches;
 // ====================================================================== the stable-step set
 
 // The comparison of the stable-step set: see "THE STABLE-STEP SET" at the top of the file.
-
-/// SimulationDumper.STABLE_TIME_STEP: the time step of the stable-step set, in s.
-constexpr double kStableTimeStep = 0.01;
-
-/// A tolerance of the stable-step comparison is at least this many times the largest difference
-/// measured for what it bounds (OpenRocket against itself in nine dumps with other component
-/// ids, and QtRocket against the golden files on glibc and under 46 patterns of the libm shim).
-constexpr double kToleranceMargin = 100.0;
-
-/// A time of the stable-step set (that of an event, the time to apogee, the flight time, the
-/// optimum delay): within this many seconds. The largest difference measured is 8.0e-7 s (a
-/// ground hit, which an Euler stepper times from the altitude of the row before it).
-constexpr double kStableTimeAbsolute = 1e-4;
-
-/// The time of an event that follows a late handling in its branch (StablePlan::lateFrom):
-/// within the 1 ms that BasicEventSimulationEngine.simulateLoop() allows a step to overshoot
-/// an event by, which is also the plan's bound on event times. Measured: 2.7e-10 s.
-constexpr double kLateHandlingAbsolute = 1e-3;
-
-/// A summary value of the stable-step set, the optimum altitude of a branch and the parameter
-/// of a warning: within this fraction of its scale. Measured: 9.5e-9 (a maximum velocity).
-constexpr double kStableSummaryRelative = 1e-6;
-
-/// The velocity at the deployment of the recovery device: within this fraction of the largest
-/// velocity of the flight. Measured: 1.4e-8 (the velocity is read off a steep part of the
-/// trajectory, between two rows around the deployment).
-constexpr double kDeploymentVelocityRelative = 1e-5;
-
-/// A vertical velocity below this, in m/s, in a row of an Euler stepper: the row on which the
-/// stepper landed its step to the apogee (AbstractEulerStepper.step(): t = |v / a|, which
-/// leaves a rounding error of the velocity: nothing in nine runs of ten, some 1e-17 m/s of
-/// either sign in the others).
-constexpr double kApogeeVelocity = 1e-9;
-
-/// Rule E: what the step to the apogee leaves of the vertical velocity is a rounding error of
-/// the velocity it started from, at most this fraction of it. Measured: 1.8e-16 (the
-/// largest in the apogee rows of nine dumps of OpenRocket and of 47 runs of QtRocket).
-constexpr double kApogeeResidual = 1e-13;
-
-/// A step from the apogee row that is no longer than this, in s, is the extra step of
-/// MIN_TIME_STEP (1 ms) that the stepper takes when the velocity left by its step to the apogee
-/// is positive; the regular step there is about 0.1 s.
-constexpr double kShortStep = 1.5e-3;
-
-/// A golden row within this many seconds of the time of an event handled the event on time.
-constexpr double kOnTime = 1e-9;
 
 /// AbstractSimulationStepper.calculateFlightConditions() sets the pitch and the yaw rate of the
 /// flight conditions to zero while the lateral airspeed is below this, in m/s (rule H).
@@ -703,22 +681,6 @@ struct StablePlan
     std::vector<StableColumn> columns;
 };
 
-/// The time of the first (@p last: the last) golden event of type @p type among @p events;
-/// nullopt when there is none.
-[[nodiscard]] std::optional<double> eventTime(const json& events, std::string_view type,
-                                              bool last = false)
-{
-    std::optional<double> time;
-    for (const json& event : events)
-    {
-        if (event.at("type").get<std::string>() == type && (last || !time.has_value()))
-        {
-            time = goldenValue(event.at("time"));
-        }
-    }
-    return time;
-}
-
 /// The values of row @p row of the golden time series in the column @p column; NaN when the
 /// series has no such column.
 [[nodiscard]] double cell(const GoldenTable& table, std::size_t row,
@@ -831,73 +793,6 @@ struct StablePlan
     return euler;
 }
 
-/// Rule E: the row of @p table on which an Euler stepper landed its step to the apogee: the
-/// first row of an Euler stepper (it stores no angle of attack) rises, and a later row has no
-/// vertical velocity. nullopt for a branch that reaches its apogee under a Runge-Kutta stepper,
-/// or whose Euler stepper takes over on the way down.
-[[nodiscard]] std::optional<std::size_t> eulerApogeeRow(const GoldenTable& table)
-{
-    const std::optional<std::size_t> aoa      = table.columnIndex("aoa");
-    const std::optional<std::size_t> velocity = table.columnIndex("velocity_z");
-    if (!aoa.has_value() || !velocity.has_value())
-    {
-        return std::nullopt;
-    }
-    std::size_t row = 0;
-    while (row < table.rows.size() && std::isfinite(table.rows[row][*aoa]))
-    {
-        row++;
-    }
-    if (row == table.rows.size() || !(table.rows[row][*velocity] > 0))
-    {
-        return std::nullopt;
-    }
-    while (row < table.rows.size() && !(std::abs(table.rows[row][*velocity]) < kApogeeVelocity))
-    {
-        row++;
-    }
-    return row < table.rows.size() ? std::optional<std::size_t>{row} : std::nullopt;
-}
-
-/// Rule E: the step a run takes from an apogee row: what its step to the apogee left of the
-/// vertical velocity, the vertical velocity of the row before, and the length of the step that
-/// follows. NaN where the run has no such row.
-struct ApogeeStep
-{
-    double left{std::numeric_limits<double>::quiet_NaN()};
-    double before{std::numeric_limits<double>::quiet_NaN()};
-    double step{std::numeric_limits<double>::quiet_NaN()};
-
-    /// Whether the step from the apogee row is the extra one of 1 ms.
-    [[nodiscard]] bool isShort() const noexcept { return step <= kShortStep; }
-};
-
-/// Rule E: what is wrong with @p step, "" when it shows the decision by the last bit that the
-/// rule allows for: the step to the apogee left a rounding error of the vertical velocity
-/// (kApogeeResidual), and the extra step of 1 ms follows exactly when that is positive. A run
-/// that lands elsewhere than on its apogee, or steps on from it otherwise, differs from the
-/// golden run by more than the last bit.
-[[nodiscard]] std::string apogeeStepProblem(const ApogeeStep& step)
-{
-    if (std::isnan(step.step))
-    {
-        return "there is no row that steps from the apogee";
-    }
-    if (!(std::abs(step.left) <= kApogeeResidual * std::abs(step.before)))
-    {
-        return std::format(
-            "the step to the apogee leaves a vertical velocity of {} m/s after {} "
-            "m/s, which is no rounding error",
-            step.left, step.before);
-    }
-    if ((step.left > 0) != step.isShort())
-    {
-        return std::format("a step of {} s follows a vertical velocity of {} m/s at the apogee",
-                           step.step, step.left);
-    }
-    return {};
-}
-
 /// The step the golden run of @p table takes from its row @p row.
 [[nodiscard]] ApogeeStep apogeeStepOf(const GoldenTable& table, std::size_t row)
 {
@@ -909,25 +804,6 @@ struct ApogeeStep
     return {.left   = cell(table, row, velocity),
             .before = cell(table, row - 1, velocity),
             .step   = cell(table, row, table.columnIndex("time_step"))};
-}
-
-/// The time of the first of the golden events @p events that no row of @p times handled on
-/// time (the step that reached it overshot it: the engine lets a step be no shorter than 1 ms
-/// for an event, and the Runge-Kutta steppers no shorter than a twentieth of the time step);
-/// infinite when every event has a row at its time.
-[[nodiscard]] double firstLateHandling(const json& events, const std::vector<double>& times)
-{
-    for (const json& event : events)
-    {
-        const double time = goldenValue(event.at("time"));
-        if (!times.empty() && std::ranges::none_of(times, [time](double row) {
-                return std::abs(row - time) <= kOnTime;
-            }))
-        {
-            return time;
-        }
-    }
-    return std::numeric_limits<double>::infinity();
 }
 
 /// The columns of @p table with their scales, tolerances and kinds (rules H and N).
@@ -1083,21 +959,6 @@ struct StableExtent
     std::string problem;
 };
 
-/// The step @p branch takes from its row @p row.
-[[nodiscard]] ApogeeStep apogeeStepOf(const FlightDataBranch& branch, std::size_t row)
-{
-    const std::vector<double>* velocity =
-        branch.getView(FlightDataType::builtin(QtRocket::FlightDataTypeId::TYPE_VELOCITY_Z));
-    const std::vector<double>* steps =
-        branch.getView(FlightDataType::builtin(QtRocket::FlightDataTypeId::TYPE_TIME_STEP));
-    if (velocity == nullptr || steps == nullptr || row == 0 || row >= velocity->size() ||
-        row >= steps->size())
-    {
-        return {};
-    }
-    return {.left = (*velocity)[row], .before = (*velocity)[row - 1], .step = (*steps)[row]};
-}
-
 /// How far @p branch is compared with the golden branch of the plan @p plan. Rule E: when the
 /// run steps from the apogee row of the golden run as that does (with the extra step of 1 ms,
 /// or without it), the branch is compared to its last row; when it does not, up to that row,
@@ -1144,125 +1005,7 @@ struct StableExtent
 
 // ------------------------------------------------------------------------------ measurements
 
-/// The largest differences the comparison of the stable-step set found, by what was compared
-/// (a column, a summary value, the times of the events of a type, ...) over every simulation;
-/// see SimulationStableGoldenMeasurement.
-class StableMeasurements
-{
-public:
-    /// A difference @p difference of @p what (a column: as a fraction of its scale) against
-    /// the tolerance @p tolerance, found at @p where. A negative tolerance: a value that the
-    /// rules exclude, recorded for the table only.
-    void record(const std::string& what, double difference, double tolerance,
-                const std::string& where)
-    {
-        Entry& entry = m_entries[what];
-        entry.count++;
-        if (difference > entry.largest || entry.where.empty())
-        {
-            entry.largest = difference;
-            entry.where   = where;
-        }
-        if (tolerance > 0)
-        {
-            entry.ofTolerance = std::max(entry.ofTolerance, difference / tolerance);
-        }
-        else if (tolerance == 0 && difference > 0)
-        {
-            entry.ofTolerance = std::numeric_limits<double>::infinity();
-        }
-    }
-
-    /// The table: one line per thing compared, with how many values, their largest
-    /// difference, that difference as a multiple of its tolerance and where it was found.
-    [[nodiscard]] std::string text() const
-    {
-        std::string text;
-        for (const auto& [what, entry] : m_entries)
-        {
-            text += std::format("{}\t{}\t{:.2e}\t{:.2e}\t{}\n", what, entry.count, entry.largest,
-                                entry.ofTolerance, entry.where);
-        }
-        return text;
-    }
-
-    /// The largest difference of a compared value, as a multiple of its tolerance.
-    [[nodiscard]] double largestOfTolerance() const
-    {
-        double largest = 0;
-        for (const auto& [what, entry] : m_entries)
-        {
-            largest = std::max(largest, entry.ofTolerance);
-        }
-        return largest;
-    }
-
-private:
-    struct Entry
-    {
-        std::int64_t count{0};
-        double       largest{0};
-        double       ofTolerance{0};  ///< the largest difference, as a multiple of its tolerance
-        std::string  where;
-    };
-    std::map<std::string, Entry> m_entries;
-};
-
 // -------------------------------------------------------------------------------- comparison
-
-/// What the comparison of a run with its stable golden files works with and collects.
-struct StableComparison
-{
-    std::string         context;   ///< "testrocket-beta/stable/sim_02_b4-3-d21-0"
-    SimulationCounts    compared;  ///< what was compared with the golden files
-    SimulationCounts    excluded;  ///< the numbers, rows and values the rules exclude
-    std::string         report;    ///< the mismatches
-    StableMeasurements* measurements{nullptr};
-};
-
-/// Compares the number @p actual with the golden number @p expected within @p tolerance,
-/// unless the rules exclude it (@p compared false): it is counted then. @p what names it in
-/// the measurements, in which a difference counts as a fraction of @p unit.
-struct StableNumber
-{
-    std::string field;
-    std::string what;
-    double      expected{0};
-    double      actual{0};
-    double      tolerance{0};
-    double      unit{1};
-};
-void compareStableNumber(Mismatches& m, StableComparison& c, const StableNumber& number,
-                         bool compared)
-{
-    if (!compared)
-    {
-        c.excluded.numbers++;
-        return;
-    }
-    c.compared.numbers++;
-    if (c.measurements != nullptr && std::isfinite(number.expected) &&
-        std::isfinite(number.actual) && number.unit > 0)
-    {
-        c.measurements->record(number.what, std::abs(number.actual - number.expected) / number.unit,
-                               number.tolerance / number.unit, c.context);
-    }
-    m.within(number.field, number.expected, number.actual, 0.0, number.tolerance);
-}
-
-/// Compares the count @p actual with the golden count @p expected, unless the rules exclude
-/// it (@p compared false): it is counted then.
-void compareStableCount(Mismatches& m, StableComparison& c, std::string_view field,
-                        std::int64_t expected, std::int64_t actual, bool compared)
-{
-    if (!compared)
-    {
-        c.excluded.numbers++;
-        return;
-    }
-    c.compared.numbers++;
-    m.integer(field, expected, actual);
-}
 
 /// What the comparison of a branch says of it to the comparison of its simulation.
 struct StableBranchOutcome
@@ -1270,96 +1013,6 @@ struct StableBranchOutcome
     bool toTheEnd{false};  ///< it is compared to its last row
     bool tumbles{false};   ///< it tumbles before its apogee (rule T)
 };
-
-/// How much of the first branch a summary value of the stable-step set needs to be compared.
-enum class SummaryExtent : std::uint8_t
-{
-    ANY,  ///< decided before the apogee: always compared
-    /// The descent: not when the first branch tumbles before its apogee (rule T). The ground
-    /// hit velocity: it ends a descent whose time grid the step of rule E moves, but not its
-    /// course (two runs of OpenRocket on the two grids differ in it by 1.6e-10 m/s).
-    THE_DESCENT,
-    /// The last row: only when the first branch is compared to it (rules E and T). The flight
-    /// time, which the extra step of rule E moves by up to 1.4e-4 s.
-    THE_LAST_ROW
-};
-
-/// A summary value of the stable-step set: its golden key and getter; whether it is a time;
-/// its tolerance (in s, or as a fraction of its scale); the column of the first branch whose
-/// scale is its scale ("": its own magnitude); and how much of the first branch it needs.
-struct StableSummaryValue
-{
-    std::string_view key;
-    double (FlightData::*get)() const noexcept;
-    bool             time;
-    double           tolerance;
-    std::string_view column;
-    SummaryExtent    extent;
-};
-constexpr std::array<StableSummaryValue, 10> kStableSummaryValues{{
-    {.key       = "maxAltitude",
-     .get       = &FlightData::getMaxAltitude,
-     .time      = false,
-     .tolerance = kStableSummaryRelative,
-     .column    = "altitude",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "maxVelocity",
-     .get       = &FlightData::getMaxVelocity,
-     .time      = false,
-     .tolerance = kStableSummaryRelative,
-     .column    = "velocity_total",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "maxAcceleration",
-     .get       = &FlightData::getMaxAcceleration,
-     .time      = false,
-     .tolerance = kStableSummaryRelative,
-     .column    = "acceleration_total",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "maxMachNumber",
-     .get       = &FlightData::getMaxMachNumber,
-     .time      = false,
-     .tolerance = kStableSummaryRelative,
-     .column    = "mach_number",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "timeToApogee",
-     .get       = &FlightData::getTimeToApogee,
-     .time      = true,
-     .tolerance = kStableTimeAbsolute,
-     .column    = "",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "flightTime",
-     .get       = &FlightData::getFlightTime,
-     .time      = true,
-     .tolerance = kStableTimeAbsolute,
-     .column    = "",
-     .extent    = SummaryExtent::THE_LAST_ROW},
-    // The velocity at the ground: a fraction of itself (a thirtieth of the largest velocity).
-    {.key       = "groundHitVelocity",
-     .get       = &FlightData::getGroundHitVelocity,
-     .time      = false,
-     .tolerance = kStableSummaryRelative,
-     .column    = "",
-     .extent    = SummaryExtent::THE_DESCENT},
-    // The velocity at the first record after the launch rod: a value of the rod.
-    {.key       = "launchRodVelocity",
-     .get       = &FlightData::getLaunchRodVelocity,
-     .time      = false,
-     .tolerance = kValueRelative,
-     .column    = "velocity_total",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "deploymentVelocity",
-     .get       = &FlightData::getDeploymentVelocity,
-     .time      = false,
-     .tolerance = kDeploymentVelocityRelative,
-     .column    = "velocity_total",
-     .extent    = SummaryExtent::ANY},
-    {.key       = "optimumDelay",
-     .get       = &FlightData::getOptimumDelay,
-     .time      = true,
-     .tolerance = kStableTimeAbsolute,
-     .column    = "",
-     .extent    = SummaryExtent::ANY},
-}};
 
 /// The scale of column @p key of the first of @p tables; 0 when there is no such column.
 [[nodiscard]] double scaleOfTheFirstBranch(const std::vector<GoldenTable>& tables,
@@ -1414,56 +1067,6 @@ void compareStableSummary(Mismatches& m, StableComparison& c, const GoldenFiles&
     }
 }
 
-/// Compares what the golden warning @p expected prints of its parameter with @p actual: the
-/// parameter (a speed or an angle) within kStableSummaryRelative of itself, and the
-/// description and the text, which print it with three digits. (What identifies the warning,
-/// its class, priority and sources, is compared with the structure.) A golden warning without
-/// a parameter has no number: nothing is compared or counted.
-void compareStableWarning(Mismatches& m, StableComparison& c, const std::string& field,
-                          const json& expected, const Warning* actual)
-{
-    if (!expected.is_object() || !expected.contains("parameter"))
-    {
-        return;
-    }
-    const std::optional<double> parameter =
-        actual != nullptr ? parameterOf(*actual) : std::optional<double>{};
-    if (!parameter.has_value())
-    {
-        c.excluded.numbers++;  // the structure reports a warning of another kind
-        return;
-    }
-    const double goldenNumber = goldenValue(expected.at("parameter"));
-    const double unit         = referenceOf(0, goldenNumber, *parameter);
-    compareStableNumber(m, c,
-                        {.field     = field + ".parameter",
-                         .what      = "warning parameter",
-                         .expected  = goldenNumber,
-                         .actual    = *parameter,
-                         .tolerance = kStableSummaryRelative * unit,
-                         .unit      = unit},
-                        true);
-    m.text(field + ".description", expected.at("description").get<std::string>(),
-           actual->messageDescription());
-    m.text(field + ".text", expected.at("text").get<std::string>(), actual->toString());
-}
-
-/// compareStableWarning() of the warnings of @p data against the golden "warnings".
-void compareStableWarnings(Mismatches& m, StableComparison& c, const json& expected,
-                           const FlightData& data)
-{
-    std::vector<const Warning*> warnings;
-    for (const Warning& warning : data.getWarningSet())
-    {
-        warnings.push_back(&warning);
-    }
-    for (std::size_t i = 0; i < expected.size(); i++)
-    {
-        compareStableWarning(m, c, std::format("warnings[{}]", i), expected.at(i),
-                             i < warnings.size() ? warnings[i] : nullptr);
-    }
-}
-
 /// What the comparison of a branch of the stable-step set works with.
 struct StableBranch
 {
@@ -1486,19 +1089,6 @@ struct StableBranch
 [[nodiscard]] double eventTolerance(const StablePlan& plan, double time)
 {
     return time > plan.lateFrom ? kLateHandlingAbsolute : kStableTimeAbsolute;
-}
-
-/// The number of the numbers of the golden events @p events: their times, and the parameters
-/// of their warnings.
-[[nodiscard]] int eventNumbers(const json& events)
-{
-    int numbers = static_cast<int>(events.size());
-    for (const json& event : events)
-    {
-        const json& data = event.at("data");
-        numbers += data.is_object() && data.contains("parameter") ? 1 : 0;
-    }
-    return numbers;
 }
 
 /// Compares the times of the events of the branch with the golden "events", and what their
@@ -1721,25 +1311,6 @@ void compareStableSeries(Mismatches& m, const StableComparison& c, const StableS
     }
 }
 
-/// The time series of @p branch in the form of a golden time series: its CSV columns.
-[[nodiscard]] GoldenTable timeSeriesOf(const FlightDataBranch& branch)
-{
-    // (The rows are made with the table: GCC takes assign() on the rows of a new table for a
-    // potential null pointer dereference.)
-    GoldenTable table{.columns = {}, .rows = std::vector<std::vector<double>>(branch.getLength())};
-    for (const FlightDataType* type : csvTypes(branch))
-    {
-        table.columns.push_back(columnKey(*type));
-        // A type of the branch has a column: getView() gives it.
-        const std::vector<double>* values = branch.getView(*type);
-        for (std::size_t row = 0; values != nullptr && row < values->size(); row++)
-        {
-            table.rows[row].push_back((*values)[row]);
-        }
-    }
-    return table;
-}
-
 /// Records, for the table of the measurements, how the run decides the hunting (rule H) in
 /// the Runge-Kutta rows in free flight that are compared, against the golden run:
 /// - whether a row hunts in one of the two runs only (1, else 0);
@@ -1944,14 +1515,6 @@ void compareStableNumbers(StableComparison& c, const GoldenFiles& golden, const 
     compareStableWarnings(warnings, c, document.at("warnings"), *run.data);
     c.report += warnings.report();
 }
-
-/// What the comparison of a run with its stable golden files compared and found.
-struct StableResult
-{
-    SimulationCounts compared;
-    SimulationCounts excluded;  ///< what the rules H, N, E and T exclude
-    std::string      report;    ///< the mismatches, empty when everything matched
-};
 
 /// Compares @p run with the golden files @p golden of its simulation in the stable-step set:
 /// the structure (everything that is not a number of the trajectory, as compareSimulation()
@@ -2442,127 +2005,6 @@ TEST(SimulationStableGoldenMeasurement, DISABLED_PrintsTheDifferencesFromTheGold
                      measurements.largestOfTolerance());
     EXPECT_LE(measurements.largestOfTolerance(), 1.0);
 }
-
-/// The listener of a kicked run: after every step it changes each component of the velocity
-/// and of the rotation velocity of the rocket by a random fraction of itself of up to the
-/// size it was made with: a perturbation of some hundred thousand ulps, where the libm of
-/// another platform moves a result by one. A system listener, as the LastBitListener is. The
-/// random numbers are those of a linear congruential generator, the same on every platform,
-/// and the clones of the listener (the simulation runs on clones) draw from the one sequence.
-class KickListener final : public QtRocket::CloneableSimulationListener<KickListener>
-{
-public:
-    KickListener(double size, std::uint64_t seed)
-      : m_size(size), m_state(std::make_shared<std::uint64_t>(seed))
-    {
-    }
-
-    [[nodiscard]] bool isSystemListener() const override { return true; }
-
-    void postStep(SimulationStatus& status) override
-    {
-        const Coordinate& velocity = status.getRocketVelocity();
-        status.setRocketVelocity(Coordinate{kicked(velocity.x), kicked(velocity.y),
-                                            kicked(velocity.z), velocity.weight});
-        const Coordinate& rotation = status.getRocketRotationVelocity();
-        status.setRocketRotationVelocity(Coordinate{kicked(rotation.x), kicked(rotation.y),
-                                                    kicked(rotation.z), rotation.weight});
-    }
-
-private:
-    /// @p value changed by a fraction of itself, uniform in [-m_size, m_size).
-    [[nodiscard]] double kicked(double value) const
-    {
-        constexpr std::uint64_t kMultiplier = 6364136223846793005ULL;  // Knuth's MMIX generator
-        constexpr std::uint64_t kIncrement  = 1442695040888963407ULL;
-        constexpr double        kTwoTo53    = 9007199254740992.0;
-        *m_state                            = (*m_state * kMultiplier) + kIncrement;
-        const double unit = (static_cast<double>(*m_state >> 11U) / kTwoTo53 * 2.0) - 1.0;
-        return value * (1.0 + (m_size * unit));
-    }
-
-    double                         m_size;
-    std::shared_ptr<std::uint64_t> m_state;
-};
-
-/// The golden form of the number @p value: itself, or the string of a value JSON cannot hold.
-[[nodiscard]] json numberJson(double value)
-{
-    if (std::isnan(value))
-    {
-        return "NaN";
-    }
-    if (std::isinf(value))
-    {
-        return value > 0 ? "Infinity" : "-Infinity";
-    }
-    return value;
-}
-
-/// Branch @p index of @p run in the form of a golden branch, as far as the comparison of the
-/// numbers reads it, with its time series in @p table.
-[[nodiscard]] json goldenBranchOf(const SimulationRun& run, std::size_t index, GoldenTable& table)
-{
-    const FlightDataBranch& branch = run.data->getBranch(index);
-    json                    form   = json::object();
-    form["rows"]                   = branch.getLength();
-    form["optimumAltitude"]        = numberJson(branch.getOptimumAltitude());
-    form["timeToOptimumAltitude"]  = numberJson(branch.getTimeToOptimumAltitude());
-    form["optimumDelay"]           = numberJson(branch.getOptimumDelay());
-    form["separationTime"]         = numberJson(branch.getSeparationTime());
-    form["columns"]                = json::array();
-    table                          = timeSeriesOf(branch);
-    for (const FlightDataType* type : csvTypes(branch))
-    {
-        form["columns"].push_back({{"min", numberJson(branch.getMinimum(*type))},
-                                   {"max", numberJson(branch.getMaximum(*type))}});
-    }
-    form["events"] = json::array();
-    for (const FlightEvent& event : branch.getEvents())
-    {
-        const Warning* warning = run.data->findWarning(event);
-        form["events"].push_back(
-            {{"time", numberJson(event.getTime())},
-             {"type", std::string{name(event.getType())}},
-             {"source",
-              event.getSource() == nullptr ? json(nullptr) : json(pathOrNull(event.getSource()))},
-             {"data", warning != nullptr ? goldenFormOf(*warning) : json(nullptr)}});
-    }
-    return form;
-}
-
-/// @p run in the form of the golden files of a simulation, as far as the comparison of the
-/// numbers (compareStableNumbers()) reads them: what a second run is compared with to see by
-/// how much a perturbation moves each number.
-[[nodiscard]] GoldenFiles goldenFilesOf(const SimulationRun& run)
-{
-    GoldenFiles files;
-    files.document["result"]   = {{"jitterReplacements", run.jitterReplacements}};
-    files.document["summary"]  = json::object();
-    files.document["warnings"] = json::array();
-    files.document["branches"] = json::array();
-    if (run.data == nullptr)
-    {
-        return files;
-    }
-    for (const StableSummaryValue& value : kStableSummaryValues)
-    {
-        files.document["summary"][std::string{value.key}] = numberJson((*run.data.*value.get)());
-    }
-    for (const Warning& warning : run.data->getWarningSet())
-    {
-        files.document["warnings"].push_back(goldenFormOf(warning));
-    }
-    files.tables.resize(run.data->getBranchCount());
-    for (std::size_t i = 0; i < run.data->getBranchCount(); i++)
-    {
-        files.document["branches"].push_back(goldenBranchOf(run, i, files.tables[i]));
-    }
-    return files;
-}
-
-/// The size of the kick of the sensitivity measurement: a relative 1e-10 per step.
-constexpr double kKickSize = 1e-10;
 
 /// The sensitivity of what the stable-step set compares: every simulation is run once more
 /// with a KickListener (a relative 1e-10 kick to the velocity and to the rotation velocity

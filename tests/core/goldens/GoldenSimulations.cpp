@@ -16,12 +16,15 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/SimulationAbort.h"
 #include "QtRocket/logging/Warning.h"
@@ -54,6 +57,8 @@
 #include "QtRocket/simulation/exception/SimulationListenerException.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
+#include "QtRocket/util/BigDecimal.h"
+#include "QtRocket/util/Config.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/Uuid.h"
@@ -286,13 +291,13 @@ struct TwinColumn
 };
 
 /// Whether row @p row is reproducible in every one of @p columns that is compared in it: every
-/// column in a row on the launch rod (@p onTheRod), at the margin kSensitivityMargin; every
+/// column in a row on the launch rod (@p onTheRod), at the margin of the rod of @p margins; every
 /// column but the noise-dominated out-of-plane ones in a later row, at the margin
-/// @p flightMargin.
+/// their margin of the free flight.
 [[nodiscard]] bool rowIsReproducible(const std::vector<TwinColumn>& columns, std::size_t row,
-                                     bool onTheRod, double flightMargin)
+                                     bool onTheRod, const SensitivityMargins& margins)
 {
-    const double margin = onTheRod ? kSensitivityMargin : flightMargin;
+    const double margin = onTheRod ? margins.rod : margins.flight;
     return std::ranges::all_of(columns, [row, onTheRod, margin](const TwinColumn& column) {
         return (column.rodOnly && !onTheRod) ||
                reproducible((*column.values)[row], (*column.twin)[row], column.tolerance, margin);
@@ -325,13 +330,13 @@ struct TwinColumn
 
 /// How far @p branch is reproducible: up to the first row in which a value of the perturbed
 /// run's branch @p twin (null: it has none) differs from the run's by more than the tolerance
-/// of its column over the margin of the row (kSensitivityMargin on the launch rod,
-/// @p flightMargin after it), the tolerances being those of the comparison with the golden time
+/// of its column over the margin of the row (of @p margins: that of the launch rod, and that
+/// of the free flight after it), the tolerances being those of the comparison with the golden time
 /// series @p table. A value that @p rule excludes from that comparison (a noise-dominated
 /// out-of-plane column, off the launch rod) does not count.
 [[nodiscard]] Horizon horizonOf(const FlightDataBranch& branch, const FlightDataBranch* twin,
                                 const GoldenTable& table, const RodOnlyRule& rule,
-                                double flightMargin)
+                                const SensitivityMargins& margins)
 {
     if (twin == nullptr)
     {
@@ -344,9 +349,8 @@ struct TwinColumn
     }
     const std::size_t rows             = std::min(branch.getLength(), twin->getLength());
     std::size_t       reproducibleRows = 0;
-    while (
-        reproducibleRows < rows &&
-        rowIsReproducible(columns, reproducibleRows, reproducibleRows < rule.rodRows, flightMargin))
+    while (reproducibleRows < rows &&
+           rowIsReproducible(columns, reproducibleRows, reproducibleRows < rule.rodRows, margins))
     {
         reproducibleRows++;
     }
@@ -368,11 +372,12 @@ struct TwinColumn
 }
 
 /// How far @p run, which has flight data as the perturbed run @p twin has, is reproducible when a
-/// row after the launch rod is judged at the margin @p flightMargin: the horizons of its
+/// row is judged at the margins @p margins: the horizons of its
 /// branches, and whether the whole run is reproducible (every branch to its last row, in a
 /// perturbed run with as many branches and jitter replacements and the same status).
 [[nodiscard]] Sensitivity sensitivityAt(const GoldenFiles& golden, const SimulationRun& run,
-                                        const SimulationRun& twin, double flightMargin)
+                                        const SimulationRun&      twin,
+                                        const SensitivityMargins& margins)
 {
     Sensitivity sensitivity;
     sensitivity.whole = run.data->getBranchCount() == twin.data->getBranchCount() &&
@@ -386,7 +391,7 @@ struct TwinColumn
             i < twin.data->getBranchCount() ? &twin.data->getBranch(i) : nullptr;
         const GoldenTable& table = i < golden.tables.size() ? golden.tables[i] : noTable;
         sensitivity.horizons.push_back(horizonOf(run.data->getBranch(i), twinBranch, table,
-                                                 rodOnlyRule(table, cleared), flightMargin));
+                                                 rodOnlyRule(table, cleared), margins));
         sensitivity.whole = sensitivity.whole && sensitivity.horizons.back().whole;
     }
     return sensitivity;
@@ -471,6 +476,7 @@ constexpr std::array<std::string_view, 17> kFileKeys{
     "variant", "options", "harness", "extensions", "skipped", "skipReason", "result", "summary",
     "warnings", "branches"};
 constexpr std::array<std::string_view, 3>  kConfigurationKeys{"index", "id", "name"};
+constexpr std::array<std::string_view, 4>  kExtensionKeys{"id", "type", "name", "config"};
 constexpr std::array<std::string_view, 29> kOptionKeys{
     "launchRodLength", "launchIntoWind", "launchRodAngle", "launchRodDirection", "windModelType",
     "averageWind", "multiLevelWind", "launchAltitude", "launchLatitude", "launchLongitude",
@@ -641,14 +647,46 @@ void compareHarness(Mismatches& m, const json& expected, const json& actual,
 
 // ------------------------------------------------------------------------------------ header
 
+/// Compares the extensions of a simulation with the golden "extensions": as many, and each one,
+/// in order, by its id, its type, its name and its configuration (goldenFormOf()). The
+/// configuration is compared as a whole, by its text, and reported as the two texts: the text
+/// tells an integer from a floating-point number of the same value (the dumper writes an
+/// Integer as 5 and a Double as 5.0), which the comparison of two JSON values does not.
+void compareExtensions(
+    Mismatches& m, const json& expected,
+    const std::vector<std::shared_ptr<QtRocket::SimulationExtension>>& extensions)
+{
+    m.integer("extensions: number", static_cast<std::int64_t>(expected.size()),
+              static_cast<std::int64_t>(extensions.size()));
+    for (std::size_t i = 0; i < std::min(extensions.size(), expected.size()); i++)
+    {
+        const std::string field  = std::format("extensions[{}]", i);
+        const json&       golden = expected.at(i);
+        const json        actual = goldenFormOf(*extensions[i]);
+        for (const std::string_view key : {"id", "type", "name"})
+        {
+            m.text(std::format("{}.{}", field, key), golden.at(key).get<std::string>(),
+                   actual.at(key).get<std::string>());
+        }
+        m.text(field + ".config", golden.at("config").dump(), actual.at("config").dump());
+        noteUncomparedKeys(m, field, golden, kExtensionKeys);
+    }
+}
+
 /// Compares what identifies the simulation: its index and name, its flight configuration, where
-/// its options come from, its variant, and that it has no extensions and was not skipped.
+/// its options come from, its variant, its extensions, and that it was not skipped. The name of
+/// the flight configuration is formatted with the preference store of the simulation (that of
+/// the load of its design; none for a simulation of a test rocket, whose names are those of an
+/// empty store, a fresh installation's).
 void compareHeader(Mismatches& m, const json& expected, const SimulationRun& run,
                    bool randomConfigurationId)
 {
-    const InMemoryPreferences  preferences;
-    const FlightConfiguration& config =
-        run.rocket->getFlightConfigurationByIndex(run.planned.configuration, true);
+    const InMemoryPreferences    installation;
+    const QtRocket::Preferences* stored      = run.simulation->getPreferences();
+    const QtRocket::Preferences& preferences = stored != nullptr ? *stored : installation;
+    const FlightConfiguration&   config =
+        std::as_const(*run.rocket)
+            .getFlightConfiguration(run.simulation->getFlightConfigurationId());
     m.integer("index", expected.at("index").get<std::int64_t>(),
               static_cast<std::int64_t>(run.planned.index));
     m.text("name", expected.at("name").get<std::string>(), run.simulation->getName());
@@ -663,12 +701,11 @@ void compareHeader(Mismatches& m, const json& expected, const SimulationRun& run
     m.text("flightConfiguration.name", configuration.at("name").get<std::string>(),
            config.getName(preferences));
     noteUncomparedKeys(m, "flightConfiguration", configuration, kConfigurationKeys);
-    m.text("optionsSource", expected.at("optionsSource").get<std::string>(), "applicationDefaults");
+    m.text("optionsSource", expected.at("optionsSource").get<std::string>(), run.optionsSource);
     m.text("variant", textOrNull(expected.at("variant")),
            run.planned.variant != nullptr ? std::string{run.planned.variant->description}
                                           : std::string{"null"});
-    m.integer("extensions: number", static_cast<std::int64_t>(expected.at("extensions").size()),
-              static_cast<std::int64_t>(run.simulation->getSimulationExtensions().size()));
+    compareExtensions(m, expected.at("extensions"), run.simulation->getSimulationExtensions());
     m.boolean("skipped", expected.at("skipped").get<bool>(), false);
     m.text("skipReason", textOrNull(expected.at("skipReason")), "null");
     noteUncomparedKeys(m, "", expected, kFileKeys);
@@ -866,6 +903,9 @@ struct BranchOf
     /// The noise-dominated out-of-plane columns of its golden time series, which are compared
     /// on the launch rod only (none in the strict comparison).
     RodOnlyRule rule;
+    /// Whether its golden time series is among the files: not in a set that is written as
+    /// documents alone, whose branches name no file ("csv" is null).
+    bool timeSeries{true};
 };
 
 /// Compares the data of @p event with the golden "data" @p expected, by its kind.
@@ -939,17 +979,75 @@ void compareEventData(Mismatches& m, Comparison& c, const std::string& field, co
     return state != nullptr && state->getIgnitionTime() <= horizon.time;
 }
 
-/// Compares the events of the branch with the golden "events": first their types and sources
-/// in order, as one text; then, when they are the same, the time and the data of each. The time
-/// of an event is reproducible when the branch recorded it in its reproducible part, or when
-/// that part fixes it (isTimedInTheReproduciblePart()). Returns the number of golden events
-/// compared.
+/// The name of the type of the event @p event of a run, and of the golden event @p event.
+[[nodiscard]] std::string typeOf(const FlightEvent* event)
+{
+    return std::string{name(event->getType())};
+}
+[[nodiscard]] std::string goldenTypeOf(const json* event)
+{
+    return event->at("type").get<std::string>();
+}
+
+/// Removes from the events @p events of a branch, which are in the order of the comparison,
+/// the TUMBLE events after its last STAGE_SEPARATION (none when it has no separation);
+/// @p type names the type of an event. Returns how many were removed.
+template <typename Event>
+[[nodiscard]] int removeTumblesAfterTheSeparation(std::vector<Event>& events,
+                                                  std::string (*type)(Event event))
+{
+    std::size_t separation = events.size();
+    for (std::size_t i = 0; i < events.size(); i++)
+    {
+        separation = type(events[i]) == "STAGE_SEPARATION" ? i : separation;
+    }
+    std::vector<Event> kept;
+    kept.reserve(events.size());
+    for (std::size_t i = 0; i < events.size(); i++)
+    {
+        if (i <= separation || type(events[i]) != "TUMBLE")
+        {
+            kept.push_back(events[i]);
+        }
+    }
+    const auto removed = static_cast<int>(events.size() - kept.size());
+    events             = std::move(kept);
+    return removed;
+}
+
+/// Compares the events of the branch with those of the golden branch @p expected: first their
+/// types and sources in order, as one text; then, when they are the same, the time and the data
+/// of each. The time of an event is reproducible when the branch recorded it in its
+/// reproducible part, or when that part fixes it (isTimedInTheReproduciblePart()). Under the
+/// rule of the tumbling dropped stages (Comparison::droppedStagesTumbleFreely) the TUMBLE events
+/// that a dropped stage without a recovery device records after its separation are left out on
+/// both sides, and the golden ones are counted as sensitive, each with its time; what the rule
+/// leaves open is whether and when such a stage tumbles, not how often: a run that records more
+/// than one TUMBLE after the separation does not match (the engine records the event when the
+/// stage starts to tumble, BasicEventSimulationEngine.java: only while the status is not
+/// tumbling yet). Returns the number of golden events compared.
 [[nodiscard]] int compareEvents(Mismatches& m, Comparison& c, const json& expected,
                                 const BranchOf& ours)
 {
-    const std::vector<const FlightEvent*> events   = orderedEvents(*ours.branch, c.strict);
-    const std::vector<const json*>        golden   = orderedGoldenEvents(expected, c.strict);
-    const std::string                     sequence = sequenceOf(events);
+    std::vector<const FlightEvent*> events = orderedEvents(*ours.branch, c.strict);
+    std::vector<const json*>        golden = orderedGoldenEvents(expected.at("events"), c.strict);
+    if (c.droppedStagesTumbleFreely && !c.strict && isUnrecoveredDroppedStage(expected))
+    {
+        // The rule of the tumbling dropped stages: a TUMBLE after the separation is compared
+        // on neither side. The golden ones are events, and times, that are not reproducible.
+        const int tumbles       = removeTumblesAfterTheSeparation(golden, goldenTypeOf);
+        const int tumblesOfOurs = removeTumblesAfterTheSeparation(events, typeOf);
+        c.sensitive.events += tumbles;
+        c.sensitive.numbers += tumbles;
+        if (tumblesOfOurs > 1)
+        {
+            m.note(
+                std::format("events: {} TUMBLE events after the last separation, where a "
+                            "stage starts to tumble once",
+                            tumblesOfOurs));
+        }
+    }
+    const std::string sequence = sequenceOf(events);
     m.text("events", sequenceOf(golden), sequence);
     if (sequenceOf(golden) != sequence)
     {
@@ -1144,6 +1242,24 @@ void compareExtreme(Mismatches& m, Comparison& c, const ColumnOf& column, const 
 
 // ------------------------------------------------------------------------------------ branch
 
+/// Compares the name of the file of the time series of branch @p index with the golden "csv"
+/// (goldenBranchCsv()): "<base name>_branch<index>.csv.gz" for a branch whose time series is
+/// among the golden files (@p timeSeries), and null for one of a set that is written as
+/// documents alone.
+void compareCsvName(Mismatches& m, const json& expected, std::size_t index,
+                    const PlannedSimulation& planned, bool timeSeries)
+{
+    const QtRocket::Result<std::optional<std::string>> csv = goldenBranchCsv(expected);
+    if (!csv)
+    {
+        m.note("csv: " + csv.error().message);
+        return;
+    }
+    m.text("csv", csv->value_or("null"),
+           timeSeries ? std::format("{}_branch{}.csv.gz", baseName(planned), index)
+                      : std::string{"null"});
+}
+
 /// Compares the header of the branch with the golden branch @p expected: its index, name and
 /// source component, the name of its file and its excluded columns; the separation time when
 /// the stage separated in the reproducible part; and, when the whole branch is reproducible, its
@@ -1170,20 +1286,38 @@ void compareBranchHeader(Mismatches& m, Comparison& c, const json& expected, std
     // The time of the STAGE_SEPARATION event (NaN without one): reproducible like that event's.
     compareTime(m, c, "separationTime", goldenValue(expected.at("separationTime")),
                 branch.getSeparationTime(), !(branch.getSeparationTime() > ours.horizon.time));
-    m.text("csv", expected.at("csv").get<std::string>(),
-           std::format("{}_branch{}.csv.gz", baseName(planned), index));
+    compareCsvName(m, expected, index, planned, ours.timeSeries);
     m.text("excludedColumns", joined(expected.at("excludedColumns")), excludedKeys(branch));
     noteUncomparedKeys(m, "", expected, kBranchKeys);
 }
 
 /// The golden branch @p expected of a simulation whose rocket clears the launch rod at
-/// @p cleared (nullopt: never), and its time series @p table.
+/// @p cleared (nullopt: never), and its time series @p table; @p timeSeries says whether that is
+/// one of the golden files, or the columns of a branch without one (columnsWithoutRows()).
 struct GoldenBranch
 {
     const json*           expected{nullptr};
     const GoldenTable*    table{nullptr};
     std::optional<double> cleared;
+    bool                  timeSeries{true};
 };
+
+/// The time series of the golden branch @p branch of a set that is written as documents alone
+/// (the stable-step set of the examples: GoldenManifest::hasStableTimeSeries()): the columns its
+/// document names, and no row. A branch of a run compared with it is compared in everything
+/// that is no number of its trajectory: its header, with a "csv" that has to be null, its
+/// columns by their keys, names, symbols and whether they are built in, and its events by their
+/// types, sources and data; no row, and every number as one of a run of which nothing is
+/// reproducible.
+[[nodiscard]] GoldenTable columnsWithoutRows(const json& branch)
+{
+    GoldenTable table;
+    for (const json& column : branch.at("columns"))
+    {
+        table.columns.push_back(column.at("key").get<std::string>());
+    }
+    return table;
+}
 
 /// The rule of the out-of-plane noise columns for the golden time series @p golden, as the
 /// comparison @p c applies it: not at all when it is strict.
@@ -1230,12 +1364,13 @@ void compareBranch(Comparison& c, std::size_t index, const GoldenBranch& golden,
 {
     Mismatches         m(std::format("{} branch {}", c.context, index));
     const GoldenTable& table = *golden.table;
-    const BranchOf     ours{.data    = run.data.get(),
-                            .branch  = &run.data->getBranch(index),
-                            .rocket  = run.rocket.get(),
-                            .horizon = sensitivity.horizons.at(index),
-                            .whole   = sensitivity.whole,
-                            .rule    = ruleOf(c, golden)};
+    const BranchOf     ours{.data       = run.data.get(),
+                            .branch     = &run.data->getBranch(index),
+                            .rocket     = run.rocket.get(),
+                            .horizon    = sensitivity.horizons.at(index),
+                            .whole      = sensitivity.whole,
+                            .rule       = ruleOf(c, golden),
+                            .timeSeries = golden.timeSeries};
     compareBranchHeader(m, c, *golden.expected, index, ours, run.planned);
 
     // The rows compared: those that are reproducible, as far as both sides have them.
@@ -1243,7 +1378,7 @@ void compareBranch(Comparison& c, std::size_t index, const GoldenBranch& golden,
                                        ours.branch->getLength(), table.rows.size()});
     c.compared.branches++;
     c.compared.columns += compareColumns(m, c, golden.expected->at("columns"), table, ours, rows);
-    c.compared.events += compareEvents(m, c, golden.expected->at("events"), ours);
+    c.compared.events += compareEvents(m, c, *golden.expected, ours);
     countBranch(c, ours.rule, rows, ours.horizon.whole);
     c.report += m.report();
 }
@@ -1273,11 +1408,26 @@ void compareData(Comparison& c, const GoldenFiles& golden, const SimulationRun& 
               static_cast<std::int64_t>(run.data->getBranchCount()));
     c.report += m.report();
     const std::optional<double> cleared = goldenRodClearance(document);
-    for (std::size_t i = 0;
-         i < std::min({branches.size(), run.data->getBranchCount(), golden.tables.size()}); i++)
+    for (std::size_t i = 0; i < std::min(branches.size(), run.data->getBranchCount()); i++)
     {
+        if (i < golden.tables.size())
+        {
+            compareBranch(c, i,
+                          {.expected   = &branches.at(i),
+                           .table      = &golden.tables[i],
+                           .cleared    = cleared,
+                           .timeSeries = true},
+                          run, sensitivity);
+            continue;
+        }
+        // A branch whose time series is not among the golden files: everything of it that is
+        // no number of its trajectory, its "csv" among it, which then has to be null.
+        const GoldenTable columns = columnsWithoutRows(branches.at(i));
         compareBranch(c, i,
-                      {.expected = &branches.at(i), .table = &golden.tables[i], .cleared = cleared},
+                      {.expected   = &branches.at(i),
+                       .table      = &columns,
+                       .cleared    = cleared,
+                       .timeSeries = false},
                       run, sensitivity);
     }
 }
@@ -1440,7 +1590,7 @@ SimulationRun runSimulation(const TestRocketMaker& maker, std::size_t index,
     run.planned = planned.at(index);
 
     const InstallationDefaults defaults;
-    run.simulation = std::make_unique<Simulation>(*run.rocket);
+    run.simulation = std::make_shared<Simulation>(*run.rocket);
     run.simulation->setFlightConfigurationId(
         run.rocket->getFlightConfigurationByIndex(run.planned.configuration, true).getId());
     run.simulation->setName(run.planned.name);
@@ -1450,6 +1600,53 @@ SimulationRun runSimulation(const TestRocketMaker& maker, std::size_t index,
         run.planned.variant->apply(run.simulation->getOptions());
     }
     run.harness = makeReproducible(run.simulation->getOptions());
+    if (variation.stableTimeStep.has_value())
+    {
+        useStableTimeStep(run.simulation->getOptions(), run.harness, *variation.stableTimeStep);
+    }
+    simulate(run, variation.perturbation);
+    return run;
+}
+
+int configurationIndexOf(const Rocket& rocket, const FlightConfigurationId& id)
+{
+    // The dumper walks the rocket's configurations, the default one first, and stops at the id.
+    if (id.isDefaultId())
+    {
+        return 0;
+    }
+    const std::vector<FlightConfigurationId> ids   = rocket.getIds();
+    const auto                               found = std::ranges::find(ids, id);
+    return static_cast<int>(found - ids.begin()) + 1;
+}
+
+SimulationRun runDocumentSimulation(const std::shared_ptr<LoadedDocument>& document,
+                                    std::size_t index, const RunVariation& variation)
+{
+    const QtRocket::Test::DefaultUnitsGuard units;  // warnings print lengths and speeds
+    SimulationRun                           run;
+    if (document == nullptr || document->document == nullptr)
+    {
+        run.problem = "no document";
+        return run;
+    }
+    const std::size_t simulations = document->document->getSimulationCount();
+    if (index >= simulations)
+    {
+        run.problem = std::format("the document has {} simulations", simulations);
+        return run;
+    }
+    run.document = document;
+    // The rocket is the document's: the run shares the document and points at its rocket.
+    run.rocket        = std::shared_ptr<Rocket>(document, &document->document->getRocket());
+    run.simulation    = document->document->getSimulation(index);
+    run.optionsSource = kOptionsOfTheDocument;
+    run.planned       = {.index         = index,
+                         .configuration = configurationIndexOf(
+                             *run.rocket, run.simulation->getFlightConfigurationId()),
+                         .name    = run.simulation->getName(),
+                         .variant = nullptr};
+    run.harness       = makeReproducible(run.simulation->getOptions());
     if (variation.stableTimeStep.has_value())
     {
         useStableTimeStep(run.simulation->getOptions(), run.harness, *variation.stableTimeStep);
@@ -1681,7 +1878,7 @@ double columnScale(const GoldenTable& table, std::size_t column)
 }
 
 Sensitivity sensitivityOf(const GoldenFiles& golden, const SimulationRun& run,
-                          const SimulationRun& twin)
+                          const SimulationRun& twin, const SensitivityMargins& margins)
 {
     if (run.data == nullptr || twin.data == nullptr)
     {
@@ -1692,8 +1889,14 @@ Sensitivity sensitivityOf(const GoldenFiles& golden, const SimulationRun& run,
     // A run that the perturbed run reproduces to its last row at the margin of the launch rod
     // is whole: nothing grows in it. Any other run diverges somewhere, and the reproducible
     // part of its free flight ends at the margin of the free flight.
-    const Sensitivity steady = sensitivityAt(golden, run, twin, kSensitivityMargin);
-    return steady.whole ? steady : sensitivityAt(golden, run, twin, kFlightSensitivityMargin);
+    if (!margins.steadyRunIsWhole)
+    {
+        return sensitivityAt(golden, run, twin, margins);
+    }
+    const Sensitivity steady = sensitivityAt(
+        golden, run, twin,
+        {.rod = margins.rod, .flight = margins.rod, .steadyRunIsWhole = margins.steadyRunIsWhole});
+    return steady.whole ? steady : sensitivityAt(golden, run, twin, margins);
 }
 
 // ================================================================================ comparison
@@ -1854,10 +2057,11 @@ SimulationComparison compareSimulation(const GoldenFiles& golden, const Simulati
 {
     const QtRocket::Test::DefaultUnitsGuard units;  // the texts of the warnings print units
     Comparison                              c;
-    c.context            = context;
-    c.strict             = mode.strict;
-    c.measurements       = mode.measurements;
-    const json& document = golden.document;
+    c.context                   = context;
+    c.strict                    = mode.strict;
+    c.droppedStagesTumbleFreely = mode.droppedStagesTumbleFreely;
+    c.measurements              = mode.measurements;
+    const json& document        = golden.document;
 
     Mismatches header(context);
     compareHeader(header, document, run, mode.randomConfigurationId);
@@ -1941,6 +2145,416 @@ std::int64_t floorRows(const GoldenFiles& files)
     return rows;
 }
 
+bool isUnrecoveredDroppedStage(const json& branch)
+{
+    bool separated = false;
+    bool recovered = false;
+    for (const json& event : branch.at("events"))
+    {
+        const std::string type = event.at("type").get<std::string>();
+        separated              = separated || type == "STAGE_SEPARATION";
+        recovered              = recovered || type == "RECOVERY_DEVICE_DEPLOYMENT";
+    }
+    return branch.at("index").get<std::int64_t>() > 0 && separated && !recovered;
+}
+
+int tumblesOfADroppedStage(const json& branch)
+{
+    if (!isUnrecoveredDroppedStage(branch))
+    {
+        return 0;
+    }
+    int tumbles = 0;
+    for (const json& event : branch.at("events"))
+    {
+        const std::string type = event.at("type").get<std::string>();
+        tumbles = type == "STAGE_SEPARATION" ? 0 : tumbles + (type == "TUMBLE" ? 1 : 0);
+    }
+    return tumbles;
+}
+
+int floorNumbers(const GoldenFiles& files)
+{
+    const std::optional<double> cleared = goldenRodClearance(files.document);
+    if (!cleared.has_value())
+    {
+        return 0;
+    }
+    int numbers = 1;  // the launch rod velocity
+    for (const json& branch : files.document.at("branches"))
+    {
+        for (const json& event : branch.at("events"))
+        {
+            numbers += goldenValue(event.at("time")) <= *cleared ? 1 : 0;
+        }
+    }
+    return numbers;
+}
+
+std::int64_t floorValues(const GoldenFiles& files)
+{
+    const std::optional<double> cleared = goldenRodClearance(files.document);
+    std::int64_t                values  = 0;
+    for (const GoldenTable& table : files.tables)
+    {
+        values +=
+            static_cast<std::int64_t>(rowsUpToTheClearance(table, cleared) * table.columns.size());
+    }
+    return values;
+}
+
+// ============================================================ a run next to its golden files
+
+namespace
+{
+
+/// The golden minima and maxima of column @p column of branch @p branch of @p files that the
+/// golden column attains only off the launch rod (0, 1 or 2): what the rule @p rule of the
+/// branch excludes of them whatever the run has.
+[[nodiscard]] std::int64_t goldenExtremesOffTheRod(const GoldenFiles& files, std::size_t branch,
+                                                   const RodOnlyRule& rule, std::size_t column)
+{
+    const GoldenTable&        table  = files.tables.at(branch);
+    const json&               golden = files.document.at("branches").at(branch).at("columns");
+    const std::vector<double> values =
+        table.column(table.columns.at(column)).value_or(std::vector<double>{});
+    std::int64_t excluded = 0;
+    for (const char* extreme : {"min", "max"})
+    {
+        excluded +=
+            column < golden.size() &&
+                    rule.excludesExtreme(column, values, goldenValue(golden.at(column).at(extreme)))
+                ? 1
+                : 0;
+    }
+    return excluded;
+}
+
+/// How many minima and maxima the rule of the out-of-plane noise columns can exclude from the
+/// comparison of a run: in a branch that is reproducible as a whole at least those that the
+/// golden column attains only off the launch rod (the files alone say so) and at most two per
+/// noise column (the run's column can attain its own only there as well); in any other branch
+/// none, since its minima and maxima are sensitive.
+struct ExtremeBounds
+{
+    std::int64_t atLeast{0};
+    std::int64_t atMost{0};
+};
+[[nodiscard]] ExtremeBounds extremeBounds(const GoldenRun& run)
+{
+    ExtremeBounds               bounds;
+    const std::optional<double> cleared = goldenRodClearance(run.files.document);
+    for (std::size_t i = 0; i < run.sensitivity.horizons.size() && i < run.files.tables.size(); i++)
+    {
+        if (!run.sensitivity.horizons[i].whole)
+        {
+            continue;
+        }
+        const RodOnlyRule rule = rodOnlyRule(run.files.tables[i], cleared);
+        bounds.atMost += 2 * rule.noiseColumnCount();
+        for (std::size_t column = 0; column < rule.noise.size(); column++)
+        {
+            bounds.atLeast += goldenExtremesOffTheRod(run.files, i, rule, column);
+        }
+    }
+    return bounds;
+}
+
+/// "848+283" for a flight of two branches with 848 and 283 rows.
+[[nodiscard]] std::string rowCounts(const std::vector<std::size_t>& rows)
+{
+    std::string text;
+    for (const std::size_t count : rows)
+    {
+        text += std::format("{}{}", text.empty() ? "" : "+", count);
+    }
+    return text;
+}
+
+/// The difference of @p value from @p other as a fraction of @p scale, the scale of their
+/// column: 0 for the same number (two NaN, the same infinity), and infinite for two that differ
+/// in a column without a scale, or of which one is no number.
+[[nodiscard]] double fractionOfTheScale(double value, double other, double scale)
+{
+    if (std::isnan(value) || std::isnan(other))
+    {
+        return std::isnan(value) == std::isnan(other) ? 0.0
+                                                      : std::numeric_limits<double>::infinity();
+    }
+    if (value == other)
+    {
+        return 0.0;
+    }
+    const double difference = std::abs(value - other);
+    return scale > 0 && std::isfinite(difference) ? difference / scale
+                                                  : std::numeric_limits<double>::infinity();
+}
+
+/// The largest of the differences of the values of one row, and the column it is in.
+struct RowDifference
+{
+    double      largest{0};
+    std::size_t column{0};
+
+    void add(double difference, std::size_t index)
+    {
+        if (difference > largest)
+        {
+            largest = difference;
+            column  = index;
+        }
+    }
+};
+
+/// A branch of a run and of its perturbed run next to its golden time series, column by column.
+struct ProfiledBranch
+{
+    const GoldenTable*                      table{nullptr};
+    RodOnlyRule                             rule;
+    std::vector<std::string>                keys;
+    std::vector<const std::vector<double>*> values;
+    std::vector<const std::vector<double>*> twin;
+    std::vector<double>                     scales;
+    std::size_t                             rows{0};  ///< the rows all three have
+};
+
+/// Branch @p index of @p run for the row profile; a column the perturbed run lacks is left out.
+[[nodiscard]] ProfiledBranch profiledBranch(const GoldenRun& run, std::size_t index)
+{
+    const FlightDataBranch& branch = run.run.data->getBranch(index);
+    const FlightDataBranch& twin   = run.twin.data->getBranch(index);
+    ProfiledBranch          profiled;
+    profiled.table = &run.files.tables[index];
+    profiled.rule  = rodOnlyRule(*profiled.table, goldenRodClearance(run.files.document));
+    profiled.rows  = std::min({branch.getLength(), twin.getLength(), profiled.table->rows.size()});
+    const std::vector<const FlightDataType*> types = csvTypes(branch);
+    for (std::size_t i = 0; i < std::min(types.size(), profiled.table->columns.size()); i++)
+    {
+        profiled.keys.push_back(columnKey(*types[i]));
+        profiled.values.push_back(branch.getView(*types[i]));
+        profiled.twin.push_back(twin.getView(*types[i]));
+        profiled.scales.push_back(columnScale(*profiled.table, i));
+    }
+    return profiled;
+}
+
+/// The largest differences of row @p row of @p branch: of the perturbed run from the run, which
+/// decides whether the row is reproducible, and of the run from the golden file, which is what
+/// the comparison finds; over the columns that are compared in the row (not a noise-dominated
+/// out-of-plane column after the launch rod).
+struct RowProfile
+{
+    RowDifference perturbed;
+    RowDifference golden;
+};
+[[nodiscard]] RowProfile rowProfile(const ProfiledBranch& branch, std::size_t row)
+{
+    RowProfile profile;
+    for (std::size_t i = 0; i < branch.values.size(); i++)
+    {
+        if (branch.rule.excludes(i, row) || branch.values[i] == nullptr ||
+            branch.twin[i] == nullptr)
+        {
+            continue;
+        }
+        const double value = (*branch.values[i])[row];
+        profile.perturbed.add(fractionOfTheScale(value, (*branch.twin[i])[row], branch.scales[i]),
+                              i);
+        profile.golden.add(fractionOfTheScale(value, branch.table->rows[row][i], branch.scales[i]),
+                           i);
+    }
+    return profile;
+}
+
+/// The row profile of branch @p index of @p run: one line per row, up to the first row that no
+/// margin makes reproducible (the perturbed run moves a value of it by more than the tolerance
+/// of the comparison itself, kValueRelative of the scale of its column).
+[[nodiscard]] std::string branchProfile(const GoldenRun& run, std::size_t index)
+{
+    const ProfiledBranch branch = profiledBranch(run, index);
+    std::string          text;
+    for (std::size_t row = 0; row < branch.rows; row++)
+    {
+        const RowProfile profile = rowProfile(branch, row);
+        text += std::format("{}\t{}\t{}\t{}\t{:.3e}\t{}\t{:.3e}\t{}\n", run.context, index, row,
+                            row < branch.rule.rodRows ? "rod" : "free", profile.perturbed.largest,
+                            branch.keys.at(profile.perturbed.column), profile.golden.largest,
+                            branch.keys.at(profile.golden.column));
+        if (profile.perturbed.largest > kValueRelative)
+        {
+            break;
+        }
+    }
+    return text;
+}
+
+}  // namespace
+
+void compareWithItsFiles(GoldenRun& result, std::string_view input,
+                         const GoldenSimulation& simulation, const ComparisonMode& mode,
+                         const SensitivityMargins& margins)
+{
+    result.context               = std::format("{}/{}", input, baseName(result.run.planned));
+    result.mode                  = mode;
+    result.randomConfigurationId = mode.randomConfigurationId;
+    result.sensitivity           = sensitivityOf(result.files, result.run, result.twin, margins);
+    Mismatches m(result.context);
+    m.text("name in the manifest", simulation.name, result.run.planned.name);
+    m.text("file in the manifest", simulation.json, result.context + ".json");
+    result.comparison =
+        compareSimulation(result.files, result.run, result.sensitivity, result.context, mode);
+    result.comparison.report = m.report() + result.comparison.report;
+}
+
+std::string floorProblem(const GoldenRun& run)
+{
+    const std::optional<double> cleared = goldenRodClearance(run.files.document);
+    if (!cleared.has_value())
+    {
+        return run.sensitivity.whole
+                   ? std::string{}
+                   : std::format(
+                         "{}: never clears the launch rod, but is not reproducible as a "
+                         "whole\n",
+                         run.context);
+    }
+    std::string problem;
+    for (std::size_t i = 0; i < run.sensitivity.horizons.size() && i < run.files.tables.size(); i++)
+    {
+        const std::size_t floor = rowsUpToTheClearance(run.files.tables[i], cleared);
+        if (run.sensitivity.horizons[i].rows < floor)
+        {
+            problem += std::format(
+                "{} branch {}: {} reproducible rows only, the launch rod is "
+                "cleared at row {} (t = {} s)\n",
+                run.context, i, run.sensitivity.horizons[i].rows, floor, *cleared);
+        }
+    }
+    return problem;
+}
+
+std::ostream& operator<<(std::ostream& out, const NoiseCounts& counts)
+{
+    return out << std::format("{} noise columns with {} values off the rod", counts.columns,
+                              counts.values);
+}
+
+NoiseCounts noiseCounts(const GoldenFiles& files)
+{
+    NoiseCounts                 counts;
+    const std::optional<double> cleared = goldenRodClearance(files.document);
+    for (const GoldenTable& table : files.tables)
+    {
+        const RodOnlyRule rule = rodOnlyRule(table, cleared);
+        counts += NoiseCounts{.columns = rule.noiseColumnCount(), .values = rule.excludedValues()};
+    }
+    return counts;
+}
+
+std::string exclusionProblem(const GoldenRun& run)
+{
+    const SimulationCounts& excluded = run.comparison.excluded;
+    if (!goldenRodClearance(run.files.document).has_value() && excluded != SimulationCounts{})
+    {
+        return std::format("{}: never clears the launch rod, but the rule excluded {}\n",
+                           run.context, toText(excluded));
+    }
+    const ExtremeBounds bounds = extremeBounds(run);
+    if (excluded.numbers < bounds.atLeast || excluded.numbers > bounds.atMost)
+    {
+        return std::format(
+            "{}: {} minima and maxima excluded, the rule allows {} to {} in the branches that "
+            "are reproducible as a whole\n",
+            run.context, excluded.numbers, bounds.atLeast, bounds.atMost);
+    }
+    return {};
+}
+
+void addComparedRun(InputResult& result, const GoldenRun& run, std::string_view file)
+{
+    if (!run.problem.empty())
+    {
+        result.problems += std::format("{}: {}\n", file, run.problem);
+        return;
+    }
+    result.golden += run.golden;
+    result.compared += run.comparison.compared;
+    result.sensitive += run.comparison.sensitive;
+    result.excluded += run.comparison.excluded;
+    result.report += run.comparison.report;
+    result.flights += goldenRodClearance(run.files.document).has_value() ? 1 : 0;
+    result.whole += run.sensitivity.whole ? 1 : 0;
+    result.floorRows += floorRows(run.files);
+    result.floorValues += floorValues(run.files);
+    result.floorNumbers += floorNumbers(run.files);
+    result.noise += noiseCounts(run.files);
+    result.problems += floorProblem(run);
+    result.problems += exclusionProblem(run);
+}
+
+// -------------------------------------------------------------------------- the measurements
+
+std::string sensitivityText(const GoldenRun& run)
+{
+    std::string text;
+    for (std::size_t i = 0; i < run.sensitivity.horizons.size(); i++)
+    {
+        const Horizon& horizon = run.sensitivity.horizons[i];
+        if (horizon.whole || i >= run.files.tables.size() || i >= run.twin.data->getBranchCount())
+        {
+            continue;
+        }
+        text += std::format(
+            " branch {}: {} of {} rows (until t = {:.4f} s); the run has {} rows, "
+            "the perturbed run {};",
+            i, horizon.rows, run.files.tables[i].rows.size(), horizon.time,
+            run.run.data->getBranch(i).getLength(), run.twin.data->getBranch(i).getLength());
+    }
+    return text;
+}
+
+std::string overviewLine(const GoldenRun& run, const Measurements& measurements)
+{
+    if (run.run.data == nullptr)
+    {
+        return std::format("{}\tno flight data\n", run.context);
+    }
+    const json&              summary = run.files.document.at("summary");
+    std::vector<std::size_t> rows;
+    std::vector<std::size_t> goldenRows;
+    rows.reserve(run.run.data->getBranchCount());
+    goldenRows.reserve(run.files.tables.size());
+    for (std::size_t i = 0; i < run.run.data->getBranchCount(); i++)
+    {
+        rows.push_back(run.run.data->getBranch(i).getLength());
+    }
+    for (const GoldenTable& table : run.files.tables)
+    {
+        goldenRows.push_back(table.rows.size());
+    }
+    return std::format("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1e}\n", run.context,
+                       run.run.data->getMaxAltitude(), goldenValue(summary.at("maxAltitude")),
+                       run.run.data->getFlightTime(), goldenValue(summary.at("flightTime")),
+                       rowCounts(rows), rowCounts(goldenRows),
+                       measurements.largestOfTheTimeSeries(run.context) * kValueRelative);
+}
+
+std::string runProfile(const GoldenRun& run)
+{
+    std::string text;
+    if (run.run.data == nullptr || run.twin.data == nullptr)
+    {
+        return text;
+    }
+    const std::size_t branches = std::min(
+        {run.run.data->getBranchCount(), run.twin.data->getBranchCount(), run.files.tables.size()});
+    for (std::size_t i = 0; i < branches; i++)
+    {
+        text += branchProfile(run, i);
+    }
+    return text;
+}
+
 // ============================================================ the scaffolding of the tests
 
 std::string makerTestName(const ::testing::TestParamInfo<TestRocketMaker>& paramInfo)
@@ -2006,6 +2620,106 @@ json goldenFormOf(const Warning& warning)
     {
         form["parameter"] = *parameter;
     }
+    return form;
+}
+
+SimulationComparison comparisonAfter(const GoldenRun& run, void (*change)(GoldenFiles& files))
+{
+    GoldenFiles files = run.files;
+    if (change != nullptr)
+    {
+        change(files);
+    }
+    return compareSimulation(files, run.run, run.sensitivity, run.context, run.mode);
+}
+
+std::string mutationProblem(const Mutation& mutation, const GoldenRun& run)
+{
+    const std::string report = comparisonAfter(run, mutation.apply).report;
+    const std::string start =
+        std::format("{}{}:\n{}", run.context, mutation.heading, mutation.line);
+    if (!report.starts_with(start))
+    {
+        return std::format("{}: the report\n{}\ndoes not start with\n{}\n", mutation.name, report,
+                           start);
+    }
+    if (std::ranges::count(report, '\n') != 2)
+    {
+        return std::format("{}: the report is not one line:\n{}\n", mutation.name, report);
+    }
+    return {};
+}
+
+namespace
+{
+
+/// A number as the golden files have it (Json.number()): itself, or the string "NaN",
+/// "Infinity" or "-Infinity".
+[[nodiscard]] json numberForm(double value)
+{
+    if (std::isnan(value))
+    {
+        return "NaN";
+    }
+    if (std::isinf(value))
+    {
+        return value > 0 ? "Infinity" : "-Infinity";
+    }
+    return value;
+}
+
+/// goldenFormOf() of one value of a Config.
+[[nodiscard]] json valueForm(const Config::Value& value)
+{
+    const Config::Value::Variant& data = value.variant();
+    if (const bool* flag = std::get_if<bool>(&data))
+    {
+        return *flag;
+    }
+    if (const std::string* text = std::get_if<std::string>(&data))
+    {
+        return *text;
+    }
+    if (const Config::List* list = std::get_if<Config::List>(&data))
+    {
+        json array = json::array();
+        for (const Config::Value& element : *list)
+        {
+            array.push_back(valueForm(element));
+        }
+        return array;
+    }
+    if (std::holds_alternative<float>(data) || std::holds_alternative<double>(data) ||
+        std::holds_alternative<QtRocket::BigDecimal>(data))
+    {
+        return numberForm(value.doubleValue().value_or(0.0));
+    }
+    return value.longValue().value_or(0);  // a Byte, a Short, an Integer or a Long
+}
+
+}  // namespace
+
+json goldenFormOf(const Config& config)
+{
+    json form = json::object();
+    for (const std::string& key : config.keySet())
+    {
+        if (const std::optional<Config::Value> value = config.get(key))
+        {
+            form[key] = valueForm(*value);
+        }
+    }
+    return form;
+}
+
+json goldenFormOf(const QtRocket::SimulationExtension& extension)
+{
+    const std::string id   = extension.getId();
+    json              form = json::object();
+    form["id"]             = id;
+    form["type"]           = id.substr(id.rfind('.') + 1);
+    form["name"]           = extension.getName();
+    form["config"]         = goldenFormOf(extension.getConfig());
     return form;
 }
 

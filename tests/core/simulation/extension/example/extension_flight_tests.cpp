@@ -105,8 +105,8 @@
 //   The dropped booster tumbles from 0.15 s after the separation, in steps of the shortest
 //   size: its numbers of rows differ by up to 11 % between the runs and the number of its rows
 //   without a roll rate by 19 %, under any kick, so the counts of a dropped stage's branch are
-//   not compared (as rule T of simulation_golden_tests.cpp has it), nor is the number of steps
-//   of the whole flight. Its times and its altitudes after the separation differ by up to
+//   not compared (as rule T of simulation_stable_golden_tests.cpp has it), nor is the number of
+//   steps of the whole flight. Its times and its altitudes after the separation differ by up to
 //   3.6 % and are compared at 0.2, a sanity check. What is exact in its branch is what
 //   matters: the columns, the events in order, and, with the RollControl on the fins of the
 //   sustainer, the fin cant at the limit when the branch ends. With the RollControl on the

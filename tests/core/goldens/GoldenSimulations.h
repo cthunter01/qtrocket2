@@ -16,12 +16,22 @@
 // reproducible of a flight, and why no more is, is described at the top of that file) and
 // simulation_stable_golden_tests.cpp the stable-step set (0.01 s, whole flights, with rules of its
 // own that live in that file). The comparison of the default-step set, compareSimulation(), also
-// compares everything of a stable-step simulation that is not a number of the trajectory. One rule
-// is the same in both comparisons and lives here: an out-of-plane column that is noise-dominated
-// is compared on the launch rod only (rule N of the stable-step set).
+// compares everything of a stable-step simulation that is not a number of the trajectory, of a
+// simulation whose golden files are its document alone as well (the stable-step set of the
+// examples, example_simulation_stable_golden_tests.cpp: a branch without a time series is
+// compared in everything but its rows). One rule is the same in both comparisons and lives here:
+// an out-of-plane column that is noise-dominated is compared on the launch rod only (rule N of
+// the stable-step set). What the two comparisons of the stable-step sets share beyond that is in
+// GoldenStableSimulations.h.
 //
 // The set-up and the run are those of a test rocket of tests/core/rocket/TestRockets.h
-// (runSimulation() builds the rocket and the harness's document from a TestRocketMaker).
+// (runSimulation() builds the rocket and the harness's document from a TestRocketMaker), or
+// those of a simulation of a loaded design (runDocumentSimulation(): the simulation as the file
+// has it, with its own options and extensions, on the rocket of its document, which is how the
+// harness runs the simulations of OpenRocket's examples; example_simulation_golden_tests.cpp
+// compares them). What the two kinds of tests do with a run and its files is here as well: the
+// run next to its perturbed run and its files (GoldenRun), the floor under what is compared,
+// the sums of an input, and what the measurements print.
 
 #include <algorithm>
 #include <array>
@@ -42,8 +52,10 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
+#include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/DefaultSimulationOptionFactory.h"
@@ -54,8 +66,10 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
+#include "QtRocket/util/Config.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "goldens/GoldenData.h"
@@ -190,15 +204,26 @@ public:
     }
 };
 
+/// The golden "optionsSource" of a simulation of a test rocket: the options are those of a fresh
+/// installation (InstallationDefaults), and of a simulation of a loaded design: its own.
+inline constexpr std::string_view kOptionsOfTheApplication = "applicationDefaults";
+inline constexpr std::string_view kOptionsOfTheDocument    = "document";
+
 /// One golden simulation as QtRocket runs it.
 struct SimulationRun
 {
-    std::string                 problem;  ///< why there is no run, else ""
-    PlannedSimulation           planned;
-    std::unique_ptr<Rocket>     rocket;      ///< the caller's rocket
-    std::unique_ptr<Simulation> simulation;  ///< with the options the run used
-    nlohmann::json              harness;     ///< what makeReproducible() changed
-    std::string                 status;      ///< "completed" or "exception"
+    std::string       problem;  ///< why there is no run, else ""
+    PlannedSimulation planned;
+    /// The loaded design whose simulation was run (runDocumentSimulation()): it owns the rocket
+    /// and holds the simulation, and the run keeps it alive. Null for a simulation of a test
+    /// rocket, which the run owns with its rocket.
+    std::shared_ptr<LoadedDocument> document;
+    std::shared_ptr<Rocket>         rocket;      ///< the run's own rocket, or the document's
+    std::shared_ptr<Simulation>     simulation;  ///< with the options the run used
+    /// The golden "optionsSource": where the options of the simulation come from.
+    std::string_view            optionsSource{kOptionsOfTheApplication};
+    nlohmann::json              harness;  ///< what makeReproducible() changed
+    std::string                 status;   ///< "completed" or "exception"
     std::optional<std::string>  exceptionType;
     std::optional<std::string>  exceptionMessage;
     std::int64_t                jitterReplacements{0};
@@ -228,6 +253,31 @@ void useStableTimeStep(SimulationOptions& options, nlohmann::json& harness, doub
 /// perturbation of @p variation, if any.
 [[nodiscard]] SimulationRun runSimulation(const TestRocketMaker& maker, std::size_t index,
                                           const RunVariation& variation);
+
+/// SimulationDumper.dump()'s "flightConfiguration.index": the place of the configuration with
+/// the id @p id among the configurations of @p rocket, the default one first (index 0). An id
+/// the rocket has no configuration of gets the number of its configurations, the default
+/// included, as the dumper's loop leaves it.
+[[nodiscard]] int configurationIndexOf(const Rocket& rocket, const FlightConfigurationId& id);
+
+/// GoldenDumper.examplePass() for one simulation of a loaded design: simulation @p index of
+/// @p document as the file has it, with its own flight configuration, options and extensions;
+/// the harness's changes to its options (makeReproducible(); for the stable-step set, the
+/// stable time step last); and the run, on the rocket of the document, with the extensions
+/// initialised between the two listeners of the jitter removal and the perturbation of
+/// @p variation, if any. The run keeps @p document alive.
+///
+/// Call this once for a simulation of a document: the options of the simulation are changed in
+/// place, so a second call would record the harness's values as the document's (and a
+/// simulation that was run with the stable time step keeps it). Nothing else of the document is
+/// changed, and nothing of its rocket: the engine flies a copy of the rocket
+/// (BasicEventSimulationEngine.java:82, copyWithOriginalID()), and an extension that changes
+/// the rocket while its simulation flies, as RollControl turns its fins, changes that copy. So
+/// the simulations of a document can be run in any order, each as the harness runs it. The
+/// stored flight of the simulation is not touched: the run is the engine's, as in the harness,
+/// not Simulation::simulate().
+[[nodiscard]] SimulationRun runDocumentSimulation(const std::shared_ptr<LoadedDocument>& document,
+                                                  std::size_t index, const RunVariation& variation);
 
 // ==================================================================================== golden
 
@@ -519,15 +569,32 @@ struct Sensitivity
     bool                 whole{false};
 };
 
+/// The margins of the sensitivity analysis: a value is reproducible when the perturbed run
+/// moves it by no more than its tolerance divided by the margin of its row. Those of the test
+/// rockets are the default; the examples have a margin of the free flight of their own, from
+/// their own measurement (example_simulation_golden_tests.cpp).
+struct SensitivityMargins
+{
+    double rod{kSensitivityMargin};           ///< of a row on the launch rod
+    double flight{kFlightSensitivityMargin};  ///< of a row after it, in a run that is not whole
+    /// Whether a run that the perturbed run reproduces to its last row at the margin of the rod
+    /// is whole as it is, whatever the margin of the free flight (the test rockets: the Falcon 9
+    /// Heavy). Without it a run is whole only when every row of it is reproducible at the margin
+    /// of its own.
+    bool steadyRunIsWhole{true};
+};
+
 /// The sensitivity of @p run, measured with the perturbed run @p twin against the tolerances of
 /// the comparison with the golden files @p golden. A row on the launch rod is reproducible at
-/// the margin kSensitivityMargin. When every row of every branch is at that margin (in a
-/// perturbed run with as many rows, branches and jitter replacements and the same status), the
-/// run is whole: nothing grows in it. In any other run a row after the launch rod is
-/// reproducible at the margin kFlightSensitivityMargin, and the first row that is not ends the
-/// reproducible part of its branch.
+/// the margin of the rod (of @p margins: kSensitivityMargin unless said otherwise). When every
+/// row of every branch is at that margin (in a perturbed run with as many rows, branches and
+/// jitter replacements and the same status), the run is whole: nothing grows in it (unless
+/// @p margins say that such a run is judged like any other). In any other run a row after the
+/// launch rod is reproducible at the margin of the free flight (kFlightSensitivityMargin unless
+/// said otherwise), and the first row that is not ends the reproducible part of its branch.
 [[nodiscard]] Sensitivity sensitivityOf(const GoldenFiles& golden, const SimulationRun& run,
-                                        const SimulationRun& twin);
+                                        const SimulationRun&      twin,
+                                        const SensitivityMargins& margins = {});
 
 // ================================================================================ comparison
 
@@ -543,7 +610,9 @@ struct Comparison
     std::string      report;  ///< the mismatches
     /// Whether everything is compared, reproducible or not, and the events in the order they
     /// were recorded in (the strict comparison, which no implementation passes).
-    bool          strict{false};
+    bool strict{false};
+    /// ComparisonMode::droppedStagesTumbleFreely.
+    bool          droppedStagesTumbleFreely{false};
     Measurements* measurements{nullptr};
 };
 
@@ -646,6 +715,15 @@ struct ComparisonMode
     Measurements* measurements{nullptr};  ///< where the differences are recorded, or null
     /// A simulation of the stable-step set: its "harness" also records the time step.
     bool stableSet{false};
+    /// The rule of the tumbling dropped stages, of the comparison of the examples (its
+    /// measurement is at the top of example_simulation_golden_tests.cpp): in the branch of a
+    /// dropped stage that flies on without a recovery device (isUnrecoveredDroppedStage()) the
+    /// TUMBLE events after its separation are compared on neither side. Whether such a stage
+    /// tumbles, and whether before or after its apogee, is decided by the last bits of its
+    /// attitude: OpenRocket's own runs of one simulation differ in it. The golden events that
+    /// are left out are counted as sensitive, each with its time; the strict comparison knows
+    /// no such rule.
+    bool droppedStagesTumbleFreely{false};
 };
 
 /// Compares @p run with the golden files @p golden of its simulation; @p sensitivity says what
@@ -678,6 +756,143 @@ struct ComparisonMode
 /// The floor under the reproducible part of the golden simulation @p files: the rows of its
 /// branches up to the clearing of the launch rod (every row when it never clears it).
 [[nodiscard]] std::int64_t floorRows(const GoldenFiles& files);
+
+/// Whether the golden branch @p branch (an entry of "branches" of a simulation document) is
+/// that of a dropped stage that flies on without a recovery device: a branch after the first,
+/// whose events have a STAGE_SEPARATION and no RECOVERY_DEVICE_DEPLOYMENT. Such a stage is left
+/// to its attitude, and tumbles or does not (ComparisonMode::droppedStagesTumbleFreely).
+[[nodiscard]] bool isUnrecoveredDroppedStage(const nlohmann::json& branch);
+
+/// The golden TUMBLE events of @p branch that the rule of the tumbling dropped stages leaves
+/// out of the comparison: those after the last STAGE_SEPARATION of the branch of an
+/// unrecovered dropped stage; none of any other branch.
+[[nodiscard]] int tumblesOfADroppedStage(const nlohmann::json& branch);
+
+/// The floor under the numbers outside the time series that are compared of the golden
+/// simulation @p files: what every run compares whose reproducible part holds the floor of the
+/// rows (floorProblem()). The launch rod velocity, and of every branch the times of the golden
+/// events up to the clearing of the launch rod, that of the clearing among them. None for a
+/// simulation that never clears the rod (it is compared as a whole).
+[[nodiscard]] int floorNumbers(const GoldenFiles& files);
+
+/// The values of the rows of floorRows(): every column of every such row. A noise-dominated
+/// out-of-plane column is compared in those rows as well, so a comparison whose reproducible
+/// parts hold the floor has compared at least this many values.
+[[nodiscard]] std::int64_t floorValues(const GoldenFiles& files);
+
+// ============================================================ a run next to its golden files
+
+/// A golden simulation compared with QtRocket's run of it.
+struct GoldenRun
+{
+    std::string problem;  ///< why there is no comparison, else ""
+    std::string context;  ///< "<input>/sim_<NN>_<name>"
+    /// How the run was compared (compareWithItsFiles()), and of it whether the maker of the
+    /// rocket draws the configuration's id.
+    ComparisonMode       mode;
+    bool                 randomConfigurationId{false};
+    GoldenFiles          files;
+    SimulationRun        run;
+    SimulationRun        twin;  ///< the perturbed run
+    Sensitivity          sensitivity;
+    SimulationCounts     golden;
+    SimulationComparison comparison;
+};
+
+/// Compares the run of @p result with its files, which are those of the simulation
+/// @p simulation of the golden input named @p input: names the simulation (the context),
+/// measures how far the run is reproducible with its perturbed run (sensitivityOf() with
+/// @p margins), and compares it with the files under @p mode (compareSimulation()), after the
+/// name and the file the manifest lists for it. The files and the two runs of @p result are
+/// there already.
+void compareWithItsFiles(GoldenRun& result, std::string_view input,
+                         const GoldenSimulation& simulation, const ComparisonMode& mode,
+                         const SensitivityMargins& margins = {});
+
+/// What is wrong with the reproducible part of @p run, "" when nothing is: a simulation that
+/// never clears the launch rod has to be reproducible as a whole, and a flight in every branch
+/// at least until the rod is cleared. The floor is stated in rows, counted in the golden file
+/// alone: the reproducible rows of a branch must be at least the golden rows up to the
+/// clearance (comparing the time of the run's last reproducible row with the golden time of the
+/// clearance would compare two numbers of different origin for equality).
+[[nodiscard]] std::string floorProblem(const GoldenRun& run);
+
+/// What the rule of the out-of-plane noise columns (RodOnlyRule) decides for golden
+/// simulations, from their files alone.
+struct NoiseCounts
+{
+    std::int64_t columns{0};  ///< the noise-dominated out-of-plane columns
+    std::int64_t values{0};   ///< their values off the launch rod, which are not compared
+
+    [[nodiscard]] bool operator==(const NoiseCounts&) const = default;
+
+    NoiseCounts& operator+=(const NoiseCounts& other)
+    {
+        columns += other.columns;
+        values += other.values;
+        return *this;
+    }
+};
+
+/// "150 noise columns with 63406 values off the rod", for the messages of the tests.
+std::ostream& operator<<(std::ostream& out, const NoiseCounts& counts);
+
+/// What the rule decides for the branches of the golden simulation @p files.
+[[nodiscard]] NoiseCounts noiseCounts(const GoldenFiles& files);
+
+/// What is wrong with what the rule of the out-of-plane noise columns excluded from the
+/// comparison of @p run, "" when nothing is: nothing at all in a simulation that never clears
+/// the launch rod (it has no row off the rod), and of the minima and maxima, in the branches
+/// that are reproducible as a whole, at least those that the golden column attains only off
+/// the launch rod (the files alone say so) and at most two per noise column (the run's column
+/// can attain its own only there as well); in any other branch none, since its minima and
+/// maxima are sensitive. (A comparison that excluded none of them, or every one of every
+/// column, would add up to what the files hold all the same.)
+[[nodiscard]] std::string exclusionProblem(const GoldenRun& run);
+
+/// What the simulations of one golden input hold, and what their comparison compared and found.
+struct InputResult
+{
+    std::string      problems;  ///< a simulation that could not be run, a floor that does not hold
+    SimulationCounts golden;
+    SimulationCounts compared;
+    SimulationCounts sensitive;
+    SimulationCounts excluded;  ///< what the rule of the out-of-plane noise columns excludes
+    std::string      report;
+    int              flights{0};       ///< the simulations whose rocket clears the launch rod
+    int              whole{0};         ///< the simulations that are reproducible as a whole
+    std::int64_t     floorRows{0};     ///< floorRows() of the simulations
+    std::int64_t     floorValues{0};   ///< floorValues() of the simulations
+    int              floorNumbers{0};  ///< floorNumbers() of the simulations
+    NoiseCounts      noise;            ///< noiseCounts() of the simulations
+};
+
+/// Adds the compared run @p run to the sums of its input, @p result: what its files hold, what
+/// was compared, is sensitive and is excluded, its report, and among the problems why it has
+/// no comparison (@p file names its document there), a floor that does not hold
+/// (floorProblem()) and an exclusion that is not the rule's (exclusionProblem()).
+void addComparedRun(InputResult& result, const GoldenRun& run, std::string_view file);
+
+// -------------------------------------------------------------------------- the measurements
+
+/// "branch 0: 37 of 796 rows (until t = 0.2507 s); the run has 848 rows, the perturbed run 794"
+/// for every branch of @p run that is not reproducible as a whole.
+[[nodiscard]] std::string sensitivityText(const GoldenRun& run);
+
+/// One line of the overview of the measurement: the apogee (the maximum altitude) and the flight
+/// time of @p run and of its golden file, the rows of their branches, and the largest difference
+/// of a value of the time series (over the rows both have), as a fraction of its column's scale.
+[[nodiscard]] std::string overviewLine(const GoldenRun& run, const Measurements& measurements);
+
+/// The row profiles of the branches of @p run that the run, the perturbed run and the golden
+/// files all have: one line per row, up to the first row that no margin makes reproducible (the
+/// perturbed run moves a value of it by more than the tolerance of the comparison itself,
+/// kValueRelative of the scale of its column), with the largest difference of the perturbed
+/// run from the run, which decides whether the row is reproducible, and the largest difference
+/// of the run from the golden file, which is what the comparison finds; both as fractions of
+/// the scales of their columns, each with its column, over the columns that are compared in
+/// the row (not a noise-dominated out-of-plane column after the launch rod).
+[[nodiscard]] std::string runProfile(const GoldenRun& run);
 
 // ============================================================ the scaffolding of the tests
 
@@ -730,7 +945,29 @@ std::ostream& operator<<(std::ostream& out, const SubjectCase& subjectCase);
 /// The names of @p all, sorted.
 [[nodiscard]] std::vector<std::string_view> sortedNames(const std::vector<Mutation>& all);
 
+/// What the comparison of @p run with a copy of its golden files finds after @p change changed
+/// the copy (null: nothing changed), under the mode the run was compared under.
+[[nodiscard]] SimulationComparison comparisonAfter(const GoldenRun& run,
+                                                   void (*change)(GoldenFiles& files));
+
+/// What is wrong with the report of @p mutation, applied to a copy of the files of @p run: ""
+/// when the report is the heading and the one line that name the change.
+[[nodiscard]] std::string mutationProblem(const Mutation& mutation, const GoldenRun& run);
+
 /// A golden warning as the dumper writes it (Values.warning()), for a warning without sources.
 [[nodiscard]] nlohmann::json goldenFormOf(const Warning& warning);
+
+/// The configuration of an extension as the dumper writes it (SimulationDumper.extensions()):
+/// an object of its keys with a Boolean as true or false, a number as a number (a NaN or an
+/// infinity as the strings the golden files have for them), a String as a string and a List as
+/// an array of such values. (The dumper cannot write a Byte or a BigDecimal; here the one is an
+/// integer and the other its double value.)
+[[nodiscard]] nlohmann::json goldenFormOf(const Config& config);
+
+/// An entry of the golden "extensions" as the dumper writes it: the id of @p extension, its
+/// type, its name and its configuration. The type is Java's simple name of its class, which
+/// for every extension OpenRocket provides is the last component of its id (the id is the name
+/// of the class), and that is what is taken here.
+[[nodiscard]] nlohmann::json goldenFormOf(const SimulationExtension& extension);
 
 }  // namespace QtRocket::Test
