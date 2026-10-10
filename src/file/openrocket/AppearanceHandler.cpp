@@ -90,8 +90,15 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
     // name is there, or the decal was ignored above.)
     const std::shared_ptr<const Attachment> attachment =
         m_context->getAttachmentFactory()->getAttachment(name.value_or(std::string_view{}));
-    const std::shared_ptr<DecalImage> image =
-        m_context->getOpenRocketDocument()->getDecalImage(attachment);
+    OpenRocketDocument& document = *m_context->getOpenRocketDocument();
+    // Not OpenRocket's: the images of a document are bounded (see the class comment).
+    if (document.getDecalImageCount() >= DocumentConfig::kMaxDecalImages &&
+        !document.hasDecalImage(attachment))
+    {
+        warnings.add(LoaderWarnings::tooManyDecalImages());
+        return false;
+    }
+    const std::shared_ptr<DecalImage> image = document.getDecalImage(attachment);
     // The decal names the image, and the registry may have given it another name than the
     // file's.
     m_builder.setImage(image->getName());

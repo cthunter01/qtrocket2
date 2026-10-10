@@ -32,8 +32,14 @@ class SimulationStatus;
 /// Deviations from OpenRocket:
 /// - What Java reaches through protected or package-private access is public here, because the
 ///   tests call it: the store and computeCD().
-/// - Normalizing an airspeed between MathUtil::kEpsilon and 1e-7 m/s is a BugError (Java: an
-///   IllegalStateException from Coordinate.normalize()).
+/// - An airspeed below Coordinate::kMinNormalizeLength, 1e-7 m/s, has no direction, and the
+///   drag, which has none then, is left out of the acceleration and of the jerk: the step is
+///   a free fall. Java leaves the drag out below MathUtil.EPSILON, 1e-8 m/s, and normalizes
+///   an airspeed above that, which Coordinate.normalize() refuses below 1e-7 m/s with an
+///   IllegalStateException: an airspeed between the two ends the run there. A flight reaches
+///   that gap by itself: the step to the apogee ends with a vertical velocity of 0, and what
+///   is left is the horizontal airspeed, which very dense air (a launch temperature of 5 K)
+///   has braked to some 1e-8 m/s by then. No result of OpenRocket's is changed by this.
 /// - Logging is not ported.
 class AbstractEulerStepper : public AbstractSimulationStepper
 {

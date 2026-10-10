@@ -20,7 +20,12 @@ struct LoadedDocument
     /// The warnings of the load, in the order they were given: those of the handlers that read
     /// the file, then those of the simulation extensions (documentLoaded()). At most
     /// DocumentConfig::kMaxWarnings of them, and then one more that says that further ones were
-    /// dropped; the set keeps that capacity (see GeneralRocketLoader).
+    /// dropped (see GeneralRocketLoader). The set KEEPS THAT CAPACITY, and so does every copy
+    /// of it: who adds other warnings to it, or to a copy (those of a second load, of a
+    /// simulation run), has them counted against the same thousand and dropped under the text
+    /// "The file gave more than 1000 warnings ...". Lift the capacity first
+    /// (WarningSet::clearCapacity()), or add into a set of your own (addAll() of a set without
+    /// a capacity takes everything of this one).
     WarningSet warnings;
 };
 

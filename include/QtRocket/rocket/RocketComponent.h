@@ -1049,9 +1049,15 @@ protected:
 
     /// Stores the preset, which the component co-owns from then on, without firing or loading
     /// its values (no Java counterpart: loadPreset() is the way to base a component on a preset).
+    /// A preset that is not null drops the unresolved reference, as loadPreset() does: a
+    /// component has a preset or a reference, never both.
     void setPresetComponent(std::shared_ptr<const ComponentPreset> preset) noexcept
     {
         m_presetComponent = std::move(preset);
+        if (m_presetComponent != nullptr)
+        {
+            m_unresolvedPreset.reset();
+        }
     }
 
     /// Tells the document that this component now has the material @p material: when it is a

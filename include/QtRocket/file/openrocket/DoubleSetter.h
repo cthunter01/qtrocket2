@@ -56,10 +56,14 @@ class RocketComponent;
 ///   (decision L3 of the loader). Java checks the number as read and would set the infinity
 ///   that "1e308" gives with a multiplier of 2. No multiplier of the setter table is above 1.
 /// - A setter may have a range (the constructor with a SimulationInputRanges::Range): a
-///   number outside it is refused like a NaN, with the same warning. Java has no such form.
-///   The four numbers of a component that a simulation holds to a range have it: the
-///   deployment delay and altitude of a recovery device and the separation delay and altitude
-///   of a stage, as older files give them (decision U9 of tier 9; OpenRocket sets any number).
+///   finite number outside it is refused like a NaN, and nothing is set, but with a warning
+///   of QtRocket's own that names the range, LoaderWarnings::numberOutsideRange() ("A number
+///   outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."):
+///   OpenRocket's text is given only where OpenRocket gives it, for a NaN, an infinity and a
+///   text that is no number. Java has no such form. The four numbers of a component that a
+///   simulation holds to a range have it: the deployment delay and altitude of a recovery
+///   device and the separation delay and altitude of a stage, as older files give them
+///   (decision U9 of tier 9; OpenRocket sets any number).
 class DoubleSetter final : public Setter
 {
 public:
@@ -76,8 +80,8 @@ public:
     /// degrees).
     DoubleSetter(SetFunction set, double multiplier);
 
-    /// Sets the number when it lies in @p range, and refuses any other like a NaN (see the
-    /// class comment, "Deviations").
+    /// Sets the number when it lies in @p range, and refuses any other with a warning that
+    /// names the range (see the class comment, "Deviations").
     DoubleSetter(SetFunction set, const SimulationInputRanges::Range& range);
 
     /// Sets the number, or the flag when the text is @p special.

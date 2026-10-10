@@ -74,6 +74,17 @@ class RocketComponent;
 ///   text and its other attributes neither), and the elements around it close with their own
 ///   attributes and text. (With the null return, which run 9b had here, the component's
 ///   element closed with those of the <appearance> and warned of them as its own.)
+/// - The decal images of a document are bounded: a <decal> whose image would be one more
+///   than DocumentConfig::kMaxDecalImages (the registry of the document would have to make a
+///   new image for its name, OpenRocketDocument::hasDecalImage()) is ignored, with everything
+///   in it and one warning of QtRocket's own, LoaderWarnings::tooManyDecalImages() ("The
+///   document has 1000 decal images already; ignoring the decal of a further image."). It is
+///   read by an IgnoredElementHandler as the decal without a name is, and like that one
+///   whatever its rotation and its edge mode are: one that is no number or none does not
+///   fail the load then. A decal of an image the document has already is read as ever, also
+///   when the bound is reached. OpenRocket has no bound: its registry, as this one, looks
+///   through all its images for every new one, so that the time to read the decals grows
+///   with the square of the number of images (see DocumentConfig::kMaxDecalImages).
 /// - A <center>, <offset> or <scale> without x or y is passed over with a warning of
 ///   QtRocket's own, LoaderWarnings::kDecalPairIgnored (OpenRocket: a NullPointerException); x
 ///   is looked at before y, so an x that is no number fails the load also when y is missing.
@@ -137,7 +148,8 @@ private:
     // openElement() and closeElement() in parts.
 
     /// A <decal> opens: its image, rotation and edge mode; false, with the warning for it,
-    /// when it lacks one of the three and is to be ignored.
+    /// when it lacks one of the three, or would give the document too many images, and is to
+    /// be ignored.
     [[nodiscard]] Result<bool> openDecal(const Attributes& attributes, WarningSet& warnings);
     /// A <paint> closes.
     void closePaint(const Attributes& attributes);

@@ -234,6 +234,37 @@ TEST(UnresolvedPreset, APresetThatIsOnlyPointedAtTakesItsPlaceToo)
     EXPECT_EQ(tube.getPresetComponent(), preset.get());
 }
 
+/// A body tube whose protected setPresetComponent() a test can call: the way a subclass stores
+/// a preset without loading its values.
+class TubeThatStoresAPreset : public BodyTube
+{
+public:
+    using BodyTube::setPresetComponent;
+};
+
+// A component has a preset or a reference, never both, whichever way the preset comes: the
+// setter that only stores it drops the reference as loadPreset() does. Storing no preset
+// leaves the reference alone (that is no preset to have beside it).
+TEST(UnresolvedPreset, APresetThatIsOnlyStoredTakesItsPlaceToo)
+{
+    const std::shared_ptr<const ComponentPreset> preset = tubePreset();
+    ASSERT_NE(preset, nullptr);
+    TubeThatStoresAPreset tube;
+    tube.setUnresolvedPreset(otherReference());
+
+    tube.setPresetComponent(nullptr);
+    EXPECT_EQ(tube.getUnresolvedPreset(), otherReference());
+    EXPECT_EQ(tube.getPresetComponent(), nullptr);
+
+    tube.setPresetComponent(preset);
+    EXPECT_EQ(tube.getUnresolvedPreset(), std::nullopt);
+    EXPECT_EQ(tube.getPresetComponent(), preset.get());
+
+    // And with the preset stored, no reference is taken.
+    tube.setUnresolvedPreset(tubeReference());
+    EXPECT_EQ(tube.getUnresolvedPreset(), std::nullopt);
+}
+
 // clearPreset() forgets it as it forgets a preset, with the event of a preset that is
 // forgotten: what a save writes has changed. (OpenRocket's clearPreset() does nothing for a
 // component without a preset.)

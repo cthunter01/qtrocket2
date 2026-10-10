@@ -314,7 +314,7 @@ public:
     /// Whether every number a run reads is finite and lies in its range. Fails with
     /// ErrorCode::INVALID_ARGUMENT for the first one that does not, with a text that names it:
     /// "Cannot simulate: the launch rod length is not finite (NaN)." for a NaN or an infinity,
-    /// and "Cannot simulate: the time step is outside its range, above 0 and at most 10 s
+    /// and "Cannot simulate: the time step is outside its range, from 0.0001 to 10 s
     /// (1.0E300)." for a number that is finite but outside the range the input has (the range
     /// in words, and the value as Java prints a double). simulate() calls this before anything
     /// runs; a caller may ask beforehand. The validation is QtRocket's own: OpenRocket has
@@ -338,7 +338,9 @@ public:
     ///   standard deviation of every level of the multi-level wind;
     /// - the launch rod direction as the run uses it (SimulationOptions::
     ///   getLaunchRodDirection(): the wind direction when launching into the wind);
-    /// - without the ISA atmosphere: the launch temperature, pressure and relative humidity;
+    /// - without the ISA atmosphere: the launch temperature, pressure and relative humidity,
+    ///   and then the three together with the launch altitude (see "The air at the launch
+    ///   site" below);
     /// - with the constant gravity model: the constant gravity;
     /// - of the stability lookup table and of the drag lookup table, when the options have one:
     ///   every Mach number, angle of attack and value of the table, in the table's order
@@ -377,6 +379,27 @@ public:
     /// 11 km of the model without the ISA atmosphere, a very cold site high up) are
     /// toSimulationConditions()'s error.
     ///
+    /// The air at the launch site: a temperature, a pressure and a humidity that each lie in
+    /// their range can together be no air at all. OpenRocket's atmospheric conditions take the
+    /// pressure of the water vapour from the pressure of the air (AtmosphericConditions::
+    /// getGasConstant()), and when the saturation pressure at the temperature, times the
+    /// humidity, is more than the pressure there is, the density comes out negative (half
+    /// saturated air of 288.15 K at 300 Pa; any humid air of 400 K at sea level pressure), and
+    /// the flight ended in the BugError of a NaN. So, after the three single ranges, the
+    /// atmospheric model the run will read (SimulationOptions::getAtmosphericModel()) is asked
+    /// for its conditions at the launch altitude, and a density there that is not finite or
+    /// not above 0 fails with "Cannot simulate: the launch temperature (288.15 K), the launch
+    /// pressure (300.0 Pa) and the launch relative humidity (0.5) give air of no positive
+    /// density at the launch altitude (<the density> kg/m^3)." It is the model's own conditions
+    /// that are asked, not the three numbers: at a site near the 11 km at which the model takes a
+    /// site, the layers it fits can have a temperature of some thousand kelvin at the site
+    /// itself, where a humidity of 0.01 is already too much. A model that refuses the launch
+    /// conditions is not this check's business: that is toSimulationConditions()'s error, as
+    /// before. Only the launch site is asked. Higher up the same model can have a negative
+    /// density also over an ordinary humid site (half saturated air of 288.15 K at sea level
+    /// has one from 50 km to 52 km: the humidity is carried up unchanged, as in OpenRocket),
+    /// and a flight that gets there (an air start at 50 km) ends in that BugError still.
+    ///
     /// What the ranges keep out, each of which OpenRocket takes:
     /// - a wind of 1e300 m/s, which overflows on the way and ended in a BugError;
     /// - a huge time step, which makes one step very long: the Runge-Kutta steppers never take
@@ -387,10 +410,18 @@ public:
     ///   requested (simulate(stop_token)) waits for the step to end. (Measured in a Release
     ///   build: about 4 s for a time step of 1e8 s and 30 s for 1e9 s; above about 1e16 s the
     ///   loop is endless, because the time no longer changes when 0.05 s is added to it.)
-    /// - a time step of zero or less, which the steppers replace by a millisecond without a
-    ///   word (a positive step below a millisecond they replace as well: that one is inside the
-    ///   range and flies);
+    /// - a time step of zero, of less, or of a tiny fraction of a second. The steppers start
+    ///   from a step of a millisecond at the least (AbstractSimulationStepper::kMinTimeStep),
+    ///   but they may cut a step down to a twentieth of the time step as it is given, and do
+    ///   whenever a limit binds, so the rows of a run grow with 1 / time step, and with a time
+    ///   step of 0 the step is 0 and the run does not end (see SimulationInputRanges::
+    ///   kTimeStep for the measurements). The range ends at 0.1 ms;
     /// - a lookup table with a cell of 1e300, which ended in the BugError of a NaN.
+    ///
+    /// What the ranges do not keep out is a run that is long: a flight that never lands (a
+    /// constant gravity of 0) is simulated until the maximum simulation time. The engine ends
+    /// such a run when a flight data branch would get more than
+    /// SimulationInputRanges::kMaxBranchRows rows (see simulate()).
     [[nodiscard]] Result<void> validateInputs() const;
 
     /// Simulates the flight (Java: simulate(SimulationListener...)).
@@ -418,7 +449,9 @@ public:
     ///   stop was requested), with the exception's message;
     /// - ErrorCode::SIMULATION_ABORTED for any other SimulationException (an imported
     ///   simulation, an extension that cannot run, a listener's exception, a calculation that
-    ///   went wrong), with the exception's message;
+    ///   went wrong, and, which is not OpenRocket's, a flight data branch that would get more
+    ///   than SimulationInputRanges::kMaxBranchRows rows:
+    ///   BasicEventSimulationEngine::tooManyRows()), with the exception's message;
     /// - toSimulationConditions()'s Error when the atmospheric model refuses the launch
     ///   conditions (Java: an IllegalArgumentException that leaves simulate());
     /// - ErrorCode::INVALID_ARGUMENT when an input is not finite or outside its range, with

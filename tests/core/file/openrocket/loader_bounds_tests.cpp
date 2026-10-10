@@ -5,6 +5,10 @@
 // megabyte of small elements took minutes or hours to load, there and here (the measurements
 // are at the end of this file). So nothing here has a Java original.
 //
+// Two more bounds are the loader's own, with numbers no decision gave: the stages, booster
+// sets and pod sets of a rocket (a hundred; they cost far more than other components) and the
+// decal images of a document (a thousand). The review of run 9d measured what asks for them.
+//
 // Each bound is pinned with a document that reaches it exactly and goes one beyond. Reading up
 // to a bound is itself slow in a debug build where every element is a change of the rocket that
 // every flight configuration answers (ten thousand components, a thousand flight
@@ -25,6 +29,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -41,12 +46,16 @@
 #include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/SimulationsHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/Decal.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/MassComponent.h"
+#include "QtRocket/rocket/ParallelStage.h"
+#include "QtRocket/rocket/PodSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
@@ -54,6 +63,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "file/RawZip.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
@@ -78,6 +88,8 @@ using QtRocket::LoadedDocument;
 using QtRocket::LoaderWarnings;
 using QtRocket::MassComponent;
 using QtRocket::OpenRocketDocument;
+using QtRocket::ParallelStage;
+using QtRocket::PodSet;
 using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
@@ -168,6 +180,9 @@ TEST(LoaderBounds, TheBoundsAreTheNumbersThatWereDecided)
     EXPECT_EQ(DocumentConfig::kMaxSimulations, 10000U);
     EXPECT_EQ(DocumentConfig::kMaxWindLevels, 10000U);
     EXPECT_EQ(DocumentConfig::kMaxWarnings, 1000U);
+    // The loader's own numbers (the fix of run 9d).
+    EXPECT_EQ(DocumentConfig::kMaxAssemblies, 100U);
+    EXPECT_EQ(DocumentConfig::kMaxDecalImages, 1000U);
     // The bounds of run 9b stay as they were.
     EXPECT_EQ(DocumentConfig::kMaxCount, 10000);
     EXPECT_EQ(DocumentConfig::kMaxInstances, 100000U);
@@ -288,6 +303,292 @@ TEST(LoaderBounds, ARocketTakesComponentsUpToTheBoundAndTheNextIsIgnoredWithWhat
               (Texts{LoaderWarnings::tooManyComponents("Inner Tube"),
                      LoaderWarnings::tooManyComponents("Mass Component")}));
 }
+
+// ------------------------------------------------------------------------------ assemblies
+//
+// Stages, booster sets and pod sets (the assemblies) are bounded by themselves: at every change
+// of the rocket each of them finds its place again by walking over its siblings, so the time to
+// read N of them grows with more than the cube of N (DocumentConfig::kMaxAssemblies has the
+// measurements). The number, 100, is the loader's own.
+
+TEST(LoaderBounds, TheAssembliesOfATreeAreCountedWithoutItsRoot)
+{
+    Rocket rocket;
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), 0U) << "the rocket is the root";
+
+    AxialStage& stage = rocket.addChild(std::make_unique<AxialStage>());
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), 1U);
+    // A component that is no assembly is none.
+    BodyTube& tube = stage.addChild(std::make_unique<BodyTube>());
+    tube.addChild(std::make_unique<MassComponent>());
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), 1U);
+    // A pod set and a booster set are, wherever they stand, and whatever their instances.
+    PodSet& pods = tube.addChild(std::make_unique<PodSet>());
+    pods.setInstanceCount(4);
+    tube.addChild(std::make_unique<ParallelStage>());
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), 3U);
+    EXPECT_EQ(DocumentConfig::assemblyCount(pods), 3U) << "asked of any component of the tree";
+    rocket.addChild(std::make_unique<AxialStage>());
+    EXPECT_EQ(DocumentConfig::assemblyCount(tube), 4U);
+
+    // A tree without a rocket: its root is not counted either.
+    EXPECT_EQ(DocumentConfig::assemblyCount(AxialStage{}), 0U);
+    BodyTube alone;
+    alone.addChild(std::make_unique<PodSet>());
+    EXPECT_EQ(DocumentConfig::assemblyCount(alone), 1U);
+}
+
+/// A rocket with @p stages empty stages.
+[[nodiscard]] std::unique_ptr<Rocket> rocketOfStages(std::size_t stages)
+{
+    auto rocket = std::make_unique<Rocket>();
+    for (std::size_t i = 0; i < stages; ++i)
+    {
+        rocket->addChild(std::make_unique<AxialStage>());
+    }
+    return rocket;
+}
+
+TEST(LoaderBounds, AnAssemblyFitsUpToTheBoundExactly)
+{
+    const std::unique_ptr<Rocket> rocket = rocketOfStages(DocumentConfig::kMaxAssemblies - 2);
+    BodyTube&                     tube = rocket->getChild(0).addChild(std::make_unique<BodyTube>());
+    ASSERT_EQ(DocumentConfig::assemblyCount(*rocket), DocumentConfig::kMaxAssemblies - 2);
+    // A body tube with a pod set on it: one assembly, which counts with the tube that holds it.
+    BodyTube tubeWithPods;
+    tubeWithPods.addChild(std::make_unique<PodSet>());
+    // A stage with such a tube: two.
+    AxialStage stageWithPods;
+    stageWithPods.addChild(std::make_unique<BodyTube>()).addChild(std::make_unique<PodSet>());
+
+    EXPECT_TRUE(DocumentConfig::assemblyFits(*rocket, AxialStage{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(tube, PodSet{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(*rocket, stageWithPods)) << "the two reach the bound";
+
+    tube.addChild(std::make_unique<ParallelStage>());
+    ASSERT_EQ(DocumentConfig::assemblyCount(*rocket), DocumentConfig::kMaxAssemblies - 1);
+    EXPECT_TRUE(DocumentConfig::assemblyFits(*rocket, AxialStage{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(tube, PodSet{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(tube, ParallelStage{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(rocket->getChild(1), tubeWithPods));
+    EXPECT_FALSE(DocumentConfig::assemblyFits(*rocket, stageWithPods))
+        << "a child counts with its own";
+
+    rocket->addChild(std::make_unique<AxialStage>());
+    ASSERT_EQ(DocumentConfig::assemblyCount(*rocket), DocumentConfig::kMaxAssemblies);
+    EXPECT_FALSE(DocumentConfig::assemblyFits(*rocket, AxialStage{}));
+    EXPECT_FALSE(DocumentConfig::assemblyFits(tube, PodSet{}));
+    EXPECT_FALSE(DocumentConfig::assemblyFits(tube, ParallelStage{}));
+    EXPECT_FALSE(DocumentConfig::assemblyFits(rocket->getChild(1), tubeWithPods));
+    // What is no assembly and holds none always fits: this bound is not its business.
+    EXPECT_TRUE(DocumentConfig::assemblyFits(tube, MassComponent{}));
+    EXPECT_TRUE(DocumentConfig::assemblyFits(rocket->getChild(1), BodyTube{}));
+}
+
+/// The elements of a rocket with a first stage whose body tube carries a pod set and a
+/// booster set, and @p emptyStages empty stages behind it: three assemblies and those.
+[[nodiscard]] std::string stagesWithPodsAndBoosters(std::size_t emptyStages)
+{
+    return "<stage><name>first</name><subcomponents><bodytube><subcomponents>"
+           "<podset><name>a pod set</name></podset>"
+           "<parallelstage><name>a booster set</name></parallelstage>"
+           "</subcomponents></bodytube></subcomponents></stage>" +
+           repeated("<stage/>", emptyStages);
+}
+
+// At the bound: a hundred assemblies of the three kinds load, and nothing is said.
+TEST(LoaderBounds, ARocketTakesAssembliesUpToTheBound)
+{
+    const std::string xml =
+        designOf(std::format("<subcomponents>{}</subcomponents>",
+                             stagesWithPodsAndBoosters(DocumentConfig::kMaxAssemblies - 3)));
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> loaded = load(environment, xml);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().message;
+
+    const Rocket& rocket = loaded->document->getRocket();
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(rocket.getChildCount(), DocumentConfig::kMaxAssemblies - 2);
+    EXPECT_EQ(warningTexts(loaded->warnings), Texts{});
+}
+
+// One above: the hundredth assembly is a stage, and what comes after it is one too many
+// whatever its kind and wherever it would stand. It is ignored with what it holds; a component
+// that is no assembly still finds its place.
+TEST(LoaderBounds, AnAssemblyBeyondTheBoundIsIgnoredWithWhatItHolds)
+{
+    const std::string            xml = designOf(std::format(
+        "<subcomponents>{}"
+        "<stage><name>the hundredth</name><subcomponents><bodytube><subcomponents>"
+        "<podset><name>a pod set too many</name><subcomponents><bodytube/></subcomponents>"
+        "</podset>"
+        "<parallelstage><name>a booster set too many</name></parallelstage>"
+        "<masscomponent><name>still fits</name></masscomponent>"
+        "</subcomponents></bodytube></subcomponents></stage>"
+        "<stage><name>a stage too many</name><subcomponents><bodytube/></subcomponents></stage>"
+        "</subcomponents>",
+        stagesWithPodsAndBoosters(DocumentConfig::kMaxAssemblies - 4)));
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> loaded = load(environment, xml);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().message;
+
+    const Rocket& rocket = loaded->document->getRocket();
+    EXPECT_EQ(DocumentConfig::assemblyCount(rocket), DocumentConfig::kMaxAssemblies);
+    // The stages: the first, the empty ones and the hundredth assembly.
+    ASSERT_EQ(rocket.getChildCount(), DocumentConfig::kMaxAssemblies - 2);
+    const RocketComponent& last = rocket.getChild(rocket.getChildCount() - 1);
+    EXPECT_EQ(last.getName(), "the hundredth");
+    ASSERT_EQ(last.getChildCount(), 1U);
+    ASSERT_EQ(last.getChild(0).getChildCount(), 1U);
+    EXPECT_EQ(last.getChild(0).getChild(0).getName(), "still fits");
+    // One warning for each assembly that was ignored, by the name of its kind, in the order of
+    // the file: none for the body tubes in them, which were never looked at.
+    EXPECT_EQ(warningTexts(loaded->warnings),
+              (Texts{LoaderWarnings::tooManyAssemblies("Pod Set"),
+                     LoaderWarnings::tooManyAssemblies("Booster Set"),
+                     LoaderWarnings::tooManyAssemblies("Stage")}));
+}
+
+// ----------------------------------------------------------------------------- decal images
+//
+// The decal images of a document are bounded: its registry looks through all its images for
+// every new one, so the time to read N decals of N images grows with N squared
+// (DocumentConfig::kMaxDecalImages has the measurements). The number, 1000, is the loader's own.
+
+/// A <decal> of the image named "d<number>.png".
+[[nodiscard]] std::string decalOf(std::size_t number)
+{
+    return std::format(R"(<decal name="d{}.png" rotation="0" edgemode="REPEAT"/>)", number);
+}
+
+/// A design whose one body tube has an appearance with a decal of each of @p images images,
+/// "d0.png" on, and then the elements @p more.
+[[nodiscard]] std::string designOfDecals(std::size_t images, std::string_view more = {})
+{
+    std::string decals;
+    for (std::size_t i = 0; i < images; ++i)
+    {
+        decals += decalOf(i);
+    }
+    return designOf(
+        inStage(std::format("<bodytube><appearance>{}{}</appearance></bodytube>", decals, more)));
+}
+
+/// How a design of decals reaches the loader: as a plain document, whose images are files, or
+/// as the entry of an archive, whose images are entries of it that are found by their names.
+enum class DecalsOf
+{
+    FILES,
+    AN_ARCHIVE,
+};
+
+/// What a load of a design of decals gave: the images of the document, the decal of the body
+/// tube as "<image> <rotation> <edge mode>", and the warnings.
+struct DecalLoad
+{
+    std::string failure;
+    std::size_t images{0};
+    std::string decal;
+    Texts       warnings;
+};
+
+[[nodiscard]] DecalLoad loadDecals(const std::string& xml, DecalsOf source)
+{
+    DecalLoad                    load;
+    LoaderEnvironment            environment;
+    const GeneralRocketLoader    loader(environment.context());
+    const Result<LoadedDocument> loaded =
+        source == DecalsOf::FILES
+            ? loader.load(stringToBytes(xml))
+            : loader.load(QtRocket::Test::archive({QtRocket::Test::stored("rocket.ork", xml)}));
+    if (!loaded.has_value())
+    {
+        load.failure = loaded.error().message;
+        return load;
+    }
+    load.images          = loaded->document->getDecalImageCount();
+    load.warnings        = warningTexts(loaded->warnings);
+    const Rocket& rocket = loaded->document->getRocket();
+    if (rocket.getChildCount() == 1 && rocket.getChild(0).getChildCount() == 1)
+    {
+        const std::optional<QtRocket::Appearance>& appearance =
+            rocket.getChild(0).getChild(0).getAppearance();
+        if (appearance.has_value() && appearance->getTexture().has_value())
+        {
+            const QtRocket::Decal& decal = *appearance->getTexture();
+            load.decal = std::format("{} {} {}", decal.getImageName(), decal.getRotation(),
+                                     QtRocket::edgeModeName(decal.getEdgeMode()));
+        }
+    }
+    return load;
+}
+
+/// The name the registry gives the image "d<number>.png" of a design that reaches the loader
+/// as @p source: a file's is put into the folder of the decals, an entry's is the entry's.
+[[nodiscard]] std::string imageName(std::size_t number, DecalsOf source)
+{
+    return std::format("{}d{}.png", source == DecalsOf::FILES ? "decals/" : "", number);
+}
+
+class LoaderDecalBound : public ::testing::TestWithParam<DecalsOf>
+{ };
+
+// At the bound: a thousand images load, and nothing is said.
+TEST_P(LoaderDecalBound, ADocumentTakesDecalImagesUpToTheBound)
+{
+    const DecalLoad load = loadDecals(designOfDecals(DocumentConfig::kMaxDecalImages), GetParam());
+    EXPECT_EQ(load.failure, "");
+    EXPECT_EQ(load.images, DocumentConfig::kMaxDecalImages);
+    EXPECT_EQ(load.warnings, Texts{});
+    EXPECT_EQ(load.decal, imageName(DocumentConfig::kMaxDecalImages - 1, GetParam()) + " 0 REPEAT");
+}
+
+// One above: the decal of one image more is ignored with one warning and nothing else is said
+// of it, whatever its rotation and its edge mode are (one that is no number or none would fail
+// the load of a decal that is read). The decal the appearance has is the one before it.
+TEST_P(LoaderDecalBound, TheDecalOfAnImageBeyondTheBoundIsIgnored)
+{
+    const DecalLoad load =
+        loadDecals(designOfDecals(DocumentConfig::kMaxDecalImages,
+                                  R"(<decal name="one-too-many.png" rotation="x" edgemode="NONE">)"
+                                  R"(<center x="0.1" y="0.2"/><unknown/></decal>)"),
+                   GetParam());
+    EXPECT_EQ(load.failure, "");
+    EXPECT_EQ(load.images, DocumentConfig::kMaxDecalImages);
+    EXPECT_EQ(load.warnings, Texts{LoaderWarnings::tooManyDecalImages()});
+    EXPECT_EQ(load.decal, imageName(DocumentConfig::kMaxDecalImages - 1, GetParam()) + " 0 REPEAT");
+}
+
+// A decal of an image the document has already is read as ever when the bound is reached: it
+// makes no image. And every further decal of a new image gets the one warning again (a
+// warning set holds a text once).
+TEST_P(LoaderDecalBound, ADecalOfAKnownImageIsReadAfterTheBoundIsReached)
+{
+    const DecalLoad load = loadDecals(
+        designOfDecals(DocumentConfig::kMaxDecalImages,
+                       R"(<decal name="one-too-many.png" rotation="0" edgemode="REPEAT"/>)"
+                       R"(<decal name="d5.png" rotation="1.5" edgemode="MIRROR"/>)"
+                       R"(<decal name="another-too-many.png" rotation="0" edgemode="REPEAT"/>)"),
+        GetParam());
+    EXPECT_EQ(load.failure, "");
+    EXPECT_EQ(load.images, DocumentConfig::kMaxDecalImages);
+    EXPECT_EQ(load.warnings, Texts{LoaderWarnings::tooManyDecalImages()});
+    EXPECT_EQ(load.decal, imageName(5, GetParam()) + " 1.5 MIRROR");
+}
+
+/// The name of the test of a source of decals.
+[[nodiscard]] std::string decalsTestName(const ::testing::TestParamInfo<DecalsOf>& info)
+{
+    std::string name = "Files";
+    if (info.param == DecalsOf::AN_ARCHIVE)
+    {
+        name = "AnArchive";
+    }
+    return name;
+}
+
+INSTANTIATE_TEST_SUITE_P(Sources, LoaderDecalBound,
+                         ::testing::Values(DecalsOf::FILES, DecalsOf::AN_ARCHIVE), decalsTestName);
 
 // ------------------------------------------------------------------ flight configurations
 
@@ -731,6 +1032,69 @@ TEST(LoaderBounds, TheWarningSetOfALoadKeepsItsBound)
                     idText(1), levels));
 }
 
+/// Empty stages, one behind the other.
+[[nodiscard]] std::string designOfStages(std::size_t count)
+{
+    return designOf(std::format("<subcomponents>{}</subcomponents>", repeated("<stage/>", count)));
+}
+
+/// Stages of one body tube each.
+[[nodiscard]] std::string designOfStagesOfOneTube(std::size_t count)
+{
+    return designOf(
+        std::format("<subcomponents>{}</subcomponents>",
+                    repeated("<stage><subcomponents><bodytube><length>0.1</length></bodytube>"
+                             "</subcomponents></stage>",
+                             count)));
+}
+
+/// Booster sets on one body tube.
+[[nodiscard]] std::string designOfBoosterSets(std::size_t count)
+{
+    return designOf(inStage(
+        std::format("<bodytube><length>1</length><subcomponents>{}</subcomponents></bodytube>",
+                    repeated("<parallelstage/>", count))));
+}
+
+/// Pod sets on one body tube.
+[[nodiscard]] std::string designOfPodSets(std::size_t count)
+{
+    return designOf(inStage(
+        std::format("<bodytube><length>1</length><subcomponents>{}</subcomponents></bodytube>",
+                    repeated("<podset/>", count))));
+}
+
+/// @p count elements that each set the length of one body tube anew (two lengths in turn: a
+/// setter that is given the value it has changes nothing).
+[[nodiscard]] std::string settersOfALength(std::size_t count)
+{
+    return std::format("<bodytube>{}</bodytube>",
+                       repeated("<length>0.1</length><length>0.2</length>", count / 2));
+}
+
+/// 999 flight configurations in front of a stage of 90 body tubes, and one more tube whose
+/// length @p count elements set: every one of them is a change of the rocket that every flight
+/// configuration answers.
+[[nodiscard]] std::string designOfSettersAmongConfigurations(std::size_t count)
+{
+    return designOf(motorConfigurations(999) +
+                    inStage(repeated("<bodytube><length>0.1</length></bodytube>", 90) +
+                            settersOfALength(count)));
+}
+
+/// The same without a flight configuration, in a stage of 1000 body tubes.
+[[nodiscard]] std::string designOfSettersAmongTubes(std::size_t count)
+{
+    return designOf(inStage(repeated("<bodytube><length>0.1</length></bodytube>", 1000) +
+                            settersOfALength(count)));
+}
+
+/// Decals of as many images, in the appearance of one body tube.
+[[nodiscard]] std::string designOfDecalImages(std::size_t count)
+{
+    return designOfDecals(count);
+}
+
 /// What makes the design of a measurement for a number of elements.
 using Design = std::string (*)(std::size_t);
 
@@ -773,17 +1137,49 @@ void printTimesOf(std::string_view what, Design design, std::initializer_list<st
 //   mass components in one tube
 //       1250: 3.3 s, 2500: 25 s, 5000: 59 s, 10000: 301 s, 40000: 191 s
 //   body tubes side by side
-//       625: 2.4 s, 1250: 12 s, 2500: 65 s, 5000: 264 s                  before: 34 s for 3200
+//       625: 2.4 s, 1250: 12 s, 2500: 65 s, 5000: 264 s, 10000: 1824 s  before: 34 s for 3200
 // So every bound ends the growth, and what is beyond one costs little. Up to its bound a
 // document costs what it cost before, which is seconds for all of these but the components:
 // ten thousand mass components are minutes (the two last numbers of their line are the same
-// load, the second on a quieter machine). Body tubes side by side cost more still, because
-// each finds its place behind its siblings by looking for itself among them
-// (RocketComponent::setAfter(), as in OpenRocket, which took 108 s for 1600): twice as many
-// take four to five times as long, so the 10000 of the bound are a quarter of an hour at the
-// least (that load was still running when this was written). What the bound on the components
-// should be to end such a load in seconds (about a thousand, by these numbers), or whether the
-// rocket should answer the changes of a load more cheaply, is an open question of run 9d.
+// load, the second on a quieter machine; 149 s on an idle one). Body tubes side by side cost
+// more still, because each finds its place behind its siblings by looking for itself among
+// them (RocketComponent::setAfter() and getChildPosition(), as in OpenRocket, which took 108 s
+// for 1600): twice as many take four to five times as long, nearly the cube, and the 10000 of
+// the bound took 1824 s, HALF AN HOUR. The bound on the components does not make a load
+// short. What it should be to end such a load in seconds (about a thousand, by these numbers),
+// or whether the rocket should answer the changes of a load more cheaply, is an open question
+// for the user.
+//
+// The numbers of 2026-10-10, for what the review of run 9d found (the same build, a machine with
+// nothing else to do; "before" is the review's own measurement, without the bound that was
+// added for it):
+//   empty stages
+//       50: 0.00 s, 100: 0.01 s, 500: 0.01 s, 2000: 0.01 s, 10000: 0.02 s
+//                                  before: 500: 0.9 s, 1000: 12 s, 2000: 139 to 165 s, 3000: 607 s
+//   stages of one tube
+//       50: 0.01 s, 100: 0.04 s, 500: 0.04 s, 2000: 0.05 s
+//                                  before: 250: 0.23 s, 500: 1.75 s, 2000: 195 s
+//   booster sets on one tube
+//       50: 0.01 s, 100: 0.04 s, 500: 0.04 s, 1000: 0.04 s
+//                                  before: 500: 6 to 8 s, 1000: 61 to 74 s
+//   pod sets on one tube
+//       50: 0.01 s, 100: 0.03 s, 500: 0.03 s, 1000: 0.03 s
+//                                  before: 500: 4 s, 1000: 37 s
+//   decals of as many images
+//       500: 0.01 s, 1000: 0.03 s, 15000: 0.33 s, 30000: 0.66 s
+//                                  before: 3750: 1.5 s, 7500: 6.3 s, 15000: 28 to 43 s
+//   unknown elements, a warning each (a warning set compares a hash before it asks equals())
+//       40000: 0.04 s, 80000: 0.07 s                  before: 1.5 s and 3.0 s (2026-10-09)
+//   stored warnings of one flight
+//       20000: 0.02 s, 40000: 0.04 s                  before: 0.72 s and 1.5 s (2026-10-09)
+//   elements that set a length, with 999 flight configurations and 91 body tubes
+//       none: 18 s, 300: 37 s, 1000: 75 s                           56 ms an element
+//   elements that set a length, with 1001 body tubes and no flight configuration
+//       none: 1.2 s, 10000: 14 s, 40000: 54 s                       1.3 ms an element
+// The two last lines are what no bound ends: the bounds on the components, the instances and
+// the flight configurations limit what one change of the rocket costs, and the number of
+// changes a file makes is limited by its size alone (see DocumentConfig::kMaxInstances). A
+// budget on the work of a whole load is an open question for the user.
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingBodyTubesSideBySide)
 {
     printTimesOf("body tubes side by side", &designOfTubes, {625, 1250, 2500, 5000, 10000});
@@ -829,6 +1225,42 @@ TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingStoredWarnings)
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingWindLevels)
 {
     printTimesOf("wind levels from the highest down", &designOfWindLevels, {5000, 10000, 200000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingStages)
+{
+    printTimesOf("empty stages", &designOfStages, {50, 100, 500, 2000, 10000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingStagesOfOneTube)
+{
+    printTimesOf("stages of one tube", &designOfStagesOfOneTube, {50, 100, 500, 2000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingBoosterSets)
+{
+    printTimesOf("booster sets on one tube", &designOfBoosterSets, {50, 100, 500, 1000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingPodSets)
+{
+    printTimesOf("pod sets on one tube", &designOfPodSets, {50, 100, 500, 1000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingDecalImages)
+{
+    printTimesOf("decals of as many images", &designOfDecalImages, {500, 1000, 15000, 30000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingSettersAmongFlightConfigurations)
+{
+    printTimesOf("setters among 999 flight configurations and 91 tubes",
+                 &designOfSettersAmongConfigurations, {0, 300, 1000});
+}
+
+TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingSettersAmongTubes)
+{
+    printTimesOf("setters among 1001 tubes", &designOfSettersAmongTubes, {0, 10000, 40000});
 }
 
 }  // namespace

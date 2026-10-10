@@ -17,6 +17,14 @@ std::string LoaderWarnings::tooManyComponents(std::string_view componentName)
         componentName, DocumentConfig::kMaxComponents);
 }
 
+std::string LoaderWarnings::tooManyAssemblies(std::string_view componentName)
+{
+    return std::format(
+        "{} would give the rocket more than {} stages, booster sets and pod sets; ignoring this "
+        "component and its subcomponents.",
+        componentName, DocumentConfig::kMaxAssemblies);
+}
+
 std::string LoaderWarnings::nestedTooDeeply(std::string_view componentName)
 {
     return std::format("{} is nested too deeply; ignoring this component and its subcomponents.",
@@ -35,6 +43,19 @@ std::string LoaderWarnings::countAboveBound(int bound)
 {
     return std::format("A count above {} was refused; the component keeps the count it had.",
                        bound);
+}
+
+std::string LoaderWarnings::numberOutsideRange(std::string_view range)
+{
+    return std::format(
+        "A number outside its range, {}, was refused; the component keeps what it had.", range);
+}
+
+std::string LoaderWarnings::tooManyDecalImages()
+{
+    return std::format(
+        "The document has {} decal images already; ignoring the decal of a further image.",
+        DocumentConfig::kMaxDecalImages);
 }
 
 std::string LoaderWarnings::presetMaterialOfAnotherType(std::string_view componentName)

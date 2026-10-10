@@ -2362,6 +2362,35 @@ TEST(OpenRocketDocumentDecals, AnImageUsedAtMostOnceIsUniqueAlready)
     EXPECT_THROW(static_cast<void>(d.getDecalImage(nullptr)), BugError);
 }
 
+// QtRocket's own, for the loader that bounds the images of a document: how many images are
+// registered, and whether an attachment has one already. Asking changes nothing and tells
+// nobody.
+TEST(OpenRocketDocumentDecals, CountsItsImagesAndTellsWhetherAnAttachmentHasOne)
+{
+    const AlphaDocument alpha;
+    OpenRocketDocument& d = alpha.document();
+    EXPECT_EQ(d.getDecalImageCount(), 0U);
+    EXPECT_FALSE(d.hasDecalImage(entry("decals/a.png")));
+
+    const std::shared_ptr<DecalImage> img = d.getDecalImage(entry("decals/a.png"));
+    static_cast<void>(d.getDecalImage(entry("decals/b.png")));
+    DocumentRecorder events(d);
+    EXPECT_EQ(d.getDecalImageCount(), 2U);
+    EXPECT_TRUE(d.hasDecalImage(entry("decals/a.png")));
+    EXPECT_FALSE(d.hasDecalImage(entry("decals/c.png")));
+    EXPECT_EQ(d.getDecalImageCount(), 2U) << "asking makes no image";
+    EXPECT_EQ(decalList(d), "[decals/a.png, decals/b.png]");
+
+    // An image that was removed is not counted, and is still one its attachment has.
+    EXPECT_TRUE(d.removeDecal(img.get()));
+    static_cast<void>(events.take());
+    EXPECT_EQ(d.getDecalImageCount(), 1U);
+    EXPECT_TRUE(d.hasDecalImage(entry("decals/a.png")));
+    EXPECT_EQ(events.take(), "");
+    // Java: a NullPointerException in the registry.
+    EXPECT_THROW(static_cast<void>(d.hasDecalImage(nullptr)), BugError);
+}
+
 // The copy makeUniqueDecal() registers is an image of the document like any other: it is
 // counted and heard by its own name.
 TEST(OpenRocketDocumentDecals, AUniqueCopyIsCountedAndHeardByItsOwnName)

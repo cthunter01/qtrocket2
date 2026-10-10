@@ -85,6 +85,8 @@ class DecalImage;
 ///   DecalImage.compareTo()).
 /// - makeUniqueName() is public (Java: private) and find(), isRegistered(), size() and empty()
 ///   are additions: a rocket/Decal holds the name of its image, not the image.
+/// - hasDecalImage() is an addition, for a caller that bounds the images of a document (the
+///   .ork loader): whether getDecalImage() would make a new image.
 /// - removeDecal() is public (Java: package-private, called by the document).
 /// - A null attachment is a BugError (Java: NullPointerException).
 /// - Not copyable or movable: a copy would share the images of another document.
@@ -103,6 +105,12 @@ public:
     /// @throws BugError when @p attachment is null
     [[nodiscard]] std::shared_ptr<DecalImage> getDecalImage(
         const std::shared_ptr<const Attachment>& attachment);
+
+    /// Whether getDecalImage(@p attachment) would give an image there is already, a registered
+    /// one or a removed one of the same source that it would register again, and so make no
+    /// new one. Changes nothing.
+    /// @throws BugError when @p attachment is null
+    [[nodiscard]] bool hasDecalImage(const std::shared_ptr<const Attachment>& attachment) const;
 
     /// An image like @p original under a name no registered or removed image has: a copy with
     /// the same attachment and decal file, registered as makeUniqueName(original's name). When

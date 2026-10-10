@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <numbers>
 #include <optional>
 #include <string_view>
@@ -17,8 +18,9 @@ namespace QtRocket
 /// QtRocket's own; OpenRocket has no such table. There a finite number is taken as it is,
 /// however absurd, and what becomes of it is whatever the computation makes of it: a time step
 /// of 1e300 s is a first step that never ends and that no stop request reaches, a wind of
-/// 1e300 m/s overflows on the way and ends in a BugException, a time step of zero or less is
-/// silently replaced by a millisecond. A number like that comes from outside the program (a
+/// 1e300 m/s overflows on the way and ends in a BugException, a time step of zero or of a
+/// millionth of a second makes a run of as many rows as memory holds whenever a limit of the
+/// stepper binds (see kTimeStep). A number like that comes from outside the program (a
 /// design file, a preference store, a dialog), so it is refused with an ordinary error that
 /// names it, like a NaN or an infinity (Simulation::validateInputs()), and the .ork reader does
 /// not apply it (a warning; the option or the component keeps what it had).
@@ -32,6 +34,10 @@ namespace QtRocket
 /// The table is kTable: one row for every input, with the range and the reason for it. The
 /// numbers that an extension reads have ranges of their own, which the extension states
 /// (SimulationExtension::getInputNumbers(); RollControl and AirStart do).
+///
+/// What the ranges do not do is bound a run: inputs that each lie inside their range can ask
+/// together for a flight that does not end before the maximum simulation time, and for one of
+/// millions of steps. That is bounded where the rows are made: kMaxBranchRows.
 ///
 /// A value is compared as it is stored, in the unit it is stored in: lengths in m, times in s,
 /// speeds in m/s, angles in rad, but the latitude and the longitude in degrees and the angle
@@ -133,8 +139,21 @@ public:
     static constexpr Range kLookupCentreOfPressure{
         .min = -1000.0, .max = 1000.0, .minExcluded = false, .text = "from -1000 to 1000 m"};
 
+    /// The lower end is a tenth of the shortest step the steppers start from
+    /// (AbstractSimulationStepper::kMinTimeStep, 1 ms). What that minimum bounds is the step a
+    /// stepper would like to take; the step it takes may be cut down to a twentieth of the
+    /// time step as the options have it, which nothing raises (AbstractRkSimulationStepper::
+    /// computeTimeStep(), as in OpenRocket), and it is cut to that whenever a limit binds:
+    /// with a launch rod of length 0 for as long as the rocket has not left it. The rows of
+    /// such a run, and its time and memory, grow with 1 / time step. Measured in a release
+    /// build with the Estes Alpha III, a rod of 0 m and calm air: 17261 rows in 1.4 s at 1 ms,
+    /// 158159 rows in 12.3 s at 0.1 ms, 1.6 million rows, 133 s and 1.9 GB at 0.01 ms, and no
+    /// end within a minute at a millionth of a second; with a time step of 0, which OpenRocket
+    /// takes, the step is then 0 s and the run does not end. (With a rod of 5 cm or more no
+    /// limit binds on that rocket, and every time step below 1 ms gives the flight of 1 ms.)
+    /// What a time step inside the range can still ask for is ended by kMaxBranchRows.
     static constexpr Range kTimeStep{
-        .min = 0.0, .max = 10.0, .minExcluded = true, .text = "above 0 and at most 10 s"};
+        .min = 0.0001, .max = 10.0, .minExcluded = false, .text = "from 0.0001 to 10 s"};
 
     static constexpr Range kMaxSimulationTime{
         .min = 0.0, .max = 1000000.0, .minExcluded = false, .text = "from 0 to 1000000 s"};
@@ -171,6 +190,30 @@ public:
     /// through in the order of MachAoALookup::findNumber().
     [[nodiscard]] static std::optional<MachAoALookup::Number> findRefusedLookupNumber(
         const MachAoALookup& table);
+
+    // ---------------------------------------------------------------------- what a run makes
+
+    /// The rows of one flight data branch at which a run takes no further step. It is no range
+    /// of an input but a bound on what the inputs can ask for together, and QtRocket's own like
+    /// them: the engine ends a run whose branch holds this many rows and needs another step
+    /// with a SimulationException, which is an ordinary error of Simulation::simulate()
+    /// (ErrorCode::SIMULATION_ABORTED) that names the number (BasicEventSimulationEngine, which
+    /// says what can make a row or two more; the flight data hold the rows up to there).
+    /// OpenRocket has no bound.
+    ///
+    /// The reason: nothing else bounds the steps of a run. Every step is a row that is kept,
+    /// the maximum simulation time may be 1000000 s, and a stepper may cut its steps down to a
+    /// twentieth of the time step. A flight that never lands runs until the maximum time: a
+    /// constant gravity of 0 (inside its range) gives one, and so does an air start at the
+    /// ends of its ranges. Measured in a release build with 'A simple model rocket', a constant
+    /// gravity of 0 and the default time step of 0.05 s: a maximum time of 1200 s takes 1.4 s
+    /// and 29 MB, 20000 s take 27 s and 233 MB, 100000 s take 136 s and 1.1 GB, and the
+    /// 1000000 s the table allows would take about 23 minutes and 11 GB. A million rows are
+    /// about a minute and 550 MB. A real flight is far below it: the Estes Alpha III has
+    /// 17261 rows at a time step of 1 ms and about 400 at the default one, and how long the
+    /// longest branch of the tests of the suite and of OpenRocket's example designs is stands
+    /// in tests/core/simulation/simulation_row_bound_tests.cpp.
+    static constexpr std::size_t kMaxBranchRows = 1000000;
 
     // -------------------------------------------------------------------------- the table
 
@@ -258,9 +301,10 @@ public:
          .reason = "A place along the rocket: the tallest rockets built measure about 120 m."},
         {.input  = "the time step",
          .range  = kTimeStep,
-         .reason = "OpenRocket's dialog offers 0.01 s to 1 s. A step of zero or less the "
-                   "steppers replace by 1 ms without saying so, and with a step of hours the "
-                   "first step does not end."},
+         .reason = "OpenRocket's dialog offers 0.01 s to 1 s. The steppers start from 1 ms at "
+                   "the least and may cut a step to a twentieth of the time step, so the rows "
+                   "of a run grow with 1 / time step below 1 ms (ten times as many at 0.1 ms, "
+                   "no end at 0); with a step of hours the first step does not end."},
         {.input  = "the maximum simulation time",
          .range  = kMaxSimulationTime,
          .reason = "OpenRocket's default is 1200 s, and a descent from 100 km under a "

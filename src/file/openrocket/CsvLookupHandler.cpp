@@ -196,7 +196,8 @@ std::expected<std::filesystem::path, CsvLookupHandler::Refusal> CsvLookupHandler
         }
         device = device || isDeviceName(name);
     }
-    if (device)
+    // Only where such a name opens the device (see the class comment).
+    if (kRefusesDeviceNames && device)
     {
         return std::unexpected(Refusal::DEVICE_NAME);
     }

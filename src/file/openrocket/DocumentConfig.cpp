@@ -1103,6 +1103,33 @@ bool DocumentConfig::componentFits(const RocketComponent& parent, const RocketCo
     return componentCount(parent) + 1 + componentsBelow(child) <= kMaxComponents;
 }
 
+namespace
+{
+
+/// The assemblies of the tree below @p component, @p component itself not counted.
+[[nodiscard]] std::size_t assembliesBelow(const RocketComponent& component)
+{
+    std::size_t count = 0;
+    for (const RocketComponent* child : component.getChildren())
+    {
+        count += (isAssembly(child->kind()) ? 1U : 0U) + assembliesBelow(*child);
+    }
+    return count;
+}
+
+}  // namespace
+
+std::size_t DocumentConfig::assemblyCount(const RocketComponent& component)
+{
+    return assembliesBelow(component.getRoot());
+}
+
+bool DocumentConfig::assemblyFits(const RocketComponent& parent, const RocketComponent& child)
+{
+    const std::size_t added = (isAssembly(child.kind()) ? 1U : 0U) + assembliesBelow(child);
+    return added == 0 || assemblyCount(parent) + added <= kMaxAssemblies;
+}
+
 bool DocumentConfig::flightConfigurationCountFits(const RocketComponent& component)
 {
     // configurationsOf() counts the default one too.

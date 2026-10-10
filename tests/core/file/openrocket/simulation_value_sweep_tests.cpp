@@ -13,6 +13,16 @@
 // (decision U9 of tier 9: "-1" and "0" are the sweep's values for that). The sanitizer presets
 // run this test too, which is where a crash would show.
 //
+// One refusal of the validation is no single number's and so not the reader's to make: the air
+// of the launch site, which the launch temperature, pressure and humidity and the launch
+// altitude give together (Simulation::validateInputs(), "The air at the launch site"). The
+// document has humid air (a humidity of 0.5), so a value that leaves it almost no pressure (a
+// <basepressure> of -1 or 0 is taken as the least the reader takes, 0.001 Pa, as in
+// OpenRocket) or that moves the site to the top of the atmospheric model (a <launchaltitude>
+// of 1e300, which the options clamp to 11 km) loads without a warning and is then refused by
+// the validation with an ordinary error. Before that check each of these flew into the
+// BugError of a NaN. They are counted like the refusals for an extension's number.
+//
 // The preference store of the loads is that of OpenRocket's tests but for the time step, which
 // is 0 there: a simulation without a <timestep>, as the second one of the document, has its
 // time step from the store, and no simulation is valid with one of 0. What the options start
@@ -280,6 +290,9 @@ struct Tally
     /// Simulations of loads that succeeded which Simulation::validateInputs() refuses for a
     /// number of an extension's configuration.
     int refusedForAnExtension{0};
+    /// Simulations of loads that succeeded which Simulation::validateInputs() refuses for the
+    /// air of the launch site (see the head of this file).
+    int refusedForTheAir{0};
 
     [[nodiscard]] bool operator==(const Tally&) const = default;
 };
@@ -298,7 +311,8 @@ struct Outcomes
 /// for one of an extension's configuration, which the reader takes as the file has it: a file
 /// can make it infinite only as an integer too large for a double, and can give it any finite
 /// number, of which the extension refuses those outside its ranges (see
-/// Simulation::validateInputs()); such a refusal is counted in @p tally.
+/// Simulation::validateInputs()); such a refusal is counted in @p tally. So is a refusal for
+/// the air of the launch site, which is no single number's (see the head of this file).
 [[nodiscard]] std::string problemOf(Simulation& simulation, Tally& tally)
 {
     const SimulationOptions* simulated = simulation.getSimulatedConditions();
@@ -311,6 +325,11 @@ struct Outcomes
     const Result<void> valid = simulation.validateInputs();
     if (valid.has_value())
     {
+        return {};
+    }
+    if (valid.error().message.contains("give air of no positive density at the launch altitude"))
+    {
+        tally.refusedForTheAir++;
         return {};
     }
     if (!valid.error().message.contains("of the simulation extension"))
@@ -466,7 +485,8 @@ TEST_P(SimulationValueSweep, NoValueBreaksALoad)
     EXPECT_EQ(tally.failed + tally.warned + tally.silent, static_cast<int>(kValues));
     EXPECT_TRUE(tally == GetParam().tally)
         << tally.failed << " failed, " << tally.warned << " warned, " << tally.silent << " silent, "
-        << tally.refusedForAnExtension << " refused for an extension: " << outcomes.letters;
+        << tally.refusedForAnExtension << " refused for an extension, " << tally.refusedForTheAir
+        << " refused for the air: " << outcomes.letters;
 }
 
 /// What the sweep puts in the place of a value: the texts a file should not have there, and
@@ -489,10 +509,21 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
     // Outside its range, and refused with a warning since decision U9 of tier 9: the rod
     // length, the temperature, the gravity and the Mach number of either lookup table; and of
     // the eight numbers of the two extensions all but the setpoint, which the validation then
-    // refuses.
-    {.value = "-1", .tally = {.failed = 7, .warned = 31, .silent = 91, .refusedForAnExtension = 7}},
-    // Outside its range: a temperature of 0 K.
-    {.value = "0", .tally = {.failed = 8, .warned = 26, .silent = 95, .refusedForAnExtension = 0}},
+    // refuses. A pressure of -1 Pa is taken as 0.001 Pa without a word, as in OpenRocket, and
+    // the humid air of the document has no density then.
+    {.value = "-1",
+     .tally = {.failed                = 7,
+               .warned                = 31,
+               .silent                = 91,
+               .refusedForAnExtension = 7,
+               .refusedForTheAir      = 1}},
+    // Outside its range: a temperature of 0 K. A pressure of 0 Pa: as one of -1 Pa.
+    {.value = "0",
+     .tally = {.failed                = 8,
+               .warned                = 26,
+               .silent                = 95,
+               .refusedForAnExtension = 0,
+               .refusedForTheAir      = 1}},
     {.value = "<long text>",
      .tally = {.failed = 17, .warned = 49, .silent = 63, .refusedForAnExtension = 0}},
     {.value = "Inf",
@@ -505,9 +536,15 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
     // silently an option's setter clamps it (the rod angle, the latitude, the longitude, the
     // launch altitude), it is a direction, which is reduced to one turn (to 0, as it happens),
     // or it is no number of a simulation at all. The eight numbers of the two extensions are
-    // taken, and the validation then refuses each.
+    // taken, and the validation then refuses each. The launch altitude is clamped to the 11 km
+    // at which the atmospheric model takes a site, where the humid air of the document has no
+    // density in the model.
     {.value = "1e300",
-     .tally = {.failed = 7, .warned = 52, .silent = 70, .refusedForAnExtension = 8}},
+     .tally = {.failed                = 7,
+               .warned                = 52,
+               .silent                = 70,
+               .refusedForAnExtension = 8,
+               .refusedForTheAir      = 1}},
 });
 
 /// The name of the test of a sweep value.
@@ -573,7 +610,8 @@ TEST(SimulationValueSweepDocument, TheSweepDoesNotReadTheDirectoryTheTestsAreRun
     const Tally tally = outcomes.tally;
     EXPECT_TRUE(tally == pinnedTally("0"))
         << tally.failed << " failed, " << tally.warned << " warned, " << tally.silent << " silent, "
-        << tally.refusedForAnExtension << " refused for an extension: " << outcomes.letters;
+        << tally.refusedForAnExtension << " refused for an extension, " << tally.refusedForTheAir
+        << " refused for the air: " << outcomes.letters;
 }
 
 }  // namespace

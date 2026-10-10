@@ -199,6 +199,21 @@ std::shared_ptr<DecalImage> DecalRegistry::getDecalImage(
     return image;
 }
 
+bool DecalRegistry::hasDecalImage(const std::shared_ptr<const Attachment>& attachment) const
+{
+    QTROCKET_ASSERT(attachment != nullptr);
+    // The two searches of getDecalImage(), in its order.
+    if (const auto* const fileAttachment =
+            dynamic_cast<const FileSystemAttachment*>(attachment.get()))
+    {
+        const std::filesystem::path& location = fileAttachment->getLocation();
+        return findDecalForFile(m_registeredDecals, location) != nullptr ||
+               findDecalForFile(m_detachedDecals, location) != nullptr;
+    }
+    const std::string& decalName = attachment->getName();
+    return m_registeredDecals.contains(decalName) || m_detachedDecals.contains(decalName);
+}
+
 std::shared_ptr<DecalImage> DecalRegistry::registerAgain(std::string_view name)
 {
     const auto removed = m_detachedDecals.find(name);

@@ -29,6 +29,7 @@ using QtRocket::Warning;
 {
     return {
         LoaderWarnings::tooManyComponents("Body Tube"),
+        LoaderWarnings::tooManyAssemblies("Stage"),
         LoaderWarnings::nestedTooDeeply("Body Tube"),
         LoaderWarnings::tooManyInstances("Body Tube"),
         LoaderWarnings::countAboveBound(DocumentConfig::kMaxCount),
@@ -36,12 +37,14 @@ using QtRocket::Warning;
         std::string(LoaderWarnings::kClusterBeyondInstances),
         std::string(LoaderWarnings::kDuplicateComponentId),
         std::string(LoaderWarnings::kOverrideNotFinite),
+        LoaderWarnings::numberOutsideRange("from 0 to 1000000 s"),
         LoaderWarnings::numberNotFinite("deploydelay"),
         LoaderWarnings::numberOutOfRange("deploydelay", "from 0 to 1000000 s"),
         LoaderWarnings::presetMaterialOfAnotherType("Mine"),
         LoaderWarnings::presetIntoFrozenRocket("Mine"),
         std::string(LoaderWarnings::kDecalIgnored),
         std::string(LoaderWarnings::kDecalPairIgnored),
+        LoaderWarnings::tooManyDecalImages(),
         LoaderWarnings::motorConfigurationBeyondBound(),
         LoaderWarnings::motorBeyondConfigurationBound(),
         LoaderWarnings::simulationBeyondConfigurationBound(),
@@ -100,7 +103,7 @@ using QtRocket::Warning;
 TEST(LoaderWarnings, EveryTextIsASentenceOfItsOwn)
 {
     const std::vector<std::string> texts = everyText();
-    EXPECT_EQ(texts.size(), 41U);
+    EXPECT_EQ(texts.size(), 44U);
     EXPECT_EQ(textsThatAreNotTheirOwn(texts), "");
     // What the helper tells: OpenRocket's general text, a text without a full stop, a text
     // that is there twice.
@@ -114,6 +117,9 @@ TEST(LoaderWarnings, TheTextsOfTheComponents)
     EXPECT_EQ(LoaderWarnings::tooManyComponents("Mass Component"),
               "Mass Component would give the rocket more than 10000 components; ignoring this "
               "component and its subcomponents.");
+    EXPECT_EQ(LoaderWarnings::tooManyAssemblies("Booster Set"),
+              "Booster Set would give the rocket more than 100 stages, booster sets and pod "
+              "sets; ignoring this component and its subcomponents.");
     EXPECT_EQ(LoaderWarnings::nestedTooDeeply("Inner Tube"),
               "Inner Tube is nested too deeply; ignoring this component and its subcomponents.");
     EXPECT_EQ(LoaderWarnings::tooManyInstances("Launch Lug"),
@@ -133,6 +139,14 @@ TEST(LoaderWarnings, TheTextsOfTheComponents)
     EXPECT_EQ(LoaderWarnings::kOverrideNotFinite,
               "An override value that is not finite was refused; the component keeps what it "
               "had.");
+    // The range is the text of its SimulationInputRanges::Range.
+    EXPECT_EQ(LoaderWarnings::numberOutsideRange(QtRocket::SimulationInputRanges::kDelay.text),
+              "A number outside its range, from 0 to 1000000 s, was refused; the component "
+              "keeps what it had.");
+    EXPECT_EQ(
+        LoaderWarnings::numberOutsideRange(QtRocket::SimulationInputRanges::kEventAltitude.text),
+        "A number outside its range, from 0 to 1000000 m, was refused; the component keeps what "
+        "it had.");
     EXPECT_EQ(LoaderWarnings::presetMaterialOfAnotherType("Mine"),
               "The ComponentPreset for component Mine has a material of a type the component "
               "cannot take; the preset is not loaded.");
@@ -143,6 +157,9 @@ TEST(LoaderWarnings, TheTextsOfTheComponents)
               "A decal without a name, a rotation or an edge mode was ignored.");
     EXPECT_EQ(LoaderWarnings::kDecalPairIgnored,
               "A center, offset or scale of a decal without x or y was ignored.");
+    EXPECT_EQ(LoaderWarnings::tooManyDecalImages(),
+              "The document has 1000 decal images already; ignoring the decal of a further "
+              "image.");
 }
 
 TEST(LoaderWarnings, TheTextsOfTheFlightConfigurations)
@@ -237,6 +254,8 @@ TEST(LoaderWarnings, TheTextsOfTheSimulations)
 TEST(LoaderWarnings, ATextThatNamesABoundHasTheNumberOfItsConstant)
 {
     EXPECT_TRUE(holds(LoaderWarnings::tooManyComponents("x"), DocumentConfig::kMaxComponents));
+    EXPECT_TRUE(holds(LoaderWarnings::tooManyAssemblies("x"), DocumentConfig::kMaxAssemblies));
+    EXPECT_TRUE(holds(LoaderWarnings::tooManyDecalImages(), DocumentConfig::kMaxDecalImages));
     EXPECT_TRUE(holds(LoaderWarnings::motorConfigurationBeyondBound(),
                       DocumentConfig::kMaxFlightConfigurations));
     EXPECT_TRUE(holds(LoaderWarnings::motorBeyondConfigurationBound(),

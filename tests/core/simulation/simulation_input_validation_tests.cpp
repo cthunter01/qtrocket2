@@ -819,12 +819,19 @@ TEST(SimulationInputValidation, TheRangesOfTheOptions)
 {
     EXPECT_EQ(wrongAtTheBounds(rangedOptions()), std::vector<std::string>{});
 
-    // The time step is the one input whose lower bound is outside its range.
-    EXPECT_TRUE(Ranges::kTimeStep.minExcluded);
+    // The time step starts at a ten thousandth of a second: the bound is inside the range, the
+    // double below it is not, and neither is 0.
+    EXPECT_FALSE(Ranges::kTimeStep.minExcluded);
+    EXPECT_EQ(validationWith(setTimeStepOf, 0.0001), "valid");
+    EXPECT_EQ(validationWith(setTimeStepOf, std::nextafter(0.0001, 0.0)),
+              "Cannot simulate: the time step is outside its range, from 0.0001 to 10 s "
+              "(9.999999999999999E-5).");
     EXPECT_EQ(validationWith(setTimeStepOf, 0.0),
-              "Cannot simulate: the time step is outside its range, above 0 and at most 10 s "
-              "(0.0).");
+              "Cannot simulate: the time step is outside its range, from 0.0001 to 10 s (0.0).");
     EXPECT_EQ(validationWith(setTimeStepOf, 10.0), "valid");
+    EXPECT_EQ(validationWith(setTimeStepOf, std::nextafter(10.0, 11.0)),
+              "Cannot simulate: the time step is outside its range, from 0.0001 to 10 s "
+              "(10.000000000000002).");
     // What a run does not read has no range to keep to either.
     EXPECT_EQ(validationWith(setTemperatureUnderIsa, -5.0), "valid");
     EXPECT_EQ(validationWith(setGravityUnderWgs, -1.0), "valid");
@@ -1123,9 +1130,11 @@ void setStabilityRowOfHugeNumbers(SimulationOptions& o, double v)
 
 // What the earlier runs of the port found a finite number to do, each of which is now an
 // ordinary error of simulate(), before anything runs: a time step of 1e300 s (the first step
-// did not end, and no stop request reached it), a time step of zero or less (flown, the
-// steppers taking a millisecond in its place), a wind of 1e300 m/s (a BugError), and a lookup
-// table with a cell of 1e300 (the BugError of a NaN in the stepper).
+// did not end, and no stop request reached it), a time step of zero, of less or of a millionth
+// of a second (the steppers start from a millisecond, but cut a step down to a twentieth of the
+// time step as it is given whenever a limit binds: a run of millions of rows, and with 0 one
+// that does not end), a wind of 1e300 m/s (a BugError), and a lookup table with a cell of
+// 1e300 (the BugError of a NaN in the stepper).
 TEST(SimulationInputValidation, TheAbsurdNumbersOfTheEarlierRunsAreOrdinaryErrors)
 {
     constexpr double kLargest = std::numeric_limits<double>::max();
@@ -1136,6 +1145,12 @@ TEST(SimulationInputValidation, TheAbsurdNumbersOfTheEarlierRunsAreOrdinaryError
     EXPECT_EQ(outcomeWith(setTimeStepOf, 0.0), outside("the time step", Ranges::kTimeStep, 0.0));
     EXPECT_EQ(outcomeWith(setTimeStepOf, -0.05),
               outside("the time step", Ranges::kTimeStep, -0.05));
+    EXPECT_EQ(outcomeWith(setTimeStepOf, 0.000001),
+              "refused: Cannot simulate: the time step is outside its range, from 0.0001 to 10 s "
+              "(1.0E-6).");
+    EXPECT_EQ(
+        outcomeWith(setTimeStepOf, std::numeric_limits<double>::denorm_min()),
+        outside("the time step", Ranges::kTimeStep, std::numeric_limits<double>::denorm_min()));
 
     EXPECT_EQ(outcomeWith(setAverageWindSpeed, 1e300),
               outside("the average wind speed", Ranges::kWindSpeed, 1e300));
@@ -2190,10 +2205,16 @@ void addAirStart(AlphaRun& run, const std::function<void(AirStart&)>& give)
          .give = options([](SimulationOptions& o) { o.setTimeStep(10.0); })},
         {.name = "time step 1 s",
          .give = options([](SimulationOptions& o) { o.setTimeStep(1.0); })},
-        {.name = "time step 4.9e-324 s", .give = options([](SimulationOptions& o) {
-                                             o.setTimeStep(
-                                                 std::numeric_limits<double>::denorm_min());
-                                         })},
+        {.name = "time step 0.0001 s",
+         .give = options([](SimulationOptions& o) { o.setTimeStep(0.0001); })},
+        // Where a limit of the stepper binds, the steps are a twentieth of the time step.
+        {.name = "time step 0.0001 s without a launch rod and without wind",
+         .give = options([](SimulationOptions& o) {
+             o.setTimeStep(0.0001);
+             o.setLaunchRodLength(0.0);
+             o.getAverageWindModel().setAverage(0.0);
+             o.getAverageWindModel().setStandardDeviation(0.0);
+         })},
         {.name = "maximum time 0 s",
          .give = options([](SimulationOptions& o) { o.setMaxSimulationTime(0.0); })},
         {.name = "maximum time 1000000 s",
@@ -2288,6 +2309,13 @@ void addAirStart(AlphaRun& run, const std::function<void(AirStart&)>& give)
 // each run given a quarter of a minute. A measurement for whoever reviews the table, not a
 // test: a value inside its range need not make a flight that succeeds, and some of these do
 // not (see SimulationInputRanges and the notes of tier 9d).
+//
+// It is a measurement of ONE rocket, and what it shows holds for that rocket: none of these
+// runs ended in a BugError when part K3 took them, and the same inputs ended the flight of
+// another design in one (very dense air, and humid air without a density: both are closed
+// since, see launch_site_air_tests.cpp). The run without gravity for 1000000 s is stopped here
+// after its quarter of a minute; left alone it ends at the bound on the rows of a branch (see
+// simulation_row_bound_tests.cpp, which has that measurement).
 //   build/ci-gcc/bin/QtRocket_core_tests --gtest_also_run_disabled_tests
 //       --gtest_filter=SimulationInputValidation.DISABLED_PrintsHowTheAlphaFliesAtTheBounds
 TEST(SimulationInputValidation, DISABLED_PrintsHowTheAlphaFliesAtTheBounds)

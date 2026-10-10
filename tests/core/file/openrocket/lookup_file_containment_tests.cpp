@@ -266,8 +266,14 @@ struct Form
 
 constexpr std::string_view kRead    = "inside inside |";
 constexpr std::string_view kRefused = "none none | refused refused";
-constexpr std::string_view kDevice  = "none none | device device";
 constexpr std::string_view kMissing = "none none | failed failed";
+/// A name of a device of Windows: refused on Windows, where it opens the device, and a file of
+/// the design's directory elsewhere, which is not there.
+#ifdef _WIN32
+constexpr std::string_view kDevice = "none none | device device";
+#else
+constexpr std::string_view kDevice = kMissing;
+#endif
 
 constexpr auto kForms = std::to_array<Form>({
     // Relative names that stay inside: the table of the design's directory.
@@ -312,7 +318,7 @@ constexpr auto kForms = std::to_array<Form>({
     {.file = ".../drag.csv", .expected = kRefused},
     {.file = "tables/.. /drag.csv", .expected = kRefused},
     {.file = ".. /outside/drag.csv", .expected = kRefused},
-    // The names of devices of Windows.
+    // The names of devices of Windows (kDevice: what is expected of them differs by platform).
     {.file = "nul", .expected = kDevice},
     {.file = "tables/nul", .expected = kDevice},
     {.file = "aux.csv", .expected = kDevice},

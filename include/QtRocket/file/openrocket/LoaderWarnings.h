@@ -36,6 +36,11 @@ public:
     /// (@p componentName is RocketComponent::getComponentName(): "Body Tube").
     [[nodiscard]] static std::string tooManyComponents(std::string_view componentName);
 
+    /// A stage, a booster set or a pod set beyond DocumentConfig::kMaxAssemblies: "<component
+    /// name> would give the rocket more than 100 stages, booster sets and pod sets; ignoring
+    /// this component and its subcomponents."
+    [[nodiscard]] static std::string tooManyAssemblies(std::string_view componentName);
+
     /// A component more than ComponentHandler::kMaxDepth levels below the rocket: "<component
     /// name> is nested too deeply; ignoring this component and its subcomponents."
     [[nodiscard]] static std::string nestedTooDeeply(std::string_view componentName);
@@ -58,6 +63,13 @@ public:
     static constexpr std::string_view kClusterBeyondInstances =
         "A cluster configuration that would give the rocket too many component instances was "
         "refused; the component keeps the configuration it had.";
+
+    /// A number that a setter of a component holds to a range (DoubleSetter with a
+    /// SimulationInputRanges::Range; @p range is the range in words) and that lies outside it:
+    /// "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what
+    /// it had." The setter does not know the element it is for; the same number in a
+    /// <deploymentconfiguration> or <separationconfiguration> is numberOutOfRange()'s.
+    [[nodiscard]] static std::string numberOutsideRange(std::string_view range);
 
     /// An override mass, centre of gravity or drag coefficient that is a NaN or an infinity.
     static constexpr std::string_view kOverrideNotFinite =
@@ -87,6 +99,10 @@ public:
     /// A <center>, <offset> or <scale> of a decal that lacks its x or its y.
     static constexpr std::string_view kDecalPairIgnored =
         "A center, offset or scale of a decal without x or y was ignored.";
+
+    /// A <decal> whose image would be one more than DocumentConfig::kMaxDecalImages: "The
+    /// document has 1000 decal images already; ignoring the decal of a further image."
+    [[nodiscard]] static std::string tooManyDecalImages();
 
     // ------------------------------------------------------- the flight configurations
 
@@ -219,7 +235,8 @@ public:
                                                              std::string_view file);
 
     /// A file that a design names for a lookup table and that has the name of a device of
-    /// Windows in its path: "The lookup table file '<file>' of element '<element>' was not
+    /// Windows in its path, which is refused on Windows (CsvLookupHandler::
+    /// kRefusesDeviceNames): "The lookup table file '<file>' of element '<element>' was not
     /// read: its path holds a name that Windows reserves for a device."
     [[nodiscard]] static std::string lookupFileOfDeviceName(std::string_view element,
                                                             std::string_view file);

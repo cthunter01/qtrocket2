@@ -72,9 +72,13 @@ class SimulationOptions;
 ///   Windows reads such an element in ways of its own;
 /// - a design without a directory (read from memory, with no base directory given) reads no
 ///   file at all;
-/// - a name with an element that Windows reserves for a device is refused on every platform
-///   (isDeviceName(): "nul", "COM1", "aux.csv"), because Windows opens the device for such a
-///   name in any directory, and a design should load alike everywhere.
+/// - ON WINDOWS ONLY (kRefusesDeviceNames), a name with an element that Windows reserves for
+///   a device is refused (isDeviceName(): "nul", "COM1", "aux.csv"), because Windows opens the
+///   device for such a name in any directory: "con" would read from the console and "COM1"
+///   wait at a serial port. The decision does not name this refusal; it is there for the one
+///   platform on which a relative name inside the directory is not a file of the directory.
+///   Elsewhere such a name is a file like any other, which OpenRocket reads, and so it is
+///   read: a design of a table "aux.csv" loads on Linux and macOS and is refused on Windows.
 /// The first four give the warning LoaderWarnings::lookupFileOutsideDesign() and the last
 /// LoaderWarnings::lookupFileOfDeviceName(); no file is opened and the options keep what they
 /// have. The legacy elements <draglookupcsv> and <stabilitylookupcsv>, which the conditions
@@ -124,9 +128,18 @@ public:
         /// The name leaves the design's directory through "..", or has an element of dots and
         /// blanks that Windows may read as that.
         LEAVES_DIRECTORY,
-        /// An element of the name is the name of a device of Windows.
+        /// An element of the name is the name of a device of Windows (given on Windows only:
+        /// kRefusesDeviceNames).
         DEVICE_NAME,
     };
+
+    /// Whether fileOfDesign() refuses a name with an element that Windows reserves for a
+    /// device: on Windows, where such a name opens the device, and nowhere else.
+#ifdef _WIN32
+    static constexpr bool kRefusesDeviceNames = true;
+#else
+    static constexpr bool kRefusesDeviceNames = false;
+#endif
 
     /// A handler that fills the drag table of @p options when @p isDrag, else the stability
     /// table, from rows that must have the columns @p requiredColumns, for a design whose
@@ -153,7 +166,8 @@ public:
     /// directory with the lexically normal form of the name behind it, or why the design may
     /// not read such a file (see "Which file a design may read" in the class comment). Nothing
     /// is asked of the file system. An empty @p designDirectory stands for the current
-    /// directory, as "." does. The reasons are looked for in the order of Refusal.
+    /// directory, as "." does. The reasons are looked for in the order of Refusal; the last of
+    /// them is given only where kRefusesDeviceNames says so.
     [[nodiscard]] static std::expected<std::filesystem::path, Refusal> fileOfDesign(
         const std::optional<std::filesystem::path>& designDirectory,
         const std::filesystem::path&                file);
@@ -179,7 +193,8 @@ public:
     /// whatever directory it stands in: "CON", "PRN", "AUX", "NUL", "COM0" to "COM9", "LPT0"
     /// to "LPT9" (the digit also as a superscript one, two or three), "CONIN$" and "CONOUT$",
     /// the ASCII letters in any case, with or without blanks at the end and whatever follows
-    /// a first dot or colon ("nul", "Aux.csv", "com1:", "LPT1 .txt").
+    /// a first dot or colon ("nul", "Aux.csv", "com1:", "LPT1 .txt"). The answer is the same
+    /// on every platform; what fileOfDesign() does with it is not (kRefusesDeviceNames).
     [[nodiscard]] static bool isDeviceName(std::string_view name);
 
     /// Reads the drag table (@p isDrag) or the stability table of @p options from the CSV file

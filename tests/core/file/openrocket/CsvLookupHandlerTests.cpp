@@ -725,8 +725,10 @@ constexpr auto kLookupCases = std::to_array<ConditionsCase>({
   W[Other,NORMAL] The lookup table file 'nul' of element 'draglookup' was not read: its path holds a name that Windows reserves for a device.
   W[Other,NORMAL] The lookup table file 'tables/COM1.csv' of element 'stabilitylookup' was not read: its path holds a name that Windows reserves for a device.
 )out",
-     .why = "part K2, beyond decision U5: a name Windows reserves for a device is refused on every "
-            "platform"},
+     .why = "beyond decision U5: on Windows, where such a name opens the device in any directory, "
+            "a name Windows reserves for a device is refused; elsewhere it is a file like any "
+            "other and is read as in OpenRocket",
+     .whereDevicesAreRefused = true},
     {.name     = "u5: legacy lookup element with the name of a device",
      .xml      = R"xml(
 <conditions>
@@ -739,8 +741,10 @@ constexpr auto kLookupCases = std::to_array<ConditionsCase>({
      .qtrocket = R"out(
   W[Other,NORMAL] The lookup table file 'Aux.txt' of element 'draglookupcsv' was not read: its path holds a name that Windows reserves for a device.
 )out",
-     .why = "part K2, beyond decision U5: a name Windows reserves for a device is refused on every "
-            "platform"},
+     .why = "beyond decision U5: on Windows, where such a name opens the device in any directory, "
+            "a name Windows reserves for a device is refused; elsewhere it is a file like any "
+            "other and is read as in OpenRocket",
+     .whereDevicesAreRefused = true},
     {.name     = "u5: lookup file with an element of dots and blanks",
      .xml      = R"xml(
 <conditions>
@@ -1222,13 +1226,32 @@ TEST(CsvLookupHandler, LoadsTheStabilityTableWhenItIsNotTheDragTable)
     return found.has_value() ? genericUtf8(*found) : std::string(refusalName(found.error()));
 }
 
+/// What NameCase::elsewhere holds for a name that is expected to be taken alike on every
+/// platform.
+constexpr std::string_view kSameEverywhere;
+
 /// A name a design gives a lookup file, and what fileOfDesign() makes of it for a design whose
 /// directory is "design".
 struct NameCase
 {
     std::string_view file;
     std::string_view expected;
+    /// What is expected where a name of a device is not refused (everywhere but on Windows:
+    /// CsvLookupHandler::kRefusesDeviceNames), when that is something else; else empty.
+    std::string_view elsewhere = kSameEverywhere;
 };
+
+/// What fileOfDesign() is expected to make of @p nameCase on this platform. (Chosen by the
+/// preprocessor and not by CsvLookupHandler::kRefusesDeviceNames: a condition that is a
+/// constant is a warning of MSVC.)
+[[nodiscard]] std::string_view expectedHere(const NameCase& nameCase) noexcept
+{
+#ifdef _WIN32
+    return nameCase.expected;
+#else
+    return nameCase.elsewhere.empty() ? nameCase.expected : nameCase.elsewhere;
+#endif
+}
 
 /// The cases of @p cases that fileOfDesign() answers otherwise, each as "<file>: <answer>, not
 /// <expected>"; empty when it answers all of them as expected.
@@ -1238,11 +1261,11 @@ struct NameCase
     Texts                       wrong;
     for (const NameCase& nameCase : cases)
     {
-        const std::string answer = fileOfDesign(design, nameCase.file);
-        if (answer != nameCase.expected)
+        const std::string      answer   = fileOfDesign(design, nameCase.file);
+        const std::string_view expected = expectedHere(nameCase);
+        if (answer != expected)
         {
-            wrong.push_back(
-                std::format("{}: {}, not {}", nameCase.file, answer, nameCase.expected));
+            wrong.push_back(std::format("{}: {}, not {}", nameCase.file, answer, expected));
         }
     }
     return wrong;
@@ -1309,16 +1332,22 @@ constexpr auto kNamesWithARoot = std::to_array<NameCase>({
     {.file = "/design/tables/drag.csv", .expected = "NOT_RELATIVE"},
 });
 
+// The names Windows reserves for a device: refused on Windows, where such a name opens the
+// device in any directory, and a file of the design's directory like any other elsewhere.
 constexpr auto kNamesOfDevices = std::to_array<NameCase>({
-    {.file = "nul", .expected = "DEVICE_NAME"},
-    {.file = "NUL", .expected = "DEVICE_NAME"},
-    {.file = "tables/nul", .expected = "DEVICE_NAME"},
-    {.file = "tables/Con.csv", .expected = "DEVICE_NAME"},
-    {.file = "com1", .expected = "DEVICE_NAME"},
-    {.file = "tables/sub/LPT9.txt", .expected = "DEVICE_NAME"},
-    {.file = "aux.tar.gz", .expected = "DEVICE_NAME"},
+    {.file = "nul", .expected = "DEVICE_NAME", .elsewhere = "design/nul"},
+    {.file = "NUL", .expected = "DEVICE_NAME", .elsewhere = "design/NUL"},
+    {.file = "tables/nul", .expected = "DEVICE_NAME", .elsewhere = "design/tables/nul"},
+    {.file = "tables/Con.csv", .expected = "DEVICE_NAME", .elsewhere = "design/tables/Con.csv"},
+    {.file = "com1", .expected = "DEVICE_NAME", .elsewhere = "design/com1"},
+    {.file      = "tables/sub/LPT9.txt",
+     .expected  = "DEVICE_NAME",
+     .elsewhere = "design/tables/sub/LPT9.txt"},
+    {.file = "aux.tar.gz", .expected = "DEVICE_NAME", .elsewhere = "design/aux.tar.gz"},
     // A directory of such a name.
-    {.file = "prn/drag.csv", .expected = "DEVICE_NAME"},
+    {.file = "prn/drag.csv", .expected = "DEVICE_NAME", .elsewhere = "design/prn/drag.csv"},
+    // Such a name that the normal form drops is none.
+    {.file = "nul/../drag.csv", .expected = "design/drag.csv"},
     // Leaving the directory is looked for first.
     {.file = "../nul", .expected = "LEAVES_DIRECTORY"},
     {.file = "nul/.../drag.csv", .expected = "LEAVES_DIRECTORY"},
@@ -1343,9 +1372,16 @@ TEST(CsvLookupHandler, ANameWithARootIsRefused)
     EXPECT_EQ(wrongAnswers(kNamesWithARoot), Texts{});
 }
 
-TEST(CsvLookupHandler, ANameOfADeviceOfWindowsIsRefusedOnEveryPlatform)
+// Not decided by the user (decision U5 names three refusals): the fourth is there for the one
+// platform on which a relative name inside a directory is no file of that directory.
+TEST(CsvLookupHandler, ANameOfADeviceIsRefusedOnWindowsAndReadElsewhere)
 {
     EXPECT_EQ(wrongAnswers(kNamesOfDevices), Texts{});
+#ifdef _WIN32
+    EXPECT_TRUE(CsvLookupHandler::kRefusesDeviceNames);
+#else
+    EXPECT_FALSE(CsvLookupHandler::kRefusesDeviceNames);
+#endif
 }
 
 // The forms of a Windows path. Which of them has a root, and where its elements end, is what
@@ -1557,7 +1593,12 @@ constexpr auto kSweepElements =
     {
         return "LEAVES_DIRECTORY";
     }
+    // The name of a device, where one is refused (on Windows).
+#ifdef _WIN32
     return holds(stack, "nul") ? "DEVICE_NAME" : "inside";
+#else
+    return "inside";
+#endif
 }
 
 /// How many names of a sweep ended in each way, and the names that fileOfDesign() and the
@@ -1629,14 +1670,19 @@ TEST(CsvLookupHandler, NoNameOfTheSweepLeadsOutOfTheDesignsDirectory)
 {
     const SweepResult result = sweepEveryName();
     EXPECT_EQ(result.wrong, Texts{});
-    // Every name of the sweep, and names of every kind (the numbers are the model's).
+    // Every name of the sweep, and names of every kind (the numbers are the model's). The 893
+    // names with the name of a device in their normal form are refused on Windows and lie
+    // inside the directory elsewhere.
+    constexpr int kWithADevice = 893;
+    constexpr int kDevices = kWithADevice * static_cast<int>(CsvLookupHandler::kRefusesDeviceNames);
     EXPECT_EQ(result.inside + result.notRelative + result.leaves + result.device,
               9 + 81 + 729 + 6561);
-    EXPECT_EQ(result.inside, 1291);
+    EXPECT_EQ(result.inside, 1291 + kWithADevice - kDevices);
     EXPECT_EQ(result.notRelative, 819);
     EXPECT_EQ(result.leaves, 4377);
-    EXPECT_EQ(result.device, 893);
+    EXPECT_EQ(result.device, kDevices);
 }
+
 /// CsvLookupHandler::nameOfDesign() of @p file for a design whose directory is
 /// @p designDirectory, with '/' between its elements, or "null".
 [[nodiscard]] std::string nameOfDesign(const std::optional<std::filesystem::path>& designDirectory,

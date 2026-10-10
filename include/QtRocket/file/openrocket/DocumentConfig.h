@@ -63,15 +63,18 @@ class Setter;
 /// - What one file may ask for is bounded (decision U6 of tier 9, the user's numbers): the
 ///   components of the rocket (kMaxComponents), its flight configurations
 ///   (kMaxFlightConfigurations), the simulations of the document (kMaxSimulations), the levels
-///   of one wind model (kMaxWindLevels) and the warnings of one warning set (kMaxWarnings).
+///   of one wind model (kMaxWindLevels) and the warnings of one warning set (kMaxWarnings);
+///   and, with numbers that are the loader's own, the stages, booster sets and pod sets among
+///   the components (kMaxAssemblies) and the decal images of the document (kMaxDecalImages).
 ///   What is beyond a bound is ignored with a warning of its own (LoaderWarnings), where the
 ///   file asks for it. OpenRocket has no bound, and neither had the loader: with the rocket's
 ///   events on while a file loads, every component, every flight configuration and every
 ///   simulation that makes one costs time in proportion to what the rocket holds already, and
 ///   every warning is looked for among those there are, so that the time of a load grew with
 ///   the square of what a file holds and a megabyte of small elements took minutes to hours.
-///   componentCount(), componentFits() and flightConfigurationCountFits() are the rules of
-///   the first two; the others are asked where they apply (SimulationsHandler, WindHandler,
+///   componentCount(), componentFits(), assemblyCount(), assemblyFits() and
+///   flightConfigurationCountFits() are the rules of the components and the configurations;
+///   the others are asked where they apply (SimulationsHandler, WindHandler, AppearanceHandler,
 ///   GeneralRocketLoader and FlightDataHandler).
 /// - A file cannot give a rocket more than kMaxInstances component instances over all its
 ///   flight configurations (see kMaxInstances): what would take the rocket beyond that is
@@ -164,6 +167,18 @@ public:
     /// of up to eight flight configurations beside the default one (measured in a release
     /// build: about 450 bytes and 150 ns per instance and change). The largest of the 63 designs
     /// of the repository reaches 180 (its instances times its flight configurations).
+    ///
+    /// What this bounds, and kMaxFlightConfigurations with it, is what ONE change of the rocket
+    /// costs, not how many changes a file makes: every element that sets a value on a
+    /// component is a change that every flight configuration answers, and their number is
+    /// limited by the size of the file alone. Measured in a release build: with 999 flight
+    /// configurations and 92 components, which lie inside this bound, one <length> element
+    /// costs 54 ms (about 590 ns per instance and change), so that a design of 153 kB with
+    /// 4000 of them loads in 244 s and one of a megabyte would take about 45 minutes; without
+    /// any flight configuration one such element costs 1.45 ms at 1000 components and 15 to
+    /// 20 ms at 3000. A budget on the work of a whole load, and what is refused when it is
+    /// spent, is not decided (the measurements are in
+    /// tests/core/file/openrocket/loader_bounds_tests.cpp).
     static constexpr std::uint64_t kMaxInstances = 100000;
 
     /// The most components a file may give a rocket: componentCount(), the rocket itself not
@@ -172,12 +187,41 @@ public:
     /// which asks componentFits()). OpenRocket has no bound.
     ///
     /// Every component a file attaches and every value it sets on one is a change of the
-    /// rocket, which every flight configuration answers by building its instances anew: the
-    /// time to read N components side by side grows with N squared. The bound ends that
-    /// growth; the time up to it stays what it is (minutes for ten thousand components: the
-    /// measurements are in tests/core/file/openrocket/loader_bounds_tests.cpp). The largest of
-    /// the 63 designs of the repository has 53 components ("Two stage high power rocket").
+    /// rocket, which every flight configuration answers by building its instances anew, and
+    /// at which every component finds its place again. The time to read N components grows
+    /// with N squared for components inside one tube and with nearly N cubed for body tubes
+    /// side by side, each of which finds its place behind the one before it by looking for
+    /// itself among its siblings (RocketComponent::setAfter() and getChildPosition(), as
+    /// OpenRocket's ArrayList.indexOf()). The bound ends that growth; IT DOES NOT MAKE A LOAD
+    /// SHORT. Measured in a release build, whole designs through GeneralRocketLoader: mass
+    /// components in one tube 1250: 3.3 s, 2500: 25 s, 5000: 59 s, 10000: 191 to 301 s; body
+    /// tubes side by side 625: 2.4 s, 1250: 12 s, 2500: 65 s, 5000: 264 s, 10000: 1824 s, half
+    /// an hour at the bound. Stages, booster sets and pod sets grow faster still and have a
+    /// bound of their own, kMaxAssemblies. (The measurements are the DISABLED_ tests of
+    /// tests/core/file/openrocket/loader_bounds_tests.cpp.) The largest of the 63 designs of
+    /// the repository has 53 components ("Two stage high power rocket").
     static constexpr std::size_t kMaxComponents = 10000;
+
+    /// The most stages, booster sets and pod sets a file may give a rocket together:
+    /// assemblyCount(), the rocket itself not counted. One that would be one more is ignored
+    /// with everything in it and the warning LoaderWarnings::tooManyAssemblies()
+    /// (ComponentHandler, which asks assemblyFits()). OpenRocket has no bound, and the number
+    /// is the loader's own: decision U6 of tier 9 names the components, not these kinds.
+    ///
+    /// An assembly costs far more than another component. At every change of the rocket each
+    /// stage finds its place again (ComponentAssembly::update()), and for that walks back over
+    /// every sibling in front of it that is not active, asking each through the flight
+    /// configuration and the rocket's stage list (RocketComponent::setAfter(), as
+    /// OpenRocket's); an empty stage is not active. Measured in a release build, whole designs
+    /// through GeneralRocketLoader: empty stages 250: 0.085 s, 500: 0.9 s, 1000 (8 kB of a
+    /// file): 11 to 13 s, 2000: 139 to 165 s, 3000 (24 kB): 607 s, that is with the power 3.4
+    /// to 3.7 of their number, so that the 10000 that kMaxComponents allows would take about
+    /// ten hours; stages of one tube 100: 0.024 s, 250: 0.23 s, 500: 1.75 s, 2000: 195 s;
+    /// booster sets on one tube 100: 0.06 s, 500: 6 to 8 s, 1000: 61 to 74 s; pod sets 100:
+    /// 0.05 s, 500: 4 s, 1000: 37 s. A hundred of any of these kinds load in 0.06 s at the
+    /// most. The 63 designs of the repository have at most 4 stages, 2 pod sets and 1 booster
+    /// set.
+    static constexpr std::size_t kMaxAssemblies = 100;
 
     /// The most flight configurations a file may give a rocket, the default one not counted
     /// (Rocket::getFlightConfigurationCount(); decision U6 of tier 9). What would make one
@@ -205,7 +249,29 @@ public:
     /// is lower than those before it is put in front of them, so that levels from the highest
     /// down are read in a time that grows with the square of their number. No design of the
     /// repository has a model of more than 3 levels.
+    ///
+    /// The bound holds for one <wind> element, and every simulation has a model of its own: it
+    /// does not bound the levels of a document, which kMaxSimulations times this number, and
+    /// before that the size of the document, limit. Measured in a release build: 100
+    /// simulations of 10000 levels each (76 MB of XML) load in 6.8 s and take 2.0 GB, 330 of
+    /// them (250 MB of XML, a gzip stream of 8.8 MB) in 22 s and 6.5 GB, about 2 kB a level
+    /// with the parsed document. A bound on the levels of a whole document is not decided.
     static constexpr std::size_t kMaxWindLevels = 10000;
+
+    /// The most decal images a file may give a document: the images of the document's
+    /// registry (OpenRocketDocument::getDecalImageCount()). A <decal> that would make one more
+    /// is ignored with the warning LoaderWarnings::tooManyDecalImages() (AppearanceHandler); a
+    /// decal of an image the document has already is read as ever, however many components
+    /// use it. OpenRocket has no bound, and the number is the loader's own (decision U6 of tier
+    /// 9 does not name the decals).
+    ///
+    /// The registry looks through all its images for every new one, twice (for the image of
+    /// the same file and for a name no image has: DecalRegistry::getDecalImage(), as
+    /// OpenRocket's), so the time to read N decals of N images grows with N squared. Measured
+    /// in a release build: 3750 images 1.5 s, 7500: 6.3 s, 15000 (874 kB of plain XML): 28 to
+    /// 43 s, 30000 (a gzip stream of 76 kB): 81 s; 15000 decals of one image: 0.03 s. A
+    /// thousand images load in about 0.1 s. The 63 designs of the repository name at most 6.
+    static constexpr std::size_t kMaxDecalImages = 1000;
 
     /// The most warnings one warning set of a load keeps: the set of the load itself
     /// (GeneralRocketLoader, LoadedDocument::warnings) and, each by itself, the stored
@@ -302,6 +368,16 @@ public:
     /// below it, becomes a child of @p parent.
     [[nodiscard]] static bool componentFits(const RocketComponent& parent,
                                             const RocketComponent& child);
+
+    /// How many assemblies (stages, booster sets and pod sets: isAssembly() of the kind) the
+    /// tree has that @p component stands in, its root not counted.
+    [[nodiscard]] static std::size_t assemblyCount(const RocketComponent& component);
+
+    /// Whether assemblyCount() stays within kMaxAssemblies when @p child, with what stands
+    /// below it, becomes a child of @p parent. A child that is no assembly and holds none
+    /// always fits.
+    [[nodiscard]] static bool assemblyFits(const RocketComponent& parent,
+                                           const RocketComponent& child);
 
     /// Whether the rocket @p component belongs to has fewer flight configurations than
     /// kMaxFlightConfigurations, the default one not counted, so that a file may give it one

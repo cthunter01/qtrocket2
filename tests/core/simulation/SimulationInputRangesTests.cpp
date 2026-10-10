@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/lookup/MachAoALookup.h"
+#include "QtRocket/simulation/AbstractSimulationStepper.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
@@ -109,7 +110,7 @@ a Mach number of a lookup table: [0.0, 100.0] from 0 to 100
 an angle of attack of a lookup table: [-180.0, 180.0] from -180 to 180 degrees
 a coefficient of a lookup table ('cd', 'cn', 'cm'): [-1000000.0, 1000000.0] from -1000000 to 1000000
 the centre of pressure of a lookup table ('cp'): [-1000.0, 1000.0] from -1000 to 1000 m
-the time step: (0.0, 10.0] above 0 and at most 10 s
+the time step: [1.0E-4, 10.0] from 0.0001 to 10 s
 the maximum simulation time: [0.0, 1000000.0] from 0 to 1000000 s
 the maximum step angle: [0.017453292519943295, 0.3490658503988659] from pi/180 to pi/9 rad
 a recovery speed warning threshold (each of the four): [0.0, 10000.0] from 0 to 10000 m/s
@@ -154,9 +155,21 @@ TEST(SimulationInputRanges, EveryRowHasARangeItsWordsAndAReason)
     EXPECT_EQ(Ranges::kMaximumStepAngle.min, 1 * std::numbers::pi / 180);
     EXPECT_EQ(Ranges::kMaximumStepAngle.max, 20 * std::numbers::pi / 180);
     EXPECT_EQ(Ranges::kLaunchPressure.min, 0.001);
-    // The one range whose lower bound is outside it.
-    EXPECT_TRUE(Ranges::kTimeStep.minExcluded);
+    // The time step starts at a tenth of the steppers' own shortest step, and that bound is
+    // inside the range (as every lower bound of the table is).
+    EXPECT_EQ(Ranges::kTimeStep.min, 0.0001);
+    EXPECT_EQ(Ranges::kTimeStep.min, QtRocket::AbstractSimulationStepper::kMinTimeStep / 10);
+    EXPECT_FALSE(Ranges::kTimeStep.minExcluded);
+    EXPECT_TRUE(Ranges::kTimeStep.contains(0.0001));
+    EXPECT_FALSE(Ranges::kTimeStep.contains(std::nextafter(0.0001, 0.0)));
+    EXPECT_FALSE(Ranges::kTimeStep.contains(0.0));
     EXPECT_FALSE(Ranges::kMaxSimulationTime.minExcluded);
+}
+
+// Not a range of an input: the bound on what the inputs can ask for together.
+TEST(SimulationInputRanges, ABranchOfARunGetsAMillionRowsAtTheMost)
+{
+    EXPECT_EQ(Ranges::kMaxBranchRows, 1000000U);
 }
 
 /// A number of a lookup table of kind @p kind in the column @p column.
@@ -251,6 +264,10 @@ TEST(SimulationInputRanges, DISABLED_PrintsTheTable)
     {
         std::cout << std::format("{} | {} | {}\n", row.input, row.range.text, row.reason);
     }
+    std::cout << std::format(
+        "the rows of one flight data branch (no input: a bound of the "
+        "engine) | at most {} | see SimulationInputRanges::kMaxBranchRows\n",
+        Ranges::kMaxBranchRows);
     std::cout << std::flush;
 }
 

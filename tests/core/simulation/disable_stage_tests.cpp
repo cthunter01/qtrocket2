@@ -139,10 +139,13 @@ TEST(DisableStageSimulationTest, SimulationUsesItsOwnConfigurationForComponentPo
     rocket.setSelectedConfiguration(disabledSustainerConfigId);
     EXPECT_NEAR(0.0, stagePosition(rocket, 1), kPositionEpsilon);
 
-    // Java simulates with the time step of OpenRocket's test preferences, which is 0, and its
-    // steppers take their smallest step, a millisecond, in the place of it. QtRocket refuses a
-    // time step of 0 (Simulation::validateInputs(), decision U9 of tier 9), so the two
-    // simulations are given the millisecond itself.
+    // Java simulates with the time step of OpenRocket's test preferences, which is 0. QtRocket
+    // refuses a time step of 0 (Simulation::validateInputs(), decision U9 of tier 9), so the
+    // two simulations are given a millisecond, the shortest step the steppers start from. A
+    // time step of 0 and one of a millisecond are not the same flight in general (a stepper
+    // may cut a step down to a twentieth of the time step, which is 0 then: see
+    // SimulationInputRanges::kTimeStep). Here it makes no difference: this test asks where the
+    // booster stands when the first branch starts, before any step is taken.
     constexpr double kJavaTimeStep = 0.001;
 
     JavaTestPreferences preferences;

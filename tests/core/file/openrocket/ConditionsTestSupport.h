@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/lookup/MachAoALookup.h"
+#include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/openrocket/SimulationConditionsHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/MessagePriority.h"
@@ -393,6 +394,10 @@ struct ConditionsCase
     std::string_view qtrocket;
     /// Why QtRocket differs; empty when it does not.
     std::string_view why;
+    /// Whether QtRocket differs only where it refuses a name of a device of Windows
+    /// (CsvLookupHandler::kRefusesDeviceNames: on Windows), and makes of the element what
+    /// OpenRocket makes of it elsewhere.
+    bool whereDevicesAreRefused{false};
 };
 
 /// The name of the test of @p caseName: its words run together, each with a capital, and a
@@ -430,8 +435,10 @@ struct ConditionsCase
 /// outcome, or QtRocket's own where the case states one with its reason.
 inline void expectConditionsCase(const ConditionsCase& conditionsCase)
 {
-    const std::string_view expected =
-        conditionsCase.qtrocket.empty() ? conditionsCase.java : conditionsCase.qtrocket;
+    const bool differsHere =
+        !conditionsCase.qtrocket.empty() &&
+        (!conditionsCase.whereDevicesAreRefused || CsvLookupHandler::kRefusesDeviceNames);
+    const std::string_view expected = differsHere ? conditionsCase.qtrocket : conditionsCase.java;
     EXPECT_EQ(runConditions(conditionsCase.xml), std::string(expected)) << conditionsCase.name;
     // A deviation comes with its reason, and only a deviation has one.
     EXPECT_EQ(conditionsCase.qtrocket.empty(), conditionsCase.why.empty()) << conditionsCase.name;

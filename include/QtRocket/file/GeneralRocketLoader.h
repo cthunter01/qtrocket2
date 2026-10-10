@@ -157,14 +157,24 @@ namespace QtRocket
 ///
 /// What a document may ask for is bounded too (decision U6 of tier 9; the constants of
 /// DocumentConfig, where each says what it bounds and why): 10000 components of the rocket,
-/// 1000 flight configurations, 10000 simulations, 10000 levels of one wind model, beside the
+/// of which 100 stages, booster sets and pod sets, 1000 flight configurations, 10000
+/// simulations, 10000 levels of one wind model, 1000 decal images, beside the
 /// bounds of the handlers (10000 for one count, 100000 component instances over all flight
 /// configurations, 100 levels of nesting). What is beyond a bound is ignored with a warning of
-/// its own, and the load goes on. And THE WARNINGS of a load are bounded: the set that is
+/// its own, and the load goes on. These bounds end the growth of a load's time and memory
+/// with the square or the cube of what a file holds; they do not make every load short. What
+/// they leave, and only the document bound ends: the bound on the wind levels holds for each
+/// simulation by itself, so that a document of 330 simulations with 10000 levels each (250 MB
+/// of XML, 9 MB as a gzip stream) loads in 22 s and takes 6.5 GB, about 2 kB a level; the
+/// stored rows of flight data are not counted at all; and every element that sets a value on
+/// a component is a change of the rocket that every flight configuration answers, whose
+/// number the file's size alone limits (see DocumentConfig::kMaxInstances for what one
+/// costs). And THE WARNINGS of a load are bounded: the set that is
 /// returned keeps the first DocumentConfig::kMaxWarnings (1000) warnings of the load; when one
 /// more would be added it gets one last warning, "The file gave more than 1000 warnings; the
 /// further ones were dropped." (LoaderWarnings::tooManyWarnings()), and every later one is
-/// dropped. The set keeps that capacity in the caller's hands (MessageSet::setCapacity()).
+/// dropped. The set keeps that capacity in the caller's hands (MessageSet::setCapacity(); see
+/// LoadedDocument for what follows for a caller who adds to it).
 /// The stored warnings of each simulation's flight data are bounded in the same way, by
 /// themselves (FlightDataHandler). The texts of all these warnings are in LoaderWarnings.
 ///

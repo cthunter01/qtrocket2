@@ -75,9 +75,10 @@ namespace QtRocket
 ///   loader writes the application preferences here (decision L8).
 /// - <randomseed>: Integer.parseInt of the trimmed text; the seed, which is then fixed.
 ///   Otherwise "Illegal random seed defined, ignoring.".
-/// - <timestep>, <maxtime>: a number above zero, in s, of at most 10 and at most 1000000;
-///   "Illegal time step defined, ignoring." and "Illegal max simulation time defined,
-///   ignoring." also for zero and a negative number.
+/// - <timestep>, <maxtime>: a number above zero, in s, the time step from 0.0001 to 10 and
+///   the maximum time of at most 1000000 (see the deviations); "Illegal time step defined,
+///   ignoring." and "Illegal max simulation time defined, ignoring." also for zero and a
+///   negative number.
 /// - <recoveryspeedwarning>, <drogueLowspeedwarning> (with its capital L),
 ///   <recoverydroguemainhighspeedwarning>, <recoverydroguemainlowspeedwarning>: the four
 ///   deployment speed thresholds in m/s, applied when they are a number above zero (and of at
@@ -123,7 +124,9 @@ namespace QtRocket
 /// - Numbers outside the range a simulation holds their option to are not applied either
 ///   (decision U9 of tier 9; the table SimulationInputRanges::kTable, which
 ///   Simulation::validateInputs() holds a run to): a rod length below 0 or above 1000 m, a
-///   launch altitude below -1000 m, a time step above 10 s, a maximum time above 1000000 s, a
+///   launch altitude below -1000 m, a time step below 0.0001 s (a ten thousandth of a second:
+///   see SimulationInputRanges::kTimeStep for what a shorter one makes of a run) or above
+///   10 s, a maximum time above 1000000 s, a
 ///   rod direction that is nonsense once it is reduced to one turn (the reduction of a huge
 ///   number), and for the wind elements of older files a speed above 1000 m/s, a turbulence
 ///   intensity that makes a standard deviation above 1000 m/s and such a direction. Each
@@ -141,7 +144,7 @@ namespace QtRocket
 ///   (DocumentLoadingContext::getDesignDirectory(), the user's decision of 2026-10-08;
 ///   CsvLookupHandler has the rule). A <draglookupcsv> or <stabilitylookupcsv> that names
 ///   another file (an absolute path, a path that leaves the directory, any file when the
-///   design has no directory, the name of a device of Windows) is not read and gives the
+///   design has no directory, on Windows the name of a device) is not read and gives the
 ///   warning CsvLookupHandler::refusalWarning() for the element, "The lookup table file
 ///   '<file>' of element 'draglookupcsv' was not read: ...". OpenRocket reads any path, a
 ///   relative one against the current directory of the process.

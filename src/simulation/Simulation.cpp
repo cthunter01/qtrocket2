@@ -19,6 +19,8 @@
 #include "QtRocket/aero/lookup/MachAoALookup.h"
 #include "QtRocket/logging/SimulationAbort.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/models/AtmosphericConditions.h"
+#include "QtRocket/models/AtmosphericModel.h"
 #include "QtRocket/models/GravityModelType.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
@@ -81,6 +83,15 @@ public:
     void finite(std::string_view what, double value)
     {
         note(what, value, nullptr, std::numeric_limits<double>::quiet_NaN());
+    }
+
+    /// Notes @p problem, the whole text of a failure, when nothing was noted before it.
+    void refuse(std::string problem)
+    {
+        if (!m_problem.has_value())
+        {
+            m_problem = std::move(problem);
+        }
     }
 
     /// Whether a value was noted.
@@ -202,6 +213,33 @@ void checkLookupTable(const std::shared_ptr<const MachAoALookup>& table, std::st
     bug("Unknown kind of a lookup table's number");
 }
 
+/// The air at the launch site, as the atmospheric model that a run with @p options reads has
+/// it there: a density that is not finite or not above 0 is noted (see
+/// Simulation::validateInputs(), "The air at the launch site"). The launch conditions are
+/// finite and in their ranges.
+void checkLaunchSiteAir(const SimulationOptions& options, InputCheck& check)
+{
+    const Result<std::shared_ptr<const AtmosphericModel>> model = options.getAtmosphericModel();
+    if (!model.has_value())
+    {
+        // The model refuses the launch conditions: toSimulationConditions()'s error, as in Java.
+        return;
+    }
+    const double density = (*model)->getConditions(options.getLaunchAltitude()).getDensity();
+    if (std::isfinite(density) && density > 0)
+    {
+        return;
+    }
+    check.refuse(
+        std::format("Cannot simulate: the launch temperature ({} K), the launch pressure ({} Pa) "
+                    "and the launch relative humidity ({}) give air of no positive density at the "
+                    "launch altitude ({} kg/m^3).",
+                    Strings::javaDoubleToString(options.getLaunchTemperature()),
+                    Strings::javaDoubleToString(options.getLaunchPressure()),
+                    Strings::javaDoubleToString(options.getLaunchRelativeHumidity()),
+                    Strings::javaDoubleToString(density)));
+}
+
 /// The launch conditions that the atmospheric model is fitted to, and the gravity, as far as
 /// the choices of @p options have a run read them.
 void checkAtmosphereAndGravity(const SimulationOptions& options, InputCheck& check)
@@ -214,6 +252,10 @@ void checkAtmosphereAndGravity(const SimulationOptions& options, InputCheck& che
                       SimulationInputRanges::kLaunchPressure);
         check.inRange("the launch relative humidity", options.getLaunchRelativeHumidity(),
                       SimulationInputRanges::kLaunchRelativeHumidity);
+        if (!check.failed())
+        {
+            checkLaunchSiteAir(options, check);
+        }
     }
     if (options.getGravityModelType() == GravityModelType::CONSTANT)
     {

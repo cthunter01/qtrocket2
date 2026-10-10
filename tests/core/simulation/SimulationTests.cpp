@@ -1471,16 +1471,17 @@ TEST(SimulationSimulate, NonFiniteInputsAreRefused)
 // The same contract for a finite input outside its range (decision U9 of tier 9; the table
 // SimulationInputRanges::kTable): an ordinary error that names the value and its range, before
 // anything runs. OpenRocket takes every finite number: with a time step of 1e300 s its first
-// step does not end, a time step of 0 it replaces by a millisecond, and a rod of negative
-// length it flies.
+// step does not end, with a time step of 0 its steppers start from a millisecond and cut a step
+// down to a twentieth of the 0 whenever a limit binds (a run that does not end then), and a
+// rod of negative length it flies.
 TEST(SimulationSimulate, InputsOutsideTheirRangesAreRefused)
 {
     EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setTimeStep(1e300); }),
-              "error: Cannot simulate: the time step is outside its range, above 0 and at most "
-              "10 s (1.0E300).");
+              "error: Cannot simulate: the time step is outside its range, from 0.0001 to 10 s "
+              "(1.0E300).");
     EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setTimeStep(0.0); }),
-              "error: Cannot simulate: the time step is outside its range, above 0 and at most "
-              "10 s (0.0).");
+              "error: Cannot simulate: the time step is outside its range, from 0.0001 to 10 s "
+              "(0.0).");
     EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchRodLength(-1.0); }),
               "error: Cannot simulate: the launch rod length is outside its range, from 0 to "
               "1000 m (-1.0).");

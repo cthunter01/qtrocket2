@@ -63,13 +63,27 @@ namespace QtRocket
 /// was given, and when one more would be added it adds, once, the message it was given for
 /// that case in its place (an overflow message: "... the further ones were dropped."), so that
 /// it holds at most capacity() + 1 messages. Every later message is dropped; one that equals a
-/// message of the set still replaces that one's contents as ever. A set without a capacity,
-/// which is every set that nobody gave one, behaves as OpenRocket's. Who needs it is the .ork
-/// loader: every handler adds the warnings of a file to one set, add() looks through the whole
-/// set first (as Java's does), and a file can give a warning with every few bytes, so that the
-/// time of a load grew with the square of the file's size (see DocumentConfig::kMaxWarnings).
-/// A copy and a move of a set keep its capacity, and an assignment replaces it with the
-/// source's, as with immutability.
+/// message of the set still replaces that one's contents as ever. The overflow message is not
+/// one of the messages the capacity counts, whoever added it (a caller may add a message equal
+/// to it, to a full set too: the reader of a saved flight whose warnings were cut off meets it
+/// among them): a full set from which one message is removed has room for one again (the new
+/// message then stands behind the overflow message, which goes on saying that messages were
+/// dropped: they were). A set without a
+/// capacity, which is every set that nobody gave one, behaves as OpenRocket's. Who needs it is
+/// the .ork loader: every handler adds the warnings of a file to one set, add() looks through
+/// the whole set first (as Java's does), and a file can give a warning with every few bytes,
+/// so that the time of a load grew with the square of the file's size (see
+/// DocumentConfig::kMaxWarnings). A copy and a move of a set keep its capacity and its
+/// overflow message, and an assignment replaces them with the source's, as with immutability:
+/// who goes on adding to a copy of a bounded set, for another purpose than the one the bound
+/// was given for, lifts it first (clearCapacity()) or adds to a set of its own.
+///
+/// Searching (QtRocket's own): the set keeps Message::hashCode() of every message beside it
+/// and asks equals() only of a message with the hash of the one it looks for. What is found
+/// is what a search with equals() alone finds, because equal messages share their hash and
+/// the hash of a stored message cannot change (see Message, "Hashing"); it is found in a
+/// fraction of the time, which is what keeps a full set cheap to add to (a dropped warning
+/// cost two searches of the whole set, 14 microseconds at a thousand warnings).
 ///
 /// Not ported: the java.util.AbstractSet helpers removeAll(), retainAll(), containsAll(),
 /// removeIf(), toArray() and stream(); iterate with begin()/end() and the standard algorithms
@@ -151,8 +165,18 @@ public:
     /// nothing is added any more.
     void setCapacity(std::size_t capacity, const T& overflow)
     {
-        m_capacity = capacity;
-        m_overflow = cloneMessage(overflow);
+        m_capacity     = capacity;
+        m_overflow     = cloneMessage(overflow);
+        m_overflowHash = m_overflow->hashCode();
+    }
+    /// Takes the capacity away again: the set grows without bound from now on, as one that was
+    /// never given a capacity. What it holds stays, an overflow message too. No change of the
+    /// contents, as setCapacity().
+    void clearCapacity() noexcept
+    {
+        m_capacity.reset();
+        m_overflow.reset();
+        m_overflowHash = 0;
     }
     /// The capacity setCapacity() gave the set, or nullopt for a set that grows without bound.
     [[nodiscard]] std::optional<std::size_t> capacity() const noexcept { return m_capacity; }
@@ -166,6 +190,7 @@ public:
     {
         checkMutable();
         m_modId = ModId{};
+        m_hashes.erase(m_hashes.begin() + (pos.m_it - m_messages.cbegin()));
         return ConstIterator{m_messages.erase(pos.m_it)};
     }
     /// Removes every message with the dynamic type of @p filter, whatever its contents; @p filter
@@ -222,28 +247,46 @@ public:
     [[nodiscard]] bool operator==(const MessageSet& other) const;
 
 private:
+    /// What indexOf() returns for a message that is not in the set.
+    static constexpr std::size_t kNone = static_cast<std::size_t>(-1);
+
     void                      checkMutable() const;
     bool                      addOwned(std::unique_ptr<T> message);
     static std::unique_ptr<T> cloneMessage(const T& message);
+    /// Where the first message equal to @p message, whose hashCode() is @p hash, stands in the
+    /// set, or kNone.
+    [[nodiscard]] std::size_t indexOf(const Message& message, std::size_t hash) const;
+    /// Puts @p message, whose hashCode() is @p hash, at the end of the set.
+    void append(std::unique_ptr<T> message, std::size_t hash);
+    /// Takes the message at @p index out of the set.
+    void eraseAt(std::size_t index);
+    /// Whether the set holds a message equal to its overflow message.
+    [[nodiscard]] bool holdsOverflow() const;
 
     std::vector<std::unique_ptr<T>> m_messages;
-    bool                            m_mutable{true};
-    std::source_location            m_immutedAt;
-    ModId                           m_modId{ModId::zero()};
+    /// hashCode() of every message of m_messages, in the same order.
+    std::vector<std::size_t> m_hashes;
+    bool                     m_mutable{true};
+    std::source_location     m_immutedAt;
+    ModId                    m_modId{ModId::zero()};
     /// The most messages add() puts into the set; none for a set that grows without bound.
     std::optional<std::size_t> m_capacity;
     /// What is added once in the place of the first message beyond the capacity; null for a
     /// set without a capacity (and for one that was moved from).
     std::unique_ptr<T> m_overflow;
+    /// hashCode() of m_overflow; 0 without one.
+    std::size_t m_overflowHash{0};
 };
 
 template <class T>
     requires std::derived_from<T, Message>
 MessageSet<T>::MessageSet(const MessageSet& other)
-  : m_mutable(other.m_mutable),
+  : m_hashes(other.m_hashes),
+    m_mutable(other.m_mutable),
     m_immutedAt(other.m_immutedAt),
     m_modId(other.m_modId),
-    m_capacity(other.m_capacity)
+    m_capacity(other.m_capacity),
+    m_overflowHash(other.m_overflowHash)
 {
     m_messages.reserve(other.m_messages.size());
     for (const std::unique_ptr<T>& message : other.m_messages)
@@ -275,11 +318,13 @@ MessageSet<T>& MessageSet<T>::operator=(MessageSet&& other) noexcept
     // Through a local, so that a set moved onto itself keeps its messages.
     MessageSet moved(std::move(other));
     m_messages.swap(moved.m_messages);
+    m_hashes.swap(moved.m_hashes);
     m_mutable   = moved.m_mutable;
     m_immutedAt = moved.m_immutedAt;
     m_modId     = ModId{};
     m_capacity  = moved.m_capacity;
     m_overflow.swap(moved.m_overflow);
+    m_overflowHash = moved.m_overflowHash;
     return *this;
 }
 
@@ -346,15 +391,14 @@ template <class T>
     requires std::derived_from<T, Message>
 bool MessageSet<T>::remove(const Message& message)
 {
-    const auto it = std::ranges::find_if(
-        m_messages, [&message](const std::unique_ptr<T>& m) { return message.equals(*m); });
-    if (it == m_messages.end())
+    const std::size_t index = indexOf(message, message.hashCode());
+    if (index == kNone)
     {
         return false;
     }
     checkMutable();  // Java: AbstractCollection.remove() checks in Iterator.remove()
     m_modId = ModId{};
-    m_messages.erase(it);
+    eraseAt(index);
     return true;
 }
 
@@ -372,7 +416,23 @@ void MessageSet<T>::filterOut(const T& filter)
     }
     checkMutable();
     m_modId = ModId{};
-    std::erase_if(m_messages, ofThatType);
+    // The messages that stay move up, each with its hash.
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < m_messages.size(); ++i)
+    {
+        if (ofThatType(m_messages[i]))
+        {
+            continue;
+        }
+        if (kept != i)
+        {
+            m_messages[kept] = std::move(m_messages[i]);
+            m_hashes[kept]   = m_hashes[i];
+        }
+        ++kept;
+    }
+    m_messages.resize(kept);
+    m_hashes.resize(kept);
 }
 
 template <class T>
@@ -386,6 +446,7 @@ void MessageSet<T>::clear()
     checkMutable();
     m_modId = ModId{};
     m_messages.clear();
+    m_hashes.clear();
 }
 
 template <class T>
@@ -399,18 +460,16 @@ template <class T>
     requires std::derived_from<T, Message>
 const T* MessageSet<T>::find(const Message& message) const
 {
-    const auto it = std::ranges::find_if(
-        m_messages, [&message](const std::unique_ptr<T>& m) { return message.equals(*m); });
-    return it == m_messages.end() ? nullptr : it->get();
+    const std::size_t index = indexOf(message, message.hashCode());
+    return index == kNone ? nullptr : m_messages[index].get();
 }
 
 template <class T>
     requires std::derived_from<T, Message>
 T* MessageSet<T>::find(const Message& message)
 {
-    const auto it = std::ranges::find_if(
-        m_messages, [&message](const std::unique_ptr<T>& m) { return message.equals(*m); });
-    return it == m_messages.end() ? nullptr : it->get();
+    const std::size_t index = indexOf(message, message.hashCode());
+    return index == kNone ? nullptr : m_messages[index].get();
 }
 
 template <class T>
@@ -515,29 +574,78 @@ template <class T>
     requires std::derived_from<T, Message>
 bool MessageSet<T>::addOwned(std::unique_ptr<T> message)
 {
-    m_modId     = ModId{};  // Java: add() draws one before it looks, so a duplicate counts too
-    T* existing = find(*message);
-    if (existing != nullptr)
+    m_modId = ModId{};  // Java: add() draws one before it looks, so a duplicate counts too
+    const std::size_t hash = message->hashCode();
+    if (const std::size_t index = indexOf(*message, hash); index != kNone)
     {
-        if (existing->replaceBy(*message))
+        T& existing = *m_messages[index];
+        if (existing.replaceBy(*message))
         {
-            existing->replaceContents(*message);
+            existing.replaceContents(*message);
         }
         return false;
     }
     if (m_capacity.has_value() && m_messages.size() >= *m_capacity)
     {
-        // Not OpenRocket's: the set is full (see the class comment). The message is dropped,
-        // and the set says so once. (A set that was moved from has kept the capacity and not
-        // the message.)
-        if (m_overflow != nullptr && find(*m_overflow) == nullptr)
+        // Not OpenRocket's (see the class comment): the set may be full. Its overflow message
+        // is none of the messages the capacity counts, in the set or on its way into it (a
+        // caller that adds it, as the reader of a saved flight does, has its own message
+        // kept, with its id).
+        const bool        saidSo  = holdsOverflow();
+        const std::size_t counted = m_messages.size() - (saidSo ? 1U : 0U);
+        const bool        isOverflow =
+            m_overflow != nullptr && hash == m_overflowHash && message->equals(*m_overflow);
+        if (counted >= *m_capacity && !isOverflow)
         {
-            m_messages.push_back(cloneMessage(*m_overflow));
+            // The message is dropped, and the set says so once. (A set that was moved from
+            // has kept the capacity and not the message.)
+            if (m_overflow != nullptr && !saidSo)
+            {
+                append(cloneMessage(*m_overflow), m_overflowHash);
+            }
+            return false;
         }
-        return false;
     }
-    m_messages.push_back(std::move(message));
+    append(std::move(message), hash);
     return true;
+}
+
+template <class T>
+    requires std::derived_from<T, Message>
+std::size_t MessageSet<T>::indexOf(const Message& message, std::size_t hash) const
+{
+    for (std::size_t i = 0; i < m_hashes.size(); ++i)
+    {
+        if (m_hashes[i] == hash && message.equals(*m_messages[i]))
+        {
+            return i;
+        }
+    }
+    return kNone;
+}
+
+template <class T>
+    requires std::derived_from<T, Message>
+void MessageSet<T>::append(std::unique_ptr<T> message, std::size_t hash)
+{
+    m_messages.push_back(std::move(message));
+    m_hashes.push_back(hash);
+}
+
+template <class T>
+    requires std::derived_from<T, Message>
+void MessageSet<T>::eraseAt(std::size_t index)
+{
+    const auto offset = static_cast<std::ptrdiff_t>(index);
+    m_messages.erase(m_messages.begin() + offset);
+    m_hashes.erase(m_hashes.begin() + offset);
+}
+
+template <class T>
+    requires std::derived_from<T, Message>
+bool MessageSet<T>::holdsOverflow() const
+{
+    return m_overflow != nullptr && indexOf(*m_overflow, m_overflowHash) != kNone;
 }
 
 template <class T>

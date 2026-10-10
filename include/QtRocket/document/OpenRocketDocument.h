@@ -347,6 +347,14 @@ public:
     [[nodiscard]] std::shared_ptr<DecalImage> getDecalImage(
         const std::shared_ptr<const Attachment>& attachment);
 
+    /// Whether getDecalImage(@p attachment) would give an image the document has already and
+    /// make no new one (DecalRegistry::hasDecalImage()); and how many images are registered,
+    /// which is the length of getDecalList(). Additions, for the .ork loader, which bounds the
+    /// images a file may give a document (DocumentConfig::kMaxDecalImages).
+    /// @throws BugError when @p attachment is null
+    [[nodiscard]] bool hasDecalImage(const std::shared_ptr<const Attachment>& attachment) const;
+    [[nodiscard]] std::size_t getDecalImageCount() const noexcept { return m_decalRegistry.size(); }
+
     /// The image named exactly @p name (Decal::getImageName()), or null (an addition: Java's
     /// Decal holds the image): a registered image, or one that removeDecal() took out of the
     /// list, whose name an undo may have put back on a component. A saver finds the images of

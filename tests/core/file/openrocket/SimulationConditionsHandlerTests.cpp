@@ -896,11 +896,12 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   stepper=RK4 dt=0.0 tmax=1.0E300 maxAngle=0.05235987755982988
 )out",
      .qtrocket = R"out(
+  W[Other,NORMAL] Illegal time step defined, ignoring.
   W[Other,NORMAL] Illegal max simulation time defined, ignoring.
 )out",
-     .why = "decision U9: a number outside the range a simulation holds it to is not applied: "
-            "1e300 s is no maximum time (the time step of 1e-300 s is inside its range and changes "
-            "nothing, being equal to the 0 that is there)"},
+     .why =
+         "decision U9: a number outside the range a simulation holds it to is not applied: 1e300 s "
+         "is no maximum time, and 1e-300 s is no time step (a time step starts at 0.0001 s)"},
     {.name     = "s1: time step valid then invalid",
      .xml      = R"xml(
 <conditions>
@@ -1164,6 +1165,33 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = {},
      .why      = {}},
+    {.name     = "u9: time step at its lower bound",
+     .xml      = R"xml(
+<conditions><timestep>0.0001</timestep></conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=1.0E-4 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: time step below its range",
+     .xml      = R"xml(
+<conditions>
+  <timestep>0.02</timestep>
+  <timestep>9.999999999999999e-5</timestep>
+  <timestep>0.000001</timestep>
+</conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=1.0E-6 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal time step defined, ignoring.
+  stepper=RK4 dt=0.02 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "steppers may cut a step down to a twentieth of the time step, so the rows of a run "
+            "grow with 1 / time step; the range starts at 0.0001 s"},
     {.name     = "u9: time step above its range",
      .xml      = R"xml(
 <conditions>

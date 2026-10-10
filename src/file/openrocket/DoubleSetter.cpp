@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -122,14 +123,19 @@ Result<void> DoubleSetter::set(RocketComponent& component, std::string_view  val
             // Java: the NumberFormatException is caught, and the special case is still looked at.
             warnings.add(invalidParameter(parts.data, component));
         }
-        else if (!std::isfinite(*number) || !std::isfinite(*number * m_multiplier) ||
-                 (m_range.has_value() && !m_range->contains(*number * m_multiplier)))
+        else if (!std::isfinite(*number) || !std::isfinite(*number * m_multiplier))
         {
             // Check for valid double. Java returns here, so "auto NaN" sets no flag either. Java
             // checks the number it read; the product is checked here too (decision L3), which
-            // matters for no multiplier of the table: pi / 180 makes a number smaller. Not
-            // Java's at all: a number outside the range of a setter that has one.
+            // matters for no multiplier of the table: pi / 180 makes a number smaller.
             warnings.add(invalidParameter(parts.data, component));
+            return {};
+        }
+        else if (m_range.has_value() && !m_range->contains(*number * m_multiplier))
+        {
+            // Not Java's at all: a number outside the range of a setter that has one. The
+            // refusal is QtRocket's own, and so is its text.
+            warnings.add(LoaderWarnings::numberOutsideRange(m_range->text));
             return {};
         }
         else

@@ -173,7 +173,9 @@ double AbstractEulerStepper::timeToSignChange(const SimulationStatus& status,
         const Coordinate airSpeed = status.getRocketVelocity().add(m_store.windVelocity);
         const double     dFdV     = cdA * atmosphericConditions.getDensity() * airSpeed.length();
         Coordinate       dAdV     = Coordinate::kZero;
-        if (airSpeed.length() > MathUtil::kEpsilon)
+        // Java: > MathUtil.EPSILON, which lets through what normalize() refuses (see the class
+        // comment).
+        if (airSpeed.length() >= Coordinate::kMinNormalizeLength)
         {
             dAdV = airSpeed.normalize().multiply(
                 dFdV / required(m_store.rocketMass, "rocket mass").getMass());
@@ -234,7 +236,9 @@ void AbstractEulerStepper::calculateAcceleration(SimulationStatus& status, DataS
 
     // Compute drag acceleration
     Coordinate linearAcceleration;
-    if (length > MathUtil::kEpsilon)
+    // Java: > MathUtil.EPSILON, which lets through what normalize() refuses (see the class
+    // comment).
+    if (length >= Coordinate::kMinNormalizeLength)
     {
         linearAcceleration = airSpeed.normalize().multiply(-store.dragForce / rocketMass.getMass());
     }

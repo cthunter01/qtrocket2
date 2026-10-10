@@ -219,6 +219,7 @@ add_executable(QtRocket_core_tests
     simulation/golden_simulation_inputs_tests.cpp
     simulation/GroundStepperTests.cpp
     simulation/LandingDispersionSettingsTests.cpp
+    simulation/launch_site_air_tests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
     simulation/natural_frequency_tests.cpp
@@ -230,6 +231,7 @@ add_executable(QtRocket_core_tests
     simulation/simulation_branch_listener_tests.cpp
     simulation/simulation_input_validation_tests.cpp
     simulation/simulation_lookup_invalidation_tests.cpp
+    simulation/simulation_row_bound_tests.cpp
     simulation/simulation_threading_tests.cpp
     simulation/SimulationConditionsTests.cpp
     simulation/SimulationExceptionTests.cpp

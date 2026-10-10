@@ -149,7 +149,15 @@ Result<ElementHandler*> ComponentHandler::openElement(std::string_view element,
         return nullptr;
     }
 
-    // Not OpenRocket's either: the components of a rocket are bounded (see the class comment).
+    // Not OpenRocket's either: the stages, booster sets and pod sets of a rocket are bounded
+    // (see the class comment), ...
+    if (!DocumentConfig::assemblyFits(*m_parent, *component))
+    {
+        warnings.add(LoaderWarnings::tooManyAssemblies(component->getComponentName()));
+        return nullptr;
+    }
+
+    // ... and so are its components.
     if (!DocumentConfig::componentFits(*m_parent, *component))
     {
         warnings.add(LoaderWarnings::tooManyComponents(component->getComponentName()));
