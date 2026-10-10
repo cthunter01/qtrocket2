@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include "QtRocket/aero/AbstractAerodynamicCalculator.h"
 #include "QtRocket/aero/AerodynamicCalculator.h"
@@ -9,6 +11,7 @@
 #include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/aero/StabilityCalculator.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 
 namespace QtRocket
@@ -48,15 +51,20 @@ class WarningSet;
 /// (a component removed, Rocket::loadFrom()) and before the rocket is destroyed. Java's map keeps
 /// its components alive.
 ///
-/// A selection of stages the force analysis cannot do, as in OpenRocket: the stability
-/// calculator's breakdown replaces an inactive stage by its active top-level child stages, one
-/// level deep. An active stage below two inactive ones (a booster set on the body of a booster
+/// A selection of stages the force analysis cannot do: the stability calculator's breakdown
+/// replaces an inactive stage by its active top-level child stages, one level deep, as in
+/// OpenRocket. An active stage below two inactive ones (a booster set on the body of a booster
 /// set, with the outer boosters and the core switched off: FlightConfiguration::setOnlyStage()
-/// of the inner set) has no entry in the breakdown, and getForceAnalysis() throws BugError
-/// (Java: a NullPointerException). The stage selection is the user's, not a programming error
-/// of the caller, so a caller that shows a force analysis (the component analysis, the override
-/// tab through ComponentDrag) has to expect it. getCP() and getAerodynamicForces() work for
-/// such a selection.
+/// of the inner set, and what a flight leaves of the rocket when the inner set drops away
+/// first) has no entry in the breakdown. getForceAnalysis() then returns an Error and no map:
+/// ErrorCode::INVALID_ARGUMENT with a text that names the active stage and the two inactive
+/// ones above it (unsupportedStageSelectionText()). The stage selection is the user's, not a
+/// programming error of the caller, so this is an ordinary failure: a caller that shows a force
+/// analysis (the component analysis, the override tab through ComponentDrag) reports it, and a
+/// flight that comes to such a selection ends with it (AbstractSimulationStepper). What the
+/// analysis should give for it is left to the milestone that builds the component analysis
+/// dialog. getCP() and getAerodynamicForces() work for such a selection, and the calculator is
+/// as good after the failure as before it.
 ///
 /// The cache: checkCache() runs first in getCP(), getAerodynamicForces() and getForceAnalysis()
 /// (and so in getWorstCP()), not in checkGeometry() or getStallAngle(), as in Java; when the
@@ -73,9 +81,12 @@ class WarningSet;
 /// Deviations from OpenRocket:
 /// - The class is final; nothing in OpenRocket extends it.
 /// - A null calculator throws BugError (Java: IllegalArgumentException).
-/// - BugError where Java throws a NullPointerException: in getForceAnalysis() when the
-///   breakdown has no entry for the rocket, for an active assembly or for an active aerodynamic
-///   component (see above for the selection of stages that leads to it).
+/// - getForceAnalysis() returns a Result. For an active stage below two inactive ones it is
+///   an Error (see above), where Java dies of a NullPointerException.
+/// - BugError where Java throws a NullPointerException otherwise: in getForceAnalysis() when
+///   the breakdown has no entry for the rocket, or none for an active assembly or an active
+///   aerodynamic component of a stage that the breakdown does reach (a stability calculator
+///   that leaves a component out; neither of the library's two does).
 /// - checkGeometry() resolves a null WarningSet with this calculator's own set of ignored
 ///   warnings (Java: the stability calculator's).
 class BarrowmanCalculator final : public AbstractAerodynamicCalculator
@@ -102,11 +113,22 @@ public:
 
     /// The forces per component (see the class comment). The entries point at the rocket's
     /// components: read the map before the component tree changes or the rocket is destroyed.
-    /// @throws BugError see the class comment: for an active stage below two inactive ones, and
-    ///         when the stability calculator's breakdown lacks an entry.
-    [[nodiscard]] ForceMap getForceAnalysis(const FlightConfiguration& configuration,
-                                            const FlightConditions&    conditions,
-                                            WarningSet*                warnings) override;
+    /// An Error (ErrorCode::INVALID_ARGUMENT, unsupportedStageSelectionText()) for an active
+    /// stage below two inactive ones. Both calculators have run by then: @p warnings holds
+    /// what they added.
+    /// @throws BugError when the stability calculator's breakdown lacks an entry that it has
+    ///         to have (see the class comment).
+    [[nodiscard]] Result<ForceMap> getForceAnalysis(const FlightConfiguration& configuration,
+                                                    const FlightConditions&    conditions,
+                                                    WarningSet*                warnings) override;
+
+    /// The text of the Error of getForceAnalysis() for the active stage @p active below the
+    /// inactive stages @p above and, above that one, @p top (their names): "The force analysis
+    /// cannot be made for this selection of stages: stage 'Inner Boosters' is active below
+    /// two inactive stages ('Booster Stage' and 'Core Stage')."
+    [[nodiscard]] static std::string unsupportedStageSelectionText(std::string_view active,
+                                                                   std::string_view above,
+                                                                   std::string_view top);
 
     /// The forces on the rocket (see the class comment).
     [[nodiscard]] AerodynamicForces getAerodynamicForces(const FlightConfiguration& configuration,

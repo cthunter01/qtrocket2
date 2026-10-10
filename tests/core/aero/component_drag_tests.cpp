@@ -26,7 +26,7 @@
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
-#include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
 #include "aero/BarrowmanTestRockets.h"
 #include "aero/ForcePins.h"
 #include "rocket/JavaValueDifferences.h"
@@ -38,7 +38,6 @@ namespace
 using QtRocket::AxialStage;
 using QtRocket::BarrowmanCalculator;
 using QtRocket::BodyTube;
-using QtRocket::BugError;
 using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::ForceMap;
@@ -82,12 +81,14 @@ struct ComponentCDPin
         const std::string      what{pin.name};
         diff.name(std::format("component {}", pin.index), pin.name, component.getName());
         const double storedOverrideCD = component.getOverrideCD();
-        diff.pinned(what + ": CD", pin.cd, ComponentDrag::getComponentCD(component, 0, 0, 0.3, 0),
+        diff.pinned(what + ": CD", pin.cd,
+                    ComponentDrag::getComponentCD(component, 0, 0, 0.3, 0).value(),
                     kRocketTolerance);
         diff.pinned(what + ": CD in flight", pin.cdInFlight,
-                    ComponentDrag::getComponentCD(component, 0.1, 0.5, 0.8, 10), kRocketTolerance);
+                    ComponentDrag::getComponentCD(component, 0.1, 0.5, 0.8, 10).value(),
+                    kRocketTolerance);
         diff.pinned(what + ": override CD", pin.overrideCD,
-                    ComponentDrag::getOverrideCD(component, 0.0), kRocketTolerance);
+                    ComponentDrag::getOverrideCD(component, 0.0).value(), kRocketTolerance);
         if (component.getOverrideCD() != storedOverrideCD)
         {
             diff.problem(what + ": the stored override CD was changed");
@@ -359,52 +360,34 @@ TEST(ComponentDrag, AComponentWithoutARocketHasNoCD)
 {
     // Java: getRocket() throws an IllegalStateException, which getComponentCD() catches.
     const BodyTube alone;
-    EXPECT_EQ(ComponentDrag::getComponentCD(alone, 0, 0, 0.3, 0), 0.0);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(alone, 0.3), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(alone, 0, 0, 0.3, 0).value(), 0.0);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(alone, 0.3).value(), 0.0);
 
     AxialStage      stage;
     const BodyTube& inStage = stage.addChild(std::make_unique<BodyTube>());
-    EXPECT_EQ(ComponentDrag::getComponentCD(inStage, 0, 0, 0.3, 0), 0.0);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(inStage, 0.3), 0.0);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(stage, 0.3), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(inStage, 0, 0, 0.3, 0).value(), 0.0);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(inStage, 0.3).value(), 0.0);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(stage, 0.3).value(), 0.0);
 }
 
-/// Whether ComponentDrag::getComponentCD() of @p component throws BugError.
-[[nodiscard]] bool componentCDIsABug(const RocketComponent& component)
+/// Whether @p cd is the Error of a force analysis that cannot be made of the rocket with boosters
+/// on its boosters while the inner boosters are active and the two stages above them are not.
+[[nodiscard]] bool isTheStageSelectionError(const QtRocket::Result<double>& cd)
 {
-    try
-    {
-        static_cast<void>(ComponentDrag::getComponentCD(component, 0, 0, 0.3, 0));
-    }
-    catch (const BugError&)
-    {
-        return true;
-    }
-    return false;
+    return !cd.has_value() && cd.error().code == QtRocket::ErrorCode::INVALID_ARGUMENT &&
+           cd.error().message == BarrowmanCalculator::unsupportedStageSelectionText(
+                                     "Inner Boosters", "Booster Stage", "Core Stage");
 }
 
-/// Whether ComponentDrag::getOverrideCD() of @p component throws BugError.
-[[nodiscard]] bool overrideCDIsABug(const RocketComponent& component)
-{
-    try
-    {
-        static_cast<void>(ComponentDrag::getOverrideCD(component, 0.3));
-    }
-    catch (const BugError&)
-    {
-        return true;
-    }
-    return false;
-}
-
-/// The names of the components of @p rocket for which getComponentCD() or getOverrideCD() does
-/// not throw BugError, each on a line.
+/// The names of the components of @p rocket for which getComponentCD() or getOverrideCD() is
+/// not that Error, each on a line.
 [[nodiscard]] std::string componentsWithACD(Rocket& rocket)
 {
     std::string names;
     for (const RocketComponent* const component : allComponents(rocket))
     {
-        if (!componentCDIsABug(*component) || !overrideCDIsABug(*component))
+        if (!isTheStageSelectionError(ComponentDrag::getComponentCD(*component, 0, 0, 0.3, 0)) ||
+            !isTheStageSelectionError(ComponentDrag::getOverrideCD(*component, 0.3)))
         {
             names += component->getName();
             names += '\n';
@@ -420,50 +403,59 @@ TEST(ComponentDrag, AStageTwoStagesDeepHasOpenRocketsCDs)
     const TestBoostersOnBoostersRocket nested;
     JavaValueDifferences               diff;
     diff.pinned("payload nose: CD", 0.0142382921023787,
-                ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0), kRocketTolerance);
+                ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0).value(),
+                kRocketTolerance);
     diff.pinned("inner boosters: CD", 0.054792194223390184,
-                ComponentDrag::getComponentCD(*nested.innerStage, 0, 0, 0.3, 0), kRocketTolerance);
+                ComponentDrag::getComponentCD(*nested.innerStage, 0, 0, 0.3, 0).value(),
+                kRocketTolerance);
     diff.pinned("inner body: CD", 0.02078265015227631,
-                ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0), kRocketTolerance);
+                ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0).value(),
+                kRocketTolerance);
     diff.pinned("payload nose: override CD", 0.04941156449150655,
-                ComponentDrag::getOverrideCD(*nested.payloadNose, 0.0), kRocketTolerance);
+                ComponentDrag::getOverrideCD(*nested.payloadNose, 0.0).value(), kRocketTolerance);
     diff.pinned("inner boosters: override CD", 0.0894082087546037,
-                ComponentDrag::getOverrideCD(*nested.innerStage, 0.0), kRocketTolerance);
+                ComponentDrag::getOverrideCD(*nested.innerStage, 0.0).value(), kRocketTolerance);
     diff.pinned("inner body: override CD", 0.04407732583939211,
-                ComponentDrag::getOverrideCD(*nested.innerBody, 0.0), kRocketTolerance);
+                ComponentDrag::getOverrideCD(*nested.innerBody, 0.0).value(), kRocketTolerance);
     EXPECT_EQ(diff.text(), "");
 }
 
-TEST(ComponentDrag, AnActiveStageBelowTwoInactiveOnesIsABugForEveryComponent)
+TEST(ComponentDrag, AnActiveStageBelowTwoInactiveOnesIsAnErrorForEveryComponent)
 {
     // With the inner boosters alone active (FlightConfiguration::setOnlyStage()), the force
     // analysis has no entry for them (see BarrowmanCalculator): OpenRocket's getComponentCD()
     // and getOverrideCD() throw a NullPointerException for every component of the rocket, active
-    // or not (NestedProbe.java), and these throw BugError. Kept from OpenRocket on purpose; the
-    // GUI, which reaches the state by toggling stages, has to expect it.
+    // or not (NestedProbe.java). Here both give the Error of the force analysis, which names
+    // the stages: the selection is the user's, who reaches it by toggling stages, and the GUI
+    // shows the text.
     const TestBoostersOnBoostersRocket nested;
     FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
     config.setOnlyStage(TestBoostersOnBoostersRocket::kInnerStageNumber);
     ASSERT_EQ(allComponents(*nested.rocket).size(), 20U);
     EXPECT_EQ(componentsWithACD(*nested.rocket), "");
-    EXPECT_THROW(static_cast<void>(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0)),
-                 BugError);
-    EXPECT_THROW(static_cast<void>(ComponentDrag::getOverrideCD(*nested.payloadNose, 0.3)),
-                 BugError);
+    const QtRocket::Result<double> cd =
+        ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0);
+    ASSERT_FALSE(cd.has_value());
+    EXPECT_EQ(cd.error().code, QtRocket::ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(cd.error().message,
+              "The force analysis cannot be made for this selection of stages: stage 'Inner "
+              "Boosters' is active below two inactive stages ('Booster Stage' and 'Core Stage').");
+    EXPECT_TRUE(isTheStageSelectionError(ComponentDrag::getOverrideCD(*nested.payloadNose, 0.3)));
 
     // An overridden CD is the stored one, without a force analysis.
     nested.innerFins->setOverrideCD(0.2);
     nested.innerFins->setCDOverridden(true);
     ASSERT_TRUE(config.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber));
     ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
-    EXPECT_EQ(ComponentDrag::getOverrideCD(*nested.innerFins, 0.3), 0.2);
-    EXPECT_TRUE(componentCDIsABug(*nested.innerFins));
+    EXPECT_EQ(ComponentDrag::getOverrideCD(*nested.innerFins, 0.3).value(), 0.2);
+    EXPECT_TRUE(
+        isTheStageSelectionError(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0)));
 
     // With the boosters they sit on active as well, there is an analysis again.
     config.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, true);
-    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0), 0.2);
-    EXPECT_GT(ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0), 0.0);
-    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.innerFins, 0, 0, 0.3, 0).value(), 0.2);
+    EXPECT_GT(ComponentDrag::getComponentCD(*nested.innerBody, 0, 0, 0.3, 0).value(), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(*nested.payloadNose, 0, 0, 0.3, 0).value(), 0.0);
 }
 
 TEST(ComponentDrag, ComponentCDIsTheForceAnalysisOfTheSelectedConfiguration)
@@ -476,17 +468,17 @@ TEST(ComponentDrag, ComponentCDIsTheForceAnalysisOfTheSelectedConfiguration)
     conditions.setMach(0.8);
     conditions.setRollRate(10);
     BarrowmanCalculator calculator;
-    const ForceMap      analysis = calculator.getForceAnalysis(config, conditions, nullptr);
+    const ForceMap      analysis = calculator.getForceAnalysis(config, conditions, nullptr).value();
 
     ASSERT_NE(analysis.get(alpha.fins), nullptr);
-    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.fins, 0.1, 0.5, 0.8, 10),
+    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.fins, 0.1, 0.5, 0.8, 10).value(),
               analysis.get(alpha.fins)->getCD());
     ASSERT_NE(analysis.get(alpha.rocket.get()), nullptr);
-    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.rocket, 0.1, 0.5, 0.8, 10),
+    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.rocket, 0.1, 0.5, 0.8, 10).value(),
               analysis.get(alpha.rocket.get())->getCD());
     // A component without an entry in the analysis: 0.
     EXPECT_EQ(analysis.get(alpha.inner), nullptr);
-    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.inner, 0.1, 0.5, 0.8, 10), 0.0);
+    EXPECT_EQ(ComponentDrag::getComponentCD(*alpha.inner, 0.1, 0.5, 0.8, 10).value(), 0.0);
 }
 
 TEST(ComponentDrag, OverrideCDIsTheStoredOneOnlyWhileTheCDIsOverridden)
@@ -498,23 +490,23 @@ TEST(ComponentDrag, OverrideCDIsTheStoredOneOnlyWhileTheCDIsOverridden)
     // Not overridden: the calculated CD at the default Mach number, whatever is stored; the
     // stored value is left alone (Java stores the calculated one).
     ASSERT_FALSE(fins.isCDOverridden());
-    const double calculated = ComponentDrag::getComponentCD(fins, 0, 0, 0.3, 0);
+    const double calculated = ComponentDrag::getComponentCD(fins, 0, 0, 0.3, 0).value();
     EXPECT_GT(calculated, 0);
     EXPECT_NE(calculated, 0.42);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3), calculated);
-    EXPECT_NE(ComponentDrag::getOverrideCD(fins, 0.9), calculated);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3).value(), calculated);
+    EXPECT_NE(ComponentDrag::getOverrideCD(fins, 0.9).value(), calculated);
     EXPECT_EQ(fins.getOverrideCD(), 0.42);
 
     // Overridden: the stored override CD, whatever the Mach number.
     fins.setCDOverridden(true);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3), 0.42);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.9), 0.42);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3).value(), 0.42);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.9).value(), 0.42);
     // ... which is the component's CD too.
-    EXPECT_EQ(ComponentDrag::getComponentCD(fins, 0, 0, 0.3, 0), 0.42);
+    EXPECT_EQ(ComponentDrag::getComponentCD(fins, 0, 0, 0.3, 0).value(), 0.42);
 
     // Switched off again, the calculated CD is back and the stored one stays.
     fins.setCDOverridden(false);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3), calculated);
+    EXPECT_EQ(ComponentDrag::getOverrideCD(fins, 0.3).value(), calculated);
     EXPECT_EQ(fins.getOverrideCD(), 0.42);
 }
 
@@ -524,8 +516,8 @@ TEST(ComponentDrag, TheDefaultMachNumberComesFromThePreferences)
     const QtRocket::InMemoryPreferences preferences;
     const TestEstesAlphaIII             alpha;
     EXPECT_EQ(preferences.getDefaultMach(), 0.3);
-    EXPECT_EQ(ComponentDrag::getOverrideCD(*alpha.body, preferences.getDefaultMach()),
-              ComponentDrag::getComponentCD(*alpha.body, 0, 0, 0.3, 0));
+    EXPECT_EQ(ComponentDrag::getOverrideCD(*alpha.body, preferences.getDefaultMach()).value(),
+              ComponentDrag::getComponentCD(*alpha.body, 0, 0, 0.3, 0).value());
 }
 
 }  // namespace

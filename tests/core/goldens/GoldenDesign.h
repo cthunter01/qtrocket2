@@ -12,7 +12,8 @@
 // (mass.json) and aero_golden_tests.cpp (aero.json). A design that was loaded from a file is
 // compared with all three at once by compareLoadedDesign(), which also holds what only a loaded
 // design has in common with its goldens: the ids of its components and the warnings of its
-// load (example_design_golden_tests.cpp: OpenRocket's example designs).
+// load (example_design_golden_tests.cpp: OpenRocket's example designs; resave_golden_tests.cpp:
+// the test rockets, loaded from OpenRocket's re-saves of them).
 //
 // Two things about the rocket are the caller's to say:
 // - randomConfigurationId: whether the maker of the rocket draws the id of its flight
@@ -157,9 +158,6 @@ struct AeroComparison
 {
     AeroCounts  compared;
     std::string report;  ///< the mismatches, empty when everything matched
-    /// The worst CPs whose theta is not the golden one but an equally bad direction, one line
-    /// each (see compareWorstTheta()); they are not mismatches.
-    std::string otherThetas;
 };
 
 /// What the document @p aero holds, every configuration counted with the results it has or
@@ -205,8 +203,9 @@ inline constexpr double kThetaBeforeWorstCp = 1.0;
 ///   stale theta, one off the grid, NaN, or a direction with another CP is reported;
 /// - the golden theta is an equally bad direction for QtRocket: the CP at it is within the CP
 ///   tolerance of the worst CP found.
-/// What stays unchecked is which of several equally bad directions is found;
-/// AeroGoldenWorstTheta holds that strict comparison, disabled.
+/// What stays unchecked is which of several equally bad directions is found: a strict comparison
+/// of the two thetas cannot pass (it differed for 251 of the 329 worst CPs of the test rockets
+/// on Linux with glibc), and none is kept.
 [[nodiscard]] bool compareWorstTheta(GoldenMismatches& m, const AeroSubject& subject,
                                      const nlohmann::json& expected, double theta,
                                      const Coordinate& worst);
@@ -288,8 +287,7 @@ std::ostream& operator<<(std::ostream& out, const DesignCounts& counts);
 struct DesignComparison
 {
     DesignCounts compared;
-    std::string  report;       ///< the mismatches, empty when everything matched
-    std::string  otherThetas;  ///< AeroComparison::otherThetas
+    std::string  report;  ///< the mismatches, empty when everything matched
 };
 
 /// Compares a design that was loaded from a file with the geometry.json document @p geometry of

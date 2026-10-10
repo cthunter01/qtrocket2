@@ -1,9 +1,14 @@
 #include "QtRocket/aero/BarrowmanCalculator.h"
 
 #include <cmath>
+#include <cstddef>
 #include <format>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "QtRocket/aero/AbstractAerodynamicCalculator.h"
 #include "QtRocket/aero/AerodynamicCalculator.h"
@@ -23,6 +28,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 
 namespace QtRocket
 {
@@ -121,6 +127,44 @@ void finishEntry(AerodynamicForces& forces, const DragCalculator& dragCalculator
     return overrideCD;
 }
 
+/// The stages @p component lies in, from the inside out: the nearest stage at or above it,
+/// then the stage that one sits on, and so on up to a stage of the rocket.
+[[nodiscard]] std::vector<const RocketComponent*> stagesAround(const RocketComponent& component)
+{
+    std::vector<const RocketComponent*> stages;
+    for (const RocketComponent* c = &component; c != nullptr; c = c->getParent())
+    {
+        if (isStage(c->kind()))
+        {
+            stages.push_back(c);
+        }
+    }
+    return stages;
+}
+
+/// Why the breakdown of the stability calculators has no entry for the active component
+/// @p component, when the reason is the selection of stages: the breakdown replaces an inactive
+/// stage by its active top-level child stages, one level deep, so it reaches a stage exactly
+/// when no two stages in a row around it are inactive. The text names the first active stage
+/// below two inactive ones, from @p component outwards; nullopt when there is none, which
+/// means that the breakdown should have had the entry.
+[[nodiscard]] std::optional<std::string> unreachedStageText(
+    const FlightConfiguration& configuration, const RocketComponent& component)
+{
+    const std::vector<const RocketComponent*> stages = stagesAround(component);
+    for (std::size_t i = 0; i + 2 < stages.size(); i++)
+    {
+        if (configuration.isStageActive(stages[i]->getStageNumber()) &&
+            !configuration.isStageActive(stages[i + 1]->getStageNumber()) &&
+            !configuration.isStageActive(stages[i + 2]->getStageNumber()))
+        {
+            return BarrowmanCalculator::unsupportedStageSelectionText(
+                stages[i]->getName(), stages[i + 1]->getName(), stages[i + 2]->getName());
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace
 
 BarrowmanCalculator::BarrowmanCalculator()
@@ -158,9 +202,19 @@ Coordinate BarrowmanCalculator::getCP(const FlightConfiguration& configuration,
     return m_stabilityCalculator->getCP(configuration, conditions, actualWarnings(warnings));
 }
 
-ForceMap BarrowmanCalculator::getForceAnalysis(const FlightConfiguration& configuration,
-                                               const FlightConditions&    conditions,
-                                               WarningSet*                warnings)
+std::string BarrowmanCalculator::unsupportedStageSelectionText(std::string_view active,
+                                                               std::string_view above,
+                                                               std::string_view top)
+{
+    return std::format(
+        "The force analysis cannot be made for this selection of stages: stage "
+        "'{}' is active below two inactive stages ('{}' and '{}').",
+        active, above, top);
+}
+
+Result<ForceMap> BarrowmanCalculator::getForceAnalysis(const FlightConfiguration& configuration,
+                                                       const FlightConditions&    conditions,
+                                                       WarningSet*                warnings)
 {
     checkCache(configuration);
 
@@ -198,7 +252,13 @@ ForceMap BarrowmanCalculator::getForceAnalysis(const FlightConfiguration& config
         }
         if (source == nullptr)
         {
-            // Java: a NullPointerException
+            // Java: a NullPointerException, in both cases. An active stage below two inactive
+            // ones is a selection of the user's, and so an ordinary failure (see the header);
+            // any other missing entry is a defect of the stability calculator.
+            if (std::optional<std::string> text = unreachedStageText(configuration, *comp))
+            {
+                return fail(ErrorCode::INVALID_ARGUMENT, std::move(*text));
+            }
             bug(std::format("the force analysis has no entry for component {}", comp->getName()));
         }
 

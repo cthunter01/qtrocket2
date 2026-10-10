@@ -1396,10 +1396,19 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
         subject.calculator->getAerodynamicForces(*subject.config, conditions, &warnings);
     compareForces(m, "forces", expected.at("forces"), total);
 
-    const ForceMap analysis =
+    const Result<ForceMap> analysis =
         subject.calculator->getForceAnalysis(*subject.config, conditions, &warnings);
-    counts.components +=
-        compareForceAnalysis(m, expected.at("components"), analysis, *subject.rocket);
+    if (analysis)
+    {
+        counts.components +=
+            compareForceAnalysis(m, expected.at("components"), *analysis, *subject.rocket);
+    }
+    else
+    {
+        // A selection of stages the force analysis cannot be made of. No golden configuration
+        // is one: OpenRocket's own analysis dies there, and so would its dumper.
+        m.note(std::format("components: no force analysis: {}", analysis.error().message));
+    }
     counts.warnings +=
         compareWarnings(m, "warnings", expected.at("warnings"), warnings, *subject.rocket);
     noteUncomparedKeys(m, "", expected, kPointKeys);
@@ -1450,10 +1459,8 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
 
 /// Calculates the golden worst CP @p expected as the dumper does (new conditions with the Mach
 /// number at an angle of attack of 0; their theta is kThetaBeforeWorstCp, see there) and
-/// compares the CP and the theta found. Returns the theta found when it is not the golden one,
-/// else nullopt.
-[[nodiscard]] std::optional<double> compareWorstCP(Mismatches& m, const json& expected,
-                                                   const AeroSubject& subject)
+/// compares the CP and the theta found.
+void compareWorstCP(Mismatches& m, const json& expected, const AeroSubject& subject)
 {
     const double     mach = goldenValue(expected.at("mach"));
     FlightConditions conditions(*subject.config);
@@ -1464,12 +1471,9 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
     const Coordinate cp = subject.calculator->getWorstCP(*subject.config, conditions, &warnings);
     m.cg("cp", goldenCoordinate(expected.at("cp")), cp);
     noteUncomparedKeys(m, "", expected, kWorstCpKeys);
-    const double theta = conditions.getTheta();
-    if (compareWorstTheta(m, subject, expected, theta, cp))
-    {
-        return std::nullopt;
-    }
-    return theta;
+    // Whether the theta found is the golden one or another equally bad direction is not kept:
+    // the one is as good as the other (see compareWorstTheta()).
+    static_cast<void>(compareWorstTheta(m, subject, expected, conditions.getTheta(), cp));
 }
 
 /// Compares the worst CPs of the configuration of @p subject with the golden list @p expected
@@ -1479,14 +1483,8 @@ void compareWorstCPs(AeroComparison& result, const json& expected, const AeroSub
 {
     for (const json& worst : expected)
     {
-        const std::string what =
-            std::format("{} worst CP at Mach {}", context, goldenValue(worst.at("mach")));
-        Mismatches m(what);
-        if (const std::optional<double> theta = compareWorstCP(m, worst, subject))
-        {
-            result.otherThetas += std::format("{}: theta {}, golden {}\n", what, *theta,
-                                              goldenValue(worst.at("theta")));
-        }
+        Mismatches m(std::format("{} worst CP at Mach {}", context, goldenValue(worst.at("mach"))));
+        compareWorstCP(m, worst, subject);
         result.report += m.report();
         result.compared.worstCPs++;
     }
@@ -1888,7 +1886,6 @@ AeroComparison compareAero(Rocket& rocket, const json& aero, bool randomConfigur
         const AeroComparison compared = compareResults(*results, rocket, config, context);
         result.compared += compared.compared;
         result.report += compared.report;
-        result.otherThetas += compared.otherThetas;
     }
     rocket.setSelectedConfiguration(selected);
     return result;
@@ -2048,10 +2045,9 @@ DesignComparison compareLoadedDesign(Rocket& rocket, const WarningSet& loadWarni
         result.report += std::format("mass.json:\n  {}\n", failures.GetTestPartResult(i).message());
     }
 
-    AeroComparison aero  = compareAero(rocket, goldens.aero, false, preferences);
-    result.compared.aero = aero.compared;
+    const AeroComparison aero = compareAero(rocket, goldens.aero, false, preferences);
+    result.compared.aero      = aero.compared;
     result.report += aero.report;
-    result.otherThetas = std::move(aero.otherThetas);
     return result;
 }
 

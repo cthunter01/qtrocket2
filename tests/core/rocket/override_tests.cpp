@@ -146,7 +146,7 @@ TEST(OverrideTest, CDAncestorOverrides)
 
     // CD of rocket should be overridden CD of sustainer plus body tube plus calculated CD of
     // nose cone
-    const ForceMap forceMap = calc.getForceAnalysis(configuration, conditions, &warnings);
+    const ForceMap forceMap = calc.getForceAnalysis(configuration, conditions, &warnings).value();
     const AerodynamicForces* const noseconeForces = forceMap.get(nosecone);
     const AerodynamicForces* const rocketForces   = forceMap.get(&rocket);
     ASSERT_NE(noseconeForces, nullptr);

@@ -32,8 +32,9 @@
 //   compareWorstTheta() describes: it is one of the 360 directions getWorstCP() tries, the CP at
 //   it is the worst CP (found, and so the golden one), and the golden theta is an equally bad
 //   direction for QtRocket.
-//   That is the one value of the files that cannot be compared for equality;
-//   AeroGoldenWorstTheta holds the strict comparison, disabled, and the tests of the check.
+//   That is the one value of the files that cannot be compared for equality: which of several
+//   equally bad directions is found follows the rounding of a sum whose order is not
+//   OpenRocket's (see "worst theta" below). AeroGoldenWorstTheta holds the tests of the check.
 // A warning is compared by its class, priority, description, text, sources (as paths) and
 // parameter, and the warnings of a set in their order (compareWarnings() of GoldenWarnings.h,
 // which the simulation goldens share). A golden field that nothing compares is reported, in
@@ -180,9 +181,9 @@ struct GoldenRun
 }
 
 /// runGolden() of @p maker, run once per test process and kept (std::map keeps the entries where
-/// they are): the per-rocket test, the coverage test and the worst-theta test read the same
-/// comparison (a getWorstCP() is 360 CPs, and there are 329 of them). The result depends on the
-/// maker alone, so the order of the tests does not matter.
+/// they are): the per-rocket test and the coverage test read the same comparison (a
+/// getWorstCP() is 360 CPs, and there are 329 of them). The result depends on the maker alone,
+/// so the order of the tests does not matter.
 [[nodiscard]] const GoldenRun& goldenRun(const TestRocketMaker& maker)
 {
     static std::mutex                                    s_mutex;
@@ -644,38 +645,18 @@ TEST(AeroGoldenMutations, ChangesWithinTheTolerancesAreNotReported)
 
 // =============================================================================== worst theta
 
-/// The worst CPs of every test rocket whose theta is not the golden one, one line each.
-[[nodiscard]] std::string otherWorstThetas()
-{
-    std::string lines;
-    for (const TestRocketMaker& maker : testRocketMakers())
-    {
-        const GoldenRun& run = goldenRun(maker);
-        if (!run.comparison.otherThetas.empty())
-        {
-            lines += std::format("{}:\n{}", maker.input, run.comparison.otherThetas);
-        }
-    }
-    return lines;
-}
-
-// BLOCKED, and disabled because it cannot pass: the theta getWorstCP() leaves in the conditions,
-// compared strictly with the golden one. It differs for most of the worst CPs of the rockets
-// whose CP does not depend on the direction (251 of the 329 on Linux with glibc; every rocket but
-// the Iso-Haisu, the simple two-stage rocket and the cluster pods): there the 360 CPs differ only
+// The theta getWorstCP() leaves in the conditions is not compared strictly with the golden one:
+// that comparison cannot pass. The theta differs for most of the worst CPs of the rockets whose
+// CP does not depend on the direction (251 of the 329 on Linux with glibc; every rocket but the
+// Iso-Haisu, the simple two-stage rocket and the cluster pods): there the 360 CPs differ only
 // in the rounding of the sum over the fins, and the direction that happens to give the smallest
 // x follows the order of that sum (Java: the components' random ids, so OpenRocket's own answer
 // changes with them) and the last bit of sin() (which differs between Java, glibc, Apple's libm
 // and the UCRT). The CPs themselves match (AeroGolden), and AeroGolden accepts another theta
 // only when it is a direction getWorstCP() tries whose CP is the worst CP, and the CP at the
 // golden theta is the worst CP too (compareWorstTheta()): any equally bad direction passes,
-// as it must, so which one is found stays uncompared and this test is its record. To see the
-// list, run with --gtest_also_run_disabled_tests --gtest_filter='AeroGoldenWorstTheta.*'.
-TEST(AeroGoldenWorstTheta, DISABLED_TheDirectionFoundIsJavasInEveryRocket)
-{
-    EXPECT_EQ(otherWorstThetas(), "");
-}
-
+// as it must, so which one is found stays uncompared.
+//
 // The check of the theta found is not vacuous either. The mutation WorstTheta above changes the
 // golden side; these put a theta in the place of the one getWorstCP() left, for the worst CP of
 // the Iso-Haisu at Mach 0.6 (golden theta 0; the CP is at x = 1.8197 m in the directions 0 and

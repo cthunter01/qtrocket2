@@ -21,6 +21,9 @@
 //   for a rocket that was built). The file's "schema", "schemaVersion" and "input" are checked by
 //   goldens_schema_tests.cpp. A key of a component, of its overrides, of a configuration, of a
 //   motor or of an instance that nothing compares is reported.
+// - The ids, those of the two configurations included, and the warnings of a load are compared
+//   where the same thirteen designs are loaded from OpenRocket's re-saves of the Java rockets:
+//   resave_golden_tests.cpp, which holds every loaded design against these same files.
 // - What geometry.json does not record of a rocket, when its recovery devices deploy, when its
 //   stages separate and when its motors ignite, is compared with OpenRocket's re-save of the
 //   Java rocket (<input>/resave/rocket.ork), element by element (TestRocketsGoldenSettings;

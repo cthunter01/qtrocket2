@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/AerodynamicForces.h"
+#include "QtRocket/aero/BarrowmanCalculator.h"
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/mass/RigidBody.h"
 #include "QtRocket/models/AtmosphericConditions.h"
@@ -29,11 +30,13 @@
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepper.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
+#include "aero/BarrowmanTestRockets.h"
 #include "rocket/JavaValueDifferences.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationStatusSupport.h"
@@ -47,9 +50,11 @@ namespace
 using QtRocket::AbstractSimulationStepper;
 using QtRocket::AerodynamicForces;
 using QtRocket::AtmosphericConditions;
+using QtRocket::BarrowmanCalculator;
 using QtRocket::CloneableSimulationListener;
 using QtRocket::Coordinate;
 using QtRocket::FlightConditions;
+using QtRocket::FlightConfiguration;
 using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
 using QtRocket::FlightDataTypeId;
@@ -59,6 +64,7 @@ using QtRocket::RigidBody;
 using QtRocket::Rk4SimulationStepper;
 using QtRocket::RocketComponent;
 using QtRocket::SimulationConditions;
+using QtRocket::SimulationException;
 using QtRocket::SimulationStatus;
 using QtRocket::SimulationStepper;
 using QtRocket::Test::bugText;
@@ -70,7 +76,9 @@ using QtRocket::Test::statusConfiguration;
 using QtRocket::Test::stepScenarioNames;
 using QtRocket::Test::StepScenarioPin;
 using QtRocket::Test::stored;
+using QtRocket::Test::TestBoostersOnBoostersRocket;
 using QtRocket::Test::TestEstesAlphaIII;
+using QtRocket::Test::TestFalcon9Heavy;
 using QtRocket::Test::testFcid;
 using QtRocket::Test::StepperPins::CorrectivePin;
 using QtRocket::Test::StepperPins::DampingPin;
@@ -410,6 +418,60 @@ TEST(AbstractSimulationStepperDataStore, TheDampingMomentIsZeroOnTheRodAndNaNWit
 
     // The propulsive part alone: nothing without two points of motor mass.
     EXPECT_EQ(store.computePropulsiveDampingMomentCoefficient(flying.status, *flying.branch), 0.0);
+}
+
+/// How the aerodynamic damping moment coefficient of @p status ends: the message of the
+/// SimulationException it throws, else "a number" or "NaN".
+[[nodiscard]] std::string aerodynamicDampingOutcome(const DataStore&        store,
+                                                    const SimulationStatus& status)
+{
+    try
+    {
+        return std::isnan(store.computeAerodynamicDampingMomentCoefficient(status)) ? "NaN"
+                                                                                    : "a number";
+    }
+    catch (const SimulationException& e)
+    {
+        return e.what();
+    }
+}
+
+// What a flight leaves of a rocket with boosters on its boosters when the inner boosters drop
+// away first: the engine gives their branch a configuration with every stage above them cleared
+// (FlightConfiguration::clearStagesAbove()), which is an active stage below two inactive ones,
+// and no force analysis can be made of that (see BarrowmanCalculator). The aerodynamic damping
+// moment is a sum over a force analysis, so the flight ends there with the text of the Error,
+// as an ordinary failure of the simulation (OpenRocket: a NullPointerException).
+TEST(AbstractSimulationStepperDataStore, AStageSelectionWithoutAForceAnalysisEndsTheFlight)
+{
+    const TestBoostersOnBoostersRocket nested;
+    const auto                         conditions = std::make_shared<SimulationConditions>();
+    conditions->setAerodynamicCalculator(std::make_shared<BarrowmanCalculator>());
+    SimulationStatus status(
+        std::make_shared<FlightConfiguration>(nested.rocket->getSelectedConfiguration().clone()),
+        conditions);
+    status.setFlightDataBranch(newBranch());
+    status.setLaunchRodCleared(true);
+    FlightConfiguration& dropped = status.getConfiguration();
+    dropped.clearStagesAbove(TestBoostersOnBoostersRocket::kInnerStageNumber);
+    ASSERT_TRUE(dropped.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber));
+    ASSERT_FALSE(dropped.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
+    ASSERT_FALSE(dropped.isStageActive(TestFalcon9Heavy::kCoreStageNumber));
+
+    DataStore store;
+    store.flightConditions.emplace(dropped);
+    store.rocketMass.emplace(Coordinate(1.0, 0, 0, 5.0), 1e-2, 2.0);
+    EXPECT_EQ(aerodynamicDampingOutcome(store, status),
+              "The force analysis cannot be made for this selection of stages: stage 'Inner "
+              "Boosters' is active below two inactive stages ('Booster Stage' and 'Core Stage').");
+    // Through it the three values of a row, and so the row.
+    EXPECT_THROW(
+        static_cast<void>(store.computeDampingMomentCoefficientComponents(status, *newBranch())),
+        SimulationException);
+
+    // Boosters that drop away with the inner boosters still on them fly on.
+    dropped.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, true, false);
+    EXPECT_EQ(aerodynamicDampingOutcome(store, status), "a number");
 }
 
 // ================================================================================ checkNaN

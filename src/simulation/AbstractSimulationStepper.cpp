@@ -35,9 +35,11 @@
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/SimulationListenerHelper.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
@@ -271,9 +273,16 @@ double AbstractSimulationStepper::DataStore::computeAerodynamicDampingMomentCoef
     {
         bug("The simulation conditions have no aerodynamic calculator");
     }
-    const ForceMap forceAnalysis =
+    const Result<ForceMap> forceAnalysis =
         aerocalc->getForceAnalysis(status.getConfiguration(), *flightConditions, nullptr);
-    for (const ForceMap::Entry& entry : forceAnalysis)
+    if (!forceAnalysis)
+    {
+        // A selection of stages the force analysis cannot do (see BarrowmanCalculator): what a
+        // flight leaves of the rocket when a booster set drops away from the booster set it
+        // sits on. Java: a NullPointerException, which ends the simulation run as a bug.
+        throw SimulationException(forceAnalysis.error().message);
+    }
+    for (const ForceMap::Entry& entry : *forceAnalysis)
     {
         const RocketComponent* comp = entry.first;
         if (comp == nullptr || !comp->isAerodynamic())

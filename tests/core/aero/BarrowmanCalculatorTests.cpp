@@ -47,6 +47,7 @@
 #include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "aero/BarrowmanTestRockets.h"
@@ -865,7 +866,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragSubtractsThrustingNozzleExitArea)
     BarrowmanCalculator calculator;
     WarningSet          warnings;
     const ForceMap      coastingForces =
-        calculator.getForceAnalysis(configuration, conditions, &warnings);
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     const double bodyBaseArea        = kPi * QtRocket::MathUtil::pow2(bodyTube.getAftRadius());
     const double nozzleExitArea      = kPi * QtRocket::MathUtil::pow2(0.010 / 2);
@@ -875,7 +876,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragSubtractsThrustingNozzleExitArea)
 
     conditions.setThrustingNozzleExitAreas(Areas{{&bodyTube.getAssembly(), nozzleExitArea}});
     const ForceMap poweredForces =
-        calculator.getForceAnalysis(configuration, conditions, &warnings);
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     EXPECT_NEAR(coastingBodyBaseCD * exposedAreaFraction,
                 forcesOf(poweredForces, bodyTube).getBaseCD(), kEpsilon)
@@ -903,7 +904,8 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragClampsExposedBodyAreaToZero)
 
     BarrowmanCalculator calculator;
     WarningSet          warnings;
-    const ForceMap forceMap = calculator.getForceAnalysis(configuration, conditions, &warnings);
+    const ForceMap      forceMap =
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     EXPECT_NEAR(0, forcesOf(forceMap, bodyTube).getBaseCD(), kEpsilon)
         << "Exposed body-base area should be clamped to zero";
@@ -926,13 +928,13 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragLeavesInternalBodyStepUnchanged)
     BarrowmanCalculator       calculator;
     WarningSet                coastingWarnings;
     const ForceMap            coastingForces =
-        calculator.getForceAnalysis(configuration, conditions, &coastingWarnings);
+        calculator.getForceAnalysis(configuration, conditions, &coastingWarnings).value();
 
     conditions.setThrustingNozzleExitAreas(
         Areas{{&aftTube.getAssembly(), kPi * QtRocket::MathUtil::pow2(aftTube.getAftRadius())}});
     WarningSet     poweredWarnings;
     const ForceMap poweredForces =
-        calculator.getForceAnalysis(configuration, conditions, &poweredWarnings);
+        calculator.getForceAnalysis(configuration, conditions, &poweredWarnings).value();
 
     EXPECT_TRUE(forcesOf(coastingForces, forwardTube).getBaseCD() > 0)
         << "The diameter step should create base drag";
@@ -965,7 +967,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragUsesIndependentWakeAreas)
     BarrowmanCalculator calculator;
     WarningSet          warnings;
     const ForceMap      coastingForces =
-        calculator.getForceAnalysis(configuration, conditions, &warnings);
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     const double coreBaseArea = kPi * QtRocket::MathUtil::pow2(coreBody.getAftRadius());
     const double sideBaseArea =
@@ -978,7 +980,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragUsesIndependentWakeAreas)
     conditions.setThrustingNozzleExitAreas(
         Areas{{&coreAssembly, coreNozzleExitArea}, {&sideAssembly, sideNozzleExitArea}});
     const ForceMap poweredForces =
-        calculator.getForceAnalysis(configuration, conditions, &warnings);
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     const double coastingCoreBaseCD = forcesOf(coastingForces, coreBody).getBaseCD();
     const double coastingSideBaseCD = forcesOf(coastingForces, sideBody).getBaseCD();
@@ -1014,7 +1016,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragClampingDoesNotSpillAcrossWakes)
     BarrowmanCalculator calculator;
     WarningSet          coastingWarnings;
     const ForceMap      coastingForces =
-        calculator.getForceAnalysis(configuration, conditions, &coastingWarnings);
+        calculator.getForceAnalysis(configuration, conditions, &coastingWarnings).value();
 
     const double oversizedSideNozzleExitArea =
         2 * sideBodyCount * kPi * QtRocket::MathUtil::pow2(sideBody.getAftRadius());
@@ -1022,7 +1024,7 @@ TEST(BarrowmanCalculatorTest, PoweredBaseDragClampingDoesNotSpillAcrossWakes)
         Areas{{&sideBody.getAssembly(), oversizedSideNozzleExitArea}});
     WarningSet     poweredWarnings;
     const ForceMap poweredForces =
-        calculator.getForceAnalysis(configuration, conditions, &poweredWarnings);
+        calculator.getForceAnalysis(configuration, conditions, &poweredWarnings).value();
 
     EXPECT_NEAR(forcesOf(coastingForces, coreBody).getBaseCD(),
                 forcesOf(poweredForces, coreBody).getBaseCD(), kEpsilon)
@@ -1131,7 +1133,7 @@ TEST(BarrowmanCalculatorTest, ForceMapContent)
     WarningSet             warnings;
 
     // Get force analysis with all stages active
-    const ForceMap forceMap = calculator->getForceAnalysis(config, conditions, &warnings);
+    const ForceMap forceMap = calculator->getForceAnalysis(config, conditions, &warnings).value();
 
     // First verify all stages active case
     EXPECT_TRUE(config.isStageActive(TestFalcon9Heavy::kPayloadStageNumber));
@@ -1148,7 +1150,8 @@ TEST(BarrowmanCalculatorTest, ForceMapContent)
     config.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, false);
 
     warnings.clear();
-    const ForceMap disabledForceMap = calculator->getForceAnalysis(config, conditions, &warnings);
+    const ForceMap disabledForceMap =
+        calculator->getForceAnalysis(config, conditions, &warnings).value();
 
     // Map should only contain components from active stages
     expectHoldsActiveComponentsOnly(rocket, config, disabledForceMap);
@@ -1158,7 +1161,8 @@ TEST(BarrowmanCalculatorTest, ForceMapContent)
     config.setAllStages();
 
     warnings.clear();
-    const ForceMap reenabledForceMap = calculator->getForceAnalysis(config, conditions, &warnings);
+    const ForceMap reenabledForceMap =
+        calculator->getForceAnalysis(config, conditions, &warnings).value();
 
     expectHoldsEveryAerodynamicComponent(rocket, reenabledForceMap,
                                          "Force map missing component after re-enable: ",
@@ -1170,7 +1174,7 @@ TEST(BarrowmanCalculatorTest, ForceMapContent)
 
     warnings.clear();
     const ForceMap boosterOnlyForceMap =
-        calculator->getForceAnalysis(config, conditions, &warnings);
+        calculator->getForceAnalysis(config, conditions, &warnings).value();
 
     // Map should only contain components from active stages
     expectHoldsActiveComponentsOnly(rocket, config, boosterOnlyForceMap);
@@ -1230,7 +1234,7 @@ TEST(BarrowmanCalculatorTest, StageDragAggregatesAerodynamicDescendants)
     const FlightConditions     conditions{config};
 
     WarningSet     warnings;
-    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, &warnings);
+    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, &warnings).value();
 
     const int stageCount = static_cast<int>(rocket.getStageCount());
     EXPECT_EQ(stageCount, 3);
@@ -1256,13 +1260,13 @@ TEST(BarrowmanCalculatorTest, StageDragRespectsAssemblyOverrides)
     const FlightConditions     conditions{config};
 
     WarningSet   warnings;
-    ForceMap     forceMap     = calculator.getForceAnalysis(config, conditions, &warnings);
+    ForceMap     forceMap     = calculator.getForceAnalysis(config, conditions, &warnings).value();
     const double descendantCD = descendantCDTotal(*stage, forceMap);
     EXPECT_NEAR(0.5 + descendantCD, forcesOf(forceMap, *stage).getCDTotal(), kEpsilon);
 
     stage->setSubcomponentsOverriddenCD(true);
     WarningSet overriddenWarnings;
-    forceMap = calculator.getForceAnalysis(config, conditions, &overriddenWarnings);
+    forceMap = calculator.getForceAnalysis(config, conditions, &overriddenWarnings).value();
     EXPECT_NEAR(0.5, forcesOf(forceMap, *stage).getCDTotal(), kEpsilon);
     EXPECT_NEAR(0, forcesOf(forceMap, *stage).getPressureCD(), kEpsilon);
     EXPECT_NEAR(0, forcesOf(forceMap, *stage).getBaseCD(), kEpsilon);
@@ -1780,7 +1784,8 @@ constexpr std::array<double, 7> kAnalysisConditions{0.6, 5, 1.9, 20, -2.0, 4.0, 
     const FlightConditions conditions = conditionsOf(configuration, kAnalysisConditions);
     BarrowmanCalculator    calculator;
     WarningSet             warnings;
-    const ForceMap forceMap = calculator.getForceAnalysis(configuration, conditions, &warnings);
+    const ForceMap         forceMap =
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     JavaValueDifferences diff;
     if (forceMap.size() != pins.size())
@@ -2531,7 +2536,7 @@ struct MixedPin
         diff.pinned("CP.x", cp.x, actualCp.x, kRocketTolerance);
         diff.pinned("CNa", cp.weight, actualCp.weight, kRocketTolerance);
 
-        const ForceMap forceMap = calc->getForceAnalysis(config, conditions, &warnings);
+        const ForceMap forceMap = calc->getForceAnalysis(config, conditions, &warnings).value();
         if (forceMap.size() != pins.size())
         {
             diff.problem(
@@ -2710,10 +2715,11 @@ struct Snapshot
 {
     const FlightConditions conditions = conditionsOf(configuration, kAnalysisConditions);
     Snapshot               snapshot;
-    snapshot.forces         = calculator.getAerodynamicForces(configuration, conditions, nullptr);
-    snapshot.cp             = calculator.getCP(configuration, conditions, nullptr);
-    const ForceMap forceMap = calculator.getForceAnalysis(configuration, conditions, nullptr);
-    snapshot.analysisSize   = forceMap.size();
+    snapshot.forces = calculator.getAerodynamicForces(configuration, conditions, nullptr);
+    snapshot.cp     = calculator.getCP(configuration, conditions, nullptr);
+    const ForceMap forceMap =
+        calculator.getForceAnalysis(configuration, conditions, nullptr).value();
+    snapshot.analysisSize = forceMap.size();
     if (const AerodynamicForces* const rocketEntry = forceMap.get(&configuration.getRocket()))
     {
         snapshot.analysisCD = rocketEntry->getCD();
@@ -3034,7 +3040,7 @@ TEST(BarrowmanCalculator, ARenamedFinSetIsNamedByItsNewNameInTheWarnings)
     EXPECT_EQ(textsOf(cpWarnings), "Thick fins may not simulate accurately:  \"Newer fins\"\n");
     alpha.fins->setName("Newest fins");
     WarningSet analysisWarnings;
-    static_cast<void>(calculator.getForceAnalysis(config, conditions, &analysisWarnings));
+    EXPECT_TRUE(calculator.getForceAnalysis(config, conditions, &analysisWarnings).has_value());
     EXPECT_EQ(textsOf(analysisWarnings),
               "Thick fins may not simulate accurately:  \"Newest fins\"\n");
 
@@ -3132,7 +3138,7 @@ TEST(BarrowmanCalculator, AStageTwoStagesDeepIsAnalysedWhileTheStagesAboveAreAct
     diff.pinned("CNa", 23.840055333244806, cp.weight, kRocketTolerance);
     EXPECT_EQ(diff.text(), "");
 
-    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, nullptr);
+    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, nullptr).value();
     EXPECT_EQ(forceMap.size(), 17U);
     EXPECT_TRUE(forceMap.containsKey(nested.innerStage));
     EXPECT_TRUE(forceMap.containsKey(nested.innerFins));
@@ -3145,8 +3151,9 @@ TEST(BarrowmanCalculator, AnActiveStageBelowTwoInactiveOnesHasForcesButNoForceAn
     // (NestedProbe.java). The force analysis replaces an inactive stage by its active top-level
     // child stages, one level deep, so the inner boosters are never visited and have no entry:
     // OpenRocket fails there with a NullPointerException (BarrowmanCalculator.java:80, also out
-    // of RocketComponent.getComponentCD() and getOverrideCD()), and so does this port, with a
-    // BugError. Kept on purpose: see the class comment.
+    // of RocketComponent.getComponentCD() and getOverrideCD()). The selection of stages is the
+    // user's, so here the analysis fails with an ordinary Error that names the stages (see the
+    // class comment).
     const TestBoostersOnBoostersRocket nested;
     FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
     config.setOnlyStage(TestBoostersOnBoostersRocket::kInnerStageNumber);
@@ -3169,21 +3176,130 @@ TEST(BarrowmanCalculator, AnActiveStageBelowTwoInactiveOnesHasForcesButNoForceAn
     diff.pinned("CNa", 43.82382381090931, cp.weight, kRocketTolerance);
     EXPECT_EQ(diff.text(), "");
 
-    EXPECT_THROW(static_cast<void>(calculator.getForceAnalysis(config, conditions, nullptr)),
-                 BugError);
+    WarningSet                       warnings;
+    const QtRocket::Result<ForceMap> analysis =
+        calculator.getForceAnalysis(config, conditions, &warnings);
+    ASSERT_FALSE(analysis.has_value());
+    EXPECT_EQ(analysis.error().code, QtRocket::ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(analysis.error().message,
+              "The force analysis cannot be made for this selection of stages: stage 'Inner "
+              "Boosters' is active below two inactive stages ('Booster Stage' and 'Core Stage').");
+    EXPECT_EQ(analysis.error().message, BarrowmanCalculator::unsupportedStageSelectionText(
+                                            "Inner Boosters", "Booster Stage", "Core Stage"));
     // The calculator is still good for the forces, and for the analysis of another selection.
     EXPECT_EQ(calculator.getAerodynamicForces(config, conditions, nullptr).getCD(), forces.getCD());
     config.setAllStages();
-    EXPECT_EQ(calculator.getForceAnalysis(config, FlightConditions{config}, nullptr).size(), 17U);
+    EXPECT_EQ(calculator.getForceAnalysis(config, FlightConditions{config}, nullptr).value().size(),
+              17U);
+}
+
+/// The stages of the rocket with boosters on its boosters: the payload, the core, the boosters
+/// on the core and the boosters on those.
+constexpr int kNestedStages = 4;
+
+/// Flags exactly the stages whose bits are set in @p selection active in @p config, each
+/// without its sub-stages.
+void selectStages(FlightConfiguration& config, unsigned selection)
+{
+    config.clearAllStages();
+    for (int stage = 0; stage < kNestedStages; stage++)
+    {
+        if ((selection & (1U << static_cast<unsigned>(stage))) != 0)
+        {
+            config.setStageActive(stage, true, false);
+        }
+    }
+}
+
+/// What is wrong with the force analysis @p analysis of @p config, which has to fail exactly
+/// when @p cannot: a map where there cannot be one, a failure where there can, a failure that is
+/// not the Error for the inner boosters below the two inactive stages, or a map that lacks the
+/// entry of an active assembly or of an active aerodynamic component, or has one beyond them.
+/// "" when nothing is.
+[[nodiscard]] std::string analysisProblem(const QtRocket::Result<ForceMap>& analysis,
+                                          const FlightConfiguration& config, bool cannot)
+{
+    if (!analysis)
+    {
+        const bool expected =
+            cannot && analysis.error().code == QtRocket::ErrorCode::INVALID_ARGUMENT &&
+            analysis.error().message == BarrowmanCalculator::unsupportedStageSelectionText(
+                                            "Inner Boosters", "Booster Stage", "Core Stage");
+        return expected ? "" : std::format("fails with: {}", analysis.error().message);
+    }
+    if (cannot)
+    {
+        return "there is an analysis";
+    }
+    std::size_t entries = 0;
+    for (const auto& [component, contexts] : config.getActiveInstances())
+    {
+        if (!isAssembly(component->kind()) && !component->isAerodynamic())
+        {
+            continue;
+        }
+        entries++;
+        if (!analysis->containsKey(component))
+        {
+            return std::format("no entry for {}", component->getName());
+        }
+    }
+    return analysis->size() == entries
+               ? ""
+               : std::format("{} entries for {} components", analysis->size(), entries);
+}
+
+/// Goes through the sixteen selections of the four stages of the rocket with boosters on its
+/// boosters and reports every one whose force analysis is not what the rule says: an Error
+/// exactly when the inner boosters are active and neither the boosters they sit on nor the core
+/// is, and otherwise a map with the entries of everything that is active. One calculator makes
+/// all the analyses, the failed ones in between. Adds the number of failures to @p failures.
+[[nodiscard]] std::string stageSelectionProblems(int& failures)
+{
+    const TestBoostersOnBoostersRocket nested;
+    FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
+    BarrowmanCalculator                calculator;
+    std::string                        problems;
+    for (unsigned selection = 0; selection < (1U << static_cast<unsigned>(kNestedStages));
+         selection++)
+    {
+        selectStages(config, selection);
+        const bool cannot = config.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber) &&
+                            !config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber) &&
+                            !config.isStageActive(TestFalcon9Heavy::kCoreStageNumber);
+        const QtRocket::Result<ForceMap> analysis =
+            calculator.getForceAnalysis(config, FlightConditions{config}, nullptr);
+        failures += analysis.has_value() ? 0 : 1;
+        const std::string problem = analysisProblem(analysis, config, cannot);
+        if (!problem.empty())
+        {
+            problems += std::format("stages {:04b}: {}\n", selection, problem);
+        }
+    }
+    return problems;
+}
+
+TEST(BarrowmanCalculator, TheForceAnalysisFailsForAnActiveStageBelowTwoInactiveOnesAndNoOther)
+{
+    // Of the sixteen selections of the four stages two are that arrangement: the inner
+    // boosters alone, and with the payload stage, which is not above them. An inactive stage
+    // between two active ones, or below one, is no obstacle (the breakdown replaces an inactive
+    // stage by its active child stages), and neither is a selection without any stage.
+    int failures = 0;
+    EXPECT_EQ(stageSelectionProblems(failures), "");
+    EXPECT_EQ(failures, 2);
 }
 
 // ------------------------------------------------------ a breakdown without the rocket
 
 /// A stability calculator whose force analysis is empty: it has no entry for the rocket (and
-/// none for anything else).
+/// none for anything else). Made with the rocket, it has the entry of the rocket alone.
 class EmptyBreakdownCalculator final : public StabilityCalculator
 {
 public:
+    EmptyBreakdownCalculator() = default;
+    explicit EmptyBreakdownCalculator(const Rocket& rocket) : m_rocket(&rocket) { }
+
     [[nodiscard]] std::unique_ptr<StabilityCalculator> newInstance() const override
     {
         return std::make_unique<EmptyBreakdownCalculator>();
@@ -3209,7 +3325,12 @@ public:
         const FlightConfiguration& /*configuration*/, const FlightConditions& /*conditions*/,
         WarningSet& /*warnings*/) override
     {
-        return StabilityForceBreakdown{ForceMap{}, ForceMap{}};
+        ForceMap assemblies;
+        if (m_rocket != nullptr)
+        {
+            assemblies.put(m_rocket, AerodynamicForces{}.zero());
+        }
+        return StabilityForceBreakdown{ForceMap{}, std::move(assemblies)};
     }
 
     void calculateDampingMoments(const FlightConfiguration& /*configuration*/,
@@ -3226,7 +3347,19 @@ public:
     }
 
     void voidAerodynamicCache() override { }
+
+private:
+    const Rocket* m_rocket{nullptr};
 };
+
+/// Whether @p calculator has a force analysis of @p config at @p conditions. (For EXPECT_THROW:
+/// a Result cannot be dropped, not even by a cast.)
+[[nodiscard]] bool hasForceAnalysis(BarrowmanCalculator&       calculator,
+                                    const FlightConfiguration& config,
+                                    const FlightConditions&    conditions)
+{
+    return calculator.getForceAnalysis(config, conditions, nullptr).has_value();
+}
 
 TEST(BarrowmanCalculator, ABreakdownWithoutTheRocketIsABug)
 {
@@ -3239,12 +3372,123 @@ TEST(BarrowmanCalculator, ABreakdownWithoutTheRocketIsABug)
     BarrowmanCalculator        calculator{std::make_unique<EmptyBreakdownCalculator>(),
                                           std::make_unique<BarrowmanDragCalculator>()};
 
-    EXPECT_THROW(static_cast<void>(calculator.getForceAnalysis(config, conditions, nullptr)),
-                 BugError);
+    EXPECT_THROW(static_cast<void>(hasForceAnalysis(calculator, config, conditions)), BugError);
     // The other entries do not need the breakdown.
     EXPECT_EQ(calculator.getStallAngle(), 0.25);
     EXPECT_EQ(calculator.getCP(config, conditions, nullptr).weight, 2.0);
     EXPECT_GT(calculator.getAerodynamicForces(config, conditions, nullptr).getCD(), 0);
+}
+
+TEST(BarrowmanCalculator, ABreakdownWithoutAnActiveComponentOfAStageItReachesIsABug)
+{
+    // The Error of the force analysis is for the selection of stages that the breakdown cannot
+    // reach, and for nothing else: a breakdown that leaves out a component of a stage with no
+    // inactive stage above it (here every component but the rocket) is a defect of its
+    // calculator, as before (Java: a NullPointerException in both cases).
+    const TestEstesAlphaIII    alpha;
+    const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
+    const FlightConditions     conditions{config};
+    BarrowmanCalculator        calculator{std::make_unique<EmptyBreakdownCalculator>(*alpha.rocket),
+                                          std::make_unique<BarrowmanDragCalculator>()};
+
+    EXPECT_THROW(static_cast<void>(hasForceAnalysis(calculator, config, conditions)), BugError);
+}
+
+/// A stability calculator whose force analysis is the Barrowman one with a gap: the entries of
+/// one component and of everything below it are left out.
+class GapBreakdownCalculator final : public StabilityCalculator
+{
+public:
+    explicit GapBreakdownCalculator(const RocketComponent& leftOut) : m_leftOut(&leftOut) { }
+
+    [[nodiscard]] std::unique_ptr<StabilityCalculator> newInstance() const override
+    {
+        return std::make_unique<GapBreakdownCalculator>(*m_leftOut);
+    }
+
+    [[nodiscard]] double getStallAngle() const override { return m_calculator.getStallAngle(); }
+
+    [[nodiscard]] Coordinate getCP(const FlightConfiguration& configuration,
+                                   const FlightConditions&    conditions,
+                                   WarningSet&                warnings) override
+    {
+        return m_calculator.getCP(configuration, conditions, warnings);
+    }
+
+    [[nodiscard]] AerodynamicForces calculateNonAxialForces(
+        const FlightConfiguration& configuration, const FlightConditions& conditions,
+        WarningSet& warnings) override
+    {
+        return m_calculator.calculateNonAxialForces(configuration, conditions, warnings);
+    }
+
+    [[nodiscard]] StabilityForceBreakdown getForceAnalysis(const FlightConfiguration& configuration,
+                                                           const FlightConditions&    conditions,
+                                                           WarningSet& warnings) override
+    {
+        StabilityForceBreakdown breakdown =
+            m_calculator.getForceAnalysis(configuration, conditions, warnings);
+        leaveOut(breakdown.getComponentForces());
+        leaveOut(breakdown.getAssemblyForces());
+        return breakdown;
+    }
+
+    void calculateDampingMoments(const FlightConfiguration& configuration,
+                                 const FlightConditions&    conditions,
+                                 AerodynamicForces&         total) override
+    {
+        m_calculator.calculateDampingMoments(configuration, conditions, total);
+    }
+
+    void checkGeometry(const FlightConfiguration& configuration, const RocketComponent& component,
+                       WarningSet& warnings) override
+    {
+        m_calculator.checkGeometry(configuration, component, warnings);
+    }
+
+    void voidAerodynamicCache() override { m_calculator.voidAerodynamicCache(); }
+
+private:
+    /// Removes the entries of the component left out, and of what is below it, from @p map.
+    void leaveOut(ForceMap& map) const
+    {
+        for (const RocketComponent* const component : map.keys())
+        {
+            if (component == m_leftOut || m_leftOut->isAncestor(*component))
+            {
+                map.remove(component);
+            }
+        }
+    }
+
+    const RocketComponent*       m_leftOut;
+    BarrowmanStabilityCalculator m_calculator;
+};
+
+TEST(BarrowmanCalculator, ABreakdownWithoutAStageBelowOneInactiveStageIsABug)
+{
+    // One inactive stage above an active one is no obstacle to a breakdown (it goes on with
+    // the active child stages of an inactive stage), so a breakdown that has no entry for such
+    // a stage is defective too: the inner boosters of the rocket with boosters on its boosters,
+    // flying with the core but without the boosters they sit on. The analysis of the library's
+    // own calculator has their entries; one whose breakdown leaves them out is a bug, not the
+    // Error of a selection of stages.
+    const TestBoostersOnBoostersRocket nested;
+    FlightConfiguration&               config = nested.rocket->getSelectedConfiguration();
+    config.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, false, false);
+    ASSERT_TRUE(config.isStageActive(TestBoostersOnBoostersRocket::kInnerStageNumber));
+    ASSERT_FALSE(config.isStageActive(TestFalcon9Heavy::kBoosterStageNumber));
+    ASSERT_TRUE(config.isStageActive(TestFalcon9Heavy::kCoreStageNumber));
+    const FlightConditions conditions{config};
+
+    BarrowmanCalculator whole;
+    const ForceMap      analysis = whole.getForceAnalysis(config, conditions, nullptr).value();
+    EXPECT_TRUE(analysis.containsKey(nested.innerStage));
+    EXPECT_TRUE(analysis.containsKey(nested.innerFins));
+
+    BarrowmanCalculator withAGap{std::make_unique<GapBreakdownCalculator>(*nested.innerStage),
+                                 std::make_unique<BarrowmanDragCalculator>()};
+    EXPECT_THROW(static_cast<void>(hasForceAnalysis(withAGap, config, conditions)), BugError);
 }
 
 // ----------------------------------------- one calculator, the configurations of a flight
@@ -3274,8 +3518,9 @@ struct StagedPin
     WarningSet              warnings;
     const AerodynamicForces forces =
         calculator.getAerodynamicForces(configuration, conditions, &warnings);
-    const Coordinate cp       = calculator.getCP(configuration, conditions, &warnings);
-    const ForceMap   analysis = calculator.getForceAnalysis(configuration, conditions, &warnings);
+    const Coordinate cp = calculator.getCP(configuration, conditions, &warnings);
+    const ForceMap   analysis =
+        calculator.getForceAnalysis(configuration, conditions, &warnings).value();
 
     JavaValueDifferences diff;
     diff.pinned("CD", expected.cd, forces.getCD(), kRocketTolerance);
@@ -3383,7 +3628,7 @@ TEST(BarrowmanCalculator, WarningsAreOptional)
     EXPECT_EQ(withoutWarnings.getCD(), withWarnings.getCD());
     EXPECT_TRUE(calculator.getCP(config, conditions, nullptr)
                     .exactlyEquals(calculator.getCP(config, conditions, &warnings)));
-    EXPECT_EQ(calculator.getForceAnalysis(config, conditions, nullptr).size(), 6U);
+    EXPECT_EQ(calculator.getForceAnalysis(config, conditions, nullptr).value().size(), 6U);
 
     // checkGeometry() too.
     alpha.nose->setAftRadius(0.015);

@@ -363,6 +363,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp
     goldens/test_rockets_golden_tests.cpp
