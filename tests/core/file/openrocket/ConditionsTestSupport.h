@@ -311,18 +311,20 @@ struct LookupFile
 };
 
 /// The files the cases refer to, as the Java probe had them:
-/// - design/tables/drag.csv, stability.csv and nan.csv: a drag table, a stability table and a
-///   drag table with a NaN, in the design's directory (kDesignDirectoryName);
+/// - design/tables/drag.csv, stability.csv, nan.csv and huge.csv: a drag table, a stability
+///   table, a drag table with a NaN and one with a coefficient of 1e300, in the design's
+///   directory (kDesignDirectoryName);
 /// - outside/drag.csv and stability.csv: tables of other values (a drag coefficient of 0.9,
 ///   stability values of 9) that no design may read;
 /// and, which the probe had no use for, tables of yet other values (0.7 and 7) under the names
 /// of the design's own in the directory that runConditions() makes the current one
 /// (cwd/tables/drag.csv and stability.csv): a table of those values in an outcome would have
 /// been read against the current directory.
-inline constexpr std::array<LookupFile, 7> kLookupFiles{{
+inline constexpr std::array<LookupFile, 8> kLookupFiles{{
     {.name = "design/tables/drag.csv", .text = "Mach,Cd\n0,0.3\n1,0.5\n"},
     {.name = "design/tables/stability.csv", .text = "Mach,Cn,Cm,Cp\n0,1,2,3\n2,3,4,5\n"},
     {.name = "design/tables/nan.csv", .text = "Mach,Cd\n0,0.3\n1,NaN\n"},
+    {.name = "design/tables/huge.csv", .text = "Mach,Cd\n0,0.3\n1,1e300\n"},
     {.name = "outside/drag.csv", .text = "Mach,Cd\n0,0.9\n1,0.9\n"},
     {.name = "outside/stability.csv", .text = "Mach,Cn,Cm,Cp\n0,9,9,9\n2,9,9,9\n"},
     {.name = "cwd/tables/drag.csv", .text = "Mach,Cd\n0,0.7\n1,0.7\n"},

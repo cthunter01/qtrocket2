@@ -23,6 +23,7 @@
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 
@@ -196,9 +197,10 @@ void MotorMountHandler::closeIgnitionEvent(std::string_view content, WarningSet&
 
 void MotorMountHandler::closeIgnitionDelay(std::string_view content, WarningSet& warnings)
 {
-    // Java: Double.parseDouble, a NaN and an infinity included.
+    // Java: Double.parseDouble, a NaN, an infinity and every other number included. Here only
+    // a delay that a simulation takes (see the class comment).
     const std::optional<double> delay = DocumentConfig::parseFiniteDouble(content);
-    if (!delay.has_value())
+    if (!delay.has_value() || !SimulationInputRanges::kDelay.contains(*delay))
     {
         warnings.add(Warning::fromString("Illegal ignition delay specified, ignoring."));
         return;

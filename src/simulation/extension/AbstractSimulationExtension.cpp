@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/util/Config.h"
 
@@ -72,7 +73,17 @@ SimulationExtension::InputNumber AbstractSimulationExtension::inputNumber(
     std::string_view extensionName, std::string_view key, double value)
 {
     return {.what  = std::format("the '{}' of the simulation extension '{}'", key, extensionName),
-            .value = value};
+            .value = value,
+            .range = std::nullopt};
+}
+
+SimulationExtension::InputNumber AbstractSimulationExtension::inputNumber(
+    std::string_view extensionName, std::string_view key, double value,
+    const SimulationInputRanges::Range& range)
+{
+    InputNumber number = inputNumber(extensionName, key, value);
+    number.range       = range;
+    return number;
 }
 
 Config AbstractSimulationExtension::getConfig() const

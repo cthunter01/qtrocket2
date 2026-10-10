@@ -11,6 +11,7 @@
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/IgnitionEvent.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
@@ -53,8 +54,10 @@ Result<void> IgnitionConfigurationHandler::closeElement(std::string_view  elemen
     }
     if (element == "ignitiondelay")
     {
-        // Java: Double.parseDouble, a NaN and an infinity included.
-        if (const std::optional<double> delay = DocumentConfig::parseFiniteDouble(content))
+        // Java: Double.parseDouble, a NaN, an infinity and every other number included. Here
+        // only a delay that a simulation takes (see the class comment).
+        if (const std::optional<double> delay = DocumentConfig::parseFiniteDouble(content);
+            delay.has_value() && SimulationInputRanges::kDelay.contains(*delay))
         {
             m_ignitionDelay = delay;
         }

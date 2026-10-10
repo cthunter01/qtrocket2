@@ -40,6 +40,7 @@
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/simulation/AbstractRkSimulationStepper.h"
 #include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptionsInterface.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/BugError.h"
@@ -62,6 +63,12 @@ static_assert(SimulationOptions::kMaxLaunchRodAngle == Preferences::kMaxLaunchRo
 /// The limits of the maximum step angle, rad: 1 and 20 degrees, written as in Java.
 constexpr double kMinimumStepAngle = 1 * std::numbers::pi / 180;
 constexpr double kMaximumStepAngle = 20 * std::numbers::pi / 180;
+
+// What the setters clamp to is what a run is held to (SimulationInputRanges, QtRocket's own).
+static_assert(SimulationInputRanges::kLaunchRodAngle.min == -SimulationOptions::kMaxLaunchRodAngle);
+static_assert(SimulationInputRanges::kLaunchRodAngle.max == SimulationOptions::kMaxLaunchRodAngle);
+static_assert(SimulationInputRanges::kMaximumStepAngle.min == kMinimumStepAngle);
+static_assert(SimulationInputRanges::kMaximumStepAngle.max == kMaximumStepAngle);
 
 /// The ISA standard atmosphere (ISA_ATMOSPHERIC_MODEL), shared by every SimulationOptions.
 [[nodiscard]] const std::shared_ptr<const ExtendedIsaModel>& isaAtmosphericModel()

@@ -4,13 +4,19 @@
 // flight data with warnings, branches, events and data points) is loaded again and again, each
 // time with one value replaced by a text a file should not have there: not-a-number and the
 // infinities in every spelling, nothing, a blank, a word, a number outside the range of a
-// double, a negative number, zero, and a very long text.
+// double, a negative number, zero, a very long text, and a number that is far too large.
 //
 // Whatever stands there, a load must end as a load does: with the simulations loaded (and a
 // warning where the handler has one) or with an ordinary failure, never with a BugError or
 // another exception, and never with a simulation that Simulation::validateInputs() then refuses
-// for a number of its options that is not finite (decision U3). The sanitizer presets run this
-// test too, which is where a crash would show.
+// for a number of its options that is not finite (decision U3) or that lies outside its range
+// (decision U9 of tier 9: "-1" and "0" are the sweep's values for that). The sanitizer presets
+// run this test too, which is where a crash would show.
+//
+// The preference store of the loads is that of OpenRocket's tests but for the time step, which
+// is 0 there: a simulation without a <timestep>, as the second one of the document, has its
+// time step from the store, and no simulation is valid with one of 0. What the options start
+// from is the caller's to keep in range, not the file's.
 //
 // The lookup elements of the document name files by relative names, and a sweep value in such a
 // place is the name of a file ("0", "abc", "NaN"). A design reads such a file from its own
@@ -32,6 +38,7 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/openrocket/SimulationsHandler.h"
+#include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
@@ -140,7 +147,7 @@ constexpr std::string_view kDocument = R"(
       <entry key="startTime" type="number">{{0.5}}</entry>
       <entry key="setPoint" type="number">{{0.0}}</entry>
       <entry key="finRate" type="number">{{10.0}}</entry>
-      <entry key="maxFinAngle" type="number">{{15.0}}</entry>
+      <entry key="maxFinAngle" type="number">{{0.25}}</entry>
       <entry key="KP" type="number">{{0.007}}</entry>
       <entry key="KI" type="number">{{0.2}}</entry>
     </extension>
@@ -287,9 +294,11 @@ struct Outcomes
 
 /// What is wrong with the loaded simulation @p simulation, or nothing: its options hold what
 /// their copy holds (a NaN among them would make them differ), its status can be worked out,
-/// and a run would not be refused for a number that is not finite, but for one of an
-/// extension's configuration, which a file can make infinite only as an integer too large for
-/// a double (see Simulation::validateInputs()); such a refusal is counted in @p tally.
+/// and a run would not be refused for a number that is not finite or outside its range, but
+/// for one of an extension's configuration, which the reader takes as the file has it: a file
+/// can make it infinite only as an integer too large for a double, and can give it any finite
+/// number, of which the extension refuses those outside its ranges (see
+/// Simulation::validateInputs()); such a refusal is counted in @p tally.
 [[nodiscard]] std::string problemOf(Simulation& simulation, Tally& tally)
 {
     const SimulationOptions* simulated = simulation.getSimulatedConditions();
@@ -312,6 +321,9 @@ struct Outcomes
     return {};
 }
 
+/// The time step of the preference store of the loads (see the head of this file).
+constexpr double kTimeStep = 0.05;
+
 /// Loads @p document in a new fixture, as a design whose directory is @p designDirectory, and
 /// adds how it ended to @p outcomes; returns what is wrong with the outcome, or nothing.
 [[nodiscard]] std::string loadAndCheck(const std::string&           document,
@@ -319,6 +331,7 @@ struct Outcomes
                                        Outcomes&                    outcomes)
 {
     SimulationFixture fixture;
+    fixture.preferences().putDouble(QtRocket::PreferenceKeys::kSimulationTimeStep, kTimeStep);
     fixture.context().setDesignDirectory(designDirectory);
     SimulationsHandler handler(fixture.context());
     const HandlerRun   run = runHandler(handler, document);
@@ -399,7 +412,8 @@ TEST(SimulationValueSweepDocument, LoadsWithoutAWarningAsItIs)
     EXPECT_EQ(outcomes.letters, "S");
     EXPECT_EQ(outcomes.tally.refusedForAnExtension, 0);
 
-    SimulationFixture  fixture;
+    SimulationFixture fixture;
+    fixture.preferences().putDouble(QtRocket::PreferenceKeys::kSimulationTimeStep, kTimeStep);
     SimulationsHandler handler(fixture.context());
     const HandlerRun   run = runHandler(handler, document.with(kValues, ""));
     EXPECT_TRUE(run.result.has_value());
@@ -456,8 +470,9 @@ TEST_P(SimulationValueSweep, NoValueBreaksALoad)
 }
 
 /// What the sweep puts in the place of a value: the texts a file should not have there, and
-/// three more: the spellings of the infinities that OpenRocket's own flight data use ("Inf"
-/// and "-Inf") and a number of kLongLength digits.
+/// four more: the spellings of the infinities that OpenRocket's own flight data use ("Inf"
+/// and "-Inf"), a number of kLongLength digits, and a finite number that no input of a
+/// simulation has in its range.
 constexpr auto kSweepCases = std::to_array<SweepCase>({
     {.value = "NaN",
      .tally = {.failed = 7, .warned = 54, .silent = 68, .refusedForAnExtension = 0}},
@@ -471,8 +486,13 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
      .tally = {.failed = 17, .warned = 49, .silent = 63, .refusedForAnExtension = 0}},
     {.value = "1e999",
      .tally = {.failed = 7, .warned = 60, .silent = 62, .refusedForAnExtension = 0}},
-    {.value = "-1", .tally = {.failed = 7, .warned = 26, .silent = 96, .refusedForAnExtension = 0}},
-    {.value = "0", .tally = {.failed = 8, .warned = 25, .silent = 96, .refusedForAnExtension = 0}},
+    // Outside its range, and refused with a warning since decision U9 of tier 9: the rod
+    // length, the temperature, the gravity and the Mach number of either lookup table; and of
+    // the eight numbers of the two extensions all but the setpoint, which the validation then
+    // refuses.
+    {.value = "-1", .tally = {.failed = 7, .warned = 31, .silent = 91, .refusedForAnExtension = 7}},
+    // Outside its range: a temperature of 0 K.
+    {.value = "0", .tally = {.failed = 8, .warned = 26, .silent = 95, .refusedForAnExtension = 0}},
     {.value = "<long text>",
      .tally = {.failed = 17, .warned = 49, .silent = 63, .refusedForAnExtension = 0}},
     {.value = "Inf",
@@ -481,6 +501,13 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
      .tally = {.failed = 17, .warned = 45, .silent = 67, .refusedForAnExtension = 0}},
     {.value = "<long number>",
      .tally = {.failed = 7, .warned = 60, .silent = 62, .refusedForAnExtension = 8}},
+    // A finite number far outside every range (decision U9 of tier 9). Where it passes
+    // silently an option's setter clamps it (the rod angle, the latitude, the longitude, the
+    // launch altitude), it is a direction, which is reduced to one turn (to 0, as it happens),
+    // or it is no number of a simulation at all. The eight numbers of the two extensions are
+    // taken, and the validation then refuses each.
+    {.value = "1e300",
+     .tally = {.failed = 7, .warned = 52, .silent = 70, .refusedForAnExtension = 8}},
 });
 
 /// The name of the test of a sweep value.

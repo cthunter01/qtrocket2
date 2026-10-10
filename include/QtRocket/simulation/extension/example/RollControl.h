@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 
@@ -81,13 +83,32 @@ class SimulationConditions;
 ///   the middle of the flight with the others (a setpoint, a turn rate or a gain that is no
 ///   number makes the cant no number; an infinite gain does on some rockets). Its reader of
 ///   .ork files cannot give a setting such a value, except an infinity for an integer too large
-///   for a double.
+///   for a double. Each number also has a range that a run is held to (kStartTimeRange and
+///   the constants after it): OpenRocket flies with any finite number.
 class RollControl final : public AbstractSimulationExtension
 {
 public:
     /// OpenRocket's class name: the id a .ork file names the extension by.
     static constexpr std::string_view kId =
         "info.openrocket.core.simulation.extension.example.RollControl";
+
+    /// The ranges Simulation::validateInputs() holds the six numbers to (QtRocket's own, see
+    /// SimulationInputRanges). OpenRocket's dialog offers a start time of 0 to 1200 s, a roll
+    /// rate of -10 to 10 rad/s, a turn rate of 0 to 10 rad/s, a fin angle of 0 to 0.25 rad, a
+    /// KP of 0 to 0.02 and a KI of 0 to 1; the ranges reach a hundred times and more beyond
+    /// that, the fin angle to a right angle (a fin set takes a cant of 15 degrees at most).
+    static constexpr SimulationInputRanges::Range kStartTimeRange = SimulationInputRanges::kDelay;
+    static constexpr SimulationInputRanges::Range kSetPointRange{
+        .min = -1000.0, .max = 1000.0, .minExcluded = false, .text = "from -1000 to 1000 rad/s"};
+    static constexpr SimulationInputRanges::Range kFinRateRange{
+        .min = 0.0, .max = 1000.0, .minExcluded = false, .text = "from 0 to 1000 rad/s"};
+    static constexpr SimulationInputRanges::Range kMaxFinAngleRange{.min = 0.0,
+                                                                    .max = std::numbers::pi / 2,
+                                                                    .minExcluded = false,
+                                                                    .text = "from 0 to pi/2 rad"};
+    /// Of each of the two gains, "KP" and "KI".
+    static constexpr SimulationInputRanges::Range kGainRange{
+        .min = 0.0, .max = 1000.0, .minExcluded = false, .text = "from 0 to 1000"};
 
     /// The name and the symbol of the flight data type of the fin cant. The symbol is a small
     /// alpha (U+03B1, here as its two UTF-8 bytes) followed by "fc".

@@ -41,6 +41,11 @@ class RecoveryDevice;
 ///   element, LoaderWarnings::numberNotFinite() ("The number of element '<element>' is not
 ///   finite; ignoring it."). OpenRocket stores an infinity (a simulation with it cannot run)
 ///   and passes over a NaN without a warning.
+/// - A delay or an altitude outside the range a simulation holds it to (decision U9 of tier
+///   9; SimulationInputRanges::kDelay and kEventAltitude: from 0 to 1000000 s, and to as many
+///   metres) is refused in the same way, with LoaderWarnings::numberOutOfRange() ("The number
+///   of element '<element>' is outside its range, from 0 to 1000000 s; ignoring it.").
+///   OpenRocket stores every number, a negative one included.
 /// - A configid that spells out the key of the error id is refused with a warning of
 ///   QtRocket's own, LoaderWarnings::kDeploymentConfigurationOfErrorId, and the element changes
 ///   nothing; OpenRocket, in which no id made from a text is the error id (see
@@ -58,7 +63,8 @@ public:
                                    const DocumentLoadingContext& context) noexcept;
 
     /// A copy of @p def with what this handler has read put in: the event when one was read,
-    /// the delay and the altitude when one was read and is finite (getConfiguration()).
+    /// the delay and the altitude when one was read and is finite and in its range
+    /// (getConfiguration()).
     [[nodiscard]] DeploymentConfiguration getConfiguration(
         const DeploymentConfiguration& def) const;
 

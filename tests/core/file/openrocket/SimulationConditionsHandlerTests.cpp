@@ -611,8 +611,11 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
      .java     = R"out(
   rod=-2.5 intoWind=false angle=0.0 dir=0.0
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal launch rod length defined, ignoring.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "rod has no negative length, and the 0 before it stays"},
     {.name     = "s1: numbers with spaces, exponent, hexadecimal and suffix",
      .xml      = R"xml(
 <conditions>
@@ -892,8 +895,12 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
      .java     = R"out(
   stepper=RK4 dt=0.0 tmax=1.0E300 maxAngle=0.05235987755982988
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal max simulation time defined, ignoring.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: "
+            "1e300 s is no maximum time (the time step of 1e-300 s is inside its range and changes "
+            "nothing, being equal to the 0 that is there)"},
     {.name     = "s1: time step valid then invalid",
      .xml      = R"xml(
 <conditions>
@@ -910,7 +917,7 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = {},
      .why      = {}},
-    {.name     = "s1: finite numbers however large are applied",
+    {.name     = "s1: finite numbers that are far too large",
      .xml      = R"xml(
 <conditions>
   <launchrodlength>1e300</launchrodlength>
@@ -928,8 +935,16 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   stepper=RK4 dt=1.0E300 tmax=1.7976931348623157E308 maxAngle=0.05235987755982988
   thresholds=1.0E300/3.048/30.48/15.24
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal launch rod length defined, ignoring.
+  W[Other,NORMAL] Illegal average windspeed defined, ignoring.
+  W[Other,NORMAL] Illegal launch altitude defined, ignoring.
+  W[Other,NORMAL] Illegal time step defined, ignoring.
+  W[Other,NORMAL] Illegal max simulation time defined, ignoring.
+  W[Other,NORMAL] The number of element 'recoveryspeedwarning' would give a simulation option outside its range; the option keeps what it had.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied; the "
+            "threshold, for which OpenRocket has no warning, has one of QtRocket's own"},
     {.name     = "s1: finite wind numbers whose product is not finite",
      .xml      = R"xml(
 <conditions>
@@ -941,11 +956,11 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(1.0E200,1.5707963267948966,Infinity) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Illegal wind turbulence intensity defined, ignoring.
-  wind=AVERAGE avg=(1.0E200,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+  W[Other,NORMAL] Illegal average windspeed defined, ignoring.
 )out",
-     .why =
-         "decision L3: the standard deviation, the intensity times the speed, would be infinite"},
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "speed is refused, and the turbulence intensity of a calm is none (before run 9d the "
+            "speed was taken and the intensity refused for the infinite deviation)"},
     {.name     = "s1: rod angle and direction beyond the range of a double in radians",
      .xml      = R"xml(
 <conditions>
@@ -984,10 +999,12 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(1.0E10,1.5707963267948966,Infinity) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
+  W[Other,NORMAL] Illegal wind turbulence intensity defined, ignoring.
   W[Other,NORMAL] Illegal average windspeed defined, ignoring.
-  wind=AVERAGE avg=(0.001,1.5707963267948966,1.0E303) multi=MSL(0.0,0.0,0.0,0.0)
+  wind=AVERAGE avg=(0.001,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
-     .why      = "decision L3: the new speed times the turbulence intensity would be infinite"},
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "intensity would give a deviation of 1e303 m/s and the second speed is 1e10 m/s"},
     {.name     = "s1: thresholds zero, negative and garbage are silent",
      .xml      = R"xml(
 <conditions>
@@ -1065,6 +1082,224 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = {},
      .why      = {}},
+    {.name     = "u9: rod length at its upper bound",
+     .xml      = R"xml(
+<conditions><launchrodlength>1000</launchrodlength></conditions>
+)xml",
+     .java     = R"out(
+  rod=1000.0 intoWind=false angle=0.0 dir=0.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: rod length above its range",
+     .xml      = R"xml(
+<conditions>
+  <launchrodlength>2.5</launchrodlength>
+  <launchrodlength>1000.0000000000001</launchrodlength>
+</conditions>
+)xml",
+     .java     = R"out(
+  rod=1000.0000000000001 intoWind=false angle=0.0 dir=0.0
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal launch rod length defined, ignoring.
+  rod=2.5 intoWind=false angle=0.0 dir=0.0
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: rod direction that one turn does not hold",
+     .xml      = R"xml(
+<conditions>
+  <launchroddirection>45</launchroddirection>
+  <launchroddirection>1e300</launchroddirection>
+</conditions>
+)xml",
+     .java     = R"out(
+  rod=0.0 intoWind=false angle=0.0 dir=-2.323463919496536E282
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal launch rod direction defined, ignoring.
+  rod=0.0 intoWind=false angle=0.0 dir=0.7853981633974483
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied: "
+                 "reduced to one turn the direction is nonsense, about -2e282 rad"},
+    {.name     = "u9: launch altitude at its lower bound",
+     .xml      = R"xml(
+<conditions><launchaltitude>-1000</launchaltitude></conditions>
+)xml",
+     .java     = R"out(
+  site=-1000.0,0.0,0.0 geo=FLAT
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: launch altitude below its range",
+     .xml      = R"xml(
+<conditions>
+  <launchaltitude>250</launchaltitude>
+  <launchaltitude>-1000.0000000000001</launchaltitude>
+</conditions>
+)xml",
+     .java     = R"out(
+  site=-1000.0000000000001,0.0,0.0 geo=FLAT
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal launch altitude defined, ignoring.
+  site=250.0,0.0,0.0 geo=FLAT
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: launch altitude above its range is the highest the options store",
+     .xml      = R"xml(
+<conditions><launchaltitude>200000</launchaltitude></conditions>
+)xml",
+     .java     = R"out(
+  site=11018.064362274883,0.0,0.0 geo=FLAT
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: time step at its upper bound",
+     .xml      = R"xml(
+<conditions><timestep>10</timestep></conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=10.0 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: time step above its range",
+     .xml      = R"xml(
+<conditions>
+  <timestep>0.02</timestep>
+  <timestep>10.000000000000002</timestep>
+  <timestep>1e300</timestep>
+</conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=1.0E300 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal time step defined, ignoring.
+  stepper=RK4 dt=0.02 tmax=1200.0 maxAngle=0.05235987755982988
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: maximum time at its upper bound",
+     .xml      = R"xml(
+<conditions><maxtime>1000000</maxtime></conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=0.0 tmax=1000000.0 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: maximum time above its range",
+     .xml      = R"xml(
+<conditions>
+  <maxtime>300</maxtime>
+  <maxtime>1000000.0000000001</maxtime>
+</conditions>
+)xml",
+     .java     = R"out(
+  stepper=RK4 dt=0.0 tmax=1000000.0000000001 maxAngle=0.05235987755982988
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal max simulation time defined, ignoring.
+  stepper=RK4 dt=0.0 tmax=300.0 maxAngle=0.05235987755982988
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: thresholds at their upper bound",
+     .xml      = R"xml(
+<conditions>
+  <recoveryspeedwarning>10000</recoveryspeedwarning>
+  <drogueLowspeedwarning>10000</drogueLowspeedwarning>
+  <recoverydroguemainhighspeedwarning>10000</recoverydroguemainhighspeedwarning>
+  <recoverydroguemainlowspeedwarning>10000</recoverydroguemainlowspeedwarning>
+</conditions>
+)xml",
+     .java     = R"out(
+  thresholds=10000.0/10000.0/10000.0/10000.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: thresholds above their range",
+     .xml      = R"xml(
+<conditions>
+  <recoveryspeedwarning>21</recoveryspeedwarning>
+  <drogueLowspeedwarning>4</drogueLowspeedwarning>
+  <recoverydroguemainhighspeedwarning>31</recoverydroguemainhighspeedwarning>
+  <recoverydroguemainlowspeedwarning>16</recoverydroguemainlowspeedwarning>
+  <recoveryspeedwarning>10000.000000000002</recoveryspeedwarning>
+  <drogueLowspeedwarning>1e300</drogueLowspeedwarning>
+  <recoverydroguemainhighspeedwarning>10000.000000000002</recoverydroguemainhighspeedwarning>
+  <recoverydroguemainlowspeedwarning>1.7976931348623157E308</recoverydroguemainlowspeedwarning>
+</conditions>
+)xml",
+     .java     = R"out(
+  thresholds=10000.000000000002/1.0E300/10000.000000000002/1.7976931348623157E308
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] The number of element 'recoveryspeedwarning' would give a simulation option outside its range; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'drogueLowspeedwarning' would give a simulation option outside its range; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'recoverydroguemainhighspeedwarning' would give a simulation option outside its range; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'recoverydroguemainlowspeedwarning' would give a simulation option outside its range; the option keeps what it had.
+  thresholds=21.0/4.0/31.0/16.0
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied; "
+                 "OpenRocket has no warning for a threshold, so each has one of QtRocket's own"},
+    {.name     = "u9: legacy wind average at its upper bound",
+     .xml      = R"xml(
+<conditions><windaverage>1000</windaverage></conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(1000.0,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: legacy wind average above its range",
+     .xml      = R"xml(
+<conditions>
+  <windaverage>3</windaverage>
+  <windaverage>1000.0000000000001</windaverage>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(1000.0000000000001,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal average windspeed defined, ignoring.
+  wind=AVERAGE avg=(3.0,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: legacy wind turbulence that takes the deviation out of its range",
+     .xml      = R"xml(
+<conditions>
+  <windaverage>500</windaverage>
+  <windturbulence>2</windturbulence>
+  <windturbulence>2.5</windturbulence>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(500.0,1.5707963267948966,1250.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal wind turbulence intensity defined, ignoring.
+  wind=AVERAGE avg=(500.0,1.5707963267948966,1000.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "deviation, the intensity times the speed, would be 1250 m/s"},
+    {.name     = "u9: legacy wind direction that one turn does not hold",
+     .xml      = R"xml(
+<conditions>
+  <winddirection>1</winddirection>
+  <winddirection>1.7e308</winddirection>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(0.0,-1.9958403095347198E292,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal wind direction defined, ignoring.
+  wind=AVERAGE avg=(0.0,1.0,0.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied: "
+                 "reduced to one turn the direction is nonsense, about -2e292 rad"},
     // END GENERATED: conditions
 });
 

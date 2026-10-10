@@ -32,8 +32,8 @@ namespace QtRocket
 ///   "Illegal motor diameter specified, ignoring." (the same text for the length, as in
 ///   OpenRocket). Neither is used: the motor is searched without them.
 /// - <delay>: "none" is the plugged delay (Motor::kPluggedDelay); else Double.parseDouble, and
-///   "Illegal motor delay specified, ignoring." for a text that is no number, a NaN or a
-///   negative infinity (see the deviations).
+///   "Illegal motor delay specified, ignoring." for a text that is no number, a NaN, a
+///   negative infinity or a number outside the range of a delay (see the deviations).
 /// - <nozzleexitdiameter>: Double.parseDouble; a text that is no number, a value that is not
 ///   finite and a negative one give "Illegal nozzle exit diameter specified, assuming unknown."
 ///   and 0.
@@ -64,6 +64,9 @@ namespace QtRocket
 ///   an illegal delay, and getDelay() then answers as for a missing one. OpenRocket stores it,
 ///   and a simulation with it cannot run. A positive infinity is the plugged delay however it
 ///   is written ("Infinity", "1e400"), as in OpenRocket.
+/// - A finite delay outside the range a simulation holds a delay to (decision U9 of tier 9;
+///   SimulationInputRanges::kDelay, from 0 to 1000000 s) is not taken either, in the same
+///   way. OpenRocket stores every number, a negative one included.
 /// - A digest that holds a path separator ('/' or '\') or ".." is never made into an attachment
 ///   name: step 2 is passed over as for a missing attachment. OpenRocket builds the name
 ///   unchecked, so that a file could name any .rse file outside its "thrustcurves" directory

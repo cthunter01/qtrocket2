@@ -204,6 +204,15 @@ namespace QtRocket
 ///     or "Unexpected end of ZIP data".
 /// - RockSim and RASAero documents are not read (not part of this milestone).
 /// - The bounds above, those on the warnings included.
+/// - A number of a simulation's conditions, and a delay or an altitude of an ignition, a
+///   motor, a deployment or a separation, is applied only when it lies in the range a
+///   simulation holds it to (decision U9 of tier 9; the table SimulationInputRanges::kTable),
+///   as it is applied only when it is finite; otherwise a warning says so and the value stays
+///   what it was. OpenRocket applies every number. A simulation that loaded therefore passes
+///   Simulation::validateInputs() but for two things the file does not decide: the values
+///   its options start from, which are those of the preference store of the load (a time
+///   step of 0 there is one no simulation takes), and the numbers of its extensions, which
+///   are taken as the file has them.
 /// - A lookup table is read from a file inside the design's directory only (see above;
 ///   OpenRocket reads any path a design names, a relative one against the current directory
 ///   of the process).

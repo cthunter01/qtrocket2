@@ -73,24 +73,42 @@ inline constexpr int kStorageDecimalPlaces = 6;
 /// from 15 significant digits on. JDK 21+ prints the shortest digits there.
 [[nodiscard]] std::string formatGeneral(double value, int precision);
 
-/// Java's Double.toString(value), the form a double takes in a string concatenation
-/// (Material.toStorableString, Tick.toString): "NaN", "Infinity", "-Infinity", "0.0", "-0.0"; a
-/// magnitude from 0.001 up to but excluding 1e7 as integer digits, a point and at least one
-/// fraction digit ("980.0", "0.001", "123456.789"); anything else as one digit, a point, at least
-/// one fraction digit, "E" and the exponent ("1.0E7", "3.0E-4", "2.6E10"). The digits are the
-/// ones doubleToString() takes from Java, so an integer between 2^53 and 2^63 keeps Java's exact
-/// digits (2^60 is "1.15292150460684698E18"). Deviations:
-/// - JDK 17's FloatingDecimal digits are not always the shortest ones (JDK-4511638). For some
-///   doubles of any magnitude they are longer (4.3368086899420177E-19 for 2^-61, whose
-///   shortest digits are 4.336808689942018E-19; 6.8423234599999996E19 for 6.84232346E19;
-///   9.999999999999999E22 for 1e23), and from 2^63 upwards they may not be the closest
-///   (-3.8189059803482716E25 where the shortest is -3.8189059803482717E25). This prints the
-///   shortest digits, as JDK 19+ does.
-/// - A double whose shortest decimal has one digit gets ".0" behind that digit here. For some
-///   of the smallest subnormals Java prints a decimal of two digits instead: Double.MIN_VALUE
-///   is "5.0E-324" here and "4.9E-324" in JDK 17 and in JDK 19+, ten times that "5.0E-323"
-///   here and "4.9E-323" in JDK 17 (twice Double.MIN_VALUE is "1.0E-323" here and in JDK 17).
-/// Every form reads back as the same double.
+/// Java's Double.toString(value) as current Java specifies it (the specification of JDK 19 and
+/// later, JDK-4511638), the form a double takes in a string concatenation
+/// (Material.toStorableString, Tick.toString): "NaN", "Infinity", "-Infinity", "0.0", "-0.0", and
+/// for every other value the sign and a decimal that is selected and then written out.
+///
+/// The decimal: of all decimals that round to the double, the closest of those with the fewest
+/// digits, that is the shortest digits that read back as the double. Where the fewest is one
+/// digit, the specification takes the closest of those with one or two digits instead. That
+/// makes a difference for eight of the smallest subnormals only, among them Double.MIN_VALUE,
+/// which is "4.9E-324" (its shortest decimal is 5E-324), and twice that, "9.9E-324"; the
+/// others are 10, 12, 14, 16, 18 and 20 times Double.MIN_VALUE ("4.9E-323" to "9.9E-323").
+///
+/// Its form: a decimal from 0.001 up to but excluding 1e7 as integer digits, a point and at
+/// least one fraction digit ("980.0", "0.001", "123456.789"); any other as one digit, a point,
+/// at least one fraction digit, "E" and the exponent ("1.0E7", "3.0E-4", "2.6E10"). Every form
+/// reads back as the same double.
+///
+/// Differences from JDK 17, the Java that OpenRocket's releases bundle and that wrote the
+/// goldens (its Double.toString() is FloatingDecimal's, ported as
+/// FloatingDecimal::toJavaFormatString()). They are the defects of JDK-4511638, which current
+/// Java no longer has; JDK 17's text reads back as the same double too:
+/// - A whole number from 2^53 up to but excluding 2^63 has 17 or 18 digits there, nearly all
+///   the digits it has: "1.15292150460684698E18" for 2^60, which is 1152921504606846976, here
+///   "1.152921504606847E18". Most of these numbers differ (three in four of numbers drawn
+///   evenly from that range).
+/// - For a few other doubles JDK 17's digits are longer than the shortest ones:
+///   "4.3368086899420177E-19" for 2^-61 (here "4.336808689942018E-19"),
+///   "6.8423234599999996E19" for 6.84232346E19, "9.999999999999999E22" for 1e23 (here
+///   "1.0E23"), "1.58E-322" for 32 times Double.MIN_VALUE (here "1.6E-322"). They are powers
+///   of two and short decimals of a very large or very small magnitude for the most part: 4 of
+///   a million doubles of random bits, and none of 250000 between 1e-8 and 1e12.
+/// - From 2^63 upwards JDK 17's digits, where they are as short, are sometimes not the closest
+///   (13 of a million doubles of random bits): "3.8189059803482716E25" where this prints
+///   "3.8189059803482717E25".
+/// - Twice and twenty times Double.MIN_VALUE are "1.0E-323" and "1.0E-322" in JDK 17, here
+///   "9.9E-324" and "9.9E-323" (the rule of one or two digits above).
 [[nodiscard]] std::string javaDoubleToString(double value);
 
 /// Parses what Java's Double.parseDouble accepts of the values OpenRocket writes: an optional

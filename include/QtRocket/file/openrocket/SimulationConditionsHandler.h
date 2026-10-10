@@ -35,12 +35,14 @@ namespace QtRocket
 /// The children that are plain text. "A number" is the text read with Double.parseDouble
 /// (white space around it, an exponent, a hexadecimal number and a type suffix are all fine;
 /// OpenRocket's own "Inf" is not), and where a warning is named it is given for a text that is
-/// no number and for a number that is not finite, and the element is then not applied:
+/// no number, for a number that is not finite and for one outside the range a simulation holds
+/// the option to (SimulationInputRanges), and the element is then not applied:
 /// - <configid>: the flight configuration id, by FlightConfigurationId::fromString() of the
 ///   text as it is: an empty text is a new random id, a text that is no UUID an id made of its
 ///   hash. Without the element the id stays the error id, which the simulation's handler must
 ///   not hand to a Simulation (decision L8).
-/// - <launchrodlength>: a number in m; "Illegal launch rod length defined, ignoring.".
+/// - <launchrodlength>: a number in m, from 0 to 1000; "Illegal launch rod length defined,
+///   ignoring.".
 /// - <launchintowind>: Boolean.parseBoolean of the text as it is: "true" in any case is true,
 ///   everything else (" true", "1", "yes") false.
 /// - <launchrodangle>: a number in degrees, clamped to +-60 degrees by the options; "Illegal
@@ -58,9 +60,9 @@ namespace QtRocket
 /// - <windmodeltype>: "Average" or "MultiLevel", the case ignored and nothing trimmed
 ///   (windModelTypeFromString()): the wind model in use. Any other text fails the load (see
 ///   below).
-/// - <launchaltitude>: a number in m, capped by the options at the highest altitude the
-///   atmospheric model allows; with the ISA atmosphere in use the launch temperature, pressure
-///   and humidity follow; "Illegal launch altitude defined, ignoring.".
+/// - <launchaltitude>: a number in m, not below -1000, capped by the options at the highest
+///   altitude the atmospheric model allows; with the ISA atmosphere in use the launch
+///   temperature, pressure and humidity follow; "Illegal launch altitude defined, ignoring.".
 /// - <launchlatitude>, <launchlongitude>: numbers in degrees, clamped to +-90 and +-180 by the
 ///   options; "Illegal launch latitude defined, ignoring." and "Illegal launch longitude.".
 /// - <geodeticmethod>: "flat", "spherical" or "wgs84", read as DocumentConfig::findEnum()
@@ -73,12 +75,13 @@ namespace QtRocket
 ///   loader writes the application preferences here (decision L8).
 /// - <randomseed>: Integer.parseInt of the trimmed text; the seed, which is then fixed.
 ///   Otherwise "Illegal random seed defined, ignoring.".
-/// - <timestep>, <maxtime>: a number above zero, in s; "Illegal time step defined, ignoring."
-///   and "Illegal max simulation time defined, ignoring." also for zero and a negative number.
+/// - <timestep>, <maxtime>: a number above zero, in s, of at most 10 and at most 1000000;
+///   "Illegal time step defined, ignoring." and "Illegal max simulation time defined,
+///   ignoring." also for zero and a negative number.
 /// - <recoveryspeedwarning>, <drogueLowspeedwarning> (with its capital L),
 ///   <recoverydroguemainhighspeedwarning>, <recoverydroguemainlowspeedwarning>: the four
-///   deployment speed thresholds in m/s, applied when they are a number above zero and passed
-///   over silently otherwise.
+///   deployment speed thresholds in m/s, applied when they are a number above zero (and of at
+///   most 10000, see the deviations) and passed over silently otherwise.
 /// - <draglookupcsv>, <stabilitylookupcsv>: the lookup table elements of older files, whose
 ///   trimmed text is the CSV file of the table. A blank text is nothing. Each is read only as
 ///   long as no <draglookup> (or <stabilitylookup>) element was opened before it in these
@@ -116,8 +119,22 @@ namespace QtRocket
 ///   <launchroddirection> of more than about 2.8e307 degrees, which is past the range of a
 ///   double in radians (OpenRocket stores a NaN), and a <windaverage> or <windturbulence>
 ///   whose product with the turbulence intensity or the wind speed of the average wind model
-///   is (WindHandler::setAverageWind(); OpenRocket stores the infinity). Every other finite
-///   number is applied as OpenRocket applies it, however large.
+///   is (WindHandler::setAverageWind(); OpenRocket stores the infinity).
+/// - Numbers outside the range a simulation holds their option to are not applied either
+///   (decision U9 of tier 9; the table SimulationInputRanges::kTable, which
+///   Simulation::validateInputs() holds a run to): a rod length below 0 or above 1000 m, a
+///   launch altitude below -1000 m, a time step above 10 s, a maximum time above 1000000 s, a
+///   rod direction that is nonsense once it is reduced to one turn (the reduction of a huge
+///   number), and for the wind elements of older files a speed above 1000 m/s, a turbulence
+///   intensity that makes a standard deviation above 1000 m/s and such a direction. Each
+///   gives the warning the element has for a text that is no number. A threshold above 10000
+///   m/s, for which OpenRocket has no warning, gives LoaderWarnings::optionOutOfRange() ("The
+///   number of element 'recoveryspeedwarning' would give a simulation option outside its
+///   range; the option keeps what it had."). OpenRocket applies every finite number, however
+///   large. What an option's setter keeps in its range by clamping is clamped as in
+///   OpenRocket: a rod angle, a latitude, a longitude, and a launch altitude above the range.
+///   The ranges of the wind, the atmosphere, the gravity and the lookup tables are kept by
+///   their handlers (WindHandler, AtmosphereHandler, GravityHandler, CsvLookupHandler).
 /// - <randomseed> reads ASCII digits only; Integer.parseInt also takes the decimal digits of
 ///   other scripts.
 /// - A lookup table is read from a file only inside the design's directory

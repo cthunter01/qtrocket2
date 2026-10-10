@@ -55,7 +55,9 @@ class MotorMount;
 ///
 /// Deviations from OpenRocket:
 /// - An ignition delay or an overhang that is a NaN or an infinity is refused with the warning
-///   of a text that is no number (OpenRocket stores it).
+///   of a text that is no number (OpenRocket stores it), and so is an ignition delay outside
+///   the range a simulation holds a delay to (decision U9 of tier 9;
+///   SimulationInputRanges::kDelay, from 0 to 1000000 s; OpenRocket stores every number).
 /// - An <ignitionconfiguration> applies what it gives: the delay when one was read, then the
 ///   event when one was read. Without a delay it also adds a warning of QtRocket's own,
 ///   LoaderWarnings::kIgnitionConfigurationWithoutDelay:

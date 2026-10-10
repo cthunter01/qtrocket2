@@ -40,7 +40,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES IgnitionConfigurationHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 13> kJava{{
+constexpr std::array<RocketCase, 12> kJava{{
     {.name = "ic-both", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
@@ -138,15 +138,6 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
 | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:2.0:true] flying=[#2:F12X:BURNOUT:2.0:true])out"},
-    {.name = "ic-negative-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>-2.5</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:-2.5:true
-| selected=default
-| config default name='[{motors}]' preload=null active=[true] motors=0
-| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:-2.5:true] flying=[#2:F12X:BURNOUT:-2.5:true])out"},
     {.name = "ic-unknown-children", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><bogus a="1">t</bogus><ignitionevent>burnout</ignitionevent><other/><ignitiondelay>2</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown text in element 'bogus', ignoring.
 W Unknown attributes in element 'bogus', ignoring.
@@ -171,7 +162,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 4> kOwn{{
+constexpr std::array<RocketCase, 5> kOwn{{
     // An event that is none leaves OpenRocket's handler without one, and OpenRocket stores null as the configuration's ignition event; here the event stays.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.2 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
@@ -196,6 +187,20 @@ EVENTS 12 {mass,aero,tree=5, motor=5, tree=2}
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0
 | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=5 all=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:AUTOMATIC:1.0:true,#4:F12X:AUTOMATIC:1.0:true,#5:F12X:AUTOMATIC:1.0:true,#6:F12X:AUTOMATIC:1.0:true] flying=[#2:F12X:AUTOMATIC:1.0:true,#3:F12X:AUTOMATIC:1.0:true,#4:F12X:AUTOMATIC:1.0:true,#5:F12X:AUTOMATIC:1.0:true])out"},
+    // Decision U9: a delay below 0 is outside the range of a delay and refused (OpenRocket stores it); the element then has no delay, which is the second warning, and its event is applied.
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:-2.5:true] flying=[#2:F12X:BU ...
+    {.name = "ic-negative-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>-2.5</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Illegal ignition delay specified, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
+ROOT rocket {} []
+EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false motor[11111111-2222-3333-4444-555555555555]=F12X:5.0:0.0:BURNOUT:0.0:true
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0
+| config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:0.0:true] flying=[#2:F12X:BURNOUT:0.0:true])out"},
     // Decision L3: a delay of NaN is refused (OpenRocket stores it); the element then has no delay, which is the second warning, and its event is applied.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:NaN:true] flying=[#2:F12X:BUR ...
@@ -302,9 +307,29 @@ TEST(IgnitionConfigurationHandler, ReadsTheEventAndTheDelay)
     EXPECT_EQ(readBy("<i><ignitionevent> never </ignitionevent><ignitiondelay> 0.5 </ignitiondelay>"
                      "</i>"),
               "0.5, NEVER");
-    EXPECT_EQ(readBy("<i><ignitiondelay>-1.5</ignitiondelay></i>"), "-1.5, none");
+    EXPECT_EQ(readBy("<i><ignitiondelay>1.5e-3</ignitiondelay></i>"), "0.0015, none");
     EXPECT_EQ(readBy("<i><ignitionevent>ejectioncharge</ignitionevent></i>"),
               "none, EJECTION_CHARGE");
+}
+
+// Decision U9 of tier 9: a delay has to lie in the range a simulation holds it to
+// (SimulationInputRanges::kDelay, 0 to 1000000 s), and one that does not is refused with the
+// warning of a text that is no number; the delay read before it stays. OpenRocket stores every
+// number, a negative one too.
+TEST(IgnitionConfigurationHandler, ADelayOutsideItsRangeIsRefused)
+{
+    // The bounds are inside the range.
+    EXPECT_EQ(readBy("<i><ignitiondelay>0</ignitiondelay></i>"), "0.0, none");
+    EXPECT_EQ(readBy("<i><ignitiondelay>1000000</ignitiondelay></i>"), "1000000.0, none");
+    // The next number beyond a bound is outside.
+    EXPECT_EQ(readBy("<i><ignitiondelay>1000000.0000000001</ignitiondelay></i>"),
+              "none, none [Illegal ignition delay specified, ignoring.]");
+    EXPECT_EQ(readBy("<i><ignitiondelay>-4.9e-324</ignitiondelay></i>"),
+              "none, none [Illegal ignition delay specified, ignoring.]");
+    EXPECT_EQ(readBy("<i><ignitiondelay>-1.5</ignitiondelay></i>"),
+              "none, none [Illegal ignition delay specified, ignoring.]");
+    EXPECT_EQ(readBy("<i><ignitiondelay>2</ignitiondelay><ignitiondelay>1e300</ignitiondelay></i>"),
+              "2.0, none [Illegal ignition delay specified, ignoring.]");
 }
 
 TEST(IgnitionConfigurationHandler, WarnsOfAnEventThatIsNoneOnlyWhileItHasNoEvent)

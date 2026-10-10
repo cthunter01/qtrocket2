@@ -44,6 +44,7 @@
 #include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/SimulationConditions.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/exception/SimulationCancelledException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
@@ -62,21 +63,24 @@ namespace
 {
 
 /// The numbers of a run as Simulation::validateInputs() goes through them: it keeps the first
-/// one that is not finite.
+/// one that is not finite or that lies outside its range.
 class InputCheck
 {
 public:
+    using Range = SimulationInputRanges::Range;
+
     /// Notes @p value, which is called @p what ("the launch rod length"), when it is the first
-    /// value that is neither finite nor @p alsoValid.
-    void finite(std::string_view what, double value,
-                double alsoValid = std::numeric_limits<double>::quiet_NaN())
+    /// value that is not finite or does not lie in @p range, and is not @p alsoValid.
+    void inRange(std::string_view what, double value, const Range& range,
+                 double alsoValid = std::numeric_limits<double>::quiet_NaN())
     {
-        if (m_problem.has_value() || std::isfinite(value) || value == alsoValid)
-        {
-            return;
-        }
-        m_problem = std::format("Cannot simulate: {} is not finite ({}).", what,
-                                Strings::javaDoubleToString(value));
+        note(what, value, &range, alsoValid);
+    }
+
+    /// Notes @p value, which has no range, when it is the first value that is not finite.
+    void finite(std::string_view what, double value)
+    {
+        note(what, value, nullptr, std::numeric_limits<double>::quiet_NaN());
     }
 
     /// Whether a value was noted.
@@ -93,6 +97,25 @@ public:
     }
 
 private:
+    /// @p range is null for a value without one.
+    void note(std::string_view what, double value, const Range* range, double alsoValid)
+    {
+        if (m_problem.has_value() || value == alsoValid)
+        {
+            return;
+        }
+        if (!std::isfinite(value))
+        {
+            m_problem = std::format("Cannot simulate: {} is not finite ({}).", what,
+                                    Strings::javaDoubleToString(value));
+        }
+        else if (range != nullptr && !range->contains(value))
+        {
+            m_problem = std::format("Cannot simulate: {} is outside its range, {} ({}).", what,
+                                    range->text, Strings::javaDoubleToString(value));
+        }
+    }
+
     std::optional<std::string> m_problem;
 };
 
@@ -104,9 +127,12 @@ void checkWind(const SimulationOptions& options, InputCheck& check)
         case WindModelType::AVERAGE:
         {
             const PinkNoiseWindModel& wind = options.getAverageWindModel();
-            check.finite("the average wind speed", wind.getAverage());
-            check.finite("the standard deviation of the wind speed", wind.getStandardDeviation());
-            check.finite("the wind direction", wind.getDirection());
+            check.inRange("the average wind speed", wind.getAverage(),
+                          SimulationInputRanges::kWindSpeed);
+            check.inRange("the standard deviation of the wind speed", wind.getStandardDeviation(),
+                          SimulationInputRanges::kWindSpeedDeviation);
+            check.inRange("the wind direction", wind.getDirection(),
+                          SimulationInputRanges::kDirection);
             return;
         }
         case WindModelType::MULTI_LEVEL:
@@ -116,16 +142,16 @@ void checkWind(const SimulationOptions& options, InputCheck& check)
             for (const MultiLevelPinkNoiseWindModel::LevelWindModel* level : wind.getLevels())
             {
                 number++;
-                check.finite(std::format("the altitude of wind level {}", number),
-                             level->getAltitude());
-                check.finite(std::format("the wind speed of wind level {}", number),
-                             level->getSpeed());
-                check.finite(std::format("the wind direction of wind level {}", number),
-                             level->getDirection());
-                check.finite(
+                check.inRange(std::format("the altitude of wind level {}", number),
+                              level->getAltitude(), SimulationInputRanges::kWindLevelAltitude);
+                check.inRange(std::format("the wind speed of wind level {}", number),
+                              level->getSpeed(), SimulationInputRanges::kWindSpeed);
+                check.inRange(std::format("the wind direction of wind level {}", number),
+                              level->getDirection(), SimulationInputRanges::kDirection);
+                check.inRange(
                     std::format("the standard deviation of the wind speed of wind level {}",
                                 number),
-                    level->getStandardDeviation());
+                    level->getStandardDeviation(), SimulationInputRanges::kWindSpeedDeviation);
             }
             return;
         }
@@ -135,7 +161,7 @@ void checkWind(const SimulationOptions& options, InputCheck& check)
 
 /// Every number of @p table, a lookup table of the options that is called @p name ("the drag
 /// lookup table"); null: the options have none. Which rows a flight reads is not known
-/// beforehand, so the whole table has to be finite.
+/// beforehand, so the whole table has to be finite and inside its ranges.
 void checkLookupTable(const std::shared_ptr<const MachAoALookup>& table, std::string_view name,
                       InputCheck& check)
 {
@@ -143,73 +169,97 @@ void checkLookupTable(const std::shared_ptr<const MachAoALookup>& table, std::st
     {
         return;
     }
-    const std::optional<MachAoALookup::NonFiniteNumber> number = table->findNonFinite();
+    const std::optional<MachAoALookup::Number> number =
+        SimulationInputRanges::findRefusedLookupNumber(*table);
     if (!number.has_value())
     {
         return;
     }
-    const std::string mach = Strings::javaDoubleToString(number->mach);
+    const SimulationInputRanges::Range& range = SimulationInputRanges::ofLookupNumber(*number);
+    const std::string                   mach  = Strings::javaDoubleToString(number->mach);
     switch (number->kind)
     {
-        case MachAoALookup::NonFiniteNumber::Kind::MACH:
-            check.finite(std::format("a Mach number of {}", name), number->value);
+        case MachAoALookup::Number::Kind::MACH:
+            check.inRange(std::format("a Mach number of {}", name), number->value, range);
             return;
-        case MachAoALookup::NonFiniteNumber::Kind::AOA:
-            check.finite(std::format("an angle of attack of {} at Mach {}", name, mach),
-                         number->value);
+        case MachAoALookup::Number::Kind::AOA:
+            check.inRange(std::format("an angle of attack of {} at Mach {}", name, mach),
+                          number->value, range);
             return;
-        case MachAoALookup::NonFiniteNumber::Kind::VALUE:
+        case MachAoALookup::Number::Kind::VALUE:
         {
             // The angle of the row is no number in a table without angles of attack.
             const std::string angle = std::isnan(number->aoa)
                                           ? std::string{}
                                           : std::format(" and an angle of attack of {} degrees",
                                                         Strings::javaDoubleToString(number->aoa));
-            check.finite(
+            check.inRange(
                 std::format("the '{}' of {} at Mach {}{}", number->column, name, mach, angle),
-                number->value);
+                number->value, range);
             return;
         }
     }
     bug("Unknown kind of a lookup table's number");
 }
 
+/// The launch conditions that the atmospheric model is fitted to, and the gravity, as far as
+/// the choices of @p options have a run read them.
+void checkAtmosphereAndGravity(const SimulationOptions& options, InputCheck& check)
+{
+    if (!options.isIsaAtmosphere())
+    {
+        check.inRange("the launch temperature", options.getLaunchTemperature(),
+                      SimulationInputRanges::kLaunchTemperature);
+        check.inRange("the launch pressure", options.getLaunchPressure(),
+                      SimulationInputRanges::kLaunchPressure);
+        check.inRange("the launch relative humidity", options.getLaunchRelativeHumidity(),
+                      SimulationInputRanges::kLaunchRelativeHumidity);
+    }
+    if (options.getGravityModelType() == GravityModelType::CONSTANT)
+    {
+        check.inRange("the constant gravity", options.getConstantGravity(),
+                      SimulationInputRanges::kConstantGravity);
+    }
+}
+
 /// Every number SimulationOptions::toSimulationConditions() reads from @p options.
 void checkOptions(const SimulationOptions& options, InputCheck& check)
 {
-    check.finite("the launch rod length", options.getLaunchRodLength());
-    check.finite("the launch rod angle", options.getLaunchRodAngle());
-    check.finite("the launch latitude", options.getLaunchLatitude());
-    check.finite("the launch longitude", options.getLaunchLongitude());
-    check.finite("the launch altitude", options.getLaunchAltitude());
+    check.inRange("the launch rod length", options.getLaunchRodLength(),
+                  SimulationInputRanges::kLaunchRodLength);
+    check.inRange("the launch rod angle", options.getLaunchRodAngle(),
+                  SimulationInputRanges::kLaunchRodAngle);
+    check.inRange("the launch latitude", options.getLaunchLatitude(),
+                  SimulationInputRanges::kLaunchLatitude);
+    check.inRange("the launch longitude", options.getLaunchLongitude(),
+                  SimulationInputRanges::kLaunchLongitude);
+    check.inRange("the launch altitude", options.getLaunchAltitude(),
+                  SimulationInputRanges::kLaunchAltitude);
     checkWind(options, check);
     if (check.failed())
     {
         // The rod direction of a launch into the wind is worked out from the wind model.
         return;
     }
-    check.finite("the launch rod direction", options.getLaunchRodDirection());
-    if (!options.isIsaAtmosphere())
-    {
-        check.finite("the launch temperature", options.getLaunchTemperature());
-        check.finite("the launch pressure", options.getLaunchPressure());
-        check.finite("the launch relative humidity", options.getLaunchRelativeHumidity());
-    }
-    if (options.getGravityModelType() == GravityModelType::CONSTANT)
-    {
-        check.finite("the constant gravity", options.getConstantGravity());
-    }
+    check.inRange("the launch rod direction", options.getLaunchRodDirection(),
+                  SimulationInputRanges::kDirection);
+    checkAtmosphereAndGravity(options, check);
     checkLookupTable(options.getStabilityLookupTable(), "the stability lookup table", check);
     checkLookupTable(options.getDragLookupTable(), "the drag lookup table", check);
-    check.finite("the time step", options.getTimeStep());
-    check.finite("the maximum simulation time", options.getMaxSimulationTime());
-    check.finite("the maximum step angle", options.getMaximumStepAngle());
-    check.finite("the recovery speed warning threshold", options.getRecoverySpeedWarning());
-    check.finite("the drogue low speed warning threshold", options.getDrogueLowSpeedWarning());
-    check.finite("the main high speed warning threshold",
-                 options.getRecoveryDrogueMainHighSpeedWarning());
-    check.finite("the main low speed warning threshold",
-                 options.getRecoveryDrogueMainLowSpeedWarning());
+    check.inRange("the time step", options.getTimeStep(), SimulationInputRanges::kTimeStep);
+    check.inRange("the maximum simulation time", options.getMaxSimulationTime(),
+                  SimulationInputRanges::kMaxSimulationTime);
+    check.inRange("the maximum step angle", options.getMaximumStepAngle(),
+                  SimulationInputRanges::kMaximumStepAngle);
+    const SimulationInputRanges::Range& threshold = SimulationInputRanges::kRecoverySpeedThreshold;
+    check.inRange("the recovery speed warning threshold", options.getRecoverySpeedWarning(),
+                  threshold);
+    check.inRange("the drogue low speed warning threshold", options.getDrogueLowSpeedWarning(),
+                  threshold);
+    check.inRange("the main high speed warning threshold",
+                  options.getRecoveryDrogueMainHighSpeedWarning(), threshold);
+    check.inRange("the main low speed warning threshold",
+                  options.getRecoveryDrogueMainLowSpeedWarning(), threshold);
 }
 
 /// The delays of the motor that @p component, when it is an acting motor mount, has in @p fcid,
@@ -224,24 +274,24 @@ void checkComponent(const RocketComponent& component, const FlightConfigurationI
         const MotorConfiguration& motor = mount->getMotorConfig(fcid);
         if (!motor.isEmpty())
         {
-            check.finite(
+            check.inRange(
                 std::format("the ignition delay of the motor in '{}'", component.getName()),
-                motor.getIgnitionDelay());
-            check.finite(
+                motor.getIgnitionDelay(), SimulationInputRanges::kDelay);
+            check.inRange(
                 std::format("the ejection delay of the motor in '{}'", component.getName()),
-                motor.getEjectionDelay(), Motor::kPluggedDelay);
+                motor.getEjectionDelay(), SimulationInputRanges::kDelay, Motor::kPluggedDelay);
         }
     }
     if (const auto* device = dynamic_cast<const RecoveryDevice*>(&component))
     {
         const DeploymentConfiguration& deployment = device->getDeploymentConfigurations().get(fcid);
-        check.finite(std::format("the deployment delay of '{}'", component.getName()),
-                     deployment.getDeployDelay());
+        check.inRange(std::format("the deployment delay of '{}'", component.getName()),
+                      deployment.getDeployDelay(), SimulationInputRanges::kDelay);
         // The engine reads the altitude of a deployment at an altitude only.
         if (deployment.getDeployEvent() == DeploymentConfiguration::DeployEvent::ALTITUDE)
         {
-            check.finite(std::format("the deployment altitude of '{}'", component.getName()),
-                         deployment.getDeployAltitude());
+            check.inRange(std::format("the deployment altitude of '{}'", component.getName()),
+                          deployment.getDeployAltitude(), SimulationInputRanges::kEventAltitude);
         }
     }
 }
@@ -271,18 +321,20 @@ void checkDesign(const FlightConfiguration& config, const FlightConfigurationId&
         }
         const StageSeparationConfiguration& separation =
             stage->getSeparationConfigurations().get(fcid);
-        check.finite(std::format("the separation delay of '{}'", stage->getName()),
-                     separation.getSeparationDelay());
+        check.inRange(std::format("the separation delay of '{}'", stage->getName()),
+                      separation.getSeparationDelay(), SimulationInputRanges::kDelay);
         if (separatesAtAnAltitude(separation.getSeparationEvent()))
         {
-            check.finite(std::format("the separation altitude of '{}'", stage->getName()),
-                         separation.getSeparationAltitude());
+            check.inRange(std::format("the separation altitude of '{}'", stage->getName()),
+                          separation.getSeparationAltitude(),
+                          SimulationInputRanges::kEventAltitude);
         }
     }
 }
 
 /// The numbers that @p extensions, the extensions of a simulation in their order, say their part
-/// of a run reads (SimulationExtension::getInputNumbers()).
+/// of a run reads (SimulationExtension::getInputNumbers()), each held to the range the
+/// extension gives it.
 void checkExtensions(const std::vector<std::shared_ptr<SimulationExtension>>& extensions,
                      InputCheck&                                              check)
 {
@@ -295,7 +347,14 @@ void checkExtensions(const std::vector<std::shared_ptr<SimulationExtension>>& ex
         }
         for (const SimulationExtension::InputNumber& number : extension->getInputNumbers())
         {
-            check.finite(number.what, number.value);
+            if (number.range.has_value())
+            {
+                check.inRange(number.what, number.value, *number.range);
+            }
+            else
+            {
+                check.finite(number.what, number.value);
+            }
         }
     }
 }
@@ -615,8 +674,8 @@ Result<void> Simulation::runSimulation(
             throw SimulationException("Cannot simulate imported simulation.");
         }
 
-        // Not in Java: a NaN or an infinity among the inputs is refused here, before an
-        // extension or the engine sees it (see validateInputs()).
+        // Not in Java: a NaN, an infinity or a number outside its range among the inputs is
+        // refused here, before an extension or the engine sees it (see validateInputs()).
         if (Result<void> valid = validateInputs(); !valid.has_value())
         {
             return std::unexpected(std::move(valid.error()));

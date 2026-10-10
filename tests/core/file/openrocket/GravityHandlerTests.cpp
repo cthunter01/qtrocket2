@@ -108,8 +108,13 @@ constexpr auto kGravityCases = std::to_array<ConditionsCase>({
   fcid=11111111-1111-1111-1111-111111111111
   gravity=CONSTANT/-9.8
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal gravity value specified, ignoring.
+  fcid=11111111-1111-1111-1111-111111111111
+  gravity=CONSTANT/9.807
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "gravity is not negative"},
     {.name     = "cond: gravity model missing and unknown child",
      .xml      = R"xml(
 <conditions>
@@ -209,6 +214,36 @@ constexpr auto kGravityCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = {},
      .why      = {}},
+    {.name     = "u9: gravity constant of zero",
+     .xml      = R"xml(
+<conditions><gravity model="constant"><value>0</value></gravity></conditions>
+)xml",
+     .java     = R"out(
+  gravity=CONSTANT/0.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: gravity constant at its upper bound",
+     .xml      = R"xml(
+<conditions><gravity model="constant"><value>100</value></gravity></conditions>
+)xml",
+     .java     = R"out(
+  gravity=CONSTANT/100.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: gravity constant above its range",
+     .xml      = R"xml(
+<conditions><gravity model="constant"><value>100.00000000000001</value></gravity></conditions>
+)xml",
+     .java     = R"out(
+  gravity=CONSTANT/100.00000000000001
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal gravity value specified, ignoring.
+  gravity=CONSTANT/9.807
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
     // END GENERATED: gravity
 });
 
@@ -268,13 +303,41 @@ TEST(GravityHandler, TheLastValueCountsAndARefusedOneTakesBackTheOneBefore)
     const Texts refused{"Illegal gravity value specified, ignoring."};
     EXPECT_EQ(closeValue(handler, "g"), refused);
     EXPECT_TRUE(std::isnan(handler.getConstantValue()));
-    EXPECT_EQ(closeValue(handler, "-9.8"), Texts{});
-    EXPECT_EQ(handler.getConstantValue(), -9.8);
+    EXPECT_EQ(closeValue(handler, "24.79"), Texts{});
+    EXPECT_EQ(handler.getConstantValue(), 24.79);
     // Not OpenRocket's, which stores an infinity: decision U3.
     EXPECT_EQ(closeValue(handler, "Infinity"), refused);
     EXPECT_TRUE(std::isnan(handler.getConstantValue()));
     EXPECT_EQ(closeValue(handler, "-1e999"), refused);
     EXPECT_TRUE(std::isnan(handler.getConstantValue()));
+}
+
+// Decision U9 of tier 9: a gravity has to lie in the range a simulation holds it to
+// (SimulationInputRanges::kConstantGravity, 0 to 100 m/s^2), and one that does not is refused
+// with the warning of a text that is no number. OpenRocket stores every number, a negative one
+// too.
+TEST(GravityHandler, AValueOutsideItsRangeIsRefused)
+{
+    const Texts    refused{"Illegal gravity value specified, ignoring."};
+    GravityHandler handler(std::string("constant"));
+
+    // The bounds are inside the range.
+    EXPECT_EQ(closeValue(handler, "0"), Texts{});
+    EXPECT_EQ(handler.getConstantValue(), 0.0);
+    EXPECT_EQ(closeValue(handler, "100"), Texts{});
+    EXPECT_EQ(handler.getConstantValue(), 100.0);
+
+    // The next number beyond a bound is outside, and a refused one takes back the one before.
+    EXPECT_EQ(closeValue(handler, "100.00000000000001"), refused);
+    EXPECT_TRUE(std::isnan(handler.getConstantValue()));
+    EXPECT_EQ(closeValue(handler, "9.81"), Texts{});
+    EXPECT_EQ(closeValue(handler, "-4.9e-324"), refused);
+    EXPECT_TRUE(std::isnan(handler.getConstantValue()));
+    EXPECT_EQ(closeValue(handler, "-9.8"), refused);
+    EXPECT_EQ(closeValue(handler, "1e300"), refused);
+    // A negative zero is zero.
+    EXPECT_EQ(closeValue(handler, "-0.0"), Texts{});
+    EXPECT_EQ(handler.getConstantValue(), 0.0);
 }
 
 /// The gravity model and constant of options that had the constant model with 5 m/s^2 before

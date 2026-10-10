@@ -13,17 +13,27 @@
 // device or a stage that some other event triggers, for example, with which OpenRocket flies:
 // probes/tier9a-review-extensions-fidelity, UnreadAltitude.java), and nothing valid is: every
 // flight configuration of the test rockets passes.
+//
+// A finite number has to lie in the range of its input as well (decision U9 of tier 9; the
+// table SimulationInputRanges::kTable): the second half of the tests of the options, "the
+// ranges", tries every input with a range at its two bounds, which are inside it, and with the
+// doubles next to them on either side.
 
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <format>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <ostream>
+#include <stop_token>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -48,6 +58,7 @@
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/Simulation.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
@@ -57,7 +68,9 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Config.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Signal.h"
+#include "QtRocket/util/Strings.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -85,6 +98,8 @@ using QtRocket::Test::testRocketMakers;
 
 using DeployEvent     = QtRocket::DeploymentConfiguration::DeployEvent;
 using SeparationEvent = QtRocket::StageSeparationConfiguration::SeparationEvent;
+using Ranges          = QtRocket::SimulationInputRanges;
+using Range           = QtRocket::SimulationInputRanges::Range;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -548,20 +563,6 @@ TEST(SimulationInputValidation, TheStepperLimitsAndTheWarningThresholds)
     expectOutcomes(cases);
 }
 
-// A finite value is not the validation's business, however absurd it is (the comment of
-// validateInputs(), "Not checked"). Only the validation is asked here: with this time step the
-// first step of the run would not end, here as in OpenRocket.
-TEST(SimulationInputValidation, AHugeFiniteTimeStepIsNotRefused)
-{
-    AlphaRun           run;
-    SimulationOptions& o = run.simulation.getOptions();
-    o.setTimeStep(1e300);
-    ASSERT_EQ(o.getTimeStep(), 1e300);
-    EXPECT_EQ(validationMessage(run.simulation), "valid");
-    o.setTimeStep(std::numeric_limits<double>::max());
-    EXPECT_EQ(validationMessage(run.simulation), "valid");
-}
-
 // What the run does not read is not refused: the wind model that is not in use, the launch
 // conditions under the ISA atmosphere, the constant gravity under the WGS model, the stored
 // rod direction of a launch into the wind.
@@ -649,6 +650,507 @@ TEST(SimulationInputValidation, ValuesTakenFromThePreferencesAreCheckedToo)
     }
     // A store of valid numbers gives a simulation that flies.
     EXPECT_EQ(outcomeWithPreference(Keys::kLaunchRodAngle, 0.1), "ok");
+}
+
+// ------------------------------------------------------------------------------- the ranges
+
+/// The message of validateInputs() for the value @p value of an input that is called @p what
+/// and has the range @p range: "valid" inside the range, the refusal outside it.
+[[nodiscard]] std::string expectedOf(std::string_view what, const Range& range, double value)
+{
+    if (range.contains(value))
+    {
+        return "valid";
+    }
+    return std::format("Cannot simulate: {} is outside its range, {} ({}).", what, range.text,
+                       QtRocket::Strings::javaDoubleToString(value));
+}
+
+/// The outcome of simulate() for the value @p value of the input @p what outside its range
+/// @p range, as outcomeOf() tells it.
+[[nodiscard]] std::string outside(std::string_view what, const Range& range, double value)
+{
+    return "refused: " + expectedOf(what, range, value);
+}
+
+/// What a range is tried with: its two bounds and the doubles next to each of them, inside
+/// the range and outside it.
+[[nodiscard]] std::vector<double> boundsOf(const Range& range)
+{
+    return {std::nextafter(range.min, -kInf), range.min, std::nextafter(range.min, kInf),
+            std::nextafter(range.max, -kInf), range.max, std::nextafter(range.max, kInf)};
+}
+
+/// An input that has a range: what a refusal calls it, its range, and the message of
+/// validateInputs() ("valid" when it passes) of a simulation that got the input with a value.
+struct RangedInput
+{
+    using Validate = std::function<std::string(double)>;
+
+    std::string  what;
+    const Range* range;
+    Validate     validate;
+    /// Whether the setter of the input makes a value below the range one inside it (the
+    /// magnitude of a negative wind speed, no deviation for a negative one): the value below
+    /// the lower bound is then not tried.
+    bool nothingBelow{false};
+
+    RangedInput(std::string name, const Range& itsRange, Validate validation,
+                bool noValueBelow = false)
+      : what(std::move(name)),
+        range(&itsRange),
+        validate(std::move(validation)),
+        nothingBelow(noValueBelow)
+    {
+    }
+};
+
+/// What validateInputs() says otherwise than the ranges of @p inputs have it, for each of the
+/// values of boundsOf(): "<input> = <value>: <message>".
+[[nodiscard]] std::vector<std::string> wrongAtTheBounds(const std::vector<RangedInput>& inputs)
+{
+    std::vector<std::string> wrong;
+    for (const RangedInput& input : inputs)
+    {
+        for (const double value : boundsOf(*input.range))
+        {
+            if (input.nothingBelow && value < input.range->min)
+            {
+                continue;
+            }
+            const std::string message = input.validate(value);
+            if (message != expectedOf(input.what, *input.range, value))
+            {
+                wrong.push_back(std::format("{} = {}: {}", input.what,
+                                            QtRocket::Strings::javaDoubleToString(value), message));
+            }
+        }
+    }
+    return wrong;
+}
+
+/// The message of validateInputs() of the Alpha III's simulation after @p set had its options
+/// with @p value.
+[[nodiscard]] std::string validationWith(const std::function<void(SimulationOptions&, double)>& set,
+                                         double value)
+{
+    AlphaRun run;
+    set(run.simulation.getOptions(), value);
+    return validationMessage(run.simulation);
+}
+
+/// A RangedInput of the options: @p set gives the options the value.
+[[nodiscard]] RangedInput option(std::string what, const Range& range,
+                                 std::function<void(SimulationOptions&, double)> set,
+                                 bool nothingBelow = false)
+{
+    return {std::move(what), range,
+            [set = std::move(set)](double value) { return validationWith(set, value); },
+            nothingBelow};
+}
+
+void setTimeStepOf(SimulationOptions& o, double v)
+{
+    o.setTimeStep(v);
+}
+
+/// The numbers of the options that a setter stores as they are given.
+[[nodiscard]] std::vector<RangedInput> rangedOptions()
+{
+    const auto withoutIsa = [](SimulationOptions& o) { o.setIsaAtmosphere(false); };
+    return {
+        option("the launch rod length", Ranges::kLaunchRodLength,
+               [](SimulationOptions& o, double v) {
+                   o.setLaunchRodLength(5.0);
+                   o.setLaunchRodLength(v);
+               }),
+        option("the launch temperature", Ranges::kLaunchTemperature,
+               [withoutIsa](SimulationOptions& o, double v) {
+                   withoutIsa(o);
+                   o.setLaunchTemperature(v);
+               }),
+        option("the launch pressure", Ranges::kLaunchPressure,
+               [withoutIsa](SimulationOptions& o, double v) {
+                   withoutIsa(o);
+                   o.setLaunchPressure(v);
+               }),
+        option("the launch relative humidity", Ranges::kLaunchRelativeHumidity,
+               [withoutIsa](SimulationOptions& o, double v) {
+                   withoutIsa(o);
+                   // First another value: a setter stores nothing that equals what it has
+                   // (MathUtil::equals), and the humidity starts at 0.
+                   o.setLaunchRelativeHumidity(0.5);
+                   o.setLaunchRelativeHumidity(v);
+               }),
+        option("the constant gravity", Ranges::kConstantGravity,
+               [](SimulationOptions& o, double v) {
+                   o.setGravityModelType(GravityModelType::CONSTANT);
+                   o.setConstantGravity(v);
+               }),
+        option("the time step", Ranges::kTimeStep,
+               [](SimulationOptions& o, double v) { o.setTimeStep(v); }),
+        option("the maximum simulation time", Ranges::kMaxSimulationTime,
+               [](SimulationOptions& o, double v) { o.setMaxSimulationTime(v); }),
+        option("the recovery speed warning threshold", Ranges::kRecoverySpeedThreshold,
+               [](SimulationOptions& o, double v) { o.setRecoverySpeedWarning(v); }),
+        option("the drogue low speed warning threshold", Ranges::kRecoverySpeedThreshold,
+               [](SimulationOptions& o, double v) { o.setDrogueLowSpeedWarning(v); }),
+        option("the main high speed warning threshold", Ranges::kRecoverySpeedThreshold,
+               [](SimulationOptions& o, double v) { o.setRecoveryDrogueMainHighSpeedWarning(v); }),
+        option("the main low speed warning threshold", Ranges::kRecoverySpeedThreshold,
+               [](SimulationOptions& o, double v) { o.setRecoveryDrogueMainLowSpeedWarning(v); }),
+    };
+}
+
+/// The launch temperature of options that keep the ISA atmosphere, which a run then does not
+/// read.
+void setTemperatureUnderIsa(SimulationOptions& o, double v)
+{
+    o.setLaunchTemperature(v);
+}
+
+/// The constant gravity of options that keep the WGS model, which a run then does not read.
+void setGravityUnderWgs(SimulationOptions& o, double v)
+{
+    o.setConstantGravity(v);
+}
+
+TEST(SimulationInputValidation, TheRangesOfTheOptions)
+{
+    EXPECT_EQ(wrongAtTheBounds(rangedOptions()), std::vector<std::string>{});
+
+    // The time step is the one input whose lower bound is outside its range.
+    EXPECT_TRUE(Ranges::kTimeStep.minExcluded);
+    EXPECT_EQ(validationWith(setTimeStepOf, 0.0),
+              "Cannot simulate: the time step is outside its range, above 0 and at most 10 s "
+              "(0.0).");
+    EXPECT_EQ(validationWith(setTimeStepOf, 10.0), "valid");
+    // What a run does not read has no range to keep to either.
+    EXPECT_EQ(validationWith(setTemperatureUnderIsa, -5.0), "valid");
+    EXPECT_EQ(validationWith(setGravityUnderWgs, -1.0), "valid");
+}
+
+/// The inputs of the two wind models that a setter stores as they are given, but for a value
+/// below the range: a wind model takes a negative speed as its magnitude from the other side
+/// and a negative standard deviation as none.
+[[nodiscard]] std::vector<RangedInput> rangedWindInputs()
+{
+    return {
+        option(
+            "the average wind speed", Ranges::kWindSpeed,
+            [](SimulationOptions& o, double v) {
+                o.getAverageWindModel().setAveragePreservingStandardDeviation(v);
+            },
+            true),
+        option(
+            "the standard deviation of the wind speed", Ranges::kWindSpeedDeviation,
+            [](SimulationOptions& o, double v) { o.getAverageWindModel().setStandardDeviation(v); },
+            true),
+        option("the altitude of wind level 2", Ranges::kWindLevelAltitude,
+               [](SimulationOptions& o, double v) { secondWindLevel(o).setAltitude(v); }),
+        option(
+            "the wind speed of wind level 2", Ranges::kWindSpeed,
+            [](SimulationOptions& o, double v) {
+                secondWindLevel(o).setSpeedPreservingStandardDeviation(v);
+            },
+            true),
+        option(
+            "the standard deviation of the wind speed of wind level 2", Ranges::kWindSpeedDeviation,
+            [](SimulationOptions& o, double v) { secondWindLevel(o).setStandardDeviation(v); },
+            true),
+    };
+}
+
+/// An average wind of 500 m/s with a standard deviation of 1000 m/s, and then the speed @p v:
+/// the speed takes the turbulence intensity, 2, along.
+void setSpeedThatTheDeviationFollows(SimulationOptions& o, double v)
+{
+    o.getAverageWindModel().setAverage(500.0);
+    o.getAverageWindModel().setStandardDeviation(1000.0);
+    o.getAverageWindModel().setAverage(v);
+}
+
+void setAverageWindDirection(SimulationOptions& o, double v)
+{
+    o.getAverageWindModel().setDirection(v);
+}
+
+void setAverageWindDirectionLaunchingIntoIt(SimulationOptions& o, double v)
+{
+    o.setLaunchIntoWind(true);
+    o.getAverageWindModel().setDirection(v);
+}
+
+void setWindLevelDirection(SimulationOptions& o, double v)
+{
+    secondWindLevel(o).setDirection(v);
+}
+
+void setRodDirection(SimulationOptions& o, double v)
+{
+    o.setLaunchIntoWind(false);
+    o.setLaunchRodDirection(v);
+}
+
+// The two wind models. Below the range of a speed or a standard deviation there is nothing a
+// setter would store, and a wind model reduces every direction to one turn: a direction leaves
+// its range only as the nonsense that a huge number is reduced to.
+TEST(SimulationInputValidation, TheRangesOfTheWind)
+{
+    EXPECT_EQ(wrongAtTheBounds(rangedWindInputs()), std::vector<std::string>{});
+
+    // A speed takes the turbulence intensity along: the standard deviation that follows it
+    // out of its range is what is named.
+    EXPECT_EQ(validationWith(setSpeedThatTheDeviationFollows, 500.0), "valid");
+    EXPECT_EQ(validationWith(setSpeedThatTheDeviationFollows, 600.0),
+              expectedOf("the standard deviation of the wind speed", Ranges::kWindSpeedDeviation,
+                         1200.0));
+
+    // MathUtil::reduce2Pi() of 1.7e308 is about -2e292: no direction.
+    const double      nonsense = QtRocket::MathUtil::reduce2Pi(1.7e308);
+    const std::string refused  = expectedOf("the wind direction", Ranges::kDirection, nonsense);
+    ASSERT_NE(refused, "valid");
+    EXPECT_EQ(validationWith(setAverageWindDirection, 1.7e308), refused);
+    EXPECT_EQ(validationWith(setAverageWindDirection, -7.0), "valid");
+    EXPECT_EQ(validationWith(setAverageWindDirection, 2 * std::numbers::pi), "valid");
+    // Launching into such a wind, the wind is what is named, not the rod.
+    EXPECT_EQ(validationWith(setAverageWindDirectionLaunchingIntoIt, 1.7e308), refused);
+    EXPECT_EQ(validationWith(setWindLevelDirection, 1.7e308),
+              expectedOf("the wind direction of wind level 2", Ranges::kDirection, nonsense));
+    // The launch rod has its direction reduced in the same way.
+    EXPECT_EQ(validationWith(setRodDirection, 1.7e308),
+              expectedOf("the launch rod direction", Ranges::kDirection, nonsense));
+}
+
+void setRodAngle(SimulationOptions& o, double v)
+{
+    o.setLaunchRodAngle(v);
+}
+
+void setLatitude(SimulationOptions& o, double v)
+{
+    o.setLaunchLatitude(v);
+}
+
+void setLongitude(SimulationOptions& o, double v)
+{
+    o.setLaunchLongitude(v);
+}
+
+void setStepAngle(SimulationOptions& o, double v)
+{
+    o.setMaximumStepAngle(v);
+}
+
+void setAltitude(SimulationOptions& o, double v)
+{
+    o.setLaunchAltitude(v);
+}
+
+/// What validateInputs() says of the Alpha III's simulation after @p set had its options with
+/// 1e300, with -1e300 and with 0, each in a new simulation.
+[[nodiscard]] std::vector<std::string> validationsWithExtremes(
+    const std::function<void(SimulationOptions&, double)>& set)
+{
+    return {validationWith(set, 1e300), validationWith(set, -1e300), validationWith(set, 0.0)};
+}
+
+// The setters of the options keep the launch rod angle, the latitude, the longitude and the
+// maximum step angle inside their ranges, and the launch altitude below the top of its range:
+// whatever they are given, the simulation is valid. The ranges of the two angles are what the
+// setters clamp to (a static_assert of SimulationOptions.cpp holds them together).
+TEST(SimulationInputValidation, TheSettersThatClampKeepTheirOptionsInRange)
+{
+    const std::vector<std::string> valid(3, "valid");
+    EXPECT_EQ(validationsWithExtremes(setRodAngle), valid);
+    EXPECT_EQ(validationsWithExtremes(setLatitude), valid);
+    EXPECT_EQ(validationsWithExtremes(setLongitude), valid);
+    EXPECT_EQ(validationsWithExtremes(setStepAngle), valid);
+
+    EXPECT_EQ(validationWith(setAltitude, 1e300), "valid");
+    EXPECT_EQ(validationWith(setAltitude, -1000.0), "valid");
+    EXPECT_EQ(validationWith(setAltitude, std::nextafter(-1000.0, -2000.0)),
+              expectedOf("the launch altitude", Ranges::kLaunchAltitude,
+                         std::nextafter(-1000.0, -2000.0)));
+    EXPECT_EQ(Ranges::kLaunchRodAngle.max, SimulationOptions::kMaxLaunchRodAngle);
+    EXPECT_EQ(Ranges::kMaximumStepAngle.min, std::numbers::pi / 180);
+    EXPECT_EQ(Ranges::kMaximumStepAngle.max, 20 * std::numbers::pi / 180);
+}
+
+/// The message of validateInputs() of a simulation of the Alpha III whose options were made of
+/// a preferences store in which the number of key @p key is @p value.
+[[nodiscard]] std::string validationWithPreference(std::string_view key, double value)
+{
+    QtRocket::InMemoryPreferences preferences;
+    preferences.putDouble(key, value);
+    TestEstesAlphaIII alpha;
+    Simulation simulation(nullptr, *alpha.rocket, Simulation::Status::NOT_SIMULATED, "from a file",
+                          SimulationOptions(preferences), {}, nullptr);
+    simulation.setFlightConfigurationId(testFcid(0));
+    return validationMessage(simulation);
+}
+
+/// A RangedInput whose value comes from the key @p key of a preferences store.
+[[nodiscard]] RangedInput preference(std::string what, const Range& range, std::string_view key)
+{
+    return {std::move(what), range,
+            [key](double value) { return validationWithPreference(key, value); }};
+}
+
+// The options need not have their values from a setter: a SimulationOptions made of a
+// preferences store takes them as the store holds them, the ones a setter would clamp too.
+TEST(SimulationInputValidation, TheRangesOfValuesTakenFromThePreferences)
+{
+    namespace Keys = QtRocket::PreferenceKeys;
+    const std::vector<RangedInput> inputs{
+        preference("the launch rod length", Ranges::kLaunchRodLength, Keys::kLaunchRodLength),
+        preference("the launch rod angle", Ranges::kLaunchRodAngle, Keys::kLaunchRodAngle),
+        preference("the launch latitude", Ranges::kLaunchLatitude, Keys::kLaunchLatitude),
+        preference("the launch longitude", Ranges::kLaunchLongitude, Keys::kLaunchLongitude),
+        preference("the launch altitude", Ranges::kLaunchAltitude, Keys::kLaunchAltitude),
+        preference("the time step", Ranges::kTimeStep, Keys::kSimulationTimeStep),
+    };
+    EXPECT_EQ(wrongAtTheBounds(inputs), std::vector<std::string>{});
+
+    // The time step of OpenRocket's own test preferences, 0, is one no simulation takes.
+    EXPECT_EQ(outcomeWithPreference(Keys::kSimulationTimeStep, 0.0),
+              outside("the time step", Ranges::kTimeStep, 0.0));
+}
+
+/// A drag table whose rows are those of @p built, as the options hold one.
+void setDragRows(SimulationOptions& o, const MachAoALookup::Builder& built)
+{
+    Result<MachAoALookup> table = built.build();
+    if (table.has_value())
+    {
+        o.setDragLookup(std::nullopt, std::make_shared<const MachAoALookup>(std::move(*table)));
+    }
+}
+
+/// A stability table whose rows are those of @p built, as the options hold one.
+void setStabilityRows(SimulationOptions& o, const MachAoALookup::Builder& built)
+{
+    Result<MachAoALookup> table = built.build();
+    if (table.has_value())
+    {
+        o.setStabilityLookup(std::nullopt,
+                             std::make_shared<const MachAoALookup>(std::move(*table)));
+    }
+}
+
+// Every number of a lookup table in use: a Mach number, an angle of attack, a coefficient and
+// the centre of pressure, each in its own range.
+TEST(SimulationInputValidation, TheRangesOfTheLookupTables)
+{
+    const std::vector<RangedInput> inputs{
+        option("a Mach number of the drag lookup table", Ranges::kLookupMach,
+               [](SimulationOptions& o, double v) {
+                   setDragRows(o, MachAoALookup::dragBuilder().addDragData(v, 0.5));
+               }),
+        option("an angle of attack of the drag lookup table at Mach 1.0",
+               Ranges::kLookupAngleOfAttack,
+               [](SimulationOptions& o, double v) {
+                   setDragRows(o, MachAoALookup::dragBuilder().addDragData(1.0, v, 0.5));
+               }),
+        option("the 'cd' of the drag lookup table at Mach 1.0", Ranges::kLookupCoefficient,
+               [](SimulationOptions& o, double v) {
+                   setDragRows(o, MachAoALookup::dragBuilder().addDragData(1.0, v));
+               }),
+        option("the 'cn' of the stability lookup table at Mach 1.0", Ranges::kLookupCoefficient,
+               [](SimulationOptions& o, double v) {
+                   setStabilityRows(
+                       o, MachAoALookup::stabilityBuilder().addStabilityData(1.0, v, 1.0, 0.25));
+               }),
+        option("the 'cm' of the stability lookup table at Mach 1.0", Ranges::kLookupCoefficient,
+               [](SimulationOptions& o, double v) {
+                   setStabilityRows(
+                       o, MachAoALookup::stabilityBuilder().addStabilityData(1.0, 2.0, v, 0.25));
+               }),
+        option("the 'cp' of the stability lookup table at Mach 1.0",
+               Ranges::kLookupCentreOfPressure,
+               [](SimulationOptions& o, double v) {
+                   setStabilityRows(
+                       o, MachAoALookup::stabilityBuilder().addStabilityData(1.0, 2.0, 1.0, v));
+               }),
+    };
+    EXPECT_EQ(wrongAtTheBounds(inputs), std::vector<std::string>{});
+
+    // The first number of the table that may not be read is the one named, in the table's
+    // order, whether it is not finite or outside its range.
+    AlphaRun run;
+    setDragRows(run.simulation.getOptions(), MachAoALookup::dragBuilder()
+                                                 .addDragData(0.5, 0.4)
+                                                 .addDragData(1.0, 1e300)
+                                                 .addDragData(2.0, kNaN));
+    EXPECT_EQ(validationMessage(run.simulation),
+              expectedOf("the 'cd' of the drag lookup table at Mach 1.0",
+                         Ranges::kLookupCoefficient, 1e300));
+    setDragRows(run.simulation.getOptions(),
+                MachAoALookup::dragBuilder().addDragData(0.5, kInf).addDragData(1.0, 1e300));
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the 'cd' of the drag lookup table at Mach 0.5 is not finite "
+              "(Infinity).");
+}
+
+void setAverageWindSpeed(SimulationOptions& o, double v)
+{
+    o.getAverageWindModel().setAverage(v);
+}
+
+void setDeviationOfAWindOfTwo(SimulationOptions& o, double v)
+{
+    o.getAverageWindModel().setAverage(2.0);
+    o.getAverageWindModel().setStandardDeviation(v);
+}
+
+void setWindLevelSpeed(SimulationOptions& o, double v)
+{
+    secondWindLevel(o).setSpeed(v);
+}
+
+void setDragCoefficientAtMachOne(SimulationOptions& o, double v)
+{
+    setDragRows(o, MachAoALookup::dragBuilder().addDragData(0.0, 0.5).addDragData(1.0, v));
+}
+
+/// The row OpenRocket's reader takes without a word: "5,<v>,-<v>,<v>".
+void setStabilityRowOfHugeNumbers(SimulationOptions& o, double v)
+{
+    setStabilityRows(o, MachAoALookup::stabilityBuilder()
+                            .addStabilityData(0.0, 2.0, 1.0, 0.25)
+                            .addStabilityData(5.0, v, -v, v));
+}
+
+// What the earlier runs of the port found a finite number to do, each of which is now an
+// ordinary error of simulate(), before anything runs: a time step of 1e300 s (the first step
+// did not end, and no stop request reached it), a time step of zero or less (flown, the
+// steppers taking a millisecond in its place), a wind of 1e300 m/s (a BugError), and a lookup
+// table with a cell of 1e300 (the BugError of a NaN in the stepper).
+TEST(SimulationInputValidation, TheAbsurdNumbersOfTheEarlierRunsAreOrdinaryErrors)
+{
+    constexpr double kLargest = std::numeric_limits<double>::max();
+    EXPECT_EQ(outcomeWith(setTimeStepOf, 1e300),
+              outside("the time step", Ranges::kTimeStep, 1e300));
+    EXPECT_EQ(outcomeWith(setTimeStepOf, kLargest),
+              outside("the time step", Ranges::kTimeStep, kLargest));
+    EXPECT_EQ(outcomeWith(setTimeStepOf, 0.0), outside("the time step", Ranges::kTimeStep, 0.0));
+    EXPECT_EQ(outcomeWith(setTimeStepOf, -0.05),
+              outside("the time step", Ranges::kTimeStep, -0.05));
+
+    EXPECT_EQ(outcomeWith(setAverageWindSpeed, 1e300),
+              outside("the average wind speed", Ranges::kWindSpeed, 1e300));
+    EXPECT_EQ(
+        outcomeWith(setDeviationOfAWindOfTwo, 1e300),
+        outside("the standard deviation of the wind speed", Ranges::kWindSpeedDeviation, 1e300));
+    EXPECT_EQ(outcomeWith(setWindLevelSpeed, 1e300),
+              outside("the wind speed of wind level 2", Ranges::kWindSpeed, 1e300));
+
+    EXPECT_EQ(outcomeWith(setDragCoefficientAtMachOne, 1e300),
+              outside("the 'cd' of the drag lookup table at Mach 1.0", Ranges::kLookupCoefficient,
+                      1e300));
+    EXPECT_EQ(outcomeWith(setStabilityRowOfHugeNumbers, 1e300),
+              outside("the 'cn' of the stability lookup table at Mach 5.0",
+                      Ranges::kLookupCoefficient, 1e300));
 }
 
 // ------------------------------------------------------------------------------- the design
@@ -997,6 +1499,93 @@ TEST(SimulationInputValidation, AStageThatIsNotActiveIsNotChecked)
     EXPECT_EQ(outcomeOf(run.simulation), "ok");
 }
 
+// --------------------------------------------------------------- the ranges of the design
+
+/// The message of validateInputs() of the Alpha III's simulation with the value @p which of
+/// its design set to @p value.
+[[nodiscard]] std::string validationWithDesign(AlphaValue which, double value)
+{
+    const AlphaRun run;
+    // First another value: the setters of a deployment store nothing that equals what they
+    // have (MathUtil::equals), which the doubles next to 0 do.
+    setAlphaValue(run, which, 5.0);
+    setAlphaValue(run, which, value);
+    return validationMessage(run.simulation);
+}
+
+/// The message of validateInputs() of the Beta's simulation whose booster has the separation
+/// delay @p delay, or, with @p event, separates at that event with the altitude @p altitude.
+[[nodiscard]] std::string validationWithSeparation(std::optional<SeparationEvent> event,
+                                                   double                         value)
+{
+    const BetaRun run;
+    if (event.has_value())
+    {
+        setSeparation(run, *event, 5.0);
+        setSeparation(run, *event, value);
+    }
+    else
+    {
+        setBetaValue(run, BetaValue::SEPARATION_DELAY, 5.0);
+        setBetaValue(run, BetaValue::SEPARATION_DELAY, value);
+    }
+    return validationMessage(run.simulation);
+}
+
+// The delays of the simulated configuration and the altitudes the engine reads from it.
+TEST(SimulationInputValidation, TheRangesOfTheDesign)
+{
+    const auto design = [](AlphaValue which) {
+        return [which](double value) { return validationWithDesign(which, value); };
+    };
+    const std::vector<RangedInput> inputs{
+        {"the ignition delay of the motor in 'Motor Mount Tube'", Ranges::kDelay,
+         design(AlphaValue::IGNITION_DELAY)},
+        {"the ejection delay of the motor in 'Motor Mount Tube'", Ranges::kDelay,
+         design(AlphaValue::EJECTION_DELAY)},
+        {"the deployment delay of 'Parachute'", Ranges::kDelay,
+         design(AlphaValue::DEPLOYMENT_DELAY)},
+        {"the deployment altitude of 'Parachute'", Ranges::kEventAltitude,
+         design(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE)},
+        {"the separation delay of 'Booster Stage'", Ranges::kDelay,
+         [](double value) { return validationWithSeparation(std::nullopt, value); }},
+        {"the separation altitude of 'Booster Stage'", Ranges::kEventAltitude,
+         [](double value) {
+             return validationWithSeparation(SeparationEvent::ALTITUDE_ASCENDING, value);
+         }},
+        {"the separation altitude of 'Booster Stage'", Ranges::kEventAltitude,
+         [](double value) {
+             return validationWithSeparation(SeparationEvent::ALTITUDE_DESCENDING, value);
+         }},
+    };
+    EXPECT_EQ(wrongAtTheBounds(inputs), std::vector<std::string>{});
+
+    // The plugged delay, +infinity, is outside every range and valid all the same.
+    EXPECT_EQ(validationWithDesign(AlphaValue::EJECTION_DELAY, QtRocket::Motor::kPluggedDelay),
+              "valid");
+    // A negative delay is refused when the simulation is run.
+    EXPECT_EQ(
+        outcomeWithDesign(AlphaValue::IGNITION_DELAY, -1.0),
+        outside("the ignition delay of the motor in 'Motor Mount Tube'", Ranges::kDelay, -1.0));
+    EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_DELAY, 1e300),
+              outside("the separation delay of 'Booster Stage'", Ranges::kDelay, 1e300));
+}
+
+// An altitude that the event of its device or stage does not read has no range to keep to, as
+// it need not be finite.
+TEST(SimulationInputValidation, AnAltitudeOutsideItsRangeThatTheEventDoesNotReadIsNotRefused)
+{
+    const std::vector<DeployEvent>     onlyAtAnAltitude{DeployEvent::ALTITUDE};
+    const std::vector<SeparationEvent> onlyAtAltitudes{SeparationEvent::ALTITUDE_ASCENDING,
+                                                       SeparationEvent::ALTITUDE_DESCENDING};
+    EXPECT_EQ(deployEventsRefusedWith(-120.0), onlyAtAnAltitude);
+    EXPECT_EQ(deployEventsRefusedWith(1e300), onlyAtAnAltitude);
+    EXPECT_EQ(separationEventsRefusedWith(-120.0), onlyAtAltitudes);
+    EXPECT_EQ(separationEventsRefusedWith(1e300), onlyAtAltitudes);
+    EXPECT_EQ(outcomeWithDesign(AlphaValue::DEPLOYMENT_ALTITUDE, -120.0), "ok");
+    EXPECT_EQ(outcomeWithBeta(BetaValue::SEPARATION_ALTITUDE, 1e300), "ok");
+}
+
 // ----------------------------------------------------------------- the order and the state
 
 // The first value that is not finite is the one named: the options in the order of the list
@@ -1167,6 +1756,31 @@ TEST(SimulationInputValidation, AnImportedSimulationIsRefusedFirst)
     EXPECT_FALSE(simulation.validateInputs().has_value());
 }
 
+// Whether a value is not finite or outside its range makes no difference to the order: the
+// first input of the list that a run may not read is the one named.
+TEST(SimulationInputValidation, NamesTheFirstValueThatIsNotFiniteOrOutsideItsRange)
+{
+    AlphaRun           run;
+    SimulationOptions& o = run.simulation.getOptions();
+    run.alpha.inner->getMotorConfig(testFcid(0)).setIgnitionDelay(-1.0);
+    o.setRecoverySpeedWarning(kNaN);
+    o.setTimeStep(0.0);
+    o.setLaunchRodLength(-2.0);
+    EXPECT_EQ(validationMessage(run.simulation),
+              expectedOf("the launch rod length", Ranges::kLaunchRodLength, -2.0));
+    o.setLaunchRodLength(1.0);
+    EXPECT_EQ(validationMessage(run.simulation), expectedOf("the time step", Ranges::kTimeStep, 0));
+    o.setTimeStep(0.05);
+    EXPECT_EQ(validationMessage(run.simulation),
+              "Cannot simulate: the recovery speed warning threshold is not finite (NaN).");
+    o.setRecoverySpeedWarning(20.0);
+    EXPECT_EQ(
+        validationMessage(run.simulation),
+        expectedOf("the ignition delay of the motor in 'Motor Mount Tube'", Ranges::kDelay, -1.0));
+    run.alpha.inner->getMotorConfig(testFcid(0)).setIgnitionDelay(0.0);
+    EXPECT_EQ(validationMessage(run.simulation), "valid");
+}
+
 // ---------------------------------------------------------------------------- the extensions
 
 /// What a refusal calls the setting of key @p key of a RollControl.
@@ -1268,6 +1882,67 @@ TEST(SimulationInputValidation, TheNumbersOfAnAirStart)
     EXPECT_EQ(outcomeWithAirStart(&AirStart::setLaunchVelocity, 20.0), "ok");
 }
 
+/// The message of validateInputs() of the Alpha III's simulation with a RollControl whose
+/// setter @p set was given @p value.
+[[nodiscard]] std::string validationWithRollControl(void (RollControl::*set)(double), double value)
+{
+    AlphaRun                           run;
+    const std::shared_ptr<RollControl> roll = std::make_shared<RollControl>();
+    (*roll.*set)(value);
+    run.simulation.getSimulationExtensions().push_back(roll);
+    return validationMessage(run.simulation);
+}
+
+/// The message of validateInputs() of the Alpha III's simulation with an AirStart whose setter
+/// @p set was given @p value.
+[[nodiscard]] std::string validationWithAirStart(void (AirStart::*set)(double), double value)
+{
+    AlphaRun                        run;
+    const std::shared_ptr<AirStart> airStart = std::make_shared<AirStart>();
+    (*airStart.*set)(value);
+    run.simulation.getSimulationExtensions().push_back(airStart);
+    return validationMessage(run.simulation);
+}
+
+// The ranges the two extensions give their numbers (RollControl::kStartTimeRange and the
+// constants after it, AirStart::kLaunchAltitudeRange and kLaunchVelocityRange). OpenRocket
+// flies with any finite number.
+TEST(SimulationInputValidation, TheRangesOfTheNumbersOfTheExtensions)
+{
+    const auto roll = [](void (RollControl::*set)(double)) {
+        return [set](double value) { return validationWithRollControl(set, value); };
+    };
+    const auto air = [](void (AirStart::*set)(double)) {
+        return [set](double value) { return validationWithAirStart(set, value); };
+    };
+    const std::vector<RangedInput> inputs{
+        {rollControlSetting("startTime"), RollControl::kStartTimeRange,
+         roll(&RollControl::setStartTime)},
+        {rollControlSetting("setPoint"), RollControl::kSetPointRange,
+         roll(&RollControl::setSetPoint)},
+        {rollControlSetting("finRate"), RollControl::kFinRateRange, roll(&RollControl::setFinRate)},
+        {rollControlSetting("maxFinAngle"), RollControl::kMaxFinAngleRange,
+         roll(&RollControl::setMaxFinAngle)},
+        {rollControlSetting("KP"), RollControl::kGainRange, roll(&RollControl::setKP)},
+        {rollControlSetting("KI"), RollControl::kGainRange, roll(&RollControl::setKI)},
+        {airStartSetting("launchAltitude"), AirStart::kLaunchAltitudeRange,
+         air(&AirStart::setLaunchAltitude)},
+        {airStartSetting("launchVelocity"), AirStart::kLaunchVelocityRange,
+         air(&AirStart::setLaunchVelocity)},
+    };
+    EXPECT_EQ(wrongAtTheBounds(inputs), std::vector<std::string>{});
+
+    // A refused number of an extension is an ordinary error of simulate(), like an option.
+    EXPECT_EQ(outcomeWithRollControl(&RollControl::setMaxFinAngle, 15.0),
+              outside(rollControlSetting("maxFinAngle"), RollControl::kMaxFinAngleRange, 15.0));
+    EXPECT_EQ(outcomeWithAirStart(&AirStart::setLaunchVelocity, -1.0),
+              outside(airStartSetting("launchVelocity"), AirStart::kLaunchVelocityRange, -1.0));
+    // The defaults of both extensions lie inside the ranges.
+    EXPECT_EQ(validationWithRollControl(&RollControl::setKP, RollControl().getKP()), "valid");
+    EXPECT_EQ(validationWithAirStart(&AirStart::setLaunchAltitude, AirStart().getLaunchAltitude()),
+              "valid");
+}
+
 /// The BigDecimal @p text.
 [[nodiscard]] QtRocket::BigDecimal big(std::string_view text)
 {
@@ -1345,6 +2020,7 @@ TEST(SimulationInputValidation, AsksEveryExtensionForItsNumbersInOrder)
         run.simulation.getSimulationExtensions();
     const std::shared_ptr<int> initialised = std::make_shared<int>(0);
     extensions.push_back(std::make_shared<CountingExtension>(initialised));
+    // An extension that gives its numbers no range has them held to nothing but finite.
     extensions.push_back(std::make_shared<ListingExtension>(
         "first", std::vector<double>{1.0, std::numeric_limits<double>::max(), -0.0}));
     EXPECT_EQ(validationMessage(run.simulation), "valid");
@@ -1372,6 +2048,263 @@ TEST(SimulationInputValidation, AsksEveryExtensionForItsNumbersInOrder)
 }
 
 // ------------------------------------------------------------------- nothing valid is refused
+
+// ------------------------------------------------------------- a measurement at the bounds
+
+/// How simulate() of @p simulation ends when it is given @p seconds: as outcomeOf() tells it,
+/// or "stopped after <n> s" when the run was still going then and a stop was requested.
+[[nodiscard]] std::string outcomeWithin(Simulation& simulation, int seconds)
+{
+    // (Held through a pointer: a stop source must not be const, see system_listener_tests.cpp.)
+    const auto         source = std::make_shared<std::stop_source>();
+    const auto         done   = std::make_shared<std::stop_source>();
+    const std::jthread watchdog([source, done, seconds] {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
+        while (!done->stop_requested() && std::chrono::steady_clock::now() < end)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        if (!done->stop_requested())
+        {
+            source->request_stop();
+        }
+    });
+    std::string        outcome;
+    try
+    {
+        const Result<void> result = simulation.simulate(source->get_token());
+        if (result.has_value())
+        {
+            outcome = simulation.hasErrors() ? "ok, aborted" : "ok";
+        }
+        else if (result.error().code == ErrorCode::CANCELLED)
+        {
+            outcome = std::format("stopped after {} s", seconds);
+        }
+        else if (result.error().code == ErrorCode::INVALID_ARGUMENT)
+        {
+            outcome = "refused: " + result.error().message;
+        }
+        else
+        {
+            outcome = "error: " + result.error().message;
+        }
+    }
+    catch (const BugError& error)
+    {
+        outcome = std::string("bug: ") + error.what();
+    }
+    done->request_stop();
+    return outcome;
+}
+
+/// A line of the measurement: what the Alpha III's simulation is given, and how.
+struct AtABound
+{
+    std::string                    name;
+    std::function<void(AlphaRun&)> give;
+};
+
+/// The Alpha III's simulation with a RollControl on its fins that @p give has set up.
+void addRollControl(AlphaRun& run, const std::function<void(RollControl&)>& give)
+{
+    const std::shared_ptr<RollControl> roll = std::make_shared<RollControl>();
+    roll->setControlFinName("3 Fin Set");
+    give(*roll);
+    run.simulation.getSimulationExtensions().push_back(roll);
+}
+
+/// The Alpha III's simulation with an AirStart that @p give has set up.
+void addAirStart(AlphaRun& run, const std::function<void(AirStart&)>& give)
+{
+    const std::shared_ptr<AirStart> airStart = std::make_shared<AirStart>();
+    give(*airStart);
+    run.simulation.getSimulationExtensions().push_back(airStart);
+}
+
+/// The inputs of the Alpha III's simulation at the bounds of their ranges, one at a time.
+[[nodiscard]] std::vector<AtABound> theBounds()
+{
+    const auto options = [](std::function<void(SimulationOptions&)> give) {
+        return [give = std::move(give)](AlphaRun& run) { give(run.simulation.getOptions()); };
+    };
+    const auto design = [](AlphaValue which, double value) {
+        return [which, value](AlphaRun& run) { setAlphaValue(run, which, value); };
+    };
+    const auto withoutIsa = [](SimulationOptions& o) { o.setIsaAtmosphere(false); };
+    return {
+        {.name = "nothing changed", .give = [](AlphaRun& /*run*/) { }},
+        {.name = "rod length 0 m",
+         .give = options([](SimulationOptions& o) { o.setLaunchRodLength(0.0); })},
+        {.name = "rod length 1000 m",
+         .give = options([](SimulationOptions& o) { o.setLaunchRodLength(1000.0); })},
+        {.name = "rod angle 60 degrees",
+         .give = options([](SimulationOptions& o) { o.setLaunchRodAngle(std::numbers::pi / 3); })},
+        {.name = "launch altitude -1000 m",
+         .give = options([](SimulationOptions& o) { o.setLaunchAltitude(-1000.0); })},
+        {.name = "launch altitude 11 km, the highest the setter stores",
+         .give = options([](SimulationOptions& o) { o.setLaunchAltitude(1e9); })},
+        {.name = "wind 1000 m/s",
+         .give = options([](SimulationOptions& o) { o.getAverageWindModel().setAverage(1000.0); })},
+        {.name = "wind 1000 m/s with a deviation of 1000 m/s",
+         .give = options([](SimulationOptions& o) {
+             o.getAverageWindModel().setAverage(1000.0);
+             o.getAverageWindModel().setStandardDeviation(1000.0);
+         })},
+        {.name = "wind 100 m/s with a deviation of 100 m/s",
+         .give = options([](SimulationOptions& o) {
+             o.getAverageWindModel().setAverage(100.0);
+             o.getAverageWindModel().setStandardDeviation(100.0);
+         })},
+        {.name = "temperature 1 K", .give = options([withoutIsa](SimulationOptions& o) {
+                                        withoutIsa(o);
+                                        o.setLaunchTemperature(1.0);
+                                    })},
+        {.name = "temperature 1000 K", .give = options([withoutIsa](SimulationOptions& o) {
+                                           withoutIsa(o);
+                                           o.setLaunchTemperature(1000.0);
+                                       })},
+        {.name = "pressure 0.001 Pa", .give = options([withoutIsa](SimulationOptions& o) {
+                                          withoutIsa(o);
+                                          o.setLaunchPressure(0.001);
+                                      })},
+        {.name = "pressure 1000000 Pa", .give = options([withoutIsa](SimulationOptions& o) {
+                                            withoutIsa(o);
+                                            o.setLaunchPressure(1000000.0);
+                                        })},
+        {.name = "temperature 1 K and pressure 1000000 Pa",
+         .give = options([withoutIsa](SimulationOptions& o) {
+             withoutIsa(o);
+             o.setLaunchTemperature(1.0);
+             o.setLaunchPressure(1000000.0);
+         })},
+        {.name = "gravity 0 m/s^2", .give = options([](SimulationOptions& o) {
+                                        o.setGravityModelType(GravityModelType::CONSTANT);
+                                        o.setConstantGravity(0.0);
+                                    })},
+        {.name = "gravity 100 m/s^2", .give = options([](SimulationOptions& o) {
+                                          o.setGravityModelType(GravityModelType::CONSTANT);
+                                          o.setConstantGravity(100.0);
+                                      })},
+        {.name = "time step 10 s",
+         .give = options([](SimulationOptions& o) { o.setTimeStep(10.0); })},
+        {.name = "time step 1 s",
+         .give = options([](SimulationOptions& o) { o.setTimeStep(1.0); })},
+        {.name = "time step 4.9e-324 s", .give = options([](SimulationOptions& o) {
+                                             o.setTimeStep(
+                                                 std::numeric_limits<double>::denorm_min());
+                                         })},
+        {.name = "maximum time 0 s",
+         .give = options([](SimulationOptions& o) { o.setMaxSimulationTime(0.0); })},
+        {.name = "maximum time 1000000 s",
+         .give = options([](SimulationOptions& o) { o.setMaxSimulationTime(1000000.0); })},
+        {.name = "maximum time 1000000 s without gravity",
+         .give = options([](SimulationOptions& o) {
+             o.setMaxSimulationTime(1000000.0);
+             o.setGravityModelType(GravityModelType::CONSTANT);
+             o.setConstantGravity(0.0);
+         })},
+        {.name = "thresholds 0 m/s", .give = options([](SimulationOptions& o) {
+                                         o.setRecoverySpeedWarning(0.0);
+                                         o.setDrogueLowSpeedWarning(0.0);
+                                         o.setRecoveryDrogueMainHighSpeedWarning(0.0);
+                                         o.setRecoveryDrogueMainLowSpeedWarning(0.0);
+                                     })},
+        {.name = "thresholds 10000 m/s", .give = options([](SimulationOptions& o) {
+                                             o.setRecoverySpeedWarning(10000.0);
+                                             o.setDrogueLowSpeedWarning(10000.0);
+                                             o.setRecoveryDrogueMainHighSpeedWarning(10000.0);
+                                             o.setRecoveryDrogueMainLowSpeedWarning(10000.0);
+                                         })},
+        {.name = "ignition delay 1000000 s", .give = design(AlphaValue::IGNITION_DELAY, 1000000.0)},
+        {.name = "ejection delay 1000000 s", .give = design(AlphaValue::EJECTION_DELAY, 1000000.0)},
+        {.name = "deployment delay 1000000 s",
+         .give = design(AlphaValue::DEPLOYMENT_DELAY, 1000000.0)},
+        {.name = "deployment at 0 m", .give = design(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, 0.0)},
+        {.name = "deployment at 1000000 m",
+         .give = design(AlphaValue::DEPLOYMENT_AT_AN_ALTITUDE, 1000000.0)},
+        {.name = "drag table with cd 1000000 at Mach 0 to 100",
+         .give = options([](SimulationOptions& o) {
+             setDragRows(
+                 o, MachAoALookup::dragBuilder().addDragData(0.0, 1e6).addDragData(100.0, 1e6));
+         })},
+        {.name = "drag table with cd -1000000",
+         .give = options([](SimulationOptions& o) {
+             setDragRows(o, MachAoALookup::dragBuilder().addDragData(0.0, -1e6));
+         })},
+        {.name = "stability table with cn, cm 1000000 and cp 1000 m",
+         .give = options([](SimulationOptions& o) {
+             setStabilityRows(
+                 o, MachAoALookup::stabilityBuilder().addStabilityData(0.0, 1e6, 1e6, 1000.0));
+         })},
+        {.name = "stability table with cn, cm -1000000 and cp -1000 m",
+         .give = options([](SimulationOptions& o) {
+             setStabilityRows(
+                 o, MachAoALookup::stabilityBuilder().addStabilityData(0.0, -1e6, -1e6, -1000.0));
+         })},
+        {.name = "roll control at its upper bounds",
+         .give =
+             [](AlphaRun& run) {
+                 addRollControl(run, [](RollControl& roll) {
+                     roll.setStartTime(0.0);
+                     roll.setSetPoint(1000.0);
+                     roll.setFinRate(1000.0);
+                     roll.setMaxFinAngle(std::numbers::pi / 2);
+                     roll.setKP(1000.0);
+                     roll.setKI(1000.0);
+                 });
+             }},
+        {.name = "roll control with a setpoint of -1000 rad/s and no gain",
+         .give =
+             [](AlphaRun& run) {
+                 addRollControl(run, [](RollControl& roll) {
+                     roll.setSetPoint(-1000.0);
+                     roll.setKP(0.0);
+                     roll.setKI(0.0);
+                     roll.setFinRate(0.0);
+                     roll.setMaxFinAngle(0.0);
+                 });
+             }},
+        {.name = "air start at 1000000 m with 10000 m/s",
+         .give =
+             [](AlphaRun& run) {
+                 addAirStart(run, [](AirStart& airStart) {
+                     airStart.setLaunchAltitude(1000000.0);
+                     airStart.setLaunchVelocity(10000.0);
+                 });
+             }},
+        {.name = "air start at 0 m with 0 m/s",
+         .give =
+             [](AlphaRun& run) {
+                 addAirStart(run, [](AirStart& airStart) {
+                     airStart.setLaunchAltitude(0.0);
+                     airStart.setLaunchVelocity(0.0);
+                 });
+             }},
+    };
+}
+
+// What the ranges let through: how the Alpha III flies with one input at a bound of its range,
+// each run given a quarter of a minute. A measurement for whoever reviews the table, not a
+// test: a value inside its range need not make a flight that succeeds, and some of these do
+// not (see SimulationInputRanges and the notes of tier 9d).
+//   build/ci-gcc/bin/QtRocket_core_tests --gtest_also_run_disabled_tests
+//       --gtest_filter=SimulationInputValidation.DISABLED_PrintsHowTheAlphaFliesAtTheBounds
+TEST(SimulationInputValidation, DISABLED_PrintsHowTheAlphaFliesAtTheBounds)
+{
+    for (const AtABound& bound : theBounds())
+    {
+        AlphaRun run;
+        bound.give(run);
+        const auto        start   = std::chrono::steady_clock::now();
+        const std::string outcome = outcomeWithin(run.simulation, 15);
+        const double      seconds =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        std::cout << std::format("{}: {} ({:.1f} s, {})\n", bound.name, outcome, seconds,
+                                 validationMessage(run.simulation))
+                  << std::flush;
+    }
+}
 
 class SimulationInputValidationOfTestRockets : public ::testing::TestWithParam<TestRocketMaker>
 { };

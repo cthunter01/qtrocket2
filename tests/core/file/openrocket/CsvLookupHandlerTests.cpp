@@ -759,6 +759,177 @@ constexpr auto kLookupCases = std::to_array<ConditionsCase>({
      .why = "decision U5: a design reads a lookup file only by a relative name inside its own "
             "directory; an element of dots and blanks counts as two dots, which Windows may read "
             "it as"},
+    {.name     = "u9: draglookup rows at the bounds of their ranges",
+     .xml      = R"xml(
+<conditions>
+  <draglookup>
+    <row>Mach,AoA,Cd</row>
+    <row>0,-180,-1000000</row>
+    <row>100,180,1000000</row>
+  </draglookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:null table:[aoa=true mach=0.0..100.0 cd=0.0] rows:[Mach,AoA,Cd|0,-180,-1000000|100,180,1000000]
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: draglookup rows with a coefficient outside its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookup>
+    <row>Mach,Cd</row>
+    <row>0,0.3</row>
+    <row>1,1e300</row>
+  </draglookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:null table:[aoa=false mach=0.0..1.0 cd=5.0E299] rows:[Mach,Cd|0,0.3|1,1e300]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in draglookup: Illegal numeric value '1.0E300' in column 'cd'
+  W[Other,NORMAL] draglookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: draglookup rows with a Mach number below its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookup>
+    <row>Mach,Cd</row>
+    <row>-0.5,0.3</row>
+    <row>1,0.5</row>
+  </draglookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:null table:[aoa=false mach=-0.5..1.0 cd=0.4] rows:[Mach,Cd|-0.5,0.3|1,0.5]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in draglookup: Illegal numeric value '-0.5' in column 'mach'
+  W[Other,NORMAL] draglookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: draglookup rows with a Mach number above its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookup>
+    <row>Mach,Cd</row>
+    <row>0,0.3</row>
+    <row>100.00000000000001,0.5</row>
+  </draglookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:null table:[aoa=false mach=0.0..100.00000000000001 cd=0.4] rows:[Mach,Cd|0,0.3|100.00000000000001,0.5]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in draglookup: Illegal numeric value '100.00000000000001' in column 'mach'
+  W[Other,NORMAL] draglookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: draglookup rows with an angle of attack outside its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookup>
+    <row>Mach,AoA,Cd</row>
+    <row>0,0,0.3</row>
+    <row>0,180.00000000000003,0.4</row>
+  </draglookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:null table:[aoa=true mach=0.0..0.0 cd=0.3] rows:[Mach,AoA,Cd|0,0,0.3|0,180.00000000000003,0.4]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in draglookup: Illegal numeric value '180.00000000000003' in column 'aoa'
+  W[Other,NORMAL] draglookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: stabilitylookup rows at the bounds of their ranges",
+     .xml      = R"xml(
+<conditions>
+  <stabilitylookup>
+    <row>Mach,Cn,Cm,Cp</row>
+    <row>0,-1000000,1000000,-1000</row>
+    <row>100,1000000,-1000000,1000</row>
+  </stabilitylookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  stability=path:null table:[aoa=false mach=0.0..100.0 cn=0.0 cm=0.0 cp=0.0] rows:[Mach,Cn,Cm,Cp|0,-1000000,1000000,-1000|100,1000000,-1000000,1000]
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: stabilitylookup rows with a centre of pressure outside its range",
+     .xml      = R"xml(
+<conditions>
+  <stabilitylookup>
+    <row>Mach,Cn,Cm,Cp</row>
+    <row>0,1,2,1000.0000000000001</row>
+  </stabilitylookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  stability=path:null table:[aoa=false mach=0.0..0.0 cn=1.0 cm=2.0 cp=1000.0000000000001] rows:[Mach,Cn,Cm,Cp|0,1,2,1000.0000000000001]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in stabilitylookup: Illegal numeric value '1000.0000000000001' in column 'cp'
+  W[Other,NORMAL] stabilitylookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: stabilitylookup row of huge numbers",
+     .xml      = R"xml(
+<conditions>
+  <stabilitylookup>
+    <row>Mach,Cn,Cm,Cp</row>
+    <row>0,1,2,3</row>
+    <row>5,1e300,-1e300,1e300</row>
+  </stabilitylookup>
+</conditions>
+)xml",
+     .java     = R"out(
+  stability=path:null table:[aoa=false mach=0.0..5.0 cn=5.0E299 cm=-5.0E299 cp=5.0E299] rows:[Mach,Cn,Cm,Cp|0,1,2,3|5,1e300,-1e300,1e300]
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to parse embedded CSV data in stabilitylookup: Illegal numeric value '1.0E300' in column 'cn'
+  W[Other,NORMAL] stabilitylookup has embedded data but no file reference. Data may not persist correctly.
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken (the first of the three is named)"},
+    {.name     = "u9: lookup file with a number outside its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookup file="tables/huge.csv"/>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:{DIR}/design/tables/huge.csv table:[aoa=false mach=0.0..1.0 cd=5.0E299] rows:null
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to load draglookup from file 'tables/huge.csv': Illegal numeric value '1.0E300' in column 'cd'
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
+    {.name     = "u9: legacy lookup file with a number outside its range",
+     .xml      = R"xml(
+<conditions>
+  <draglookupcsv>tables/huge.csv</draglookupcsv>
+</conditions>
+)xml",
+     .java     = R"out(
+  drag=path:{DIR}/design/tables/huge.csv table:[aoa=false mach=0.0..1.0 cd=5.0E299] rows:null
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Failed to load drag lookup CSV 'tables/huge.csv', ignoring. Reason: Illegal numeric value '1.0E300' in column 'cd'
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "table with such a number is not taken"},
     // END GENERATED: lookup
 });
 
@@ -923,7 +1094,7 @@ TEST(CsvLookupHandler, TellsTheSeparatorFromTheFirstRow)
     EXPECT_EQ(CsvLookupHandler::detectSeparator({}), ',');
 }
 
-/// CsvLookupHandler::nonFiniteReason() of a drag table with angles of attack whose one row is
+/// CsvLookupHandler::refusedNumberReason() of a drag table with angles of attack whose one row is
 /// @p mach, @p aoa and @p cd, or "finite".
 [[nodiscard]] std::string reasonOfRow(double mach, double aoa, double cd)
 {
@@ -933,7 +1104,7 @@ TEST(CsvLookupHandler, TellsTheSeparatorFromTheFirstRow)
     {
         return "no table: " + table.error().message;
     }
-    return CsvLookupHandler::nonFiniteReason(*table).value_or("finite");
+    return CsvLookupHandler::refusedNumberReason(*table).value_or("finite");
 }
 
 // The text of the CSV reader for a field that is no number, with the number as Java prints it.

@@ -53,8 +53,8 @@ public:
         return m_valueColumns;
     }
 
-    /// A number of a table that is not finite, and where it is (see findNonFinite()).
-    struct NonFiniteNumber
+    /// A number of a table, and where it is (see findNumber()).
+    struct Number
     {
         /// What a number of a row is.
         enum class Kind
@@ -71,19 +71,29 @@ public:
         double mach;
         /// The angle of attack of the row, degrees; NaN in a table without angles of attack.
         double aoa;
-        /// The number: a NaN or an infinity.
+        /// The number.
         double value;
     };
 
-    /// The first number of the table that is a NaN or an infinity, or nullopt when every Mach
-    /// number, every angle of attack and every value is finite. The rows are gone through in
-    /// the table's order (by Mach number, a NaN last, and for one Mach number by angle of
-    /// attack), and the numbers of a row as the Mach number, the angle of attack (in a table
-    /// that has angles) and the values in the order of getValueColumns().
+    /// What findNonFinite() finds: a Number that is a NaN or an infinity.
+    using NonFiniteNumber = Number;
+
+    /// The first number of the table that @p refused says true for, or nullopt when it says so
+    /// for none. The rows are gone through in the table's order (by Mach number, a NaN last,
+    /// and for one Mach number by angle of attack), and the numbers of a row as the Mach
+    /// number, the angle of attack (in a table that has angles) and the values in the order of
+    /// getValueColumns().
     ///
-    /// Not in OpenRocket, whose tables hold whatever their rows held: its CSV reader takes "NaN"
-    /// and "Infinity" as numbers, and so does CsvMachAoALookup. A table is data from a file, so
-    /// Simulation::validateInputs() asks this before a run interpolates in it.
+    /// Not in OpenRocket, whose tables hold whatever their rows held. A table is data from a
+    /// file, so Simulation::validateInputs() asks this before a run interpolates in it: for a
+    /// number that is not finite or that lies outside its range (SimulationInputRanges).
+    [[nodiscard]] std::optional<Number> findNumber(
+        const std::function<bool(const Number&)>& refused) const;
+
+    /// The first number of the table that is a NaN or an infinity, or nullopt when every Mach
+    /// number, every angle of attack and every value is finite: findNumber() for a number that
+    /// is not finite. (OpenRocket's CSV reader takes "NaN" and "Infinity" as numbers, and so
+    /// does CsvMachAoALookup.)
     [[nodiscard]] std::optional<NonFiniteNumber> findNonFinite() const;
 
     /// The value of @p column at @p mach and @p aoaDegrees: the Mach number and the angle are

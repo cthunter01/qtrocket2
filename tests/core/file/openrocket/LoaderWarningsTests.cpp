@@ -11,6 +11,7 @@
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/logging/Warning.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 
 // The texts of the loader's own warnings (decision U7 of tier 9): QtRocket's, with nothing of
 // OpenRocket's to compare them with. Each is pinned here word for word, because the tests of
@@ -36,6 +37,7 @@ using QtRocket::Warning;
         std::string(LoaderWarnings::kDuplicateComponentId),
         std::string(LoaderWarnings::kOverrideNotFinite),
         LoaderWarnings::numberNotFinite("deploydelay"),
+        LoaderWarnings::numberOutOfRange("deploydelay", "from 0 to 1000000 s"),
         LoaderWarnings::presetMaterialOfAnotherType("Mine"),
         LoaderWarnings::presetIntoFrozenRocket("Mine"),
         std::string(LoaderWarnings::kDecalIgnored),
@@ -59,8 +61,10 @@ using QtRocket::Warning;
         LoaderWarnings::tooManyWindLevels(),
         std::string(LoaderWarnings::kWindLevelIncomplete),
         std::string(LoaderWarnings::kWindLevelNotFinite),
+        std::string(LoaderWarnings::kWindLevelOutOfRange),
         LoaderWarnings::unknownAltitudeReference("bogus"),
         LoaderWarnings::optionNotFinite("speed"),
+        LoaderWarnings::optionOutOfRange("speed"),
         LoaderWarnings::lookupFileOutsideDesign("draglookup", "../drag.csv"),
         LoaderWarnings::lookupFileOfDeviceName("draglookup", "nul"),
         LoaderWarnings::tooManyWarnings(),
@@ -96,7 +100,7 @@ using QtRocket::Warning;
 TEST(LoaderWarnings, EveryTextIsASentenceOfItsOwn)
 {
     const std::vector<std::string> texts = everyText();
-    EXPECT_EQ(texts.size(), 38U);
+    EXPECT_EQ(texts.size(), 41U);
     EXPECT_EQ(textsThatAreNotTheirOwn(texts), "");
     // What the helper tells: OpenRocket's general text, a text without a full stop, a text
     // that is there twice.
@@ -163,6 +167,11 @@ TEST(LoaderWarnings, TheTextsOfTheFlightConfigurations)
               "instances; ignoring this simulation.");
     EXPECT_EQ(LoaderWarnings::numberNotFinite("separationaltitude"),
               "The number of element 'separationaltitude' is not finite; ignoring it.");
+    // The range is the text of its SimulationInputRanges::Range.
+    EXPECT_EQ(LoaderWarnings::numberOutOfRange(
+                  "separationaltitude", QtRocket::SimulationInputRanges::kEventAltitude.text),
+              "The number of element 'separationaltitude' is outside its range, from 0 to "
+              "1000000 m; ignoring it.");
     EXPECT_EQ(LoaderWarnings::kIgnitionConfigurationWithoutDelay,
               "An ignition configuration has no ignition delay that can be read; the delay stays "
               "what it was.");
@@ -198,11 +207,16 @@ TEST(LoaderWarnings, TheTextsOfTheSimulations)
               "ignored.");
     EXPECT_EQ(LoaderWarnings::kWindLevelNotFinite,
               "A wind level with a number that is not finite was ignored.");
+    EXPECT_EQ(LoaderWarnings::kWindLevelOutOfRange,
+              "A wind level with a number outside its range was ignored.");
     EXPECT_EQ(LoaderWarnings::unknownAltitudeReference("AGL "),
               "Unknown wind altitude reference 'AGL ', using MSL.");
     EXPECT_EQ(LoaderWarnings::optionNotFinite("recoveryspeedwarning"),
               "The number of element 'recoveryspeedwarning' would give a simulation option that "
               "is not finite; the option keeps what it had.");
+    EXPECT_EQ(LoaderWarnings::optionOutOfRange("recoveryspeedwarning"),
+              "The number of element 'recoveryspeedwarning' would give a simulation option "
+              "outside its range; the option keeps what it had.");
     // The name of the file is the one the design has, not the path it would be read by.
     EXPECT_EQ(LoaderWarnings::lookupFileOutsideDesign("draglookup", "/home/someone/drag.csv"),
               "The lookup table file '/home/someone/drag.csv' of element 'draglookup' was not "

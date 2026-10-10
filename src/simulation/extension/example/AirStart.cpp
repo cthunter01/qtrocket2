@@ -80,8 +80,8 @@ std::optional<std::string> AirStart::getDescription() const
 std::vector<SimulationExtension::InputNumber> AirStart::getInputNumbers() const
 {
     constexpr std::string_view kName = "Air-start";
-    return {inputNumber(kName, "launchAltitude", getLaunchAltitude()),
-            inputNumber(kName, "launchVelocity", getLaunchVelocity())};
+    return {inputNumber(kName, "launchAltitude", getLaunchAltitude(), kLaunchAltitudeRange),
+            inputNumber(kName, "launchVelocity", getLaunchVelocity(), kLaunchVelocityRange)};
 }
 
 std::unique_ptr<SimulationExtension> AirStart::clone() const

@@ -20,6 +20,7 @@
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
@@ -124,7 +125,7 @@ Result<void> CsvLookupHandler::endHandler(std::string_view element, const Attrib
         Result<MachAoALookup> table =
             CsvMachAoALookup::parse(m_rows, m_requiredColumns, detectSeparator(m_rows));
         std::optional<std::string> reason =
-            table.has_value() ? nonFiniteReason(*table) : std::move(table.error().message);
+            table.has_value() ? refusedNumberReason(*table) : std::move(table.error().message);
         if (!reason.has_value())
         {
             // Store both the table and the original CSV rows to preserve edits. The file is a
@@ -253,8 +254,9 @@ Result<void> CsvLookupHandler::loadFromFile(SimulationOptions&           options
     {
         return std::unexpected(std::move(table.error()));
     }
-    // Not OpenRocket's (see the class comment): a table with a NaN or an infinity is refused.
-    if (std::optional<std::string> reason = nonFiniteReason(**table))
+    // Not OpenRocket's (see the class comment): a table with a NaN, an infinity or a number
+    // outside its range is refused.
+    if (std::optional<std::string> reason = refusedNumberReason(**table))
     {
         return fail(ErrorCode::PARSE, std::move(*reason));
     }
@@ -270,19 +272,20 @@ Result<void> CsvLookupHandler::loadFromFile(SimulationOptions&           options
     return {};
 }
 
-std::optional<std::string> CsvLookupHandler::nonFiniteReason(const MachAoALookup& table)
+std::optional<std::string> CsvLookupHandler::refusedNumberReason(const MachAoALookup& table)
 {
-    const std::optional<MachAoALookup::NonFiniteNumber> number = table.findNonFinite();
+    const std::optional<MachAoALookup::Number> number =
+        SimulationInputRanges::findRefusedLookupNumber(table);
     if (!number.has_value())
     {
         return std::nullopt;
     }
     std::string_view column = number->column;
-    if (number->kind == MachAoALookup::NonFiniteNumber::Kind::MACH)
+    if (number->kind == MachAoALookup::Number::Kind::MACH)
     {
         column = "mach";
     }
-    else if (number->kind == MachAoALookup::NonFiniteNumber::Kind::AOA)
+    else if (number->kind == MachAoALookup::Number::Kind::AOA)
     {
         column = "aoa";
     }

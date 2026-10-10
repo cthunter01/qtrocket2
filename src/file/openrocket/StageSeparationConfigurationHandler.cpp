@@ -15,6 +15,7 @@
 #include "QtRocket/rocket/FlightConfigurableParameterSet.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
 
@@ -27,9 +28,11 @@ namespace
 /// The number of the element @p element whose text is @p content, or none with a warning:
 /// OpenRocket's for a text that is no number (Java: parseDouble(content, warnings,
 /// Warning.FILE_INVALID_PARAMETER)), and QtRocket's own for a NaN or an infinity, which
-/// OpenRocket passes over or stores (decision L3).
-[[nodiscard]] std::optional<double> finiteNumberOf(std::string_view element,
-                                                   std::string_view content, WarningSet& warnings)
+/// OpenRocket passes over or stores (decision L3), and for a number outside @p range, the
+/// range a simulation holds the value to, which OpenRocket stores (decision U9).
+[[nodiscard]] std::optional<double> numberOf(std::string_view element, std::string_view content,
+                                             const SimulationInputRanges::Range& range,
+                                             WarningSet&                         warnings)
 {
     const std::optional<double> number = Strings::javaParseDouble(content);
     if (!number.has_value())
@@ -40,6 +43,11 @@ namespace
     if (!std::isfinite(*number))
     {
         warnings.add(LoaderWarnings::numberNotFinite(element));
+        return std::nullopt;
+    }
+    if (!range.contains(*number))
+    {
+        warnings.add(LoaderWarnings::numberOutOfRange(element, range.text));
         return std::nullopt;
     }
     return number;
@@ -61,7 +69,8 @@ StageSeparationConfiguration StageSeparationConfigurationHandler::getConfigurati
     {
         config.setSeparationEvent(*m_event);
     }
-    // Java: !Double.isNaN() of a field that starts as NaN, so that an infinity is stored.
+    // Java: !Double.isNaN() of a field that starts as NaN, so that an infinity is stored, and
+    // every other number.
     if (m_altitude.has_value())
     {
         config.setSeparationAltitude(*m_altitude);
@@ -98,13 +107,13 @@ Result<void> StageSeparationConfigurationHandler::closeElement(std::string_view 
     if (element == "separationaltitude")
     {
         // Java: Double.parseDouble, a NaN and an infinity included.
-        m_altitude = finiteNumberOf(element, content, warnings);
+        m_altitude = numberOf(element, content, SimulationInputRanges::kEventAltitude, warnings);
         return {};
     }
     if (element == "separationdelay")
     {
         // Java: Double.parseDouble, a NaN and an infinity included.
-        m_delay = finiteNumberOf(element, content, warnings);
+        m_delay = numberOf(element, content, SimulationInputRanges::kDelay, warnings);
         return {};
     }
     return AbstractElementHandler::closeElement(element, attributes, content, warnings);

@@ -139,9 +139,16 @@ TEST(DisableStageSimulationTest, SimulationUsesItsOwnConfigurationForComponentPo
     rocket.setSelectedConfiguration(disabledSustainerConfigId);
     EXPECT_NEAR(0.0, stagePosition(rocket, 1), kPositionEpsilon);
 
+    // Java simulates with the time step of OpenRocket's test preferences, which is 0, and its
+    // steppers take their smallest step, a millisecond, in the place of it. QtRocket refuses a
+    // time step of 0 (Simulation::validateInputs(), decision U9 of tier 9), so the two
+    // simulations are given the millisecond itself.
+    constexpr double kJavaTimeStep = 0.001;
+
     JavaTestPreferences preferences;
     Simulation          activeSimulation(rocket, preferences.store);
     activeSimulation.setFlightConfigurationId(activeConfigId);
+    activeSimulation.getOptions().setTimeStep(kJavaTimeStep);
     activeSimulation.getOptions().setRandomSeed(kRandomSeed);  // Java: left to chance
     EXPECT_NEAR(sustainerLength, getBoosterPositionDuringSimulation(activeSimulation),
                 kPositionEpsilon);
@@ -157,6 +164,7 @@ TEST(DisableStageSimulationTest, SimulationUsesItsOwnConfigurationForComponentPo
 
     Simulation disabledSustainerSimulation(rocket, preferences.store);
     disabledSustainerSimulation.setFlightConfigurationId(disabledSustainerConfigId);
+    disabledSustainerSimulation.getOptions().setTimeStep(kJavaTimeStep);
     disabledSustainerSimulation.getOptions().setRandomSeed(kRandomSeed);  // Java: left to chance
     EXPECT_NEAR(0.0, getBoosterPositionDuringSimulation(disabledSustainerSimulation),
                 kPositionEpsilon);

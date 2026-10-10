@@ -135,8 +135,15 @@ constexpr auto kAtmosphereCases = std::to_array<ConditionsCase>({
   fcid=11111111-1111-1111-1111-111111111111
   atmosphere=isa:false T=-5.0 p=0.001 hum=0.0
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal base temperature specified, ignoring.
+  W[Other,NORMAL] Illegal base humidity specified, ignoring
+  fcid=11111111-1111-1111-1111-111111111111
+  atmosphere=isa:false T=288.15 p=0.001 hum=0.0
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: a "
+            "temperature of -5 K, which OpenRocket takes and its atmospheric model refuses when "
+            "the simulation is run"},
     {.name     = "cond: atmosphere -Infinity temperature",
      .xml      = R"xml(
 <conditions>
@@ -310,8 +317,14 @@ constexpr auto kAtmosphereCases = std::to_array<ConditionsCase>({
   closed=conditions {model=extendedisa} []
   atmosphere=isa:false T=0.0 p=90000.0 hum=0.0
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Unknown element x, ignoring.
+  W[Other,NORMAL] Illegal base temperature specified, ignoring.
+  closed=conditions {model=extendedisa} []
+  atmosphere=isa:false T=288.15 p=90000.0 hum=0.0
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: what "
+            "is left of the text is a temperature of 0 K"},
     {.name     = "s1: atmosphere extendedisa then the launch altitude",
      .xml      = R"xml(
 <conditions>
@@ -327,6 +340,72 @@ constexpr auto kAtmosphereCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = {},
      .why      = {}},
+    {.name     = "u9: atmosphere at its lower bounds",
+     .xml      = R"xml(
+<conditions>
+  <atmosphere model="extendedisa">
+    <basetemperature>1</basetemperature>
+    <basepressure>0.001</basepressure>
+    <baserelativehumidity>0</baserelativehumidity>
+  </atmosphere>
+</conditions>
+)xml",
+     .java     = R"out(
+  atmosphere=isa:false T=1.0 p=0.001 hum=0.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: atmosphere at its upper bounds",
+     .xml      = R"xml(
+<conditions>
+  <atmosphere model="extendedisa">
+    <basetemperature>1000</basetemperature>
+    <basepressure>1000000</basepressure>
+    <baserelativehumidity>1</baserelativehumidity>
+  </atmosphere>
+</conditions>
+)xml",
+     .java     = R"out(
+  atmosphere=isa:false T=1000.0 p=1000000.0 hum=1.0
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: atmosphere temperature below its range",
+     .xml      = R"xml(
+<conditions>
+  <atmosphere model="extendedisa">
+    <basetemperature>0.9999999999999999</basetemperature>
+    <basepressure>90000</basepressure>
+  </atmosphere>
+</conditions>
+)xml",
+     .java     = R"out(
+  atmosphere=isa:false T=0.9999999999999999 p=90000.0 hum=0.0
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal base temperature specified, ignoring.
+  atmosphere=isa:false T=288.15 p=90000.0 hum=0.0
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
+    {.name     = "u9: atmosphere temperature and pressure above their ranges",
+     .xml      = R"xml(
+<conditions>
+  <atmosphere model="extendedisa">
+    <basetemperature>1000.0000000000001</basetemperature>
+    <basepressure>1000000.0000000001</basepressure>
+    <baserelativehumidity>0.5</baserelativehumidity>
+  </atmosphere>
+</conditions>
+)xml",
+     .java     = R"out(
+  atmosphere=isa:false T=1000.0000000000001 p=1000000.0000000001 hum=0.5
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] Illegal base temperature specified, ignoring.
+  W[Other,NORMAL] Illegal base pressure specified, ignoring.
+  atmosphere=isa:false T=288.15 p=101325.0 hum=0.5
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied"},
     // END GENERATED: atmosphere
 });
 
@@ -388,9 +467,8 @@ TEST(AtmosphereHandler, TheLastTemperatureCountsAndARefusedOneTakesBackTheOneBef
     AtmosphereHandler handler(std::string("extendedisa"));
     EXPECT_EQ(closeChild(handler, "basetemperature", " 300 "), Texts{});
     EXPECT_EQ(valuesOf(handler), "300.0 NaN NaN");
-    // Zero and a negative temperature are taken; the atmospheric model refuses them later.
-    EXPECT_EQ(closeChild(handler, "basetemperature", "-5"), Texts{});
-    EXPECT_EQ(valuesOf(handler), "-5.0 NaN NaN");
+    EXPECT_EQ(closeChild(handler, "basetemperature", "250"), Texts{});
+    EXPECT_EQ(valuesOf(handler), "250.0 NaN NaN");
 
     const Texts refused{"Illegal base temperature specified, ignoring."};
     EXPECT_EQ(closeChild(handler, "basetemperature", "warm"), refused);
@@ -401,6 +479,43 @@ TEST(AtmosphereHandler, TheLastTemperatureCountsAndARefusedOneTakesBackTheOneBef
     EXPECT_EQ(valuesOf(handler), "NaN NaN NaN");
     EXPECT_EQ(closeChild(handler, "basetemperature", "-Infinity"), refused);
     EXPECT_EQ(valuesOf(handler), "NaN NaN NaN");
+}
+
+// Decision U9 of tier 9: a temperature and a pressure have to lie in the ranges a simulation
+// holds them to (SimulationInputRanges: 1 K to 1000 K, 0.001 Pa to 1000000 Pa), and one that
+// does not is refused with the warning of a text that is no number. OpenRocket stores every
+// number: zero and a negative temperature too, which its atmospheric model then refuses when
+// the simulation is run.
+TEST(AtmosphereHandler, ATemperatureOrAPressureOutsideItsRangeIsRefused)
+{
+    const Texts       noTemperature{"Illegal base temperature specified, ignoring."};
+    const Texts       noPressure{"Illegal base pressure specified, ignoring."};
+    AtmosphereHandler handler(std::string("extendedisa"));
+
+    // The bounds are inside the ranges.
+    EXPECT_EQ(closeChild(handler, "basetemperature", "1"), Texts{});
+    EXPECT_EQ(valuesOf(handler), "1.0 NaN NaN");
+    EXPECT_EQ(closeChild(handler, "basetemperature", "1000"), Texts{});
+    EXPECT_EQ(valuesOf(handler), "1000.0 NaN NaN");
+    EXPECT_EQ(closeChild(handler, "basepressure", "1000000"), Texts{});
+    EXPECT_EQ(valuesOf(handler), "1000.0 1000000.0 NaN");
+
+    // The next number beyond a bound is outside, and a refused one takes back the one before.
+    EXPECT_EQ(closeChild(handler, "basetemperature", "1000.0000000000001"), noTemperature);
+    EXPECT_EQ(valuesOf(handler), "NaN 1000000.0 NaN");
+    EXPECT_EQ(closeChild(handler, "basetemperature", "0.9999999999999999"), noTemperature);
+    EXPECT_EQ(closeChild(handler, "basetemperature", "0"), noTemperature);
+    EXPECT_EQ(closeChild(handler, "basetemperature", "-5"), noTemperature);
+    EXPECT_EQ(closeChild(handler, "basetemperature", "1e300"), noTemperature);
+    EXPECT_EQ(closeChild(handler, "basepressure", "1000000.0000000001"), noPressure);
+    EXPECT_EQ(valuesOf(handler), "NaN NaN NaN");
+    EXPECT_EQ(closeChild(handler, "basepressure", "1e300"), noPressure);
+
+    // A pressure below a thousandth of a pascal is that thousandth, as in OpenRocket, and that
+    // is the lower bound of the range.
+    EXPECT_EQ(closeChild(handler, "basepressure", "-1e300"), Texts{});
+    EXPECT_EQ(closeChild(handler, "basetemperature", "288.15"), Texts{});
+    EXPECT_EQ(valuesOf(handler), "288.15 0.001 NaN");
 }
 
 TEST(AtmosphereHandler, ThePressureIsNeverBelowAThousandthOfAPascal)

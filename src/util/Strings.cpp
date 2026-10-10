@@ -59,15 +59,11 @@ struct Decimal
     int         exponent{};
 };
 
-/// The shortest digits that read back as the same double.
-[[nodiscard]] Decimal shortestDecimal(double magnitude)
+/// The decimal that @p text, std::to_chars' scientific form of a positive finite double
+/// ("d.ddde-05"), stands for.
+[[nodiscard]] Decimal decimalOfScientific(std::string_view text)
 {
-    // The longest shortest-round-trip form is "d.ddddddddddddddddde-308" (24 characters).
-    std::array<char, 32> buffer{};
-    const auto [end, ec] = std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()),
-                                         magnitude, std::chars_format::scientific);
-    const std::string_view text(buffer.data(), end);
-    const std::size_t      e = text.find('e');
+    const std::size_t e = text.find('e');
 
     Decimal decimal;
     for (const char c : text.substr(0, e))
@@ -89,6 +85,50 @@ struct Decimal
         exponent = -exponent;
     }
     decimal.exponent = exponent + 1;  // d.ddd * 10^E is 0.dddd * 10^(E + 1)
+    return decimal;
+}
+
+/// The shortest digits that read back as the same double: of the decimals with the fewest
+/// digits that round to it, the closest.
+[[nodiscard]] Decimal shortestDecimal(double magnitude)
+{
+    // The longest shortest-round-trip form is "d.ddddddddddddddddde-308" (24 characters).
+    std::array<char, 32> buffer{};
+    const auto [end, ec] = std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()),
+                                         magnitude, std::chars_format::scientific);
+    return decimalOfScientific(std::string_view(buffer.data(), end));
+}
+
+/// The decimal that Double.toString() selects for a positive finite double since JDK 19 (its
+/// specification): of all decimals that round to the double, the set R, the closest of those
+/// with the fewest digits; and when the fewest is one digit, the closest of those in R with one
+/// or two digits.
+///
+/// The shortest digits are that decimal whenever they are more than one digit, and for every
+/// normal double: two decimals of one or two digits are at least one part in a hundred apart,
+/// and the R of a normal double is narrower than one part in 2^52 of it, so it holds no second
+/// one. The R of a subnormal reaches half of Double.MIN_VALUE to either side of it, which is
+/// wide for the smallest of them. There the decimal is the double rounded to two significant
+/// digits: that is the closest of all decimals of one or two digits, and it is in R because the
+/// one-digit decimal, which is in R, is no closer and R reaches as far up as down. (The exact
+/// decimal expansion of a subnormal has hundreds of digits, so the rounding meets no tie.)
+[[nodiscard]] Decimal javaToStringDecimal(double magnitude)
+{
+    Decimal decimal = shortestDecimal(magnitude);
+    if (decimal.digits.size() > 1 || magnitude >= std::numeric_limits<double>::min())
+    {
+        return decimal;
+    }
+    // "d.de-XXX": exact, like every std::to_chars form with a precision.
+    std::array<char, 16> buffer{};
+    const auto [end, ec] = std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()),
+                                         magnitude, std::chars_format::scientific, 1);
+    decimal              = decimalOfScientific(std::string_view(buffer.data(), end));
+    if (decimal.digits.back() == '0')
+    {
+        // The significand of a decimal is no multiple of ten: "5.0e-323" is the decimal 5e-323.
+        decimal.digits.pop_back();
+    }
     return decimal;
 }
 
@@ -1489,13 +1529,16 @@ std::string javaDoubleToString(double value)
     {
         return std::signbit(value) ? "-0.0" : "0.0";
     }
-    const double       magnitude = std::abs(value);
-    const Decimal      decimal   = javaDecimal(magnitude);
-    const std::string& digits    = decimal.digits;
-    const auto         count     = static_cast<int>(digits.size());
+    // The decimal s * 10^i of the specification, of length n, as 0.s_1...s_n * 10^(n + i).
+    const Decimal      decimal = javaToStringDecimal(std::abs(value));
+    const std::string& digits  = decimal.digits;
+    const auto         count   = static_cast<int>(digits.size());
+    // The specification's e = n + i - 1: plain notation for -3 <= e < 7, that is for a decimal
+    // from 0.001 up to but excluding 1e7.
+    const int e = decimal.exponent - 1;
 
     std::string text;
-    if (magnitude >= 0.001 && magnitude < 10000000.0)
+    if (e >= -3 && e < 7)
     {
         if (decimal.exponent <= 0)
         {
@@ -1515,7 +1558,7 @@ std::string javaDoubleToString(double value)
     else
     {
         text = digits.substr(0, 1) + "." + (count > 1 ? digits.substr(1) : std::string("0")) + "E" +
-               std::format("{}", decimal.exponent - 1);
+               std::format("{}", e);
     }
     return std::signbit(value) ? "-" + text : text;
 }

@@ -65,6 +65,15 @@ class SimulationOptions;
 ///   not finite (setAverageWind()): a <speed> takes the turbulence intensity along, so that a
 ///   huge standard deviation over a small speed becomes an infinite one at the next <speed>.
 ///   OpenRocket stores that infinity.
+/// - Values outside the range a simulation holds them to are not applied either (decision U9
+///   of tier 9, SimulationInputRanges: a wind speed and a standard deviation of at most 1000
+///   m/s, a direction within a full turn, a level between -1000 m and 1000 km). For the
+///   average model it is what the model would hold that counts (a negative speed is its
+///   magnitude, a negative deviation is none, a direction is reduced to one turn), and the
+///   warning is LoaderWarnings::optionOutOfRange() ("The number of element 'speed' would give
+///   a simulation option outside its range; the option keeps what it had."). A <windlevel>
+///   with such a number is not added and gives LoaderWarnings::kWindLevelOutOfRange.
+///   OpenRocket applies every finite number.
 /// - A <windlevel> that lacks one of its four attributes is not added and gives
 ///   LoaderWarnings::kWindLevelIncomplete (decision D9). OpenRocket ends with a
 ///   NullPointerException. The attributes are looked at in the order altitude, speed,
@@ -106,17 +115,31 @@ public:
     /// The model attribute, or none.
     [[nodiscard]] const std::optional<std::string>& getModel() const noexcept { return m_model; }
 
+    /// How setAverageWind() ended.
+    enum class AverageWind
+    {
+        APPLIED,       ///< the setter was called
+        NOT_FINITE,    ///< the model would hold a number that is not finite
+        OUT_OF_RANGE,  ///< the model would hold a number outside its range
+    };
+
     /// Calls the setter @p setter of the average wind model of @p options with @p value,
-    /// unless the model would then hold a number that is not finite: false then, and nothing
-    /// changes. This is decision U3 for what a number of the file makes the model compute: a
-    /// wind speed takes the turbulence intensity along (PinkNoiseWindModel::setAverage()) and
-    /// a turbulence intensity is multiplied by the wind speed (setTurbulenceIntensity()), and
-    /// either product can leave the range of a double although both numbers are finite.
-    /// OpenRocket stores the infinity. The conditions handler applies the wind elements of
-    /// older files with it.
-    [[nodiscard]] static bool setAverageWind(SimulationOptions& options,
-                                             void (PinkNoiseWindModel::*setter)(double),
-                                             double value);
+    /// unless the model would then hold a number that is not finite or that lies outside the
+    /// range a simulation holds it to (SimulationInputRanges: the wind speed, its standard
+    /// deviation, the direction); nothing changes then. This is decision U3, and U9 after it,
+    /// for what a number of the file makes the model compute: a wind speed takes the
+    /// turbulence intensity along (PinkNoiseWindModel::setAverage()) and a turbulence
+    /// intensity is multiplied by the wind speed (setTurbulenceIntensity()), and either
+    /// product can leave its range, or the range of a double, although both numbers are in
+    /// theirs; a huge direction is reduced to nonsense. OpenRocket stores what comes of it.
+    /// The conditions handler applies the wind elements of older files with it.
+    [[nodiscard]] static AverageWind setAverageWind(SimulationOptions& options,
+                                                    void (PinkNoiseWindModel::*setter)(double),
+                                                    double value);
+
+    /// Whether the speed, the direction and the standard deviation of @p wind lie in the
+    /// ranges of SimulationInputRanges.
+    [[nodiscard]] static bool inRange(const PinkNoiseWindModel& wind) noexcept;
 
 private:
     /// Reads @p content as the <speed>, <direction> or <standarddeviation> of the average

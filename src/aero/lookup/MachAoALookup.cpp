@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <expected>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <optional>
@@ -125,38 +126,45 @@ double MachAoALookup::interpolate(double mach, double aoaDegrees, std::string_vi
     return MathUtil::interpolate(lowerValue, upperValue, fraction);
 }
 
-std::optional<MachAoALookup::NonFiniteNumber> MachAoALookup::findNonFinite() const
+std::optional<MachAoALookup::Number> MachAoALookup::findNumber(
+    const std::function<bool(const Number&)>& refused) const
 {
-    using Kind = NonFiniteNumber::Kind;
+    using Kind = Number::Kind;
     for (const auto& [mach, rows] : m_rowsByMach)
     {
         for (const Row& row : rows)
         {
             const double aoa = m_hasAoA ? row.aoa : kNaN;
-            if (!std::isfinite(mach))
+            Number       number{
+                .kind = Kind::MACH, .column = {}, .mach = mach, .aoa = aoa, .value = mach};
+            if (refused(number))
             {
-                return NonFiniteNumber{
-                    .kind = Kind::MACH, .column = {}, .mach = mach, .aoa = aoa, .value = mach};
+                return number;
             }
-            if (m_hasAoA && !std::isfinite(aoa))
+            number.kind  = Kind::AOA;
+            number.value = aoa;
+            if (m_hasAoA && refused(number))
             {
-                return NonFiniteNumber{
-                    .kind = Kind::AOA, .column = {}, .mach = mach, .aoa = aoa, .value = aoa};
+                return number;
             }
+            number.kind = Kind::VALUE;
             for (std::size_t column = 0; column < row.values.size(); column++)
             {
-                if (!std::isfinite(row.values[column]))
+                number.column = m_valueColumns[column];
+                number.value  = row.values[column];
+                if (refused(number))
                 {
-                    return NonFiniteNumber{.kind   = Kind::VALUE,
-                                           .column = m_valueColumns[column],
-                                           .mach   = mach,
-                                           .aoa    = aoa,
-                                           .value  = row.values[column]};
+                    return number;
                 }
             }
         }
     }
     return std::nullopt;
+}
+
+std::optional<MachAoALookup::NonFiniteNumber> MachAoALookup::findNonFinite() const
+{
+    return findNumber([](const Number& number) { return !std::isfinite(number.value); });
 }
 
 double MachAoALookup::interpolateAoA(std::span<const Row> rows, double aoaDegrees,

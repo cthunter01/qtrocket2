@@ -78,6 +78,7 @@
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
@@ -730,7 +731,8 @@ void addRecoveryDeviceSetters(SetterTable& table)
                   [](RocketComponent& c, double v) { as<RecoveryDevice>(c).setCD(v); }, "auto",
                   [](RocketComponent& c, bool v) { as<RecoveryDevice>(c).setCDAutomatic(v); }));
     // The next three set the default of the device's deployment configurations (Java: the
-    // setter's form with a getter of the parameter set).
+    // setter's form with a getter of the parameter set). The two numbers are held to the range
+    // a simulation holds them to (not Java's: see DoubleSetter, "Deviations").
     table.put(
         "RecoveryDevice:deployevent",
         std::make_unique<EnumSetter>(
@@ -739,14 +741,19 @@ void addRecoveryDeviceSetters(SetterTable& table)
             }));
     table.put(
         "RecoveryDevice:deployaltitude",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployAltitude(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployAltitude(
+                    v);
+            },
+            SimulationInputRanges::kEventAltitude));
     table.put(
         "RecoveryDevice:deploydelay",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployDelay(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployDelay(v);
+            },
+            SimulationInputRanges::kDelay));
     table.put("RecoveryDevice:material", std::make_unique<MaterialSetter>(
                                              [](RocketComponent& c, const Material& v) {
                                                  as<RecoveryDevice>(c).setMaterial(v);
@@ -835,7 +842,8 @@ void addAxialStageSetters(SetterTable& table)
 {
     using SeparationEvent = StageSeparationConfiguration::SeparationEvent;
 
-    // All three set the default of the stage's separation configurations.
+    // All three set the default of the stage's separation configurations. The two numbers are
+    // held to the range a simulation holds them to (not Java's: see DoubleSetter, "Deviations").
     table.put(
         "AxialStage:separationevent",
         std::make_unique<EnumSetter>(
@@ -844,14 +852,19 @@ void addAxialStageSetters(SetterTable& table)
             }));
     table.put(
         "AxialStage:separationaltitude",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationAltitude(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationAltitude(
+                    v);
+            },
+            SimulationInputRanges::kEventAltitude));
     table.put(
         "AxialStage:separationdelay",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationDelay(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationDelay(v);
+            },
+            SimulationInputRanges::kDelay));
 }
 
 /// DocumentConfig.setters, filled in the order of the Java source.

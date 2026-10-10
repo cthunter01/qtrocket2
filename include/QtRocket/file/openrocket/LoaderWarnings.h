@@ -19,10 +19,11 @@ namespace QtRocket
 ///
 /// Where a handler has a warning of OpenRocket's own for a value it cannot read ("Illegal
 /// ignition delay specified, ignoring."), it gives that same warning for a value it refuses
-/// because it is not finite (decision L3 of the loader); those warnings are OpenRocket's texts
-/// and are not in this list. Where the warning for a value that cannot be read is the general
-/// one (an override, a deploy or separation value), the refusal of a number that is not
-/// finite has a text of its own here.
+/// because it is not finite (decision L3 of the loader) or because it lies outside the range
+/// a simulation holds it to (SimulationInputRanges); those warnings are OpenRocket's texts and
+/// are not in this list. Where the warning for a value that cannot be read is the general one
+/// (an override, a deploy or separation value), or there is none (a recovery threshold, the
+/// numbers of a wind), each of the two refusals has a text of its own here.
 class LoaderWarnings final
 {
 public:
@@ -126,6 +127,12 @@ public:
     /// infinity: "The number of element 'deploydelay' is not finite; ignoring it."
     [[nodiscard]] static std::string numberNotFinite(std::string_view element);
 
+    /// A delay or an altitude of a deployment or separation configuration that lies outside
+    /// its range (SimulationInputRanges; @p range is the range in words): "The number of
+    /// element 'deploydelay' is outside its range, from 0 to 1000000 s; ignoring it."
+    [[nodiscard]] static std::string numberOutOfRange(std::string_view element,
+                                                      std::string_view range);
+
     /// An <ignitionconfiguration> without an <ignitiondelay> that can be read.
     static constexpr std::string_view kIgnitionConfigurationWithoutDelay =
         "An ignition configuration has no ignition delay that can be read; the delay stays what "
@@ -184,6 +191,10 @@ public:
     static constexpr std::string_view kWindLevelNotFinite =
         "A wind level with a number that is not finite was ignored.";
 
+    /// A <windlevel> with an attribute that lies outside its range (SimulationInputRanges).
+    static constexpr std::string_view kWindLevelOutOfRange =
+        "A wind level with a number outside its range was ignored.";
+
     /// An altituderef of <wind> that names no reference: "Unknown wind altitude reference
     /// '<text>', using MSL."
     [[nodiscard]] static std::string unknownAltitudeReference(std::string_view text);
@@ -192,6 +203,12 @@ public:
     /// where OpenRocket has no warning: "The number of element '<element>' would give a
     /// simulation option that is not finite; the option keeps what it had."
     [[nodiscard]] static std::string optionNotFinite(std::string_view element);
+
+    /// A number of the conditions that would leave a simulation option outside its range
+    /// (SimulationInputRanges), where OpenRocket has no warning: "The number of element
+    /// '<element>' would give a simulation option outside its range; the option keeps what it
+    /// had."
+    [[nodiscard]] static std::string optionOutOfRange(std::string_view element);
 
     /// A file that a design names for a lookup table and may not read, because the name is
     /// no relative one, leaves the design's directory, or the design has no directory (see

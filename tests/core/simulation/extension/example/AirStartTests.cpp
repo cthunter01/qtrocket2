@@ -204,6 +204,17 @@ TEST(AirStart, ListsTheNumbersItsListenerReads)
     EXPECT_EQ(numbers[0].value, 100.0);
     EXPECT_EQ(numbers[1].what, "the 'launchVelocity' of the simulation extension 'Air-start'");
     EXPECT_EQ(numbers[1].value, 50.0);
+    // Each with the range the validation holds it to.
+    ASSERT_TRUE(numbers[0].range.has_value());
+    ASSERT_TRUE(numbers[1].range.has_value());
+    EXPECT_EQ(numbers[0].range.value_or(AirStart::kLaunchVelocityRange).text,
+              "from 0 to 1000000 m");
+    EXPECT_EQ(numbers[1].range.value_or(AirStart::kLaunchAltitudeRange).text,
+              "from 0 to 10000 m/s");
+    EXPECT_TRUE(AirStart::kLaunchAltitudeRange.contains(1000000.0));
+    EXPECT_FALSE(AirStart::kLaunchAltitudeRange.contains(-1.0));
+    EXPECT_TRUE(AirStart::kLaunchVelocityRange.contains(10000.0));
+    EXPECT_FALSE(AirStart::kLaunchVelocityRange.contains(10001.0));
 
     airStart.setLaunchAltitude(kNaN);
     airStart.setLaunchVelocity(-std::numeric_limits<double>::infinity());

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/Config.h"
 
 namespace QtRocket
@@ -37,17 +38,19 @@ class WarningSet;
 /// Deviations from OpenRocket:
 /// - getDescription() returns nullopt where Java returns null.
 /// - getInputNumbers() is an addition: OpenRocket does not validate what a simulation is given
-///   (see Simulation::validateInputs()).
+///   (see Simulation::validateInputs() and SimulationInputRanges).
 class SimulationExtension
 {
 public:
     /// A number of an extension's configuration that a run reads, for
     /// Simulation::validateInputs(): what a message calls it, for example "the 'launchVelocity'
-    /// of the simulation extension 'Air-start'", and its value.
+    /// of the simulation extension 'Air-start'", its value, and the range the extension says
+    /// the value has to lie in (nullopt: any finite value).
     struct InputNumber
     {
-        std::string what;
-        double      value{0.0};
+        std::string                                 what;
+        double                                      value{0.0};
+        std::optional<SimulationInputRanges::Range> range;
     };
 
     virtual ~SimulationExtension() = default;
@@ -84,9 +87,10 @@ public:
 
     /// The numbers of the configuration that this extension's part of a run reads, in the order
     /// it reads them, each with what a message calls it. QtRocket's own (OpenRocket has nothing
-    /// like it): Simulation::validateInputs() refuses a run in which one of them is not finite,
-    /// before initialize() is called, as it refuses such a simulation option. By default none:
-    /// for an extension that reads no number, and for one that copes with any value.
+    /// like it): Simulation::validateInputs() refuses a run in which one of them is not finite
+    /// or lies outside the range the extension gives it, before initialize() is called, as it
+    /// refuses such a simulation option. By default none: for an extension that reads no
+    /// number, and for one that copes with any value.
     [[nodiscard]] virtual std::vector<InputNumber> getInputNumbers() const { return {}; }
 
     /// The flight data types this extension creates: only new types, not existing types that

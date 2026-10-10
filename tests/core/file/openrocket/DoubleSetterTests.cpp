@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "file/openrocket/SetterTestSupport.h"
 
@@ -126,6 +127,30 @@ TEST(DoubleSetter, RefusesAProductThatIsNotFinite)
     EXPECT_EQ(recorder.apply(twice, "1e308"), invalid("1e308"));
     EXPECT_EQ(recorder.apply(twice, "-1e308"), invalid("-1e308"));
     EXPECT_EQ(recorder.apply(twice, "8e307"), "value 1.6E308");
+}
+
+// Not OpenRocket's, whose setters set any number: a setter with a range refuses a number
+// outside it like a NaN, with the same warning (decision U9 of tier 9). The four numbers of a
+// component that a simulation holds to a range have such a setter: see setter_table_tests.cpp.
+TEST(DoubleSetter, WithARangeRefusesANumberOutsideIt)
+{
+    SetterRecorder     recorder;
+    const DoubleSetter setter(recorder.number("value"), QtRocket::SimulationInputRanges::kDelay);
+
+    // The bounds are inside the range.
+    EXPECT_EQ(recorder.apply(setter, "0"), "value 0.0");
+    EXPECT_EQ(recorder.apply(setter, "-0.0"), "value -0.0");
+    EXPECT_EQ(recorder.apply(setter, "1000000"), "value 1000000.0");
+    EXPECT_EQ(recorder.apply(setter, " 2.5 "), "value 2.5");
+    // The next number beyond a bound is outside.
+    EXPECT_EQ(recorder.apply(setter, "1000000.0000000001"), invalid("1000000.0000000001"));
+    EXPECT_EQ(recorder.apply(setter, "-4.9e-324"), invalid("-4.9e-324"));
+    EXPECT_EQ(recorder.apply(setter, "-1"), invalid("-1"));
+    EXPECT_EQ(recorder.apply(setter, "1e300"), invalid("1e300"));
+    // What is no number, or not finite, is refused as by every setter.
+    EXPECT_EQ(recorder.apply(setter, "abc"), invalid("abc"));
+    EXPECT_EQ(recorder.apply(setter, "NaN"), invalid("NaN"));
+    EXPECT_EQ(recorder.apply(setter, "Infinity"), invalid("Infinity"));
 }
 
 TEST(DoubleSetter, SwitchesTheFlagOnForTheSpecialWord)
@@ -266,6 +291,8 @@ TEST(DoubleSetter, AnEmptyFunctionIsAProgrammingError)
     SetterRecorder recorder;
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{})), BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, 2.0)), BugError);
+    EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, QtRocket::SimulationInputRanges::kDelay)),
+                 BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, "auto", recorder.truth("flag"))), BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(recorder.number("value"), "auto", Special{})),
                  BugError);

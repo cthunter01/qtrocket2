@@ -58,6 +58,12 @@ std::string LoaderWarnings::numberNotFinite(std::string_view element)
     return std::format("The number of element '{}' is not finite; ignoring it.", element);
 }
 
+std::string LoaderWarnings::numberOutOfRange(std::string_view element, std::string_view range)
+{
+    return std::format("The number of element '{}' is outside its range, {}; ignoring it.", element,
+                       range);
+}
+
 std::string LoaderWarnings::motorConfigurationBeyondBound()
 {
     return std::format(
@@ -104,6 +110,14 @@ std::string LoaderWarnings::optionNotFinite(std::string_view element)
     return std::format(
         "The number of element '{}' would give a simulation option that is not "
         "finite; the option keeps what it had.",
+        element);
+}
+
+std::string LoaderWarnings::optionOutOfRange(std::string_view element)
+{
+    return std::format(
+        "The number of element '{}' would give a simulation option outside its "
+        "range; the option keeps what it had.",
         element);
 }
 

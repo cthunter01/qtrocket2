@@ -95,11 +95,13 @@ class SimulationOptions;
 /// - With rows, a relative name of a design without a directory is not kept (OpenRocket
 ///   resolves it against the current directory); see nameOfDesign().
 /// - A table that holds a number that is not finite (a Mach number, an angle of attack or a
-///   value that is a NaN or an infinity; MachAoALookup::findNonFinite()) is not taken (decision
-///   U3). It counts as rows, or a file, that did not parse, with the reason "Illegal numeric
-///   value '<number>' in column '<column>'", the number as Java prints a double. OpenRocket's
-///   reader takes "NaN" and "Infinity" as numbers and stores the table, and a flight that
-///   interpolates in it fails.
+///   value that is a NaN or an infinity) is not taken (decision U3), and neither is one with
+///   a number outside the range a simulation holds it to (decision U9; SimulationInputRanges:
+///   a Mach number from 0 to 100, an angle of attack within half a turn, a coefficient of at
+///   most a million, a centre of pressure within 1000 m). It counts as rows, or a file, that
+///   did not parse, with the reason "Illegal numeric value '<number>' in column '<column>'",
+///   the number as Java prints a double. OpenRocket's reader takes "NaN", "Infinity" and
+///   every number and stores the table, and a flight that interpolates in such a table fails.
 /// - A file is read only when it is a regular file of at most
 ///   CsvMachAoALookup::kMaxFileBytes bytes (see CsvMachAoALookup).
 /// - OpenRocket's "Invalid file path in <element>: <file>" (a text that java.nio.file.Path
@@ -183,8 +185,9 @@ public:
     /// Reads the drag table (@p isDrag) or the stability table of @p options from the CSV file
     /// @p csvPath and stores it with the file, as SimulationOptions::setDragLookupCsvPath() or
     /// setStabilityLookupCsvPath() does, but for a table that holds a number that is not
-    /// finite, which is not stored. Fails with the reader's Error, or with ErrorCode::PARSE and
-    /// nonFiniteReason() for such a table; nothing changes then. @p csvPath is read as it is
+    /// finite or lies outside its range, which is not stored. Fails with the reader's Error, or
+    /// with ErrorCode::PARSE and refusedNumberReason() for such a table; nothing changes then.
+    /// @p csvPath is read as it is
     /// given: for a file that a design names, hand in what fileOfDesign() gives, and nothing
     /// that it refuses. The conditions handler reads the legacy <draglookupcsv> and
     /// <stabilitylookupcsv> elements with the two.
@@ -193,10 +196,11 @@ public:
                                                    bool                         isDrag);
 
     /// Why the loader does not take @p table: "Illegal numeric value '<number>' in column
-    /// '<column>'" for its first number that is not finite (MachAoALookup::findNonFinite(); the
-    /// columns of a Mach number and of an angle of attack are "mach" and "aoa"), or nullopt for
-    /// a table of finite numbers.
-    [[nodiscard]] static std::optional<std::string> nonFiniteReason(const MachAoALookup& table);
+    /// '<column>'" for its first number that is not finite or that lies outside the range a
+    /// simulation holds it to (SimulationInputRanges::findRefusedLookupNumber(); the columns
+    /// of a Mach number and of an angle of attack are "mach" and "aoa"), or nullopt for a
+    /// table that a simulation may read.
+    [[nodiscard]] static std::optional<std::string> refusedNumberReason(const MachAoALookup& table);
 
     /// The separator of CSV rows, told from the first of @p rows (detectSeparator(); see the
     /// class comment); a comma without rows.

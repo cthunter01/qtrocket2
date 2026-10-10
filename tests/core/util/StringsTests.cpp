@@ -1536,13 +1536,22 @@ TEST(Strings, JavaDoubleToStringMatchesJdk)
     EXPECT_EQ(Strings::javaDoubleToString(9.223372036854776E18), "9.223372036854776E18");
     EXPECT_EQ(Strings::javaDoubleToString(123456789012345680.0), "1.2345678901234568E17");
     EXPECT_EQ(Strings::javaDoubleToString(9007199254740994.0), "9.007199254740994E15");
-    // Integers between 2^53 and 2^63 take Java's exact digits: 2^60 has 18 significant ones.
-    EXPECT_EQ(Strings::javaDoubleToString(1152921504606846976.0), "1.15292150460684698E18");
     EXPECT_EQ(Strings::javaDoubleToString(std::numeric_limits<double>::max()),
               "1.7976931348623157E308");
     EXPECT_EQ(Strings::javaDoubleToString(std::numeric_limits<double>::min()),
               "2.2250738585072014E-308");
+    // The largest subnormal.
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(std::numeric_limits<double>::min(), 0.0)),
+              "2.225073858507201E-308");
     EXPECT_EQ(Strings::javaDoubleToString(1.5e-323), "1.5E-323");
+
+    // The borders of the plain notation: the decimal decides, from 0.001 up to but excluding 1e7.
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(0.001, 0.0)), "9.999999999999998E-4");
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(0.001, 1.0)), "0.0010000000000000002");
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(1e7, 0.0)), "9999999.999999998");
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(1e7, 1e8)), "1.0000000000000002E7");
+    EXPECT_EQ(Strings::javaDoubleToString(-1e7), "-1.0E7");
+    EXPECT_EQ(Strings::javaDoubleToString(-0.001), "-0.001");
 
     EXPECT_EQ(Strings::javaDoubleToString(0.0), "0.0");
     EXPECT_EQ(Strings::javaDoubleToString(-0.0), "-0.0");
@@ -1551,40 +1560,178 @@ TEST(Strings, JavaDoubleToStringMatchesJdk)
     EXPECT_EQ(Strings::javaDoubleToString(-kInf), "-Infinity");
 }
 
-// Known deviations from JDK 17.0.20 (Double.toString; the probe DoubleText.java of tier 9b's
-// fixer of the loader's rocket side), pinned so that a change of them is seen. Each text reads
-// back as the double it was printed for.
-//
-// JDK 17's digits are not always the shortest (JDK-4511638); this prints the shortest ones, as
-// JDK 19 and later do.
+// What follows pins decision U10: Strings::javaDoubleToString() is Double.toString() as Java
+// specifies it since JDK 19. The expectations are the output of a literal implementation of that
+// specification in exact rational arithmetic (the probe of tier 9d, doubles/oracle.py), which
+// agrees with this function for all of 1.76 million doubles, and the texts of JDK 17.0.20 named
+// beside them come from the same run (Double.toString() of that JDK for the same doubles).
+
+// JDK 17's digits are not always the shortest (JDK-4511638).
 TEST(Strings, JavaDoubleToStringPrintsTheShortestDigitsWhereJdk17DoesNot)
 {
     // JDK 17: "4.3368086899420177E-19" for 2^-61.
     EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -61)), "4.336808689942018E-19");
     // JDK 17: "2.1684043449710089E-19" for 2^-62.
     EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -62)), "2.168404344971009E-19");
+    // JDK 17: "5.3169119831396635E36" for 2^122.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 122)), "5.316911983139664E36");
     // JDK 17: "9.999999999999999E22" for 1e23.
     EXPECT_EQ(Strings::javaDoubleToString(1e23), "1.0E23");
-    // Where the two agree: 2^-60 and 2^63.
+    // JDK 17: "1.9999999999999998E23", "8.409999999999999E21" and "6.8423234599999996E19".
+    EXPECT_EQ(Strings::javaDoubleToString(2e23), "2.0E23");
+    EXPECT_EQ(Strings::javaDoubleToString(8.41e21), "8.41E21");
+    EXPECT_EQ(Strings::javaDoubleToString(6.84232346e19), "6.84232346E19");
+    // JDK 17: "1.58E-322" for 32 times Double.MIN_VALUE.
+    EXPECT_EQ(Strings::javaDoubleToString(32 * std::numeric_limits<double>::denorm_min()),
+              "1.6E-322");
+    // Where the two agree: 2^-60, 2^63 and 2^100.
     EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, -60)), "8.673617379884035E-19");
     EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 63)), "9.223372036854776E18");
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 100)), "1.2676506002282294E30");
 }
 
-// A shortest decimal of one digit gets ".0" here; for some of the smallest subnormals Java
-// prints a decimal of two digits.
+// JDK 17 prints a whole number from 2^53 up to but excluding 2^63 with nearly every digit it has,
+// 17 or 18 of them. The specification knows no such case: a whole number has the shortest digits
+// like any double.
+TEST(Strings, JavaDoubleToStringOfAWholeNumberFromTwoToThe53rdHasTheShortestDigits)
+{
+    // JDK 17: "1.15292150460684698E18" for 2^60, which is 1152921504606846976.
+    EXPECT_EQ(Strings::javaDoubleToString(1152921504606846976.0), "1.152921504606847E18");
+    EXPECT_EQ(Strings::javaDoubleToString(-1152921504606846976.0), "-1.152921504606847E18");
+    // JDK 17: "5.7646075230342349E17" for 2^59 and "4.6116860184273879E18" for 2^62.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 59)), "5.764607523034235E17");
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 62)), "4.611686018427388E18");
+    // JDK 17: "1.8014398509481992E16" for 2^54 + 8.
+    EXPECT_EQ(Strings::javaDoubleToString(18014398509481992.0), "1.801439850948199E16");
+    // JDK 17: "9.2233720368547748E18" for the largest double below 2^63.
+    EXPECT_EQ(Strings::javaDoubleToString(std::nextafter(std::ldexp(1.0, 63), 0.0)),
+              "9.223372036854775E18");
+    // Where the two agree: 2^53, 2^53 + 2, 2^54 and 2^61.
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 53)), "9.007199254740992E15");
+    EXPECT_EQ(Strings::javaDoubleToString(9007199254740994.0), "9.007199254740994E15");
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 54)), "1.8014398509481984E16");
+    EXPECT_EQ(Strings::javaDoubleToString(std::ldexp(1.0, 61)), "2.305843009213694E18");
+    // The functions that format as java.util.Formatter does are not concerned: they still take
+    // the eighteen digits that JDK 17's FloatingDecimal has of such a number.
+    EXPECT_EQ(Strings::formatFixed(1152921504606846976.0, 0), "1152921504606846980");
+    EXPECT_EQ(Strings::doubleToString(1152921504606846976.0, 6, false), "1152921504606846980");
+}
+
+// From 2^63 on, JDK 17's digits are sometimes as short as the shortest but not the closest.
+TEST(Strings, JavaDoubleToStringPrintsTheClosestOfTheShortestDecimals)
+{
+    // JDK 17: "3.8189059803482716E25".
+    EXPECT_EQ(Strings::javaDoubleToString(3.8189059803482717e25), "3.8189059803482717E25");
+    EXPECT_EQ(Strings::javaDoubleToString(-3.8189059803482717e25), "-3.8189059803482717E25");
+    // JDK 17: "2.0897648376470305E25".
+    EXPECT_EQ(Strings::javaDoubleToString(2.0897648376470306e25), "2.0897648376470306E25");
+}
+
+/// Strings::javaDoubleToString(k * Double.MIN_VALUE) for k = 1 ... 24. The shortest decimal of
+/// 1, 2, 10, 12, 14, 16, 18 and 20 times Double.MIN_VALUE has one digit (5E-324, 1E-323, 5E-323
+/// to 9E-323 and 1E-322): for those the specification takes the closest decimal of one or two
+/// digits, which here has two. For 4, 6 and 8 times it the closest is the one digit itself.
+constexpr std::array<std::string_view, 24> kSmallestDoubles{
+    "4.9E-324", "9.9E-324", "1.5E-323",  "2.0E-323", "2.5E-323",  "3.0E-323",
+    "3.5E-323", "4.0E-323", "4.4E-323",  "4.9E-323", "5.4E-323",  "5.9E-323",
+    "6.4E-323", "6.9E-323", "7.4E-323",  "7.9E-323", "8.4E-323",  "8.9E-323",
+    "9.4E-323", "9.9E-323", "1.04E-322", "1.1E-322", "1.14E-322", "1.2E-322",
+};
+
+/// The entries of kSmallestDoubles that javaDoubleToString() does not give, or whose text does
+/// not read back as the double.
+std::vector<std::string> wrongSmallestDoubles()
+{
+    std::vector<std::string> wrong;
+    for (std::size_t k = 1; k <= kSmallestDoubles.size(); ++k)
+    {
+        const double value     = static_cast<double>(k) * std::numeric_limits<double>::denorm_min();
+        const std::string text = Strings::javaDoubleToString(value);
+        if (text != kSmallestDoubles.at(k - 1) || Strings::javaParseDouble(text) != value)
+        {
+            wrong.push_back(std::format("{} * MIN_VALUE: {}", k, text));
+        }
+    }
+    return wrong;
+}
+
+// The specification's rule for a double whose shortest decimal has one digit: the closest
+// decimal of one or two digits that rounds to it.
 TEST(Strings, JavaDoubleToStringOfTheSmallestDoubles)
 {
     const double smallest = std::numeric_limits<double>::denorm_min();
-    // JDK 17 and JDK 19+: "4.9E-324" for Double.MIN_VALUE.
-    EXPECT_EQ(Strings::javaDoubleToString(smallest), "5.0E-324");
-    EXPECT_EQ(Strings::javaDoubleToString(-smallest), "-5.0E-324");
-    // JDK 17: "4.9E-323" for ten times Double.MIN_VALUE.
-    EXPECT_EQ(Strings::javaDoubleToString(10 * smallest), "5.0E-323");
-    // Where the two agree: twice and three times Double.MIN_VALUE.
-    EXPECT_EQ(Strings::javaDoubleToString(2 * smallest), "1.0E-323");
-    EXPECT_EQ(Strings::javaDoubleToString(3 * smallest), "1.5E-323");
+    // Double.MIN_VALUE is 4.94...E-324. JDK 17 has "4.9E-324" too.
+    EXPECT_EQ(Strings::javaDoubleToString(smallest), "4.9E-324");
+    EXPECT_EQ(Strings::javaDoubleToString(-smallest), "-4.9E-324");
+    // Twice that is 9.88...E-324, twenty times 9.88...E-323. JDK 17: "1.0E-323" and "1.0E-322".
+    EXPECT_EQ(Strings::javaDoubleToString(2 * smallest), "9.9E-324");
+    EXPECT_EQ(Strings::javaDoubleToString(20 * smallest), "9.9E-323");
+    EXPECT_EQ(wrongSmallestDoubles(), std::vector<std::string>{});
     EXPECT_EQ(Strings::javaParseDouble("5.0E-324"), smallest);
     EXPECT_EQ(Strings::javaParseDouble("4.9E-324"), smallest);
+}
+
+/// The text the specification gives the decimal digit * 10^exponent, a decimal of one digit.
+std::string textOfOneDigit(int digit, int exponent)
+{
+    if (exponent >= -3 && exponent < 0)
+    {
+        return std::format("0.{}{}", std::string(static_cast<std::size_t>(-exponent - 1), '0'),
+                           digit);
+    }
+    if (exponent >= 0 && exponent < 7)
+    {
+        return std::format("{}{}.0", digit, std::string(static_cast<std::size_t>(exponent), '0'));
+    }
+    return std::format("{}.0E{}", digit, exponent);
+}
+
+/// Every decimal of one digit that a double from 21 times Double.MIN_VALUE up reads: how many
+/// there are, and those whose double javaDoubleToString() does not print as that decimal.
+struct OneDigitDecimals
+{
+    int                      count{};
+    std::vector<std::string> wrong;
+};
+
+OneDigitDecimals checkOneDigitDecimals()
+{
+    const double     first = 21 * std::numeric_limits<double>::denorm_min();
+    OneDigitDecimals decimals;
+    for (int exponent = -324; exponent <= 308; ++exponent)
+    {
+        for (int digit = 1; digit <= 9; ++digit)
+        {
+            const double value =
+                Strings::javaParseDouble(std::format("{}E{}", digit, exponent)).value_or(kNaN);
+            // Not a NaN: zero, one of the smallest doubles (pinned above) or an infinity.
+            if (!(value >= first) || std::isinf(value))
+            {
+                continue;
+            }
+            ++decimals.count;
+            const std::string text = Strings::javaDoubleToString(value);
+            if (text != textOfOneDigit(digit, exponent))
+            {
+                decimals.wrong.push_back(std::format("{}E{}: {}", digit, exponent, text));
+            }
+        }
+    }
+    return decimals;
+}
+
+// A double that a decimal of one digit rounds to has that decimal as its text: from 21 times
+// Double.MIN_VALUE up no decimal of two digits rounds to the same double. These are all such
+// doubles, so together with the smallest ones above the one-digit case is covered whole.
+TEST(Strings, JavaDoubleToStringOfEveryDecimalOfOneDigit)
+{
+    const OneDigitDecimals decimals = checkOneDigitDecimals();
+    EXPECT_EQ(decimals.count, 5670);
+    EXPECT_EQ(decimals.wrong, std::vector<std::string>{});
+    EXPECT_EQ(textOfOneDigit(1, -3), "0.001");
+    EXPECT_EQ(textOfOneDigit(7, 6), "7000000.0");
+    EXPECT_EQ(textOfOneDigit(1, 7), "1.0E7");
+    EXPECT_EQ(textOfOneDigit(9, -4), "9.0E-4");
 }
 
 TEST(Strings, OrkEnumNameIsLowerCaseWithoutUnderscores)

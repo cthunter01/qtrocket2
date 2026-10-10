@@ -1093,7 +1093,41 @@ TEST(SimulationSimulate, AnExtensionThatFailsEndsTheRunBeforeTheEngine)
 TEST(SimulationSimulate, ARefusedAtmosphereIsTheError)
 {
     // "IllegalArgumentException: Temperature must be positive (Kelvin)", "after refused
-    // atmosphere: data null status UPTODATE events 1 conditions true"
+    // atmosphere: data null status UPTODATE events 1 conditions true": measured in OpenRocket
+    // with a launch temperature of -5 K. Such a temperature is refused by the validation of
+    // the inputs now, before the atmospheric model is asked (the next test). What the model
+    // itself refuses, with the same message and the same bookkeeping, are launch conditions
+    // that lie inside their ranges and do not go together: a site at 5 km and 50 K has no
+    // positive temperature at sea level (ExtendedIsaModel::create()).
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().setLaunchAltitude(5000);
+    l.getOptions().setIsaAtmosphere(false);
+    l.getOptions().setLaunchTemperature(50);
+    ASSERT_TRUE(l.validateInputs().has_value());
+    const auto log = std::make_shared<std::vector<std::string>>();
+    l.getSimulationExtensions().push_back(std::make_shared<Ext>(log));
+    const ChangeCounter events(l.changed());
+
+    const Result<void> result = l.simulate();
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(result.error().message, "Temperature must be positive (Kelvin)");
+    EXPECT_TRUE(log->empty()) << "there were no conditions to initialise an extension with";
+    EXPECT_EQ(l.getSimulatedData(), nullptr);
+    EXPECT_EQ(l.getStatus(), Status::UPTODATE);
+    EXPECT_EQ(events.count(), 1);
+    EXPECT_NE(l.getSimulatedConditions(), nullptr);
+}
+
+// A launch temperature that is not positive, which OpenRocket's atmospheric model refuses
+// with an IllegalArgumentException when the simulation is run, is outside the range of the
+// input (SimulationInputRanges::kLaunchTemperature): the validation refuses it, with the same
+// error code and the same bookkeeping as the model's refusal, and with its own text.
+TEST(SimulationSimulate, ATemperatureThatIsNotPositiveIsRefusedByTheValidation)
+{
     TestEstesAlphaIII alpha;
     Simulation        l(*alpha.rocket);
     l.setFlightConfigurationId(testFcid(0));
@@ -1107,8 +1141,10 @@ TEST(SimulationSimulate, ARefusedAtmosphereIsTheError)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
-    EXPECT_EQ(result.error().message, "Temperature must be positive (Kelvin)");
-    EXPECT_TRUE(log->empty()) << "there were no conditions to initialise an extension with";
+    EXPECT_EQ(result.error().message,
+              "Cannot simulate: the launch temperature is outside its range, from 1 to 1000 K "
+              "(-5.0).");
+    EXPECT_TRUE(log->empty()) << "no extension was initialised";
     EXPECT_EQ(l.getSimulatedData(), nullptr);
     EXPECT_EQ(l.getStatus(), Status::UPTODATE);
     EXPECT_EQ(events.count(), 1);
@@ -1428,6 +1464,42 @@ TEST(SimulationSimulate, NonFiniteInputsAreRefused)
     EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
     EXPECT_EQ(result.error().message,
               "Cannot simulate: the launch rod length is not finite (-Infinity).");
+    EXPECT_EQ(l.getSimulatedData(), nullptr);
+    EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
+}
+
+// The same contract for a finite input outside its range (decision U9 of tier 9; the table
+// SimulationInputRanges::kTable): an ordinary error that names the value and its range, before
+// anything runs. OpenRocket takes every finite number: with a time step of 1e300 s its first
+// step does not end, a time step of 0 it replaces by a millisecond, and a rod of negative
+// length it flies.
+TEST(SimulationSimulate, InputsOutsideTheirRangesAreRefused)
+{
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setTimeStep(1e300); }),
+              "error: Cannot simulate: the time step is outside its range, above 0 and at most "
+              "10 s (1.0E300).");
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setTimeStep(0.0); }),
+              "error: Cannot simulate: the time step is outside its range, above 0 and at most "
+              "10 s (0.0).");
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchRodLength(-1.0); }),
+              "error: Cannot simulate: the launch rod length is outside its range, from 0 to "
+              "1000 m (-1.0).");
+    // The bounds are inside the ranges.
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setLaunchRodLength(0.0); }), "ok");
+    EXPECT_EQ(outcomeWith([](SimulationOptions& o) { o.setMaxSimulationTime(0.0); }), "ok");
+
+    // The error is one of the caller's arguments, not an aborted simulation, and the engine
+    // made no data.
+    TestEstesAlphaIII alpha;
+    Simulation        l(*alpha.rocket);
+    l.setFlightConfigurationId(testFcid(0));
+    l.getOptions().getAverageWindModel().setAverage(1e300);
+    const Result<void> result = l.simulate();
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(result.error().message,
+              "Cannot simulate: the average wind speed is outside its range, from 0 to 1000 "
+              "m/s (1.0E300).");
     EXPECT_EQ(l.getSimulatedData(), nullptr);
     EXPECT_EQ(l.getStoredStatus(), Status::UPTODATE);
 }

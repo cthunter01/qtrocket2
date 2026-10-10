@@ -11,6 +11,7 @@
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
@@ -42,24 +43,28 @@ Result<void> AtmosphereHandler::closeElement(std::string_view element, const Att
 {
     const double d = Strings::javaParseDouble(content).value_or(kNaN);
 
-    // Where OpenRocket tests for a NaN this tests for a value that is not finite: an infinite
-    // temperature or pressure is refused too (decision U3).
+    // Where OpenRocket tests for a NaN this tests for a value that is not finite (decision U3)
+    // or that lies outside the range a simulation holds it to (decision U9): an infinite, a
+    // negative or an absurd temperature or pressure is refused too.
     if (element == "basetemperature")
     {
-        if (!std::isfinite(d))
+        const bool taken = SimulationInputRanges::kLaunchTemperature.contains(d);
+        if (!taken)
         {
             warnings.add("Illegal base temperature specified, ignoring.");
         }
-        m_temperature = std::isfinite(d) ? d : kNaN;
+        m_temperature = taken ? d : kNaN;
     }
     else if (element == "basepressure")
     {
-        if (!std::isfinite(d))
+        // Prevent zero or negative pressures.
+        const double pressure = std::isfinite(d) ? MathUtil::javaMax(d, 0.001) : kNaN;
+        const bool   taken    = SimulationInputRanges::kLaunchPressure.contains(pressure);
+        if (!taken)
         {
             warnings.add("Illegal base pressure specified, ignoring.");
         }
-        // Prevent zero or negative pressures.
-        m_pressure = std::isfinite(d) ? MathUtil::javaMax(d, 0.001) : kNaN;
+        m_pressure = taken ? pressure : kNaN;
     }
     else if (element == "baserelativehumidity")
     {
