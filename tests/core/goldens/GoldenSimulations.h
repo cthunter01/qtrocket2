@@ -267,13 +267,15 @@ void useStableTimeStep(SimulationOptions& options, nlohmann::json& harness, doub
 /// initialised between the two listeners of the jitter removal and the perturbation of
 /// @p variation, if any. The run keeps @p document alive.
 ///
-/// The harness runs the simulations of a design one after the other on the one rocket of its
-/// document, and so must a test: call this once for every simulation, in the order of the
-/// document (the options of the simulation are changed in place, so a second call would record
-/// the harness's values as the document's; and an extension may change the rocket while its
-/// simulation flies, as RollControl turns its fins, so that a run is the harness's only on the
-/// rocket that the runs before it left). The stored flight of the simulation is not touched:
-/// the run is the engine's, as in the harness, not Simulation::simulate().
+/// Call this once for a simulation of a document: the options of the simulation are changed in
+/// place, so a second call would record the harness's values as the document's (and a
+/// simulation that was run with the stable time step keeps it). Nothing else of the document is
+/// changed, and nothing of its rocket: the engine flies a copy of the rocket
+/// (BasicEventSimulationEngine.java:82, copyWithOriginalID()), and an extension that changes
+/// the rocket while its simulation flies, as RollControl turns its fins, changes that copy. So
+/// the simulations of a document can be run in any order, each as the harness runs it. The
+/// stored flight of the simulation is not touched: the run is the engine's, as in the harness,
+/// not Simulation::simulate().
 [[nodiscard]] SimulationRun runDocumentSimulation(const std::shared_ptr<LoadedDocument>& document,
                                                   std::size_t index, const RunVariation& variation);
 
@@ -766,6 +768,13 @@ struct ComparisonMode
 /// unrecovered dropped stage; none of any other branch.
 [[nodiscard]] int tumblesOfADroppedStage(const nlohmann::json& branch);
 
+/// The floor under the numbers outside the time series that are compared of the golden
+/// simulation @p files: what every run compares whose reproducible part holds the floor of the
+/// rows (floorProblem()). The launch rod velocity, and of every branch the times of the golden
+/// events up to the clearing of the launch rod, that of the clearing among them. None for a
+/// simulation that never clears the rod (it is compared as a whole).
+[[nodiscard]] int floorNumbers(const GoldenFiles& files);
+
 /// The values of the rows of floorRows(): every column of every such row. A noise-dominated
 /// out-of-plane column is compared in those rows as well, so a comparison whose reproducible
 /// parts hold the floor has compared at least this many values.
@@ -850,11 +859,12 @@ struct InputResult
     SimulationCounts sensitive;
     SimulationCounts excluded;  ///< what the rule of the out-of-plane noise columns excludes
     std::string      report;
-    int              flights{0};      ///< the simulations whose rocket clears the launch rod
-    int              whole{0};        ///< the simulations that are reproducible as a whole
-    std::int64_t     floorRows{0};    ///< floorRows() of the simulations
-    std::int64_t     floorValues{0};  ///< floorValues() of the simulations
-    NoiseCounts      noise;           ///< noiseCounts() of the simulations
+    int              flights{0};       ///< the simulations whose rocket clears the launch rod
+    int              whole{0};         ///< the simulations that are reproducible as a whole
+    std::int64_t     floorRows{0};     ///< floorRows() of the simulations
+    std::int64_t     floorValues{0};   ///< floorValues() of the simulations
+    int              floorNumbers{0};  ///< floorNumbers() of the simulations
+    NoiseCounts      noise;            ///< noiseCounts() of the simulations
 };
 
 /// Adds the compared run @p run to the sums of its input, @p result: what its files hold, what

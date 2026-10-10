@@ -20,12 +20,13 @@
 //
 // THE SET-UP is the harness's (GoldenDumper.examplePass(), the stable pass): the design is
 // loaded as GoldenExamples.h loads it and its automatic dimensions are settled; then every
-// simulation of the document is run, in the order of the document and on the one rocket of the
-// document, with its own flight configuration, options and extensions and the harness's changes
-// (runDocumentSimulation() of GoldenSimulations.h: seed 0, no wind deviation, the jitter
-// removal), and with the stable time step set last (SimulationDumper.useStableTimeStep(): the
-// "harness" of a document records it and the step the simulation had, 0.05 s in 49 and 0.04 s
-// in the five of "Pods--airframes and winglets"). Each simulation is run once.
+// simulation of the document is run, on the one rocket of the document, with its own flight
+// configuration, options and extensions and the harness's changes (runDocumentSimulation() of
+// GoldenSimulations.h: seed 0, no wind deviation, the jitter removal), and with the stable time
+// step set last (SimulationDumper.useStableTimeStep(): the "harness" of a document records it
+// and the step the simulation had, 0.05 s in 49 and 0.04 s in the five of "Pods--airframes and
+// winglets"). Each simulation is run once: a run changes the options of its simulation in
+// place, and nothing of the rocket (the engine flies a copy of it).
 //
 // COMPARED EXACTLY (it is compareSimulation() of GoldenSimulations.h with nothing taken as
 // reproducible, as in the stable-step set of the test rockets): the options, the "harness"
@@ -38,12 +39,13 @@
 // COMPARED WITHIN TOLERANCES, from the documents: the ten summary values, the number of jitter
 // replacements and the parameter of every warning (with the texts that print it); and of every
 // branch its number of rows, its optimum altitude, the time to it and its optimum delay, its
-// separation time and the time of every event. That is 1705 of the 11369 numbers a document
-// holds outside a time series; the other 9664 are the minimum and the maximum of each of the
-// 4832 columns, which are not compared (below). Of the 1705 the rules T and E exclude 60 and up
-// to 76, so 1645 are compared at most and 1569 on every platform (the floor;
-// ExampleSimulationStableGoldenCoverage pins all of these numbers from the files alone, and the
-// test of each example holds them against what it compared).
+// separation time, the time of every event, and the minimum and the maximum of its steady
+// columns (below). A document holds 11369 numbers outside a time series. 9664 of them are the
+// minimum and the maximum of each of the 4832 columns, of which the 3012 of the steady columns
+// are compared and 6652 are not; of the other 1705 rule T excludes 53. So 4664 numbers are
+// compared, the same on every platform (ExampleSimulationStableGoldenCoverage pins all of these
+// numbers from the files alone, and the test of each example holds them against what it
+// compared).
 //
 // WHAT THE COMPARISON OF THE TEST ROCKETS TAKES FROM THE GOLDEN ROWS, and what becomes of it:
 // - The rows on the launch rod, compared value by value: not compared, there are none. Of the
@@ -53,11 +55,9 @@
 //   rules about values of the time series: nothing to apply them to. What the hunting does to
 //   the numbers that are compared is in the measurement below (59 of the 69 golden branches
 //   hunt; it is the hunting flights whose summary values differ by 1e-9 between two runs).
-// - The minimum and the maximum of every column: not compared. Which of them two runs
-//   reproduce is decided by rules H and N, row by row; without them, OpenRocket's own runs
-//   differ in an extreme of 41 of the 71 columns by more than 1e-9 of the column's scale and of
-//   10 by more than 1e-5 (the lateral acceleration across the wind: 2.8e-3). The extremes that
-//   matter are summary values and are compared as such.
+// - The minimum and the maximum of every column: which of them two runs reproduce is decided
+//   there by rules H and N, row by row. Here it is decided column by column, from the
+//   measurements: the extremes of the steady columns are compared and no other (below).
 // - Rule T, the stage that tumbles: from the events of the document (below).
 // - Rule E, the step from the apogee of an Euler stepper: the step of the run from its own
 //   rows, as there; the step of the golden run from a list, which the documents bear out
@@ -70,18 +70,52 @@
 // velocity, the rotation velocity, the position or the orientation after every step) and made
 // 21 dumps with it, with the time series of this set. Those and the committed run are 22 runs
 // of OpenRocket of every simulation (the table of them is in the notes of run 9a, and
-// tier9d-stable-step/scripts/rules.py compares every ordered pair of them, 462 per simulation,
-// as this file compares QtRocket's run with the committed documents, with the rules and the
-// units of this file: out/openrocket-rules-22.txt). QtRocket was measured against the committed
-// documents in 47 runs of the test binary (glibc, and the 46 patterns of the one-ulp libm shim
-// that the other golden measurements use: patterns.py, out/merged-final.txt).
+// tier9d-fix-simulation-goldens/scripts/rules2.py compares every ordered pair of them, 462 per
+// simulation, as this file compares QtRocket's run with the committed documents, with the rules
+// and the units of this file: out/openrocket-rules2-22.txt). QtRocket was measured against the
+// committed documents in 47 runs of the test binary (glibc, and the 46 patterns of the one-ulp
+// libm shim that the other golden measurements use: patterns.py, out/merged-final.txt).
 // - The structure is the same in all 22 runs up to the last stage separation of a dropped stage
-//   without a recovery device; after it two such stages record no TUMBLE in some runs.
+//   without a recovery device; after it two such stages record no TUMBLE in some runs (and none
+//   records two).
 // - The number of rows differs in 19 of the 69 branches: by one row in 13 (rule E) and by up to
 //   840 in 6 of the 7 dropped stages without a recovery device (rule T). None unexplained: under
 //   the rules below every number of rows and of jitter replacements that is compared is the
 //   same in all 462 pairs, and so it is between QtRocket and the documents in the 47 runs.
 // - No difference of structure that a rule does not explain, in either measurement.
+//
+// THE EXTREMES OF THE COLUMNS. A document gives the minimum and the maximum of each column of a
+// branch. In most columns they are those of a flight that two runs do not reproduce to the
+// tolerance of a value: OpenRocket's own runs differ in an extreme of 41 of the 71 columns by
+// more than 1e-9 of the column's scale and of 14 by more than 1e-5 (the lateral acceleration
+// across the wind: 2.8e-3), QtRocket's from the documents in 41 and in 13. The steady columns
+// are those whose two extremes agree to 2e-11 of the scale of the column in every branch, in
+// both measurements (the scale: the larger magnitude of the golden minimum and maximum):
+// - in the 62 branches under no rule T the 23 of kSteadyColumns: the mass, the motor mass, the
+//   two moments of inertia and the centre of gravity; the thrust, its correction and the
+//   thrust-to-weight ratio; the roll rate and the roll forcing and damping coefficients, and
+//   the fin cant that the roll control adds as a column; the drag coefficient with its base
+//   and pressure parts; the side force and yaw moment coefficients; gravity and the latitude;
+//   the wind and the reference length and area. The largest difference is 1.7e-11 between
+//   OpenRocket's runs (a roll damping coefficient) and 1.4e-11 between QtRocket and the
+//   documents (a latitude);
+// - in the 7 branches of rule T the 20 of kSteadyColumnsOfATumblingStage, which are what the
+//   stage has before it is left to its attitude, or whatever it does: 1.7e-12 and 2.4e-12
+//   (the thrust-to-weight ratio, both).
+// Their extremes are compared at kStableSummaryRelative, 1e-6 of that scale, the tolerance of
+// the extremes that are summary values: 6e4 times these differences. The tolerance of a value,
+// 1e-9, would be 60 times the one and 75 times the other, and is less than the 7.5e-9 by which
+// the kick of the sensitivity measurement below moves an extreme of a steady column (the
+// thrust-to-weight ratio of a dropped stage; under no rule T 3.6e-9, the fin cant of the roll
+// control). The other 48 columns (50 under rule T) are counted as excluded, 6652 numbers: in
+// each of them one of the two measurements differs by 3.3e-11 and more.
+// What these 3012 numbers hold that nothing else here does: the mass, the inertia, the centre
+// of gravity and the thrust of every branch, of a dropped stage after its separation too; and
+// the roll. A fin cant that the loader mirrored moves the extremes of the roll columns by their
+// whole scale, where the summary values and the event times do not move at all; and the gains
+// of the roll control are held by the extremes of the roll rate and of the fin cant of its two
+// flights (a proportional gain that is 0.1 % off moves the extremes of the roll rate by 2e-5
+// of its scale and more, and nothing but extremes of the roll columns beyond a tolerance).
 //
 // THE RULES. Each applies to the branches of a list that is pinned here (kTumblingStages,
 // kEulerApogees, kLateHandlings) and to no other; the lists are those of the table of the 22
@@ -93,82 +127,104 @@
 //   isUnrecoveredDroppedStage(): a branch after the first with a STAGE_SEPARATION and no
 //   RECOVERY_DEVICE_DEPLOYMENT). At this step each of them records a TUMBLE in the committed run,
 //   two before their apogee and five after it; either way what follows the separation is not
-//   reproducible: in OpenRocket's 22 runs the APOGEE moves by up to 9.2e-3 s, the TUMBLE by
-//   2.1 s (and is missing in 3 runs of one stage and in 1 of another), the GROUND_HIT by 1.3 s,
-//   the number of rows by 840, the optimum altitude by 1.0e-4 of itself, and the number of
-//   jitter replacements of the simulation by 3492. QtRocket's stages differ from the committed
-//   ones by up to 990 rows. Such a branch is compared up to its last stage separation: its
-//   number of rows, its optimum altitude, the time to it and its optimum delay and the times of
-//   its later events are not, nor the number of jitter replacements of its simulation (60
-//   numbers), and its TUMBLE events after the separation are left out of the structure on both
-//   sides (7 golden events). Its separation time and the events up to it are compared.
+//   reproducible: in OpenRocket's 22 runs the TUMBLE moves by 2.1 s (and is missing in 3 runs of
+//   one stage and in 1 of another), the GROUND_HIT by 1.3 s, the number of rows by 840, and the
+//   number of jitter replacements of the simulation by 3492. QtRocket's stages differ from the
+//   committed ones by up to 990 rows. Such a branch is compared like every other up to its last
+//   stage separation, its separation time among it. Of what follows, its number of rows and the
+//   times of its events (its APOGEE, its TUMBLE, its GROUND_HIT and its SIMULATION_END) are not
+//   compared, nor the number of jitter replacements of its simulation, and its TUMBLE events
+//   are left out of the structure on both sides (7 golden events). What is compared of the
+//   flight after the separation is its apogee, by its altitude: the stage coasts up to it for
+//   0.8 to 1.5 s, tumbling or not, and in the 22 runs the altitude moves by 1.1e-4 of itself
+//   (QtRocket against the documents: 7.4e-5). So the optimum altitude of such a branch, which is
+//   the altitude of its apogee, is compared at kTumblingAltitudeRelative, 2e-2 of itself. The
+//   time of the apogee is bounded as well, and left out all the same: the APOGEE event, the
+//   time to the optimum altitude and the optimum delay (that time less the burnout) move by
+//   9.3e-3 s, one time step, between OpenRocket's runs (QtRocket: 7.5e-3 s), and a hundred times
+//   that is the length of the coast itself, a tolerance that would hold nothing which the
+//   altitude does not hold. That is 53 numbers not compared: 7 of each stage, and the jitter
+//   replacements of their 4 simulations.
 // - E, the step from the apogee of an Euler stepper (16 branches: those whose recovery device
 //   is out before their APOGEE, so that the landing stepper passes the apogee; no other branch
 //   has such golden events). The stepper lands a step on the apogee, and the last bit of the
 //   vertical velocity it is left with decides whether an extra step of 1 ms follows (see rule E
-//   of the test rockets): the APOGEE event of a run with the extra step is 1 ms later, its
-//   GROUND_HIT and its flight time differ by up to 1.9e-4 s, it has one row more, and the ground
-//   hit velocity can differ by 9.2e-7 of itself (the motor pods' flight, whose landing steps
-//   fall elsewhere; 3e-10 at most in the others). In OpenRocket's 22 runs 13 of the 16 branches
-//   take either step (1206 of the 7392 ordered pairs of runs of a branch differ); QtRocket's 47
-//   runs take either step in 14 of the 16, among them one that OpenRocket's 22 runs never step
-//   short in, and step otherwise than the committed run in 1 to 6 branches of a run. So the rule
-//   applies to all 16. The step of the run is read from its own rows (the row on which an Euler
-//   stepper landed on the apogee, and the step from it: apogeeOutcome()); the step of the golden
-//   run is that of the list: the extra one in 2 branches, the regular one in 14. The documents
-//   show it for the 14 first branches (the APOGEE event is 1 ms after the summary's time to
-//   apogee exactly when the extra step was taken: no exception in 22 runs of 14 branches); for
-//   the 2 later branches (the payload sections of two simulations of "Deployable payload") the
-//   list has what the rows of the committed run show. When the two runs step alike, the branch
-//   is compared to its end, at the tolerances of every other branch. When they do not, its
-//   number of rows and the events after its APOGEE (GROUND_HIT and SIMULATION_END, in every one
-//   of the 16) are not compared, nor, when it is the first branch, the flight time and the
-//   ground hit velocity: 5 numbers of a first branch, 3 of a later one, 76 at most. Its APOGEE
-//   is compared all the same, with the golden one moved by the 1 ms of the extra step that one
-//   of the two runs took (kExtraStep; the engine gives the event the time of the apogee row, or
-//   of the row after the extra step), at the tolerance of every other time: the two differ from
-//   that by 2.1e-12 s at most between OpenRocket's runs and by 1.2e-12 s between QtRocket and
-//   the documents. That also holds the step of the list to the run: with the wrong step listed
-//   for a branch, its APOGEE would be 1 ms off. And the rows of the run have to show that the
-//   last bit decided (apogeeStepProblem(): the step to the apogee left at most 1e-13 of the
-//   velocity before, 1.7e-16 in the 47 runs, and the extra step follows a positive rest): any
-//   other step from the apogee is a mismatch.
+//   of the test rockets). In OpenRocket's 22 runs 13 of the 16 branches take either step (1206
+//   of the 7392 ordered pairs of runs of a branch differ); QtRocket's 47 runs take either step
+//   in 14 of the 16, among them one that OpenRocket's 22 runs never step short in, and step
+//   otherwise than the committed run in 1 to 6 branches of a run. So the rule applies to all
+//   16. The step of the run is read from its own rows (the row on which an Euler stepper landed
+//   on the apogee, and the step from it: apogeeOutcome()); the step of the golden run is that
+//   of the list: the extra one in 2 branches, the regular one in 14. The documents show it for
+//   the 14 first branches (the APOGEE event is 1 ms after the summary's time to apogee exactly
+//   when the extra step was taken: no exception in 22 runs of 14 branches); for the 2 later
+//   branches (the payload sections of two simulations of "Deployable payload") the list has
+//   what the rows of the committed run show (tier9d-fix-simulation-goldens/out/
+//   rule-rows-base-full.txt). When the two runs step alike, the branch is compared at the
+//   tolerances of every other branch. When they do not, the run is on the other time grid from
+//   its apogee on, the one that the extra step moves by 1 ms, and is compared as that:
+//   * its APOGEE with the golden one moved by the 1 ms of the extra step that one of the two
+//     runs took (kExtraStep; the engine gives the event the time of the apogee row, or of the
+//     row after the extra step), at the tolerance of every other time: the two differ from that
+//     by 2.1e-12 s at most between OpenRocket's runs and by 1.2e-12 s between QtRocket and the
+//     documents. That also holds the step of the list to the run: with the wrong step listed
+//     for a branch, its APOGEE would be 1 ms off;
+//   * its number of rows with the golden one and the row of the extra step, exactly: one row
+//     more, or one less. So it is in every one of the 1206 pairs of OpenRocket's runs that step
+//     otherwise and in every such branch of QtRocket's 47 runs, and so it has to be while the
+//     last step of the descent, which ends on the ground, is longer than the 1 ms on the grid
+//     without the extra step: it is 0.31 s and more in every branch of the rule, in the 22
+//     runs and in QtRocket's 47;
+//   * the events after its APOGEE (the GROUND_HIT and the SIMULATION_END, in every one of the
+//     16) and, when it is the first branch, the flight time at kOtherGridTimeAbsolute, 2e-2 s,
+//     and the ground hit velocity at kOtherGridVelocityRelative, 1e-4 of itself: on the two
+//     grids the descent of one flight ends up to 1.9e-4 s apart, in OpenRocket's pairs and in
+//     QtRocket's runs alike (the same flight of the three-stage rocket), and the ground hit
+//     velocity differs by 9.3e-7 of itself (the motor pods' flight, whose landing steps fall
+//     elsewhere; QtRocket: the same).
+//   That is 5 numbers of a first branch and 3 of a later one, 76 at most; the test of each
+//   example holds what was compared so against what the rows of its runs say may be. And the
+//   rows of the run have to show that the last bit decided (apogeeStepProblem(): the step to
+//   the apogee left at most 1e-13 of the velocity before, 1.7e-16 in the 47 runs, and the extra
+//   step follows a positive rest): any other step from the apogee is a mismatch.
 // - L, a late handling (26 branches). An event without a row at its time was handled at the end
 //   of a step that overshot it, and what the engine queues on handling an event gets its time
 //   from the time of the handling (see "the time of an event that follows a late handling" at
 //   the top of simulation_stable_golden_tests.cpp). The golden rows of the test rockets show
 //   such events; here the first of each branch is in the list, by its place among the golden
 //   events and its type, read from the rows of the full dump of the committed run
-//   (tier9d-stable-step/scripts/documents.py). 19 are the deployment of a recovery device at
-//   the apogee, which the engine queues 1 ms after the time of the APOGEE event, under a
-//   Runge-Kutta stepper the time of the row before the one that found the apogee: it is handled
-//   9 ms late in every run, and the documents show it by themselves (21 branches have such a
-//   deployment, 2 of them after an earlier late handling). 6 are a BURNOUT that a step of the
-//   minimum length overshot by 0.06 to 0.13 ms, and 1 a SIM_WARN. The times after the late
-//   handling of a branch (106 of events, 4 separation times) are compared at
-//   kLateHandlingAbsolute, 1e-3 s, as in the test rockets. They do not move in any measurement
-//   by more than 5.7e-7 s, and in each of QtRocket's 47 runs the first event without a row at
-//   its time is, in every one of the 69 branches, the one of the list or none (measured by
-//   the measurement test, not asserted).
+//   (tier9d-stable-step/scripts/documents.py; the rows are in tier9d-fix-simulation-goldens/
+//   out/rule-rows-base-full.txt). 19 are the deployment of a recovery device at the apogee,
+//   which the engine queues 1 ms after the time of the APOGEE event, under a Runge-Kutta
+//   stepper the time of the row before the one that found the apogee: it is handled 9 ms late
+//   in every run, and the documents show it by themselves (21 branches have such a deployment,
+//   2 of them after an earlier late handling). 6 are a BURNOUT that a step of the minimum
+//   length overshot by 0.06 to 0.13 ms, and 1 a SIM_WARN. The times after the late handling of
+//   a branch (106 of events, 4 separation times) are compared at kLateHandlingAbsolute, 1e-3 s,
+//   as in the test rockets. They do not move in any measurement by more than 5.7e-7 s, and in
+//   each of QtRocket's 47 runs the first event without a row at its time is, in every one of
+//   the 69 branches, the one of the list or none (measured by the measurement test, not
+//   asserted).
 //
-// TOLERANCES. They are those of the stable-step comparison of the test rockets
-// (GoldenStableSimulations.h), unchanged; over what this comparison compares, each is at least
-// 100 times (kToleranceMargin) the largest difference of both measurements, OpenRocket against
-// itself in the 462 ordered pairs of its 22 runs and QtRocket against the committed documents in
-// its 47 runs (ExampleSimulationStableGoldenRules holds the arithmetic):
+// TOLERANCES. Those of the numbers under no rule are the tolerances of the stable-step
+// comparison of the test rockets (GoldenStableSimulations.h), unchanged; the three of the
+// rules E and T are of this file. Over what this comparison compares, each is at least 100 times
+// (kToleranceMargin) the largest difference of both measurements, OpenRocket against itself in
+// the 462 ordered pairs of its 22 runs and QtRocket against the committed documents in its 47
+// runs (ExampleSimulationStableGoldenRules pins the tolerances and holds the arithmetic):
 //                                                           tolerance   OpenRocket   QtRocket
 //   maximum altitude, optimum altitude (of their scale)     1e-6        6.1e-9       3.1e-9
 //   maximum velocity                                        1e-6        2.1e-9       2.1e-9
 //   maximum acceleration, maximum Mach number               1e-6        2.6e-11      2.3e-11
 //   ground hit velocity (of itself)                         1e-6        2.4e-14      2.1e-14
 //   parameter of a warning (of itself)                      1e-6        9.0e-12      8.0e-12
+//   minimum, maximum of a steady column (of its scale)      1e-6        1.7e-11      1.4e-11
 //   deployment velocity (of the largest velocity)           1e-5        1.8e-9       1.8e-9
 //   launch rod velocity (of the largest velocity)           1e-9        5.3e-14      6.0e-17
 //   flight time                                             1e-4 s      5.7e-7 s     2.9e-7 s
 //   GROUND_HIT, SIMULATION_END                              1e-4 s      1.9e-7 s     2.0e-7 s
 //   optimum delay, time to the optimum altitude             1e-4 s      2.9e-9 s     1.6e-9 s
 //   APOGEE, time to apogee, RECOVERY_DEVICE_DEPLOYMENT      1e-4 s      1.4e-10 s    6.4e-11 s
-//   APOGEE of a run that steps otherwise, less the 1 ms     1e-4 s      2.1e-12 s    1.2e-12 s
 //   LAUNCH, LIFTOFF, LAUNCHROD, IGNITION, BURNOUT,
 //     EJECTION_CHARGE, STAGE_SEPARATION, SIM_WARN, TUMBLE,
 //     separation time                                       1e-4 s      0            0
@@ -176,11 +232,21 @@
 //     RECOVERY_DEVICE_DEPLOYMENT, SIM_WARN                  1e-3 s      2.4e-7 s     1.2e-7 s
 //     the other events, separation time                     1e-3 s      1.3e-11 s    8.2e-12 s
 //   numbers of rows and of jitter replacements              exact       equal        equal
-// The largest difference of a compared value is 6.1e-3 of its tolerance between two runs of
-// OpenRocket (a factor of 163: the maximum altitude of "Simulation 2" of the two-stage high
-// power rocket) and 3.1e-3 between QtRocket and the documents (a factor of 327: the same
-// number). QtRocket behaves as one more run of OpenRocket: in no row of the table is it further
-// from the committed run than OpenRocket's own runs are from each other by more than a quarter.
+//   rule E, a run that steps otherwise:
+//     APOGEE, less the 1 ms                                 1e-4 s      2.1e-12 s    1.2e-12 s
+//     number of rows, with the row of the extra step        exact       equal        equal
+//     GROUND_HIT, SIMULATION_END, flight time               2e-2 s      1.9e-4 s     1.9e-4 s
+//     ground hit velocity (of itself)                       1e-4        9.3e-7       9.3e-7
+//   rule T, a dropped stage: optimum altitude (of itself)   2e-2        1.1e-4       7.4e-5
+// Among the numbers under no rule the largest difference is 6.1e-3 of its tolerance between two
+// runs of OpenRocket (a factor of 163: the maximum altitude of "Simulation 2" of the two-stage
+// high power rocket) and 3.1e-3 between QtRocket and the documents (a factor of 327: the same
+// number). The numbers of rule E on the other time grid are at 9.4e-3 of their tolerances in
+// both measurements (a factor of 107: the end of the descent of "Simulation 1" of the
+// three-stage rocket, which the two grids put the same 1.9e-4 s apart whichever engine flies
+// it). QtRocket behaves as one more run of OpenRocket: in no row of the table is it further
+// from the committed run than OpenRocket's own runs are from each other by more than
+// a quarter.
 // (A summary value is measured against the scale of its column of the first branch, which the
 // document gives as the larger magnitude of the column's golden minimum and maximum, or against
 // its own magnitude where the table says so.)
@@ -194,11 +260,15 @@
 //   compared with the unperturbed one under the rules and tolerances of this file). The
 //   trajectory follows the kick in proportion, and nothing that is compared moves beyond its
 //   tolerance: the launch rod velocity by 2.3e-10 of its scale (a quarter of its tolerance, the
-//   most of all), the other summary values by 2.2e-9 at most, the flight time and a GROUND_HIT by
-//   9.7e-7 s, an APOGEE by 6.6e-9 s; the events the motors and the rod time by 3.8e-9 s where
-//   they are queued at a late handling and not at all elsewhere (a LAUNCHROD: 1.7e-14 s); no
-//   sequence of events changes, no number of rows but where rule T or E says it can (the step
-//   from the apogee changes in 8 of the 16 branches), and the late handlings stay where they are.
+//   most of all), the other summary values by 2.2e-9 at most, an extreme of a steady column by
+//   7.5e-9 of its scale, the flight time and a GROUND_HIT by 9.7e-7 s, an APOGEE by 6.6e-9 s;
+//   the events the motors and the rod time by 3.8e-9 s where they are queued at a late handling
+//   and not at all elsewhere (a LAUNCHROD: 1.7e-14 s); no sequence of events changes, no number
+//   of rows but where rule T or E says it can, and the late handlings stay where they are. The
+//   step from the apogee changes in 8 of the 16 branches, and each of those runs is then to the
+//   unperturbed one what a run on the other time grid is to its golden run: one row more or
+//   less, the end of its descent up to 1.9e-4 s and its ground hit velocity 9.3e-7 of itself
+//   apart.
 // - The places where the engine decides by a threshold, in the rows of the 22 runs of OpenRocket
 //   (tier9d-stable-step/scripts/thresholds.py, out/thresholds-22.txt), since a decision that
 //   falls otherwise moves an event by a whole step, a hundred tolerances:
@@ -215,6 +285,8 @@
 //     fin rocket"; compared like every other event): the filtered angle of attack of the step
 //     that crosses the 60 degrees and of the step before are at least 2.8e-4 rad from it, where
 //     the runs differ by 2.5e-7 rad.
+//   * The last step of a descent under rule E, which the other time grid would not leave as one
+//     row more or less if it were shorter than the extra step: 0.31 s against the 1 ms.
 //   * The step from the apogee of an Euler stepper is the one decision without a margin, and
 //     has rule E.
 //
@@ -223,23 +295,32 @@
 // extensions" (RollControl, the second with AirStart), whose default-step comparison ends on
 // the launch rod, before the controller starts: here their summary values, numbers of rows
 // (2789 and 2740), jitter replacements and event times are compared over the 163 s and 185 s of
-// their flights, which is what the roll control leaves in a document (the fin cant itself is a
-// column, of which a document has the extremes only). And the two of "Simulation scripting",
-// whose scripts are disabled.
+// their flights, and what the controller does in them: the minimum and the maximum of the roll
+// rate, of the roll forcing and damping coefficients and of the fin cant that the extension
+// adds as a column (see "The extremes of the columns"; a document has the extremes of a column
+// only). And the two of "Simulation scripting", whose scripts are disabled.
 //
 // Not vacuous: ExampleSimulationStableGoldenMutation changes one golden value at a time in a
 // copy of the document of a flight under no rule (every summary value, the numbers of the
-// header of its branch, the times of events, the structure of a branch without a time series),
-// of a flight with a warning and a late handling, and of the three-stage rocket, and expects the
-// one line that reports it; changes within the tolerances are not reported, among them a time
-// after a late handling moved by four times the tolerance of a time before it; and a number
-// that a rule excludes is counted as excluded, under its rule, and not compared.
-// ExampleSimulationStableGoldenRules holds rule E's reading of a run's rows and the plan of a
-// branch to what they say, on rows and documents made for it.
+// header of its branch, extremes of steady columns, the times of events, the structure of a
+// branch without a time series), of a flight with a warning and a late handling, and of the
+// three-stage rocket (what rule T compares of a dropped stage: the altitude of its apogee, at
+// the tolerance of the rule, and its steady columns), and expects the one line that reports
+// it; changes within the tolerances are not reported, among them a time after a late handling
+// moved by four times the tolerance of a time before it and the optimum altitude of a dropped
+// stage moved by five thousand times the tolerance of one under no rule; and a number that a
+// rule excludes is counted as excluded, under its rule, and not compared. The other time grid
+// of rule E is made for the test (which branch steps otherwise is the platform's to say): the
+// document that a golden run on the other grid than the run's would have left matches, a row
+// more or less than its one row is reported, and so is the end of the descent beyond the
+// tolerances of the other grid, but not within them. ExampleSimulationStableGoldenRules holds
+// rule E's reading of a run's rows and the plan of a branch to what they say, on rows and
+// documents made for it, and pins every tolerance to its value: the mutations are sized by the
+// tolerances, so a tolerance that grew would hide itself.
 //
 // The tests are cut by what a process has to simulate: one test per example (ctest starts a
 // process per test, and a process reads the motor database and runs every simulation of its
-// example), three for the mutations (each runs one simulation, the first of its example), one
+// example), three for the mutations (each runs one simulation, the first of its example), two
 // more on the three-stage rocket, and the ones that run nothing.
 
 #include <algorithm>
@@ -296,12 +377,14 @@ using QtRocket::Test::ApogeeStep;
 using QtRocket::Test::apogeeStepOf;
 using QtRocket::Test::apogeeStepProblem;
 using QtRocket::Test::baseName;
+using QtRocket::Test::columnKey;
 using QtRocket::Test::compareSimulation;
 using QtRocket::Test::compareStableCount;
 using QtRocket::Test::compareStableNumber;
 using QtRocket::Test::compareStableWarning;
 using QtRocket::Test::compareStableWarnings;
 using QtRocket::Test::ComparisonMode;
+using QtRocket::Test::csvTypes;
 using QtRocket::Test::DefaultUnitsGuard;
 using QtRocket::Test::eulerApogeeRow;
 using QtRocket::Test::eventTime;
@@ -309,6 +392,7 @@ using QtRocket::Test::findGoldenExample;
 using QtRocket::Test::firstLateHandling;
 using QtRocket::Test::goldenCounts;
 using QtRocket::Test::GoldenExample;
+using QtRocket::Test::goldenExampleEnvironment;
 using QtRocket::Test::goldenExamples;
 using QtRocket::Test::goldenExampleTestName;
 using QtRocket::Test::GoldenFiles;
@@ -374,6 +458,90 @@ constexpr ComparisonMode kStructure{.randomConfigurationId     = false,
 /// records the APOGEE with the time of the row before the one that is 1 cm below the maximum:
 /// the apogee row itself after the regular step, and the row this much later after the extra one.
 constexpr double kExtraStep = 1e-3;
+
+/// Rule E: a time after the APOGEE of a branch whose run steps from the apogee otherwise than
+/// the golden run (its GROUND_HIT and its SIMULATION_END, and the flight time when it is the
+/// first branch): within this many seconds. The descent of such a run is on a time grid that
+/// the extra step has moved by 1 ms; two runs of OpenRocket on the two grids differ in these
+/// times by 1.9e-4 s at most.
+constexpr double kOtherGridTimeAbsolute = 2e-2;
+
+/// Rule E: the ground hit velocity of such a run: within this fraction of itself. Two runs of
+/// OpenRocket on the two grids differ in it by 9.3e-7 at most (the motor pods' flight, whose
+/// landing steps fall elsewhere).
+constexpr double kOtherGridVelocityRelative = 1e-4;
+
+/// Rule T: the optimum altitude of a dropped stage without a recovery device, which is the
+/// altitude of its apogee after its separation: within this fraction of itself. The stage is
+/// left to its attitude from its separation on, and two runs of OpenRocket differ in the
+/// altitude by 1.1e-4 at most.
+constexpr double kTumblingAltitudeRelative = 2e-2;
+
+/// The columns whose minimum and maximum are compared, at kStableSummaryRelative of the scale
+/// of the column in its branch: those in which two runs agree to 2e-11 of that scale and better
+/// in every branch (OpenRocket's 22 runs, QtRocket's 47; see "The extremes of the columns" at
+/// the top of the file). They are what the flight does not feed back into: the mass, the
+/// inertia and the centre of gravity, the thrust, the roll, which the fins and a controller
+/// decide, the drag coefficients, whose extremes are those of the launch and of the fastest
+/// flight, and what the site sets. In a branch that is not that of a dropped stage without a
+/// recovery device (rule T):
+constexpr std::array<std::string_view, 23> kSteadyColumns{"mass",
+                                                          "motor_mass",
+                                                          "longitudinal_inertia",
+                                                          "rotational_inertia",
+                                                          "cg_location",
+                                                          "thrust_force",
+                                                          "thrust_correction",
+                                                          "thrust_weight_ratio",
+                                                          "roll_rate",
+                                                          "roll_forcing_coeff",
+                                                          "roll_damping_coeff",
+                                                          "custom:Control fin cant",
+                                                          "drag_coeff",
+                                                          "base_drag_coeff",
+                                                          "pressure_drag_coeff",
+                                                          "side_force_coeff",
+                                                          "yaw_moment_coeff",
+                                                          "gravity",
+                                                          "latitude",
+                                                          "wind_velocity",
+                                                          "wind_direction",
+                                                          "reference_length",
+                                                          "reference_area"};
+
+/// ... and in the branch of such a stage, whose extremes after its separation are those of a
+/// flight that two runs do not reproduce: what the stage has before it tumbles, or whatever it
+/// does.
+constexpr std::array<std::string_view, 20> kSteadyColumnsOfATumblingStage{"mass",
+                                                                          "motor_mass",
+                                                                          "longitudinal_inertia",
+                                                                          "rotational_inertia",
+                                                                          "cg_location",
+                                                                          "thrust_force",
+                                                                          "thrust_correction",
+                                                                          "thrust_weight_ratio",
+                                                                          "velocity_total",
+                                                                          "coriolis_acceleration",
+                                                                          "roll_rate",
+                                                                          "roll_moment_coeff",
+                                                                          "roll_forcing_coeff",
+                                                                          "roll_damping_coeff",
+                                                                          "side_force_coeff",
+                                                                          "yaw_moment_coeff",
+                                                                          "wind_velocity",
+                                                                          "wind_direction",
+                                                                          "reference_length",
+                                                                          "reference_area"};
+
+/// Whether the minimum and the maximum of the column @p key are compared in a branch that is
+/// (@p tumbles) or is not that of a dropped stage without a recovery device.
+[[nodiscard]] bool hasSteadyExtremes(std::string_view key, bool tumbles)
+{
+    const std::span<const std::string_view> keys =
+        tumbles ? std::span<const std::string_view>{kSteadyColumnsOfATumblingStage}
+                : std::span<const std::string_view>{kSteadyColumns};
+    return std::ranges::find(keys, key) != keys.end();
+}
 
 /// Rule E: a branch whose recovery device is out before its apogee, so that an Euler stepper
 /// lands a step on the apogee, and the step the golden run took from there: the extra one of
@@ -537,6 +705,24 @@ struct ApogeeOutcome
     /// for (apogeeStepProblem()); "" when they do, and for a branch the rule does not list.
     std::string problem;
     ApogeeStep  step;  ///< the step of the run, for the measurements
+
+    /// Whether the rows of the run show the other step from the apogee than the golden run
+    /// took: the descent of the run is then on the other time grid. (A run whose rows show no
+    /// step from an apogee at all is not alike either; it is a mismatch, and is compared like
+    /// a run that steps alike.)
+    [[nodiscard]] bool otherGrid() const noexcept { return !alike && later != 0; }
+
+    /// The rows the run has more than the golden run for it: the one of the extra step that
+    /// the run took and the golden run did not, or one less the other way round; 0 for a run
+    /// that steps alike.
+    [[nodiscard]] std::int64_t extraRows() const noexcept
+    {
+        if (alike || later == 0)
+        {
+            return 0;
+        }
+        return later > 0 ? 1 : -1;
+    }
 };
 
 /// The outcome of rule E for the branch @p branch of a run, whose golden run took the step
@@ -572,15 +758,13 @@ struct ApogeeOutcome
 /// The numbers of the golden documents that the rules exclude from the comparison, by rule.
 struct Exclusions
 {
-    int extremes{0};  ///< the minimum and the maximum of every column
-    /// Rule T: of a dropped stage without a recovery device, its number of rows, its optimum
-    /// altitude, the time to it and its optimum delay, and the times of its events after its
-    /// last separation; and the number of jitter replacements of its simulation.
+    /// The minimum and the maximum of every column that is not one of kSteadyColumns (in the
+    /// branch of a dropped stage without a recovery device: of kSteadyColumnsOfATumblingStage).
+    int extremes{0};
+    /// Rule T: of a dropped stage without a recovery device, its number of rows, the time to
+    /// its optimum altitude and its optimum delay, and the times of its events after its last
+    /// separation; and the number of jitter replacements of its simulation.
     int tumbling{0};
-    /// Rule E: of a branch whose run steps from the apogee otherwise than the golden run, its
-    /// number of rows and the times of the events after its APOGEE; and, when it is the first
-    /// branch, the flight time and the ground hit velocity.
-    int apogee{0};
 
     [[nodiscard]] bool operator==(const Exclusions&) const = default;
 
@@ -588,19 +772,17 @@ struct Exclusions
     {
         extremes += other.extremes;
         tumbling += other.tumbling;
-        apogee += other.apogee;
         return *this;
     }
 
     /// The numbers the rules exclude in all.
-    [[nodiscard]] int total() const noexcept { return extremes + tumbling + apogee; }
+    [[nodiscard]] int total() const noexcept { return extremes + tumbling; }
 };
 
-/// "9664 extremes, 60 by rule T, 4 by rule E", for the messages of the tests.
+/// "6652 extremes, 53 by rule T", for the messages of the tests.
 [[nodiscard]] std::string toText(const Exclusions& exclusions)
 {
-    return std::format("{} extremes, {} by rule T, {} by rule E", exclusions.extremes,
-                       exclusions.tumbling, exclusions.apogee);
+    return std::format("{} extremes, {} by rule T", exclusions.extremes, exclusions.tumbling);
 }
 
 /// toText() of @p exclusions, for the messages of the tests.
@@ -616,6 +798,13 @@ struct DocumentComparison
     StableComparison c;
     Exclusions       excluded;   ///< the numbers the rules exclude, by rule (their sum is c's)
     int              unlike{0};  ///< rule E: the branches whose run steps otherwise
+    /// Rule E: the numbers that were compared as those of a run on the other time grid: of a
+    /// branch whose run steps from the apogee otherwise than the golden run, its number of rows
+    /// (with the row of the extra step) and the times of the events after its APOGEE; and,
+    /// when it is the first branch, the flight time and the ground hit velocity.
+    int otherGrid{0};
+    /// The minima and maxima of columns that were compared (kSteadyColumns).
+    int steadyExtremes{0};
     /// Rule E: the steps the golden run took from the apogees of its branches
     /// (DocumentPlan::shortApogeeStep, by the index of the branch), when they are not those of
     /// kEulerApogees: of a run that stands in for the golden files (the sensitivity measurement).
@@ -660,11 +849,18 @@ template <class Event, class IsSeparation>
 }
 
 /// The place of the first APOGEE among the golden events @p events; their number without one.
-[[nodiscard]] std::size_t placeOfTheApogee(const std::vector<const json*>& events)
+[[nodiscard]] std::size_t placeOfTheApogee(std::span<const json* const> events)
 {
     const auto apogee =
         std::ranges::find_if(events, [](const json* event) { return isOfType(event, "APOGEE"); });
     return static_cast<std::size_t>(apogee - events.begin());
+}
+
+/// Whether the golden event @p event has a warning with a parameter.
+[[nodiscard]] bool hasParameter(const json* event)
+{
+    const json& data = event->at("data");
+    return data.is_object() && data.contains("parameter");
 }
 
 /// The numbers of the golden events @p events from the place @p from on: their times, and the
@@ -674,10 +870,28 @@ template <class Event, class IsSeparation>
     int numbers = 0;
     for (std::size_t i = from; i < events.size(); i++)
     {
-        const json& data = events[i]->at("data");
-        numbers += data.is_object() && data.contains("parameter") ? 2 : 1;
+        numbers += hasParameter(events[i]) ? 2 : 1;
     }
     return numbers;
+}
+
+/// The number of the events of @p events after the place @p place (none when there are no more
+/// than @p place of them).
+[[nodiscard]] int eventsAfter(const std::vector<const json*>& events, std::size_t place)
+{
+    return place < events.size() ? static_cast<int>(events.size() - place - 1) : 0;
+}
+
+/// Records, for the table of the measurements, by how much the number @p actual differs from
+/// its golden number @p expected, as a fraction of @p unit, when the rules exclude it from the
+/// comparison of @p c: @p what names it.
+void measureExcluded(const StableComparison& c, const std::string& what, double expected,
+                     double actual, double unit)
+{
+    if (c.measurements != nullptr && std::isfinite(expected) && std::isfinite(actual) && unit > 0)
+    {
+        c.measurements->record(what, std::abs(actual - expected) / unit, -1.0, c.context);
+    }
 }
 
 /// The golden events of a branch and the events of the run that are compared one with one:
@@ -688,120 +902,295 @@ struct PairedEvents
     std::vector<const json*>        golden;
     std::vector<const FlightEvent*> ours;
     std::size_t                     apogee{0};  ///< placeOfTheApogee() of the golden events
-    int                             left{0};    ///< numbersFrom() of the golden events left out
+    /// Rule T: the golden events after the last stage separation, which are not compared (they
+    /// follow the paired ones, in the order of the comparison), and those of the run after its
+    /// own.
+    std::vector<const json*>        goldenAfter;
+    std::vector<const FlightEvent*> oursAfter;
 };
 
-/// The events of @p ours and the golden events @p expected that are compared one with one.
+/// The events of @p ours and the golden events @p expected that are compared one with one, and
+/// those after the last separation of a dropped stage without a recovery device.
 [[nodiscard]] PairedEvents pairedEvents(const json& expected, const DocumentBranch& ours)
 {
-    PairedEvents paired{.golden = orderedGoldenEvents(expected, false),
-                        .ours   = orderedEvents(*ours.branch, false),
-                        .apogee = 0,
-                        .left   = 0};
+    PairedEvents paired{.golden      = orderedGoldenEvents(expected, false),
+                        .ours        = orderedEvents(*ours.branch, false),
+                        .apogee      = 0,
+                        .goldenAfter = {},
+                        .oursAfter   = {}};
     if (ours.plan.tumbles)
     {
         const std::size_t flown = eventsUpToTheLastSeparation(
             paired.golden, [](const json* event) { return isOfType(event, "STAGE_SEPARATION"); });
-        paired.left = numbersFrom(paired.golden, flown);
+        const std::size_t flownByTheRun =
+            eventsUpToTheLastSeparation(paired.ours, [](const FlightEvent* event) {
+                return event->getType() == FlightEvent::Type::STAGE_SEPARATION;
+            });
+        const std::span<const json* const> golden =
+            std::span<const json* const>{paired.golden}.subspan(flown);
+        const std::span<const FlightEvent* const> run =
+            std::span<const FlightEvent* const>{paired.ours}.subspan(flownByTheRun);
+        paired.goldenAfter.assign(golden.begin(), golden.end());
+        paired.oursAfter.assign(run.begin(), run.end());
         paired.golden.resize(flown);
-        paired.ours.resize(eventsUpToTheLastSeparation(paired.ours, [](const FlightEvent* event) {
-            return event->getType() == FlightEvent::Type::STAGE_SEPARATION;
-        }));
+        paired.ours.resize(flownByTheRun);
     }
     paired.apogee = placeOfTheApogee(paired.golden);
     return paired;
 }
 
+/// The time of the first APOGEE among the events @p events of a run; NaN without one.
+[[nodiscard]] double apogeeTimeOf(const std::vector<const FlightEvent*>& events)
+{
+    for (const FlightEvent* event : events)
+    {
+        if (event->getType() == FlightEvent::Type::APOGEE)
+        {
+            return event->getTime();
+        }
+    }
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+/// Rule T: counts the times of what a dropped stage without a recovery device records after its
+/// last separation as excluded (its APOGEE, a TUMBLE, which the structure leaves out on both
+/// sides, its GROUND_HIT and its SIMULATION_END, and the parameter of a warning of one of them,
+/// if it had one), and records for the table of the measurements by how much the time of its
+/// APOGEE differs from the golden one.
+void countTheFlightOfATumblingStage(DocumentComparison& d, const PairedEvents& paired)
+{
+    const int numbers = numbersFrom(paired.goldenAfter, 0);
+    d.c.excluded.numbers += numbers;
+    d.excluded.tumbling += numbers;
+    const std::size_t apogee = placeOfTheApogee(paired.goldenAfter);
+    if (apogee < paired.goldenAfter.size())
+    {
+        measureExcluded(d.c, "excluded by rule T: event:APOGEE of a dropped stage",
+                        goldenValue(paired.goldenAfter[apogee]->at("time")),
+                        apogeeTimeOf(paired.oursAfter), 1.0);
+    }
+}
+
+/// How the time of one golden event is compared with the time of the event of the run.
+struct EventRule
+{
+    std::string field;             ///< names it in a mismatch
+    std::string what;              ///< names it in the measurements
+    double      shift{0};          ///< what the golden time is moved by (rule E: the extra step)
+    double      tolerance{0};      ///< in s
+    bool        otherGrid{false};  ///< rule E: an event after the apogee of a run on the other grid
+};
+
+/// The rule for the golden event at the place @p place of the paired events @p paired, whose
+/// type is @p type and whose time is @p time, in the branch @p ours. An event after the late
+/// handling of its branch is compared at kLateHandlingAbsolute (rule L). Of a branch whose run
+/// steps from the apogee otherwise than the golden run (rule E), the APOGEE is compared with
+/// the golden one moved by the extra step that one of the two runs took (ApogeeOutcome::later),
+/// and the events after it at kOtherGridTimeAbsolute.
+[[nodiscard]] EventRule eventRule(const DocumentBranch& ours, std::size_t place, std::size_t apogee,
+                                  const std::string& type, double time)
+{
+    const bool late = time > ours.plan.lateFrom;
+    EventRule  rule{.field = std::format("events[{}].time", place),
+                    .what  = std::format("event{}:{}", late ? " after a late handling" : "", type),
+                    .shift = 0,
+                    .tolerance = late ? kLateHandlingAbsolute : kStableTimeAbsolute,
+                    .otherGrid = false};
+    if (!ours.apogee.otherGrid() || place < apogee)
+    {
+        return rule;
+    }
+    if (place == apogee)
+    {
+        rule.field += ", moved by the extra step of rule E";
+        rule.what += " of a run that steps otherwise, less the extra step";
+        rule.shift = ours.apogee.later;
+        return rule;
+    }
+    rule.what      = std::format("event after the apogee of a run that steps otherwise:{}", type);
+    rule.tolerance = kOtherGridTimeAbsolute;
+    rule.otherGrid = true;
+    return rule;
+}
+
 /// Compares the times of the events of the branch with the golden "events", and what their
 /// warnings print of their parameters. The sequence of the events (their types and sources)
 /// and their data are compared with the structure: when the sequences differ, nothing is
-/// compared here. Not compared: the events of a dropped stage without a recovery device after
-/// its last separation (rule T), and what follows the APOGEE of a branch whose run steps from
-/// the apogee otherwise than the golden run (rule E); the APOGEE of such a branch is compared
-/// with the golden one moved by the extra step that one of the two runs took
-/// (ApogeeOutcome::later). An event after the late handling of its branch is compared at
-/// kLateHandlingAbsolute (rule L).
+/// compared here. Each time is compared under its rule (eventRule()). Of a dropped stage
+/// without a recovery device (rule T), the events up to its last separation are compared like
+/// every other, and the later ones are not (countTheFlightOfATumblingStage()).
 void compareDocumentEvents(Mismatches& m, DocumentComparison& d, const json& expected,
                            const DocumentBranch& ours)
 {
     const PairedEvents paired = pairedEvents(expected, ours);
-    d.c.excluded.numbers += paired.left;
-    d.excluded.tumbling += paired.left;
     if (sequenceOf(paired.golden) != sequenceOf(paired.ours))
     {
         // The structure reports it; the numbers are counted under no rule.
-        d.c.excluded.numbers += numbersFrom(paired.golden, 0);
+        d.c.excluded.numbers += numbersFrom(paired.golden, 0) + numbersFrom(paired.goldenAfter, 0);
         return;
     }
     for (std::size_t i = 0; i < paired.golden.size(); i++)
     {
-        const json&       golden = *paired.golden[i];
-        const std::string field  = std::format("events[{}]", i);
-        const double      time   = goldenValue(golden.at("time"));
-        const bool        late   = time > ours.plan.lateFrom;
-        // Rule E: the APOGEE of a run that steps otherwise, against the golden one moved.
-        const bool moved  = i == paired.apogee && !ours.apogee.alike;
-        const int  before = d.c.excluded.numbers;
-        compareStableNumber(
-            m, d.c,
-            {.field = field + (moved ? ".time, moved by the extra step of rule E" : ".time"),
-             .what =
-                 std::format("event{}:{}{}", late ? " after a late handling" : "",
-                             golden.at("type").get<std::string>(),
-                             moved ? " of a run that steps otherwise, less the extra step" : ""),
-             .expected  = time + (moved ? ours.apogee.later : 0.0),
-             .actual    = paired.ours[i]->getTime(),
-             .tolerance = late ? kLateHandlingAbsolute : kStableTimeAbsolute,
-             .unit      = 1.0},
-            ours.apogee.alike || i <= paired.apogee);
-        attribute(d, before, d.excluded.apogee);
-        compareStableWarning(m, d.c, field + ".data", golden.at("data"),
+        const json&     golden = *paired.golden[i];
+        const double    time   = goldenValue(golden.at("time"));
+        const EventRule rule =
+            eventRule(ours, i, paired.apogee, golden.at("type").get<std::string>(), time);
+        compareStableNumber(m, d.c,
+                            {.field     = rule.field,
+                             .what      = rule.what,
+                             .expected  = time + rule.shift,
+                             .actual    = paired.ours[i]->getTime(),
+                             .tolerance = rule.tolerance,
+                             .unit      = 1.0},
+                            true);
+        d.otherGrid += rule.otherGrid ? 1 : 0;
+        compareStableWarning(m, d.c, std::format("events[{}].data", i), golden.at("data"),
                              ours.data->findWarning(*paired.ours[i]));
+    }
+    countTheFlightOfATumblingStage(d, paired);
+}
+
+/// The minimum or the maximum of a column of a branch against the golden one.
+struct DocumentExtreme
+{
+    std::string field;  ///< "columns[26].min (mass)"
+    std::string what;   ///< names it in the measurements
+    double      expected{0};
+    double      actual{0};
+    double      scale{0};  ///< of the column in the golden branch
+};
+
+/// Compares the extreme @p extreme with its golden value, within kStableSummaryRelative of the
+/// scale of its column, when its column is a steady one (@p steady); the extreme of any other
+/// column is counted as excluded (and its difference recorded for the table of the
+/// measurements).
+void compareDocumentExtreme(Mismatches& m, DocumentComparison& d, const DocumentExtreme& extreme,
+                            bool steady)
+{
+    const double unit   = referenceOf(extreme.scale, extreme.expected, extreme.actual);
+    const int    before = d.c.excluded.numbers;
+    compareStableNumber(m, d.c,
+                        {.field     = extreme.field,
+                         .what      = extreme.what,
+                         .expected  = extreme.expected,
+                         .actual    = extreme.actual,
+                         .tolerance = kStableSummaryRelative * unit,
+                         .unit      = unit},
+                        steady);
+    attribute(d, before, d.excluded.extremes);
+    d.steadyExtremes += steady ? 1 : 0;
+    if (!steady)
+    {
+        measureExcluded(d.c, extreme.what, extreme.expected, extreme.actual, unit);
+    }
+}
+
+/// Compares the minimum and the maximum of the columns of the branch with the golden "columns"
+/// @p columns: those of the columns of kSteadyColumns (of a dropped stage without a recovery
+/// device: of kSteadyColumnsOfATumblingStage), each within kStableSummaryRelative of the scale
+/// of its column in the golden branch, which is the larger magnitude of the golden minimum and
+/// maximum. The extremes of the other columns are not compared: they are counted as excluded.
+/// (The columns themselves, their keys, names and symbols in order, are compared with the
+/// structure; a column that is not the golden one there is counted under no rule.)
+void compareDocumentExtremes(Mismatches& m, DocumentComparison& d, const json& columns,
+                             const DocumentBranch& ours)
+{
+    const std::vector<const FlightDataType*> types = csvTypes(*ours.branch);
+    for (std::size_t i = 0; i < columns.size(); i++)
+    {
+        const json&       column = columns.at(i);
+        const std::string key    = column.at("key").get<std::string>();
+        if (i >= types.size() || columnKey(*types[i]) != key)
+        {
+            d.c.excluded.numbers += 2;
+            continue;
+        }
+        const bool        steady    = hasSteadyExtremes(key, ours.plan.tumbles);
+        const double      goldenMin = goldenValue(column.at("min"));
+        const double      goldenMax = goldenValue(column.at("max"));
+        const double      scale     = referenceOf(0, goldenMin, goldenMax);
+        const std::string what =
+            std::format("{}{}:{}", steady ? "extreme" : "excluded extreme",
+                        ours.plan.tumbles ? " of a dropped stage under rule T" : "", key);
+        compareDocumentExtreme(m, d,
+                               {.field    = std::format("columns[{}].min ({})", i, key),
+                                .what     = what,
+                                .expected = goldenMin,
+                                .actual   = ours.branch->getMinimum(*types[i]),
+                                .scale    = scale},
+                               steady);
+        compareDocumentExtreme(m, d,
+                               {.field    = std::format("columns[{}].max ({})", i, key),
+                                .what     = what,
+                                .expected = goldenMax,
+                                .actual   = ours.branch->getMaximum(*types[i]),
+                                .scale    = scale},
+                               steady);
     }
 }
 
 /// Compares the numbers of the header of the branch with the golden branch @p expected: its
-/// number of rows, unless it is a dropped stage without a recovery device (rule T) or its run
-/// steps from the apogee otherwise than the golden run (rule E); its optimum altitude, the time
-/// to it and its optimum delay, unless rule T applies; and its separation time. The minimum and
-/// the maximum of its columns are not compared.
+/// number of rows, its optimum altitude, the time to it and its optimum delay, its separation
+/// time, and the minimum and the maximum of its steady columns (compareDocumentExtremes()).
+/// - Rule T, a dropped stage without a recovery device: its number of rows, the time to its
+///   optimum altitude and its optimum delay are not compared, and its optimum altitude, which
+///   is the altitude of its apogee after its separation, is compared at
+///   kTumblingAltitudeRelative.
+/// - Rule E, a branch whose run steps from the apogee otherwise than the golden run: the run
+///   has the row of the extra step more than the golden run, or less
+///   (ApogeeOutcome::extraRows()).
 void compareDocumentBranchHeader(Mismatches& m, DocumentComparison& d, const json& expected,
                                  const DocumentBranch& ours)
 {
-    const FlightDataBranch& branch = *ours.branch;
-    int                     before = d.c.excluded.numbers;
-    compareStableCount(m, d.c, "rows", expected.at("rows").get<std::int64_t>(),
-                       static_cast<std::int64_t>(branch.getLength()),
-                       !ours.plan.tumbles && ours.apogee.alike);
-    attribute(d, before, ours.plan.tumbles ? d.excluded.tumbling : d.excluded.apogee);
-    before                = d.c.excluded.numbers;
-    const double altitude = goldenValue(expected.at("optimumAltitude"));
-    const double unit     = referenceOf(0, altitude, branch.getOptimumAltitude());
+    const FlightDataBranch& branch  = *ours.branch;
+    const bool              tumbles = ours.plan.tumbles;
+    const std::int64_t      extra   = tumbles ? 0 : ours.apogee.extraRows();
+    int                     before  = d.c.excluded.numbers;
+    compareStableCount(m, d.c,
+                       extra == 0 ? "rows" : "rows, with the row of the extra step of rule E",
+                       expected.at("rows").get<std::int64_t>() + extra,
+                       static_cast<std::int64_t>(branch.getLength()), !tumbles);
+    attribute(d, before, d.excluded.tumbling);
+    d.otherGrid += extra != 0 ? 1 : 0;
+    const double altitude   = goldenValue(expected.at("optimumAltitude"));
+    const double unit       = referenceOf(0, altitude, branch.getOptimumAltitude());
+    const double ofAltitude = tumbles ? kTumblingAltitudeRelative : kStableSummaryRelative;
     compareStableNumber(m, d.c,
-                        {.field     = "optimumAltitude",
-                         .what      = "branch:optimumAltitude",
+                        {.field = "optimumAltitude",
+                         .what  = tumbles ? "branch of a dropped stage under rule T:optimumAltitude"
+                                          : "branch:optimumAltitude",
                          .expected  = altitude,
                          .actual    = branch.getOptimumAltitude(),
-                         .tolerance = kStableSummaryRelative * unit,
+                         .tolerance = ofAltitude * unit,
                          .unit      = unit},
-                        !ours.plan.tumbles);
+                        true);
+    const double timeToIt = goldenValue(expected.at("timeToOptimumAltitude"));
+    const double delay    = goldenValue(expected.at("optimumDelay"));
+    before                = d.c.excluded.numbers;
     compareStableNumber(m, d.c,
                         {.field     = "timeToOptimumAltitude",
                          .what      = "branch:timeToOptimumAltitude",
-                         .expected  = goldenValue(expected.at("timeToOptimumAltitude")),
+                         .expected  = timeToIt,
                          .actual    = branch.getTimeToOptimumAltitude(),
                          .tolerance = kStableTimeAbsolute,
                          .unit      = 1.0},
-                        !ours.plan.tumbles);
+                        !tumbles);
     compareStableNumber(m, d.c,
                         {.field     = "optimumDelay",
                          .what      = "branch:optimumDelay",
-                         .expected  = goldenValue(expected.at("optimumDelay")),
+                         .expected  = delay,
                          .actual    = branch.getOptimumDelay(),
                          .tolerance = kStableTimeAbsolute,
                          .unit      = 1.0},
-                        !ours.plan.tumbles);
+                        !tumbles);
     attribute(d, before, d.excluded.tumbling);
+    if (tumbles)
+    {
+        measureExcluded(d.c, "excluded by rule T: branch:timeToOptimumAltitude of a dropped stage",
+                        timeToIt, branch.getTimeToOptimumAltitude(), 1.0);
+        measureExcluded(d.c, "excluded by rule T: branch:optimumDelay of a dropped stage", delay,
+                        branch.getOptimumDelay(), 1.0);
+    }
     // The time of the STAGE_SEPARATION event (NaN without one): compared like that event's.
     const double separation = goldenValue(expected.at("separationTime"));
     const bool   late       = separation > ours.plan.lateFrom;
@@ -814,10 +1203,7 @@ void compareDocumentBranchHeader(Mismatches& m, DocumentComparison& d, const jso
          .tolerance = late ? kLateHandlingAbsolute : kStableTimeAbsolute,
          .unit      = 1.0},
         true);
-    // No minimum and no maximum of a column.
-    const int extremes = 2 * static_cast<int>(expected.at("columns").size());
-    d.c.excluded.numbers += extremes;
-    d.excluded.extremes += extremes;
+    compareDocumentExtremes(m, d, expected.at("columns"), ours);
 }
 
 /// The times of the events of @p branch, in the form of golden events (for firstLateHandling()).
@@ -833,13 +1219,18 @@ void compareDocumentBranchHeader(Mismatches& m, DocumentComparison& d, const jso
 
 /// Records, for the table of the measurements, what the rules read from the rows of the run:
 /// what its step to the apogee of an Euler stepper left of the vertical velocity, as a fraction
-/// of that of the row before, and whether it steps on as the golden run did (rule E); whether
-/// the first of its events without a row at its time is the one the golden run handled late
-/// (rule L); and by how many rows it differs from the golden run.
+/// of that of the row before, whether it steps on as the golden run did, and what the last step
+/// of its descent has over the extra step (rule E: the extra step moves the time grid of the
+/// descent by 1 ms, and the run has exactly its one row more as long as the last step, which
+/// ends on the ground, is longer than that on the grid without it); whether the first of its
+/// events without a row at its time is the one the golden run handled late (rule L); and by how
+/// many rows it differs from the golden run.
 void measureTheRows(const StableComparison& c, const json& expected, const DocumentBranch& ours,
                     std::size_t index)
 {
-    const std::string where = std::format("{} branch {}", c.context, index);
+    const std::string         where = std::format("{} branch {}", c.context, index);
+    const std::vector<double> times =
+        timeSeriesOf(*ours.branch).column("time").value_or(std::vector<double>{});
     if (ours.plan.shortApogeeStep.has_value())
     {
         c.measurements->record("rule E: the run steps from the apogee otherwise (1) or alike (0)",
@@ -851,8 +1242,15 @@ void measureTheRows(const StableComparison& c, const json& expected, const Docum
                                std::abs(ours.apogee.step.left / ours.apogee.step.before),
                                kApogeeResidual, where);
     }
-    const std::vector<double> times =
-        timeSeriesOf(*ours.branch).column("time").value_or(std::vector<double>{});
+    if (ours.plan.shortApogeeStep.has_value() && times.size() > 1)
+    {
+        // On the grid without the extra step the last step is 1 ms longer than on the other.
+        const double last = times.back() - times[times.size() - 2];
+        const double over = ours.apogee.step.isShort() ? last : last - kExtraStep;
+        c.measurements->record(
+            "rule E: the extra step / what the last step of the descent has over it",
+            over > 0 ? kExtraStep / over : std::numeric_limits<double>::infinity(), -1.0, where);
+    }
     const double late   = firstLateHandling(eventTimesOf(*ours.branch), times);
     const bool   golden = std::isfinite(ours.plan.lateFrom);
     const bool   same   = golden == std::isfinite(late) &&
@@ -869,7 +1267,9 @@ void measureTheRows(const StableComparison& c, const json& expected, const Docum
 /// What the comparison of a branch says of it to the comparison of its simulation.
 struct DocumentBranchOutcome
 {
-    bool toTheEnd{true};  ///< it is compared to its end (rules E and T leave nothing out)
+    /// Rule E: its run steps from the apogee otherwise than the golden run, so that its descent
+    /// is on the other time grid (ApogeeOutcome::otherGrid()).
+    bool otherGrid{false};
     bool tumbles{false};  ///< it is a dropped stage without a recovery device (rule T)
 };
 
@@ -902,7 +1302,8 @@ struct DocumentBranchOutcome
         measureTheRows(d.c, expected, ours, index);
     }
     d.c.report += m.report();
-    return {.toTheEnd = ours.apogee.alike && !ours.plan.tumbles, .tumbles = ours.plan.tumbles};
+    return {.otherGrid = ours.apogee.otherGrid() && !ours.plan.tumbles,
+            .tumbles   = ours.plan.tumbles};
 }
 
 /// The scale of column @p key of the first branch of the golden simulation @p document: the
@@ -926,14 +1327,14 @@ struct DocumentBranchOutcome
 }
 
 /// Compares the summary values of @p data with the golden "summary" of @p document; @p first is
-/// how the comparison of the first branch came out. The flight time and the ground hit velocity
-/// are compared when that branch is compared to its end: not when its run steps from the apogee
-/// otherwise than the golden run (rule E).
+/// how the comparison of the first branch came out. When the run of that branch steps from the
+/// apogee otherwise than the golden run (rule E), the two values that the end of its descent
+/// decides are those of a run on the other time grid: the flight time is compared at
+/// kOtherGridTimeAbsolute and the ground hit velocity at kOtherGridVelocityRelative of itself.
 void compareDocumentSummary(Mismatches& m, DocumentComparison& d, const json& document,
                             const FlightData& data, const DocumentBranchOutcome& first)
 {
     const json& expected = document.at("summary");
-    const int   before   = d.c.excluded.numbers;
     for (const StableSummaryValue& value : kStableSummaryValues)
     {
         const double goldenNumber = goldenValue(expected.at(value.key));
@@ -941,16 +1342,20 @@ void compareDocumentSummary(Mismatches& m, DocumentComparison& d, const json& do
         const double unit = value.time ? 1.0
                                        : referenceOf(scaleOfTheFirstBranch(document, value.column),
                                                      goldenNumber, actual);
+        const bool   otherGrid = first.otherGrid && value.extent != SummaryExtent::ANY;
+        const double ofTheOtherGrid =
+            value.time ? kOtherGridTimeAbsolute : kOtherGridVelocityRelative * unit;
         compareStableNumber(m, d.c,
-                            {.field     = std::string{value.key},
-                             .what      = std::format("summary:{}", value.key),
+                            {.field = std::string{value.key},
+                             .what = std::format("summary:{}{}", value.key,
+                                                 otherGrid ? " of a run that steps otherwise" : ""),
                              .expected  = goldenNumber,
                              .actual    = actual,
-                             .tolerance = value.tolerance * unit,
+                             .tolerance = otherGrid ? ofTheOtherGrid : value.tolerance * unit,
                              .unit      = unit},
-                            value.extent == SummaryExtent::ANY || first.toTheEnd);
+                            true);
+        d.otherGrid += otherGrid ? 1 : 0;
     }
-    attribute(d, before, d.excluded.apogee);
 }
 
 /// Compares the numbers of @p run with the document @p golden of its simulation in the
@@ -982,11 +1387,10 @@ void compareDocumentNumbers(DocumentComparison& d, const GoldenFiles& golden,
     // The number of jitter replacements is that of the force calculations of the Runge-Kutta
     // steppers: not reproducible when a dropped stage of the simulation flies on under them
     // without a recovery device (rule T).
-    Mismatches result(d.c.context + " result");
-    const int  before = d.c.excluded.numbers;
-    compareStableCount(result, d.c, "jitterReplacements",
-                       document.at("result").at("jitterReplacements").get<std::int64_t>(),
-                       run.jitterReplacements, !tumbles);
+    Mismatches         result(d.c.context + " result");
+    const int          before = d.c.excluded.numbers;
+    const std::int64_t jitter = document.at("result").at("jitterReplacements").get<std::int64_t>();
+    compareStableCount(result, d.c, "jitterReplacements", jitter, run.jitterReplacements, !tumbles);
     attribute(d, before, d.excluded.tumbling);
     d.c.report += result.report();
 
@@ -1002,16 +1406,20 @@ struct DocumentResult
     SimulationCounts excluded;    ///< what the rules exclude
     Exclusions       exclusions;  ///< the numbers among it, by rule
     int              unlike{0};   ///< rule E: the branches whose run steps otherwise
-    std::string      report;      ///< the mismatches, empty when everything matched
+    /// Rule E: the numbers compared as those of a run on the other time grid
+    /// (DocumentComparison::otherGrid).
+    int         otherGrid{0};
+    int         steadyExtremes{0};  ///< the minima and maxima of columns that were compared
+    std::string report;             ///< the mismatches, empty when everything matched
 };
 
 /// Compares @p run with the document @p golden of its simulation in the stable-step set: the
 /// structure (everything that is not a number of the trajectory, as compareSimulation()
-/// compares it, exactly), then the numbers.
-[[nodiscard]] DocumentResult compareDocumentSimulation(const GoldenFiles&   golden,
-                                                       const SimulationRun& run,
-                                                       const std::string&   context,
-                                                       StableMeasurements*  measurements = nullptr)
+/// compares it, exactly), then the numbers. @p steps: DocumentComparison::steps.
+[[nodiscard]] DocumentResult compareDocumentSimulation(
+    const GoldenFiles& golden, const SimulationRun& run, const std::string& context,
+    StableMeasurements*                     measurements = nullptr,
+    const std::vector<std::optional<bool>>* steps        = nullptr)
 {
     // The structure: compareSimulation() with nothing reproducible, so that it compares what
     // it compares in every simulation and no number of the trajectory.
@@ -1024,13 +1432,16 @@ struct DocumentResult
     DocumentComparison      d;
     d.c.context      = context;
     d.c.measurements = measurements;
+    d.steps          = steps;
     compareDocumentNumbers(d, golden, run);
 
-    DocumentResult result{.compared   = d.c.compared,
-                          .excluded   = d.c.excluded,
-                          .exclusions = d.excluded,
-                          .unlike     = d.unlike,
-                          .report     = structure.report + d.c.report};
+    DocumentResult result{.compared       = d.c.compared,
+                          .excluded       = d.c.excluded,
+                          .exclusions     = d.excluded,
+                          .unlike         = d.unlike,
+                          .otherGrid      = d.otherGrid,
+                          .steadyExtremes = d.steadyExtremes,
+                          .report         = structure.report + d.c.report};
     result.compared.simulations = structure.compared.simulations;
     result.compared.branches    = structure.compared.branches;
     result.compared.events      = structure.compared.events;
@@ -1062,8 +1473,7 @@ struct DocumentRun
 {
     DocumentRun             result;
     const GoldenSimulation& simulation = input.stableSimulations.at(index);
-    // The run first, whatever the files are: the simulations of a document are run in its
-    // order, each on the rocket the one before it left.
+    // The run first, whatever the files are: every simulation of a session is run, once.
     result.run = runDocumentSimulation(
         document, index, {.stableTimeStep = kStableTimeStep, .perturbation = nullptr});
     result.files = loadGoldenFiles(simulation);
@@ -1127,11 +1537,15 @@ struct ExampleSession
 
 /// The session of @p example with at least its first @p simulations simulations run (as many
 /// as it has, at most): made once per test process and kept, and a simulation is run when it
-/// is first asked for, after those before it (the harness runs the simulations of a design one
-/// after the other on the one rocket of its document, and so does a test).
+/// is first asked for, after those before it (a simulation of a document is run once: the run
+/// changes its options in place, see runDocumentSimulation()).
 [[nodiscard]] const ExampleSession& stableRuns(const GoldenExample& example,
                                                std::size_t          simulations)
 {
+    // The environment of the fixture first: the documents of the sessions point into it (their
+    // simulations keep its preference store), and what is made first is destroyed last when the
+    // process ends, so the sessions go before the environment they were loaded in.
+    static_cast<void>(goldenExampleEnvironment());
     static std::mutex                                         s_mutex;
     static std::map<std::string, ExampleSession, std::less<>> s_sessions;
     const std::scoped_lock                                    lock{s_mutex};
@@ -1155,10 +1569,11 @@ struct ExampleSession
     return stableRuns(example, std::numeric_limits<std::size_t>::max());
 }
 
-/// The numbers that rule E excludes of @p run, counted from its document and from its rows
-/// without the comparison: of every branch of the rule that steps from the apogee otherwise
-/// than its golden run, the number of rows and the times of the events after the APOGEE, and of
-/// a first branch the flight time and the ground hit velocity.
+/// The numbers of @p run that rule E has compared as those of a run on the other time grid,
+/// counted from its document and from its rows without the comparison: of every branch of the
+/// rule that steps from the apogee otherwise than its golden run, the number of rows and the
+/// times of the events after the APOGEE, and of a first branch the flight time and the ground
+/// hit velocity.
 [[nodiscard]] int numbersOfTheOtherSteps(const DocumentRun& run)
 {
     int         numbers  = 0;
@@ -1168,15 +1583,35 @@ struct ExampleSession
          i++)
     {
         const DocumentPlan plan = documentPlan(run.files.document, i);
-        if (apogeeOutcome(plan.shortApogeeStep, run.run.data->getBranch(i)).alike)
+        if (!apogeeOutcome(plan.shortApogeeStep, run.run.data->getBranch(i)).otherGrid())
         {
             continue;
         }
         const std::vector<const json*> events =
             orderedGoldenEvents(branches.at(i).at("events"), false);
-        numbers += 1 + numbersFrom(events, placeOfTheApogee(events) + 1) + (i == 0 ? 2 : 0);
+        numbers += 1 + eventsAfter(events, placeOfTheApogee(events)) + (i == 0 ? 2 : 0);
     }
     return numbers;
+}
+
+/// Rule E: the steps that @p run takes from the apogees of its branches, in the form of
+/// DocumentComparison::steps; nullopt for a branch that the rule does not list.
+[[nodiscard]] std::vector<std::optional<bool>> apogeeStepsOf(const DocumentRun& run)
+{
+    std::vector<std::optional<bool>> steps;
+    const std::size_t                branches =
+        std::min(run.files.document.at("branches").size(), run.run.data->getBranchCount());
+    steps.reserve(branches);
+    for (std::size_t i = 0; i < branches; i++)
+    {
+        const DocumentPlan plan = documentPlan(run.files.document, i);
+        steps.push_back(plan.shortApogeeStep.has_value()
+                            ? std::optional<bool>{apogeeOutcome(plan.shortApogeeStep,
+                                                                run.run.data->getBranch(i))
+                                                      .step.isShort()}
+                            : std::nullopt);
+    }
+    return steps;
 }
 
 /// What the stable simulations of one example hold, and what their comparison compared and
@@ -1189,7 +1624,9 @@ struct ExampleResult
     SimulationCounts excluded;
     Exclusions       exclusions;
     int              unlike{0};
-    int              otherSteps{0};  ///< numbersOfTheOtherSteps() of the runs
+    int              otherGrid{0};       ///< DocumentResult::otherGrid of the runs
+    int              otherSteps{0};      ///< numbersOfTheOtherSteps() of the runs
+    int              steadyExtremes{0};  ///< DocumentResult::steadyExtremes of the runs
     std::string      report;
 };
 
@@ -1213,19 +1650,22 @@ struct ExampleResult
         result.excluded += run.comparison.excluded;
         result.exclusions += run.comparison.exclusions;
         result.unlike += run.comparison.unlike;
+        result.otherGrid += run.comparison.otherGrid;
         result.otherSteps += numbersOfTheOtherSteps(run);
+        result.steadyExtremes += run.comparison.steadyExtremes;
         result.report += run.comparison.report;
     }
     return result;
 }
 
 /// What the stable-step documents of an example hold and what the rules decide of them, counted
-/// from the files alone (tier9d-stable-step/scripts/coverage.py): the simulations, their
-/// branches and events and the numbers outside the time series (goldenCounts()); of the numbers
-/// the minima and maxima of the columns, which are not compared; those rule T excludes; the
-/// golden TUMBLE events that the structure leaves out with it; and the most that rule E can
-/// exclude, when every listed branch of the example steps otherwise than its golden run (5
-/// numbers of a first branch, 3 of a later one).
+/// from the files alone (tier9d-fix-simulation-goldens/scripts/coverage.py): the simulations,
+/// their branches and events and the numbers outside the time series (goldenCounts()); of the
+/// numbers the minima and maxima of the steady columns, which are compared, and those of the
+/// other columns, which are not; those rule T excludes; the golden TUMBLE events that the
+/// structure leaves out with it; and the most that rule E can compare as numbers of a run on the
+/// other time grid, when every listed branch of the example steps otherwise than its golden run
+/// (5 numbers of a first branch, 3 of a later one).
 struct ExampleDocuments
 {
     std::string_view input;
@@ -1233,6 +1673,7 @@ struct ExampleDocuments
     int              branches;
     int              events;
     int              numbers;
+    int              steady;
     int              extremes;
     int              tumbling;
     int              tumbles;
@@ -1241,22 +1682,22 @@ struct ExampleDocuments
 
 // clang-format off
 constexpr std::array<ExampleDocuments, 16> kExampleDocuments{{
-    {.input = "example-3d-printable-nose-cone-and-fins", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .extremes = 700, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
-    {.input = "example-a-simple-model-rocket", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .extremes = 700, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
-    {.input = "example-airstart-timing", .simulations = 5, .branches = 5, .events = 65, .numbers = 855, .extremes = 700, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-arc-payload-rocket", .simulations = 1, .branches = 2, .events = 19, .numbers = 320, .extremes = 280, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-chute-release", .simulations = 2, .branches = 2, .events = 22, .numbers = 334, .extremes = 280, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-clustered-motors", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .extremes = 700, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
-    {.input = "example-deployable-payload", .simulations = 5, .branches = 10, .events = 94, .numbers = 1603, .extremes = 1400, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 16},
-    {.input = "example-dual-parachute-deployment", .simulations = 6, .branches = 6, .events = 67, .numbers = 1015, .extremes = 840, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-parallel-booster-staging", .simulations = 2, .branches = 3, .events = 32, .numbers = 489, .extremes = 420, .tumbling = 9, .tumbles = 1, .apogeeAtMost = 0},
-    {.input = "example-pods-airframes-and-winglets", .simulations = 5, .branches = 5, .events = 50, .numbers = 830, .extremes = 700, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-pods-powered-with-recovery-deployment", .simulations = 1, .branches = 1, .events = 12, .numbers = 168, .extremes = 140, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 5},
-    {.input = "example-simulation-extensions", .simulations = 3, .branches = 3, .events = 31, .numbers = 503, .extremes = 424, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-simulation-scripting", .simulations = 3, .branches = 3, .events = 30, .numbers = 498, .extremes = 420, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-three-stage-low-power-rocket", .simulations = 3, .branches = 9, .events = 102, .numbers = 1440, .extremes = 1260, .tumbling = 51, .tumbles = 6, .apogeeAtMost = 10},
-    {.input = "example-tube-fin-rocket", .simulations = 1, .branches = 1, .events = 11, .numbers = 167, .extremes = 140, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
-    {.input = "example-two-stage-high-power-rocket", .simulations = 2, .branches = 4, .events = 46, .numbers = 648, .extremes = 560, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-3d-printable-nose-cone-and-fins", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .steady = 220, .extremes = 480, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
+    {.input = "example-a-simple-model-rocket", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .steady = 220, .extremes = 480, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
+    {.input = "example-airstart-timing", .simulations = 5, .branches = 5, .events = 65, .numbers = 855, .steady = 220, .extremes = 480, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-arc-payload-rocket", .simulations = 1, .branches = 2, .events = 19, .numbers = 320, .steady = 88, .extremes = 192, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-chute-release", .simulations = 2, .branches = 2, .events = 22, .numbers = 334, .steady = 88, .extremes = 192, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-clustered-motors", .simulations = 5, .branches = 5, .events = 51, .numbers = 833, .steady = 220, .extremes = 480, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 15},
+    {.input = "example-deployable-payload", .simulations = 5, .branches = 10, .events = 94, .numbers = 1603, .steady = 440, .extremes = 960, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 16},
+    {.input = "example-dual-parachute-deployment", .simulations = 6, .branches = 6, .events = 67, .numbers = 1015, .steady = 264, .extremes = 576, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-parallel-booster-staging", .simulations = 2, .branches = 3, .events = 32, .numbers = 489, .steady = 128, .extremes = 292, .tumbling = 8, .tumbles = 1, .apogeeAtMost = 0},
+    {.input = "example-pods-airframes-and-winglets", .simulations = 5, .branches = 5, .events = 50, .numbers = 830, .steady = 220, .extremes = 480, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-pods-powered-with-recovery-deployment", .simulations = 1, .branches = 1, .events = 12, .numbers = 168, .steady = 44, .extremes = 96, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 5},
+    {.input = "example-simulation-extensions", .simulations = 3, .branches = 3, .events = 31, .numbers = 503, .steady = 136, .extremes = 288, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-simulation-scripting", .simulations = 3, .branches = 3, .events = 30, .numbers = 498, .steady = 132, .extremes = 288, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-three-stage-low-power-rocket", .simulations = 3, .branches = 9, .events = 102, .numbers = 1440, .steady = 372, .extremes = 888, .tumbling = 45, .tumbles = 6, .apogeeAtMost = 10},
+    {.input = "example-tube-fin-rocket", .simulations = 1, .branches = 1, .events = 11, .numbers = 167, .steady = 44, .extremes = 96, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
+    {.input = "example-two-stage-high-power-rocket", .simulations = 2, .branches = 4, .events = 46, .numbers = 648, .steady = 176, .extremes = 384, .tumbling = 0, .tumbles = 0, .apogeeAtMost = 0},
 }};
 // clang-format on
 
@@ -1271,6 +1712,7 @@ constexpr std::array<ExampleDocuments, 16> kExampleDocuments{{
                                                  .branches     = 0,
                                                  .events       = 0,
                                                  .numbers      = 0,
+                                                 .steady       = 0,
                                                  .extremes     = 0,
                                                  .tumbling     = 0,
                                                  .tumbles      = 0,
@@ -1305,18 +1747,20 @@ TEST_P(ExampleSimulationStableGolden, EverySimulationOfTheExampleOverItsWholeFli
     EXPECT_EQ(result.excluded.simulations + result.excluded.branches + result.excluded.columns +
                   result.excluded.warnings,
               0);
-    // The numbers the rules exclude: the minima and maxima and what rule T excludes, which the
-    // files alone decide, and what rule E excludes in this run, which is at most what is pinned.
+    // The numbers the rules exclude are those the files alone decide: the minima and maxima of
+    // the columns that are not steady, and what rule T excludes. Every other number was
+    // compared, on every platform, the minima and maxima of the steady columns among them.
     EXPECT_EQ(result.excluded.numbers, result.exclusions.total()) << result.exclusions;
     EXPECT_EQ(result.exclusions.extremes, pinned.extremes);
     EXPECT_EQ(result.exclusions.tumbling, pinned.tumbling);
-    EXPECT_LE(result.exclusions.apogee, pinned.apogeeAtMost);
-    EXPECT_EQ(result.exclusions.apogee, result.otherSteps)
-        << "what rule E excluded, and what the rows of the runs say it may: " << result.unlike
-        << " branches step from the apogee otherwise than their golden runs";
-    // The floor: what is compared on every platform, whatever the apogee steps do.
-    EXPECT_GE(result.compared.numbers,
-              pinned.numbers - pinned.extremes - pinned.tumbling - pinned.apogeeAtMost);
+    EXPECT_EQ(result.steadyExtremes, pinned.steady);
+    EXPECT_EQ(result.compared.numbers, pinned.numbers - pinned.extremes - pinned.tumbling);
+    // Rule E: what was compared as numbers of a run on the other time grid is what the rows of
+    // the runs say may be, and at most what is pinned.
+    EXPECT_LE(result.otherGrid, pinned.apogeeAtMost);
+    EXPECT_EQ(result.otherGrid, result.otherSteps)
+        << "what rule E compared on the other grid, and what the rows of the runs say it may: "
+        << result.unlike << " branches step from the apogee otherwise than their golden runs";
 }
 
 INSTANTIATE_TEST_SUITE_P(Examples, ExampleSimulationStableGolden,
@@ -1360,6 +1804,7 @@ struct MeasuredExamples
     SimulationCounts   excluded;
     Exclusions         exclusions;
     int                unlike{0};
+    int                otherGrid{0};  ///< DocumentResult::otherGrid of the runs
     std::string        report;
 };
 
@@ -1381,6 +1826,7 @@ void measure(MeasuredExamples& measured, const GoldenExample& example)
         measured.excluded += result.excluded;
         measured.exclusions += result.exclusions;
         measured.unlike += result.unlike;
+        measured.otherGrid += result.otherGrid;
         measured.report += result.report;
         const std::string apogees = run.run.data != nullptr ? apogeeText(run) : std::string{};
         measured.apogees +=
@@ -1404,15 +1850,17 @@ void measure(MeasuredExamples& measured, const GoldenExample& example)
 /// over every simulation of every example, and, for information, what the rules read from the
 /// rows of the runs (measureTheRows()): the number of values, the largest difference (of a
 /// value: as a fraction of its scale; of a time: in s), that difference as a multiple of its
-/// tolerance, and where it is. Disabled; run it with --gtest_also_run_disabled_tests (under a
-/// libm of another platform, or the one-ulp shim, to see what the tolerances have to cover
-/// there: tier9d-stable-step/scripts/patterns.py).
+/// tolerance, and where it is; a line that starts with "excluded" is of numbers that are not
+/// compared (the minimum and the maximum of a column that is not steady). Disabled; run it with
+/// --gtest_also_run_disabled_tests (under a libm of another platform, or the one-ulp shim, to
+/// see what the tolerances have to cover there: tier9d-stable-step/scripts/patterns.py).
 TEST(ExampleSimulationStableGoldenMeasurement, DISABLED_PrintsTheDifferencesFromTheGoldenFiles)
 {
     const MeasuredExamples measured = measuredExamples();
     std::cout << "compared: " << measured.compared << "\nexcluded: " << measured.excluded
               << "\nof them " << measured.exclusions << "; " << measured.unlike
-              << " branches step from the apogee otherwise than the golden run\n"
+              << " branches step from the apogee otherwise than the golden run, with "
+              << measured.otherGrid << " numbers compared as those of the other time grid\n"
               << "The steps from the apogee of an Euler stepper (rule E):\n"
               << measured.apogees
               << "what\tvalues\tlargest difference\t... as a multiple of its tolerance\twhere\n"
@@ -1442,6 +1890,14 @@ struct RuleCounts
     /// The branches whose document shows a late handling by itself: a recovery device deployed
     /// at the apogee (deploymentAtTheApogee()).
     int deploymentsAtTheApogee{0};
+    /// Rule T: the numbers of the dropped stages without a recovery device that are compared at
+    /// the tolerance of the rule: their optimum altitudes.
+    int tumblingCompared{0};
+    /// Rule E: the most numbers that can be compared as those of a run on the other time grid,
+    /// when every listed branch steps otherwise than its golden run.
+    int otherGridAtMost{0};
+    /// The minima and maxima of the steady columns, which are compared.
+    int steadyExtremes{0};
 
     [[nodiscard]] bool operator==(const RuleCounts&) const = default;
 
@@ -1453,6 +1909,9 @@ struct RuleCounts
         lateHandlings += other.lateHandlings;
         lateTimes += other.lateTimes;
         deploymentsAtTheApogee += other.deploymentsAtTheApogee;
+        tumblingCompared += other.tumblingCompared;
+        otherGridAtMost += other.otherGridAtMost;
+        steadyExtremes += other.steadyExtremes;
         return *this;
     }
 };
@@ -1461,10 +1920,13 @@ struct RuleCounts
 std::ostream& operator<<(std::ostream& out, const RuleCounts& counts)
 {
     return out << std::format(
-               "{} branches of rule T; {} of rule E, {} with the short step in the golden run; "
-               "{} of rule L with {} times at its tolerance; {} deployments at the apogee",
-               counts.tumblingStages, counts.eulerApogees, counts.shortSteps, counts.lateHandlings,
-               counts.lateTimes, counts.deploymentsAtTheApogee);
+               "{} branches of rule T with {} numbers at its tolerance; {} of rule E, {} with "
+               "the short step in the golden run, with {} numbers on the other grid at most; "
+               "{} of rule L with {} times at its tolerance; {} deployments at the apogee; "
+               "{} extremes of steady columns",
+               counts.tumblingStages, counts.tumblingCompared, counts.eulerApogees,
+               counts.shortSteps, counts.otherGridAtMost, counts.lateHandlings, counts.lateTimes,
+               counts.deploymentsAtTheApogee, counts.steadyExtremes);
 }
 
 /// The type of the golden event @p event.
@@ -1600,7 +2062,7 @@ struct BranchOfADocument
 struct DocumentCounts
 {
     SimulationCounts golden;      ///< goldenCounts()
-    Exclusions       atMost;      ///< what the rules exclude, rule E in every branch it lists
+    Exclusions       excluded;    ///< what the rules exclude
     int              tumbles{0};  ///< the golden TUMBLE events that the structure leaves out
     RuleCounts       rules;
     std::string      problems;  ///< what is wrong with the lists of the rules
@@ -1608,7 +2070,7 @@ struct DocumentCounts
     DocumentCounts& operator+=(const DocumentCounts& other)
     {
         golden += other.golden;
-        atMost += other.atMost;
+        excluded += other.excluded;
         tumbles += other.tumbles;
         rules += other.rules;
         problems += other.problems;
@@ -1628,11 +2090,13 @@ void countTheTumbling(DocumentCounts& counts, const DocumentPlan& plan,
     const std::size_t flown = eventsUpToTheLastSeparation(
         events, [](const json* event) { return isOfType(event, "STAGE_SEPARATION"); });
     counts.rules.tumblingStages++;
-    // The rows, the optimum altitude, the time to it and the optimum delay; the later events.
-    counts.atMost.tumbling += 4 + numbersFrom(events, flown);
+    // Not compared: the rows, the time to the optimum altitude and the optimum delay, and the
+    // later events. Compared at the tolerance of the rule: the optimum altitude.
+    const std::span<const json* const> after = std::span<const json* const>{events}.subspan(flown);
+    counts.excluded.tumbling += 3 + numbersFrom(events, flown);
+    counts.rules.tumblingCompared += 1;
     counts.tumbles += static_cast<int>(
-        std::ranges::count_if(std::span{events}.subspan(flown),
-                              [](const json* event) { return isOfType(event, "TUMBLE"); }));
+        std::ranges::count_if(after, [](const json* event) { return isOfType(event, "TUMBLE"); }));
 }
 
 /// Adds what rules E and L decide of the golden branch @p branch (branch @p index of its
@@ -1648,8 +2112,8 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
         counts.rules.shortSteps += plan.shortApogeeStep.value_or(false) ? 1 : 0;
         // The rows and the events after the APOGEE; of a first branch, the flight time and the
         // ground hit velocity.
-        counts.atMost.apogee +=
-            1 + numbersFrom(events, placeOfTheApogee(events) + 1) + (branch.index == 0 ? 2 : 0);
+        counts.rules.otherGridAtMost +=
+            1 + eventsAfter(events, placeOfTheApogee(events)) + (branch.index == 0 ? 2 : 0);
     }
     if (!std::isfinite(plan.lateFrom))
     {
@@ -1666,6 +2130,18 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
         [&plan](const json* event) { return goldenValue(event->at("time")) > plan.lateFrom; }));
     counts.rules.lateTimes +=
         goldenValue(branch.branch->at("separationTime")) > plan.lateFrom ? 1 : 0;
+}
+
+/// The number of the minima and maxima of the golden branch @p branch that are compared: two
+/// per steady column (hasSteadyExtremes()); @p tumbles: whether rule T applies to the branch.
+[[nodiscard]] int steadyExtremesOf(const json& branch, bool tumbles)
+{
+    int extremes = 0;
+    for (const json& column : branch.at("columns"))
+    {
+        extremes += hasSteadyExtremes(column.at("key").get<std::string>(), tumbles) ? 2 : 0;
+    }
+    return extremes;
 }
 
 /// What the document of the golden simulation @p files holds and what the rules decide of it.
@@ -1685,7 +2161,10 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
         const DocumentPlan      plan = documentPlan(document, i);
         const std::vector<const json*> events =
             orderedGoldenEvents(branch.branch->at("events"), false);
-        counts.atMost.extremes += 2 * static_cast<int>(branch.branch->at("columns").size());
+        const int steady = steadyExtremesOf(*branch.branch, plan.tumbles);
+        counts.rules.steadyExtremes += steady;
+        counts.excluded.extremes +=
+            (2 * static_cast<int>(branch.branch->at("columns").size())) - steady;
         countTheTumbling(counts, plan, events);
         countTheApogeeAndTheLateHandling(counts, plan, branch, events);
         counts.rules.deploymentsAtTheApogee +=
@@ -1694,7 +2173,7 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
             tumblingListProblem(branch) + apogeeListProblem(branch) + lateListProblem(branch);
         tumbles = tumbles || plan.tumbles;
     }
-    counts.atMost.tumbling += tumbles ? 1 : 0;  // the jitter replacements of the simulation
+    counts.excluded.tumbling += tumbles ? 1 : 0;  // the jitter replacements of the simulation
     return counts;
 }
 
@@ -1706,16 +2185,18 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
     const bool             same =
         pinned.simulations == counts.golden.simulations &&
         pinned.branches == counts.golden.branches && pinned.events == counts.golden.events &&
-        pinned.numbers == counts.golden.numbers && pinned.extremes == counts.atMost.extremes &&
-        pinned.tumbling == counts.atMost.tumbling && pinned.tumbles == counts.tumbles &&
-        pinned.apogeeAtMost == counts.atMost.apogee;
+        pinned.numbers == counts.golden.numbers && pinned.steady == counts.rules.steadyExtremes &&
+        pinned.extremes == counts.excluded.extremes &&
+        pinned.tumbling == counts.excluded.tumbling && pinned.tumbles == counts.tumbles &&
+        pinned.apogeeAtMost == counts.rules.otherGridAtMost;
     return same ? std::string{}
                 : std::format(
                       "{}: the documents hold {} simulations, {} branches, {} events and "
-                      "{} numbers, of which {}, with {} TUMBLE events left out\n",
+                      "{} numbers, of which {} are extremes of steady columns and the rules "
+                      "exclude {}, with {} TUMBLE events left out; rule E has {} numbers at most\n",
                       input.name, counts.golden.simulations, counts.golden.branches,
-                      counts.golden.events, counts.golden.numbers, toText(counts.atMost),
-                      counts.tumbles);
+                      counts.golden.events, counts.golden.numbers, counts.rules.steadyExtremes,
+                      toText(counts.excluded), counts.tumbles, counts.rules.otherGridAtMost);
 }
 
 /// What the stable-step documents of the examples hold and what the rules decide of them, read
@@ -1803,28 +2284,38 @@ TEST(ExampleSimulationStableGoldenCoverage, EveryDocumentOfTheExamplesIsOfAnExam
                                                .numbers     = 11369,
                                                .rows        = 0,
                                                .values      = 0}));
-    // Of the 11369 numbers: 9664 are the minimum and the maximum of a column, which are not
-    // compared; 60 are those of rule T (of each of the 7 dropped stages without a recovery
-    // device its rows, three optimum values and four later events, and the jitter replacements
-    // of their 4 simulations), with whose 7 TUMBLE events the structure deals; and rule E can
-    // exclude 76 (of each of its 16 branches the rows, the GROUND_HIT and the SIMULATION_END,
-    // and of the 14 first ones the flight time and the ground hit velocity). So 1645 numbers
-    // are compared at most, and 1569 on every platform: the floor.
-    EXPECT_EQ(counts.atMost, (Exclusions{.extremes = 9664, .tumbling = 60, .apogee = 76}))
-        << counts.atMost;
+    // Of the 11369 numbers, 9664 are the minimum and the maximum of a column: 3012 of them are
+    // of a steady column and are compared (22 columns in each of the 62 branches under no rule
+    // T, the fin cant of the roll control in two of them, and 20 columns in each of the 7
+    // branches of the rule), and 6652 are not. Rule T excludes 53 more (of each of the 7
+    // dropped stages without a recovery device its rows, the time to its optimum altitude, its
+    // optimum delay and its four events after its separation, and the jitter replacements of
+    // their 4 simulations), with whose 7 TUMBLE events the structure deals. So 4664 numbers are
+    // compared, on every platform.
+    EXPECT_EQ(counts.excluded, (Exclusions{.extremes = 6652, .tumbling = 53})) << counts.excluded;
+    EXPECT_EQ(counts.golden.numbers - counts.excluded.total(), 4664);
     EXPECT_EQ(counts.tumbles, 7);
     // The lists of the rules, which the documents bear out as far as they can (the problems
-    // above): 7 branches of rule T; 16 of rule E, in 2 of which the golden run took the extra
-    // step; 26 of rule L, after whose late handlings 110 times are compared at 1 ms (106 of
-    // events, 4 of separations); 21 branches show a late handling by themselves, a deployment
-    // 1 ms after the apogee, which is the first late handling of 19.
+    // above): 7 branches of rule T, whose 7 optimum altitudes are compared at the tolerance of
+    // the rule; 16 of rule E, in 2 of which the
+    // golden run took the extra step, and of which 76 numbers at most are compared as those of
+    // a run on the other time grid (of each the rows, the GROUND_HIT and the SIMULATION_END,
+    // and of the 14 first ones the flight time and the ground hit velocity); 26 of rule L,
+    // after whose late handlings 110 times are compared at 1 ms (106 of events, 4 of
+    // separations); 21 branches show a late handling by themselves, a deployment 1 ms after
+    // the apogee, which is the first late handling of 19.
     EXPECT_EQ(counts.rules, (RuleCounts{.tumblingStages         = 7,
                                         .eulerApogees           = 16,
                                         .shortSteps             = 2,
                                         .lateHandlings          = 26,
                                         .lateTimes              = 110,
-                                        .deploymentsAtTheApogee = 21}))
+                                        .deploymentsAtTheApogee = 21,
+                                        .tumblingCompared       = 7,
+                                        .otherGridAtMost        = 76,
+                                        .steadyExtremes         = 3012}))
         << counts.rules;
+    EXPECT_EQ(kSteadyColumns.size(), 23U);
+    EXPECT_EQ(kSteadyColumnsOfATumblingStage.size(), 20U);
     EXPECT_EQ(kTumblingStages.size(), 7U);
     EXPECT_EQ(kEulerApogees.size(), 16U);
     EXPECT_EQ(kLateHandlings.size(), 26U);
@@ -1855,6 +2346,28 @@ void shiftByTheScale(GoldenFiles& files, std::string_view pointer, double relati
 {
     shift(files, pointer, relative * scaleOfTheFirstBranch(files.document, column));
 }
+
+/// Adds @p relative times the scale of column @p column of branch @p branch (the larger
+/// magnitude of its golden minimum and maximum) to its minimum or maximum (@p extreme: "min" or
+/// "max"): a change by that many of the units that an extreme is compared in.
+void shiftAnExtreme(GoldenFiles& files, std::size_t branch, std::size_t column,
+                    std::string_view extreme, double relative)
+{
+    const json&  golden = files.document.at("branches").at(branch).at("columns").at(column);
+    const double scale =
+        referenceOf(0, goldenValue(golden.at("min")), goldenValue(golden.at("max")));
+    shift(files, std::format("/branches/{}/columns/{}/{}", branch, column, extreme),
+          relative * scale);
+}
+
+/// The places of columns among the 70 of a branch of the examples: the mass, the centre of
+/// gravity and the thrust, which are steady, and the time and the vertical velocity, which are
+/// not (the mutations name each by its key in the line they expect).
+constexpr std::size_t kTimeColumn     = 0;
+constexpr std::size_t kVelocityColumn = 3;
+constexpr std::size_t kMassColumn     = 26;
+constexpr std::size_t kCgColumn       = 32;
+constexpr std::size_t kThrustColumn   = 36;
 
 /// The changes to the settings and to the structure of the flight under no rule.
 [[nodiscard]] std::vector<Mutation> structureMutations()
@@ -2054,6 +2567,30 @@ void shiftByTheScale(GoldenFiles& files, std::string_view pointer, double relati
              },
          .heading = " branch 0",
          .line    = "  optimumDelay: expected "},
+        {.name    = "MinimumOfTheMass",
+         .subject = kPlainFlight,
+         .apply =
+             [](GoldenFiles& files) {
+                 shiftAnExtreme(files, 0, kMassColumn, "min", kBeyond * kStableSummaryRelative);
+             },
+         .heading = " branch 0",
+         .line    = "  columns[26].min (mass): expected "},
+        {.name    = "MaximumOfTheCentreOfGravity",
+         .subject = kPlainFlight,
+         .apply =
+             [](GoldenFiles& files) {
+                 shiftAnExtreme(files, 0, kCgColumn, "max", -kBeyond * kStableSummaryRelative);
+             },
+         .heading = " branch 0",
+         .line    = "  columns[32].max (cg_location): expected "},
+        {.name    = "MaximumOfTheThrust",
+         .subject = kPlainFlight,
+         .apply =
+             [](GoldenFiles& files) {
+                 shiftAnExtreme(files, 0, kThrustColumn, "max", kBeyond * kStableSummaryRelative);
+             },
+         .heading = " branch 0",
+         .line    = "  columns[36].max (thrust_force): expected "},
     };
 }
 
@@ -2167,6 +2704,23 @@ void shiftByTheScale(GoldenFiles& files, std::string_view pointer, double relati
              },
          .heading = " branch 0",
          .line    = "  events[9].time: expected "},
+        // Rule T: what is compared of a dropped stage after its separation.
+        {.name    = "OptimumAltitudeOfADroppedStage",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 scale(files, "/branches/2/optimumAltitude", kBeyond * kTumblingAltitudeRelative);
+             },
+         .heading = " branch 2",
+         .line    = "  optimumAltitude: expected "},
+        {.name    = "MaximumOfTheMassOfADroppedStage",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shiftAnExtreme(files, 2, kMassColumn, "max", kBeyond * kStableSummaryRelative);
+             },
+         .heading = " branch 2",
+         .line    = "  columns[26].max (mass): expected "},
     };
 }
 
@@ -2233,6 +2787,22 @@ void shiftByTheScale(GoldenFiles& files, std::string_view pointer, double relati
     return compareDocumentSimulation(files, run.run, run.context);
 }
 
+/// What is wrong with the report @p report of the mutation @p mutation of the simulation whose
+/// context is @p context: "" when it is the heading and the one line that name the change.
+[[nodiscard]] std::string oneLineProblem(const Mutation& mutation, const std::string& context,
+                                         const std::string& report)
+{
+    const std::string start = std::format("{}{}:\n{}", context, mutation.heading, mutation.line);
+    if (!report.starts_with(start))
+    {
+        return std::format("{}: the report\n{}\ndoes not start with\n{}\n", mutation.name, report,
+                           start);
+    }
+    return std::ranges::count(report, '\n') == 2
+               ? std::string{}
+               : std::format("{}: the report is not one line:\n{}\n", mutation.name, report);
+}
+
 /// What is wrong with the reports of the mutations of the simulation @p subject, each named;
 /// "" when every one is reported in the heading and the one line that name the change.
 [[nodiscard]] std::string mutationProblems(const Subject& subject)
@@ -2245,18 +2815,8 @@ void shiftByTheScale(GoldenFiles& files, std::string_view pointer, double relati
     std::string problems;
     for (const Mutation& mutation : mutationsOf(subject))
     {
-        const std::string report = comparisonAfter(*run, mutation.apply).report;
-        const std::string start =
-            std::format("{}{}:\n{}", run->context, mutation.heading, mutation.line);
-        if (!report.starts_with(start))
-        {
-            problems += std::format("{}: the report\n{}\ndoes not start with\n{}\n", mutation.name,
-                                    report, start);
-        }
-        else if (std::ranges::count(report, '\n') != 2)
-        {
-            problems += std::format("{}: the report is not one line:\n{}\n", mutation.name, report);
-        }
+        problems +=
+            oneLineProblem(mutation, run->context, comparisonAfter(*run, mutation.apply).report);
     }
     return problems;
 }
@@ -2278,6 +2838,9 @@ void changeThePlainFlightWithinTheTolerances(GoldenFiles& files)
     shift(files, "/branches/0/optimumDelay", kWithin * kStableTimeAbsolute);
     shift(files, "/branches/0/events/5/time", kWithin * kStableTimeAbsolute);
     shift(files, "/branches/0/events/8/time", -kWithin * kStableTimeAbsolute);
+    shiftAnExtreme(files, 0, kMassColumn, "min", kWithin * kStableSummaryRelative);
+    shiftAnExtreme(files, 0, kCgColumn, "max", -kWithin * kStableSummaryRelative);
+    shiftAnExtreme(files, 0, kThrustColumn, "max", kWithin * kStableSummaryRelative);
 }
 
 /// Changes within the tolerances to the flight with the two deployments: the speed of its
@@ -2291,6 +2854,16 @@ void changeTheDualDeploymentWithinTheTolerances(GoldenFiles& files)
     shift(files, "/branches/0/events/8/time", -kBeyond * kStableTimeAbsolute);
 }
 
+/// Changes within the tolerances to the three-stage rocket: of its first booster, a dropped
+/// stage without a recovery device (rule T), the optimum altitude by a quarter of the tolerance
+/// of the rule, which is five thousand times the tolerance of an optimum altitude under no
+/// rule; and an extreme of a steady column of it.
+void changeTheThreeStagesWithinTheTolerances(GoldenFiles& files)
+{
+    scale(files, "/branches/2/optimumAltitude", kWithin * kTumblingAltitudeRelative);
+    shiftAnExtreme(files, 2, kMassColumn, "max", kWithin * kStableSummaryRelative);
+}
+
 /// A simulation that the mutations change, with the changes within the tolerances that go with
 /// it (null: none).
 constexpr std::array<SubjectCase, 3> kSubjectCases{{
@@ -2300,7 +2873,9 @@ constexpr std::array<SubjectCase, 3> kSubjectCases{{
     {.name                = "TheFlightWithTwoDeployments",
      .subject             = kDualDeployment,
      .withinTheTolerances = changeTheDualDeploymentWithinTheTolerances},
-    {.name = "TheThreeStages", .subject = kThreeStages, .withinTheTolerances = nullptr},
+    {.name                = "TheThreeStages",
+     .subject             = kThreeStages,
+     .withinTheTolerances = changeTheThreeStagesWithinTheTolerances},
 }};
 
 /// The golden values of one simulation of the stable-step set of an example, changed one at a
@@ -2340,7 +2915,7 @@ INSTANTIATE_TEST_SUITE_P(Changes, ExampleSimulationStableGoldenMutation,
 TEST(ExampleSimulationStableGoldenMutations, EveryMutationBelongsToASimulationOfTheTests)
 {
     const std::vector<Mutation> all = mutations();
-    EXPECT_EQ(all.size(), 39U);
+    EXPECT_EQ(all.size(), 44U);
     std::size_t covered = 0;
     for (const SubjectCase& subjectCase : kSubjectCases)
     {
@@ -2352,19 +2927,20 @@ TEST(ExampleSimulationStableGoldenMutations, EveryMutationBelongsToASimulationOf
 }
 
 /// Changes to what the rules exclude in "Simulation 1" of the three-stage rocket: the minimum
-/// and the maximum of columns, of the sustainer too; and of its two boosters (rule T) what
-/// follows their separations: the number of rows, the optimum values, the times of the later
-/// events; and the number of jitter replacements of the simulation.
+/// and the maximum of columns that are not steady (the time and the vertical velocity), of the
+/// sustainer too; and of its two boosters (rule T) what follows their separations but the
+/// altitude of their apogees: the number of rows, the time to the optimum altitude, the
+/// optimum delay and the times of the later events; and the number of jitter replacements of
+/// the simulation.
 void changeWhatTheRulesExcludeOfTheThreeStages(GoldenFiles& files)
 {
-    scale(files, "/branches/0/columns/0/max", 0.5);
-    scale(files, "/branches/0/columns/3/min", 0.5);
-    scale(files, "/branches/2/columns/0/max", 0.5);
+    shiftAnExtreme(files, 0, kTimeColumn, "max", -0.5);
+    shiftAnExtreme(files, 0, kVelocityColumn, "min", 0.5);
+    shiftAnExtreme(files, 2, kTimeColumn, "max", -0.5);
     for (const std::size_t booster : {std::size_t{1}, std::size_t{2}})
     {
         json& branch                    = files.document["branches"][booster];
         branch["rows"]                  = 1;
-        branch["optimumAltitude"]       = 1.0;
         branch["timeToOptimumAltitude"] = 1.0;
         branch["optimumDelay"]          = 1.0;
         for (std::size_t event = 4; event < branch["events"].size(); event++)
@@ -2397,10 +2973,13 @@ TEST(ExampleSimulationStableGoldenMutations, ANumberTheRulesExcludeIsCountedNotC
     EXPECT_EQ(changed.excluded, unchanged.excluded);
     EXPECT_EQ(changed.exclusions, unchanged.exclusions);
     EXPECT_EQ(unchanged.compared + unchanged.excluded, run->golden);
-    // Three branches of 70 columns; of each booster its rows, three optimum values and four
-    // later events, and the jitter replacements of the simulation; the two TUMBLE events.
-    EXPECT_EQ(unchanged.exclusions.extremes, 2 * 3 * 70);
-    EXPECT_EQ(unchanged.exclusions.tumbling, (2 * (4 + 4)) + 1);
+    // Three branches of 70 columns, of which 22 are steady in the sustainer and 20 in each
+    // booster: the extremes of the others. Of each booster its rows, two optimum values and
+    // four later events, and the jitter replacements of the simulation; the two TUMBLE events.
+    EXPECT_EQ(unchanged.exclusions.extremes, 2 * ((70 - 22) + (2 * (70 - 20))));
+    EXPECT_EQ(unchanged.steadyExtremes, 2 * (22 + (2 * 20)));
+    EXPECT_EQ(changed.steadyExtremes, unchanged.steadyExtremes);
+    EXPECT_EQ(unchanged.exclusions.tumbling, (2 * (3 + 4)) + 1);
     EXPECT_EQ(unchanged.excluded.events, 2);
 
     // A dropped stage without a recovery device tumbles or does not: the document matches
@@ -2410,6 +2989,224 @@ TEST(ExampleSimulationStableGoldenMutations, ANumberTheRulesExcludeIsCountedNotC
     EXPECT_EQ(without.compared, unchanged.compared);
     EXPECT_EQ(without.excluded.events, 1);
     EXPECT_EQ(without.exclusions.tumbling, unchanged.exclusions.tumbling - 1);
+}
+
+// -------------------------------------------------------------------- rule E, the other grid
+
+// Which of its branches a run takes the other step from the apogee in is the platform's to say
+// (the last bit decides), so the tests of rule E make the other grid themselves: the document
+// that a golden run on the other time grid than the run's would have left, with the steps of
+// that golden run in the place of the list's.
+
+/// The document of the other grid for a run, and the steps its golden run took from the apogees
+/// of its branches (DocumentComparison::steps).
+struct OtherGrid
+{
+    GoldenFiles                      files;
+    std::vector<std::optional<bool>> steps;
+};
+
+/// The place of the first APOGEE among the golden events @p events (as they are in the
+/// document); their number without one.
+[[nodiscard]] std::size_t apogeeAmong(const json& events)
+{
+    for (std::size_t i = 0; i < events.size(); i++)
+    {
+        if (events.at(i).at("type").get<std::string>() == "APOGEE")
+        {
+            return i;
+        }
+    }
+    return events.size();
+}
+
+/// The document of the golden simulation of @p run as a golden run would have left it that took,
+/// from the apogee of every branch of rule E, the other step than @p run takes: where the golden
+/// run of the files already did, the document as it is; where it stepped as the run does, the
+/// document with what the extra step changes for certain: one row more or less, and the APOGEE
+/// 1 ms later or earlier. (What the other grid moves by less than the tolerances of the rule,
+/// the end of the descent, stays as it is.)
+[[nodiscard]] OtherGrid documentOfTheOtherGrid(const DocumentRun& run)
+{
+    OtherGrid other{.files = run.files, .steps = apogeeStepsOf(run)};
+    for (std::size_t i = 0; i < other.steps.size(); i++)
+    {
+        const std::optional<bool> ours = other.steps[i];
+        if (!ours.has_value())
+        {
+            continue;
+        }
+        other.steps[i] = !*ours;
+        if (documentPlan(run.files.document, i).shortApogeeStep != ours)
+        {
+            continue;  // the golden run of the files is on the other grid already
+        }
+        // The golden run of the other grid took the extra step exactly when the run does not.
+        const double sign   = *ours ? -1.0 : 1.0;
+        json&        branch = other.files.document["branches"][i];
+        branch["rows"]      = branch.at("rows").get<std::int64_t>() + (*ours ? -1 : 1);
+        json& apogee        = branch["events"][apogeeAmong(branch.at("events"))];
+        apogee["time"]      = goldenValue(apogee.at("time")) + (sign * kExtraStep);
+    }
+    return other;
+}
+
+/// What the comparison of @p run with a copy of the document @p other of the other grid finds
+/// after @p change changed the copy (null: nothing changed).
+[[nodiscard]] DocumentResult comparisonOnTheOtherGrid(const DocumentRun& run,
+                                                      const OtherGrid&   other,
+                                                      void (*change)(GoldenFiles& files))
+{
+    GoldenFiles files = other.files;
+    if (change != nullptr)
+    {
+        change(files);
+    }
+    return compareDocumentSimulation(files, run.run, run.context, nullptr, &other.steps);
+}
+
+/// The sustainer of "Simulation 1" of the three-stage rocket is a branch of rule E whose events
+/// are, from the fifteenth on, RECOVERY_DEVICE_DEPLOYMENT (14), APOGEE (15), GROUND_HIT (16) and
+/// SIMULATION_END (17); a BURNOUT before them is handled late (rule L).
+[[nodiscard]] std::vector<Mutation> otherGridMutations()
+{
+    return {
+        {.name    = "OneRowMore",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 json& rows = files.document["branches"][0]["rows"];
+                 rows       = rows.get<std::int64_t>() + 1;
+             },
+         .heading = " branch 0",
+         .line    = "  rows, with the row of the extra step of rule E: expected "},
+        {.name    = "OneRowLess",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 json& rows = files.document["branches"][0]["rows"];
+                 rows       = rows.get<std::int64_t>() - 1;
+             },
+         .heading = " branch 0",
+         .line    = "  rows, with the row of the extra step of rule E: expected "},
+        {.name    = "TimeOfTheApogee",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/branches/0/events/15/time", kBeyond * kLateHandlingAbsolute);
+             },
+         .heading = " branch 0",
+         .line    = "  events[15].time, moved by the extra step of rule E: expected "},
+        {.name    = "TimeOfTheGroundHit",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/branches/0/events/16/time", kBeyond * kOtherGridTimeAbsolute);
+             },
+         .heading = " branch 0",
+         .line    = "  events[16].time: expected "},
+        {.name    = "TimeOfTheEnd",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/branches/0/events/17/time", -kBeyond * kOtherGridTimeAbsolute);
+             },
+         .heading = " branch 0",
+         .line    = "  events[17].time: expected "},
+        {.name    = "FlightTime",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/summary/flightTime", kBeyond * kOtherGridTimeAbsolute);
+             },
+         .heading = " summary",
+         .line    = "  flightTime: expected "},
+        {.name    = "GroundHitVelocity",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 scale(files, "/summary/groundHitVelocity", kBeyond * kOtherGridVelocityRelative);
+             },
+         .heading = " summary",
+         .line    = "  groundHitVelocity: expected "},
+        // What the other grid does not reach is compared as everywhere.
+        {.name    = "TimeToApogee",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/summary/timeToApogee", kBeyond * kStableTimeAbsolute);
+             },
+         .heading = " summary",
+         .line    = "  timeToApogee: expected "},
+        {.name    = "TimeOfTheDeploymentBeforeTheApogee",
+         .subject = kThreeStages,
+         .apply =
+             [](GoldenFiles& files) {
+                 shift(files, "/branches/0/events/14/time", kBeyond * kLateHandlingAbsolute);
+             },
+         .heading = " branch 0",
+         .line    = "  events[14].time: expected "},
+    };
+}
+
+/// Changes within the tolerances of a run on the other grid: the times after the apogee by a
+/// hundred times the tolerance of a time on the grid of the golden run, and the ground hit
+/// velocity by a quarter of its own.
+void changeTheOtherGridWithinTheTolerances(GoldenFiles& files)
+{
+    shift(files, "/branches/0/events/16/time", 100.0 * kStableTimeAbsolute);
+    shift(files, "/branches/0/events/17/time", -100.0 * kStableTimeAbsolute);
+    shift(files, "/summary/flightTime", 100.0 * kStableTimeAbsolute);
+    scale(files, "/summary/groundHitVelocity", kWithin * kOtherGridVelocityRelative);
+}
+
+/// What is wrong with the reports of the mutations @p all of a document of the other grid,
+/// each named; "" when every one is reported in the heading and the one line that name it.
+[[nodiscard]] std::string otherGridProblems(const DocumentRun& run, const OtherGrid& other,
+                                            const std::vector<Mutation>& all)
+{
+    std::string problems;
+    for (const Mutation& mutation : all)
+    {
+        problems += oneLineProblem(mutation, run.context,
+                                   comparisonOnTheOtherGrid(run, other, mutation.apply).report);
+    }
+    return problems;
+}
+
+// Rule E: a run that steps from the apogee of a branch otherwise than the golden run is on the
+// other time grid from there on. It has exactly the row of the extra step more, or less; its
+// APOGEE is the golden one moved by that step; and the end of its descent (the GROUND_HIT, the
+// SIMULATION_END, the flight time and the ground hit velocity) is compared at the tolerances of
+// the other grid, a change beyond which is reported like any other.
+TEST(ExampleSimulationStableGoldenMutations, ARunOnTheOtherGridIsComparedAtItsOwnTolerances)
+{
+    const DocumentRun* run = subjectRun(kThreeStages);
+    ASSERT_NE(run, nullptr);
+    const DocumentResult unchanged = comparisonAfter(*run, nullptr);
+    const OtherGrid      other     = documentOfTheOtherGrid(*run);
+    ASSERT_EQ(other.steps.size(), 3U);
+    ASSERT_TRUE(other.steps[0].has_value());
+    EXPECT_EQ(other.steps[1], std::nullopt);
+    EXPECT_EQ(other.steps[2], std::nullopt);
+
+    // The document of the other grid matches: the sustainer steps otherwise, and its rows, the
+    // two events after its APOGEE, the flight time and the ground hit velocity are compared as
+    // those of the other grid. Everything is compared that is compared on the same grid.
+    const DocumentResult onTheOtherGrid = comparisonOnTheOtherGrid(*run, other, nullptr);
+    EXPECT_EQ(onTheOtherGrid.report, "");
+    EXPECT_EQ(onTheOtherGrid.unlike, 1);
+    EXPECT_EQ(onTheOtherGrid.otherGrid, 5);
+    EXPECT_EQ(onTheOtherGrid.compared, unchanged.compared);
+    EXPECT_EQ(onTheOtherGrid.excluded, unchanged.excluded);
+
+    const std::vector<Mutation>         all   = otherGridMutations();
+    const std::vector<std::string_view> names = sortedNames(all);
+    EXPECT_EQ(all.size(), 9U);
+    EXPECT_EQ(std::ranges::adjacent_find(names), names.end()) << "two mutations of one name";
+    EXPECT_EQ(otherGridProblems(*run, other, all), "");
+    EXPECT_EQ(comparisonOnTheOtherGrid(*run, other, changeTheOtherGridWithinTheTolerances).report,
+              "");
 }
 
 // ===================================================================================== rules
@@ -2620,16 +3417,36 @@ TEST(ExampleSimulationStableGoldenRules, TheDocumentShowsADeviceBeforeTheApogeeA
 // larger ones, rounded up).
 TEST(ExampleSimulationStableGoldenRules, EveryToleranceIsAHundredTimesTheLargestMeasurement)
 {
+    // The tolerances themselves: a mutation of the tests is sized by its tolerance, so a
+    // tolerance that grew would hide itself.
+    EXPECT_EQ(kStableSummaryRelative, 1e-6);
+    EXPECT_EQ(kDeploymentVelocityRelative, 1e-5);
+    EXPECT_EQ(kValueRelative, 1e-9);
+    EXPECT_EQ(kStableTimeAbsolute, 1e-4);
+    EXPECT_EQ(kLateHandlingAbsolute, 1e-3);
+    EXPECT_EQ(kApogeeResidual, 1e-13);
+    EXPECT_EQ(kExtraStep, 1e-3);
+    EXPECT_EQ(kOtherGridTimeAbsolute, 2e-2);
+    EXPECT_EQ(kOtherGridVelocityRelative, 1e-4);
+    EXPECT_EQ(kTumblingAltitudeRelative, 2e-2);
+    EXPECT_EQ(kToleranceMargin, 100.0);
     // A summary value, an optimum altitude, the parameter of a warning: a maximum altitude.
     EXPECT_GE(kStableSummaryRelative, kToleranceMargin * 6.2e-9);
+    // The minimum or the maximum of a steady column: a roll damping coefficient.
+    EXPECT_GE(kStableSummaryRelative, kToleranceMargin * 1.7e-11);
     EXPECT_GE(kDeploymentVelocityRelative, kToleranceMargin * 1.9e-9);
     // The launch rod velocity.
     EXPECT_GE(kValueRelative, kToleranceMargin * 5.3e-14);
     // A time: the flight time; after a late handling, a GROUND_HIT.
     EXPECT_GE(kStableTimeAbsolute, kToleranceMargin * 5.8e-7);
     EXPECT_GE(kLateHandlingAbsolute, kToleranceMargin * 5.8e-7);
-    // Rule E: what the step to the apogee leaves of the velocity.
+    // Rule E: what the step to the apogee leaves of the velocity; and, of a run on the other
+    // time grid, the flight time and the ground hit velocity.
     EXPECT_GE(kApogeeResidual, kToleranceMargin * 1.7e-16);
+    EXPECT_GE(kOtherGridTimeAbsolute, kToleranceMargin * 1.9e-4);
+    EXPECT_GE(kOtherGridVelocityRelative, kToleranceMargin * 9.3e-7);
+    // Rule T: the altitude of the apogee of a dropped stage that tumbles.
+    EXPECT_GE(kTumblingAltitudeRelative, kToleranceMargin * 1.1e-4);
     // ... and never beyond the plan's bounds: 1e-3 s for an event time, 1e-4 for the apogee
     // and the maximum velocity.
     EXPECT_LE(kStableTimeAbsolute, 1e-3);
@@ -2665,26 +3482,6 @@ TEST(ExampleSimulationStableGoldenRules, EveryToleranceIsAHundredTimesTheLargest
     }
     files.tables.clear();
     return files;
-}
-
-/// Rule E: the steps that @p run takes from the apogees of its branches, in the form of
-/// DocumentComparison::steps; nullopt for a branch that the rule does not list.
-[[nodiscard]] std::vector<std::optional<bool>> apogeeStepsOf(const DocumentRun& run)
-{
-    std::vector<std::optional<bool>> steps;
-    const std::size_t                branches =
-        std::min(run.files.document.at("branches").size(), run.run.data->getBranchCount());
-    steps.reserve(branches);
-    for (std::size_t i = 0; i < branches; i++)
-    {
-        const DocumentPlan plan = documentPlan(run.files.document, i);
-        steps.push_back(plan.shortApogeeStep.has_value()
-                            ? std::optional<bool>{apogeeOutcome(plan.shortApogeeStep,
-                                                                run.run.data->getBranch(i))
-                                                      .step.isShort()}
-                            : std::nullopt);
-    }
-    return steps;
 }
 
 /// What the sensitivity measurement prints.

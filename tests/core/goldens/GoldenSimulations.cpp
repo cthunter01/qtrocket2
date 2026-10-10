@@ -649,7 +649,9 @@ void compareHarness(Mismatches& m, const json& expected, const json& actual,
 
 /// Compares the extensions of a simulation with the golden "extensions": as many, and each one,
 /// in order, by its id, its type, its name and its configuration (goldenFormOf()). The
-/// configuration is compared as a whole and reported as the two texts.
+/// configuration is compared as a whole, by its text, and reported as the two texts: the text
+/// tells an integer from a floating-point number of the same value (the dumper writes an
+/// Integer as 5 and a Double as 5.0), which the comparison of two JSON values does not.
 void compareExtensions(
     Mismatches& m, const json& expected,
     const std::vector<std::shared_ptr<QtRocket::SimulationExtension>>& extensions)
@@ -666,10 +668,7 @@ void compareExtensions(
             m.text(std::format("{}.{}", field, key), golden.at(key).get<std::string>(),
                    actual.at(key).get<std::string>());
         }
-        if (golden.at("config") != actual.at("config"))
-        {
-            m.text(field + ".config", golden.at("config").dump(), actual.at("config").dump());
-        }
+        m.text(field + ".config", golden.at("config").dump(), actual.at("config").dump());
         noteUncomparedKeys(m, field, golden, kExtensionKeys);
     }
 }
@@ -1022,8 +1021,11 @@ template <typename Event>
 /// reproducible part, or when that part fixes it (isTimedInTheReproduciblePart()). Under the
 /// rule of the tumbling dropped stages (Comparison::droppedStagesTumbleFreely) the TUMBLE events
 /// that a dropped stage without a recovery device records after its separation are left out on
-/// both sides, and the golden ones are counted as sensitive, each with its time. Returns the
-/// number of golden events compared.
+/// both sides, and the golden ones are counted as sensitive, each with its time; what the rule
+/// leaves open is whether and when such a stage tumbles, not how often: a run that records more
+/// than one TUMBLE after the separation does not match (the engine records the event when the
+/// stage starts to tumble, BasicEventSimulationEngine.java: only while the status is not
+/// tumbling yet). Returns the number of golden events compared.
 [[nodiscard]] int compareEvents(Mismatches& m, Comparison& c, const json& expected,
                                 const BranchOf& ours)
 {
@@ -1033,10 +1035,17 @@ template <typename Event>
     {
         // The rule of the tumbling dropped stages: a TUMBLE after the separation is compared
         // on neither side. The golden ones are events, and times, that are not reproducible.
-        const int tumbles = removeTumblesAfterTheSeparation(golden, goldenTypeOf);
-        static_cast<void>(removeTumblesAfterTheSeparation(events, typeOf));
+        const int tumbles       = removeTumblesAfterTheSeparation(golden, goldenTypeOf);
+        const int tumblesOfOurs = removeTumblesAfterTheSeparation(events, typeOf);
         c.sensitive.events += tumbles;
         c.sensitive.numbers += tumbles;
+        if (tumblesOfOurs > 1)
+        {
+            m.note(
+                std::format("events: {} TUMBLE events after the last separation, where a "
+                            "stage starts to tumble once",
+                            tumblesOfOurs));
+        }
     }
     const std::string sequence = sequenceOf(events);
     m.text("events", sequenceOf(golden), sequence);
@@ -2164,6 +2173,24 @@ int tumblesOfADroppedStage(const json& branch)
     return tumbles;
 }
 
+int floorNumbers(const GoldenFiles& files)
+{
+    const std::optional<double> cleared = goldenRodClearance(files.document);
+    if (!cleared.has_value())
+    {
+        return 0;
+    }
+    int numbers = 1;  // the launch rod velocity
+    for (const json& branch : files.document.at("branches"))
+    {
+        for (const json& event : branch.at("events"))
+        {
+            numbers += goldenValue(event.at("time")) <= *cleared ? 1 : 0;
+        }
+    }
+    return numbers;
+}
+
 std::int64_t floorValues(const GoldenFiles& files)
 {
     const std::optional<double> cleared = goldenRodClearance(files.document);
@@ -2459,6 +2486,7 @@ void addComparedRun(InputResult& result, const GoldenRun& run, std::string_view 
     result.whole += run.sensitivity.whole ? 1 : 0;
     result.floorRows += floorRows(run.files);
     result.floorValues += floorValues(run.files);
+    result.floorNumbers += floorNumbers(run.files);
     result.noise += noiseCounts(run.files);
     result.problems += floorProblem(run);
     result.problems += exclusionProblem(run);

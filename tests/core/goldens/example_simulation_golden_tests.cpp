@@ -19,20 +19,22 @@
 // THE SET-UP is the harness's (GoldenDumper.examplePass()). The design is loaded as
 // GoldenExamples.h loads it (the bundled motors, the six presets, OpenRocket's test preferences)
 // and its automatic dimensions are settled, as the harness settles them before it dumps the
-// design. Then every simulation of the document is run, in the order of the document and on the
-// one rocket of the document, with its own flight configuration, options and extensions
-// (runDocumentSimulation()): SimulationDumper.makeReproducible() (seed 0, fixed, and zero
+// design. Then every simulation of the document is run, on the one rocket of the document,
+// with its own flight configuration, options and extensions (runDocumentSimulation()):
+// SimulationDumper.makeReproducible() (seed 0, fixed, and zero
 // standard deviation of every wind model; the documents have no fixed seed, a deviation of the
 // average wind of 0.2, 0.22352 or 0.19982688 m/s and one level of the multi-level wind with
 // 1.52 or 0.2 m/s), toSimulationConditions(), the forces listener of the jitter removal, the
 // extensions initialised in their order, the conditions listener, a new engine. The flight the
 // document stores for a simulation (OpenRocket's, in turbulence) plays no part.
 // Every simulation is run twice, as in the test rockets' comparison: as the harness runs it and
-// with the last-bit perturbation (LastBitListener). The example is therefore loaded twice, and
-// the perturbed runs have a document of their own: the simulations of a document share its
-// rocket, which an extension changes while its simulation flies (RollControl turns the fins of
-// its fin set and puts them back when the run ends), so each run has to meet the rocket as the
-// harness's runs before it left it.
+// with the last-bit perturbation (LastBitListener). The example is loaded twice for that, and
+// the perturbed runs have a document of their own: a run changes the options of its simulation
+// in place (makeReproducible() records what the document had and sets the harness's values),
+// so a simulation of a document is run once. Nothing else is carried from one run to the next:
+// the engine flies a copy of the rocket (BasicEventSimulationEngine.java:82), and what an
+// extension does to the rocket while its simulation flies (RollControl turns the fins of its
+// fin set) it does to that copy.
 //
 // COMPARED (ExampleSimulationGolden, one test per example), per simulation: what the test
 // rockets' comparison compares, with these differences:
@@ -129,6 +131,17 @@
 // ExampleSimulationGoldenCoverage pins the numbers from the files alone), and 237 to 336 rows
 // after it over the 47 runs, as the perturbed run of the platform has it (none at all in ten
 // of the branches, in every run). The whole flights are the stable-step set's to compare.
+// The numbers outside the time series have their floor as well (floorNumbers()): of the 355,
+// the 54 launch rod velocities and the times of the 232 events up to the clearing of the rod
+// are compared on every platform once the rows of the rod are, and the test of each example
+// holds these 286 against what it compared (the other 69 are the BURNOUT times that the
+// reproducible parts fix).
+// The tolerances and the two margins are pinned by ExampleSimulationGoldenRules, with the
+// arithmetic of the table above: a tolerance that grew would hide itself (the mutations of the
+// tests are sized by the tolerances), and so would a margin (a larger one only ends the
+// reproducible parts earlier; at a margin of the free flight of 1e30 every test passes on the
+// rows of the rod alone). How many rows after the rod are compared is not held by a test: the
+// perturbed run of the platform decides it.
 //
 // THE TUMBLING OF A DROPPED STAGE. A stage that is dropped and puts out no recovery device is
 // left to its attitude, and the engine records a TUMBLE for it when its tumble detector finds
@@ -147,6 +160,10 @@
 // separation are compared on neither side, and the other events as everywhere, in their order
 // (ComparisonMode::droppedStagesTumbleFreely). The six golden TUMBLE events this leaves out are
 // counted as sensitive, each with its time, and the test of each example holds the number.
+// What the rule leaves open is whether and when such a stage tumbles, not how often: the
+// engine records the event when the stage starts to tumble, once (in the 22 runs no branch
+// records two, at either time step: tier9d-fix-simulation-goldens/out/tumbles-22.txt), and a
+// run that records more than one TUMBLE after the separation of such a stage does not match.
 // The comparison of the test rockets does not apply the rule, and does not need it: in the
 // same 22 runs each of their 50 simulations records the same events in every run
 // (openrocket_structure.py with the kind "testrocket").
@@ -186,10 +203,14 @@
 // "Simulation 1" of the three-stage rocket: the golden files match with no TUMBLE of the first
 // booster after its separation, with three, and with the one before the APOGEE, while a missing
 // APOGEE, a TUMBLE before the separation and a TUMBLE of the sustainer are reported, and so
-// are the three without the rule. ExampleSimulationGoldenHarness holds runDocumentSimulation()
-// against runSimulation(): the document the harness builds for a test rocket gives the flight
-// of the test rocket's simulation, value for value, and matches its golden files in everything
-// but the source of the options.
+// are the three without the rule, and a run of the booster that records two TUMBLE events
+// after its separation. ExampleSimulationGoldenHarness holds runDocumentSimulation() against
+// runSimulation():
+// the document the harness builds for a test rocket gives the flight of the test rocket's
+// simulation, value for value, and matches its golden files in everything but the source of
+// the options; and a setting of an extension is compared with the type of its number (an
+// Integer is no Double of the same value), on that document with a disabled script that has a
+// number among its settings, which no example has.
 //
 // The tests are cut by what a process has to simulate, as those of the test rockets: one test
 // per example (ctest starts a process per test, and a process reads the motor database and
@@ -205,6 +226,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -226,6 +248,7 @@
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
+#include "QtRocket/simulation/FlightEvent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
@@ -252,6 +275,7 @@ using QtRocket::FlightConfigurationId;
 using QtRocket::FlightData;
 using QtRocket::FlightDataBranch;
 using QtRocket::FlightDataType;
+using QtRocket::FlightEvent;
 using QtRocket::LoadedDocument;
 using QtRocket::OpenRocketDocumentFactory;
 using QtRocket::Result;
@@ -270,11 +294,13 @@ using QtRocket::Test::configurationIndexOf;
 using QtRocket::Test::csvTypes;
 using QtRocket::Test::DefaultUnitsGuard;
 using QtRocket::Test::findGoldenExample;
+using QtRocket::Test::floorNumbers;
 using QtRocket::Test::floorProblem;
 using QtRocket::Test::floorRows;
 using QtRocket::Test::floorValues;
 using QtRocket::Test::goldenCounts;
 using QtRocket::Test::GoldenExample;
+using QtRocket::Test::goldenExampleEnvironment;
 using QtRocket::Test::goldenExamples;
 using QtRocket::Test::goldenExampleTestName;
 using QtRocket::Test::GoldenFiles;
@@ -287,7 +313,10 @@ using QtRocket::Test::GoldenTable;
 using QtRocket::Test::InputResult;
 using QtRocket::Test::InstallationDefaults;
 using QtRocket::Test::isUnrecoveredDroppedStage;
+using QtRocket::Test::kFlightSensitivityMargin;
 using QtRocket::Test::kSensitivityMargin;
+using QtRocket::Test::kTimeAbsolute;
+using QtRocket::Test::kValueRelative;
 using QtRocket::Test::LastBitListener;
 using QtRocket::Test::loadGoldenFiles;
 using QtRocket::Test::loadSettledGoldenExample;
@@ -306,6 +335,7 @@ using QtRocket::Test::SensitivityMargins;
 using QtRocket::Test::sensitivityText;
 using QtRocket::Test::SimulationComparison;
 using QtRocket::Test::SimulationCounts;
+using QtRocket::Test::SimulationRun;
 using QtRocket::Test::sortedNames;
 using QtRocket::Test::Subject;
 using QtRocket::Test::TestRocketMaker;
@@ -370,8 +400,7 @@ struct ExampleRuns
 {
     GoldenRun               result;
     const GoldenSimulation& simulation = input.simulations.at(index);
-    // The runs first, whatever the files are: the simulations of a document are run in its
-    // order, each on the rocket the one before it left.
+    // The runs first, whatever the files are: every simulation of each document is run, once.
     result.run  = runDocumentSimulation(document, index, {});
     result.twin = runDocumentSimulation(
         twin, index, {.stableTimeStep = {}, .perturbation = std::make_shared<LastBitListener>()});
@@ -391,9 +420,9 @@ struct ExampleRuns
     return result;
 }
 
-/// Loads @p example twice and runs every simulation of it, in the order of the document: once
-/// as the harness runs it and once perturbed, each in a document of its own, so that every run
-/// meets the rocket in the state the runs before it left it in (see "The set-up" at the top).
+/// Loads @p example twice and runs every simulation of it: once as the harness runs it and
+/// once perturbed, each in a document of its own, since a run changes the options of its
+/// simulation in place (see "The set-up" at the top).
 [[nodiscard]] ExampleRuns runExample(const GoldenExample& example)
 {
     const DefaultUnitsGuard units;  // the names of the configurations and of an extension
@@ -430,6 +459,10 @@ struct ExampleRuns
 /// where they are): the tests of a process read the same runs.
 [[nodiscard]] const ExampleRuns& exampleRuns(const GoldenExample& example)
 {
+    // The environment of the fixture first: the documents of the runs point into it (their
+    // simulations keep its preference store), and what is made first is destroyed last when the
+    // process ends, so the runs go before the environment they were loaded in.
+    static_cast<void>(goldenExampleEnvironment());
     static std::mutex                                      s_mutex;
     static std::map<std::string, ExampleRuns, std::less<>> s_runs;
     const std::scoped_lock                                 lock{s_mutex};
@@ -605,8 +638,12 @@ struct ExampleCounts
     int              branches;
     std::int64_t     rows;
     std::int64_t     floorRows;
-    std::int64_t     noiseColumns;
-    std::int64_t     noiseValues;
+    /// The floor under the numbers that are compared outside the time series (floorNumbers()):
+    /// the launch rod velocity of each simulation and the times of its events up to the
+    /// clearing of the launch rod.
+    int          floorNumbers;
+    std::int64_t noiseColumns;
+    std::int64_t noiseValues;
     /// The golden TUMBLE events the rule of the tumbling dropped stages leaves out
     /// (tumblesOfADroppedStage()).
     int tumbles;
@@ -617,6 +654,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 5,
      .rows         = 2175,
      .floorRows    = 132,
+     .floorNumbers = 25,
      .noiseColumns = 20,
      .noiseValues  = 8172,
      .tumbles      = 0},
@@ -625,6 +663,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 5,
      .rows         = 2656,
      .floorRows    = 128,
+     .floorNumbers = 25,
      .noiseColumns = 20,
      .noiseValues  = 10112,
      .tumbles      = 0},
@@ -633,6 +672,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 2,
      .rows         = 1407,
      .floorRows    = 32,
+     .floorNumbers = 6,
      .noiseColumns = 10,
      .noiseValues  = 6875,
      .tumbles      = 0},
@@ -641,6 +681,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 5,
      .rows         = 3260,
      .floorRows    = 141,
+     .floorNumbers = 26,
      .noiseColumns = 25,
      .noiseValues  = 15595,
      .tumbles      = 0},
@@ -649,6 +690,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 2,
      .rows         = 1048,
      .floorRows    = 70,
+     .floorNumbers = 10,
      .noiseColumns = 10,
      .noiseValues  = 4890,
      .tumbles      = 0},
@@ -657,6 +699,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 5,
      .rows         = 1584,
      .floorRows    = 124,
+     .floorNumbers = 25,
      .noiseColumns = 20,
      .noiseValues  = 5840,
      .tumbles      = 0},
@@ -665,6 +708,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 10,
      .rows         = 4423,
      .floorRows    = 272,
+     .floorNumbers = 30,
      .noiseColumns = 40,
      .noiseValues  = 16604,
      .tumbles      = 0},
@@ -673,6 +717,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 6,
      .rows         = 3338,
      .floorRows    = 162,
+     .floorNumbers = 30,
      .noiseColumns = 30,
      .noiseValues  = 15880,
      .tumbles      = 0},
@@ -681,6 +726,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 3,
      .rows         = 10482,
      .floorRows    = 89,
+     .floorNumbers = 12,
      .noiseColumns = 16,
      .noiseValues  = 60397,
      .tumbles      = 0},
@@ -689,6 +735,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 5,
      .rows         = 2418,
      .floorRows    = 169,
+     .floorNumbers = 25,
      .noiseColumns = 27,
      .noiseValues  = 12401,
      .tumbles      = 0},
@@ -697,6 +744,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 1,
      .rows         = 332,
      .floorRows    = 35,
+     .floorNumbers = 6,
      .noiseColumns = 5,
      .noiseValues  = 1485,
      .tumbles      = 0},
@@ -705,6 +753,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 3,
      .rows         = 2805,
      .floorRows    = 102,
+     .floorNumbers = 16,
      .noiseColumns = 0,
      .noiseValues  = 0,
      .tumbles      = 0},
@@ -713,6 +762,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 3,
      .rows         = 2938,
      .floorRows    = 125,
+     .floorNumbers = 15,
      .noiseColumns = 0,
      .noiseValues  = 0,
      .tumbles      = 0},
@@ -721,6 +771,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 9,
      .rows         = 5311,
      .floorRows    = 288,
+     .floorNumbers = 18,
      .noiseColumns = 36,
      .noiseValues  = 20092,
      .tumbles      = 6},
@@ -729,6 +780,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 1,
      .rows         = 610,
      .floorRows    = 23,
+     .floorNumbers = 5,
      .noiseColumns = 6,
      .noiseValues  = 3522,
      .tumbles      = 0},
@@ -737,6 +789,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
      .branches     = 4,
      .rows         = 1559,
      .floorRows    = 112,
+     .floorNumbers = 12,
      .noiseColumns = 21,
      .noiseValues  = 7639,
      .tumbles      = 0},
@@ -753,6 +806,7 @@ constexpr std::array<ExampleCounts, 16> kExampleCounts{{
                                               .branches     = 0,
                                               .rows         = 0,
                                               .floorRows    = 0,
+                                              .floorNumbers = 0,
                                               .noiseColumns = 0,
                                               .noiseValues  = 0,
                                               .tumbles      = 0}
@@ -813,10 +867,41 @@ TEST_P(ExampleSimulationGolden, EverySimulationOfTheExample)
     EXPECT_GE(sums.compared.rows, sums.floorRows);
     EXPECT_GE(sums.compared.values, sums.floorValues);
     EXPECT_GT(sums.floorValues, sums.floorRows);
+    // ... and, outside the time series, the launch rod velocity of every simulation and the
+    // times of its events up to the clearing of the rod.
+    EXPECT_EQ(sums.floorNumbers, pinned.floorNumbers);
+    EXPECT_GE(sums.compared.numbers, sums.floorNumbers);
 }
 
 INSTANTIATE_TEST_SUITE_P(Examples, ExampleSimulationGolden, ::testing::ValuesIn(goldenExamples()),
                          goldenExampleTestName);
+
+// The tolerances and the margins of this comparison are those the measurements at the top of
+// the file were made with: a value within 1e-9 of the scale of its column and a time within
+// 1e-6 s, in a row that the perturbed run reproduces to 1e-12 of the scale on the launch rod and
+// to 1e-14 after it. Pinned, because a larger one would hide itself: the mutations of the tests
+// are sized by the tolerances, and a larger margin only ends the reproducible parts earlier
+// (at a margin of the free flight of 1e30 every test would pass, on the rows of the launch rod
+// alone). How many rows after the rod a platform compares is its perturbed run's to say and is
+// not asserted: 237 to 336 over the 47 runs of the measurement.
+TEST(ExampleSimulationGoldenRules, TheTolerancesAndTheMarginsAreThoseOfTheMeasurement)
+{
+    EXPECT_EQ(kValueRelative, 1e-9);
+    EXPECT_EQ(kTimeAbsolute, 1e-6);
+    EXPECT_EQ(kSensitivityMargin, 1e3);
+    EXPECT_EQ(kFlightSensitivityMargin, 1e4);
+    EXPECT_EQ(kExampleFlightSensitivityMargin, 1e5);
+    EXPECT_EQ(kExampleMargins.rod, kSensitivityMargin);
+    EXPECT_EQ(kExampleMargins.flight, kExampleFlightSensitivityMargin);
+    EXPECT_FALSE(kExampleMargins.steadyRunIsWhole);
+    // The tolerance of a value is a hundred times and more the largest difference among the
+    // values compared at that margin: 3.2e-12 of a scale between OpenRocket's own runs, 8.6e-13
+    // between QtRocket and the golden files.
+    EXPECT_GE(kValueRelative, 100.0 * 3.2e-12);
+    EXPECT_GE(kValueRelative, 100.0 * 8.6e-13);
+    // ... and of a time, 4.4e-16 s between OpenRocket's own runs.
+    EXPECT_GE(kTimeAbsolute, 100.0 * 4.4e-16);
+}
 
 // ================================================================================== coverage
 
@@ -829,6 +914,7 @@ struct ExampleCoverage
     int              flights{0};
     std::int64_t     floorRows{0};
     std::int64_t     floorValues{0};
+    int              floorNumbers{0};
     NoiseCounts      noise;
     int              unrecoveredStages{0};  ///< the branches of isUnrecoveredDroppedStage()
     int              tumbles{0};            ///< tumblesLeftOut() of the simulations
@@ -845,6 +931,7 @@ struct CountsOfAnInput
 {
     SimulationCounts golden;
     std::int64_t     floorRows{0};
+    int              floorNumbers{0};
     NoiseCounts      noise;
     int              tumbles{0};
 };
@@ -857,16 +944,18 @@ struct CountsOfAnInput
     const bool same = pinned.simulations == counts.golden.simulations &&
                       pinned.branches == counts.golden.branches &&
                       pinned.rows == counts.golden.rows && pinned.floorRows == counts.floorRows &&
+                      pinned.floorNumbers == counts.floorNumbers &&
                       pinned.noiseColumns == counts.noise.columns &&
                       pinned.noiseValues == counts.noise.values && pinned.tumbles == counts.tumbles;
     return same ? std::string{}
                 : std::format(
                       "{}: the files hold {} simulations, {} branches, {} rows, {} of them up "
-                      "to the clearing of the rod, {} noise columns with {} values off it, {} "
-                      "TUMBLE events of dropped stages\n",
+                      "to the clearing of the rod, with {} numbers outside the time series up "
+                      "to it, {} noise columns with {} values off it, {} TUMBLE events of "
+                      "dropped stages\n",
                       input.name, counts.golden.simulations, counts.golden.branches,
-                      counts.golden.rows, counts.floorRows, counts.noise.columns,
-                      counts.noise.values, counts.tumbles);
+                      counts.golden.rows, counts.floorRows, counts.floorNumbers,
+                      counts.noise.columns, counts.noise.values, counts.tumbles);
 }
 
 /// The branches of the golden simulation @p files that are those of dropped stages without a
@@ -912,6 +1001,7 @@ void cover(ExampleCoverage& coverage, const GoldenInput& input)
         }
         counts.golden += goldenCounts(files);
         counts.floorRows += floorRows(files);
+        counts.floorNumbers += floorNumbers(files);
         counts.noise += noiseCounts(files);
         counts.tumbles += tumblesLeftOut(files);
         const auto extensions = static_cast<int>(files.document.at("extensions").size());
@@ -923,6 +1013,7 @@ void cover(ExampleCoverage& coverage, const GoldenInput& input)
     }
     coverage.golden += counts.golden;
     coverage.floorRows += counts.floorRows;
+    coverage.floorNumbers += counts.floorNumbers;
     coverage.noise += counts.noise;
     coverage.tumbles += counts.tumbles;
     coverage.sameFlights += sameFlightPairs(read);
@@ -981,6 +1072,10 @@ TEST(ExampleSimulationGoldenCoverage, EveryGoldenSimulationOfTheExamplesIsOfAnEx
     EXPECT_EQ(coverage.flights, 54);
     EXPECT_EQ(coverage.floorRows, 2004);
     EXPECT_EQ(coverage.floorValues, 140336);
+    // ... and, outside the time series, 286 numbers: the 54 launch rod velocities and the times
+    // of the 232 events up to the clearing of the rod (the LAUNCH, the first IGNITION, the
+    // LIFTOFF and the LAUNCHROD of each flight, and what a dropped stage has of them).
+    EXPECT_EQ(coverage.floorNumbers, 286);
     // The rule of the out-of-plane noise columns (RodOnlyRule), from the files alone: 286
     // columns are noise-dominated (the two lateral accelerations across the wind, the lateral
     // position across it and its direction in 63 of the 69 branches, the yaw rate in 29 of
@@ -1406,6 +1501,36 @@ struct ChangedComparison
             .golden     = goldenCounts(files)};
 }
 
+/// The number of TUMBLE events that @p branch records after its last STAGE_SEPARATION.
+[[nodiscard]] int tumblesAfterTheSeparation(const FlightDataBranch& branch)
+{
+    int tumbles = 0;
+    for (const FlightEvent& event : branch.getEvents())
+    {
+        const bool tumble = event.getType() == FlightEvent::Type::TUMBLE;
+        tumbles =
+            event.getType() == FlightEvent::Type::STAGE_SEPARATION ? 0 : tumbles + (tumble ? 1 : 0);
+    }
+    return tumbles;
+}
+
+/// @p run with a copy of its flight data in which branch @p branch records @p more TUMBLE
+/// events more, at its end. (The copy is FlightData::clone(), which drops the separation times
+/// and the optimum delay: the comparison of the changed run reports those.)
+[[nodiscard]] SimulationRun withTumbles(const SimulationRun& run, std::size_t branch, int more)
+{
+    SimulationRun     changed = run;
+    auto              data    = std::make_shared<FlightData>(run.data->clone());
+    FlightDataBranch& stage   = data->getBranch(branch);
+    const double      end     = stage.getEvents().back().getTime();
+    for (int i = 0; i < more; i++)
+    {
+        stage.addEvent(FlightEvent{FlightEvent::Type::TUMBLE, end});
+    }
+    changed.data = std::move(data);
+    return changed;
+}
+
 // The rule of the tumbling dropped stages: a TUMBLE that a dropped stage without a recovery
 // device records after its separation is compared on neither side, so the golden files match
 // QtRocket's run whether they record none, one or three, and before or after the APOGEE; what
@@ -1455,6 +1580,29 @@ TEST(ExampleSimulationGoldenMutations, TheTumbleOfADroppedStageIsNotComparedAndI
         eventsLineProblem(changedComparison(*run, addTwoTumbles, withoutTheRule).comparison.report,
                           *run, kFirstBooster, false),
         "");
+
+    // What the rule leaves open is whether and when the stage tumbles, not how often: a run
+    // that records more than one TUMBLE after the separation does not match, whatever the
+    // golden files record. The run of the platform records one or none; a copy of it with
+    // exactly one says nothing of the TUMBLE, and a copy with exactly two is reported, in one
+    // line of the branch.
+    const int tumbles = tumblesAfterTheSeparation(run->run.data->getBranch(kFirstBooster));
+    ASSERT_LE(tumbles, 1);
+    EXPECT_FALSE(unchanged.report.contains("TUMBLE events after"));
+    const SimulationRun once = withTumbles(run->run, kFirstBooster, 1 - tumbles);
+    EXPECT_EQ(tumblesAfterTheSeparation(once.data->getBranch(kFirstBooster)), 1);
+    EXPECT_FALSE(compareSimulation(run->files, once, run->sensitivity, run->context, run->mode)
+                     .report.contains("TUMBLE events after"));
+    const SimulationRun twice = withTumbles(run->run, kFirstBooster, 2 - tumbles);
+    const std::string   report =
+        compareSimulation(run->files, twice, run->sensitivity, run->context, run->mode).report;
+    const std::string_view line =
+        "  events: 2 TUMBLE events after the last separation, where a stage starts to tumble "
+        "once\n";
+    EXPECT_TRUE(report.contains(line)) << line << "is not in\n" << report;
+    EXPECT_TRUE(report.contains(std::format("{} branch {}:\n", run->context, kFirstBooster)));
+    EXPECT_EQ(report.find("TUMBLE events after"), report.rfind("TUMBLE events after"))
+        << "one branch has the events, and one line says so";
 }
 
 /// A golden branch with the index @p index and events of the types @p types, in their order.
@@ -1558,7 +1706,7 @@ TEST(ExampleSimulationGoldenHarness, ASettingIsDescribedByItsType)
     config.put("whole", 5.0);
     config.put("text", "CONTROL");
     config.put("nan", std::nan(""));
-    config.put("infinity", -HUGE_VAL);
+    config.put("infinity", -std::numeric_limits<double>::infinity());
     config.put("decimal", BigDecimal::valueOf(7));
     config.put("list", Config::List{Config::Value{1}, Config::Value{"two"},
                                     Config::Value{Config::List{Config::Value{false}}}});
@@ -1681,6 +1829,55 @@ TEST(ExampleSimulationGoldenHarness, ASimulationOfADocumentIsRunAsTheHarnessRuns
     EXPECT_EQ(result.comparison.compared + result.comparison.sensitive + result.comparison.excluded,
               result.golden);
     EXPECT_EQ(floorProblem(result), "");
+}
+
+// The configuration of an extension is compared with the types of its numbers, as the dumper
+// writes them (an Integer as 5, a Double as 5.0): a setting that the loader read as the other
+// kind of number is reported. No example has a number among the settings of an extension, so
+// the document is the harness's of a test rocket, with a script on its simulation that is
+// disabled (it adds nothing to the run) and has a setting of its own.
+TEST(ExampleSimulationGoldenHarness, ASettingOfAnExtensionIsComparedWithItsType)
+{
+    const TestRocketMaker* maker = alphaMaker();
+    ASSERT_NE(maker, nullptr);
+    const GoldenInput* input = QtRocket::Test::inputOf(*maker);
+    ASSERT_NE(input, nullptr);
+    const std::shared_ptr<LoadedDocument> document = harnessDocument(*maker);
+    const auto                            script   = std::make_shared<ScriptingExtension>();
+    Config                                config;
+    config.put("enabled", false);
+    config.put("weight", 5.0);
+    script->setConfig(config);
+    document->document->getSimulation(kAlphaSimulation)
+        ->getSimulationExtensions()
+        .push_back(script);
+
+    GoldenFiles files = loadGoldenFiles(input->simulations.at(kAlphaSimulation));
+    ASSERT_EQ(files.problem, "");
+    const SimulationRun run = runDocumentSimulation(document, kAlphaSimulation, {});
+    ASSERT_EQ(run.problem, "");
+    ASSERT_NE(run.data, nullptr);
+    // (Nothing of the trajectory is taken as reproducible: what identifies the simulation is
+    // compared whatever is.)
+    QtRocket::Test::Sensitivity none;
+    none.horizons.resize(run.data->getBranchCount());
+    const std::string context = "the harness's document";
+
+    // The golden files as the dumper writes them for this simulation: the flight is the test
+    // rocket's, the options are the document's, and the extension has its two settings.
+    files.document["optionsSource"] = "document";
+    files.document["extensions"]    = json::array({goldenFormOf(*script)});
+    EXPECT_EQ(files.document.at("extensions").at(0).at("config").dump(),
+              R"({"enabled":false,"weight":5.0})");
+    EXPECT_EQ(compareSimulation(files, run, none, context, {}).report, "");
+
+    // ... and with the Double as an Integer of the same value.
+    files.document["extensions"][0]["config"]["weight"] = 5;
+    EXPECT_EQ(compareSimulation(files, run, none, context, {}).report,
+              "the harness's document:\n"
+              R"(  extensions[0].config: expected "{"enabled":false,"weight":5}", )"
+              R"(got "{"enabled":false,"weight":5.0}")"
+              "\n");
 }
 
 TEST(ExampleSimulationGoldenHarness, ASimulationThatIsNotThereIsAProblem)

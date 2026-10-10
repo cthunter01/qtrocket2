@@ -12,11 +12,14 @@
 // says which kinds of inputs have a stable-step set and which of those have time series, and a
 // branch without one is accepted only there.
 //
-// The checks here are of the files alone. QtRocket's runs of the 54 simulations are compared
-// with the stable-step documents of the examples by example_simulation_stable_golden_tests.cpp,
-// and with their default-step files by example_simulation_golden_tests.cpp; the tolerances and
-// the rules of the first come from a measurement of OpenRocket against itself ("Reproducibility
-// of the simulations" in tools/openrocket-goldens/README.md) and are stated at its top.
+// The checks here are of the files alone. Comparing QtRocket with the documents is the business
+// of the golden tests. The designs of the examples, loaded by the .ork loader through the
+// fixture of GoldenExamples.h, are compared by example_design_golden_tests.cpp. QtRocket's runs
+// of their 54 simulations are compared with the stable-step documents by
+// example_simulation_stable_golden_tests.cpp and with the default-step files by
+// example_simulation_golden_tests.cpp; the tolerances and the rules of the first come from a
+// measurement of OpenRocket against itself ("Reproducibility of the simulations" in
+// tools/openrocket-goldens/README.md) and are stated at its top.
 
 #include <algorithm>
 #include <cmath>
@@ -1562,12 +1565,13 @@ TEST(GoldenSchema, ManifestListsTheStableStepSets)
     EXPECT_EQ(testRockets.files, kStableTestRocketFileCount);
 }
 
-// What the documents of the stable-step sets hold, read from the files alone. A comparison of
-// QtRocket with the documents of the examples (run 9c) has these numbers to account for: 54
-// simulations in 69 branches with 734 events (the default-step set of the examples has 733) and
-// 92286 rows, of which the documents give the number per branch only. The simulations of the
-// examples had the installation's time step of 0.05 s, but for the five of "Pods--airframes
-// and winglets", whose document sets 0.04 s; every one was run at 0.01 s.
+// What the documents of the stable-step sets hold, read from the files alone. The comparison of
+// QtRocket with the documents of the examples (example_simulation_stable_golden_tests.cpp) has
+// these numbers to account for: 54 simulations in 69 branches with 734 events (the default-step
+// set of the examples has 733) and 92286 rows, of which the documents give the number per
+// branch only. The simulations of the examples had the installation's time step of 0.05 s, but
+// for the five of "Pods--airframes and winglets", whose document sets 0.04 s; every one was run
+// at 0.01 s.
 TEST(GoldenSchema, StableStepDocumentsHoldWhatIsPinned)
 {
     const auto manifest = loadManifestOrFail();
