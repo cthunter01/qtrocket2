@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <limits>
 #include <memory>
@@ -187,7 +189,7 @@ constexpr std::array<NumberElement, 15> kNumberElements{{
 }  // namespace
 
 SimulationConditionsHandler::SimulationConditionsHandler(const DocumentLoadingContext& context)
-  : m_options(preferencesOf(context))
+  : m_options(preferencesOf(context)), m_designDirectory(context.getDesignDirectory())
 {
     // Set up default loading settings (which may differ from the new defaults)
     m_options.setGeodeticComputation(GeodeticComputationStrategy::FLAT);
@@ -222,14 +224,14 @@ Result<ElementHandler*> SimulationConditionsHandler::openElement(std::string_vie
     }
     if (element == "draglookup")
     {
-        m_dragLookupHandler =
-            std::make_unique<CsvLookupHandler>(m_options, std::vector<std::string>{"cd"}, true);
+        m_dragLookupHandler = std::make_unique<CsvLookupHandler>(
+            m_options, std::vector<std::string>{"cd"}, true, m_designDirectory);
         return m_dragLookupHandler.get();
     }
     if (element == "stabilitylookup")
     {
         m_stabilityLookupHandler = std::make_unique<CsvLookupHandler>(
-            m_options, std::vector<std::string>{"cn", "cm", "cp"}, false);
+            m_options, std::vector<std::string>{"cn", "cm", "cp"}, false, m_designDirectory);
         return m_stabilityLookupHandler.get();
     }
     return &PlainTextHandler::instance();
@@ -406,8 +408,16 @@ void SimulationConditionsHandler::closeLegacyLookupElement(std::string_view elem
     {
         return;
     }
-    const Result<void> loaded =
-        CsvLookupHandler::loadFromFile(m_options, pathFromUtf8(trimmed), isDrag);
+    // Not OpenRocket's, which reads any path: only a file inside the design's directory (see
+    // CsvLookupHandler).
+    const std::expected<std::filesystem::path, CsvLookupHandler::Refusal> csvPath =
+        CsvLookupHandler::fileOfDesign(m_designDirectory, pathFromUtf8(trimmed));
+    if (!csvPath.has_value())
+    {
+        warnings.add(CsvLookupHandler::refusalWarning(csvPath.error(), element, trimmed));
+        return;
+    }
+    const Result<void> loaded = CsvLookupHandler::loadFromFile(m_options, *csvPath, isDrag);
     if (!loaded)
     {
         warnings.add(std::format("Failed to load {} lookup CSV '{}', ignoring. Reason: {}",

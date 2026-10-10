@@ -73,6 +73,13 @@ namespace QtRocket
 /// made for a jar URL, GeneralRocketLoader(URL), is load(bytes) with the bytes of that file:
 /// the entries of an archive, and files without a base directory otherwise.)
 ///
+/// THE LOOKUP TABLES a simulation names by a file (a CSV file of drag or stability values)
+/// are read from the design's directory only, which is the directory of the file for
+/// load(file) and the base directory for load(bytes), an archive included: by a relative name
+/// that stays inside it. Any other name, and every name of a design that was loaded from
+/// bytes without a base directory, is not read and gives a warning (CsvLookupHandler, "Which
+/// file a design may read"). The current directory of the process plays no part.
+///
 /// AFTER THE DOCUMENT IS READ, in OpenRocket's order: the steps of OpenRocketLoader (stage
 /// activeness, the simulations' modification ids, the storage options, documentLoaded() of
 /// the extensions, the undo history cleared), then the document's materials are collected
@@ -197,6 +204,11 @@ namespace QtRocket
 ///     or "Unexpected end of ZIP data".
 /// - RockSim and RASAero documents are not read (not part of this milestone).
 /// - The bounds above, those on the warnings included.
+/// - A lookup table is read from a file inside the design's directory only (see above;
+///   OpenRocket reads any path a design names, a relative one against the current directory
+///   of the process).
+/// - A <preset> element whose preset is not found is kept on its component, for a save to
+///   write back (RocketComponent::getUnresolvedPreset(); OpenRocket forgets it).
 /// - What the environment must hold is checked when the loader is made: a context without a
 ///   motor finder or without a preference store is a BugError (Java: its globals are there).
 /// - There is no catch-all: nothing here turns a BugError or another exception into an Error.

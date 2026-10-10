@@ -1,6 +1,8 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "QtRocket/file/DocumentLoadingContext.h"
@@ -78,11 +80,12 @@ namespace QtRocket
 ///   deployment speed thresholds in m/s, applied when they are a number above zero and passed
 ///   over silently otherwise.
 /// - <draglookupcsv>, <stabilitylookupcsv>: the lookup table elements of older files, whose
-///   trimmed text is the CSV file of the table (a relative one is resolved against the current
-///   directory of the process). A blank text is nothing. Each is read only as long as no
-///   <draglookup> (or <stabilitylookup>) element was opened before it in these conditions. The
-///   table is read as CsvLookupHandler::loadFromFile() reads it; a failure gives "Failed to
-///   load drag lookup CSV '<file>', ignoring. Reason: <reason>" (or "stability lookup CSV").
+///   trimmed text is the CSV file of the table. A blank text is nothing. Each is read only as
+///   long as no <draglookup> (or <stabilitylookup>) element was opened before it in these
+///   conditions. The file is one the design may read (CsvLookupHandler::fileOfDesign(): a
+///   relative name inside the design's directory) and the table is read as
+///   CsvLookupHandler::loadFromFile() reads it; a failure gives "Failed to load drag lookup CSV
+///   '<file>', ignoring. Reason: <reason>" (or "stability lookup CSV").
 /// - any other child: nothing, and no warning. As for every plain-text child, a child element
 ///   of it gives PlainTextHandler's "Unknown element <child>, ignoring." and DelegatorHandler's
 ///   slip.
@@ -117,6 +120,14 @@ namespace QtRocket
 ///   number is applied as OpenRocket applies it, however large.
 /// - <randomseed> reads ASCII digits only; Integer.parseInt also takes the decimal digits of
 ///   other scripts.
+/// - A lookup table is read from a file only inside the design's directory
+///   (DocumentLoadingContext::getDesignDirectory(), the user's decision of 2026-10-08;
+///   CsvLookupHandler has the rule). A <draglookupcsv> or <stabilitylookupcsv> that names
+///   another file (an absolute path, a path that leaves the directory, any file when the
+///   design has no directory, the name of a device of Windows) is not read and gives the
+///   warning CsvLookupHandler::refusalWarning() for the element, "The lookup table file
+///   '<file>' of element 'draglookupcsv' was not read: ...". OpenRocket reads any path, a
+///   relative one against the current directory of the process.
 /// - Without a preference store in the context the constructor is a BugError (Java asks the
 ///   application's preferences, which are always there); whoever makes the context sets one.
 /// - Java's constructor also takes the rocket, which it never uses. The id is read through
@@ -124,9 +135,10 @@ namespace QtRocket
 class SimulationConditionsHandler final : public AbstractElementHandler
 {
 public:
-    /// A handler whose options start from the preference store of @p context. The store must
-    /// outlive the options, wherever they go (see SimulationOptions); the context itself is
-    /// not kept.
+    /// A handler whose options start from the preference store of @p context, for a design
+    /// whose directory is the one @p context names at this moment. The store must outlive the
+    /// options, wherever they go (see SimulationOptions); the context itself is not kept (the
+    /// directory is copied).
     /// @throws BugError when the context has no preference store
     explicit SimulationConditionsHandler(const DocumentLoadingContext& context);
 
@@ -165,13 +177,15 @@ private:
     void closeLegacyLookupElement(std::string_view element, std::string_view content,
                                   WarningSet& warnings);
 
-    FlightConfigurationId              m_idToSet{FlightConfigurationId::errorId()};
-    SimulationOptions                  m_options;
-    std::unique_ptr<AtmosphereHandler> m_atmosphereHandler;
-    std::unique_ptr<WindHandler>       m_windHandler;
-    std::unique_ptr<GravityHandler>    m_gravityHandler;
-    std::unique_ptr<CsvLookupHandler>  m_dragLookupHandler;
-    std::unique_ptr<CsvLookupHandler>  m_stabilityLookupHandler;
+    FlightConfigurationId m_idToSet{FlightConfigurationId::errorId()};
+    SimulationOptions     m_options;
+    /// The directory of the design, which a lookup table may be read from; nullopt for none.
+    std::optional<std::filesystem::path> m_designDirectory;
+    std::unique_ptr<AtmosphereHandler>   m_atmosphereHandler;
+    std::unique_ptr<WindHandler>         m_windHandler;
+    std::unique_ptr<GravityHandler>      m_gravityHandler;
+    std::unique_ptr<CsvLookupHandler>    m_dragLookupHandler;
+    std::unique_ptr<CsvLookupHandler>    m_stabilityLookupHandler;
 };
 
 }  // namespace QtRocket

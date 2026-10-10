@@ -35,7 +35,8 @@ class RocketComponent;
 ///   ComponentPresetDao); none, or an empty one, finds nothing. No such preset: the warning "No
 ///   matching ComponentPreset for component <name> found matching <manufacturer> <partno>", and
 ///   nothing is loaded. So an element without a digest never finds a preset, and its two
-///   warnings are followed by this third one.
+///   warnings are followed by this third one. The component then remembers what the element
+///   said (see the deviations).
 /// - Else the preset is loaded (RocketComponent::loadPreset(): the preset's values replace the
 ///   component's, the component co-owns the preset, and a material of the document that the
 ///   preset brings is announced to the document) and the component gets back the name it had,
@@ -59,6 +60,20 @@ class RocketComponent;
 /// never appears; neither is here (decision L11 of the loader).
 ///
 /// Deviations from OpenRocket:
+/// - A preset that is not found is not forgotten (the user's decision of 2026-10-08): beside
+///   OpenRocket's warning the component is given the four attributes of the element as the
+///   file has them, a ComponentPresetReference (RocketComponent::setUnresolvedPreset(): the
+///   type and the digest are nullopt for an element without them, and no text is trimmed or
+///   checked), which a save writes back in the place of the preset. OpenRocket only warns, so
+///   the design loses the element with its next save; QtRocket knows no preset at all until
+///   it reads preset files. Nothing else changes: the reference fires no event and is no
+///   value of the component. It stays through the elements that follow (the handler's bracket
+///   of RocketComponent::setIgnorePresetClearing(), as for a preset), a later <preset> of the
+///   same component that is found takes its place, and one that is not found replaces it. A
+///   component that has a preset from an earlier <preset> element keeps the preset and
+///   remembers nothing. An element that OpenRocket ignores for want of a manufacturer or a
+///   part number leaves nothing behind either, and neither does a preset that is found and
+///   not loaded (the next two points).
 /// - The function the setter is made with loads the preset (Java: the method loadPreset() and
 ///   the extra parameters of the setter's second constructor). The table's function for a
 ///   parachute passes PresetLoadOptions{.allowAutoRadius = false}, Java's `false`.

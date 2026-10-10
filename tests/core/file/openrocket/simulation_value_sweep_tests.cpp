@@ -13,9 +13,9 @@
 // test too, which is where a crash would show.
 //
 // The lookup elements of the document name files by relative names, and a sweep value in such a
-// place is the name of a file ("0", "abc", "NaN"). The loads therefore run with an empty
-// directory of the test's own as the current directory: a file of such a name in the directory
-// the tests are run from would be read and change the counts.
+// place is the name of a file ("0", "abc", "NaN"). A design reads such a file from its own
+// directory only, so the loads run for a design in an empty directory of the test's own:
+// nothing that lies in the directory the tests are run from is read.
 
 #include <array>
 #include <cstddef>
@@ -312,11 +312,14 @@ struct Outcomes
     return {};
 }
 
-/// Loads @p document in a new fixture and adds how it ended to @p outcomes; returns what is
-/// wrong with the outcome, or nothing.
-[[nodiscard]] std::string loadAndCheck(const std::string& document, Outcomes& outcomes)
+/// Loads @p document in a new fixture, as a design whose directory is @p designDirectory, and
+/// adds how it ended to @p outcomes; returns what is wrong with the outcome, or nothing.
+[[nodiscard]] std::string loadAndCheck(const std::string&           document,
+                                       const std::filesystem::path& designDirectory,
+                                       Outcomes&                    outcomes)
 {
-    SimulationFixture  fixture;
+    SimulationFixture fixture;
+    fixture.context().setDesignDirectory(designDirectory);
     SimulationsHandler handler(fixture.context());
     const HandlerRun   run = runHandler(handler, document);
     if (!run.result.has_value())
@@ -348,21 +351,20 @@ struct Outcomes
 
 /// Loads the document once for every value of it, with @p value in the place of that value,
 /// and returns what went wrong, one text per load that did not end as a load may; @p outcomes
-/// receives how the loads ended. The loads run with an empty directory of the test's own as the
-/// current directory (see the head of this file).
+/// receives how the loads ended. The loads are those of a design in an empty directory of the
+/// test's own (see the head of this file).
 [[nodiscard]] Texts sweep(std::string_view value, Outcomes& outcomes)
 {
-    const TempDir               directory;
-    const CurrentDirectoryGuard workingDirectory(directory.path());
-    const Template              document    = parseDocument();
-    const std::string           replacement = sweepText(value);
-    Texts                       problems;
+    const TempDir     directory;
+    const Template    document    = parseDocument();
+    const std::string replacement = sweepText(value);
+    Texts             problems;
     for (std::size_t slot = 0; slot < document.values.size(); slot++)
     {
         std::string problem;
         try
         {
-            problem = loadAndCheck(document.with(slot, replacement), outcomes);
+            problem = loadAndCheck(document.with(slot, replacement), directory.path(), outcomes);
         }
         catch (const std::exception& e)
         {
@@ -384,15 +386,15 @@ constexpr std::size_t kValues = 129;
 // it stands it loads without a warning into two simulations that pass every check.
 TEST(SimulationValueSweepDocument, LoadsWithoutAWarningAsItIs)
 {
-    const DefaultUnitsGuard     units;
-    const TempDir               directory;
-    const CurrentDirectoryGuard workingDirectory(directory.path());
-    const Template              document = parseDocument();
+    const DefaultUnitsGuard units;
+    const TempDir           directory;
+    const Template          document = parseDocument();
     EXPECT_EQ(document.values.size(), kValues);
     EXPECT_EQ(document.texts.size(), kValues + 1);
 
     Outcomes          outcomes;
-    const std::string problem = loadAndCheck(document.with(kValues, ""), outcomes);
+    const std::string problem =
+        loadAndCheck(document.with(kValues, ""), directory.path(), outcomes);
     EXPECT_EQ(problem, "");
     EXPECT_EQ(outcomes.letters, "S");
     EXPECT_EQ(outcomes.tally.refusedForAnExtension, 0);
@@ -515,6 +517,7 @@ INSTANTIATE_TEST_SUITE_P(Values, SimulationValueSweep, ::testing::ValuesIn(kSwee
 // What lies in the directory the tests are run from does not reach the sweep. With a drag table
 // under the name "0" there, the sweep of the value "0" read it where the value stands for the
 // name of a file, and one load that warns of a missing file passed silently (run 9b, review).
+// Since run 9d a design reads its own directory and never the current one.
 TEST(SimulationValueSweepDocument, TheSweepDoesNotReadTheDirectoryTheTestsAreRunFrom)
 {
     const DefaultUnitsGuard units;
@@ -522,9 +525,10 @@ TEST(SimulationValueSweepDocument, TheSweepDoesNotReadTheDirectoryTheTestsAreRun
     ASSERT_TRUE(std::filesystem::exists(directory.write("0", "Mach,Cd\n0,0.3\n1,0.5\n")));
     const CurrentDirectoryGuard runFrom(directory.path());
 
-    // The table is there for a load that looks for it.
+    // The table is there for a load that looks for it: a design of that directory.
     {
-        SimulationFixture  fixture;
+        SimulationFixture fixture;
+        fixture.context().setDesignDirectory(directory.path());
         SimulationsHandler handler(fixture.context());
         const HandlerRun   run =
             runHandler(handler,

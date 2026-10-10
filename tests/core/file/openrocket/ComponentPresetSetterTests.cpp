@@ -2,7 +2,9 @@
 
 #include <array>
 #include <format>
+#include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,6 +22,7 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/CenteringRing.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/EngineBlock.h"
@@ -41,9 +44,11 @@
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/rocket/preset/ComponentPresetFactory.h"
+#include "QtRocket/rocket/preset/ComponentPresetReference.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/rocket/preset/TypedPropertyMap.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Strings.h"
 #include "file/openrocket/SetterTestSupport.h"
 #include "rocket/preset/ExamplePresets.h"
@@ -71,6 +76,7 @@ using QtRocket::ComponentKind;
 using QtRocket::ComponentPreset;
 using QtRocket::ComponentPresetDatabase;
 using QtRocket::ComponentPresetFactory;
+using QtRocket::ComponentPresetReference;
 using QtRocket::ComponentPresetSetter;
 using QtRocket::ComponentPresetType;
 using QtRocket::componentPresetTypeName;
@@ -902,6 +908,191 @@ TEST(ComponentPresetSetter, HandsThePresetItFoundToItsFunction)
 {
     EXPECT_EQ(presetHandedOver(), "BT-50FE, 30359");
     EXPECT_THROW(ComponentPresetSetter(ComponentPresetSetter::LoadFunction{}), BugError);
+}
+
+// ---- a preset that is not found is remembered (the user's decision of 2026-10-08) -----------
+//
+// OpenRocket warns and forgets the element, so that the next save writes the design without
+// it. Here the component keeps the element's attributes (RocketComponent::getUnresolvedPreset())
+// for a save to write back. QtRocket's own: nothing below is compared with OpenRocket but the
+// warnings, which are its texts.
+
+/// What @p component remembers of a preset that was not found, as the attributes of a <preset>
+/// element in the notation of attributesOf(), an attribute the file did not have left out; or
+/// "none".
+[[nodiscard]] std::string referenceOf(const RocketComponent& component)
+{
+    const std::optional<ComponentPresetReference>& reference = component.getUnresolvedPreset();
+    if (!reference.has_value())
+    {
+        return "none";
+    }
+    std::string text = reference->type.has_value() ? std::format("type={}|", *reference->type) : "";
+    text += std::format("manufacturer={}|partno={}", reference->manufacturer, reference->partNo);
+    if (reference->digest.has_value())
+    {
+        text += std::format("|digest={}", *reference->digest);
+    }
+    return text;
+}
+
+/// What a new body tube has after the <preset> elements of @p elements (the attributes of
+/// each), applied in order, with the six presets of the examples or (@p withPresets false) in
+/// an application that knows no preset: "<the part number of its preset>; <referenceOf()>", then
+/// the warnings in brackets.
+[[nodiscard]] std::string afterPresets(std::initializer_list<std::string_view> elements,
+                                       bool                                    withPresets)
+{
+    ApplicationSetterFixture      fixture;
+    const ComponentPresetDatabase none;
+    if (!withPresets)
+    {
+        fixture.context().setComponentPresetDatabase(&none);
+    }
+    RocketComponent& tube = fixture.make(ComponentKind::BODY_TUBE);
+    WarningSet       warnings;
+    for (const std::string_view element : elements)
+    {
+        if (!applyKey(fixture, tube, "RocketComponent:preset", element, "", warnings))
+        {
+            return "no setter, or it failed";
+        }
+    }
+    return withWarnings(std::format("{}; {}", presetPartNoOf(tube), referenceOf(tube)), warnings);
+}
+
+constexpr std::string_view kNotFound =
+    " [No matching ComponentPreset for component Body Tube found matching Estes BT-50FE, 30359]";
+
+TEST(ComponentPresetSetter, RemembersWhatTheFileSaysOfAPresetThatIsNotFound)
+{
+    EXPECT_EQ(afterPresets({kBodyTubePreset}, false),
+              std::format("null; {}{}", kBodyTubePreset, kNotFound));
+    // A preset of the name with another digest is not the file's preset.
+    EXPECT_EQ(
+        afterPresets({"type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=0"}, true),
+        std::format("null; type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=0{}",
+                    kNotFound));
+}
+
+TEST(ComponentPresetSetter, RemembersNothingOfAPresetThatIsFound)
+{
+    EXPECT_EQ(afterPresets({kBodyTubePreset}, true), "BT-50FE, 30359; none");
+}
+
+// The type and the digest are optional, as they are for OpenRocket's loader, which warns and
+// goes on; an element without a digest never finds its preset.
+TEST(ComponentPresetSetter, RemembersAnElementWithoutATypeOrADigestAsItIs)
+{
+    EXPECT_EQ(afterPresets({"type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359"}, true),
+              std::format("null; type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359 [Invalid "
+                          "ComponentPreset for component Body Tube, no digest specified.]{}",
+                          kNotFound));
+    EXPECT_EQ(afterPresets({"manufacturer=Estes|partno=BT-50FE, 30359|"
+                            "digest=e9c3e97d32e96762f65e051d74cb9fd7"},
+                           false),
+              std::format("null; manufacturer=Estes|partno=BT-50FE, 30359|"
+                          "digest=e9c3e97d32e96762f65e051d74cb9fd7 [Invalid ComponentPreset for "
+                          "component Body Tube, no type specified.]{}",
+                          kNotFound));
+    // The preset is found without the type, which is read for its warning only.
+    EXPECT_EQ(afterPresets({"manufacturer=Estes|partno=BT-50FE, 30359|"
+                            "digest=e9c3e97d32e96762f65e051d74cb9fd7"},
+                           true),
+              "BT-50FE, 30359; none [Invalid ComponentPreset for component Body Tube, no type "
+              "specified.]");
+}
+
+// Without a manufacturer or a part number OpenRocket ignores the element, and there is no
+// reference to remember.
+TEST(ComponentPresetSetter, RemembersNothingOfAnElementItIgnores)
+{
+    EXPECT_EQ(afterPresets({"type=BODY_TUBE|partno=BT-50FE, 30359|digest=0"}, false),
+              "null; none [Invalid ComponentPreset for component Body Tube, no manufacturer "
+              "specified.  Ignored]");
+    EXPECT_EQ(afterPresets({"type=BODY_TUBE|manufacturer=Estes|digest=0"}, false),
+              "null; none [Invalid ComponentPreset for component Body Tube, no partno specified.  "
+              "Ignored]");
+}
+
+// The texts are the file's: nothing is trimmed, and nothing is asked of them.
+TEST(ComponentPresetSetter, RemembersTheAttributesAsTheFileHasThem)
+{
+    EXPECT_EQ(afterPresets({"type= no type at all |manufacturer= estes |partno=|digest="}, false),
+              "null; type= no type at all |manufacturer= estes |partno=|digest= [No matching "
+              "ComponentPreset for component Body Tube found matching  estes  ]");
+}
+
+// Several <preset> elements of one component: the later one wins, as in OpenRocket, and a
+// component never has a preset and a reference.
+TEST(ComponentPresetSetter, OfSeveralPresetElementsTheLaterOneCounts)
+{
+    constexpr std::string_view kUnknown = "type=BODY_TUBE|manufacturer=Acme|partno=X-1|digest=1";
+    constexpr std::string_view kAnother = "type=BODY_TUBE|manufacturer=Acme|partno=X-2|digest=2";
+    constexpr std::string_view kNoAcme1 =
+        " [No matching ComponentPreset for component Body Tube found matching Acme X-1]";
+    constexpr std::string_view kNoAcme2 =
+        " [No matching ComponentPreset for component Body Tube found matching Acme X-2]";
+
+    // A preset that is found takes the place of the reference.
+    EXPECT_EQ(afterPresets({kUnknown, kBodyTubePreset}, true),
+              std::format("BT-50FE, 30359; none{}", kNoAcme1));
+    // A component that has its preset keeps it and remembers nothing.
+    EXPECT_EQ(afterPresets({kBodyTubePreset, kUnknown}, true),
+              std::format("BT-50FE, 30359; none{}", kNoAcme1));
+    // Two that are not found: the later one.
+    EXPECT_EQ(afterPresets({kUnknown, kAnother}, true),
+              std::format("null; {}{}{}", kAnother, kNoAcme1, kNoAcme2));
+}
+
+/// What a body tube of a frozen rocket has after its <preset>, which is found:
+/// "<the part number of its preset>; <referenceOf()>".
+[[nodiscard]] std::string referenceInAFrozenRocket()
+{
+    ApplicationSetterFixture fixture;
+    RocketComponent&         tube = fixture.make(ComponentKind::BODY_TUBE);
+    WarningSet               warnings;
+    fixture.rocket().freeze();
+    const bool applied =
+        applyKey(fixture, tube, "RocketComponent:preset", kBodyTubePreset, "", warnings);
+    fixture.rocket().thaw();
+    return applied ? std::format("{}; {}", presetPartNoOf(tube), referenceOf(tube))
+                   : "no setter, or it failed";
+}
+
+// A preset that is found and not loaded is not one that was not found.
+TEST(ComponentPresetSetter, RemembersNothingOfAPresetItFindsAndDoesNotLoad)
+{
+    EXPECT_EQ(referenceInAFrozenRocket(), "null; none");
+}
+
+/// What the rocket of a body tube hears while the tube's <preset> is not found, and whether
+/// its modification id changes: "<the number of events> <same id | new id>".
+[[nodiscard]] std::string whatTheRocketHearsOfAReference()
+{
+    ApplicationSetterFixture      fixture;
+    const ComponentPresetDatabase none;
+    fixture.context().setComponentPresetDatabase(&none);
+    RocketComponent& tube   = fixture.make(ComponentKind::BODY_TUBE);
+    int              events = 0;
+    const QtRocket::ComponentChangeSignal::ScopedConnection listening(
+        fixture.rocket().addComponentChangeListener(
+            [&events](const QtRocket::ComponentChangeEvent& /*event*/) { events++; }));
+    const QtRocket::ModId before = fixture.rocket().getModId();
+    WarningSet            warnings;
+    if (!applyKey(fixture, tube, "RocketComponent:preset", kBodyTubePreset, "", warnings) ||
+        !tube.getUnresolvedPreset().has_value())
+    {
+        return "no setter, it failed, or nothing was remembered";
+    }
+    return std::format("{} {}", events,
+                       fixture.rocket().getModId() == before ? "same id" : "new id");
+}
+
+// The rocket is as OpenRocket's loader leaves it: remembering the reference is no event.
+TEST(ComponentPresetSetter, RemembersAReferenceWithoutAnEvent)
+{
+    EXPECT_EQ(whatTheRocketHearsOfAReference(), "0 same id");
 }
 
 }  // namespace

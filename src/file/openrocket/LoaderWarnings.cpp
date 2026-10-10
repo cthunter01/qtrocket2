@@ -107,6 +107,22 @@ std::string LoaderWarnings::optionNotFinite(std::string_view element)
         element);
 }
 
+std::string LoaderWarnings::lookupFileOutsideDesign(std::string_view element, std::string_view file)
+{
+    return std::format(
+        "The lookup table file '{}' of element '{}' was not read: a design may name "
+        "such a file only by a relative path inside its own directory.",
+        file, element);
+}
+
+std::string LoaderWarnings::lookupFileOfDeviceName(std::string_view element, std::string_view file)
+{
+    return std::format(
+        "The lookup table file '{}' of element '{}' was not read: its path holds a "
+        "name that Windows reserves for a device.",
+        file, element);
+}
+
 std::string LoaderWarnings::tooManyWarnings()
 {
     return std::format("The file gave more than {} warnings; the further ones were dropped.",

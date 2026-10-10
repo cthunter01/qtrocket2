@@ -193,6 +193,20 @@ public:
     /// simulation option that is not finite; the option keeps what it had."
     [[nodiscard]] static std::string optionNotFinite(std::string_view element);
 
+    /// A file that a design names for a lookup table and may not read, because the name is
+    /// no relative one, leaves the design's directory, or the design has no directory (see
+    /// CsvLookupHandler): "The lookup table file '<file>' of element '<element>' was not read:
+    /// a design may name such a file only by a relative path inside its own directory."
+    /// (@p file is the name as the design has it.)
+    [[nodiscard]] static std::string lookupFileOutsideDesign(std::string_view element,
+                                                             std::string_view file);
+
+    /// A file that a design names for a lookup table and that has the name of a device of
+    /// Windows in its path: "The lookup table file '<file>' of element '<element>' was not
+    /// read: its path holds a name that Windows reserves for a device."
+    [[nodiscard]] static std::string lookupFileOfDeviceName(std::string_view element,
+                                                            std::string_view file);
+
     // -------------------------------------------------------------------- the warnings
 
     /// The last warning of a load that gave more than DocumentConfig::kMaxWarnings: "The file

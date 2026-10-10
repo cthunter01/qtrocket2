@@ -61,6 +61,8 @@ using QtRocket::Warning;
         std::string(LoaderWarnings::kWindLevelNotFinite),
         LoaderWarnings::unknownAltitudeReference("bogus"),
         LoaderWarnings::optionNotFinite("speed"),
+        LoaderWarnings::lookupFileOutsideDesign("draglookup", "../drag.csv"),
+        LoaderWarnings::lookupFileOfDeviceName("draglookup", "nul"),
         LoaderWarnings::tooManyWarnings(),
         LoaderWarnings::tooManyStoredWarnings(),
     };
@@ -94,7 +96,7 @@ using QtRocket::Warning;
 TEST(LoaderWarnings, EveryTextIsASentenceOfItsOwn)
 {
     const std::vector<std::string> texts = everyText();
-    EXPECT_EQ(texts.size(), 36U);
+    EXPECT_EQ(texts.size(), 38U);
     EXPECT_EQ(textsThatAreNotTheirOwn(texts), "");
     // What the helper tells: OpenRocket's general text, a text without a full stop, a text
     // that is there twice.
@@ -201,6 +203,14 @@ TEST(LoaderWarnings, TheTextsOfTheSimulations)
     EXPECT_EQ(LoaderWarnings::optionNotFinite("recoveryspeedwarning"),
               "The number of element 'recoveryspeedwarning' would give a simulation option that "
               "is not finite; the option keeps what it had.");
+    // The name of the file is the one the design has, not the path it would be read by.
+    EXPECT_EQ(LoaderWarnings::lookupFileOutsideDesign("draglookup", "/home/someone/drag.csv"),
+              "The lookup table file '/home/someone/drag.csv' of element 'draglookup' was not "
+              "read: a design may name such a file only by a relative path inside its own "
+              "directory.");
+    EXPECT_EQ(LoaderWarnings::lookupFileOfDeviceName("stabilitylookupcsv", "tables/COM1.csv"),
+              "The lookup table file 'tables/COM1.csv' of element 'stabilitylookupcsv' was not "
+              "read: its path holds a name that Windows reserves for a device.");
     EXPECT_EQ(LoaderWarnings::tooManyWarnings(),
               "The file gave more than 1000 warnings; the further ones were dropped.");
     EXPECT_EQ(LoaderWarnings::tooManyStoredWarnings(),

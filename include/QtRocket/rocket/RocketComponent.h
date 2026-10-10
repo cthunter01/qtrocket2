@@ -21,6 +21,7 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
+#include "QtRocket/rocket/preset/ComponentPresetReference.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
@@ -176,6 +177,23 @@ class Rocket;
 /// for a preset the caller keeps alive itself (ComponentPresetFactory's temporary preset, a
 /// test's local one): the component and its copies then only point at it. Java's garbage
 /// collector makes the distinction unnecessary there.
+///
+/// A preset that was not found: a model field OpenRocket does not have. A design file names the
+/// preset of a component (a <preset> element), and when the application does not know that
+/// preset, OpenRocket warns and forgets the element, so that the next save writes the design
+/// without it. Here the component remembers what the file said, a ComponentPresetReference
+/// (getUnresolvedPreset()), for the saver to write back. The .ork loader sets it
+/// (setUnresolvedPreset(), without an event: the rocket is then as OpenRocket's loader leaves
+/// it); it is copied with the component, so the copies in the undo history have it and an undo
+/// or redo brings it back with the component; and it is dropped where a preset would be:
+/// loadPreset() of a preset drops it, and so does clearPreset(), which every setter calls that
+/// changes a value a preset gives, with the NONFUNCTIONAL_CHANGE of a preset that is forgotten
+/// (the component no longer is the part the file named, and a save now writes something
+/// else). A component has a preset or such a reference or neither, never both. The reference
+/// takes part in nothing else: not in equals(), not in the mass, the aerodynamics or the
+/// figure, and copyFrom() leaves it alone as it leaves the preset (so the rocket of a
+/// document keeps its own through an undo, and a fin set converted to a freeform one has
+/// none).
 class RocketComponent
 {
 public:
@@ -358,7 +376,9 @@ public:
 
     /// Forgets the preset (the component's values stay) and fires NONFUNCTIONAL_CHANGE, unless
     /// there is none or setIgnorePresetClearing(true) is in force. The component gives up its
-    /// share of the preset before the event.
+    /// share of the preset before the event. Not OpenRocket's: the reference to a preset that
+    /// was not found (getUnresolvedPreset()) is forgotten in the same way, with the same event,
+    /// where OpenRocket, which keeps no such reference, does nothing.
     void clearPreset();
 
     /// Bases this component on @p preset and loads its values (Java's final loadPreset()): does
@@ -368,6 +388,10 @@ public:
     /// loadFromPreset() made, combined) and fires NONFUNCTIONAL_CHANGE. When loadFromPreset()
     /// throws, the rocket is thawed, the preset is not stored, no NONFUNCTIONAL_CHANGE fires and
     /// the exception propagates. Java's loop over the config listeners is not ported (see above).
+    ///
+    /// Not OpenRocket's: a preset that is loaded takes the place of the reference to one that
+    /// was not found (getUnresolvedPreset()), and a null @p preset forgets that reference as
+    /// clearPreset() does, also when the component has no preset.
     ///
     /// The component co-owns @p preset from then on, and so do its copies (see "Who owns a
     /// preset" in the class comment). When @p preset is the current preset and the component
@@ -392,11 +416,32 @@ public:
     /// presets. Defaults to presetTypeOf(kind()), which gives every concrete class's Java answer.
     [[nodiscard]] virtual std::optional<ComponentPresetType> getPresetType() const;
 
-    /// While true, clearPreset() keeps the preset.
+    /// While true, clearPreset() keeps the preset, and the reference to one that was not found.
     void setIgnorePresetClearing(bool ignorePresetClearing) noexcept
     {
         m_ignorePresetClearing = ignorePresetClearing;
     }
+
+    /// What the design file said about the preset of this component when the preset was not
+    /// found, or nullopt: for a component that was not read from a file, whose file named no
+    /// preset, whose preset was found (getPresetComponent()), or that has changed since (see
+    /// "A preset that was not found" in the class comment). No Java counterpart.
+    [[nodiscard]] const std::optional<ComponentPresetReference>& getUnresolvedPreset()
+        const noexcept
+    {
+        return m_unresolvedPreset;
+    }
+
+    /// Remembers @p reference as the preset a file names for this component and that was not
+    /// found; a later call replaces it. Does nothing for a component that is based on a preset
+    /// (getPresetComponent() is not null): the preset is what a save writes. No event is fired
+    /// and no modification id changes, whatever setIgnorePresetClearing() says: the loader of a
+    /// file calls this where OpenRocket's only warns, and the rocket it leaves is OpenRocket's.
+    void setUnresolvedPreset(ComponentPresetReference reference);
+
+    /// Forgets the reference of setUnresolvedPreset(), without an event (clearPreset() is the
+    /// call that tells the listeners).
+    void clearUnresolvedPreset() noexcept { m_unresolvedPreset.reset(); }
 
     /// Whether the component is drawn; it does not affect simulations.
     [[nodiscard]] bool isVisible() const noexcept { return m_isVisible; }
@@ -1172,6 +1217,7 @@ private:
     RocketComponent*                               m_cgOverriddenBy{nullptr};
     RocketComponent*                               m_cdOverriddenBy{nullptr};
     std::shared_ptr<const ComponentPreset>         m_presetComponent;
+    std::optional<ComponentPresetReference>        m_unresolvedPreset;
     Uuid                                           m_id;
     std::string                                    m_comment;
     mutable std::optional<std::vector<Coordinate>> m_cachedComponentLocations;

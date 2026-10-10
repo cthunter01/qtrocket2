@@ -114,6 +114,7 @@ add_executable(QtRocket_core_tests
     rocket/PodSetTests.cpp
     rocket/preset/ComponentPresetDatabaseTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
+    rocket/preset/ComponentPresetReferenceTests.cpp
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp
     rocket/preset/example_presets_tests.cpp
@@ -140,6 +141,7 @@ add_executable(QtRocket_core_tests
     rocket/TrapezoidFinSetTests.cpp
     rocket/TubeCouplerTests.cpp
     rocket/TubeFinSetTests.cpp
+    rocket/unresolved_preset_tests.cpp
     models/AtmosphericConditionsTests.cpp
     models/ConstantGravityModelTests.cpp
     models/ExtendedIsaModelTests.cpp
@@ -251,6 +253,7 @@ add_executable(QtRocket_core_tests
     document/open_rocket_document_material_tests.cpp
     document/open_rocket_document_preferences_tests.cpp
     document/open_rocket_document_simulation_undo_redo_tests.cpp
+    document/open_rocket_document_unresolved_preset_tests.cpp
     document/OpenRocketDocumentFactoryTests.cpp
     document/OpenRocketDocumentTests.cpp
     document/StorageOptionsTests.cpp
@@ -312,6 +315,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/loader_bounds_tests.cpp
     file/openrocket/loader_value_sweep_tests.cpp
     file/openrocket/LoaderWarningsTests.cpp
+    file/openrocket/lookup_file_containment_tests.cpp
     file/openrocket/MaterialSetterTests.cpp
     file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp
@@ -321,6 +325,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/OpenRocketLoaderTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
+    file/openrocket/preset_reference_files_tests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
     file/openrocket/recorded_ork_files_tests.cpp
     file/openrocket/rocket_element_tests.cpp

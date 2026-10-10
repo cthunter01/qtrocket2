@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <exception>
+#include <filesystem>
 #include <format>
 #include <ostream>
 #include <string>
@@ -2084,14 +2085,16 @@ constexpr auto kAnyValues = std::to_array<std::string_view>({
     return conditions;
 }
 
-/// What is wrong with what the handler makes of @p xml, or nothing: it must not throw, it may
-/// fail only as a load fails (ErrorCode::INVALID_ARGUMENT), and its options must hold no number
-/// that is not finite.
-[[nodiscard]] std::string faultOf(const std::string& xml)
+/// What is wrong with what the handler makes of @p xml for a design whose directory is
+/// @p designDirectory, or nothing: it must not throw, it may fail only as a load fails
+/// (ErrorCode::INVALID_ARGUMENT), and its options must hold no number that is not finite.
+[[nodiscard]] std::string faultOf(const std::string&           xml,
+                                  const std::filesystem::path& designDirectory)
 {
     try
     {
-        ConditionsFixture           fixture;
+        ConditionsFixture fixture;
+        fixture.context().setDesignDirectory(designDirectory);
         SimulationConditionsHandler handler(fixture.context());
         const HandlerRun            run = runHandler(handler, xml);
         if (!run.result.has_value() && run.result.error().code != ErrorCode::INVALID_ARGUMENT)
@@ -2112,13 +2115,14 @@ constexpr auto kAnyValues = std::to_array<std::string_view>({
     return {};
 }
 
-/// faultOf() of every element of conditionsOfAnyValue() that has a fault.
-[[nodiscard]] Texts faultsOfAnyValue()
+/// faultOf() of every element of conditionsOfAnyValue() that has a fault, for a design whose
+/// directory is @p designDirectory.
+[[nodiscard]] Texts faultsOfAnyValue(const std::filesystem::path& designDirectory)
 {
     Texts faults;
     for (const std::string& xml : conditionsOfAnyValue())
     {
-        if (std::string fault = faultOf(xml); !fault.empty())
+        if (std::string fault = faultOf(xml, designDirectory); !fault.empty())
         {
             faults.push_back(std::move(fault));
         }
@@ -2131,12 +2135,11 @@ constexpr auto kAnyValues = std::to_array<std::string_view>({
 // not finite, and what it fails with is the failure of a load.
 TEST(SimulationConditionsHandler, NoValueOfAFileMakesItThrowOrTakeANumberThatIsNotFinite)
 {
-    // A value in the place of a file's name is looked for in an empty directory of the test's
-    // own, whatever lies where the tests are run from.
-    const QtRocket::Test::TempDir               directory;
-    const QtRocket::Test::CurrentDirectoryGuard workingDirectory(directory.path());
+    // A value in the place of a file's name is looked for in the design's directory, an empty
+    // one of the test's own, whatever lies where the tests are run from.
+    const QtRocket::Test::TempDir directory;
     EXPECT_EQ(conditionsOfAnyValue().size(), (24U + 19U) * 49U);
-    EXPECT_EQ(faultsOfAnyValue(), Texts{});
+    EXPECT_EQ(faultsOfAnyValue(directory.path()), Texts{});
 }
 
 }  // namespace

@@ -36,6 +36,7 @@
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetReference.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
@@ -182,6 +183,7 @@ RocketComponent::RocketComponent(const RocketComponent& other)
     m_cgOverriddenBy(other.m_cgOverriddenBy),
     m_cdOverriddenBy(other.m_cdOverriddenBy),
     m_presetComponent(other.m_presetComponent),
+    m_unresolvedPreset(other.m_unresolvedPreset),
     m_id(other.m_id),
     m_comment(other.m_comment),
     m_appearance(other.m_appearance),
@@ -348,12 +350,24 @@ std::string RocketComponent::getDebugName() const
 
 void RocketComponent::clearPreset()
 {
-    if (m_presetComponent == nullptr || m_ignorePresetClearing)
+    // Not OpenRocket's: what a file said about a preset that was not found is forgotten as a
+    // preset is (see the class comment).
+    if ((m_presetComponent == nullptr && !m_unresolvedPreset.has_value()) || m_ignorePresetClearing)
     {
         return;
     }
     m_presetComponent = nullptr;
+    m_unresolvedPreset.reset();
     fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+}
+
+void RocketComponent::setUnresolvedPreset(ComponentPresetReference reference)
+{
+    if (m_presetComponent != nullptr)
+    {
+        return;
+    }
+    m_unresolvedPreset = std::move(reference);
 }
 
 void RocketComponent::loadPreset(std::shared_ptr<const ComponentPreset> preset,
@@ -363,6 +377,14 @@ void RocketComponent::loadPreset(std::shared_ptr<const ComponentPreset> preset,
     // skips the classes that override only the one-argument form; its callers pass params to
     // parachutes alone, so the single loadFromPreset() here is exact only for them.
     QTROCKET_ASSERT(!options.allowAutoRadius.has_value() || kind() == ComponentKind::PARACHUTE);
+    if (preset == nullptr)
+    {
+        // Java returns for a component without a preset and calls clearPreset() for one with a
+        // preset, which is what clearPreset() does of its own; it also forgets the reference
+        // to a preset that was not found.
+        clearPreset();
+        return;
+    }
     if (m_presetComponent.get() == preset.get())
     {
         // The same preset: nothing is loaded. A share offered for a preset the component only
@@ -371,11 +393,6 @@ void RocketComponent::loadPreset(std::shared_ptr<const ComponentPreset> preset,
         {
             m_presetComponent = std::move(preset);
         }
-        return;
-    }
-    if (preset == nullptr)
-    {
-        clearPreset();
         return;
     }
 
@@ -388,6 +405,8 @@ void RocketComponent::loadPreset(std::shared_ptr<const ComponentPreset> preset,
     {
         loadFromPreset(*preset, options);
         m_presetComponent = std::move(preset);
+        // The preset that was found takes the place of one that was not.
+        m_unresolvedPreset.reset();
     }
     catch (...)
     {
