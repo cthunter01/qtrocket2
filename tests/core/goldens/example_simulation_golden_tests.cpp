@@ -6,7 +6,8 @@
 // 54 simulations with 69 branches, 733 events and 46346 rows, at the time step their documents
 // give them: 0.05 s in 49 and 0.04 s in the five of "Pods--airframes and winglets". (The same
 // simulations at 0.01 s are the stable-step set of the examples, example-<name>/stable/: the
-// documents without the time series, for the comparison of the whole flights.)
+// documents without the time series, for the comparison of the whole flights, which is
+// example_simulation_stable_golden_tests.cpp.)
 //
 // The comparison is that of the default-step set of the test rockets: read the top of
 // simulation_golden_tests.cpp for what of a flight at this time step is reproducible and why no

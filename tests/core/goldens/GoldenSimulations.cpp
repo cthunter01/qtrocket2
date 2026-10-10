@@ -904,6 +904,9 @@ struct BranchOf
     /// The noise-dominated out-of-plane columns of its golden time series, which are compared
     /// on the launch rod only (none in the strict comparison).
     RodOnlyRule rule;
+    /// Whether its golden time series is among the files: not in a set that is written as
+    /// documents alone, whose branches name no file ("csv" is null).
+    bool timeSeries{true};
 };
 
 /// Compares the data of @p event with the golden "data" @p expected, by its kind.
@@ -1274,20 +1277,38 @@ void compareBranchHeader(Mismatches& m, Comparison& c, const json& expected, std
     // The time of the STAGE_SEPARATION event (NaN without one): reproducible like that event's.
     compareTime(m, c, "separationTime", goldenValue(expected.at("separationTime")),
                 branch.getSeparationTime(), !(branch.getSeparationTime() > ours.horizon.time));
-    // (Every branch that is compared here has its time series among the golden files.)
-    compareCsvName(m, expected, index, planned, true);
+    compareCsvName(m, expected, index, planned, ours.timeSeries);
     m.text("excludedColumns", joined(expected.at("excludedColumns")), excludedKeys(branch));
     noteUncomparedKeys(m, "", expected, kBranchKeys);
 }
 
 /// The golden branch @p expected of a simulation whose rocket clears the launch rod at
-/// @p cleared (nullopt: never), and its time series @p table.
+/// @p cleared (nullopt: never), and its time series @p table; @p timeSeries says whether that is
+/// one of the golden files, or the columns of a branch without one (columnsWithoutRows()).
 struct GoldenBranch
 {
     const json*           expected{nullptr};
     const GoldenTable*    table{nullptr};
     std::optional<double> cleared;
+    bool                  timeSeries{true};
 };
+
+/// The time series of the golden branch @p branch of a set that is written as documents alone
+/// (the stable-step set of the examples: GoldenManifest::hasStableTimeSeries()): the columns its
+/// document names, and no row. A branch of a run compared with it is compared in everything
+/// that is no number of its trajectory: its header, with a "csv" that has to be null, its
+/// columns by their keys, names, symbols and whether they are built in, and its events by their
+/// types, sources and data; no row, and every number as one of a run of which nothing is
+/// reproducible.
+[[nodiscard]] GoldenTable columnsWithoutRows(const json& branch)
+{
+    GoldenTable table;
+    for (const json& column : branch.at("columns"))
+    {
+        table.columns.push_back(column.at("key").get<std::string>());
+    }
+    return table;
+}
 
 /// The rule of the out-of-plane noise columns for the golden time series @p golden, as the
 /// comparison @p c applies it: not at all when it is strict.
@@ -1334,12 +1355,13 @@ void compareBranch(Comparison& c, std::size_t index, const GoldenBranch& golden,
 {
     Mismatches         m(std::format("{} branch {}", c.context, index));
     const GoldenTable& table = *golden.table;
-    const BranchOf     ours{.data    = run.data.get(),
-                            .branch  = &run.data->getBranch(index),
-                            .rocket  = run.rocket.get(),
-                            .horizon = sensitivity.horizons.at(index),
-                            .whole   = sensitivity.whole,
-                            .rule    = ruleOf(c, golden)};
+    const BranchOf     ours{.data       = run.data.get(),
+                            .branch     = &run.data->getBranch(index),
+                            .rocket     = run.rocket.get(),
+                            .horizon    = sensitivity.horizons.at(index),
+                            .whole      = sensitivity.whole,
+                            .rule       = ruleOf(c, golden),
+                            .timeSeries = golden.timeSeries};
     compareBranchHeader(m, c, *golden.expected, index, ours, run.planned);
 
     // The rows compared: those that are reproducible, as far as both sides have them.
@@ -1377,11 +1399,26 @@ void compareData(Comparison& c, const GoldenFiles& golden, const SimulationRun& 
               static_cast<std::int64_t>(run.data->getBranchCount()));
     c.report += m.report();
     const std::optional<double> cleared = goldenRodClearance(document);
-    for (std::size_t i = 0;
-         i < std::min({branches.size(), run.data->getBranchCount(), golden.tables.size()}); i++)
+    for (std::size_t i = 0; i < std::min(branches.size(), run.data->getBranchCount()); i++)
     {
+        if (i < golden.tables.size())
+        {
+            compareBranch(c, i,
+                          {.expected   = &branches.at(i),
+                           .table      = &golden.tables[i],
+                           .cleared    = cleared,
+                           .timeSeries = true},
+                          run, sensitivity);
+            continue;
+        }
+        // A branch whose time series is not among the golden files: everything of it that is
+        // no number of its trajectory, its "csv" among it, which then has to be null.
+        const GoldenTable columns = columnsWithoutRows(branches.at(i));
         compareBranch(c, i,
-                      {.expected = &branches.at(i), .table = &golden.tables[i], .cleared = cleared},
+                      {.expected   = &branches.at(i),
+                       .table      = &columns,
+                       .cleared    = cleared,
+                       .timeSeries = false},
                       run, sensitivity);
     }
 }

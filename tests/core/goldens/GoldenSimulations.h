@@ -16,9 +16,13 @@
 // reproducible of a flight, and why no more is, is described at the top of that file) and
 // simulation_stable_golden_tests.cpp the stable-step set (0.01 s, whole flights, with rules of its
 // own that live in that file). The comparison of the default-step set, compareSimulation(), also
-// compares everything of a stable-step simulation that is not a number of the trajectory. One rule
-// is the same in both comparisons and lives here: an out-of-plane column that is noise-dominated
-// is compared on the launch rod only (rule N of the stable-step set).
+// compares everything of a stable-step simulation that is not a number of the trajectory, of a
+// simulation whose golden files are its document alone as well (the stable-step set of the
+// examples, example_simulation_stable_golden_tests.cpp: a branch without a time series is
+// compared in everything but its rows). One rule is the same in both comparisons and lives here:
+// an out-of-plane column that is noise-dominated is compared on the launch rod only (rule N of
+// the stable-step set). What the two comparisons of the stable-step sets share beyond that is in
+// GoldenStableSimulations.h.
 //
 // The set-up and the run are those of a test rocket of tests/core/rocket/TestRockets.h
 // (runSimulation() builds the rocket and the harness's document from a TestRocketMaker), or

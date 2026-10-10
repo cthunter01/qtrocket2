@@ -12,11 +12,11 @@
 // says which kinds of inputs have a stable-step set and which of those have time series, and a
 // branch without one is accepted only there.
 //
-// The checks here are of the files alone. No test compares QtRocket with the stable-step
-// documents of the examples yet: an example cannot be loaded before the .ork loader exists
-// (tier 9, run 9b), and the comparison of the 54 simulations with these documents is run 9c's.
-// The tolerances of that comparison come from a measurement of OpenRocket against itself
-// ("Reproducibility of the simulations" in tools/openrocket-goldens/README.md).
+// The checks here are of the files alone. QtRocket's runs of the 54 simulations are compared
+// with the stable-step documents of the examples by example_simulation_stable_golden_tests.cpp,
+// and with their default-step files by example_simulation_golden_tests.cpp; the tolerances and
+// the rules of the first come from a measurement of OpenRocket against itself ("Reproducibility
+// of the simulations" in tools/openrocket-goldens/README.md) and are stated at its top.
 
 #include <algorithm>
 #include <cmath>
@@ -45,7 +45,7 @@
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
-#include "Sha256.h"
+#include "QtRocket/util/Sha256.h"
 #include "TestPaths.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenMismatches.h"
@@ -224,7 +224,7 @@ void checkExampleInput(const GoldenInput& input)
         std::filesystem::path{input.source.substr(kExamplesPrefix.size())};
     const auto bytes = QtRocket::readFile(file);
     ASSERT_TRUE(bytes.has_value()) << input.source << ": " << bytes.error().toString();
-    EXPECT_EQ(QtRocket::Test::sha256Hex(*bytes), input.sourceSha256)
+    EXPECT_EQ(QtRocket::sha256Hex(*bytes), input.sourceSha256)
         << input.source << " is not the file the goldens were made from";
 }
 
