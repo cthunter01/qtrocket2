@@ -34,9 +34,16 @@
 //   flight configuration and the three variants, each with its name, its flight configuration,
 //   no extension, no flight data, and the options the harness flew it with, which are the
 //   "options" of its golden simulation document, value for value (the re-save was written after
-//   the harness had made the options reproducible). Their statuses are those of OpenRocket's
-//   own reload: NOT_SIMULATED for the 36 whose configuration has a motor, CANT_RUN for the 14
-//   without one.
+//   the harness had made the options reproducible). One option of the file is not among them:
+//   every one of the fifty launches into the wind, and the launch rod direction of such options
+//   is the direction of the wind (SimulationOptions::getLaunchRodDirection(), and so the
+//   "launchRodDirection" of the golden options), not the direction stored for the rod. The
+//   stored one is compared with the <launchroddirection> of the file itself, 90 degrees in
+//   each. Their statuses are those of OpenRocket's own reload: NOT_SIMULATED for the 36 whose
+//   configuration has a motor, CANT_RUN for the 14 without one. And the options are those of
+//   the file whatever the preference store of the load holds: a second load of the thirteen,
+//   with other preferences for everything the options of a new simulation take from the store,
+//   gives the same fifty.
 //
 // THE FOURTEEN EXCEPTIONS. OpenRocket's own reload of these files does not give back the rocket
 // of the makers in fourteen values of geometry.json, in three of the designs (kReloadChanges;
@@ -70,9 +77,9 @@
 //
 // Tolerances (plan section 6.4), as for the rockets of the makers: geometry, mass and
 // aerodynamic coefficients relative 1e-9; positions, CGs and CPs absolute 1e-9 m; ids, names,
-// the numbers of the file and the options of the simulations exactly (one option is computed
-// and not stored, the launch rod direction of a launch into a multi-level wind: relative
-// 1e-12).
+// the numbers of the file and the options of the simulations exactly, but for the one option
+// that is computed with mathematical functions: the launch rod direction of the launch into a
+// multi-level wind, which is the direction of that wind at the launch site (relative 1e-12).
 
 #include <algorithm>
 #include <array>
@@ -82,6 +89,8 @@
 #include <format>
 #include <limits>
 #include <memory>
+#include <numbers>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -102,6 +111,8 @@
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/preferences/PreferenceKeys.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
@@ -109,6 +120,8 @@
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
+#include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/AutomaticDimensions.h"
 #include "goldens/GoldenData.h"
@@ -126,6 +139,7 @@ using QtRocket::GeneralRocketLoader;
 using QtRocket::LoadedDocument;
 using QtRocket::MultiLevelPinkNoiseWindModel;
 using QtRocket::PinkNoiseWindModel;
+using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::Simulation;
@@ -185,11 +199,20 @@ struct LoadedResave
     LoadedDocument                         loaded;
 };
 
+/// What a test does to the preference store of a load before the file is read.
+using PreparePreferences = void (*)(Preferences& preferences);
+
 /// Loads the re-save of @p input against the seven motors of TestRockets, in an environment of
-/// its own: the document as loaded, with the warnings of the load.
-[[nodiscard]] Result<LoadedResave> loadResave(const GoldenInput& input)
+/// its own: the document as loaded, with the warnings of the load. @p prepare, when given,
+/// changes the preference store of the environment first (OpenRocket's test preferences).
+[[nodiscard]] Result<LoadedResave> loadResave(const GoldenInput& input,
+                                              PreparePreferences prepare = nullptr)
 {
     auto environment = std::make_unique<DesignFileEnvironment>(Presets::NONE, testRocketMotors());
+    if (prepare != nullptr)
+    {
+        prepare(environment->preferences());
+    }
     const GeneralRocketLoader loader(environment->context());
     Result<LoadedDocument>    loaded = loader.load(QtRocket::Test::goldensDir() / input.resave);
     if (!loaded)
@@ -528,7 +551,7 @@ void addRun(ComparedResaves& compared, std::string_view name, const ResaveRun& r
 }
 
 /// The settings elements of the thirteen re-saves, as TestRocketsGoldenSettings pins them for
-/// the rockets of the makers.
+/// the rockets of the makers. No test rocket is made from a component preset.
 [[nodiscard]] SettingsCounts settingsCountsOfTheTestRockets()
 {
     return SettingsCounts{.deployEvents             = 9,
@@ -537,7 +560,8 @@ void addRun(ComparedResaves& compared, std::string_view name, const ResaveRun& r
                           .separationConfigurations = 1,
                           .motorMounts              = 16,
                           .motors                   = 48,
-                          .ignitionConfigurations   = 48};
+                          .ignitionConfigurations   = 48,
+                          .presets                  = 0};
 }
 
 // The thirteen re-saves load without a warning, and each reloaded design is the rocket of its
@@ -641,9 +665,12 @@ TEST(ResaveGolden, TheReloadedTestRocketsAreTheRocketsOfTheGoldens)
     };
 }
 
-/// The relative tolerance of the one option that is computed with mathematical functions and
-/// not stored: the launch rod direction of a launch into a multi-level wind, the direction of
-/// the model's wind at the launch site (an arc tangent of a sine and a cosine).
+/// The launch rod direction of options that launch into the wind, as those of all fifty
+/// simulations do, is the direction of the wind and not the direction stored for the rod
+/// (which compareStoredRodDirection() holds). With the average wind it is a number of the
+/// file, the direction of that wind, and is compared exactly. With a multi-level wind it is
+/// computed with mathematical functions, the direction of the model's wind at the launch site
+/// (an arc tangent of a sine and a cosine), and is compared within this relative tolerance.
 constexpr double kComputedDirectionRelative = 1e-12;
 
 /// The value of the golden options whose JSON pointer is this one.
@@ -704,6 +731,48 @@ struct OptionsComparison
     return result;
 }
 
+/// The <conditions> of the simulations of the re-save @p file, in the order of the file (an
+/// empty node for a simulation without one).
+[[nodiscard]] std::vector<pugi::xml_node> savedConditions(const pugi::xml_document& file)
+{
+    std::vector<pugi::xml_node> conditions;
+    for (const pugi::xml_node simulation :
+         file.child("openrocket").child("simulations").children("simulation"))
+    {
+        conditions.push_back(simulation.child("conditions"));
+    }
+    return conditions;
+}
+
+/// Compares the direction that @p options store for the launch rod with the
+/// <launchroddirection> of @p conditions, the element of their simulation in the file. Options
+/// that launch into the wind give the direction of the wind in its place, and so do the golden
+/// options, so the stored one is asked of a copy that does not launch into the wind. The file
+/// has degrees, and the loader stores d * 2 pi / 360 reduced to one turn
+/// (SimulationConditionsHandler and SimulationOptions::setLaunchRodDirection(), as
+/// OpenRocket's): the same operations here, so exactly that double. Returns the number of
+/// directions compared, 1, or 0 when the file has none; a mismatch is a line in @p report.
+[[nodiscard]] int compareStoredRodDirection(std::string& report, const pugi::xml_node& conditions,
+                                            const SimulationOptions& options)
+{
+    const std::optional<double> degrees =
+        QtRocket::Strings::javaParseDouble(conditions.child_value("launchroddirection"));
+    if (!degrees)
+    {
+        report += "  <launchroddirection>: not in the file, or no number\n";
+        return 0;
+    }
+    SimulationOptions notIntoTheWind(options);
+    notIntoTheWind.setLaunchIntoWind(false);
+    const double expected = QtRocket::MathUtil::reduce2Pi(*degrees * 2.0 * std::numbers::pi / 360);
+    const double stored   = notIntoTheWind.getLaunchRodDirection();
+    if (stored != expected)
+    {
+        report += std::format("  <launchroddirection>: expected {}, got {}\n", expected, stored);
+    }
+    return 1;
+}
+
 /// What the simulations of the re-saves are, and what comparing them with the golden simulation
 /// documents gave.
 struct ComparedSimulations
@@ -713,7 +782,9 @@ struct ComparedSimulations
     int notSimulated{0};   ///< those whose status is NOT_SIMULATED
     int cannotRun{0};      ///< those whose status is CANT_RUN
     int withoutMotors{0};  ///< those whose flight configuration has no motor, by geometry.json
+    int intoTheWind{0};    ///< those that launch into the wind
     int optionValues{0};   ///< the values of the golden options that were compared
+    int rodDirections{0};  ///< the stored launch rod directions compared with those of the files
     /// By simulation: what differs from its golden document. Empty when every simulation is
     /// the one the harness saved.
     std::string problems;
@@ -744,10 +815,12 @@ struct ComparedSimulations
 }
 
 /// Compares the loaded @p simulation with its golden document @p golden: the name, the flight
-/// configuration, the status after the load, no extension and no flight data, and the options.
-/// Adds what it found to @p compared, under @p what.
+/// configuration, the status after the load, no extension and no flight data, and the options;
+/// and the stored direction of the launch rod with @p conditions, the <conditions> of the
+/// simulation in the file. Adds what it found to @p compared, under @p what.
 void compareSimulation(ComparedSimulations& compared, const std::string& what, const json& golden,
-                       const json& geometry, Simulation& simulation)
+                       const json& geometry, Simulation& simulation,
+                       const pugi::xml_node& conditions)
 {
     std::string       report;
     const bool        hasMotors = goldenConfigurationHasMotors(golden, geometry, report);
@@ -780,6 +853,9 @@ void compareSimulation(ComparedSimulations& compared, const std::string& what, c
     const OptionsComparison options = compareOptions(golden.at("options"), simulation.getOptions());
     compared.optionValues += options.values;
     report += options.report;
+    compared.intoTheWind += simulation.getOptions().getLaunchIntoWind() ? 1 : 0;
+    compared.rodDirections +=
+        compareStoredRodDirection(report, conditions, simulation.getOptions());
     if (!report.empty())
     {
         compared.problems += std::format("{}:\n{}", what, report);
@@ -787,16 +863,20 @@ void compareSimulation(ComparedSimulations& compared, const std::string& what, c
 }
 
 /// Compares the simulations of the document of @p resave, as loaded, with the simulation
-/// documents the manifest lists for @p input, in their order (that of the harness's document).
+/// documents the manifest lists for @p input, in their order (that of the harness's document,
+/// and of @p file, the re-save itself).
 void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
-                        const LoadedResave& resave, const json& geometry)
+                        const LoadedResave& resave, const json& geometry,
+                        const pugi::xml_document& file)
 {
     const std::vector<std::shared_ptr<Simulation>> simulations =
         resave.loaded.document->getSimulations();
-    if (simulations.size() != input.simulations.size())
+    const std::vector<pugi::xml_node> conditions = savedConditions(file);
+    if (simulations.size() != input.simulations.size() || conditions.size() != simulations.size())
     {
-        compared.problems += std::format("{}: {} simulations, the manifest lists {}\n", input.name,
-                                         simulations.size(), input.simulations.size());
+        compared.problems += std::format(
+            "{}: {} simulations, the manifest lists {} and the file has {}\n", input.name,
+            simulations.size(), input.simulations.size(), conditions.size());
         return;
     }
     for (std::size_t i = 0; i < simulations.size(); i++)
@@ -808,28 +888,30 @@ void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
             compared.problems += std::format("{}: {}\n", what, golden.error().toString());
             continue;
         }
-        compareSimulation(compared, what, *golden, geometry, *simulations.at(i));
+        compareSimulation(compared, what, *golden, geometry, *simulations.at(i), conditions.at(i));
     }
 }
 
-/// Loads the re-save of every test rocket and compares its simulations, as loaded, with the
-/// golden simulation documents of its input.
-[[nodiscard]] ComparedSimulations compareSimulationsOfTheResaves()
+/// Loads the re-save of every test rocket (with the preference store that @p prepare made of
+/// OpenRocket's test preferences, when given) and compares its simulations, as loaded, with the
+/// golden simulation documents of its input and with the file.
+[[nodiscard]] ComparedSimulations compareSimulationsOfTheResaves(
+    PreparePreferences prepare = nullptr)
 {
     ComparedSimulations compared;
     for (const GoldenInput& input : testRocketInputs(compared.problems))
     {
         compared.inputs++;
-        const Result<LoadedResave> resave   = loadResave(input);
+        const Result<LoadedResave> resave   = loadResave(input, prepare);
         const Result<const json*>  geometry = QtRocket::Test::goldenGeometry(input.name);
-        if (!resave || !geometry)
+        const auto                 file     = loadGoldenResave(input.name);
+        if (!resave || !geometry || !file)
         {
             compared.problems +=
-                std::format("{}: {}\n", input.name,
-                            !resave ? resave.error().toString() : geometry.error().toString());
+                std::format("{}: no load, no geometry.json or no re-save to read\n", input.name);
             continue;
         }
-        compareSimulations(compared, input, *resave, **geometry);
+        compareSimulations(compared, input, *resave, **geometry, **file);
     }
     return compared;
 }
@@ -839,7 +921,9 @@ void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
 // (1808 values: 32 of every simulation and 4 of each of its wind levels, one level but for the
 // three of the flight into a multi-level wind; among the fifty are the RK6 stepper, the WGS84
 // geodetic computation and that wind). OpenRocket's own reload leaves 36 of them NOT_SIMULATED
-// and the 14 of a configuration without motors CANT_RUN, and so does this one.
+// and the 14 of a configuration without motors CANT_RUN, and so does this one. All fifty launch
+// into the wind, so the launch rod direction among those values is the wind's: the direction
+// stored for the rod is compared with the fifty <launchroddirection> of the files.
 TEST(ResaveGoldenSimulations, TheSimulationsAreThoseTheHarnessSaved)
 {
     const ComparedSimulations compared = compareSimulationsOfTheResaves();
@@ -850,6 +934,54 @@ TEST(ResaveGoldenSimulations, TheSimulationsAreThoseTheHarnessSaved)
     EXPECT_EQ(compared.cannotRun, 14);
     EXPECT_EQ(compared.withoutMotors, 14);
     EXPECT_EQ(compared.optionValues, 1808);
+    EXPECT_EQ(compared.intoTheWind, 50);
+    EXPECT_EQ(compared.rodDirections, 50);
+}
+
+/// Gives @p preferences another value for every option that a new simulation takes from the
+/// preference store (SimulationOptions(Preferences&)) and that a re-save stores, each unlike
+/// the value of any of the fifty simulations: the launch rod (1 m, upright, stored direction 90
+/// degrees in the files), the launch site (28.61 N, 80.6 W, sea level), the time step (0.05 s)
+/// and the maximum time (1200 s), the gravity model (WGS) and the wind keys, from which the
+/// multi-level wind model gets its first level (2 m/s from the east, calm). OpenRocket's test
+/// preferences, which the other loads have, equal the files in the rod angle, the altitude, the
+/// maximum time and the gravity model: there a value of the file that is not applied does not
+/// show. Left as they are: the flags (the files launch into the wind and use the ISA model, the
+/// test preferences do neither) and what a file with the ISA model and the WGS gravity does not
+/// store (the temperature, the pressure, the humidity, the constant gravity).
+void storeOtherPreferences(Preferences& preferences)
+{
+    namespace Keys = QtRocket::PreferenceKeys;
+    preferences.putDouble(Keys::kLaunchRodLength, 3.0);
+    preferences.putDouble(Keys::kLaunchRodAngle, 0.2);
+    preferences.putDouble(Keys::kLaunchRodDirection, 1.0);
+    preferences.putDouble(Keys::kWindAverage, 5.0);
+    preferences.putDouble(Keys::kWindTurbulence, 0.3);
+    preferences.putDouble(Keys::kWindDirection, 1.0);
+    preferences.putDouble(Keys::kLaunchAltitude, 250.0);
+    preferences.putDouble(Keys::kLaunchLatitude, 10.0);
+    preferences.putDouble(Keys::kLaunchLongitude, 20.0);
+    preferences.putDouble(Keys::kSimulationTimeStep, 0.02);
+    preferences.putDouble(Keys::kSimulationMaxTime, 600.0);
+    preferences.setGravityModelName("CONSTANT");
+}
+
+// The options of a loaded simulation are those of its file, not those of the installation: the
+// same fifty simulations come out of a load whose preference store has other values for
+// everything the options of a new simulation start from. (What starts from a constant and has
+// that constant in every file does not show here either: the four speeds of the recovery
+// warnings and the direction and the turbulence of the average wind. Each element of
+// <conditions> is held by tests/core/file/openrocket/SimulationConditionsHandlerTests.cpp.)
+TEST(ResaveGoldenSimulations, TheOptionsAreThoseOfTheFilesWhateverThePreferencesHold)
+{
+    const ComparedSimulations compared = compareSimulationsOfTheResaves(storeOtherPreferences);
+    EXPECT_EQ(compared.problems, "");
+    EXPECT_EQ(compared.inputs, 13);
+    EXPECT_EQ(compared.simulations, 50);
+    EXPECT_EQ(compared.notSimulated, 36);
+    EXPECT_EQ(compared.cannotRun, 14);
+    EXPECT_EQ(compared.optionValues, 1808);
+    EXPECT_EQ(compared.rodDirections, 50);
 }
 
 // The comparison of the options is not vacuous: a value of the golden options changed in a copy
@@ -900,8 +1032,9 @@ void PrintTo(const OptionsMutation& mutation, std::ostream* out)
         {"altitude", 100.0}, {"speed", 4.0}, {"direction", 2.2}, {"standardDeviation", 0.0}};
 }
 
-/// The changes. The launch rod direction is pi / 2 in every simulation of the Alpha III; the
-/// number next to it is one unit in the last place away, 1.5707963268 three parts in 10^11.
+/// The changes. The launch rod direction of the options is pi / 2 in every simulation of the
+/// Alpha III, the direction of its wind; the number next to it is one unit in the last place
+/// away, 1.5707963268 three parts in 10^11.
 [[nodiscard]] std::vector<OptionsMutation> optionsMutations()
 {
     return {
@@ -965,8 +1098,8 @@ void PrintTo(const OptionsMutation& mutation, std::ostream* out)
          .change     = removed("/randomSeedFixed"),
          .line       = "  options/randomSeedFixed: not in the golden options",
          .lines      = 1},
-        // A stored number is compared exactly ...
-        {.name       = "AStoredDirectionByOneUnitInTheLastPlace",
+        // The direction into the average wind is a number of the file, compared exactly ...
+        {.name       = "TheDirectionIntoTheAverageWindByOneUnitInTheLastPlace",
          .simulation = 4,
          .change     = replaced("/launchRodDirection", 1.5707963267948968),
          .line =

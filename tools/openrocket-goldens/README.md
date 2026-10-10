@@ -408,7 +408,8 @@ options can be read back).
 
 What QtRocket's tests do with these files:
 
-- The deployment, separation and ignition settings of a design, which no golden document records,
+- The deployment, separation and ignition settings of a design and the component presets its
+  components were made from (`<preset>`, six in the examples), which no golden document records,
   are compared with the elements of its re-save, for the rebuilt test rockets and for the loaded
   examples (`tests/core/goldens/GoldenSettings.h`).
 - The re-save of an example is loaded like the original file and has to give the same design: all of
@@ -417,8 +418,10 @@ What QtRocket's tests do with these files:
   `TestRockets` (the makers' motors are synthetic; the bundled database has real motors of the same
   designations, with other digests and masses) and compared with the design documents of the rocket
   and, in the options of its 50 simulations, with the simulation documents
-  (`resave_golden_tests.cpp`). OpenRocket's own reload of these files does not give the maker's
-  rocket back in 14 values of `geometry.json`, which that test pins with both numbers:
+  (`resave_golden_tests.cpp`). All 50 launch into the wind, so `launchRodDirection` of their
+  `options` is the direction of the wind; the direction stored for the rod is compared with the
+  `<launchroddirection>` of the file itself. OpenRocket's own reload of these files does not give
+  the maker's rocket back in 14 values of `geometry.json`, which that test pins with both numbers:
   - a fin tab without a height is not saved, and the loader centres the tab on the fin where the
     maker's fin set had kept it at the front (`tabOffset` and the x of the four `tabPoints` of
     `/0/1/0` of `testrocket-big-blue` and of `/1/0/0` of `testrocket-multi-stage-event-test-rocket`);

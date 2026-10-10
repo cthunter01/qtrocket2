@@ -40,18 +40,21 @@
 //   and the CM analysis.
 // - aero.json: per configuration the geometry warnings, the 25 points with their force
 //   analyses, and the worst CPs.
-// - The deployment, separation and ignition settings, which no golden document records, are
-//   compared with the elements of the re-save (compareSavedSettings() of GoldenSettings.h): 31
-//   <deployevent>, 6 <deploymentconfiguration>, 10 <separationevent>, 4
-//   <separationconfiguration>, 22 <motormount>, 65 <motor> and 65 <ignitionconfiguration> in
-//   the sixteen files.
+// - The deployment, separation and ignition settings and the component presets, which no golden
+//   document records, are compared with the elements of the re-save (compareSavedSettings() of
+//   GoldenSettings.h): 31 <deployevent>, 6 <deploymentconfiguration>, 10 <separationevent>, 4
+//   <separationconfiguration>, 22 <motormount>, 65 <motor>, 65 <ignitionconfiguration> and 6
+//   <preset> in the sixteen files. The six presets are of two nose cones, two body tubes and
+//   two parachutes; geometry.json shows only for the nose cones whether a preset was loaded.
 //
 // Nothing is skipped silently: the numbers of what was compared have to be those of the files
 // of each example, the examples are the "example" inputs of the manifest, and the totals over
 // the sixteen are pinned for either source. Nor is the comparison vacuous where it is new:
 // ExampleDesignGoldenMutations changes one golden value, or one element of a re-save, at a time
 // and expects the line that reports it, for the values that only the examples bring and for
-// what only a loaded design is compared in (ids, load warnings, settings).
+// what only a loaded design is compared in (ids, load warnings, settings, presets), and it
+// holds the tolerances of the comparison of mass.json, which the examples meet through
+// compareLoadedDesign(), by a value just inside and one just outside each.
 //
 // Without component presets (ExampleDesignGoldenWithoutPresets), which is how the product loads
 // a design before it reads preset files (Milestone 3), the same comparison of the original
@@ -60,10 +63,12 @@
 // in three examples, and 0 instead of 0.0015748 m for the thickness of the fore shoulder of two
 // nose cones, which their presets alone supply. Everything else is equal: every other value of
 // geometry.json and all of mass.json and aero.json. These are the only exemptions of this file.
+// The settings are compared there too, with the same numbers of elements; of the six <preset>
+// it is held that no component has a preset then (SavedPresets::NOT_FOUND).
 //
 // Tolerances (plan section 6.4), as for the test rockets: geometry, mass and aerodynamic
 // coefficients relative 1e-9; positions, CGs and CPs absolute 1e-9 m; ids, names, warnings and
-// the numbers of the re-save exactly.
+// the numbers and texts of the re-save exactly.
 
 #include <algorithm>
 #include <array>
@@ -118,6 +123,7 @@ using QtRocket::Test::goldenExamples;
 using QtRocket::Test::loadDesignGoldens;
 using QtRocket::Test::loadGoldenResave;
 using QtRocket::Test::loadSettledGoldenExample;
+using QtRocket::Test::SavedPresets;
 using QtRocket::Test::savedSettingsCounts;
 using QtRocket::Test::SettingsComparison;
 using QtRocket::Test::SettingsCounts;
@@ -144,8 +150,15 @@ struct ExampleRun
     return goldenExampleEnvironment(presets).preferences();
 }
 
+/// What a design that was loaded with the presets @p presets is to hold of the presets its file
+/// names: each of them, or none.
+[[nodiscard]] SavedPresets savedPresetsOf(Presets presets)
+{
+    return presets == Presets::NONE ? SavedPresets::NOT_FOUND : SavedPresets::LOADED;
+}
+
 /// Loads @p example from @p source with the presets @p presets, settles it, and compares it with
-/// the design documents @p goldens and with the settings of its re-save.
+/// the design documents @p goldens and with the settings and the presets of its re-save.
 [[nodiscard]] ExampleRun compareExample(const GoldenExample& example, ExampleSource source,
                                         Presets presets, const DesignGoldens& goldens)
 {
@@ -166,7 +179,8 @@ struct ExampleRun
     Rocket& rocket = loaded->document->getRocket();
     run.design     = compareLoadedDesign(rocket, loaded->warnings, goldens, preferencesOf(presets));
     run.saved      = savedSettingsCounts(**resave);
-    run.settings   = compareSavedSettings(rocket, goldens.geometry, **resave);
+    run.settings =
+        compareSavedSettings(rocket, goldens.geometry, **resave, savedPresetsOf(presets));
     return run;
 }
 
@@ -208,7 +222,7 @@ struct ExampleRun
 
 /// What the sixteen re-saves hold together of the settings (out/resave-survey.txt of the same
 /// probes): 25 default deployments and 6 of single configurations, 6 default separations and 4
-/// of single configurations, 22 motor mounts with 65 motors.
+/// of single configurations, 22 motor mounts with 65 motors, and the six presets of kLostPresets.
 [[nodiscard]] SettingsCounts settingsCountsOfTheExamples()
 {
     return SettingsCounts{.deployEvents             = 31,
@@ -217,7 +231,8 @@ struct ExampleRun
                           .separationConfigurations = 4,
                           .motorMounts              = 22,
                           .motors                   = 65,
-                          .ignitionConfigurations   = 65};
+                          .ignitionConfigurations   = 65,
+                          .presets                  = 6};
 }
 
 /// What comparing the examples, loaded from one source, with their goldens gave.
@@ -292,9 +307,9 @@ void addRun(ComparedExamples& compared, std::string_view name, const ExampleRun&
 // The sixteen examples, loaded from the files OpenRocket ships, are the designs of the goldens:
 // 16 inputs, 327 components with their ids, 66 configurations with 65 motors and 1608
 // instances, 66 mass calculations, 1650 points of the aerodynamics, and the 31 deployments, 10
-// separations and 65 ignitions of the re-saves. Everything the files hold is compared for
-// every example (its line says so when not), and the totals are those of the sixteen
-// directories.
+// separations, 65 ignitions and 6 presets of the re-saves. Everything the files hold is
+// compared for every example (its line says so when not), and the totals are those of the
+// sixteen directories.
 TEST(ExampleDesignGolden, TheOriginalFilesGiveTheDesignsOfTheGoldens)
 {
     const ComparedExamples compared = compareExamples(ExampleSource::ORIGINAL);
@@ -445,39 +460,32 @@ void changeToWithoutPresets(std::string_view input, json& geometry, PresetChange
 /// What the examples give without component presets.
 struct WithoutPresets
 {
-    int           examples{0};
-    PresetChanges changes;   ///< what the documents of OpenRocket differ in then
-    DesignCounts  golden;    ///< what those documents hold
-    DesignCounts  compared;  ///< what was compared
-    /// An example that cannot be loaded, and the mismatches of one: with the documents, and with
-    /// the settings of its re-save (which no preset touches).
-    std::string problems;
+    PresetChanges changes;  ///< what the documents of OpenRocket differ in then
+    /// The comparison with those documents and with the re-saves, as for the two sources with
+    /// the presets: what the files hold, what was compared, and by example why there is no
+    /// comparison, the mismatches, and what was not compared in full.
+    ComparedExamples compared;
 };
 
 /// Loads every example from its original file with an empty preset database and compares it
-/// with the design documents OpenRocket writes then (changeToWithoutPresets()).
+/// with the design documents OpenRocket writes then (changeToWithoutPresets()) and with the
+/// settings of its re-save, of whose presets the design then holds none.
 [[nodiscard]] WithoutPresets examplesWithoutPresets()
 {
     WithoutPresets result;
     for (const GoldenExample& example : goldenExamples())
     {
-        result.examples++;
+        result.compared.examples++;
         Result<DesignGoldens> goldens = loadDesignGoldens(example.name);
         if (!goldens)
         {
-            result.problems += std::format("{}: {}\n", example.file, goldens.error().toString());
+            result.compared.problems +=
+                std::format("{}: {}\n", example.name, goldens.error().toString());
             continue;
         }
         changeToWithoutPresets(example.name, goldens->geometry, result.changes);
-        const ExampleRun run =
-            compareExample(example, ExampleSource::ORIGINAL, Presets::NONE, *goldens);
-        result.golden += run.golden;
-        result.compared += run.design.compared;
-        if (!run.problem.empty() || !run.design.report.empty() || !run.settings.report.empty())
-        {
-            result.problems += std::format("{}: {}\n{}{}", example.file, run.problem,
-                                           run.design.report, run.settings.report);
-        }
+        addRun(result.compared, example.name,
+               compareExample(example, ExampleSource::ORIGINAL, Presets::NONE, *goldens));
     }
     return result;
 }
@@ -486,20 +494,26 @@ struct WithoutPresets
 // but for the six warnings of the loads and the two values that their presets alone supply:
 // what OpenRocket itself gives then. (The six components keep what their elements store; that
 // state is compared with OpenRocket's line for line in
-// tests/core/file/openrocket/example_files_tests.cpp, as loaded and unsettled.)
+// tests/core/file/openrocket/example_files_tests.cpp, as loaded and unsettled.) As with the
+// presets, everything the files hold is compared for every example and the totals are pinned;
+// the settings are those of the re-saves, and none of the six components has a preset.
 TEST(ExampleDesignGoldenWithoutPresets, OnlyTheSixWarningsAndTheTwoShoulderThicknessesDiffer)
 {
     DesignCounts expected = designCountsOfTheExamples();
     expected.loadWarnings = 6;
 
     const WithoutPresets result = examplesWithoutPresets();
-    EXPECT_EQ(result.problems, "");
+    EXPECT_EQ(result.compared.problems, "");
     EXPECT_EQ(result.changes.problems, "");
-    EXPECT_EQ(result.examples, 16);
+    EXPECT_EQ(result.compared.examples, 16);
     EXPECT_EQ(result.changes.warnings, 6);
     EXPECT_EQ(result.changes.values, 2);
-    EXPECT_EQ(result.compared, result.golden) << "what was compared, and what the files hold";
-    EXPECT_EQ(result.golden, expected);
+    EXPECT_EQ(result.compared.compared, result.compared.golden)
+        << "what was compared, and what the files hold";
+    EXPECT_EQ(result.compared.golden, expected);
+    EXPECT_EQ(result.compared.settings, result.compared.saved)
+        << "the settings compared, and those of the files";
+    EXPECT_EQ(result.compared.saved, settingsCountsOfTheExamples());
 }
 
 // ================================================================================= mutations
@@ -1027,10 +1041,60 @@ void changeTheStallAngle(DesignGoldens& goldens)
     goldens.aero.at("stallAngle") = 9.0;
 }
 
+/// Moves four values that the comparison of mass.json reads, each by a part of its tolerance
+/// (GoldenDesign.h: relative 1e-9, with an absolute 1e-15 for a value that is zero; 1e-12 m for
+/// a location):
+/// - the launch mass, a value of a rigid body, and the mass of the nose cone in the CM analysis,
+///   each by @p relative of itself;
+/// - the z of the launch CM, which is zero but for the rounding of a sum (3.6e-21 m in the
+///   document), to @p zero;
+/// - the x of the location of the body tube by @p location (in geometry.json: the locations the
+///   mass calculations rest on, which the comparison of geometry.json itself holds to 1e-9 m).
+/// The configuration is the one with the motor, "[D12-7]".
+void moveTheMassValues(DesignGoldens& goldens, double relative, double zero, double location)
+{
+    json& configuration                       = goldens.mass.at("configurations").at(1);
+    json& launchMass                          = configuration.at("launch").at("mass");
+    launchMass                                = launchMass.get<double>() * (1 + relative);
+    json& noseMass                            = configuration.at("cmAnalysis").at(1).at("eachMass");
+    noseMass                                  = noseMass.get<double>() * (1 + relative);
+    configuration.at("launch").at("cm").at(2) = zero;
+    json& x = goldens.geometry.at("components").at(3).at("componentLocations").at(0).at(0);
+    x       = x.get<double>() + location;
+}
+
+/// Each of the four by half its tolerance.
+void moveWithinTheMassTolerances(DesignGoldens& goldens)
+{
+    moveTheMassValues(goldens, 5e-10, 5e-16, 5e-13);
+}
+
+/// Each of the four by twice its tolerance.
+void moveBeyondTheMassTolerances(DesignGoldens& goldens)
+{
+    moveTheMassValues(goldens, 2e-9, 2e-15, 2e-12);
+}
+
+/// How often @p part is in @p text.
+[[nodiscard]] int occurrences(std::string_view text, std::string_view part)
+{
+    int         count = 0;
+    std::size_t at    = text.find(part);
+    while (at != std::string_view::npos)
+    {
+        count++;
+        at = text.find(part, at + part.size());
+    }
+    return count;
+}
+
 // The comparison of a loaded design goes on to its masses and its aerodynamics: a changed value
 // of mass.json or of aero.json is in its report (what GoogleTest was told about the masses is
-// under "mass.json:"). What is compared of the two documents, and how closely, is the business
-// of the tests of the test rockets.
+// under "mass.json:"). What is compared of the two documents is the business of the tests of
+// the test rockets, and so is how closely aero.json is (GoldenMismatches). How closely
+// mass.json is compared is held here, where the examples meet it: four values moved by half
+// their tolerance are still the design's, and moved by twice their tolerance each of them is
+// reported, in an entry of its own, and nothing of the other two documents is.
 TEST(ExampleDesignGoldenMutations, AChangedValueOfTheMassOrTheAerodynamicsIsReported)
 {
     EXPECT_EQ(designReportAfter(nullptr), "");
@@ -1043,6 +1107,16 @@ TEST(ExampleDesignGoldenMutations, AChangedValueOfTheMassOrTheAerodynamicsIsRepo
     const std::string aero = designReportAfter(changeTheStallAngle);
     EXPECT_TRUE(aero.starts_with("file:\n  stallAngle: expected 9, got ")) << aero;
     EXPECT_FALSE(aero.contains("mass.json")) << aero;
+
+    EXPECT_EQ(designReportAfter(moveWithinTheMassTolerances), "");
+
+    const std::string beyond = designReportAfter(moveBeyondTheMassTolerances);
+    EXPECT_EQ(occurrences(beyond, "mass.json:\n"), 4) << beyond;
+    EXPECT_TRUE(beyond.contains("[D12-7] launch mass")) << beyond;
+    EXPECT_TRUE(beyond.contains("[D12-7] analysis Nose cone eachMass")) << beyond;
+    EXPECT_TRUE(beyond.contains("[D12-7] launch cm z")) << beyond;
+    EXPECT_TRUE(beyond.contains("/0/1 #0")) << beyond;
+    EXPECT_FALSE(beyond.contains(": expected ")) << "geometry.json or aero.json: " << beyond;
 }
 
 // ---------------------------------------------------------------------------------- settings
@@ -1050,7 +1124,8 @@ TEST(ExampleDesignGoldenMutations, AChangedValueOfTheMassOrTheAerodynamicsIsRepo
 // Nor is the comparison of the settings: an element of the re-save of "Two stage high power
 // rocket.ork" changed in a copy of the document is reported. The design has recovery devices
 // with deployments of their own for both configurations, a booster with separations of its
-// own, and two motor mounts. Its first configuration has the id cf7a0b8c-....
+// own, and two motor mounts. Its first configuration has the id cf7a0b8c-.... The presets are
+// changed in the re-save of "Pods--powered with recovery deployment.ork", which has three.
 
 /// What a mutation does to an element of the re-save.
 enum class Edit
@@ -1058,20 +1133,23 @@ enum class Edit
     TEXT,              ///< gives it another text
     REMOVE,            ///< removes it
     CONFIGURATION_ID,  ///< gives it another configid
+    ATTRIBUTE,         ///< gives its attribute `attribute` another value
     ADD_CHILD,         ///< gives it a new child
 };
 
-/// A change to the re-save of the two-stage example that the comparison of the settings has to
-/// report: to the first element `element` whose parent is `parent`.
+/// A change to the re-save of an example that the comparison of the settings has to report: to
+/// the first element `element` whose parent is `parent`.
 struct SettingsMutation
 {
     std::string_view name;  ///< what is changed
     std::string_view element;
     std::string_view parent;
     Edit             edit{Edit::TEXT};
-    const char*      value{""};  ///< the new text, the new configid, the name of the new child
-    std::string      line;       ///< what a line of the report starts with
-    int              lines{1};   ///< the number of lines the change is reported in
+    const char*      attribute{""};  ///< Edit::ATTRIBUTE: the attribute that is changed
+    /// The new text, the new configid, the new value of the attribute, the name of the new child.
+    const char* value{""};
+    std::string line;      ///< what a line of the report starts with
+    int         lines{1};  ///< the number of lines the change is reported in
 };
 
 /// Makes the change of @p mutation to @p resave. Returns whether there was something to change.
@@ -1096,6 +1174,8 @@ struct SettingsMutation
             return element.parent().remove_child(element);
         case Edit::CONFIGURATION_ID:
             return element.attribute("configid").set_value(mutation.value);
+        case Edit::ATTRIBUTE:
+            return element.attribute(mutation.attribute).set_value(mutation.value);
         case Edit::ADD_CHILD:
             return !element.append_child(mutation.value).empty();
     }
@@ -1147,6 +1227,14 @@ struct SettingsMutation
          .value   = "123.5",
          .line    = ofTheFirstConfiguration("deploymentconfiguration",
                                             " <deployaltitude>: expected 123.5, got 152.4 ")},
+        // The numbers of the file are compared exactly: the double next to 152.4 is another one.
+        {.name    = "TheDeployAltitudeOfAConfigurationByOneUnitInTheLastPlace",
+         .element = "deployaltitude",
+         .parent  = "deploymentconfiguration",
+         .value   = "152.40000000000003",
+         .line =
+             ofTheFirstConfiguration("deploymentconfiguration",
+                                     " <deployaltitude>: expected 152.40000000000003, got 152.4 ")},
         {.name    = "ADeploymentConfigurationLess",
          .element = "deploymentconfiguration",
          .parent  = "parachute",
@@ -1270,7 +1358,54 @@ struct SettingsMutation
     };
 }
 
-/// The two-stage example as loaded, with its geometry.json and its re-save.
+/// The changes to the presets: to the first <preset> of the pods example, that of its first
+/// nose cone (PNC-50YR of Estes), and to its streamer, which has none.
+[[nodiscard]] std::vector<SettingsMutation> presetMutations()
+{
+    return {
+        {.name      = "TheTypeOfAPreset",
+         .element   = "preset",
+         .parent    = "nosecone",
+         .edit      = Edit::ATTRIBUTE,
+         .attribute = "type",
+         .value     = "TRANSITION",
+         .line      = R"(  <preset> type: expected "TRANSITION", got "NOSE_CONE")"},
+        {.name      = "TheManufacturerOfAPreset",
+         .element   = "preset",
+         .parent    = "nosecone",
+         .edit      = Edit::ATTRIBUTE,
+         .attribute = "manufacturer",
+         .value     = "Quest",
+         .line      = R"(  <preset> manufacturer: expected "Quest", got "Estes")"},
+        {.name      = "ThePartNumberOfAPreset",
+         .element   = "preset",
+         .parent    = "nosecone",
+         .edit      = Edit::ATTRIBUTE,
+         .attribute = "partno",
+         .value     = "PNC-50, 0",
+         .line      = R"(  <preset> partno: expected "PNC-50, 0", got "PNC-50YR, 72604")"},
+        {.name      = "TheDigestOfAPreset",
+         .element   = "preset",
+         .parent    = "nosecone",
+         .edit      = Edit::ATTRIBUTE,
+         .attribute = "digest",
+         .value     = "00",
+         .line = R"(  <preset> digest: expected "00", got "18363dec5642206a109389ef48efcb32")"},
+        {.name    = "APresetLess",
+         .element = "preset",
+         .parent  = "nosecone",
+         .edit    = Edit::REMOVE,
+         .line    = "  <preset>: number: expected 0, got 1"},
+        {.name    = "APresetMore",
+         .element = "streamer",
+         .parent  = "subcomponents",
+         .edit    = Edit::ADD_CHILD,
+         .value   = "preset",
+         .line    = "  <preset>: number: expected 1, got 0"},
+    };
+}
+
+/// An example as loaded from its re-save, with its geometry.json and the re-save.
 struct SettingsSubject
 {
     std::string                         problem;  ///< why there is none, else ""
@@ -1279,20 +1414,22 @@ struct SettingsSubject
     std::unique_ptr<pugi::xml_document> resave;
 };
 
-/// Loads the two-stage example (as loaded: no setting is an automatic dimension).
-[[nodiscard]] SettingsSubject settingsSubject()
+/// Loads the example of the golden input @p input from its re-save with the presets @p presets
+/// (as loaded: no setting is an automatic dimension).
+[[nodiscard]] SettingsSubject settingsSubject(std::string_view input,
+                                              Presets          presets = Presets::EXAMPLES)
 {
     SettingsSubject      subject;
-    const GoldenExample* example  = findGoldenExample(kTwoStage);
-    auto                 geometry = QtRocket::Test::loadGoldenGeometry(kTwoStage);
-    auto                 resave   = loadGoldenResave(kTwoStage);
+    const GoldenExample* example  = findGoldenExample(input);
+    auto                 geometry = QtRocket::Test::loadGoldenGeometry(input);
+    auto                 resave   = loadGoldenResave(input);
     if (example == nullptr || !geometry || !resave)
     {
-        subject.problem = "no golden data of the two-stage example";
+        subject.problem = std::format("no golden data of {}", input);
         return subject;
     }
     Result<LoadedDocument> loaded =
-        QtRocket::Test::loadGoldenExample(*example, ExampleSource::RESAVE);
+        QtRocket::Test::loadGoldenExample(*example, ExampleSource::RESAVE, presets);
     if (!loaded)
     {
         subject.problem = loaded.error().toString();
@@ -1304,11 +1441,14 @@ struct SettingsSubject
     return subject;
 }
 
-/// What the comparison of the settings of @p subject gives against @p resave.
+/// What the comparison of the settings of @p subject gives against @p resave, the design held
+/// to have what @p presets says of the presets the file names.
 [[nodiscard]] SettingsComparison settingsOf(const SettingsSubject&    subject,
-                                            const pugi::xml_document& resave)
+                                            const pugi::xml_document& resave,
+                                            SavedPresets presets = SavedPresets::LOADED)
 {
-    return compareSavedSettings(subject.loaded.document->getRocket(), subject.geometry, resave);
+    return compareSavedSettings(subject.loaded.document->getRocket(), subject.geometry, resave,
+                                presets);
 }
 
 /// What is wrong with the report of the comparison of the settings of @p subject after
@@ -1384,20 +1524,68 @@ struct SettingsVerdict
 // against those of the whole file.
 TEST(ExampleDesignGoldenMutations, AChangedElementOfAResaveIsReported)
 {
-    const SettingsSubject subject = settingsSubject();
+    const SettingsSubject subject = settingsSubject(kTwoStage);
     ASSERT_EQ(subject.problem, "");
 
     const SettingsVerdict asItIs = settingsVerdict(subject);
     EXPECT_EQ(asItIs.report, "");
     EXPECT_TRUE(asItIs.everyElementCompared);
 
-    EXPECT_EQ(reported(recoveryMutations(), subject), "13 changes");
+    EXPECT_EQ(reported(recoveryMutations(), subject), "14 changes");
     EXPECT_EQ(reported(ignitionMutations(), subject), "14 changes");
 
     const SettingsMutation stray      = aDeployEventInABodyTube();
     const SettingsVerdict  withAStray = settingsVerdict(subject, &stray);
     EXPECT_EQ(withAStray.report, "");
     EXPECT_FALSE(withAStray.everyElementCompared);
+}
+
+/// What the comparison reports of a component that has a preset when the design is held to
+/// have been loaded without the presets.
+constexpr std::string_view kAPresetWhereNoneIsExpected =
+    "\n  preset of the component, loaded without presets: number: expected 0, got 1\n";
+/// What it reports of a component without a preset whose element has one.
+constexpr std::string_view kNoPresetWhereOneIsExpected =
+    "\n  <preset>: number: expected 1, got 0\n";
+
+// The presets, in the re-save of "Pods--powered with recovery deployment.ork": two nose cones
+// and a body tube, each made from a preset of Estes. The re-save as it is matches the design
+// that was loaded with the presets, every element compared; then every change to a <preset> is
+// reported: its type, its manufacturer, its part number, its digest, a <preset> less and one
+// more. And the comparison tells a design that holds the presets from one that was loaded
+// without them: either is the design of the file only when it is held against what it was
+// loaded with, and against the other each of the three components is reported.
+TEST(ExampleDesignGoldenMutations, AChangedPresetOfAResaveIsReported)
+{
+    const SettingsSubject subject = settingsSubject(kPods);
+    ASSERT_EQ(subject.problem, "");
+
+    const SettingsComparison asItIs = settingsOf(subject, *subject.resave);
+    EXPECT_EQ(asItIs.report, "");
+    EXPECT_EQ(asItIs.compared.presets, 3);
+    EXPECT_EQ(asItIs.compared, savedSettingsCounts(*subject.resave));
+
+    EXPECT_EQ(reported(presetMutations(), subject), "6 changes");
+
+    const SettingsComparison asIfWithout =
+        settingsOf(subject, *subject.resave, SavedPresets::NOT_FOUND);
+    EXPECT_EQ(occurrences(asIfWithout.report, kAPresetWhereNoneIsExpected), 3)
+        << asIfWithout.report;
+    EXPECT_EQ(std::ranges::count(asIfWithout.report, '\n'), 6) << asIfWithout.report;
+    EXPECT_EQ(asIfWithout.compared.presets, 0);
+
+    const SettingsSubject without = settingsSubject(kPods, Presets::NONE);
+    ASSERT_EQ(without.problem, "");
+
+    const SettingsComparison held = settingsOf(without, *without.resave, SavedPresets::NOT_FOUND);
+    EXPECT_EQ(held.report, "");
+    EXPECT_EQ(held.compared.presets, 3);
+    EXPECT_EQ(held.compared, savedSettingsCounts(*without.resave));
+
+    const SettingsComparison asIfLoaded = settingsOf(without, *without.resave);
+    EXPECT_EQ(occurrences(asIfLoaded.report, kNoPresetWhereOneIsExpected), 3) << asIfLoaded.report;
+    EXPECT_EQ(std::ranges::count(asIfLoaded.report, '\n'), 6) << asIfLoaded.report;
+    EXPECT_EQ(asIfLoaded.compared.presets, 0);
 }
 
 }  // namespace

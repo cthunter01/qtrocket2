@@ -23,22 +23,26 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/GroundStepper.h"
 #include "QtRocket/simulation/Rk4SimulationStepper.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepper.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
 #include "aero/BarrowmanTestRockets.h"
 #include "rocket/JavaValueDifferences.h"
 #include "rocket/TestRockets.h"
+#include "simulation/SimulationRunSupport.h"
 #include "simulation/SimulationStatusSupport.h"
 #include "simulation/SimulationTestSupport.h"
 #include "simulation/StepperTablePins.h"
@@ -472,6 +476,64 @@ TEST(AbstractSimulationStepperDataStore, AStageSelectionWithoutAForceAnalysisEnd
     // Boosters that drop away with the inner boosters still on them fly on.
     dropped.setStageActive(TestFalcon9Heavy::kBoosterStageNumber, true, false);
     EXPECT_EQ(aerodynamicDampingOutcome(store, status), "a number");
+}
+
+/// Flies the rocket with boosters on its boosters with the inner boosters, which have no motor,
+/// made to drop away @p delay seconds after the launch. Tells in @p droppedBranch what the
+/// flight data hold of the branch of the dropped boosters, the last one: its name and the names
+/// of its events.
+[[nodiscard]] QtRocket::Result<void> flyDroppingTheInnerBoosters(double       delay,
+                                                                 std::string& droppedBranch)
+{
+    const TestBoostersOnBoostersRocket      nested;
+    QtRocket::StageSeparationConfiguration& separation =
+        nested.innerStage->getSeparationConfigurations().getDefault();
+    separation.setSeparationEvent(QtRocket::StageSeparationConfiguration::SeparationEvent::LAUNCH);
+    separation.setSeparationDelay(delay);
+    QtRocket::Test::JavaTestPreferences preferences;
+    QtRocket::Simulation                simulation(*nested.rocket, preferences.store);
+    simulation.setFlightConfigurationId(nested.fcid);
+    simulation.getOptions().setIsaAtmosphere(true);
+    simulation.getOptions().setTimeStep(0.05);
+
+    QtRocket::Result<void> flight = simulation.simulate();
+    const auto             data   = simulation.getSimulatedData();
+    if (data != nullptr && data->getBranchCount() > 0)
+    {
+        const std::size_t last = data->getBranchCount() - 1;
+        droppedBranch          = data->getBranch(last).getName() + ":";
+        for (const std::string& event : QtRocket::Test::eventNames(*data, last))
+        {
+            droppedBranch += " " + event;
+        }
+    }
+    return flight;
+}
+
+// And a whole flight of that rocket ends so. Half a second after the launch the rocket is off
+// the rod and climbing; the inner boosters drop away, and with the first step of their branch
+// the simulation ends: Simulation::simulate() returns the Error of an aborted simulation with
+// the text of the force analysis, where a BugError left it before the force analysis returned
+// a Result (OpenRocket: a NullPointerException out of the simulation), and the branch has the
+// EXCEPTION event. (The rocket itself goes on to tumble under thrust a second later, as the
+// Falcon 9 Heavy of TestRockets does without fins on its core.)
+//
+// Not every such separation comes to it: boosters dropped at the launch lie on the pad. Their
+// branch ends at once with the abort of a stage none of whose motors ignited, no damping
+// moment is asked for, and the simulation runs to its end.
+TEST(AbstractSimulationStepperDataStore, AFlightThatDropsTheInnerBoostersEndsWithThatError)
+{
+    std::string                  inFlightBranch;
+    const QtRocket::Result<void> inFlight = flyDroppingTheInnerBoosters(0.5, inFlightBranch);
+    ASSERT_FALSE(inFlight.has_value());
+    EXPECT_EQ(inFlight.error().code, QtRocket::ErrorCode::SIMULATION_ABORTED);
+    EXPECT_EQ(inFlight.error().message, BarrowmanCalculator::unsupportedStageSelectionText(
+                                            "Inner Boosters", "Booster Stage", "Core Stage"));
+    EXPECT_EQ(inFlightBranch, "Inner Boosters: STAGE_SEPARATION EXCEPTION");
+
+    std::string onThePadBranch;
+    EXPECT_TRUE(flyDroppingTheInnerBoosters(0.0, onThePadBranch).has_value());
+    EXPECT_EQ(onThePadBranch, "Inner Boosters: STAGE_SEPARATION SIM_ABORT");
 }
 
 // ================================================================================ checkNaN

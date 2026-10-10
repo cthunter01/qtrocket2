@@ -235,7 +235,8 @@ struct SettingsOfTheMakers
 /// TestRockets.java: every settings element of the thirteen re-saves is compared (9 deployments,
 /// 7 default separations and one of a single configuration, 16 motor mounts with 48 motors,
 /// each with the ignition of its configuration; among them an ignition at launch, one at the
-/// burnout of the stage below, one after 0.01 s and a separation at burnout).
+/// burnout of the stage below, one after 0.01 s and a separation at burnout). No file has a
+/// <preset>, and no maker gives a component a preset.
 TEST(TestRocketsGoldenSettings, EveryMakerGivesTheSettingsOfTheResave)
 {
     const SettingsOfTheMakers result = settingsOfTheMakers();
@@ -248,7 +249,8 @@ TEST(TestRocketsGoldenSettings, EveryMakerGivesTheSettingsOfTheResave)
                                             .separationConfigurations = 1,
                                             .motorMounts              = 16,
                                             .motors                   = 48,
-                                            .ignitionConfigurations   = 48}));
+                                            .ignitionConfigurations   = 48,
+                                            .presets                  = 0}));
 }
 
 }  // namespace

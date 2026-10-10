@@ -17,6 +17,7 @@
 #include <pugixml.hpp>
 
 #include "QtRocket/motor/IgnitionEvent.h"
+#include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -29,6 +30,8 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/Strings.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
@@ -52,6 +55,7 @@ constexpr const char* kSeparationConfiguration = "separationconfiguration";
 constexpr const char* kMotorMount              = "motormount";
 constexpr const char* kMotor                   = "motor";
 constexpr const char* kIgnitionConfiguration   = "ignitionconfiguration";
+constexpr const char* kPreset                  = "preset";
 constexpr const char* kConfigurationId         = "configid";
 
 /// A flight configuration of the rocket and the id the re-save has for it.
@@ -110,6 +114,44 @@ void compareNumber(Mismatches& m, std::string_view field, const pugi::xml_node& 
         return;
     }
     m.exact(std::format("{} <{}>", field, name), *expected, actual);
+}
+
+/// Compares the attribute @p name of the <preset> @p element with @p actual (an attribute that
+/// the element lacks reads as an empty text, which no preset has for any of the four).
+void comparePresetAttribute(Mismatches& m, const pugi::xml_node& element, const char* name,
+                            std::string_view actual)
+{
+    m.text(std::format("<preset> {}", name), element.attribute(name).value(), actual);
+}
+
+/// The component preset of @p component against the <preset> of its element @p node
+/// (RocketComponentSaver.addParams(): the element is there exactly when the component has a
+/// preset, with the name of its type, the simple name of its manufacturer, its part number and
+/// its digest). For a design that was loaded without the presets (@p presets) the component has
+/// none, whatever the element names; an element is then counted as compared when that is so.
+void comparePreset(Mismatches& m, SettingsCounts& counts, const pugi::xml_node& node,
+                   const RocketComponent& component, SavedPresets presets)
+{
+    const ComponentPreset* const preset   = component.getPresetComponent();
+    const std::int64_t           elements = countChildren(node, kPreset);
+    if (presets == SavedPresets::NOT_FOUND)
+    {
+        m.integer("preset of the component, loaded without presets: number", 0,
+                  preset != nullptr ? 1 : 0);
+        counts.presets += preset == nullptr ? static_cast<int>(elements) : 0;
+        return;
+    }
+    m.integer("<preset>: number", elements, preset != nullptr ? 1 : 0);
+    const pugi::xml_node element = node.child(kPreset);
+    if (element.empty() || preset == nullptr)
+    {
+        return;
+    }
+    comparePresetAttribute(m, element, "type", componentPresetTypeName(preset->getType()));
+    comparePresetAttribute(m, element, "manufacturer", preset->getManufacturer().getSimpleName());
+    comparePresetAttribute(m, element, "partno", preset->getPartNo());
+    comparePresetAttribute(m, element, "digest", preset->getDigest());
+    counts.presets++;
 }
 
 /// Compares the deployment @p actual with the three elements of it in @p parent
@@ -308,11 +350,12 @@ void compareMotorMount(Mismatches& m, SettingsCounts& counts, const pugi::xml_no
     counts += ofTheMount;
 }
 
-/// Compares the settings of @p component with its element @p node.
+/// Compares the preset and the settings of @p component with its element @p node.
 void compareComponent(Mismatches& m, SettingsCounts& counts, const pugi::xml_node& node,
                       const RocketComponent&              component,
-                      std::span<const SavedConfiguration> configurations)
+                      std::span<const SavedConfiguration> configurations, SavedPresets presets)
 {
+    comparePreset(m, counts, node, component, presets);
     if (const auto* device = dynamic_cast<const RecoveryDevice*>(&component))
     {
         compareRecoveryDevice(m, counts, node, *device, configurations);
@@ -338,6 +381,7 @@ void countSettings(SettingsCounts& counts, const pugi::xml_node& node)
     counts.motorMounts += name == kMotorMount ? 1 : 0;
     counts.motors += name == kMotor ? 1 : 0;
     counts.ignitionConfigurations += name == kIgnitionConfiguration ? 1 : 0;
+    counts.presets += name == kPreset ? 1 : 0;
     for (const pugi::xml_node child : node.children())
     {
         countSettings(counts, child);
@@ -351,10 +395,10 @@ std::string toText(const SettingsCounts& counts)
     return std::format(
         "{} deployevent, {} deploymentconfiguration, {} separationevent, "
         "{} separationconfiguration, {} motormount, {} motor, "
-        "{} ignitionconfiguration",
+        "{} ignitionconfiguration, {} preset",
         counts.deployEvents, counts.deploymentConfigurations, counts.separationEvents,
         counts.separationConfigurations, counts.motorMounts, counts.motors,
-        counts.ignitionConfigurations);
+        counts.ignitionConfigurations, counts.presets);
 }
 
 std::ostream& operator<<(std::ostream& out, const SettingsCounts& counts)
@@ -370,7 +414,7 @@ SettingsCounts savedSettingsCounts(const pugi::xml_document& resave)
 }
 
 SettingsComparison compareSavedSettings(const Rocket& rocket, const json& geometry,
-                                        const pugi::xml_document& resave)
+                                        const pugi::xml_document& resave, SavedPresets presets)
 {
     SettingsComparison                    result;
     const std::vector<SavedConfiguration> configurations = savedConfigurations(rocket, geometry);
@@ -389,7 +433,7 @@ SettingsComparison compareSavedSettings(const Rocket& rocket, const json& geomet
         }
         else
         {
-            compareComponent(m, result.compared, node, component, configurations);
+            compareComponent(m, result.compared, node, component, configurations, presets);
         }
         result.report += m.report();
     }
