@@ -19,7 +19,12 @@
 //   random id, which is then not compared.
 // - Not compared: a component's id (a random UUID) and "loadWarnings" (the .ork loader's, empty
 //   for a rocket that was built). The file's "schema", "schemaVersion" and "input" are checked by
-//   goldens_schema_tests.cpp.
+//   goldens_schema_tests.cpp. A key of a component, of its overrides, of a configuration, of a
+//   motor or of an instance that nothing compares is reported.
+// - What geometry.json does not record of a rocket, when its recovery devices deploy, when its
+//   stages separate and when its motors ignite, is compared with OpenRocket's re-save of the
+//   Java rocket (<input>/resave/rocket.ork), element by element (TestRocketsGoldenSettings;
+//   GoldenSettings.h says what the savers write).
 //
 // The numbers of components and configurations compared are taken from each golden file: a rocket
 // that skips one, or has one more, fails.
@@ -48,6 +53,7 @@
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenDesign.h"
 #include "goldens/GoldenGeometry.h"
+#include "goldens/GoldenSettings.h"
 #include "rocket/TestRockets.h"
 
 namespace
@@ -57,12 +63,16 @@ using nlohmann::json;
 using QtRocket::Rocket;
 using QtRocket::Test::compareComponents;
 using QtRocket::Test::compareConfigurations;
+using QtRocket::Test::compareSavedSettings;
 using QtRocket::Test::componentCount;
 using QtRocket::Test::GeometryComparison;
 using QtRocket::Test::goldenCount;
 using QtRocket::Test::goldenGeometry;
 using QtRocket::Test::goldenSelectedIndex;
+using QtRocket::Test::savedSettingsCounts;
 using QtRocket::Test::selectedIndex;
+using QtRocket::Test::SettingsComparison;
+using QtRocket::Test::SettingsCounts;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
 
@@ -178,6 +188,64 @@ TEST(TestRocketsGoldenCoverage, EveryGoldenTestRocketIsRebuiltInFull)
     EXPECT_EQ(static_cast<std::size_t>(coverage.goldenInputs), testRocketMakers().size());
     EXPECT_EQ(coverage.components, 151) << "the components of the thirteen golden test rockets";
     EXPECT_EQ(coverage.configurations, 47) << "their configurations, the default ones included";
+}
+
+// ================================================================================== settings
+
+/// What the rockets of the makers hold of the settings of their re-saves.
+struct SettingsOfTheMakers
+{
+    int            rockets{0};
+    SettingsCounts saved;     ///< the settings elements of the thirteen re-saves
+    SettingsCounts compared;  ///< those that were compared
+    std::string    problems;  ///< a file that cannot be read, the mismatches of a rocket
+};
+
+/// Compares the deployment, separation and ignition settings of the rocket of every maker with
+/// the elements of OpenRocket's re-save of the Java rocket.
+[[nodiscard]] SettingsOfTheMakers settingsOfTheMakers()
+{
+    SettingsOfTheMakers result;
+    for (const TestRocketMaker& maker : testRocketMakers())
+    {
+        result.rockets++;
+        const QtRocket::Result<const json*> geometry = goldenGeometry(maker.input);
+        const auto                          resave = QtRocket::Test::loadGoldenResave(maker.input);
+        if (!geometry || !resave)
+        {
+            result.problems += std::format("{}: no geometry or no re-save\n", maker.input);
+            continue;
+        }
+        const std::unique_ptr<Rocket> rocket = maker.make();
+        const SettingsComparison settings    = compareSavedSettings(*rocket, **geometry, **resave);
+        result.saved += savedSettingsCounts(**resave);
+        result.compared += settings.compared;
+        if (!settings.report.empty())
+        {
+            result.problems += std::format("{}:\n{}", maker.input, settings.report);
+        }
+    }
+    return result;
+}
+
+/// The deployments, separations and ignitions the makers give their rockets are those of
+/// TestRockets.java: every settings element of the thirteen re-saves is compared (9 deployments,
+/// 7 default separations and one of a single configuration, 16 motor mounts with 48 motors,
+/// each with the ignition of its configuration; among them an ignition at launch, one at the
+/// burnout of the stage below, one after 0.01 s and a separation at burnout).
+TEST(TestRocketsGoldenSettings, EveryMakerGivesTheSettingsOfTheResave)
+{
+    const SettingsOfTheMakers result = settingsOfTheMakers();
+    EXPECT_EQ(result.problems, "");
+    EXPECT_EQ(result.rockets, 13);
+    EXPECT_EQ(result.compared, result.saved) << "what was compared, and what the re-saves hold";
+    EXPECT_EQ(result.saved, (SettingsCounts{.deployEvents             = 9,
+                                            .deploymentConfigurations = 0,
+                                            .separationEvents         = 8,
+                                            .separationConfigurations = 1,
+                                            .motorMounts              = 16,
+                                            .motors                   = 48,
+                                            .ignitionConfigurations   = 48}));
 }
 
 }  // namespace

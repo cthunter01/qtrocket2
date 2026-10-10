@@ -55,11 +55,10 @@
 // The comparison itself (compareAero() and what it is made of) is in GoldenDesign.h, for the tests
 // of other designs to share.
 //
-// Not compared yet: the sixteen example-* inputs. Their aero.json files are in
-// tests/data/goldens, but the designs are .ork files, which need the .ork loader of the file
-// tier. Their tests are to load the design and hand it to compareAero(). (Their goldens
-// describe the design after OpenRocket's automatic dimensions have settled; see "Settled
-// automatic dimensions" in the README of tools/openrocket-goldens.)
+// The sixteen example-* inputs are compared with their aero.json files by
+// example_design_golden_tests.cpp: it loads each design from its .ork file, settles its
+// automatic dimensions as the harness does (see "Settled automatic dimensions" in the README of
+// tools/openrocket-goldens) and hands it to compareLoadedDesign(), which ends in compareAero().
 
 #include <algorithm>
 #include <cmath>
