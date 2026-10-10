@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <format>
 #include <functional>
 #include <numbers>
@@ -18,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -43,6 +45,7 @@
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/ComponentAssembly.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/ExternalComponent.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
@@ -50,29 +53,34 @@
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/InstanceContext.h"
-#include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/LineInstanceable.h"
 #include "QtRocket/rocket/MassObject.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Parachute.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/ReferenceType.h"
 #include "QtRocket/rocket/RingComponent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
+#include "QtRocket/rocket/Streamer.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/Tube.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/rocket/position/AngleMethod.h"
 #include "QtRocket/rocket/position/AnglePositionable.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/rocket/position/RadiusMethod.h"
 #include "QtRocket/util/BoundingBox.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
+#include "QtRocket/util/Uuid.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
@@ -91,6 +99,82 @@ using nlohmann::json;
 using Mismatches = GoldenMismatches;
 
 // ============================================================================= geometry.json
+
+/// The keys of the objects of a geometry.json document that the comparisons read (compare,
+/// follow or, for the first three of the file, leave to goldens_schema_tests.cpp). A component's
+/// "id" is compared by compareComponentIds() only: a rebuilt rocket draws its ids at random. The
+/// entries of a component's "details" are held by Details::unread().
+constexpr std::array<std::string_view, 8> kGeometryFileKeys{
+    "schema",       "schemaVersion", "input",         "rocketName", "selectedConfiguration",
+    "loadWarnings", "components",    "configurations"};
+constexpr std::array<std::string_view, 29> kComponentKeys{"path",
+                                                          "type",
+                                                          "name",
+                                                          "id",
+                                                          "stageNumber",
+                                                          "length",
+                                                          "axialMethod",
+                                                          "axialOffset",
+                                                          "position",
+                                                          "isAerodynamic",
+                                                          "isMassive",
+                                                          "componentMass",
+                                                          "componentCG",
+                                                          "longitudinalUnitInertia",
+                                                          "rotationalUnitInertia",
+                                                          "mass",
+                                                          "sectionMass",
+                                                          "cg",
+                                                          "longitudinalInertia",
+                                                          "rotationalInertia",
+                                                          "overrides",
+                                                          "componentBounds",
+                                                          "instanceCount",
+                                                          "instanceOffsets",
+                                                          "instanceAngles",
+                                                          "instanceLocations",
+                                                          "componentLocations",
+                                                          "componentAngles",
+                                                          "details"};
+constexpr std::array<std::string_view, 12> kOverrideKeys{"massOverridden",
+                                                         "overrideMass",
+                                                         "cgOverridden",
+                                                         "overrideCGX",
+                                                         "cdOverridden",
+                                                         "overrideCD",
+                                                         "subcomponentsOverriddenMass",
+                                                         "subcomponentsOverriddenCG",
+                                                         "subcomponentsOverriddenCD",
+                                                         "cdOverriddenByAncestor",
+                                                         "massOverriddenBy",
+                                                         "cgOverriddenBy"};
+constexpr std::array<std::string_view, 17> kGeometryConfigurationKeys{
+    "index",           "id",
+    "isDefault",       "name",
+    "stageCount",      "activeStages",
+    "referenceLength", "referenceArea",
+    "length",          "lengthAerodynamic",
+    "boundingBox",     "boundingBoxAerodynamic",
+    "hasMotors",       "hasRecoveryDevice",
+    "motors",          "activeComponents",
+    "instances"};
+constexpr std::array<std::string_view, 13> kMotorKeys{"mount",
+                                                      "motorName",
+                                                      "designation",
+                                                      "manufacturer",
+                                                      "digest",
+                                                      "ejectionDelay",
+                                                      "nozzleExitDiameter",
+                                                      "ignitionEvent",
+                                                      "ignitionDelay",
+                                                      "motorCount",
+                                                      "motorCountIncludingAssemblyCopies",
+                                                      "motorOverhang",
+                                                      "position"};
+constexpr std::array<std::string_view, 2>  kInstanceEntryKeys{"path", "instances"};
+constexpr std::array<std::string_view, 4>  kInstanceKeys{"instanceNumber", "location", "transform",
+                                                         "parentTransform"};
+constexpr std::array<std::string_view, 2>  kBoxKeys{"min", "max"};
 
 /// Compares the class, the name and the placement of @p actual with the golden @p expected.
 void comparePlacement(Mismatches& m, const json& expected, const RocketComponent& actual)
@@ -172,6 +256,7 @@ void compareMass(Mismatches& m, const json& expected, const RocketComponent& act
            pathOrNone(actual.getMassOverriddenBy()));
     m.text("cgOverriddenBy", overriderPath(overrides.at("cgOverriddenBy")),
            pathOrNone(actual.getCGOverriddenBy()));
+    noteUncomparedKeys(m, "overrides", overrides, kOverrideKeys);
 }
 
 /// Compares the instances of @p actual: their count, offsets, angles and locations.
@@ -296,18 +381,22 @@ public:
         }
     }
 
+    /// The number of entries of the golden details that a comparison read.
+    [[nodiscard]] int compared() const noexcept { return m_compared; }
+
 private:
     /// The golden entry @p key, now read; null, and a mismatch, when the golden component has
     /// no such entry (the rebuilt component is of a class that the Java one is not).
     [[nodiscard]] const json* read(std::string_view key)
     {
-        m_read.emplace(key);
+        const bool first = m_read.emplace(key).second;
         const auto entry = m_details->find(key);
         if (entry == m_details->end())
         {
             m_mismatches->note(std::format("details.{}: no golden entry", key));
             return nullptr;
         }
+        m_compared += first ? 1 : 0;
         return &*entry;
     }
 
@@ -319,6 +408,7 @@ private:
     Mismatches*                        m_mismatches;
     const json*                        m_details;
     std::set<std::string, std::less<>> m_read;
+    int                                m_compared{0};
 };
 
 /// The details every component has: its radial and angular position and whether it is a motor
@@ -343,11 +433,11 @@ void compareCommonDetails(Details& d, const RocketComponent& actual)
     }
 }
 
-/// A nose cone, body tube or transition: its volumes and areas, radii, wall, finish and
-/// material; a transition's shape and shoulders; a body tube's mount settings.
+/// A nose cone, body tube or transition: its full volume and areas, radii and wall (its volume,
+/// finish and material are those of an external component, compareExternalDetails()); a
+/// transition's shape and shoulders; a body tube's mount settings.
 void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
 {
-    d.relative("componentVolume", actual.getComponentVolume());
     d.relative("fullVolume", actual.getFullVolume());
     d.relative("componentWetArea", actual.getComponentWetArea());
     d.relative("componentPlanformArea", actual.getComponentPlanformArea());
@@ -357,8 +447,6 @@ void compareBodyDetails(Details& d, const QtRocket::SymmetricComponent& actual)
     d.length("innerRadius", actual.getInnerRadius());
     d.length("thickness", actual.getThickness());
     d.boolean("filled", actual.isFilled());
-    d.text("finish", QtRocket::finishName(actual.getFinish()));
-    d.material("material", actual.getMaterial());
 
     if (const auto* transition = dynamic_cast<const QtRocket::Transition*>(&actual))
     {
@@ -401,19 +489,29 @@ void compareRingDetails(Details& d, const QtRocket::RingComponent& actual)
     }
 }
 
-/// A parachute or a shock cord: its packed radius and radial position, and what the class adds.
+/// A recovery device, a shock cord or a mass component: its packed radius and radial position,
+/// and what the class adds (a recovery device's drag coefficient and material, a parachute's
+/// canopy and lines, a streamer's strip).
 void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
 {
     d.length("radius", actual.getRadius());
     d.absolute("radialPosition", actual.getRadialPosition());
     d.absolute("radialDirection", actual.getRadialDirection());
+    if (const auto* device = dynamic_cast<const QtRocket::RecoveryDevice*>(&actual))
+    {
+        d.relative("cd", device->getCD());
+        d.material("material", device->getMaterial());
+    }
     if (const auto* chute = dynamic_cast<const QtRocket::Parachute*>(&actual))
     {
         d.length("diameter", chute->getDiameter());
-        d.relative("cd", chute->getCD());
         d.integer("lineCount", chute->getLineCount());
         d.length("lineLength", chute->getLineLength());
-        d.material("material", chute->getMaterial());
+    }
+    if (const auto* streamer = dynamic_cast<const QtRocket::Streamer*>(&actual))
+    {
+        d.length("stripLength", streamer->getStripLength());
+        d.length("stripWidth", streamer->getStripWidth());
     }
     if (const auto* cord = dynamic_cast<const QtRocket::ShockCord*>(&actual))
     {
@@ -423,7 +521,8 @@ void compareMassObjectDetails(Details& d, const QtRocket::MassObject& actual)
 }
 
 /// A fin set: its fins (count, thickness, cross-section, cant, base rotation), its tab and
-/// fillets, its areas and outlines, and the dimensions of a trapezoidal one.
+/// fillets, its areas and outlines, the dimensions of a trapezoidal one and the height of an
+/// elliptical one.
 void compareFinSetDetails(Details& d, const QtRocket::FinSet& actual)
 {
     d.relative("planformArea", actual.getPlanformArea());
@@ -450,9 +549,15 @@ void compareFinSetDetails(Details& d, const QtRocket::FinSet& actual)
         d.length("sweep", trapezoid->getSweep());
         d.absolute("sweepAngle", trapezoid->getSweepAngle());
     }
+    if (const auto* elliptical = dynamic_cast<const QtRocket::EllipticalFinSet*>(&actual))
+    {
+        d.length("height", elliptical->getHeight());
+    }
 }
 
-/// A fin set or a launch lug: its volume, finish and material, and what the class adds.
+/// A fin set, a launch lug, a rail button or a tube fin set: its volume, finish and material,
+/// and what the class adds (the radii and the wall of a tube; the body radius, the number and
+/// the base rotation of tube fins).
 void compareExternalDetails(Details& d, const QtRocket::ExternalComponent& actual)
 {
     d.relative("componentVolume", actual.getComponentVolume());
@@ -462,17 +567,24 @@ void compareExternalDetails(Details& d, const QtRocket::ExternalComponent& actua
     {
         compareFinSetDetails(d, *fins);
     }
-    if (const auto* lug = dynamic_cast<const QtRocket::LaunchLug*>(&actual))
+    if (const auto* tube = dynamic_cast<const QtRocket::Tube*>(&actual))
     {
-        d.length("outerRadius", lug->getOuterRadius());
-        d.length("innerRadius", lug->getInnerRadius());
-        d.length("thickness", lug->getThickness());
+        d.length("outerRadius", tube->getOuterRadius());
+        d.length("innerRadius", tube->getInnerRadius());
+        d.length("thickness", tube->getThickness());
+    }
+    if (const auto* tubeFins = dynamic_cast<const QtRocket::TubeFinSet*>(&actual))
+    {
+        d.length("bodyRadius", tubeFins->getBodyRadius());
+        d.integer("finCount", tubeFins->getFinCount());
+        d.absolute("baseRotation", tubeFins->getBaseRotation());
     }
 }
 
 /// Compares the golden details of @p expected with @p actual, by the classes @p actual is of
 /// (the C++ counterpart of the harness's reflection), then reports the entries left over.
-void compareDetails(Mismatches& m, const json& expected, const RocketComponent& actual)
+/// Returns the number of entries compared.
+[[nodiscard]] int compareDetails(Mismatches& m, const json& expected, const RocketComponent& actual)
 {
     Details d(m, expected.at("details"));
     compareCommonDetails(d, actual);
@@ -499,6 +611,7 @@ void compareDetails(Mismatches& m, const json& expected, const RocketComponent& 
         d.boolean("perfectFinish", rocket->isPerfectFinish());
     }
     d.unread();
+    return d.compared();
 }
 
 /// Compares the stages of @p config with the golden @p expected configuration.
@@ -524,8 +637,10 @@ void compareStages(Mismatches& m, const json& expected, const FlightConfiguratio
 }
 
 /// Compares the motor in the mount at the golden path with the golden @p expected motor.
-void compareMotor(Mismatches& m, const json& expected, const Rocket& rocket,
-                  const FlightConfiguration& config, const QtRocket::Preferences& preferences)
+/// Returns whether there was a motor to compare.
+[[nodiscard]] bool compareMotor(Mismatches& m, const json& expected, const Rocket& rocket,
+                                const FlightConfiguration&   config,
+                                const QtRocket::Preferences& preferences)
 {
     const auto        path  = expected.at("mount").get<std::string>();
     const std::string field = std::format("motor in {}", path);
@@ -533,13 +648,13 @@ void compareMotor(Mismatches& m, const json& expected, const Rocket& rocket,
     if (mount == nullptr)
     {
         m.note(field + ": not a motor mount");
-        return;
+        return false;
     }
     const MotorConfiguration& motor = mount->getMotorConfig(config.getId());
     if (motor.isEmpty())
     {
         m.note(field + ": no motor");
-        return;
+        return false;
     }
     m.text(field + " motorName", expected.at("motorName").get<std::string>(),
            motor.toMotorName(preferences));
@@ -567,6 +682,8 @@ void compareMotor(Mismatches& m, const json& expected, const Rocket& rocket,
                mount->getMotorOverhang());
     m.position(field + " position", goldenCoordinate(expected.at("position")),
                mount->getMotorPosition(config.getId()));
+    noteUncomparedKeys(m, field, expected, kMotorKeys);
+    return true;
 }
 
 /// Compares the reference values, the lengths and the bounds of @p config.
@@ -588,18 +705,22 @@ void compareExtent(Mismatches& m, const json& expected, const FlightConfiguratio
     m.position("boundingBox.max", goldenCoordinate(boxJson.at("max")), box.max());
     m.position("boundingBoxAerodynamic.min", goldenCoordinate(aeroJson.at("min")), aero.min());
     m.position("boundingBoxAerodynamic.max", goldenCoordinate(aeroJson.at("max")), aero.max());
+    noteUncomparedKeys(m, "boundingBox", boxJson, kBoxKeys);
+    noteUncomparedKeys(m, "boundingBoxAerodynamic", aeroJson, kBoxKeys);
 }
 
 /// Compares the instance contexts @p contexts of the component at @p path with the golden
-/// @p instances: as many, each with its number, location and transformations.
-void compareInstanceContexts(Mismatches& m, const std::string& path, const json& instances,
-                             std::span<const InstanceContext> contexts)
+/// @p instances: as many, each with its number, location and transformations. Returns the
+/// number of instances compared.
+[[nodiscard]] int compareInstanceContexts(Mismatches& m, const std::string& path,
+                                          const json&                      instances,
+                                          std::span<const InstanceContext> contexts)
 {
     if (contexts.size() != instances.size())
     {
         m.note(std::format("instances of {}: expected {}, got {}", path, instances.size(),
                            contexts.size()));
-        return;
+        return 0;
     }
     for (std::size_t i = 0; i < contexts.size(); i++)
     {
@@ -612,7 +733,9 @@ void compareInstanceContexts(Mismatches& m, const std::string& path, const json&
         m.transformation(field + " transform", expected.at("transform"), contexts[i].transform);
         m.transformation(field + " parentTransform", expected.at("parentTransform"),
                          contexts[i].getParentTransform());
+        noteUncomparedKeys(m, field, expected, kInstanceKeys);
     }
+    return static_cast<int>(contexts.size());
 }
 
 /// @p paths as one text, separated by spaces.
@@ -649,9 +772,10 @@ void compareInstanceKeys(Mismatches& m, const json& expected, const FlightConfig
     }
 }
 
-/// Compares the active components of @p config and their instances.
-void compareActiveInstances(Mismatches& m, const json& expected, const Rocket& rocket,
-                            const FlightConfiguration& config)
+/// Compares the active components of @p config and their instances, and adds the components of
+/// the instance map whose instances were compared, and those instances, to @p result.
+void compareActiveInstances(Mismatches& m, GeometryComparison& result, const json& expected,
+                            const Rocket& rocket, const FlightConfiguration& config)
 {
     std::vector<const RocketComponent*> expectedActive;
     for (const json& path : expected.at("activeComponents"))
@@ -679,8 +803,11 @@ void compareActiveInstances(Mismatches& m, const json& expected, const Rocket& r
             m.note(std::format("instances of {}: no such component", path));
             continue;
         }
-        compareInstanceContexts(m, path, entry.at("instances"),
-                                config.getActiveInstances().getInstanceContexts(*component));
+        result.instances +=
+            compareInstanceContexts(m, path, entry.at("instances"),
+                                    config.getActiveInstances().getInstanceContexts(*component));
+        noteUncomparedKeys(m, std::format("instances of {}", path), entry, kInstanceEntryKeys);
+        result.instanceEntries++;
     }
 }
 
@@ -1269,10 +1396,19 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
         subject.calculator->getAerodynamicForces(*subject.config, conditions, &warnings);
     compareForces(m, "forces", expected.at("forces"), total);
 
-    const ForceMap analysis =
+    const Result<ForceMap> analysis =
         subject.calculator->getForceAnalysis(*subject.config, conditions, &warnings);
-    counts.components +=
-        compareForceAnalysis(m, expected.at("components"), analysis, *subject.rocket);
+    if (analysis)
+    {
+        counts.components +=
+            compareForceAnalysis(m, expected.at("components"), *analysis, *subject.rocket);
+    }
+    else
+    {
+        // A selection of stages the force analysis cannot be made of. No golden configuration
+        // is one: OpenRocket's own analysis dies there, and so would its dumper.
+        m.note(std::format("components: no force analysis: {}", analysis.error().message));
+    }
     counts.warnings +=
         compareWarnings(m, "warnings", expected.at("warnings"), warnings, *subject.rocket);
     noteUncomparedKeys(m, "", expected, kPointKeys);
@@ -1323,10 +1459,8 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
 
 /// Calculates the golden worst CP @p expected as the dumper does (new conditions with the Mach
 /// number at an angle of attack of 0; their theta is kThetaBeforeWorstCp, see there) and
-/// compares the CP and the theta found. Returns the theta found when it is not the golden one,
-/// else nullopt.
-[[nodiscard]] std::optional<double> compareWorstCP(Mismatches& m, const json& expected,
-                                                   const AeroSubject& subject)
+/// compares the CP and the theta found.
+void compareWorstCP(Mismatches& m, const json& expected, const AeroSubject& subject)
 {
     const double     mach = goldenValue(expected.at("mach"));
     FlightConditions conditions(*subject.config);
@@ -1337,12 +1471,9 @@ void comparePoint(Mismatches& m, std::size_t index, const json& expected,
     const Coordinate cp = subject.calculator->getWorstCP(*subject.config, conditions, &warnings);
     m.cg("cp", goldenCoordinate(expected.at("cp")), cp);
     noteUncomparedKeys(m, "", expected, kWorstCpKeys);
-    const double theta = conditions.getTheta();
-    if (compareWorstTheta(m, subject, expected, theta, cp))
-    {
-        return std::nullopt;
-    }
-    return theta;
+    // Whether the theta found is the golden one or another equally bad direction is not kept:
+    // the one is as good as the other (see compareWorstTheta()).
+    static_cast<void>(compareWorstTheta(m, subject, expected, conditions.getTheta(), cp));
 }
 
 /// Compares the worst CPs of the configuration of @p subject with the golden list @p expected
@@ -1352,14 +1483,8 @@ void compareWorstCPs(AeroComparison& result, const json& expected, const AeroSub
 {
     for (const json& worst : expected)
     {
-        const std::string what =
-            std::format("{} worst CP at Mach {}", context, goldenValue(worst.at("mach")));
-        Mismatches m(what);
-        if (const std::optional<double> theta = compareWorstCP(m, worst, subject))
-        {
-            result.otherThetas += std::format("{}: theta {}, golden {}\n", what, *theta,
-                                              goldenValue(worst.at("theta")));
-        }
+        Mismatches m(std::format("{} worst CP at Mach {}", context, goldenValue(worst.at("mach"))));
+        compareWorstCP(m, worst, subject);
         result.report += m.report();
         result.compared.worstCPs++;
     }
@@ -1450,11 +1575,37 @@ GeometryComparison compareComponents(const Rocket& rocket, const json& geometry)
             compareInstances(m, expected, *actual);
             m.positions("componentBounds", expected.at("componentBounds"),
                         actual->getComponentBounds());
-            compareDetails(m, expected, *actual);
+            result.details += compareDetails(m, expected, *actual);
+            noteUncomparedKeys(m, "", expected, kComponentKeys);
             result.compared++;
         }
         result.report += m.report();
     }
+    return result;
+}
+
+GeometryComparison compareComponentIds(const Rocket& rocket, const json& geometry)
+{
+    GeometryComparison result;
+    Mismatches         m("the components in the order of the tree");
+    const json&        expected = geometry.at("components");
+    std::size_t        index    = 0;
+    for (const RocketComponent& actual : rocket.subtree())
+    {
+        if (index < expected.size())
+        {
+            const std::string path = goldenPathOf(actual);
+            m.text(std::format("component {}: path", index),
+                   expected.at(index).at("path").get<std::string>(), path);
+            m.text(std::format("{} \"{}\": id", path, actual.getName()),
+                   expected.at(index).at("id").get<std::string>(), actual.getId().toString());
+            result.compared++;
+        }
+        index++;
+    }
+    m.integer("components: number", static_cast<std::int64_t>(expected.size()),
+              static_cast<std::int64_t>(index));
+    result.report = m.report();
     return result;
 }
 
@@ -1497,10 +1648,11 @@ GeometryComparison compareConfigurations(Rocket& rocket, const json& geometry,
                   static_cast<long long>(config.getActiveMotors().size()));
         for (const json& motor : expected.at("motors"))
         {
-            compareMotor(m, motor, rocket, config, preferences);
+            result.motors += compareMotor(m, motor, rocket, config, preferences) ? 1 : 0;
         }
         compareExtent(m, expected, config);
-        compareActiveInstances(m, expected, rocket, config);
+        compareActiveInstances(m, result, expected, rocket, config);
+        noteUncomparedKeys(m, "", expected, kGeometryConfigurationKeys);
         result.report += m.report();
         result.compared++;
     }
@@ -1734,9 +1886,168 @@ AeroComparison compareAero(Rocket& rocket, const json& aero, bool randomConfigur
         const AeroComparison compared = compareResults(*results, rocket, config, context);
         result.compared += compared.compared;
         result.report += compared.report;
-        result.otherThetas += compared.otherThetas;
     }
     rocket.setSelectedConfiguration(selected);
+    return result;
+}
+
+// =========================================================================== a loaded design
+
+namespace
+{
+
+/// What the geometry.json document @p geometry holds.
+void countGeometry(DesignCounts& counts, const json& geometry)
+{
+    counts.components   = goldenCount(geometry, "components");
+    counts.ids          = counts.components;
+    counts.loadWarnings = goldenCount(geometry, "loadWarnings");
+    for (const json& component : geometry.at("components"))
+    {
+        counts.details += static_cast<int>(component.at("details").size());
+    }
+    counts.configurations = goldenCount(geometry, "configurations");
+    for (const json& configuration : geometry.at("configurations"))
+    {
+        counts.motors += static_cast<int>(configuration.at("motors").size());
+        counts.instanceEntries += static_cast<int>(configuration.at("instances").size());
+        for (const json& entry : configuration.at("instances"))
+        {
+            counts.instances += static_cast<int>(entry.at("instances").size());
+        }
+    }
+}
+
+/// Compares what geometry.json records once with @p rocket and the warnings of its load: the
+/// name, the selected configuration, the number of configurations (the loop of
+/// compareConfigurations() follows the file: a rocket with more of them would otherwise match;
+/// compareComponentIds() holds the number of components) and the warnings. Returns the number
+/// of warnings compared.
+[[nodiscard]] int compareGeometryFile(Mismatches& m, const json& geometry, const Rocket& rocket,
+                                      const WarningSet& loadWarnings)
+{
+    m.text("rocketName", geometry.at("rocketName").get<std::string>(), rocket.getName());
+    m.text("selectedConfiguration", geometry.at("selectedConfiguration").get<std::string>(),
+           rocket.getSelectedConfiguration().getId().toString());
+    m.integer("selectedConfiguration: index", goldenSelectedIndex(geometry), selectedIndex(rocket));
+    m.integer("configurations: number", goldenCount(geometry, "configurations"),
+              rocket.getConfigurationCount() + 1);
+    noteUncomparedKeys(m, "", geometry, kGeometryFileKeys);
+    return compareWarnings(m, "loadWarnings", geometry.at("loadWarnings"), loadWarnings, rocket);
+}
+
+}  // namespace
+
+Result<DesignGoldens> loadDesignGoldens(std::string_view input)
+{
+    const Result<GoldenManifest> manifest = loadGoldenManifest();
+    if (!manifest)
+    {
+        return std::unexpected(manifest.error());
+    }
+    const GoldenInput* entry = manifest->find(input);
+    if (entry == nullptr)
+    {
+        return fail(ErrorCode::NOT_FOUND, std::format("no golden input named {}", input));
+    }
+    Result<json> geometry = loadGoldenJson(entry->geometry);
+    if (!geometry)
+    {
+        return std::unexpected(geometry.error());
+    }
+    Result<json> mass = loadGoldenJson(entry->mass);
+    if (!mass)
+    {
+        return std::unexpected(mass.error());
+    }
+    Result<json> aero = loadGoldenJson(entry->aero);
+    if (!aero)
+    {
+        return std::unexpected(aero.error());
+    }
+    return DesignGoldens{
+        .geometry = std::move(*geometry), .mass = std::move(*mass), .aero = std::move(*aero)};
+}
+
+std::string toText(const DesignCounts& counts)
+{
+    return std::format(
+        "{} components, {} ids, {} details, {} configurations, {} motors, "
+        "{} components with instances, {} instances, {} load warnings, "
+        "{} mass configurations; aerodynamics: {}",
+        counts.components, counts.ids, counts.details, counts.configurations, counts.motors,
+        counts.instanceEntries, counts.instances, counts.loadWarnings, counts.massConfigurations,
+        toText(counts.aero));
+}
+
+std::ostream& operator<<(std::ostream& out, const DesignCounts& counts)
+{
+    return out << toText(counts);
+}
+
+DesignCounts goldenCounts(const DesignGoldens& goldens)
+{
+    DesignCounts counts;
+    countGeometry(counts, goldens.geometry);
+    counts.massConfigurations = static_cast<int>(goldens.mass.at("configurations").size());
+    counts.aero               = goldenCounts(goldens.aero);
+    return counts;
+}
+
+DesignComparison compareLoadedGeometry(Rocket& rocket, const WarningSet& loadWarnings,
+                                       const json& geometry, const Preferences& preferences)
+{
+    const QtRocket::Test::DefaultUnitsGuard units;  // the names of the configurations
+    DesignComparison                        result;
+
+    Mismatches file("geometry.json");
+    result.compared.loadWarnings = compareGeometryFile(file, geometry, rocket, loadWarnings);
+    result.report += file.report();
+
+    const GeometryComparison ids = compareComponentIds(rocket, geometry);
+    result.compared.ids          = ids.compared;
+    result.report += ids.report;
+
+    const GeometryComparison components = compareComponents(rocket, geometry);
+    result.compared.components          = components.compared;
+    result.compared.details             = components.details;
+    result.report += components.report;
+
+    const GeometryComparison configurations =
+        compareConfigurations(rocket, geometry, false, preferences);
+    result.compared.configurations  = configurations.compared;
+    result.compared.motors          = configurations.motors;
+    result.compared.instanceEntries = configurations.instanceEntries;
+    result.compared.instances       = configurations.instances;
+    result.report += configurations.report;
+    return result;
+}
+
+DesignComparison compareLoadedDesign(Rocket& rocket, const WarningSet& loadWarnings,
+                                     const DesignGoldens& goldens, const Preferences& preferences)
+{
+    const QtRocket::Test::DefaultUnitsGuard units;
+    DesignComparison                        result =
+        compareLoadedGeometry(rocket, loadWarnings, goldens.geometry, preferences);
+
+    // The comparisons of mass.json report through GoogleTest; here their failures are taken
+    // into the report instead, so that the report is that of the whole design.
+    ::testing::TestPartResultArray failures;
+    {
+        const ::testing::ScopedFakeTestPartResultReporter reporter(
+            ::testing::ScopedFakeTestPartResultReporter::INTERCEPT_ONLY_CURRENT_THREAD, &failures);
+        expectGoldenLocations(rocket, goldens.geometry);
+        result.compared.massConfigurations =
+            expectGoldenMass(rocket, goldens.mass, false, preferences);
+    }
+    for (int i = 0; i < failures.size(); i++)
+    {
+        result.report += std::format("mass.json:\n  {}\n", failures.GetTestPartResult(i).message());
+    }
+
+    const AeroComparison aero = compareAero(rocket, goldens.aero, false, preferences);
+    result.compared.aero      = aero.compared;
+    result.report += aero.report;
     return result;
 }
 

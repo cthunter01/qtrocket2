@@ -746,7 +746,7 @@ TEST(FinSetCalc, ForceAnalysisFinDragSeparation)
     WarningSet warnings;
 
     BarrowmanCalculator calculator;
-    const ForceMap      forceMap = calculator.getForceAnalysis(config, conditions, &warnings);
+    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, &warnings).value();
 
     // Find the fin set in the results
     const AerodynamicForces* const finForces = finSetForces(forceMap);
@@ -785,7 +785,7 @@ TEST(FinSetCalc, ForceAnalysisAirfoilFinZeroBaseDrag)
     WarningSet warnings;
 
     BarrowmanCalculator calculator;
-    const ForceMap      forceMap = calculator.getForceAnalysis(config, conditions, &warnings);
+    const ForceMap forceMap = calculator.getForceAnalysis(config, conditions, &warnings).value();
 
     const AerodynamicForces* const finForces = finSetForces(forceMap);
 

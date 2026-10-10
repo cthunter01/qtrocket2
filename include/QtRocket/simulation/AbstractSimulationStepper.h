@@ -149,6 +149,13 @@ public:
         /// reference area * the sum, over the aerodynamic components of a force analysis in the
         /// flight conditions, of CNa * (CP - CG)^2.
         /// @throws BugError without flight conditions or a rocket mass
+        /// @throws SimulationException when the force analysis cannot be made of the
+        ///         configuration of @p status, with the text of its Error: an active stage
+        ///         below two inactive ones (see BarrowmanCalculator), which a flight comes to
+        ///         when a booster set drops away from the booster set it sits on. The flight
+        ///         ends there, with an ordinary failure of the simulation (Java: a
+        ///         NullPointerException). Through it also storeData() and
+        ///         computeDampingMomentCoefficientComponents().
         [[nodiscard]] double computeAerodynamicDampingMomentCoefficient(
             const SimulationStatus& status) const;
 

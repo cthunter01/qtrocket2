@@ -5,6 +5,7 @@
 #include "QtRocket/aero/AerodynamicForces.h"
 #include "QtRocket/aero/ForceMap.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 
 namespace QtRocket
@@ -57,9 +58,15 @@ public:
     /// map must therefore be read, or its values copied out, before the component tree changes
     /// (RocketComponent::removeChild(), Rocket::loadFrom()) and before the rocket is destroyed
     /// (Java's map keeps the components alive).
-    [[nodiscard]] virtual ForceMap getForceAnalysis(const FlightConfiguration& configuration,
-                                                    const FlightConditions&    conditions,
-                                                    WarningSet*                warnings) = 0;
+    ///
+    /// The analysis can fail for the selection of stages of @p configuration, which is the
+    /// user's and no error of the caller: the result is then an Error (ErrorCode::
+    /// INVALID_ARGUMENT, with a text that names the stages) and no map. BarrowmanCalculator
+    /// says for which selection (Java: a NullPointerException there); the calculator stays good
+    /// for every other call.
+    [[nodiscard]] virtual Result<ForceMap> getForceAnalysis(
+        const FlightConfiguration& configuration, const FlightConditions& conditions,
+        WarningSet* warnings) = 0;
 
     /// The worst (foremost) CP over every lateral wind direction; the theta that gives it is set
     /// in @p conditions. Not [[nodiscard]]: a caller may want only that side effect (OpenRocket's

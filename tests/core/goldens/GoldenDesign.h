@@ -9,7 +9,11 @@
 // maker of tests/core/rocket/TestRockets.h and one loaded from a file are compared alike. The
 // golden tests of the test rockets use them and say, in their header comments, what is compared
 // and why: test_rockets_golden_tests.cpp (geometry.json), tests/core/mass/MassCalculatorTests.cpp
-// (mass.json) and aero_golden_tests.cpp (aero.json).
+// (mass.json) and aero_golden_tests.cpp (aero.json). A design that was loaded from a file is
+// compared with all three at once by compareLoadedDesign(), which also holds what only a loaded
+// design has in common with its goldens: the ids of its components and the warnings of its
+// load (example_design_golden_tests.cpp: OpenRocket's example designs; resave_golden_tests.cpp:
+// the test rockets, loaded from OpenRocket's re-saves of them).
 //
 // Two things about the rocket are the caller's to say:
 // - randomConfigurationId: whether the maker of the rocket draws the id of its flight
@@ -27,14 +31,18 @@
 
 #include <ostream>
 #include <string>
+#include <string_view>
 
+#include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include "QtRocket/aero/BarrowmanCalculator.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "goldens/GoldenMismatches.h"
 
 namespace QtRocket::Test
@@ -45,13 +53,33 @@ namespace QtRocket::Test
 /// What a comparison of a rocket's components, or of its configurations, found.
 struct GeometryComparison
 {
-    int         compared{0};  ///< the components (configurations) compared
+    int         compared{0};  ///< the components (configurations, ids) compared
     std::string report;       ///< the mismatches, empty when everything matched
+    /// compareComponents(): the entries of the "details" of the components that were compared.
+    int details{0};
+    /// compareConfigurations(): the motors compared, the components of the instance maps (the
+    /// entries of "instances") whose instances were compared, and those instances.
+    int motors{0};
+    int instanceEntries{0};
+    int instances{0};
 };
 
-/// Compares every component of @p rocket with its golden entry in @p geometry.
+/// Compares every component of @p rocket with its golden entry in @p geometry: its class, name,
+/// placement, mass properties, overrides, bounds and instances, and every entry of its
+/// "details" (the getters of its Java class: an entry that no comparison reads is reported, and
+/// so is a key of the entry or of its "overrides" that nothing compares). Not compared: the
+/// "id", which a rebuilt rocket draws at random (compareComponentIds() holds it for a loaded
+/// one).
 [[nodiscard]] GeometryComparison compareComponents(const Rocket&         rocket,
                                                    const nlohmann::json& geometry);
+
+/// Compares the components of @p rocket, in the order of its tree (a component before its
+/// children), with the golden list of @p geometry, in its order: as many, each at the path of
+/// its golden entry and with its id. For a rocket that has the ids of the golden data: one
+/// loaded from the file the data was dumped from, or from OpenRocket's re-save of it. `compared`
+/// is the number of components whose path and id were compared.
+[[nodiscard]] GeometryComparison compareComponentIds(const Rocket&         rocket,
+                                                     const nlohmann::json& geometry);
 
 /// The number of components of @p rocket, itself included.
 [[nodiscard]] int componentCount(const Rocket& rocket);
@@ -130,9 +158,6 @@ struct AeroComparison
 {
     AeroCounts  compared;
     std::string report;  ///< the mismatches, empty when everything matched
-    /// The worst CPs whose theta is not the golden one but an equally bad direction, one line
-    /// each (see compareWorstTheta()); they are not mismatches.
-    std::string otherThetas;
 };
 
 /// What the document @p aero holds, every configuration counted with the results it has or
@@ -178,8 +203,9 @@ inline constexpr double kThetaBeforeWorstCp = 1.0;
 ///   stale theta, one off the grid, NaN, or a direction with another CP is reported;
 /// - the golden theta is an equally bad direction for QtRocket: the CP at it is within the CP
 ///   tolerance of the worst CP found.
-/// What stays unchecked is which of several equally bad directions is found;
-/// AeroGoldenWorstTheta holds that strict comparison, disabled.
+/// What stays unchecked is which of several equally bad directions is found: a strict comparison
+/// of the two thetas cannot pass (it differed for 251 of the 329 worst CPs of the test rockets
+/// on Linux with glibc), and none is kept.
 [[nodiscard]] bool compareWorstTheta(GoldenMismatches& m, const AeroSubject& subject,
                                      const nlohmann::json& expected, double theta,
                                      const Coordinate& worst);
@@ -199,5 +225,98 @@ inline constexpr double kThetaBeforeWorstCp = 1.0;
 [[nodiscard]] AeroComparison compareAero(Rocket& rocket, const nlohmann::json& aero,
                                          bool               randomConfigurationId,
                                          const Preferences& preferences);
+
+// =========================================================================== a loaded design
+
+/// The three design documents of a golden input.
+struct DesignGoldens
+{
+    nlohmann::json geometry;
+    nlohmann::json mass;
+    nlohmann::json aero;
+};
+
+/// Reads geometry.json, mass.json and aero.json of the golden input @p input, found through
+/// manifest.json: ErrorCode::NOT_FOUND when the manifest has no such input, else what
+/// loadGoldenJson() fails with.
+[[nodiscard]] Result<DesignGoldens> loadDesignGoldens(std::string_view input);
+
+/// How much of the design documents of an input there is to compare, or was compared.
+struct DesignCounts
+{
+    int        components{0};          ///< the components of geometry.json
+    int        ids{0};                 ///< their ids
+    int        details{0};             ///< the entries of their "details"
+    int        configurations{0};      ///< the configurations of geometry.json
+    int        motors{0};              ///< the motors of those configurations
+    int        instanceEntries{0};     ///< the components of their instance maps
+    int        instances{0};           ///< the instances of those components
+    int        loadWarnings{0};        ///< the warnings of the load
+    int        massConfigurations{0};  ///< the configurations of mass.json
+    AeroCounts aero;                   ///< what aero.json holds
+
+    [[nodiscard]] bool operator==(const DesignCounts&) const = default;
+
+    DesignCounts& operator+=(const DesignCounts& other)
+    {
+        components += other.components;
+        ids += other.ids;
+        details += other.details;
+        configurations += other.configurations;
+        motors += other.motors;
+        instanceEntries += other.instanceEntries;
+        instances += other.instances;
+        loadWarnings += other.loadWarnings;
+        massConfigurations += other.massConfigurations;
+        aero += other.aero;
+        return *this;
+    }
+};
+
+/// "327 components, 327 ids, ...", for the messages of the tests.
+[[nodiscard]] std::string toText(const DesignCounts& counts);
+
+/// toText() of @p counts, for the messages of the tests.
+std::ostream& operator<<(std::ostream& out, const DesignCounts& counts);
+
+/// What the documents @p goldens hold. A comparison that compared less than this skipped
+/// something.
+[[nodiscard]] DesignCounts goldenCounts(const DesignGoldens& goldens);
+
+/// What the comparison of a loaded design with its design documents compared and found.
+struct DesignComparison
+{
+    DesignCounts compared;
+    std::string  report;  ///< the mismatches, empty when everything matched
+};
+
+/// Compares a design that was loaded from a file with the geometry.json document @p geometry of
+/// the golden input that was dumped from that design (from the file itself or from OpenRocket's
+/// re-save of it): the name of the rocket, the selected configuration, the warnings of the load
+/// (@p loadWarnings, each by its class, priority, description, text and sources, in order), the
+/// ids of the components in the order of the tree (compareComponentIds()), the components
+/// (compareComponents()) and the configurations with their ids (compareConfigurations()); a key
+/// of the file that nothing compares is reported. Of the counts, those of geometry.json are
+/// filled. The rocket, the preferences and the default units: as for compareLoadedDesign().
+[[nodiscard]] DesignComparison compareLoadedGeometry(Rocket& rocket, const WarningSet& loadWarnings,
+                                                     const nlohmann::json& geometry,
+                                                     const Preferences&    preferences);
+
+/// Compares a design that was loaded from a file with the documents @p goldens of the golden
+/// input that was dumped from that design, in the order in which the harness dumps them:
+/// - geometry.json: compareLoadedGeometry();
+/// - mass.json: the locations of the components and the mass calculations of every
+///   configuration (expectGoldenLocations() and expectGoldenMass(); what they report through
+///   GoogleTest is taken into the report here, a failure per entry under "mass.json:", and
+///   fails no test by itself);
+/// - aero.json: compareAero().
+/// The rocket has to be in the state the goldens describe: its automatic dimensions settled
+/// (settleAutomaticDimensions() of AutomaticDimensions.h) and nothing asked of it before.
+/// @p preferences are those the names of the configurations and of the motors are made with
+/// (the examples: a store with setMotorNameColumn(false)); the default units are those of
+/// OpenRocket while the comparison runs.
+[[nodiscard]] DesignComparison compareLoadedDesign(Rocket& rocket, const WarningSet& loadWarnings,
+                                                   const DesignGoldens& goldens,
+                                                   const Preferences&   preferences);
 
 }  // namespace QtRocket::Test

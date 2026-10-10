@@ -20,7 +20,11 @@ files. The data is committed; neither CMake nor CI ever needs Java.
 
 The C++ side reads the files through `tests/core/goldens/GoldenData.h` (nlohmann_json for the JSON,
 `file/GzipStream` for the time series); `goldens_schema_tests.cpp` checks that every listed file parses
-and has the keys described below.
+and has the keys described below. A test rocket is rebuilt in C++ by its maker
+(`tests/core/rocket/TestRockets.h`) and, once more, loaded from its re-save; an example design is
+loaded by the `.ork` loader from the file of `data/examples` and from its re-save
+(`tests/core/goldens/GoldenExamples.h`), in the harness's environment: the bundled motor database,
+the component presets the examples name, OpenRocket's test preferences.
 
 ## Inputs
 
@@ -209,7 +213,8 @@ Conventions for every JSON file:
   `{"rotation": R (9 numbers, row-major), "translation": t}` mapping p to R·p + t.
 - Components are identified by their **path**: the child indices from the rocket, `"/"` for the
   rocket, `"/0"` for its first stage, `"/0/1"` for that stage's second child. Paths are portable
-  (the C++ port rebuilds the test rockets with different UUIDs); the `id` UUID is given as well.
+  (the C++ port rebuilds the test rockets with different UUIDs); the `id` UUID is given as well,
+  and is compared for a design that was loaded from a file, which has the ids of the file.
 - Flight configurations are identified by `index` (their order in
   `Rocket.getFlightConfigurations()`, the default configuration first) and `id`; each entry also
   has `isDefault` and `name` (with `{motors}` substituted, e.g. `"[A8-3]"`).
@@ -368,9 +373,10 @@ OpenRocket stores in degrees. Rows keep OpenRocket's two-phase storage (a row is
 
 How QtRocket compares them (the test-rocket inputs: `tests/core/goldens/simulation_golden_tests.cpp`
 for the default-step set and `simulation_stable_golden_tests.cpp` for the stable-step set, both on
-`GoldenSimulations.h`; the simulations of the example designs are not compared yet, since a design
-has to be loaded from its `.ork` file first): each rocket is built by its C++ maker, the options
-are set as the harness sets them, and
+`GoldenSimulations.h`; the simulations of an example design are those of the document that the
+`.ork` loader makes of its file, flown with their own options and extensions by the golden tests
+of the examples' simulations in the same directory): each test rocket is built by its C++ maker, the
+options are set as the harness sets them, and
 the run has the same two listeners. `tests/core/simulation/JitterRemoval.h` is the port of
 `JitterRemoval`: the forces listener is the first simulation listener and the conditions listener
 the last, both are system listeners, the stepper draws its random numbers all the same, and the
@@ -399,6 +405,35 @@ are kept, their data points are not. It is written before the automatic dimensio
 (see [How OpenRocket is run](#how-openrocket-is-run)), so it can hold stale automatic values. For
 the test rockets the file includes the harness's default and variant simulations (so their exact
 options can be read back).
+
+What QtRocket's tests do with these files:
+
+- The deployment, separation and ignition settings of a design and the component presets its
+  components were made from (`<preset>`, six in the examples), which no golden document records,
+  are compared with the elements of its re-save, for the rebuilt test rockets and for the loaded
+  examples (`tests/core/goldens/GoldenSettings.h`).
+- The re-save of an example is loaded like the original file and has to give the same design: all of
+  `geometry.json`, `mass.json` and `aero.json` (`example_design_golden_tests.cpp`).
+- The re-save of a test rocket is loaded against a motor database of exactly the seven motors of
+  `TestRockets` (the makers' motors are synthetic; the bundled database has real motors of the same
+  designations, with other digests and masses) and compared with the design documents of the rocket
+  and, in the options of its 50 simulations, with the simulation documents
+  (`resave_golden_tests.cpp`). All 50 launch into the wind, so `launchRodDirection` of their
+  `options` is the direction of the wind; the direction stored for the rod is compared with the
+  `<launchroddirection>` of the file itself. OpenRocket's own reload of these files does not give
+  the maker's rocket back in 14 values of `geometry.json`, which that test pins with both numbers:
+  - a fin tab without a height is not saved, and the loader centres the tab on the fin where the
+    maker's fin set had kept it at the front (`tabOffset` and the x of the four `tabPoints` of
+    `/0/1/0` of `testrocket-big-blue` and of `/1/0/0` of `testrocket-multi-stage-event-test-rocket`);
+  - the last point of a freeform fin is saved as `getFinPoints()` computes it in the body frame,
+    0.15000000000000002 for 0.15 (`length`, and by one unit in the last place `rotationalInertia`
+    and `rotationalUnitInertia`, of the same fin set of `testrocket-big-blue`; six values of its
+    `mass.json` follow the inertia, also by one unit in the last place);
+  - a `BodyTube(length, 0)` keeps the default wall of 2 mm on a tube of radius 0, which no setter
+    allows, so the loaded tube has none (`details.thickness` of `/0/1/4/0` of
+    `testrocket-estes-alpha-iii-with-pods`).
+  After the load 36 of the 50 simulations are `NOT_SIMULATED` and the 14 of a configuration
+  without motors `CANT_RUN`.
 
 ## Tolerances
 
@@ -593,8 +628,9 @@ a new form:
   device and handles at the end of the step, in 6 a BURNOUT that a step overshot by 0.06 to
   0.13 ms, in one a SIM_WARN. The events after one do not move by more than the 5.7e-7 s above.
 
-The test that compares QtRocket with these documents does not exist yet (the examples have to be
-loaded first). Its tolerances are to be chosen with this table, not computed from it: an entry is
+The test that compares QtRocket with these documents loads each example with the `.ork` loader
+(the stable-step comparison of the examples in `tests/core/goldens`). Its tolerances are to be
+chosen with this table, not computed from it: an entry is
 a largest difference seen, so a hundred times an entry is no safe tolerance (a hundred times the
 3.7e-9 of the first thirteen dumps would be 60 times the 6.1e-9 of the 22). The tolerances of
 the test rockets' stable-step comparison, 1e-6 for a summary value, 1e-5 for the deployment

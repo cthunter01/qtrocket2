@@ -20,6 +20,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
 #include "QtRocket/util/Signal.h"
@@ -37,6 +38,7 @@ using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::ForceMap;
 using QtRocket::ModId;
+using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::WarningSet;
@@ -71,9 +73,9 @@ public:
         return AerodynamicForces{};
     }
 
-    [[nodiscard]] ForceMap getForceAnalysis(const FlightConfiguration& configuration,
-                                            const FlightConditions& /*conditions*/,
-                                            WarningSet* /*warnings*/) override
+    [[nodiscard]] Result<ForceMap> getForceAnalysis(const FlightConfiguration& configuration,
+                                                    const FlightConditions& /*conditions*/,
+                                                    WarningSet* /*warnings*/) override
     {
         checkCache(configuration);
         return ForceMap{};
@@ -225,7 +227,7 @@ TEST(AbstractAerodynamicCalculator, CacheIsVoidedOnTheFirstCallAndAnAerodynamicC
     EXPECT_EQ(calculator.voidCount(), 1);
 
     r.body.setLength(0.7);  // an aerodynamic change
-    (void)calculator.getForceAnalysis(r.config, conditions, nullptr);
+    EXPECT_TRUE(calculator.getForceAnalysis(r.config, conditions, nullptr).has_value());
     EXPECT_EQ(calculator.voidCount(), 2);
 }
 

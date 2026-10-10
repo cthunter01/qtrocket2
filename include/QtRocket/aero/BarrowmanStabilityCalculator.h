@@ -67,8 +67,8 @@ class WarningSet;
 ///   (UnitGroup's process-wide default unit), so what counts as a discontinuity or a gap depends
 ///   on the user's unit, as in OpenRocket's GUI.
 /// - The force analysis leaves out an active stage below two inactive ones (see above), so
-///   BarrowmanCalculator::getForceAnalysis() fails for such a selection of stages, as
-///   OpenRocket's does.
+///   BarrowmanCalculator::getForceAnalysis() cannot be made for such a selection of stages: it
+///   returns an Error there (OpenRocket's dies of a NullPointerException).
 ///
 /// Deviations from OpenRocket:
 /// - Java's null WarningSet is resolved by the caller (see StabilityCalculator), so the
