@@ -325,7 +325,7 @@ constexpr std::array<RocketCase, 2> kOwn{{
     // OpenRocket: EVENTS 9 {mass,aero=3, mass,aero,tree=4, tree=2}
     // OpenRocket: |           LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=400 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0 ...
     {.name = "ch-fix-instances-pod-and-lug", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><subcomponents><podset><instancecount>400</instancecount><subcomponents><bodytube><subcomponents><launchlug><instancecount>400</instancecount></launchlug><launchlug><instancecount>2</instancecount></launchlug></subcomponents></bodytube></subcomponents></podset></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A count that would give the rocket too many component instances was refused; the component keeps the count it had.
 ROOT rocket {} []
 EVENTS 8 {mass,aero=2, mass,aero,tree=4, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -340,7 +340,7 @@ EVENTS 8 {mass,aero=2, mass,aero,tree=4, tree=2}
     // The instance budget: 300 pods would each hold the 400 launch lugs, so the count of the pod set is refused and stays 2 (OpenRocket takes it); 3 pods fit.
     // OpenRocket: EVENTS 8 {mass,aero=3, mass,aero,tree=3, tree=2}
     {.name = "ch-fix-instances-count-of-the-parent", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><subcomponents><podset><subcomponents><bodytube><subcomponents><launchlug><instancecount>400</instancecount></launchlug></subcomponents></bodytube></subcomponents><instancecount>300</instancecount><instancecount>3</instancecount></podset></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A count that would give the rocket too many component instances was refused; the component keeps the count it had.
 ROOT rocket {} []
 EVENTS 7 {mass,aero=2, mass,aero,tree=3, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

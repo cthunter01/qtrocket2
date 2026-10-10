@@ -26,7 +26,10 @@
 #include "QtRocket/file/ZipFileAttachment.h"
 #include "QtRocket/file/ZipFileAttachmentFactory.h"
 #include "QtRocket/file/ZipInputStream.h"
+#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/OpenRocketLoader.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/BugError.h"
@@ -480,6 +483,9 @@ Result<LoadedDocument> GeneralRocketLoader::loadBytes(
     DocumentLoadingContext context = m_environment;
     context.setOpenRocketDocument(loaded.document.get());
     context.setFileVersion(0);
+    // Not OpenRocket's: the warnings of a load are bounded (see the class comment).
+    loaded.warnings.setCapacity(DocumentConfig::kMaxWarnings,
+                                Warning::fromString(LoaderWarnings::tooManyWarnings()));
     context.setDesignDirectory(std::move(designDirectory));
 
     // loadStep1()

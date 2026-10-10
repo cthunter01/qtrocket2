@@ -7,9 +7,9 @@
 
 #include "QtRocket/file/openrocket/EntryHandler.h"
 #include "QtRocket/file/openrocket/EntryHelper.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/util/Config.h"
 #include "QtRocket/util/Error.h"
@@ -32,7 +32,7 @@ Result<ElementHandler*> ConfigHandler::openElement(std::string_view  element,
         }
         // Not OpenRocket's, which reads no list at all: see the class comment.
         closeList();
-        warnings.add(Warning::fromString("List entries nested too deeply, ignoring."));
+        warnings.add(LoaderWarnings::kListNestedTooDeeply);
     }
     return &PlainTextHandler::instance();
 }

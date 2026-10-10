@@ -119,9 +119,11 @@ public:
     /// GeneralRocketLoader sets it, to the directory of the file for a load from a path ("."
     /// for a file that is named without one) and to the base directory of a load from bytes.
     /// Not OpenRocket's: it is what a file named by a design, a lookup table of a simulation,
-    /// will be resolved against and confined to (the user's decision of 2026-10-08; nothing
-    /// reads it yet, and CsvLookupHandler still resolves such a name against the current
-    /// directory of the process). The path is kept as it was given, not made absolute.
+    /// is resolved against and confined to (the user's decision of 2026-10-08; see
+    /// CsvLookupHandler, "Which file a design may read"). A design without one reads no such
+    /// file. The handler of a simulation's conditions copies it when the element is opened.
+    /// The path is kept as it was given, not made absolute; an empty one stands for the
+    /// current directory of the process, as "." does.
     [[nodiscard]] const std::optional<std::filesystem::path>& getDesignDirectory() const noexcept
     {
         return m_designDirectory;

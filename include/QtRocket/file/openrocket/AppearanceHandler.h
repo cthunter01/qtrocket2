@@ -52,8 +52,10 @@ class RocketComponent;
 /// info.openrocket.core.appearance.Decal.EdgeMode.<text>").
 ///
 /// Deviations from OpenRocket:
-/// - A <decal> without name, rotation or edgemode is ignored with everything in it and
-///   Warning::kFileInvalidParameter, and neither an image is registered nor a value set.
+/// - A <decal> without name, rotation or edgemode is ignored with everything in it and one
+///   warning of QtRocket's own, LoaderWarnings::kDecalIgnored ("A decal without a name, a
+///   rotation or an edge mode was ignored."), and neither an image is registered nor a value
+///   set.
 ///   OpenRocket dies there of a NullPointerException (for a missing rotation or edge mode
 ///   after it has registered the image). The attributes are looked at in Java's order, so a
 ///   rotation that is no number fails the load also when the edge mode is missing (and, as in
@@ -66,17 +68,26 @@ class RocketComponent;
 ///   a nameless decal with a rotation and an edge mode loads there (and whoever then lists
 ///   the document's images dies of the name that is null), and one whose rotation is no
 ///   number or whose edge mode is none FAILS THE LOAD there, where it is ignored with the
-///   warning here, as with files. Whether such a decal should fail the load when the
-///   attachments are an archive's is an open question. As after every ignored element,
-///   DelegatorHandler
-///   then closes the enclosing elements with the attributes and the text of the element one
-///   level below: the <appearance> with the decal's, which nobody looks at, and the
-///   component's element with those of the <appearance>, so that an attribute or a text of
-///   the <appearance> element, which is otherwise passed over, is then warned of as the
-///   component's.
-/// - A <center>, <offset> or <scale> without x or y is passed over with
-///   Warning::kFileInvalidParameter (OpenRocket: a NullPointerException); x is looked at before
-///   y, so an x that is no number fails the load also when y is missing.
+///   warning here, as with files. The ignored decal is read by an IgnoredElementHandler
+///   (decision U7 of tier 9), not by the null return with which OpenRocket's handlers ignore
+///   an element: nothing in it is looked at, nothing of it is warned of when it closes (its
+///   text and its other attributes neither), and the elements around it close with their own
+///   attributes and text. (With the null return, which run 9b had here, the component's
+///   element closed with those of the <appearance> and warned of them as its own.)
+/// - The decal images of a document are bounded: a <decal> whose image would be one more
+///   than DocumentConfig::kMaxDecalImages (the registry of the document would have to make a
+///   new image for its name, OpenRocketDocument::hasDecalImage()) is ignored, with everything
+///   in it and one warning of QtRocket's own, LoaderWarnings::tooManyDecalImages() ("The
+///   document has 1000 decal images already; ignoring the decal of a further image."). It is
+///   read by an IgnoredElementHandler as the decal without a name is, and like that one
+///   whatever its rotation and its edge mode are: one that is no number or none does not
+///   fail the load then. A decal of an image the document has already is read as ever, also
+///   when the bound is reached. OpenRocket has no bound: its registry, as this one, looks
+///   through all its images for every new one, so that the time to read the decals grows
+///   with the square of the number of images (see DocumentConfig::kMaxDecalImages).
+/// - A <center>, <offset> or <scale> without x or y is passed over with a warning of
+///   QtRocket's own, LoaderWarnings::kDecalPairIgnored (OpenRocket: a NullPointerException); x
+///   is looked at before y, so an x that is no number fails the load also when y is missing.
 /// - Java removes name, rotation and edgemode from the attribute map of a <decal> when it
 ///   opens, so that only the others are warned of when it closes. The attributes being const
 ///   here, the warning is decided on a copy without the three. It differs in two ways once
@@ -136,8 +147,9 @@ protected:
 private:
     // openElement() and closeElement() in parts.
 
-    /// A <decal> opens: its image, rotation and edge mode; false when it lacks one of the
-    /// three and is to be ignored.
+    /// A <decal> opens: its image, rotation and edge mode; false, with the warning for it,
+    /// when it lacks one of the three, or would give the document too many images, and is to
+    /// be ignored.
     [[nodiscard]] Result<bool> openDecal(const Attributes& attributes, WarningSet& warnings);
     /// A <paint> closes.
     void closePaint(const Attributes& attributes);
@@ -152,6 +164,8 @@ private:
     const DocumentLoadingContext* m_context;
     AppearanceBuilder             m_builder;
     bool                          m_isInDecal{false};
+    /// Whether the element that closes next at this handler is a <decal> that was ignored.
+    bool m_isIgnoringDecal{false};
 };
 
 }  // namespace QtRocket

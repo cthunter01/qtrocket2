@@ -23,14 +23,17 @@ class RocketComponent;
 ///
 /// Deviations from OpenRocket:
 /// - A setter may have a maximum (decision L6 of the loader): a number above it is refused
-///   with Warning::kFileInvalidParameter. OpenRocket has no bound, and a component that does
+///   with a warning of QtRocket's own, LoaderWarnings::countAboveBound() ("A count above 10000
+///   was refused; the component keeps the count it had."). OpenRocket has no bound, and a
+///   component that does
 ///   not clamp its count itself (the instances of a launch lug, a rail button, a ring, a pod
 ///   set or a booster set, the lines of a parachute) keeps any number, 2147483647 included.
 ///   The rocket's events being on while a file loads, every later change would then make an
 ///   array of that many instances. DocumentConfig::kMaxCount is the maximum the table gives
 ///   those setters.
 /// - A setter of the number of instances of its component (InstanceCount) also refuses, with
-///   the same warning, a number that would give the rocket more instances than
+///   LoaderWarnings::kCountBeyondInstances, a number that would give the rocket more instances
+///   than
 ///   DocumentConfig::kMaxInstances over all its flight configurations
 ///   (DocumentConfig::instanceCountFits()): the counts of nested components multiply, so the
 ///   maximum of each count by itself bounds nothing (a pod set of 10000 instances with a
@@ -61,7 +64,8 @@ public:
     /// @throws BugError when @p set is empty (also the other constructors).
     explicit IntSetter(SetFunction set);
 
-    /// Sets an int up to @p maximum and refuses a larger one with a warning.
+    /// Sets an int up to @p maximum and refuses a larger one with
+    /// LoaderWarnings::countAboveBound().
     IntSetter(SetFunction set, int maximum);
 
     /// Sets the number of instances of the component, within the bounds @p instances says and

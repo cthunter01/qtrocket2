@@ -46,6 +46,11 @@ public:
     static const Coordinate kYUnit;  ///< (0, 1, 0)
     static const Coordinate kZUnit;  ///< (0, 0, 1)
 
+    /// The shortest length normalize() takes (OpenRocket's 0.0000001 in
+    /// MutableCoordinate.normalize()): who normalizes a vector that may be shorter asks this
+    /// first.
+    static constexpr double kMinNormalizeLength = 0.0000001;
+
     /// (0, 0, 0, w=0)
     constexpr Coordinate() noexcept = default;
 
@@ -178,8 +183,9 @@ public:
     }
 
     /// The same direction at distance one from the origin; the weight is unchanged.
-    /// @throws BugError when the length is below 1e-7 (OpenRocket: IllegalStateException): a
-    ///         zero vector has no direction, so asking for one is a programming error.
+    /// @throws BugError when the length is below kMinNormalizeLength, 1e-7 (OpenRocket:
+    ///         IllegalStateException): a zero vector has no direction, so asking for one is a
+    ///         programming error.
     [[nodiscard]] Coordinate normalize() const;
 
     /// The weighted average: the weight is the sum of the weights and the position is weighted by

@@ -63,7 +63,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES MotorMountHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 48> kJava{{
+constexpr std::array<RocketCase, 47> kJava{{
     {.name = "mm-empty", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, motor=1, tree=1}
@@ -139,14 +139,6 @@ EVENTS 19 {mass,aero,tree=9, motor=9, tree=1}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=1.2 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=1.4 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=1.5999999999999999 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false
-| selected=default
-| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-    {.name = "mm-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><ignitiondelay>-2</ignitiondelay><overhang>-0.01</overhang></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 4 {mass,aero=1, mass,aero,tree=1, motor=1, tree=1}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=-0.01 ign=AUTOMATIC:-2.0:true
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     {.name = "mm-motor", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
@@ -545,7 +537,7 @@ EVENTS 5 {mass,aero=1, mass,aero,tree=1, motor=1, tree=2}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 16> kOwn{{
+constexpr std::array<RocketCase, 17> kOwn{{
     // Decision L3: an ignition delay of NaN is refused (OpenRocket stores it) and the delay stays.
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "mm-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><ignitiondelay>2</ignitiondelay><ignitiondelay>NaN</ignitiondelay></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
@@ -614,12 +606,23 @@ EVENTS 4 {mass,aero=1, mass,aero,tree=1, motor=1, tree=1}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.01 ign=AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision U9: an ignition delay below 0 is outside the range of a delay and refused with the handler's warning (OpenRocket stores it); the overhang, which no simulation range holds, is taken as in OpenRocket.
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
+    {.name = "mm-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><ignitiondelay>-2</ignitiondelay><overhang>-0.01</overhang></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W Illegal ignition delay specified, ignoring.
+ROOT rocket {} []
+EVENTS 4 {mass,aero=1, mass,aero,tree=1, motor=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=-0.01 ign=AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L4: without a delay OpenRocket dies of a NullPointerException; here the event is applied and a warning added.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "java.lang.Double.doubleValue()" because "this.ignitionConfigHandler.ignitionDelay" is nul ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X: ...
     {.name = "mm-ignition-event-only", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -643,7 +646,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
     // Decision L4: without a delay OpenRocket dies of a NullPointerException; here a warning is added.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "java.lang.Double.doubleValue()" because "this.ignitionConfigHandler.ignitionDelay" is nul ...
     {.name = "mm-ignition-empty", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -657,7 +660,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
     {.name = "mm-ignition-unreadable", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>bogus</ignitionevent><ignitiondelay>x</ignitiondelay></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Unknown ignition event type 'bogus', ignoring.
 W Illegal ignition delay specified, ignoring.
-W Invalid parameter encountered, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -730,7 +733,7 @@ EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
     // OpenRocket: EVENTS 17 {mass,aero=1, mass,aero,tree=2, motor=1, tree=13}
     // OpenRocket: |       LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=10000 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4 ...
     {.name = "mm-fix-motors-beyond-the-instance-budget", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="00000001-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000002-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000003-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000004-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000005-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000006-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000007-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000008-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="00000009-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="0000000a-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="0000000b-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor><motor configid="0000000c-0000-0000-0000-000000000001"><designation>C6</designation><delay>3</delay></motor></motormount><subcomponents><launchlug><instancecount>10000</instancecount></launchlug></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A count that would give the rocket too many component instances was refused; the component keeps the count it had.
 ROOT rocket {} []
 EVENTS 16 {mass,aero,tree=2, motor=1, tree=13}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -800,6 +803,36 @@ TEST(MotorMountHandler, MakesTheComponentAMotorMountAtOnce)
     const MotorMountHandler third(inner, fixture.context());
     EXPECT_TRUE(inner.isMotorMount());
     EXPECT_EQ(events.take(), "C[InnerTube]");
+}
+
+// Decision U9 of tier 9: an ignition delay has to lie in the range a simulation holds a delay
+// to (SimulationInputRanges::kDelay, 0 to 1000000 s); one that does not is refused with the
+// warning of a text that is no number, and the delay stays. OpenRocket stores every number, a
+// negative one too.
+TEST(MotorMountHandler, AnIgnitionDelayOutsideItsRangeIsRefused)
+{
+    RocketLoadFixture         fixture;
+    AxialStage&               stage = fixture.rocket().addChild(std::make_unique<AxialStage>());
+    BodyTube&                 tube  = stage.addChild(std::make_unique<BodyTube>());
+    MotorMountHandler         handler(tube, fixture.context());
+    WarningSet                warnings;
+    const MotorConfiguration& ignition = tube.getDefaultMotorConfig();
+
+    // The bounds are inside the range.
+    ASSERT_TRUE(handler.closeElement("ignitiondelay", {}, "0", warnings).has_value());
+    EXPECT_EQ(ignition.getIgnitionDelay(), 0.0);
+    ASSERT_TRUE(handler.closeElement("ignitiondelay", {}, "1000000", warnings).has_value());
+    EXPECT_EQ(ignition.getIgnitionDelay(), 1000000.0);
+    EXPECT_EQ(warningTexts(warnings), Texts{});
+
+    // The next number beyond a bound is outside.
+    ASSERT_TRUE(
+        handler.closeElement("ignitiondelay", {}, "1000000.0000000001", warnings).has_value());
+    ASSERT_TRUE(handler.closeElement("ignitiondelay", {}, "-4.9e-324", warnings).has_value());
+    ASSERT_TRUE(handler.closeElement("ignitiondelay", {}, "-2", warnings).has_value());
+    ASSERT_TRUE(handler.closeElement("ignitiondelay", {}, "1e300", warnings).has_value());
+    EXPECT_EQ(ignition.getIgnitionDelay(), 1000000.0);
+    EXPECT_EQ(warningTexts(warnings), Texts{"Illegal ignition delay specified, ignoring."});
 }
 
 TEST(MotorMountHandler, IgnoresAChildItDoesNotKnow)

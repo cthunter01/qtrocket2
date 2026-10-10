@@ -1,6 +1,7 @@
 #include "QtRocket/simulation/AbstractEulerStepper.h"
 
 #include <cmath>
+#include <format>
 #include <limits>
 #include <memory>
 #include <string>
@@ -282,22 +283,94 @@ TEST(AbstractEulerStepper, InitializeGivesTheStatusBackAsItIs)
     EXPECT_EQ(status.getModId(), modId);
 }
 
-// Java: Coordinate.normalize() throws an IllegalStateException below a length of 1e-7, and the
-// stepper normalizes an airspeed above MathUtil.EPSILON (1e-8).
-TEST(AbstractEulerStepper, AnAirspeedTooSmallToNormalizeIsABug)
+/// What a landing stepper makes of one step from the state of "landing-at-rest" with the
+/// velocity @p velocity: the BugError's text or "<none>", and whether the acceleration it
+/// worked out is that of a free fall, gravity and the Coriolis acceleration and nothing else,
+/// to the last bit.
+struct SlowStep
 {
+    std::string bug;
+    bool        isFreeFall{false};
+};
+
+[[nodiscard]] SlowStep stepAtVelocity(const Coordinate& velocity)
+{
+    SlowStep            step;
     BasicLandingStepper stepper;
     InitializedScenario f("landing-at-rest", stepper);
-    ASSERT_NE(f.status, nullptr);
-    f.status->setRocketVelocity(Coordinate(0, 0, -5e-8));
-    EXPECT_EQ(bugText([&] { stepper.step(*f.status, 10.0); }), "Cannot normalize zero coordinate");
+    if (f.status == nullptr)
+    {
+        step.bug = "no status";
+        return step;
+    }
+    f.status->setRocketVelocity(velocity);
+    step.bug = bugText([&] { stepper.step(*f.status, 10.0); });
+    if (step.bug == "<none>")
+    {
+        const AbstractSimulationStepper::DataStore& store = stepper.getStore();
+        // The acceleration as calculateAcceleration() makes it when it leaves the drag out.
+        const Coordinate freeFall =
+            Coordinate().sub(0, 0, store.gravity).add(stored(store.coriolisAcceleration));
+        step.isFreeFall =
+            stored(store.accelerationData).getLinearAccelerationWC().exactlyEquals(freeFall);
+    }
+    return step;
+}
 
-    // Below MathUtil::kEpsilon there is no drag to direct: the step is a free fall.
-    BasicLandingStepper other;
-    InitializedScenario g("landing-at-rest", other);
-    ASSERT_NE(g.status, nullptr);
-    g.status->setRocketVelocity(Coordinate(0, 0, -5e-9));
-    EXPECT_EQ(bugText([&] { other.step(*g.status, 10.0); }), "<none>");
+/// The airspeeds between MathUtil::kEpsilon and Coordinate::kMinNormalizeLength, straight down,
+/// sideways and just below the upper end, whose step throws or is no free fall; one to a line,
+/// "" when there is none.
+[[nodiscard]] std::string stepsThatAreNoFreeFall()
+{
+    std::string wrong;
+    for (const Coordinate& velocity :
+         {Coordinate(0, 0, -5e-8), Coordinate(2.4e-8, -5.5e-9, 0), Coordinate(-9.9e-8, 0, 0),
+          Coordinate(0, 0, std::nextafter(Coordinate::kMinNormalizeLength, 0.0))})
+    {
+        const SlowStep step = stepAtVelocity(velocity);
+        if (step.bug != "<none>" || !step.isFreeFall)
+        {
+            wrong +=
+                std::format("({}, {}, {}): {}\n", velocity.x, velocity.y, velocity.z, step.bug);
+        }
+    }
+    return wrong;
+}
+
+// Java: Coordinate.normalize() throws an IllegalStateException below a length of 1e-7, and the
+// stepper normalizes an airspeed above MathUtil.EPSILON (1e-8), so that an airspeed between
+// the two ends OpenRocket's run. A flight gets there by itself (the step to the apogee leaves
+// the horizontal airspeed, which very dense air has braked to some 1e-8 m/s). Here an airspeed
+// that normalize() does not take has no direction, and its drag, which is nothing at such a
+// speed, is left out: the step is the free fall it is below MathUtil::kEpsilon.
+TEST(AbstractEulerStepper, AnAirspeedTooSmallToNormalizeIsAFreeFall)
+{
+    // Below MathUtil::kEpsilon, as in Java.
+    const SlowStep still = stepAtVelocity(Coordinate(0, 0, -5e-9));
+    EXPECT_EQ(still.bug, "<none>");
+    EXPECT_TRUE(still.isFreeFall);
+
+    // Between the two, where Java ends the run.
+    EXPECT_EQ(stepsThatAreNoFreeFall(), "");
+
+    // From a speed on at which the drag shows there is drag.
+    const SlowStep slow = stepAtVelocity(Coordinate(0, 0, -1e-3));
+    EXPECT_EQ(slow.bug, "<none>");
+    EXPECT_FALSE(slow.isFreeFall);
+    // And at the length normalize() takes, it is taken.
+    EXPECT_EQ(stepAtVelocity(Coordinate(0, 0, -Coordinate::kMinNormalizeLength)).bug, "<none>");
+}
+
+TEST(AbstractEulerStepper, TheShortestAirspeedWithADirectionIsTheOneNormalizeTakes)
+{
+    EXPECT_EQ(Coordinate::kMinNormalizeLength, 1e-7);
+    EXPECT_EQ(Coordinate(Coordinate::kMinNormalizeLength, 0, 0).normalize().x, 1.0);
+    EXPECT_EQ(
+        bugText([] {
+            static_cast<void>(
+                Coordinate(std::nextafter(Coordinate::kMinNormalizeLength, 0.0), 0, 0).normalize());
+        }),
+        "Cannot normalize zero coordinate");
 }
 
 // The steppers of the descent fire the post-aerodynamic-calculation hook too, with forces that

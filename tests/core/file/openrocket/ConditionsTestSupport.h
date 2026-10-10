@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/aero/lookup/MachAoALookup.h"
+#include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/openrocket/SimulationConditionsHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/MessagePriority.h"
@@ -50,9 +51,16 @@ namespace QtRocket::Test
 {
 
 /// What stands for the directory of a test's files in the XML of a case and in its outcome.
+/// In the XML it makes a path absolute.
 inline constexpr std::string_view kDirectoryMark = "{DIR}";
-/// What stands for the current directory of the process in an outcome.
+/// What stands for the current directory of the process in an outcome. No outcome has it: a
+/// design reads and names its files against its own directory.
 inline constexpr std::string_view kCurrentDirectoryMark = "{CWD}";
+/// The directory under a test's directory that runConditions() makes the design's directory,
+/// against which a design's relative name of a lookup file is resolved. The Java probe ran
+/// with this directory as its working directory, which is what OpenRocket resolves such a
+/// name against: so a case that names "tables/drag.csv" names the same file on both sides.
+inline constexpr std::string_view kDesignDirectoryName = "design";
 /// The directory under a test's directory that runConditions() makes the current one.
 inline constexpr std::string_view kWorkingDirectoryName = "cwd";
 
@@ -296,16 +304,42 @@ inline constexpr std::array<std::string_view, 10> kBaselineOptions{
     return neutralPaths(std::move(text), directory);
 }
 
-/// The CSV files the cases refer to as "{DIR}/tables/...": a drag table, a stability table and
-/// a drag table with a NaN. (The Java probe had the same files.)
+/// A file of writeLookupFiles(): its name under the test's directory, and its text.
+struct LookupFile
+{
+    std::string_view name;
+    std::string_view text;
+};
+
+/// The files the cases refer to, as the Java probe had them:
+/// - design/tables/drag.csv, stability.csv, nan.csv and huge.csv: a drag table, a stability
+///   table, a drag table with a NaN and one with a coefficient of 1e300, in the design's
+///   directory (kDesignDirectoryName);
+/// - outside/drag.csv and stability.csv: tables of other values (a drag coefficient of 0.9,
+///   stability values of 9) that no design may read;
+/// and, which the probe had no use for, tables of yet other values (0.7 and 7) under the names
+/// of the design's own in the directory that runConditions() makes the current one
+/// (cwd/tables/drag.csv and stability.csv): a table of those values in an outcome would have
+/// been read against the current directory.
+inline constexpr std::array<LookupFile, 8> kLookupFiles{{
+    {.name = "design/tables/drag.csv", .text = "Mach,Cd\n0,0.3\n1,0.5\n"},
+    {.name = "design/tables/stability.csv", .text = "Mach,Cn,Cm,Cp\n0,1,2,3\n2,3,4,5\n"},
+    {.name = "design/tables/nan.csv", .text = "Mach,Cd\n0,0.3\n1,NaN\n"},
+    {.name = "design/tables/huge.csv", .text = "Mach,Cd\n0,0.3\n1,1e300\n"},
+    {.name = "outside/drag.csv", .text = "Mach,Cd\n0,0.9\n1,0.9\n"},
+    {.name = "outside/stability.csv", .text = "Mach,Cn,Cm,Cp\n0,9,9,9\n2,9,9,9\n"},
+    {.name = "cwd/tables/drag.csv", .text = "Mach,Cd\n0,0.7\n1,0.7\n"},
+    {.name = "cwd/tables/stability.csv", .text = "Mach,Cn,Cm,Cp\n0,7,7,7\n2,7,7,7\n"},
+}};
+
+/// Writes the files of kLookupFiles under the test's directory @p directory.
 inline void writeLookupFiles(const TempDir& directory)
 {
-    EXPECT_TRUE(
-        std::filesystem::exists(directory.write("tables/drag.csv", "Mach,Cd\n0,0.3\n1,0.5\n")));
-    EXPECT_TRUE(std::filesystem::exists(
-        directory.write("tables/stability.csv", "Mach,Cn,Cm,Cp\n0,1,2,3\n2,3,4,5\n")));
-    EXPECT_TRUE(
-        std::filesystem::exists(directory.write("tables/nan.csv", "Mach,Cd\n0,0.3\n1,NaN\n")));
+    for (const LookupFile& file : kLookupFiles)
+    {
+        EXPECT_TRUE(std::filesystem::exists(directory.write(pathFromUtf8(file.name), file.text)))
+            << file.name;
+    }
 }
 
 /// A HandlerFixture whose preference store holds what OpenRocket's tests run under
@@ -317,23 +351,26 @@ public:
 };
 
 /// Runs @p xml, a <conditions> element, through a new SimulationConditionsHandler under
-/// OpenRocket's test preferences and returns describeOutcome(). kDirectoryMark in @p xml
-/// stands for a temporary directory that holds the files of writeLookupFiles(), which are only
-/// written for an element that names it. The element is read with an empty directory of the
-/// test's own as the current directory (kWorkingDirectoryName under the temporary one), so
-/// that a file the element names by a relative name is missing whatever lies in the directory
-/// the tests are run from.
+/// OpenRocket's test preferences and returns describeOutcome(). The design's directory of the
+/// context is kDesignDirectoryName under a temporary directory of the test's own that holds the
+/// files of writeLookupFiles() (written only for an element with a lookup table); kDirectoryMark
+/// in @p xml stands for that temporary directory. The element is read with another directory
+/// under it as the current directory (kWorkingDirectoryName), which holds tables of its own
+/// under the names of the design's: nothing may be read or named against it, whatever lies in
+/// the directory the tests are run from.
 [[nodiscard]] inline std::string runConditions(std::string_view xml)
 {
     ConditionsFixture fixture;
     const TempDir     directory;
     std::string       document(xml);
-    if (document.contains(kDirectoryMark))
+    if (document.contains("lookup"))
     {
         writeLookupFiles(directory);
-        document = replaceAll(std::move(document), kDirectoryMark, genericUtf8(directory.path()));
     }
-    const CurrentDirectoryGuard workingDirectory(directory.resolve(kWorkingDirectoryName));
+    document = replaceAll(std::move(document), kDirectoryMark, genericUtf8(directory.path()));
+    fixture.context().setDesignDirectory(directory.resolve(pathFromUtf8(kDesignDirectoryName)));
+    const CurrentDirectoryGuard workingDirectory(
+        directory.resolve(pathFromUtf8(kWorkingDirectoryName)));
     SimulationConditionsHandler handler(fixture.context());
     const HandlerRun            run = runHandler(handler, document);
     return describeOutcome(run, handler, directory.path());
@@ -357,6 +394,10 @@ struct ConditionsCase
     std::string_view qtrocket;
     /// Why QtRocket differs; empty when it does not.
     std::string_view why;
+    /// Whether QtRocket differs only where it refuses a name of a device of Windows
+    /// (CsvLookupHandler::kRefusesDeviceNames: on Windows), and makes of the element what
+    /// OpenRocket makes of it elsewhere.
+    bool whereDevicesAreRefused{false};
 };
 
 /// The name of the test of @p caseName: its words run together, each with a capital, and a
@@ -394,8 +435,10 @@ struct ConditionsCase
 /// outcome, or QtRocket's own where the case states one with its reason.
 inline void expectConditionsCase(const ConditionsCase& conditionsCase)
 {
-    const std::string_view expected =
-        conditionsCase.qtrocket.empty() ? conditionsCase.java : conditionsCase.qtrocket;
+    const bool differsHere =
+        !conditionsCase.qtrocket.empty() &&
+        (!conditionsCase.whereDevicesAreRefused || CsvLookupHandler::kRefusesDeviceNames);
+    const std::string_view expected = differsHere ? conditionsCase.qtrocket : conditionsCase.java;
     EXPECT_EQ(runConditions(conditionsCase.xml), std::string(expected)) << conditionsCase.name;
     // A deviation comes with its reason, and only a deviation has one.
     EXPECT_EQ(conditionsCase.qtrocket.empty(), conditionsCase.why.empty()) << conditionsCase.name;

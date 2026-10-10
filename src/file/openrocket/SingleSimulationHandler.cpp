@@ -14,6 +14,7 @@
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/FlightDataHandler.h"
 #include "QtRocket/file/openrocket/LandingDispersionSettingsHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/SimulationConditionsHandler.h"
 #include "QtRocket/file/openrocket/SimulationPlotAppearanceHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
@@ -261,6 +262,24 @@ Result<void> SingleSimulationHandler::endHandler(std::string_view /*element*/,
         return fail(ErrorCode::INVALID_ARGUMENT, std::string(kErrorIdMessage));
     }
     const FlightConfigurationId idToSet = m_conditionHandler->getIdToSet();
+
+    // Not OpenRocket's: a simulation of an id the rocket lacks makes a flight configuration
+    // (Simulation::setFlightConfigurationId()), and the configurations of a rocket are bounded
+    // by their number and by the instances they hold (see the class comment). The simulation
+    // that would make one too many is ignored.
+    if (!rocket.containsFlightConfigurationId(idToSet))
+    {
+        if (!DocumentConfig::flightConfigurationCountFits(rocket))
+        {
+            warnings.add(LoaderWarnings::simulationBeyondConfigurationBound());
+            return {};
+        }
+        if (!DocumentConfig::flightConfigurationFits(rocket))
+        {
+            warnings.add(LoaderWarnings::kSimulationBeyondInstances);
+            return {};
+        }
+    }
 
     std::map<std::string, PlotAppearance> plotAppearances;
     if (m_plotAppearanceHandler != nullptr)

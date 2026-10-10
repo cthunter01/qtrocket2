@@ -9,7 +9,7 @@
 
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
-#include "QtRocket/logging/Warning.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -17,6 +17,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
 #include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetReference.h"
 #include "QtRocket/rocket/preset/TypedKey.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
@@ -51,6 +52,12 @@ using PresetPtr = std::shared_ptr<const ComponentPreset>;
     return nullptr;
 }
 
+/// A copy of the text of an attribute, or nullopt for an attribute the element lacks.
+[[nodiscard]] std::optional<std::string> toText(std::optional<std::string_view> attribute)
+{
+    return attribute.has_value() ? std::optional<std::string>(*attribute) : std::nullopt;
+}
+
 /// Whether a recovery device would take the material @p preset has under @p key and that
 /// material is not of @p type. RecoveryDevice::loadFromPreset() and Parachute::loadFromPreset()
 /// take a preset's material only when its text ("name (density)", Material::toString()) is
@@ -67,23 +74,29 @@ using PresetPtr = std::shared_ptr<const ComponentPreset>;
     return Strings::javaLength(material.toString()) > 12 && material.getType() != type;
 }
 
-/// Whether RocketComponent::loadPreset() can load @p preset into @p component: false where it
-/// throws BugError (see the class comment).
-[[nodiscard]] bool canLoad(const RocketComponent& component, const ComponentPreset& preset)
+/// Why RocketComponent::loadPreset() cannot load @p preset into @p component, as the warning
+/// for it, or nullopt when it can: the cases in which it throws BugError (see the class
+/// comment).
+[[nodiscard]] std::optional<std::string> whyNotLoaded(const RocketComponent& component,
+                                                      const ComponentPreset& preset)
 {
     const ComponentKind kind = component.kind();
     if (isRecoveryDevice(kind) &&
         takesMaterialOfAnotherType(preset, ComponentPreset::kMaterial, Material::Type::SURFACE))
     {
-        return false;
+        return LoaderWarnings::presetMaterialOfAnotherType(component.getName());
     }
     if (kind == ComponentKind::PARACHUTE &&
         takesMaterialOfAnotherType(preset, ComponentPreset::kLineMaterial, Material::Type::LINE))
     {
-        return false;
+        return LoaderWarnings::presetMaterialOfAnotherType(component.getName());
     }
     const auto* const rocket = dynamic_cast<const Rocket*>(&component.getRoot());
-    return rocket == nullptr || !rocket->isFrozen();
+    if (rocket != nullptr && rocket->isFrozen())
+    {
+        return LoaderWarnings::presetIntoFrozenRocket(component.getName());
+    }
+    return std::nullopt;
 }
 
 }  // namespace
@@ -125,7 +138,8 @@ Result<void> ComponentPresetSetter::set(RocketComponent&  component, std::string
                                  component.getName()));
     }
 
-    if (!DocumentConfig::attribute(attributes, "type").has_value())
+    const std::optional<std::string_view> type = DocumentConfig::attribute(attributes, "type");
+    if (!type.has_value())
     {
         warnings.add(std::format("Invalid ComponentPreset for component {}, no type specified.",
                                  component.getName()));
@@ -140,13 +154,21 @@ Result<void> ComponentPresetSetter::set(RocketComponent&  component, std::string
         warnings.add(
             std::format("No matching ComponentPreset for component {} found matching {} {}",
                         component.getName(), *manufacturerName, *productNo));
+        // Not OpenRocket's, which forgets the element here: the component remembers what the
+        // file said, for a save to write back (see the class comment). A component that has a
+        // preset from an earlier <preset> element keeps that and remembers nothing.
+        component.setUnresolvedPreset(
+            ComponentPresetReference{.type         = toText(type),
+                                     .manufacturer = std::string(*manufacturerName),
+                                     .partNo       = std::string(*productNo),
+                                     .digest       = toText(digest)});
         return {};
     }
 
     // Java loads whatever it found; see the class comment for where that is its end.
-    if (!canLoad(component, *matchingPreset))
+    if (const std::optional<std::string> refusal = whyNotLoaded(component, *matchingPreset))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(*refusal);
         return {};
     }
 

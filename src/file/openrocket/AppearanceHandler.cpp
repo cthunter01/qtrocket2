@@ -12,10 +12,11 @@
 #include "QtRocket/file/AttachmentFactory.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/IgnoredElementHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/AppearanceBuilder.h"
 #include "QtRocket/rocket/Decal.h"
@@ -51,7 +52,11 @@ Result<ElementHandler*> AppearanceHandler::openElement(std::string_view  element
         }
         if (!*opened)
         {
-            return nullptr;
+            // Not OpenRocket's, which dies of such a decal: it is read by a handler that says
+            // nothing, so that the elements around it close with what is theirs (see the
+            // class comment).
+            m_isIgnoringDecal = true;
+            return &IgnoredElementHandler::instance();
         }
         m_isInDecal = true;
         return this;
@@ -77,7 +82,7 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
                             (rotation.has_value() && !edgeModeName.has_value());
     if (diesInJava)
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDecalIgnored);
         return false;
     }
 
@@ -85,8 +90,15 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
     // name is there, or the decal was ignored above.)
     const std::shared_ptr<const Attachment> attachment =
         m_context->getAttachmentFactory()->getAttachment(name.value_or(std::string_view{}));
-    const std::shared_ptr<DecalImage> image =
-        m_context->getOpenRocketDocument()->getDecalImage(attachment);
+    OpenRocketDocument& document = *m_context->getOpenRocketDocument();
+    // Not OpenRocket's: the images of a document are bounded (see the class comment).
+    if (document.getDecalImageCount() >= DocumentConfig::kMaxDecalImages &&
+        !document.hasDecalImage(attachment))
+    {
+        warnings.add(LoaderWarnings::tooManyDecalImages());
+        return false;
+    }
+    const std::shared_ptr<DecalImage> image = document.getDecalImage(attachment);
     // The decal names the image, and the registry may have given it another name than the
     // file's.
     m_builder.setImage(image->getName());
@@ -114,6 +126,13 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
 Result<void> AppearanceHandler::closeElement(std::string_view element, const Attributes& attributes,
                                              std::string_view content, WarningSet& warnings)
 {
+    if (m_isIgnoringDecal)
+    {
+        // The decal that was ignored ends (IgnoredElementHandler has read everything in it):
+        // the one warning it got when it opened is all that is said of it.
+        m_isIgnoringDecal = false;
+        return {};
+    }
     if (element == "paint")
     {
         closePaint(attributes);
@@ -192,7 +211,7 @@ Result<void> AppearanceHandler::closePair(const Attributes& attributes, WarningS
     const std::optional<std::string_view> xText = DocumentConfig::attribute(attributes, "x");
     if (!xText.has_value())
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDecalPairIgnored);
         return {};
     }
     const Result<double> x = DocumentConfig::parseDouble(*xText);
@@ -203,7 +222,7 @@ Result<void> AppearanceHandler::closePair(const Attributes& attributes, WarningS
     const std::optional<std::string_view> yText = DocumentConfig::attribute(attributes, "y");
     if (!yText.has_value())
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDecalPairIgnored);
         return {};
     }
     const Result<double> y = DocumentConfig::parseDouble(*yText);

@@ -1,5 +1,6 @@
 #include "QtRocket/file/openrocket/IntSetter.h"
 
+#include <format>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -7,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -31,6 +33,7 @@ using QtRocket::BugError;
 using QtRocket::DocumentConfig;
 using QtRocket::IntSetter;
 using QtRocket::LaunchLug;
+using QtRocket::LoaderWarnings;
 using QtRocket::PodSet;
 using QtRocket::Result;
 using QtRocket::RocketComponent;
@@ -40,8 +43,15 @@ using QtRocket::Test::joinedWarnings;
 using QtRocket::Test::SetterFixture;
 using QtRocket::Test::SetterRecorder;
 
+// OpenRocket's warning for a text that is no number.
 constexpr std::string_view kInvalid = "[Invalid parameter encountered, ignoring.]";
 constexpr std::string_view kWarning = "Invalid parameter encountered, ignoring.";
+// QtRocket's own warnings, for the two bounds OpenRocket does not have (LoaderWarnings).
+constexpr std::string_view kAboveTheBound =
+    "A count above 10000 was refused; the component keeps the count it had.";
+constexpr std::string_view kBeyondTheBudget =
+    "A count that would give the rocket too many component instances was refused; the component "
+    "keeps the count it had.";
 
 TEST(IntSetter, SetsTheNumberOfTheText)
 {
@@ -102,20 +112,24 @@ TEST(IntSetter, WithAMaximumRefusesALargerNumber)
     EXPECT_EQ(recorder.apply(setter, "9999"), "count 9999");
     EXPECT_EQ(recorder.apply(setter, "10000"), "count 10000");
     EXPECT_EQ(recorder.apply(setter, "+10000"), "count 10000");
-    EXPECT_EQ(recorder.apply(setter, "10001"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "20000"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "2147483647"), kInvalid);
+    const std::string aboveTheBound = std::format("[{}]", kAboveTheBound);
+    EXPECT_EQ(aboveTheBound, std::format("[{}]", LoaderWarnings::countAboveBound(10000)));
+    EXPECT_EQ(recorder.apply(setter, "10001"), aboveTheBound);
+    EXPECT_EQ(recorder.apply(setter, "20000"), aboveTheBound);
+    EXPECT_EQ(recorder.apply(setter, "2147483647"), aboveTheBound);
     // The maximum is no minimum: what a count below one means is the component's business.
     EXPECT_EQ(recorder.apply(setter, "0"), "count 0");
     EXPECT_EQ(recorder.apply(setter, "-1"), "count -1");
     EXPECT_EQ(recorder.apply(setter, "-2147483648"), "count -2147483648");
-    // A text that is no number is the same warning.
+    // A text that is no number has OpenRocket's warning, as without a maximum.
     EXPECT_EQ(recorder.apply(setter, "x"), kInvalid);
     EXPECT_EQ(recorder.apply(setter, "2147483648"), kInvalid);
 
+    // The warning names the maximum of its setter.
     const IntSetter small(recorder.whole("count"), 2);
     EXPECT_EQ(recorder.apply(small, "2"), "count 2");
-    EXPECT_EQ(recorder.apply(small, "3"), kInvalid);
+    EXPECT_EQ(recorder.apply(small, "3"),
+              "[A count above 2 was refused; the component keeps the count it had.]");
 }
 
 /// A setter's warnings for @p text on @p component, joined; "FAILED" when it fails.
@@ -161,10 +175,11 @@ TEST(IntSetter, OfAnInstanceCountRefusesWhatTheRocketCannotHold)
     ASSERT_EQ(DocumentConfig::instanceLoad(lug), 30003U);
 
     // 10000 lugs in each of the 10000 pods.
-    EXPECT_EQ(warned(fixture, setter, lug, "10000"), kWarning);
+    EXPECT_EQ(kBeyondTheBudget, LoaderWarnings::kCountBeyondInstances);
+    EXPECT_EQ(warned(fixture, setter, lug, "10000"), kBeyondTheBudget);
     EXPECT_EQ(lug.getInstanceCount(), 1) << "nothing is set";
     // 8 in each are 80000: 100003 instances in all, three too many.
-    EXPECT_EQ(warned(fixture, setter, lug, "8"), kWarning);
+    EXPECT_EQ(warned(fixture, setter, lug, "8"), kBeyondTheBudget);
     EXPECT_EQ(lug.getInstanceCount(), 1);
     EXPECT_EQ(warned(fixture, setter, lug, "7"), "");
     EXPECT_EQ(lug.getInstanceCount(), 7);
@@ -175,8 +190,9 @@ TEST(IntSetter, OfAnInstanceCountRefusesWhatTheRocketCannotHold)
     EXPECT_EQ(lug.getInstanceCount(), 7);
     EXPECT_EQ(warned(fixture, setter, lug, "2"), "");
     EXPECT_EQ(lug.getInstanceCount(), 2);
-    // The maximum of the count by itself stays (decision L6), and a text that is no number.
-    EXPECT_EQ(warned(fixture, setter, lug, "10001"), kWarning);
+    // The maximum of the count by itself stays (decision L6), and a text that is no number:
+    // each with its own warning.
+    EXPECT_EQ(warned(fixture, setter, lug, "10001"), kAboveTheBound);
     EXPECT_EQ(warned(fixture, setter, lug, "x"), kWarning);
     EXPECT_EQ(lug.getInstanceCount(), 2);
 }
@@ -192,8 +208,8 @@ TEST(IntSetter, OfAFinCountAsksTheBudgetAboutTheFinsTheSetKeeps)
     // Three fins in each of the 10000 pods.
     ASSERT_EQ(DocumentConfig::instanceLoad(fins), 50003U);
 
-    EXPECT_EQ(warned(fixture, setter, fins, "8"), kWarning);
-    EXPECT_EQ(warned(fixture, setter, fins, "2147483647"), kWarning);
+    EXPECT_EQ(warned(fixture, setter, fins, "8"), kBeyondTheBudget);
+    EXPECT_EQ(warned(fixture, setter, fins, "2147483647"), kBeyondTheBudget);
     EXPECT_EQ(fins.getFinCount(), 3);
     EXPECT_EQ(warned(fixture, setter, fins, "7"), "");
     EXPECT_EQ(fins.getFinCount(), 7);
@@ -219,7 +235,7 @@ TEST(IntSetter, TheTablesInstanceCountsKnowTheBudget)
     ASSERT_NE(found.setter, nullptr);
     WarningSet warnings;
     ASSERT_TRUE(found.setter->set(lug, "9", {}, warnings, fixture.context()).has_value());
-    EXPECT_EQ(joinedWarnings(warnings), kWarning);
+    EXPECT_EQ(joinedWarnings(warnings), kBeyondTheBudget);
     EXPECT_EQ(lug.getInstanceCount(), 1);
 
     TrapezoidFinSet&                   fins  = tube.addChild(std::make_unique<TrapezoidFinSet>());
@@ -228,7 +244,7 @@ TEST(IntSetter, TheTablesInstanceCountsKnowTheBudget)
     WarningSet finWarnings;
     // 3 + 10000 + 10000 + 10000 + 30000 instances so far; 7 fins are 40000 more, 6 are 30000.
     ASSERT_TRUE(count.setter->set(fins, "7", {}, finWarnings, fixture.context()).has_value());
-    EXPECT_EQ(joinedWarnings(finWarnings), kWarning);
+    EXPECT_EQ(joinedWarnings(finWarnings), kBeyondTheBudget);
     EXPECT_EQ(fins.getFinCount(), 3);
     ASSERT_TRUE(count.setter->set(fins, "6", {}, finWarnings, fixture.context()).has_value());
     EXPECT_EQ(fins.getFinCount(), 6);

@@ -967,6 +967,39 @@ TEST(SetterTable, HasACaseForTheTenSettersNoCommittedFileExercises)
     EXPECT_EQ(withoutACase(kSettersNoFileExercises), Texts{});
 }
 
+// Not OpenRocket's, whose setters set any number (decision U9 of tier 9): the four numbers of a
+// component that a simulation holds to a range, as an older file gives them, are set only when
+// they lie in it (SimulationInputRanges::kDelay and kEventAltitude: 0 to 1000000 s, 0 to
+// 1000000 m). A bound is inside its range, the next number beyond it is refused with a warning
+// of QtRocket's own that names the range (LoaderWarnings::numberOutsideRange(); OpenRocket's
+// text is for what OpenRocket refuses), and the value stays.
+// clang-format off
+constexpr auto kRanged = std::to_array<SetterCase>({
+    {.key = "RecoveryDevice:deploydelay", .kind = ComponentKind::PARACHUTE, .text = "0", .read = &readParachuteDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 0.0"},
+    {.key = "RecoveryDevice:deploydelay", .kind = ComponentKind::PARACHUTE, .text = "1000000", .read = &readParachuteDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 1000000.0"},
+    {.key = "RecoveryDevice:deploydelay", .kind = ComponentKind::PARACHUTE, .text = "1000000.0000000001", .read = &readParachuteDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."},
+    {.key = "RecoveryDevice:deploydelay", .kind = ComponentKind::PARACHUTE, .text = "-4.9e-324", .read = &readParachuteDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."},
+    {.key = "RecoveryDevice:deploydelay", .kind = ComponentKind::PARACHUTE, .text = "1e300", .read = &readParachuteDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 2.0", .warnings = "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what it had.", .beforeKey = "RecoveryDevice:deploydelay", .beforeText = "2"},
+    {.key = "RecoveryDevice:deployaltitude", .kind = ComponentKind::STREAMER, .text = "0", .read = &readStreamerDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 0.0, 0.0"},
+    {.key = "RecoveryDevice:deployaltitude", .kind = ComponentKind::STREAMER, .text = "1e6", .read = &readStreamerDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 1000000.0, 0.0"},
+    {.key = "RecoveryDevice:deployaltitude", .kind = ComponentKind::STREAMER, .text = "1000000.0000000001", .read = &readStreamerDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 m, was refused; the component keeps what it had."},
+    {.key = "RecoveryDevice:deployaltitude", .kind = ComponentKind::STREAMER, .text = "-120", .read = &readStreamerDeployEventAndDeployAltitudeAndDeployDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 m, was refused; the component keeps what it had."},
+    {.key = "AxialStage:separationdelay", .kind = ComponentKind::AXIAL_STAGE, .text = "0", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 0.0"},
+    {.key = "AxialStage:separationdelay", .kind = ComponentKind::AXIAL_STAGE, .text = "1000000", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 1000000.0"},
+    {.key = "AxialStage:separationdelay", .kind = ComponentKind::AXIAL_STAGE, .text = "1000000.0000000001", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."},
+    {.key = "AxialStage:separationdelay", .kind = ComponentKind::AXIAL_STAGE, .text = "-1", .read = &readAxialStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."},
+    {.key = "AxialStage:separationaltitude", .kind = ComponentKind::PARALLEL_STAGE, .text = "0", .read = &readParallelStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 0.0, 0.0"},
+    {.key = "AxialStage:separationaltitude", .kind = ComponentKind::PARALLEL_STAGE, .text = "1000000", .read = &readParallelStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 1000000.0, 0.0"},
+    {.key = "AxialStage:separationaltitude", .kind = ComponentKind::PARALLEL_STAGE, .text = "1000000.0000000001", .read = &readParallelStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 m, was refused; the component keeps what it had."},
+    {.key = "AxialStage:separationaltitude", .kind = ComponentKind::PARALLEL_STAGE, .text = "-0.001", .read = &readParallelStageSeparationEventAndSeparationAltitudeAndSeparationDelay, .expected = "EJECTION, 200.0, 0.0", .warnings = "A number outside its range, from 0 to 1000000 m, was refused; the component keeps what it had."},
+});
+// clang-format on
+
+TEST(SetterTable, TheFourNumbersASimulationHoldsToARangeAreSetOnlyInsideIt)
+{
+    EXPECT_EQ(checkSetterCases(kRanged), Texts{});
+}
+
 /// What the walk for @p kind finds for each element a nose cone refuses: "<element>=<class>"
 /// with a setter, "<element>=!<class>" for a refusal.
 [[nodiscard]] Texts walkForTheRefusedElements(ComponentKind kind)

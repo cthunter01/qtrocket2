@@ -18,9 +18,10 @@
 #include "QtRocket/file/FileSystemAttachmentFactory.h"
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/ZipFileAttachmentFactory.h"
+#include "QtRocket/file/openrocket/IgnoredElementHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -60,12 +61,13 @@ using QtRocket::DocumentLoadingContext;
 using QtRocket::ElementHandler;
 using QtRocket::ErrorCode;
 using QtRocket::FileSystemAttachmentFactory;
+using QtRocket::IgnoredElementHandler;
+using QtRocket::LoaderWarnings;
 using QtRocket::NoseCone;
 using QtRocket::OpenRocketDocument;
 using QtRocket::PlainTextHandler;
 using QtRocket::Result;
 using QtRocket::RocketComponent;
-using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::ZipFileAttachmentFactory;
 using QtRocket::ZipWriter;
@@ -605,7 +607,7 @@ constexpr std::array<RocketCase, 24> kOwn{{
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-decal-without-name", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal rotation="1.5" edgemode="STICKER"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal><shine>0.9</shine></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -619,7 +621,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/a.png'
     {.name = "ap-decal-without-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" edgemode="STICKER"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal><shine>0.9</shine></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -633,7 +635,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/a.png'
     {.name = "ap-decal-without-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal><shine>0.9</shine></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -646,7 +648,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-decal-without-anything", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -659,7 +661,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-decal-without-name-and-rotation-no-number", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal rotation="x" edgemode="STICKER"></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -673,7 +675,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/a.png'
     {.name = "ap-decal-without-rotation-and-edgemode-none", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" edgemode="nothing"></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -687,7 +689,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/lost.png'
     {.name = "ap-decal-without-edgemode-then-a-full-one", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/lost.png" rotation="1.5"></decal><decal name="decals/kept.png" rotation="1.5" edgemode="STICKER"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -696,14 +698,13 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | decals='decals/kept.png'
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-    // Decision L4: OpenRocket dies of the decal without name; here it is ignored with everything in it. As after every ignored element the enclosing elements close with what belongs one level deeper, so the attribute of the appearance element is warned of as the nose cone's.
+    // Decisions L4 and U7: OpenRocket dies of the decal without name; here it is ignored with everything in it and one warning. A handler that says nothing reads it, so nothing of it is warned of when it closes and the elements around it close with their own attributes and text (the attribute of the appearance element is passed over as ever).
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-ignored-decal-with-text-and-elements", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance a="1"><decal rotation="1.5" edgemode="STICKER" extra="1">text<center x="1"/><bogus a="1"><deeper/></bogus></decal><shine>0.4</shine></appearance></nosecone></subcomponents></stage></subcomponents><name>R</name>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
-W Unknown attributes in element 'nosecone', ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, nonfunc=2, tree=1}
 | Rocket 'R' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -716,7 +717,7 @@ EVENTS 4 {mass,aero,tree=1, nonfunc=2, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-center-without-x", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><center y="2"/><offset x="5" y="6"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -730,7 +731,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-center-without-y", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><center x="1"/><offset x="5" y="6"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -744,7 +745,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-offset-without-x-and-y", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><offset/><scale x="5" y="6"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -758,7 +759,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-scale-without-y", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><scale x="5"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -772,7 +773,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ap-center-without-x-and-y-no-number", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><center y="b"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -845,7 +846,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // Decision L4: a <decal> without name is ignored. With the attachments of an archive OpenRocket registers an image without a name and goes on; whoever lists the images then dies (the probe's dump).
     // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.replace(java.lang.CharSequence, java.lang.CharSequence)" because "<parameter1>" is n ...
     {.name = "ap-fix-archive-nameless-decal", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="REPEAT"><center x="1" y="2"/></decal><shine>0.7</shine></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -858,7 +859,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.compareTo(String)" because the return value of "info.openrocket.core.document.DecalR ...
     {.name = "ap-fix-archive-nameless-decal-bad-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="x" edgemode="REPEAT"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -871,7 +872,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: DUMP THROWN java.lang.NullPointerException: Cannot invoke "String.compareTo(String)" because the return value of "info.openrocket.core.document.DecalR ...
     {.name = "ap-fix-archive-nameless-decal-bad-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="nothing"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -884,7 +885,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "ap-fix-nameless-decal-bad-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="x" edgemode="REPEAT"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -897,7 +898,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "ap-fix-nameless-decal-bad-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><appearance><decal rotation="0" edgemode="nothing"/></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -1004,7 +1005,9 @@ struct Design
 }
 
 // A <decal> is handled by the handler itself, so its children close on it; every other child is
-// plain text. A decal that lacks an attribute is ignored, by decision L4.
+// plain text. A decal that lacks an attribute is ignored, by decision L4, and read by the
+// handler that says nothing (decision U7 of tier 9): the handler is told of its end and says
+// nothing either, whatever the decal's text and attributes are.
 TEST(AppearanceHandler, HandlesADecalItselfAndTakesEverythingElseAsText)
 {
     Design            design;
@@ -1022,11 +1025,48 @@ TEST(AppearanceHandler, HandlesADecalItselfAndTakesEverythingElseAsText)
               &PlainTextHandler::instance());
     EXPECT_TRUE(warnings.empty());
 
-    EXPECT_EQ(handler.openElement("decal", {{"name", "decals/b.png"}}, warnings).value_or(&handler),
-              nullptr);
-    EXPECT_EQ(warningTexts(warnings), Texts{Warning::kFileInvalidParameter.toString()});
-    // The ignored decal registered nothing.
+    const ElementHandler::Attributes lacking{{"name", "decals/b.png"}, {"extra", "1"}};
+    EXPECT_EQ(handler.openElement("decal", lacking, warnings).value_or(nullptr),
+              &IgnoredElementHandler::instance());
+    EXPECT_EQ(warningTexts(warnings), Texts{std::string(LoaderWarnings::kDecalIgnored)});
+    // The ignored decal registered nothing, and nothing more is said when it closes.
     EXPECT_EQ(imageNames(design.fixture.document()), Texts{"decals/a.png"});
+    EXPECT_TRUE(handler.closeElement("decal", lacking, "text", warnings).has_value());
+    EXPECT_EQ(warnings.size(), 1U);
+    // The element behind it is read as ever: one the handler does not know is warned of.
+    EXPECT_TRUE(handler.closeElement("bogus", {}, "text", warnings).has_value());
+    EXPECT_EQ(warningTexts(warnings), (Texts{std::string(LoaderWarnings::kDecalIgnored),
+                                             "Unknown text in element 'bogus', ignoring."}));
+}
+
+// A decal that is ignored inside a decal, and one behind it: each is read by the handler that
+// says nothing, so the decal around it keeps what it had and takes what follows, and every
+// element around closes with its own attributes and text (with the null return of run 9b the
+// nose cone's element closed with the attribute of <appearance> and warned of it). The two
+// ignored decals give the one warning, twice the same.
+TEST(AppearanceHandler, AnIgnoredDecalLeavesTheDecalAndTheElementsAroundItAlone)
+{
+    RocketLoadFixture fixture;
+    const HandlerRun  run = fixture.load(
+        "<subcomponents><stage><subcomponents><nosecone><appearance marker=\"1\">"
+        "<decal name=\"decals/a.png\" rotation=\"1.5\" edgemode=\"STICKER\">"
+        "<center x=\"1\" y=\"2\"/>"
+        "<decal rotation=\"9\" extra=\"1\">text<center x=\"7\" y=\"8\"/><bogus><deeper/></bogus>"
+        "</decal>"
+        "<offset x=\"3\" y=\"4\"/>"
+        "</decal>"
+        "<decal edgemode=\"STICKER\">more text</decal>"
+        "</appearance></nosecone></subcomponents></stage></subcomponents>");
+    ASSERT_TRUE(run.result.has_value()) << run.result.error().message;
+    EXPECT_EQ(run.texts(), Texts{std::string(LoaderWarnings::kDecalIgnored)});
+    EXPECT_EQ(run.element, "rocket");
+    EXPECT_TRUE(run.attributes.empty());
+    EXPECT_EQ(run.content, "");
+
+    const RocketComponent& nose = fixture.rocket().getChild(0).getChild(0);
+    EXPECT_EQ(decalOf(nose), Decal(Coordinate(3, 4), Coordinate(1, 2), Coordinate(1, 1), 1.5,
+                                   "decals/a.png", Decal::EdgeMode::STICKER));
+    EXPECT_EQ(imageNames(fixture.document()), Texts{"decals/a.png"});
 }
 
 // The values are collected while the element is read and become the component's appearance, all

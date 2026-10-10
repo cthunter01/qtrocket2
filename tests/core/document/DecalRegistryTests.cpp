@@ -581,7 +581,60 @@ TEST(DecalRegistry, ANullAttachmentIsABug)
     // Java: a NullPointerException.
     DecalRegistry registry;
     EXPECT_THROW(static_cast<void>(registry.getDecalImage(nullptr)), BugError);
+    EXPECT_THROW(static_cast<void>(registry.hasDecalImage(nullptr)), BugError);
     EXPECT_TRUE(registry.empty());
+}
+
+// hasDecalImage(): QtRocket's own, for the loader that bounds the images of a document. It
+// answers whether getDecalImage() would give an image there is already, and changes nothing.
+TEST(DecalRegistry, TellsWhetherAnAttachmentHasAnImageWithoutMakingOne)
+{
+    DecalRegistry registry;
+    EXPECT_FALSE(registry.hasDecalImage(entry("decals/a.png")));
+    EXPECT_FALSE(registry.hasDecalImage(file("pictures/a.png")));
+    EXPECT_TRUE(registry.empty()) << "asking registers nothing";
+
+    // An attachment that is no file is known by its name, ...
+    const std::shared_ptr<DecalImage> byName = registry.getDecalImage(entry("decals/a.png"));
+    EXPECT_TRUE(registry.hasDecalImage(entry("decals/a.png")));
+    EXPECT_FALSE(registry.hasDecalImage(entry("decals/b.png")));
+    EXPECT_FALSE(registry.hasDecalImage(entry("a.png"))) << "the name as it is";
+    // ... and a file by the file, whatever the two are called: the image of "pictures/a.png"
+    // is named "decals/a (1).png" here, the name being taken.
+    const std::shared_ptr<DecalImage> byFile = registry.getDecalImage(file("pictures/a.png"));
+    ASSERT_EQ(byFile->getName(), "decals/a (1).png");
+    EXPECT_TRUE(registry.hasDecalImage(file("pictures/a.png")));
+    EXPECT_TRUE(registry.hasDecalImage(file("pictures/a.png/"))) << "as getDecalImage() finds it";
+    EXPECT_FALSE(registry.hasDecalImage(file("other/a.png")));
+    EXPECT_FALSE(registry.hasDecalImage(file("decals/a.png")))
+        << "a file is not found by the name of an image that is no file's";
+    EXPECT_EQ(registry.size(), 2U);
+
+    // What it answers is what getDecalImage() then does.
+    EXPECT_EQ(registry.getDecalImage(entry("decals/a.png")), byName);
+    EXPECT_EQ(registry.getDecalImage(file("pictures/a.png")), byFile);
+    EXPECT_EQ(registry.size(), 2U);
+}
+
+// A removed image is one there is: getDecalImage() registers it again for the same source and
+// makes no new one.
+TEST(DecalRegistry, ARemovedImageIsOneAnAttachmentHas)
+{
+    DecalRegistry                     registry;
+    const std::shared_ptr<DecalImage> byName = registry.getDecalImage(entry("decals/a.png"));
+    const std::shared_ptr<DecalImage> byFile = registry.getDecalImage(file("pictures/b.png"));
+    ASSERT_TRUE(registry.removeDecal(byName.get()));
+    ASSERT_TRUE(registry.removeDecal(byFile.get()));
+    ASSERT_TRUE(registry.empty());
+
+    EXPECT_TRUE(registry.hasDecalImage(entry("decals/a.png")));
+    EXPECT_TRUE(registry.hasDecalImage(file("pictures/b.png")));
+    EXPECT_FALSE(registry.hasDecalImage(file("elsewhere/b.png")));
+    EXPECT_TRUE(registry.empty()) << "asking registers nothing again";
+
+    EXPECT_EQ(registry.getDecalImage(entry("decals/a.png")), byName);
+    EXPECT_EQ(registry.getDecalImage(file("pictures/b.png")), byFile);
+    EXPECT_EQ(registry.size(), 2U);
 }
 
 // ------------------------------------------------------------------------ makeUniqueImage

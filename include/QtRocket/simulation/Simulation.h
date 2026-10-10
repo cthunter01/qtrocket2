@@ -106,8 +106,9 @@ class WarningSet;
 ///
 /// Deviations from OpenRocket:
 /// - simulate() returns a Result where Java throws: see there.
-/// - simulate() refuses inputs that are not finite before anything runs (validateInputs()),
-///   which OpenRocket does not: there such a value ends in a BugException.
+/// - simulate() refuses inputs that are not finite or that lie outside their ranges before
+///   anything runs (validateInputs(), SimulationInputRanges), which OpenRocket does not: there
+///   such a value ends in a BugException, or in a run that does not end.
 /// - The simulated data is held by std::shared_ptr (Java: a reference), because
 ///   cloneForUndo() and loadFrom() share it; null while there is none. The simulated conditions
 ///   and the configuration description are null/nullopt while the simulation has not run.
@@ -310,11 +311,19 @@ public:
 
     // ------------------------------------------------------------------------- simulate
 
-    /// Whether every number a run reads is finite. Fails with ErrorCode::INVALID_ARGUMENT for
-    /// a NaN or an infinity, with a text that names the first such value, for example "Cannot
-    /// simulate: the launch rod length is not finite (NaN)." simulate() calls this before
-    /// anything runs; a caller may ask beforehand. The validation is QtRocket's own: OpenRocket
-    /// has none (see simulate(), "Inputs that are not finite").
+    /// Whether every number a run reads is finite and lies in its range. Fails with
+    /// ErrorCode::INVALID_ARGUMENT for the first one that does not, with a text that names it:
+    /// "Cannot simulate: the launch rod length is not finite (NaN)." for a NaN or an infinity,
+    /// and "Cannot simulate: the time step is outside its range, from 0.0001 to 10 s
+    /// (1.0E300)." for a number that is finite but outside the range the input has (the range
+    /// in words, and the value as Java prints a double). simulate() calls this before anything
+    /// runs; a caller may ask beforehand. The validation is QtRocket's own: OpenRocket has
+    /// none (see simulate(), "Inputs that are not finite or out of range").
+    ///
+    /// The ranges are the table SimulationInputRanges::kTable, which says for each input why
+    /// its range is what it is: generous physical ranges, about ten times beyond what a real
+    /// launch has, or the range OpenRocket itself keeps a value in. A value at a bound is
+    /// inside its range.
     ///
     /// Checked, in this order: every number SimulationOptions::toSimulationConditions() reads
     /// from the options (the steppers and the engine get nothing else of them but choices, such
@@ -329,12 +338,14 @@ public:
     ///   standard deviation of every level of the multi-level wind;
     /// - the launch rod direction as the run uses it (SimulationOptions::
     ///   getLaunchRodDirection(): the wind direction when launching into the wind);
-    /// - without the ISA atmosphere: the launch temperature, pressure and relative humidity;
+    /// - without the ISA atmosphere: the launch temperature, pressure and relative humidity,
+    ///   and then the three together with the launch altitude (see "The air at the launch
+    ///   site" below);
     /// - with the constant gravity model: the constant gravity;
     /// - of the stability lookup table and of the drag lookup table, when the options have one:
-    ///   every Mach number, angle of attack and coefficient of the table
-    ///   (MachAoALookup::findNonFinite(); which rows a flight interpolates in is not known
-    ///   beforehand, and a table read from CSV can hold "NaN");
+    ///   every Mach number, angle of attack and value of the table, in the table's order
+    ///   (SimulationInputRanges::findRefusedLookupNumber(); which rows a flight interpolates in
+    ///   is not known beforehand, and a table read from CSV can hold "NaN" or "1e300");
     /// - the time step, the maximum simulation time and the maximum step angle;
     /// - the four recovery speed warning thresholds;
     /// - for every active component, in the order of FlightConfiguration::getActiveComponents()
@@ -348,9 +359,10 @@ public:
     ///   the separation delay and, when the stage separates at an altitude
     ///   (SeparationEvent::ALTITUDE_ASCENDING or ALTITUDE_DESCENDING), the separation altitude;
     /// - then, for every extension in the order of getSimulationExtensions(): the numbers it
-    ///   says its part of the run reads (SimulationExtension::getInputNumbers(): the six of a
-    ///   RollControl, the two of an AirStart; "Cannot simulate: the 'KP' of the simulation
-    ///   extension 'Roll Control' is not finite (NaN).").
+    ///   says its part of the run reads, each held to the range the extension gives it, if any
+    ///   (SimulationExtension::getInputNumbers(): the six of a RollControl, the two of an
+    ///   AirStart; "Cannot simulate: the 'KP' of the simulation extension 'Roll Control' is not
+    ///   finite (NaN).").
     /// A delay is checked whatever event it follows, also one that never comes (NEVER). An
     /// altitude is checked only for the events that read it: OpenRocket flies a design whose
     /// parachute opens at the ejection charge with whatever deployment altitude it holds.
@@ -362,19 +374,54 @@ public:
     /// a stage that does not separate at one, the components of stages that are not active, the
     /// motors and the settings of other flight configurations), the dimensions and masses of
     /// the design and the thrust curves of its motors, the settings of an extension that does
-    /// not list them, and whether a finite value is a sensible one. A finite value that the
-    /// atmospheric model refuses is toSimulationConditions()'s error. One that is merely absurd
-    /// is passed on and treated as OpenRocket treats it, which is not always a flight:
-    /// - a wind of 1e300 m/s overflows on the way and still ends in a BugError;
-    /// - a huge time step makes one step very long. The Runge-Kutta steppers never take a step
-    ///   shorter than a twentieth of the time step, also past the next event, and
+    /// not list them, and whether a value inside its range makes a flight that succeeds. Values
+    /// inside their ranges that the atmospheric model refuses together (a launch site above the
+    /// 11 km of the model without the ISA atmosphere, a very cold site high up) are
+    /// toSimulationConditions()'s error.
+    ///
+    /// The air at the launch site: a temperature, a pressure and a humidity that each lie in
+    /// their range can together be no air at all. OpenRocket's atmospheric conditions take the
+    /// pressure of the water vapour from the pressure of the air (AtmosphericConditions::
+    /// getGasConstant()), and when the saturation pressure at the temperature, times the
+    /// humidity, is more than the pressure there is, the density comes out negative (half
+    /// saturated air of 288.15 K at 300 Pa; any humid air of 400 K at sea level pressure), and
+    /// the flight ended in the BugError of a NaN. So, after the three single ranges, the
+    /// atmospheric model the run will read (SimulationOptions::getAtmosphericModel()) is asked
+    /// for its conditions at the launch altitude, and a density there that is not finite or
+    /// not above 0 fails with "Cannot simulate: the launch temperature (288.15 K), the launch
+    /// pressure (300.0 Pa) and the launch relative humidity (0.5) give air of no positive
+    /// density at the launch altitude (<the density> kg/m^3)." It is the model's own conditions
+    /// that are asked, not the three numbers: at a site near the 11 km at which the model takes a
+    /// site, the layers it fits can have a temperature of some thousand kelvin at the site
+    /// itself, where a humidity of 0.01 is already too much. A model that refuses the launch
+    /// conditions is not this check's business: that is toSimulationConditions()'s error, as
+    /// before. Only the launch site is asked. Higher up the same model can have a negative
+    /// density also over an ordinary humid site (half saturated air of 288.15 K at sea level
+    /// has one from 50 km to 52 km: the humidity is carried up unchanged, as in OpenRocket),
+    /// and a flight that gets there (an air start at 50 km) ends in that BugError still.
+    ///
+    /// What the ranges keep out, each of which OpenRocket takes:
+    /// - a wind of 1e300 m/s, which overflows on the way and ended in a BugError;
+    /// - a huge time step, which makes one step very long: the Runge-Kutta steppers never take
+    ///   a step shorter than a twentieth of the time step, also past the next event, and
     ///   PinkNoiseWindModel::getWindVelocity() catches up with the time it is asked for one
     ///   sample of 0.05 s at a time, so the first step costs about as many wind samples as the
-    ///   time step has seconds. No listener hook runs inside a step, so a stop that is requested
-    ///   (simulate(stop_token)) waits for the step to end. Measured in a Release build: about
-    ///   4 s for a time step of 1e8 s and 30 s for 1e9 s; from about 1e12 s on (half a day) the
-    ///   run does not end in practice, and above about 1e16 s the loop is endless, because the
-    ///   time no longer changes when 0.05 s is added to it. OpenRocket behaves the same way.
+    ///   time step has seconds, and no listener hook runs inside a step, so a stop that is
+    ///   requested (simulate(stop_token)) waits for the step to end. (Measured in a Release
+    ///   build: about 4 s for a time step of 1e8 s and 30 s for 1e9 s; above about 1e16 s the
+    ///   loop is endless, because the time no longer changes when 0.05 s is added to it.)
+    /// - a time step of zero, of less, or of a tiny fraction of a second. The steppers start
+    ///   from a step of a millisecond at the least (AbstractSimulationStepper::kMinTimeStep),
+    ///   but they may cut a step down to a twentieth of the time step as it is given, and do
+    ///   whenever a limit binds, so the rows of a run grow with 1 / time step, and with a time
+    ///   step of 0 the step is 0 and the run does not end (see SimulationInputRanges::
+    ///   kTimeStep for the measurements). The range ends at 0.1 ms;
+    /// - a lookup table with a cell of 1e300, which ended in the BugError of a NaN.
+    ///
+    /// What the ranges do not keep out is a run that is long: a flight that never lands (a
+    /// constant gravity of 0) is simulated until the maximum simulation time. The engine ends
+    /// such a run when a flight data branch would get more than
+    /// SimulationInputRanges::kMaxBranchRows rows (see simulate()).
     [[nodiscard]] Result<void> validateInputs() const;
 
     /// Simulates the flight (Java: simulate(SimulationListener...)).
@@ -402,28 +449,33 @@ public:
     ///   stop was requested), with the exception's message;
     /// - ErrorCode::SIMULATION_ABORTED for any other SimulationException (an imported
     ///   simulation, an extension that cannot run, a listener's exception, a calculation that
-    ///   went wrong), with the exception's message;
+    ///   went wrong, and, which is not OpenRocket's, a flight data branch that would get more
+    ///   than SimulationInputRanges::kMaxBranchRows rows:
+    ///   BasicEventSimulationEngine::tooManyRows()), with the exception's message;
     /// - toSimulationConditions()'s Error when the atmospheric model refuses the launch
     ///   conditions (Java: an IllegalArgumentException that leaves simulate());
-    /// - ErrorCode::INVALID_ARGUMENT when an input is not finite, with validateInputs()'s text,
-    ///   which names the value. Nothing has run then: neither an extension nor the engine was
-    ///   asked, and the bookkeeping above is that of an imported simulation (no simulated data,
-    ///   the status UPTODATE, changed() emitted).
+    /// - ErrorCode::INVALID_ARGUMENT when an input is not finite or outside its range, with
+    ///   validateInputs()'s text, which names the value. Nothing has run then: neither an
+    ///   extension nor the engine was asked, and the bookkeeping above is that of an imported
+    ///   simulation (no simulated data, the status UPTODATE, changed() emitted).
     /// A simulation that aborts (a SIM_ABORT event) is not a failure: simulate() succeeds and
     /// getStatus() is ABORTED. A BugError passes through, after the bookkeeping above.
     ///
-    /// Inputs that are not finite: OpenRocket's simulate() does not validate the options or the
-    /// design, and a NaN or an infinity among them surfaces where the computation first meets
-    /// it, mostly as a BugException, some of them in the middle of the flight. A BugError
-    /// means a defect of the program, and these values come from outside it, so simulate()
-    /// refuses them before anything runs (see validateInputs() for the list). The .ork reader
-    /// does its part earlier: it does not apply a NaN or an infinity that a file holds for a
-    /// simulation option or for a delay or altitude of the design (it adds a warning, and the
-    /// value stays what it was), so that a loaded simulation passes the validation; the plugged
-    /// ejection delay ("none" in a file) is a value like any other there. A number of an
-    /// extension's configuration cannot be a NaN in a file read as OpenRocket reads it (the
-    /// grammar of a "number" entry is BigDecimal's), and can be an infinity only as an integer
-    /// too large for a double; the validation refuses it then.
+    /// Inputs that are not finite or out of range: OpenRocket's simulate() does not validate
+    /// the options or the design, and a NaN, an infinity or an absurd number among them surfaces
+    /// where the computation first meets it, mostly as a BugException, some of them in the
+    /// middle of the flight, or as a run that does not end. A BugError means a defect of the
+    /// program, and these values come from outside it, so simulate() refuses them before
+    /// anything runs (see validateInputs() for the list and SimulationInputRanges for the
+    /// ranges). The .ork reader does its part earlier: it does not apply a NaN, an infinity or
+    /// a number outside its range that a file holds for a simulation option or for a delay or
+    /// altitude of the design (it adds a warning, and the value stays what it was), so that a
+    /// loaded simulation passes the validation unless the preference store its options start
+    /// from holds such a value; the plugged ejection delay ("none" in a file) is a value like
+    /// any other there. A number of an extension's configuration is taken as the file has it,
+    /// and the validation refuses it when it is outside the range the extension gives it; it
+    /// cannot be a NaN in a file read as OpenRocket reads it (the grammar of a "number" entry
+    /// is BigDecimal's), and can be an infinity only as an integer too large for a double.
     [[nodiscard]] Result<void> simulate(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 

@@ -45,7 +45,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES StageSeparationConfigurationHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 21> kJava{{
+constexpr std::array<RocketCase, 20> kJava{{
     {.name = "sc-basic", .xml = R"xml(<motorconfiguration configid="11111111-2222-3333-4444-555555555555"></motorconfiguration><subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationevent>burnout</separationevent><separationdelay>1.5</separationdelay><separationaltitude>120</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 5 {mass,aero,tree=2, tree=3}
@@ -201,16 +201,6 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
-    {.name = "sc-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>-1.5</separationdelay><separationaltitude>-120</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 4 {mass,aero,tree=2, tree=2}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
-|   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:-1.5:-120.0
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
-| selected=default
-| config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     {.name = "sc-text-and-attributes", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555" x="1">text<separationevent a="1">apogee</separationevent><separationdelay b="2">3</separationdelay></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
@@ -290,11 +280,25 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 5> kOwn{{
+constexpr std::array<RocketCase, 6> kOwn{{
+    // Decision U9: a separation delay and a separation altitude below 0 are outside their ranges and refused, each with QtRocket's own warning, which names the element and the range (OpenRocket stores them).
+    // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:-1.5:-120.0
+    {.name = "sc-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>-1.5</separationdelay><separationaltitude>-120</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W The number of element 'separationdelay' is outside its range, from 0 to 1000000 s; ignoring it.
+W The number of element 'separationaltitude' is outside its range, from 0 to 1000000 m; ignoring it.
+ROOT rocket {} []
+EVENTS 4 {mass,aero,tree=2, tree=2}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.2 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+| selected=default
+| config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     // Decision L3: an infinite separation delay is refused with a warning (OpenRocket stores it).
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:Infinity:200.0
     {.name = "sc-infinite-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>Infinity</separationdelay></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationdelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -306,7 +310,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 | config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     // Decision L3: a separation delay of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "sc-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>3</separationdelay><separationdelay>NaN</separationdelay></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationdelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -319,7 +323,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
     // Decision L3: an infinite separation altitude is refused with a warning (OpenRocket stores it).
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:0.0:-Infinity
     {.name = "sc-infinite-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationaltitude>-Infinity</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -331,7 +335,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 | config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     // Decision L3: a separation altitude of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "sc-nan-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationaltitude>NaN</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -344,7 +348,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
     // A configid that spells out the error id's key is the error id here: the element is refused. OpenRocket stores a separation under it.
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[ffffffff-f4f2-f1f0-0000-0000000009b9]=BURNOUT:1.5:120.0
     {.name = "sc-error-key", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="ffffffff-f4f2-f1f0-0000-0000000009b9"><separationevent>burnout</separationevent><separationdelay>1.5</separationdelay><separationaltitude>120</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A separation configuration for the reserved error configuration id was ignored.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -433,6 +437,63 @@ TEST(StageSeparationConfigurationHandler, PutsWhatItReadIntoACopyOfAConfiguratio
               "LAUNCH:7.0:70.0");
     EXPECT_EQ(configurationAfter("<s><separationaltitude>NaN</separationaltitude></s>"),
               "LAUNCH:7.0:70.0");
+}
+
+/// The warnings of the handler after it has read @p xml, and what getConfiguration() then makes
+/// of a separation of LAUNCH, 7 s and 70 m: "<warning>; <warning> | <event>:<delay>:<altitude>".
+[[nodiscard]] std::string warningsAndConfigurationAfter(std::string_view xml)
+{
+    RocketLoadFixture fixture;
+    AxialStage&       stage = fixture.rocket().addChild(std::make_unique<AxialStage>());
+    StageSeparationConfigurationHandler handler(stage, fixture.context());
+    const HandlerRun                    run = runHandler(handler, xml);
+    if (!run.result.has_value())
+    {
+        return "FAILED " + run.result.error().message;
+    }
+    StageSeparationConfiguration def;
+    def.setSeparationEvent(StageSeparationConfiguration::SeparationEvent::LAUNCH);
+    def.setSeparationDelay(7);
+    def.setSeparationAltitude(70);
+    return QtRocket::Strings::join("; ", run.texts()) + " | " + told(handler.getConfiguration(def));
+}
+
+// Decision U9 of tier 9: a delay and an altitude have to lie in the ranges a simulation holds
+// them to (SimulationInputRanges::kDelay and kEventAltitude: 0 to 1000000 s, 0 to 1000000 m).
+// One that does not is not put in, with a warning of QtRocket's own that names the element and
+// the range. OpenRocket stores every number, a negative one too.
+TEST(StageSeparationConfigurationHandler, ADelayOrAnAltitudeOutsideItsRangeIsRefused)
+{
+    // The bounds are inside the ranges.
+    EXPECT_EQ(warningsAndConfigurationAfter("<s><separationdelay>0</separationdelay>"
+                                            "<separationaltitude>0</separationaltitude></s>"),
+              " | LAUNCH:0.0:0.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<s><separationdelay>1000000</separationdelay>"
+                                            "<separationaltitude>1e6</separationaltitude></s>"),
+              " | LAUNCH:1000000.0:1000000.0");
+
+    // The next number beyond a bound is outside.
+    const std::string_view delay =
+        "The number of element 'separationdelay' is outside its range, from 0 to 1000000 s; "
+        "ignoring it.";
+    const std::string_view altitude =
+        "The number of element 'separationaltitude' is outside its range, from 0 to 1000000 m; "
+        "ignoring it.";
+    EXPECT_EQ(warningsAndConfigurationAfter(
+                  "<s><separationdelay>1000000.0000000001</separationdelay></s>"),
+              std::string(delay) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<s><separationdelay>-4.9e-324</separationdelay></s>"),
+              std::string(delay) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(warningsAndConfigurationAfter(
+                  "<s><separationaltitude>1000000.0000000001</separationaltitude></s>"),
+              std::string(altitude) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<s><separationaltitude>-120</separationaltitude></s>"),
+              std::string(altitude) + " | LAUNCH:7.0:70.0");
+    // A refused number takes back the one read before it, as a text that is no number does.
+    EXPECT_EQ(warningsAndConfigurationAfter("<s><separationdelay>3</separationdelay>"
+                                            "<separationdelay>1e300</separationdelay>"
+                                            "<separationaltitude>150</separationaltitude></s>"),
+              std::string(delay) + " | LAUNCH:7.0:150.0");
 }
 
 // Where this handler differs from the one of a recovery device: the element starts from what

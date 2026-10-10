@@ -21,10 +21,10 @@ class SimulationOptions;
 /// it read (storeSettings()).
 ///
 /// The children:
-/// - <value>: the gravity of the constant model in m/s^2, read with Double.parseDouble. A text
-///   that is no number and a value that is not finite give "Illegal gravity value specified,
-///   ignoring." and no value; the last <value> counts, so one that is refused also takes back
-///   an earlier one. A negative value and zero are taken as they are.
+/// - <value>: the gravity of the constant model in m/s^2, from 0 to 100, read with
+///   Double.parseDouble. A text that is no number and a value that is not finite or outside
+///   that range give "Illegal gravity value specified, ignoring." and no value; the last
+///   <value> counts, so one that is refused also takes back an earlier one.
 /// - any other child: AbstractElementHandler's warnings for its text and its attributes
 ///   ("Unknown text in element '<e>', ignoring.", "Unknown attributes in element '<e>',
 ///   ignoring."). The attributes of <value> are not looked at.
@@ -36,9 +36,12 @@ class SimulationOptions;
 /// - anything else, and no attribute: the WGS model with "Unknown gravity model type
 ///   '<model>', using WGS." ('null' without the attribute, as Java prints it).
 ///
-/// Deviation from OpenRocket:
+/// Deviations from OpenRocket:
 /// - An infinite <value> is refused like a NaN (decision U3: the loader applies no simulation
 ///   option that is not finite). OpenRocket stores it, and a flight under it ends in an error.
+/// - A <value> below 0 or above 100 m/s^2 is refused in the same way (decision U9 of tier 9:
+///   the range a simulation holds the gravity to, SimulationInputRanges::kConstantGravity).
+///   OpenRocket stores every number, a negative one too.
 class GravityHandler final : public AbstractElementHandler
 {
 public:

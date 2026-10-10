@@ -531,9 +531,9 @@ constexpr std::string_view kIllegalDelay =
 
 TEST(MotorHandlerElements, TheDelayIsANumberOrNone)
 {
-    EXPECT_EQ(each({"none", " none ", "3", "3.5", " 3 ", "0", "-1", "0x10p0", "5d"}, delayOf),
+    EXPECT_EQ(each({"none", " none ", "3", "3.5", " 3 ", "0", "-0.0", "0x10p0", "5d"}, delayOf),
               (Texts{"Infinity | ", "Infinity | ", "3.0 | ", "3.5 | ", "3.0 | ", "0.0 | ",
-                     "-1.0 | ", "16.0 | ", "5.0 | "}));
+                     "-0.0 | ", "16.0 | ", "5.0 | "}));
     // Only the lower-case word is the plugged delay.
     EXPECT_EQ(each({"None", "NONE", "abc", "", "NaN", "Inf", "plugged", "P"}, delayOf),
               Texts(8, std::string(kIllegalDelay)));
@@ -545,6 +545,19 @@ TEST(MotorHandlerElements, AnInfiniteDelayIsThePluggedOneOrNoDelay)
     EXPECT_EQ(each({"Infinity", "+Infinity", "1e400"}, delayOf), Texts(3, "Infinity | "));
     // Not OpenRocket's, which stores the negative infinity: no simulation runs with it.
     EXPECT_EQ(each({"-Infinity", "-1e400"}, delayOf), Texts(2, std::string(kIllegalDelay)));
+}
+
+// Decision U9 of tier 9: a delay has to lie in the range a simulation holds it to
+// (SimulationInputRanges::kDelay, 0 to 1000000 s); one that does not is no delay, like a text
+// that is no number. OpenRocket stores every number, a negative one too.
+TEST(MotorHandlerElements, ADelayOutsideItsRangeIsNoDelay)
+{
+    // The bounds are inside the range.
+    EXPECT_EQ(each({"0", "1000000", "1e6"}, delayOf),
+              (Texts{"0.0 | ", "1000000.0 | ", "1000000.0 | "}));
+    // The next number beyond a bound is outside.
+    EXPECT_EQ(each({"1000000.0000000001", "-4.9e-324", "-1", "1e300", "-1e300"}, delayOf),
+              Texts(5, std::string(kIllegalDelay)));
 }
 
 TEST(MotorHandlerElements, AMissingDelayIsThePluggedOneWithAWarningEveryTimeItIsAsked)

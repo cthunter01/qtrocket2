@@ -28,7 +28,7 @@ double Coordinate::length() const noexcept
 Coordinate Coordinate::normalize() const
 {
     const double l = length();
-    if (l < 0.0000001)
+    if (l < kMinNormalizeLength)
     {
         bug("Cannot normalize zero coordinate");
     }

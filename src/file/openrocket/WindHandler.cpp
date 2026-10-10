@@ -11,14 +11,15 @@
 #include <utility>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
 #include "QtRocket/models/WindModel.h"
 #include "QtRocket/models/WindModelType.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
@@ -62,8 +63,7 @@ WindHandler::WindHandler(std::optional<std::string> model, SimulationOptions& op
     if (!altitudeReference.has_value())
     {
         // Not OpenRocket's, which stores null here (see the class comment).
-        warnings.add(
-            std::format("Unknown wind altitude reference '{}', using MSL.", reference->second));
+        warnings.add(LoaderWarnings::unknownAltitudeReference(reference->second));
         altitudeReference = WindModel::AltitudeReference::MSL;
     }
     multiLevel.setAltitudeReference(*altitudeReference);
@@ -115,16 +115,29 @@ void WindHandler::closeAverageElement(std::string_view element, std::string_view
     {
         return;
     }
-    // Not OpenRocket's, which stores an infinity and what the model makes of it (see the class
-    // comment).
-    if (std::isinf(*d) || !setAverageWind(*m_options, setter, *d))
+    // Not OpenRocket's, which stores an infinity, what the model makes of it, and any finite
+    // number (see the class comment).
+    if (std::isinf(*d))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::optionNotFinite(element));
+        return;
+    }
+    switch (setAverageWind(*m_options, setter, *d))
+    {
+        case AverageWind::APPLIED:
+            return;
+        case AverageWind::NOT_FINITE:
+            warnings.add(LoaderWarnings::optionNotFinite(element));
+            return;
+        case AverageWind::OUT_OF_RANGE:
+            warnings.add(LoaderWarnings::optionOutOfRange(element));
+            return;
     }
 }
 
-bool WindHandler::setAverageWind(SimulationOptions& options,
-                                 void (PinkNoiseWindModel::*setter)(double), double value)
+WindHandler::AverageWind WindHandler::setAverageWind(SimulationOptions& options,
+                                                     void (PinkNoiseWindModel::*setter)(double),
+                                                     double value)
 {
     PinkNoiseWindModel& average = options.getAverageWindModel();
     // Tried on a copy first: a setter has no way back.
@@ -133,10 +146,21 @@ bool WindHandler::setAverageWind(SimulationOptions& options,
     if (!std::isfinite(trial.getAverage()) || !std::isfinite(trial.getDirection()) ||
         !std::isfinite(trial.getStandardDeviation()))
     {
-        return false;
+        return AverageWind::NOT_FINITE;
+    }
+    if (!inRange(trial))
+    {
+        return AverageWind::OUT_OF_RANGE;
     }
     (average.*setter)(value);
-    return true;
+    return AverageWind::APPLIED;
+}
+
+bool WindHandler::inRange(const PinkNoiseWindModel& wind) noexcept
+{
+    return SimulationInputRanges::kWindSpeed.contains(wind.getAverage()) &&
+           SimulationInputRanges::kDirection.contains(wind.getDirection()) &&
+           SimulationInputRanges::kWindSpeedDeviation.contains(wind.getStandardDeviation());
 }
 
 Result<void> WindHandler::closeWindLevel(const Attributes& attributes, WarningSet& warnings)
@@ -149,7 +173,7 @@ Result<void> WindHandler::closeWindLevel(const Attributes& attributes, WarningSe
         if (attribute == attributes.end())
         {
             // Java: a NullPointerException. The level is skipped (see the class comment).
-            warnings.add(Warning::kFileInvalidParameter);
+            warnings.add(LoaderWarnings::kWindLevelIncomplete);
             return {};
         }
         const Result<double> value = DocumentConfig::parseDouble(attribute->second);
@@ -164,12 +188,36 @@ Result<void> WindHandler::closeWindLevel(const Attributes& attributes, WarningSe
         if (!std::isfinite(value))
         {
             // Not OpenRocket's, which adds such a level (see the class comment).
-            warnings.add(Warning::kFileInvalidParameter);
+            warnings.add(LoaderWarnings::kWindLevelNotFinite);
             return {};
         }
     }
-    return m_options->getMultiLevelWindModel().addWindLevel(values[0], values[1], values[2],
-                                                            values[3]);
+    // Not OpenRocket's either: a level whose numbers a simulation would refuse for their
+    // size. The level is what addWindLevel() would make of the numbers: a negative speed
+    // turns the direction, a negative deviation is none. (The seed is of no account here.)
+    PinkNoiseWindModel level(0);
+    level.setDirection(values[2]);
+    level.setAverage(values[1]);
+    level.setStandardDeviation(values[3]);
+    if (!SimulationInputRanges::kWindLevelAltitude.contains(values[0]) || !inRange(level))
+    {
+        warnings.add(LoaderWarnings::kWindLevelOutOfRange);
+        return {};
+    }
+    // Not OpenRocket's either: the levels of one element are bounded (see the class comment).
+    if (m_levelCount >= DocumentConfig::kMaxWindLevels)
+    {
+        warnings.add(LoaderWarnings::tooManyWindLevels());
+        return {};
+    }
+    if (Result<void> added = m_options->getMultiLevelWindModel().addWindLevel(values[0], values[1],
+                                                                              values[2], values[3]);
+        !added)
+    {
+        return added;
+    }
+    ++m_levelCount;
+    return {};
 }
 
 void WindHandler::storeSettings(SimulationOptions& options, WarningSet& warnings) const

@@ -24,6 +24,7 @@
 #include "QtRocket/motor/Motor.h"
 #include "QtRocket/motor/MotorDigest.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
@@ -288,9 +289,10 @@ void MotorHandler::readDelay(std::string_view content, WarningSet& warnings)
         return;
     }
     m_delay = parseOrNaN(content);
-    // Not OpenRocket's: a negative infinity is no delay a motor can have (see the class
-    // comment). The positive one is the plugged delay.
-    if (m_delay == -std::numeric_limits<double>::infinity())
+    // Not OpenRocket's: a negative infinity is no delay a motor can have, and neither is a
+    // number outside the range of a delay (see the class comment). The positive infinity is
+    // the plugged delay.
+    if (m_delay != Motor::kPluggedDelay && !SimulationInputRanges::kDelay.contains(m_delay))
     {
         m_delay = kNaN;
     }

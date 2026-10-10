@@ -15,6 +15,7 @@
 #include "QtRocket/file/openrocket/DocumentMaterialHandler.h"
 #include "QtRocket/file/openrocket/EntryHandler.h"
 #include "QtRocket/file/openrocket/EntryHelper.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/Warning.h"
@@ -98,7 +99,7 @@ std::optional<Config::Value> DocumentPreferencesHandler::explicitNumber(
         {
             return Config::Value(static_cast<std::int32_t>(*value));
         }
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kIntegerPreferenceUnreadable);
     }
     else if (type == "double")
     {
@@ -107,7 +108,7 @@ std::optional<Config::Value> DocumentPreferencesHandler::explicitNumber(
         {
             return Config::Value(*value);
         }
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDoublePreferenceUnreadable);
     }
     return std::nullopt;
 }

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <limits>
 #include <memory>
@@ -19,21 +21,23 @@
 #include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/GravityHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/WindHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
+#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
@@ -54,15 +58,17 @@ namespace
 }
 
 /// What a child that is one number must be to be applied. Where OpenRocket tests for a NaN
-/// these test for a number that is not finite (decision U3).
+/// these test for a number that is not finite (decision U3), and every number must lie in the
+/// range a simulation holds its option to (decision U9; SimulationInputRanges).
 enum class Rule
 {
     /// Finite; otherwise the element's warning.
     FINITE,
     /// Finite and above zero; otherwise the element's warning.
     POSITIVE,
-    /// Finite and above zero; otherwise nothing, but for positive infinity, which OpenRocket
-    /// would store: Warning::kFileInvalidParameter.
+    /// Finite and above zero; otherwise nothing, but for what OpenRocket would store: for
+    /// positive infinity LoaderWarnings::optionNotFinite(), and for a number above the range
+    /// LoaderWarnings::optionOutOfRange().
     POSITIVE_SILENT,
 };
 
@@ -71,9 +77,13 @@ struct NumberElement
 {
     std::string_view name;
     Rule             rule;
-    /// Applies the number, which is as the rule wants it, to the options. False when it was
-    /// not applied because an option would not be finite with it; the element's warning is
-    /// then given.
+    /// The range the number has to lie in besides, or null where the option's setter keeps
+    /// the option in its range itself (it clamps), or apply looks at what the option would
+    /// hold.
+    const SimulationInputRanges::Range* range;
+    /// Applies the number, which is as the rule and the range want it, to the options. False
+    /// when it was not applied because an option would not be finite or not in its range with
+    /// it; the element's warning is then given.
     bool (*apply)(SimulationOptions& options, double d);
     /// The warning for a number that is refused; none under Rule::POSITIVE_SILENT.
     std::string_view warning;
@@ -88,11 +98,11 @@ bool set(SimulationOptions& options, double d)
 }
 
 /// Hands the number to the setter @p Setter of the average wind model of the options, unless
-/// the model would then hold a number that is not finite.
+/// the model would then hold a number that is not finite or not in its range.
 template <void (PinkNoiseWindModel::*Setter)(double)>
 bool setAverageWind(SimulationOptions& options, double d)
 {
-    return WindHandler::setAverageWind(options, Setter, d);
+    return WindHandler::setAverageWind(options, Setter, d) == WindHandler::AverageWind::APPLIED;
 }
 
 /// <launchrodangle>: degrees. Beyond about 5.7e307 degrees the angle in radians is past the
@@ -103,13 +113,15 @@ bool setLaunchRodAngleInDegrees(SimulationOptions& options, double d)
     return true;
 }
 
-/// <launchroddirection>: degrees. Beyond about 2.8e307 degrees the direction in radians is
-/// past the range of a double; OpenRocket stores the NaN that reducing an infinity to one turn
-/// gives, and here the number is refused (decision U3).
+/// <launchroddirection>: degrees. The options store the direction reduced to one turn, and
+/// that is what has to lie in the range of a direction: a huge number is reduced to nonsense
+/// (1.7e308 rad to -2e292 rad), and beyond about 2.8e307 degrees the direction in radians is
+/// past the range of a double, which reduced is a NaN. OpenRocket stores either; here the
+/// number is refused (decisions U3 and U9).
 bool setLaunchRodDirectionInDegrees(SimulationOptions& options, double d)
 {
     const double direction = d * 2.0 * std::numbers::pi / 360;
-    if (!std::isfinite(direction))
+    if (!SimulationInputRanges::kDirection.contains(MathUtil::reduce2Pi(direction)))
     {
         return false;
     }
@@ -117,17 +129,32 @@ bool setLaunchRodDirectionInDegrees(SimulationOptions& options, double d)
     return true;
 }
 
+/// <launchaltitude>: the options store nothing above the highest site of the atmospheric
+/// model, as in OpenRocket, so only an altitude below the range is refused.
+bool setLaunchAltitude(SimulationOptions& options, double d)
+{
+    if (d < SimulationInputRanges::kLaunchAltitude.min)
+    {
+        return false;
+    }
+    options.setLaunchAltitude(d);
+    return true;
+}
+
 constexpr std::array<NumberElement, 15> kNumberElements{{
     {.name    = "launchrodlength",
      .rule    = Rule::FINITE,
+     .range   = &SimulationInputRanges::kLaunchRodLength,
      .apply   = &set<&SimulationOptions::setLaunchRodLength>,
      .warning = "Illegal launch rod length defined, ignoring."},
     {.name    = "launchrodangle",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &setLaunchRodAngleInDegrees,
      .warning = "Illegal launch rod angle defined, ignoring."},
     {.name    = "launchroddirection",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &setLaunchRodDirectionInDegrees,
      .warning = "Illegal launch rod direction defined, ignoring."},
 
@@ -135,59 +162,80 @@ constexpr std::array<NumberElement, 15> kNumberElements{{
     // are no longer supported). The direction is in radians.
     {.name    = "windaverage",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &setAverageWind<&PinkNoiseWindModel::setAverage>,
      .warning = "Illegal average windspeed defined, ignoring."},
     {.name    = "windturbulence",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &setAverageWind<&PinkNoiseWindModel::setTurbulenceIntensity>,
      .warning = "Illegal wind turbulence intensity defined, ignoring."},
     {.name    = "winddirection",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &setAverageWind<&PinkNoiseWindModel::setDirection>,
      .warning = "Illegal wind direction defined, ignoring."},
 
     {.name    = "launchaltitude",
      .rule    = Rule::FINITE,
-     .apply   = &set<&SimulationOptions::setLaunchAltitude>,
+     .range   = nullptr,
+     .apply   = &setLaunchAltitude,
      .warning = "Illegal launch altitude defined, ignoring."},
+    // The setters clamp to the latitudes and longitudes there are.
     {.name    = "launchlatitude",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &set<&SimulationOptions::setLaunchLatitude>,
      .warning = "Illegal launch latitude defined, ignoring."},
     {.name    = "launchlongitude",
      .rule    = Rule::FINITE,
+     .range   = nullptr,
      .apply   = &set<&SimulationOptions::setLaunchLongitude>,
      .warning = "Illegal launch longitude."},
     {.name    = "timestep",
      .rule    = Rule::POSITIVE,
+     .range   = &SimulationInputRanges::kTimeStep,
      .apply   = &set<&SimulationOptions::setTimeStep>,
      .warning = "Illegal time step defined, ignoring."},
     {.name    = "maxtime",
      .rule    = Rule::POSITIVE,
+     .range   = &SimulationInputRanges::kMaxSimulationTime,
      .apply   = &set<&SimulationOptions::setMaxSimulationTime>,
      .warning = "Illegal max simulation time defined, ignoring."},
     {.name    = "recoveryspeedwarning",
      .rule    = Rule::POSITIVE_SILENT,
+     .range   = &SimulationInputRanges::kRecoverySpeedThreshold,
      .apply   = &set<&SimulationOptions::setRecoverySpeedWarning>,
      .warning = {}},
     {.name    = "drogueLowspeedwarning",
      .rule    = Rule::POSITIVE_SILENT,
+     .range   = &SimulationInputRanges::kRecoverySpeedThreshold,
      .apply   = &set<&SimulationOptions::setDrogueLowSpeedWarning>,
      .warning = {}},
     {.name    = "recoverydroguemainhighspeedwarning",
      .rule    = Rule::POSITIVE_SILENT,
+     .range   = &SimulationInputRanges::kRecoverySpeedThreshold,
      .apply   = &set<&SimulationOptions::setRecoveryDrogueMainHighSpeedWarning>,
      .warning = {}},
     {.name    = "recoverydroguemainlowspeedwarning",
      .rule    = Rule::POSITIVE_SILENT,
+     .range   = &SimulationInputRanges::kRecoverySpeedThreshold,
      .apply   = &set<&SimulationOptions::setRecoveryDrogueMainLowSpeedWarning>,
      .warning = {}},
 }};
 
+/// Whether the number @p d of the element @p number is one to apply: as its rule and its range
+/// want it.
+[[nodiscard]] bool isWanted(const NumberElement& number, double d) noexcept
+{
+    return std::isfinite(d) && (number.rule == Rule::FINITE || d > 0) &&
+           (number.range == nullptr || number.range->contains(d));
+}
+
 }  // namespace
 
 SimulationConditionsHandler::SimulationConditionsHandler(const DocumentLoadingContext& context)
-  : m_options(preferencesOf(context))
+  : m_options(preferencesOf(context)), m_designDirectory(context.getDesignDirectory())
 {
     // Set up default loading settings (which may differ from the new defaults)
     m_options.setGeodeticComputation(GeodeticComputationStrategy::FLAT);
@@ -222,14 +270,14 @@ Result<ElementHandler*> SimulationConditionsHandler::openElement(std::string_vie
     }
     if (element == "draglookup")
     {
-        m_dragLookupHandler =
-            std::make_unique<CsvLookupHandler>(m_options, std::vector<std::string>{"cd"}, true);
+        m_dragLookupHandler = std::make_unique<CsvLookupHandler>(
+            m_options, std::vector<std::string>{"cd"}, true, m_designDirectory);
         return m_dragLookupHandler.get();
     }
     if (element == "stabilitylookup")
     {
         m_stabilityLookupHandler = std::make_unique<CsvLookupHandler>(
-            m_options, std::vector<std::string>{"cn", "cm", "cp"}, false);
+            m_options, std::vector<std::string>{"cn", "cm", "cp"}, false, m_designDirectory);
         return m_stabilityLookupHandler.get();
     }
     return &PlainTextHandler::instance();
@@ -280,7 +328,7 @@ bool SimulationConditionsHandler::closeNumberElement(std::string_view element,
 
     const double d =
         Strings::javaParseDouble(content).value_or(std::numeric_limits<double>::quiet_NaN());
-    if (std::isfinite(d) && (number->rule == Rule::FINITE || d > 0) && number->apply(m_options, d))
+    if (isWanted(*number, d) && number->apply(m_options, d))
     {
         return true;
     }
@@ -290,8 +338,10 @@ bool SimulationConditionsHandler::closeNumberElement(std::string_view element,
     }
     else if (d > 0)
     {
-        // Positive infinity, which OpenRocket stores: refused, and said.
-        warnings.add(Warning::kFileInvalidParameter);
+        // What OpenRocket stores, positive infinity and a number above the range: refused,
+        // and said.
+        warnings.add(std::isfinite(d) ? LoaderWarnings::optionOutOfRange(element)
+                                      : LoaderWarnings::optionNotFinite(element));
     }
     return true;
 }
@@ -406,8 +456,16 @@ void SimulationConditionsHandler::closeLegacyLookupElement(std::string_view elem
     {
         return;
     }
-    const Result<void> loaded =
-        CsvLookupHandler::loadFromFile(m_options, pathFromUtf8(trimmed), isDrag);
+    // Not OpenRocket's, which reads any path: only a file inside the design's directory (see
+    // CsvLookupHandler).
+    const std::expected<std::filesystem::path, CsvLookupHandler::Refusal> csvPath =
+        CsvLookupHandler::fileOfDesign(m_designDirectory, pathFromUtf8(trimmed));
+    if (!csvPath.has_value())
+    {
+        warnings.add(CsvLookupHandler::refusalWarning(csvPath.error(), element, trimmed));
+        return;
+    }
+    const Result<void> loaded = CsvLookupHandler::loadFromFile(m_options, *csvPath, isDrag);
     if (!loaded)
     {
         warnings.add(std::format("Failed to load {} lookup CSV '{}', ignoring. Reason: {}",

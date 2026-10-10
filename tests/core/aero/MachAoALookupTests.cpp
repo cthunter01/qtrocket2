@@ -435,6 +435,86 @@ TEST(MachAoALookup, FindsTheFirstNonFiniteNumberInTheOrderOfTheTable)
               "cd at Mach 1.0, 5.0 degrees: Infinity");
 }
 
+// ---- findNumber(): the question findNonFinite() asks, with a test of the caller's own ----
+
+/// findNumber() of @p table for a number that is above @p limit, in the notation of
+/// nonFinite(); "none" when the table has none.
+[[nodiscard]] std::string firstAbove(const QtRocket::Result<MachAoALookup>& table, double limit)
+{
+    if (!table.has_value())
+    {
+        return "no table: " + table.error().message;
+    }
+    const std::optional<MachAoALookup::Number> number = table->findNumber(
+        [limit](const MachAoALookup::Number& candidate) { return candidate.value > limit; });
+    if (!number.has_value())
+    {
+        return "none";
+    }
+    return std::format("{} at Mach {}, {} degrees: {}", whatOf(*number),
+                       QtRocket::Strings::javaDoubleToString(number->mach),
+                       QtRocket::Strings::javaDoubleToString(number->aoa),
+                       QtRocket::Strings::javaDoubleToString(number->value));
+}
+
+/// How many numbers findNumber() shows its test for @p table when the test refuses none.
+[[nodiscard]] int numbersShownOf(const QtRocket::Result<MachAoALookup>& table)
+{
+    int shown = 0;
+    if (table.has_value())
+    {
+        const std::optional<MachAoALookup::Number> found =
+            table->findNumber([&shown](const MachAoALookup::Number& /*number*/) {
+                shown++;
+                return false;
+            });
+        EXPECT_FALSE(found.has_value());
+    }
+    return shown;
+}
+
+/// A drag table of three rows with angles of attack, added out of the table's order.
+[[nodiscard]] QtRocket::Result<MachAoALookup> drag()
+{
+    return MachAoALookup::dragBuilder()
+        .addDragData(2, 10, 0.9)
+        .addDragData(0.5, 0, 0.3)
+        .addDragData(2, 0, 0.6)
+        .build();
+}
+
+// The test is shown every number of the table in the table's order (the Mach number of a row,
+// its angle of attack in a table that has angles, its values by column), and the first number
+// it refuses is the answer.
+TEST(MachAoALookup, FindsTheFirstNumberTheCallersTestRefuses)
+{
+    EXPECT_EQ(firstAbove(drag(), 100), "none");
+    EXPECT_EQ(firstAbove(drag(), 5), "aoa at Mach 2.0, 10.0 degrees: 10.0");
+    EXPECT_EQ(firstAbove(drag(), 1), "mach at Mach 2.0, 0.0 degrees: 2.0");
+    EXPECT_EQ(firstAbove(drag(), 0.4), "mach at Mach 0.5, 0.0 degrees: 0.5");
+    EXPECT_EQ(firstAbove(drag(), 0.25), "mach at Mach 0.5, 0.0 degrees: 0.5");
+    EXPECT_EQ(firstAbove(MachAoALookup::stabilityBuilder()
+                             .addStabilityData(0, 0.1, 0.2, 7)
+                             .addStabilityData(1, 0.3, 8, 9)
+                             .build(),
+                         5),
+              "cp at Mach 0.0, NaN degrees: 7.0");
+    // Three rows of three numbers each; without angles of attack the angle is never shown.
+    EXPECT_EQ(numbersShownOf(drag()), 9);
+    EXPECT_EQ(numbersShownOf(MachAoALookup::stabilityBuilder()
+                                 .addStabilityData(0, 0.1, 0.2, 0.3)
+                                 .addStabilityData(1, 0.3, 0.4, 0.5)
+                                 .build()),
+              8);
+    // NonFiniteNumber is the same type under its older name.
+    const MachAoALookup::NonFiniteNumber number{.kind   = MachAoALookup::Number::Kind::VALUE,
+                                                .column = "cd",
+                                                .mach   = 1,
+                                                .aoa    = 2,
+                                                .value  = 3};
+    EXPECT_EQ(whatOf(number), "cd");
+}
+
 // The CSV reader takes "NaN" and "Infinity" for numbers, as OpenRocket's does: a table from a
 // file can hold them.
 TEST(MachAoALookup, FindsANonFiniteNumberOfATableReadFromCsv)

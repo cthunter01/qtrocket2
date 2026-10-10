@@ -32,7 +32,10 @@ class DocumentLoadingContext;
 ///
 /// Deviations from OpenRocket:
 /// - A delay that is a NaN or an infinity is refused with the warning of a text that is no
-///   number (OpenRocket stores it, and a simulation with it cannot run).
+///   number (OpenRocket stores it, and a simulation with it cannot run), and so is one
+///   outside the range a simulation holds a delay to (decision U9 of tier 9;
+///   SimulationInputRanges::kDelay, from 0 to 1000000 s). OpenRocket stores every number, a
+///   negative one included.
 /// - What was read is asked for through getIgnitionDelay() and getIgnitionEvent(), each
 ///   nullopt until it was read (Java: two public fields that start as null).
 /// - The constructor takes the loading context, as every handler of the loader does, and does
@@ -51,8 +54,8 @@ public:
                                             std::string_view content,
                                             WarningSet&      warnings) override;
 
-    /// The ignition delay read, in seconds, always finite; nullopt when the element gave none
-    /// that could be read.
+    /// The ignition delay read, in seconds, always in SimulationInputRanges::kDelay; nullopt
+    /// when the element gave none that could be read.
     [[nodiscard]] std::optional<double> getIgnitionDelay() const noexcept
     {
         return m_ignitionDelay;

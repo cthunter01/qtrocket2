@@ -13,6 +13,7 @@
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/GravityModelType.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
@@ -39,8 +40,9 @@ Result<void> GravityHandler::closeElement(std::string_view element, const Attrib
 
     constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
     double           d    = Strings::javaParseDouble(content).value_or(kNaN);
-    // Not OpenRocket's, which tests for a NaN only: an infinity is refused too (decision U3).
-    if (!std::isfinite(d))
+    // Not OpenRocket's, which tests for a NaN only: an infinity is refused too (decision U3),
+    // and so is a gravity outside the range a simulation holds it to (decision U9).
+    if (!SimulationInputRanges::kConstantGravity.contains(d))
     {
         warnings.add("Illegal gravity value specified, ignoring.");
         d = kNaN;

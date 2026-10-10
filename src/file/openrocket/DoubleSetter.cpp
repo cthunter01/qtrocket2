@@ -9,9 +9,11 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Strings.h"
@@ -82,6 +84,12 @@ DoubleSetter::DoubleSetter(SetFunction set, double multiplier)
     QTROCKET_ASSERT(m_set != nullptr);
 }
 
+DoubleSetter::DoubleSetter(SetFunction set, const SimulationInputRanges::Range& range)
+  : m_set(std::move(set)), m_range(range)
+{
+    QTROCKET_ASSERT(m_set != nullptr);
+}
+
 DoubleSetter::DoubleSetter(SetFunction set, std::string special, SpecialFunction specialSet)
   : m_set(std::move(set)), m_special(std::move(special)), m_specialSet(std::move(specialSet))
 {
@@ -121,6 +129,13 @@ Result<void> DoubleSetter::set(RocketComponent& component, std::string_view  val
             // checks the number it read; the product is checked here too (decision L3), which
             // matters for no multiplier of the table: pi / 180 makes a number smaller.
             warnings.add(invalidParameter(parts.data, component));
+            return {};
+        }
+        else if (m_range.has_value() && !m_range->contains(*number * m_multiplier))
+        {
+            // Not Java's at all: a number outside the range of a setter that has one. The
+            // refusal is QtRocket's own, and so is its text.
+            warnings.add(LoaderWarnings::numberOutsideRange(m_range->text));
             return {};
         }
         else

@@ -402,7 +402,7 @@ EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: EVENTS 16 {mass,aero=1, mass,aero,tree=2, tree=13}
     // OpenRocket: |       LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.085 len=0.03 inst=10000 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4 ...
     {.name = "mc-fix-instances-beyond-the-budget-of-its-configurations", .xml = R"xml(<motorconfiguration configid="00000001-0000-0000-0000-000000000001"/><motorconfiguration configid="00000002-0000-0000-0000-000000000001"/><motorconfiguration configid="00000003-0000-0000-0000-000000000001"/><motorconfiguration configid="00000004-0000-0000-0000-000000000001"/><motorconfiguration configid="00000005-0000-0000-0000-000000000001"/><motorconfiguration configid="00000006-0000-0000-0000-000000000001"/><motorconfiguration configid="00000007-0000-0000-0000-000000000001"/><motorconfiguration configid="00000008-0000-0000-0000-000000000001"/><motorconfiguration configid="00000009-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000a-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000b-0000-0000-0000-000000000001"/><motorconfiguration configid="0000000c-0000-0000-0000-000000000001"/><subcomponents><stage><subcomponents><bodytube><subcomponents><launchlug><instancecount>10000</instancecount></launchlug></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A count that would give the rocket too many component instances was refused; the component keeps the count it had.
 ROOT rocket {} []
 EVENTS 15 {mass,aero,tree=2, tree=13}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

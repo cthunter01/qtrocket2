@@ -32,7 +32,7 @@ class DocumentLoadingContext;
 ///
 /// Deviations from OpenRocket:
 /// - A <unit> without the attribute unittype is passed over with
-///   Warning::kFileInvalidParameter (OpenRocket: a NullPointerException).
+///   LoaderWarnings::kUnitWithoutUnitType (OpenRocket: a NullPointerException).
 /// - A <type> element inside the element does nothing. In OpenRocket it adds the expression
 ///   to the document as it is at that moment, the same object that is added again when the
 ///   enclosing <type> closes, so the document then lists it twice: by decision a file gives

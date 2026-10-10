@@ -7,6 +7,7 @@
 
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket
@@ -28,7 +29,7 @@ class RocketComponent;
 ///   read as Double.parseDouble reads ("1e-1d" and "0x1p-3" are numbers, white space around it
 ///   is dropped). A text that is no number adds the warning below and the setter goes on. A
 ///   NaN or an infinity adds the same warning and ends the setter. Any other number is
-///   multiplied by the multiplier and set.
+///   multiplied by the multiplier and set (unless the setter has a range, see "Deviations").
 /// - Last, when the word is the special word, the flag is set to true.
 /// The special word is compared as String.equalsIgnoreCase() compares ("AUTO", "Auto").
 ///
@@ -54,6 +55,15 @@ class RocketComponent;
 /// - A number whose product with the multiplier is not finite is refused like an infinity
 ///   (decision L3 of the loader). Java checks the number as read and would set the infinity
 ///   that "1e308" gives with a multiplier of 2. No multiplier of the setter table is above 1.
+/// - A setter may have a range (the constructor with a SimulationInputRanges::Range): a
+///   finite number outside it is refused like a NaN, and nothing is set, but with a warning
+///   of QtRocket's own that names the range, LoaderWarnings::numberOutsideRange() ("A number
+///   outside its range, from 0 to 1000000 s, was refused; the component keeps what it had."):
+///   OpenRocket's text is given only where OpenRocket gives it, for a NaN, an infinity and a
+///   text that is no number. Java has no such form. The four numbers of a component that a
+///   simulation holds to a range have it: the deployment delay and altitude of a recovery
+///   device and the separation delay and altitude of a stage, as older files give them
+///   (decision U9 of tier 9; OpenRocket sets any number).
 class DoubleSetter final : public Setter
 {
 public:
@@ -69,6 +79,10 @@ public:
     /// Sets the number times @p multiplier (pi / 180 for a parameter the file holds in
     /// degrees).
     DoubleSetter(SetFunction set, double multiplier);
+
+    /// Sets the number when it lies in @p range, and refuses any other with a warning that
+    /// names the range (see the class comment, "Deviations").
+    DoubleSetter(SetFunction set, const SimulationInputRanges::Range& range);
 
     /// Sets the number, or the flag when the text is @p special.
     /// @throws BugError when @p specialSet is empty (also the next constructor).
@@ -88,6 +102,8 @@ private:
     SpecialFunction            m_specialSet;
     double                     m_multiplier{1.0};
     std::optional<char>        m_separator;
+    /// The range the number has to lie in, when it has one.
+    std::optional<SimulationInputRanges::Range> m_range;
 };
 
 }  // namespace QtRocket

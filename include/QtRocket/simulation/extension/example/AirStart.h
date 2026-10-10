@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/extension/AbstractSimulationExtension.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 
@@ -42,13 +43,24 @@ class SimulationConditions;
 ///   launch altitude that is no number and for any such launch velocity, and in a
 ///   SimulationException ("Simulation values exceeded limits") for an infinite launch altitude.
 ///   Its reader of .ork files cannot give a setting such a value, except an infinity for an
-///   integer too large for a double.
+///   integer too large for a double. Each number also has a range that a run is held to
+///   (kLaunchAltitudeRange, kLaunchVelocityRange): OpenRocket flies with any finite number.
 class AirStart final : public AbstractSimulationExtension
 {
 public:
     /// OpenRocket's class name: the id a .ork file names the extension by.
     static constexpr std::string_view kId =
         "info.openrocket.core.simulation.extension.example.AirStart";
+
+    /// The ranges Simulation::validateInputs() holds the two numbers to (QtRocket's own, see
+    /// SimulationInputRanges): the launch altitude is an altitude above the launch site, in the
+    /// range of the altitudes at which a recovery device deploys, and the launch velocity is
+    /// below ten times what a carrier aircraft or the stage below gives a rocket. OpenRocket's
+    /// dialog starts both at 0.
+    static constexpr SimulationInputRanges::Range kLaunchAltitudeRange =
+        SimulationInputRanges::kEventAltitude;
+    static constexpr SimulationInputRanges::Range kLaunchVelocityRange{
+        .min = 0.0, .max = 10000.0, .minExcluded = false, .text = "from 0 to 10000 m/s"};
 
     /// An extension with an empty configuration: every getter returns its default.
     AirStart();
@@ -65,8 +77,9 @@ public:
     /// "Start simulation with a configurable altitude and velocity".
     [[nodiscard]] std::optional<std::string> getDescription() const override;
 
-    /// The two numbers the listener takes: "the 'launchAltitude' of the simulation extension
-    /// 'Air-start'" and "the 'launchVelocity' ..." (see the class comment, "Deviations").
+    /// The two numbers the listener takes, each with its range: "the 'launchAltitude' of the
+    /// simulation extension 'Air-start'" and "the 'launchVelocity' ..." (see the class comment,
+    /// "Deviations").
     [[nodiscard]] std::vector<InputNumber> getInputNumbers() const override;
 
     [[nodiscard]] std::unique_ptr<SimulationExtension> clone() const override;

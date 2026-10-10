@@ -1,6 +1,8 @@
 #include "QtRocket/file/openrocket/WindHandler.h"
 
 #include <array>
+#include <cmath>
+#include <cstddef>
 #include <format>
 #include <initializer_list>
 #include <limits>
@@ -12,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -92,11 +95,13 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(Infinity,NaN,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'direction' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option that is not finite; the option keeps what it had.
   fcid=11111111-1111-1111-1111-111111111111
 )out",
      .why = "decision U3: a number that is not finite is not applied; OpenRocket has no warning "
-            "for these, so the three share the general one"},
+            "for these, so each has one of QtRocket's own"},
     {.name     = "cond: wind average negative speed and NaN",
      .xml      = R"xml(
 <conditions>
@@ -187,7 +192,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -225,7 +230,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(-Infinity,2.0,4.141592653589793,0.0)(Infinity,Infinity,NaN,Infinity)(NaN,NaN,NaN,NaN)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -247,7 +252,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL(NaN,1.0,1.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -558,7 +563,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .why = "decision D9: the level is skipped at its first missing attribute, where OpenRocket "
@@ -609,7 +614,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = R"out(
   W[Other,NORMAL] Unknown element x, ignoring.
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   closed=conditions {model=multilevel} []
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -675,10 +680,105 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(2.0,1.0,Infinity) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
-  wind=AVERAGE avg=(0.001,1.0,1.0E306) multi=MSL(0.0,0.0,0.0,0.0)
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option outside its range; the option keeps what it had.
+  wind=AVERAGE avg=(2.0,1.0,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
-     .why      = "decision L3: the second speed times the turbulence intensity would be infinite"},
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "deviation of 1e306 m/s is refused, so the second speed has none to take along"},
+    {.name     = "u9: wind average at its bounds",
+     .xml      = R"xml(
+<conditions>
+  <wind model="average">
+    <speed>1000</speed>
+    <direction>6.283185307179586</direction>
+    <standarddeviation>1000</standarddeviation>
+  </wind>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(1000.0,0.0,1000.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: wind average above its ranges",
+     .xml      = R"xml(
+<conditions>
+  <wind model="average">
+    <speed>3</speed>
+    <direction>1</direction>
+    <standarddeviation>0.5</standarddeviation>
+    <speed>1000.0000000000001</speed>
+    <standarddeviation>1000.0000000000001</standarddeviation>
+    <direction>1.7e308</direction>
+  </wind>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(1000.0000000000001,-1.9958403095347198E292,1000.0000000000001) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option outside its range; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option outside its range; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'direction' would give a simulation option outside its range; the option keeps what it had.
+  wind=AVERAGE avg=(3.0,1.0,0.5) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .why      = "decision U9: a number outside the range a simulation holds it to is not applied; "
+                 "OpenRocket has no warning for these, so each has one of QtRocket's own"},
+    {.name     = "u9: wind average speed that takes the deviation out of its range",
+     .xml      = R"xml(
+<conditions>
+  <wind model="average">
+    <speed>500</speed>
+    <standarddeviation>1000</standarddeviation>
+    <speed>600</speed>
+  </wind>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=AVERAGE avg=(600.0,1.5707963267948966,1200.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option outside its range; the option keeps what it had.
+  wind=AVERAGE avg=(500.0,1.5707963267948966,1000.0) multi=MSL(0.0,0.0,0.0,0.0)
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: the "
+            "speed takes the turbulence intensity along, and the deviation would be 1200 m/s"},
+    {.name     = "u9: multilevel levels at the bounds of their ranges",
+     .xml      = R"xml(
+<conditions>
+  <wind model="multilevel">
+    <windlevel altitude="-1000" speed="1000" direction="0" standarddeviation="1000"/>
+    <windlevel altitude="1000000" speed="-1000" direction="6.283185307179586" standarddeviation="-5"/>
+  </wind>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(-1000.0,1000.0,0.0,1000.0)(1000000.0,1000.0,3.141592653589793,0.0)
+)out",
+     .qtrocket = {},
+     .why      = {}},
+    {.name     = "u9: multilevel levels outside their ranges",
+     .xml      = R"xml(
+<conditions>
+  <wind model="multilevel">
+    <windlevel altitude="-1000.0000000000001" speed="1" direction="1" standarddeviation="0.1"/>
+    <windlevel altitude="1000000.0000000001" speed="1" direction="1" standarddeviation="0.1"/>
+    <windlevel altitude="10" speed="1000.0000000000001" direction="1" standarddeviation="0.1"/>
+    <windlevel altitude="20" speed="1" direction="1.7e308" standarddeviation="0.1"/>
+    <windlevel altitude="30" speed="1" direction="1" standarddeviation="1000.0000000000001"/>
+    <windlevel altitude="40" speed="2" direction="1" standarddeviation="0.2"/>
+  </wind>
+</conditions>
+)xml",
+     .java     = R"out(
+  wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(-1000.0000000000001,1.0,1.0,0.1)(10.0,1000.0000000000001,1.0,0.1)(20.0,1.0,-1.9958403095347198E292,0.1)(30.0,1.0,1.0,1000.0000000000001)(40.0,2.0,1.0,0.2)(1000000.0000000001,1.0,1.0,0.1)
+)out",
+     .qtrocket = R"out(
+  W[Other,NORMAL] A wind level with a number outside its range was ignored.
+  wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(40.0,2.0,1.0,0.2)
+)out",
+     .why = "decision U9: a number outside the range a simulation holds it to is not applied: five "
+            "levels are skipped, each for one number"},
     // END GENERATED: wind
 });
 
@@ -848,29 +948,34 @@ TEST(WindHandler, AWindLevelAttributeThatIsNoNumberFailsTheLoad)
 }
 
 // Decision D9 for the missing attribute (Java: NullPointerException) and decision L3 for the
-// number that is not finite (Java adds the level).
+// number that is not finite (Java adds the level). Each has a warning of QtRocket's own
+// (decision U7 of tier 9).
 TEST(WindHandler, AWindLevelWithAMissingOrNonFiniteAttributeIsSkippedWithAWarning)
 {
-    const std::string_view skipped = "ok | Invalid parameter encountered, ignoring. | ";
-    EXPECT_EQ(closeLevel({}), skipped);
-    EXPECT_EQ(closeLevel({{"altitude", "100"}, {"speed", "5"}, {"direction", "1"}}), skipped);
+    const std::string_view incomplete =
+        "ok | A wind level without altitude, speed, direction or standard deviation was ignored. "
+        "| ";
+    EXPECT_EQ(closeLevel({}), incomplete);
+    EXPECT_EQ(closeLevel({{"altitude", "100"}, {"speed", "5"}, {"direction", "1"}}), incomplete);
     EXPECT_EQ(closeLevel({{"speed", "5"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
-              skipped);
+              incomplete);
+    const std::string_view notFinite =
+        "ok | A wind level with a number that is not finite was ignored. | ";
     EXPECT_EQ(closeLevel({{"altitude", "100"},
                           {"speed", "5"},
                           {"direction", "1"},
                           {"standarddeviation", "NaN"}}),
-              skipped);
+              notFinite);
     EXPECT_EQ(closeLevel({{"altitude", "-Infinity"},
                           {"speed", "5"},
                           {"direction", "1"},
                           {"standarddeviation", "0.5"}}),
-              skipped);
+              notFinite);
     EXPECT_EQ(closeLevel({{"altitude", "100"},
                           {"speed", "1e999"},
                           {"direction", "1"},
                           {"standarddeviation", "0.5"}}),
-              skipped);
+              notFinite);
 }
 
 // The attributes are looked at in Java's order, and the first that is missing or is no number
@@ -879,7 +984,8 @@ TEST(WindHandler, TheFirstBadAttributeOfAWindLevelDecides)
 {
     // The altitude is missing: skipped, and the speed is not looked at.
     EXPECT_EQ(closeLevel({{"speed", "fast"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
-              "ok | Invalid parameter encountered, ignoring. | ");
+              "ok | A wind level without altitude, speed, direction or standard deviation was "
+              "ignored. | ");
     // The altitude is no number: the load fails, although the speed is missing.
     EXPECT_EQ(closeLevel({{"altitude", "high"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
               R"(INVALID_ARGUMENT [For input string: "high"] |  | )");
@@ -889,6 +995,72 @@ TEST(WindHandler, TheFirstBadAttributeOfAWindLevelDecides)
                           {"direction", "1"},
                           {"standarddeviation", "wide"}}),
               R"(INVALID_ARGUMENT [For input string: "wide"] |  | )");
+}
+
+/// The attributes of a level at the altitude @p altitude with a wind of 1 m/s.
+[[nodiscard]] Attributes levelAt(std::size_t altitude)
+{
+    return {{"altitude", std::format("{}", altitude)},
+            {"speed", "1"},
+            {"direction", "0"},
+            {"standarddeviation", "0.1"}};
+}
+
+/// Closes @p count <windlevel> elements on @p handler, at the altitudes @p first, @p first + 1
+/// and so on; false when one of them fails.
+[[nodiscard]] bool closeLevels(WindHandler& handler, WarningSet& warnings, std::size_t first,
+                               std::size_t count)
+{
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        if (!handler.closeElement("windlevel", levelAt(first + i), "", warnings).has_value())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// How many levels the multi-level model of @p options has.
+[[nodiscard]] std::size_t levelCount(const SimulationOptions& options)
+{
+    return options.getMultiLevelWindModel().getLevels().size();
+}
+
+// Decision U6 of tier 9, QtRocket's own: the model of one <wind> element gets at most
+// DocumentConfig::kMaxWindLevels levels. OpenRocket has no bound.
+TEST(WindHandler, TakesLevelsUpToTheBoundAndWarnsOfTheOnesBeyondIt)
+{
+    const std::size_t bound = QtRocket::DocumentConfig::kMaxWindLevels;
+    SimulationOptions options;
+    WarningSet        warnings;
+    WindHandler       handler(std::string("multilevel"), options, {}, warnings);
+
+    ASSERT_TRUE(closeLevels(handler, warnings, 0, bound));
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_TRUE(warnings.empty()) << "at the bound";
+
+    ASSERT_TRUE(closeLevels(handler, warnings, bound, 3));
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_EQ(warningTexts(warnings),
+              Texts{"The wind model has 10000 levels already; ignoring a further wind level."});
+
+    // The bound is asked last: beyond it an attribute that is no number still fails the load,
+    // a level that lacks one has its own warning, and a level at an altitude that has one
+    // fails nothing, not being added.
+    EXPECT_TRUE(handler.closeElement("windlevel", levelAt(5), "", warnings).has_value());
+    EXPECT_TRUE(handler.closeElement("windlevel", {{"altitude", "5"}}, "", warnings).has_value());
+    Attributes noNumber = levelAt(bound + 9);
+    noNumber.insert_or_assign("speed", "fast");
+    EXPECT_FALSE(handler.closeElement("windlevel", noNumber, "", warnings).has_value());
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_EQ(warnings.size(), 2U);
+
+    // The handler of the next <wind> element clears the levels and counts its own.
+    WindHandler second(std::string("multilevel"), options, {}, warnings);
+    ASSERT_TRUE(closeLevels(second, warnings, 0, 3));
+    EXPECT_EQ(levelCount(options), 3U);
+    EXPECT_EQ(warnings.size(), 2U);
 }
 
 /// The failure of adding the levels @p altitudes, each with a wind of 1 m/s, in that order, and
@@ -955,12 +1127,18 @@ TEST(WindHandler, TheAverageModelTakesSpeedDirectionAndDeviation)
                                     {"standarddeviation", ""},
                                     {"gust", "9"}}),
               " | wind=AVERAGE avg=(3.0,1.5707963267948966,0.0)");
-    // Not OpenRocket's, which stores an infinity: decision U3.
+    // Not OpenRocket's, which stores an infinity: decision U3, with a warning of QtRocket's own
+    // for each element (decision U7 of tier 9).
     EXPECT_EQ(closeAverageChildren({{"speed", "3"},
                                     {"speed", "Infinity"},
                                     {"direction", "-Infinity"},
                                     {"standarddeviation", "1e999"}}),
-              "Invalid parameter encountered, ignoring. | "
+              "The number of element 'speed' would give a simulation option that is not finite; "
+              "the option keeps what it had.; "
+              "The number of element 'direction' would give a simulation option that is not "
+              "finite; the option keeps what it had.; "
+              "The number of element 'standarddeviation' would give a simulation option that is "
+              "not finite; the option keeps what it had. | "
               "wind=AVERAGE avg=(3.0,1.5707963267948966,0.0)");
 }
 
@@ -978,47 +1156,107 @@ TEST(WindHandler, TheAverageModelTakesSpeedDirectionAndDeviation)
 // takes an infinite deviation along".)
 TEST(WindHandler, SetAverageWindRefusesAFiniteNumberThatMakesTheModelNotFinite)
 {
+    using AverageWind = WindHandler::AverageWind;
     SimulationOptions options;
-    EXPECT_TRUE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 0.001));
-    EXPECT_TRUE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, 1e306));
+    // Given to the model itself: setAverageWind() does not take such a deviation (see the next
+    // test), and no file gets one into the options any more.
+    options.getAverageWindModel().setAverage(0.001);
+    options.getAverageWindModel().setStandardDeviation(1e306);
     ASSERT_EQ(averageOf(options), "0.001 1.5707963267948966 1.0E306");
     const ChangeCounter changes(options.changed());
 
     // The speed takes the turbulence intensity along, which is beyond the range of a double.
-    EXPECT_FALSE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 2.0));
-    EXPECT_FALSE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, -2.0));
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 2.0),
+              AverageWind::NOT_FINITE);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, -2.0),
+              AverageWind::NOT_FINITE);
 
     EXPECT_EQ(averageOf(options), "0.001 1.5707963267948966 1.0E306") << "nothing changed";
     EXPECT_EQ(changes.count(), 0) << "and nothing was announced";
+}
 
-    // What stays finite is applied, with its change events.
-    EXPECT_TRUE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setTurbulenceIntensity, 0.5));
-    EXPECT_TRUE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setDirection, 7.0));
-    EXPECT_EQ(averageOf(options), "0.001 0.7168146928204138 5.0E-4");
+// Decision U9 of tier 9: what the model would hold has to lie in the ranges a simulation holds
+// a wind to (SimulationInputRanges): a speed and a standard deviation of at most 1000 m/s, a
+// direction within a full turn. OpenRocket applies every finite number.
+TEST(WindHandler, SetAverageWindRefusesANumberThatLeavesTheModelOutsideItsRanges)
+{
+    using AverageWind = WindHandler::AverageWind;
+    SimulationOptions   options;
+    const ChangeCounter changes(options.changed());
+
+    // The bounds are inside the ranges.
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 1000.0),
+              AverageWind::APPLIED);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, 1000.0),
+        AverageWind::APPLIED);
+    ASSERT_EQ(averageOf(options), "1000.0 1.5707963267948966 1000.0");
     EXPECT_EQ(changes.count(), 2);
 
-    // A turbulence intensity is multiplied by the speed.
-    EXPECT_TRUE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 1e200));
-    ASSERT_EQ(averageOf(options), "1.0E200 0.7168146928204138 5.0E199");
-    EXPECT_FALSE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setTurbulenceIntensity, 1e200));
-    EXPECT_EQ(averageOf(options), "1.0E200 0.7168146928204138 5.0E199");
+    // The next double above a bound is outside, and so is every absurd number.
+    const double above = std::nextafter(1000.0, 2000.0);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, above),
+              AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, above),
+        AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 1e300),
+              AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, 1e306),
+        AverageWind::OUT_OF_RANGE);
+    // A huge direction is reduced to nonsense (MathUtil::reduce2Pi(1.7e308) is about -2e292).
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setDirection, 1.7e308),
+              AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(averageOf(options), "1000.0 1.5707963267948966 1000.0") << "nothing changed";
+    EXPECT_EQ(changes.count(), 2) << "and nothing was announced";
+
+    // It is the model's numbers that count, not the one of the file: a negative speed is its
+    // magnitude from the other side, a negative deviation is none, a direction of more than a
+    // turn is reduced to one.
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, -5.0),
+              AverageWind::APPLIED);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, -500.0),
+              AverageWind::APPLIED);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setDirection, 7.0),
+              AverageWind::APPLIED);
+    EXPECT_EQ(averageOf(options), "500.0 0.7168146928204138 0.0");
+
+    // And all of them: a speed takes the turbulence intensity along (here 2), so that a speed
+    // inside its range is refused for the standard deviation it would bring; a turbulence
+    // intensity is multiplied by the speed.
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, 1000.0),
+        AverageWind::APPLIED);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 600.0),
+              AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setTurbulenceIntensity, 2.5),
+        AverageWind::OUT_OF_RANGE);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setTurbulenceIntensity, 0.5),
+        AverageWind::APPLIED);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, 600.0),
+              AverageWind::APPLIED);
+    EXPECT_EQ(averageOf(options), "600.0 0.7168146928204138 300.0");
 }
 
 TEST(WindHandler, SetAverageWindRefusesANumberThatIsNotFinite)
 {
+    using AverageWind = WindHandler::AverageWind;
     SimulationOptions   options;
     const ChangeCounter changes(options.changed());
-    EXPECT_FALSE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, kInfinity));
-    EXPECT_FALSE(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, kNaN));
-    EXPECT_FALSE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setDirection, -kInfinity));
-    EXPECT_FALSE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, kNaN));
-    EXPECT_FALSE(
-        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, kInfinity));
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, kInfinity),
+              AverageWind::NOT_FINITE);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setAverage, kNaN),
+              AverageWind::NOT_FINITE);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setDirection, -kInfinity),
+              AverageWind::NOT_FINITE);
+    EXPECT_EQ(WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, kNaN),
+              AverageWind::NOT_FINITE);
+    EXPECT_EQ(
+        WindHandler::setAverageWind(options, &PinkNoiseWindModel::setStandardDeviation, kInfinity),
+        AverageWind::NOT_FINITE);
     EXPECT_EQ(averageOf(options), "0.0 1.5707963267948966 0.0");
     EXPECT_EQ(changes.count(), 0);
 }

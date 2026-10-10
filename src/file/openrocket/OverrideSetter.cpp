@@ -1,14 +1,16 @@
 #include "QtRocket/file/openrocket/OverrideSetter.h"
 
+#include <cmath>
 #include <optional>
 #include <string_view>
 #include <utility>
 
-#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -23,12 +25,17 @@ Result<void> OverrideSetter::set(RocketComponent& component, std::string_view  v
                                  const Attributes& /*attributes*/, WarningSet& warnings,
                                  const DocumentLoadingContext& /*context*/) const
 {
-    // Java: Double.parseDouble(s), and whatever it gives is stored. Here a NaN or an infinity
-    // is refused like a text that is no number (decision L3).
-    const std::optional<double> number = DocumentConfig::parseFiniteDouble(value);
+    // Java: Double.parseDouble(s), and whatever it gives is stored.
+    const std::optional<double> number = Strings::javaParseDouble(value);
     if (!number.has_value())
     {
         warnings.add(Warning::kFileInvalidParameter);
+        return {};
+    }
+    // Not OpenRocket's: a NaN or an infinity is refused (decision L3), in QtRocket's own words.
+    if (!std::isfinite(*number))
+    {
+        warnings.add(LoaderWarnings::kOverrideNotFinite);
         return {};
     }
     m_set(component, *number);

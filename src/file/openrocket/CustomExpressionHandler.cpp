@@ -5,8 +5,8 @@
 #include <string_view>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/util/Error.h"
 
@@ -48,7 +48,7 @@ Result<void> CustomExpressionHandler::closeElement(std::string_view  element,
         if (!unitType.has_value())
         {
             // Java: a NullPointerException.
-            warnings.add(Warning::kFileInvalidParameter);
+            warnings.add(LoaderWarnings::kUnitWithoutUnitType);
         }
         else if (*unitType == "auto")
         {

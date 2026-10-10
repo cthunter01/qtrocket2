@@ -28,13 +28,13 @@
 #include "QtRocket/file/openrocket/EnumSetter.h"
 #include "QtRocket/file/openrocket/FinTabPositionSetter.h"
 #include "QtRocket/file/openrocket/IntSetter.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/MaterialSetter.h"
 #include "QtRocket/file/openrocket/OverrideSetter.h"
 #include "QtRocket/file/openrocket/RadiusPositionSetter.h"
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/file/openrocket/StringSetter.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -78,6 +78,7 @@
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
@@ -227,7 +228,7 @@ template <class Set>
     const RocketComponent* const holder = std::as_const(component).getRoot().findComponent(*id);
     if (holder != nullptr && holder != &component)
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDuplicateComponentId);
         return {};
     }
     component.setId(*id);
@@ -730,7 +731,8 @@ void addRecoveryDeviceSetters(SetterTable& table)
                   [](RocketComponent& c, double v) { as<RecoveryDevice>(c).setCD(v); }, "auto",
                   [](RocketComponent& c, bool v) { as<RecoveryDevice>(c).setCDAutomatic(v); }));
     // The next three set the default of the device's deployment configurations (Java: the
-    // setter's form with a getter of the parameter set).
+    // setter's form with a getter of the parameter set). The two numbers are held to the range
+    // a simulation holds them to (not Java's: see DoubleSetter, "Deviations").
     table.put(
         "RecoveryDevice:deployevent",
         std::make_unique<EnumSetter>(
@@ -739,14 +741,19 @@ void addRecoveryDeviceSetters(SetterTable& table)
             }));
     table.put(
         "RecoveryDevice:deployaltitude",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployAltitude(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployAltitude(
+                    v);
+            },
+            SimulationInputRanges::kEventAltitude));
     table.put(
         "RecoveryDevice:deploydelay",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployDelay(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<RecoveryDevice>(c).getDeploymentConfigurations().getDefault().setDeployDelay(v);
+            },
+            SimulationInputRanges::kDelay));
     table.put("RecoveryDevice:material", std::make_unique<MaterialSetter>(
                                              [](RocketComponent& c, const Material& v) {
                                                  as<RecoveryDevice>(c).setMaterial(v);
@@ -835,7 +842,8 @@ void addAxialStageSetters(SetterTable& table)
 {
     using SeparationEvent = StageSeparationConfiguration::SeparationEvent;
 
-    // All three set the default of the stage's separation configurations.
+    // All three set the default of the stage's separation configurations. The two numbers are
+    // held to the range a simulation holds them to (not Java's: see DoubleSetter, "Deviations").
     table.put(
         "AxialStage:separationevent",
         std::make_unique<EnumSetter>(
@@ -844,14 +852,19 @@ void addAxialStageSetters(SetterTable& table)
             }));
     table.put(
         "AxialStage:separationaltitude",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationAltitude(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationAltitude(
+                    v);
+            },
+            SimulationInputRanges::kEventAltitude));
     table.put(
         "AxialStage:separationdelay",
-        std::make_unique<DoubleSetter>([](RocketComponent& c, double v) {
-            as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationDelay(v);
-        }));
+        std::make_unique<DoubleSetter>(
+            [](RocketComponent& c, double v) {
+                as<AxialStage>(c).getSeparationConfigurations().getDefault().setSeparationDelay(v);
+            },
+            SimulationInputRanges::kDelay));
 }
 
 /// DocumentConfig.setters, filled in the order of the Java source.
@@ -1061,6 +1074,66 @@ bool DocumentConfig::flightConfigurationFits(const RocketComponent& component)
     const RocketComponent& root = component.getRoot();
     return saturatingMultiply(instancesOfSubtree(root, 1, CountChange{}),
                               saturatingAdd(configurationsOf(root), 1)) <= kMaxInstances;
+}
+
+namespace
+{
+
+/// The components of the tree below @p component, @p component itself not counted.
+[[nodiscard]] std::size_t componentsBelow(const RocketComponent& component)
+{
+    std::size_t count = 0;
+    for (const RocketComponent* child : component.getChildren())
+    {
+        count += 1 + componentsBelow(*child);
+    }
+    return count;
+}
+
+}  // namespace
+
+std::size_t DocumentConfig::componentCount(const RocketComponent& component)
+{
+    return componentsBelow(component.getRoot());
+}
+
+bool DocumentConfig::componentFits(const RocketComponent& parent, const RocketComponent& child)
+{
+    // No sum of two trees that fit into memory overflows.
+    return componentCount(parent) + 1 + componentsBelow(child) <= kMaxComponents;
+}
+
+namespace
+{
+
+/// The assemblies of the tree below @p component, @p component itself not counted.
+[[nodiscard]] std::size_t assembliesBelow(const RocketComponent& component)
+{
+    std::size_t count = 0;
+    for (const RocketComponent* child : component.getChildren())
+    {
+        count += (isAssembly(child->kind()) ? 1U : 0U) + assembliesBelow(*child);
+    }
+    return count;
+}
+
+}  // namespace
+
+std::size_t DocumentConfig::assemblyCount(const RocketComponent& component)
+{
+    return assembliesBelow(component.getRoot());
+}
+
+bool DocumentConfig::assemblyFits(const RocketComponent& parent, const RocketComponent& child)
+{
+    const std::size_t added = (isAssembly(child.kind()) ? 1U : 0U) + assembliesBelow(child);
+    return added == 0 || assemblyCount(parent) + added <= kMaxAssemblies;
+}
+
+bool DocumentConfig::flightConfigurationCountFits(const RocketComponent& component)
+{
+    // configurationsOf() counts the default one too.
+    return configurationsOf(component.getRoot()) <= kMaxFlightConfigurations;
 }
 
 std::optional<std::string_view> DocumentConfig::attribute(

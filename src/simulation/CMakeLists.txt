@@ -43,6 +43,7 @@ target_sources(QtRocket_core PRIVATE
     Rk6SimulationStepper.cpp
     Simulation.cpp
     SimulationConditions.cpp
+    SimulationInputRanges.cpp
     SimulationOptions.cpp
     SimulationStatus.cpp
     SimulationStepperMethod.cpp

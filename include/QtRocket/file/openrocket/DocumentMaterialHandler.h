@@ -35,9 +35,10 @@ class OpenRocketDocument;
 /// the document registers as the components get them (Rocket::documentMaterialSet()).
 ///
 /// Deviations from OpenRocket:
-/// - A material whose density is a NaN or an infinity is not added, and one whose shear
-///   modulus is has it read as 0; each gives Warning::kFileInvalidParameter (OpenRocket stores
-///   both). It is the rule of MaterialSetter for a component's material, taken over: a density
+/// - A material whose density is a NaN or an infinity is not added
+///   (LoaderWarnings::kDocumentMaterialDensityNotFinite), and one whose shear modulus is has it
+///   read as 0 (LoaderWarnings::kDocumentMaterialShearModulusNotFinite); OpenRocket stores
+///   both. It is the rule of MaterialSetter for a component's material, taken over: a density
 ///   is an input of a simulation as soon as a component gets the material, and a NaN, which
 ///   equals nothing, is never found among the materials again, so every line of a file that
 ///   holds one would add one more.

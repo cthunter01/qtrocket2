@@ -1,11 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/simulation/SimulationEngine.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepper.h"
 
@@ -99,6 +102,17 @@ class SimulationConditions;
 /// - Java's finally block around a branch (endSimulationBranch() with a null exception) also
 ///   runs on the way out of an exception that is not a SimulationException; so it does here,
 ///   on the way out of a BugError.
+/// - The rows of a branch are bounded (getMaxBranchRows(), SimulationInputRanges::
+///   kMaxBranchRows unless another number was set): no step is taken for a branch that holds
+///   that many rows. Where the next step would be taken the run ends with a
+///   SimulationException whose message is tooManyRows(), in the way every SimulationException
+///   ends a run (see above); a branch that is at its end by then, with exactly that many rows,
+///   ends as ever. A step of a flight makes one row. Two things can make a row more than the
+///   bound: the step in which the rocket comes to rest on the ground, which makes two, and an
+///   abort (SIM_ABORT), which stores the status without a step; neither is followed by a step.
+///   The nested run for the optimum altitude has the bound of the engine that starts it, so a
+///   run can end for the rows the nested one needs. OpenRocket has no bound: a flight that
+///   never lands is simulated until the maximum simulation time, and every row of it is kept.
 /// - Logging is not ported.
 class BasicEventSimulationEngine final : public SimulationEngine
 {
@@ -134,6 +148,18 @@ public:
     {
         return m_flightData;
     }
+
+    /// The most rows a flight data branch of a run gets (see the class comment, "Deviations").
+    [[nodiscard]] std::size_t getMaxBranchRows() const noexcept { return m_maxBranchRows; }
+
+    /// Gives the runs of this engine another bound than SimulationInputRanges::kMaxBranchRows:
+    /// for a caller that wants a tighter one, and for the tests of the bound.
+    void setMaxBranchRows(std::size_t rows) noexcept { m_maxBranchRows = rows; }
+
+    /// The message of the exception that ends a run whose branch holds @p rows rows and needs
+    /// a further step: "Simulation needs more than 1000000 steps for one flight data branch.
+    /// Try selecting a longer time step or a shorter maximum simulation time."
+    [[nodiscard]] static std::string tooManyRows(std::size_t rows);
 
 private:
     /// The status that is being simulated (Java: currentStatus).
@@ -225,6 +251,10 @@ private:
     /// @throws SimulationCalculationException when the current status holds a NaN
     void checkNaN();
 
+    /// Asked before a step is taken.
+    /// @throws SimulationException when the current branch holds getMaxBranchRows() rows
+    void checkBranchRows();
+
     /// Runs the nested simulation that finds the optimum altitude (see the class comment) and
     /// returns its flight data.
     [[nodiscard]] std::shared_ptr<FlightData> computeCoastTime();
@@ -252,6 +282,9 @@ private:
     /// The simulation branches still to simulate: a stack whose top is the front (Java: an
     /// ArrayDeque used with push(), peek() and pop()).
     std::deque<SimulationStatus> m_toSimulate;
+
+    /// The most rows a branch gets.
+    std::size_t m_maxBranchRows{SimulationInputRanges::kMaxBranchRows};
 };
 
 }  // namespace QtRocket

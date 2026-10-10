@@ -2623,6 +2623,9 @@ TEST(SingleSimulationHandler, ASimulationWithAnUnknownExtensionDoesNotRun)
     ASSERT_NE(simulation, nullptr);
     EXPECT_EQ(warnings, Texts{"Simulation extension with id 'com.example.Wobble' not found."});
 
+    // The simulation has its time step from the fixture's preference store, which is that of
+    // OpenRocket's tests: 0, with which no simulation runs (Simulation::validateInputs()).
+    simulation->getOptions().setTimeStep(0.05);
     const Result<void> ran = simulation->simulate();
     ASSERT_FALSE(ran.has_value());
     EXPECT_EQ(ran.error().code, ErrorCode::SIMULATION_ABORTED);

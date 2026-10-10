@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -95,10 +96,15 @@ using MessageSources = std::vector<MessageSource>;
 /// compares ids and Warning::MissingMotor every field. A MessageSet uses this to hold at most one
 /// message of each kind.
 ///
-/// Not ported: hashCode() (Java: getClass().hashCode(), with Warning::Other hashing its text and
-/// Warning::MissingMotor its fields), so there is no std::hash<Message>. Nothing in the core
-/// hashes messages: a MessageSet is a vector searched with equals(). A group that wants messages
-/// as keys of an unordered container adds a virtual hash consistent with equals() here.
+/// Hashing (Java: hashCode(), which is getClass().hashCode(), with Warning.Other hashing its
+/// text and Warning.MissingMotor its fields): hashCode() is a hash that equal messages share.
+/// A MessageSet keeps it beside every message it holds and compares it before it asks
+/// equals(), so that looking for a message among a thousand costs a thousand comparisons of
+/// numbers and not of messages. For that the hash of a message must never change while a set
+/// holds it: it is made of nothing but the dynamic type and, for the two Other classes, the
+/// text, which no setter changes. (So Warning::MissingMotor, whose fields have setters, hashes
+/// its type alone, where Java hashes the fields.) The numbers are not Java's, and there is no
+/// std::hash<Message>.
 class Message
 {
 public:
@@ -132,6 +138,11 @@ public:
     /// Java: equals(); see the class comment. operator== forwards to it.
     [[nodiscard]] virtual bool equals(const Message& other) const;
 
+    /// A hash that messages which are equal share (Java: hashCode(); see the class comment,
+    /// "Hashing"): of the dynamic type here. A subclass that overrides it may add only what
+    /// its equals() compares and what cannot change after the message was made.
+    [[nodiscard]] virtual std::size_t hashCode() const noexcept;
+
     /// True when @p other has exactly the dynamic type of this message (Java: getClass() ==).
     [[nodiscard]] bool sameType(const Message& other) const noexcept;
 
@@ -161,6 +172,10 @@ protected:
     /// none (Java: addSourcesToMessageText()).
     [[nodiscard]] static std::string addSourcesToMessageText(std::string           text,
                                                              const MessageSources& sources);
+
+    /// @p seed mixed with @p value: what a subclass makes its hashCode() of, from the hash of
+    /// this class and the hash of a field.
+    [[nodiscard]] static std::size_t combineHash(std::size_t seed, std::size_t value) noexcept;
 
     /// True when the two source lists have the same components in the same order, by id (Java:
     /// sourcesEqual(), Arrays.equals()).

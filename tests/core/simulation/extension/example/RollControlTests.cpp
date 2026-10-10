@@ -288,6 +288,19 @@ TEST(RollControl, PublishesTheFinCantTypeOnce)
     return values;
 }
 
+/// The ranges of the numbers @p numbers in words, in order; "none" for a number without one.
+[[nodiscard]] std::vector<std::string> rangesOf(
+    const std::vector<SimulationExtension::InputNumber>& numbers)
+{
+    std::vector<std::string> ranges;
+    ranges.reserve(numbers.size());
+    for (const SimulationExtension::InputNumber& number : numbers)
+    {
+        ranges.emplace_back(number.range.has_value() ? number.range->text : "none");
+    }
+    return ranges;
+}
+
 // QtRocket's own, for Simulation::validateInputs(): the six numbers the listener takes, each
 // called by its key in the configuration, with the value the getter gives (the default while
 // the key is absent or no number).
@@ -305,6 +318,15 @@ TEST(RollControl, ListsTheNumbersItsListenerReads)
               }));
     EXPECT_EQ(valuesOf(roll.getInputNumbers()),
               (std::vector<double>{0.5, 0.0, 0.17453292519943295, 0.2617993877991494, 0.007, 0.2}));
+    // Each with the range the validation holds it to.
+    EXPECT_EQ(rangesOf(roll.getInputNumbers()),
+              (std::vector<std::string>{"from 0 to 1000000 s", "from -1000 to 1000 rad/s",
+                                        "from 0 to 1000 rad/s", "from 0 to pi/2 rad",
+                                        "from 0 to 1000", "from 0 to 1000"}));
+    EXPECT_TRUE(RollControl::kMaxFinAngleRange.contains(std::numbers::pi / 2));
+    EXPECT_FALSE(RollControl::kMaxFinAngleRange.contains(1.6));
+    EXPECT_TRUE(RollControl::kSetPointRange.contains(-1000.0));
+    EXPECT_FALSE(RollControl::kGainRange.contains(-0.007));
 
     Config config;
     config.put("controlFinName", "Fins");

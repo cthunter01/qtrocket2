@@ -73,6 +73,13 @@ namespace QtRocket
 /// made for a jar URL, GeneralRocketLoader(URL), is load(bytes) with the bytes of that file:
 /// the entries of an archive, and files without a base directory otherwise.)
 ///
+/// THE LOOKUP TABLES a simulation names by a file (a CSV file of drag or stability values)
+/// are read from the design's directory only, which is the directory of the file for
+/// load(file) and the base directory for load(bytes), an archive included: by a relative name
+/// that stays inside it. Any other name, and every name of a design that was loaded from
+/// bytes without a base directory, is not read and gives a warning (CsvLookupHandler, "Which
+/// file a design may read"). The current directory of the process plays no part.
+///
 /// AFTER THE DOCUMENT IS READ, in OpenRocket's order: the steps of OpenRocketLoader (stage
 /// activeness, the simulations' modification ids, the storage options, documentLoaded() of
 /// the extensions, the undo history cleared), then the document's materials are collected
@@ -148,6 +155,29 @@ namespace QtRocket
 /// the unpacking stops. No memory is taken for a number a file merely states. An attachment
 /// keeps Java's limit (Attachment::kMaxAttachmentBytes).
 ///
+/// What a document may ask for is bounded too (decision U6 of tier 9; the constants of
+/// DocumentConfig, where each says what it bounds and why): 10000 components of the rocket,
+/// of which 100 stages, booster sets and pod sets, 1000 flight configurations, 10000
+/// simulations, 10000 levels of one wind model, 1000 decal images, beside the
+/// bounds of the handlers (10000 for one count, 100000 component instances over all flight
+/// configurations, 100 levels of nesting). What is beyond a bound is ignored with a warning of
+/// its own, and the load goes on. These bounds end the growth of a load's time and memory
+/// with the square or the cube of what a file holds; they do not make every load short. What
+/// they leave, and only the document bound ends: the bound on the wind levels holds for each
+/// simulation by itself, so that a document of 330 simulations with 10000 levels each (250 MB
+/// of XML, 9 MB as a gzip stream) loads in 22 s and takes 6.5 GB, about 2 kB a level; the
+/// stored rows of flight data are not counted at all; and every element that sets a value on
+/// a component is a change of the rocket that every flight configuration answers, whose
+/// number the file's size alone limits (see DocumentConfig::kMaxInstances for what one
+/// costs). And THE WARNINGS of a load are bounded: the set that is
+/// returned keeps the first DocumentConfig::kMaxWarnings (1000) warnings of the load; when one
+/// more would be added it gets one last warning, "The file gave more than 1000 warnings; the
+/// further ones were dropped." (LoaderWarnings::tooManyWarnings()), and every later one is
+/// dropped. The set keeps that capacity in the caller's hands (MessageSet::setCapacity(); see
+/// LoadedDocument for what follows for a caller who adds to it).
+/// The stored warnings of each simulation's flight data are bounded in the same way, by
+/// themselves (FlightDataHandler). The texts of all these warnings are in LoaderWarnings.
+///
 /// Deviations from OpenRocket:
 /// - An object made with the environment and asked any number of times, each load with a new
 ///   document (Java: one loader object per file, which holds the document and the warnings;
@@ -183,7 +213,21 @@ namespace QtRocket
 ///     cut off: "Exception loading stream: null") the reason is "Unexpected end of GZIP data"
 ///     or "Unexpected end of ZIP data".
 /// - RockSim and RASAero documents are not read (not part of this milestone).
-/// - The bounds above.
+/// - The bounds above, those on the warnings included.
+/// - A number of a simulation's conditions, and a delay or an altitude of an ignition, a
+///   motor, a deployment or a separation, is applied only when it lies in the range a
+///   simulation holds it to (decision U9 of tier 9; the table SimulationInputRanges::kTable),
+///   as it is applied only when it is finite; otherwise a warning says so and the value stays
+///   what it was. OpenRocket applies every number. A simulation that loaded therefore passes
+///   Simulation::validateInputs() but for two things the file does not decide: the values
+///   its options start from, which are those of the preference store of the load (a time
+///   step of 0 there is one no simulation takes), and the numbers of its extensions, which
+///   are taken as the file has them.
+/// - A lookup table is read from a file inside the design's directory only (see above;
+///   OpenRocket reads any path a design names, a relative one against the current directory
+///   of the process).
+/// - A <preset> element whose preset is not found is kept on its component, for a save to
+///   write back (RocketComponent::getUnresolvedPreset(); OpenRocket forgets it).
 /// - What the environment must hold is checked when the loader is made: a context without a
 ///   motor finder or without a preference store is a BugError (Java: its globals are there).
 /// - There is no catch-all: nothing here turns a BugError or another exception into an Error.

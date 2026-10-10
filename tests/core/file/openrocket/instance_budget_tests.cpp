@@ -253,7 +253,19 @@ TEST(InstanceBudget, AChildCountsWithWhatStandsBelowIt)
     return text;
 }
 
-constexpr std::string_view kInvalid = "Invalid parameter encountered, ignoring.\n";
+// QtRocket's own warnings for what the budget refuses (LoaderWarnings), each on a line.
+constexpr std::string_view kCountRefused =
+    "A count that would give the rocket too many component instances was refused; the component "
+    "keeps the count it had.\n";
+constexpr std::string_view kClusterRefused =
+    "A cluster configuration that would give the rocket too many component instances was "
+    "refused; the component keeps the configuration it had.\n";
+constexpr std::string_view kConfigurationRefused =
+    "A further flight configuration would give the rocket too many component instances; "
+    "ignoring this motor configuration.\n";
+constexpr std::string_view kMotorRefused =
+    "A further flight configuration would give the rocket too many component instances; "
+    "ignoring this motor.";
 
 // The review's first document: 337 bytes that were 10^8 instances and std::bad_alloc.
 TEST(InstanceBudget, NestedCountsDoNotMultiplyBeyondTheBound)
@@ -263,7 +275,7 @@ TEST(InstanceBudget, NestedCountsDoNotMultiplyBeyondTheBound)
                            "<subcomponents>{}</subcomponents></bodytube></subcomponents></podset>",
                            lugOf("10000")));
     // The rocket, the stage, the tube, 10000 pods, their 10000 tubes and a lug in each.
-    EXPECT_EQ(whatIsLeftOf(xml), std::string(kInvalid) + "load 30003\nuse ");
+    EXPECT_EQ(whatIsLeftOf(xml), std::string(kCountRefused) + "load 30003\nuse ");
 }
 
 TEST(InstanceBudget, TheCountOfAParentIsRefusedForWhatStandsBelowIt)
@@ -275,7 +287,7 @@ TEST(InstanceBudget, TheCountOfAParentIsRefusedForWhatStandsBelowIt)
                            "<instancecount>4</instancecount></podset>",
                            lugOf("10000")));
     // 3, then 4 pods, 4 tubes and 40000 lugs: the 10 were refused, the 4 fit.
-    EXPECT_EQ(whatIsLeftOf(xml), std::string(kInvalid) + "load 40011\nuse ");
+    EXPECT_EQ(whatIsLeftOf(xml), std::string(kCountRefused) + "load 40011\nuse ");
 }
 
 // Nine levels were 9^9 instances and std::bad_alloc after 28 s; 99 levels are what
@@ -298,7 +310,7 @@ TEST(InstanceBudget, ALayoutIsRefusedAndTheTubeStaysSingle)
 {
     // 3 + 9 + 81 + 729 + 6561, then six single tubes in each of the 6561, twice.
     EXPECT_EQ(whatIsLeftOf(configurations(1) + nestedClusters(12)),
-              std::string(kInvalid) +
+              std::string(kClusterRefused) +
                   "Inner Tube would give the rocket too many component instances; ignoring this "
                   "component and its subcomponents.\nload 93498\nuse ");
 }
@@ -315,7 +327,7 @@ TEST(InstanceBudget, FinsCountAsInstances)
         "</subcomponents></bodytube></subcomponents></podset>");
     // 3, 10000 pods and tubes, two fin sets of three fins and a launch lug in each.
     EXPECT_EQ(whatIsLeftOf(xml),
-              std::string(kInvalid) +
+              std::string(kCountRefused) +
                   "Tube Fin Set would give the rocket too many component instances; ignoring "
                   "this component and its subcomponents.\nload 90003\nuse ");
 }
@@ -329,20 +341,20 @@ TEST(InstanceBudget, ComponentsSideBySideAddUp)
         lugs += lugOf("10000");
     }
     // Nine lugs of 10000 fit; the other three stay single.
-    EXPECT_EQ(whatIsLeftOf(inTube(lugs)), std::string(kInvalid) + "load 90006\nuse ");
+    EXPECT_EQ(whatIsLeftOf(inTube(lugs)), std::string(kCountRefused) + "load 90006\nuse ");
 }
 
 TEST(InstanceBudget, FlightConfigurationsAreAFactor)
 {
     // 10003 instances: eight configurations beside the default one fit, the ninth does not.
     EXPECT_EQ(whatIsLeftOf(inTube(lugOf("10000")) + configurations(40)),
-              std::string(kInvalid) + "load 90027\nuse ");
+              std::string(kConfigurationRefused) + "load 90027\nuse ");
     // The other way round: 41 configurations leave room for 2439 instances.
     EXPECT_EQ(whatIsLeftOf(configurations(40) + inTube(lugOf("10000"))),
-              std::string(kInvalid) + "load 164\nuse ");
+              std::string(kCountRefused) + "load 164\nuse ");
     EXPECT_EQ(whatIsLeftOf(configurations(40) + inTube(lugOf("2436"))), "load 99999\nuse ");
     EXPECT_EQ(whatIsLeftOf(configurations(40) + inTube(lugOf("2437"))),
-              std::string(kInvalid) + "load 164\nuse ");
+              std::string(kCountRefused) + "load 164\nuse ");
 }
 
 TEST(InstanceBudget, TheMotorsOfAMountMakeNoConfigurationBeyondTheBound)
@@ -360,7 +372,7 @@ TEST(InstanceBudget, TheMotorsOfAMountMakeNoConfigurationBeyondTheBound)
         lugOf("10000"), motors);
     RocketLoadFixture fixture;
     const HandlerRun  run = fixture.load(xml);
-    EXPECT_EQ(run.texts(), std::vector<std::string>{"Invalid parameter encountered, ignoring."});
+    EXPECT_EQ(run.texts(), std::vector<std::string>{std::string(kMotorRefused)});
     EXPECT_EQ(fixture.rocket().getFlightConfigurationCount(), 8);
     EXPECT_EQ(DocumentConfig::instanceLoad(fixture.rocket()), 90027U);
     // A motor that was refused is in no configuration, the default one least of all.
@@ -398,7 +410,9 @@ TEST(InstanceBudget, AKnownConfigurationIsReadAtTheBound)
         "<name>again</name></motorconfiguration>";
     RocketLoadFixture fixture;
     const HandlerRun  run = fixture.load(inTube(lugOf("10000")) + configurations(9) + known);
-    EXPECT_EQ(run.texts(), std::vector<std::string>{"Invalid parameter encountered, ignoring."});
+    // Without the line feed that ends the constant.
+    EXPECT_EQ(run.texts(), std::vector<std::string>{std::string(
+                               kConfigurationRefused.substr(0, kConfigurationRefused.size() - 1))});
     EXPECT_EQ(fixture.rocket().getFlightConfigurationCount(), 8);
     EXPECT_EQ(fixture.rocket().getSelectedConfiguration().getName(fixture.fixture().preferences()),
               "again");

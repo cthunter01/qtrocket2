@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -44,6 +45,8 @@ public:
     [[nodiscard]] std::unique_ptr<Message> clone() const override;
     [[nodiscard]] std::string_view         typeName() const noexcept override { return "Other"; }
     [[nodiscard]] bool                     equals(const Message& other) const override;
+    /// Of the type and the text (Java: of the text).
+    [[nodiscard]] std::size_t hashCode() const noexcept override;
 
 private:
     std::string m_description;

@@ -6,6 +6,9 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
+#include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/IgnoredElementHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/SingleSimulationHandler.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
@@ -41,6 +44,16 @@ Result<ElementHandler*> SimulationsHandler::openElement(std::string_view element
         return nullptr;
     }
 
+    // Not OpenRocket's: the simulations of a document are bounded (see the class comment). The
+    // one too many is read by a handler that says nothing, so that <simulations> closes with
+    // its own attributes.
+    if (m_context->getOpenRocketDocument()->getSimulationCount() >= DocumentConfig::kMaxSimulations)
+    {
+        warnings.add(LoaderWarnings::tooManySimulations());
+        m_isIgnoringSimulation = true;
+        return &IgnoredElementHandler::instance();
+    }
+
     m_handler = std::make_unique<SingleSimulationHandler>(*m_context);
     return m_handler.get();
 }
@@ -49,6 +62,14 @@ Result<void> SimulationsHandler::closeElement(std::string_view  element,
                                               const Attributes& attributes,
                                               std::string_view content, WarningSet& warnings)
 {
+    if (m_isIgnoringSimulation)
+    {
+        // The simulation that was ignored ends: the warning it got when it opened is all that
+        // is said of it.
+        m_isIgnoringSimulation = false;
+        return {};
+    }
+
     // Java removes the key from the map it was given.
     Attributes others = attributes;
     others.erase("status");

@@ -2,8 +2,10 @@
 
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -281,6 +283,11 @@ bool Warning::Other::equals(const Message& other) const
 {
     const auto* o = dynamic_cast<const Other*>(&other);
     return o != nullptr && Message::equals(other) && m_description == o->m_description;
+}
+
+std::size_t Warning::Other::hashCode() const noexcept
+{
+    return combineHash(Message::hashCode(), std::hash<std::string_view>{}(m_description));
 }
 
 // ---- The fixed-text warnings ------------------------------------------------------------------

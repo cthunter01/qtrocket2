@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "file/openrocket/SetterTestSupport.h"
 
@@ -126,6 +128,41 @@ TEST(DoubleSetter, RefusesAProductThatIsNotFinite)
     EXPECT_EQ(recorder.apply(twice, "1e308"), invalid("1e308"));
     EXPECT_EQ(recorder.apply(twice, "-1e308"), invalid("-1e308"));
     EXPECT_EQ(recorder.apply(twice, "8e307"), "value 1.6E308");
+}
+
+// Not OpenRocket's, whose setters set any number: a setter with a range refuses a number
+// outside it, and sets nothing, as for a NaN (decision U9 of tier 9). The refusal is QtRocket's
+// own and so is its warning, which names the range (decision U7); OpenRocket's text is given
+// where OpenRocket gives it, for a text that is no number and for a NaN or an infinity. The
+// four numbers of a component that a simulation holds to a range have such a setter: see
+// setter_table_tests.cpp.
+TEST(DoubleSetter, WithARangeRefusesANumberOutsideIt)
+{
+    SetterRecorder     recorder;
+    const DoubleSetter setter(recorder.number("value"), QtRocket::SimulationInputRanges::kDelay);
+    const std::string  outside =
+        "[A number outside its range, from 0 to 1000000 s, was refused; the component keeps "
+        "what it had.]";
+    ASSERT_EQ(outside, "[" +
+                           QtRocket::LoaderWarnings::numberOutsideRange(
+                               QtRocket::SimulationInputRanges::kDelay.text) +
+                           "]");
+
+    // The bounds are inside the range.
+    EXPECT_EQ(recorder.apply(setter, "0"), "value 0.0");
+    EXPECT_EQ(recorder.apply(setter, "-0.0"), "value -0.0");
+    EXPECT_EQ(recorder.apply(setter, "1000000"), "value 1000000.0");
+    EXPECT_EQ(recorder.apply(setter, " 2.5 "), "value 2.5");
+    // The next number beyond a bound is outside.
+    EXPECT_EQ(recorder.apply(setter, "1000000.0000000001"), outside);
+    EXPECT_EQ(recorder.apply(setter, "-4.9e-324"), outside);
+    EXPECT_EQ(recorder.apply(setter, "-1"), outside);
+    EXPECT_EQ(recorder.apply(setter, "1e300"), outside);
+    // What is no number, or not finite, is refused as by every setter, with OpenRocket's text.
+    EXPECT_EQ(recorder.apply(setter, "abc"), invalid("abc"));
+    EXPECT_EQ(recorder.apply(setter, "NaN"), invalid("NaN"));
+    EXPECT_EQ(recorder.apply(setter, "Infinity"), invalid("Infinity"));
+    EXPECT_EQ(recorder.apply(setter, "-Infinity"), invalid("-Infinity"));
 }
 
 TEST(DoubleSetter, SwitchesTheFlagOnForTheSpecialWord)
@@ -266,6 +303,8 @@ TEST(DoubleSetter, AnEmptyFunctionIsAProgrammingError)
     SetterRecorder recorder;
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{})), BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, 2.0)), BugError);
+    EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, QtRocket::SimulationInputRanges::kDelay)),
+                 BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(Set{}, "auto", recorder.truth("flag"))), BugError);
     EXPECT_THROW(static_cast<void>(DoubleSetter(recorder.number("value"), "auto", Special{})),
                  BugError);

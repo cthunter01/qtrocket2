@@ -237,7 +237,7 @@ constexpr std::array<RocketCase, 2> kOwn{{
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ia-decal-without-name", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><insideappearance><decal rotation="1.5" edgemode="STICKER"><center x="0.1" y="0.2"/><offset x="0.3" y="0.4"/><scale x="2" y="3"/></decal><edgessameasinside>true</edgessameasinside></insideappearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, nonfunc=2, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -250,7 +250,7 @@ EVENTS 4 {mass,aero,tree=1, nonfunc=2, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "ia-center-without-x", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><insideappearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"><center y="1"/></decal></insideappearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

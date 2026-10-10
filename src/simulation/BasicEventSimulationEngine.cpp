@@ -1,6 +1,7 @@
 #include "QtRocket/simulation/BasicEventSimulationEngine.h"
 
 #include <cmath>
+#include <cstddef>
 #include <deque>
 #include <format>
 #include <functional>
@@ -520,6 +521,8 @@ void BasicEventSimulationEngine::takeStep()
 
         if (maxStepTime > MathUtil::kEpsilon)
         {
+            // Not OpenRocket's: the rows of a branch are bounded (see the class comment).
+            checkBranchRows();
             m_currentStepper->step(status(), maxStepTime);
         }
     }
@@ -1238,6 +1241,22 @@ void BasicEventSimulationEngine::checkNaN()
     }
 }
 
+void BasicEventSimulationEngine::checkBranchRows()
+{
+    if (branchOf(status()).getLength() >= m_maxBranchRows)
+    {
+        throw SimulationException(tooManyRows(m_maxBranchRows));
+    }
+}
+
+std::string BasicEventSimulationEngine::tooManyRows(std::size_t rows)
+{
+    return std::format(
+        "Simulation needs more than {} steps for one flight data branch. Try selecting a longer "
+        "time step or a shorter maximum simulation time.",
+        rows);
+}
+
 std::shared_ptr<FlightData> BasicEventSimulationEngine::computeCoastTime()
 {
     const std::shared_ptr<SimulationConditions> conds =
@@ -1250,6 +1269,7 @@ std::shared_ptr<FlightData> BasicEventSimulationEngine::computeCoastTime()
                   });
     conds->getSimulationListenerList().push_back(OptimumCoastListener::instance());
     BasicEventSimulationEngine coastEngine;
+    coastEngine.setMaxBranchRows(m_maxBranchRows);
 
     coastEngine.simulate(conds);
     return coastEngine.getFlightData();

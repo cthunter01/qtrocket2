@@ -438,6 +438,11 @@ std::shared_ptr<DecalImage> OpenRocketDocument::getDecalImage(
     return image;
 }
 
+bool OpenRocketDocument::hasDecalImage(const std::shared_ptr<const Attachment>& attachment) const
+{
+    return m_decalRegistry.hasDecalImage(attachment);
+}
+
 std::shared_ptr<DecalImage> OpenRocketDocument::findDecalImage(std::string_view name) const
 {
     return m_decalRegistry.find(name);

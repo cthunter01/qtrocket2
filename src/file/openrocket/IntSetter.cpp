@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/util/BugError.h"
@@ -39,17 +40,23 @@ Result<void> IntSetter::set(RocketComponent& component, std::string_view  value,
 {
     // Integer.parseInt(s): nothing is trimmed.
     const std::optional<int> number = Strings::parseInt(value);
-    if (!number.has_value() || (m_maximum.has_value() && *number > *m_maximum))
+    if (!number.has_value())
     {
         warnings.add(Warning::kFileInvalidParameter);
         return {};
     }
-    // Not OpenRocket's: the instances of the whole rocket are bounded too (see the class
-    // comment). The count the component would keep is what is asked about.
+    // Not OpenRocket's: a count may have a bound (see the class comment).
+    if (m_maximum.has_value() && *number > *m_maximum)
+    {
+        warnings.add(LoaderWarnings::countAboveBound(*m_maximum));
+        return {};
+    }
+    // Nor this: the instances of the whole rocket are bounded too. The count the component
+    // would keep is what is asked about.
     if (m_instancesKept.has_value() &&
         !DocumentConfig::instanceCountFits(component, std::min(*number, *m_instancesKept)))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kCountBeyondInstances);
         return {};
     }
     m_set(component, *number);

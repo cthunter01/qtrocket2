@@ -48,7 +48,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES DeploymentConfigurationHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 21> kJava{{
+constexpr std::array<RocketCase, 20> kJava{{
     {.name = "dc-basic", .xml = R"xml(<motorconfiguration configid="11111111-2222-3333-4444-555555555555"></motorconfiguration><subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployevent>apogee</deployevent><deploydelay>1.5</deploydelay><deployaltitude>120</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 6 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=2}
@@ -204,15 +204,6 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=EJECTION:0.0:200.0 deploy[11111111-2222-3333-4444-555555555555]=EJECTION:2.0:100.0 diameter=0.3 lines=6:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-    {.name = "dc-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>-1.5</deploydelay><deployaltitude>-120</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=1.0 stage=0 sep=EJECTION:0.0:200.0
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=1.0 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.05:false thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
-|       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=EJECTION:0.0:200.0 deploy[11111111-2222-3333-4444-555555555555]=EJECTION:-1.5:-120.0 diameter=0.3 lines=6:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]
-| selected=default
-| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     {.name = "dc-text-and-attributes", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555" x="1">text<deployevent a="1">apogee</deployevent><deploydelay b="2">3</deploydelay></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
@@ -267,11 +258,24 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 6> kOwn{{
+constexpr std::array<RocketCase, 7> kOwn{{
+    // Decision U9: a deploy delay and a deploy altitude below 0 are outside their ranges and refused, each with QtRocket's own warning, which names the element and the range (OpenRocket stores them).
+    // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
+    {.name = "dc-negative-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>-1.5</deploydelay><deployaltitude>-120</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W The number of element 'deploydelay' is outside its range, from 0 to 1000000 s; ignoring it.
+W The number of element 'deployaltitude' is outside its range, from 0 to 1000000 m; ignoring it.
+ROOT rocket {} []
+EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=1.0 stage=0 sep=EJECTION:0.0:200.0
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=1.0 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.05:false thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false
+|       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=EJECTION:0.0:200.0 deploy[11111111-2222-3333-4444-555555555555]=EJECTION:0.0:200.0 diameter=0.3 lines=6:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L3: an infinite deploy delay is refused with a warning (OpenRocket stores it).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-infinite-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>Infinity</deploydelay></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -282,7 +286,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L3: a deploy delay of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "dc-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>3</deploydelay><deploydelay>NaN</deploydelay></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -294,7 +298,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // Decision L3: an infinite deploy altitude is refused with a warning (OpenRocket stores it).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-infinite-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployaltitude>-Infinity</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -305,7 +309,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L3: a deploy altitude of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "dc-nan-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployaltitude>NaN</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -317,7 +321,8 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // Decision L3: numbers too large for a double are infinities and refused (OpenRocket stores them).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-overflowing-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>1e400</deploydelay><deployaltitude>-1e400</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -329,7 +334,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // A configid that spells out the error id's key is the error id here: the element is refused. OpenRocket stores a deployment under it.
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-error-key", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="ffffffff-f4f2-f1f0-0000-0000000009b9"><deployevent>apogee</deployevent><deploydelay>1.5</deploydelay><deployaltitude>120</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A deployment configuration for the reserved error configuration id was ignored.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -413,6 +418,64 @@ TEST(DeploymentConfigurationHandler, PutsWhatItReadIntoACopyOfAConfiguration)
                                  "<deployaltitude>Infinity</deployaltitude></d>"),
               "LAUNCH:7.0:70.0");
     EXPECT_EQ(configurationAfter("<d><deploydelay>NaN</deploydelay></d>"), "LAUNCH:7.0:70.0");
+}
+
+/// The warnings of the handler after it has read @p xml, and what getConfiguration() then makes
+/// of a deployment of LAUNCH, 7 s and 70 m: "<warning>; <warning> | <event>:<delay>:<altitude>".
+[[nodiscard]] std::string warningsAndConfigurationAfter(std::string_view xml)
+{
+    RocketLoadFixture fixture;
+    AxialStage&       stage = fixture.rocket().addChild(std::make_unique<AxialStage>());
+    BodyTube&         tube  = stage.addChild(std::make_unique<BodyTube>());
+    Parachute&        chute = tube.addChild(std::make_unique<Parachute>());
+    DeploymentConfigurationHandler handler(chute, fixture.context());
+    const HandlerRun               run = runHandler(handler, xml);
+    if (!run.result.has_value())
+    {
+        return "FAILED " + run.result.error().message;
+    }
+    DeploymentConfiguration def;
+    def.setDeployEvent(DeploymentConfiguration::DeployEvent::LAUNCH);
+    def.setDeployDelay(7);
+    def.setDeployAltitude(70);
+    return QtRocket::Strings::join("; ", run.texts()) + " | " + told(handler.getConfiguration(def));
+}
+
+// Decision U9 of tier 9: a delay and an altitude have to lie in the ranges a simulation holds
+// them to (SimulationInputRanges::kDelay and kEventAltitude: 0 to 1000000 s, 0 to 1000000 m).
+// One that does not is not put in, with a warning of QtRocket's own that names the element and
+// the range. OpenRocket stores every number, a negative one too.
+TEST(DeploymentConfigurationHandler, ADelayOrAnAltitudeOutsideItsRangeIsRefused)
+{
+    // The bounds are inside the ranges.
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deploydelay>0</deploydelay>"
+                                            "<deployaltitude>0</deployaltitude></d>"),
+              " | LAUNCH:0.0:0.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deploydelay>1000000</deploydelay>"
+                                            "<deployaltitude>1e6</deployaltitude></d>"),
+              " | LAUNCH:1000000.0:1000000.0");
+
+    // The next number beyond a bound is outside.
+    const std::string_view delay =
+        "The number of element 'deploydelay' is outside its range, from 0 to 1000000 s; ignoring "
+        "it.";
+    const std::string_view altitude =
+        "The number of element 'deployaltitude' is outside its range, from 0 to 1000000 m; "
+        "ignoring it.";
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deploydelay>1000000.0000000001</deploydelay></d>"),
+              std::string(delay) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deploydelay>-4.9e-324</deploydelay></d>"),
+              std::string(delay) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(
+        warningsAndConfigurationAfter("<d><deployaltitude>1000000.0000000001</deployaltitude></d>"),
+        std::string(altitude) + " | LAUNCH:7.0:70.0");
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deployaltitude>-120</deployaltitude></d>"),
+              std::string(altitude) + " | LAUNCH:7.0:70.0");
+    // A refused number takes back the one read before it, as a text that is no number does.
+    EXPECT_EQ(warningsAndConfigurationAfter("<d><deploydelay>3</deploydelay>"
+                                            "<deploydelay>1e300</deploydelay>"
+                                            "<deployaltitude>150</deployaltitude></d>"),
+              std::string(delay) + " | LAUNCH:7.0:150.0");
 }
 
 // The handler touches the device only when its element closes.

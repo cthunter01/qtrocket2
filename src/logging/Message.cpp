@@ -1,5 +1,6 @@
 #include "QtRocket/logging/Message.h"
 
+#include <cstddef>
 #include <string>
 #include <typeinfo>
 
@@ -54,6 +55,18 @@ bool Message::equals(const Message& other) const
 {
     return sameType(other) && sourcesEqual(m_sources, other.m_sources) &&
            m_priority == other.m_priority;
+}
+
+std::size_t Message::hashCode() const noexcept
+{
+    return typeid(*this).hash_code();
+}
+
+std::size_t Message::combineHash(std::size_t seed, std::size_t value) noexcept
+{
+    // The mixing step of boost::hash_combine.
+    constexpr std::size_t kGoldenRatio = 0x9e3779b9U;
+    return seed ^ (value + kGoldenRatio + (seed << 6U) + (seed >> 2U));
 }
 
 bool Message::sameType(const Message& other) const noexcept

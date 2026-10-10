@@ -55,9 +55,12 @@ class MotorMount;
 ///
 /// Deviations from OpenRocket:
 /// - An ignition delay or an overhang that is a NaN or an infinity is refused with the warning
-///   of a text that is no number (OpenRocket stores it).
+///   of a text that is no number (OpenRocket stores it), and so is an ignition delay outside
+///   the range a simulation holds a delay to (decision U9 of tier 9;
+///   SimulationInputRanges::kDelay, from 0 to 1000000 s; OpenRocket stores every number).
 /// - An <ignitionconfiguration> applies what it gives: the delay when one was read, then the
-///   event when one was read. Without a delay it also adds Warning::kFileInvalidParameter:
+///   event when one was read. Without a delay it also adds a warning of QtRocket's own,
+///   LoaderWarnings::kIgnitionConfigurationWithoutDelay:
 ///   OpenRocket dies there of a NullPointerException, before it looks at the event. Without an
 ///   event OpenRocket stores null as the configuration's event; here the event stays.
 /// - "Illegal motor specification, ignoring." is given for an id that is not valid, as the
@@ -69,11 +72,13 @@ class MotorMount;
 ///   "no motor").
 /// - A mount that is not in a rocket is a BugError at the first <motor> (Java: an
 ///   IllegalStateException); the component handler attaches a component before it reads it.
-/// - A <motor> of a flight configuration the rocket does not have yet is ignored with
-///   Warning::kFileInvalidParameter, before its motor is looked for, when that configuration
-///   would take the rocket beyond DocumentConfig::kMaxInstances component instances over all
-///   its flight configurations (DocumentConfig::flightConfigurationFits(); see
-///   MotorConfigurationHandler). OpenRocket has no bound and runs out of memory.
+/// - A <motor> of a flight configuration the rocket does not have yet is ignored, before its
+///   motor is looked for, when the rocket has DocumentConfig::kMaxFlightConfigurations already
+///   (the warning LoaderWarnings::motorBeyondConfigurationBound(); decision U6 of tier 9) and
+///   when that configuration would take the rocket beyond DocumentConfig::kMaxInstances
+///   component instances over all its flight configurations (the warning
+///   LoaderWarnings::kMotorBeyondInstances; see MotorConfigurationHandler). OpenRocket has no
+///   bound and runs out of memory.
 /// - The flight configuration gets a copy of the motor configuration the mount stored (Java:
 ///   the object itself), which the handler keeps in step with the mount's as said above. One
 ///   case stays apart: two <motor> elements of one configid in one mount and no change of the

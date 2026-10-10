@@ -902,14 +902,17 @@ TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingManySimulations)
 // configuration (Simulation::setFlightConfigurationId() for an id the rocket lacks). Making a
 // configuration costs time in proportion to the configurations the rocket has (the tree change
 // it fires updates every one of them), so the load is quadratic in the number of simulations:
-// 500, 1000 and 2000 simulations take 0.35, 1.5 and 6 s in the release build (the review of
+// 500, 1000 and 2000 simulations took 0.35, 1.5 and 6 s in the release build (the review of
 // run 9b measured 8000 in 140 s). OpenRocket does the same and takes 0.7, 1.8 and 6.5 s
 // (Simulation.setFlightConfigurationID(), Rocket.createFlightConfiguration() and
-// updateConfigurations()). Neither has a bound on the number of configurations the simulations
-// of a file may make: an open question. Run it by name; it takes minutes in a debug build.
+// updateConfigurations()), and has no bound. Since run 9d the loader has: a rocket gets at most
+// DocumentConfig::kMaxFlightConfigurations (1000), and the simulation that would make one more
+// is ignored (SingleSimulationHandler), so the numbers here end at the bound; what a file
+// beyond it costs is measured through the loader in loader_bounds_tests.cpp. Run it by name;
+// it takes minutes in a debug build.
 TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingSimulationsOfNewConfigurations)
 {
-    for (const int count : {500, 1000, 2000})
+    for (const int count : {250, 500, 1000})
     {
         RecordProperty(
             std::format("seconds_for_{}_distinct_ids", count),
@@ -959,16 +962,20 @@ TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingSimulationsOfNewConfigur
 
 // A measurement, not a test: the time of a load of one simulation whose elements give one
 // warning each. A warning set looks for an equal warning in everything it holds before it adds
-// one (MessageSet::add(); Java: MessageSet.add() with messages.indexOf()), so a load is
+// one (MessageSet::add(); Java: MessageSet.add() with messages.indexOf()), so a load was
 // quadratic in the number of distinct warnings, whichever handler adds them. In the release
-// build 10,000, 20,000 and 40,000 elements take:
+// build 10,000, 20,000 and 40,000 elements took:
 //   stored <warning> elements of distinct texts   0.9, 3.1 and 13 s    (OpenRocket: 0.9, 2.6, 16 s)
 //   unknown children of the <simulation>          0.4, 1.5 and 6.3 s   (OpenRocket: 0.6, 1.6, 5.3
 //   s) extensions with ids no provider knows         0.5, 1.6 and 6.8 s   (OpenRocket:
 //   0.4, 1.3, 3.6 s)
-// Neither has a bound on the warnings of a load: an open question for the whole loader, since
-// every handler adds its warnings to the same set. Run it by name; it takes many minutes in a
-// debug build.
+// OpenRocket has no bound on its warnings. Since run 9d the loader has
+// (DocumentConfig::kMaxWarnings): the stored warnings of a flight are held to it by the flight
+// data's handler, so the first line is linear now, here too; the warnings of the load are held
+// to it by GeneralRocketLoader, which gives its set a capacity, and not in this test, whose
+// set has none, so the other two lines measure what a set without a capacity costs. What a
+// load costs is measured through the loader in loader_bounds_tests.cpp. Run it by name; it
+// takes many minutes in a debug build.
 TEST(SimulationsHandler, DISABLED_PrintsTheTimeOfLoadingManyWarnings)
 {
     for (const std::string_view kind : {"warning", "child", "extension"})

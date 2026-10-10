@@ -5,6 +5,7 @@
 #include <string_view>
 #include <vector>
 
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/extension/SimulationExtension.h"
 #include "QtRocket/util/Config.h"
 #include "QtRocket/util/Signal.h"
@@ -97,6 +98,11 @@ protected:
     /// configuration: "Air-start", not "Air-start (100 m, 50 m/s)".
     [[nodiscard]] static InputNumber inputNumber(std::string_view extensionName,
                                                  std::string_view key, double value);
+
+    /// The same for a number that has to lie in @p range.
+    [[nodiscard]] static InputNumber inputNumber(std::string_view extensionName,
+                                                 std::string_view key, double value,
+                                                 const SimulationInputRanges::Range& range);
 
     /// Emits changed() (Java's fireChangeEvent()): a subclass calls it from every setter that
     /// changes its configuration.

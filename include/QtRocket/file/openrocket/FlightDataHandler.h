@@ -65,6 +65,15 @@ class DocumentLoadingContext;
 /// points are loaded as OpenRocket loads them, NaN and infinities included.
 ///
 /// Deviations from OpenRocket:
+/// - The flight data keep at most DocumentConfig::kMaxWarnings of the stored warnings
+///   (decision U6 of tier 9; MessageSet::setCapacity()): when the element has one more, the
+///   set gets the warning LoaderWarnings::tooManyStoredWarnings() as its last, once, and every
+///   later <warning> is dropped, so the flight data have at most kMaxWarnings + 1 warnings.
+///   That last warning is one of the flight's, not of the load. A SIM_WARN event whose warnid
+///   names a warning that was dropped finds no warning, like one that names none (see
+///   FlightDataBranchHandler). The set of the flight data itself has no capacity (it is
+///   immutable from the load on). OpenRocket has no bound; a set looks through all it holds
+///   before it adds one, so 40000 stored warnings of texts of their own took 17 s.
 /// - The flight data are handed out as a std::shared_ptr, which is what the Simulation
 ///   constructor takes; Java's getFlightData() returns the object.
 /// - The handler takes the loading context only; Java's also takes the simulation's handler,

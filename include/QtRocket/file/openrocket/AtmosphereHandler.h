@@ -21,14 +21,14 @@ class SimulationOptions;
 /// store what it read (storeSettings()).
 ///
 /// The children, each read with Double.parseDouble:
-/// - <basetemperature>: the launch temperature in K. A text that is no number and a value that
-///   is not finite give "Illegal base temperature specified, ignoring." and no temperature;
-///   the last element counts, so one that is refused also takes back an earlier one. Zero and
-///   a negative value are taken (the atmospheric model refuses them when a simulation runs).
+/// - <basetemperature>: the launch temperature in K, from 1 to 1000. A text that is no number
+///   and a value that is not finite or outside that range give "Illegal base temperature
+///   specified, ignoring." and no temperature; the last element counts, so one that is
+///   refused also takes back an earlier one.
 /// - <basepressure>: the launch pressure in Pa, raised to 0.001 Pa when it is lower, so that
-///   it is never zero or negative. A text that is no number and a value that is not finite
-///   give "Illegal base pressure specified, ignoring." and no pressure; the last element
-///   counts as for the temperature.
+///   it is never zero or negative, and of at most 1000000. A text that is no number and a
+///   value that is not finite or above that give "Illegal base pressure specified, ignoring."
+///   and no pressure; the last element counts as for the temperature.
 /// - <baserelativehumidity>: the relative humidity, 0 ... 1. Anything else (no number, a NaN,
 ///   a value outside that range) gives "Illegal base humidity specified, ignoring" (without a
 ///   full stop, as in OpenRocket) and leaves a humidity read before as it is.
@@ -47,6 +47,11 @@ class SimulationOptions;
 ///   no simulation option that is not finite). OpenRocket stores a temperature of either
 ///   infinity and a pressure of positive infinity, and makes 0.001 Pa of a pressure of negative
 ///   infinity.
+/// - A temperature outside 1 K to 1000 K and a pressure above 1000000 Pa are refused in the
+///   same way (decision U9 of tier 9: the ranges a simulation holds the two to,
+///   SimulationInputRanges::kLaunchTemperature and kLaunchPressure). OpenRocket stores every
+///   number: also zero and a negative temperature, which its atmospheric model then refuses
+///   when the simulation is run ("Temperature must be positive (Kelvin)").
 /// - Java's handler also takes the loading context, which it never uses.
 class AtmosphereHandler final : public AbstractElementHandler
 {

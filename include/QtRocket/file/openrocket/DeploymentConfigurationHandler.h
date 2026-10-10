@@ -36,14 +36,22 @@ class RecoveryDevice;
 /// Neither the element's own text nor its attributes are warned of.
 ///
 /// Deviations from OpenRocket:
-/// - A delay or an altitude that is a NaN or an infinity is refused with
-///   Warning::kFileInvalidParameter, like a text that is no number. OpenRocket stores an
-///   infinity (a simulation with it cannot run) and passes over a NaN without a warning.
-/// - A configid that spells out the key of the error id is refused with
-///   Warning::kFileInvalidParameter, and the element changes nothing; OpenRocket, in which no
-///   id made from a text is the error id (see FlightConfigurationId), stores a deployment
-///   under it. One that spells out the key of the default id replaces the device's default
-///   deployment, which is what OpenRocket's map does with it.
+/// - A delay or an altitude that is a NaN or an infinity is refused like a text that is no
+///   number (decision L3 of the loader), with a warning of QtRocket's own that names the
+///   element, LoaderWarnings::numberNotFinite() ("The number of element '<element>' is not
+///   finite; ignoring it."). OpenRocket stores an infinity (a simulation with it cannot run)
+///   and passes over a NaN without a warning.
+/// - A delay or an altitude outside the range a simulation holds it to (decision U9 of tier
+///   9; SimulationInputRanges::kDelay and kEventAltitude: from 0 to 1000000 s, and to as many
+///   metres) is refused in the same way, with LoaderWarnings::numberOutOfRange() ("The number
+///   of element '<element>' is outside its range, from 0 to 1000000 s; ignoring it.").
+///   OpenRocket stores every number, a negative one included.
+/// - A configid that spells out the key of the error id is refused with a warning of
+///   QtRocket's own, LoaderWarnings::kDeploymentConfigurationOfErrorId, and the element changes
+///   nothing; OpenRocket, in which no id made from a text is the error id (see
+///   FlightConfigurationId), stores a deployment under it. One that spells out the key of the
+///   default id replaces the device's default deployment, which is what OpenRocket's map does with
+///   it.
 /// - The constructor takes the loading context, as every handler of the loader does, and does
 ///   not need it; neither does Java's.
 class DeploymentConfigurationHandler final : public AbstractElementHandler
@@ -55,7 +63,8 @@ public:
                                    const DocumentLoadingContext& context) noexcept;
 
     /// A copy of @p def with what this handler has read put in: the event when one was read,
-    /// the delay and the altitude when one was read and is finite (getConfiguration()).
+    /// the delay and the altitude when one was read and is finite and in its range
+    /// (getConfiguration()).
     [[nodiscard]] DeploymentConfiguration getConfiguration(
         const DeploymentConfiguration& def) const;
 

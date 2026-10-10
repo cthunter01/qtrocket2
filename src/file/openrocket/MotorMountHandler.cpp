@@ -9,6 +9,7 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/IgnitionConfigurationHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/MotorHandler.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
@@ -22,6 +23,7 @@
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 
@@ -103,16 +105,23 @@ void MotorMountHandler::closeMotor(const Attributes& attributes, WarningSet& war
         warnings.add(Warning::fromString("Illegal motor specification, ignoring."));
         return;
     }
-    // Not OpenRocket's: a motor whose flight configuration would take the rocket beyond its
-    // instance budget is ignored (see the class comment), before anything is set: the flight
-    // configuration of an id the rocket does not have is its default one, which must not be
-    // told of a motor.
+    // Not OpenRocket's: a motor whose flight configuration would be one too many for the
+    // rocket, or would take it beyond its instance budget, is ignored (see the class comment),
+    // before anything is set: the flight configuration of an id the rocket does not have is
+    // its default one, which must not be told of a motor.
     Rocket& rocket = asComponent(*m_mount).getRocket();
-    if (!rocket.containsFlightConfigurationId(fcid) &&
-        !DocumentConfig::flightConfigurationFits(rocket))
+    if (!rocket.containsFlightConfigurationId(fcid))
     {
-        warnings.add(Warning::kFileInvalidParameter);
-        return;
+        if (!DocumentConfig::flightConfigurationCountFits(rocket))
+        {
+            warnings.add(LoaderWarnings::motorBeyondConfigurationBound());
+            return;
+        }
+        if (!DocumentConfig::flightConfigurationFits(rocket))
+        {
+            warnings.add(LoaderWarnings::kMotorBeyondInstances);
+            return;
+        }
     }
     std::shared_ptr<const Motor> motor = m_motorHandler->getMotor(warnings);
     MotorConfiguration           motorConfig(*m_mount, fcid, m_mount->getDefaultMotorConfig());
@@ -156,7 +165,7 @@ void MotorMountHandler::closeIgnitionConfiguration(const Attributes& attributes,
     else
     {
         // Java: a NullPointerException, the delay being a null Double.
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kIgnitionConfigurationWithoutDelay);
     }
     if (const std::optional<IgnitionEvent> event = m_ignitionConfigHandler->getIgnitionEvent())
     {
@@ -188,9 +197,10 @@ void MotorMountHandler::closeIgnitionEvent(std::string_view content, WarningSet&
 
 void MotorMountHandler::closeIgnitionDelay(std::string_view content, WarningSet& warnings)
 {
-    // Java: Double.parseDouble, a NaN and an infinity included.
+    // Java: Double.parseDouble, a NaN, an infinity and every other number included. Here only
+    // a delay that a simulation takes (see the class comment).
     const std::optional<double> delay = DocumentConfig::parseFiniteDouble(content);
-    if (!delay.has_value())
+    if (!delay.has_value() || !SimulationInputRanges::kDelay.contains(*delay))
     {
         warnings.add(Warning::fromString("Illegal ignition delay specified, ignoring."));
         return;
