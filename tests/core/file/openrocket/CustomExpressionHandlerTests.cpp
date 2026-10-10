@@ -7,7 +7,6 @@
 
 #include <gtest/gtest.h>
 
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/simulation/customexpression/CustomExpression.h"
 #include "file/openrocket/DocumentHandlerTestSupport.h"
@@ -22,7 +21,6 @@ namespace
 
 using QtRocket::CustomExpression;
 using QtRocket::CustomExpressionHandler;
-using QtRocket::Warning;
 using QtRocket::WarningSet;
 using QtRocket::Test::DocumentCase;
 using QtRocket::Test::documentCasesThatThrowWhenCutOff;
@@ -103,14 +101,14 @@ constexpr std::array<DocumentCase, 5> kOwn{{
     // Decision L4: a <unit> without unittype, of which OpenRocket dies; here it is passed over with a warning and the expression has no unit.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "String.equals(Object)" because the return value of "java.util.HashMap.get(Object)" is nul ...
     {.name = "ce-unit-without-a-type", .xml = R"xml(<datatypes><type source="customexpression"><name>No unit type r4v</name><symbol>qr4v</symbol><unit>m</unit><expression>h</expression></type></datatypes>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A unit of a custom expression without a unit type was ignored.
 ROOT datatypes {} []
 EVENTS 0
 | expression name='No unit type r4v' symbol='qr4v' unit='' expression='h')out"},
     // Decision L4: a <unit> without unittype, of which OpenRocket dies; here it is passed over with a warning and the unit read before stays.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "String.equals(Object)" because the return value of "java.util.HashMap.get(Object)" is nul ...
     {.name = "ce-unit-without-a-type-after-one-with", .xml = R"xml(<datatypes><type source="customexpression"><name>Kept r4w</name><symbol>qr4w</symbol><unit unittype="auto">m</unit><unit>s</unit></type></datatypes>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A unit of a custom expression without a unit type was ignored.
 ROOT datatypes {} []
 EVENTS 0
 | expression name='Kept r4w' symbol='qr4w' unit='m' expression='')out"},
@@ -203,7 +201,8 @@ TEST(CustomExpressionHandler, PassesAUnitWithoutItsTypeOver)
     ASSERT_TRUE(handler.closeElement("unit", {{"unittype", "auto"}}, "m", warnings).has_value());
     ASSERT_TRUE(handler.closeElement("unit", {}, "s", warnings).has_value());
     EXPECT_EQ(handler.getExpression().getUnit(), "m");
-    EXPECT_EQ(warningTexts(warnings), Texts{Warning::kFileInvalidParameter.toString()});
+    EXPECT_EQ(warningTexts(warnings),
+              Texts{"A unit of a custom expression without a unit type was ignored."});
 }
 
 }  // namespace

@@ -1,9 +1,11 @@
 #include "QtRocket/file/openrocket/DeploymentConfigurationHandler.h"
 
+#include <cmath>
 #include <optional>
 #include <string_view>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
@@ -18,6 +20,32 @@
 
 namespace QtRocket
 {
+
+namespace
+{
+
+/// The number of the element @p element whose text is @p content, or none with a warning:
+/// OpenRocket's for a text that is no number (Java: parseDouble(content, warnings,
+/// Warning.FILE_INVALID_PARAMETER)), and QtRocket's own for a NaN or an infinity, which
+/// OpenRocket passes over or stores (decision L3).
+[[nodiscard]] std::optional<double> finiteNumberOf(std::string_view element,
+                                                   std::string_view content, WarningSet& warnings)
+{
+    const std::optional<double> number = Strings::javaParseDouble(content);
+    if (!number.has_value())
+    {
+        warnings.add(Warning::kFileInvalidParameter);
+        return std::nullopt;
+    }
+    if (!std::isfinite(*number))
+    {
+        warnings.add(LoaderWarnings::numberNotFinite(element));
+        return std::nullopt;
+    }
+    return number;
+}
+
+}  // namespace
 
 DeploymentConfigurationHandler::DeploymentConfigurationHandler(
     RecoveryDevice& component, const DocumentLoadingContext& /*context*/) noexcept
@@ -70,21 +98,13 @@ Result<void> DeploymentConfigurationHandler::closeElement(std::string_view  elem
     if (element == "deploydelay")
     {
         // Java: Double.parseDouble, a NaN and an infinity included.
-        m_delay = DocumentConfig::parseFiniteDouble(content);
-        if (!m_delay.has_value())
-        {
-            warnings.add(Warning::kFileInvalidParameter);
-        }
+        m_delay = finiteNumberOf(element, content, warnings);
         return {};
     }
     if (element == "deployaltitude")
     {
         // Java: Double.parseDouble, a NaN and an infinity included.
-        m_altitude = DocumentConfig::parseFiniteDouble(content);
-        if (!m_altitude.has_value())
-        {
-            warnings.add(Warning::kFileInvalidParameter);
-        }
+        m_altitude = finiteNumberOf(element, content, warnings);
         return {};
     }
     return AbstractElementHandler::closeElement(element, attributes, content, warnings);
@@ -99,7 +119,7 @@ Result<void> DeploymentConfigurationHandler::endHandler(std::string_view /*eleme
     if (!configId.isValid())
     {
         // Not OpenRocket's, where no id read from a file is the error id: see the class comment.
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDeploymentConfigurationOfErrorId);
         return {};
     }
     FlightConfigurableParameterSet<DeploymentConfiguration>& configurations =

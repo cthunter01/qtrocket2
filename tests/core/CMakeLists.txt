@@ -302,13 +302,16 @@ add_executable(QtRocket_core_tests
     file/openrocket/GravityHandlerTests.cpp
     file/openrocket/handler_test_support_tests.cpp
     file/openrocket/IgnitionConfigurationHandlerTests.cpp
+    file/openrocket/IgnoredElementHandlerTests.cpp
     file/openrocket/InsideAppearanceHandlerTests.cpp
     file/openrocket/instance_budget_tests.cpp
     file/openrocket/integration_tests.cpp
     file/openrocket/IntSetterTests.cpp
     file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
+    file/openrocket/loader_bounds_tests.cpp
     file/openrocket/loader_value_sweep_tests.cpp
+    file/openrocket/LoaderWarningsTests.cpp
     file/openrocket/MaterialSetterTests.cpp
     file/openrocket/MotorConfigurationHandlerTests.cpp
     file/openrocket/MotorHandlerTests.cpp

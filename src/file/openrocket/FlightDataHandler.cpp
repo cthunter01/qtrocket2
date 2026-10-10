@@ -15,8 +15,10 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/FlightDataBranchHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/WarningHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
@@ -59,6 +61,9 @@ FlightDataHandler::FlightDataHandler(const DocumentLoadingContext& context) : m_
     {
         bug("the loading context of a flight data handler has no document");
     }
+    // Not OpenRocket's: the stored warnings of one flight are bounded (see the class comment).
+    m_warningSet.setCapacity(DocumentConfig::kMaxWarnings,
+                             Warning::fromString(LoaderWarnings::tooManyStoredWarnings()));
 }
 
 Result<ElementHandler*> FlightDataHandler::openElement(std::string_view  element,

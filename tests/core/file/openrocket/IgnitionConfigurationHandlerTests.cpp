@@ -201,7 +201,7 @@ EVENTS 12 {mass,aero,tree=5, motor=5, tree=2}
     // OpenRocket: | config 11111111-2222-3333-4444-555555555555 name='[{motors}]' preload=null active=[true] motors=1 all=[#2:F12X:BURNOUT:NaN:true] flying=[#2:F12X:BUR ...
     {.name = "ic-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><motor configid="11111111-2222-3333-4444-555555555555"><designation>C6</designation><delay>5.0</delay></motor><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitiondelay>NaN</ignitiondelay><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Illegal ignition delay specified, ignoring.
-W Invalid parameter encountered, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, motor=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

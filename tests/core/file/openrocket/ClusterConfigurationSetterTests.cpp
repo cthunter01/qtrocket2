@@ -170,9 +170,11 @@ TEST(ClusterConfigurationSetter, RefusesALayoutTheRocketCannotHold)
     const ClusterConfigurationSetter setter;
     // Nine tubes in each of the 10000 pods: 110003 instances.
     EXPECT_EQ(layoutAfter(fixture, setter, inner, "9-grid"),
-              "single [Invalid parameter encountered, ignoring.]");
+              "single [A cluster configuration that would give the rocket too many component "
+              "instances was refused; the component keeps the configuration it had.]");
     EXPECT_EQ(layoutAfter(fixture, setter, inner, "9-star"),
-              "single [Invalid parameter encountered, ignoring.]");
+              "single [A cluster configuration that would give the rocket too many component "
+              "instances was refused; the component keeps the configuration it had.]");
     // Six fit: 80003.
     EXPECT_EQ(layoutAfter(fixture, setter, inner, "6-ring"), "6-ring []");
     EXPECT_EQ(DocumentConfig::instanceLoad(inner), 80003U);

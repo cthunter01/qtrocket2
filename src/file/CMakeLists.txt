@@ -39,9 +39,11 @@ target_sources(QtRocket_core PRIVATE
     openrocket/FlightDataHandler.cpp
     openrocket/GravityHandler.cpp
     openrocket/IgnitionConfigurationHandler.cpp
+    openrocket/IgnoredElementHandler.cpp
     openrocket/InsideAppearanceHandler.cpp
     openrocket/IntSetter.cpp
     openrocket/LandingDispersionSettingsHandler.cpp
+    openrocket/LoaderWarnings.cpp
     openrocket/MaterialSetter.cpp
     openrocket/MotorConfigurationHandler.cpp
     openrocket/MotorHandler.cpp

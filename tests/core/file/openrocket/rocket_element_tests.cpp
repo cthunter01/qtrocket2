@@ -722,10 +722,11 @@ EVENTS 77 {mass,aero=29, mass,aero,tree=11, mass,tree=1, motor=4, nonfunc=20, tr
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
 constexpr std::array<RocketCase, 15> kOwn{{
-    // Decision L3 in OverrideSetter (part R1): an override mass of NaN is refused (OpenRocket stores it).
+    // Decision L3 in OverrideSetter (part R1): an override mass of NaN is refused with QtRocket's own warning (OpenRocket stores it).
     // OpenRocket: EVENTS 7 {aero,treechild=1, mass=2, mass,treechild=2, nonfunc=1, tree=1}
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.0 massovr=NaN cgovr=0.5 subovr=true,true,true stage=0 sep=EJECTION:0.0:200.0
     {.name = "scout-override-setters", .xml = R"xml(<subcomponents><stage><overridemass>NaN</overridemass><overridecg> 0.5 </overridecg><overridecd>abc</overridecd><overridesubcomponents>true</overridesubcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W An override value that is not finite was refused; the component keeps what it had.
 W Invalid parameter encountered, ignoring.
 ROOT rocket {} []
 EVENTS 6 {aero,treechild=1, mass=1, mass,treechild=2, nonfunc=1, tree=1}
@@ -739,7 +740,7 @@ EVENTS 6 {aero,treechild=1, mass=1, mass,treechild=2, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/a.png'
     {.name = "scout-appearance-no-rotation", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" edgemode="STICKER"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -753,7 +754,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     // OpenRocket: | decals='decals/a.png'
     {.name = "scout-appearance-no-edgemode", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -766,7 +767,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "scout-appearance-no-name", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal rotation="0" edgemode="REPEAT"/></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A decal without a name, a rotation or an edge mode was ignored.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -779,7 +780,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
     // OpenRocket: |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0: ...
     {.name = "scout-appearance-decal-extras", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="REPEAT" extra="1">text<center x="1"/></decal></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A center, offset or scale of a decal without x or y was ignored.
 W Unknown text in element 'decal', ignoring.
 W Unknown attributes in element 'decal', ignoring.
 ROOT rocket {} []
@@ -794,7 +795,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: Cannot invoke "java.lang.Double.doubleValue()" because "this.ignitionConfigHandler.ignitionDelay" is nul ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "scout-motormount-ignitionconfig-partial", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><motormount><ignitionconfiguration configid="11111111-2222-3333-4444-555555555555"><ignitionevent>burnout</ignitionevent></ignitionconfiguration></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W An ignition configuration has no ignition delay that can be read; the delay stays what it was.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, motor=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -910,12 +911,13 @@ EVENTS 3 {mass,aero,tree=1, motor=1, tree=1}
 |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=true overhang=0.0 ign=AUTOMATIC:0.0:false
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-    // Decision L3: an infinite deploy delay is refused; the warning is also the one of the NaN, of which OpenRocket gives none.
+    // Decision L3: an infinite deploy delay is refused, and so is the NaN, of which OpenRocket gives no warning; each has QtRocket's own warning, which names its element.
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "scout-nan-deploy", .xml = R"xml(<motorconfiguration configid="11111111-2222-3333-4444-555555555555"/>
 <subcomponents><stage><subcomponents><bodytube><subcomponents><parachute><deploydelay>NaN</deploydelay><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>Infinity</deploydelay><deployaltitude>NaN</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 W Invalid parameter encountered, ignoring. data: 'NaN' - Parachute
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=1, mass,tree=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

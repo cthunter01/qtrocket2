@@ -28,13 +28,13 @@
 #include "QtRocket/file/openrocket/EnumSetter.h"
 #include "QtRocket/file/openrocket/FinTabPositionSetter.h"
 #include "QtRocket/file/openrocket/IntSetter.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/MaterialSetter.h"
 #include "QtRocket/file/openrocket/OverrideSetter.h"
 #include "QtRocket/file/openrocket/RadiusPositionSetter.h"
 #include "QtRocket/file/openrocket/Setter.h"
 #include "QtRocket/file/openrocket/StringSetter.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -227,7 +227,7 @@ template <class Set>
     const RocketComponent* const holder = std::as_const(component).getRoot().findComponent(*id);
     if (holder != nullptr && holder != &component)
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDuplicateComponentId);
         return {};
     }
     component.setId(*id);
@@ -1061,6 +1061,39 @@ bool DocumentConfig::flightConfigurationFits(const RocketComponent& component)
     const RocketComponent& root = component.getRoot();
     return saturatingMultiply(instancesOfSubtree(root, 1, CountChange{}),
                               saturatingAdd(configurationsOf(root), 1)) <= kMaxInstances;
+}
+
+namespace
+{
+
+/// The components of the tree below @p component, @p component itself not counted.
+[[nodiscard]] std::size_t componentsBelow(const RocketComponent& component)
+{
+    std::size_t count = 0;
+    for (const RocketComponent* child : component.getChildren())
+    {
+        count += 1 + componentsBelow(*child);
+    }
+    return count;
+}
+
+}  // namespace
+
+std::size_t DocumentConfig::componentCount(const RocketComponent& component)
+{
+    return componentsBelow(component.getRoot());
+}
+
+bool DocumentConfig::componentFits(const RocketComponent& parent, const RocketComponent& child)
+{
+    // No sum of two trees that fit into memory overflows.
+    return componentCount(parent) + 1 + componentsBelow(child) <= kMaxComponents;
+}
+
+bool DocumentConfig::flightConfigurationCountFits(const RocketComponent& component)
+{
+    // configurationsOf() counts the default one too.
+    return configurationsOf(component.getRoot()) <= kMaxFlightConfigurations;
 }
 
 std::optional<std::string_view> DocumentConfig::attribute(

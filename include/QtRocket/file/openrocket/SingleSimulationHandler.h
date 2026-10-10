@@ -126,6 +126,19 @@ class SimulationExtension;
 ///   OpenRocket never writes that id.
 /// - Non-finite numbers of the <conditions> are not applied (see SimulationConditionsHandler),
 ///   so the simulation's options always equal their copy, the simulated conditions.
+/// - A simulation whose <configid> names a flight configuration the rocket lacks, or none (an
+///   empty <configid>, which is a new random id), makes that configuration, as in OpenRocket.
+///   It is ignored instead, with everything it holds, and nothing is added to the document,
+///   when the rocket has DocumentConfig::kMaxFlightConfigurations already (the warning
+///   LoaderWarnings::simulationBeyondConfigurationBound(); decision U6 of tier 9) and when
+///   one more configuration would take the rocket beyond DocumentConfig::kMaxInstances
+///   component instances over all its flight configurations (the warning
+///   LoaderWarnings::kSimulationBeyondInstances; before this the simulations of a file were a
+///   way around that bound). The warnings of the element itself (an unknown status, an
+///   unknown child) are given all the same, and so is what fails the load. A simulation of a
+///   configuration the rocket has is never refused. OpenRocket has no bound: every such
+///   simulation costs time in proportion to the configurations there are, so the time to read
+///   N of them grew with N squared (8000 took 140 s).
 /// - Without a <landingdispersion> element the simulation has no landing dispersion settings,
 ///   as in OpenRocket; with one it always has what the element holds, where OpenRocket has
 ///   none when it refuses the element (see LandingDispersionSettingsHandler).
@@ -148,8 +161,9 @@ public:
     [[nodiscard]] OpenRocketDocument& getDocument() const noexcept { return *m_document; }
 
     /// The simulation this handler made and added to the document: null until the element has
-    /// ended, after a failure, and once the simulation is gone (the handler does not keep it
-    /// alive: the document owns it). (An addition: Java's callers find it in the document.)
+    /// ended, after a failure, for a simulation that was ignored (see the class comment), and
+    /// once the simulation is gone (the handler does not keep it alive: the document owns it). (An
+    /// addition: Java's callers find it in the document.)
     [[nodiscard]] std::shared_ptr<Simulation> getSimulation() const noexcept
     {
         return m_simulation.lock();

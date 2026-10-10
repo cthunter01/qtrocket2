@@ -19,10 +19,10 @@
 #include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/GravityHandler.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/WindHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
 #include "QtRocket/models/WindModelType.h"
@@ -62,7 +62,7 @@ enum class Rule
     /// Finite and above zero; otherwise the element's warning.
     POSITIVE,
     /// Finite and above zero; otherwise nothing, but for positive infinity, which OpenRocket
-    /// would store: Warning::kFileInvalidParameter.
+    /// would store: LoaderWarnings::optionNotFinite().
     POSITIVE_SILENT,
 };
 
@@ -291,7 +291,7 @@ bool SimulationConditionsHandler::closeNumberElement(std::string_view element,
     else if (d > 0)
     {
         // Positive infinity, which OpenRocket stores: refused, and said.
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::optionNotFinite(element));
     }
     return true;
 }

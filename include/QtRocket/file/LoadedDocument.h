@@ -18,7 +18,9 @@ struct LoadedDocument
     /// GeneralRocketLoader).
     std::unique_ptr<OpenRocketDocument> document;
     /// The warnings of the load, in the order they were given: those of the handlers that read
-    /// the file, then those of the simulation extensions (documentLoaded()).
+    /// the file, then those of the simulation extensions (documentLoaded()). At most
+    /// DocumentConfig::kMaxWarnings of them, and then one more that says that further ones were
+    /// dropped; the set keeps that capacity (see GeneralRocketLoader).
     WarningSet warnings;
 };
 

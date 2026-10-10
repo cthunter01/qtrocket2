@@ -248,14 +248,14 @@ EVENTS 4
     // Decision L5: an integer preference is loaded; one that cannot be read gives a warning (OpenRocket drops all of them without a word).
     // OpenRocket: EVENTS 0
     {.name = "dp-integers-that-are-none", .xml = R"xml(<docprefs><pref key="i1" type="integer">abc</pref><pref key="i2" type="integer"></pref><pref key="i3" type="integer">2147483648</pref><pref key="i4" type="integer">1.5</pref><pref key="i5" type="integer">1 2</pref><pref key="i6" type="integer">5</pref></docprefs>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document preference of type integer that is no integer was ignored.
 ROOT docprefs {} []
 EVENTS 1
 | pref 'i6' Integer 5)out"},
     // Decision L5: a double preference is loaded; one that cannot be read gives a warning (OpenRocket drops all of them without a word).
     // OpenRocket: EVENTS 0
     {.name = "dp-doubles-that-are-none", .xml = R"xml(<docprefs><pref key="d1" type="double">abc</pref><pref key="d2" type="double"></pref><pref key="d3" type="double">Inf</pref><pref key="d4" type="double">1,5</pref><pref key="d5" type="double">2.5</pref></docprefs>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document preference of type double that is no number was ignored.
 ROOT docprefs {} []
 EVENTS 1
 | pref 'd5' Double 2.5)out"},
@@ -275,7 +275,7 @@ ROOT docprefs {} []
 EVENTS 0)out"},
     // Decision L5: an integer that cannot be read gives a warning, also without a key (OpenRocket drops the element without a word).
     {.name = "dp-number-without-a-key", .xml = R"xml(<docprefs><pref type="number">5</pref><pref type="integer">6</pref><pref type="double">7.5</pref><pref type="integer">x</pref></docprefs>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document preference of type integer that is no integer was ignored.
 ROOT docprefs {} []
 EVENTS 0)out"},
     // Decision L4: a preference of type list with a key, for which OpenRocket throws a RuntimeException; here the text of that exception is a warning, and the preference behind it is loaded.

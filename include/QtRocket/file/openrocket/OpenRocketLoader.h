@@ -52,6 +52,10 @@ class DocumentLoadingContext;
 /// - a document type declaration XmlScanner does not read (declarations in an internal
 ///   subset): ErrorCode::UNSUPPORTED_FORMAT with XmlScanner's message, as it is. OpenRocket
 ///   reads such a document (an existing deviation of XmlScanner).
+/// The warnings go to the set load() is given, which it neither clears nor bounds: the bound
+/// on the warnings of a load (DocumentConfig::kMaxWarnings) is a capacity of the set, which
+/// GeneralRocketLoader gives the one it makes (MessageSet::setCapacity()).
+///
 /// As in Java the handlers have filled the document with everything before the place of the
 /// failure, and none of the steps above has run: a caller discards the document. What a
 /// failed load leaves changed outside the document is listed at GeneralRocketLoader.

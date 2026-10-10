@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -53,25 +54,32 @@ class SimulationOptions;
 ///
 /// Deviations from OpenRocket:
 /// - Values that are not finite are not applied (decision U3). An infinite <speed>,
-///   <direction> or <standarddeviation> of the average model gives
-///   Warning::kFileInvalidParameter ("Invalid parameter encountered, ignoring."), since
-///   OpenRocket has no warning there: it stores the infinity (an infinite direction as a NaN).
-///   A <windlevel> with an attribute that is a NaN or an infinity is not added and gives the
-///   same warning; OpenRocket adds it, and fails the load for a second level whose altitude is
-///   a NaN.
+///   <direction> or <standarddeviation> of the average model gives a warning of QtRocket's
+///   own that names the element, LoaderWarnings::optionNotFinite() ("The number of element
+///   'speed' would give a simulation option that is not finite; the option keeps what it
+///   had."), since OpenRocket has no warning there: it stores the infinity (an infinite
+///   direction as a NaN). A <windlevel> with an attribute that is a NaN or an infinity is not
+///   added and gives LoaderWarnings::kWindLevelNotFinite; OpenRocket adds it, and fails the
+///   load for a second level whose altitude is a NaN.
 /// - The same holds for a finite number that would make the average model compute one that is
 ///   not finite (setAverageWind()): a <speed> takes the turbulence intensity along, so that a
 ///   huge standard deviation over a small speed becomes an infinite one at the next <speed>.
 ///   OpenRocket stores that infinity.
 /// - A <windlevel> that lacks one of its four attributes is not added and gives
-///   Warning::kFileInvalidParameter (decision D9). OpenRocket ends with a
+///   LoaderWarnings::kWindLevelIncomplete (decision D9). OpenRocket ends with a
 ///   NullPointerException. The attributes are looked at in the order altitude, speed,
 ///   direction, standarddeviation, and the first that is missing or is no number decides, as
 ///   in Java: `<windlevel speed="abc"/>` is skipped, `<windlevel altitude="abc"/>` fails the
 ///   load.
 /// - An altituderef that names no reference ("AGL", "") sets the reference to mean sea level
 ///   and gives "Unknown wind altitude reference '<text>', using MSL." (decision L9, QtRocket's
-///   own text). OpenRocket stores null, which fails later in the simulation or the saver.
+///   own text, LoaderWarnings::unknownAltitudeReference()). OpenRocket stores null, which
+///   fails later in the simulation or the saver.
+/// - The multi-level model of one <wind> element gets at most DocumentConfig::kMaxWindLevels
+///   levels (decision U6 of tier 9): a <windlevel> that would be one more is not added and
+///   gives LoaderWarnings::tooManyWindLevels(). It is asked last, when the level is read and
+///   would be added, so a level beyond the bound still fails the load for an attribute that
+///   is no number, but no longer for an altitude that has a level. OpenRocket has no bound.
 /// - The constructor takes the warning set, for that warning.
 class WindHandler final : public AbstractElementHandler
 {
@@ -115,11 +123,15 @@ private:
     /// model that @p element is.
     void closeAverageElement(std::string_view element, std::string_view content,
                              WarningSet& warnings);
-    /// Adds the level of a <windlevel> with @p attributes.
+    /// Adds the level of a <windlevel> with @p attributes, unless the element has as many
+    /// levels as it may have.
     [[nodiscard]] Result<void> closeWindLevel(const Attributes& attributes, WarningSet& warnings);
 
     std::optional<std::string> m_model;
     SimulationOptions*         m_options;
+    /// The levels this element has given the multi-level model, which was empty when the
+    /// element opened.
+    std::size_t m_levelCount{0};
 };
 
 }  // namespace QtRocket

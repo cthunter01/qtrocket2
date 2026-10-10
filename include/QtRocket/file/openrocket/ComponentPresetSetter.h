@@ -64,16 +64,19 @@ class RocketComponent;
 ///   parachute passes PresetLoadOptions{.allowAutoRadius = false}, Java's `false`.
 /// - A parachute or streamer is not given a preset whose material it would take and that is
 ///   not a surface material, nor a parachute one whose line material it would take and that is
-///   not a line material: the warning Warning::kFileInvalidParameter, and nothing is loaded.
+///   not a line material: a warning of QtRocket's own, LoaderWarnings::
+///   presetMaterialOfAnotherType() ("The ComponentPreset for component <name> has a material
+///   of a type the component cannot take; the preset is not loaded."), and nothing is loaded.
 ///   OpenRocket dies there of a ClassCastException, after it has set the length (a body tube
 ///   preset named in a <parachute> or <streamer> element); RecoveryDevice::loadFromPreset() and
 ///   Parachute::loadFromPreset() have a BugError there (decisions D9, L4). A device takes a
 ///   preset's material only when its text ("name (density)", Material::toString()) is longer
 ///   than 12 characters; a preset with a shorter one is loaded whatever the material's type,
 ///   and the device has its default material, as in OpenRocket.
-/// - A rocket that is frozen (Rocket::freeze()) loads no preset: the same warning. No loader
-///   freezes the rocket, and RocketComponent::loadPreset() has a BugError for it where
-///   OpenRocket reports an error and goes on.
+/// - A rocket that is frozen (Rocket::freeze()) loads no preset: the warning
+///   LoaderWarnings::presetIntoFrozenRocket(). No loader freezes the rocket, and
+///   RocketComponent::loadPreset() has a BugError for it where OpenRocket reports an error and
+///   goes on.
 class ComponentPresetSetter final : public Setter
 {
 public:

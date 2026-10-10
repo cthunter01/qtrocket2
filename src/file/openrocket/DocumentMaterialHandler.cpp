@@ -6,9 +6,9 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialStorage.h"
@@ -60,12 +60,12 @@ Result<void> DocumentMaterialHandler::closeElement(std::string_view element,
     // Not OpenRocket's, which stores both: see the class comment.
     if (!std::isfinite(material->getDensity()))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDocumentMaterialDensityNotFinite);
         return {};
     }
     if (!std::isfinite(material->getInPlaneShearModulus()))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kDocumentMaterialShearModulusNotFinite);
         material = Material(material->getType(), material->getName(), material->getDensity(), 0.0,
                             material->getGroup(), material->isUserDefined(), false);
     }

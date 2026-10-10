@@ -49,33 +49,41 @@ class RocketComponent;
 /// - Components may not be nested without bound: a component that would stand more than
 ///   kMaxDepth levels below the rocket is ignored, with everything in it, with "<component
 ///   name> is nested too deeply; ignoring this component and its subcomponents." (QtRocket's
-///   own text). OpenRocket has no bound. With the rocket's events on, every component that is
-///   attached makes the whole tree update, and each update walks from every component up to
-///   the rocket, so the time to read a chain of inner tubes within inner tubes, a few bytes
-///   per level, grows with about the cube of its depth: measured here in a debug build, 0.24 s
-///   for 100 levels and 89 s for 1000, and 3000 levels did not end within five minutes. Every
-///   walk of the tree that calls itself per level, the destruction of the rocket among them,
-///   goes as deep as the file says too; no stack overflow was seen up to 1000 levels, and
-///   deeper trees were not reached.
+///   own text, LoaderWarnings::nestedTooDeeply()). OpenRocket has no bound. With the rocket's
+///   events on, every component that is attached makes the whole tree update, and each update walks
+///   from every component up to the rocket, so the time to read a chain of inner tubes within inner
+///   tubes, a few bytes per level, grows with about the cube of its depth: measured here in a debug
+///   build, 0.24 s for 100 levels and 89 s for 1000, and 3000 levels did not end within five
+///   minutes. Every walk of the tree that calls itself per level, the destruction of the rocket
+///   among them, goes as deep as the file says too; no stack overflow was seen up to 1000 levels,
+///   and deeper trees were not reached.
 /// - Nor may a file give the rocket component instances without bound: a component whose
 ///   instances (as many as the instance counts of the components above it multiply to, times
 ///   its own count as its constructor gives it: 2 for a pod set, 3 for a fin set) would take
 ///   the rocket beyond DocumentConfig::kMaxInstances over all its flight configurations is
 ///   ignored, with everything in it, with "<component name> would give the rocket too many
 ///   component instances; ignoring this component and its subcomponents." (QtRocket's own
-///   text; DocumentConfig::childFits()). The setters of the counts refuse a number that would
-///   do the same (IntSetter, ClusterConfigurationSetter). OpenRocket has no bound and runs
-///   out of memory: see DocumentConfig::kMaxInstances.
-/// - The two bounds above leave the time of a load open. With the rocket's events on, every
-///   element that changes the rocket makes every flight configuration build its instances
-///   anew, so the time grows with the square of what a file holds, also within the bounds:
-///   measured in a release build through the test root, 3200 body tubes side by side (35 KB)
-///   took 34 s, 1600 empty flight configurations behind a stage of 20 tubes 65 s, 1600 motors
-///   in one mount 10 s, 100000 separation configurations of one stage 17.5 s, and 80000
-///   different unknown elements 28 s (WarningSet looks for a warning it has before it adds
-///   one). OpenRocket is as slow or slower (108 s for 1600 tubes, 108 s for the 1600
-///   configurations). Whether the number of components, of configurations and of warnings of
-///   a file should have bounds of their own is an open question.
+///   text, LoaderWarnings::tooManyInstances(); DocumentConfig::childFits()). The setters of
+///   the counts refuse a number that would do the same (IntSetter,
+///   ClusterConfigurationSetter). OpenRocket has no bound and runs out of memory: see
+///   DocumentConfig::kMaxInstances.
+/// - Nor components without bound: a component that would be one more than
+///   DocumentConfig::kMaxComponents is ignored, with everything in it, with "<component name>
+///   would give the rocket more than 10000 components; ignoring this component and its
+///   subcomponents." (QtRocket's own text, LoaderWarnings::tooManyComponents();
+///   DocumentConfig::componentFits(); decision U6 of tier 9). It is asked before the instances
+///   are. OpenRocket has no bound. With the rocket's events on, every element that changes
+///   the rocket makes every flight configuration build its instances anew, so the time of a
+///   load grows with the square of what a file holds: the review of run 9b measured, in a
+///   release build through the test root, 34 s for 3200 body tubes side by side (35 KB),
+///   65 s for 1600 empty flight configurations behind a stage of 20 tubes, 10 s for 1600
+///   motors in one mount and 28 s for 80000 different unknown elements (a WarningSet looks
+///   for a warning it has before it adds one), and OpenRocket is as slow or slower (108 s for
+///   1600 tubes, 108 s for the 1600 configurations). The bounds on the components, the
+///   flight configurations and the warnings (DocumentConfig) end that growth at the bound;
+///   the time up to the bound stays what it is, and tests/core/file/openrocket/
+///   loader_bounds_tests.cpp has the measurements. Not bounded: the separation and
+///   deployment configurations of one component (100000 of one stage took 17.5 s).
 /// - The default materials of the preferences are given by this handler (decision D2: what
 ///   Java asks the application for is handed in, here with the loading context), where
 ///   OpenRocket's constructors take them themselves: a component of this library is made with

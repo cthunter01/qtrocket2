@@ -294,7 +294,7 @@ constexpr std::array<RocketCase, 5> kOwn{{
     // Decision L3: an infinite separation delay is refused with a warning (OpenRocket stores it).
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:Infinity:200.0
     {.name = "sc-infinite-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>Infinity</separationdelay></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationdelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -306,7 +306,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 | config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     // Decision L3: a separation delay of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "sc-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationdelay>3</separationdelay><separationdelay>NaN</separationdelay></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationdelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -319,7 +319,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
     // Decision L3: an infinite separation altitude is refused with a warning (OpenRocket stores it).
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[11111111-2222-3333-4444-555555555555]=EJECTION:0.0:-Infinity
     {.name = "sc-infinite-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationaltitude>-Infinity</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -331,7 +331,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
 | config default name='[{motors}]' preload=null active=[true,true] motors=0)out"},
     // Decision L3: a separation altitude of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "sc-nan-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="11111111-2222-3333-4444-555555555555"><separationaltitude>NaN</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'separationaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -344,7 +344,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
     // A configid that spells out the error id's key is the error id here: the element is refused. OpenRocket stores a separation under it.
     // OpenRocket: |   AxialStage 'Stage' axial=AFTER:0.2 x=0.2 len=0.2 stage=1 sep=EJECTION:0.0:200.0 sep[ffffffff-f4f2-f1f0-0000-0000000009b9]=BURNOUT:1.5:120.0
     {.name = "sc-error-key", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube></bodytube></subcomponents></stage><stage><separationconfiguration configid="ffffffff-f4f2-f1f0-0000-0000000009b9"><separationevent>burnout</separationevent><separationdelay>1.5</separationdelay><separationaltitude>120</separationaltitude></separationconfiguration><subcomponents><bodytube></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A separation configuration for the reserved error configuration id was ignored.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

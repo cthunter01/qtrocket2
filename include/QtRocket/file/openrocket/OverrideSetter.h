@@ -23,7 +23,8 @@ class RocketComponent;
 /// Warning::kFileInvalidParameter and changes nothing.
 ///
 /// Deviation from OpenRocket (decision L3 of the loader): a NaN or an infinity is refused like
-/// a text that is no number, with the same warning, and the override is not switched on.
+/// a text that is no number, with a warning of QtRocket's own,
+/// LoaderWarnings::kOverrideNotFinite, and the override is not switched on.
 /// OpenRocket stores what it reads: `<overridemass>NaN</overridemass>` gives a component with
 /// an overridden mass of NaN, which it writes back, and "-Infinity" an overridden mass of 0
 /// (the mass setter's own lower bound). A simulation of such a rocket computes with the NaN.

@@ -11,9 +11,9 @@
 #include <utility>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
-#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
@@ -62,8 +62,7 @@ WindHandler::WindHandler(std::optional<std::string> model, SimulationOptions& op
     if (!altitudeReference.has_value())
     {
         // Not OpenRocket's, which stores null here (see the class comment).
-        warnings.add(
-            std::format("Unknown wind altitude reference '{}', using MSL.", reference->second));
+        warnings.add(LoaderWarnings::unknownAltitudeReference(reference->second));
         altitudeReference = WindModel::AltitudeReference::MSL;
     }
     multiLevel.setAltitudeReference(*altitudeReference);
@@ -119,7 +118,7 @@ void WindHandler::closeAverageElement(std::string_view element, std::string_view
     // comment).
     if (std::isinf(*d) || !setAverageWind(*m_options, setter, *d))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::optionNotFinite(element));
     }
 }
 
@@ -149,7 +148,7 @@ Result<void> WindHandler::closeWindLevel(const Attributes& attributes, WarningSe
         if (attribute == attributes.end())
         {
             // Java: a NullPointerException. The level is skipped (see the class comment).
-            warnings.add(Warning::kFileInvalidParameter);
+            warnings.add(LoaderWarnings::kWindLevelIncomplete);
             return {};
         }
         const Result<double> value = DocumentConfig::parseDouble(attribute->second);
@@ -164,12 +163,24 @@ Result<void> WindHandler::closeWindLevel(const Attributes& attributes, WarningSe
         if (!std::isfinite(value))
         {
             // Not OpenRocket's, which adds such a level (see the class comment).
-            warnings.add(Warning::kFileInvalidParameter);
+            warnings.add(LoaderWarnings::kWindLevelNotFinite);
             return {};
         }
     }
-    return m_options->getMultiLevelWindModel().addWindLevel(values[0], values[1], values[2],
-                                                            values[3]);
+    // Not OpenRocket's either: the levels of one element are bounded (see the class comment).
+    if (m_levelCount >= DocumentConfig::kMaxWindLevels)
+    {
+        warnings.add(LoaderWarnings::tooManyWindLevels());
+        return {};
+    }
+    if (Result<void> added = m_options->getMultiLevelWindModel().addWindLevel(values[0], values[1],
+                                                                              values[2], values[3]);
+        !added)
+    {
+        return added;
+    }
+    ++m_levelCount;
+    return {};
 }
 
 void WindHandler::storeSettings(SimulationOptions& options, WarningSet& warnings) const

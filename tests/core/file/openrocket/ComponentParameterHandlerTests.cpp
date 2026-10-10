@@ -264,7 +264,7 @@ constexpr std::array<RocketCase, 8> kOwn{{
     // An id another component has is refused with a warning. OpenRocket takes it and its load then dies in Rocket.copyWithOriginalID() (a ClassCastException: the rocket is found for the stage's id), which the probe does not call.
     // OpenRocket: |   AxialStage 'Stage' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0
     {.name = "cp-fix-id-of-the-rocket-on-a-stage", .xml = R"xml(<id>11111111-2222-3333-4444-555555555555</id><subcomponents><stage><id>11111111-2222-3333-4444-555555555555</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 1 {tree=1}
 | Rocket 'Rocket' id=11111111-2222-3333-4444-555555555555 axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -274,7 +274,7 @@ EVENTS 1 {tree=1}
     // An id another component has is refused with a warning. OpenRocket takes it and its load then dies in Rocket.copyWithOriginalID() (the body tube is found for the stage's id).
     // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.2 x=0.2 len=0.0 stage=1 sep=EJECTION:0.0:200.0
     {.name = "cp-fix-id-of-a-tube-on-a-later-stage", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><id>1-2-3-4-5</id></bodytube></subcomponents></stage><stage><id>1-2-3-4-5</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -286,7 +286,7 @@ EVENTS 3 {mass,aero,tree=1, tree=2}
     // An id another component has is refused with a warning. OpenRocket takes it, and the second stage, equal to the first, stands at the first one's place.
     // OpenRocket: |   AxialStage 'Stage' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 stage=1 sep=EJECTION:0.0:200.0
     {.name = "cp-fix-id-twice-stages", .xml = R"xml(<subcomponents><stage><id>11111111-2222-3333-4444-555555555555</id><subcomponents><bodytube/></subcomponents></stage><stage><id>11111111-2222-3333-4444-555555555555</id><subcomponents><bodytube/></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 4 {mass,aero,tree=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -300,7 +300,7 @@ EVENTS 4 {mass,aero,tree=2, tree=2}
     // OpenRocket: |     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.5 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperPr ...
     // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.5 len=0.1 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false m ...
     {.name = "cp-fix-id-twice-tubes", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>0.3</length><id>11111111-2222-3333-4444-555555555555</id></bodytube><bodytube><length>0.5</length><id>11111111-2222-3333-4444-555555555555</id></bodytube><bodytube><length>0.1</length></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 7 {mass,aero=3, mass,aero,tree=3, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -313,7 +313,7 @@ EVENTS 7 {mass,aero=3, mass,aero,tree=3, tree=1}
     // An id another component has is refused with a warning (OpenRocket takes it).
     // OpenRocket: |       Bulkhead 'Bulkhead' id=11111111-2222-3333-4444-555555555555 axial=TOP:0.2 x=0.2 len=0.002 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts ...
     {.name = "cp-fix-id-twice-bulkheads", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><subcomponents><bulkhead><id>11111111-2222-3333-4444-555555555555</id><axialoffset method="top">0.1</axialoffset></bulkhead><bulkhead><id>11111111-2222-3333-4444-555555555555</id><axialoffset method="top">0.2</axialoffset></bulkhead></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 9 {mass,aero=3, mass,aero,tree=1, mass,tree=2, nonfunc=2, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -327,7 +327,7 @@ EVENTS 9 {mass,aero=3, mass,aero,tree=1, mass,tree=2, nonfunc=2, tree=1}
     // OpenRocket: |     BodyTube 'Body Tube' id=11111111-2222-3333-4444-555555555555 axial=AFTER:0.0 x=0.0 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperPr ...
     // OpenRocket: | config 22222222-3333-4444-5555-666666666666 name='[{motors}]' preload=null active=[true] motors=1 all=[#3:F12X:AUTOMATIC:0.0:false] flying=[#2:F12X: ...
     {.name = "cp-fix-id-twice-mounts", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><id>11111111-2222-3333-4444-555555555555</id><motormount><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>3</delay></motor></motormount></bodytube><bodytube><id>11111111-2222-3333-4444-555555555555</id><motormount><motor configid="22222222-3333-4444-5555-666666666666"><designation>C6</designation><delay>5</delay></motor></motormount></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 6 {mass,aero,tree=2, motor=2, tree=2}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -341,7 +341,7 @@ EVENTS 6 {mass,aero,tree=2, motor=2, tree=2}
     // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.0 stage=1 sep=EJECTION:0.0:200.0
     // OpenRocket: |   AxialStage 'Stage' id=00000001-0002-0003-0004-000000000005 axial=AFTER:0.0 x=0.0 len=0.0 stage=2 sep=EJECTION:0.0:200.0
     {.name = "cp-fix-id-in-other-spellings", .xml = R"xml(<subcomponents><stage><id>1-2-3-4-5</id></stage><stage><id>00000001-0002-0003-0004-000000000005</id></stage><stage><id>+1-2-3-4-5</id></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A component id that another component has already was refused; the component keeps a new id of its own.
 ROOT rocket {} []
 EVENTS 3 {tree=3}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -592,8 +592,10 @@ TEST(ComponentParameterHandler, PassesTheFailureOfASetterOn)
 // "cp-fix-id-..." of the tables for what OpenRocket makes of each).
 TEST(ComponentParameterHandler, AnIdAnotherComponentHasIsRefused)
 {
-    constexpr std::string_view kWarned = "Invalid parameter encountered, ignoring. | ";
-    constexpr std::string_view kId     = "11111111-2222-3333-4444-555555555555";
+    constexpr std::string_view kWarned =
+        "A component id that another component has already was refused; the component keeps a "
+        "new id of its own. | ";
+    constexpr std::string_view kId = "11111111-2222-3333-4444-555555555555";
 
     // The rocket's id on a stage.
     EXPECT_EQ(idsLeftBy(std::format("<id>{0}</id><subcomponents><stage><id>{0}</id></stage>"

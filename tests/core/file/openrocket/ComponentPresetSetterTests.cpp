@@ -459,24 +459,24 @@ constexpr auto kJava = std::to_array<SetterScript>({
 // What QtRocket answers otherwise than OpenRocket, on purpose: the row has QtRocket's
 // answer, the comment above it the reason and OpenRocket's answer.
 constexpr auto kOwn = std::to_array<SetterScript>({
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.1651, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics,  THROWN ClassCastException
-    {.id = "p054", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "Invalid parameter encountered, ignoring."},
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    {.id = "p054", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, 0.1651, 0.5, 0.05, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false,  THROWN ClassCastException
-    {.id = "p055", .kind = ComponentKind::STREAMER, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readStreamer, .expected = "null, null, Mine, 0.025, 0.5, 0.05, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false, ", .warnings = "Invalid parameter encountered, ignoring."},
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    {.id = "p055", .kind = ComponentKind::STREAMER, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readStreamer, .expected = "null, null, Mine, 0.025, 0.5, 0.05, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.104775, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics,  THROWN ClassCastException
-    {.id = "p056", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "Invalid parameter encountered, ignoring."},
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    {.id = "p056", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false,  THROWN ClassCastException
-    {.id = "p057", .kind = ComponentKind::STREAMER, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readStreamerB, .expected = "null, null, Mine, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false, ", .warnings = "Invalid parameter encountered, ignoring."},
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    {.id = "p057", .kind = ComponentKind::STREAMER, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "RocketComponent:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readStreamerB, .expected = "null, null, Mine, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, false, false, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.1651, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics,  THROWN ClassCastException
-    {.id = "p068", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "Parachute:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "Invalid parameter encountered, ignoring."},
-    // decision L4: OpenRocket dies here, the preset is not loaded
+    {.id = "p068", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "Parachute:preset", .attributes = "type=BODY_TUBE|manufacturer=Estes|partno=BT-50FE, 30359|digest=e9c3e97d32e96762f65e051d74cb9fd7"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
+    // decision L4: OpenRocket dies here, the preset is not loaded (the warning is QtRocket's own, decision U7)
     // OpenRocket: null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.104775, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics,  THROWN ClassCastException
-    {.id = "p069", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "Parachute:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "Invalid parameter encountered, ignoring."},
+    {.id = "p069", .kind = ComponentKind::PARACHUTE, .steps = {{{.key = "RocketComponent:name", .text = "Mine"}, {.key = "Parachute:preset", .attributes = "type=NOSE_CONE|manufacturer=Estes|partno=PNC-50YR, 72604|digest=18363dec5642206a109389ef48efcb32"}}}, .read = &readParachute, .expected = "null, null, Mine, 0.3, 6, 0.44999999999999996, true, 0.8, true, 0.0125, false, 0.025, 0.009595950925286614, false, SURFACE|Ripstop nylon|0.067|0.0|Fabrics, LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics, ", .warnings = "The ComponentPreset for component Mine has a material of a type the component cannot take; the preset is not loaded."},
 });
 // clang-format on
 // ---- end of the generated part
@@ -620,7 +620,9 @@ TEST(ComponentPresetSetter, TheComponentSharesThePresetWithTheDatabase)
 // loadPreset() has a BugError for a frozen rocket, which the setter must not run into.
 TEST(ComponentPresetSetter, AFrozenRocketLoadsNoPreset)
 {
-    EXPECT_EQ(loadIntoAFrozenRocket(), "null, true [Invalid parameter encountered, ignoring.]");
+    EXPECT_EQ(loadIntoAFrozenRocket(),
+              "null, true [The ComponentPreset for component Body Tube cannot be loaded while the "
+              "rocket is frozen; the preset is not loaded.]");
 }
 
 /// The kind of component that takes a preset of @p type in the example designs.
@@ -855,20 +857,23 @@ TEST(ComponentPresetSetter, ARecoveryDeviceIsNotGivenAPresetWhoseLongerMaterialD
     EXPECT_EQ(tubePresetFacts("BT-LONG", "Cardboard", 680.0),
               "0c6814453f6f6eeb0838d327a6426dfd 22");
 
+    // The warning is QtRocket's own and names the component (LoaderWarnings).
     constexpr std::string_view kRefused =
-        "0.025, SURFACE|Ripstop nylon|0.067|0.0|Fabrics [Invalid parameter encountered, ignoring.]";
+        "null, {0}, 0.025, SURFACE|Ripstop nylon|0.067|0.0|Fabrics [The ComponentPreset for "
+        "component {0} has a material of a type the component cannot take; the preset is not "
+        "loaded.]";
     EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE,
                                          "BT-THIRTEEN", "Abc", 0.0),
-              std::format("null, Parachute, {}", kRefused));
+              std::format(kRefused, "Parachute"));
     EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
                                          "BT-THIRTEEN", "Abc", 0.0),
-              std::format("null, Streamer, {}", kRefused));
+              std::format(kRefused, "Streamer"));
     EXPECT_EQ(loadATubePresetIntoADevice("Parachute:preset", ComponentKind::PARACHUTE, "BT-LONG",
                                          "Cardboard", 680.0),
-              std::format("null, Parachute, {}", kRefused));
+              std::format(kRefused, "Parachute"));
     EXPECT_EQ(loadATubePresetIntoADevice("RocketComponent:preset", ComponentKind::STREAMER,
                                          "BT-LONG", "Cardboard", 680.0),
-              std::format("null, Streamer, {}", kRefused));
+              std::format(kRefused, "Streamer"));
 }
 
 /// What a setter of the test's own, whose function only notes the preset it is handed, does

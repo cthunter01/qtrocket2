@@ -106,8 +106,9 @@ namespace QtRocket
 ///   threshold and a launch altitude of negative infinity, clamps an infinite rod angle,
 ///   latitude, longitude and a launch altitude of positive infinity, and makes a NaN of an
 ///   infinite rod or wind direction. A threshold of positive infinity, which OpenRocket stores
-///   without a word, gives Warning::kFileInvalidParameter ("Invalid parameter encountered,
-///   ignoring.").
+///   without a word, gives a warning of QtRocket's own that names the element,
+///   LoaderWarnings::optionNotFinite() ("The number of element 'recoveryspeedwarning' would
+///   give a simulation option that is not finite; the option keeps what it had.").
 /// - A finite number is refused in the same way when an option would not be finite with it: a
 ///   <launchroddirection> of more than about 2.8e307 degrees, which is past the range of a
 ///   double in radians (OpenRocket stores a NaN), and a <windaverage> or <windturbulence>

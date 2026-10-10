@@ -9,7 +9,7 @@
 
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
-#include "QtRocket/logging/Warning.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -67,23 +67,29 @@ using PresetPtr = std::shared_ptr<const ComponentPreset>;
     return Strings::javaLength(material.toString()) > 12 && material.getType() != type;
 }
 
-/// Whether RocketComponent::loadPreset() can load @p preset into @p component: false where it
-/// throws BugError (see the class comment).
-[[nodiscard]] bool canLoad(const RocketComponent& component, const ComponentPreset& preset)
+/// Why RocketComponent::loadPreset() cannot load @p preset into @p component, as the warning
+/// for it, or nullopt when it can: the cases in which it throws BugError (see the class
+/// comment).
+[[nodiscard]] std::optional<std::string> whyNotLoaded(const RocketComponent& component,
+                                                      const ComponentPreset& preset)
 {
     const ComponentKind kind = component.kind();
     if (isRecoveryDevice(kind) &&
         takesMaterialOfAnotherType(preset, ComponentPreset::kMaterial, Material::Type::SURFACE))
     {
-        return false;
+        return LoaderWarnings::presetMaterialOfAnotherType(component.getName());
     }
     if (kind == ComponentKind::PARACHUTE &&
         takesMaterialOfAnotherType(preset, ComponentPreset::kLineMaterial, Material::Type::LINE))
     {
-        return false;
+        return LoaderWarnings::presetMaterialOfAnotherType(component.getName());
     }
     const auto* const rocket = dynamic_cast<const Rocket*>(&component.getRoot());
-    return rocket == nullptr || !rocket->isFrozen();
+    if (rocket != nullptr && rocket->isFrozen())
+    {
+        return LoaderWarnings::presetIntoFrozenRocket(component.getName());
+    }
+    return std::nullopt;
 }
 
 }  // namespace
@@ -144,9 +150,9 @@ Result<void> ComponentPresetSetter::set(RocketComponent&  component, std::string
     }
 
     // Java loads whatever it found; see the class comment for where that is its end.
-    if (!canLoad(component, *matchingPreset))
+    if (const std::optional<std::string> refusal = whyNotLoaded(component, *matchingPreset))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(*refusal);
         return {};
     }
 

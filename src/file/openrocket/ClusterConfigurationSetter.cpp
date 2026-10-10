@@ -3,7 +3,7 @@
 #include <string_view>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
-#include "QtRocket/logging/Warning.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
 #include "QtRocket/rocket/Clusterable.h"
@@ -37,7 +37,7 @@ Result<void> ClusterConfigurationSetter::set(RocketComponent& component, std::st
     // refused (see the class comment).
     if (!DocumentConfig::instanceCountFits(component, config->getClusterCount()))
     {
-        warnings.add(Warning::kFileInvalidParameter);
+        warnings.add(LoaderWarnings::kClusterBeyondInstances);
         return {};
     }
 

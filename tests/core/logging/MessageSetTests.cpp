@@ -1,8 +1,10 @@
 #include "QtRocket/logging/MessageSet.h"
 
+#include <cstddef>
 #include <format>
 #include <functional>
 #include <iterator>
+#include <optional>
 #include <source_location>
 #include <string>
 #include <utility>
@@ -676,6 +678,221 @@ TEST(MessageSet, ModIdOfCopiesAndAssignedSets)
     moved = std::move(other);
     EXPECT_GT(moved.modId().toInt(), assignedId.toInt());
     EXPECT_TRUE(moved.contains(Warning::kAirframeGap));
+}
+
+// ------------------------------------------------------------------------------- capacity
+//
+// QtRocket's own: OpenRocket's sets grow as long as they are added to. The .ork loader gives
+// the set of a load and the set of each stored flight a capacity.
+
+/// The message a full set of these tests adds once.
+[[nodiscard]] Warning::Other overflowWarning()
+{
+    return Warning::fromString("more were dropped");
+}
+
+/// The texts of @p warnings, in order, each followed by a line feed.
+[[nodiscard]] std::string textsOf(const WarningSet& warnings)
+{
+    std::string texts;
+    for (const Warning& warning : warnings)
+    {
+        texts += warning.toString() + "\n";
+    }
+    return texts;
+}
+
+/// Gives @p warnings the warnings "w0" to "w<count - 1>".
+void addNumbered(WarningSet& warnings, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        warnings.add(std::format("w{}", i));
+    }
+}
+
+/// A set of the capacity @p capacity that was given the warnings "w0" to "w<count - 1>".
+[[nodiscard]] WarningSet setOfCapacity(std::size_t capacity, int count)
+{
+    WarningSet warnings;
+    warnings.setCapacity(capacity, overflowWarning());
+    addNumbered(warnings, count);
+    return warnings;
+}
+
+TEST(MessageSet, HasNoCapacityUntilItIsGivenOne)
+{
+    WarningSet warnings;
+    EXPECT_EQ(warnings.capacity(), std::nullopt);
+    addNumbered(warnings, 5000);
+    EXPECT_EQ(warnings.size(), 5000U);
+
+    warnings.setCapacity(3, overflowWarning());
+    EXPECT_EQ(warnings.capacity(), std::optional<std::size_t>(3));
+    // What it holds stays, and giving it a capacity is no change of the contents.
+    EXPECT_EQ(warnings.size(), 5000U);
+    EXPECT_FALSE(warnings.contains(overflowWarning()));
+}
+
+TEST(MessageSet, KeepsAsManyMessagesAsItsCapacityAndSaysOnceThatMoreWereDropped)
+{
+    // At the capacity: every message is there and nothing else.
+    WarningSet warnings = setOfCapacity(3, 3);
+    EXPECT_EQ(textsOf(warnings), "w0\nw1\nw2\n");
+
+    // One more: it is dropped, and the overflow message is added in its place.
+    EXPECT_FALSE(warnings.add("w3"));
+    EXPECT_EQ(textsOf(warnings), "w0\nw1\nw2\nmore were dropped\n");
+    EXPECT_FALSE(warnings.contains(Warning::fromString("w3")));
+
+    // And every later one is dropped without a word.
+    EXPECT_FALSE(warnings.add("w4"));
+    EXPECT_FALSE(warnings.add(Warning::LargeAOA{0.3}));
+    EXPECT_FALSE(warnings.add(Warning::kThickFin, {source("fs-1", "Fins")}));
+    EXPECT_EQ(textsOf(warnings), "w0\nw1\nw2\nmore were dropped\n");
+    EXPECT_EQ(warnings.size(), 4U);
+}
+
+TEST(MessageSet, AFullSetStillReplacesTheContentsOfAMessageItHolds)
+{
+    WarningSet warnings;
+    warnings.setCapacity(2, overflowWarning());
+    EXPECT_TRUE(warnings.add(Warning::LargeAOA{0.1}));
+    EXPECT_TRUE(warnings.add("w1"));
+    EXPECT_FALSE(warnings.add("w2"));
+    ASSERT_EQ(warnings.size(), 3U);
+
+    // A message of a kind the set holds is not one more: it is merged as ever.
+    EXPECT_FALSE(warnings.add(Warning::LargeAOA{0.9}));
+    EXPECT_FALSE(warnings.add("w1"));
+    EXPECT_FALSE(warnings.add(overflowWarning()));
+    ASSERT_EQ(warnings.size(), 3U);
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Warning::LargeAOA&>(*warnings.begin()).aoa(), 0.9);
+}
+
+TEST(MessageSet, AddingToAFullSetDrawsAModificationIdAsEveryAddDoes)
+{
+    WarningSet  warnings = setOfCapacity(1, 2);
+    const ModId full     = warnings.modId();
+    EXPECT_FALSE(warnings.add("another"));
+    EXPECT_NE(warnings.modId(), full);
+    // Giving a set a capacity draws none.
+    const ModId before = warnings.modId();
+    warnings.setCapacity(7, overflowWarning());
+    EXPECT_EQ(warnings.modId(), before);
+}
+
+TEST(MessageSet, AnOverflowMessageTheSetHoldsAlreadyIsNotAddedTwice)
+{
+    WarningSet warnings;
+    warnings.setCapacity(2, overflowWarning());
+    EXPECT_TRUE(warnings.add(overflowWarning()));
+    EXPECT_TRUE(warnings.add("w1"));
+    EXPECT_FALSE(warnings.add("w2"));
+    EXPECT_EQ(textsOf(warnings), "more were dropped\nw1\n");
+}
+
+TEST(MessageSet, ASetWithRoomAgainTakesMessagesAgain)
+{
+    WarningSet warnings = setOfCapacity(2, 3);
+    ASSERT_EQ(textsOf(warnings), "w0\nw1\nmore were dropped\n");
+
+    // Two fewer: room for one, the overflow message being a message of the set.
+    EXPECT_TRUE(warnings.remove(Warning::fromString("w0")));
+    EXPECT_TRUE(warnings.remove(Warning::fromString("w1")));
+    EXPECT_TRUE(warnings.add("w5"));
+    EXPECT_FALSE(warnings.add("w6"));
+    EXPECT_EQ(textsOf(warnings), "more were dropped\nw5\n");
+
+    // Cleared: the capacity stays, and the set says again that it dropped something.
+    warnings.clear();
+    EXPECT_EQ(warnings.capacity(), std::optional<std::size_t>(2));
+    EXPECT_TRUE(warnings.add("a"));
+    EXPECT_TRUE(warnings.add("b"));
+    EXPECT_FALSE(warnings.add("c"));
+    EXPECT_EQ(textsOf(warnings), "a\nb\nmore were dropped\n");
+}
+
+TEST(MessageSet, ACapacityOfNoneKeepsNothingButTheOverflowMessage)
+{
+    WarningSet warnings;
+    warnings.setCapacity(0, overflowWarning());
+    EXPECT_FALSE(warnings.add("w0"));
+    EXPECT_FALSE(warnings.add("w1"));
+    EXPECT_EQ(textsOf(warnings), "more were dropped\n");
+}
+
+TEST(MessageSet, AddAllIsHeldToTheCapacity)
+{
+    WarningSet many;
+    addNumbered(many, 10);
+    WarningSet bounded;
+    bounded.setCapacity(4, overflowWarning());
+    EXPECT_TRUE(bounded.addAll(many));
+    EXPECT_EQ(textsOf(bounded), "w0\nw1\nw2\nw3\nmore were dropped\n");
+    // Nothing of a second helping is added.
+    EXPECT_FALSE(bounded.addAll(many));
+    EXPECT_EQ(bounded.size(), 5U);
+
+    // A set without a capacity takes everything of a bounded one, its overflow message too.
+    WarningSet unbounded;
+    EXPECT_TRUE(unbounded.addAll(bounded));
+    EXPECT_EQ(unbounded.size(), 5U);
+    EXPECT_EQ(unbounded.capacity(), std::nullopt);
+    EXPECT_TRUE(unbounded.add("one more"));
+}
+
+TEST(MessageSet, ACopyAndAMoveKeepTheCapacityAndAnAssignmentTakesTheSourcesOne)
+{
+    const WarningSet original = setOfCapacity(2, 2);
+    WarningSet       copy     = original;
+    EXPECT_EQ(copy.capacity(), std::optional<std::size_t>(2));
+    EXPECT_FALSE(copy.add("w2"));
+    EXPECT_EQ(textsOf(copy), "w0\nw1\nmore were dropped\n");
+    EXPECT_EQ(textsOf(original), "w0\nw1\n") << "the copy is a set of its own";
+
+    WarningSet moved = std::move(copy);
+    EXPECT_EQ(moved.capacity(), std::optional<std::size_t>(2));
+    EXPECT_FALSE(moved.add("w3"));
+    EXPECT_EQ(moved.size(), 3U);
+
+    // Assignment replaces the whole set, the capacity included, both ways.
+    WarningSet unbounded;
+    unbounded.add("u0");
+    unbounded.add("u1");
+    unbounded.add("u2");
+    WarningSet target = original;
+    target            = unbounded;
+    EXPECT_EQ(target.capacity(), std::nullopt);
+    EXPECT_TRUE(target.add("u3"));
+    target = original;
+    EXPECT_EQ(target.capacity(), std::optional<std::size_t>(2));
+    EXPECT_FALSE(target.add("w2"));
+    EXPECT_EQ(textsOf(target), "w0\nw1\nmore were dropped\n");
+    target = setOfCapacity(1, 1);
+    EXPECT_EQ(target.capacity(), std::optional<std::size_t>(1));
+    EXPECT_FALSE(target.add("w1"));
+    EXPECT_EQ(textsOf(target), "w0\nmore were dropped\n");
+}
+
+TEST(MessageSet, AnErrorSetHasACapacityToo)
+{
+    ErrorSet errors;
+    errors.setCapacity(1, ErrorMessage::fromString("more errors were dropped"));
+    EXPECT_TRUE(errors.add("first"));
+    EXPECT_FALSE(errors.add("second"));
+    EXPECT_FALSE(errors.add("third"));
+    ASSERT_EQ(errors.size(), 2U);
+    EXPECT_EQ(std::next(errors.begin())->toString(), "more errors were dropped");
+}
+
+// Two sets are equal when they hold the same messages: the capacity is no part of it.
+TEST(MessageSet, TheCapacityIsNoPartOfEquality)
+{
+    WarningSet plain;
+    plain.add("w0");
+    plain.add("w1");
+    EXPECT_TRUE(setOfCapacity(5, 2) == plain);
 }
 
 }  // namespace

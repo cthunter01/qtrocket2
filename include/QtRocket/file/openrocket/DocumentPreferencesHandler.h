@@ -45,8 +45,9 @@ class OpenRocketDocument;
 /// - Preferences of type "integer" and "double" are loaded. OpenRocket's loader knows neither
 ///   type (EntryHelper reads "boolean", "string", "number" and "list") and drops such a
 ///   preference without a word, although its own saver writes these two types and no other for
-///   the numbers of a document. One that cannot be read (an "integer" that is no int, a
-///   "double" that is no number) gives Warning::kFileInvalidParameter and is dropped.
+///   the numbers of a document. One that cannot be read is dropped with a warning of
+///   QtRocket's own: LoaderWarnings::kIntegerPreferenceUnreadable for an "integer" that is no
+///   int, LoaderWarnings::kDoublePreferenceUnreadable for a "double" that is no number.
 /// - A <pref> with a key whose type is "number" (and whose text is a number) gives the warning
 ///   "Number preferences are not supported", and one whose type is "list" the warning "Nested
 ///   preferences are not supported"; neither is stored. OpenRocket throws a RuntimeException

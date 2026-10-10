@@ -19,7 +19,11 @@ using QtRocket::BugError;
 using QtRocket::OverrideSetter;
 using QtRocket::Test::SetterRecorder;
 
+// OpenRocket's warning for a text that is no number, and QtRocket's own for a number that is
+// not finite (LoaderWarnings::kOverrideNotFinite).
 constexpr std::string_view kInvalid = "[Invalid parameter encountered, ignoring.]";
+constexpr std::string_view kNotFinite =
+    "[An override value that is not finite was refused; the component keeps what it had.]";
 
 TEST(OverrideSetter, SetsTheValueAndThenSwitchesTheOverrideOn)
 {
@@ -58,12 +62,12 @@ TEST(OverrideSetter, RefusesANumberThatIsNotFinite)
     SetterRecorder       recorder;
     const OverrideSetter setter(recorder.number("value"), recorder.truth("enabled"));
 
-    EXPECT_EQ(recorder.apply(setter, "NaN"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "Infinity"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "-Infinity"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "+Infinity"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "1e400"), kInvalid);
-    EXPECT_EQ(recorder.apply(setter, "-1e400"), kInvalid);
+    EXPECT_EQ(recorder.apply(setter, "NaN"), kNotFinite);
+    EXPECT_EQ(recorder.apply(setter, "Infinity"), kNotFinite);
+    EXPECT_EQ(recorder.apply(setter, "-Infinity"), kNotFinite);
+    EXPECT_EQ(recorder.apply(setter, "+Infinity"), kNotFinite);
+    EXPECT_EQ(recorder.apply(setter, "1e400"), kNotFinite);
+    EXPECT_EQ(recorder.apply(setter, "-1e400"), kNotFinite);
     // The largest and the smallest number are numbers.
     EXPECT_EQ(recorder.apply(setter, "1.7976931348623157e308"),
               "value 1.7976931348623157E308, enabled true");

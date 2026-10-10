@@ -193,7 +193,7 @@ constexpr std::array<DocumentCase, 3> kOwn{{
     // OpenRocket: | material [BULK|Negative infinite|-Infinity|0.0|Custom] document=true user=true
     // OpenRocket: | material [BULK|Too large|Infinity|0.0|Custom] document=true user=true
     {.name = "dm-density-not-finite", .xml = R"xml(<docmaterials><material>BULK|Before|1.0</material><material>BULK|NaN|NaN</material><material>BULK|Infinite|Infinity</material><material>BULK|Negative infinite|-Infinity|0.0|Custom</material><material>BULK|Too large|1e999</material><material>BULK|After|2.0</material></docmaterials>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document material with a density that is not finite was ignored.
 ROOT docmaterials {} []
 EVENTS 0
 | material [BULK|After|2.0|0.0|Custom] document=true user=true
@@ -203,7 +203,7 @@ EVENTS 0
     // OpenRocket: | material [BULK|NaN|1.0|NaN|Custom] document=true user=true
     // OpenRocket: | material [BULK|Too large|1.0|-Infinity|Custom] document=true user=true
     {.name = "dm-shear-modulus-not-finite", .xml = R"xml(<docmaterials><material>BULK|NaN|1.0|NaN</material><material>BULK|Infinite|1.0|Infinity|Woods</material><material>BULK|Too large|1.0|-1e999</material><material>BULK|After|2.0</material></docmaterials>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document material has a shear modulus that is not finite; using 0.
 ROOT docmaterials {} []
 EVENTS 0
 | material [BULK|After|2.0|0.0|Custom] document=true user=true
@@ -215,7 +215,7 @@ EVENTS 0
     // OpenRocket: | material [BULK|NaN|NaN|0.0|Custom] document=true user=true
     // OpenRocket: | material [BULK|NaN|NaN|0.0|Custom] document=true user=true
     {.name = "dm-density-nan-twice", .xml = R"xml(<docmaterials><material>BULK|NaN|NaN</material><material>BULK|NaN|NaN</material><material>BULK|NaN|NaN</material></docmaterials>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A document material with a density that is not finite was ignored.
 ROOT docmaterials {} []
 EVENTS 0)out"},
 }};

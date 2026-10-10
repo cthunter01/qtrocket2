@@ -43,6 +43,12 @@ class DocumentLoadingContext;
 ///   not after the last unknown column. A document without custom expressions is left alone.
 ///
 /// Deviations from OpenRocket:
+/// - A document gets at most DocumentConfig::kMaxSimulations simulations (decision U6 of tier
+///   9): a <simulation> that would be one more is ignored with everything in it and the
+///   warning LoaderWarnings::tooManySimulations(). It is read by an IgnoredElementHandler, not
+///   ignored by a null return: nothing in it is looked at (nothing in it can fail the load or
+///   make a flight configuration), nothing of it is warned of when it closes, and
+///   <simulations> closes with its own attributes. OpenRocket has no bound.
 /// - Of Java's rebuilding of the custom expressions when a <simulation> closes, only the
 ///   registration of their types is done (see above): expressions are not parsed or evaluated
 ///   here ("HOOK(custom-expression)" in the source file). Java builds every expression three
@@ -77,6 +83,9 @@ private:
     const DocumentLoadingContext* m_context;
     /// The handler of the <simulation> element opened last.
     std::unique_ptr<SingleSimulationHandler> m_handler;
+    /// Whether the element that closes next at this handler is a <simulation> that was
+    /// ignored.
+    bool m_isIgnoringSimulation{false};
 };
 
 }  // namespace QtRocket

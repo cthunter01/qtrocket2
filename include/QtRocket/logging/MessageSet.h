@@ -6,6 +6,7 @@
 #include <format>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <source_location>
 #include <string>
 #include <string_view>
@@ -56,6 +57,19 @@ namespace QtRocket
 /// in Java; remove(), erase(), filterOut() and clear() when they remove something), as
 /// Monitorable's contract asks. A copy carries the source's id and an assignment draws a fresh
 /// one, so an object's id never goes backwards.
+///
+/// Capacity (QtRocket's own; an OpenRocket set grows as long as it is added to): a set may be
+/// given a capacity with setCapacity(). It then keeps at most that many messages that add()
+/// was given, and when one more would be added it adds, once, the message it was given for
+/// that case in its place (an overflow message: "... the further ones were dropped."), so that
+/// it holds at most capacity() + 1 messages. Every later message is dropped; one that equals a
+/// message of the set still replaces that one's contents as ever. A set without a capacity,
+/// which is every set that nobody gave one, behaves as OpenRocket's. Who needs it is the .ork
+/// loader: every handler adds the warnings of a file to one set, add() looks through the whole
+/// set first (as Java's does), and a file can give a warning with every few bytes, so that the
+/// time of a load grew with the square of the file's size (see DocumentConfig::kMaxWarnings).
+/// A copy and a move of a set keep its capacity, and an assignment replaces it with the
+/// source's, as with immutability.
 ///
 /// Not ported: the java.util.AbstractSet helpers removeAll(), retainAll(), containsAll(),
 /// removeIf(), toArray() and stream(); iterate with begin()/end() and the standard algorithms
@@ -114,8 +128,9 @@ public:
     MessageSet& operator=(MessageSet&& other) noexcept;
     ~MessageSet() = default;
 
-    /// Adds a copy of @p message. Returns true when the set grew, false when a message of the
-    /// same kind was already there (whose contents @p message may have replaced; Java: add(E)).
+    /// Adds a copy of @p message. Returns true when it was added, false when a message of the
+    /// same kind was already there (whose contents @p message may have replaced; Java: add(E)),
+    /// and false when the set is at its capacity and dropped it (see the class comment).
     bool add(const T& message);
     /// Adds a copy of @p message with @p sources as its sources (Java: add(E, RocketComponent...)).
     bool add(const T& message, MessageSources sources);
@@ -125,8 +140,22 @@ public:
     bool add(const T& message, std::string_view discriminator);
     /// Adds the text-only message T::fromString(text) (Java: add(String)).
     bool add(std::string_view text);
-    /// Adds a copy of every message of @p other, in order. Returns true when the set grew.
+    /// Adds a copy of every message of @p other, in order. Returns true when one was added.
     bool addAll(const MessageSet& other);
+
+    /// Gives the set the capacity @p capacity (see the class comment): from now on a message
+    /// that would be one more than that is dropped, and the first time a copy of @p overflow is
+    /// added in its place, unless the set holds a message equal to @p overflow already. What
+    /// the set holds stays, also when it is more than @p capacity. This is no change of the
+    /// contents: it draws no modification id and is allowed on an immuted set, to which
+    /// nothing is added any more.
+    void setCapacity(std::size_t capacity, const T& overflow)
+    {
+        m_capacity = capacity;
+        m_overflow = cloneMessage(overflow);
+    }
+    /// The capacity setCapacity() gave the set, or nullopt for a set that grows without bound.
+    [[nodiscard]] std::optional<std::size_t> capacity() const noexcept { return m_capacity; }
 
     /// Removes the first message equal to @p message, which may be an element of this set.
     /// Returns true when one was removed.
@@ -201,17 +230,29 @@ private:
     bool                            m_mutable{true};
     std::source_location            m_immutedAt;
     ModId                           m_modId{ModId::zero()};
+    /// The most messages add() puts into the set; none for a set that grows without bound.
+    std::optional<std::size_t> m_capacity;
+    /// What is added once in the place of the first message beyond the capacity; null for a
+    /// set without a capacity (and for one that was moved from).
+    std::unique_ptr<T> m_overflow;
 };
 
 template <class T>
     requires std::derived_from<T, Message>
 MessageSet<T>::MessageSet(const MessageSet& other)
-  : m_mutable(other.m_mutable), m_immutedAt(other.m_immutedAt), m_modId(other.m_modId)
+  : m_mutable(other.m_mutable),
+    m_immutedAt(other.m_immutedAt),
+    m_modId(other.m_modId),
+    m_capacity(other.m_capacity)
 {
     m_messages.reserve(other.m_messages.size());
     for (const std::unique_ptr<T>& message : other.m_messages)
     {
         m_messages.push_back(cloneMessage(*message));
+    }
+    if (other.m_overflow != nullptr)
+    {
+        m_overflow = cloneMessage(*other.m_overflow);
     }
 }
 
@@ -237,6 +278,8 @@ MessageSet<T>& MessageSet<T>::operator=(MessageSet&& other) noexcept
     m_mutable   = moved.m_mutable;
     m_immutedAt = moved.m_immutedAt;
     m_modId     = ModId{};
+    m_capacity  = moved.m_capacity;
+    m_overflow.swap(moved.m_overflow);
     return *this;
 }
 
@@ -474,16 +517,27 @@ bool MessageSet<T>::addOwned(std::unique_ptr<T> message)
 {
     m_modId     = ModId{};  // Java: add() draws one before it looks, so a duplicate counts too
     T* existing = find(*message);
-    if (existing == nullptr)
+    if (existing != nullptr)
     {
-        m_messages.push_back(std::move(message));
-        return true;
+        if (existing->replaceBy(*message))
+        {
+            existing->replaceContents(*message);
+        }
+        return false;
     }
-    if (existing->replaceBy(*message))
+    if (m_capacity.has_value() && m_messages.size() >= *m_capacity)
     {
-        existing->replaceContents(*message);
+        // Not OpenRocket's: the set is full (see the class comment). The message is dropped,
+        // and the set says so once. (A set that was moved from has kept the capacity and not
+        // the message.)
+        if (m_overflow != nullptr && find(*m_overflow) == nullptr)
+        {
+            m_messages.push_back(cloneMessage(*m_overflow));
+        }
+        return false;
     }
-    return false;
+    m_messages.push_back(std::move(message));
+    return true;
 }
 
 template <class T>

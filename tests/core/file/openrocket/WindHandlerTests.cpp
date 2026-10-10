@@ -1,6 +1,7 @@
 #include "QtRocket/file/openrocket/WindHandler.h"
 
 #include <array>
+#include <cstddef>
 #include <format>
 #include <initializer_list>
 #include <limits>
@@ -12,6 +13,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -92,11 +94,13 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(Infinity,NaN,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'direction' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option that is not finite; the option keeps what it had.
   fcid=11111111-1111-1111-1111-111111111111
 )out",
      .why = "decision U3: a number that is not finite is not applied; OpenRocket has no warning "
-            "for these, so the three share the general one"},
+            "for these, so each has one of QtRocket's own"},
     {.name     = "cond: wind average negative speed and NaN",
      .xml      = R"xml(
 <conditions>
@@ -187,7 +191,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -225,7 +229,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(-Infinity,2.0,4.141592653589793,0.0)(Infinity,Infinity,NaN,Infinity)(NaN,NaN,NaN,NaN)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -247,7 +251,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL(NaN,1.0,1.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   fcid=11111111-1111-1111-1111-111111111111
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -558,7 +562,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
      .why = "decision D9: the level is skipped at its first missing attribute, where OpenRocket "
@@ -609,7 +613,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
 )out",
      .qtrocket = R"out(
   W[Other,NORMAL] Unknown element x, ignoring.
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level without altitude, speed, direction or standard deviation was ignored.
   closed=conditions {model=multilevel} []
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
@@ -675,7 +679,7 @@ constexpr auto kWindCases = std::to_array<ConditionsCase>({
   wind=AVERAGE avg=(2.0,1.0,Infinity) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .qtrocket = R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option that is not finite; the option keeps what it had.
   wind=AVERAGE avg=(0.001,1.0,1.0E306) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
      .why      = "decision L3: the second speed times the turbulence intensity would be infinite"},
@@ -848,29 +852,34 @@ TEST(WindHandler, AWindLevelAttributeThatIsNoNumberFailsTheLoad)
 }
 
 // Decision D9 for the missing attribute (Java: NullPointerException) and decision L3 for the
-// number that is not finite (Java adds the level).
+// number that is not finite (Java adds the level). Each has a warning of QtRocket's own
+// (decision U7 of tier 9).
 TEST(WindHandler, AWindLevelWithAMissingOrNonFiniteAttributeIsSkippedWithAWarning)
 {
-    const std::string_view skipped = "ok | Invalid parameter encountered, ignoring. | ";
-    EXPECT_EQ(closeLevel({}), skipped);
-    EXPECT_EQ(closeLevel({{"altitude", "100"}, {"speed", "5"}, {"direction", "1"}}), skipped);
+    const std::string_view incomplete =
+        "ok | A wind level without altitude, speed, direction or standard deviation was ignored. "
+        "| ";
+    EXPECT_EQ(closeLevel({}), incomplete);
+    EXPECT_EQ(closeLevel({{"altitude", "100"}, {"speed", "5"}, {"direction", "1"}}), incomplete);
     EXPECT_EQ(closeLevel({{"speed", "5"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
-              skipped);
+              incomplete);
+    const std::string_view notFinite =
+        "ok | A wind level with a number that is not finite was ignored. | ";
     EXPECT_EQ(closeLevel({{"altitude", "100"},
                           {"speed", "5"},
                           {"direction", "1"},
                           {"standarddeviation", "NaN"}}),
-              skipped);
+              notFinite);
     EXPECT_EQ(closeLevel({{"altitude", "-Infinity"},
                           {"speed", "5"},
                           {"direction", "1"},
                           {"standarddeviation", "0.5"}}),
-              skipped);
+              notFinite);
     EXPECT_EQ(closeLevel({{"altitude", "100"},
                           {"speed", "1e999"},
                           {"direction", "1"},
                           {"standarddeviation", "0.5"}}),
-              skipped);
+              notFinite);
 }
 
 // The attributes are looked at in Java's order, and the first that is missing or is no number
@@ -879,7 +888,8 @@ TEST(WindHandler, TheFirstBadAttributeOfAWindLevelDecides)
 {
     // The altitude is missing: skipped, and the speed is not looked at.
     EXPECT_EQ(closeLevel({{"speed", "fast"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
-              "ok | Invalid parameter encountered, ignoring. | ");
+              "ok | A wind level without altitude, speed, direction or standard deviation was "
+              "ignored. | ");
     // The altitude is no number: the load fails, although the speed is missing.
     EXPECT_EQ(closeLevel({{"altitude", "high"}, {"direction", "1"}, {"standarddeviation", "0.5"}}),
               R"(INVALID_ARGUMENT [For input string: "high"] |  | )");
@@ -889,6 +899,72 @@ TEST(WindHandler, TheFirstBadAttributeOfAWindLevelDecides)
                           {"direction", "1"},
                           {"standarddeviation", "wide"}}),
               R"(INVALID_ARGUMENT [For input string: "wide"] |  | )");
+}
+
+/// The attributes of a level at the altitude @p altitude with a wind of 1 m/s.
+[[nodiscard]] Attributes levelAt(std::size_t altitude)
+{
+    return {{"altitude", std::format("{}", altitude)},
+            {"speed", "1"},
+            {"direction", "0"},
+            {"standarddeviation", "0.1"}};
+}
+
+/// Closes @p count <windlevel> elements on @p handler, at the altitudes @p first, @p first + 1
+/// and so on; false when one of them fails.
+[[nodiscard]] bool closeLevels(WindHandler& handler, WarningSet& warnings, std::size_t first,
+                               std::size_t count)
+{
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        if (!handler.closeElement("windlevel", levelAt(first + i), "", warnings).has_value())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// How many levels the multi-level model of @p options has.
+[[nodiscard]] std::size_t levelCount(const SimulationOptions& options)
+{
+    return options.getMultiLevelWindModel().getLevels().size();
+}
+
+// Decision U6 of tier 9, QtRocket's own: the model of one <wind> element gets at most
+// DocumentConfig::kMaxWindLevels levels. OpenRocket has no bound.
+TEST(WindHandler, TakesLevelsUpToTheBoundAndWarnsOfTheOnesBeyondIt)
+{
+    const std::size_t bound = QtRocket::DocumentConfig::kMaxWindLevels;
+    SimulationOptions options;
+    WarningSet        warnings;
+    WindHandler       handler(std::string("multilevel"), options, {}, warnings);
+
+    ASSERT_TRUE(closeLevels(handler, warnings, 0, bound));
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_TRUE(warnings.empty()) << "at the bound";
+
+    ASSERT_TRUE(closeLevels(handler, warnings, bound, 3));
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_EQ(warningTexts(warnings),
+              Texts{"The wind model has 10000 levels already; ignoring a further wind level."});
+
+    // The bound is asked last: beyond it an attribute that is no number still fails the load,
+    // a level that lacks one has its own warning, and a level at an altitude that has one
+    // fails nothing, not being added.
+    EXPECT_TRUE(handler.closeElement("windlevel", levelAt(5), "", warnings).has_value());
+    EXPECT_TRUE(handler.closeElement("windlevel", {{"altitude", "5"}}, "", warnings).has_value());
+    Attributes noNumber = levelAt(bound + 9);
+    noNumber.insert_or_assign("speed", "fast");
+    EXPECT_FALSE(handler.closeElement("windlevel", noNumber, "", warnings).has_value());
+    EXPECT_EQ(levelCount(options), bound);
+    EXPECT_EQ(warnings.size(), 2U);
+
+    // The handler of the next <wind> element clears the levels and counts its own.
+    WindHandler second(std::string("multilevel"), options, {}, warnings);
+    ASSERT_TRUE(closeLevels(second, warnings, 0, 3));
+    EXPECT_EQ(levelCount(options), 3U);
+    EXPECT_EQ(warnings.size(), 2U);
 }
 
 /// The failure of adding the levels @p altitudes, each with a wind of 1 m/s, in that order, and
@@ -955,12 +1031,18 @@ TEST(WindHandler, TheAverageModelTakesSpeedDirectionAndDeviation)
                                     {"standarddeviation", ""},
                                     {"gust", "9"}}),
               " | wind=AVERAGE avg=(3.0,1.5707963267948966,0.0)");
-    // Not OpenRocket's, which stores an infinity: decision U3.
+    // Not OpenRocket's, which stores an infinity: decision U3, with a warning of QtRocket's own
+    // for each element (decision U7 of tier 9).
     EXPECT_EQ(closeAverageChildren({{"speed", "3"},
                                     {"speed", "Infinity"},
                                     {"direction", "-Infinity"},
                                     {"standarddeviation", "1e999"}}),
-              "Invalid parameter encountered, ignoring. | "
+              "The number of element 'speed' would give a simulation option that is not finite; "
+              "the option keeps what it had.; "
+              "The number of element 'direction' would give a simulation option that is not "
+              "finite; the option keeps what it had.; "
+              "The number of element 'standarddeviation' would give a simulation option that is "
+              "not finite; the option keeps what it had. | "
               "wind=AVERAGE avg=(3.0,1.5707963267948966,0.0)");
 }
 

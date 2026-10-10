@@ -660,53 +660,53 @@ constexpr auto kIntCases = std::to_array<SetterCase>({
     {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "-1", .read = &readLaunchLugInstanceCount, .expected = "1"},
     {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "x", .read = &readLaunchLugInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "10000", .read = &readLaunchLugInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "10001", .read = &readLaunchLugInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["20000"]. Here decision L6: a count above 10000 is refused.
-    {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "20000", .read = &readLaunchLugInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "10001", .read = &readLaunchLugInstanceCount, .expected = "1", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
+    // OpenRocket: W[] ["20000"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "LaunchLug:instancecount", .kind = ComponentKind::LAUNCH_LUG, .text = "20000", .read = &readLaunchLugInstanceCount, .expected = "1", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // RailButton:instancecount on a RailButton
     {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "3", .read = &readRailButtonInstanceCount, .expected = "3"},
     {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "0", .read = &readRailButtonInstanceCount, .expected = "1"},
     {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "x", .read = &readRailButtonInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "10000", .read = &readRailButtonInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "10001", .read = &readRailButtonInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "RailButton:instancecount", .kind = ComponentKind::RAIL_BUTTON, .text = "10001", .read = &readRailButtonInstanceCount, .expected = "1", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // RadiusRingComponent:instancecount on a CenteringRing
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "3", .read = &readCenteringRingInstanceCount, .expected = "3"},
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "0", .read = &readCenteringRingInstanceCount, .expected = "1"},
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "x", .read = &readCenteringRingInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "10000", .read = &readCenteringRingInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "10001", .read = &readCenteringRingInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::CENTERING_RING, .text = "10001", .read = &readCenteringRingInstanceCount, .expected = "1", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // RadiusRingComponent:instancecount on a Bulkhead
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::BULKHEAD, .text = "3", .read = &readBulkheadInstanceCount, .expected = "3"},
     {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::BULKHEAD, .text = "10000", .read = &readBulkheadInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::BULKHEAD, .text = "10001", .read = &readBulkheadInstanceCount, .expected = "1", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "RadiusRingComponent:instancecount", .kind = ComponentKind::BULKHEAD, .text = "10001", .read = &readBulkheadInstanceCount, .expected = "1", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // ParallelStage:instancecount on a ParallelStage
     {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "3", .read = &readParallelStageInstanceCount, .expected = "3"},
     {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "0", .read = &readParallelStageInstanceCount, .expected = "2"},
     {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "x", .read = &readParallelStageInstanceCount, .expected = "2", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "10000", .read = &readParallelStageInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "10001", .read = &readParallelStageInstanceCount, .expected = "2", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "ParallelStage:instancecount", .kind = ComponentKind::PARALLEL_STAGE, .text = "10001", .read = &readParallelStageInstanceCount, .expected = "2", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // PodSet:instancecount on a PodSet
     {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "3", .read = &readPodSetInstanceCount, .expected = "3"},
     {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "0", .read = &readPodSetInstanceCount, .expected = "2"},
     {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "x", .read = &readPodSetInstanceCount, .expected = "2", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "10000", .read = &readPodSetInstanceCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "10001", .read = &readPodSetInstanceCount, .expected = "2", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "PodSet:instancecount", .kind = ComponentKind::POD_SET, .text = "10001", .read = &readPodSetInstanceCount, .expected = "2", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // Parachute:linecount on a Parachute
     {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "8", .read = &readParachuteLineCount, .expected = "8"},
     {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "0", .read = &readParachuteLineCount, .expected = "0"},
     {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "-2", .read = &readParachuteLineCount, .expected = "-2"},
     {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "x", .read = &readParachuteLineCount, .expected = "6", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "10000", .read = &readParachuteLineCount, .expected = "10000"},
-    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused.
-    {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "10001", .read = &readParachuteLineCount, .expected = "6", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["2147483647"]. Here decision L6: a count above 10000 is refused.
-    {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "2147483647", .read = &readParachuteLineCount, .expected = "6", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["10001"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "10001", .read = &readParachuteLineCount, .expected = "6", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
+    // OpenRocket: W[] ["2147483647"]. Here decision L6: a count above 10000 is refused, with a warning of QtRocket's own (decision U7).
+    {.key = "Parachute:linecount", .kind = ComponentKind::PARACHUTE, .text = "2147483647", .read = &readParachuteLineCount, .expected = "6", .warnings = "A count above 10000 was refused; the component keeps the count it had."},
     // TubeFinSet:fincount on a TubeFinSet
     {.key = "TubeFinSet:fincount", .kind = ComponentKind::TUBE_FIN_SET, .text = "20000", .read = &readTubeFinSetFinCount, .expected = "8"},
     {.key = "TubeFinSet:fincount", .kind = ComponentKind::TUBE_FIN_SET, .text = "-20000", .read = &readTubeFinSetFinCount, .expected = "1"},
@@ -760,17 +760,17 @@ constexpr auto kBooleanCases = std::to_array<SetterCase>({
 
 constexpr auto kOverrideCases = std::to_array<SetterCase>({
     // RocketComponent:overridemass on a AxialStage
-    // OpenRocket: W[] ["NaN", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["NaN", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "0.25", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.25, true"},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = " 0.5 ", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.5, true"},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "abc", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["0.0", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "-Infinity", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "1e400", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
+    // OpenRocket: W[] ["0.0", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "-Infinity", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
+    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "1e400", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "-1", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, true"},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "0x1p-1", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.5, true"},
@@ -780,24 +780,24 @@ constexpr auto kOverrideCases = std::to_array<SetterCase>({
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "nan", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::AXIAL_STAGE, .text = "Inf", .read = &readAxialStageOverrideMassAndMassOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
     // RocketComponent:overridecg on a AxialStage
-    // OpenRocket: W[] ["NaN", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["NaN", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = " 0.5 ", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.5, true"},
     {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "abc", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.0, false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["Infinity", "true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "0.0, false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridecg", .kind = ComponentKind::AXIAL_STAGE, .text = "-0.5", .read = &readAxialStageOverrideCGXAndCGOverridden, .expected = "-0.5, true"},
     // RocketComponent:overridecd on a AxialStage
     {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "0.75", .read = &readAxialStageOverrideCDAndCDOverridden, .expected = "0.75, true"},
     {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "-0.3", .read = &readAxialStageOverrideCDAndCDOverridden, .expected = "-0.3, true"},
     {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "0", .read = &readAxialStageOverrideCDAndCDOverridden, .expected = "0.0, true"},
-    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "NaN", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "abc", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "-Infinity", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "Invalid parameter encountered, ignoring."},
-    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied.
-    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "Invalid parameter encountered, ignoring."},
+    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "-Infinity", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
+    // OpenRocket: W[] ["true"]. Here decision L3: what is not finite is not applied, with a warning of QtRocket's own (decision U7).
+    {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "Infinity", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "An override value that is not finite was refused; the component keeps what it had."},
     {.key = "RocketComponent:overridecd", .kind = ComponentKind::AXIAL_STAGE, .text = "", .read = &readAxialStageCDOverridden, .expected = "false", .warnings = "Invalid parameter encountered, ignoring."},
     // RocketComponent:overridemass on a BodyTube
     {.key = "RocketComponent:overridemass", .kind = ComponentKind::BODY_TUBE, .text = "0.3", .read = &readBodyTubeOverrideMassAndMassOverridden, .expected = "0.3, true", .beforeKey = "RocketComponent:overridemass", .beforeText = "0.1"},

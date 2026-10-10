@@ -271,7 +271,7 @@ constexpr std::array<RocketCase, 6> kOwn{{
     // Decision L3: an infinite deploy delay is refused with a warning (OpenRocket stores it).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-infinite-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>Infinity</deploydelay></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -282,7 +282,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L3: a deploy delay of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "dc-nan-delay", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>3</deploydelay><deploydelay>NaN</deploydelay></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -294,7 +294,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // Decision L3: an infinite deploy altitude is refused with a warning (OpenRocket stores it).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-infinite-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployaltitude>-Infinity</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -305,7 +305,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // Decision L3: a deploy altitude of NaN is refused with a warning (OpenRocket passes it over without one).
     {.name = "dc-nan-altitude", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deployaltitude>NaN</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -317,7 +317,8 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // Decision L3: numbers too large for a double are infinities and refused (OpenRocket stores them).
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-overflowing-values", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="11111111-2222-3333-4444-555555555555"><deploydelay>1e400</deploydelay><deployaltitude>-1e400</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W The number of element 'deploydelay' is not finite; ignoring it.
+W The number of element 'deployaltitude' is not finite; ignoring it.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
@@ -329,7 +330,7 @@ EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
     // A configid that spells out the error id's key is the error id here: the element is refused. OpenRocket stores a deployment under it.
     // OpenRocket: |       Parachute 'Parachute' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nyl ...
     {.name = "dc-error-key", .xml = R"xml(<subcomponents><stage><subcomponents><bodytube><length>1</length><radius>0.05</radius><subcomponents><parachute><deploymentconfiguration configid="ffffffff-f4f2-f1f0-0000-0000000009b9"><deployevent>apogee</deployevent><deploydelay>1.5</deploydelay><deployaltitude>120</deployaltitude></deploymentconfiguration></parachute></subcomponents></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-W Invalid parameter encountered, ignoring.
+W A deployment configuration for the reserved error configuration id was ignored.
 ROOT rocket {} []
 EVENTS 5 {mass,aero=2, mass,aero,tree=1, mass,tree=1, tree=1}
 | Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL

@@ -8,6 +8,7 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/openrocket/ComponentParameterHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -144,20 +145,22 @@ Result<ElementHandler*> ComponentHandler::openElement(std::string_view element,
     // Not OpenRocket's: see the class comment.
     if (depthOf(*m_parent) >= kMaxDepth)
     {
-        warnings.add(Warning::fromString(
-            std::format("{} is nested too deeply; ignoring this component and its subcomponents.",
-                        component->getComponentName())));
+        warnings.add(LoaderWarnings::nestedTooDeeply(component->getComponentName()));
         return nullptr;
     }
 
-    // Not OpenRocket's either: the instances of the whole rocket are bounded (see the class
-    // comment). The parent stands in the tree, so its instances are known.
+    // Not OpenRocket's either: the components of a rocket are bounded (see the class comment).
+    if (!DocumentConfig::componentFits(*m_parent, *component))
+    {
+        warnings.add(LoaderWarnings::tooManyComponents(component->getComponentName()));
+        return nullptr;
+    }
+
+    // Nor this: the instances of the whole rocket are bounded (see the class comment). The
+    // parent stands in the tree, so its instances are known.
     if (!DocumentConfig::childFits(*m_parent, *component))
     {
-        warnings.add(Warning::fromString(
-            std::format("{} would give the rocket too many component instances; ignoring this "
-                        "component and its subcomponents.",
-                        component->getComponentName())));
+        warnings.add(LoaderWarnings::tooManyInstances(component->getComponentName()));
         return nullptr;
     }
 

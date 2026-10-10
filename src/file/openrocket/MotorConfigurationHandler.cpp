@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
@@ -82,13 +83,21 @@ Result<void> MotorConfigurationHandler::endHandler(std::string_view  element,
         return {};
     }
 
-    // Not OpenRocket's: a configuration that would take the rocket beyond its instance budget
-    // is not made (see the class comment). One the rocket has is never refused.
-    if (!m_rocket->containsFlightConfigurationId(fcid) &&
-        !DocumentConfig::flightConfigurationFits(*m_rocket))
+    // Not OpenRocket's: a configuration that would be one too many for the rocket, or would
+    // take it beyond its instance budget, is not made (see the class comment). One the rocket
+    // has is never refused.
+    if (!m_rocket->containsFlightConfigurationId(fcid))
     {
-        warnings.add(Warning::kFileInvalidParameter);
-        return {};
+        if (!DocumentConfig::flightConfigurationCountFits(*m_rocket))
+        {
+            warnings.add(LoaderWarnings::motorConfigurationBeyondBound());
+            return {};
+        }
+        if (!DocumentConfig::flightConfigurationFits(*m_rocket))
+        {
+            warnings.add(LoaderWarnings::kMotorConfigurationBeyondInstances);
+            return {};
+        }
     }
 
     m_rocket->createFlightConfiguration(fcid);

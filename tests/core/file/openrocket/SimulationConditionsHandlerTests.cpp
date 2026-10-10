@@ -143,13 +143,16 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   W[Other,NORMAL] Illegal launch longitude.
   W[Other,NORMAL] Illegal time step defined, ignoring.
   W[Other,NORMAL] Illegal max simulation time defined, ignoring.
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'recoveryspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'drogueLowspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'recoverydroguemainhighspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
+  W[Other,NORMAL] The number of element 'recoverydroguemainlowspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
   fcid=11111111-1111-1111-1111-111111111111
   rod=0.0 intoWind=false angle=0.0 dir=1.5707963267948966
   wind=AVERAGE avg=(0.0,1.0,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
-     .why = "decision U3: a number that is not finite is not applied; the four thresholds share "
-            "one warning"},
+     .why = "decision U3: a number that is not finite is not applied; each of the four thresholds "
+            "has a warning that names it"},
     {.name     = "cond: -Infinity for every plain number",
      .xml      = R"xml(
 <conditions>
@@ -1308,7 +1311,7 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'recoveryspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   ""}},
     {.name = "drogueLowspeedwarning",
@@ -1322,7 +1325,7 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'drogueLowspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   ""}},
     {.name = "recoverydroguemainhighspeedwarning",
@@ -1337,7 +1340,7 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'recoverydroguemainhighspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   ""}},
     {.name = "recoverydroguemainlowspeedwarning",
@@ -1352,7 +1355,7 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'recoverydroguemainlowspeedwarning' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   ""}},
     {.name = "wind average speed",
@@ -1367,10 +1370,10 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'speed' would give a simulation option that is not finite; the option keeps what it had.
 )out"}},
     {.name = "wind average direction",
      .xml =
@@ -1385,10 +1388,10 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'direction' would give a simulation option that is not finite; the option keeps what it had.
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'direction' would give a simulation option that is not finite; the option keeps what it had.
 )out"}},
     {.name = "wind average standarddeviation",
      .xml =
@@ -1404,11 +1407,11 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
 )out"},
      .qtrocket = {"",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option that is not finite; the option keeps what it had.
   wind=AVERAGE avg=(2.0,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] The number of element 'standarddeviation' would give a simulation option that is not finite; the option keeps what it had.
   wind=AVERAGE avg=(2.0,1.5707963267948966,0.0) multi=MSL(0.0,0.0,0.0,0.0)
 )out"}},
     {.name = "windlevel altitude",
@@ -1424,15 +1427,15 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(-Infinity,2.0,1.0,0.5)
 )out"},
      .qtrocket = {R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out"}},
     {.name = "windlevel speed",
@@ -1448,15 +1451,15 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(10.0,Infinity,4.141592653589793,0.5)
 )out"},
      .qtrocket = {R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out"}},
     {.name = "windlevel direction",
@@ -1472,15 +1475,15 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(10.0,2.0,NaN,0.5)
 )out"},
      .qtrocket = {R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out"}},
     {.name = "windlevel standarddeviation",
@@ -1496,15 +1499,15 @@ constexpr auto kNonFiniteRows = std::to_array<NonFiniteRow>({
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL(10.0,2.0,1.0,0.0)
 )out"},
      .qtrocket = {R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out",
                   R"out(
-  W[Other,NORMAL] Invalid parameter encountered, ignoring.
+  W[Other,NORMAL] A wind level with a number that is not finite was ignored.
   wind=MULTI_LEVEL avg=(0.0,1.5707963267948966,0.0) multi=MSL
 )out"}},
     {.name = "basetemperature",

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -59,6 +60,19 @@ class Setter;
 ///   that about; only a caller that picks a setter by hand can.
 /// - The setters of the instance counts that no component bounds, and of a parachute's line
 ///   count, refuse a number above kMaxCount (decision L6 of the loader; see IntSetter).
+/// - What one file may ask for is bounded (decision U6 of tier 9, the user's numbers): the
+///   components of the rocket (kMaxComponents), its flight configurations
+///   (kMaxFlightConfigurations), the simulations of the document (kMaxSimulations), the levels
+///   of one wind model (kMaxWindLevels) and the warnings of one warning set (kMaxWarnings).
+///   What is beyond a bound is ignored with a warning of its own (LoaderWarnings), where the
+///   file asks for it. OpenRocket has no bound, and neither had the loader: with the rocket's
+///   events on while a file loads, every component, every flight configuration and every
+///   simulation that makes one costs time in proportion to what the rocket holds already, and
+///   every warning is looked for among those there are, so that the time of a load grew with
+///   the square of what a file holds and a megabyte of small elements took minutes to hours.
+///   componentCount(), componentFits() and flightConfigurationCountFits() are the rules of
+///   the first two; the others are asked where they apply (SimulationsHandler, WindHandler,
+///   GeneralRocketLoader and FlightDataHandler).
 /// - A file cannot give a rocket more than kMaxInstances component instances over all its
 ///   flight configurations (see kMaxInstances): what would take the rocket beyond that is
 ///   refused where the file asks for it, by the setters of the instance and fin counts
@@ -72,7 +86,7 @@ class Setter;
 ///   which reads ASCII digits only: an id written with the digits of another script or with
 ///   fullwidth letters loads in OpenRocket and fails the load here).
 /// - "RocketComponent:id" refuses an id that another component of the tree has already, with
-///   Warning::kFileInvalidParameter, and the component keeps the random id it was made with
+///   LoaderWarnings::kDuplicateComponentId, and the component keeps the random id it was made with
 ///   (the id it has, set once more, is accepted). OpenRocket takes the id: two of its
 ///   components are then equal whenever they are of one class (RocketComponent.equals() is
 ///   class and id), so that the later one is taken for the earlier wherever the tree is
@@ -127,7 +141,7 @@ public:
     /// The largest count a file may set where the component has no bound of its own (decision
     /// L6 of the loader): the instances of a launch lug, a rail button, a centering ring or
     /// bulkhead, a pod set and a booster set, and the lines of a parachute. A larger number is
-    /// refused with Warning::kFileInvalidParameter. OpenRocket has no such bound; with the
+    /// refused with LoaderWarnings::countAboveBound(). OpenRocket has no such bound; with the
     /// rocket's events on while a file loads, a count of two thousand million would make the
     /// loader build that many instances at every later change.
     static constexpr int kMaxCount = 10000;
@@ -151,6 +165,59 @@ public:
     /// build: about 450 bytes and 150 ns per instance and change). The largest of the 63 designs
     /// of the repository reaches 180 (its instances times its flight configurations).
     static constexpr std::uint64_t kMaxInstances = 100000;
+
+    /// The most components a file may give a rocket: componentCount(), the rocket itself not
+    /// counted (decision U6 of tier 9). A component that would be one more is ignored with
+    /// everything in it and the warning LoaderWarnings::tooManyComponents() (ComponentHandler,
+    /// which asks componentFits()). OpenRocket has no bound.
+    ///
+    /// Every component a file attaches and every value it sets on one is a change of the
+    /// rocket, which every flight configuration answers by building its instances anew: the
+    /// time to read N components side by side grows with N squared. The bound ends that
+    /// growth; the time up to it stays what it is (minutes for ten thousand components: the
+    /// measurements are in tests/core/file/openrocket/loader_bounds_tests.cpp). The largest of
+    /// the 63 designs of the repository has 53 components ("Two stage high power rocket").
+    static constexpr std::size_t kMaxComponents = 10000;
+
+    /// The most flight configurations a file may give a rocket, the default one not counted
+    /// (Rocket::getFlightConfigurationCount(); decision U6 of tier 9). What would make one
+    /// more is ignored with a warning of its own: a <motorconfiguration>
+    /// (MotorConfigurationHandler), a <motor> (MotorMountHandler) and a simulation that names
+    /// an id the rocket lacks or none at all (SingleSimulationHandler); they ask
+    /// flightConfigurationCountFits(). An element of a configuration the rocket has is read as
+    /// ever. OpenRocket has no bound.
+    ///
+    /// A new flight configuration is a change of the rocket that every configuration there is
+    /// answers, so the time to read N of them grows with N squared (and with the components of
+    /// the rocket). No design of the repository names more than 6.
+    static constexpr std::size_t kMaxFlightConfigurations = 1000;
+
+    /// The most simulations a file may give a document (decision U6 of tier 9). A <simulation>
+    /// beyond it is ignored with everything in it and the warning
+    /// LoaderWarnings::tooManySimulations() (SimulationsHandler). OpenRocket has no bound. A
+    /// simulation without stored data costs about 5 kB of memory. No design of the repository
+    /// has more than 9.
+    static constexpr std::size_t kMaxSimulations = 10000;
+
+    /// The most levels the multi-level wind model of one <wind> element may get (decision U6
+    /// of tier 9). A <windlevel> beyond it is ignored with the warning
+    /// LoaderWarnings::tooManyWindLevels() (WindHandler). OpenRocket has no bound; a level that
+    /// is lower than those before it is put in front of them, so that levels from the highest
+    /// down are read in a time that grows with the square of their number. No design of the
+    /// repository has a model of more than 3 levels.
+    static constexpr std::size_t kMaxWindLevels = 10000;
+
+    /// The most warnings one warning set of a load keeps: the set of the load itself
+    /// (GeneralRocketLoader, LoadedDocument::warnings) and, each by itself, the stored
+    /// warnings of the flight data of a simulation (FlightDataHandler). When one more would be
+    /// added the set gets one last warning, LoaderWarnings::tooManyWarnings() or
+    /// tooManyStoredWarnings(), and every later one is dropped (MessageSet::setCapacity()), so
+    /// such a set holds at most kMaxWarnings + 1 warnings. Decision U6 of tier 9; OpenRocket
+    /// has no bound. A set looks through all it holds before it adds a warning, as Java's
+    /// does, and a file can have a warning of its own with every few bytes (an element nobody
+    /// knows), so the time of a load grew with the square of the number of its warnings. No
+    /// design of the repository gives more than 6 warnings or stores more than 3.
+    static constexpr std::size_t kMaxWarnings = 1000;
 
     /// The element names of the components a file can hold (the keys of Java's constructors),
     /// sorted: the 22 names createComponent() knows.
@@ -225,6 +292,21 @@ public:
     /// Whether instanceLoad() stays within kMaxInstances when the rocket @p component belongs
     /// to gets one more flight configuration.
     [[nodiscard]] static bool flightConfigurationFits(const RocketComponent& component);
+
+    /// How many components the tree has that @p component stands in, its root not counted (the
+    /// rocket, or whatever is at the top of a tree without one). A component is one whatever
+    /// its instance count is.
+    [[nodiscard]] static std::size_t componentCount(const RocketComponent& component);
+
+    /// Whether componentCount() stays within kMaxComponents when @p child, with what stands
+    /// below it, becomes a child of @p parent.
+    [[nodiscard]] static bool componentFits(const RocketComponent& parent,
+                                            const RocketComponent& child);
+
+    /// Whether the rocket @p component belongs to has fewer flight configurations than
+    /// kMaxFlightConfigurations, the default one not counted, so that a file may give it one
+    /// more. A tree whose root is no rocket has none.
+    [[nodiscard]] static bool flightConfigurationCountFits(const RocketComponent& component);
 
     /// The attribute @p name of an element, or nullopt when the element has none (Java:
     /// attributes.get(name), null when absent). The name is compared exactly. The view is into

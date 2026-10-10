@@ -148,6 +148,19 @@ namespace QtRocket
 /// the unpacking stops. No memory is taken for a number a file merely states. An attachment
 /// keeps Java's limit (Attachment::kMaxAttachmentBytes).
 ///
+/// What a document may ask for is bounded too (decision U6 of tier 9; the constants of
+/// DocumentConfig, where each says what it bounds and why): 10000 components of the rocket,
+/// 1000 flight configurations, 10000 simulations, 10000 levels of one wind model, beside the
+/// bounds of the handlers (10000 for one count, 100000 component instances over all flight
+/// configurations, 100 levels of nesting). What is beyond a bound is ignored with a warning of
+/// its own, and the load goes on. And THE WARNINGS of a load are bounded: the set that is
+/// returned keeps the first DocumentConfig::kMaxWarnings (1000) warnings of the load; when one
+/// more would be added it gets one last warning, "The file gave more than 1000 warnings; the
+/// further ones were dropped." (LoaderWarnings::tooManyWarnings()), and every later one is
+/// dropped. The set keeps that capacity in the caller's hands (MessageSet::setCapacity()).
+/// The stored warnings of each simulation's flight data are bounded in the same way, by
+/// themselves (FlightDataHandler). The texts of all these warnings are in LoaderWarnings.
+///
 /// Deviations from OpenRocket:
 /// - An object made with the environment and asked any number of times, each load with a new
 ///   document (Java: one loader object per file, which holds the document and the warnings;
@@ -183,7 +196,7 @@ namespace QtRocket
 ///     cut off: "Exception loading stream: null") the reason is "Unexpected end of GZIP data"
 ///     or "Unexpected end of ZIP data".
 /// - RockSim and RASAero documents are not read (not part of this milestone).
-/// - The bounds above.
+/// - The bounds above, those on the warnings included.
 /// - What the environment must hold is checked when the loader is made: a context without a
 ///   motor finder or without a preference store is a BugError (Java: its globals are there).
 /// - There is no catch-all: nothing here turns a BugError or another exception into an Error.
