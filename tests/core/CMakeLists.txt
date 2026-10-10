@@ -349,6 +349,7 @@ add_executable(QtRocket_core_tests
     goldens/AutomaticDimensions.cpp
     goldens/AutomaticDimensionsTests.cpp
     goldens/body_geometry_golden_tests.cpp
+    goldens/example_simulation_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
