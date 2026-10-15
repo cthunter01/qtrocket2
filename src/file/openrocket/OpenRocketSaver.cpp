@@ -15,6 +15,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/StorageOptions.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
+#include "QtRocket/file/openrocket/ComponentSaver.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/OrkWriter.h"
 #include "QtRocket/file/openrocket/PhotoStudioSaver.h"
@@ -24,7 +25,6 @@
 #include "QtRocket/material/MaterialDatabase.h"
 #include "QtRocket/preferences/DocumentPreferences.h"
 #include "QtRocket/preferences/Preferences.h"
-#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
@@ -71,18 +71,14 @@ static_assert(versionNumber(DocumentConfig::kSupportedVersions.back()) ==
               "the saver writes the newest version the loader knows");
 
 /// The lines OpenRocket's saver of @p component's class gives (Java: the getElements() that
-/// findGetElementsMethod() finds): the open tag, the parameter lines and the close tag. Texts go
-/// through the writer's escape(); the preferences decide whether a flight configuration's name is
-/// its own (FlightConfiguration::isNameOverridden()).
-///
-/// SEAM(S2, component savers): until the component savers are ported, a component writes its
-/// open and close tag only.
+/// findGetElementsMethod() finds): the open tag, the parameter lines and the close tag, or none
+/// (ComponentSaver). Texts go through the writer's escape(); the preferences decide whether a
+/// flight configuration's name is its own (FlightConfiguration::isNameOverridden()).
 [[nodiscard]] std::vector<std::string> componentElements(const RocketComponent& component,
-                                                         OrkWriter& /*writer*/,
-                                                         const Preferences& /*preferences*/)
+                                                         OrkWriter&             writer,
+                                                         const Preferences&     preferences)
 {
-    const std::string_view name = xmlName(component.kind());
-    return {std::format("<{}>", name), std::format("</{}>", name)};
+    return ComponentSaver::getElements(component, writer, preferences);
 }
 
 /// A component whose subcomponents are being written: Java's saveComponent() between the

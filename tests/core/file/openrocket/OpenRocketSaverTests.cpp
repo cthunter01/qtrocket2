@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,12 +24,18 @@
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialGroup.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
+#include "QtRocket/rocket/Appearance.h"
+#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/customexpression/CustomExpression.h"
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
+#include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Version.h"
@@ -47,6 +54,7 @@ using QtRocket::CustomExpression;
 using QtRocket::DocumentConfig;
 using QtRocket::ErrorCode;
 using QtRocket::ErrorSet;
+using QtRocket::FlightConfigurationId;
 using QtRocket::GeneralRocketLoader;
 using QtRocket::InMemoryPreferences;
 using QtRocket::LoadedDocument;
@@ -443,6 +451,145 @@ TEST(OpenRocketSaver, ReplacesMalformedUtf8)
     const Saved saved = saveOf(*document);
     EXPECT_TRUE(saved.text.contains("<name>bad\xEF\xBF\xBD</name>"));
     EXPECT_TRUE(saved.warnings.empty());
+}
+
+/// A document saved (with the simulation data, as OpenRocketSaverTest's saveRocket() is asked
+/// to) and loaded back from the text, with the environment of the load.
+struct Reloaded
+{
+    /// Declared first, destroyed last: the document's simulations keep its preference store.
+    std::unique_ptr<LoaderEnvironment>  environment = std::make_unique<LoaderEnvironment>();
+    std::unique_ptr<OpenRocketDocument> document;
+};
+
+/// OpenRocketSaverTest's saveRocket() and loadRocket() of @p document: the reloaded document, or
+/// none with a failure.
+[[nodiscard]] Reloaded saveAndReload(OpenRocketDocument& document)
+{
+    StorageOptions options;
+    options.setSaveSimulationData(true);
+    const Saved saved = saveOf(document, options);
+    EXPECT_EQ(saved.error, "");
+    Reloaded               reloaded;
+    Result<LoadedDocument> loaded = reload(*reloaded.environment, saved.text);
+    if (!loaded)
+    {
+        ADD_FAILURE() << loaded.error().toString();
+        reloaded.document = OpenRocketDocumentFactory::createNewRocket();
+        return reloaded;
+    }
+    reloaded.document = std::move(loaded->document);
+    return reloaded;
+}
+
+/// The activeness of stages 0, 1 and 2 in @p config, as "true false true".
+[[nodiscard]] std::string activenessOf(const QtRocket::FlightConfiguration& config)
+{
+    return std::format("{} {} {}", config.isStageActive(0), config.isStageActive(1),
+                       config.isStageActive(2));
+}
+
+// Port of OpenRocketSaverTest.testSaveStageActiveness: the activeness of the stages of every
+// flight configuration survives a save and a load (<motorconfiguration><stage number active/>).
+// TestRockets.makeTestRocket_v108_withDisabledStage(): the Falcon 9 Heavy with stage 0 of its
+// selected configuration inactive.
+TEST(OpenRocketSaver, TestSaveStageActiveness)
+{
+    QtRocket::Test::TestFalcon9Heavy falcon;
+    falcon.rocket->getSelectedConfiguration().setStageActive(0, false, false);
+    const std::unique_ptr<OpenRocketDocument> rocketDoc =
+        OpenRocketDocumentFactory::createDocumentFromRocket(std::move(falcon.rocket));
+
+    // Save rockets, load, validate
+    Reloaded first = saveAndReload(*rocketDoc);
+    // Check that the stages activeness is saved
+    QtRocket::FlightConfiguration* config = &first.document->getRocket().getSelectedConfiguration();
+    EXPECT_EQ(activenessOf(*config), "false true true");
+
+    // Disable second stage
+    config->setStageActive(1, false, false);
+    Reloaded second = saveAndReload(*first.document);
+    config          = &second.document->getRocket().getSelectedConfiguration();
+    EXPECT_EQ(activenessOf(*config), "false false true");
+
+    // Re-enable first stage
+    config->setStageActive(0, true, false);
+    Reloaded third = saveAndReload(*second.document);
+    config         = &third.document->getRocket().getSelectedConfiguration();
+    EXPECT_EQ(activenessOf(*config), "true false true");
+
+    // Check that other configurations are not affected
+    const FlightConfigurationId    testFcid0 = QtRocket::Test::testFcid(0);
+    QtRocket::FlightConfiguration* extraConfig =
+        &third.document->getRocket().createFlightConfiguration(testFcid0);
+    extraConfig->setAllStages();
+    Reloaded fourth = saveAndReload(*third.document);
+    config          = &fourth.document->getRocket().getSelectedConfiguration();
+    extraConfig     = &fourth.document->getRocket().getFlightConfiguration(testFcid0);
+    EXPECT_EQ(activenessOf(*config), "true false true");
+    EXPECT_EQ(activenessOf(*extraConfig), "true true true");
+
+    // Disable a stage in the extra config, and an extra one in the selected config
+    extraConfig->setStageActive(0, false, false);
+    config->setStageActive(2, false, false);
+    Reloaded fifth = saveAndReload(*fourth.document);
+    config         = &fifth.document->getRocket().getSelectedConfiguration();
+    extraConfig    = &fifth.document->getRocket().getFlightConfiguration(testFcid0);
+    EXPECT_EQ(activenessOf(*config), "true false false");
+    EXPECT_EQ(activenessOf(*extraConfig), "false true true");
+
+    // Test an empty rocket with no configurations
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    Reloaded empty = saveAndReload(*document);
+    // Add a child, otherwise the stage is always marked inactive
+    empty.document->getRocket().getStage(0)->addChild(std::make_unique<QtRocket::BodyTube>());
+    config = &empty.document->getRocket().getSelectedConfiguration();
+    EXPECT_TRUE(config->isStageActive(0))
+        << " empty rocket, selected config, stage 0 should have been enabled after saving";
+}
+
+/// TestRockets.makeTestRocket_v106_withAppearance(): a stage holding a body tube (12 m, radius
+/// 1 m, wall 5 cm) with an appearance (paint 100, 25, 50, shine 1, no decal).
+[[nodiscard]] std::unique_ptr<OpenRocketDocument> makeTestRocketV106WithAppearance()
+{
+    auto rocket = std::make_unique<QtRocket::Rocket>();
+    rocket->setName("v106_withAppearance");
+
+    // make stage
+    auto& stage = rocket->addChild(std::make_unique<QtRocket::AxialStage>());
+    stage.setName("Stage1");
+
+    // make body tube with an appearance setting
+    auto bodyTube = std::make_unique<QtRocket::BodyTube>(12, 1, 0.05);
+    bodyTube->setAppearance(QtRocket::Appearance(QtRocket::Color(100, 25, 50), 1));
+    stage.addChild(std::move(bodyTube));
+
+    rocket->enableEvents();
+    return OpenRocketDocumentFactory::createDocumentFromRocket(std::move(rocket));
+}
+
+// Port of OpenRocketSaverTest.testAppearanceTextureOpacityRoundTrip: the paint's alpha and
+// <opacityaffectstexture> survive a save and a load.
+TEST(OpenRocketSaver, TestAppearanceTextureOpacityRoundTrip)
+{
+    const std::unique_ptr<OpenRocketDocument> rocketDoc = makeTestRocketV106WithAppearance();
+    QtRocket::RocketComponent& bodyTube = rocketDoc->getRocket().getStage(0)->getChild(0);
+    bodyTube.setAppearance(
+        QtRocket::Appearance(QtRocket::Color(100, 25, 50, 128), 1, std::nullopt, true));
+
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> rocketDocLoaded = reload(environment, saveOf(*rocketDoc).text);
+    ASSERT_TRUE(rocketDocLoaded.has_value()) << rocketDocLoaded.error().toString();
+    const QtRocket::RocketComponent& loadedBodyTube =
+        rocketDocLoaded->document->getRocket().getStage(0)->getChild(0);
+    const std::optional<QtRocket::Appearance>& loadedAppearance = loadedBodyTube.getAppearance();
+
+    ASSERT_TRUE(loadedAppearance.has_value());
+    const QtRocket::Appearance appearance =
+        loadedAppearance.value_or(QtRocket::Appearance::missing());
+    EXPECT_EQ(appearance.getPaint().alpha(), 128);
+    EXPECT_TRUE(appearance.isOpacityAffectsTexture());
 }
 
 // The texts of the bound warnings take their numbers from the loader's constants.

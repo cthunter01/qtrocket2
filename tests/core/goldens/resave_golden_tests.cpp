@@ -103,23 +103,16 @@
 #include <pugixml.hpp>
 
 #include "QtRocket/document/OpenRocketDocument.h"
-#include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/models/GravityModelType.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
-#include "QtRocket/models/WindModelType.h"
-#include "QtRocket/motor/ThrustCurveMotor.h"
-#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
-#include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
@@ -128,6 +121,7 @@
 #include "goldens/GoldenDesign.h"
 #include "goldens/GoldenGeometry.h"
 #include "goldens/GoldenMismatches.h"
+#include "goldens/GoldenResaves.h"
 #include "goldens/GoldenSettings.h"
 #include "rocket/TestRockets.h"
 
@@ -135,20 +129,14 @@ namespace
 {
 
 using nlohmann::json;
-using QtRocket::GeneralRocketLoader;
-using QtRocket::LoadedDocument;
-using QtRocket::MultiLevelPinkNoiseWindModel;
-using QtRocket::PinkNoiseWindModel;
 using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::Simulation;
 using QtRocket::SimulationOptions;
-using QtRocket::ThrustCurveMotor;
-using QtRocket::ThrustCurveMotorSetDatabase;
-using QtRocket::WindModelType;
 using QtRocket::Test::compareLoadedDesign;
 using QtRocket::Test::compareLoadedGeometry;
+using QtRocket::Test::compareOptions;
 using QtRocket::Test::compareSavedSettings;
 using QtRocket::Test::DesignComparison;
 using QtRocket::Test::DesignCounts;
@@ -156,223 +144,28 @@ using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::DesignGoldens;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::GoldenManifest;
+using QtRocket::Test::kBigBlue;
+using QtRocket::Test::kMultiStage;
+using QtRocket::Test::kPods;
+using QtRocket::Test::kReloadChanges;
 using QtRocket::Test::loadDesignGoldens;
+using QtRocket::Test::LoadedResave;
 using QtRocket::Test::loadGoldenJson;
 using QtRocket::Test::loadGoldenManifest;
 using QtRocket::Test::loadGoldenResave;
+using QtRocket::Test::loadResave;
+using QtRocket::Test::OptionsComparison;
+using QtRocket::Test::PreparePreferences;
+using QtRocket::Test::ReloadChange;
 using QtRocket::Test::savedSettingsCounts;
 using QtRocket::Test::SettingsComparison;
 using QtRocket::Test::SettingsCounts;
 using QtRocket::Test::settleAutomaticDimensions;
+using QtRocket::Test::testRocketInputs;
 
 using Presets = DesignFileEnvironment::Presets;
 
-/// What the manifest calls the inputs that are rockets of TestRockets.java.
-constexpr std::string_view kTestRocketKind = "testrocket";
-
-// ================================================================================= the loads
-
-/// The motor database of the loads: exactly the seven motors of TestRockets, added in this
-/// order. Made once per test process; the motors are found by their digests.
-[[nodiscard]] const ThrustCurveMotorSetDatabase& testRocketMotors()
-{
-    static const ThrustCurveMotorSetDatabase kMotors = [] {
-        ThrustCurveMotorSetDatabase database;
-        for (const std::shared_ptr<const ThrustCurveMotor>& motor :
-             {QtRocket::Test::motorA8(), QtRocket::Test::motorA10(), QtRocket::Test::motorB4(),
-              QtRocket::Test::motorC6(), QtRocket::Test::motorD21(), QtRocket::Test::motorM1350(),
-              QtRocket::Test::motorG77()})
-        {
-            database.addMotor(motor);
-        }
-        return database;
-    }();
-    return kMotors;
-}
-
-/// A re-save loaded into a document, with the environment of the load.
-struct LoadedResave
-{
-    /// The simulations of the document keep the preference store of the environment: it is
-    /// declared first, and so destroyed last.
-    std::unique_ptr<DesignFileEnvironment> environment;
-    LoadedDocument                         loaded;
-};
-
-/// What a test does to the preference store of a load before the file is read.
-using PreparePreferences = void (*)(Preferences& preferences);
-
-/// Loads the re-save of @p input against the seven motors of TestRockets, in an environment of
-/// its own: the document as loaded, with the warnings of the load. @p prepare, when given,
-/// changes the preference store of the environment first (OpenRocket's test preferences).
-[[nodiscard]] Result<LoadedResave> loadResave(const GoldenInput& input,
-                                              PreparePreferences prepare = nullptr)
-{
-    auto environment = std::make_unique<DesignFileEnvironment>(Presets::NONE, testRocketMotors());
-    if (prepare != nullptr)
-    {
-        prepare(environment->preferences());
-    }
-    const GeneralRocketLoader loader(environment->context());
-    Result<LoadedDocument>    loaded = loader.load(QtRocket::Test::goldensDir() / input.resave);
-    if (!loaded)
-    {
-        return std::unexpected(loaded.error());
-    }
-    return LoadedResave{.environment = std::move(environment), .loaded = std::move(*loaded)};
-}
-
-/// The inputs of the manifest that are rockets of TestRockets.java, in its order; the reason
-/// in @p problem when the manifest cannot be read.
-[[nodiscard]] std::vector<GoldenInput> testRocketInputs(std::string& problem)
-{
-    std::vector<GoldenInput>     inputs;
-    const Result<GoldenManifest> manifest = loadGoldenManifest();
-    if (!manifest)
-    {
-        problem = manifest.error().toString();
-        return inputs;
-    }
-    for (const GoldenInput& input : manifest->inputs)
-    {
-        if (input.kind == kTestRocketKind)
-        {
-            inputs.push_back(input);
-        }
-    }
-    return inputs;
-}
-
 // ============================================================================ the exceptions
-
-/// A value of geometry.json that OpenRocket's own reload of a re-save gives otherwise than the
-/// rocket of the maker has it (see the top of this file for the three causes).
-struct ReloadChange
-{
-    std::string_view input;     ///< the golden input
-    std::string_view path;      ///< the component
-    std::string_view value;     ///< the JSON pointer of the value in the entry of the component
-    std::string_view field;     ///< what the report of the comparison calls the value
-    double           built;     ///< the committed geometry.json: the rocket of TestRockets.java
-    double           reloaded;  ///< OpenRocket's reload of its own save of that rocket
-    /// Whether the two numbers are further apart than the tolerance of the comparison, so that
-    /// the comparison tells them apart.
-    bool beyondTolerance;
-};
-
-constexpr std::string_view kBigBlue    = "testrocket-big-blue";
-constexpr std::string_view kPods       = "testrocket-estes-alpha-iii-with-pods";
-constexpr std::string_view kMultiStage = "testrocket-multi-stage-event-test-rocket";
-
-/// The fourteen, as the probe ResaveProbe.java measured them (out/reload-diff.txt: "golden" and
-/// "reloaded"). Nothing else of the thirteen geometry.json and aero.json documents differs in
-/// OpenRocket's reload.
-constexpr std::array<ReloadChange, 14> kReloadChanges{{
-    // Big Blue, "Freeform Fin Set": the tab in the middle of the fin, not at its front.
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/details/tabOffset",
-     .field           = "details.tabOffset",
-     .built           = -0.049999999999999996,
-     .reloaded        = 0.0,
-     .beyondTolerance = true},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/details/tabPoints/0/0",
-     .field           = "details.tabPoints[0].x",
-     .built           = 0.0,
-     .reloaded        = 0.05000000000000001,
-     .beyondTolerance = true},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/details/tabPoints/1/0",
-     .field           = "details.tabPoints[1].x",
-     .built           = 0.0,
-     .reloaded        = 0.05000000000000001,
-     .beyondTolerance = true},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/details/tabPoints/2/0",
-     .field           = "details.tabPoints[2].x",
-     .built           = 0.05,
-     .reloaded        = 0.1,
-     .beyondTolerance = true},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/details/tabPoints/3/0",
-     .field           = "details.tabPoints[3].x",
-     .built           = 0.05,
-     .reloaded        = 0.1,
-     .beyondTolerance = true},
-    // ... and its length, the x of the last fin point as the saver wrote it, with the inertia
-    // that follows.
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/length",
-     .field           = "length",
-     .built           = 0.15,
-     .reloaded        = 0.15000000000000002,
-     .beyondTolerance = false},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/rotationalInertia",
-     .field           = "rotationalInertia",
-     .built           = 0.000559701886215444,
-     .reloaded        = 0.0005597018862154438,
-     .beyondTolerance = false},
-    {.input           = kBigBlue,
-     .path            = "/0/1/0",
-     .value           = "/rotationalUnitInertia",
-     .field           = "rotationalUnitInertia",
-     .built           = 0.005586716956087414,
-     .reloaded        = 0.005586716956087413,
-     .beyondTolerance = false},
-    // The Alpha III with pods, "Pod Body": no wall on a tube without a radius.
-    {.input           = kPods,
-     .path            = "/0/1/4/0",
-     .value           = "/details/thickness",
-     .field           = "details.thickness",
-     .built           = 0.002,
-     .reloaded        = 0.0,
-     .beyondTolerance = true},
-    // The multi-stage event rocket, "Center Booster Fin Set": the tab in the middle of the
-    // fin, which is shorter than the tab.
-    {.input           = kMultiStage,
-     .path            = "/1/0/0",
-     .value           = "/details/tabOffset",
-     .field           = "details.tabOffset",
-     .built           = 0.005000000000000001,
-     .reloaded        = 0.0,
-     .beyondTolerance = true},
-    {.input           = kMultiStage,
-     .path            = "/1/0/0",
-     .value           = "/details/tabPoints/0/0",
-     .field           = "details.tabPoints[0].x",
-     .built           = 0.0,
-     .reloaded        = -0.005000000000000001,
-     .beyondTolerance = true},
-    {.input           = kMultiStage,
-     .path            = "/1/0/0",
-     .value           = "/details/tabPoints/1/0",
-     .field           = "details.tabPoints[1].x",
-     .built           = 0.0,
-     .reloaded        = -0.005000000000000001,
-     .beyondTolerance = true},
-    {.input           = kMultiStage,
-     .path            = "/1/0/0",
-     .value           = "/details/tabPoints/2/0",
-     .field           = "details.tabPoints[2].x",
-     .built           = 0.05,
-     .reloaded        = 0.045,
-     .beyondTolerance = true},
-    {.input           = kMultiStage,
-     .path            = "/1/0/0",
-     .value           = "/details/tabPoints/3/0",
-     .field           = "details.tabPoints[3].x",
-     .built           = 0.05,
-     .reloaded        = 0.045,
-     .beyondTolerance = true},
-}};
 
 /// What changeToTheReload() changed.
 struct ReloadChanges
@@ -585,151 +378,6 @@ TEST(ResaveGolden, TheReloadedTestRocketsAreTheRocketsOfTheGoldens)
 }
 
 // =============================================================================== simulations
-
-/// A number as the golden documents hold it: a JSON number, or the name of a value JSON has
-/// none for (Json.java of the harness).
-[[nodiscard]] json goldenForm(double value)
-{
-    if (std::isnan(value))
-    {
-        return "NaN";
-    }
-    if (std::isinf(value))
-    {
-        return value > 0 ? "Infinity" : "-Infinity";
-    }
-    return value;
-}
-
-/// The average wind model @p wind as SimulationDumper.options() writes it.
-[[nodiscard]] json averageWindDocument(const PinkNoiseWindModel& wind)
-{
-    return json{{"average", goldenForm(wind.getAverage())},
-                {"standardDeviation", goldenForm(wind.getStandardDeviation())},
-                {"turbulenceIntensity", goldenForm(wind.getTurbulenceIntensity())},
-                {"direction", goldenForm(wind.getDirection())}};
-}
-
-/// The multi-level wind model @p wind as SimulationDumper.options() writes it.
-[[nodiscard]] json multiLevelWindDocument(const MultiLevelPinkNoiseWindModel& wind)
-{
-    json levels = json::array();
-    for (const MultiLevelPinkNoiseWindModel::LevelWindModel* level : wind.getLevels())
-    {
-        levels.push_back(json{{"altitude", goldenForm(level->getAltitude())},
-                              {"speed", goldenForm(level->getSpeed())},
-                              {"direction", goldenForm(level->getDirection())},
-                              {"standardDeviation", goldenForm(level->getStandardDeviation())}});
-    }
-    const bool msl =
-        wind.getAltitudeReference() == MultiLevelPinkNoiseWindModel::AltitudeReference::MSL;
-    return json{{"altitudeReference", msl ? "MSL" : "AGL"}, {"levels", std::move(levels)}};
-}
-
-/// The options @p options as the golden harness writes the options of a simulation
-/// (SimulationDumper.options(): the getters, the enums by their names).
-[[nodiscard]] json optionsDocument(const SimulationOptions& options)
-{
-    return json{
-        {"launchRodLength", goldenForm(options.getLaunchRodLength())},
-        {"launchIntoWind", options.getLaunchIntoWind()},
-        {"launchRodAngle", goldenForm(options.getLaunchRodAngle())},
-        {"launchRodDirection", goldenForm(options.getLaunchRodDirection())},
-        {"windModelType", windModelTypeName(options.getWindModelType())},
-        {"averageWind", averageWindDocument(options.getAverageWindModel())},
-        {"multiLevelWind", multiLevelWindDocument(options.getMultiLevelWindModel())},
-        {"launchAltitude", goldenForm(options.getLaunchAltitude())},
-        {"launchLatitude", goldenForm(options.getLaunchLatitude())},
-        {"launchLongitude", goldenForm(options.getLaunchLongitude())},
-        {"geodeticComputation", name(options.getGeodeticComputation())},
-        {"isaAtmosphere", options.isIsaAtmosphere()},
-        {"launchTemperature", goldenForm(options.getLaunchTemperature())},
-        {"launchPressure", goldenForm(options.getLaunchPressure())},
-        {"launchRelativeHumidity", goldenForm(options.getLaunchRelativeHumidity())},
-        {"timeStep", goldenForm(options.getTimeStep())},
-        {"maxSimulationTime", goldenForm(options.getMaxSimulationTime())},
-        {"maximumStepAngle", goldenForm(options.getMaximumStepAngle())},
-        {"randomSeed", options.getRandomSeed()},
-        {"randomSeedFixed", options.isRandomSeedFixed()},
-        {"gravityModelType", gravityModelTypeName(options.getGravityModelType())},
-        {"constantGravity", goldenForm(options.getConstantGravity())},
-        {"stepperMethod", simulationStepperMethodName(options.getSimulationStepperMethodChoice())},
-        {"recoverySpeedWarning", goldenForm(options.getRecoverySpeedWarning())},
-        {"drogueLowSpeedWarning", goldenForm(options.getDrogueLowSpeedWarning())},
-        {"recoveryDrogueMainHighSpeedWarning",
-         goldenForm(options.getRecoveryDrogueMainHighSpeedWarning())},
-        {"recoveryDrogueMainLowSpeedWarning",
-         goldenForm(options.getRecoveryDrogueMainLowSpeedWarning())},
-        {"hasDragLookup", options.hasDragLookup()},
-        {"hasStabilityLookup", options.hasStabilityLookup()},
-    };
-}
-
-/// The launch rod direction of options that launch into the wind, as those of all fifty
-/// simulations do, is the direction of the wind and not the direction stored for the rod
-/// (which compareStoredRodDirection() holds). With the average wind it is a number of the
-/// file, the direction of that wind, and is compared exactly. With a multi-level wind it is
-/// computed with mathematical functions, the direction of the model's wind at the launch site
-/// (an arc tangent of a sine and a cosine), and is compared within this relative tolerance.
-constexpr double kComputedDirectionRelative = 1e-12;
-
-/// The value of the golden options whose JSON pointer is this one.
-constexpr std::string_view kLaunchRodDirection = "/launchRodDirection";
-
-/// Whether the option @p actual is the golden @p expected: the same value, or, for a number
-/// that is @p computed, one within kComputedDirectionRelative of it.
-[[nodiscard]] bool isTheOption(const json& expected, const json& actual, bool computed)
-{
-    if (computed && expected.is_number() && actual.is_number())
-    {
-        const double golden = expected.get<double>();
-        return std::abs(actual.get<double>() - golden) <=
-               kComputedDirectionRelative * std::abs(golden);
-    }
-    return expected == actual;
-}
-
-/// What the comparison of the options of a simulation compared and found.
-struct OptionsComparison
-{
-    int         values{0};  ///< the values of the golden options
-    std::string report;     ///< the mismatches, one line each
-};
-
-/// Compares @p options with the golden "options" @p expected of a simulation document, value
-/// for value: every value of the golden object, however deep, has to be there and equal (they
-/// are settings: the numbers exactly), and @p options must give no value beyond them.
-[[nodiscard]] OptionsComparison compareOptions(const json&              expected,
-                                               const SimulationOptions& options)
-{
-    OptionsComparison result;
-    const json        golden = expected.flatten();
-    const json        actual = optionsDocument(options).flatten();
-    const bool        computedDirection =
-        options.getLaunchIntoWind() && options.getWindModelType() == WindModelType::MULTI_LEVEL;
-    for (const auto& [pointer, value] : golden.items())
-    {
-        result.values++;
-        if (!actual.contains(pointer))
-        {
-            result.report += std::format("  options{}: not compared\n", pointer);
-        }
-        else if (!isTheOption(value, actual.at(pointer),
-                              computedDirection && pointer == kLaunchRodDirection))
-        {
-            result.report += std::format("  options{}: expected {}, got {}\n", pointer,
-                                         value.dump(), actual.at(pointer).dump());
-        }
-    }
-    for (const auto& [pointer, value] : actual.items())
-    {
-        if (!golden.contains(pointer))
-        {
-            result.report += std::format("  options{}: not in the golden options\n", pointer);
-        }
-    }
-    return result;
-}
 
 /// The <conditions> of the simulations of the re-save @p file, in the order of the file (an
 /// empty node for a simulation without one).

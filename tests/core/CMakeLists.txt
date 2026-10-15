@@ -285,6 +285,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/ComponentHandlerTestSupport.cpp
     file/openrocket/ComponentParameterHandlerTests.cpp
     file/openrocket/ComponentPresetSetterTests.cpp
+    file/openrocket/ComponentSaverTests.cpp
     file/openrocket/ConfigHandlerTests.cpp
     file/openrocket/CsvLookupHandlerTests.cpp
     file/openrocket/CustomExpressionHandlerTests.cpp
@@ -375,6 +376,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenExamplesTests.cpp
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
+    goldens/GoldenResaves.cpp
     goldens/goldens_schema_tests.cpp
     goldens/GoldenSettings.cpp
     goldens/GoldenSimulations.cpp

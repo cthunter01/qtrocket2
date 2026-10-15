@@ -13,6 +13,7 @@ target_sources(QtRocket_core PRIVATE
     motor/ZipFileMotorLoader.cpp
     openrocket/AnglePositionSetter.cpp
     openrocket/AppearanceHandler.cpp
+    openrocket/AssemblySaver.cpp
     openrocket/AtmosphereHandler.cpp
     openrocket/AxialPositionSetter.cpp
     openrocket/BooleanSetter.cpp
@@ -21,6 +22,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/ComponentHandler.cpp
     openrocket/ComponentParameterHandler.cpp
     openrocket/ComponentPresetSetter.cpp
+    openrocket/ComponentSaver.cpp
     openrocket/ConfigHandler.cpp
     openrocket/CsvLookupHandler.cpp
     openrocket/CustomExpressionHandler.cpp
@@ -33,6 +35,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
     openrocket/EnumSetter.cpp
+    openrocket/ExternalComponentSaver.cpp
     openrocket/FinSetPointHandler.cpp
     openrocket/FinTabPositionSetter.cpp
     openrocket/FlightDataBranchHandler.cpp
@@ -41,6 +44,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/IgnitionConfigurationHandler.cpp
     openrocket/IgnoredElementHandler.cpp
     openrocket/InsideAppearanceHandler.cpp
+    openrocket/InternalComponentSaver.cpp
     openrocket/IntSetter.cpp
     openrocket/LandingDispersionSettingsHandler.cpp
     openrocket/LoaderWarnings.cpp
@@ -57,6 +61,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/PhotoStudioHandler.cpp
     openrocket/PhotoStudioSaver.cpp
     openrocket/RadiusPositionSetter.cpp
+    openrocket/RocketComponentSaver.cpp
     openrocket/SimulationConditionsHandler.cpp
     openrocket/SimulationPlotAppearanceHandler.cpp
     openrocket/SimulationsHandler.cpp

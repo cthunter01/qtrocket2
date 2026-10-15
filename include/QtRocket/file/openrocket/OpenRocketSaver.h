@@ -29,7 +29,8 @@ class Preferences;
 ///   "OpenRocket <version>"). The version is calculateNecessaryFileVersion(), which is always
 ///   kFileVersion, the newest version the loader knows (DocumentConfig::kSupportedVersions);
 /// - the rocket, recursively (Java's saveComponent()): for each component the lines its saver
-///   gives (Java's getElements(): the open tag, the parameter lines, the close tag); with
+///   gives (ComponentSaver; Java's getElements(): the open tag, the parameter lines, the close
+///   tag, or nothing at all, as for a stage its kind's saver does not expect); with
 ///   children, after the parameters a blank line and <subcomponents>, the children with a blank
 ///   line BETWEEN two of them, </subcomponents>; then the close tag. A blank line follows the
 ///   rocket;
