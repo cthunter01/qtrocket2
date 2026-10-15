@@ -1,8 +1,11 @@
 #include "cli/CliRunSupport.h"
 
 #include <cstddef>
+#include <cstdio>
+#include <filesystem>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,9 +15,11 @@
 #include "QtRocket/cli/Cli.h"
 #include "QtRocket/cli/CliOutput.h"
 #include "QtRocket/cli/ExitCode.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
+#include "TestTempDir.h"
 #include "motor/TestMotorDatabase.h"
 
 namespace QtRocket::Test
@@ -72,6 +77,50 @@ std::vector<std::string> outputLines(std::string_view text)
         lines.pop_back();
     }
     return lines;
+}
+
+void CloseCFile::operator()(std::FILE* file) const noexcept
+{
+    // The std::unique_ptr of CFile owns the stream; there is no gsl::owner here.
+    // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+    static_cast<void>(std::fclose(file));
+}
+
+CFile openCFile(const std::filesystem::path& path, CFileMode mode)
+{
+    const bool write = mode == CFileMode::WRITE;
+#ifdef _WIN32
+    // _wfopen_s: the path as Windows spells it (fopen() would take it in the ANSI code page),
+    // and MSVC rejects fopen() as unsafe.
+    std::FILE* file = nullptr;
+    if (_wfopen_s(&file, path.c_str(), write ? L"wb" : L"rb") != 0)
+    {
+        return nullptr;
+    }
+    return CFile(file);
+#else
+    return CFile(std::fopen(path.c_str(), write ? "wb" : "rb"));
+#endif
+}
+
+CliRun runCliWithStreams(std::span<const std::string> arguments, const Cli::Settings& settings,
+                         std::FILE* out)
+{
+    const TempDir               directory;
+    const std::filesystem::path errFile = directory.resolve("stderr.txt");
+    ExitCode                    code    = ExitCode::INTERNAL;
+    {
+        const CFile err = openCFile(errFile, CFileMode::WRITE);
+        if (err == nullptr)
+        {
+            ADD_FAILURE() << "cannot open " << pathToUtf8(errFile);
+            return CliRun{.code = code, .out = {}, .err = {}};
+        }
+        code = Cli::runWithStreams(arguments, settings, out, err.get());
+    }
+    const Result<std::string> err = readTextFile(errFile);
+    EXPECT_TRUE(err.has_value());
+    return CliRun{.code = code, .out = {}, .err = err.value_or("")};
 }
 
 }  // namespace QtRocket::Test

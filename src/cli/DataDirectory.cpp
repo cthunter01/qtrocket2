@@ -145,7 +145,16 @@ std::filesystem::path DataDirectory::dataDirectory(std::string_view argv0)
     {
         return forExecutable(*executable);
     }
-    return forExecutable(absolutePath(pathFromUtf8(argv0)));
+    return forExecutable(absolutePath(pathFromArgument(argv0)));
+}
+
+std::filesystem::path DataDirectory::pathFromArgument(std::string_view argument)
+{
+#ifdef _WIN32
+    return pathFromUtf8(argument);
+#else
+    return {std::string(argument)};
+#endif
 }
 
 std::vector<std::string> DataDirectory::commandLineArguments(int argc, char** argv)

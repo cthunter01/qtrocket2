@@ -795,6 +795,34 @@ TEST(CsvExport, WritesTheNumbersAsOpenRocket)
                      "-987654.321", "0.5",       "1.5",      "2.0005",  "0.333333333333333"}));
 }
 
+// Beyond the dialog's 0 to 15 decimal places (CsvExport takes any number): OpenRocket's output with
+// 16, 17 and 20 is that of 15 but for 1/3, which shows all its shortest digits (Java's Formatter
+// pads those with zeros, which are trimmed). Pinned by the Java probe CsvDecimalsProbe (tier 10a
+// csv-cli fixer). With -1 Java throws (an UnknownFormatConversionException at the first value
+// that is not 0, NaN or infinite); QtRocket counts it as 0 (see CsvExport.h).
+TEST(CsvExport, WritesMoreDecimalsThanTheDialogOffersAsOpenRocket)
+{
+    const DefaultUnitsGuard units;
+    const std::string exponential = lines({"0",    "0",         "1e-4",     "-1e-4",
+                                           "1e4",  "9999.9996", "9.995e-4", "123.4567",
+                                           "0",    "1e-8",      "NaN",      "Inf",
+                                           "-Inf", "1e300",     "0",        "-9.87654321e5",
+                                           "0.5",  "1.5",       "2.0005",   "0.3333333333333333"});
+    const std::string fixed =
+        lines({"0",           "0",         "0.0001",   "-0.0001", "10000",
+               "9999.9996",   "0.0009995", "123.4567", "0",       "0.00000001",
+               "NaN",         "Inf",       "-Inf",     oneE300(), "0",
+               "-987654.321", "0.5",       "1.5",      "2.0005",  "0.3333333333333333"});
+    EXPECT_EQ(numbersCase(16, true), exponential);
+    EXPECT_EQ(numbersCase(16, false), fixed);
+    EXPECT_EQ(numbersCase(17, true), exponential);
+    EXPECT_EQ(numbersCase(17, false), fixed);
+    EXPECT_EQ(numbersCase(20, true), exponential);
+    EXPECT_EQ(numbersCase(20, false), fixed);
+    EXPECT_EQ(numbersCase(-1, true), numbersCase(0, true));
+    EXPECT_EQ(numbersCase(-1, false), numbersCase(0, false));
+}
+
 // ======================================================================= QtRocket's own rules
 
 /// A small case of QtRocket's own: a LOADED simulation "Small" of a branch of two rows of time

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "QtRocket/cli/CliOutput.h"
+#include "QtRocket/cli/DataDirectory.h"
 #include "QtRocket/cli/ExitCode.h"
 #include "QtRocket/file/motor/MotorDatabaseLoader.h"
 #include "QtRocket/motor/Manufacturer.h"
@@ -112,7 +113,7 @@ ExitCode MotorsCommand::list(const ThrustCurveMotorSetDatabase& database,
 ExitCode MotorsCommand::load(std::string_view file, CliOutput& output)
 {
     MotorDatabaseLoader                        loader;
-    const std::array<std::filesystem::path, 1> files{pathFromUtf8(file)};
+    const std::array<std::filesystem::path, 1> files{DataDirectory::pathFromArgument(file)};
     loader.loadUserDefinedMotors(files);
     for (const MotorDatabaseLoader::Problem& problem : loader.getProblems())
     {

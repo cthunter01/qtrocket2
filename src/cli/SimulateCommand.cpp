@@ -6,12 +6,14 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
 #include "QtRocket/cli/CliArguments.h"
 #include "QtRocket/cli/CliEnvironment.h"
 #include "QtRocket/cli/CliOutput.h"
+#include "QtRocket/cli/DataDirectory.h"
 #include "QtRocket/cli/ExitCode.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/CsvExport.h"
@@ -76,34 +78,6 @@ namespace
         return {static_cast<std::size_t>(*number) - 1};
     }
     return {};
-}
-
-/// Applies --calm, --seed and --time-step of @p arguments to @p options.
-void applyOptions(const CliArguments& arguments, SimulationOptions& options)
-{
-    if (arguments.calm)
-    {
-        options.getAverageWindModel().setStandardDeviation(0);
-        for (MultiLevelPinkNoiseWindModel::LevelWindModel* level :
-             options.getMultiLevelWindModel().getLevels())
-        {
-            level->setStandardDeviation(0);
-        }
-    }
-    if (arguments.seed.has_value())
-    {
-        options.setRandomSeedFixed(true);
-        options.setRandomSeed(*arguments.seed);
-    }
-    else
-    {
-        // SimulationRunDialog.java:122.
-        options.randomizeSeedIfNotFixed();
-    }
-    if (arguments.timeStep.has_value())
-    {
-        options.setTimeStep(*arguments.timeStep);
-    }
 }
 
 /// The name of the component an event of @p simulation's flight @p data comes from: found by
@@ -229,29 +203,30 @@ void printWarnings(const FlightData& data, CliOutput& output)
     return "unknown cause";
 }
 
-/// Writes the first branch of @p simulation's flight @p data to @p path (see SimulateCommand).
-/// ExitCode::OK when it was written or there was nothing to write.
-[[nodiscard]] ExitCode writeCsv(const std::filesystem::path& path, Simulation& simulation,
-                                const FlightData& data, CliOutput& output)
+/// Checks the CSV file @p csv before any simulation of the design @p design runs (see
+/// SimulateCommand): ExitCode::OK, or the code to stop with, its reason written.
+[[nodiscard]] ExitCode checkCsvFile(const std::filesystem::path& csv,
+                                    const std::filesystem::path& design, CliOutput& output)
 {
-    if (data.getBranchCount() == 0 ||
-        !data.getBranch(0).hasType(FlightDataType::builtin(FlightDataTypeId::TYPE_TIME)))
+    std::error_code             error;
+    const std::filesystem::path directory = csv.parent_path();
+    if (!directory.empty() && !std::filesystem::is_directory(directory, error))
     {
-        output.errLine("QtRocket_cli: simulation '{}' has no flight data to write to '{}'",
-                       simulation.getName(), pathToUtf8(path));
-        return ExitCode::OK;
+        output.errLine("QtRocket_cli: cannot write '{}': the directory '{}' does not exist",
+                       pathToUtf8(csv), pathToUtf8(directory));
+        return ExitCode::IO;
     }
-    const FlightDataBranch&                  branch = data.getBranch(0);
-    const std::vector<const FlightDataType*> fields = SimulateCommand::csvFields(branch);
-    const std::vector<const Unit*>           units  = CsvExport::defaultUnits(fields);
-    const Result<void>                       written =
-        CsvExport::exportCsv(path, simulation, branch, fields, units, CsvExport::Options{});
-    if (!written)
+    if (std::filesystem::is_directory(csv, error))
     {
-        output.errLine("QtRocket_cli: {}", written.error().message);
-        return written.error().code == ErrorCode::IO ? ExitCode::IO : ExitCode::INTERNAL;
+        output.errLine("QtRocket_cli: cannot write '{}': it is a directory", pathToUtf8(csv));
+        return ExitCode::IO;
     }
-    output.outLine("  CSV: {}", pathToUtf8(path));
+    // False, with an error, when either does not exist.
+    if (std::filesystem::equivalent(csv, design, error))
+    {
+        output.errLine("QtRocket_cli: the CSV file '{}' is the design itself", pathToUtf8(csv));
+        return ExitCode::USAGE;
+    }
     return ExitCode::OK;
 }
 
@@ -275,7 +250,7 @@ struct Outcome
     const std::shared_ptr<Simulation> owner      = document.getSimulation(index);
     Simulation&                       simulation = *owner;
     SimulationOptions&                options    = simulation.getOptions();
-    applyOptions(arguments, options);
+    SimulateCommand::applyOptions(arguments, options);
     output.outLine("Simulation {}: {}", index + 1, simulation.getName());
     output.outLine("  configuration: {}", simulation.getActiveConfiguration().getName(preferences));
     output.outLine("  random seed: {}", options.getRandomSeed());
@@ -305,8 +280,12 @@ struct Outcome
     }
     if (csv.has_value())
     {
-        if (const ExitCode written = writeCsv(*csv, simulation, *data, output);
-            written != ExitCode::OK)
+        const ExitCode written = SimulateCommand::writeCsv(*csv, simulation, *data, output);
+        if (written == ExitCode::SIMULATION)
+        {
+            return Outcome{.failed = true, .stop = ExitCode::OK};
+        }
+        if (written != ExitCode::OK)
         {
             return Outcome{.failed = aborted, .stop = written};
         }
@@ -319,7 +298,8 @@ struct Outcome
 ExitCode SimulateCommand::run(const CliArguments& arguments, CliEnvironment& environment,
                               CliOutput& output)
 {
-    const Result<LoadedDocument> loaded = environment.load(pathFromUtf8(arguments.file));
+    const std::filesystem::path  design = DataDirectory::pathFromArgument(arguments.file);
+    const Result<LoadedDocument> loaded = environment.load(design);
     if (!loaded)
     {
         output.errLine("QtRocket_cli: cannot load '{}': {}", arguments.file,
@@ -341,20 +321,29 @@ ExitCode SimulateCommand::run(const CliArguments& arguments, CliEnvironment& env
         return ExitCode::USAGE;
     }
 
-    ExitCode code = ExitCode::OK;
-    for (const std::size_t index : selected)
+    // The CSV file of each selected simulation, all checked before the first one runs.
+    std::vector<std::optional<std::filesystem::path>> csvFiles(selected.size());
+    if (arguments.csv.has_value())
     {
-        std::optional<std::filesystem::path> csv;
-        if (arguments.csv.has_value())
+        const std::filesystem::path csv = DataDirectory::pathFromArgument(*arguments.csv);
+        for (std::size_t i = 0; i < selected.size(); i++)
         {
-            csv = pathFromUtf8(*arguments.csv);
-            if (selected.size() > 1)
+            const std::filesystem::path file =
+                selected.size() > 1 ? numberedCsvPath(csv, selected[i] + 1) : csv;
+            if (const ExitCode checked = checkCsvFile(file, design, output);
+                checked != ExitCode::OK)
             {
-                csv = numberedCsvPath(*csv, index + 1);
+                return checked;
             }
+            csvFiles[i] = file;
         }
-        const Outcome outcome =
-            runSimulation(arguments, document, index, csv, environment.preferences(), output);
+    }
+
+    ExitCode code = ExitCode::OK;
+    for (std::size_t i = 0; i < selected.size(); i++)
+    {
+        const Outcome outcome = runSimulation(arguments, document, selected[i], csvFiles[i],
+                                              environment.preferences(), output);
         if (outcome.stop != ExitCode::OK)
         {
             return outcome.stop;
@@ -365,6 +354,58 @@ ExitCode SimulateCommand::run(const CliArguments& arguments, CliEnvironment& env
         }
     }
     return code;
+}
+
+void SimulateCommand::applyOptions(const CliArguments& arguments, SimulationOptions& options)
+{
+    if (arguments.calm)
+    {
+        options.getAverageWindModel().setStandardDeviation(0);
+        for (MultiLevelPinkNoiseWindModel::LevelWindModel* level :
+             options.getMultiLevelWindModel().getLevels())
+        {
+            level->setStandardDeviation(0);
+        }
+    }
+    if (arguments.seed.has_value())
+    {
+        options.setRandomSeedFixed(true);
+        options.setRandomSeed(*arguments.seed);
+    }
+    else
+    {
+        // SimulationRunDialog.java:122.
+        options.randomizeSeedIfNotFixed();
+    }
+    if (arguments.timeStep.has_value())
+    {
+        options.setTimeStep(*arguments.timeStep);
+    }
+}
+
+ExitCode SimulateCommand::writeCsv(const std::filesystem::path& path, Simulation& simulation,
+                                   const FlightData& data, CliOutput& output)
+{
+    const std::vector<const FlightDataType*> fields = data.getBranchCount() == 0
+                                                          ? std::vector<const FlightDataType*>{}
+                                                          : csvFields(data.getBranch(0));
+    if (fields.empty())
+    {
+        output.errLine("QtRocket_cli: simulation '{}' has no flight data to write to '{}'",
+                       simulation.getName(), pathToUtf8(path));
+        return ExitCode::SIMULATION;
+    }
+    const FlightDataBranch&        branch = data.getBranch(0);
+    const std::vector<const Unit*> units  = CsvExport::defaultUnits(fields);
+    const Result<void>             written =
+        CsvExport::exportCsv(path, simulation, branch, fields, units, CsvExport::Options{});
+    if (!written)
+    {
+        output.errLine("QtRocket_cli: {}", written.error().message);
+        return written.error().code == ErrorCode::IO ? ExitCode::IO : ExitCode::INTERNAL;
+    }
+    output.outLine("  CSV: {}", pathToUtf8(path));
+    return ExitCode::OK;
 }
 
 std::filesystem::path SimulateCommand::numberedCsvPath(const std::filesystem::path& csv,

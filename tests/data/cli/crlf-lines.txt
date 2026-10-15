@@ -1,0 +1,2 @@
+A line that ends with a carriage return and a line feed.
+Another one.

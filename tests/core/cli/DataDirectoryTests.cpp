@@ -8,6 +8,11 @@
 #include <optional>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#include <cstddef>
+#include <cstdlib>
+#include <span>
+#endif
 
 #include <gtest/gtest.h>
 
@@ -49,16 +54,45 @@ TEST(DataDirectory, TheRunningProgramIsFoundAndTheBuildTreeHasTheInstalledLayout
 
 TEST(DataDirectory, TheArgumentsLeaveTheProgramOut)
 {
-#ifdef _WIN32
-    GTEST_SKIP() << "Windows reads the arguments of the process from GetCommandLineW()";
-#else
     std::array<char, 5>  program{"prog"};
     std::array<char, 5>  first{"info"};
     std::array<char, 8>  second{"a b.ork"};
     std::array<char*, 3> argv{program.data(), first.data(), second.data()};
+#ifdef _WIN32
+    // Windows reads the arguments of this process from GetCommandLineW(), whatever argv says:
+    // they are the test's own (under ctest its --gtest_filter=...), those the C runtime has in
+    // __argc and __argv, the program left out. (The tool's binary tests pass one beyond ASCII,
+    // tests/core/cli/CMakeLists.txt.)
+    const std::vector<std::string> own = DataDirectory::commandLineArguments(0, nullptr);
+    EXPECT_EQ(DataDirectory::commandLineArguments(3, argv.data()), own);
+    const std::span<char*> runtime(__argv, static_cast<std::size_t>(__argc));
+    ASSERT_EQ(own.size() + 1, runtime.size());
+    for (std::size_t i = 1; i < runtime.size(); i++)
+    {
+        EXPECT_EQ(own[i - 1], runtime[i]);
+    }
+#else
     EXPECT_EQ(DataDirectory::commandLineArguments(3, argv.data()),
               (std::vector<std::string>{"info", "a b.ork"}));
     EXPECT_TRUE(DataDirectory::commandLineArguments(0, nullptr).empty());
+#endif
+}
+
+// An argument names a file: on Windows it is UTF-8 (commandLineArguments() made it so), elsewhere
+// the file's name in its own bytes, which need not be UTF-8 (a Latin-1 e with acute accent, byte
+// E9, is a Linux file name of its own).
+TEST(DataDirectory, AnArgumentNamesThePathOfItsText)
+{
+    EXPECT_EQ(DataDirectory::pathFromArgument("a b.ork"), std::filesystem::path("a b.ork"));
+    // U+00FC.
+    EXPECT_EQ(DataDirectory::pathFromArgument("Flug-\xC3\xBC.csv"),
+              QtRocket::pathFromUtf8("Flug-\xC3\xBC.csv"));
+#ifdef _WIN32
+    // U+FFFD for the malformed byte, as pathFromUtf8() reads it.
+    EXPECT_EQ(DataDirectory::pathFromArgument("lat\xE9.ork"),
+              QtRocket::pathFromUtf8("lat\xEF\xBF\xBD.ork"));
+#else
+    EXPECT_EQ(DataDirectory::pathFromArgument("lat\xE9.ork").native(), std::string("lat\xE9.ork"));
 #endif
 }
 

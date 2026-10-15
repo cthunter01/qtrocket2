@@ -14,6 +14,7 @@
 #include "QtRocket/cli/CliArguments.h"
 #include "QtRocket/cli/CliEnvironment.h"
 #include "QtRocket/cli/CliOutput.h"
+#include "QtRocket/cli/DataDirectory.h"
 #include "QtRocket/cli/ExitCode.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/LoadedDocument.h"
@@ -31,7 +32,6 @@
 #include "QtRocket/unit/CaliberUnit.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 
@@ -216,7 +216,8 @@ void InfoCommand::printConfiguration(Rocket& rocket, int index, double mach,
 ExitCode InfoCommand::run(const CliArguments& arguments, CliEnvironment& environment,
                           CliOutput& output)
 {
-    const Result<LoadedDocument> loaded = environment.load(pathFromUtf8(arguments.file));
+    const Result<LoadedDocument> loaded =
+        environment.load(DataDirectory::pathFromArgument(arguments.file));
     if (!loaded)
     {
         output.errLine("QtRocket_cli: cannot load '{}': {}", arguments.file,

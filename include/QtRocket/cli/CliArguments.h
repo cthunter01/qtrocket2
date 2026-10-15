@@ -33,8 +33,8 @@ namespace QtRocket
 /// '--mach' not a number in SimulationInputRanges::kLookupMach (from 0 to 100). Numbers are read
 /// with Strings::parseDouble() and Strings::parseInt(), which do not depend on the locale.
 ///
-/// Names and paths are kept as the UTF-8 text they were given in; a command makes a path of one
-/// with pathFromUtf8() (util/FileIo.h).
+/// Names and paths are kept as the text they were given in (UTF-8 on Windows, the argument's own
+/// bytes elsewhere); a command makes a path of one with DataDirectory::pathFromArgument().
 struct CliArguments
 {
     /// What the tool is asked to do.

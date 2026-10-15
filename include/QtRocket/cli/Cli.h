@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -15,8 +16,8 @@ class ThrustCurveMotorSetDatabase;
 
 /// The command-line tool QtRocket_cli (QtRocket's own; OpenRocket has no command line), as a
 /// function of its arguments, so that the tests run it in their process: the executable
-/// (src/cli/main.cpp) only reads its arguments and its data directory (DataDirectory) and prints
-/// what run() writes.
+/// (src/cli/main.cpp) only reads its arguments and its data directory (DataDirectory) and calls
+/// runWithStreams(), which prints what run() writes.
 ///
 /// run() parses the arguments (CliArguments; an error goes to the standard error with a hint to
 /// --help, ExitCode::USAGE), then:
@@ -53,6 +54,16 @@ public:
     /// ExitCode).
     [[nodiscard]] static ExitCode run(std::span<const std::string> arguments,
                                       const Settings& settings, CliOutput& output);
+
+    /// Runs the tool as the executable does: run() with @p arguments and @p settings, writing to
+    /// the C streams @p out and @p err (CliOutput's constructor with streams). When @p out could
+    /// not be written in full (CliOutput::outFailed(): a full disk, a closed standard output), a
+    /// line "QtRocket_cli: cannot write the standard output" goes to @p err, and the exit code is
+    /// ExitCode::IO instead of ExitCode::OK; a code that says that something else failed is
+    /// kept.
+    [[nodiscard]] static ExitCode runWithStreams(std::span<const std::string> arguments,
+                                                 const Settings& settings, std::FILE* out,
+                                                 std::FILE* err);
 
     /// The text --help prints: the commands, their options and the exit codes.
     [[nodiscard]] static std::string_view usage() noexcept;

@@ -80,6 +80,9 @@ class Unit;
 ///   (Strings::toValidUtf8()), as Java's UTF-8 decoder made the String in the first place.
 /// - fields and units of different lengths, and a null field or unit, are a BugError (Java: the
 ///   IllegalArgumentException with the same message, and a NullPointerException).
+/// - A negative number of decimal places counts as 0 (Strings::doubleToString()); Java's
+///   Formatter throws an UnknownFormatConversionException at the first value that is not 0, NaN
+///   or infinite. (More than the dialog's 15 decimal places are written as Java writes them.)
 /// - Not ported: the overload for component analysis data (Milestone 7, see the end of the
 ///   class).
 class CsvExport
@@ -91,7 +94,8 @@ public:
     {
         /// Written between two fields (the dialog offers ",", ";", a space and a tab).
         std::string fieldSeparator{","};
-        /// The decimals of each value (the dialog allows 0 to 15); a negative number counts as 0.
+        /// The decimals of each value (the dialog allows 0 to 15); a negative number counts as 0
+        /// (a deviation, see the class comment).
         int decimalPlaces{Strings::kDefaultDecimalPlaces};
         /// Whether a value below 0.001 or from 10000 up is written as mantissa + "e" +
         /// exponent ("1.234e-5").

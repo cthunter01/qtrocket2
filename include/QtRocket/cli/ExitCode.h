@@ -14,14 +14,16 @@ enum class ExitCode : std::uint8_t
     OK = 0,
     /// The command line is wrong: no or an unknown command, an unknown option, an option without
     /// its value or with a value out of its range, a simulation or a flight configuration the
-    /// design does not have, a design without simulations for 'simulate'.
+    /// design does not have, a design without simulations for 'simulate', a CSV file that is the
+    /// design itself.
     USAGE = 1,
     /// A design file or a motor file that was named cannot be read or loaded.
     LOAD = 2,
-    /// A simulation failed (an error before or during the flight) or was aborted (a SIM_ABORT
-    /// event).
+    /// A simulation failed (an error before or during the flight, or no flight data for --csv)
+    /// or was aborted (a SIM_ABORT event).
     SIMULATION = 3,
-    /// An output file (the CSV of --csv) cannot be written, or the motor database cannot be read.
+    /// An output file (the CSV of --csv) or the standard output cannot be written, or the motor
+    /// database cannot be read.
     IO = 4,
     /// A defect of the program: a BugError or any other exception.
     INTERNAL = 5,

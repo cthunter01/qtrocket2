@@ -39,14 +39,18 @@ using QtRocket::ExitCode;
 using QtRocket::pathToUtf8;
 using QtRocket::ThrustCurveMotorSetDatabase;
 using QtRocket::Test::bundledMotorDatabase;
+using QtRocket::Test::CFile;
+using QtRocket::Test::CFileMode;
 using QtRocket::Test::cliFixtureArgument;
 using QtRocket::Test::CliRun;
 using QtRocket::Test::dataDir;
 using QtRocket::Test::exampleArgument;
 using QtRocket::Test::numberAfter;
+using QtRocket::Test::openCFile;
 using QtRocket::Test::outputLines;
 using QtRocket::Test::runCli;
 using QtRocket::Test::runCliWithMotors;
+using QtRocket::Test::runCliWithStreams;
 using QtRocket::Test::TempDir;
 using QtRocket::Test::testDataDir;
 
@@ -156,6 +160,63 @@ TEST(Cli, ADefectIsAnInternalError)
     EXPECT_EQ(QtRocket::exitStatus(ExitCode::SIMULATION), 3);
     EXPECT_EQ(QtRocket::exitStatus(ExitCode::IO), 4);
     EXPECT_EQ(QtRocket::exitStatus(ExitCode::INTERNAL), 5);
+}
+
+// The executable runs the tool through Cli::runWithStreams() on its standard streams: what it
+// prints is in the file its standard output is, byte for byte.
+TEST(Cli, TheExecutablePrintsToItsStandardStreams)
+{
+    const TempDir               directory;
+    const std::filesystem::path outFile = directory.resolve("stdout.txt");
+    CFile                       out     = openCFile(outFile, CFileMode::WRITE);
+    ASSERT_NE(out, nullptr);
+    const CliRun version = runCliWithStreams(std::vector<std::string>{"--version"}, {}, out.get());
+    // Closed before it is read (Windows would not open it a second time).
+    out.reset();
+    EXPECT_EQ(version.code, ExitCode::OK);
+    EXPECT_EQ(version.err, "");
+    EXPECT_EQ(QtRocket::readTextFile(outFile), std::string(QtRocket::creatorString()) + "\n");
+}
+
+// A standard output that cannot be written (a full disk, a closed descriptor) is exit code 4 with
+// a line on the standard error, unless the run failed otherwise: here a stream opened for reading,
+// whose every write fails at once (std::print throws), and on Linux /dev/full, where the text
+// fits into the buffer and the flush fails.
+TEST(Cli, AStandardOutputThatCannotBeWrittenIsAnIoError)
+{
+    const TempDir directory;
+    const CFile   readOnly = openCFile(directory.write("read-only.txt", ""), CFileMode::READ);
+    ASSERT_NE(readOnly, nullptr);
+    const CliRun version =
+        runCliWithStreams(std::vector<std::string>{"--version"}, {}, readOnly.get());
+    EXPECT_EQ(version.code, ExitCode::IO);
+    EXPECT_EQ(version.err, "QtRocket_cli: cannot write the standard output\n");
+
+    // An aborted simulation prints its summary: its own code stays, the line is added.
+    const ThrustCurveMotorSetDatabase noMotors;
+    const CliRun                      aborted = runCliWithStreams(
+        std::vector<std::string>{"simulate", cliFixtureArgument("no-motors.ork")},
+        Cli::Settings{.dataDirectory = {}, .motorDatabase = &noMotors}, readOnly.get());
+    EXPECT_EQ(aborted.code, ExitCode::SIMULATION);
+    EXPECT_NE(aborted.err.find("QtRocket_cli: simulation 1 'Without a motor' was aborted"),
+              std::string::npos)
+        << aborted.err;
+    EXPECT_TRUE(aborted.err.ends_with("\nQtRocket_cli: cannot write the standard output\n"))
+        << aborted.err;
+
+    // Nothing was to be written to the standard output: no line.
+    const CliRun usage = runCliWithStreams(std::vector<std::string>{}, {}, readOnly.get());
+    EXPECT_EQ(usage.code, ExitCode::USAGE);
+    EXPECT_EQ(usage.err,
+              "QtRocket_cli: no command given\nRun 'QtRocket_cli --help' for the usage.\n");
+
+#ifdef __linux__
+    const CFile full = openCFile("/dev/full", CFileMode::WRITE);
+    ASSERT_NE(full, nullptr);
+    const CliRun help = runCliWithStreams(std::vector<std::string>{"--help"}, {}, full.get());
+    EXPECT_EQ(help.code, ExitCode::IO);
+    EXPECT_EQ(help.err, "QtRocket_cli: cannot write the standard output\n");
+#endif
 }
 
 TEST(Cli, AMotorDatabaseThatCannotBeReadIsAnIoError)
@@ -282,13 +343,63 @@ TEST(Cli, SimulateSeedsSelectsAndNumbersTheCsvFiles)
         runCliWithMotors({"simulate", exampleArgument("A simple model rocket.ork"), "--sim", "6"});
     EXPECT_EQ(unknown.code, ExitCode::USAGE);
     EXPECT_NE(unknown.err.find("has no simulation '6'"), std::string::npos);
+}
 
-    const CliRun unwritable =
-        runCliWithMotors({"simulate", exampleArgument("A simple model rocket.ork"), "--csv",
-                          pathToUtf8(directory.resolve("missing") / "out.csv")});
+// The CSV files are checked before the first simulation runs, so that nothing is printed of a
+// command that cannot finish: a missing directory and a directory are exit code 4, the design
+// itself as the CSV file exit code 1 (the design is left as it was).
+TEST(Cli, SimulateChecksTheCsvFilesBeforeItRuns)
+{
+    const TempDir               directory;
+    const std::filesystem::path missing    = directory.resolve("missing") / "out.csv";
+    const CliRun                unwritable = runCliWithMotors(
+        {"simulate", exampleArgument("Chute release.ork"), "--all", "--csv", pathToUtf8(missing)});
     EXPECT_EQ(unwritable.code, ExitCode::IO);
-    EXPECT_NE(unwritable.err.find("cannot open '"), std::string::npos) << unwritable.err;
+    EXPECT_TRUE(unwritable.out.empty()) << unwritable.out;
+    // Simulation 1 writes out-1.csv.
+    EXPECT_EQ(unwritable.err, "QtRocket_cli: cannot write '" +
+                                  pathToUtf8(directory.resolve("missing") / "out-1.csv") +
+                                  "': the directory '" + pathToUtf8(directory.resolve("missing")) +
+                                  "' does not exist\n");
     EXPECT_FALSE(std::filesystem::exists(directory.resolve("missing")));
+
+    const CliRun intoDirectory =
+        runCliWithMotors({"simulate", exampleArgument("A simple model rocket.ork"), "--csv",
+                          pathToUtf8(directory.path())});
+    EXPECT_EQ(intoDirectory.code, ExitCode::IO);
+    EXPECT_TRUE(intoDirectory.out.empty()) << intoDirectory.out;
+    EXPECT_EQ(intoDirectory.err, "QtRocket_cli: cannot write '" + pathToUtf8(directory.path()) +
+                                     "': it is a directory\n");
+
+    const std::filesystem::path design = directory.resolve("design.ork");
+    std::filesystem::copy_file(testDataDir() / "cli" / "no-motors.ork", design);
+    const std::string before = QtRocket::readTextFile(design).value_or("");
+    EXPECT_FALSE(before.empty());
+    const ThrustCurveMotorSetDatabase noMotors;
+    const CliRun itself = runCli({"simulate", pathToUtf8(design), "--csv", pathToUtf8(design)},
+                                 Cli::Settings{.dataDirectory = {}, .motorDatabase = &noMotors});
+    EXPECT_EQ(itself.code, ExitCode::USAGE);
+    EXPECT_TRUE(itself.out.empty()) << itself.out;
+    EXPECT_EQ(itself.err,
+              "QtRocket_cli: the CSV file '" + pathToUtf8(design) + "' is the design itself\n");
+    EXPECT_EQ(QtRocket::readTextFile(design), before);
+}
+
+// The seed a run prints repeats its flight: the same output again with --seed (the design's wind
+// is turbulent, so the seed matters).
+TEST(Cli, APrintedSeedRepeatsTheFlight)
+{
+    const std::string design = exampleArgument("A simple model rocket.ork");
+    const CliRun      first  = runCliWithMotors({"simulate", design});
+    EXPECT_EQ(first.code, ExitCode::OK) << first.err;
+    const std::string key   = "\n  random seed: ";
+    const std::size_t begin = first.out.find(key);
+    ASSERT_NE(begin, std::string::npos) << first.out;
+    const std::size_t start = begin + key.size();
+    const std::string seed  = first.out.substr(start, first.out.find('\n', start) - start);
+    const CliRun      again = runCliWithMotors({"simulate", design, "--seed", seed});
+    EXPECT_EQ(again.code, ExitCode::OK) << again.err;
+    EXPECT_EQ(again.out, first.out);
 }
 
 // tests/data/cli/no-motors.ork: a simulation of a configuration without motors ends in its first
@@ -319,5 +430,32 @@ TEST(Cli, AnAbortedSimulationIsASimulationError)
     EXPECT_NE(text->find("\n# Event SIM_ABORT occurred at t=0 seconds\n"), std::string::npos)
         << *text;
 }
+
+#ifdef __linux__
+// On Linux a file name is bytes, which need not be UTF-8: an argument names the file of its own
+// bytes (a Latin-1 e with acute accent here, byte E9), for the design, --csv and motors --load.
+TEST(Cli, AFileNameThatIsNotUtf8NamesItsOwnFile)
+{
+    const TempDir               directory;
+    const std::filesystem::path design = directory.path() / std::string("lat\xE9.ork");
+    std::filesystem::copy_file(testDataDir() / "cli" / "no-motors.ork", design);
+    const ThrustCurveMotorSetDatabase noMotors;
+    const Cli::Settings               settings{.dataDirectory = {}, .motorDatabase = &noMotors};
+
+    const CliRun info = runCli({"info", design.native()}, settings);
+    EXPECT_EQ(info.code, ExitCode::OK) << info.err;
+
+    const std::filesystem::path csv = directory.path() / std::string("fl\xFCg.csv");
+    const CliRun simulate = runCli({"simulate", design.native(), "--csv", csv.native()}, settings);
+    EXPECT_EQ(simulate.code, ExitCode::SIMULATION) << simulate.err;
+    EXPECT_TRUE(std::filesystem::is_regular_file(csv));
+
+    const std::filesystem::path motor = directory.path() / std::string("A8-\xE9.rse");
+    std::filesystem::copy_file(testDataDir() / "motors" / "Estes_A8.rse", motor);
+    const CliRun load = runCli({"motors", "--load", motor.native()}, settings);
+    EXPECT_EQ(load.code, ExitCode::OK) << load.err;
+    EXPECT_NE(load.out.find("\tA8\t"), std::string::npos) << load.out;
+}
+#endif
 
 }  // namespace

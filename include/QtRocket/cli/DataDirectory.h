@@ -18,7 +18,9 @@ namespace QtRocket
 ///   which garbles or drops what lies outside it, so the arguments are read from
 ///   GetCommandLineW() with CommandLineToArgvW() (shell32) and converted;
 /// - the standard output and error in binary mode on Windows, so that a line ends with '\n' on
-///   every platform (a text-mode stream writes "\r\n").
+///   every platform (a text-mode stream writes "\r\n");
+/// - the path an argument names: on Windows the UTF-8 that commandLineArguments() made, elsewhere
+///   the argument's own bytes, which are the file's name whatever their encoding.
 ///
 /// The data directory is the installed layout, <prefix>/share/QtRocket beside
 /// <prefix>/bin/QtRocket_cli, so dataDirectory() is <directory of the executable>/../share/
@@ -45,6 +47,13 @@ public:
     /// The arguments of the program, its name left out, as UTF-8: from GetCommandLineW() on
     /// Windows (argv is used when that fails), main()'s @p argv elsewhere.
     [[nodiscard]] static std::vector<std::string> commandLineArguments(int argc, char** argv);
+
+    /// The path the command-line argument @p argument names (a FILE, --db, --csv, --load): on
+    /// Windows pathFromUtf8() of it, as the arguments are UTF-8 there (commandLineArguments());
+    /// elsewhere a path of its bytes as they are, as main()'s argv holds the file's name in its
+    /// own bytes, which need not be UTF-8 (a Latin-1 name on Linux): pathFromUtf8() would have
+    /// made another name of them.
+    [[nodiscard]] static std::filesystem::path pathFromArgument(std::string_view argument);
 
     /// Puts the standard output and error into binary mode on Windows; nothing elsewhere.
     static void useBinaryStandardStreams();

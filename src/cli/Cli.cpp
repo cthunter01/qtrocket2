@@ -1,5 +1,6 @@
 #include "QtRocket/cli/Cli.h"
 
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <span>
@@ -9,6 +10,7 @@
 #include "QtRocket/cli/CliArguments.h"
 #include "QtRocket/cli/CliEnvironment.h"
 #include "QtRocket/cli/CliOutput.h"
+#include "QtRocket/cli/DataDirectory.h"
 #include "QtRocket/cli/ExitCode.h"
 #include "QtRocket/cli/InfoCommand.h"
 #include "QtRocket/cli/MotorsCommand.h"
@@ -67,7 +69,7 @@ namespace
     }
     const std::filesystem::path file =
         arguments.database.has_value()
-            ? pathFromUtf8(*arguments.database)
+            ? DataDirectory::pathFromArgument(*arguments.database)
             : CliEnvironment::defaultMotorDatabase(settings.dataDirectory);
     Result<ThrustCurveMotorSetDatabase> motors = CliEnvironment::readMotorDatabase(file);
     if (!motors)
@@ -106,6 +108,19 @@ ExitCode Cli::run(std::span<const std::string> arguments, const Settings& settin
         output.errLine("QtRocket_cli: internal error");
         return ExitCode::INTERNAL;
     }
+}
+
+ExitCode Cli::runWithStreams(std::span<const std::string> arguments, const Settings& settings,
+                             std::FILE* out, std::FILE* err)
+{
+    CliOutput      output(out, err);
+    const ExitCode code = run(arguments, settings, output);
+    if (!output.outFailed())
+    {
+        return code;
+    }
+    output.errLine("QtRocket_cli: cannot write the standard output");
+    return code == ExitCode::OK ? ExitCode::IO : code;
 }
 
 std::string_view Cli::usage() noexcept
@@ -160,7 +175,8 @@ Exit codes:
      configuration the design does not have
   2  a design file or a motor file cannot be loaded
   3  a simulation fails or is aborted
-  4  an output file cannot be written, or the motor database cannot be read
+  4  an output file or the standard output cannot be written, or the motor
+     database cannot be read
   5  internal error
 )";
 }

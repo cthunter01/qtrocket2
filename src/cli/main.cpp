@@ -1,16 +1,14 @@
 // QtRocket_cli: the command-line tool. Everything it does is in QtRocket_cli_lib (cli/Cli.h);
-// this reads the arguments and the data directory and prints.
+// this reads the arguments and the data directory and runs it on the standard streams.
 
 #include <cstddef>
 #include <cstdio>
-#include <print>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "QtRocket/cli/Cli.h"
-#include "QtRocket/cli/CliOutput.h"
 #include "QtRocket/cli/DataDirectory.h"
 #include "QtRocket/cli/ExitCode.h"
 
@@ -26,16 +24,8 @@ int main(int argc, char* argv[])
         const QtRocket::Cli::Settings settings{
             .dataDirectory = QtRocket::DataDirectory::dataDirectory(argv0),
             .motorDatabase = nullptr};
-        QtRocket::CliOutput output(
-            [](std::string_view text) {
-                std::print(stdout, "{}", text);
-                std::fflush(stdout);
-            },
-            [](std::string_view text) {
-                std::print(stderr, "{}", text);
-                std::fflush(stderr);
-            });
-        return QtRocket::exitStatus(QtRocket::Cli::run(arguments, settings, output));
+        return QtRocket::exitStatus(
+            QtRocket::Cli::runWithStreams(arguments, settings, stdout, stderr));
     }
     catch (...)
     {
