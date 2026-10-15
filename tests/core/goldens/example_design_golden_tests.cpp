@@ -62,9 +62,16 @@
 // with an empty preset database: probe "golden-tests", out/nopresets.diff): six load warnings
 // in three examples, and 0 instead of 0.0015748 m for the thickness of the fore shoulder of two
 // nose cones, which their presets alone supply. Everything else is equal: every other value of
-// geometry.json and all of mass.json and aero.json. These are the only exemptions of this file.
-// The settings are compared there too, with the same numbers of elements; of the six <preset>
-// it is held that no component has a preset then (SavedPresets::NOT_FOUND).
+// geometry.json and all of mass.json and aero.json. The settings are compared there too, with
+// the same numbers of elements; of the six <preset> it is held that no component has a preset
+// then (SavedPresets::NOT_FOUND).
+//
+// The one other exemption: the re-save of "Parallel booster staging" names OpenRocket's six
+// built-in textures as the original's archive names its entries, "/datafiles/textures/*". In a
+// plain design they are files by absolute paths, which a design may not read (decision D8 of
+// 2026-10-14; AppearanceHandler): its 17 decals are ignored with a warning for each of the six
+// names, which OpenRocket does not give. Those six are the expected load warnings of that
+// re-save (changeToTheResaveOfTheTextures()); no golden document holds a decal.
 //
 // Tolerances (plan section 6.4), as for the test rockets: geometry, mass and aerodynamic
 // coefficients relative 1e-9; positions, CGs and CPs absolute 1e-9 m; ids, names, warnings and
@@ -90,6 +97,7 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/Error.h"
@@ -184,15 +192,50 @@ struct ExampleRun
     return run;
 }
 
-/// compareExample() with the six presets of the examples and the committed goldens.
+/// The input whose re-save names OpenRocket's built-in textures, and those names in the order of
+/// the re-save (see the head of this file).
+constexpr std::string_view                kTexturesInput = "example-parallel-booster-staging";
+constexpr std::array<std::string_view, 6> kTextures{
+    "/datafiles/textures/wadding.png",   "/datafiles/textures/spiral-wound-alpha.png",
+    "/datafiles/textures/balsa.jpg",     "/datafiles/textures/wood.jpg",
+    "/datafiles/textures/hardboard.jpg", "/datafiles/textures/chute.jpg"};
+
+/// Makes of @p geometry, the committed geometry.json of the input @p input, what a load of its
+/// re-save is to give: for kTexturesInput the warning of each of the textures its decals name
+/// as its "loadWarnings" (decision D8 of 2026-10-14; the warning of the loader, of the class
+/// Other with the normal priority and without sources, as the harness writes one).
+void changeToTheResaveOfTheTextures(std::string_view input, json& geometry)
+{
+    if (input != kTexturesInput)
+    {
+        return;
+    }
+    for (const std::string_view texture : kTextures)
+    {
+        const std::string text = QtRocket::LoaderWarnings::decalFileOutsideDesign(texture);
+        geometry.at("loadWarnings")
+            .push_back(json{{"type", "Other"},
+                            {"priority", "NORMAL"},
+                            {"description", text},
+                            {"text", text},
+                            {"sources", json::array()}});
+    }
+}
+
+/// compareExample() with the six presets of the examples and the committed goldens (changed
+/// for a re-save by changeToTheResaveOfTheTextures()).
 [[nodiscard]] ExampleRun runExample(const GoldenExample& example, ExampleSource source)
 {
-    const Result<DesignGoldens> goldens = loadDesignGoldens(example.name);
+    Result<DesignGoldens> goldens = loadDesignGoldens(example.name);
     if (!goldens)
     {
         ExampleRun run;
         run.problem = goldens.error().toString();
         return run;
+    }
+    if (source == ExampleSource::RESAVE)
+    {
+        changeToTheResaveOfTheTextures(example.name, goldens->geometry);
     }
     return compareExample(example, source, Presets::EXAMPLES, *goldens);
 }
@@ -324,14 +367,18 @@ TEST(ExampleDesignGolden, TheOriginalFilesGiveTheDesignsOfTheGoldens)
 
 // And so are the sixteen designs loaded from OpenRocket's re-saves: other documents (plain XML
 // of file version 1.11, every element the saver writes, no stored flight, no decal image), the
-// same designs.
+// same designs, with the six warnings of the parallel boosters' textures (see the head of this
+// file).
 TEST(ExampleDesignGolden, TheResavesGiveTheDesignsOfTheGoldens)
 {
+    DesignCounts expected = designCountsOfTheExamples();
+    expected.loadWarnings = static_cast<int>(kTextures.size());
+
     const ComparedExamples compared = compareExamples(ExampleSource::RESAVE);
     EXPECT_EQ(compared.problems, "");
     EXPECT_EQ(compared.examples, 16);
     EXPECT_EQ(compared.compared, compared.golden) << "what was compared, and what the files hold";
-    EXPECT_EQ(compared.golden, designCountsOfTheExamples());
+    EXPECT_EQ(compared.golden, expected);
     EXPECT_EQ(compared.settings, compared.saved) << "the settings compared, and those of the files";
     EXPECT_EQ(compared.saved, settingsCountsOfTheExamples());
 }

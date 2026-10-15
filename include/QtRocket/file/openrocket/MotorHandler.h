@@ -71,6 +71,15 @@ namespace QtRocket
 ///   name: step 2 is passed over as for a missing attachment. OpenRocket builds the name
 ///   unchecked, so that a file could name any .rse file outside its "thrustcurves" directory
 ///   ("../../x") when its attachments are files next to the design.
+/// - When the attachments are files (the attachment factory reads the file system,
+///   AttachmentFactory::readsFileSystem(): a plain or gzip design), "thrustcurves/<digest>.rse"
+///   is read only when CsvLookupHandler::fileOfDesign() takes it for the design's directory
+///   (DocumentLoadingContext::getDesignDirectory()), the rule decision D8 of 2026-10-14 gives
+///   the decal images: not for a design without a directory (one read from memory without a
+///   base directory, which OpenRocket reads from the current directory of the process), and on
+///   Windows not for a digest that is the name of a device ("nul"). Step 2 is then passed over
+///   silently, as for a missing attachment. The entries of an archive are read whatever the
+///   design's directory.
 /// - A motor file that makes OpenRocket's reader throw something other than an IOException or
 ///   an IllegalArgumentException (a thrust curve of one point: IndexOutOfBoundsException) ends
 ///   OpenRocket's load of the whole design with that exception. Here it is the third warning,

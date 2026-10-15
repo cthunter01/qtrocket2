@@ -90,7 +90,8 @@ static_assert(MotorHandler::kMotorDigestVersion == (1 * DocumentConfig::kFileVer
 // ---- OpenRocket's MotorHandlerTest ----------------------------------------------------------
 
 /// MotorHandlerTest's attachment factory: the same attachment whatever name is asked for, and
-/// none where a compatible database match must not read attachments.
+/// none where a compatible database match must not read attachments. It does not read the file
+/// system (readsFileSystem()), as Java's mock is no FileSystemAttachmentFactory.
 class OneAttachmentFactory final : public AttachmentFactory
 {
 public:
@@ -109,6 +110,8 @@ public:
         }
         return m_attachment;
     }
+
+    [[nodiscard]] bool readsFileSystem() const noexcept override { return false; }
 
     [[nodiscard]] const Texts& asked() const noexcept { return m_asked; }
 
@@ -1132,10 +1135,60 @@ TEST(MotorHandlerGetMotor, ReadsTheCurveFromAFileNextToAPlainDesign)
     const QtRocket::FileSystemAttachmentFactory factory(temp.path());
     HandlerFixture                              fixture;
     fixture.context().setAttachmentFactory(&factory);
+    fixture.context().setDesignDirectory(temp.path());
     EXPECT_EQ(resolve(fixture, withDigest(kRaspDigest)).describe(), kFromAttachment);
     // The file above the directory is not reached through the digest.
     EXPECT_EQ(resolve(fixture, withDigest("../outside")).motor, nullptr);
     EXPECT_EQ(resolve(fixture, withDigest("missing")).warnings, Texts{});
+}
+
+// Not OpenRocket's (decision D8 of 2026-10-14, the rule of the decal images): the curve of a
+// plain design is a file of the design's directory only. A design without a directory (read
+// from memory without a base directory) reads none, not even the one the current directory of
+// the process holds under the name, which OpenRocket would read: the attachment is missing to
+// it, silently, and the motor of the database is taken.
+TEST(MotorHandlerGetMotor, APlainDesignWithoutADirectoryReadsNoCurve)
+{
+    const QtRocket::Test::TempDir temp;
+    static_cast<void>(temp.write(std::format("thrustcurves/{}.rse", kRaspDigest), kRse));
+    const QtRocket::Test::CurrentDirectoryGuard inside(temp.path());
+    // The factory a context has when none is set: files named against the current directory.
+    HandlerFixture fixture;
+    fixture.context().setAttachmentFactory(nullptr);
+    ASSERT_TRUE(fixture.context().getAttachmentFactory()->readsFileSystem());
+    ASSERT_FALSE(fixture.context().getDesignDirectory().has_value());
+    const Resolved without = resolve(fixture, withDigest(kRaspDigest));
+    EXPECT_EQ(without.motor, nullptr);
+    EXPECT_EQ(without.warnings, Texts{});
+    const std::shared_ptr<const ThrustCurveMotor> approximate = different();
+    fixture.motorFinder().setMotor(approximate);
+    EXPECT_EQ(resolve(fixture, withDigest(kRaspDigest)).motor, approximate);
+
+    // With the current directory as the design's, the same file is read.
+    fixture.context().setDesignDirectory(std::filesystem::path("."));
+    EXPECT_EQ(resolve(fixture, withDigest(kRaspDigest)).describe(), kFromAttachment);
+}
+
+// On Windows a digest that is the name of a device ("nul", "COM1") names no file of the
+// design's directory but the device, and is passed over as a missing attachment; elsewhere it
+// is a file like any other.
+TEST(MotorHandlerGetMotor, ACurveNamedLikeADeviceIsReadWhereNoDeviceIsMeant)
+{
+    const QtRocket::Test::TempDir temp;
+    static_cast<void>(temp.write("thrustcurves/nul.rse", kRse));
+    const QtRocket::FileSystemAttachmentFactory factory(temp.path());
+    HandlerFixture                              fixture;
+    fixture.context().setAttachmentFactory(&factory);
+    fixture.context().setDesignDirectory(temp.path());
+    const Resolved found = resolve(fixture, withDigest("nul"));
+    EXPECT_EQ(found.motor, nullptr);
+#ifdef _WIN32
+    EXPECT_EQ(found.warnings, Texts{});
+#else
+    // The file is read: its motor has another digest than its name.
+    EXPECT_EQ(found.warnings, Texts{"Embedded motor attachment 'thrustcurves/nul.rse' contains no "
+                                    "motor matching digest 'nul'."});
+#endif
 }
 
 // Hostile input next to a plain design: the file the digest names is read whole, so it may
@@ -1161,6 +1214,7 @@ TEST(MotorHandlerGetMotor, ACurveFileBeyondTheLimitIsAWarning)
     const QtRocket::FileSystemAttachmentFactory factory(temp.path());
     HandlerFixture                              fixture;
     fixture.context().setAttachmentFactory(&factory);
+    fixture.context().setDesignDirectory(temp.path());
 
     const Resolved found = resolve(fixture, withDigest("big"));
     EXPECT_EQ(found.motor, nullptr);
@@ -1201,6 +1255,7 @@ TEST(MotorHandlerGetMotor, ACurveFileThatIsADeviceIsAWarning)
     const QtRocket::FileSystemAttachmentFactory factory(temp.path());
     HandlerFixture                              fixture;
     fixture.context().setAttachmentFactory(&factory);
+    fixture.context().setDesignDirectory(temp.path());
 
     // The endless source is not opened, let alone read to the end of the memory.
     const Resolved found = resolve(fixture, withDigest("zero"));

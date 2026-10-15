@@ -19,8 +19,10 @@ namespace QtRocket
 ///
 /// getAttachment(name) takes an absolute name as it is and resolves a relative one against the
 /// base directory, exactly as Java: nothing is checked, so "../x.png" and "/etc/x" name files
-/// outside the base directory (a decal may be anywhere; who must not follow a name out of the
-/// directory checks the name first, as the motor handler checks a digest). The file is spelled
+/// outside the base directory. Who must not follow a name out of the directory checks the
+/// name first: the loader's handlers ask only for the names CsvLookupHandler::fileOfDesign()
+/// takes, since the factory says that it reads the file system (readsFileSystem(); decision D8
+/// of 2026-10-14, see AppearanceHandler and MotorHandler). The file is spelled
 /// as Java's File spells it, without doubled separators and without one at its end
 /// (withoutRedundantSeparators()): "decals//a.png" and "decals/a.png/" name the file
 /// "decals/a.png". The attachment keeps the name it was asked by, whatever file it resolves to.
@@ -60,6 +62,9 @@ public:
     /// A FileSystemAttachment named @p name whose file is @p name itself when that is an
     /// absolute path, and @p name below the base directory otherwise.
     [[nodiscard]] std::shared_ptr<Attachment> getAttachment(std::string_view name) const override;
+
+    /// True: an attachment is the file its name leads to.
+    [[nodiscard]] bool readsFileSystem() const noexcept override { return true; }
 
 private:
     std::optional<std::filesystem::path> m_baseDirectory;

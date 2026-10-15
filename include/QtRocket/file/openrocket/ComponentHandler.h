@@ -69,7 +69,7 @@ class RocketComponent;
 ///   DocumentConfig::kMaxInstances.
 /// - Nor components without bound: a component that would be one more than
 ///   DocumentConfig::kMaxComponents is ignored, with everything in it, with "<component name>
-///   would give the rocket more than 10000 components; ignoring this component and its
+///   would give the rocket more than 1000 components; ignoring this component and its
 ///   subcomponents." (QtRocket's own text, LoaderWarnings::tooManyComponents();
 ///   DocumentConfig::componentFits(); decision U6 of tier 9). It is asked before the instances
 ///   are. And of the components the stages, booster sets and pod sets have a bound of their
@@ -87,11 +87,11 @@ class RocketComponent;
 ///   for a warning it has before it adds one), and OpenRocket is as slow or slower (108 s for
 ///   1600 tubes, 108 s for the 1600 configurations). The bounds on the components, the
 ///   flight configurations and the warnings (DocumentConfig) end that growth at the bound;
-///   the time up to the bound stays what it is (half an hour for 10000 body tubes side by
-///   side: see DocumentConfig::kMaxComponents), and tests/core/file/openrocket/
-///   loader_bounds_tests.cpp has the measurements. Not bounded: the separation and
-///   deployment configurations of one component (100000 of one stage took 17.5 s), and the
-///   number of elements that set a value (see DocumentConfig::kMaxInstances).
+///   the time up to the bound stays what it is (see DocumentConfig::kMaxComponents, whose
+///   first number, 10000, let body tubes side by side load for half an hour), and
+///   tests/core/file/openrocket/loader_bounds_tests.cpp has the measurements. Not bounded: the
+///   separation and deployment configurations of one component (100000 of one stage took
+///   17.5 s), and the number of elements that set a value (see DocumentConfig::kMaxInstances).
 /// - The default materials of the preferences are given by this handler (decision D2: what
 ///   Java asks the application for is handed in, here with the loading context), where
 ///   OpenRocket's constructors take them themselves: a component of this library is made with

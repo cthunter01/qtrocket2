@@ -40,6 +40,10 @@ public:
     /// (ZipFileAttachment::kMaxAttachmentBytes).
     [[nodiscard]] std::shared_ptr<Attachment> getAttachment(std::string_view name) const override;
 
+    /// False: an attachment is an entry of the archive, whatever its name ("/datafiles/x.jpg"
+    /// and "../x.png" are names of entries like any other).
+    [[nodiscard]] bool readsFileSystem() const noexcept override { return false; }
+
 private:
     ZipFileAttachment::Archive m_archive;
 };

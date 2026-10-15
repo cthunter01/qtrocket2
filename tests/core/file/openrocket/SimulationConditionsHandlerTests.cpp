@@ -306,8 +306,14 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
   rod=0.0 intoWind=false angle=1.0471975511965976 dir=4.71238898038469
   site=11018.064362274883,90.0,-180.0 geo=FLAT
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] The launch altitude of 200000.0 m is above the highest launch site the atmospheric model takes; it was lowered to 11018.064362274883 m.
+  fcid=11111111-1111-1111-1111-111111111111
+  rod=0.0 intoWind=false angle=1.0471975511965976 dir=4.71238898038469
+  site=11018.064362274883,90.0,-180.0 geo=FLAT
+)out",
+     .why      = "decisions D4 and E5: a launch altitude above the highest launch site of the "
+                 "atmospheric model is lowered as in OpenRocket, with a warning of QtRocket's own"},
     {.name     = "cond: random seeds",
      .xml      = R"xml(
 <conditions>
@@ -1154,8 +1160,12 @@ constexpr auto kConditionsCases = std::to_array<ConditionsCase>({
      .java     = R"out(
   site=11018.064362274883,0.0,0.0 geo=FLAT
 )out",
-     .qtrocket = {},
-     .why      = {}},
+     .qtrocket = R"out(
+  W[Other,NORMAL] The launch altitude of 200000.0 m is above the highest launch site the atmospheric model takes; it was lowered to 11018.064362274883 m.
+  site=11018.064362274883,0.0,0.0 geo=FLAT
+)out",
+     .why      = "decisions D4 and E5: a launch altitude above the highest launch site of the "
+                 "atmospheric model is lowered as in OpenRocket, with a warning of QtRocket's own"},
     {.name     = "u9: time step at its upper bound",
      .xml      = R"xml(
 <conditions><timestep>10</timestep></conditions>
@@ -2173,6 +2183,66 @@ INSTANTIATE_TEST_SUITE_P(
                                        "<launchaltitude>100.0</launchaltitude></conditions>"),
                       std::string_view("<conditions><launchaltitude>100.0</launchaltitude>"
                                        "<atmosphere model='isa'/></conditions>")));
+
+/// The launch altitude and the warnings when the <launchaltitude> @p text is read by a handler
+/// whose options start from OpenRocket's test preferences with the launch altitude
+/// @p storedAltitude: "<altitude as Java prints it> [<warnings>]".
+[[nodiscard]] std::string launchAltitudeOf(std::string_view text, double storedAltitude = 0.0)
+{
+    ConditionsFixture fixture;
+    fixture.preferences().putDouble(QtRocket::PreferenceKeys::kLaunchAltitude, storedAltitude);
+    SimulationConditionsHandler handler(fixture.context());
+    const HandlerRun            run = runHandler(
+        handler, std::format("<conditions><launchaltitude>{}</launchaltitude></conditions>", text));
+    std::string warnings;
+    for (const std::string& warning : run.texts())
+    {
+        warnings += (warnings.empty() ? "" : " | ") + warning;
+    }
+    return std::format(
+        "{} [{}]",
+        QtRocket::Strings::javaDoubleToString(handler.getConditions().getLaunchAltitude()),
+        warnings);
+}
+
+/// What launchAltitudeOf() gives for a number @p altitude (as Java prints it) that the options
+/// lower to the highest launch site of the atmospheric model.
+[[nodiscard]] std::string loweredFrom(std::string_view altitude)
+{
+    return std::format(
+        "11018.064362274883 [The launch altitude of {} m is above the highest launch site the "
+        "atmospheric model takes; it was lowered to 11018.064362274883 m.]",
+        altitude);
+}
+
+// Not OpenRocket's (decisions D4 and E5 of 2026-10-14): every launch altitude that the options
+// lower to the highest launch site of the atmospheric model (ExtendedIsaModel::
+// getMaximumAllowedAltitude(), 11018.064362274883 m) is said, also one between that site and the
+// 100 km of the range; the site itself and what lies below it are not. The generated cases
+// "u9: launch altitude above its range ..." and "cond: launchintowind garbage, big angle, out of
+// range site" have it for 200000 m.
+TEST(SimulationConditionsHandler, ALaunchAltitudeTheOptionsLowerIsSaid)
+{
+    EXPECT_EQ(launchAltitudeOf("11018.064362274883"), "11018.064362274883 []");
+    EXPECT_EQ(launchAltitudeOf("11018"), "11018.0 []");
+    // The next double above the site.
+    EXPECT_EQ(launchAltitudeOf("11018.064362274885"), loweredFrom("11018.064362274885"));
+    EXPECT_EQ(launchAltitudeOf("50000"), loweredFrom("50000.0"));
+    EXPECT_EQ(launchAltitudeOf("1e300"), loweredFrom("1.0E300"));
+    // The options start at the site: they are given a number above it all the same, and say so.
+    EXPECT_EQ(launchAltitudeOf("200000", 11018.064362274883), loweredFrom("200000.0"));
+}
+
+// A preference store can give the options a launch altitude above the highest site, which they
+// keep (SimulationOptions(Preferences&) takes the store's number as it is). A number of the file
+// that equals it within MathUtil::kEpsilon is then not applied, so nothing was lowered and no
+// warning is given; another number is lowered and said.
+TEST(SimulationConditionsHandler, ALaunchAltitudeTheOptionsKeepFromTheStoreIsNotSaid)
+{
+    EXPECT_EQ(launchAltitudeOf("20000", 20000.0), "20000.0 []");
+    EXPECT_EQ(launchAltitudeOf("20000.0000001", 20000.0), "20000.0 []");
+    EXPECT_EQ(launchAltitudeOf("30000", 20000.0), loweredFrom("30000.0"));
+}
 
 // The simulation's handler moves the options into the Simulation it makes; they arrive whole.
 TEST(SimulationConditionsHandler, TheOptionsCanBeMovedOutOfTheHandler)

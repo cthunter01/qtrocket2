@@ -17,6 +17,10 @@ namespace QtRocket
 /// A factory only names the attachment: nothing is read before Attachment::getBytes(), and an
 /// attachment that does not exist is made like any other and fails there with
 /// ErrorCode::NOT_FOUND.
+///
+/// Deviation from OpenRocket: readsFileSystem() (QtRocket's own) tells a handler whether a name
+/// it asks for is a file of the machine, so that it can hold the name to the design's
+/// directory first (decision D8 of 2026-10-14; see AppearanceHandler and MotorHandler).
 class AttachmentFactory
 {
 public:
@@ -27,6 +31,14 @@ public:
     /// image.
     [[nodiscard]] virtual std::shared_ptr<Attachment> getAttachment(
         std::string_view name) const = 0;
+
+    /// Whether an attachment of this factory is a file of the file system that its name
+    /// leads to (true for FileSystemAttachmentFactory), so that a name a design gives may
+    /// reach outside the design's directory, rather than an entry of an archive or another
+    /// source of the factory's own (false for ZipFileAttachmentFactory). A handler asks a
+    /// factory that reads the file system only for a name that CsvLookupHandler::
+    /// fileOfDesign() takes (decision D8 of 2026-10-14). Not OpenRocket's.
+    [[nodiscard]] virtual bool readsFileSystem() const noexcept = 0;
 
 protected:
     AttachmentFactory()                                    = default;

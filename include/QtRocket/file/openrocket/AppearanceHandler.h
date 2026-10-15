@@ -31,10 +31,11 @@ class RocketComponent;
 /// - <opacityaffectstexture>: Boolean.parseBoolean of the text, which is not trimmed, so
 ///   " true " is false.
 /// - <decal name="..." rotation="..." edgemode="...">: the image. Its attachment is the one the
-///   context's attachment factory makes for the name, the image the one the document's decal
-///   registry has for that attachment (OpenRocketDocument::getDecalImage()), and the decal of
-///   the appearance carries the NAME OF THAT IMAGE, which is the attribute's text for an
-///   attachment of an archive and "decals/<file name>", made unique, for a file (see
+///   context's attachment factory makes for the name (for a design whose images are files,
+///   only for a name inside the design's directory: see the deviations), the image the one the
+///   document's decal registry has for that attachment (OpenRocketDocument::getDecalImage()), and
+///   the decal of the appearance carries the NAME OF THAT IMAGE, which is the attribute's text for
+///   an attachment of an archive and "decals/<file name>", made unique, for a file (see
 ///   DecalRegistry). The bytes are not read. The rotation is Double.parseDouble, in radians;
 ///   the edge mode is the constant of Decal::EdgeMode named exactly so ("REPEAT", "MIRROR",
 ///   "CLAMP", "STICKER"). A second <decal> sets these three anew (both images are registered)
@@ -85,6 +86,31 @@ class RocketComponent;
 ///   when the bound is reached. OpenRocket has no bound: its registry, as this one, looks
 ///   through all its images for every new one, so that the time to read the decals grows
 ///   with the square of the number of images (see DocumentConfig::kMaxDecalImages).
+/// - Which image file a design may read (decision D8 of 2026-10-14, the rule of the lookup
+///   tables, CsvLookupHandler::fileOfDesign()): when the images are files (the context's
+///   attachment factory reads the file system, AttachmentFactory::readsFileSystem(): a plain or
+///   gzip design), a <decal> whose name that rule refuses for the design's directory
+///   (DocumentLoadingContext::getDesignDirectory()) is ignored, with everything in it and one
+///   warning of QtRocket's own: a name that is not relative ("/datafiles/textures/wood.jpg",
+///   as OpenRocket names its built-in textures), one that leaves the directory through "..",
+///   every name of a design without a directory (one read from memory without a base
+///   directory) with LoaderWarnings::decalFileOutsideDesign() ("The decal image file '<name>'
+///   was not read: a design may name such a file only by a relative path inside its own
+///   directory; ignoring the decal."), and on Windows only a name with the name of a device in
+///   it with LoaderWarnings::decalFileOfDeviceName(). Nothing is asked of the factory and no
+///   image is registered; the decal is read by an IgnoredElementHandler as the decal beyond
+///   the bound is, whatever its rotation and edge mode are (one that is no number or none does
+///   not fail the load then). The rule is asked after the name, the rotation and the edge mode
+///   are found there, so a decal that lacks one of them gets kDecalIgnored, and before the
+///   bound on the images. The names of an archive's entries are free, as an archive is no
+///   file system: the archive of OpenRocket's example "Parallel booster staging" holds its
+///   textures as entries "/datafiles/textures/...", which load as in OpenRocket (its plain
+///   re-save, where they are files, loses its 17 decals). A name the rule takes is asked of the
+///   factory as the design writes it, which resolves it against its base directory as Java
+///   does; that is the path the rule looked at but where a symbolic link inside the design's
+///   directory, or a directory that is missing, stands in front of a "..". OpenRocket reads
+///   any path, a relative one against the current directory of the process when the design
+///   has no directory.
 /// - A <center>, <offset> or <scale> without x or y is passed over with a warning of
 ///   QtRocket's own, LoaderWarnings::kDecalPairIgnored (OpenRocket: a NullPointerException); x
 ///   is looked at before y, so an x that is no number fails the load also when y is missing.
@@ -148,9 +174,13 @@ private:
     // openElement() and closeElement() in parts.
 
     /// A <decal> opens: its image, rotation and edge mode; false, with the warning for it,
-    /// when it lacks one of the three, or would give the document too many images, and is to
-    /// be ignored.
+    /// when it lacks one of the three, names an image file the design may not read, or would
+    /// give the document too many images, and is to be ignored.
     [[nodiscard]] Result<bool> openDecal(const Attributes& attributes, WarningSet& warnings);
+    /// Whether the image a <decal> names as @p name may be asked of the attachment factory: an
+    /// entry of an archive always, a file only when CsvLookupHandler::fileOfDesign() takes the
+    /// name; otherwise the warning for the refusal is added (decision D8 of 2026-10-14).
+    [[nodiscard]] bool mayReadImageFile(std::string_view name, WarningSet& warnings) const;
     /// A <paint> closes.
     void closePaint(const Attributes& attributes);
     /// A <shine> closes.

@@ -16,6 +16,7 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/MotorFinder.h"
 #include "QtRocket/file/motor/GeneralMotorLoader.h"
+#include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
@@ -27,6 +28,7 @@
 #include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
@@ -116,9 +118,18 @@ std::shared_ptr<const Motor> MotorHandler::loadMotorFromZip(std::string_view mot
         // Not OpenRocket's: see the class comment.
         return nullptr;
     }
-    const std::string attachmentName = std::format("thrustcurves/{}.rse", motorDigest);
-    const std::shared_ptr<Attachment> attachment =
-        m_context->getAttachmentFactory()->getAttachment(attachmentName);
+    const std::string        attachmentName = std::format("thrustcurves/{}.rse", motorDigest);
+    const AttachmentFactory& attachments    = *m_context->getAttachmentFactory();
+    if (attachments.readsFileSystem() &&
+        !CsvLookupHandler::fileOfDesign(m_context->getDesignDirectory(),
+                                        pathFromUtf8(attachmentName))
+             .has_value())
+    {
+        // Not OpenRocket's (decision D8 of 2026-10-14; see the class comment): a file the
+        // design may not read is missing to it.
+        return nullptr;
+    }
+    const std::shared_ptr<Attachment> attachment = attachments.getAttachment(attachmentName);
     QTROCKET_ASSERT(attachment != nullptr);
 
     const Result<std::vector<std::byte>> bytes = attachment->getBytes();

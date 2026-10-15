@@ -82,6 +82,7 @@
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -108,7 +109,6 @@
 #include "file/ExampleMotors.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
-#include "file/openrocket/ConditionsTestSupport.h"
 #include "file/openrocket/DesignFileState.h"
 #include "file/openrocket/ExampleOrkFiles.h"
 #include "file/openrocket/FlightDataTestSupport.h"
@@ -128,6 +128,7 @@ using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightData;
 using QtRocket::LoadedDocument;
+using QtRocket::LoaderWarnings;
 using QtRocket::MassCalculator;
 using QtRocket::MessagePriority;
 using QtRocket::Motor;
@@ -2483,17 +2484,51 @@ template <class Line>
     return lines;
 }
 
-/// @p line with the name a re-save gives a decal image whose entry lies outside "decals/":
-/// OpenRocket's saver writes every image as "decals/<file name>", so a texture
-/// "/datafiles/textures/<file name>" of the original is "decals/<file name>" in the re-save.
-[[nodiscard]] std::string withResavedDecalNames(std::string line)
+/// The texts of the decal images that the re-save of an example may not read: the textures of
+/// OpenRocket, which the original holds as entries "/datafiles/textures/<file name>" ("Parallel
+/// booster staging"). In the re-save, a plain design, they are files of absolute paths that a
+/// design may not name (decision D8 of 2026-10-14).
+constexpr std::string_view kTextureDecal = " decal='/datafiles/textures/";
+
+/// The line of a state that lists the decal images of the document, and the start of an image
+/// in it that is one of OpenRocket's textures.
+constexpr std::string_view kDecalImages  = "| decals=";
+constexpr std::string_view kTextureImage = "'/datafiles/textures/";
+
+/// @p line, a line of an original's state, as the re-save gives it: without the decal of an
+/// appearance that is one of OpenRocket's textures, which the re-save ignores (kTextureDecal;
+/// its text runs to the end of the appearance, "]"), and without such an image in the list of
+/// the document's images (kDecalImages: "'<name>'" each, with commas between). A list that is
+/// left empty is "", a line the state does not have.
+[[nodiscard]] std::string withoutTextureDecals(std::string line)
 {
-    return QtRocket::Test::replaceAll(std::move(line), "'/datafiles/textures/", "'decals/");
+    for (std::size_t at = line.find(kTextureDecal); at != std::string::npos;
+         at             = line.find(kTextureDecal, at))
+    {
+        line.erase(at, line.find(']', at) - at);
+    }
+    if (!line.starts_with(kDecalImages) || !line.contains(kTextureImage))
+    {
+        return line;
+    }
+    std::string            images;
+    const std::string_view list = std::string_view(line).substr(kDecalImages.size());
+    for (std::size_t start = 0; start <= list.size();)
+    {
+        const std::size_t      comma = std::min(list.find(',', start), list.size());
+        const std::string_view image = list.substr(start, comma - start);
+        if (!image.starts_with(kTextureImage))
+        {
+            images += std::format("{}{}", images.empty() ? "" : ",", image);
+        }
+        start = comma + 1;
+    }
+    return images.empty() ? std::string() : std::string(kDecalImages) + images;
 }
 
 /// The re-saves of @p states whose design is not the one OpenRocket loads from the original
-/// (designLinesOf() of the state of ExampleOrkFiles.h, with the decal names of a re-save),
-/// each with the first line that differs; "" when every one is.
+/// (designLinesOf() of the state of ExampleOrkFiles.h, without the decals the re-save may not
+/// read), each with the first line that differs; "" when every one is.
 [[nodiscard]] std::string resavesWithAnotherDesign(const std::vector<ExampleState>& states)
 {
     std::string report;
@@ -2508,8 +2543,9 @@ template <class Line>
         Lines original = designLinesOf(row->state);
         for (std::string& line : original)
         {
-            line = withResavedDecalNames(std::move(line));
+            line = withoutTextureDecals(std::move(line));
         }
+        std::erase(original, std::string());
         const Lines texts = QtRocket::Test::textsOf(state.lines);
         const Lines found = designLinesOf(std::span<const std::string>(texts));
         const std::vector<std::string_view> expected(original.begin(), original.end());
@@ -2524,28 +2560,63 @@ template <class Line>
 
 // OpenRocket's re-save of each example (resave/rocket.ork of its goldens: the design as
 // OpenRocket loaded it, saved before anything was settled, as plain XML of file version 1.11
-// without the stored flights) loads without a warning, and holds the design of the original:
-// the same components with the same values, the stale automatic ones included, the same flight
-// configurations with the same ids, names and motors, and the same simulations by name,
-// status, extensions and flight configuration. Only the decal images differ: a re-save is
-// the document alone, so none of its 23 images can be read, and the six textures of the
-// parallel boosters have the names OpenRocket's saver gives them. Freshly loaded, a re-save
-// has the masses, the centres of mass and the length of the original as loaded.
+// without the stored flights) holds the design of the original: the same components with the
+// same values, the stale automatic ones included, the same flight configurations with the
+// same ids, names and motors, and the same simulations by name, status, extensions and flight
+// configuration. Only the decal images differ: a re-save is the document alone, so none of its
+// 17 images can be read, and the six textures of the parallel boosters are not read at all
+// (see the next test): their 17 decals are ignored with six warnings, the only warnings of the
+// re-saves. Freshly loaded, a re-save has the masses, the centres of mass and the length of the
+// original as loaded.
 //
 // (The comparison of the re-saves with their goldens, and of a design QtRocket saves with a
 // re-save, are not made here.)
-TEST(ExampleFilesResaves, LoadWithoutAWarningIntoTheDesignOfTheOriginal)
+TEST(ExampleFilesResaves, LoadIntoTheDesignOfTheOriginal)
 {
     const std::vector<ExampleState> states =
         statesOfTheExamples(ExampleSource::RESAVE, Presets::EXAMPLES);
     ASSERT_EQ(states.size(), 16U);
     EXPECT_EQ(resavesWithAnotherDesign(states), "");
     EXPECT_EQ(totalsOf(states).toText(),
-              "16 files, 0 of version 1.10 and 16 of 1.11, 0 warnings; 327 components, 50 "
+              "16 files, 0 of version 1.10 and 16 of 1.11, 6 warnings; 327 components, 50 "
               "configurations, 65 motors and 1 mounts without one; 54 simulations, 54 loaded, 4 "
-              "with 6 extensions; 0 branches, 0 rows, 0 events, 20 stored warnings; 23 decal "
-              "images, 23 unreadable; 112 document materials");
+              "with 6 extensions; 0 branches, 0 rows, 0 events, 20 stored warnings; 17 decal "
+              "images, 17 unreadable; 112 document materials");
     EXPECT_EQ(examplesWithOtherMasses(ExampleSource::RESAVE), "");
+}
+
+// Not OpenRocket's (decision D8 of 2026-10-14). The original "Parallel booster staging" holds
+// OpenRocket's built-in textures as entries of its archive named "/datafiles/textures/<file
+// name>" (DefaultAppearance.java), which load as the entries they are. OpenRocket's plain
+// re-save names them so too, and in a plain design such a name is a file of an absolute path,
+// which a design may not read: each of its 17 decals is ignored, with one warning for each of
+// the six names, and the document has no image. OpenRocket names the files against the root
+// of the file system and registers six images that cannot be read. (OpenRocket itself always
+// saves a design with decals as an archive, where the names are entries again.)
+TEST(ExampleFilesResaves, ThePlainResaveOfTheParallelBoostersReadsNoTexture)
+{
+    const Result<LoadedDocument> loaded =
+        loadExampleNamed("Parallel booster staging.ork", ExampleSource::RESAVE);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    Lines warnings;
+    for (const QtRocket::Warning& warning : loaded->warnings)
+    {
+        warnings.push_back(warning.toString());
+    }
+    EXPECT_EQ(
+        warnings,
+        (Lines{LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/wadding.png"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/spiral-wound-alpha.png"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/wood.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/hardboard.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/chute.jpg")}));
+    EXPECT_EQ(loaded->document->getDecalImageCount(), 0U);
+    // The original keeps its six images, which are the entries of its archive.
+    const Result<LoadedDocument> original = loadExampleNamed("Parallel booster staging.ork");
+    ASSERT_TRUE(original.has_value()) << original.error().toString();
+    EXPECT_TRUE(original->warnings.empty());
+    EXPECT_EQ(original->document->getDecalImageCount(), 6U);
 }
 
 // ============================================================ for a comparison with the probe

@@ -11,7 +11,7 @@
 //
 // Each bound is pinned with a document that reaches it exactly and goes one beyond. Reading up
 // to a bound is itself slow in a debug build where every element is a change of the rocket that
-// every flight configuration answers (ten thousand components, a thousand flight
+// every flight configuration answers (a thousand components, a thousand flight
 // configurations), so there the rocket is filled up to just below the bound before the file is
 // read, and the file brings the last ones. The components and the warnings are read through
 // GeneralRocketLoader. The flight configurations and the simulations are read through the
@@ -63,6 +63,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "TestTempDir.h"
 #include "file/RawZip.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
@@ -102,6 +103,7 @@ using QtRocket::Test::LoaderEnvironment;
 using QtRocket::Test::RocketLoadFixture;
 using QtRocket::Test::runHandler;
 using QtRocket::Test::SimulationFixture;
+using QtRocket::Test::TempDir;
 using QtRocket::Test::warningTexts;
 
 using Texts = std::vector<std::string>;
@@ -175,7 +177,8 @@ using Texts = std::vector<std::string>;
 
 TEST(LoaderBounds, TheBoundsAreTheNumbersThatWereDecided)
 {
-    EXPECT_EQ(DocumentConfig::kMaxComponents, 10000U);
+    // Decision D5 of 2026-10-14 (it was 10000).
+    EXPECT_EQ(DocumentConfig::kMaxComponents, 1000U);
     EXPECT_EQ(DocumentConfig::kMaxFlightConfigurations, 1000U);
     EXPECT_EQ(DocumentConfig::kMaxSimulations, 10000U);
     EXPECT_EQ(DocumentConfig::kMaxWindLevels, 10000U);
@@ -273,7 +276,7 @@ TEST(LoaderBounds, AComponentFitsUpToTheBoundExactly)
 }
 
 // The rocket has three components fewer than the bound when the file is read. The file brings
-// a stage, a body tube and a mass component, which is the ten thousandth, and then an inner
+// a stage, a body tube and a mass component, which is the thousandth, and then an inner
 // tube with a mass component in it and one more mass component.
 TEST(LoaderBounds, ARocketTakesComponentsUpToTheBoundAndTheNextIsIgnoredWithWhatItHolds)
 {
@@ -474,8 +477,10 @@ TEST(LoaderBounds, AnAssemblyBeyondTheBoundIsIgnoredWithWhatItHolds)
         inStage(std::format("<bodytube><appearance>{}{}</appearance></bodytube>", decals, more)));
 }
 
-/// How a design of decals reaches the loader: as a plain document, whose images are files, or
-/// as the entry of an archive, whose images are entries of it that are found by their names.
+/// How a design of decals reaches the loader: as a plain document, whose images are files (of
+/// a directory of the test's own: a design without a directory reads no image file, by
+/// decision D8 of 2026-10-14), or as the entry of an archive, whose images are entries of it
+/// that are found by their names.
 enum class DecalsOf
 {
     FILES,
@@ -497,9 +502,10 @@ struct DecalLoad
     DecalLoad                    load;
     LoaderEnvironment            environment;
     const GeneralRocketLoader    loader(environment.context());
+    const TempDir                directory;
     const Result<LoadedDocument> loaded =
         source == DecalsOf::FILES
-            ? loader.load(stringToBytes(xml))
+            ? loader.load(stringToBytes(xml), directory.path())
             : loader.load(QtRocket::Test::archive({QtRocket::Test::stored("rocket.ork", xml)}));
     if (!loaded.has_value())
     {
@@ -950,12 +956,15 @@ TEST(LoaderBounds, TheWarningSetOfALoadKeepsItsBound)
 
 // ---------------------------------------------------------------------------- measurements
 
-/// The seconds a load of the design @p xml takes; negative when it fails.
+/// The seconds a load of the design @p xml takes, as a design of a directory of its own (whose
+/// decal images are its files); negative when it fails.
 [[nodiscard]] double secondsToLoad(std::string_view xml)
 {
     LoaderEnvironment            environment;
+    const TempDir                directory;
+    const GeneralRocketLoader    loader(environment.context());
     const auto                   start  = std::chrono::steady_clock::now();
-    const Result<LoadedDocument> loaded = load(environment, xml);
+    const Result<LoadedDocument> loaded = loader.load(stringToBytes(xml), directory.path());
     const double                 seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     return loaded.has_value() ? seconds : -1.0;
@@ -1082,10 +1091,11 @@ TEST(LoaderBounds, TheWarningSetOfALoadKeepsItsBound)
                             settersOfALength(count)));
 }
 
-/// The same without a flight configuration, in a stage of 1000 body tubes.
+/// The same without a flight configuration, in a stage of 997 body tubes: with the tube of the
+/// setters and the stage 999 components, one below DocumentConfig::kMaxComponents.
 [[nodiscard]] std::string designOfSettersAmongTubes(std::size_t count)
 {
-    return designOf(inStage(repeated("<bodytube><length>0.1</length></bodytube>", 1000) +
+    return designOf(inStage(repeated("<bodytube><length>0.1</length></bodytube>", 997) +
                             settersOfALength(count)));
 }
 
@@ -1112,8 +1122,9 @@ void printTimesOf(std::string_view what, Design design, std::initializer_list<st
 // Measurements, not tests: the time of loading the documents that the reviews of run 9b found
 // slow, below each bound, at the bound and far beyond it (what is beyond a bound is refused and
 // has to cost little). Run them by name in a release build
-// (--gtest_also_run_disabled_tests --gtest_filter='LoaderBounds.DISABLED_Prints*'); the two of
-// the components take from minutes to half an hour.
+// (--gtest_also_run_disabled_tests --gtest_filter='LoaderBounds.DISABLED_Prints*'). Each design
+// is loaded as a file of a directory of its own (secondsToLoad()), so that its decal images are
+// read.
 //
 // The numbers of 2026-10-09: the ci-gcc build (GCC, -O3), whole designs through
 // GeneralRocketLoader, on a machine that other builds kept busy (20 threads, a load of 10 to
@@ -1145,10 +1156,9 @@ void printTimesOf(std::string_view what, Design design, std::initializer_list<st
 // more still, because each finds its place behind its siblings by looking for itself among
 // them (RocketComponent::setAfter() and getChildPosition(), as in OpenRocket, which took 108 s
 // for 1600): twice as many take four to five times as long, nearly the cube, and the 10000 of
-// the bound took 1824 s, HALF AN HOUR. The bound on the components does not make a load
-// short. What it should be to end such a load in seconds (about a thousand, by these numbers),
-// or whether the rocket should answer the changes of a load more cheaply, is an open question
-// for the user.
+// the bound of then took 1824 s, HALF AN HOUR. The user's answer (decision D5 of 2026-10-14)
+// was a bound of a thousand, which ends such a load in seconds (the numbers of 2026-10-15
+// below).
 //
 // The numbers of 2026-10-10, for what the review of run 9d found (the same build, a machine with
 // nothing else to do; "before" is the review's own measurement, without the bound that was
@@ -1180,14 +1190,32 @@ void printTimesOf(std::string_view what, Design design, std::initializer_list<st
 // the flight configurations limit what one change of the rocket costs, and the number of
 // changes a file makes is limited by its size alone (see DocumentConfig::kMaxInstances). A
 // budget on the work of a whole load is an open question for the user.
+//
+// The numbers of 2026-10-15, after the bound on the components became a thousand (decision D5
+// of 2026-10-14; the same build, a machine at a load of 16 to 22, two runs where there are two
+// numbers):
+//   body tubes side by side (999 reach the bound)
+//       250: 0.16 to 0.19 s, 500: 0.66 to 0.75 s, 999: 2.1 to 3.4 s, 2500: 1.8 to 3.3 s,
+//       10000: 1.9 to 3.3 s
+//   mass components in one tube (998 reach the bound)
+//       250: 0.12 s, 500: 0.37 s, 998: 1.6 s, 2500: 1.6 s, 40000: 2.4 s
+//   elements that set a length, with 998 body tubes and no flight configuration
+//       none: 3.4 s, 10000: 38 s, 40000: 138 s                       3.4 ms an element
+//   decals of as many images, files of the design's directory (decision D8 of 2026-10-14 holds
+//   each name to it before the bound on the images is asked)
+//       500: 0.02 s, 1000: 0.06 to 0.11 s, 15000: 1.0 to 1.7 s, 30000: 2.0 to 3.5 s
+// So a load at the bound of the components takes seconds, and what lies beyond it costs
+// nothing more.
+// The bound is reached by 999 tubes (with their stage) and by 998 mass components (with their
+// tube and stage).
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingBodyTubesSideBySide)
 {
-    printTimesOf("body tubes side by side", &designOfTubes, {625, 1250, 2500, 5000, 10000});
+    printTimesOf("body tubes side by side", &designOfTubes, {250, 500, 999, 2500, 10000});
 }
 
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingMassComponentsInOneTube)
 {
-    printTimesOf("mass components in one tube", &designOfMasses, {1250, 2500, 5000, 10000, 40000});
+    printTimesOf("mass components in one tube", &designOfMasses, {250, 500, 998, 2500, 40000});
 }
 
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingFlightConfigurations)
@@ -1260,7 +1288,7 @@ TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingSettersAmongFlightConfiguratio
 
 TEST(LoaderBounds, DISABLED_PrintsTheTimeOfLoadingSettersAmongTubes)
 {
-    printTimesOf("setters among 1001 tubes", &designOfSettersAmongTubes, {0, 10000, 40000});
+    printTimesOf("setters among 998 tubes", &designOfSettersAmongTubes, {0, 10000, 40000});
 }
 
 }  // namespace

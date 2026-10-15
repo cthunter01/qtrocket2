@@ -63,12 +63,13 @@ class Rocket;
 /// - "LargeAOA": a Warning::LargeAOA with the parameter as its angle (NaN without one);
 /// - "HighSpeedDeployment": a Warning::RecoveryHighSpeedDeployment with the parameter as its
 ///   speed. That is the name of the class in OpenRocket 24.12, whose files the examples are;
+/// - "RecoveryHighSpeedDeployment" (not OpenRocket's, see the deviations): the same;
 /// - "EventAfterLanding": a Warning::EventAfterLanding without an event. The flight data
 ///   branch's handler gives it its event when it reads the SIM_WARN event that names both;
 /// - anything else, and no attribute: a Warning::Other with the description. This is also what
 ///   becomes of the names this OpenRocket's saver writes for the other classes
-///   ("RecoveryHighSpeedDeployment", "HighSpeedMainDeployment", "MissingMotor", ...): such a
-///   warning keeps its text, its sources and its priority and loses its number.
+///   ("HighSpeedMainDeployment", "MissingMotor", ...): such a warning keeps its text, its
+///   sources and its priority and loses its number.
 /// The description is used for the last kind only; the first three make their own text.
 ///
 /// The warning then gets the id, the priority and the sources that were read. The priority is
@@ -87,6 +88,12 @@ class Rocket;
 /// has, which the warning's text then shows.
 ///
 /// Deviations from OpenRocket:
+/// - The type "RecoveryHighSpeedDeployment" is read as "HighSpeedDeployment" is (decision E2 of
+///   2026-10-14). It is the name OpenRocket's saver writes for that warning, the simple name
+///   of the class (OpenRocketSaver.java:500), while its loader knows the other one only: there
+///   such a warning of a file OpenRocket saved reloads as an Other and loses its speed, as do
+///   the 16 of the committed re-saves of six examples. Here a save and a reload keep it; the
+///   saver writes Java's name.
 /// - Java's source for an id that names no component is the one RocketComponent.REMOVED
 ///   object, so there two warnings that differ only in such ids are one, and a save writes
 ///   the id of that object and not the id read. Here the ids are kept, and the two warnings

@@ -11,6 +11,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/AttachmentFactory.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
+#include "QtRocket/file/openrocket/CsvLookupHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/IgnoredElementHandler.h"
 #include "QtRocket/file/openrocket/LoaderWarnings.h"
@@ -24,6 +25,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
@@ -85,11 +87,17 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
         warnings.add(LoaderWarnings::kDecalIgnored);
         return false;
     }
+    // The name is there, or the decal was ignored above.
+    const std::string_view decalName = name.value_or(std::string_view{});
+    // Not OpenRocket's (decision D8 of 2026-10-14; see the class comment).
+    if (!mayReadImageFile(decalName, warnings))
+    {
+        return false;
+    }
 
-    // From here on as Java, step by step: a load that fails has registered the image. (The
-    // name is there, or the decal was ignored above.)
+    // From here on as Java, step by step: a load that fails has registered the image.
     const std::shared_ptr<const Attachment> attachment =
-        m_context->getAttachmentFactory()->getAttachment(name.value_or(std::string_view{}));
+        m_context->getAttachmentFactory()->getAttachment(decalName);
     OpenRocketDocument& document = *m_context->getOpenRocketDocument();
     // Not OpenRocket's: the images of a document are bounded (see the class comment).
     if (document.getDecalImageCount() >= DocumentConfig::kMaxDecalImages &&
@@ -121,6 +129,25 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
     }
     m_builder.setEdgeMode(*edgeMode);
     return true;
+}
+
+bool AppearanceHandler::mayReadImageFile(std::string_view name, WarningSet& warnings) const
+{
+    if (!m_context->getAttachmentFactory()->readsFileSystem())
+    {
+        // The entries of an archive, whatever their names.
+        return true;
+    }
+    const auto file =
+        CsvLookupHandler::fileOfDesign(m_context->getDesignDirectory(), pathFromUtf8(name));
+    if (file.has_value())
+    {
+        return true;
+    }
+    warnings.add(file.error() == CsvLookupHandler::Refusal::DEVICE_NAME
+                     ? LoaderWarnings::decalFileOfDeviceName(name)
+                     : LoaderWarnings::decalFileOutsideDesign(name));
+    return false;
 }
 
 Result<void> AppearanceHandler::closeElement(std::string_view element, const Attributes& attributes,

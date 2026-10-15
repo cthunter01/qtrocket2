@@ -32,7 +32,7 @@ public:
     // ------------------------------------------------------------------- the components
 
     /// A component beyond DocumentConfig::kMaxComponents: "<component name> would give the
-    /// rocket more than 10000 components; ignoring this component and its subcomponents."
+    /// rocket more than 1000 components; ignoring this component and its subcomponents."
     /// (@p componentName is RocketComponent::getComponentName(): "Body Tube").
     [[nodiscard]] static std::string tooManyComponents(std::string_view componentName);
 
@@ -103,6 +103,20 @@ public:
     /// A <decal> whose image would be one more than DocumentConfig::kMaxDecalImages: "The
     /// document has 1000 decal images already; ignoring the decal of a further image."
     [[nodiscard]] static std::string tooManyDecalImages();
+
+    /// A <decal> of a design whose images are files (FileSystemAttachmentFactory: a plain or
+    /// gzip design) that names an image file the design may not read, because the name is no
+    /// relative one, leaves the design's directory, or the design has no directory (decision
+    /// D8 of 2026-10-14; CsvLookupHandler::fileOfDesign()): "The decal image file '<file>' was
+    /// not read: a design may name such a file only by a relative path inside its own
+    /// directory; ignoring the decal." (@p file is the name as the design has it.)
+    [[nodiscard]] static std::string decalFileOutsideDesign(std::string_view file);
+
+    /// A <decal> of such a design that names an image file with the name of a device of Windows
+    /// in its path, which is refused on Windows (CsvLookupHandler::kRefusesDeviceNames): "The
+    /// decal image file '<file>' was not read: its path holds a name that Windows reserves for
+    /// a device; ignoring the decal."
+    [[nodiscard]] static std::string decalFileOfDeviceName(std::string_view file);
 
     // ------------------------------------------------------- the flight configurations
 
@@ -225,6 +239,14 @@ public:
     /// '<element>' would give a simulation option outside its range; the option keeps what it
     /// had."
     [[nodiscard]] static std::string optionOutOfRange(std::string_view element);
+
+    /// A <launchaltitude> above the highest launch site the atmospheric model takes
+    /// (ExtendedIsaModel::getMaximumAllowedAltitude()), which the options lower to that site as
+    /// OpenRocket's do (decisions D4 and E5 of 2026-10-14; OpenRocket says nothing): "The
+    /// launch altitude of 200000.0 m is above the highest launch site the atmospheric model
+    /// takes; it was lowered to 11018.064362274883 m." (@p altitude is the number of the file
+    /// and @p lowered what the options hold, each as Java prints a double.)
+    [[nodiscard]] static std::string launchAltitudeLowered(double altitude, double lowered);
 
     /// A file that a design names for a lookup table and may not read, because the name is
     /// no relative one, leaves the design's directory, or the design has no directory (see

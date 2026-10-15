@@ -419,6 +419,10 @@ enum class Deviation
     /// QtRocket's own text where Java's exception has no message (a header or a data
     /// descriptor that is cut off).
     DAMAGE,
+    /// A plain or gzip design read from memory without a base directory reads no image file
+    /// (decision D8 of 2026-10-14): each decal is ignored with a warning. OpenRocket names the
+    /// images against the current directory of the process.
+    DECAL_WITHOUT_DIRECTORY,
 };
 
 /// An input of the loader and what loading it gives.
@@ -442,10 +446,21 @@ constexpr std::string_view kMalformed   = "FAILED PARSE: Malformed XML in input.
 constexpr std::string_view kDiesOfNull  = "JAVA DIES: java.lang.NullPointerException";
 /// The empty rocket OpenRocket returns for an archive whose first entry is no design.
 constexpr std::string_view kEmptyRocket = "LOADED 'Rocket' components=1 warnings=[] decals=[]";
-/// The design read without a base directory: the images are files, which the document names
-/// "decals/<file name>", with a number for a second file of the same name.
-constexpr std::string_view kDesignFromMemory =
+/// The design read without a base directory, as OpenRocket reads it: the images are files of
+/// the current directory, which the document names "decals/<file name>", with a number for a
+/// second file of the same name.
+constexpr std::string_view kDesignFromMemoryInOpenRocket =
     "LOADED 'R' components=6 warnings=[] decals=[decals/a (1).png, decals/a.png, decals/b.png]";
+/// The same as QtRocket reads it (decision D8 of 2026-10-14): a design without a directory
+/// reads no image file, and each of the three names gives its warning
+/// (LoaderWarnings::decalFileOutsideDesign()).
+constexpr std::string_view kDesignFromMemory =
+    "LOADED 'R' components=6 warnings=[The decal image file 'decals/a.png' was not read: a "
+    "design may name such a file only by a relative path inside its own directory; ignoring the "
+    "decal. | The decal image file 'b.png' was not read: a design may name such a file only by "
+    "a relative path inside its own directory; ignoring the decal. | The decal image file "
+    "'sub/decals/a.png' was not read: a design may name such a file only by a relative path "
+    "inside its own directory; ignoring the decal.] decals=[]";
 /// The design read from an archive in memory: the images keep the names the design gives.
 constexpr std::string_view kDesignFromArchiveInMemory =
     "LOADED 'R' components=6 warnings=[] decals=[b.png, decals/a.png, sub/decals/a.png]";
@@ -534,8 +549,10 @@ constexpr std::string_view kScoutsCorruptArchive =
                      kDiesOfNull);
     };
     std::vector<Input> inputs;
-    inputs.push_back(input("plain", false, design, kDesignFromMemory));
-    inputs.push_back(input("gzip", false, gzipOf(design), kDesignFromMemory));
+    inputs.push_back(input("plain", false, design, kDesignFromMemory,
+                           Deviation::DECAL_WITHOUT_DIRECTORY, kDesignFromMemoryInOpenRocket));
+    inputs.push_back(input("gzip", false, gzipOf(design), kDesignFromMemory,
+                           Deviation::DECAL_WITHOUT_DIRECTORY, kDesignFromMemoryInOpenRocket));
     inputs.push_back(archive("zip rocket.ork first", kDesignFromArchiveInMemory));
     inputs.push_back(archive("zip preview first", kDesignFromArchiveInMemory));
     inputs.push_back(archive("zip ROCKET.ORK", kDesignFromArchiveInMemory));
@@ -549,9 +566,9 @@ constexpr std::string_view kScoutsCorruptArchive =
     inputs.push_back(
         input("gzip of zip", false, gzipOf(zipOf(itemsOf("zip rocket.ork first"))), kUnsupported));
     inputs.push_back(archive("zip holding gzip ork", kUnsupported));
-    inputs.push_back(input("bom", false,
-                           joined({{std::byte{0xEF}, std::byte{0xBB}, std::byte{0xBF}}, design}),
-                           kDesignFromMemory));
+    inputs.push_back(input(
+        "bom", false, joined({{std::byte{0xEF}, std::byte{0xBB}, std::byte{0xBF}}, design}),
+        kDesignFromMemory, Deviation::DECAL_WITHOUT_DIRECTORY, kDesignFromMemoryInOpenRocket));
     inputs.push_back(input("signature after 300 bytes", false,
                            stringToBytes("<?xml version='1.0'?><!--" + std::string(300, 'x') +
                                          "-->" + std::string(designFromRoot())),
@@ -583,7 +600,7 @@ constexpr std::string_view kScoutsCorruptArchive =
                                          std::string(designFromRoot())),
                            "FAILED UNSUPPORTED_FORMAT: Unsupported document type declaration: "
                            "markup declarations",
-                           Deviation::DOCUMENT_TYPE, kDesignFromMemory));
+                           Deviation::DOCUMENT_TYPE, kDesignFromMemoryInOpenRocket));
     return inputs;
 }
 
@@ -703,7 +720,8 @@ constexpr std::string_view kScoutsCorruptArchive =
     inputs.push_back(input("signature ends with byte 300", false,
                            stringToBytes("<?xml version='1.0'?><!--" + std::string(261, 'x') +
                                          "-->" + std::string(designFromRoot())),
-                           kDesignFromMemory));
+                           kDesignFromMemory, Deviation::DECAL_WITHOUT_DIRECTORY,
+                           kDesignFromMemoryInOpenRocket));
     // Ten bytes are enough to be looked at, and are no document; eleven can be the signature,
     // and are no XML.
     inputs.push_back(input("10 bytes", false, stringToBytes("<openrocke"), kUnsupported));
@@ -837,10 +855,10 @@ constexpr std::string_view kEndOfZlibAtOnce =
         input("gzip of two members", true,
               joined({storedMember(part(design, 0, 200)), storedMember(part(design, 200))}),
               kDesignBesideImage));
-    inputs.push_back(
-        input("gzip of two members", false,
-              joined({storedMember(part(design, 0, 200)), storedMember(part(design, 200))}),
-              kDesignFromMemory));
+    inputs.push_back(input(
+        "gzip of two members", false,
+        joined({storedMember(part(design, 0, 200)), storedMember(part(design, 200))}),
+        kDesignFromMemory, Deviation::DECAL_WITHOUT_DIRECTORY, kDesignFromMemoryInOpenRocket));
     inputs.push_back(
         input("gzip of three members", true,
               joined({storedMember(part(design, 0, 350)), storedMember(part(design, 350, 351)),
@@ -1193,7 +1211,22 @@ TEST(GeneralRocketLoaderInputs, ADocumentTypeWithDeclarationsIsTheOneOtherDeviat
 {
     const std::vector<Input> inputs = scoutInputs();
     EXPECT_THAT(inputsWith(inputs, Deviation::DOCUMENT_TYPE), ElementsAre("doctype (memory)"));
-    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), 53U - 3U - 11U - 1U);
+    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), 53U - 3U - 11U - 1U - 3U);
+}
+
+// The design read from memory without a base directory reads no image (decision D8 of
+// 2026-10-14): a design may name an image file only by a relative path inside its own
+// directory, and such a design has none. OpenRocket names the images against the current
+// directory of the process and registers three. The three inputs of the scouts that are such a
+// design, whole, are these.
+TEST(GeneralRocketLoaderInputs, ADesignFromMemoryWithoutADirectoryReadsNoImage)
+{
+    const std::vector<Input> inputs = scoutInputs();
+    EXPECT_THAT(inputsWith(inputs, Deviation::DECAL_WITHOUT_DIRECTORY),
+                ElementsAre("plain (memory)", "gzip (memory)", "bom (memory)"));
+    EXPECT_THAT(openRocketsOutcomesWith(inputs, Deviation::DECAL_WITHOUT_DIRECTORY),
+                ElementsAre(kDesignFromMemoryInOpenRocket, kDesignFromMemoryInOpenRocket,
+                            kDesignFromMemoryInOpenRocket));
 }
 
 // A gzip stream or an archive that is damaged, each row with what OpenRocket makes of the same
@@ -1239,12 +1272,15 @@ TEST(GeneralRocketLoaderInputs, AGzipHeaderIsReadAsJavaReadsIt)
 
 // A gzip stream of several members holds the data of all of them, and what follows the last
 // is not looked at. OpenRocket looks for the document in the first member only when that
-// holds less than 300 bytes. Every row is OpenRocket's outcome.
+// holds less than 300 bytes. Every row is OpenRocket's outcome, but that the design read from
+// memory without a base directory reads no image (decision D8 of 2026-10-14).
 TEST(GeneralRocketLoaderInputs, AGzipStreamOfSeveralMembersIsReadAsJavaReadsIt)
 {
     const std::vector<Input> inputs = gzipMemberInputs();
     EXPECT_EQ(failedInputs(inputs), "");
-    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), inputs.size());
+    EXPECT_THAT(inputsWith(inputs, Deviation::DECAL_WITHOUT_DIRECTORY),
+                ElementsAre("gzip of two members (memory)"));
+    EXPECT_EQ(inputsWith(inputs, Deviation::NONE).size(), inputs.size() - 1U);
 }
 
 // The bytes behind a member are looked at for another member wherever the member ends in the
@@ -1532,19 +1568,22 @@ TEST(GeneralRocketLoader, TheAttachmentsOfBytesWithABaseDirectoryAreItsFiles)
     EXPECT_EQ(decalBytes(*loaded->document, "decals/a.png"), "1 2 3 4 5");
 }
 
-// A plain design in memory without a base directory: the images are files named against the
-// current directory of the process, as Java's File names them.
-TEST(GeneralRocketLoader, TheAttachmentsOfBytesWithoutADirectoryAreNamedAgainstTheCurrentOne)
+// A plain design in memory without a base directory has no directory, and reads no image file
+// (decision D8 of 2026-10-14): every decal is ignored with a warning, also one whose image lies
+// under its name in the current directory of the process. OpenRocket names the images against
+// that directory, as Java's File names them, and reads them (kDesignBesideImage). The images
+// of an archive in memory are its entries, whatever the current directory.
+TEST(GeneralRocketLoader, TheAttachmentsOfBytesWithoutADirectoryAreNoFiles)
 {
     const DesignDirectory       directory;
     LoaderEnvironment           environment;
     const GeneralRocketLoader   loader(environment.context());
     const CurrentDirectoryGuard inside(directory.path());
 
-    const Result<LoadedDocument> loaded = loader.load(stringToBytes(kDesign));
-
-    ASSERT_TRUE(loaded.has_value()) << loaded.error().message;
-    EXPECT_EQ(outcomeOf(loaded, true), kDesignBesideImage);
+    EXPECT_EQ(outcomeOf(loader.load(stringToBytes(kDesign)), true), kDesignFromMemory);
+    EXPECT_EQ(outcomeOf(loader.load(gzipOf(stringToBytes(kDesign))), true), kDesignFromMemory);
+    EXPECT_EQ(outcomeOf(loader.load(zipOf({{"rocket.ork", stringToBytes(kDesign)}})), true),
+              kDesignFromArchive);
 }
 
 /// What loading @p bytes with the base directory @p base gives: "loaded", or the failure as

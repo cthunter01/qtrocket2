@@ -834,8 +834,12 @@ RocketLoadFixture::RocketLoadFixture(bool withPresets, Attachments attachments)
     if (attachments == Attachments::FILES)
     {
         // The context's own factory: files without a base directory, as the probe's context
-        // has them. (The fixture's map of attachments stays the factory of an archive.)
+        // has them. (The fixture's map of attachments stays the factory of an archive.) The
+        // design's directory is then the current one, as GeneralRocketLoader makes it for a
+        // design file named without a directory: a decal is read by a relative name inside it
+        // (decision D8 of 2026-10-14), which names the same file as the probe's.
         m_fixture.context().setAttachmentFactory(nullptr);
+        m_fixture.context().setDesignDirectory(std::filesystem::path("."));
     }
     if (withPresets)
     {
@@ -1083,6 +1087,8 @@ namespace
     const std::unique_ptr<AttachmentFactory> attachments = attachmentsOfDesignFile(path);
     RocketLoadFixture                        fixture(withPresets);
     fixture.context().setAttachmentFactory(attachments.get());
+    // The design's directory, as GeneralRocketLoader gives it (decision D8 of 2026-10-14).
+    fixture.context().setDesignDirectory(absolutePath(path).parent_path());
     return fixture.loadAndSummarize(rocketElementOfDesignFile(path), state);
 }
 

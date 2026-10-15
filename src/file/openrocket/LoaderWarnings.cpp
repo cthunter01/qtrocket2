@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/util/Strings.h"
 
 namespace QtRocket
 {
@@ -56,6 +57,22 @@ std::string LoaderWarnings::tooManyDecalImages()
     return std::format(
         "The document has {} decal images already; ignoring the decal of a further image.",
         DocumentConfig::kMaxDecalImages);
+}
+
+std::string LoaderWarnings::decalFileOutsideDesign(std::string_view file)
+{
+    return std::format(
+        "The decal image file '{}' was not read: a design may name such a file only by a "
+        "relative path inside its own directory; ignoring the decal.",
+        file);
+}
+
+std::string LoaderWarnings::decalFileOfDeviceName(std::string_view file)
+{
+    return std::format(
+        "The decal image file '{}' was not read: its path holds a name that Windows reserves "
+        "for a device; ignoring the decal.",
+        file);
 }
 
 std::string LoaderWarnings::presetMaterialOfAnotherType(std::string_view componentName)
@@ -140,6 +157,14 @@ std::string LoaderWarnings::optionOutOfRange(std::string_view element)
         "The number of element '{}' would give a simulation option outside its "
         "range; the option keeps what it had.",
         element);
+}
+
+std::string LoaderWarnings::launchAltitudeLowered(double altitude, double lowered)
+{
+    return std::format(
+        "The launch altitude of {} m is above the highest launch site the atmospheric model "
+        "takes; it was lowered to {} m.",
+        Strings::javaDoubleToString(altitude), Strings::javaDoubleToString(lowered));
 }
 
 std::string LoaderWarnings::lookupFileOutsideDesign(std::string_view element, std::string_view file)

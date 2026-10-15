@@ -61,8 +61,10 @@ namespace QtRocket
 ///   (windModelTypeFromString()): the wind model in use. Any other text fails the load (see
 ///   below).
 /// - <launchaltitude>: a number in m, not below -1000, capped by the options at the highest
-///   altitude the atmospheric model allows; with the ISA atmosphere in use the launch
-///   temperature, pressure and humidity follow; "Illegal launch altitude defined, ignoring.".
+///   altitude the atmospheric model allows (ExtendedIsaModel::getMaximumAllowedAltitude(),
+///   11018.064362274883 m), which a warning then says (see the deviations); with the ISA
+///   atmosphere in use the launch temperature, pressure and humidity follow; "Illegal launch
+///   altitude defined, ignoring.".
 /// - <launchlatitude>, <launchlongitude>: numbers in degrees, clamped to +-90 and +-180 by the
 ///   options; "Illegal launch latitude defined, ignoring." and "Illegal launch longitude.".
 /// - <geodeticmethod>: "flat", "spherical" or "wgs84", read as DocumentConfig::findEnum()
@@ -136,6 +138,16 @@ namespace QtRocket
 ///   range; the option keeps what it had."). OpenRocket applies every finite number, however
 ///   large. What an option's setter keeps in its range by clamping is clamped as in
 ///   OpenRocket: a rod angle, a latitude, a longitude, and a launch altitude above the range.
+/// - A launch altitude that the options lower, every number above the highest launch site of
+///   the atmospheric model (ExtendedIsaModel::getMaximumAllowedAltitude(), 11018.064362274883
+///   m, not only those above the 100 km of the range), is lowered as in OpenRocket and gives a
+///   warning of QtRocket's own, which OpenRocket does not give (decisions D4 and E5 of
+///   2026-10-14): LoaderWarnings::launchAltitudeLowered(), "The launch altitude of 200000.0 m
+///   is above the highest launch site the atmospheric model takes; it was lowered to
+///   11018.064362274883 m.". It is given when the options hold that site, or less, once the
+///   number is applied; not for a number that the options do not take because it equals what
+///   they hold within MathUtil::kEpsilon (a preference store can give the options a launch
+///   altitude above that site, which they keep).
 ///   The ranges of the wind, the atmosphere, the gravity and the lookup tables are kept by
 ///   their handlers (WindHandler, AtmosphereHandler, GravityHandler, CsvLookupHandler).
 /// - <randomseed> reads ASCII digits only; Integer.parseInt also takes the decimal digits of

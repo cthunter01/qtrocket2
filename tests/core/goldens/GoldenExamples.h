@@ -14,7 +14,10 @@
 // (ExampleSource::RESAVE, resave/rocket.ork of its goldens: plain XML of file version 1.11,
 // written before anything was settled. Its simulations keep their options and their summary
 // values and have no stored branch, and its decal images are named and cannot be read: the
-// re-save is the document alone).
+// re-save is the document alone. The re-save of "Parallel booster staging" names its six
+// textures as the original's entries are named, "/datafiles/textures/*", which in a plain
+// design are files by absolute paths that a design may not read: its 17 decals are ignored
+// with a warning for each of the six names, by decision D8 of 2026-10-14).
 //
 // The environment of a load (goldenExampleEnvironment()) is that of the harness, a
 // DesignFileEnvironment:
@@ -42,8 +45,9 @@
 // dimensions are stale in it where OpenRocket's are, and what a getter answers can depend on
 // what was asked before (see AutomaticDimensions.h). It is the state OpenRocket's own tests of
 // the examples look at (ExampleFilesTest) and the one a save writes; with the six presets the
-// load of either source gives no warning (tests/core/file/openrocket/example_files_tests.cpp
-// compares this state with OpenRocket's for every example).
+// load of an original gives no warning, and of a re-save none but the six of the parallel
+// boosters' textures (tests/core/file/openrocket/example_files_tests.cpp compares this state
+// with OpenRocket's for every example).
 //
 // The goldens describe another state, the SETTLED one: the harness settles the automatic
 // dimensions before it dumps geometry, mass, aerodynamics and simulations.

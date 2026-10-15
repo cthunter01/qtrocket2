@@ -290,6 +290,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/CsvLookupHandlerTests.cpp
     file/openrocket/CustomExpressionHandlerTests.cpp
     file/openrocket/DatatypeHandlerTests.cpp
+    file/openrocket/decal_file_containment_tests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DesignFileState.cpp

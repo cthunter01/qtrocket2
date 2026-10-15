@@ -136,8 +136,31 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
       event SIM_WARN t=2.0 id=(random) src=null data=[EventAfterLanding:Flight Event occurred after landing: ]
       row: 0.0 0.0
 )out",
-     .qtrocket = "",
-     .why      = ""},
+     .qtrocket = R"out(
+  W[Other,NORMAL] Unknown element 'bogus', ignoring.
+  closed=flightdata {} []
+  data: branches=1 maxAlt=0.0 maxVel=NaN maxAcc=NaN maxMach=NaN tApogee=0.0 tFlight=0.0 vGround=NaN vRod=NaN vDeploy=NaN optDelay=NaN
+    fw[LargeAOA,LOW] id=cccccccc-0000-0000-0000-000000000001 text='Large angle of attack encountered (20.1<U+00B0>)' desc='Large angle of attack encountered (20.1<U+00B0>)' sources= param=0.35
+    fw[LargeAOA,NORMAL] id=(random) text='Large angle of attack encountered (28.6<U+00B0>)' desc='Large angle of attack encountered (28.6<U+00B0>)' sources= param=0.5
+    fw[RecoveryHighSpeedDeployment,NORMAL] id=cccccccc-0000-0000-0000-000000000002 text='Recovery device deployment at high speed (26.9 m/s):  "P"' desc='Recovery device deployment at high speed (26.9 m/s)' sources=P@aaaaaaaa-0000-0000-0000-000000000004; param=26.9
+    fw[RecoveryHighSpeedDeployment,NORMAL] id=(random) text='Recovery device deployment at high speed:  "<i>Component Removed From Rocket</i>"' desc='Recovery device deployment at high speed' sources=<i>Component Removed From Rocket</i>(REMOVED); param=NaN
+    fw[RecoveryHighSpeedDeployment,HIGH] id=(random) text='Recovery device deployment at high speed (26.9 m/s)' desc='Recovery device deployment at high speed (26.9 m/s)' sources= param=26.9
+    fw[EventAfterLanding,NORMAL] id=cccccccc-0000-0000-0000-000000000003 text='Flight Event occurred after landing: ' desc='Flight Event occurred after landing: ' sources= event=null
+    fw[Other,NORMAL] id=(random) text='only text content' desc='only text content' sources=
+    fw[Other,HIGH] id=(random) text='Described' desc='Described' sources=
+    fw[Other,NORMAL] id=(random) text='No motor with designation 'X' for manufacturer 'Y' found.' desc='No motor with designation 'X' for manufacturer 'Y' found.' sources=
+    fw[Other,NORMAL] id=(random) text='' desc='' sources=
+    branch[0] 'A' rows=1 optAlt=NaN tOptAlt=NaN optDelay=NaN sepTime=NaN srcId=null
+      types=Time{t,Time,time,s} | Altitude{h,Position and Motion,altitude,m}
+      event GROUND_HIT t=1.0 id=bbbbbbbb-0000-0000-0000-000000000009 src=null data=[null]
+      event SIM_WARN t=2.0 id=(random) src=null data=[EventAfterLanding:Flight Event occurred after landing: ]
+      event SIM_WARN t=2.0 id=(random) src=null data=[EventAfterLanding:Flight Event occurred after landing: ]
+      row: 0.0 0.0
+)out",
+     .why = "Decision E2 of 2026-10-14: the type 'RecoveryHighSpeedDeployment', which OpenRocket's "
+            "saver writes, is read as 'HighSpeedDeployment' is, a RecoveryHighSpeedDeployment with "
+            "its speed. OpenRocket's loader knows only the other name and makes an Other of it, so "
+            "that a saved high speed deployment loses its speed on a reload."},
     {.name     = "fd: warning parameter garbage",
      .setup    = "",
      .xml      = R"xml(
@@ -364,8 +387,15 @@ constexpr auto kWarningCases = std::to_array<FlightDataCase>({
   set: 1
     fw[Other,NORMAL] id=(random) text='Recovery device deployment at high speed (26.9 m/s):  "P"' desc='Recovery device deployment at high speed (26.9 m/s)' sources=P@aaaaaaaa-0000-0000-0000-000000000004;
 )out",
-     .qtrocket = "",
-     .why      = ""},
+     .qtrocket = R"out(
+  closed=warning {type=RecoveryHighSpeedDeployment} []
+  set: 1
+    fw[RecoveryHighSpeedDeployment,NORMAL] id=(random) text='Recovery device deployment at high speed (26.9 m/s):  "P"' desc='Recovery device deployment at high speed (26.9 m/s)' sources=P@aaaaaaaa-0000-0000-0000-000000000004; param=26.9
+)out",
+     .why = "Decision E2 of 2026-10-14: the type 'RecoveryHighSpeedDeployment', which OpenRocket's "
+            "saver writes, is read as 'HighSpeedDeployment' is, a RecoveryHighSpeedDeployment with "
+            "its speed. OpenRocket's loader knows only the other name and makes an Other of it, so "
+            "that a saved high speed deployment loses its speed on a reload."},
     {.name     = "w: event after landing",
      .setup    = "",
      .xml      = R"xml(
@@ -1486,9 +1516,22 @@ TEST(WarningHandler, TheTypeDecidesTheClass)
     EXPECT_FALSE(landing->eventType().has_value());
     EXPECT_FALSE(landing->eventId().has_value());
 
+    // Not OpenRocket's (decision E2 of 2026-10-14): the name OpenRocket's saver writes for the
+    // class is read as "HighSpeedDeployment" is. OpenRocket makes an Other of it.
     set.clear();
     EXPECT_TRUE(runWarning(fixture, set,
                            "<warning type='RecoveryHighSpeedDeployment'>"
+                           "<description>stored text</description><parameter>26.5</parameter>"
+                           "</warning>")
+                    .result.has_value());
+    const auto* saved = dynamic_cast<const Warning::RecoveryHighSpeedDeployment*>(onlyWarning(set));
+    ASSERT_NE(saved, nullptr);
+    EXPECT_EQ(saved->speed(), 26.5);
+
+    // The names of the other classes that OpenRocket's saver writes are an Other.
+    set.clear();
+    EXPECT_TRUE(runWarning(fixture, set,
+                           "<warning type='HighSpeedMainDeployment'>"
                            "<description>stored text</description><parameter>26.5</parameter>"
                            "</warning>")
                     .result.has_value());

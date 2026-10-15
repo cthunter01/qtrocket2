@@ -1166,11 +1166,19 @@ ROOT rocket {} []
 EVENTS 182 {aero=3, mass=48, mass,aero=59, mass,aero,tree=7, mass,tree=11, mass,treechild=1, motor=1, nonfunc=44, tree=8}
 COMPONENTS 20
 STATE 470e4791fc8729c5937c58819bb7a845ea5b89e213ee2fd75bc2f11c7b1a0311)out"},
+    // Decision D8: this plain re-save names OpenRocket's built-in textures by absolute paths ("/datafiles/textures/*", entries of the archive of the original), which a design whose images are files may not read: its 17 decals are ignored, with one warning for each of the 6 names.
+    // OpenRocket: STATE 9a7b54263ef927de251a58ec474c72c762e5f950584e585ca317ae8cdc20cd4e
     {.file = "example-parallel-booster-staging/resave/rocket.ork", .expected = R"out(RESULT ok
+W The decal image file '/datafiles/textures/wadding.png' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+W The decal image file '/datafiles/textures/spiral-wound-alpha.png' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+W The decal image file '/datafiles/textures/balsa.jpg' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+W The decal image file '/datafiles/textures/wood.jpg' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+W The decal image file '/datafiles/textures/hardboard.jpg' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+W The decal image file '/datafiles/textures/chute.jpg' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
 ROOT rocket {} []
 EVENTS 184 {aero=2, mass=45, mass,aero=66, mass,aero,tree=8, mass,tree=7, motor=2, nonfunc=49, tree=5}
 COMPONENTS 18
-STATE 9a7b54263ef927de251a58ec474c72c762e5f950584e585ca317ae8cdc20cd4e)out"},
+STATE eae04072cf2aac5cf73c9c5c82f210d3c85bb5844d90afea6a5f4ca561413bc9)out"},
     {.file = "example-pods-airframes-and-winglets/resave/rocket.ork", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 247 {aero=1, mass=62, mass,aero=98, mass,aero,tree=13, mass,tree=7, motor=1, nonfunc=56, tree=9}

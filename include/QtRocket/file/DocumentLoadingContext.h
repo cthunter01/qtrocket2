@@ -120,8 +120,10 @@ public:
     /// for a file that is named without one) and to the base directory of a load from bytes.
     /// Not OpenRocket's: it is what a file named by a design, a lookup table of a simulation,
     /// is resolved against and confined to (the user's decision of 2026-10-08; see
-    /// CsvLookupHandler, "Which file a design may read"). A design without one reads no such
-    /// file. The handler of a simulation's conditions copies it when the element is opened.
+    /// CsvLookupHandler, "Which file a design may read"), and so is a decal image or an
+    /// embedded thrust curve when the attachment factory reads the file system (decision D8 of
+    /// 2026-10-14; AppearanceHandler, MotorHandler). A design without one reads no such file.
+    /// The handler of a simulation's conditions copies it when the element is opened.
     /// The path is kept as it was given, not made absolute; an empty one stands for the
     /// current directory of the process, as "." does.
     [[nodiscard]] const std::optional<std::filesystem::path>& getDesignDirectory() const noexcept

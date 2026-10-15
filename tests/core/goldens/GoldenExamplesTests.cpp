@@ -12,6 +12,7 @@
 #include "goldens/GoldenExamples.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <format>
 #include <set>
@@ -25,6 +26,8 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/logging/Warning.h"
+#include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/simulation/extension/SimulationExtensionRegistry.h"
@@ -164,8 +167,34 @@ TEST(GoldenExamples, AreTheSixteenExamplesOfTheManifest)
     return found == rows.end() ? nullptr : &*found;
 }
 
+/// The warnings a load of @p example from @p source gives: none, but for the re-save of
+/// "Parallel booster staging", whose decals name OpenRocket's six built-in textures by the
+/// absolute paths that the original's archive has as entry names, which a plain design may not
+/// read (decision D8 of 2026-10-14): a warning for each name.
+[[nodiscard]] std::size_t expectedWarningsOf(const GoldenExample& example, ExampleSource source)
+{
+    return source == ExampleSource::RESAVE && example.file == "Parallel booster staging.ork" ? 6
+                                                                                             : 0;
+}
+
+/// How many of @p warnings are the warning of a decal of one of OpenRocket's textures that is
+/// ignored (LoaderWarnings::decalFileOutsideDesign() of "/datafiles/textures/<file name>").
+[[nodiscard]] std::size_t texturesIgnored(const QtRocket::WarningSet& warnings)
+{
+    std::size_t count = 0;
+    for (const QtRocket::Warning& warning : warnings)
+    {
+        if (warning.toString().starts_with("The decal image file '/datafiles/textures/"))
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 /// What is wrong with a load of @p example from @p source and with its settled state: the
-/// Error of the load, its warnings, a document without a stage or without the simulations of
+/// Error of the load, its warnings (but those expectedWarningsOf() says), a document without a
+/// stage or without the simulations of
 /// the goldens, a settling that fails or takes another number of passes than OpenRocket's, and
 /// the masses, centres of mass and the length of the settled design that are not OpenRocket's.
 /// Empty when nothing is.
@@ -177,12 +206,16 @@ TEST(GoldenExamples, AreTheSixteenExamplesOfTheManifest)
     {
         return row == nullptr ? "not in ExampleOrkFiles.h\n" : loaded.error().toString() + "\n";
     }
-    std::string   problems;
-    const Rocket& rocket = loaded->document->getRocket();
-    if (!loaded->warnings.empty())
+    std::string       problems;
+    const Rocket&     rocket           = loaded->document->getRocket();
+    const std::size_t expectedWarnings = expectedWarningsOf(example, source);
+    if (loaded->warnings.size() != expectedWarnings ||
+        texturesIgnored(loaded->warnings) != expectedWarnings)
     {
-        problems += std::format("{} warnings, the first: {}\n", loaded->warnings.size(),
-                                loaded->warnings.begin()->toString());
+        problems += loaded->warnings.empty()
+                        ? std::format("no warning, {} expected\n", expectedWarnings)
+                        : std::format("{} warnings, the first: {}\n", loaded->warnings.size(),
+                                      loaded->warnings.begin()->toString());
     }
     if (rocket.getStageCount() == 0 || loaded->document->getSimulationCount() == 0)
     {
@@ -243,8 +276,9 @@ struct StoreAfterALoad
            store.getSimulationStepperMethodName() == "RK4";
 }
 
-// Every example loads from both of its sources without an Error and without a warning, and
-// its automatic dimensions settle (settleGoldenExample()) into the state the goldens describe:
+// Every example loads from both of its sources without an Error and without a warning (but the
+// six of the parallel boosters' re-save, decision D8 of 2026-10-14), and its automatic
+// dimensions settle (settleGoldenExample()) into the state the goldens describe:
 // in as many passes as the golden harness takes, and with OpenRocket's masses, centres of mass
 // and length, for the original and for the re-save. One test for all thirty-two loads: the
 // bundled motor database is read once per process.
