@@ -9,8 +9,11 @@
 // run uses, so a flight with wind turbulence is reproducible from the seed.
 //
 // The simulations run under the preferences of OpenRocket's test set-up (SimulationRunSupport.h).
-// The turbulence itself is not OpenRocket's (PinkNoise draws from another generator than Java's),
-// so the flights are not the ones the Java test sees; what is asserted is the same.
+// The turbulence itself is not OpenRocket's (PinkNoise draws from GaussianRandom, QtRocket's own
+// generator, decision D12 of 2026-10-14, not from java.util.Random), so the flights are not the
+// ones the Java test sees; what is asserted is the same. The noise of a seed is the same on every
+// platform, a turbulent flight is not (the wind's direction and the flight go through libm), so
+// what is asserted is a flight against another of the same process.
 
 #include <format>
 #include <limits>

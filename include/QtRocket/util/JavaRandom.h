@@ -14,8 +14,9 @@ namespace QtRocket
 /// It exists for the pitch and yaw jitter of the simulation (AbstractRkSimulationStepper), which
 /// OpenRocket draws from a java.util.Random: with it a QtRocket run and an OpenRocket run of the
 /// same seed see the same jitter. It is not a general-purpose generator (the low bits of an LCG
-/// are weak) and nothing else should start using it: the wind turbulence keeps its own source
-/// (PinkNoise).
+/// are weak) and nothing else should start using it: the wind turbulence has a generator of
+/// QtRocket's own (PinkNoise draws from GaussianRandom, the user's decision D12 of 2026-10-14, not
+/// from java.util.Random's nextGaussian()).
 ///
 /// Only what the simulation draws is ported: setSeed(), next(), nextInt() and nextDouble().
 ///

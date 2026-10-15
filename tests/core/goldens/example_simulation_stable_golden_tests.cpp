@@ -448,7 +448,6 @@ using Mismatches = QtRocket::Test::GoldenMismatches;
 /// "harness" records the two time steps, and under the rule of the tumbling dropped stages, as
 /// in the default-step comparison of the examples.
 constexpr ComparisonMode kStructure{.randomConfigurationId     = false,
-                                    .strict                    = false,
                                     .measurements              = nullptr,
                                     .stableSet                 = true,
                                     .droppedStagesTumbleFreely = true};
@@ -913,8 +912,8 @@ struct PairedEvents
 /// those after the last separation of a dropped stage without a recovery device.
 [[nodiscard]] PairedEvents pairedEvents(const json& expected, const DocumentBranch& ours)
 {
-    PairedEvents paired{.golden      = orderedGoldenEvents(expected, false),
-                        .ours        = orderedEvents(*ours.branch, false),
+    PairedEvents paired{.golden      = orderedGoldenEvents(expected),
+                        .ours        = orderedEvents(*ours.branch),
                         .apogee      = 0,
                         .goldenAfter = {},
                         .oursAfter   = {}};
@@ -1587,8 +1586,7 @@ struct ExampleSession
         {
             continue;
         }
-        const std::vector<const json*> events =
-            orderedGoldenEvents(branches.at(i).at("events"), false);
+        const std::vector<const json*> events = orderedGoldenEvents(branches.at(i).at("events"));
         numbers += 1 + eventsAfter(events, placeOfTheApogee(events)) + (i == 0 ? 2 : 0);
     }
     return numbers;
@@ -2158,10 +2156,9 @@ void countTheApogeeAndTheLateHandling(DocumentCounts& counts, const DocumentPlan
                                        .index      = i,
                                        .branch     = &document.at("branches").at(i),
                                        .summary    = &document.at("summary")};
-        const DocumentPlan      plan = documentPlan(document, i);
-        const std::vector<const json*> events =
-            orderedGoldenEvents(branch.branch->at("events"), false);
-        const int steady = steadyExtremesOf(*branch.branch, plan.tumbles);
+        const DocumentPlan      plan          = documentPlan(document, i);
+        const std::vector<const json*> events = orderedGoldenEvents(branch.branch->at("events"));
+        const int                      steady = steadyExtremesOf(*branch.branch, plan.tumbles);
         counts.rules.steadyExtremes += steady;
         counts.excluded.extremes +=
             (2 * static_cast<int>(branch.branch->at("columns").size())) - steady;

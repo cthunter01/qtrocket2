@@ -404,14 +404,13 @@ struct TwinColumn
 void compareNumber(Mismatches& m, Comparison& c, const std::string& field, double expected,
                    double actual, bool stable, double tolerance)
 {
-    const bool compared = stable || c.strict;
     if (c.measurements != nullptr && std::isfinite(expected) && std::isfinite(actual))
     {
         c.measurements->record(c.context, field,
-                               compared ? Treatment::COMPARED : Treatment::SENSITIVE,
+                               stable ? Treatment::COMPARED : Treatment::SENSITIVE,
                                std::abs(actual - expected), tolerance);
     }
-    if (!compared)
+    if (!stable)
     {
         c.sensitive.numbers++;
         return;
@@ -454,7 +453,7 @@ void compareTime(Mismatches& m, Comparison& c, const std::string& field, double 
 void compareCount(Mismatches& m, Comparison& c, std::string_view field, std::int64_t expected,
                   std::int64_t actual, bool stable)
 {
-    if (stable || c.strict)
+    if (stable)
     {
         c.compared.numbers++;
         m.integer(field, expected, actual);
@@ -901,7 +900,7 @@ struct BranchOf
     Horizon                 horizon;       ///< how far the branch is reproducible
     bool                    whole{false};  ///< whether the whole run is
     /// The noise-dominated out-of-plane columns of its golden time series, which are compared
-    /// on the launch rod only (none in the strict comparison).
+    /// on the launch rod only.
     RodOnlyRule rule;
     /// Whether its golden time series is among the files: not in a set that is written as
     /// documents alone, whose branches name no file ("csv" is null).
@@ -1029,9 +1028,9 @@ template <typename Event>
 [[nodiscard]] int compareEvents(Mismatches& m, Comparison& c, const json& expected,
                                 const BranchOf& ours)
 {
-    std::vector<const FlightEvent*> events = orderedEvents(*ours.branch, c.strict);
-    std::vector<const json*>        golden = orderedGoldenEvents(expected.at("events"), c.strict);
-    if (c.droppedStagesTumbleFreely && !c.strict && isUnrecoveredDroppedStage(expected))
+    std::vector<const FlightEvent*> events = orderedEvents(*ours.branch);
+    std::vector<const json*>        golden = orderedGoldenEvents(expected.at("events"));
+    if (c.droppedStagesTumbleFreely && isUnrecoveredDroppedStage(expected))
     {
         // The rule of the tumbling dropped stages: a TUMBLE after the separation is compared
         // on neither side. The golden ones are events, and times, that are not reproducible.
@@ -1189,7 +1188,7 @@ void compareExtreme(Mismatches& m, Comparison& c, const ColumnOf& column, const 
                       kValueRelative * referenceOf(column.scale, extreme.expected, extreme.actual));
         return;
     }
-    // Compared, or sensitive (which the strict comparison compares as well).
+    // Compared, or sensitive.
     compareValue(m, c, extreme.field, extreme.expected, extreme.actual, whole, column.scale);
 }
 
@@ -1319,19 +1318,6 @@ struct GoldenBranch
     return table;
 }
 
-/// The rule of the out-of-plane noise columns for the golden time series @p golden, as the
-/// comparison @p c applies it: not at all when it is strict.
-[[nodiscard]] RodOnlyRule ruleOf(const Comparison& c, const GoldenBranch& golden)
-{
-    if (!c.strict)
-    {
-        return rodOnlyRule(*golden.table, golden.cleared);
-    }
-    return {.rows    = golden.table->rows.size(),
-            .rodRows = golden.table->rows.size(),
-            .noise   = std::vector<bool>(golden.table->columns.size(), false)};
-}
-
 /// Counts the rows of a branch with the rule @p rule whose first @p rows rows are compared, and
 /// its values that are not compared, @p whole saying whether the branch is reproducible as a
 /// whole: the values the rule excludes in any row, and the rows from the horizon on with what
@@ -1347,7 +1333,7 @@ void countBranch(Comparison& c, const RodOnlyRule& rule, std::size_t rows, bool 
     const auto onTheRod = static_cast<std::int64_t>(std::min(rows, rule.rodRows));
     c.compared.rows += compared;
     c.excluded.values += rule.excludedValues();
-    if (!c.strict && !whole)
+    if (!whole)
     {
         // The rows of the golden time series from the horizon on.
         const auto sensitive = static_cast<std::int64_t>(rule.rows - rows);
@@ -1369,13 +1355,13 @@ void compareBranch(Comparison& c, std::size_t index, const GoldenBranch& golden,
                             .rocket     = run.rocket.get(),
                             .horizon    = sensitivity.horizons.at(index),
                             .whole      = sensitivity.whole,
-                            .rule       = ruleOf(c, golden),
+                            .rule       = rodOnlyRule(*golden.table, golden.cleared),
                             .timeSeries = golden.timeSeries};
     compareBranchHeader(m, c, *golden.expected, index, ours, run.planned);
 
     // The rows compared: those that are reproducible, as far as both sides have them.
-    const std::size_t rows = std::min({c.strict ? ours.branch->getLength() : ours.horizon.rows,
-                                       ours.branch->getLength(), table.rows.size()});
+    const std::size_t rows =
+        std::min({ours.horizon.rows, ours.branch->getLength(), table.rows.size()});
     c.compared.branches++;
     c.compared.columns += compareColumns(m, c, golden.expected->at("columns"), table, ours, rows);
     c.compared.events += compareEvents(m, c, *golden.expected, ours);
@@ -1926,15 +1912,14 @@ void compareSimulationWarning(Mismatches& m, Comparison& c, const std::string& f
         compareWarning(m, field, expected, actual, rocket, kValueRelative);
         return;
     }
-    const bool compared = whole || c.strict;
     if (c.measurements != nullptr && expected.contains("parameter"))
     {
         c.measurements->record(c.context, field + ".parameter",
-                               compared ? Treatment::COMPARED : Treatment::SENSITIVE,
+                               whole ? Treatment::COMPARED : Treatment::SENSITIVE,
                                std::abs(*parameter - goldenValue(expected.at("parameter"))),
                                kValueRelative * std::abs(*parameter));
     }
-    if (compared)
+    if (whole)
     {
         c.compared.numbers++;
         compareWarning(m, field, expected, actual, rocket, kValueRelative);
@@ -1953,7 +1938,7 @@ std::string pathOrNull(const RocketComponent* component)
     return component == nullptr ? std::string{"null"} : goldenPathOf(*component);
 }
 
-std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys, bool recorded)
+std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys)
 {
     std::vector<std::size_t> order(keys.size());
     for (std::size_t i = 0; i < order.size(); i++)
@@ -1961,7 +1946,7 @@ std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys, bool
         order[i] = i;
     }
     std::size_t begin = 0;
-    while (!recorded && begin < keys.size())
+    while (begin < keys.size())
     {
         std::size_t end = begin + 1;
         while (end < keys.size() && keys[begin].ignition && keys[end].ignition &&
@@ -1976,7 +1961,7 @@ std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys, bool
     return order;
 }
 
-std::vector<const FlightEvent*> orderedEvents(const FlightDataBranch& branch, bool recorded)
+std::vector<const FlightEvent*> orderedEvents(const FlightDataBranch& branch)
 {
     const std::vector<FlightEvent>& events = branch.getEvents();
     std::vector<EventKey>           keys;
@@ -1989,14 +1974,14 @@ std::vector<const FlightEvent*> orderedEvents(const FlightDataBranch& branch, bo
     }
     std::vector<const FlightEvent*> ordered;
     ordered.reserve(events.size());
-    for (const std::size_t i : comparisonOrder(keys, recorded))
+    for (const std::size_t i : comparisonOrder(keys))
     {
         ordered.push_back(&events[i]);
     }
     return ordered;
 }
 
-std::vector<const json*> orderedGoldenEvents(const json& events, bool recorded)
+std::vector<const json*> orderedGoldenEvents(const json& events)
 {
     std::vector<EventKey> keys;
     keys.reserve(events.size());
@@ -2008,7 +1993,7 @@ std::vector<const json*> orderedGoldenEvents(const json& events, bool recorded)
     }
     std::vector<const json*> ordered;
     ordered.reserve(events.size());
-    for (const std::size_t i : comparisonOrder(keys, recorded))
+    for (const std::size_t i : comparisonOrder(keys))
     {
         ordered.push_back(&events.at(i));
     }
@@ -2058,7 +2043,6 @@ SimulationComparison compareSimulation(const GoldenFiles& golden, const Simulati
     const QtRocket::Test::DefaultUnitsGuard units;  // the texts of the warnings print units
     Comparison                              c;
     c.context                   = context;
-    c.strict                    = mode.strict;
     c.droppedStagesTumbleFreely = mode.droppedStagesTumbleFreely;
     c.measurements              = mode.measurements;
     const json& document        = golden.document;

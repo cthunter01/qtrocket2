@@ -26,7 +26,7 @@ PinkNoise::PinkNoise(double alpha) : PinkNoise(alpha, kDefaultPoles) { }
 
 PinkNoise::PinkNoise(double alpha, int poles) : PinkNoise(alpha, poles, std::random_device{}()) { }
 
-PinkNoise::PinkNoise(double alpha, int poles, std::uint32_t seed) : m_generator(seed)
+PinkNoise::PinkNoise(double alpha, int poles, std::uint32_t seed) : m_gaussian(seed)
 {
     if (poles < 0)
     {
@@ -53,11 +53,13 @@ PinkNoise::PinkNoise(double alpha, int poles, std::uint32_t seed) : m_generator(
 
 double PinkNoise::nextValue()
 {
-    double x = m_gaussian(m_generator);
+    double x = m_gaussian.nextGaussian();
 
     for (std::size_t i = 0; i < m_values.size(); ++i)
     {
-        x -= m_multipliers[i] * m_values[i];
+        // The product apart, so that no compiler fuses it with the difference (GaussianRandom).
+        const double product = m_multipliers[i] * m_values[i];
+        x -= product;
     }
     if (!m_values.empty())
     {

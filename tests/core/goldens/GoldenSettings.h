@@ -15,7 +15,8 @@
 // - a component with a component preset: <preset type manufacturer partno digest>, the name of
 //   the preset's type, the simple name of its manufacturer, its part number and its digest. A
 //   component has one exactly when the file has the element (SavedPresets says what is expected
-//   of a design that was loaded without the presets);
+//   of a design that was loaded without the presets: the reference the component keeps then,
+//   with the element's four attributes);
 // - a recovery device: <deployevent>, <deployaltitude> and <deploydelay> of the default
 //   deployment, and one <deploymentconfiguration configid> with the same three for every flight
 //   configuration that has a deployment of its own;
@@ -77,7 +78,8 @@ struct SettingsCounts
     int ignitionConfigurations{0};  ///< <ignitionconfiguration>
     /// <preset>, with its type, manufacturer, partno and digest. As a number of elements
     /// compared: those held against the preset of their component, or, for a design loaded
-    /// without the presets (SavedPresets::NOT_FOUND), against its having none.
+    /// without the presets (SavedPresets::NOT_FOUND), against its having none and against the
+    /// reference to the preset it keeps.
     int presets{0};
 
     [[nodiscard]] bool operator==(const SettingsCounts&) const = default;
@@ -104,8 +106,11 @@ enum class SavedPresets
     LOADED,
     /// A design loaded without them (an empty preset database, which is how the product loads
     /// a design until it reads preset files): no component has a preset, whatever the file
-    /// names. OpenRocket's loader warns for each and goes on; the warnings are the business of
-    /// the caller (the "loadWarnings" of geometry.json).
+    /// names, and a component keeps a reference to a preset (RocketComponent::
+    /// getUnresolvedPreset(), the user's decision U8 of 2026-10-08) exactly when the file has a
+    /// <preset> for it, with the four attributes of that element as they are, a missing type or
+    /// digest as missing. OpenRocket's loader warns for each and goes on, and keeps nothing;
+    /// the warnings are the business of the caller (the "loadWarnings" of geometry.json).
     NOT_FOUND,
 };
 

@@ -9,6 +9,7 @@ target_sources(QtRocket_core PRIVATE
     Error.cpp
     FileIo.cpp
     FloatingDecimal.cpp
+    GaussianRandom.cpp
     GeodeticComputationStrategy.cpp
     Geometry2D.cpp
     L10N.cpp

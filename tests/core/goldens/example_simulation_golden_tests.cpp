@@ -362,7 +362,6 @@ constexpr SensitivityMargins kExampleMargins{.rod              = kSensitivityMar
 /// How the simulations of the examples are compared: under the rules of the default-step set of
 /// the test rockets, and under the rule of the tumbling dropped stages (see the top of the file).
 constexpr ComparisonMode kExampleMode{.randomConfigurationId     = false,
-                                      .strict                    = false,
                                       .measurements              = nullptr,
                                       .stableSet                 = false,
                                       .droppedStagesTumbleFreely = true};

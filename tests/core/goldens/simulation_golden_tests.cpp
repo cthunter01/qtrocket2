@@ -118,8 +118,6 @@
 // launch rod is whole, and every flight is reproducible at least until it has cleared the rod
 // (in rows: the reproducible rows of a branch are at least the golden rows up to the clearing,
 // 794 in the 31 flights and 26 in the 19 other simulations).
-// SimulationGoldenStrict holds the comparison the plan asked for (everything, the rows exactly,
-// the events in the order they were recorded in), disabled: it cannot pass.
 //
 // The out-of-plane noise columns. This is rule N of the stable-step set, taken over by the
 // user's decision and through the same code (kOutOfPlaneColumns, kNoiseRatio and rodOnlyRule()
@@ -150,7 +148,7 @@
 // whole, unless the golden column or the run's attains it only after the rod: then it is one of
 // the excluded values (extremeTreatment() of GoldenSimulations.h decides it; the test of each
 // rocket holds the number of them between what the golden columns alone exclude and two per
-// noise column of a whole branch). The strict comparison knows no rule.
+// noise column of a whole branch).
 //
 // One more difference is not a matter of rounding: an event that ignites the motors of several
 // mounts queues their IGNITION events in the order of a hash map in OpenRocket (it changes from
@@ -557,32 +555,6 @@ TEST(SimulationGoldenCoverage, EveryGoldenSimulationOfTheTestRocketsHasAMaker)
     // wind, where they hold a signal), and the roll rate in the 24 branches that have one (23
     // of these, and that flight). Their 120481 values off the rod are not compared, in any run.
     EXPECT_EQ(coverage.noise, (NoiseCounts{.columns = 189, .values = 120481})) << coverage.noise;
-}
-
-// ==================================================================================== strict
-
-/// The comparison the plan asked for: every value of every simulation at the tolerances, the
-/// rows exactly, the events in the order they were recorded in. It cannot pass (see "WHAT CAN BE
-/// COMPARED" at the top of the file): OpenRocket does not reproduce these values itself.
-/// Disabled; run it with --gtest_also_run_disabled_tests to see what differs on a platform.
-TEST(SimulationGoldenStrict, DISABLED_EverySimulationIsReproducedInFull)
-{
-    std::string report;
-    for (const TestRocketMaker& maker : testRocketMakers())
-    {
-        const GoldenInput* input = inputOf(maker);
-        ASSERT_NE(input, nullptr) << maker;
-        for (std::size_t i = 0; i < input->simulations.size(); i++)
-        {
-            const GoldenRun& run = goldenRun(maker, *input, i);
-            ASSERT_EQ(run.problem, "");
-            report += compareSimulation(
-                          run.files, run.run, run.sensitivity, run.context,
-                          {.randomConfigurationId = run.randomConfigurationId, .strict = true})
-                          .report;
-        }
-    }
-    EXPECT_EQ(report, "");
 }
 
 // =============================================================================== measurement
@@ -1612,8 +1584,8 @@ TEST(SimulationGoldenNoiseColumns, AnExtremeIsComparedSensitiveOrExcluded)
     EXPECT_EQ(treatmentsOf(table, rule, cases, false),
               "sensitive sensitive sensitive sensitive sensitive sensitive");
 
-    // A simulation that never clears the rod has no row off it, and the strict comparison a
-    // rule without a noise column: nothing is excluded. Nor of a column the time series lacks.
+    // A simulation that never clears the rod has no row off it, and a rule may name no noise
+    // column: nothing is excluded then. Nor of a column the time series lacks.
     EXPECT_EQ(treatmentOf(table, rodOnlyRule(table, std::nullopt), offTheRod, true),
               Treatment::COMPARED);
     const RodOnlyRule noRule{.rows = 5, .rodRows = 5, .noise = std::vector<bool>(3, false)};
@@ -1827,10 +1799,10 @@ TEST(SimulationGoldenNumbers, AValueIsReproducibleWhenThePerturbedRunMovesItByLi
 }
 
 /// The order comparisonOrder() gives the events @p keys, as their sources one after the other.
-[[nodiscard]] std::string orderedSources(const std::vector<EventKey>& keys, bool recorded)
+[[nodiscard]] std::string orderedSources(const std::vector<EventKey>& keys)
 {
     std::string sources;
-    for (const std::size_t i : comparisonOrder(keys, recorded))
+    for (const std::size_t i : comparisonOrder(keys))
     {
         sources += sources.empty() ? "" : " ";
         sources += keys[i].source;
@@ -1853,9 +1825,8 @@ TEST(SimulationGoldenEvents, SimultaneousIgnitionsAreComparedAsASet)
         {.ignition = true, .time = 2.0, .source = "/1/1"},
         {.ignition = true, .time = 2.0, .source = "/1/0"},
     };
-    EXPECT_EQ(orderedSources(keys, false), "/ /0/1/2 /0/1/5 /0/0 null /9 /8 /1/0 /1/1");
-    EXPECT_EQ(orderedSources(keys, true), "/ /0/1/5 /0/1/2 /0/0 null /9 /8 /1/1 /1/0");
-    EXPECT_EQ(orderedSources({}, false), "");
+    EXPECT_EQ(orderedSources(keys), "/ /0/1/2 /0/1/5 /0/0 null /9 /8 /1/0 /1/1");
+    EXPECT_EQ(orderedSources({}), "");
 }
 
 TEST(SimulationGoldenHarness, TheFileNamesAreTheDumpers)

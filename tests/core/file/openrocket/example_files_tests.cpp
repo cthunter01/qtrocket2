@@ -15,13 +15,14 @@
 //    NOT COMPARED: the maximum altitude of the 54 flights. Java flies each in the turbulence
 //    its design's wind has (mostly a standard deviation of 0.2 m/s around 2 m/s), drawn from
 //    java.util.Random with seed 0, and accepts 0.5 m around its literal. QtRocket's turbulence
-//    is another sequence for the same seed (PinkNoise draws from another generator, a decision
-//    of tier 3), and with another realisation OpenRocket's own altitude is more than 0.5 m
-//    from the literal in 35 of the 54 flights (flown with the seeds 0 to 31; by up to 16 m of
-//    617 m: SeedProbe of the probes of tier 9c, part "examples"). QtRocket's altitudes over
-//    the same seeds lie as OpenRocket's do: beyond 0.5 m in 35 of the 54 flights and at
-//    0.500 m in one more, by up to 16 m (the first measurement at the end of this file). The
-//    flights are compared with the calm goldens of the examples instead.
+//    is another sequence for the same seed (PinkNoise draws from GaussianRandom, a generator of
+//    QtRocket's own: decision D12 of 2026-10-14), and with another realisation OpenRocket's own
+//    altitude is more than 0.5 m from the literal in 35 of the 54 flights (flown with the seeds
+//    0 to 31; by up to 16 m of 617 m: SeedProbe of the probes of tier 9c, part "examples").
+//    QtRocket's altitudes over the same seeds lie as OpenRocket's do: beyond 0.5 m in 34 of the
+//    54 flights, by up to 16 m (the first measurement at the end of this file; 35 and one more
+//    at 0.500 m with std::mt19937, the generator before tier 10). The flights are compared with
+//    the calm goldens of the examples instead.
 //
 //    What does not depend on the realisation is asserted here: every flight runs, none has an
 //    error, and its warnings are OpenRocket's, by priority and one by one (the numbers a
@@ -1146,14 +1147,16 @@ struct DeploymentAtTheLimit
 /// The one such simulation of the examples. Java's table expects no warning for it, which
 /// holds for the flight OpenRocket flies with seed 0: flown with the seeds 0 to 31, OpenRocket
 /// deploys at 16.3 to 20.9 m/s and warns with the seeds 17 and 29 (SeedProbe of the probes of
-/// tier 9c, part "examples"). QtRocket's turbulence is another sequence, and not the same in
-/// every standard library either (see PinkNoise): with glibc and the seeds 0 to 31 it deploys
-/// at 16.3 to 20.8 m/s here and warns with seed 1 (the measurements at the end of this file).
-/// No other flight of the examples is near the limit for its spread: "Three stage low power
-/// rocket.ork" Simulation 2 deploys at 17.4 to 19.3 m/s and "Parallel booster staging.ork"
-/// Simulation 2 at 15.7 to 19.1 m/s in OpenRocket's 32 flights (17.3 to 19.1 and 15.3 to
-/// 18.6 m/s in QtRocket's), without a warning in any, and the flights that deploy closer to
-/// 20 m/s do so within 0.05 m/s whatever the seed (19.0 to 19.6 m/s).
+/// tier 9c, part "examples"). QtRocket's turbulence is another sequence (see PinkNoise; its
+/// noise is the same on every platform, the flight, which goes through libm, is not): with the
+/// seeds 0 to 31 it deploys at 16.1 to 19.8 m/s here and warns with none of them (the
+/// measurements at the end of this file, clang debug build with glibc; with std::mt19937, the
+/// generator before tier 10, it deployed at 16.3 to 20.8 m/s and warned with seed 1). No other
+/// flight of the examples is near the limit for its spread: "Three stage low power rocket.ork"
+/// Simulation 2 deploys at 17.4 to 19.3 m/s and "Parallel booster staging.ork" Simulation 2 at
+/// 15.7 to 19.1 m/s in OpenRocket's 32 flights (17.3 to 18.8 and 15.5 to 18.7 m/s in
+/// QtRocket's), without a warning in any, and the flights that deploy closer to 20 m/s do so
+/// within 0.06 m/s whatever the seed (19.0 to 19.6 m/s).
 ///
 /// What is asserted of such a simulation in place of Java's "no such warning" is what holds
 /// whatever the realisation: see deploymentContradictions().
@@ -1176,8 +1179,9 @@ constexpr std::string_view kHighSpeedDeployment = "RecoveryHighSpeedDeployment";
 /// of the deployment event) may lie from the speed the flight compared with its limit when it
 /// deployed, in m/s. The flight handles an event up to a millisecond after its time (the
 /// shortest step towards an event), in which a falling rocket changes its speed by 0.01 m/s;
-/// in the one flight of the second measurement at the end of this file that has the warning,
-/// the two speeds are 20.7595 and 20.7636 m/s.
+/// in the one flight of the second measurement at the end of this file that had the warning
+/// with std::mt19937, the generator before tier 10, the two speeds were 20.7595 and
+/// 20.7636 m/s (with GaussianRandom none of its 32 flights has the warning).
 constexpr double kDeploymentSpeedSlack = 0.05;
 
 /// What is asserted of a simulation of kDeploymentsAtTheLimit about its warnings of a

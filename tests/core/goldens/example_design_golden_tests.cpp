@@ -58,13 +58,17 @@
 //
 // Without component presets (ExampleDesignGoldenWithoutPresets), which is how the product loads
 // a design before it reads preset files (Milestone 3), the same comparison of the original
-// files has to find exactly what OpenRocket's own harness writes then (the tier 9 scouts ran it
-// with an empty preset database: probe "golden-tests", out/nopresets.diff): six load warnings
-// in three examples, and 0 instead of 0.0015748 m for the thickness of the fore shoulder of two
-// nose cones, which their presets alone supply. Everything else is equal: every other value of
-// geometry.json and all of mass.json and aero.json. The settings are compared there too, with
-// the same numbers of elements; of the six <preset> it is held that no component has a preset
-// then (SavedPresets::NOT_FOUND).
+// files of the three examples that name a preset has to find exactly what OpenRocket's own
+// harness writes then (the tier 9 scouts ran it with an empty preset database: probe
+// "golden-tests", out/nopresets.diff): six load warnings, and 0 instead of 0.0015748 m for the
+// thickness of the fore shoulder of two nose cones, which their presets alone supply.
+// Everything else is equal: every other value of geometry.json and all of mass.json and
+// aero.json. The settings are compared there too, with the same numbers of elements; of the six
+// <preset> it is held that no component has a preset then and that each of the six keeps the
+// reference its element makes (SavedPresets::NOT_FOUND). The thirteen other examples name no
+// preset, in the files OpenRocket ships and in its re-saves (which is checked), so that no load
+// of them asks the preset database for anything: without presets they are the designs they are
+// with them, and they are not loaded a third time (decision D10 of 2026-10-14).
 //
 // The one other exemption: the re-save of "Parallel booster staging" names OpenRocket's six
 // built-in textures as the original's archive names its entries, "/datafiles/textures/*". In a
@@ -102,6 +106,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/Error.h"
 #include "file/DesignFileEnvironment.h"
+#include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenDesign.h"
 #include "goldens/GoldenExamples.h"
@@ -514,14 +519,27 @@ struct WithoutPresets
     ComparedExamples compared;
 };
 
-/// Loads every example from its original file with an empty preset database and compares it
-/// with the design documents OpenRocket writes then (changeToWithoutPresets()) and with the
-/// settings of its re-save, of whose presets the design then holds none.
+/// Whether the file of the golden input @p input names a preset that an empty preset database
+/// does not hold: whether it is one of the inputs of kLostPresets.
+[[nodiscard]] bool namesAPreset(std::string_view input)
+{
+    // (std::ranges::find: Apple's libc++ lacks std::ranges::contains.)
+    return std::ranges::find(kLostPresets, input, &LostPreset::input) != kLostPresets.end();
+}
+
+/// Loads every example that names a preset (namesAPreset()) from its original file with an
+/// empty preset database and compares it with the design documents OpenRocket writes then
+/// (changeToWithoutPresets()) and with the settings of its re-save, of whose presets the design
+/// then holds none but the references.
 [[nodiscard]] WithoutPresets examplesWithoutPresets()
 {
     WithoutPresets result;
     for (const GoldenExample& example : goldenExamples())
     {
+        if (!namesAPreset(example.name))
+        {
+            continue;
+        }
         result.compared.examples++;
         Result<DesignGoldens> goldens = loadDesignGoldens(example.name);
         if (!goldens)
@@ -537,22 +555,60 @@ struct WithoutPresets
     return result;
 }
 
-// With an empty preset database the sixteen examples give the design documents of the goldens
-// but for the six warnings of the loads and the two values that their presets alone supply:
-// what OpenRocket itself gives then. (The six components keep what their elements store; that
-// state is compared with OpenRocket's line for line in
+/// What the design documents of the three examples that name a preset hold together, without
+/// the warnings of a load without presets (counted by running; the Python survey of the probes
+/// of the tier 10 scouts, part "decisions", scripts/design_counts.py, gave the same).
+[[nodiscard]] DesignCounts designCountsOfThePresetExamples()
+{
+    return DesignCounts{.components         = 50,
+                        .ids                = 50,
+                        .details            = 722,
+                        .configurations     = 14,
+                        .motors             = 12,
+                        .instanceEntries    = 240,
+                        .instances          = 282,
+                        .loadWarnings       = 0,
+                        .massConfigurations = 14,
+                        .aero               = {.configurations = 14,
+                                               .points         = 350,
+                                               .components     = 2750,
+                                               .worstCPs       = 98,
+                                               .warnings       = 84}};
+}
+
+/// What the re-saves of the three examples that name a preset hold together of the settings
+/// (counted by running, as the scouts' survey): 4 default deployments, the default separations
+/// of 2 stages and that of 1 configuration, 4 motor mounts with 12 motors, and the six presets
+/// of kLostPresets.
+[[nodiscard]] SettingsCounts settingsCountsOfThePresetExamples()
+{
+    return SettingsCounts{.deployEvents             = 4,
+                          .deploymentConfigurations = 0,
+                          .separationEvents         = 2,
+                          .separationConfigurations = 1,
+                          .motorMounts              = 4,
+                          .motors                   = 12,
+                          .ignitionConfigurations   = 12,
+                          .presets                  = 6};
+}
+
+// With an empty preset database the three examples that name a preset give the design
+// documents of the goldens but for the six warnings of the loads and the two values that their
+// presets alone supply: what OpenRocket itself gives then. (The six components keep what their
+// elements store; that state is compared with OpenRocket's line for line in
 // tests/core/file/openrocket/example_files_tests.cpp, as loaded and unsettled.) As with the
 // presets, everything the files hold is compared for every example and the totals are pinned;
-// the settings are those of the re-saves, and none of the six components has a preset.
+// the settings are those of the re-saves, none of the six components has a preset, and each
+// keeps the reference its <preset> makes.
 TEST(ExampleDesignGoldenWithoutPresets, OnlyTheSixWarningsAndTheTwoShoulderThicknessesDiffer)
 {
-    DesignCounts expected = designCountsOfTheExamples();
+    DesignCounts expected = designCountsOfThePresetExamples();
     expected.loadWarnings = 6;
 
     const WithoutPresets result = examplesWithoutPresets();
     EXPECT_EQ(result.compared.problems, "");
     EXPECT_EQ(result.changes.problems, "");
-    EXPECT_EQ(result.compared.examples, 16);
+    EXPECT_EQ(result.compared.examples, 3);
     EXPECT_EQ(result.changes.warnings, 6);
     EXPECT_EQ(result.changes.values, 2);
     EXPECT_EQ(result.compared.compared, result.compared.golden)
@@ -560,7 +616,66 @@ TEST(ExampleDesignGoldenWithoutPresets, OnlyTheSixWarningsAndTheTwoShoulderThick
     EXPECT_EQ(result.compared.golden, expected);
     EXPECT_EQ(result.compared.settings, result.compared.saved)
         << "the settings compared, and those of the files";
-    EXPECT_EQ(result.compared.saved, settingsCountsOfTheExamples());
+    EXPECT_EQ(result.compared.saved, settingsCountsOfThePresetExamples());
+}
+
+/// The examples whose original file or re-save has a <preset> element, each with the number of
+/// them in its re-save: "<input> <n>" in the order of the examples, and "<input> original"
+/// for an original file with one and a re-save without.
+[[nodiscard]] std::vector<std::string> examplesThatNameAPreset()
+{
+    std::vector<std::string> examples;
+    for (const GoldenExample& example : goldenExamples())
+    {
+        const auto resave = loadGoldenResave(example.name);
+        if (!resave)
+        {
+            examples.push_back(std::format("{} {}", example.name, resave.error().toString()));
+            continue;
+        }
+        const int presets = savedSettingsCounts(**resave).presets;
+        if (presets > 0)
+        {
+            examples.push_back(std::format("{} {}", example.name, presets));
+        }
+        else if (QtRocket::Test::documentOfDesignFile(example.original).contains("<preset"))
+        {
+            examples.push_back(std::format("{} original", example.name));
+        }
+    }
+    return examples;
+}
+
+/// The inputs of kLostPresets, each with the number of its entries: "<input> <n>", in the order
+/// of the table.
+[[nodiscard]] std::vector<std::string> inputsOfTheLostPresets()
+{
+    std::vector<std::string> inputs;
+    std::string_view         previous;
+    for (const LostPreset& lost : kLostPresets)
+    {
+        if (lost.input != previous)
+        {
+            inputs.push_back(
+                std::format("{} {}", lost.input,
+                            std::ranges::count(kLostPresets, lost.input, &LostPreset::input)));
+            previous = lost.input;
+        }
+    }
+    return inputs;
+}
+
+// The guard of the comparison above: only the three examples it loads name a preset, the
+// re-saves with as many <preset> elements as kLostPresets has for them (6 in all), and none of
+// the other thirteen has one, in the file OpenRocket ships or in its re-save.
+TEST(ExampleDesignGoldenWithoutPresets, OnlyTheThreeComparedExamplesNameAPreset)
+{
+    const std::vector<std::string> expected{"example-3d-printable-nose-cone-and-fins 1",
+                                            "example-deployable-payload 2",
+                                            "example-pods-powered-with-recovery-deployment 3"};
+    EXPECT_EQ(inputsOfTheLostPresets(), expected);
+    EXPECT_EQ(examplesThatNameAPreset(), expected);
+    EXPECT_EQ(goldenExamples().size(), 16U);
 }
 
 // ================================================================================= mutations
@@ -1215,6 +1330,7 @@ enum class Edit
     REMOVE,            ///< removes it
     CONFIGURATION_ID,  ///< gives it another configid
     ATTRIBUTE,         ///< gives its attribute `attribute` another value
+    REMOVE_ATTRIBUTE,  ///< removes its attribute `attribute`
     ADD_CHILD,         ///< gives it a new child
 };
 
@@ -1257,6 +1373,8 @@ struct SettingsMutation
             return element.attribute("configid").set_value(mutation.value);
         case Edit::ATTRIBUTE:
             return element.attribute(mutation.attribute).set_value(mutation.value);
+        case Edit::REMOVE_ATTRIBUTE:
+            return element.remove_attribute(mutation.attribute);
         case Edit::ADD_CHILD:
             return !element.append_child(mutation.value).empty();
     }
@@ -1486,6 +1604,49 @@ struct SettingsMutation
     };
 }
 
+/// The line that reports a component of a design loaded without the presets whose kept
+/// reference to a preset is not what its element holds: none where the element has a <preset>
+/// (@p elements 1, @p references 0), or one where it has none.
+[[nodiscard]] std::string referenceNumberLine(int elements, int references)
+{
+    return std::format("  <preset> kept as the component's reference: number: expected {}, got {}",
+                       elements, references);
+}
+
+/// The changes to the presets of presetMutations() as the comparison of a design that was
+/// loaded without the presets reports them (SavedPresets::NOT_FOUND): a changed attribute
+/// against the reference the component keeps, in the same line; a <preset> less or more against
+/// the reference that is there or not; and, beyond them, the type and the digest of a <preset>
+/// removed, which a reference may lack as an element may.
+[[nodiscard]] std::vector<SettingsMutation> referenceMutations()
+{
+    std::vector<SettingsMutation> mutations = presetMutations();
+    for (SettingsMutation& mutation : mutations)
+    {
+        if (mutation.name == "APresetLess")
+        {
+            mutation.line = referenceNumberLine(0, 1);
+        }
+        else if (mutation.name == "APresetMore")
+        {
+            mutation.line = referenceNumberLine(1, 0);
+        }
+    }
+    mutations.push_back({.name      = "TheTypeOfAPresetRemoved",
+                         .element   = "preset",
+                         .parent    = "nosecone",
+                         .edit      = Edit::REMOVE_ATTRIBUTE,
+                         .attribute = "type",
+                         .line      = "  <preset> type: number: expected 0, got 1"});
+    mutations.push_back({.name      = "TheDigestOfAPresetRemoved",
+                         .element   = "preset",
+                         .parent    = "nosecone",
+                         .edit      = Edit::REMOVE_ATTRIBUTE,
+                         .attribute = "digest",
+                         .line      = "  <preset> digest: number: expected 0, got 1"});
+    return mutations;
+}
+
 /// An example as loaded from its re-save, with its geometry.json and the re-save.
 struct SettingsSubject
 {
@@ -1532,10 +1693,11 @@ struct SettingsSubject
                                 presets);
 }
 
-/// What is wrong with the report of the comparison of the settings of @p subject after
-/// @p mutation changed a copy of its re-save; "" when the report has the lines expected.
+/// What is wrong with the report of the comparison of the settings of @p subject, held to have
+/// what @p presets says of the presets, after @p mutation changed a copy of its re-save; "" when
+/// the report has the lines expected.
 [[nodiscard]] std::string problemOf(const SettingsMutation& mutation,
-                                    const SettingsSubject&  subject)
+                                    const SettingsSubject& subject, SavedPresets presets)
 {
     pugi::xml_document resave;
     resave.reset(*subject.resave);
@@ -1543,7 +1705,7 @@ struct SettingsSubject
     {
         return std::format("{}: nothing to change\n", mutation.name);
     }
-    const std::string report = settingsOf(subject, resave).report;
+    const std::string report = settingsOf(subject, resave, presets).report;
     if (!report.contains(std::format("\n{}", mutation.line)) ||
         std::ranges::count(report, '\n') != mutation.lines + 1)
     {
@@ -1553,14 +1715,15 @@ struct SettingsSubject
 }
 
 /// "<n> changes", and behind it every mutation of @p mutations that is not reported as
-/// expected, with the report it got.
+/// expected, with the report it got; @p subject held to have what @p presets says.
 [[nodiscard]] std::string reported(const std::vector<SettingsMutation>& mutations,
-                                   const SettingsSubject&               subject)
+                                   const SettingsSubject&               subject,
+                                   SavedPresets presets = SavedPresets::LOADED)
 {
     std::string problems;
     for (const SettingsMutation& mutation : mutations)
     {
-        problems += problemOf(mutation, subject);
+        problems += problemOf(mutation, subject, presets);
     }
     return std::format("{} changes{}{}", mutations.size(), problems.empty() ? "" : "\n", problems);
 }
@@ -1628,6 +1791,10 @@ constexpr std::string_view kAPresetWhereNoneIsExpected =
 /// What it reports of a component without a preset whose element has one.
 constexpr std::string_view kNoPresetWhereOneIsExpected =
     "\n  <preset>: number: expected 1, got 0\n";
+/// What it reports of a component without a reference to a preset whose element has a
+/// <preset>, when the design is held to have been loaded without the presets.
+constexpr std::string_view kNoReferenceWhereOneIsExpected =
+    "\n  <preset> kept as the component's reference: number: expected 1, got 0\n";
 
 // The presets, in the re-save of "Pods--powered with recovery deployment.ork": two nose cones
 // and a body tube, each made from a preset of Estes. The re-save as it is matches the design
@@ -1635,7 +1802,9 @@ constexpr std::string_view kNoPresetWhereOneIsExpected =
 // reported: its type, its manufacturer, its part number, its digest, a <preset> less and one
 // more. And the comparison tells a design that holds the presets from one that was loaded
 // without them: either is the design of the file only when it is held against what it was
-// loaded with, and against the other each of the three components is reported.
+// loaded with, and against the other each of the three components is reported. Of the design
+// loaded without them every change is reported against the references its components keep
+// (the user's decision U8 of 2026-10-08), the type or the digest of a <preset> removed too.
 TEST(ExampleDesignGoldenMutations, AChangedPresetOfAResaveIsReported)
 {
     const SettingsSubject subject = settingsSubject(kPods);
@@ -1652,7 +1821,9 @@ TEST(ExampleDesignGoldenMutations, AChangedPresetOfAResaveIsReported)
         settingsOf(subject, *subject.resave, SavedPresets::NOT_FOUND);
     EXPECT_EQ(occurrences(asIfWithout.report, kAPresetWhereNoneIsExpected), 3)
         << asIfWithout.report;
-    EXPECT_EQ(std::ranges::count(asIfWithout.report, '\n'), 6) << asIfWithout.report;
+    EXPECT_EQ(occurrences(asIfWithout.report, kNoReferenceWhereOneIsExpected), 3)
+        << asIfWithout.report;
+    EXPECT_EQ(std::ranges::count(asIfWithout.report, '\n'), 9) << asIfWithout.report;
     EXPECT_EQ(asIfWithout.compared.presets, 0);
 
     const SettingsSubject without = settingsSubject(kPods, Presets::NONE);
@@ -1662,6 +1833,7 @@ TEST(ExampleDesignGoldenMutations, AChangedPresetOfAResaveIsReported)
     EXPECT_EQ(held.report, "");
     EXPECT_EQ(held.compared.presets, 3);
     EXPECT_EQ(held.compared, savedSettingsCounts(*without.resave));
+    EXPECT_EQ(reported(referenceMutations(), without, SavedPresets::NOT_FOUND), "8 changes");
 
     const SettingsComparison asIfLoaded = settingsOf(without, *without.resave);
     EXPECT_EQ(occurrences(asIfLoaded.report, kNoPresetWhereOneIsExpected), 3) << asIfLoaded.report;

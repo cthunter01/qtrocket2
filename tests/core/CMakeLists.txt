@@ -10,6 +10,7 @@ add_executable(QtRocket_core_tests
     util/DecimalFormatTests.cpp
     util/FileIoTests.cpp
     util/FloatingDecimalTests.cpp
+    util/GaussianRandomTests.cpp
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
