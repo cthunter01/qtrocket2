@@ -303,7 +303,8 @@ private:
 ///   "error.valuesTooLarge" as the message (see AbstractRkSimulationStepper); the message here
 ///   is the text of the RK4 stepper;
 /// - Java's BugException of addCoordinate() for the NaN location of an infinite position is
-///   the ordinary error of AbstractSimulationStepper::checkFinite() here (decision D3);
+///   the ordinary error of AbstractSimulationStepper::addRocketPosition() here, with Java's
+///   message without its "BUG: " (decision D3);
 /// - Java's BugException of checkNaN() is a SimulationCalculationException here, with Java's
 ///   text without its ", please report a bug" (decision D3).
 /// Empty when the scenario reproduces OpenRocket; a line saying so when there is no such

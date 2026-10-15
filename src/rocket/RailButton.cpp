@@ -351,7 +351,9 @@ Coordinate RailButton::getComponentCG() const
     const double parentRadius =
         symmetricParent != nullptr ? symmetricParent->getRadius(getAxialOffset()) : 0;
 
-    if (heightCM > m_totalHeight + m_screwHeight)
+    // Not in Java (decision D3): an infinite height, which a height of 1e300 m gives, is no
+    // contradiction of the dimensions but their overflow, and goes on to the mass calculation.
+    if (std::isfinite(heightCM) && heightCM > m_totalHeight + m_screwHeight)
     {
         bug(" bug found while computing the CG of a RailButton: " + getName() +
             "\n height of CG: " + Strings::javaDoubleToString(heightCM));

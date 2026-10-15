@@ -457,9 +457,10 @@ public:
     ///   went wrong, and, which is not OpenRocket's, a flight data branch that would get more
     ///   than SimulationInputRanges::kMaxBranchRows rows:
     ///   BasicEventSimulationEngine::tooManyRows(), and a flight whose numbers became NaN or
-    ///   whose position became infinite: AbstractSimulationStepper::checkNaN() and
-    ///   checkFinite(), where Java throws a BugException, decision D3), with the exception's
-    ///   message;
+    ///   whose position became a NaN location: AbstractSimulationStepper::checkNaN() and
+    ///   addRocketPosition(), where Java throws a BugException, and checkFinite() of the
+    ///   nozzle exit areas, where Java throws an IllegalArgumentException, decision D3), with
+    ///   the exception's message;
     /// - toSimulationConditions()'s Error when the atmospheric model refuses the launch
     ///   conditions (Java: an IllegalArgumentException that leaves simulate());
     /// - ErrorCode::INVALID_ARGUMENT when an input is not finite or outside its range, with

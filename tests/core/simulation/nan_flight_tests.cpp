@@ -9,14 +9,19 @@
 // check throws a SimulationCalculationException with Java's text without its plea, which the
 // engine records as an EXCEPTION event of the branch and simulate() returns as its error.
 // (The cases are those of the scout of tier 10, probe nanprobe.cpp, on the same design: the
-// first simulation of the example "A simple model rocket".) The last test is the stepper's
-// check of QtRocket's own (checkFinite()) that keeps an infinity in the flight from becoming a
-// BugError further on.
+// first simulation of the example "A simple model rocket".) The next tests fly the BugExceptions
+// that OpenRocket throws elsewhere for such numbers, found by the tier-10a review: the NaN
+// location of the geodetic computation (AbstractSimulationStepper::addRocketPosition()), and
+// the fin count and the rail button CG of an absurd geometry. The last test is the stepper's
+// check of QtRocket's own (checkFinite()) that keeps an infinite nozzle exit area from becoming
+// a BugError further on.
 
+#include <cstddef>
 #include <format>
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -30,6 +35,8 @@
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
+#include "QtRocket/rocket/RailButton.h"
+#include "QtRocket/rocket/RecoveryDevice.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
@@ -40,6 +47,7 @@
 #include "QtRocket/simulation/extension/example/AirStart.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "goldens/GoldenExamples.h"
 #include "rocket/TestRockets.h"
 
@@ -48,6 +56,7 @@ namespace
 
 using QtRocket::BugError;
 using QtRocket::FlightEvent;
+using QtRocket::GeodeticComputationStrategy;
 using QtRocket::LoadedDocument;
 using QtRocket::OpenRocketDocument;
 using QtRocket::Result;
@@ -75,12 +84,12 @@ using Change = std::function<void(OpenRocketDocument&, Simulation&)>;
                        message != nullptr ? *message : std::string("-"));
 }
 
-/// How the first simulation of "A simple model rocket" ends after @p change: "flew", or the
-/// code and the message of simulate()'s error and, behind " | ", the last event of the first
-/// branch, or "BUG: " and the BugError's text.
-[[nodiscard]] std::string flightAfter(const Change& change)
+/// How the first simulation of the example @p file ends after @p change: "flew", or the code
+/// and the message of simulate()'s error and, behind " | ", the last event of the first branch,
+/// or "BUG: " and the BugError's text.
+[[nodiscard]] std::string flightAfter(std::string_view file, const Change& change)
 {
-    const GoldenExample* example = findGoldenExample("A simple model rocket.ork");
+    const GoldenExample* example = findGoldenExample(file);
     if (example == nullptr)
     {
         return "the example is not there";
@@ -107,6 +116,12 @@ using Change = std::function<void(OpenRocketDocument&, Simulation&)>;
     {
         return std::string("BUG: ") + error.what();
     }
+}
+
+/// How the first simulation of "A simple model rocket" ends after @p change (see above).
+[[nodiscard]] std::string flightAfter(const Change& change)
+{
+    return flightAfter("A simple model rocket.ork", change);
 }
 
 /// A change that calls @p set on every component of the rocket that is a @p Component.
@@ -142,6 +157,31 @@ template <class Component>
 {
     return everyComponent<QtRocket::MassObject>(
         [position](QtRocket::MassObject& mass) { mass.setRadialPosition(position); });
+}
+
+/// Every recovery device with the drag coefficient @p cd, and the simulation with the geodetic
+/// computation @p strategy.
+[[nodiscard]] Change recoveryDragUnder(double cd, GeodeticComputationStrategy strategy)
+{
+    return [cd, strategy](OpenRocketDocument& document, Simulation& simulation) {
+        everyComponent<QtRocket::RecoveryDevice>(
+            [cd](QtRocket::RecoveryDevice& device) { device.setCD(cd); })(document, simulation);
+        simulation.getOptions().setGeodeticComputation(strategy);
+    };
+}
+
+/// Every nose cone with the aft radius @p radius, set as the loader sets it.
+[[nodiscard]] Change noseConesOfAftRadius(double radius)
+{
+    return everyComponent<QtRocket::NoseCone>(
+        [radius](QtRocket::NoseCone& nose) { nose.setAftRadius(radius, false); });
+}
+
+/// Every rail button @p height high.
+[[nodiscard]] Change railButtonsOfHeight(double height)
+{
+    return everyComponent<QtRocket::RailButton>(
+        [height](QtRocket::RailButton& button) { button.setTotalHeight(height); });
 }
 
 /// Half saturated air of 288.15 K at sea level pressure, without the ISA atmosphere, and an
@@ -195,6 +235,75 @@ TEST(NanFlight, TheExampleEndsAFlightOfNaNsWithAnOrdinaryError)
               "SIMULATION_ABORTED: Simulation resulted in not-a-number (NaN) value for params.a, "
               "c=(NaN,NaN,NaN) | EXCEPTION: Simulation resulted in not-a-number (NaN) value for "
               "params.a, c=(NaN,NaN,NaN)");
+}
+
+/// @p text with the distance of a NaN location's message left out ("delta=(...)"): it is the
+/// product of a flight through libm, which differs by platform in its last digits.
+[[nodiscard]] std::string withoutDistance(std::string text)
+{
+    static constexpr std::string_view kDelta = " delta=(";
+    static constexpr std::string_view kEnd   = ") newLat=";
+    std::size_t                       from   = 0;
+    while ((from = text.find(kDelta, from)) != std::string::npos)
+    {
+        const std::size_t begin = from + kDelta.size();
+        const std::size_t end   = text.find(kEnd, begin);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        text.replace(begin, end - begin, "...");
+        from = begin;
+    }
+    return text;
+}
+
+// Decision D3 under a curved Earth: parachutes of an absurd drag coefficient (1e200) fly the
+// rocket some 1e300 m in one step of the landing stepper, a distance that is finite but whose
+// square overflows in the geodetic computation's hypot(), so that SPHERICAL and WGS84 arrive at
+// a NaN location (as they do for a position that is NaN or infinite, which smaller absurd
+// coefficients give). OpenRocket throws its BugException "BUG: addCoordinate resulted in NaN
+// location: ..."; here the flight ends with an ordinary error with Java's text without its
+// "BUG: " (AbstractSimulationStepper::addRocketPosition()). Under FLAT, the example's own
+// method, the geodetic computation checks nothing, and the flight ends as OpenRocket's does
+// (the probe FiniteProbe.java of the tier-10a review, for coefficients of 1e100, 1e150 and
+// 1e300): with the engine's ordinary error of the NaN, Java's text with its plea.
+TEST(NanFlight, AbsurdParachutesEndWithAnOrdinaryErrorUnderEveryGeodeticComputation)
+{
+    const std::string nanLocation =
+        "addCoordinate resulted in NaN location:  location=WorldCoordinate[lat=45.0, lon=0.0, "
+        "alt=0.0] delta=(...) newLat=NaN newLon=NaN";
+    EXPECT_EQ(withoutDistance(
+                  flightAfter(recoveryDragUnder(1e200, GeodeticComputationStrategy::SPHERICAL))),
+              "SIMULATION_ABORTED: " + nanLocation + " | EXCEPTION: " + nanLocation);
+    EXPECT_EQ(
+        withoutDistance(flightAfter(recoveryDragUnder(1e200, GeodeticComputationStrategy::WGS84))),
+        "SIMULATION_ABORTED: " + nanLocation + " | EXCEPTION: " + nanLocation);
+    EXPECT_EQ(flightAfter(recoveryDragUnder(1e150, GeodeticComputationStrategy::FLAT)),
+              "SIMULATION_ABORTED: Simulation resulted in not-a-number (NaN) value, please report "
+              "a bug. | EXCEPTION: Simulation resulted in not-a-number (NaN) value, please report "
+              "a bug.");
+}
+
+// Decision D3 where OpenRocket's geometry throws before the stepper's check: a nose cone aft
+// radius of 1e100 m on "Pods--airframes and winglets" makes the fin points of the pods NaN
+// (FinSetCalc; Java's BugException "Counted 0 parallel fins, when component itself has 1,
+// ..."), and a rail button 1e300 m high on "Dual parachute deployment" puts its CG at an
+// infinite height (RailButton; Java's BugException "... height of CG: Infinity"). Here both
+// go on to the stepper's NaN check of the mass, which ends the flight with an ordinary error.
+TEST(NanFlight, AbsurdFinAndRailButtonDimensionsEndWithAnOrdinaryError)
+{
+    EXPECT_EQ(flightAfter("Pods--airframes and winglets.ork", noseConesOfAftRadius(1e100)),
+              "SIMULATION_ABORTED: Simulation resulted in not-a-number (NaN) value for "
+              "structureMass.getCenterOfMass(), c=(NaN,NaN,NaN) | EXCEPTION: Simulation resulted "
+              "in not-a-number (NaN) value for structureMass.getCenterOfMass(), c=(NaN,NaN,NaN)");
+    // The weight is the mass the file gives the sustainer, an override of its components'
+    // masses (1.3607771088 kg); the infinite height of the button's CG makes the CG NaN.
+    EXPECT_EQ(flightAfter("Dual parachute deployment.ork", railButtonsOfHeight(1e300)),
+              "SIMULATION_ABORTED: Simulation resulted in not-a-number (NaN) value for "
+              "structureMass.getCenterOfMass(), c=(NaN,NaN,NaN,w=1.36078) | EXCEPTION: "
+              "Simulation resulted in not-a-number (NaN) value for "
+              "structureMass.getCenterOfMass(), c=(NaN,NaN,NaN,w=1.36078)");
 }
 
 // Not in Java (decision D3, checkFinite()): a motor of an absurd diameter (1e200 m, its nozzle

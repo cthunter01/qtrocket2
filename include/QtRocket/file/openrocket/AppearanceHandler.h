@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string_view>
 
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
@@ -12,6 +13,7 @@
 namespace QtRocket
 {
 
+class Attachment;
 class DocumentLoadingContext;
 class RocketComponent;
 
@@ -87,7 +89,7 @@ class RocketComponent;
 ///   through all its images for every new one, so that the time to read the decals grows
 ///   with the square of the number of images (see DocumentConfig::kMaxDecalImages).
 /// - Which image file a design may read (decision D8 of 2026-10-14, the rule of the lookup
-///   tables, CsvLookupHandler::fileOfDesign()): when the images are files (the context's
+///   tables, DesignFiles::fileOfDesign()): when the images are files (the context's
 ///   attachment factory reads the file system, AttachmentFactory::readsFileSystem(): a plain or
 ///   gzip design), a <decal> whose name that rule refuses for the design's directory
 ///   (DocumentLoadingContext::getDesignDirectory()) is ignored, with everything in it and one
@@ -105,12 +107,19 @@ class RocketComponent;
 ///   bound on the images. The names of an archive's entries are free, as an archive is no
 ///   file system: the archive of OpenRocket's example "Parallel booster staging" holds its
 ///   textures as entries "/datafiles/textures/...", which load as in OpenRocket (its plain
-///   re-save, where they are files, loses its 17 decals). A name the rule takes is asked of the
-///   factory as the design writes it, which resolves it against its base directory as Java
-///   does; that is the path the rule looked at but where a symbolic link inside the design's
-///   directory, or a directory that is missing, stands in front of a "..". OpenRocket reads
-///   any path, a relative one against the current directory of the process when the design
-///   has no directory.
+///   re-save, where they are files, loses its 17 decals). A name the rule takes is read from
+///   the file the rule gives, as a lookup table is: the design's directory with the lexically
+///   normal form of the name behind it, the name first spelled as Java's File spells it,
+///   without doubled separators and without one at its end (withoutRedundantSeparators(), as
+///   FileSystemAttachmentFactory does: "decals/a.png/" reads decals/a.png). The attachment, a
+///   FileSystemAttachment, keeps the name as the design writes it. So no ".." behind a
+///   symbolic link inside the design's directory climbs out of it ("sub/link/../../x.png" reads
+///   x.png of the design's directory, not of the directory above the link's target; the link
+///   itself is followed wherever it points). Two spellings of one file ("a.png", "./a.png",
+///   "sub/../a.png") are one image here, as the registry finds the image of a file by its path;
+///   OpenRocket, which compares the paths as written, makes two. OpenRocket reads any path, a
+///   relative one against the current directory of the process when the design has no
+///   directory.
 /// - A <center>, <offset> or <scale> without x or y is passed over with a warning of
 ///   QtRocket's own, LoaderWarnings::kDecalPairIgnored (OpenRocket: a NullPointerException); x
 ///   is looked at before y, so an x that is no number fails the load also when y is missing.
@@ -177,10 +186,12 @@ private:
     /// when it lacks one of the three, names an image file the design may not read, or would
     /// give the document too many images, and is to be ignored.
     [[nodiscard]] Result<bool> openDecal(const Attributes& attributes, WarningSet& warnings);
-    /// Whether the image a <decal> names as @p name may be asked of the attachment factory: an
-    /// entry of an archive always, a file only when CsvLookupHandler::fileOfDesign() takes the
-    /// name; otherwise the warning for the refusal is added (decision D8 of 2026-10-14).
-    [[nodiscard]] bool mayReadImageFile(std::string_view name, WarningSet& warnings) const;
+    /// The attachment of the image a <decal> names as @p name: the attachment factory's for an
+    /// entry of an archive, whatever its name; for a file, the FileSystemAttachment of the file
+    /// DesignFiles::fileOfDesign() gives for the name, or null with the warning for the
+    /// refusal (decision D8 of 2026-10-14; see the class comment).
+    [[nodiscard]] std::shared_ptr<const Attachment> readableImage(std::string_view name,
+                                                                  WarningSet&      warnings) const;
     /// A <paint> closes.
     void closePaint(const Attributes& attributes);
     /// A <shine> closes.

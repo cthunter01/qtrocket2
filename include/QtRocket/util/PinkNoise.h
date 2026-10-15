@@ -16,9 +16,14 @@ namespace QtRocket
 ///
 /// Deviation from OpenRocket (the user's decision D12 of 2026-10-14): the Gaussian input comes
 /// from GaussianRandom, a generator of QtRocket's own, instead of java.util.Random's
-/// nextGaussian(). A seeded source gives the same values, bit for bit, on every platform (the
-/// filter is made of products and differences, each product in a statement of its own, so that
-/// no compiler fuses one with the difference), but never OpenRocket's sequence for the same seed.
+/// nextGaussian(). A seeded source gives the same values, bit for bit, on every platform, but
+/// never OpenRocket's sequence for the same seed. The filter is made of products and
+/// differences, and that it is bit-identical rests on no product being fused with the
+/// difference into a multiply-add: on -ffp-contract=off, which QtRocket_configure_target()
+/// passes to every target under GCC and Clang (GCC's default, -ffp-contract=fast, contracts
+/// across statements too), and on MSVC's /fp:precise, which does not contract. That each product
+/// stands in a statement of its own guards only against Clang's default, -ffp-contract=on,
+/// which contracts within an expression.
 /// PinkNoise.main(String[]), a development harness with no effect (an empty loop and commented-out
 /// statistics), is not ported.
 class PinkNoise

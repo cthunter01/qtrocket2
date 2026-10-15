@@ -40,10 +40,11 @@ class SimulationStatus;
 ///   that gap by itself: the step to the apogee ends with a vertical velocity of 0, and what
 ///   is left is the horizontal airspeed, which very dense air (a launch temperature of 5 K)
 ///   has braked to some 1e-8 m/s by then. No result of OpenRocket's is changed by this.
-/// - A position that is not finite at the end of a step (a rocket of no mass, whose
-///   acceleration is infinite) ends the flight with an ordinary error,
-///   AbstractSimulationStepper::checkFinite() before the geodetic computation (decision D3);
-///   in Java the geodetic computation throws a BugException for the NaN location it gives.
+/// - Where the geodetic computation arrives at a NaN location (SPHERICAL and WGS84, for a
+///   position that is NaN or infinite, a rocket of no mass, whose acceleration is infinite,
+///   or whose horizontal distance overflows) the flight ends with an ordinary error,
+///   AbstractSimulationStepper::addRocketPosition() (decision D3); Java throws a BugException
+///   there. Under FLAT, which checks nothing, such a position goes on as in Java.
 /// - Logging is not ported.
 class AbstractEulerStepper : public AbstractSimulationStepper
 {

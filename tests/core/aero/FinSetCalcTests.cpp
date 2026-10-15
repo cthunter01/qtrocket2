@@ -2833,6 +2833,26 @@ TEST(FinSetCalc, TrapezoidOnABodyTubeOfRadiusZeroIsJavas)
     expectDrag(fins, kDragZeroRadiusTube);
 }
 
+// Not in Java (decision D3): a fin set whose own position is not finite (here an infinite
+// offset; in a design, an absurd finite dimension elsewhere, see nan_flight_tests.cpp) counts
+// its own fins, as one of a very small root chord does. Java's comparisons count none of them
+// and throw a BugException "Counted 0 parallel fins, when component itself has 3, ...". A fin
+// set beside it at a finite position counts its own fins and not the other's, as in Java.
+TEST(FinSetCalc, AFinSetAtNoFinitePositionCountsItsOwnFins)
+{
+    Base             base;
+    TrapezoidFinSet& fins = addSweptTrapezoid(base);
+    TrapezoidFinSet& away =
+        base.tube.addChild(std::make_unique<TrapezoidFinSet>(4, 0.08, 0.05, 0.03, 0.06));
+    away.setAxialMethod(AxialMethod::TOP);
+    away.setAxialOffset(kInf);
+    base.rocket.enableEvents();
+    ASSERT_EQ(away.getPosition().x, kInf);
+
+    EXPECT_EQ(FinSetCalc{away}.getInterferenceFinCount(), 4);
+    EXPECT_EQ(FinSetCalc{fins}.getInterferenceFinCount(), 3);
+}
+
 /// The freeform fin of the two nose tip cases: 4 fins at the very tip of the nose cone, where
 /// the body radius is 0.
 FreeformFinSet& addNoseTipFin(Base& base)
@@ -3441,29 +3461,19 @@ TEST(FinSetCalc, DetachedFinSetIsABug)
 }
 
 /// A fin set whose root chord is NaN (set while the rocket's events are off: with them on, the
-/// update of the position throws first, in Java too) overlaps nothing, itself included, so no
-/// fin is counted.
-TEST(FinSetCalc, FewerInterferingFinsThanItsOwnIsABug)
+/// update of the position throws first, in Java too) overlaps nothing, itself included: Java
+/// counts no fin and throws a BugException, "Counted 0 parallel fins, when component itself has
+/// 3, fin points=[(0.00000,0.00000,0.00000), (0.03000,0.06000,0.00000), (0.08000,0.06000,0.00000),
+/// (NaN,0.00000,0.00000)]". Not in Java (decision D3 of 2026-10-14): its trailing edge being at
+/// no finite position, its own fins are counted, as for a very small root chord, and a flight
+/// ends with the ordinary error of the NaN further on.
+TEST(FinSetCalc, ANaNRootChordCountsItsOwnFins)
 {
     Base             base;
     TrapezoidFinSet& fins = addSweptTrapezoid(base);
     fins.setFinShape(kNaN, 0.05, 0.03, 0.06, 0.003);
 
-    try
-    {
-        static_cast<void>(FinSetCalc{fins});
-        FAIL() << "no BugError";
-    }
-    catch (const BugError& error)
-    {
-        // Java: BugException with this text
-        EXPECT_NE(std::string{error.what()}.find(
-                      "Counted 0 parallel fins, when component itself has 3, fin points="
-                      "[(0.00000,0.00000,0.00000), (0.03000,0.06000,0.00000), "
-                      "(0.08000,0.06000,0.00000), (NaN,0.00000,0.00000)]"),
-                  std::string::npos)
-            << error.what();
-    }
+    EXPECT_EQ(FinSetCalc{fins}.getInterferenceFinCount(), 3);
 }
 
 /// A cross-section that is none of the three (Java's enum has no such value) is a bug for the

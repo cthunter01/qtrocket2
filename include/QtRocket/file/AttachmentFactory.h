@@ -36,8 +36,8 @@ public:
     /// leads to (true for FileSystemAttachmentFactory), so that a name a design gives may
     /// reach outside the design's directory, rather than an entry of an archive or another
     /// source of the factory's own (false for ZipFileAttachmentFactory). A handler asks a
-    /// factory that reads the file system only for a name that CsvLookupHandler::
-    /// fileOfDesign() takes (decision D8 of 2026-10-14). Not OpenRocket's.
+    /// factory that reads the file system only for a name that DesignFiles::fileOfDesign()
+    /// takes (decision D8 of 2026-10-14). Not OpenRocket's.
     [[nodiscard]] virtual bool readsFileSystem() const noexcept = 0;
 
 protected:

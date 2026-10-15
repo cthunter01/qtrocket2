@@ -73,7 +73,7 @@ namespace QtRocket
 ///   ("../../x") when its attachments are files next to the design.
 /// - When the attachments are files (the attachment factory reads the file system,
 ///   AttachmentFactory::readsFileSystem(): a plain or gzip design), "thrustcurves/<digest>.rse"
-///   is read only when CsvLookupHandler::fileOfDesign() takes it for the design's directory
+///   is read only when DesignFiles::fileOfDesign() takes it for the design's directory
 ///   (DocumentLoadingContext::getDesignDirectory()), the rule decision D8 of 2026-10-14 gives
 ///   the decal images: not for a design without a directory (one read from memory without a
 ///   base directory, which OpenRocket reads from the current directory of the process), and on

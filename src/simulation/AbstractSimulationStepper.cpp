@@ -41,10 +41,12 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
 #include "QtRocket/util/Rotation2D.h"
+#include "QtRocket/util/WorldCoordinate.h"
 
 namespace QtRocket
 {
@@ -76,10 +78,10 @@ namespace
     return std::format("Simulation resulted in not-a-number (NaN) value for {}", var);
 }
 
-/// The message of checkFinite(), up to where the two overloads differ.
+/// The message of checkFinite().
 [[nodiscard]] std::string notFiniteMessage(std::string_view var)
 {
-    return std::format("Simulation resulted in a value that is not finite for {}", var);
+    return std::format("Simulation resulted in a value that is not finite for {}.", var);
 }
 
 /// The thetaRotation and the lateral pitch rate of flight conditions a listener gave (Java:
@@ -799,17 +801,22 @@ void AbstractSimulationStepper::checkFinite(double d, std::string_view var)
 {
     if (!std::isfinite(d))
     {
-        throw SimulationCalculationException(notFiniteMessage(var) + ".", nullptr);
+        throw SimulationCalculationException(notFiniteMessage(var), nullptr);
     }
 }
 
-void AbstractSimulationStepper::checkFinite(const Coordinate& c, std::string_view var)
+WorldCoordinate AbstractSimulationStepper::addRocketPosition(GeodeticComputationStrategy strategy,
+                                                             const WorldCoordinate&      location,
+                                                             const SimulationStatus&     status)
 {
-    if (!std::isfinite(c.x) || !std::isfinite(c.y) || !std::isfinite(c.z))
+    Result<WorldCoordinate> moved =
+        tryAddCoordinate(strategy, location, status.getRocketPosition());
+    if (!moved.has_value())
     {
-        throw SimulationCalculationException(
-            std::format("{}, c={}", notFiniteMessage(var), c.toString()), nullptr);
+        // Java: addCoordinate()'s BugException (decision D3).
+        throw SimulationCalculationException(moved.error().message, status.getFlightDataBranch());
     }
+    return *moved;
 }
 
 void AbstractSimulationStepper::landedValues(SimulationStatus& status, DataStore& store)

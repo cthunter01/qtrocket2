@@ -44,9 +44,11 @@ class SimulationStatus;
 ///   random source being null).
 /// - Java's RK6 stepper has no translation of "error.valuesTooLarge" and shows that key as its
 ///   message; here both steppers throw kValuesTooLarge, the text of the RK4 stepper.
-/// - A position that is not finite at the end of a step ends the flight with an ordinary error,
-///   AbstractSimulationStepper::checkFinite() before the geodetic computation (decision D3);
-///   in Java the geodetic computation throws a BugException for the NaN location it gives.
+/// - Where the geodetic computation arrives at a NaN location at the end of a step (SPHERICAL
+///   and WGS84, for a position that is NaN or infinite or whose horizontal distance overflows)
+///   the flight ends with an ordinary error, AbstractSimulationStepper::addRocketPosition()
+///   (decision D3); Java throws a BugException there. Under FLAT, which checks nothing, such a
+///   position goes on to the check of the values that are too large, as in Java.
 /// - Logging is not ported.
 class AbstractRkSimulationStepper : public AbstractSimulationStepper
 {
@@ -206,9 +208,8 @@ protected:
     /// velocity of @p status, rotates the orientation by @p deltaO (normalized if necessary),
     /// sets the world position through the geodetic computation, advances the simulation time
     /// by the store's time step, and verifies that the values did not run out of range.
-    /// @throws SimulationCalculationException when the new position is not finite
-    ///         (checkFinite(), before the geodetic computation, which would make a NaN
-    ///         location of it: not in Java, where that is a BugException)
+    /// @throws SimulationCalculationException when the geodetic computation arrives at a NaN
+    ///         location (addRocketPosition(): not in Java, where that is a BugException)
     /// @throws SimulationCalculationException (kValuesTooLarge) when the square of the
     ///         velocity, the position or the rotation velocity exceeds 1e18
     /// @throws BugError when the time step is negative or NaN

@@ -295,6 +295,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DesignFileState.cpp
+    file/openrocket/DesignFilesTests.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/DocumentMaterialHandlerTests.cpp

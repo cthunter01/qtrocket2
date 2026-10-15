@@ -26,6 +26,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/CustomExpressionHandler.cpp
     openrocket/DatatypeHandler.cpp
     openrocket/DeploymentConfigurationHandler.cpp
+    openrocket/DesignFiles.cpp
     openrocket/DocumentConfig.cpp
     openrocket/DocumentMaterialHandler.cpp
     openrocket/DocumentPreferencesHandler.cpp

@@ -4,6 +4,8 @@
 #include <optional>
 #include <string_view>
 
+#include "QtRocket/util/Error.h"
+
 namespace QtRocket
 {
 
@@ -44,10 +46,24 @@ inline constexpr std::array<GeodeticComputationStrategy, 3> kAllGeodeticComputat
 ///   geodesic on the ellipsoid (Vincenty's direct solution). When that distance is zero within
 ///   MathUtil::kEpsilon / 2 the latitude and longitude are kept as they are.
 /// @throws BugError when SPHERICAL or WGS84 arrives at a NaN latitude or longitude (a NaN or
-///         infinite input). FLAT lets NaN through.
+///         infinite input, or a finite distance whose square overflows: hypot() is
+///         sqrt(x * x + y * y), as in Java), with tryAddCoordinate()'s message. FLAT lets NaN
+///         through.
 [[nodiscard]] WorldCoordinate addCoordinate(GeodeticComputationStrategy strategy,
                                             const WorldCoordinate&      location,
                                             const Coordinate&           delta);
+
+/// addCoordinate() with its failure returned rather than thrown: where addCoordinate() throws
+/// its BugError (SPHERICAL and WGS84 at a NaN latitude or longitude), an Error
+/// (ErrorCode::INVALID_ARGUMENT) with OpenRocket's message without its "BUG: ",
+/// "addCoordinate resulted in NaN location:  location=WorldCoordinate[lat=45.0, lon=0.0,
+/// alt=0.0] delta=(NaN,0.00000,0.00000) newLat=NaN newLon=NaN": the location and the new
+/// latitude and longitude (in radians) as Java's Double.toString() prints them, the delta by
+/// Coordinate::toString(). Not in Java, whose only form throws: the steppers end a flight that
+/// gets there with an ordinary error (decision D3 of 2026-10-14, see AbstractSimulationStepper).
+[[nodiscard]] Result<WorldCoordinate> tryAddCoordinate(GeodeticComputationStrategy strategy,
+                                                       const WorldCoordinate&      location,
+                                                       const Coordinate&           delta);
 
 /// The Coriolis acceleration at @p location for @p velocity, both in the x east, y north, z up
 /// frame: 2 * kErot * (vN sin(lat) - vU cos(lat), -vE sin(lat), vE cos(lat)) with vN = velocity.y,

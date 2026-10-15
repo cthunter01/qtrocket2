@@ -234,8 +234,8 @@ enum class Ending
     /// simulate() failed with another ordinary error.
     FAILED,
     /// simulate() failed with the ordinary error of a NaN or an infinity in the flight
-    /// (AbstractSimulationStepper::checkNaN() and checkFinite(); a BugError before decision
-    /// D3).
+    /// (AbstractSimulationStepper::checkNaN(), checkFinite() and addRocketPosition(), and the
+    /// engine's own NaN check; the first and the third were a BugError before decision D3).
     NOT_A_NUMBER,
     /// simulate() threw a BugError.
     BUG,
@@ -275,11 +275,12 @@ struct Flown
         {
             return {.ending = Ending::REFUSED, .text = result.error().message};
         }
-        // checkNaN()'s "... not-a-number (NaN) value ..." and checkFinite()'s "... a value that
-        // is not finite ...".
-        const bool notANumber = result.error().message.starts_with("Simulation resulted in ");
-        return {.ending = notANumber ? Ending::NOT_A_NUMBER : Ending::FAILED,
-                .text   = result.error().message};
+        // checkNaN()'s and the engine's "... not-a-number (NaN) value ...", checkFinite()'s
+        // "... a value that is not finite ..." and addRocketPosition()'s NaN location.
+        const std::string& message = result.error().message;
+        const bool notANumber      = message.starts_with("Simulation resulted in ") ||
+                                     message.starts_with("addCoordinate resulted in NaN location");
+        return {.ending = notANumber ? Ending::NOT_A_NUMBER : Ending::FAILED, .text = message};
     }
     catch (const BugError& error)
     {

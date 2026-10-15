@@ -16,7 +16,7 @@
 #include "QtRocket/file/DocumentLoadingContext.h"
 #include "QtRocket/file/MotorFinder.h"
 #include "QtRocket/file/motor/GeneralMotorLoader.h"
-#include "QtRocket/file/openrocket/CsvLookupHandler.h"
+#include "QtRocket/file/openrocket/DesignFiles.h"
 #include "QtRocket/file/simplesax/AbstractElementHandler.h"
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
@@ -121,8 +121,7 @@ std::shared_ptr<const Motor> MotorHandler::loadMotorFromZip(std::string_view mot
     const std::string        attachmentName = std::format("thrustcurves/{}.rse", motorDigest);
     const AttachmentFactory& attachments    = *m_context->getAttachmentFactory();
     if (attachments.readsFileSystem() &&
-        !CsvLookupHandler::fileOfDesign(m_context->getDesignDirectory(),
-                                        pathFromUtf8(attachmentName))
+        !DesignFiles::fileOfDesign(m_context->getDesignDirectory(), pathFromUtf8(attachmentName))
              .has_value())
     {
         // Not OpenRocket's (decision D8 of 2026-10-14; see the class comment): a file the

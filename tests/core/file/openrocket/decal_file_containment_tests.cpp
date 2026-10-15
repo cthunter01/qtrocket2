@@ -1,7 +1,7 @@
 // A design whose decal images are files (a plain or gzip design) reads an image only from inside
 // its own directory, as it reads a lookup table (decision D8 of 2026-10-14, which applies the
 // rule of the user's decision of 2026-10-08; AppearanceHandler has the rule, through
-// CsvLookupHandler::fileOfDesign(), and AppearanceHandlerTests.cpp the rule by itself). Here is
+// DesignFiles::fileOfDesign(), and AppearanceHandlerTests.cpp the rule by itself). Here is
 // what a whole load makes of it: designs that name their decal image in every form a name can
 // take are loaded through GeneralRocketLoader, in every way a design can be loaded, and no load
 // may come back with an image that lies outside the design's directory. The images of an
@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -280,12 +281,14 @@ constexpr std::string_view kDevice = kMissing;
 #endif
 
 constexpr auto kForms = std::to_array<Form>({
-    // Relative names that stay inside: the image of the design's directory. (A ".." behind a
-    // directory that exists, so that every platform reaches the same file: the attachment opens
-    // the name as the design writes it.)
+    // Relative names that stay inside: the image of the design's directory. (The file read is
+    // the normal form of the name in the design's directory, spelled as Java's File spells it:
+    // a separator at the end is dropped.)
     {.file = "decals/a.png", .expected = kRead},
     {.file = "./decals/a.png", .expected = kRead},
     {.file = "decals//a.png", .expected = kRead},
+    {.file = "decals/a.png/", .expected = kRead},
+    {.file = "decals/missing/../a.png", .expected = kRead},
     {.file = "decals/sub/../a.png", .expected = kRead},
     {.file = "decals/../decals/./a.png", .expected = kRead},
     {.file = "decals/sub/b.png", .expected = kRead},
@@ -471,6 +474,38 @@ TEST(DecalFileContainment, AnArchiveFindsAnImageAsTheEntryOfItsName)
     }
     EXPECT_EQ(wrong, Texts{});
 }
+
+#ifndef _WIN32
+// A ".." behind a symbolic link inside the design's directory: the system, which follows the
+// link first, would climb from the link's target ("sub/link/../../x.png" reaches the x.png of
+// the directory above the target's parent), but the file read is the normal form of the name
+// that the rule looked at, the x.png of the design's directory, as for a lookup table
+// (DesignFiles). The link itself is followed wherever it points, a link being the user's own.
+// (Not on Windows, where making a link needs a privilege.)
+TEST(DecalFileContainment, ADotDotBehindASymbolicLinkStaysInTheDesignsDirectory)
+{
+    const TempDir directory;
+    static_cast<void>(directory.write("design/x.png", kInsideImage));
+    static_cast<void>(directory.write("x.png", kOutsideImage));
+    static_cast<void>(directory.write("shared/inner/t.png", kOutsideImage));
+    std::error_code error;
+    std::filesystem::create_directories(directory.resolve("design/sub"), error);
+    ASSERT_FALSE(error) << error.message();
+    std::filesystem::create_directory_symlink(directory.resolve("shared/inner"),
+                                              directory.resolve("design/sub/link"), error);
+    ASSERT_FALSE(error) << error.message();
+    ASSERT_TRUE(std::filesystem::exists(directory.resolve("design/sub/link/../../x.png")));
+
+    LoaderEnvironment         environment;
+    const GeneralRocketLoader loader(environment.context());
+    EXPECT_EQ(outcomeOf(loader.load(stringToBytes(designNaming("sub/link/../../x.png")),
+                                    directory.resolve("design"))),
+              kRead);
+    EXPECT_EQ(outcomeOf(loader.load(stringToBytes(designNaming("sub/link/t.png")),
+                                    directory.resolve("design"))),
+              "OUTSIDE |");
+}
+#endif
 
 // A design file that is named without a directory is one of the current directory, which is
 // then the design's own (GeneralRocketLoader gives the context "." for it).

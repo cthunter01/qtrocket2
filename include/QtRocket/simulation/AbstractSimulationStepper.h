@@ -13,6 +13,7 @@
 #include "QtRocket/simulation/SimulationStepper.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
 #include "QtRocket/util/Rotation2D.h"
@@ -23,6 +24,7 @@ namespace QtRocket
 class FlightDataBranch;
 class SimulationConditions;
 class SimulationStatus;
+class WorldCoordinate;
 
 /// What the simulation steppers share (OpenRocket's simulation/AbstractSimulationStepper): the
 /// flight conditions of a status, the atmosphere, the wind and the gravity it flies in, the
@@ -58,11 +60,19 @@ class SimulationStatus;
 ///   ", please report a bug"; a coordinate and a quaternion are printed by this port's
 ///   toString() (see Quaternion::toString() for how it differs from Java's). A programmer
 ///   error (a model, a calculator or a branch that is missing) stays a BugError.
+/// - The world position of a step goes through addRocketPosition(), for the same reason
+///   (decision D3): where Java's geodetic computation throws a BugException for the NaN
+///   location it arrives at (SPHERICAL and WGS84, for a position that is NaN or infinite or
+///   whose horizontal distance overflows: a parachute of an absurd drag coefficient flies the
+///   rocket some 1e277 m in one step), the flight ends with a SimulationCalculationException
+///   with Java's message without its "BUG: " (tryAddCoordinate()). FLAT, for which Java checks
+///   nothing there, passes a NaN or an infinity on as Java does, to the errors OpenRocket
+///   ends such a flight with: the engine's "Simulation resulted in not-a-number (NaN) value,
+///   please report a bug." and the RK steppers' "values too large".
 /// - checkFinite() is QtRocket's own, for the same reason (decision D3): the steppers check
-///   that the position of a step is finite before they turn it into a world position (an
-///   infinite position gives a NaN location there, which is Java's BugException), and that the
-///   nozzle exit areas of the thrusting motors are finite before they go to the flight
-///   conditions (Java: FlightConditions throws an IllegalArgumentException).
+///   that the nozzle exit areas of the thrusting motors are finite before they go to the
+///   flight conditions (Java: FlightConditions throws an IllegalArgumentException, which is no
+///   SimulationException).
 /// - Java's scratch MutableCoordinates are local Coordinates: the arithmetic of the mutable
 ///   operations is that of the immutable ones (the weights included).
 /// - The thrusting nozzle exit areas are summed per assembly in the order of the status's
@@ -293,10 +303,15 @@ public:
     ///         for <var>." (without a flight data branch)
     static void checkFinite(double d, std::string_view var);
 
-    /// Checks that the x, y and z of @p c are finite (not in Java; see the class comment).
-    /// @throws SimulationCalculationException "Simulation resulted in a value that is not finite
-    ///         for <var>, c=<c>" (without a flight data branch)
-    static void checkFinite(const Coordinate& c, std::string_view var);
+    /// @p location moved by the rocket position of @p status through the geodetic computation
+    /// @p strategy, the world position of the end of a step (Java, in the steppers:
+    /// `geodeticComputation.addCoordinate(w, status.getRocketPosition())`).
+    /// @throws SimulationCalculationException with the message of tryAddCoordinate() and the
+    ///         flight data branch of @p status where Java's addCoordinate() throws its
+    ///         BugException for a NaN location (SPHERICAL and WGS84; see the class comment)
+    [[nodiscard]] static WorldCoordinate addRocketPosition(GeodeticComputationStrategy strategy,
+                                                           const WorldCoordinate&      location,
+                                                           const SimulationStatus&     status);
 
     /// Sets @p status and @p store to values consistent with sitting on the ground: the time
     /// step NaN; the flight conditions of the status with a NaN angle of attack and no

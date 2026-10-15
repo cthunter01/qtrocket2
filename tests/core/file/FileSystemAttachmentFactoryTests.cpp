@@ -46,6 +46,28 @@ TEST(FileSystemAttachmentFactory, ResolvesARelativeNameAgainstTheBaseDirectory)
     EXPECT_EQ(QtRocket::bytesToString(attachment->getBytes().value()), "image");
 }
 
+// Not in Java: getAttachmentOfFile() reads a file it is given under the name it is given, the
+// file resolved and spelled as getAttachment() resolves and spells a name (AppearanceHandler
+// gives it the normal form of a decal's name).
+TEST(FileSystemAttachmentFactory, MakesTheAttachmentOfAGivenFileUnderAGivenName)
+{
+    const TempDir temp;
+    static_cast<void>(temp.write("decals/a.png", "image"));
+    const FileSystemAttachmentFactory factory(temp.path());
+
+    const std::shared_ptr<Attachment> attachment =
+        factory.getAttachmentOfFile("decals/sub/../a.png/", "decals/a.png/");
+    ASSERT_NE(attachment, nullptr);
+    EXPECT_EQ(attachment->getName(), "decals/sub/../a.png/");
+    EXPECT_EQ(locationOf(attachment), temp.path() / "decals" / "a.png");
+    EXPECT_EQ(QtRocket::bytesToString(attachment->getBytes().value()), "image");
+
+    const FileSystemAttachmentFactory noBase;
+    EXPECT_EQ(locationOf(noBase.getAttachmentOfFile("x", "decals//a.png")),
+              std::filesystem::path("decals") / "a.png");
+    EXPECT_EQ(locationOf(noBase.getAttachmentOfFile("x", "")), std::filesystem::path());
+}
+
 TEST(FileSystemAttachmentFactory, TakesAnAbsoluteNameAsItIs)
 {
     const TempDir                     base;

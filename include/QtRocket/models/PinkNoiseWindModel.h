@@ -29,8 +29,11 @@ class Preferences;
 /// is a function of the time for a given seed. Deviation (the user's decision D12 of
 /// 2026-10-14): the Gaussian input comes from GaussianRandom, QtRocket's own generator (see
 /// PinkNoise), so a seeded model gives the same speeds, bit for bit, on every platform, but
-/// never OpenRocket's java.util.Random sequence. The velocity is the speed times the sine and
-/// the cosine of the direction (std::sin, std::cos), whose last bit may differ between
+/// never OpenRocket's java.util.Random sequence. The speed interpolates between two samples with
+/// two products and a sum in one expression, which a compiler may contract into multiply-adds:
+/// it is the same everywhere because of -ffp-contract=off (QtRocket_configure_target(), GCC and
+/// Clang) and MSVC's /fp:precise, as the source's values are. The velocity is the speed times the
+/// sine and the cosine of the direction (std::sin, std::cos), whose last bit may differ between
 /// platforms: only at the directions whose sine and cosine are exact everywhere (0: the velocity
 /// is (0, speed, 0)) is it the same, and a turbulent flight, which goes through libm throughout,
 /// is not. The source is made on the heap at that first question and not before, as Java makes

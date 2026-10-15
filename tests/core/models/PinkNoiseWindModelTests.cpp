@@ -325,7 +325,8 @@ struct PinnedSpeed
 };
 
 // The wind of a seed is the same, bit for bit, on every platform (decision D12 of 2026-10-14):
-// the noise comes from GaussianRandom, and the speed is made of +, -, * and / of it. Blowing
+// the noise comes from GaussianRandom, and the speed is made of +, -, * and / of it, which
+// -ffp-contract=off keeps from being fused into multiply-adds (see PinkNoiseWindModel). Blowing
 // from the north (direction 0), the velocity is (0, speed, 0), the sine and cosine of 0 being
 // exact in every libm; at another direction the last bits of std::sin and std::cos may differ.
 // The model is asked in the order of the times, as the probe asks its model.

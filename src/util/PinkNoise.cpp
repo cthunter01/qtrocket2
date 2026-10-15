@@ -57,7 +57,8 @@ double PinkNoise::nextValue()
 
     for (std::size_t i = 0; i < m_values.size(); ++i)
     {
-        // The product apart, so that no compiler fuses it with the difference (GaussianRandom).
+        // The product apart from the difference; -ffp-contract=off keeps them unfused (see the
+        // class comment).
         const double product = m_multipliers[i] * m_values[i];
         x -= product;
     }

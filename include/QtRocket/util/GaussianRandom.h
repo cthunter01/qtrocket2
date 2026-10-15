@@ -22,12 +22,15 @@ namespace QtRocket
 /// - the logarithm is strictLog(), a transcription of fdlibm's __ieee754_log (the algorithm of
 ///   Java's StrictMath.log), not std::log, whose last bit differs between glibc, Apple's libm and
 ///   the UCRT; sqrt is correctly rounded everywhere.
-/// No expression multiplies and adds in one (a*b + c): a compiler that contracted it into a
-/// fused multiply-add would change the last bit. The project also compiles every target with
-/// -ffp-contract=off (GCC and Clang; MSVC's /fp:precise does not contract), and
-/// GaussianRandomTests pins the SHA-256 digest of 100,000 values, which CI checks on Linux, macOS
-/// and Windows. Java's arithmetic is strict: GaussianProbe.java of the probes of tier 10a, part
-/// "goldens-and-turbulence", computes the same numbers with StrictMath.log and StrictMath.sqrt.
+/// A product that a compiler contracted with an addition into a fused multiply-add would change
+/// the last bit. The values are bit-identical because the project compiles every target with
+/// -ffp-contract=off (QtRocket_configure_target(), GCC and Clang; GCC's default,
+/// -ffp-contract=fast, contracts across statements too) and because MSVC's /fp:precise does not
+/// contract. No expression here multiplies and adds in one (a*b + c), which guards only against
+/// Clang's default, -ffp-contract=on. GaussianRandomTests pins the SHA-256 digest of 100,000
+/// values, which CI checks on Linux, macOS and Windows. Java's arithmetic is strict:
+/// GaussianProbe.java of the probes of tier 10a, part "goldens-and-turbulence", computes the same
+/// numbers with StrictMath.log and StrictMath.sqrt.
 ///
 /// Not thread-safe: one generator belongs to one noise source.
 class GaussianRandom

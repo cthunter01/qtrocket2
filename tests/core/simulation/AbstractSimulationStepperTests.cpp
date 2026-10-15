@@ -551,11 +551,10 @@ template <class Value>
 
 /// The message of the SimulationCalculationException of checkFinite(@p value, @p var), or
 /// "<none>".
-template <class Value>
-[[nodiscard]] std::string finiteCheckOf(const Value& value, std::string_view var)
+[[nodiscard]] std::string finiteCheckOf(double value, std::string_view var)
 {
     return QtRocket::Test::calculationErrorText(
-        [&value, var] { AbstractSimulationStepper::checkFinite(value, var); });
+        [value, var] { AbstractSimulationStepper::checkFinite(value, var); });
 }
 
 /// Whether checkNaN() of a NaN throws a SimulationCalculationException without a flight data
@@ -602,8 +601,8 @@ TEST(AbstractSimulationStepper, CheckNaNThrowsAnOrdinaryErrorWithJavasMessages)
     EXPECT_TRUE(nanCheckHasNoBranch());
 }
 
-// Not in Java (decision D3): checkFinite() refuses an infinity as well as a NaN, of a number
-// and of the x, y and z of a coordinate (not of its weight), with an ordinary error of its own.
+// Not in Java (decision D3): checkFinite() refuses an infinity as well as a NaN with an
+// ordinary error of its own (the steppers check the nozzle exit areas with it).
 TEST(AbstractSimulationStepper, CheckFiniteThrowsAnOrdinaryError)
 {
     EXPECT_EQ(finiteCheckOf(1.5, "x"), "<none>");
@@ -612,14 +611,6 @@ TEST(AbstractSimulationStepper, CheckFiniteThrowsAnOrdinaryError)
               "Simulation resulted in a value that is not finite for area.");
     EXPECT_EQ(finiteCheckOf(kNaN, "area"),
               "Simulation resulted in a value that is not finite for area.");
-
-    EXPECT_EQ(finiteCheckOf(Coordinate(1, 2, 3), "p"), "<none>");
-    EXPECT_EQ(finiteCheckOf(Coordinate(1, 2, 3, kInf), "p"), "<none>");
-    EXPECT_EQ(finiteCheckOf(Coordinate(-kInf, 0, kInf), "p"),
-              "Simulation resulted in a value that is not finite for p, c=(-Infinity,0.00000,"
-              "Infinity)");
-    EXPECT_EQ(finiteCheckOf(Coordinate(0, kNaN, 0), "p"),
-              "Simulation resulted in a value that is not finite for p, c=(0.00000,NaN,0.00000)");
 }
 
 // ========================================================================== the mass cache

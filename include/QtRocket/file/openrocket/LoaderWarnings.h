@@ -107,13 +107,13 @@ public:
     /// A <decal> of a design whose images are files (FileSystemAttachmentFactory: a plain or
     /// gzip design) that names an image file the design may not read, because the name is no
     /// relative one, leaves the design's directory, or the design has no directory (decision
-    /// D8 of 2026-10-14; CsvLookupHandler::fileOfDesign()): "The decal image file '<file>' was
+    /// D8 of 2026-10-14; DesignFiles::fileOfDesign()): "The decal image file '<file>' was
     /// not read: a design may name such a file only by a relative path inside its own
     /// directory; ignoring the decal." (@p file is the name as the design has it.)
     [[nodiscard]] static std::string decalFileOutsideDesign(std::string_view file);
 
     /// A <decal> of such a design that names an image file with the name of a device of Windows
-    /// in its path, which is refused on Windows (CsvLookupHandler::kRefusesDeviceNames): "The
+    /// in its path, which is refused on Windows (DesignFiles::kRefusesDeviceNames): "The
     /// decal image file '<file>' was not read: its path holds a name that Windows reserves for
     /// a device; ignoring the decal."
     [[nodiscard]] static std::string decalFileOfDeviceName(std::string_view file);
@@ -250,15 +250,15 @@ public:
 
     /// A file that a design names for a lookup table and may not read, because the name is
     /// no relative one, leaves the design's directory, or the design has no directory (see
-    /// CsvLookupHandler): "The lookup table file '<file>' of element '<element>' was not read:
+    /// DesignFiles): "The lookup table file '<file>' of element '<element>' was not read:
     /// a design may name such a file only by a relative path inside its own directory."
     /// (@p file is the name as the design has it.)
     [[nodiscard]] static std::string lookupFileOutsideDesign(std::string_view element,
                                                              std::string_view file);
 
     /// A file that a design names for a lookup table and that has the name of a device of
-    /// Windows in its path, which is refused on Windows (CsvLookupHandler::
-    /// kRefusesDeviceNames): "The lookup table file '<file>' of element '<element>' was not
+    /// Windows in its path, which is refused on Windows (DesignFiles::kRefusesDeviceNames):
+    /// "The lookup table file '<file>' of element '<element>' was not
     /// read: its path holds a name that Windows reserves for a device."
     [[nodiscard]] static std::string lookupFileOfDeviceName(std::string_view element,
                                                             std::string_view file);

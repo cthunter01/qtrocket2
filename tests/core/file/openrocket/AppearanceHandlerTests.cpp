@@ -1267,7 +1267,7 @@ TEST(AppearanceHandler, NamesTheImagesOfFilesAsTheRegistryDoes)
 
 // Not OpenRocket's (decision D8 of 2026-10-14): when the images are files, a decal names one
 // only by a relative path inside the design's directory, as a lookup table is named
-// (CsvLookupHandler::fileOfDesign()). A decal that names another file is ignored with a warning
+// (DesignFiles::fileOfDesign()). A decal that names another file is ignored with a warning
 // of its own and registers no image, and a rotation that is no number does not fail the load
 // then; a decal that lacks an attribute gets the warning of that, which is asked first. The
 // component keeps the appearance of its element, without a decal. OpenRocket reads every file.
@@ -1330,7 +1330,7 @@ TEST(AppearanceHandler, ADesignOfFilesWithoutADirectoryReadsNoImage)
 
 // On Windows a name with the name of a device in it ("decals/nul.png") opens the device in any
 // directory, and is refused there with a warning of its own; elsewhere it is a file of the
-// design's directory like any other (CsvLookupHandler::kRefusesDeviceNames).
+// design's directory like any other (DesignFiles::kRefusesDeviceNames).
 TEST(AppearanceHandler, AnImageNamedLikeADeviceIsRefusedOnWindowsOnly)
 {
     const TempDir                     directory;
