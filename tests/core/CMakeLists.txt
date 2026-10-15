@@ -264,6 +264,8 @@ add_executable(QtRocket_core_tests
     document/OpenRocketDocumentFactoryTests.cpp
     document/OpenRocketDocumentTests.cpp
     document/StorageOptionsTests.cpp
+    document/test_documents_tests.cpp
+    document/TestDocuments.cpp
     file/csv_export_golden_tests.cpp
     file/CsvExportTests.cpp
     file/DatabaseMotorFinderTests.cpp

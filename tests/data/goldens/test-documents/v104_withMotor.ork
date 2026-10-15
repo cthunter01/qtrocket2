@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>v104_withMotorConfig</name>
+    <id>3f87f2e8-6fe7-415b-b809-7aa36984fb50</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>35946384-44f9-4e46-b7b8-da8923ef4c1e</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>40e5e5e2-3045-4934-b79d-92d92cb7a729</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>12.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+
+            <subcomponents>
+              <innertube>
+                <name>Inner Tube</name>
+                <id>fbdaee78-3f69-496e-b070-0f8ce0c22e9d</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.07</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0095</outerradius>
+                <thickness>5.000000000000004E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                </motormount>
+              </innertube>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

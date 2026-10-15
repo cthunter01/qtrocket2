@@ -1,0 +1,66 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>v101_withFinTabs</name>
+    <id>7575b0aa-c138-480a-afcf-a6d35a30831b</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>bd83960c-d059-4009-a490-91220b0985b3</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>d77a1b32-03ec-4c66-af41-ae49b4d9c8d7</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>12.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>81f1386d-11b7-4a6c-9dc9-1ea81fa22a91</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.25</tabheight>
+                <tablength>0.25</tablength>
+                <tabposition relativeto="center">0.0</tabposition>
+                <tabposition relativeto="middle">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>1.0</rootchord>
+                <tipchord>1.0</tipchord>
+                <sweeplength>0.0</sweeplength>
+                <height>1.0</height>
+              </trapezoidfinset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

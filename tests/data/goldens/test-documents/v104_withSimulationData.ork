@@ -1,0 +1,143 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>v104_withSimulationData</name>
+    <id>2eb8c406-67bc-4d4f-8f0f-669936dab302</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>9bc6ae54-3bfd-43be-b476-3ca7f737baf1</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>6dbfd25c-249a-463d-990f-3569240c0edc</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>12.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+
+            <subcomponents>
+              <innertube>
+                <name>Inner Tube</name>
+                <id>acc3fe17-b477-4697-99c3-3e78ebc0b3bf</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.07</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0095</outerradius>
+                <thickness>5.000000000000004E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                </motormount>
+              </innertube>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="cantrun">
+      <name></name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>0.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>0.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>0.0</winddirection>
+        <wind model="average">
+          <speed>0.0</speed>
+          <direction>0.0</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>0.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="extendedisa">
+          <basetemperature>288.15</basetemperature>
+          <basepressure>101325.0</basepressure>
+          <baserelativehumidity>0.0</baserelativehumidity>
+        </atmosphere>
+        <gravity model="wgs"/>
+        <timestep>0.0</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+
+    <simulation status="cantrun">
+      <name></name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>0.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>0.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>0.0</winddirection>
+        <wind model="average">
+          <speed>0.0</speed>
+          <direction>0.0</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>0.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="extendedisa">
+          <basetemperature>288.15</basetemperature>
+          <basepressure>101325.0</basepressure>
+          <baserelativehumidity>0.0</baserelativehumidity>
+        </atmosphere>
+        <gravity model="wgs"/>
+        <timestep>0.0</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>
