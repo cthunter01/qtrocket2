@@ -1,13 +1,19 @@
 #include "QtRocket/util/FileIo.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <ios>
 #include <iterator>
 #include <optional>
+#include <random>
 #include <span>
 #include <string>
 #include <string_view>
@@ -84,6 +90,109 @@ namespace
     return bytes;
 }
 
+/// The bytes writeFile() hands the stream at a time.
+constexpr std::size_t kWritePiece = std::size_t{1024} * 1024;
+
+/// How often replaceFile() draws a name for its temporary file that no file has yet.
+constexpr int kTemporaryNameAttempts = 16;
+
+[[nodiscard]] std::unexpected<Error> cannotOpenForWriting(const std::filesystem::path& path)
+{
+    return fail(ErrorCode::IO, std::format("cannot open '{}' for writing", pathToUtf8(path)));
+}
+
+/// Closes @p out, a stream that was written to @p path, and tells whether everything was
+/// written: closing writes what the stream still holds.
+[[nodiscard]] Result<void> closeAfterWriting(std::ofstream& out, const std::filesystem::path& path)
+{
+    out.close();
+    if (!out)
+    {
+        return fail(ErrorCode::IO, std::format("error while writing '{}'", pathToUtf8(path)));
+    }
+    return {};
+}
+
+/// 64 bits for the name of a temporary file: from the platform's source of random numbers, or
+/// from the clock where it has none (std::random_device may throw then).
+[[nodiscard]] std::uint64_t temporaryNameBits()
+{
+    try
+    {
+        std::random_device  device;
+        const std::uint64_t high = device();
+        return (high << 32U) ^ device();
+    }
+    catch (const std::exception&)
+    {
+        return static_cast<std::uint64_t>(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+    }
+}
+
+/// A new, empty file in @p directory (the current directory when it is empty) that no other
+/// file had the name of (Java: File.createTempFile()).
+[[nodiscard]] Result<std::filesystem::path> createTemporaryFile(
+    const std::filesystem::path& directory)
+{
+    const std::filesystem::path  where = directory.empty() ? std::filesystem::path(".") : directory;
+    const std::unexpected<Error> failure = fail(
+        ErrorCode::IO, std::format("cannot create a temporary file in '{}'", pathToUtf8(where)));
+    std::error_code error;
+    if (!std::filesystem::is_directory(where, error))
+    {
+        return failure;
+    }
+    for (int attempt = 0; attempt < kTemporaryNameAttempts; ++attempt)
+    {
+        std::filesystem::path candidate =
+            directory / std::format("QtRocket-{:016x}.tmp", temporaryNameBits());
+        // The name is checked before it is taken (C++ has no exclusive open before C++23's
+        // std::ios::noreplace, which not every standard library has): 64 random bits make a
+        // file of that name appearing in between as good as impossible.
+        if (std::filesystem::exists(candidate, error) || error)
+        {
+            continue;
+        }
+        std::ofstream out(candidate, std::ios::binary | std::ios::trunc);
+        if (!out)
+        {
+            return failure;
+        }
+        out.close();
+        return candidate;
+    }
+    return failure;
+}
+
+/// replaceFile(): a temporary file in the directory of @p target, which @p write fills and which
+/// is then renamed to @p target; removed again on any failure.
+[[nodiscard]] Result<void> replaceThrough(
+    const std::filesystem::path&                                     target,
+    const std::function<Result<void>(const std::filesystem::path&)>& write)
+{
+    const Result<std::filesystem::path> temporary = createTemporaryFile(target.parent_path());
+    if (!temporary.has_value())
+    {
+        return std::unexpected(temporary.error());
+    }
+    Result<void> replaced = write(*temporary);
+    if (replaced.has_value())
+    {
+        std::error_code error;
+        std::filesystem::rename(*temporary, target, error);
+        if (!error)
+        {
+            return {};
+        }
+        replaced = fail(ErrorCode::IO, std::format("cannot replace '{}': {}", pathToUtf8(target),
+                                                   error.message()));
+    }
+    std::error_code ignored;
+    std::filesystem::remove(*temporary, ignored);
+    return replaced;
+}
+
 }  // namespace
 
 Result<std::vector<std::byte>> readFile(const std::filesystem::path& path)
@@ -107,23 +216,52 @@ Result<void> writeFile(const std::filesystem::path& path, std::span<const std::b
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out)
     {
-        return fail(ErrorCode::IO, std::format("cannot open '{}' for writing", pathToUtf8(path)));
+        return cannotOpenForWriting(path);
     }
-    for (const std::byte b : data)
+    // A std::byte is no char that the stream takes: the bytes go through a buffer of chars, a
+    // piece at a time.
+    std::vector<char> buffer(std::min(data.size(), kWritePiece));
+    for (std::span<const std::byte> rest = data; !rest.empty() && out;)
     {
-        out.put(static_cast<char>(b));
+        const std::size_t piece = std::min(rest.size(), kWritePiece);
+        std::ranges::transform(rest.first(piece), buffer.begin(),
+                               [](std::byte b) { return static_cast<char>(b); });
+        out.write(buffer.data(), static_cast<std::streamsize>(piece));
+        rest = rest.subspan(piece);
     }
-    out.flush();
-    if (!out)
-    {
-        return fail(ErrorCode::IO, std::format("error while writing '{}'", pathToUtf8(path)));
-    }
-    return {};
+    return closeAfterWriting(out, path);
 }
 
 Result<void> writeTextFile(const std::filesystem::path& path, std::string_view text)
 {
-    return writeFile(path, stringToBytes(text));
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out)
+    {
+        return cannotOpenForWriting(path);
+    }
+    out.write(text.data(), static_cast<std::streamsize>(text.size()));
+    return closeAfterWriting(out, path);
+}
+
+Result<void> replaceFile(const std::filesystem::path& target, std::span<const std::byte> data)
+{
+    return replaceThrough(target, [data](const std::filesystem::path& temporary) {
+        return writeFile(temporary, data);
+    });
+}
+
+Result<void> replaceFileWith(const std::filesystem::path&                           target,
+                             const std::function<Result<std::vector<std::byte>>()>& contents)
+{
+    return replaceThrough(target,
+                          [&contents](const std::filesystem::path& temporary) -> Result<void> {
+                              const Result<std::vector<std::byte>> data = contents();
+                              if (!data.has_value())
+                              {
+                                  return std::unexpected(data.error());
+                              }
+                              return writeFile(temporary, *data);
+                          });
 }
 
 std::string pathToUtf8(const std::filesystem::path& path)

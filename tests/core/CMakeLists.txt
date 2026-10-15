@@ -265,6 +265,7 @@ add_executable(QtRocket_core_tests
     file/DocumentLoadingContextTests.cpp
     file/FileSystemAttachmentFactoryTests.cpp
     file/GeneralRocketLoaderTests.cpp
+    file/GeneralRocketSaverTests.cpp
     file/GzipStreamTests.cpp
     file/loader_hostile_input_tests.cpp
     file/motor/GeneralMotorLoaderTests.cpp

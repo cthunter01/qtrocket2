@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -31,12 +32,37 @@ namespace QtRocket
 /// Reads a whole file as text (bytes are taken as-is; no newline or encoding conversion).
 [[nodiscard]] Result<std::string> readTextFile(const std::filesystem::path& path);
 
-/// Writes @p data to @p path, replacing the file. Fails with ErrorCode::IO on any error.
+/// Writes @p data to @p path, replacing the file, in binary mode (no newline conversion). Fails
+/// with ErrorCode::IO on any error; a file that was opened is then left as far as it was written.
 [[nodiscard]] Result<void> writeFile(const std::filesystem::path& path,
                                      std::span<const std::byte>   data);
 
-/// Writes @p text to @p path, replacing the file.
+/// Writes @p text to @p path, replacing the file, byte for byte as writeFile() does.
 [[nodiscard]] Result<void> writeTextFile(const std::filesystem::path& path, std::string_view text);
+
+/// Replaces the file @p target with @p data so that it is never left half written (OpenRocket's
+/// GeneralRocketSaver.save(File, ...)): the data go to a new temporary file in the directory of
+/// @p target, "QtRocket-<16 hexadecimal digits>.tmp", which is then renamed to @p target
+/// (std::filesystem::rename(), which replaces an existing file in one step). A failure, of the
+/// temporary file or of the rename, removes the temporary file and leaves @p target as it was
+/// (or missing, when it was missing): ErrorCode::IO, "cannot create a temporary file in
+/// '<directory>'" for a directory that does not exist or cannot be written to, writeFile()'s
+/// failures and "cannot replace '<target>': <reason>". A target that is a directory, or that is
+/// open in another program on Windows, is not replaced.
+///
+/// Deviations from Java: Java moves an existing target aside to "<target>-bak" first and then
+/// renames the temporary file, putting the target back when that fails; a rename that replaces
+/// the target needs no such step. Java's temporary file is "ORSave<digits>.tmp".
+[[nodiscard]] Result<void> replaceFile(const std::filesystem::path& target,
+                                       std::span<const std::byte>   data);
+
+/// replaceFile() with the data that @p contents gives, which is asked only after the temporary
+/// file was created (Java creates it before it writes the design), so that a directory that
+/// cannot take the file fails before @p contents runs. A failure of @p contents is passed on;
+/// the temporary file is removed and @p target left as it was.
+[[nodiscard]] Result<void> replaceFileWith(
+    const std::filesystem::path&                           target,
+    const std::function<Result<std::vector<std::byte>>()>& contents);
 
 /// @p path as UTF-8 text, for messages and for APIs that take UTF-8 file names: path::string()
 /// goes through the Windows ANSI code page, which garbles or rejects (throws for) the characters

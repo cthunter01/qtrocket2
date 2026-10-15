@@ -23,12 +23,17 @@
 //   and the fourth save is the third. QtRocket's saves have to do the same, which holds the order
 //   of the getter calls of the savers to OpenRocket's.
 // - The same design saved once more WITH its simulation data (all sixteen store full flight
-//   data) and loaded back from the text in memory, without a directory (decision O5 of tier 10):
-//   every flight comes back bit for bit (flightDifferences(): the summary values, the stored
-//   warnings, the branches with their events and every value), and a save of the reload is the
-//   first save with data but for one known difference, the sixteen stored warnings of the type
-//   RecoveryHighSpeedDeployment (in six examples), which the loader reads back as warnings of the
-//   type Other without their parameter, as OpenRocket's does, until the user's decision E2 of
+//   data), then as an .ork archive with the document's default storage options
+//   (GeneralRocketSaver), which is OpenRocket's archive: the same entries in the same order
+//   (rocket.ork, the decal images by name, a RockSim engine file of every thrust-curve motor; the
+//   scouts' FixedPointProbe, roundtrip-goldens out/fp/), rocket.ork the save with data, every decal
+//   image the bytes of the original archive, every thrust curve OpenRocket's text (SHA-256
+//   digests). The archive is loaded back from memory, without a directory (decision O5 of tier 10),
+//   with no warning: every flight comes back bit for bit (flightDifferences(): the summary values,
+//   the stored warnings, the branches with their events and every value), and a save of the reload
+//   is the first save with data but for one known difference, the sixteen stored warnings of the
+//   type RecoveryHighSpeedDeployment (in six examples), which the loader reads back as warnings of
+//   the type Other without their parameter, as OpenRocket's does, until the user's decision E2 of
 //   2026-10-14 (group 'decisions') makes it read them as they were written. OpenRocket's own save
 //   with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/) is
 //   QtRocket's line for line; those files are not part of the repository.
@@ -58,7 +63,9 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/StorageOptions.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
+#include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/openrocket/OpenRocketSaver.h"
 #include "QtRocket/logging/ErrorSet.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -67,6 +74,7 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenData.h"
@@ -80,6 +88,7 @@ namespace
 using QtRocket::ErrorSet;
 using QtRocket::FlightData;
 using QtRocket::GeneralRocketLoader;
+using QtRocket::GeneralRocketSaver;
 using QtRocket::LoadedDocument;
 using QtRocket::OpenRocketDocument;
 using QtRocket::OpenRocketSaver;
@@ -87,6 +96,7 @@ using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::StorageOptions;
 using QtRocket::WarningSet;
+using QtRocket::ZipArchive;
 using QtRocket::Test::compareOrkTexts;
 using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::ExampleSource;
@@ -135,6 +145,206 @@ constexpr std::array<EstimatedSize, 16> kEstimatedSizes{{
     {.file = "Tube fin rocket.ork", .bytes = 65320},
     {.file = "Two stage high power rocket.ork", .bytes = 160300},
 }};
+
+/// OpenRocket's .ork archive of an example: the entries of GeneralRocketSaver's save of the
+/// example as loaded, with the document's default storage options, one name per line in their
+/// order (the probe FixedPointProbe of the scouts of tier 10, roundtrip-goldens out/fp/<example>/
+/// Z.ork, in the golden harness's environment): rocket.ork, the decal images in the order of
+/// their names, and a RockSim engine file of every thrust-curve motor, once a digest.
+struct JavaArchive
+{
+    std::string_view example;
+    std::string_view entries;
+};
+
+/// The SHA-256 digest of OpenRocket's thrustcurves/<digest>.rse entry of each motor of those
+/// archives (RockSimMotorWriter), by entry name.
+struct EmbeddedCurve
+{
+    std::string_view entry;
+    std::string_view sha256;
+};
+
+// Written by make_archive_tables.py (the probes of tier 10a S4) from those files.
+constexpr std::array<JavaArchive, 16> kJavaArchives{{
+    {.example = "example-3d-printable-nose-cone-and-fins",
+     .entries = "rocket.ork\n"
+                "decals/dont-print-sticker.png\n"
+                "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse\n"
+                "thrustcurves/74472299ac7ffc451f7b434d6c81b89c.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"},
+    {.example = "example-a-simple-model-rocket",
+     .entries = "rocket.ork\n"
+                "decals/BodyStripe.png\n"
+                "decals/TailStripe.png\n"
+                "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse\n"
+                "thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"},
+    {.example = "example-airstart-timing",
+     .entries = "rocket.ork\n"
+                "decals/patriot.png\n"
+                "thrustcurves/9e8c531f225566c6c75eedaeacfcfef1.rse\n"
+                "thrustcurves/8a203416fee4400cdaf09edf369235af.rse\n"},
+    {.example = "example-arc-payload-rocket",
+     .entries = "rocket.ork\n"
+                "decals/spiral-wound-alpha.png\n"
+                "thrustcurves/88ed07b96422ec99767fb35bf6a51966.rse\n"},
+    {.example = "example-chute-release",
+     .entries = "rocket.ork\n"
+                "decals/BodyStripe.png\n"
+                "decals/TailStripe.png\n"
+                "thrustcurves/7c6080928783078289d9a473efecc134.rse\n"
+                "thrustcurves/6438359c302fd7c031af855f17d8d27e.rse\n"},
+    {.example = "example-clustered-motors",
+     .entries = "rocket.ork\n"
+                "decals/grad.png\n"
+                "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse\n"
+                "thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"},
+    {.example = "example-deployable-payload",
+     .entries = "rocket.ork\n"
+                "decals/BodyStripe.png\n"
+                "decals/TailStripe.png\n"
+                "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse\n"
+                "thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"},
+    {.example = "example-dual-parachute-deployment",
+     .entries = "rocket.ork\n"
+                "thrustcurves/26a5e7834018943090396d419ca64662.rse\n"
+                "thrustcurves/cff44a78b2c4bc9e2ef19f6a2ded4da0.rse\n"
+                "thrustcurves/6eb7fe0c078fe0365e2052d8c877f6a4.rse\n"
+                "thrustcurves/871f7fe309f61ec7e45e4b29833349d9.rse\n"
+                "thrustcurves/e26c7159754a0c58db92d8c5b3568902.rse\n"
+                "thrustcurves/0fa1ede88d6407eadc5bbc413810100d.rse\n"},
+    {.example = "example-parallel-booster-staging",
+     .entries = "rocket.ork\n"
+                "/datafiles/textures/balsa.jpg\n"
+                "/datafiles/textures/chute.jpg\n"
+                "/datafiles/textures/hardboard.jpg\n"
+                "/datafiles/textures/spiral-wound-alpha.png\n"
+                "/datafiles/textures/wadding.png\n"
+                "/datafiles/textures/wood.jpg\n"
+                "thrustcurves/0039ed088e61360d934d9bd8503fad92.rse\n"
+                "thrustcurves/7baff5a049a60829dbb8316d1b183e86.rse\n"},
+    {.example = "example-pods-airframes-and-winglets",
+     .entries = "rocket.ork\n"
+                "thrustcurves/bd060845629e4cfceec7e9b19297ab9f.rse\n"
+                "thrustcurves/74472299ac7ffc451f7b434d6c81b89c.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"
+                "thrustcurves/a47e144089f502e95b8a16130db9b416.rse\n"
+                "thrustcurves/597863e31e02f245b23d2bfd550f615e.rse\n"},
+    {.example = "example-pods-powered-with-recovery-deployment",
+     .entries = "rocket.ork\n"
+                "thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse\n"
+                "thrustcurves/bd060845629e4cfceec7e9b19297ab9f.rse\n"},
+    {.example = "example-simulation-extensions",
+     .entries = "rocket.ork\n"
+                "decals/skunk.jpg\n"
+                "decals/sticker.gif\n"
+                "thrustcurves/5498ead583ab6cd6900a533b1cb69df8.rse\n"},
+    {.example = "example-simulation-scripting",
+     .entries = "rocket.ork\n"
+                "decals/skunk.jpg\n"
+                "decals/sticker.gif\n"
+                "thrustcurves/5498ead583ab6cd6900a533b1cb69df8.rse\n"},
+    {.example = "example-three-stage-low-power-rocket",
+     .entries = "rocket.ork\n"
+                "decals/gStripe.png\n"
+                "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse\n"
+                "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse\n"
+                "thrustcurves/74472299ac7ffc451f7b434d6c81b89c.rse\n"},
+    {.example = "example-tube-fin-rocket",
+     .entries = "rocket.ork\n"
+                "decals/Background.00.01.png\n"
+                "decals/Background.00.02.png\n"
+                "thrustcurves/c26987c1c7e95810bbb6f2e284861494.rse\n"},
+    {.example = "example-two-stage-high-power-rocket",
+     .entries = "rocket.ork\n"
+                "thrustcurves/a06234b6049c1079e394cb9ecd4607a9.rse\n"
+                "thrustcurves/a0006978c9a542518b425c0caa67042b.rse\n"
+                "thrustcurves/1a3327383625336706131b2a9d198139.rse\n"},
+}};
+
+constexpr std::array<EmbeddedCurve, 26> kEmbeddedCurves{{
+    {.entry  = "thrustcurves/0039ed088e61360d934d9bd8503fad92.rse",
+     .sha256 = "05cc3be07128a737f996563e550e1f11f184f5d6ef02293be1eb928ac10a55d7"},
+    {.entry  = "thrustcurves/0fa1ede88d6407eadc5bbc413810100d.rse",
+     .sha256 = "bb59f4f07df23829b3b0ccbddb5805de28fcf0492b63d29706c8fc3bbd5fc084"},
+    {.entry  = "thrustcurves/1a3327383625336706131b2a9d198139.rse",
+     .sha256 = "1331cab3cbd7c791d1fea6b74d2dde9133a68f716ff38ab0b7b3949e42ceeda0"},
+    {.entry  = "thrustcurves/26a5e7834018943090396d419ca64662.rse",
+     .sha256 = "bab4132b683b0c472b557d922285b901347757ca36890bcd5e66d5e3e5eb4cee"},
+    {.entry  = "thrustcurves/2967cd7a160b396ef96f09695429d8e9.rse",
+     .sha256 = "fb8905d12726004d7f87788ef09b0f6da3ea3e62f4811092dcff5081efb81bc1"},
+    {.entry  = "thrustcurves/5498ead583ab6cd6900a533b1cb69df8.rse",
+     .sha256 = "3d2ae0dba8886208619accec22b7a374c27b2895ea4f7f7c57d386e90538b457"},
+    {.entry  = "thrustcurves/597863e31e02f245b23d2bfd550f615e.rse",
+     .sha256 = "52944ff4a6d73d13807dde018092eb7b57d5bd2ff115754f75c5304ef1bfaeaa"},
+    {.entry  = "thrustcurves/6438359c302fd7c031af855f17d8d27e.rse",
+     .sha256 = "cc3c6e7ed6f23ff92aad1787120b029c63383fe591acb343bf71fc1045c99a8b"},
+    {.entry  = "thrustcurves/6eb7fe0c078fe0365e2052d8c877f6a4.rse",
+     .sha256 = "b7f6a3464c01146d8fa0a2e8fcb172dff13bd7e94a98977a0269ae1396cb5a35"},
+    {.entry  = "thrustcurves/74472299ac7ffc451f7b434d6c81b89c.rse",
+     .sha256 = "d366dcde730b4cad8e79065919c96b8d18a3b4f4532504e0fcc3584dac09e354"},
+    {.entry  = "thrustcurves/7baff5a049a60829dbb8316d1b183e86.rse",
+     .sha256 = "3d700d2fa8bc9ecda7b444ba937ab4c289bd7ee86f4c95dc415617dfdce7185f"},
+    {.entry  = "thrustcurves/7c6080928783078289d9a473efecc134.rse",
+     .sha256 = "ab3457bd2937445da8d9347698506ac04abf681989acc36af96d171f02d03182"},
+    {.entry  = "thrustcurves/871f7fe309f61ec7e45e4b29833349d9.rse",
+     .sha256 = "bd94166c6576b637015b15e02a8b1584307c44e0be3bce11147aac8d4ca3e988"},
+    {.entry  = "thrustcurves/88ed07b96422ec99767fb35bf6a51966.rse",
+     .sha256 = "9fab6023cc067958e4af2ae7317859e44ee848e8916123bbb8350fbf7221aa88"},
+    {.entry  = "thrustcurves/8a203416fee4400cdaf09edf369235af.rse",
+     .sha256 = "3f7af18d4af15820bca0ea2d0cc726f51b38d63f5cf6376332e35f2bd28f0e2c"},
+    {.entry  = "thrustcurves/9e8c531f225566c6c75eedaeacfcfef1.rse",
+     .sha256 = "61610bc5c87bdb4824fe1ec49043f0ce35c34e820d5e5290ddd56cd43928146d"},
+    {.entry  = "thrustcurves/a0006978c9a542518b425c0caa67042b.rse",
+     .sha256 = "403c285441e6026fd574e7c0b822575a9024ff2f92751d5203e23b1ea21f32ba"},
+    {.entry  = "thrustcurves/a06234b6049c1079e394cb9ecd4607a9.rse",
+     .sha256 = "6e07da23264096bb7ad4f6a2fb28156840574a01453093fe81e57926d5f2b72a"},
+    {.entry  = "thrustcurves/a47e144089f502e95b8a16130db9b416.rse",
+     .sha256 = "d30bd750b16495bbc19d0f383ff8b8d9057c3800dea1c11d3159be1fe8d1a880"},
+    {.entry  = "thrustcurves/bd060845629e4cfceec7e9b19297ab9f.rse",
+     .sha256 = "80ee7098c2eabed3f6b48b997a90969a9a5bc3e93546c57557cc7cd8ca9a8d69"},
+    {.entry  = "thrustcurves/be11a726b56813c4b1aea0574c8302b2.rse",
+     .sha256 = "9813edcc6ee48beae173a1437ecea967d0f23242ae60329bfbfa49ca32161590"},
+    {.entry  = "thrustcurves/c049499ca03fd69115352e5d4be72de7.rse",
+     .sha256 = "01dab7641eddf5452b84301d68648ba7974dbb8f7aa01b4654355844f7319c13"},
+    {.entry  = "thrustcurves/c26987c1c7e95810bbb6f2e284861494.rse",
+     .sha256 = "bfbd921aa5b545f2efef5be69856e2f5dfe25148cb909916bd40a296d84afbe9"},
+    {.entry  = "thrustcurves/cff44a78b2c4bc9e2ef19f6a2ded4da0.rse",
+     .sha256 = "e7825f6f5811ec6f5e6ac03c7caf75057fac9cd119d0e7c759f0b58fa1f6ee64"},
+    {.entry  = "thrustcurves/e26c7159754a0c58db92d8c5b3568902.rse",
+     .sha256 = "db595c8e1b80be9a58d9a23221b659c11338c82cdfb47c7e8159705963ef44c2"},
+    {.entry  = "thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse",
+     .sha256 = "51aa1b8ded55083e45a4d0db3d6d4179d6deff10c756f4b4b91d74b1aea50505"},
+}};
+
+/// The entries of OpenRocket's archive of @p example (kJavaArchives), or "(none)".
+[[nodiscard]] std::string_view javaArchiveOf(std::string_view example)
+{
+    for (const JavaArchive& archive : kJavaArchives)
+    {
+        if (archive.example == example)
+        {
+            return archive.entries;
+        }
+    }
+    return "(none)";
+}
+
+/// The SHA-256 digest of OpenRocket's entry @p entry (kEmbeddedCurves), or "(none)".
+[[nodiscard]] std::string_view javaCurveDigestOf(std::string_view entry)
+{
+    for (const EmbeddedCurve& curve : kEmbeddedCurves)
+    {
+        if (curve.entry == entry)
+        {
+            return curve.sha256;
+        }
+    }
+    return "(none)";
+}
 
 /// The pinned estimate of the example in @p file, or -1.
 [[nodiscard]] std::int64_t estimatedSizeOf(std::string_view file)
@@ -388,8 +598,102 @@ struct DataRoundTrips
     /// The stored warnings of the type RecoveryHighSpeedDeployment that came back as Other
     /// (asReadBackBeforeE2()).
     std::size_t highSpeedWarnings{0};
-    std::string problems;  ///< what differs, by example: empty when nothing does
+    std::size_t archives{0};  ///< the .ork archives compared with OpenRocket's
+    std::size_t decals{0};    ///< their decal images
+    std::size_t curves{0};    ///< their thrust curves
+    std::string problems;     ///< what differs, by example: empty when nothing does
 };
+
+/// What differs between @p entry, of QtRocket's archive of an example, and OpenRocket's:
+/// rocket.ork is @p first, OpenRocketSaver's text; a thrust curve is OpenRocket's text
+/// (kEmbeddedCurves); a decal image has the bytes of the entry of its name in @p original, the
+/// archive OpenRocket ships. Counts the decals and the curves into @p trips.
+[[nodiscard]] std::string entryProblem(const ZipArchive::Entry& entry, const ZipArchive& original,
+                                       std::string_view first, DataRoundTrips& trips)
+{
+    if (entry.name == "rocket.ork")
+    {
+        return QtRocket::bytesToString(entry.data) == first
+                   ? ""
+                   : "rocket.ork is not OpenRocketSaver's text with the default options\n";
+    }
+    if (entry.name.starts_with("thrustcurves/"))
+    {
+        trips.curves++;
+        return QtRocket::sha256Hex(entry.data) == javaCurveDigestOf(entry.name)
+                   ? ""
+                   : std::format("{} is not OpenRocket's text\n", entry.name);
+    }
+    trips.decals++;
+    const std::vector<std::byte>* const image = original.find(entry.name);
+    return image != nullptr && *image == entry.data
+               ? ""
+               : std::format("{} is not the image of the original archive\n", entry.name);
+}
+
+/// What differs between @p bytes, QtRocket's archive of @p example, and OpenRocket's (the names
+/// and the order of the entries, kJavaArchives, and each entry, entryProblem()); counted into
+/// @p trips.
+[[nodiscard]] std::string archiveDifferences(const GoldenExample&          example,
+                                             const std::vector<std::byte>& bytes,
+                                             std::string_view first, DataRoundTrips& trips)
+{
+    const Result<ZipArchive>             archive       = ZipArchive::fromBytes(bytes);
+    const Result<std::vector<std::byte>> originalBytes = QtRocket::readFile(example.original);
+    if (!archive || !originalBytes)
+    {
+        return std::format("{}: an archive cannot be read\n", example.name);
+    }
+    const Result<ZipArchive> original = ZipArchive::fromBytes(*originalBytes);
+    if (!original)
+    {
+        return std::format("{}: the original archive cannot be read\n", example.name);
+    }
+    trips.archives++;
+    std::string problems;
+    std::string names;
+    for (const ZipArchive::Entry& entry : archive->entries())
+    {
+        names += entry.name + "\n";
+        problems += entryProblem(entry, *original, first, trips);
+    }
+    if (names != javaArchiveOf(example.name))
+    {
+        problems += std::format("the entries\n{}where OpenRocket's are\n{}", names,
+                                javaArchiveOf(example.name));
+    }
+    return problems.empty()
+               ? ""
+               : std::format("{}: the archive is not OpenRocket's\n{}", example.name, problems);
+}
+
+/// Saves @p document, an example, as an .ork archive with its default storage options, which
+/// save the simulation data of every example (GeneralRocketSaver), right after @p first, its
+/// save with the data, and compares the archive with OpenRocket's (archiveDifferences()). The
+/// archive, or nothing; the problems go to @p trips.
+[[nodiscard]] std::vector<std::byte> archiveOf(const GoldenExample& example,
+                                               OpenRocketDocument& document, std::string_view first,
+                                               DataRoundTrips& trips)
+{
+    GeneralRocketSaver             saver(goldenExampleEnvironment().preferences());
+    Result<std::vector<std::byte>> bytes =
+        saver.saveToBytes(document, document.getDefaultStorageOptions());
+    if (!bytes)
+    {
+        trips.problems +=
+            std::format("{}: no archive: {}\n", example.name, bytes.error().toString());
+        return {};
+    }
+    if (!document.getDefaultStorageOptions().getSaveSimulationData() ||
+        !saver.getWarnings().empty())
+    {
+        trips.problems += std::format(
+            "{}: the default options save no simulation data, or the archive gave {} warnings\n",
+            example.name, saver.getWarnings().size());
+    }
+    trips.problems += archiveDifferences(example, *bytes, first, trips);
+    return std::move(*bytes);
+}
 
 /// The flight data of the simulations of @p document against those of @p reloaded, the same
 /// document saved and loaded back: what differs (flightDifferences()), counted into @p trips.
@@ -422,24 +726,30 @@ struct DataRoundTrips
     return problems;
 }
 
-/// Saves @p document, an example, with its simulation data, loads the text back from memory
-/// without a directory, compares the flight data and the save of the reload with the first save
-/// (asReadBackBeforeE2()), all but the rocket: the rocket of a design read from a plain text has
-/// no decal images (decision O5 of tier 10: they go through the archive), and the first save of a
-/// load writes the automatic dimensions the dual parachute deployment's first save writes
+/// Saves @p document, an example, with its simulation data, then as an .ork archive (archiveOf(),
+/// which compares the archive with OpenRocket's), loads the archive back from memory without a
+/// directory (decision O5 of tier 10), with no warning, and compares the flight data and the save
+/// of the reload with the first save (asReadBackBeforeE2()), all but the rocket: the first save of
+/// a load writes the automatic dimensions the dual parachute deployment's first save writes
 /// (kDualParachuteSaves), not those of a design saved before. Adds the result to @p trips.
 void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document,
                       DataRoundTrips& trips)
 {
     const Preferences&           preferences = goldenExampleEnvironment().preferences();
     WarningSet                   warnings;
-    const std::string            first = saveOf(document, preferences, warnings, true);
+    const std::string            first   = saveOf(document, preferences, warnings, true);
+    const std::vector<std::byte> archive = archiveOf(example, document, first, trips);
     const GeneralRocketLoader    loader(goldenExampleEnvironment().context());
-    const Result<LoadedDocument> loaded = loader.load(QtRocket::stringToBytes(first));
+    const Result<LoadedDocument> loaded = loader.load(archive);
     if (!loaded)
     {
         trips.problems += std::format("{}: {}\n", example.name, loaded.error().toString());
         return;
+    }
+    if (!loaded->warnings.empty())
+    {
+        trips.problems += std::format("{}: {} warnings when the archive is loaded\n", example.name,
+                                      loaded->warnings.size());
     }
     const std::string flights = flightProblems(document, *loaded->document, trips);
     if (!flights.empty())
@@ -519,9 +829,10 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
 // warnings, no custom expression, the photo studio (empty in fourteen and 24 settings in two), no
 // document preference and the document materials of each. Not one number is written otherwise
 // than OpenRocket writes it. With it: OpenRocket's estimate of each file's size; the saves of one
-// loaded document that follow the first change as OpenRocket's do; and saved with their data and
-// loaded back, the flights of the 54 simulations (69 branches) come back bit for bit, and a
-// second save is the first but for the sixteen warnings of decision E2.
+// loaded document that follow the first change as OpenRocket's do; the sixteen .ork archives are
+// OpenRocket's, entry for entry (23 decal images, 41 thrust curves); and loaded back from them,
+// the flights of the 54 simulations (69 branches) come back bit for bit, and a second save is the
+// first but for the sixteen warnings of decision E2.
 TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared  saves;
@@ -541,6 +852,9 @@ TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(trips.problems, "");
     EXPECT_EQ(trips.simulations, 54U);
     EXPECT_EQ(trips.branches, 69U);
+    EXPECT_EQ(trips.archives, 16U);
+    EXPECT_EQ(trips.decals, 23U);
+    EXPECT_EQ(trips.curves, 41U);
     // Decision E2 of 2026-10-14 (group 'decisions'): the loader is to read the type
     // RecoveryHighSpeedDeployment back. Once that is merged, the second save equals the first and
     // asReadBackBeforeE2() turns this known difference into a reported one: then compare the two

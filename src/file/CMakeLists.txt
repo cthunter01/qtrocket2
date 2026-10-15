@@ -3,6 +3,7 @@ target_sources(QtRocket_core PRIVATE
     DocumentLoadingContext.cpp
     FileSystemAttachmentFactory.cpp
     GeneralRocketLoader.cpp
+    GeneralRocketSaver.cpp
     GzipStream.cpp
     motor/AbstractMotorLoader.cpp
     motor/GeneralMotorLoader.cpp

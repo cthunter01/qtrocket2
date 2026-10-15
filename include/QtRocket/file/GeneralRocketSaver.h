@@ -1,0 +1,172 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "QtRocket/document/StorageOptions.h"
+#include "QtRocket/file/ZipArchive.h"
+#include "QtRocket/logging/ErrorSet.h"
+#include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/util/Error.h"
+
+namespace QtRocket
+{
+
+class DecalImage;
+class OpenRocketDocument;
+class Preferences;
+
+/// Saves a document as a design file: the public entry of the file subsystem for saving
+/// (OpenRocket's file/GeneralRocketSaver), the counterpart of GeneralRocketLoader.
+///
+/// WHAT IS WRITTEN. For storage options of the type OPENROCKET, and of the type WAVEFRONT_OBJ,
+/// for which OpenRocket writes the same, the file is an .ork archive, a zip archive (ZipWriter:
+/// deflated at level 9, as Java's ZipOutputStream.setLevel(9)), never a plain or a gzip
+/// document. Its entries, in this order:
+/// 1. "rocket.ork": the design, OpenRocketSaver::save() with the options (with the type
+///    OPENROCKET for WAVEFRONT_OBJ), its warnings and errors those of the save;
+/// 2. "preview.png": the options' preview image, when they hold one that is not empty;
+/// 3. the decal images the components show: of every component of the rocket, the rocket
+///    included, the image of the decal of its appearance and that of its inside appearance
+///    (an InsideColorComponent's), each image once, in the order of their names
+///    (Strings::javaCompareTo(); Java: a TreeSet of the images, which compare by name), each
+///    under its name, with the bytes DecalImage::getBytes() gives. An image the user chose to
+///    leave out (DecalImage::isIgnored()) is not written and is no longer left out afterwards
+///    (setIgnored(false)): the flag is cleared when the image's turn comes, as in Java, so it
+///    stays cleared when a later image then fails the save;
+/// 4. "thrustcurves/<digest>.rse": every thrust-curve motor of the design, written as a
+///    RockSim engine file (RockSimMotorWriter, UTF-8), so that the file carries the motors
+///    with it. A motor is of the design when a component that is a motor mount
+///    (MotorMount::isMotorMount(), a mount that is no longer one does not count) has it in
+///    one of the flight configurations of the rocket (Rocket::getIds()). Motors are taken in
+///    the order of the components (pre-order) and, for each, of the configurations; a motor
+///    whose digest is empty is left out, and of two motors of the same digest the first.
+///    Every such motor is written, those of the motor database too (the file can then be
+///    read where the database lacks them).
+/// After a successful save the options hold no preview image any more
+/// (StorageOptions::clearPreviewImage()), as in Java.
+///
+/// FAILURES, for which there is no archive and no file is touched: an Error of
+/// OpenRocketSaver::save(); the Error of a decal image whose bytes cannot be read
+/// (decalNotFound(), ErrorCode::NOT_FOUND, for a missing source: the image is then
+/// getMissingDecal(), which a caller can set to be ignored, isIgnored(), and save again, as
+/// OpenRocket's frame does), or that the document does not know (a decal naming no image of
+/// OpenRocketDocument::findDecalImage(): decalNotFound() with the name); ZipWriter's refusal of
+/// two entries of one name ("duplicate entry: <name>", such as a decal image named
+/// "rocket.ork") or of a name it cannot write; and for storage options of the types ROCKSIM and
+/// RASAERO, unsupportedFileType() (ErrorCode::UNSUPPORTED_FORMAT): QtRocket writes neither
+/// format yet.
+///
+/// SAVING TO A FILE (save()): a temporary file is made in the directory of the file first
+/// (FileIo replaceFileWith()), then the archive is made and written to it, and the temporary
+/// file is renamed to the file, which it replaces. A failure of any step leaves the file as it
+/// was and removes the temporary file; a directory that cannot take the file fails before the
+/// document is written (Java's order: the temporary file is made first).
+///
+/// The caller (the command line, later the GUI) sets the document's file and its saved state
+/// after a successful save (OpenRocketDocument::setFile(), setSaved(true)), as OpenRocket's
+/// BasicFrame does: the saver does not.
+///
+/// The warnings and the errors of the last save are getWarnings() and getErrors(); they are
+/// cleared when a save begins (Java: when the design begins to be written). QtRocket's own
+/// warning of the container is fileBeyondLoaderBound().
+///
+/// Deviations from OpenRocket:
+/// - The archive is built in memory and returned (saveToBytes()) or written whole; Java streams
+///   it into the file. Java's SavingProgress callback is not ported: there is no stream to
+///   watch (estimateFileSize() is, for a caller that wants to show what is coming).
+/// - ROCKSIM and RASAERO: Java writes them with RockSimSaver and RASAeroSaver (Milestone 8:
+///   // HOOK(rocksim), // HOOK(rasaero)); estimateFileSize() is 0 for them.
+/// - Nothing is written when the save fails: Java has written rocket.ork (and the decals
+///   before a missing one) into the temporary file, which it then deletes.
+/// - The entries carry the local time of the save or, for files that are to have the same
+///   headers whenever they are made, the time of Options::entryTime (Java: always the moment
+///   of the save).
+/// - ZipWriter refuses entry names Java writes (a backslash, a NUL character, more than 65535
+///   bytes; see ZipWriter).
+/// - A decal that names an image the document does not know fails as a missing image (Java's
+///   decal holds its image, so there is no such decal).
+/// - fileBeyondLoaderBound(): a warning of QtRocket's (decision O12 of tier 10).
+/// - No "<file>-bak" is made while the file is replaced (see FileIo replaceFile()), and the
+///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp").
+class GeneralRocketSaver final
+{
+public:
+    /// What a saver does beyond what Java's does.
+    struct Options
+    {
+        /// The time every entry of the archive carries (ZipWriter::setEntryTime()), for files
+        /// that are to be the same whenever they are made; nullopt (the default) for the local
+        /// time of the save, as Java.
+        std::optional<ZipWriter::EntryTime> entryTime;
+    };
+
+    /// The save warning for an archive of @p bytes bytes, beyond
+    /// GeneralRocketLoader::kMaxFileBytes (QtRocket's text, decision O12 of tier 10): "The saved
+    /// file is <bytes> bytes long; QtRocket loads a file of at most <kMaxFileBytes> bytes and
+    /// will not open this one."
+    [[nodiscard]] static std::string fileBeyondLoaderBound(std::size_t bytes);
+
+    /// The Error of a save with storage options of @p fileType (ROCKSIM or RASAERO): "QtRocket
+    /// cannot save a design in the <name> format yet." (QtRocket's text).
+    [[nodiscard]] static std::string unsupportedFileType(StorageOptions::FileType fileType);
+
+    /// A saver that writes with @p preferences, the application's, which decide whether a flight
+    /// configuration's name is its own (OpenRocketSaver::save()). They must outlive the saver.
+    explicit GeneralRocketSaver(const Preferences& preferences);
+    /// The same with @p options.
+    GeneralRocketSaver(const Preferences& preferences, Options options);
+
+    /// Saves @p document to @p file with the document's default storage options (Java:
+    /// save(File, document)): see the class comment. The options' preview image is cleared
+    /// after a successful save.
+    [[nodiscard]] Result<void> save(const std::filesystem::path& file,
+                                    OpenRocketDocument&          document);
+
+    /// Saves @p document to @p file with @p options (Java: save(File, document, options)).
+    [[nodiscard]] Result<void> save(const std::filesystem::path& file, OpenRocketDocument& document,
+                                    StorageOptions& options);
+
+    /// The bytes of the file save() would write: the archive (see the class comment), or the
+    /// Error of the save. The document is not const for the reasons of OpenRocketSaver::save();
+    /// the options lose their preview image after a successful save; a decal image that was
+    /// left out is no longer.
+    [[nodiscard]] Result<std::vector<std::byte>> saveToBytes(OpenRocketDocument& document,
+                                                             StorageOptions&     options);
+
+    /// The size the file is estimated to have (Java: estimateFileSize()):
+    /// OpenRocketSaver::estimateFileSize() for the types OPENROCKET and WAVEFRONT_OBJ, 0 for
+    /// ROCKSIM and RASAERO (Java: the length of their text; HOOK(rocksim), HOOK(rasaero)).
+    [[nodiscard]] static std::int64_t estimateFileSize(const OpenRocketDocument& document,
+                                                       const StorageOptions&     options);
+
+    /// The warnings of the last save.
+    [[nodiscard]] const WarningSet& getWarnings() const noexcept { return m_warnings; }
+    /// The errors of the last save (Java: no saver of the format adds one).
+    [[nodiscard]] const ErrorSet& getErrors() const noexcept { return m_errors; }
+
+    /// The decal image whose source was missing in the last save, which then failed with
+    /// decalNotFound() (Java: DecalNotFoundException.getDecal()); null otherwise.
+    [[nodiscard]] const std::shared_ptr<DecalImage>& getMissingDecal() const noexcept
+    {
+        return m_missingDecal;
+    }
+
+private:
+    /// Adds the decal images the components of @p document show to @p archive (step 3 of the
+    /// class comment).
+    [[nodiscard]] Result<void> addDecals(OpenRocketDocument& document, ZipWriter& archive);
+
+    const Preferences*          m_preferences;
+    Options                     m_options;
+    WarningSet                  m_warnings;
+    ErrorSet                    m_errors;
+    std::shared_ptr<DecalImage> m_missingDecal;
+};
+
+}  // namespace QtRocket

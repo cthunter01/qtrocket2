@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -161,6 +163,150 @@ TEST(FileIo, WritingIntoAMissingDirectoryIsAnIoError)
     const auto    written = QtRocket::writeTextFile(dir.resolve("none/file.txt"), "text");
     ASSERT_FALSE(written.has_value());
     EXPECT_EQ(written.error().code, ErrorCode::IO);
+    EXPECT_FALSE(QtRocket::writeFile(dir.resolve("none/file.bin"), {}).has_value());
+}
+
+// writeFile() hands the stream its bytes in pieces of 1 MiB: data of several pieces, with a piece
+// that is not whole, comes back as it was; so does a text, byte for byte, a NUL included.
+TEST(FileIo, WritesDataOfSeveralPiecesAndTextAsTheyAre)
+{
+    const TempDir          dir;
+    std::vector<std::byte> data((std::size_t{3} << 20U) + 17);
+    std::uint32_t          state = 7;
+    for (std::byte& b : data)
+    {
+        state = (state * 1664525U) + 1013904223U;
+        b     = static_cast<std::byte>(state >> 24U);
+    }
+    ASSERT_TRUE(QtRocket::writeFile(dir.resolve("big.bin"), data));
+    EXPECT_EQ(QtRocket::readFile(dir.resolve("big.bin")).value_or(std::vector<std::byte>{}), data);
+
+    std::string text = "a\r\nb\n";
+    text.push_back('\0');
+    text += "c\xFF";
+    ASSERT_TRUE(QtRocket::writeTextFile(dir.resolve("text.txt"), text));
+    EXPECT_EQ(QtRocket::readTextFile(dir.resolve("text.txt")).value_or(""), text);
+    ASSERT_TRUE(QtRocket::writeTextFile(dir.resolve("text.txt"), "shorter"));
+    EXPECT_EQ(QtRocket::readTextFile(dir.resolve("text.txt")).value_or(""), "shorter");
+}
+
+/// The names of the entries of @p directory, sorted.
+[[nodiscard]] std::vector<std::string> namesIn(const std::filesystem::path& directory)
+{
+    std::vector<std::string> names;
+    for (const std::filesystem::directory_entry& entry :
+         std::filesystem::directory_iterator(directory))
+    {
+        names.push_back(QtRocket::pathToUtf8(entry.path().filename()));
+    }
+    std::ranges::sort(names);
+    return names;
+}
+
+// replaceFile() replaces a file with new data and makes a missing one; nothing else is left in
+// the directory.
+TEST(FileIo, ReplaceFileReplacesOrMakesTheFile)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "the old design, which is longer");
+    ASSERT_TRUE(QtRocket::replaceFile(file, QtRocket::stringToBytes("new")));
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+    ASSERT_TRUE(QtRocket::replaceFile(dir.resolve("other.ork"), QtRocket::stringToBytes("other")));
+    EXPECT_EQ(QtRocket::readTextFile(dir.resolve("other.ork")).value_or(""), "other");
+    EXPECT_EQ(namesIn(dir.path()), (std::vector<std::string>{"design.ork", "other.ork"}));
+}
+
+// A target that cannot be replaced (a directory) stays as it was, with what it holds, and the
+// temporary file is removed again.
+TEST(FileIo, AFailedReplaceLeavesTheTargetAndNoTemporaryFile)
+{
+    const TempDir               dir;
+    const std::filesystem::path target = dir.resolve("target");
+    std::ignore                        = dir.write("target/inside.txt", "inside");
+    const QtRocket::Result<void> replaced =
+        QtRocket::replaceFile(target, QtRocket::stringToBytes("new"));
+    ASSERT_FALSE(replaced.has_value());
+    EXPECT_EQ(replaced.error().code, ErrorCode::IO);
+    EXPECT_TRUE(replaced.error().message.starts_with("cannot replace '" +
+                                                     QtRocket::pathToUtf8(target) + "': "))
+        << replaced.error().message;
+    EXPECT_TRUE(std::filesystem::is_directory(target));
+    EXPECT_EQ(QtRocket::readTextFile(target / "inside.txt").value_or(""), "inside");
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"target"});
+}
+
+// A directory that does not exist takes no temporary file: the failure names it, and the data
+// of replaceFileWith() are not asked for (Java makes the temporary file before it writes).
+TEST(FileIo, ReplacingAFileInAMissingDirectoryFailsBeforeTheDataAreAsked)
+{
+    const TempDir                dir;
+    const std::filesystem::path  missing = dir.resolve("none");
+    const QtRocket::Result<void> replaced =
+        QtRocket::replaceFile(missing / "file.ork", QtRocket::stringToBytes("x"));
+    ASSERT_FALSE(replaced.has_value());
+    EXPECT_EQ(replaced.error().code, ErrorCode::IO);
+    EXPECT_EQ(replaced.error().message,
+              "cannot create a temporary file in '" + QtRocket::pathToUtf8(missing) + "'");
+
+    bool                         asked = false;
+    const QtRocket::Result<void> with  = QtRocket::replaceFileWith(
+        missing / "file.ork", [&asked] -> QtRocket::Result<std::vector<std::byte>> {
+            asked = true;
+            return std::vector<std::byte>{};
+        });
+    EXPECT_FALSE(with.has_value());
+    EXPECT_FALSE(asked);
+    EXPECT_FALSE(std::filesystem::exists(missing));
+}
+
+/// replaceFileWith() of @p file with data that fail ("no data"): the Error, and the names of the
+/// files of the directory of @p file when the data were asked for, joined by spaces.
+[[nodiscard]] std::pair<QtRocket::Error, std::string> failingReplace(
+    const std::filesystem::path& file)
+{
+    std::string                  seen;
+    const QtRocket::Result<void> replaced =
+        QtRocket::replaceFileWith(file, [&seen, &file] -> QtRocket::Result<std::vector<std::byte>> {
+            for (const std::string& name : namesIn(file.parent_path()))
+            {
+                seen += name + " ";
+            }
+            return QtRocket::fail(ErrorCode::NOT_FOUND, "no data");
+        });
+    return {replaced.has_value() ? QtRocket::Error{} : replaced.error(), seen};
+}
+
+// replaceFileWith() asks for the data once the temporary file exists in the target's directory,
+// "QtRocket-<16 hexadecimal digits>.tmp"; a failure of the data is passed on, the temporary
+// file removed and the target left as it was.
+TEST(FileIo, ReplaceFileWithAsksForTheDataWhenTheTemporaryFileExists)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "old");
+    const auto [error, seen]         = failingReplace(file);
+    EXPECT_EQ(error.code, ErrorCode::NOT_FOUND);
+    EXPECT_EQ(error.message, "no data");
+    EXPECT_EQ(seen.size(), 41U) << seen;
+    EXPECT_TRUE(seen.starts_with("QtRocket-")) << seen;
+    EXPECT_EQ(seen.find_first_not_of("0123456789abcdef", 9), 25U) << seen;
+    EXPECT_EQ(seen.substr(25), ".tmp design.ork ");
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "old");
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
+
+    ASSERT_TRUE(QtRocket::replaceFileWith(file, [] {
+        return QtRocket::Result<std::vector<std::byte>>(QtRocket::stringToBytes("new"));
+    }));
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+}
+
+// A file named without a directory is replaced in the current directory.
+TEST(FileIo, ReplaceFileOfANameAloneWritesInTheCurrentDirectory)
+{
+    const TempDir                               dir;
+    const QtRocket::Test::CurrentDirectoryGuard current(dir.path());
+    ASSERT_TRUE(QtRocket::replaceFile("plain.ork", QtRocket::stringToBytes("plain")));
+    EXPECT_EQ(QtRocket::readTextFile(dir.resolve("plain.ork")).value_or(""), "plain");
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"plain.ork"});
 }
 
 TEST(FileIo, PathToUtf8IsTheUtf8FormOnEveryPlatform)
