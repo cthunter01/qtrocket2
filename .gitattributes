@@ -4,6 +4,9 @@
 *.jpg  binary
 *.ico  binary
 *.pdf  binary
+# Gzip fixtures and goldens (tests/data/csv, tests/data/goldens): never a line-end conversion, whatever
+# their first bytes look like.
+*.gz   binary
 
 # Motor test files whose exact bytes are the point (CRLF and CR line ends, byte-order marks,
 # malformed UTF-8): no line-end conversion.
