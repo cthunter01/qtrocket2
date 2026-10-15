@@ -112,7 +112,7 @@ using QtRocket::Test::goldenExamples;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::kMaxReportedLines;
 using QtRocket::Test::kPods;
-using QtRocket::Test::linesOf;
+using QtRocket::Test::lineViewsOf;
 using QtRocket::Test::LoadedResave;
 using QtRocket::Test::loadGoldenExample;
 using QtRocket::Test::loadResave;
@@ -476,13 +476,13 @@ struct SavesCompared
 /// stored warnings into @p compared.
 void countParts(SavesCompared& compared, std::string_view saved)
 {
-    for (const std::string_view line : linesOf(rocketElementOf(saved)))
+    for (const std::string_view line : lineViewsOf(rocketElementOf(saved)))
     {
         compared.components += isIdLine(line) ? 1U : 0U;
         compared.presets += line.contains("<preset ") ? 1U : 0U;
         compared.motors += line.contains("<motor configid=") ? 1U : 0U;
     }
-    for (const std::string_view line : linesOf(saved))
+    for (const std::string_view line : lineViewsOf(saved))
     {
         compared.simulations += line.contains("<simulation status=") ? 1U : 0U;
         compared.warnings += line.contains("<warning type=") ? 1U : 0U;
@@ -577,7 +577,7 @@ constexpr std::string_view kHighSpeedWarning = "<warning type=\"RecoveryHighSpee
 [[nodiscard]] std::size_t highSpeedWarningsIn(std::string_view text)
 {
     std::size_t count = 0;
-    for (const std::string_view line : linesOf(text))
+    for (const std::string_view line : lineViewsOf(text))
     {
         if (QtRocket::Strings::trim(line) == kHighSpeedWarning)
         {

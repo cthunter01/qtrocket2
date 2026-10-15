@@ -10,8 +10,6 @@
 #include <vector>
 #ifdef _WIN32
 #include <cstddef>
-#include <cstdlib>
-#include <span>
 #endif
 
 #include <gtest/gtest.h>
@@ -60,16 +58,18 @@ TEST(DataDirectory, TheArgumentsLeaveTheProgramOut)
     std::array<char*, 3> argv{program.data(), first.data(), second.data()};
 #ifdef _WIN32
     // Windows reads the arguments of this process from GetCommandLineW(), whatever argv says:
-    // they are the test's own (under ctest its --gtest_filter=...), those the C runtime has in
-    // __argc and __argv, the program left out. (The tool's binary tests pass one beyond ASCII,
+    // they are the test's own (under ctest its --gtest_filter=...), those main() received, the
+    // program left out. GoogleTest keeps a copy of main()'s arguments from before it removed its
+    // own flags (GetArgvs()); the C runtime's __argv is the array it removed them from, so it no
+    // longer holds them. (The tool's binary tests pass one beyond ASCII,
     // tests/core/cli/CMakeLists.txt.)
     const std::vector<std::string> own = DataDirectory::commandLineArguments(0, nullptr);
     EXPECT_EQ(DataDirectory::commandLineArguments(3, argv.data()), own);
-    const std::span<char*> runtime(__argv, static_cast<std::size_t>(__argc));
-    ASSERT_EQ(own.size() + 1, runtime.size());
-    for (std::size_t i = 1; i < runtime.size(); i++)
+    const std::vector<std::string> received = ::testing::internal::GetArgvs();
+    ASSERT_EQ(own.size() + 1, received.size());
+    for (std::size_t i = 1; i < received.size(); i++)
     {
-        EXPECT_EQ(own[i - 1], runtime[i]);
+        EXPECT_EQ(own[i - 1], received[i]);
     }
 #else
     EXPECT_EQ(DataDirectory::commandLineArguments(3, argv.data()),

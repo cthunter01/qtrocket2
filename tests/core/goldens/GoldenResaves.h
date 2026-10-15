@@ -243,10 +243,10 @@ inline constexpr std::size_t kMaxReportedLines = 20;
 
 /// The lines of @p text, each without its '\n' (a text that ends with '\n' has no empty line
 /// after it).
-[[nodiscard]] std::vector<std::string_view> linesOf(std::string_view text);
+[[nodiscard]] std::vector<std::string_view> lineViewsOf(std::string_view text);
 
 /// The lines that differ between @p before and @p after, two texts of the same number of lines
-/// (linesOf()), each as "<line of before> -> <line of after>" without the indentation (the
+/// (lineViewsOf()), each as "<line of before> -> <line of after>" without the indentation (the
 /// spaces in front), one per line; for texts of another number of lines "<n> lines -> <m>
 /// lines" instead. Empty when the lines are the same.
 [[nodiscard]] std::string changedLines(std::string_view before, std::string_view after);

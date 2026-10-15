@@ -266,7 +266,7 @@ struct NumbersOfALine
 }
 
 /// Counts and reports in @p comparison whether one of @p ours and @p theirs ends with a line feed
-/// and the other does not (linesOf() gives the same lines for both).
+/// and the other does not (lineViewsOf() gives the same lines for both).
 void compareTheEnds(std::string_view ours, std::string_view theirs, OrkTextComparison& comparison)
 {
     const bool oursEnds   = ours.ends_with('\n');
@@ -288,7 +288,7 @@ void compareTheEnds(std::string_view ours, std::string_view theirs, OrkTextCompa
 
 }  // namespace
 
-std::vector<std::string_view> linesOf(std::string_view text)
+std::vector<std::string_view> lineViewsOf(std::string_view text)
 {
     std::vector<std::string_view> lines;
     while (!text.empty())
@@ -302,8 +302,8 @@ std::vector<std::string_view> linesOf(std::string_view text)
 
 std::string changedLines(std::string_view before, std::string_view after)
 {
-    const std::vector<std::string_view> a = linesOf(before);
-    const std::vector<std::string_view> b = linesOf(after);
+    const std::vector<std::string_view> a = lineViewsOf(before);
+    const std::vector<std::string_view> b = lineViewsOf(after);
     if (a.size() != b.size())
     {
         return std::format("{} lines -> {} lines\n", a.size(), b.size());
@@ -485,8 +485,8 @@ OrkTextComparison compareOrkTexts(std::string_view ours, std::string_view theirs
 {
     const std::string                   oursText   = withoutCreator(ours);
     const std::string                   theirsText = withoutCreator(theirs);
-    const std::vector<std::string_view> oursLines  = linesOf(oursText);
-    const std::vector<std::string_view> theirLines = linesOf(theirsText);
+    const std::vector<std::string_view> oursLines  = lineViewsOf(oursText);
+    const std::vector<std::string_view> theirLines = lineViewsOf(theirsText);
     OrkTextComparison                   comparison;
     comparison.lines = std::max(oursLines.size(), theirLines.size());
     for (std::size_t i = 0; i < comparison.lines; ++i)
