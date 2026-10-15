@@ -3,6 +3,7 @@ target_sources(QtRocket_core PRIVATE
     DocumentLoadingContext.cpp
     FileSystemAttachmentFactory.cpp
     GeneralRocketLoader.cpp
+    GeneralRocketSaver.cpp
     GzipStream.cpp
     motor/AbstractMotorLoader.cpp
     motor/GeneralMotorLoader.cpp
@@ -13,6 +14,7 @@ target_sources(QtRocket_core PRIVATE
     motor/ZipFileMotorLoader.cpp
     openrocket/AnglePositionSetter.cpp
     openrocket/AppearanceHandler.cpp
+    openrocket/AssemblySaver.cpp
     openrocket/AtmosphereHandler.cpp
     openrocket/AxialPositionSetter.cpp
     openrocket/BooleanSetter.cpp
@@ -21,6 +23,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/ComponentHandler.cpp
     openrocket/ComponentParameterHandler.cpp
     openrocket/ComponentPresetSetter.cpp
+    openrocket/ComponentSaver.cpp
     openrocket/ConfigHandler.cpp
     openrocket/CsvLookupHandler.cpp
     openrocket/CustomExpressionHandler.cpp
@@ -33,6 +36,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/EntryHandler.cpp
     openrocket/EntryHelper.cpp
     openrocket/EnumSetter.cpp
+    openrocket/ExternalComponentSaver.cpp
     openrocket/FinSetPointHandler.cpp
     openrocket/FinTabPositionSetter.cpp
     openrocket/FlightDataBranchHandler.cpp
@@ -41,6 +45,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/IgnitionConfigurationHandler.cpp
     openrocket/IgnoredElementHandler.cpp
     openrocket/InsideAppearanceHandler.cpp
+    openrocket/InternalComponentSaver.cpp
     openrocket/IntSetter.cpp
     openrocket/LandingDispersionSettingsHandler.cpp
     openrocket/LoaderWarnings.cpp
@@ -51,11 +56,16 @@ target_sources(QtRocket_core PRIVATE
     openrocket/OpenRocketContentHandler.cpp
     openrocket/OpenRocketHandler.cpp
     openrocket/OpenRocketLoader.cpp
+    openrocket/OpenRocketSaver.cpp
+    openrocket/OrkWriter.cpp
     openrocket/OverrideSetter.cpp
     openrocket/PhotoStudioHandler.cpp
+    openrocket/PhotoStudioSaver.cpp
     openrocket/RadiusPositionSetter.cpp
+    openrocket/RocketComponentSaver.cpp
     openrocket/SimulationConditionsHandler.cpp
     openrocket/SimulationPlotAppearanceHandler.cpp
+    openrocket/SimulationSaver.cpp
     openrocket/SimulationsHandler.cpp
     openrocket/SingleSimulationHandler.cpp
     openrocket/StageSeparationConfigurationHandler.cpp

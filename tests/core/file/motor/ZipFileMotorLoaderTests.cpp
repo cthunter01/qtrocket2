@@ -45,7 +45,7 @@ constexpr std::string_view kA8 = "A8 18 70 3 0.003 0.016 Estes\n0 0\n0.5 5\n1 0\
     ZipWriter writer;
     for (const auto& [name, contents] : entries)
     {
-        writer.add(std::string(name), QtRocket::stringToBytes(contents));
+        writer.add(name, QtRocket::stringToBytes(contents));
     }
     return writer.finish().value();
 }

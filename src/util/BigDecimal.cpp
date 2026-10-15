@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/FloatingDecimal.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
@@ -209,7 +208,7 @@ std::optional<BigDecimal> BigDecimal::valueOfDouble(double value)
     {
         return std::nullopt;
     }
-    return parse(FloatingDecimal::toJavaFormatString(value));
+    return parse(Strings::javaDoubleToString(value));
 }
 
 int BigDecimal::signum() const noexcept

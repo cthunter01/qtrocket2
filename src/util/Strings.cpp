@@ -132,6 +132,75 @@ struct Decimal
     return decimal;
 }
 
+/// The decimal that Float.toString() selects for a positive finite float since JDK 19: the rule
+/// of javaToStringDecimal(), with the float's own set R. The shortest digits are that decimal
+/// whenever they are more than one digit and for every normal float (the R of a normal float is
+/// narrower than one part in 2^23 of it); for the smallest subnormals, whose R reaches half of
+/// Float.MIN_VALUE to either side, it is the float rounded to two significant digits, by the
+/// argument given there ("1.4E-45" for Float.MIN_VALUE, whose shortest decimal is 1E-45).
+[[nodiscard]] Decimal javaToStringFloatDecimal(float magnitude)
+{
+    // The longest shortest-round-trip form of a float is "d.dddddddde-45" (14 characters).
+    std::array<char, 32> buffer{};
+    const auto [shortestEnd, shortestEc] =
+        std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()), magnitude,
+                      std::chars_format::scientific);
+    Decimal decimal = decimalOfScientific(std::string_view(buffer.data(), shortestEnd));
+    if (decimal.digits.size() > 1 || magnitude >= std::numeric_limits<float>::min())
+    {
+        return decimal;
+    }
+    // "d.de-XX", rounded from the float's exact value (to_chars of a float with a precision
+    // formats the exact value, as printf formats the float converted to a double).
+    const auto [end, ec] = std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()),
+                                         magnitude, std::chars_format::scientific, 1);
+    decimal              = decimalOfScientific(std::string_view(buffer.data(), end));
+    if (decimal.digits.back() == '0')
+    {
+        decimal.digits.pop_back();
+    }
+    return decimal;
+}
+
+/// Lays out the decimal Double.toString() or Float.toString() selected for a positive finite
+/// value (javaToStringDecimal(), javaToStringFloatDecimal()) as their specification writes it,
+/// with a '-' in front when @p negative: from 0.001 up to but excluding 1e7 as integer digits, a
+/// point and at least one fraction digit; any other as one digit, a point, at least one fraction
+/// digit, "E" and the exponent.
+[[nodiscard]] std::string javaToStringLayout(const Decimal& decimal, bool negative)
+{
+    const std::string& digits = decimal.digits;
+    const auto         count  = static_cast<int>(digits.size());
+    // The specification's e = n + i - 1: plain notation for -3 <= e < 7, that is for a decimal
+    // from 0.001 up to but excluding 1e7.
+    const int e = decimal.exponent - 1;
+
+    std::string text;
+    if (e >= -3 && e < 7)
+    {
+        if (decimal.exponent <= 0)
+        {
+            text = "0." + std::string(static_cast<std::size_t>(-decimal.exponent), '0') + digits;
+        }
+        else if (decimal.exponent >= count)
+        {
+            text = digits + std::string(static_cast<std::size_t>(decimal.exponent - count), '0') +
+                   ".0";
+        }
+        else
+        {
+            const auto point = static_cast<std::size_t>(decimal.exponent);
+            text             = digits.substr(0, point) + "." + digits.substr(point);
+        }
+    }
+    else
+    {
+        text = digits.substr(0, 1) + "." + (count > 1 ? digits.substr(1) : std::string("0")) + "E" +
+               std::format("{}", e);
+    }
+    return negative ? "-" + text : text;
+}
+
 /// The digits Java's Formatter gets from FloatingDecimal.getBinaryToASCIIConverter(d, false): an
 /// integer below 2^63 exactly, anything else as the shortest digits. Deviation: from 2^63
 /// upwards, and for subnormals, JDK 17's older digit generation often differs from the shortest
@@ -1530,37 +1599,24 @@ std::string javaDoubleToString(double value)
         return std::signbit(value) ? "-0.0" : "0.0";
     }
     // The decimal s * 10^i of the specification, of length n, as 0.s_1...s_n * 10^(n + i).
-    const Decimal      decimal = javaToStringDecimal(std::abs(value));
-    const std::string& digits  = decimal.digits;
-    const auto         count   = static_cast<int>(digits.size());
-    // The specification's e = n + i - 1: plain notation for -3 <= e < 7, that is for a decimal
-    // from 0.001 up to but excluding 1e7.
-    const int e = decimal.exponent - 1;
+    return javaToStringLayout(javaToStringDecimal(std::abs(value)), std::signbit(value));
+}
 
-    std::string text;
-    if (e >= -3 && e < 7)
+std::string javaFloatToString(float value)
+{
+    if (std::isnan(value))
     {
-        if (decimal.exponent <= 0)
-        {
-            text = "0." + std::string(static_cast<std::size_t>(-decimal.exponent), '0') + digits;
-        }
-        else if (decimal.exponent >= count)
-        {
-            text = digits + std::string(static_cast<std::size_t>(decimal.exponent - count), '0') +
-                   ".0";
-        }
-        else
-        {
-            const auto point = static_cast<std::size_t>(decimal.exponent);
-            text             = digits.substr(0, point) + "." + digits.substr(point);
-        }
+        return "NaN";
     }
-    else
+    if (std::isinf(value))
     {
-        text = digits.substr(0, 1) + "." + (count > 1 ? digits.substr(1) : std::string("0")) + "E" +
-               std::format("{}", e);
+        return value < 0 ? "-Infinity" : "Infinity";
     }
-    return std::signbit(value) ? "-" + text : text;
+    if (value == 0)
+    {
+        return std::signbit(value) ? "-0.0" : "0.0";
+    }
+    return javaToStringLayout(javaToStringFloatDecimal(std::abs(value)), std::signbit(value));
 }
 
 std::optional<double> parseDouble(std::string_view text) noexcept

@@ -111,6 +111,19 @@ inline constexpr int kStorageDecimalPlaces = 6;
 ///   "9.9E-324" and "9.9E-323" (the rule of one or two digits above).
 [[nodiscard]] std::string javaDoubleToString(double value);
 
+/// Java's Float.toString(value) as current Java specifies it (JDK 19 and later): the rule and the
+/// layout of javaDoubleToString(), applied to the float's own set of decimals that round to it.
+/// "1.5", "0.1", "1.0E10", "3.4028235E38", "1.1754944E-38" for Float.MIN_NORMAL; for the smallest
+/// subnormals the closest decimal of one or two digits, "1.4E-45" for Float.MIN_VALUE (whose
+/// shortest decimal is 1E-45) and "9.8E-45" for seven times it. The .ork writer prints a Float of
+/// an extension's configuration (Config) with it.
+///
+/// Difference from JDK 17, which OpenRocket's releases bundle: its Float.toString() often prints
+/// more digits than the shortest ("2.2856919E9" where this prints "2.285692E9",
+/// "1.17549435E-38" for Float.MIN_NORMAL, "2.24E-44" for sixteen times Float.MIN_VALUE): about
+/// one float in ten of random bits. Every such text reads back as the same float.
+[[nodiscard]] std::string javaFloatToString(float value);
+
 /// Parses what Java's Double.parseDouble accepts of the values OpenRocket writes: an optional
 /// sign, decimal digits with an optional fraction and exponent ("1.5", ".5", "5.", "1e-5",
 /// "-2.5E3"), "NaN", "Infinity" and OpenRocket's own "Inf", each with an optional sign, and
@@ -318,8 +331,12 @@ template <std::ranges::input_range Range>
 [[nodiscard]] std::vector<std::byte> asciiBytes(std::string_view text);
 
 /// TextUtil.escapeXML: escapes &, <, >, " as entities and ', DEL and every control character
-/// except tab, newline and carriage return as numeric references ("&#39;"). The result is valid
-/// XML and HTML.
+/// except tab, newline and carriage return as numeric references ("&#39;"), byte by byte (a byte
+/// of a UTF-8 sequence passes as it is). The result is NOT always well-formed XML, whatever
+/// OpenRocket's comment says: XML 1.0 allows no reference to a control character other than tab,
+/// newline and carriage return, so "&#1;" makes a document that OpenRocket's parser and QtRocket's
+/// loader both refuse; neither are invalid UTF-8 nor U+FFFE and U+FFFF taken care of. The .ork
+/// writer therefore does not hand it such text (OrkWriter::escape()).
 [[nodiscard]] std::string escapeXml(std::string_view text);
 
 /// StringUtils.escapeHtml: escapes &, <, >, " and ' and turns newlines into "<br>".

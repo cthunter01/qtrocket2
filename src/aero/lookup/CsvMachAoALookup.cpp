@@ -185,14 +185,23 @@ Result<MachAoALookup> fromCsv(const std::filesystem::path& path,
                               std::span<const std::string> requiredValueColumns, char separator,
                               std::size_t maxBytes)
 {
+    const Result<std::vector<std::string>> lines = readLines(path, maxBytes);
+    if (!lines)
+    {
+        return std::unexpected(lines.error());
+    }
+    return parse(*lines, requiredValueColumns, separator);
+}
+
+Result<std::vector<std::string>> readLines(const std::filesystem::path& path, std::size_t maxBytes)
+{
     const std::optional<std::string> text = readBounded(path, maxBytes);
     // Java's Files.readAllLines() decodes UTF-8 strictly: malformed input is an IOException.
     if (!text.has_value() || Strings::toValidUtf8(*text) != *text)
     {
         return fail(ErrorCode::IO, "Failed to read lookup table from " + pathToUtf8(path));
     }
-    const std::vector<std::string> lines = splitLines(*text);
-    return parse(lines, requiredValueColumns, separator);
+    return splitLines(*text);
 }
 
 Result<MachAoALookup> parse(std::span<const std::string> lines,

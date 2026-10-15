@@ -265,6 +265,7 @@ add_executable(QtRocket_core_tests
     file/DocumentLoadingContextTests.cpp
     file/FileSystemAttachmentFactoryTests.cpp
     file/GeneralRocketLoaderTests.cpp
+    file/GeneralRocketSaverTests.cpp
     file/GzipStreamTests.cpp
     file/loader_hostile_input_tests.cpp
     file/motor/GeneralMotorLoaderTests.cpp
@@ -285,6 +286,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/ComponentHandlerTestSupport.cpp
     file/openrocket/ComponentParameterHandlerTests.cpp
     file/openrocket/ComponentPresetSetterTests.cpp
+    file/openrocket/ComponentSaverTests.cpp
     file/openrocket/ConfigHandlerTests.cpp
     file/openrocket/CsvLookupHandlerTests.cpp
     file/openrocket/CustomExpressionHandlerTests.cpp
@@ -327,8 +329,11 @@ add_executable(QtRocket_core_tests
     file/openrocket/OpenRocketContentHandlerTests.cpp
     file/openrocket/OpenRocketHandlerTests.cpp
     file/openrocket/OpenRocketLoaderTests.cpp
+    file/openrocket/OpenRocketSaverTests.cpp
+    file/openrocket/OrkWriterTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
+    file/openrocket/PhotoStudioSaverTests.cpp
     file/openrocket/preset_reference_files_tests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
     file/openrocket/recorded_ork_files_tests.cpp
@@ -339,6 +344,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/simulation_value_sweep_tests.cpp
     file/openrocket/SimulationConditionsHandlerTests.cpp
     file/openrocket/SimulationPlotAppearanceHandlerTests.cpp
+    file/openrocket/SimulationSaverTests.cpp
     file/openrocket/SimulationsHandlerTests.cpp
     file/openrocket/SingleSimulationHandlerTests.cpp
     file/openrocket/StageSeparationConfigurationHandlerTests.cpp
@@ -372,12 +378,14 @@ add_executable(QtRocket_core_tests
     goldens/GoldenExamplesTests.cpp
     goldens/GoldenGeometry.cpp
     goldens/GoldenMismatches.cpp
+    goldens/GoldenResaves.cpp
     goldens/goldens_schema_tests.cpp
     goldens/GoldenSettings.cpp
     goldens/GoldenSimulations.cpp
     goldens/GoldenStableSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/ork_resave_diff_golden_tests.cpp
     goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp

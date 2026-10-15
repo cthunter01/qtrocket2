@@ -44,9 +44,20 @@ public:
     /// BigDecimal.valueOf(long): @p value with scale 0.
     [[nodiscard]] static BigDecimal valueOf(std::int64_t value);
 
-    /// BigDecimal.valueOf(double): parse() of Double.toString(@p value) as JDK 17 prints it
-    /// (FloatingDecimal::toJavaFormatString), so 100.0 is 1000 with scale 1 and 1.0E-4 is 10 with
-    /// scale 5. nullopt for NaN and the infinities (Java: NumberFormatException).
+    /// BigDecimal.valueOf(double): parse() of Double.toString(@p value) as current Java prints it
+    /// (Strings::javaDoubleToString(), the shortest digits of JDK 19 and later), so 100.0 is 1000
+    /// with scale 1, 1.0E-4 is 10 with scale 5 and 1.0E23 is 10 with scale -22. nullopt for NaN
+    /// and the infinities (Java: NumberFormatException).
+    ///
+    /// Deviation from JDK 17, the Java of OpenRocket's releases, whose Double.toString() has
+    /// longer digits for some doubles (see Strings::javaDoubleToString(): 9.999999999999999E22 for
+    /// 1.0E23, 1.15292150460684698E18 for 2^60): the .ork writer prints an extension's Double with
+    /// javaDoubleToString() and the reader (EntryHelper::parseNumber()) keeps a number as a Double
+    /// when it equals valueOfDouble() of its value, so the two must agree for a Double to come
+    /// back as a Double from QtRocket's own save (decision O9 of tier 10). A file that JDK 17
+    /// wrote with such longer digits now gives a BigDecimal where OpenRocket on JDK 17 gives a
+    /// Double. The value is the same; a save writes the BigDecimal's toString()
+    /// ("1.15292150460684698E+18"), OpenRocket the Double's ("1.15292150460684698E18" on JDK 17).
     [[nodiscard]] static std::optional<BigDecimal> valueOfDouble(double value);
 
     /// -1, 0 or 1 (signum()).

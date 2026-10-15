@@ -304,7 +304,9 @@ TEST(BigDecimal, ValueOfLong)
 
 TEST(BigDecimal, ValueOfDouble)
 {
-    // BigDecimal.valueOf(double) goes through Double.toString, so 100.0 has scale 1.
+    // BigDecimal.valueOf(double) goes through Double.toString, so 100.0 has scale 1. The
+    // expectations are BigDecimal.valueOf() of JDK 21.0.10 (the probe of tier 10a S1,
+    // FloatProbe bigdecimal): current Java's Double.toString (decision O9 of tier 10).
     EXPECT_EQ(describeValueOf(0.0), "0 1 0.0");
     EXPECT_EQ(describeValueOf(-0.0), "0 1 0.0");
     EXPECT_EQ(describeValueOf(1.0), "10 1 1.0");
@@ -312,8 +314,8 @@ TEST(BigDecimal, ValueOfDouble)
     EXPECT_EQ(describeValueOf(100.0), "1000 1 100.0");
     EXPECT_EQ(describeValueOf(1.0E-4), "10 5 0.00010");
     EXPECT_EQ(describeValueOf(1.0E7), "10 -6 1.0E+7");
-    // JDK 17 prints 1.0E23 as 9.999999999999999E22.
-    EXPECT_EQ(describeValueOf(1.0E23), "9999999999999999 -7 9.999999999999999E+22");
+    // JDK 17 prints 1.0E23 as 9.999999999999999E22, which made 9999999999999999 with scale -7.
+    EXPECT_EQ(describeValueOf(1.0E23), "10 -22 1.0E+23");
     EXPECT_EQ(describeValueOf(123456.789), "123456789 3 123456.789");
     EXPECT_EQ(describeValueOf(3.141592653589793), "3141592653589793 15 3.141592653589793");
     EXPECT_EQ(describeValueOf(std::numeric_limits<double>::denorm_min()), "49 325 4.9E-324");
@@ -322,8 +324,16 @@ TEST(BigDecimal, ValueOfDouble)
     EXPECT_EQ(describeValueOf(-2.5), "-25 1 -2.5");
     EXPECT_EQ(describeValueOf(1.0E-5), "10 6 0.000010");
     EXPECT_EQ(describeValueOf(9.007199254740992E15), "9007199254740992 0 9007199254740992");
-    EXPECT_EQ(describeValueOf(1.15292150460684698E18),
-              "115292150460684698 -1 1.15292150460684698E+18");
+    // 2^60: JDK 17 gave 115292150460684698 with scale -1.
+    EXPECT_EQ(describeValueOf(1.15292150460684698E18), "1152921504606847 -3 1.152921504606847E+18");
+    // 2^-61: JDK 17 gave 43368086899420177 with scale 35.
+    EXPECT_EQ(describeValueOf(4.3368086899420177E-19), "4336808689942018 34 4.336808689942018E-19");
+    // JDK 17 gave 68423234599999996 with scale -3.
+    EXPECT_EQ(describeValueOf(6.84232346E19), "684232346 -11 6.84232346E+19");
+    // Twice Double.MIN_VALUE: JDK 17 gave 10 with scale 324 (1.0E-323).
+    EXPECT_EQ(describeValueOf(2 * std::numeric_limits<double>::denorm_min()), "99 325 9.9E-324");
+    EXPECT_EQ(describeValueOf(5.0), "50 1 5.0");
+    EXPECT_EQ(describeValueOf(2.5), "25 1 2.5");
 }
 
 TEST(BigDecimal, ValueOfDoubleRejectsNaNAndInfinities)

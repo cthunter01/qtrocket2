@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -38,27 +41,135 @@ private:
     std::vector<Entry> m_entries;
 };
 
-/// Builds a zip archive in memory, deflate-compressed, with UTF-8 entry names. Every entry is
-/// written as a streaming writer writes it, its sizes and CRC in a data descriptor behind its
-/// data (so ZipInputStream::Entry::size is -1 for it), and without ZIP64 fields, so that a reader
-/// of local headers such as java.util.zip.ZipInputStream reads on behind an entry of no bytes.
+/// Builds a zip archive in memory, deflate-compressed, with UTF-8 entry names, as
+/// java.util.zip.ZipOutputStream writes one for OpenRocket's GeneralRocketSaver (setLevel(9)).
+/// Every entry is written as a streaming writer writes it, its sizes and CRC in a data
+/// descriptor behind its data (so ZipInputStream::Entry::size is -1 for it), and without ZIP64
+/// fields, so that a reader of local headers such as java.util.zip.ZipInputStream reads on
+/// behind an entry of no bytes. Each entry is deflated at level 9 (best compression), and its
+/// central header says "made by" version 2.0 on MS-DOS (20) and "needed" version 2.0, as Java's
+/// do; there is no extra field and no file attribute.
+///
+/// An entry is compressed into the archive when it is added (add()), as Java's stream writes it:
+/// the writer keeps the compressed archive and nothing of the bytes it was given, so that an
+/// archive of many large, well compressed entries (the decal images of a design) needs no more
+/// memory than the archive and the one entry being added.
+///
+/// The time of the entries: the local time of finish() unless a time is set (setEntryTime()),
+/// which every entry then carries as given, whatever the time zone of the process, so that the
+/// same entries give an archive of the same headers on every platform (the deflated bytes are
+/// zlib's, and zlib and zlib-ng deflate differently: compare the entries of an archive, never its
+/// bytes).
+///
+/// The names are written as given, byte for byte. add() refuses, and finish() then gives the
+/// first refusal and no archive at all, for:
+/// - a name added twice: "duplicate entry: <name>" (ErrorCode::IO), Java's ZipException;
+/// - a name of more than 65535 bytes: "entry name too long" (ErrorCode::INVALID_ARGUMENT), the
+///   text of Java's refusal of a name of more than 65535 characters;
+/// - a name that holds a backslash or a NUL character (ErrorCode::INVALID_ARGUMENT,
+///   backslashInName() and nulInName()).
+/// An entry of more than 2 GiB, an archive that would grow beyond 2 GiB
+/// (ErrorCode::UNSUPPORTED_FORMAT) and memory that runs out (outOfMemory(), ErrorCode::IO) fail
+/// the archive the same way: nothing an entry holds makes the writer throw.
+///
+/// Deviations from java.util.zip.ZipOutputStream:
+/// - A refused name fails the whole archive, which finish() reports; Java refuses the name when
+///   the entry is begun (putNextEntry()), behind the entries before it.
+/// - Java writes a name of more than 65535 bytes but not characters (UTF-8 of two or three
+///   bytes a character) with its length cut to 16 bits, an archive no reader reads right; it is
+///   refused here.
+/// - Java writes a backslash and a NUL as they are. minizip, which writes the archive here,
+///   turns a backslash into a slash on Windows only, and ends a name at a NUL: a name that would
+///   be written otherwise than it was given, or otherwise on one platform than on another, is
+///   refused.
+/// - The general purpose flags of an entry also hold minizip's bit for the best compression
+///   (0x080A where Java writes 0x0808), and its local header the size of its contents, where
+///   Java writes 0; a reader takes both from the central header and the data descriptor.
+/// - A time is the local time of the moment (now) or the fields of setEntryTime(); Java converts
+///   a moment to the local time of the process. As in Java, a time before 1980, the first year a
+///   zip header can hold, is written as 1980-01-01 00:00:00, and a second is written in steps of
+///   two (an odd second as the one before it). A time after 2107 is refused (Java writes the
+///   latest time a header can hold and the time itself in an extra field).
+/// - The archive is held in memory and is at most 2 GiB long (Java streams it to the file).
 class ZipWriter
 {
 public:
-    /// Queues an entry. Adding the same name twice stores it twice, as zip allows; callers avoid
-    /// that.
-    void add(std::string name, std::span<const std::byte> data);
+    /// A local date and time as a zip header holds it (the MS-DOS form): the year, the month
+    /// (1 to 12), the day of the month, the hour (0 to 23), the minute and the second (0 to 59).
+    struct EntryTime
+    {
+        int year{1980};
+        int month{1};
+        int day{1};
+        int hour{0};
+        int minute{0};
+        int second{0};
 
-    /// The complete archive with every entry added so far.
-    [[nodiscard]] Result<std::vector<std::byte>> finish() const;
+        [[nodiscard]] bool operator==(const EntryTime&) const = default;
+    };
+
+    /// The failure for a name of more than 65535 bytes (Java's text).
+    static constexpr std::string_view kNameTooLong = "entry name too long";
+
+    /// The failure for an archive that would be longer than 2 GiB (QtRocket's text).
+    static constexpr std::string_view kArchiveTooLarge = "zip archive larger than 2 GiB";
+
+    /// The failure for @p name added twice (Java's text): "duplicate entry: <name>".
+    [[nodiscard]] static std::string duplicateEntry(std::string_view name);
+
+    /// The failure for @p name, which holds a backslash (QtRocket's text): "The zip entry name
+    /// '<name>' holds a backslash, which an archive written on Windows would turn into a slash."
+    [[nodiscard]] static std::string backslashInName(std::string_view name);
+
+    /// The failure for @p name, which holds a NUL character (QtRocket's text): "The zip entry
+    /// name '<name>' holds a NUL character, which an archive cannot hold." (the NUL written as
+    /// "\0").
+    [[nodiscard]] static std::string nulInName(std::string_view name);
+
+    /// The failure for @p time, which is not a time a zip header can hold (QtRocket's text):
+    /// "The zip entry time 2108-01-01 00:00:00 is not a date and time from 1980 to 2107."
+    [[nodiscard]] static std::string invalidEntryTime(const EntryTime& time);
+
+    /// The failure for the memory that ran out while the entry @p name was added (QtRocket's
+    /// text): "Out of memory writing the zip entry <name>".
+    [[nodiscard]] static std::string outOfMemory(std::string_view name);
+
+    /// The 32 bits of @p time in the MS-DOS form of a zip header: the date in the high 16 bits
+    /// (the year from 1980 in 7 bits, the month in 4, the day in 5), the time in the low 16 (the
+    /// hour in 5 bits, the minute in 6, the second halved in 5); a time before 1980 is
+    /// 1980-01-01 00:00:00 (Java's javaToDosTime()). Nullopt for a time after 2107 or with a
+    /// field out of its range, a day included that its month does not have.
+    [[nodiscard]] static std::optional<std::uint32_t> dosDateTime(const EntryTime& time) noexcept;
+
+    ZipWriter();
+    ~ZipWriter();
+    ZipWriter(const ZipWriter&)            = delete;
+    ZipWriter& operator=(const ZipWriter&) = delete;
+    ZipWriter(ZipWriter&&) noexcept;
+    ZipWriter& operator=(ZipWriter&&) noexcept;
+
+    /// Compresses an entry of @p name and @p data into the archive (see the class comment). A
+    /// name that cannot be written, or a failure of the archive, is kept for finish(), and
+    /// nothing more is added after it.
+    void add(std::string_view name, std::span<const std::byte> data);
+
+    /// Sets the time every entry carries; nullopt (the default) for the local time of finish().
+    void setEntryTime(std::optional<EntryTime> time) noexcept { m_entryTime = time; }
+    [[nodiscard]] const std::optional<EntryTime>& getEntryTime() const noexcept
+    {
+        return m_entryTime;
+    }
+
+    /// The complete archive with every entry added, or the first failure of add() or the
+    /// failure of the entry time (see the class comment), for which there is no archive at all.
+    /// The writer is done then: it may not be added to or finished again.
+    [[nodiscard]] Result<std::vector<std::byte>> finish();
 
 private:
-    struct Pending
-    {
-        std::string            name;
-        std::vector<std::byte> data;
-    };
-    std::vector<Pending> m_pending;
+    struct State;
+
+    std::unique_ptr<State>   m_state;
+    std::optional<EntryTime> m_entryTime;
 };
 
 }  // namespace QtRocket
