@@ -78,6 +78,7 @@ add_executable(QtRocket_core_tests
     motor/ThrustCurveMotorTests.cpp
     rocket/AngleMethodTests.cpp
     rocket/AppearanceTests.cpp
+    rocket/AutomaticDimensionsTests.cpp
     rocket/AxialMethodTests.cpp
     rocket/AxialStageTests.cpp
     rocket/BodyTubeTests.cpp
@@ -358,10 +359,15 @@ add_executable(QtRocket_core_tests
     file/ZipFileAttachmentFactoryTests.cpp
     file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
+    cli/CliArgumentsTests.cpp
+    cli/CliOutputTests.cpp
+    cli/CliTests.cpp
+    cli/DataDirectoryTests.cpp
+    cli/InfoCommandTests.cpp
+    cli/MotorsCommandTests.cpp
+    cli/SimulateCommandTests.cpp
     goldens/aero_golden_tests.cpp
     goldens/attachment_geometry_golden_tests.cpp
-    goldens/AutomaticDimensions.cpp
-    goldens/AutomaticDimensionsTests.cpp
     goldens/body_geometry_golden_tests.cpp
     goldens/example_design_golden_tests.cpp
     goldens/example_simulation_golden_tests.cpp
@@ -392,6 +398,10 @@ target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DI
 # from source, as in CI, has <gmock/gmock.h> on the include path only through this target.
 target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main GTest::gmock pugixml::pugixml
     SQLite::SQLite3 nlohmann_json::nlohmann_json)
+# The command-line tool's commands (src/cli), run in this process by tests/core/cli. The tests of its data directory
+# look at the build tree's copy of the motor database, which QtRocket_cli_data makes.
+target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::cli)
+add_dependencies(QtRocket_core_tests QtRocket_cli_data)
 # Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from
 # any working directory.
 target_compile_definitions(QtRocket_core_tests PRIVATE

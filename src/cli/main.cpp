@@ -1,58 +1,46 @@
-#include <cstdlib>
-#include <exception>
-#include <iostream>
+// QtRocket_cli: the command-line tool. Everything it does is in QtRocket_cli_lib (cli/Cli.h);
+// this reads the arguments and the data directory and prints.
+
+#include <cstddef>
+#include <cstdio>
 #include <print>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
-#include "QtRocket/util/Version.h"
-
-namespace
-{
-
-constexpr int kExitOk    = 0;
-constexpr int kExitUsage = 1;
-
-void printUsage()
-{
-    std::println("Usage: QtRocket_cli <command> [options]");
-    std::println("");
-    std::println("Commands:");
-    std::println("  --version   Print the version and exit");
-    std::println("  --help      Print this help and exit");
-}
-
-}  // namespace
+#include "QtRocket/cli/Cli.h"
+#include "QtRocket/cli/CliOutput.h"
+#include "QtRocket/cli/DataDirectory.h"
+#include "QtRocket/cli/ExitCode.h"
 
 int main(int argc, char* argv[])
 {
     try
     {
-        const std::span args(argv, static_cast<std::size_t>(argc));
-        if (args.size() < 2)
-        {
-            printUsage();
-            return kExitUsage;
-        }
-        const std::string_view command = args[1];
-        if (command == "--version")
-        {
-            std::println("{}", QtRocket::creatorString());
-            return kExitOk;
-        }
-        if (command == "--help" || command == "-h")
-        {
-            printUsage();
-            return kExitOk;
-        }
-        std::println(stderr, "QtRocket_cli: unknown command '{}'", command);
-        printUsage();
-        return kExitUsage;
+        QtRocket::DataDirectory::useBinaryStandardStreams();
+        const std::vector<std::string> arguments =
+            QtRocket::DataDirectory::commandLineArguments(argc, argv);
+        const std::span<char*>        all(argv, static_cast<std::size_t>(argc > 0 ? argc : 0));
+        const std::string_view        argv0 = !all.empty() && all[0] != nullptr ? all[0] : "";
+        const QtRocket::Cli::Settings settings{
+            .dataDirectory = QtRocket::DataDirectory::dataDirectory(argv0),
+            .motorDatabase = nullptr};
+        QtRocket::CliOutput output(
+            [](std::string_view text) {
+                std::print(stdout, "{}", text);
+                std::fflush(stdout);
+            },
+            [](std::string_view text) {
+                std::print(stderr, "{}", text);
+                std::fflush(stderr);
+            });
+        return QtRocket::exitStatus(QtRocket::Cli::run(arguments, settings, output));
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-        // Not std::println: it can throw, and nothing may escape main.
-        std::cerr << "error: " << e.what() << '\n';
-        return EXIT_FAILURE;
+        // Not std::print: it can throw, and nothing may escape main.
+        static_cast<void>(std::fputs("QtRocket_cli: internal error\n", stderr));
+        return QtRocket::exitStatus(QtRocket::ExitCode::INTERNAL);
     }
 }

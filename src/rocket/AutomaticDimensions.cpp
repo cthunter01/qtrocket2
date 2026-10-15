@@ -1,4 +1,4 @@
-#include "goldens/AutomaticDimensions.h"
+#include "QtRocket/rocket/AutomaticDimensions.h"
 
 #include <bit>
 #include <cmath>
@@ -18,7 +18,7 @@
 #include "QtRocket/rocket/SymmetricComponent.h"
 #include "QtRocket/util/Error.h"
 
-namespace QtRocket::Test
+namespace QtRocket
 {
 
 namespace
@@ -121,4 +121,4 @@ Result<int> settleAutomaticDimensions(const Rocket& rocket)
     return settleBy([&rocket] { return automaticDimensions(rocket); }, rocket.getName());
 }
 
-}  // namespace QtRocket::Test
+}  // namespace QtRocket

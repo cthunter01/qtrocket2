@@ -1,6 +1,7 @@
-// Tests of goldens/AutomaticDimensions.h, the port of the golden harness's
+// Tests of rocket/AutomaticDimensions.h, the port of the golden harness's
 // AutomaticDimensions.java (tools/openrocket-goldens), on rockets built here whose automatic
-// radii depend on their neighbours.
+// radii depend on their neighbours. (They moved here from tests/core/goldens with the code, which
+// the command-line tool's 'info' uses too; the suite was GoldenAutomaticDimensions.)
 //
 // The harness class has no JUnit test. The expectations are OpenRocket's: the probe
 // tier9a-g2-rules/java/src/info/qtrocket/goldens/SettleProbe.java builds the same rockets,
@@ -10,7 +11,7 @@
 // result of additions, subtractions, multiplications, divisions, minima and maxima (a radius less
 // a wall thickness, a volume over the square of a radius), so the pins are exact on every platform.
 
-#include "goldens/AutomaticDimensions.h"
+#include "QtRocket/rocket/AutomaticDimensions.h"
 
 #include <algorithm>
 #include <array>
@@ -40,34 +41,32 @@
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/util/Error.h"
-#include "goldens/GoldenGeometry.h"
 
 namespace
 {
 
+using QtRocket::automaticDimensions;
 using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::Bulkhead;
 using QtRocket::CenteringRing;
 using QtRocket::ErrorCode;
 using QtRocket::InnerTube;
+using QtRocket::kMaxSettlingPasses;
 using QtRocket::MassComponent;
 using QtRocket::MassObject;
 using QtRocket::NoseCone;
 using QtRocket::Parachute;
 using QtRocket::Result;
 using QtRocket::Rocket;
+using QtRocket::samePass;
+using QtRocket::settleAutomaticDimensions;
+using QtRocket::settleBy;
 using QtRocket::ShockCord;
 using QtRocket::Streamer;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
 using QtRocket::TubeCoupler;
-using QtRocket::Test::automaticDimensions;
-using QtRocket::Test::componentAtGoldenPath;
-using QtRocket::Test::kMaxSettlingPasses;
-using QtRocket::Test::samePass;
-using QtRocket::Test::settleAutomaticDimensions;
-using QtRocket::Test::settleBy;
 
 // ================================================================================= the rockets
 
@@ -330,7 +329,7 @@ constexpr std::array<double, 8> kTurned{
 // ======================================================================================= tests
 
 // A chain that needs more than one pass. Java: settle() = 2, the values of every pass.
-TEST(GoldenAutomaticDimensions, AChainOfAutomaticTubesSettlesInThePassesOfTheHarness)
+TEST(AutomaticDimensions, AChainOfAutomaticTubesSettlesInThePassesOfTheHarness)
 {
     const std::unique_ptr<Rocket> rocket = makeTubes("Chain", true);
     EXPECT_EQ(settledAfter(*rocket), 2);
@@ -343,7 +342,7 @@ TEST(GoldenAutomaticDimensions, AChainOfAutomaticTubesSettlesInThePassesOfTheHar
 // How the chain gets there, pass by pass (the passes the probe prints for a second instance of
 // the design): the first pass leaves A and B at the default radius, the second gives B the
 // radius of N, the third A; the fourth repeats the third.
-TEST(GoldenAutomaticDimensions, ThePassesOverTheChainAreTheHarnesss)
+TEST(AutomaticDimensions, ThePassesOverTheChainAreTheHarnesss)
 {
     const std::unique_ptr<Rocket> rocket = makeTubes("Chain", true);
     EXPECT_EQ(automaticDimensions(*rocket), passOf(kFirstPassOfTheChain));
@@ -355,7 +354,7 @@ TEST(GoldenAutomaticDimensions, ThePassesOverTheChainAreTheHarnesss)
 
 // A design that is already settled: the same rocket, built without asking a tube for its radius
 // on the way. Java: settle() = 0, and the same settled values as the chain's.
-TEST(GoldenAutomaticDimensions, ADesignBuiltWithoutAskingIsSettledByItsFirstPass)
+TEST(AutomaticDimensions, ADesignBuiltWithoutAskingIsSettledByItsFirstPass)
 {
     const std::unique_ptr<Rocket> rocket = makeTubes("Settled", false);
     EXPECT_EQ(settledAfter(*rocket), 0);
@@ -364,7 +363,7 @@ TEST(GoldenAutomaticDimensions, ADesignBuiltWithoutAskingIsSettledByItsFirstPass
 
 // Java: settle() = 0 and the 14 values. A body tube gives six values: Java asks it as a
 // BodyTube and as a SymmetricComponent; the stage and the rocket give none.
-TEST(GoldenAutomaticDimensions, ADesignWithoutAutomaticDimensionsIsLeftAsItIs)
+TEST(AutomaticDimensions, ADesignWithoutAutomaticDimensionsIsLeftAsItIs)
 {
     const std::unique_ptr<Rocket> rocket = makeFixed();
     EXPECT_EQ(automaticDimensions(*rocket), passOf(kFixed));
@@ -376,10 +375,12 @@ TEST(GoldenAutomaticDimensions, ADesignWithoutAutomaticDimensionsIsLeftAsItIs)
 // 0.01994459833795014, the volume over the square of the radius it stored in the narrower tube;
 // settle() = 0 (its first pass refreshes the radius, and no later one changes anything), and
 // then the 8 values.
-TEST(GoldenAutomaticDimensions, TheFirstPassRefreshesAStaleMassObject)
+TEST(AutomaticDimensions, TheFirstPassRefreshesAStaleMassObject)
 {
     const std::unique_ptr<Rocket> rocket = makeTurned();
-    const auto* chute = dynamic_cast<const MassObject*>(componentAtGoldenPath(*rocket, "/0/0/0"));
+    // The golden path /0/0/0: the first child of the first child of the stage.
+    const auto* chute =
+        dynamic_cast<const MassObject*>(&rocket->getChild(0).getChild(0).getChild(0));
     ASSERT_NE(chute, nullptr);
     EXPECT_EQ(chute->getLength(), 0.01994459833795014) << "stale: of the radius of 19 mm";
     EXPECT_EQ(settledAfter(*rocket), 0);
@@ -389,7 +390,7 @@ TEST(GoldenAutomaticDimensions, TheFirstPassRefreshesAStaleMassObject)
 }
 
 // Java compares two passes with List.equals(), that is Double.equals() value by value.
-TEST(GoldenAutomaticDimensions, TwoPassesAreComparedAsJavaComparesItsLists)
+TEST(AutomaticDimensions, TwoPassesAreComparedAsJavaComparesItsLists)
 {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     EXPECT_TRUE(samePass({}, {}));
@@ -428,7 +429,7 @@ struct Settling
 // AutomaticDimensions.settle(): a first pass, then passes until one repeats the pass before it;
 // the result is the number of passes that changed something, and after MAX_PASSES = 20 passes
 // that all did, Java throws IllegalStateException.
-TEST(GoldenAutomaticDimensions, TheLoopCountsTheChangedPassesAndGivesUpAfterTwenty)
+TEST(AutomaticDimensions, TheLoopCountsTheChangedPassesAndGivesUpAfterTwenty)
 {
     EXPECT_EQ(kMaxSettlingPasses, 20);
     const Settling settled = settlingOf(0);
