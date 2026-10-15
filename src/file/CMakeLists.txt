@@ -1,4 +1,5 @@
 target_sources(QtRocket_core PRIVATE
+    CsvExport.cpp
     DatabaseMotorFinder.cpp
     DocumentLoadingContext.cpp
     FileSystemAttachmentFactory.cpp

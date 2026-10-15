@@ -13,6 +13,9 @@ files. The data is committed; neither CMake nor CI ever needs Java.
   manifest) and its helpers `GeometryDumper`, `MassDumper`, `AeroDumper`, `SimulationDumper`,
   `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`, `LastBitPerturbation`,
   `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`.
+- `src/main/java/info/qtrocket/goldens/CsvExportDumper.java` is not run by `generate.sh`: it writes
+  the fixtures of the CSV export test, `tests/data/csv/` (see
+  [CSV export fixtures](#csv-export-fixtures)).
 - `motors/` (`MotorsDumper.java`, `dump-motors.sh`) belongs to the motor port: it writes
   `tests/data/goldens/motors.json` (digests and derived values of every curve of
   `initial_motors.db` and the test `.eng`/`.rse` files, plus the curves OpenRocket skips). This
@@ -762,3 +765,44 @@ is another 1.5 MB.
 After regenerating, run the C++ tests (`goldens_schema_tests.cpp` checks the structure; the golden
 comparison tests check the values) and review the diff: a change of OpenRocket's results changes the
 reference for the port.
+
+## CSV export fixtures
+
+`CsvExportDumper` writes `tests/data/csv/*.csv.gz`, the fixtures of QtRocket's `CsvExport` golden
+test (`tests/core/file/csv_export_golden_tests.cpp`): what OpenRocket's `CSVExport.exportCSV()`
+writes for flight data STORED in the example designs. The designs are loaded and never simulated
+again, so the numbers are those of the files and the export alone decides the text, which QtRocket
+reproduces byte for byte. `tests/data/csv/README.md` lists the nine fixtures (a branch of each of
+five examples, one of them also with four other sets of options) and what they cover.
+
+- **Environment**: OpenRocket's test bootstrap as for the goldens (`ServicesForTesting` overridden
+  by `PluginModule`, then a second injector with the thrust curve database read from
+  `initial_motors.db`, so that every motor of the examples is found and every simulation gets the
+  status OpenRocket gives it after a load), but no component presets: the stored data does not
+  depend on them. The bootstrap is the dumper's own; nothing of `GoldenDumper` runs but `slug()`.
+- **Export**: every type of the branch in the order of `getTypes()`, each in the default unit of
+  its group, with the options OpenRocket's export dialog opens with (`,`, 3 decimal places,
+  exponential notation, `#`, the simulation, field and event comments on) or, for the first
+  fixture, also with the four sets of `CsvExportDumper.VARIANTS` (`_variant1` to `_variant4`).
+- **Files**: `<example slug>_sim<NN>_branch<B>[_variant<V>].csv.gz`, gzipped at the best
+  compression. `CSVExport` ends a line with the platform's line separator; the dumper refuses to
+  run where that is not `\n`. QtRocket always writes `\n` (a documented deviation).
+- `--all` writes every branch of every simulation of every example (73 files, 3.1 MB with the
+  variants) into a scratch directory instead: QtRocket's export matched all 73 when the fixtures
+  were made (tier 10a, OpenRocket 5f164fd0e).
+
+The fixtures are independent of `tests/data/goldens` and of `manifest.json`. To regenerate them,
+with the checkout at the commit of the goldens and Java 17 (the numbers go through
+`TextUtil.doubleToString()` and `java.util.Formatter`, whose digits of some very large and very
+small values differ in later JDKs, JDK-8300869):
+
+```sh
+"$OPENROCKET_DIR/gradlew" --quiet -p tools/openrocket-goldens -PopenrocketDir="$OPENROCKET_DIR" goldensClasspath
+java -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
+    -cp "$(cat tools/openrocket-goldens/build/goldens-classpath.txt)" info.qtrocket.goldens.CsvExportDumper \
+    --examples data/examples --motors data/motors/initial_motors.db --out tests/data/csv
+```
+
+(`data/motors/initial_motors.db` is OpenRocket's bundled database, byte for byte.) The gzip bytes
+depend on the JDK's zlib, so compare the content of a regenerated file, not its bytes
+(`cmp <(zcat old) <(zcat new)`); the test does the same.

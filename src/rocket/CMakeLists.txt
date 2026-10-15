@@ -1,6 +1,7 @@
 target_sources(QtRocket_core PRIVATE
     Appearance.cpp
     AppearanceBuilder.cpp
+    AutomaticDimensions.cpp
     AxialStage.cpp
     BodyTube.cpp
     Bulkhead.cpp

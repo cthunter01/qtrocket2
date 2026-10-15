@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.10" creator="QtRocket test fixture">
+  <rocket>
+    <name>No motors</name>
+    <motorconfiguration configid="9a7b3c1e-0000-4000-8000-000000000001" default="true">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <subcomponents>
+          <nosecone>
+            <name>Nose cone</name>
+            <material type="bulk" density="1050.0">Polystyrene</material>
+            <length>0.1</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <aftradius>0.0125</aftradius>
+          </nosecone>
+          <bodytube>
+            <name>Body tube</name>
+            <material type="bulk" density="680.0">Cardboard</material>
+            <length>0.3</length>
+            <thickness>0.001</thickness>
+            <radius>0.0125</radius>
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Fins</name>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0">Cardboard</material>
+                <fincount>3</fincount>
+                <thickness>0.002</thickness>
+                <rootchord>0.05</rootchord>
+                <tipchord>0.05</tipchord>
+                <sweeplength>0.025</sweeplength>
+                <height>0.03</height>
+              </trapezoidfinset>
+              <innertube>
+                <name>Motor mount</name>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0">Cardboard</material>
+                <length>0.075</length>
+                <outerradius>0.0095</outerradius>
+                <thickness>0.0005</thickness>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                </motormount>
+              </innertube>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Without a motor</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>9a7b3c1e-0000-4000-8000-000000000001</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <timestep>0.01</timestep>
+      </conditions>
+    </simulation>
+  </simulations>
+</openrocket>

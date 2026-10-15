@@ -4,6 +4,9 @@
 *.jpg  binary
 *.ico  binary
 *.pdf  binary
+# Gzip fixtures and goldens (tests/data/csv, tests/data/goldens): never a line-end conversion, whatever
+# their first bytes look like.
+*.gz   binary
 
 # Motor test files whose exact bytes are the point (CRLF and CR line ends, byte-order marks,
 # malformed UTF-8): no line-end conversion.
@@ -13,3 +16,7 @@ tests/data/motors-edge/** -text
 # (tests/data/ork/README.md lists the size and the SHA-256 of each; three of them are plain XML): no
 # line-end conversion.
 tests/data/ork/** -text
+
+# A fixture of the command-line tool's test runner whose lines end with "\r\n" on purpose
+# (tests/data/cli/README.md): no line-end conversion.
+tests/data/cli/crlf-lines.txt -text
