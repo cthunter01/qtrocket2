@@ -9,6 +9,11 @@ if(NOT DOXYGEN_FOUND)
 endif()
 
 set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/docs)
+# File names relative to the repository, and each class's include line as the code writes it:
+# #include "QtRocket/rocket/BodyTube.h" (quotes, not angle brackets: CLAUDE.md).
+set(DOXYGEN_STRIP_FROM_PATH ${PROJECT_SOURCE_DIR})
+set(DOXYGEN_STRIP_FROM_INC_PATH ${PROJECT_SOURCE_DIR}/include)
+set(DOXYGEN_FORCE_LOCAL_INCLUDES YES)
 set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${PROJECT_SOURCE_DIR}/README.md)
 set(DOXYGEN_EXTRACT_ALL YES)
 set(DOXYGEN_WARN_IF_UNDOCUMENTED NO)
