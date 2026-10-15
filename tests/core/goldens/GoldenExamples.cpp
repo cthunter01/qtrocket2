@@ -1,6 +1,7 @@
 #include "goldens/GoldenExamples.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -103,6 +104,15 @@ Result<LoadedDocument> loadGoldenExample(const GoldenExample& example, ExampleSo
     const GeneralRocketLoader loader(goldenExampleEnvironment(presets).context(),
                                      std::move(options));
     return loader.load(example.path(source));
+}
+
+Result<LoadedDocument> loadGoldenExampleFromBytes(std::vector<std::byte>         bytes,
+                                                  DesignFileEnvironment::Presets presets,
+                                                  GeneralRocketLoader::Options   options)
+{
+    const GeneralRocketLoader loader(goldenExampleEnvironment(presets).context(),
+                                     std::move(options));
+    return loader.load(std::move(bytes));
 }
 
 Result<int> settleGoldenExample(const LoadedDocument& loaded)

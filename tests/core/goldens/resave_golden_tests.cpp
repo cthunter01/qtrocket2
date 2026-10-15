@@ -89,8 +89,6 @@
 #include <format>
 #include <limits>
 #include <memory>
-#include <numbers>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -113,8 +111,6 @@
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/MathUtil.h"
-#include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/AutomaticDimensions.h"
 #include "goldens/GoldenData.h"
@@ -132,16 +128,19 @@ using nlohmann::json;
 using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::Rocket;
-using QtRocket::Simulation;
-using QtRocket::SimulationOptions;
-using QtRocket::Test::compareLoadedDesign;
+using QtRocket::Test::addResaveRun;
+using QtRocket::Test::changeToTheReload;
+using QtRocket::Test::ComparedResaves;
+using QtRocket::Test::ComparedSimulations;
 using QtRocket::Test::compareLoadedGeometry;
+using QtRocket::Test::compareLoadedResave;
 using QtRocket::Test::compareOptions;
-using QtRocket::Test::compareSavedSettings;
+using QtRocket::Test::compareSimulations;
 using QtRocket::Test::DesignComparison;
-using QtRocket::Test::DesignCounts;
+using QtRocket::Test::designCountsOfTheTestRockets;
 using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::DesignGoldens;
+using QtRocket::Test::goldenCounts;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::GoldenManifest;
 using QtRocket::Test::kBigBlue;
@@ -154,151 +153,32 @@ using QtRocket::Test::loadGoldenJson;
 using QtRocket::Test::loadGoldenManifest;
 using QtRocket::Test::loadGoldenResave;
 using QtRocket::Test::loadResave;
-using QtRocket::Test::OptionsComparison;
 using QtRocket::Test::PreparePreferences;
 using QtRocket::Test::ReloadChange;
-using QtRocket::Test::savedSettingsCounts;
-using QtRocket::Test::SettingsComparison;
-using QtRocket::Test::SettingsCounts;
+using QtRocket::Test::ReloadChanges;
+using QtRocket::Test::ResaveRun;
+using QtRocket::Test::settingsCountsOfTheTestRockets;
 using QtRocket::Test::settleAutomaticDimensions;
 using QtRocket::Test::testRocketInputs;
 
 using Presets = DesignFileEnvironment::Presets;
 
-// ============================================================================ the exceptions
-
-/// What changeToTheReload() changed.
-struct ReloadChanges
-{
-    int         values{0};  ///< the values replaced
-    std::string problems;   ///< a value that is not in the document as kReloadChanges has it
-};
-
-/// The entry of the component at @p path in the document @p geometry, for changing it; null
-/// when the document has none.
-[[nodiscard]] json* componentEntry(json& geometry, std::string_view path)
-{
-    for (json& component : geometry.at("components"))
-    {
-        if (component.at("path").get<std::string>() == path)
-        {
-            return &component;
-        }
-    }
-    return nullptr;
-}
-
-/// Makes of @p geometry, the committed geometry.json of the input @p input, the document that
-/// OpenRocket's harness writes for its own reload of the re-save: the values of kReloadChanges.
-/// Adds what it changed to @p changes; a value that the committed document does not hold as
-/// the table says is a problem, and is left as it is.
-void changeToTheReload(std::string_view input, json& geometry, ReloadChanges& changes)
-{
-    for (const ReloadChange& change : kReloadChanges)
-    {
-        if (change.input != input)
-        {
-            continue;
-        }
-        json* const              component = componentEntry(geometry, change.path);
-        const json::json_pointer pointer{std::string{change.value}};
-        if (component == nullptr || !component->contains(pointer) ||
-            !component->at(pointer).is_number() ||
-            component->at(pointer).get<double>() != change.built)
-        {
-            changes.problems += std::format("{} {} {}: the golden value is not {}\n", input,
-                                            change.path, change.value, change.built);
-            continue;
-        }
-        component->at(pointer) = change.reloaded;
-        changes.values++;
-    }
-}
-
 // ============================================================================ the comparison
 
-/// A re-save loaded and compared with the goldens of its input: what the files hold, and what
-/// the comparisons compared and found.
-struct ResaveRun
-{
-    std::string        problem;            ///< why there is no comparison, else ""
-    int                loadWarnings{0};    ///< the warnings of the load
-    int                settlingPasses{0};  ///< the passes that settled something
-    DesignCounts       golden;             ///< what geometry.json, mass.json and aero.json hold
-    DesignComparison   design;             ///< the comparison with them
-    SettingsCounts     saved;              ///< the settings elements of the re-save
-    SettingsComparison settings;           ///< the comparison with them
-};
-
 /// Loads the re-save of @p input, settles the design and compares it with the design documents
-/// @p goldens and with the settings of the file.
+/// @p goldens and with the settings of the file (compareLoadedResave()).
 [[nodiscard]] ResaveRun compareResave(const GoldenInput& input, const DesignGoldens& goldens)
 {
-    ResaveRun run;
-    run.golden                        = goldenCounts(goldens);
     const Result<LoadedResave> resave = loadResave(input);
     const auto                 file   = loadGoldenResave(input.name);
     if (!resave || !file)
     {
+        ResaveRun run;
+        run.golden  = goldenCounts(goldens);
         run.problem = !resave ? resave.error().toString() : file.error().toString();
         return run;
     }
-    Rocket& rocket             = resave->loaded.document->getRocket();
-    run.loadWarnings           = static_cast<int>(resave->loaded.warnings.size());
-    const Result<int> settling = settleAutomaticDimensions(rocket);
-    if (!settling)
-    {
-        run.problem = settling.error().toString();
-        return run;
-    }
-    run.settlingPasses = *settling;
-    run.design         = compareLoadedDesign(rocket, resave->loaded.warnings, goldens,
-                                             resave->environment->preferences());
-    run.saved          = savedSettingsCounts(**file);
-    run.settings       = compareSavedSettings(rocket, goldens.geometry, **file);
-    return run;
-}
-
-/// What comparing the thirteen re-saves with the goldens gave.
-struct ComparedResaves
-{
-    int            inputs{0};          ///< the "testrocket" inputs of the manifest
-    ReloadChanges  changes;            ///< what the documents of OpenRocket's reload differ in
-    int            loadWarnings{0};    ///< the warnings of the thirteen loads
-    int            settlingPasses{0};  ///< the settling passes that changed something
-    DesignCounts   golden;             ///< what the design documents hold
-    DesignCounts   compared;           ///< what was compared
-    SettingsCounts saved;              ///< the settings elements of the re-saves
-    SettingsCounts settings;           ///< those that were compared
-    /// By input: why there is no comparison, the mismatches, and what was not compared in full.
-    /// Empty when every reloaded design is the rocket of its goldens.
-    std::string problems;
-};
-
-/// Adds the comparison @p run of the input @p name to @p compared.
-void addRun(ComparedResaves& compared, std::string_view name, const ResaveRun& run)
-{
-    compared.loadWarnings += run.loadWarnings;
-    compared.settlingPasses += run.settlingPasses;
-    compared.golden += run.golden;
-    compared.compared += run.design.compared;
-    compared.saved += run.saved;
-    compared.settings += run.settings.compared;
-    if (!run.problem.empty() || !run.design.report.empty() || !run.settings.report.empty())
-    {
-        compared.problems +=
-            std::format("{}: {}\n{}{}", name, run.problem, run.design.report, run.settings.report);
-    }
-    if (run.design.compared != run.golden)
-    {
-        compared.problems += std::format("{}: compared {}; the files hold {}\n", name,
-                                         toText(run.design.compared), toText(run.golden));
-    }
-    if (run.settings.compared != run.saved)
-    {
-        compared.problems += std::format("{}: compared {}; the re-save holds {}\n", name,
-                                         toText(run.settings.compared), toText(run.saved));
-    }
+    return compareLoadedResave(*resave, goldens, **file);
 }
 
 /// Loads the re-save of every test rocket of the manifest and compares it with the design
@@ -316,45 +196,9 @@ void addRun(ComparedResaves& compared, std::string_view name, const ResaveRun& r
             continue;
         }
         changeToTheReload(input.name, goldens->geometry, compared.changes);
-        addRun(compared, input.name, compareResave(input, *goldens));
+        addResaveRun(compared, input.name, compareResave(input, *goldens));
     }
     return compared;
-}
-
-/// What the design documents of the thirteen test rockets hold together (the Python survey of
-/// the probes of tier 9d, part "resaves": out/survey.txt). The 151 components and the 47
-/// configurations are those TestRocketsGoldenCoverage pins for the rockets of the makers, and
-/// the aerodynamics those of AeroGoldenCoverage.
-[[nodiscard]] DesignCounts designCountsOfTheTestRockets()
-{
-    return DesignCounts{.components         = 151,
-                        .ids                = 151,
-                        .details            = 2323,
-                        .configurations     = 47,
-                        .motors             = 48,
-                        .instanceEntries    = 571,
-                        .instances          = 831,
-                        .loadWarnings       = 0,
-                        .massConfigurations = 47,
-                        .aero               = {.configurations = 47,
-                                               .points         = 1175,
-                                               .components     = 9400,
-                                               .worstCPs       = 329,
-                                               .warnings       = 294}};
-}
-
-/// The settings elements of the thirteen re-saves, as TestRocketsGoldenSettings pins them for
-/// the rockets of the makers. No test rocket is made from a component preset.
-[[nodiscard]] SettingsCounts settingsCountsOfTheTestRockets()
-{
-    return SettingsCounts{.deployEvents             = 9,
-                          .deploymentConfigurations = 0,
-                          .separationEvents         = 8,
-                          .separationConfigurations = 1,
-                          .motorMounts              = 16,
-                          .motors                   = 48,
-                          .ignitionConfigurations   = 48,
-                          .presets                  = 0};
 }
 
 // The thirteen re-saves load without a warning, and each reloaded design is the rocket of its
@@ -378,167 +222,6 @@ TEST(ResaveGolden, TheReloadedTestRocketsAreTheRocketsOfTheGoldens)
 }
 
 // =============================================================================== simulations
-
-/// The <conditions> of the simulations of the re-save @p file, in the order of the file (an
-/// empty node for a simulation without one).
-[[nodiscard]] std::vector<pugi::xml_node> savedConditions(const pugi::xml_document& file)
-{
-    std::vector<pugi::xml_node> conditions;
-    for (const pugi::xml_node simulation :
-         file.child("openrocket").child("simulations").children("simulation"))
-    {
-        conditions.push_back(simulation.child("conditions"));
-    }
-    return conditions;
-}
-
-/// Compares the direction that @p options store for the launch rod with the
-/// <launchroddirection> of @p conditions, the element of their simulation in the file. Options
-/// that launch into the wind give the direction of the wind in its place, and so do the golden
-/// options, so the stored one is asked of a copy that does not launch into the wind. The file
-/// has degrees, and the loader stores d * 2 pi / 360 reduced to one turn
-/// (SimulationConditionsHandler and SimulationOptions::setLaunchRodDirection(), as
-/// OpenRocket's): the same operations here, so exactly that double. Returns the number of
-/// directions compared, 1, or 0 when the file has none; a mismatch is a line in @p report.
-[[nodiscard]] int compareStoredRodDirection(std::string& report, const pugi::xml_node& conditions,
-                                            const SimulationOptions& options)
-{
-    const std::optional<double> degrees =
-        QtRocket::Strings::javaParseDouble(conditions.child_value("launchroddirection"));
-    if (!degrees)
-    {
-        report += "  <launchroddirection>: not in the file, or no number\n";
-        return 0;
-    }
-    SimulationOptions notIntoTheWind(options);
-    notIntoTheWind.setLaunchIntoWind(false);
-    const double expected = QtRocket::MathUtil::reduce2Pi(*degrees * 2.0 * std::numbers::pi / 360);
-    const double stored   = notIntoTheWind.getLaunchRodDirection();
-    if (stored != expected)
-    {
-        report += std::format("  <launchroddirection>: expected {}, got {}\n", expected, stored);
-    }
-    return 1;
-}
-
-/// What the simulations of the re-saves are, and what comparing them with the golden simulation
-/// documents gave.
-struct ComparedSimulations
-{
-    int inputs{0};
-    int simulations{0};    ///< the simulations of the loaded documents
-    int notSimulated{0};   ///< those whose status is NOT_SIMULATED
-    int cannotRun{0};      ///< those whose status is CANT_RUN
-    int withoutMotors{0};  ///< those whose flight configuration has no motor, by geometry.json
-    int intoTheWind{0};    ///< those that launch into the wind
-    int optionValues{0};   ///< the values of the golden options that were compared
-    int rodDirections{0};  ///< the stored launch rod directions compared with those of the files
-    /// By simulation: what differs from its golden document. Empty when every simulation is
-    /// the one the harness saved.
-    std::string problems;
-};
-
-/// The status OpenRocket's reload gives a simulation of a re-save: none has flight data, so it
-/// cannot be run when its flight configuration has no motor, and is not simulated yet otherwise.
-[[nodiscard]] Simulation::Status statusAfterTheLoad(bool hasMotors)
-{
-    return hasMotors ? Simulation::Status::NOT_SIMULATED : Simulation::Status::CANT_RUN;
-}
-
-/// Whether the flight configuration the golden simulation document @p golden names (by its
-/// index among the configurations of @p geometry, with its id) has a motor; @p problem says
-/// why when the two documents do not agree on the configuration.
-[[nodiscard]] bool goldenConfigurationHasMotors(const json& golden, const json& geometry,
-                                                std::string& problem)
-{
-    const json&       named          = golden.at("flightConfiguration");
-    const json&       configurations = geometry.at("configurations");
-    const std::size_t index          = named.at("index").get<std::size_t>();
-    if (index >= configurations.size() || configurations.at(index).at("id") != named.at("id"))
-    {
-        problem += "  flightConfiguration: not a configuration of geometry.json\n";
-        return false;
-    }
-    return configurations.at(index).at("hasMotors").get<bool>();
-}
-
-/// Compares the loaded @p simulation with its golden document @p golden: the name, the flight
-/// configuration, the status after the load, no extension and no flight data, and the options;
-/// and the stored direction of the launch rod with @p conditions, the <conditions> of the
-/// simulation in the file. Adds what it found to @p compared, under @p what.
-void compareSimulation(ComparedSimulations& compared, const std::string& what, const json& golden,
-                       const json& geometry, Simulation& simulation,
-                       const pugi::xml_node& conditions)
-{
-    std::string       report;
-    const bool        hasMotors = goldenConfigurationHasMotors(golden, geometry, report);
-    const auto        status    = simulation.getStatus();
-    const std::string id        = simulation.getFlightConfigurationId().toString();
-    compared.simulations++;
-    compared.withoutMotors += hasMotors ? 0 : 1;
-    compared.notSimulated += status == Simulation::Status::NOT_SIMULATED ? 1 : 0;
-    compared.cannotRun += status == Simulation::Status::CANT_RUN ? 1 : 0;
-    if (simulation.getName() != golden.at("name").get<std::string>())
-    {
-        report += std::format("  name: expected {}, got \"{}\"\n", golden.at("name").dump(),
-                              simulation.getName());
-    }
-    if (id != golden.at("flightConfiguration").at("id").get<std::string>())
-    {
-        report += std::format("  flightConfiguration.id: expected {}, got \"{}\"\n",
-                              golden.at("flightConfiguration").at("id").dump(), id);
-    }
-    if (status != statusAfterTheLoad(hasMotors))
-    {
-        report += std::format("  status: expected {}, got {}\n",
-                              name(statusAfterTheLoad(hasMotors)), name(status));
-    }
-    if (simulation.getSimulationExtensions().size() != golden.at("extensions").size() ||
-        simulation.hasSimulationData())
-    {
-        report += "  extensions or flight data: the file has neither\n";
-    }
-    const OptionsComparison options = compareOptions(golden.at("options"), simulation.getOptions());
-    compared.optionValues += options.values;
-    report += options.report;
-    compared.intoTheWind += simulation.getOptions().getLaunchIntoWind() ? 1 : 0;
-    compared.rodDirections +=
-        compareStoredRodDirection(report, conditions, simulation.getOptions());
-    if (!report.empty())
-    {
-        compared.problems += std::format("{}:\n{}", what, report);
-    }
-}
-
-/// Compares the simulations of the document of @p resave, as loaded, with the simulation
-/// documents the manifest lists for @p input, in their order (that of the harness's document,
-/// and of @p file, the re-save itself).
-void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
-                        const LoadedResave& resave, const json& geometry,
-                        const pugi::xml_document& file)
-{
-    const std::vector<std::shared_ptr<Simulation>> simulations =
-        resave.loaded.document->getSimulations();
-    const std::vector<pugi::xml_node> conditions = savedConditions(file);
-    if (simulations.size() != input.simulations.size() || conditions.size() != simulations.size())
-    {
-        compared.problems += std::format(
-            "{}: {} simulations, the manifest lists {} and the file has {}\n", input.name,
-            simulations.size(), input.simulations.size(), conditions.size());
-        return;
-    }
-    for (std::size_t i = 0; i < simulations.size(); i++)
-    {
-        const std::string  what   = std::format("{} simulation {}", input.name, i);
-        const Result<json> golden = loadGoldenJson(input.simulations.at(i).json);
-        if (!golden)
-        {
-            compared.problems += std::format("{}: {}\n", what, golden.error().toString());
-            continue;
-        }
-        compareSimulation(compared, what, *golden, geometry, *simulations.at(i), conditions.at(i));
-    }
-}
 
 /// Loads the re-save of every test rocket (with the preference store that @p prepare made of
 /// OpenRocket's test preferences, when given) and compares its simulations, as loaded, with the
@@ -1024,7 +707,9 @@ struct RandomIds
         changeToTheReload(maker.input, goldens->geometry, changes);
         result.problems += geometryReport(*input, goldens->geometry);
 
-        goldens->geometry.at("configurations").back().at("id") = kAnotherId;
+        // (By index: GCC's -Wnull-dereference sees a null in json::back() here.)
+        json& configurations = goldens->geometry.at("configurations");
+        configurations.at(configurations.size() - 1).at("id") = kAnotherId;
         const std::string report = geometryReport(*input, goldens->geometry);
         if (!report.contains(std::format(R"(id: expected "{}", got ")", kAnotherId)))
         {

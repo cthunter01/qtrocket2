@@ -4,10 +4,14 @@
 // own save of each input, plain XML of file version 1.11) as the golden tests use them. Test-only.
 //
 // - The loads of the thirteen re-saved test rockets against the seven motors of TestRockets
-//   (testRocketMotors(), loadResave(), testRocketInputs()), the values that OpenRocket's own
-//   reload of them changes (kReloadChanges) and the comparison of a simulation's options with
-//   the golden options (compareOptions()): resave_golden_tests.cpp, whose top comment says what
-//   each is, and ork_resave_diff_golden_tests.cpp.
+//   (testRocketMotors(), loadResave(), testRocketInputs(), and loadTestRocketBytes() for a save
+//   of one), the values that OpenRocket's own reload of them changes (kReloadChanges), the
+//   comparison of such a loaded design with its goldens and with the settings of its re-save
+//   (compareLoadedResave()) and of its simulations with the golden simulation documents
+//   (compareSimulations(), with compareOptions() for a simulation's options):
+//   resave_golden_tests.cpp, whose top comment says what each is, ork_resave_diff_golden_tests.cpp
+//   and ork_roundtrip_golden_tests.cpp (the same comparisons after a round trip through an
+//   archive).
 // - The comparison of a QtRocket save with a re-save, text against text, line by line
 //   (compareOrkTexts(), with rocketElementOf()): ork_resave_diff_golden_tests.cpp. The only
 //   normalisation is the creator attribute of the root element (QtRocket writes its own); a line
@@ -24,6 +28,7 @@
 #include <vector>
 
 #include <nlohmann/json_fwd.hpp>
+#include <pugixml.hpp>
 
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
@@ -32,6 +37,8 @@
 #include "QtRocket/util/Error.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenDesign.h"
+#include "goldens/GoldenSettings.h"
 
 namespace QtRocket::Test
 {
@@ -62,6 +69,13 @@ using PreparePreferences = void (*)(Preferences& preferences);
 /// changes the preference store of the environment first (OpenRocket's test preferences).
 [[nodiscard]] Result<LoadedResave> loadResave(const GoldenInput& input,
                                               PreparePreferences prepare = nullptr);
+
+/// Loads the design @p bytes hold, the contents of a design file (QtRocket's archive of a loaded
+/// re-save, say), from memory and without a directory (GeneralRocketLoader::load(bytes)), as
+/// loadResave() loads a re-save: against the seven motors of TestRockets, in an environment of
+/// its own, with @p prepare.
+[[nodiscard]] Result<LoadedResave> loadTestRocketBytes(std::vector<std::byte> bytes,
+                                                       PreparePreferences     prepare = nullptr);
 
 /// The inputs of the manifest that are rockets of TestRockets.java, in its order; the reason
 /// in @p problem when the manifest cannot be read.
@@ -197,6 +211,95 @@ inline constexpr std::array<ReloadChange, 14> kReloadChanges{{
      .reloaded        = 0.045,
      .beyondTolerance = true},
 }};
+
+// ==================================================== the comparison of a loaded test rocket
+
+/// What changeToTheReload() changed.
+struct ReloadChanges
+{
+    int         values{0};  ///< the values replaced
+    std::string problems;   ///< a value that is not in the document as kReloadChanges has it
+};
+
+/// Makes of @p geometry, the committed geometry.json of the input @p input, the document that
+/// OpenRocket's harness writes for its own reload of the re-save: the values of kReloadChanges.
+/// Adds what it changed to @p changes; a value that the committed document does not hold as
+/// the table says is a problem, and is left as it is.
+void changeToTheReload(std::string_view input, nlohmann::json& geometry, ReloadChanges& changes);
+
+/// A re-save loaded and compared with the goldens of its input: what the files hold, and what
+/// the comparisons compared and found.
+struct ResaveRun
+{
+    std::string        problem;            ///< why there is no comparison, else ""
+    int                loadWarnings{0};    ///< the warnings of the load
+    int                settlingPasses{0};  ///< the passes that settled something
+    DesignCounts       golden;             ///< what geometry.json, mass.json and aero.json hold
+    DesignComparison   design;             ///< the comparison with them
+    SettingsCounts     saved;              ///< the settings elements of the re-save
+    SettingsComparison settings;           ///< the comparison with them
+};
+
+/// Settles the design of @p resave, a re-saved test rocket as loaded (from its re-save, or
+/// from a save of that), and compares it with the design documents @p goldens and with the
+/// settings elements of @p file, the re-save of its input (compareLoadedDesign() of
+/// GoldenDesign.h, compareSavedSettings() of GoldenSettings.h).
+[[nodiscard]] ResaveRun compareLoadedResave(const LoadedResave&       resave,
+                                            const DesignGoldens&      goldens,
+                                            const pugi::xml_document& file);
+
+/// What comparing the thirteen re-saves with the goldens gave.
+struct ComparedResaves
+{
+    int            inputs{0};          ///< the "testrocket" inputs of the manifest
+    ReloadChanges  changes;            ///< what the documents of OpenRocket's reload differ in
+    int            loadWarnings{0};    ///< the warnings of the thirteen loads
+    int            settlingPasses{0};  ///< the settling passes that changed something
+    DesignCounts   golden;             ///< what the design documents hold
+    DesignCounts   compared;           ///< what was compared
+    SettingsCounts saved;              ///< the settings elements of the re-saves
+    SettingsCounts settings;           ///< those that were compared
+    /// By input: why there is no comparison, the mismatches, and what was not compared in full.
+    /// Empty when every reloaded design is the rocket of its goldens.
+    std::string problems;
+};
+
+/// Adds the comparison @p run of the input @p name to @p compared.
+void addResaveRun(ComparedResaves& compared, std::string_view name, const ResaveRun& run);
+
+/// What the design documents of the thirteen test rockets hold together (the Python survey of
+/// the probes of tier 9d, part "resaves": out/survey.txt). The 151 components and the 47
+/// configurations are those TestRocketsGoldenCoverage pins for the rockets of the makers, and
+/// the aerodynamics those of AeroGoldenCoverage.
+[[nodiscard]] DesignCounts designCountsOfTheTestRockets();
+
+/// The settings elements of the thirteen re-saves, as TestRocketsGoldenSettings pins them for
+/// the rockets of the makers. No test rocket is made from a component preset.
+[[nodiscard]] SettingsCounts settingsCountsOfTheTestRockets();
+
+/// What the simulations of the re-saves are, and what comparing them with the golden simulation
+/// documents gave.
+struct ComparedSimulations
+{
+    int inputs{0};
+    int simulations{0};    ///< the simulations of the loaded documents
+    int notSimulated{0};   ///< those whose status is NOT_SIMULATED
+    int cannotRun{0};      ///< those whose status is CANT_RUN
+    int withoutMotors{0};  ///< those whose flight configuration has no motor, by geometry.json
+    int intoTheWind{0};    ///< those that launch into the wind
+    int optionValues{0};   ///< the values of the golden options that were compared
+    int rodDirections{0};  ///< the stored launch rod directions compared with those of the files
+    /// By simulation: what differs from its golden document. Empty when every simulation is
+    /// the one the harness saved.
+    std::string problems;
+};
+
+/// Compares the simulations of the document of @p resave, as loaded, with the simulation
+/// documents the manifest lists for @p input, in their order (that of the harness's document,
+/// and of @p file, the re-save itself).
+void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
+                        const LoadedResave& resave, const nlohmann::json& geometry,
+                        const pugi::xml_document& file);
 
 // =============================================================================== the options
 

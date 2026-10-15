@@ -8,6 +8,7 @@
 #include <expected>
 #include <format>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +17,7 @@
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <pugixml.hpp>
 
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
@@ -25,13 +27,19 @@
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
+#include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
+#include "goldens/AutomaticDimensions.h"
 #include "goldens/GoldenData.h"
+#include "goldens/GoldenDesign.h"
+#include "goldens/GoldenSettings.h"
 #include "rocket/TestRockets.h"
 
 namespace QtRocket::Test
@@ -146,6 +154,136 @@ constexpr std::string_view kLaunchRodDirection = "/launchRodDirection";
                kComputedDirectionRelative * std::abs(golden);
     }
     return expected == actual;
+}
+
+// ==================================================== the comparison of a loaded test rocket
+
+/// The entry of the component at @p path in the document @p geometry, for changing it; null
+/// when the document has none.
+[[nodiscard]] json* componentEntry(json& geometry, std::string_view path)
+{
+    for (json& component : geometry.at("components"))
+    {
+        if (component.at("path").get<std::string>() == path)
+        {
+            return &component;
+        }
+    }
+    return nullptr;
+}
+
+/// The <conditions> of the simulations of the re-save @p file, in the order of the file (an
+/// empty node for a simulation without one).
+[[nodiscard]] std::vector<pugi::xml_node> savedConditions(const pugi::xml_document& file)
+{
+    std::vector<pugi::xml_node> conditions;
+    for (const pugi::xml_node simulation :
+         file.child("openrocket").child("simulations").children("simulation"))
+    {
+        conditions.push_back(simulation.child("conditions"));
+    }
+    return conditions;
+}
+
+/// Compares the direction that @p options store for the launch rod with the
+/// <launchroddirection> of @p conditions, the element of their simulation in the file. Options
+/// that launch into the wind give the direction of the wind in its place, and so do the golden
+/// options, so the stored one is asked of a copy that does not launch into the wind. The file
+/// has degrees, and the loader stores d * 2 pi / 360 reduced to one turn
+/// (SimulationConditionsHandler and SimulationOptions::setLaunchRodDirection(), as
+/// OpenRocket's): the same operations here, so exactly that double. Returns the number of
+/// directions compared, 1, or 0 when the file has none; a mismatch is a line in @p report.
+[[nodiscard]] int compareStoredRodDirection(std::string& report, const pugi::xml_node& conditions,
+                                            const SimulationOptions& options)
+{
+    const std::optional<double> degrees =
+        QtRocket::Strings::javaParseDouble(conditions.child_value("launchroddirection"));
+    if (!degrees)
+    {
+        report += "  <launchroddirection>: not in the file, or no number\n";
+        return 0;
+    }
+    SimulationOptions notIntoTheWind(options);
+    notIntoTheWind.setLaunchIntoWind(false);
+    const double expected = QtRocket::MathUtil::reduce2Pi(*degrees * 2.0 * std::numbers::pi / 360);
+    const double stored   = notIntoTheWind.getLaunchRodDirection();
+    if (stored != expected)
+    {
+        report += std::format("  <launchroddirection>: expected {}, got {}\n", expected, stored);
+    }
+    return 1;
+}
+
+/// The status OpenRocket's reload gives a simulation of a re-save: none has flight data, so it
+/// cannot be run when its flight configuration has no motor, and is not simulated yet otherwise.
+[[nodiscard]] Simulation::Status statusAfterTheLoad(bool hasMotors)
+{
+    return hasMotors ? Simulation::Status::NOT_SIMULATED : Simulation::Status::CANT_RUN;
+}
+
+/// Whether the flight configuration the golden simulation document @p golden names (by its
+/// index among the configurations of @p geometry, with its id) has a motor; @p problem says
+/// why when the two documents do not agree on the configuration.
+[[nodiscard]] bool goldenConfigurationHasMotors(const json& golden, const json& geometry,
+                                                std::string& problem)
+{
+    const json&       named          = golden.at("flightConfiguration");
+    const json&       configurations = geometry.at("configurations");
+    const std::size_t index          = named.at("index").get<std::size_t>();
+    if (index >= configurations.size() || configurations.at(index).at("id") != named.at("id"))
+    {
+        problem += "  flightConfiguration: not a configuration of geometry.json\n";
+        return false;
+    }
+    return configurations.at(index).at("hasMotors").get<bool>();
+}
+
+/// Compares the loaded @p simulation with its golden document @p golden: the name, the flight
+/// configuration, the status after the load, no extension and no flight data, and the options;
+/// and the stored direction of the launch rod with @p conditions, the <conditions> of the
+/// simulation in the file. Adds what it found to @p compared, under @p what.
+void compareSimulation(ComparedSimulations& compared, const std::string& what, const json& golden,
+                       const json& geometry, Simulation& simulation,
+                       const pugi::xml_node& conditions)
+{
+    std::string       report;
+    const bool        hasMotors = goldenConfigurationHasMotors(golden, geometry, report);
+    const auto        status    = simulation.getStatus();
+    const std::string id        = simulation.getFlightConfigurationId().toString();
+    compared.simulations++;
+    compared.withoutMotors += hasMotors ? 0 : 1;
+    compared.notSimulated += status == Simulation::Status::NOT_SIMULATED ? 1 : 0;
+    compared.cannotRun += status == Simulation::Status::CANT_RUN ? 1 : 0;
+    if (simulation.getName() != golden.at("name").get<std::string>())
+    {
+        report += std::format("  name: expected {}, got \"{}\"\n", golden.at("name").dump(),
+                              simulation.getName());
+    }
+    if (id != golden.at("flightConfiguration").at("id").get<std::string>())
+    {
+        report += std::format("  flightConfiguration.id: expected {}, got \"{}\"\n",
+                              golden.at("flightConfiguration").at("id").dump(), id);
+    }
+    if (status != statusAfterTheLoad(hasMotors))
+    {
+        report += std::format("  status: expected {}, got {}\n",
+                              name(statusAfterTheLoad(hasMotors)), name(status));
+    }
+    if (simulation.getSimulationExtensions().size() != golden.at("extensions").size() ||
+        simulation.hasSimulationData())
+    {
+        report += "  extensions or flight data: the file has neither\n";
+    }
+    const OptionsComparison options = compareOptions(golden.at("options"), simulation.getOptions());
+    compared.optionValues += options.values;
+    report += options.report;
+    compared.intoTheWind += simulation.getOptions().getLaunchIntoWind() ? 1 : 0;
+    compared.rodDirections +=
+        compareStoredRodDirection(report, conditions, simulation.getOptions());
+    if (!report.empty())
+    {
+        compared.problems += std::format("{}:\n{}", what, report);
+    }
 }
 
 // ===================================================================== the text of a re-save
@@ -286,6 +424,32 @@ void compareTheEnds(std::string_view ours, std::string_view theirs, OrkTextCompa
     }
 }
 
+// ================================================================================= the loads
+
+/// A new environment for a load of a test rocket: the seven motors of TestRockets, no component
+/// presets, and OpenRocket's test preferences, which @p prepare changes first when it is given.
+[[nodiscard]] std::unique_ptr<DesignFileEnvironment> testRocketEnvironment(
+    PreparePreferences prepare)
+{
+    auto environment = std::make_unique<DesignFileEnvironment>(Presets::NONE, testRocketMotors());
+    if (prepare != nullptr)
+    {
+        prepare(environment->preferences());
+    }
+    return environment;
+}
+
+/// @p loaded, a load with a loader of @p environment, with that environment; or its Error.
+[[nodiscard]] Result<LoadedResave> asLoadedResave(
+    std::unique_ptr<DesignFileEnvironment> environment, Result<LoadedDocument> loaded)
+{
+    if (!loaded)
+    {
+        return std::unexpected(loaded.error());
+    }
+    return LoadedResave{.environment = std::move(environment), .loaded = std::move(*loaded)};
+}
+
 }  // namespace
 
 std::vector<std::string_view> lineViewsOf(std::string_view text)
@@ -348,18 +512,18 @@ const ThrustCurveMotorSetDatabase& testRocketMotors()
 /// changes the preference store of the environment first (OpenRocket's test preferences).
 Result<LoadedResave> loadResave(const GoldenInput& input, PreparePreferences prepare)
 {
-    auto environment = std::make_unique<DesignFileEnvironment>(Presets::NONE, testRocketMotors());
-    if (prepare != nullptr)
-    {
-        prepare(environment->preferences());
-    }
-    const GeneralRocketLoader loader(environment->context());
-    Result<LoadedDocument>    loaded = loader.load(QtRocket::Test::goldensDir() / input.resave);
-    if (!loaded)
-    {
-        return std::unexpected(loaded.error());
-    }
-    return LoadedResave{.environment = std::move(environment), .loaded = std::move(*loaded)};
+    std::unique_ptr<DesignFileEnvironment> environment = testRocketEnvironment(prepare);
+    const GeneralRocketLoader              loader(environment->context());
+    Result<LoadedDocument> loaded = loader.load(QtRocket::Test::goldensDir() / input.resave);
+    return asLoadedResave(std::move(environment), std::move(loaded));
+}
+
+Result<LoadedResave> loadTestRocketBytes(std::vector<std::byte> bytes, PreparePreferences prepare)
+{
+    std::unique_ptr<DesignFileEnvironment> environment = testRocketEnvironment(prepare);
+    const GeneralRocketLoader              loader(environment->context());
+    Result<LoadedDocument>                 loaded = loader.load(std::move(bytes));
+    return asLoadedResave(std::move(environment), std::move(loaded));
 }
 
 /// The inputs of the manifest that are rockets of TestRockets.java, in its order; the reason
@@ -417,6 +581,134 @@ OptionsComparison compareOptions(const json& expected, const SimulationOptions& 
         }
     }
     return result;
+}
+
+// ==================================================== the comparison of a loaded test rocket
+
+void changeToTheReload(std::string_view input, json& geometry, ReloadChanges& changes)
+{
+    for (const ReloadChange& change : kReloadChanges)
+    {
+        if (change.input != input)
+        {
+            continue;
+        }
+        json* const              component = componentEntry(geometry, change.path);
+        const json::json_pointer pointer{std::string{change.value}};
+        if (component == nullptr || !component->contains(pointer) ||
+            !component->at(pointer).is_number() ||
+            component->at(pointer).get<double>() != change.built)
+        {
+            changes.problems += std::format("{} {} {}: the golden value is not {}\n", input,
+                                            change.path, change.value, change.built);
+            continue;
+        }
+        component->at(pointer) = change.reloaded;
+        changes.values++;
+    }
+}
+
+ResaveRun compareLoadedResave(const LoadedResave& resave, const DesignGoldens& goldens,
+                              const pugi::xml_document& file)
+{
+    ResaveRun run;
+    run.golden                 = goldenCounts(goldens);
+    Rocket& rocket             = resave.loaded.document->getRocket();
+    run.loadWarnings           = static_cast<int>(resave.loaded.warnings.size());
+    const Result<int> settling = settleAutomaticDimensions(rocket);
+    if (!settling)
+    {
+        run.problem = settling.error().toString();
+        return run;
+    }
+    run.settlingPasses = *settling;
+    run.design         = compareLoadedDesign(rocket, resave.loaded.warnings, goldens,
+                                             resave.environment->preferences());
+    run.saved          = savedSettingsCounts(file);
+    run.settings       = compareSavedSettings(rocket, goldens.geometry, file);
+    return run;
+}
+
+void addResaveRun(ComparedResaves& compared, std::string_view name, const ResaveRun& run)
+{
+    compared.loadWarnings += run.loadWarnings;
+    compared.settlingPasses += run.settlingPasses;
+    compared.golden += run.golden;
+    compared.compared += run.design.compared;
+    compared.saved += run.saved;
+    compared.settings += run.settings.compared;
+    if (!run.problem.empty() || !run.design.report.empty() || !run.settings.report.empty())
+    {
+        compared.problems +=
+            std::format("{}: {}\n{}{}", name, run.problem, run.design.report, run.settings.report);
+    }
+    if (run.design.compared != run.golden)
+    {
+        compared.problems += std::format("{}: compared {}; the files hold {}\n", name,
+                                         toText(run.design.compared), toText(run.golden));
+    }
+    if (run.settings.compared != run.saved)
+    {
+        compared.problems += std::format("{}: compared {}; the re-save holds {}\n", name,
+                                         toText(run.settings.compared), toText(run.saved));
+    }
+}
+
+DesignCounts designCountsOfTheTestRockets()
+{
+    return DesignCounts{.components         = 151,
+                        .ids                = 151,
+                        .details            = 2323,
+                        .configurations     = 47,
+                        .motors             = 48,
+                        .instanceEntries    = 571,
+                        .instances          = 831,
+                        .loadWarnings       = 0,
+                        .massConfigurations = 47,
+                        .aero               = {.configurations = 47,
+                                               .points         = 1175,
+                                               .components     = 9400,
+                                               .worstCPs       = 329,
+                                               .warnings       = 294}};
+}
+
+SettingsCounts settingsCountsOfTheTestRockets()
+{
+    return SettingsCounts{.deployEvents             = 9,
+                          .deploymentConfigurations = 0,
+                          .separationEvents         = 8,
+                          .separationConfigurations = 1,
+                          .motorMounts              = 16,
+                          .motors                   = 48,
+                          .ignitionConfigurations   = 48,
+                          .presets                  = 0};
+}
+
+void compareSimulations(ComparedSimulations& compared, const GoldenInput& input,
+                        const LoadedResave& resave, const json& geometry,
+                        const pugi::xml_document& file)
+{
+    const std::vector<std::shared_ptr<Simulation>> simulations =
+        resave.loaded.document->getSimulations();
+    const std::vector<pugi::xml_node> conditions = savedConditions(file);
+    if (simulations.size() != input.simulations.size() || conditions.size() != simulations.size())
+    {
+        compared.problems += std::format(
+            "{}: {} simulations, the manifest lists {} and the file has {}\n", input.name,
+            simulations.size(), input.simulations.size(), conditions.size());
+        return;
+    }
+    for (std::size_t i = 0; i < simulations.size(); i++)
+    {
+        const std::string  what   = std::format("{} simulation {}", input.name, i);
+        const Result<json> golden = loadGoldenJson(input.simulations.at(i).json);
+        if (!golden)
+        {
+            compared.problems += std::format("{}: {}\n", what, golden.error().toString());
+            continue;
+        }
+        compareSimulation(compared, what, *golden, geometry, *simulations.at(i), conditions.at(i));
+    }
 }
 
 // ===================================================================== the text of a re-save
