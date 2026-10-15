@@ -359,8 +359,10 @@ add_executable(QtRocket_core_tests
     file/ZipFileAttachmentFactoryTests.cpp
     file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
+    cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
+    cli/CliRunSupport.cpp
     cli/CliTests.cpp
     cli/DataDirectoryTests.cpp
     cli/InfoCommandTests.cpp
@@ -418,3 +420,6 @@ include(GoogleTest)
 gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*")
 gtest_discover_tests(QtRocket_core_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
     PROPERTIES LABELS golden)
+
+# QtRocket_cli run as a program, for its exit codes and its output (tests/core/cli/CMakeLists.txt).
+add_subdirectory(cli)
