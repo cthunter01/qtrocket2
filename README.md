@@ -22,10 +22,10 @@ OpenRocket's unit tests. The graphical user interface (Qt 6) comes in Milestone 
 - Optional: clang-tidy, clang-format, llvm-cov/llvm-profdata (coverage), Doxygen (docs), ccache.
   On macOS, clang-tidy comes from Homebrew (`brew install llvm`). Coverage uses Xcode's llvm-cov.
 
-The libraries are taken from the system when installed, otherwise downloaded and built at configure time
-(`cmake/Dependencies.cmake`): pugixml (XML), minizip-ng with zlib (zip and gzip), SQLite (the motor database) and
-fast_float (number parsing); GoogleTest and nlohmann_json for the tests only. The release archives always build
-them from source.
+The libraries are taken from the system when installed, otherwise downloaded at configure time and built with the
+project (`cmake/Dependencies.cmake`): pugixml (XML), minizip-ng with zlib (zip and gzip), SQLite (the motor
+database) and fast_float (number parsing); GoogleTest and nlohmann_json for the tests only. The release archives
+always build them from source.
 
 ## Build
 Linux and macOS:
@@ -171,13 +171,15 @@ ctest --preset clang-debug -LE golden      # everything but the golden compariso
 build/clang-debug/bin/QtRocket_core_tests --gtest_filter='BodyTube.*'
 ```
 
-A test whose suite name contains `Golden` (the files `*_golden_tests.cpp`) gets the label `golden`. Re-run them after
-any change to the aerodynamics, mass, simulation, component geometry or file code.
+A GoogleTest suite whose name contains `Golden` gets the label `golden`, whatever its file; the comparisons are
+mostly in `*_golden_tests.cpp`, and the CLI's milestone run (`cli.milestone`) carries the label too. Re-run them
+after any change to the aerodynamics, mass, simulation, component geometry or file code.
 
 ### Golden data
 `tests/data/goldens/` holds what OpenRocket computes for its 16 example designs and the 13 rockets of its
 `TestRockets` class: geometry, mass and aerodynamics per flight configuration, the complete simulations at the
-designs' own time step and at a stable 0.01 s step, and OpenRocket's own re-save of each design. The Java harness in
+designs' own time step, the simulations at a stable 0.01 s step (complete for the test rockets; the summaries and
+events for the examples), and OpenRocket's own re-save of each design. The Java harness in
 `tools/openrocket-goldens/` writes it from a local OpenRocket checkout; CMake and CI never need Java. To regenerate
 (JDK 17 and an OpenRocket checkout at the commit `tests/data/goldens/manifest.json` records):
 
@@ -218,5 +220,5 @@ before it runs, and Windows SmartScreen warns the first time.
 QtRocket is free software under the GNU General Public License, version 3 or (at your option) any later version:
 see [LICENSE](LICENSE). It is a re-implementation of OpenRocket, Copyright (C) 2007-2025 Sampo Niskanen and
 others, also licensed under the GPL version 3 or later; the motor database, the example designs and the test
-designs are OpenRocket's. [NOTICE](NOTICE) gives the details and the notices of the third-party libraries that
-the program contains.
+designs are OpenRocket's. [NOTICE](NOTICE) gives the details, the code translated from OpenJDK and the notices of
+the third-party libraries that the program contains.

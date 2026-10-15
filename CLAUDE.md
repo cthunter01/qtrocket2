@@ -21,16 +21,14 @@ presets + Ninja, tested with GoogleTest. Cross-platform: Linux (GCC, Clang), mac
 - On Windows the presets are `msvc-debug` (workflow `dev-msvc`), `msvc-release` and `ci-msvc`, and cmake must run
   in a Developer PowerShell for VS. `tidy`, `asan`, `tsan` and `coverage` exist on Linux and macOS only
 - Formatting is automatic: a Claude Code hook (`.claude/hooks/format-cpp.sh`) runs clang-format on every C/C++
-  file right after you edit it. A file written another way (a shell heredoc) needs `clang-format -i`. The
-  pre-commit hook (`.githooks/pre-commit`, enabled by `git config core.hooksPath .githooks`) and CI also reject
-  unformatted files
+  file right after you edit it; a file written another way (a shell heredoc) needs `clang-format -i`. The pre-commit
+  hook (`.githooks/pre-commit`, enabled by `git config core.hooksPath .githooks`) and CI reject unformatted files
 - API docs (Doxygen): `cmake --build --preset clang-debug --target docs`, then `build/clang-debug/docs/html/`
 
 Other presets: `clang-release`, `gcc-debug`, `gcc-release`, `tsan`, `coverage`, `ci-gcc`, `ci-clang`, and
-`dist-linux`, `dist-macos`, `dist-windows` (release archives, in `build/dist-<os>/package/`).
-Each builds into `build/<preset>/`; never edit anything under `build/`. A preset is only available on the
-platforms it supports (`gcc-*`: Linux; `clang-*`: Linux and macOS; `msvc-*`: Windows); `cmake --list-presets`
-shows this machine's.
+`dist-linux`, `dist-macos`, `dist-windows` (release archives, in `build/dist-<os>/package/`). Each builds into
+`build/<preset>/`; never edit anything under `build/`. A preset is only available on the platforms it supports
+(`gcc-*`: Linux; `clang-*`: Linux and macOS; `msvc-*`: Windows); `cmake --list-presets` shows this machine's.
 
 Releases: the `Release` GitHub workflow (`.github/workflows/release.yml`) runs only when started by hand. It tags
 `v<project VERSION>` and publishes the `dist-*` archives, so the version is raised in `project()` in
@@ -49,17 +47,20 @@ holds what the `install()` rules install: `bin/QtRocket_cli`, `share/QtRocket/` 
 - `tests/core/<subsystem>/`: GoogleTest files, all in `QtRocket_core_tests` (`tests/core/CMakeLists.txt`);
   `tests/core/goldens/` compares with OpenRocket's golden data; `tests/core/cli/` also runs the executable through
   `RunCli.cmake` (`tests/core/cli/CMakeLists.txt`)
-- Test support to reuse, never duplicate: `tests/core/TestPaths.h`, `tests/core/TestTempDir.h`,
-  `tests/core/rocket/TestRockets.h` (OpenRocket's TestRockets), `tests/core/motor/TestMotorDatabase.h`,
-  `tests/core/file/DesignFileEnvironment.h`, `tests/core/goldens/Golden*.h`, `tests/core/cli/CliRunSupport.h`
+- Test support to reuse, never duplicate (`find tests/core -name '*.h'` lists it all): `tests/core/TestPaths.h`,
+  `tests/core/TestTempDir.h`, `tests/core/unit/DefaultUnitsGuard.h`, `tests/core/rocket/TestRockets.h`
+  (OpenRocket's TestRockets), `tests/core/motor/TestMotorDatabase.h`, `tests/core/simulation/FlightDifferences.h`,
+  `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h` and `RecordedOrkFiles.h` in
+  `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h`, `tests/core/cli/CliRunSupport.h`, and the
+  `*Support.h` and `*Pins.h` headers beside each subsystem's tests
 - `tests/data/`: test fixtures (`ork/`, `motors/`, `csv/`, `cli/`, ...) and `goldens/`, OpenRocket's results for
   the 16 examples and the 13 test rockets (generated; never edited by hand)
 - `data/`: the shipped data, installed to `share/QtRocket/`: `motors/initial_motors.db` (OpenRocket's motor
   database) and `examples/*.ork` (OpenRocket's 16 example designs)
 - `tools/openrocket-goldens/`: the Java harness that writes `tests/data/goldens/` (its README says how); never built
   by CMake or CI
-- `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy)
-- `cmake/Dependencies.cmake`: third-party libraries via FetchContent (pugixml, minizip-ng with zlib, SQLite,
+- `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy);
+  `cmake/Dependencies.cmake`: third-party libraries via FetchContent (pugixml, minizip-ng with zlib, SQLite,
   fast_float; GoogleTest and nlohmann_json for the tests only)
 
 ## Layers
@@ -88,12 +89,17 @@ The comment in `src/CMakeLists.txt` explains where this order differs from OpenR
   (`simulation/exception/`) is the only exception that crosses the simulation loop
 - No owning raw pointers and no raw `new`/`delete`: the component tree owns its children with `std::unique_ptr`;
   observers hold raw pointers
+- Threads: a `Rocket`, `OpenRocketDocument` or `Simulation` belongs to one thread. A simulation runs on another
+  thread only as a `Simulation::duplicateForIndependentSimulation()` (made on the owning thread; it owns its copy
+  of the rocket) and hands its `FlightData` back by value; a loaded motor database is immutable and shared. After
+  a change to `simulation/` or to the rocket's copies, also run `cmake --workflow --preset tsan`
 - Port OpenRocket faithfully: read the Java source line by line, never work from memory. A ported JUnit test keeps
   its expectations and tolerances and names its Java original in a comment (`Port of ...`); never loosen or drop an
   assertion to make a test pass. A deliberate difference from OpenRocket is documented where it is made
-- Golden tests: their suite names contain `Golden` (files `*_golden_tests.cpp`), which gives them the ctest label
-  `golden`. Re-run `ctest --preset clang-debug -L golden` after any change to `aero/`, `mass/`, `simulation/`,
-  the geometry of `rocket/`, or `file/`. Golden data and generated test tables change only through their generators
+- Golden tests: a GoogleTest suite whose name contains `Golden` gets the ctest label `golden`, whatever its file
+  (the comparisons are mostly in `*_golden_tests.cpp`; the CLI's milestone run `cli.milestone` carries it too).
+  Re-run `ctest --preset clang-debug -L golden` after any change to `aero/`, `mass/`, `simulation/`, the geometry
+  of `rocket/`, or `file/`. Golden data and generated test tables change only through their generators
 - Tests are deterministic and leave no process-wide state behind (default units, the flight data type registry,
   shared preferences, the current directory). An optional measurement or a tool run by hand is a `DISABLED_` test
 - GUI (from Milestone 2): every user-visible string goes through `tr()`; layouts are built in code (no `.ui`
@@ -102,25 +108,25 @@ The comment in `src/CMakeLists.txt` explains where this order differs from OpenR
 
 ## clang-tidy
 The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
-- Naming: types `CamelCase`; functions, methods and variables `camelBack`; private and protected members `m_`;
-  constexpr, static and global constants `kCamelCase`; enum constants `UPPER_CASE`
+- Naming: types, namespaces and template parameters `CamelCase`; functions, methods and variables `camelBack`;
+  private and protected members `m_`; mutable globals `g_`, mutable statics and static members `s_`; constexpr,
+  static and global constants `kCamelCase` (a local non-`constexpr` `const`: `camelBack`); enum constants and
+  macros `UPPER_CASE`
 - Every getter and pure function is `[[nodiscard]]`; single-argument constructors are `explicit`
-- No pointer arithmetic, `reinterpret_cast` or `const_cast` (`std::bit_cast` for the bits of a double)
-- Include exactly the headers whose symbols you use (misc-include-cleaner)
-- `std::format`/`std::print`, never printf or iostream formatting
-- A suppression is `// NOLINTNEXTLINE(check-name)` on a line of its own with the reason on the line above, never a
-  trailing `NOLINT`
+- No pointer arithmetic, `reinterpret_cast` or `const_cast` (`std::bit_cast` for the bits of a double); include
+  exactly the headers whose symbols you use (misc-include-cleaner); `std::format`/`std::print`, never printf or
+  iostream formatting; no `std::getenv` in a test (concurrency-mt-unsafe)
+- A suppression is `// NOLINTNEXTLINE(check-name): reason` on a line of its own, or for a whole table a
+  `// NOLINTBEGIN(check-name): reason` ... `// NOLINTEND(check-name)` block; never a trailing `NOLINT`
 - Split long functions into helpers (readability-function-cognitive-complexity). A `TEST` body made only of gtest
   macros is not counted, but a loop, branch or lambda in it brings the full count, about 4 per macro
-- No `std::getenv` in a test (concurrency-mt-unsafe)
 
 ## Portability
 Code must build warning-free and pass its tests on Linux, macOS and Windows (the `ci-*`, `tidy` and `dist-*` presets
 build with `-Werror` under GCC and Clang, `/W4 /WX /utf-8` under MSVC). CI builds all three; locally only Linux is
-built. Use the standard library
-(`<filesystem>`, `<thread>`, `<chrono>`) over POSIX or Win32 APIs; when an OS API is unavoidable, keep it in one
-source file behind an `#ifdef _WIN32` / `__APPLE__` / `__linux__` split, with a branch for each platform (as
-`src/cli/DataDirectory.cpp` does). Traps CI has caught:
+built. Use the standard library (`<filesystem>`, `<thread>`, `<chrono>`) over POSIX or Win32 APIs; when an OS API
+is unavoidable, keep it in one source file behind an `#ifdef _WIN32` / `__APPLE__` / `__linux__` split, with a
+branch for each platform (as `src/cli/DataDirectory.cpp` does). Traps CI has caught:
 - MSVC: the iterators of `std::array`, `std::vector` and `std::string_view` are classes, so never `auto*` for
   `begin()`/`end()` or an algorithm's result; no implicit narrowing (C4244/C4267); a constant condition is C4127;
   no local named `near`, `far` or `free`; a non-ASCII character in a string literal is written as an escape; node
@@ -143,9 +149,8 @@ source file behind an `#ifdef _WIN32` / `__APPLE__` / `__linux__` split, with a 
   summary value of a fresh flight (stored flight data round-trips exactly)
 
 ## OpenRocket and the plan
-- OpenRocket's source is the reference for every port: a read-only checkout in `openrocket` beside the main
-  QtRocket checkout (`/home/travis/Development/openrocket`; `tests/data/goldens/manifest.json` names the commit of
-  the goldens). Never modify it. Java values that no JUnit test pins come from a small Java program run against its
-  compiled core (`core/build/classes/java/main`, JDK 17)
+- OpenRocket's source, the reference for every port, is a read-only checkout beside the main QtRocket checkout
+  (`/home/travis/Development/openrocket`; `tests/data/goldens/manifest.json` names the goldens' commit); never
+  modify it. Java values no JUnit test pins come from a small Java program run against its compiled core
+  (`core/build/classes/java/main`, JDK 17)
 - The roadmap (Milestones 1 to 9) and its decisions: `~/.claude/plans/create-a-plan-to-inherited-torvalds.md`
-  (outside the repository)
