@@ -385,7 +385,8 @@ public:
     /// getGasConstant()), and when the saturation pressure at the temperature, times the
     /// humidity, is more than the pressure there is, the density comes out negative (half
     /// saturated air of 288.15 K at 300 Pa; any humid air of 400 K at sea level pressure), and
-    /// the flight ended in the BugError of a NaN. So, after the three single ranges, the
+    /// the flight ends in the error of a NaN (a BugError until decision D3, now the ordinary
+    /// error of AbstractSimulationStepper::checkNaN()). So, after the three single ranges, the
     /// atmospheric model the run will read (SimulationOptions::getAtmosphericModel()) is asked
     /// for its conditions at the launch altitude, and a density there that is not finite or
     /// not above 0 fails with "Cannot simulate: the launch temperature (288.15 K), the launch
@@ -397,8 +398,10 @@ public:
     /// conditions is not this check's business: that is toSimulationConditions()'s error, as
     /// before. Only the launch site is asked. Higher up the same model can have a negative
     /// density also over an ordinary humid site (half saturated air of 288.15 K at sea level
-    /// has one from 50 km to 52 km: the humidity is carried up unchanged, as in OpenRocket),
-    /// and a flight that gets there (an air start at 50 km) ends in that BugError still.
+    /// has one from about 48.5 km to 55.5 km: the humidity is carried up unchanged, as in
+    /// OpenRocket), and a flight that gets there (an air start at 50 km) ends in the error of a
+    /// NaN still, ErrorCode::SIMULATION_ABORTED with "Simulation resulted in not-a-number (NaN)
+    /// value for params.a, c=(NaN,NaN,NaN)".
     ///
     /// What the ranges keep out, each of which OpenRocket takes:
     /// - a wind of 1e300 m/s, which overflows on the way and ended in a BugError;
@@ -416,7 +419,9 @@ public:
     ///   whenever a limit binds, so the rows of a run grow with 1 / time step, and with a time
     ///   step of 0 the step is 0 and the run does not end (see SimulationInputRanges::
     ///   kTimeStep for the measurements). The range ends at 0.1 ms;
-    /// - a lookup table with a cell of 1e300, which ended in the BugError of a NaN.
+    /// - a lookup table with a cell of 1e300, which ended in the BugError of a NaN (since
+    ///   decision D3 the NaN would be an ordinary error of the flight, but the range refuses
+    ///   the table before anything runs).
     ///
     /// What the ranges do not keep out is a run that is long: a flight that never lands (a
     /// constant gravity of 0) is simulated until the maximum simulation time. The engine ends
@@ -451,7 +456,11 @@ public:
     ///   simulation, an extension that cannot run, a listener's exception, a calculation that
     ///   went wrong, and, which is not OpenRocket's, a flight data branch that would get more
     ///   than SimulationInputRanges::kMaxBranchRows rows:
-    ///   BasicEventSimulationEngine::tooManyRows()), with the exception's message;
+    ///   BasicEventSimulationEngine::tooManyRows(), and a flight whose numbers became NaN or
+    ///   whose position became a NaN location: AbstractSimulationStepper::checkNaN() and
+    ///   addRocketPosition(), where Java throws a BugException, and checkFinite() of the
+    ///   nozzle exit areas, where Java throws an IllegalArgumentException, decision D3), with
+    ///   the exception's message;
     /// - toSimulationConditions()'s Error when the atmospheric model refuses the launch
     ///   conditions (Java: an IllegalArgumentException that leaves simulate());
     /// - ErrorCode::INVALID_ARGUMENT when an input is not finite or outside its range, with
@@ -467,15 +476,21 @@ public:
     /// middle of the flight, or as a run that does not end. A BugError means a defect of the
     /// program, and these values come from outside it, so simulate() refuses them before
     /// anything runs (see validateInputs() for the list and SimulationInputRanges for the
-    /// ranges). The .ork reader does its part earlier: it does not apply a NaN, an infinity or
-    /// a number outside its range that a file holds for a simulation option or for a delay or
-    /// altitude of the design (it adds a warning, and the value stays what it was), so that a
-    /// loaded simulation passes the validation unless the preference store its options start
-    /// from holds such a value; the plugged ejection delay ("none" in a file) is a value like
-    /// any other there. A number of an extension's configuration is taken as the file has it,
-    /// and the validation refuses it when it is outside the range the extension gives it; it
-    /// cannot be a NaN in a file read as OpenRocket reads it (the grammar of a "number" entry
-    /// is BigDecimal's), and can be an infinity only as an integer too large for a double.
+    /// ranges). What the ranges do not cover, the dimensions of a design (no setter has a
+    /// range) and the air the atmospheric model gives aloft, can still make the numbers of a
+    /// flight NaN; that ends the flight with the ordinary error ErrorCode::SIMULATION_ABORTED
+    /// "Simulation resulted in not-a-number (NaN) value for <what>..." (decision D3; a nose cone
+    /// of 1e150 m, a parachute of 1e300 m, a mass at a radial position of 1e200 m, an air start
+    /// at 50 km over humid air). The .ork reader does its part earlier: it does not apply a NaN,
+    /// an infinity or a number outside its range that a file holds for a simulation option or
+    /// for a delay or altitude of the design (it adds a warning, and the value stays what it
+    /// was), so that a loaded simulation passes the validation unless the preference store its
+    /// options start from holds such a value; the plugged ejection delay ("none" in a file) is a
+    /// value like any other there. A number of an extension's configuration is taken as the
+    /// file has it, and the validation refuses it when it is outside the range the extension
+    /// gives it; it cannot be a NaN in a file read as OpenRocket reads it (the grammar of a
+    /// "number" entry is BigDecimal's), and can be an infinity only as an integer too large for
+    /// a double.
     [[nodiscard]] Result<void> simulate(
         std::span<const std::shared_ptr<SimulationListener>> additionalListeners = {});
 

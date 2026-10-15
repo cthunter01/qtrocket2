@@ -46,7 +46,8 @@ namespace
     {
         return std::make_unique<Warning::LargeAOA>(parameter);
     }
-    if (type == "HighSpeedDeployment")
+    // Not OpenRocket's (decision E2 of 2026-10-14): also the name OpenRocket's saver writes.
+    if (type == "HighSpeedDeployment" || type == "RecoveryHighSpeedDeployment")
     {
         return std::make_unique<Warning::RecoveryHighSpeedDeployment>(parameter);
     }

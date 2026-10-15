@@ -78,7 +78,10 @@ class Preferences;
 ///   whatever the preferences say.
 /// - getComponentCG() throws BugError where Java throws BugException (a CG above the button).
 ///   The setters' constraints rule that out; only a preset whose dimensions contradict each
-///   other (they are stored unchecked) gets there.
+///   other (they are stored unchecked) gets there. A height of the CG that has overflowed to
+///   infinity (absurd finite dimensions: a height of 1e300 m) is not thrown for, where Java
+///   throws: the CG is returned with it, and a flight ends with the ordinary error of the
+///   stepper's NaN check (decision D3 of 2026-10-14).
 /// - The multi-edit config listeners are not ported (see RocketComponent).
 class RailButton : public ExternalComponent,
                    public virtual AnglePositionable,
@@ -251,8 +254,9 @@ public:
     /// angle, at the parent's radius (when it is a symmetric component, read at x = the button's
     /// axial offset; else 0) plus the height of the button's own CG above its bottom. The weight
     /// is the component mass.
-    /// @throws BugError when that height comes out above the total plus the screw height (Java:
-    ///         BugException), which the setters' constraints rule out.
+    /// @throws BugError when that height comes out finite and above the total plus the screw
+    ///         height (Java: BugException, also for an infinite height), which the setters'
+    ///         constraints rule out.
     [[nodiscard]] Coordinate getComponentCG() const override;
 
     /// 0, as in Java.

@@ -530,8 +530,7 @@ struct ColumnExtreme
 /// that is not reproducible as a whole (@p whole) it is sensitive, whatever the column. In one
 /// that is, it is compared, unless the column is a noise-dominated out-of-plane one and the
 /// golden column or the run's attains the extreme only off the launch rod
-/// (RodOnlyRule::excludesExtreme()): then it is one of the values the rule excludes. (The strict
-/// comparison compares what is sensitive as well, and its rule names no noise column.)
+/// (RodOnlyRule::excludesExtreme()): then it is one of the values the rule excludes.
 [[nodiscard]] Treatment extremeTreatment(const GoldenTable& table, const RodOnlyRule& rule,
                                          const ColumnExtreme& extreme, bool whole);
 
@@ -608,9 +607,6 @@ struct Comparison
     /// minima and maxima those columns attain only there (RodOnlyRule).
     SimulationCounts excluded;
     std::string      report;  ///< the mismatches
-    /// Whether everything is compared, reproducible or not, and the events in the order they
-    /// were recorded in (the strict comparison, which no implementation passes).
-    bool strict{false};
     /// ComparisonMode::droppedStagesTumbleFreely.
     bool          droppedStagesTumbleFreely{false};
     Measurements* measurements{nullptr};
@@ -670,17 +666,14 @@ struct EventKey
 /// IGNITION events with the same time are sorted by the path of their source. One event
 /// ignites the motors of several mounts at once; OpenRocket queues them in the order of a hash
 /// map, which changes from one run of OpenRocket to the next, and QtRocket in the order of the
-/// component tree. (@p recorded: the order they were recorded in, for the strict comparison.)
-[[nodiscard]] std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys,
-                                                       bool                         recorded);
+/// component tree.
+[[nodiscard]] std::vector<std::size_t> comparisonOrder(const std::vector<EventKey>& keys);
 
 /// The events of @p branch in the order of the comparison.
-[[nodiscard]] std::vector<const FlightEvent*> orderedEvents(const FlightDataBranch& branch,
-                                                            bool                    recorded);
+[[nodiscard]] std::vector<const FlightEvent*> orderedEvents(const FlightDataBranch& branch);
 
 /// The golden events @p events in the order of the comparison.
-[[nodiscard]] std::vector<const nlohmann::json*> orderedGoldenEvents(const nlohmann::json& events,
-                                                                     bool recorded);
+[[nodiscard]] std::vector<const nlohmann::json*> orderedGoldenEvents(const nlohmann::json& events);
 
 /// The types and sources of @p events, one after the other: "LAUNCH(/) IGNITION(/0/1/2) ...".
 [[nodiscard]] std::string sequenceOf(const std::vector<const FlightEvent*>& events);
@@ -708,11 +701,8 @@ struct SimulationComparison
 /// How compareSimulation() compares.
 struct ComparisonMode
 {
-    bool randomConfigurationId{false};  ///< the maker draws the configuration's id
-    /// See Comparison::strict. The strict comparison knows no rule either: it compares the
-    /// noise-dominated out-of-plane columns in every row.
-    bool          strict{false};
-    Measurements* measurements{nullptr};  ///< where the differences are recorded, or null
+    bool          randomConfigurationId{false};  ///< the maker draws the configuration's id
+    Measurements* measurements{nullptr};         ///< where the differences are recorded, or null
     /// A simulation of the stable-step set: its "harness" also records the time step.
     bool stableSet{false};
     /// The rule of the tumbling dropped stages, of the comparison of the examples (its
@@ -721,8 +711,7 @@ struct ComparisonMode
     /// TUMBLE events after its separation are compared on neither side. Whether such a stage
     /// tumbles, and whether before or after its apogee, is decided by the last bits of its
     /// attitude: OpenRocket's own runs of one simulation differ in it. The golden events that
-    /// are left out are counted as sensitive, each with its time; the strict comparison knows
-    /// no such rule.
+    /// are left out are counted as sensitive, each with its time.
     bool droppedStagesTumbleFreely{false};
 };
 

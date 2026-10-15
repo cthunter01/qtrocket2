@@ -1,16 +1,21 @@
 #include "QtRocket/file/openrocket/AppearanceHandler.h"
 
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "QtRocket/document/Attachment.h"
 #include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/attachments/FileSystemAttachment.h"
 #include "QtRocket/file/AttachmentFactory.h"
 #include "QtRocket/file/DocumentLoadingContext.h"
+#include "QtRocket/file/FileSystemAttachmentFactory.h"
+#include "QtRocket/file/openrocket/DesignFiles.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/IgnoredElementHandler.h"
 #include "QtRocket/file/openrocket/LoaderWarnings.h"
@@ -24,6 +29,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 
 namespace QtRocket
@@ -85,11 +91,16 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
         warnings.add(LoaderWarnings::kDecalIgnored);
         return false;
     }
+    // The name is there, or the decal was ignored above.
+    const std::string_view decalName = name.value_or(std::string_view{});
+    // Not OpenRocket's (decision D8 of 2026-10-14; see the class comment).
+    const std::shared_ptr<const Attachment> attachment = readableImage(decalName, warnings);
+    if (attachment == nullptr)
+    {
+        return false;
+    }
 
-    // From here on as Java, step by step: a load that fails has registered the image. (The
-    // name is there, or the decal was ignored above.)
-    const std::shared_ptr<const Attachment> attachment =
-        m_context->getAttachmentFactory()->getAttachment(name.value_or(std::string_view{}));
+    // From here on as Java, step by step: a load that fails has registered the image.
     OpenRocketDocument& document = *m_context->getOpenRocketDocument();
     // Not OpenRocket's: the images of a document are bounded (see the class comment).
     if (document.getDecalImageCount() >= DocumentConfig::kMaxDecalImages &&
@@ -121,6 +132,37 @@ Result<bool> AppearanceHandler::openDecal(const Attributes& attributes, WarningS
     }
     m_builder.setEdgeMode(*edgeMode);
     return true;
+}
+
+std::shared_ptr<const Attachment> AppearanceHandler::readableImage(std::string_view name,
+                                                                   WarningSet&      warnings) const
+{
+    const AttachmentFactory& factory = *m_context->getAttachmentFactory();
+    if (!factory.readsFileSystem())
+    {
+        // The entries of an archive, whatever their names.
+        return factory.getAttachment(name);
+    }
+    // Spelled as Java's File spells it, as FileSystemAttachmentFactory does, before the rule.
+    const std::filesystem::path spelled = withoutRedundantSeparators(pathFromUtf8(name));
+    const std::expected<std::filesystem::path, DesignFiles::Refusal> file =
+        DesignFiles::fileOfDesign(m_context->getDesignDirectory(), spelled);
+    if (!file.has_value())
+    {
+        warnings.add(file.error() == DesignFiles::Refusal::DEVICE_NAME
+                         ? LoaderWarnings::decalFileOfDeviceName(name)
+                         : LoaderWarnings::decalFileOutsideDesign(name));
+        return nullptr;
+    }
+    // The file the rule looked at, the normal form of the name, not the name resolved again,
+    // through which a ".." behind a symbolic link would climb out of the directory (see the
+    // class comment). The factory resolves it against its base directory, the design's.
+    if (const auto* const files = dynamic_cast<const FileSystemAttachmentFactory*>(&factory))
+    {
+        return files->getAttachmentOfFile(name, spelled.lexically_normal());
+    }
+    // A factory of files of another kind (there is none): the file of the rule itself.
+    return std::make_shared<FileSystemAttachment>(std::string(name), *file);
 }
 
 Result<void> AppearanceHandler::closeElement(std::string_view element, const Attributes& attributes,

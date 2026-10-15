@@ -1,7 +1,6 @@
 #include "QtRocket/aero/barrowman/ComponentCalcMap.h"
 
 #include <cstddef>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -81,6 +80,31 @@ using QtRocket::Test::TestFalcon9Heavy;
     }
     return found;
 }
+
+/// A trapezoidal fin set that can be made one whose calculation cannot be made: its span is then
+/// a BugError, which FinSetCalc's constructor asks for. That is how these tests make such a
+/// calculation; until decision D3 of 2026-10-14 a root chord of NaN did, which FinSetCalc now
+/// counts as a fin set of its own fins alone.
+class UncalculableFins final : public TrapezoidFinSet
+{
+public:
+    UncalculableFins() : TrapezoidFinSet(3, 0.05, 0.03, 0.02, 0.05) { }
+
+    /// Whether the span (and so the calculation) can be had.
+    void setCalculable(bool calculable) noexcept { m_calculable = calculable; }
+
+    [[nodiscard]] double getSpan() const override
+    {
+        if (!m_calculable)
+        {
+            QtRocket::bug("the test has made the span of " + getName() + " a bug");
+        }
+        return TrapezoidFinSet::getSpan();
+    }
+
+private:
+    bool m_calculable{true};
+};
 
 /// The geometry warnings of the calculation the map has for the fin set @p fins, each text on
 /// a line ("no FinSetCalc" when it has none).
@@ -330,19 +354,20 @@ TEST(ComponentCalcMap, ComponentObjectsReplacedByAnUndoGetNewCalculations)
 
 TEST(ComponentCalcMap, BuildIsAllOrNothing)
 {
-    // A fin set whose root chord is NaN cannot be calculated (see FinSetCalc; with the rocket's
-    // events enabled the fin set itself would refuse the chord): the map stays as it was.
+    // A fin set that cannot be calculated (UncalculableFins): the map stays as it was.
     const TestEstesAlphaIII    alpha;
+    UncalculableFins&          extra  = alpha.body->addChild(std::make_unique<UncalculableFins>());
     const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
     ComponentCalcMap           map;
     map.ensureBuilt(config);
+    EXPECT_EQ(map.size(), 7U);
     RocketComponentCalc* const calc = map.get(*alpha.body);
 
     alpha.rocket->enableEvents(false);
-    alpha.fins->setFinShape(std::numeric_limits<double>::quiet_NaN(), 0.03, 0.02, 0.05, 0.0032);
+    extra.setCalculable(false);
     EXPECT_THROW(map.build(config), BugError);
     EXPECT_TRUE(map.isBuilt());
-    EXPECT_EQ(map.size(), 6U);
+    EXPECT_EQ(map.size(), 7U);
     EXPECT_EQ(map.get(*alpha.body), calc);
 
     // An unbuilt map stays unbuilt.
@@ -444,38 +469,37 @@ TEST(ComponentCalcMap, ARenamedComponentThatCannotBeCalculatedKeepsItsCalculatio
     // The new calculation is made first: when its constructor throws, the entry is what it was,
     // and the next ensureBuilt() tries again.
     const TestEstesAlphaIII alpha;
-    alpha.fins->setName("Old fins");
-    alpha.fins->setThickness(0.008);
+    UncalculableFins&       extra = alpha.body->addChild(std::make_unique<UncalculableFins>());
+    extra.setName("Old fins");
+    extra.setThickness(0.008);
     const FlightConfiguration& config = alpha.rocket->getSelectedConfiguration();
     ComponentCalcMap           map;
     map.ensureBuilt(config);
-    RocketComponentCalc* const fins = map.get(*alpha.fins);
+    RocketComponentCalc* const fins = map.get(extra);
 
     // A change that renews the rocket's modification id, which the map has not seen yet; then,
-    // without events, a rename and a root chord of NaN, which the fin set refuses while the
-    // events are enabled and which FinSetCalc cannot calculate (see BuildIsAllOrNothing).
+    // without events, a rename and a span that FinSetCalc cannot have (see
+    // BuildIsAllOrNothing).
     const ModId builtAt = alpha.rocket->getModId();
     alpha.inner->setName("Renamed motor mount");
     ASSERT_NE(alpha.rocket->getModId(), builtAt);
     alpha.rocket->enableEvents(false);
-    alpha.fins->setFinShape(std::numeric_limits<double>::quiet_NaN(), 0.03, 0.02, 0.05, 0.008);
-    alpha.fins->setName("New fins");
+    extra.setCalculable(false);
+    extra.setName("New fins");
     EXPECT_THROW(map.ensureBuilt(config), BugError);
     EXPECT_TRUE(map.isBuilt());
-    EXPECT_EQ(map.size(), 6U);
-    EXPECT_EQ(map.get(*alpha.fins), fins);
-    EXPECT_EQ(finWarnings(map, *alpha.fins),
-              "Thick fins may not simulate accurately:  \"Old fins\"\n");
+    EXPECT_EQ(map.size(), 7U);
+    EXPECT_EQ(map.get(extra), fins);
+    EXPECT_EQ(finWarnings(map, extra), "Thick fins may not simulate accurately:  \"Old fins\"\n");
     EXPECT_THROW(map.ensureBuilt(config), BugError);
 
     // Once the fin set can be calculated again, it is.
-    alpha.fins->setFinShape(0.05, 0.03, 0.02, 0.05, 0.008);
+    extra.setCalculable(true);
     alpha.rocket->enableEvents();
     map.ensureBuilt(config);
-    EXPECT_EQ(finWarnings(map, *alpha.fins),
-              "Thick fins may not simulate accurately:  \"New fins\"\n");
+    EXPECT_EQ(finWarnings(map, extra), "Thick fins may not simulate accurately:  \"New fins\"\n");
     EXPECT_NE(map.get(*alpha.body), nullptr);
-    EXPECT_EQ(map.size(), 6U);
+    EXPECT_EQ(map.size(), 7U);
 }
 
 TEST(ComponentCalcMap, MovesWithItsCalculations)

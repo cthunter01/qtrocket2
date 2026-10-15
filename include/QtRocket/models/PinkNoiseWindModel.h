@@ -26,12 +26,20 @@ class Preferences;
 ///
 /// The random source is seeded from the model's seed (XOR kSeedRandomization) when the first
 /// velocity is asked for, and started again whenever an earlier time is asked for, so the wind
-/// is a function of the time for a given seed. Deviation: the Gaussian input comes from
-/// std::mt19937 (see PinkNoise), so a seeded run is reproducible within QtRocket (for one standard
-/// library) but never bit-identical to OpenRocket's java.util.Random sequence. The source is
-/// made on the heap at that first question and not before, as Java makes its PinkNoise: its
-/// generator alone is some 5000 bytes (std::mt19937), and a design file can ask for a model per
-/// wind level and several per simulation, most of which are never asked for a velocity.
+/// is a function of the time for a given seed. Deviation (the user's decision D12 of
+/// 2026-10-14): the Gaussian input comes from GaussianRandom, QtRocket's own generator (see
+/// PinkNoise), so a seeded model gives the same speeds, bit for bit, on every platform, but
+/// never OpenRocket's java.util.Random sequence. The speed interpolates between two samples with
+/// two products and a sum in one expression, which a compiler may contract into multiply-adds:
+/// it is the same everywhere because of -ffp-contract=off (QtRocket_configure_target(), GCC and
+/// Clang) and MSVC's /fp:precise, as the source's values are. The velocity is the speed times the
+/// sine and the cosine of the direction (std::sin, std::cos), whose last bit may differ between
+/// platforms: only at the directions whose sine and cosine are exact everywhere (0: the velocity
+/// is (0, speed, 0)) is it the same, and a turbulent flight, which goes through libm throughout,
+/// is not. The source is made on the heap at that first question and not before, as Java makes
+/// its PinkNoise (with std::mt19937, its generator until tier 10, it was some 5000 bytes); a
+/// design file can ask for a model per wind level and several per simulation, most of which are
+/// never asked for a velocity.
 ///
 /// Each setter of the average, direction or standard deviation emits changed() unless its
 /// argument equals the stored value, as in Java. The comparison comes before the value is

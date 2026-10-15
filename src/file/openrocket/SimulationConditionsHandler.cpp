@@ -26,6 +26,7 @@
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/file/simplesax/PlainTextHandler.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/models/ExtendedIsaModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
 #include "QtRocket/models/WindModelType.h"
 #include "QtRocket/preferences/Preferences.h"
@@ -130,7 +131,8 @@ bool setLaunchRodDirectionInDegrees(SimulationOptions& options, double d)
 }
 
 /// <launchaltitude>: the options store nothing above the highest site of the atmospheric
-/// model, as in OpenRocket, so only an altitude below the range is refused.
+/// model, as in OpenRocket, so only an altitude below the range is refused (and one above that
+/// site is said: warnOfLoweredLaunchAltitude()).
 bool setLaunchAltitude(SimulationOptions& options, double d)
 {
     if (d < SimulationInputRanges::kLaunchAltitude.min)
@@ -139,6 +141,21 @@ bool setLaunchAltitude(SimulationOptions& options, double d)
     }
     options.setLaunchAltitude(d);
     return true;
+}
+
+/// Not OpenRocket's (decisions D4 and E5 of 2026-10-14): after the <launchaltitude> @p d was
+/// applied to @p options, the warning LoaderWarnings::launchAltitudeLowered() when @p d lies
+/// above the highest launch site of the atmospheric model and the options hold that site, or
+/// less, in its place. (The options keep what they hold for a number equal to it within
+/// MathUtil::kEpsilon, which a preference store may have put above that site: such a number
+/// was not lowered.)
+void warnOfLoweredLaunchAltitude(const SimulationOptions& options, double d, WarningSet& warnings)
+{
+    constexpr double kHighestSite = ExtendedIsaModel::getMaximumAllowedAltitude();
+    if (d > kHighestSite && options.getLaunchAltitude() <= kHighestSite)
+    {
+        warnings.add(LoaderWarnings::launchAltitudeLowered(d, options.getLaunchAltitude()));
+    }
 }
 
 constexpr std::array<NumberElement, 15> kNumberElements{{
@@ -330,6 +347,10 @@ bool SimulationConditionsHandler::closeNumberElement(std::string_view element,
         Strings::javaParseDouble(content).value_or(std::numeric_limits<double>::quiet_NaN());
     if (isWanted(*number, d) && number->apply(m_options, d))
     {
+        if (number->name == "launchaltitude")
+        {
+            warnOfLoweredLaunchAltitude(m_options, d, warnings);
+        }
         return true;
     }
     if (number->rule != Rule::POSITIVE_SILENT)

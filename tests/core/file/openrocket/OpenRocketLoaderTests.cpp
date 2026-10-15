@@ -408,8 +408,8 @@ TEST(OpenRocketLoader, MarksTheStorageOptionsAsThoseOfADesignFile)
 }
 
 // Step 4: every extension of every simulation is told that the document was loaded, with the
-// load's warnings. The scripting extension disables an enabled script that it does not trust
-// there and says so, once for all the scripts of a file; a script that was disabled gives no
+// load's warnings. The scripting extension disables an enabled script that holds code there
+// and says so, once for all the scripts of a file; a script that was disabled gives no
 // warning.
 TEST(OpenRocketLoader, TellsEveryExtensionThatTheDocumentWasLoaded)
 {
@@ -446,10 +446,11 @@ TEST(OpenRocketLoader, TellsEveryExtensionThatTheDocumentWasLoaded)
            (load.texts().empty() ? "" : " warned");
 }
 
-// Step 4 again: the scripts OpenRocket trusts on every computer stay enabled, without a
-// warning (ScriptingUtil.isTrustedScript()): what holds nothing once its carriage returns are
-// gone and it is trimmed, in whatever language. That is the scripting extension a user has
-// just added to a simulation. OpenRocket's answers: the cases p-ext-script-* of the table.
+// Step 4 again: a script that holds nothing once its carriage returns are gone and it is
+// trimmed, in whatever language, stays enabled without a warning, as in OpenRocket, which
+// trusts such a script on every computer (ScriptingUtil.isTrustedScript(); decision E4). That
+// is the scripting extension a user has just added to a simulation. OpenRocket's answers: the
+// cases p-ext-script-* of the table.
 TEST(OpenRocketLoader, LeavesAnEnabledScriptThatHoldsNothingEnabled)
 {
     EXPECT_EQ(scriptAfterLoading("p-ext-script-empty-enabled"), "enabled");
@@ -473,6 +474,34 @@ TEST(OpenRocketLoader, LeavesAnEnabledScriptThatHoldsNothingEnabled)
     EXPECT_EQ(QtRocket::Test::extensionNames(*mixed.document().getSimulation(1)),
               "ScriptingExtension(disabled) ScriptingExtension(enabled)");
     EXPECT_THAT(mixed.texts(), ElementsAre(std::string(ScriptingExtension::kDisabledWarning)));
+}
+
+// Step 4, decision D1 (not OpenRocket's): the roll control script that OpenRocket trusts on
+// every computer by its hash, and leaves enabled without a warning, is disabled here, with
+// QtRocket's own warning, so that the simulation flies without it. With an untrusted script
+// in the next simulation the load has both warnings, in the order of the simulations.
+TEST(OpenRocketLoader, DisablesTheScriptOpenRocketTrustsWithAWarningOfItsOwn)
+{
+    Reading read = onlyRead("p-ext-script-trusted");
+    ASSERT_TRUE(read.result.has_value());
+    EXPECT_TRUE(scriptOf(read.document(), 0).isEnabled());
+    EXPECT_TRUE(ScriptingExtension::isTrustedScript(scriptOf(read.document(), 0).getLanguage(),
+                                                    scriptOf(read.document(), 0).getScript()));
+
+    Reading load = loaded("p-ext-script-trusted");
+    ASSERT_TRUE(load.result.has_value());
+    EXPECT_FALSE(scriptOf(load.document(), 0).isEnabled());
+    EXPECT_THAT(load.texts(),
+                ElementsAre(std::string(ScriptingExtension::kTrustedScriptDisabledWarning)));
+
+    Reading both = loaded("p-ext-script-trusted-and-text");
+    ASSERT_TRUE(both.result.has_value());
+    ASSERT_EQ(both.document().getSimulationCount(), 2U);
+    EXPECT_FALSE(scriptOf(both.document(), 0).isEnabled());
+    EXPECT_FALSE(scriptOf(both.document(), 1).isEnabled());
+    EXPECT_THAT(both.texts(),
+                ElementsAre(std::string(ScriptingExtension::kTrustedScriptDisabledWarning),
+                            std::string(ScriptingExtension::kDisabledWarning)));
 }
 
 // The warnings of the extensions come behind those of the handlers.

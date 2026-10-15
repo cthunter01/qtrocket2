@@ -45,6 +45,8 @@ using QtRocket::Warning;
         std::string(LoaderWarnings::kDecalIgnored),
         std::string(LoaderWarnings::kDecalPairIgnored),
         LoaderWarnings::tooManyDecalImages(),
+        LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+        LoaderWarnings::decalFileOfDeviceName("decals/nul.png"),
         LoaderWarnings::motorConfigurationBeyondBound(),
         LoaderWarnings::motorBeyondConfigurationBound(),
         LoaderWarnings::simulationBeyondConfigurationBound(),
@@ -68,6 +70,7 @@ using QtRocket::Warning;
         LoaderWarnings::unknownAltitudeReference("bogus"),
         LoaderWarnings::optionNotFinite("speed"),
         LoaderWarnings::optionOutOfRange("speed"),
+        LoaderWarnings::launchAltitudeLowered(200000.0, 11018.064362274883),
         LoaderWarnings::lookupFileOutsideDesign("draglookup", "../drag.csv"),
         LoaderWarnings::lookupFileOfDeviceName("draglookup", "nul"),
         LoaderWarnings::tooManyWarnings(),
@@ -103,7 +106,7 @@ using QtRocket::Warning;
 TEST(LoaderWarnings, EveryTextIsASentenceOfItsOwn)
 {
     const std::vector<std::string> texts = everyText();
-    EXPECT_EQ(texts.size(), 44U);
+    EXPECT_EQ(texts.size(), 47U);
     EXPECT_EQ(textsThatAreNotTheirOwn(texts), "");
     // What the helper tells: OpenRocket's general text, a text without a full stop, a text
     // that is there twice.
@@ -115,7 +118,7 @@ TEST(LoaderWarnings, EveryTextIsASentenceOfItsOwn)
 TEST(LoaderWarnings, TheTextsOfTheComponents)
 {
     EXPECT_EQ(LoaderWarnings::tooManyComponents("Mass Component"),
-              "Mass Component would give the rocket more than 10000 components; ignoring this "
+              "Mass Component would give the rocket more than 1000 components; ignoring this "
               "component and its subcomponents.");
     EXPECT_EQ(LoaderWarnings::tooManyAssemblies("Booster Set"),
               "Booster Set would give the rocket more than 100 stages, booster sets and pod "
@@ -160,6 +163,14 @@ TEST(LoaderWarnings, TheTextsOfTheComponents)
     EXPECT_EQ(LoaderWarnings::tooManyDecalImages(),
               "The document has 1000 decal images already; ignoring the decal of a further "
               "image.");
+    // Decision D8 of 2026-10-14: the name is the one the design has.
+    EXPECT_EQ(LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+              "The decal image file '/datafiles/textures/balsa.jpg' was not read: a design may "
+              "name such a file only by a relative path inside its own directory; ignoring the "
+              "decal.");
+    EXPECT_EQ(LoaderWarnings::decalFileOfDeviceName("decals/COM1.png"),
+              "The decal image file 'decals/COM1.png' was not read: its path holds a name that "
+              "Windows reserves for a device; ignoring the decal.");
 }
 
 TEST(LoaderWarnings, TheTextsOfTheFlightConfigurations)
@@ -234,6 +245,13 @@ TEST(LoaderWarnings, TheTextsOfTheSimulations)
     EXPECT_EQ(LoaderWarnings::optionOutOfRange("recoveryspeedwarning"),
               "The number of element 'recoveryspeedwarning' would give a simulation option "
               "outside its range; the option keeps what it had.");
+    // Decisions D4 and E5 of 2026-10-14; the numbers as Java prints a double.
+    EXPECT_EQ(LoaderWarnings::launchAltitudeLowered(200000.0, 11018.064362274883),
+              "The launch altitude of 200000.0 m is above the highest launch site the "
+              "atmospheric model takes; it was lowered to 11018.064362274883 m.");
+    EXPECT_EQ(LoaderWarnings::launchAltitudeLowered(1e300, 11018.064362274883),
+              "The launch altitude of 1.0E300 m is above the highest launch site the "
+              "atmospheric model takes; it was lowered to 11018.064362274883 m.");
     // The name of the file is the one the design has, not the path it would be read by.
     EXPECT_EQ(LoaderWarnings::lookupFileOutsideDesign("draglookup", "/home/someone/drag.csv"),
               "The lookup table file '/home/someone/drag.csv' of element 'draglookup' was not "

@@ -914,7 +914,9 @@ void FinSetCalc::calculateInterferenceFinCount(const FinSet& component)
      * The counting fails if the fin root chord is very small, in that case assume
      * no other fin interference than this fin set.
      */
-    if (trail - lead < 0.007)
+    // Not in Java (decision D3): neither can a fin set be counted whose own position is not
+    // finite (see the class comment), which Java counts as no fin and throws for.
+    if (!std::isfinite(lead) || !std::isfinite(trail) || trail - lead < 0.007)
     {
         m_interferenceFinCount = m_finCount;
     }

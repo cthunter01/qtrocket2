@@ -463,7 +463,7 @@ void AbstractRkSimulationStepper::finishStep(SimulationStatus& status, const Coo
 
     const SimulationConditions& conditions = conditionsOf(status);
     WorldCoordinate             w          = conditions.getLaunchSite();
-    w = addCoordinate(conditions.getGeodeticComputation(), w, status.getRocketPosition());
+    w = addRocketPosition(conditions.getGeodeticComputation(), w, status);
     status.setRocketWorldPosition(w);
 
     if (!(0 <= m_store.timeStep))

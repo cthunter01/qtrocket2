@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -90,7 +91,7 @@ using Texts = std::vector<std::string>;
 // BEGIN GENERATED TABLES AppearanceHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to
 // make of it too.
-constexpr std::array<RocketCase, 52> kJava{{
+constexpr std::array<RocketCase, 51> kJava{{
     {.name = "ap-empty", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance></appearance></nosecone></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
@@ -516,19 +517,6 @@ EVENTS 17 {mass,aero,tree=4, mass,tree=3, nonfunc=9, tree=1}
 |       CenteringRing 'Centering Ring' axial=BOTTOM:0.0 x=0.198 len=0.002 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.023:true inner=0.0:true radial=0.0:0.0 spacing=0.0 app=[paint=187,187,187,255 shine=0.7 opacity=false]
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
-    {.name = "ap-file-names", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></nosecone><bodytube><appearance><decal name="textures/sub/b.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="c.jpg" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="/abs/d.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
-ROOT rocket {} []
-EVENTS 11 {mass,aero,tree=5, nonfunc=5, tree=1}
-| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
-|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.95 stage=0 sep=EJECTION:0.0:200.0
-|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.15000000000000002 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/b.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.35000000000000003 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/c.jpg':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.55 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/d.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
-|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.75 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
-| decals='decals/a.png','decals/b.png','decals/c.jpg','decals/d.png'
-| selected=default
-| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     {.name = "ap-file-names-that-collide", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="x/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></nosecone><bodytube><appearance><decal name="y/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="z/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="y/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="z/a (1).png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
 ROOT rocket {} []
 EVENTS 11 {mass,aero,tree=5, nonfunc=5, tree=1}
@@ -601,7 +589,7 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 
 // Where QtRocket answers otherwise on purpose: the comment of a case says why and gives the
 // lines of OpenRocket's answer that QtRocket does not give.
-constexpr std::array<RocketCase, 24> kOwn{{
+constexpr std::array<RocketCase, 25> kOwn{{
     // Decision L4: a decal without name, of which OpenRocket dies; here it is ignored with everything in it and a warning, and the rest of the appearance is applied.
     // OpenRocket: RESULT THROWN java.lang.NullPointerException: null
     // OpenRocket: EVENTS 2 {mass,aero,tree=1, tree=1}
@@ -792,6 +780,23 @@ EVENTS 3 {mass,aero,tree=1, nonfunc=1, tree=1}
 |   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 stage=0 sep=EJECTION:0.0:200.0
 |     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
 | decals='decals/a.png'
+| selected=default
+| config default name='[{motors}]' preload=null active=[true] motors=0)out"},
+    // Decision D8: with files as attachments a decal may name an image only by a relative path inside the design's directory, so the decal of "/abs/d.png" is ignored with a warning and registers no image (OpenRocket registers it and reads any path).
+    // OpenRocket: |     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.55 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false  ...
+    // OpenRocket: | decals='decals/a.png','decals/b.png','decals/c.jpg','decals/d.png'
+    {.name = "ap-file-names", .xml = R"xml(<subcomponents><stage><subcomponents><nosecone><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></nosecone><bodytube><appearance><decal name="textures/sub/b.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="c.jpg" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="/abs/d.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube><bodytube><appearance><decal name="decals/a.png" rotation="1.5" edgemode="STICKER"></decal></appearance></bodytube></subcomponents></stage></subcomponents>)xml", .expected = R"out(RESULT ok
+W The decal image file '/abs/d.png' was not read: a design may name such a file only by a relative path inside its own directory; ignoring the decal.
+ROOT rocket {} []
+EVENTS 11 {mass,aero,tree=5, nonfunc=5, tree=1}
+| Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL
+|   AxialStage 'Stage' axial=AFTER:0.0 x=0.0 len=0.95 stage=0 sep=EJECTION:0.0:200.0
+|     NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.15000000000000002 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] shape=OGIVE:1.0:false fore=0.0:false aft=0.025:false thick=0.002:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.15000000000000002 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/b.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.35000000000000003 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/c.jpg':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.55 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false]
+|     BodyTube 'Body Tube' axial=AFTER:0.0 x=0.75 len=0.2 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.025:true thick=0.002:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false app=[paint=187,187,187,255 shine=0.3 opacity=false decal='decals/a.png':1.5:STICKER:center=0.0,0.0:offset=0.0,0.0:scale=1.0,1.0]
+| decals='decals/a.png','decals/b.png','decals/c.jpg'
 | selected=default
 | config default name='[{motors}]' preload=null active=[true] motors=0)out"},
     // The attributes are const: two elements ignored in the <decal> hand its map to the component's element, which warns of name, rotation and edgemode here; OpenRocket took them out when the decal opened.
@@ -1139,7 +1144,9 @@ TEST(AppearanceHandler, FailsTheLoadWithTheMessageOfJavasException)
 // The images of a design that is an archive: the decal carries the name the file gives, a slash
 // in front included, and the document's image of that name gives the bytes of the entry. An
 // image whose entry is missing is found out when its bytes are asked for, not while the file
-// loads.
+// loads. The names of an archive's entries are free (decision D8 of 2026-10-14 holds files to
+// the design's directory, and an archive is no file system): the context here has no design's
+// directory, and "/datafiles/textures/x.jpg" is an entry like any other.
 TEST(AppearanceHandler, NamesTheImagesOfAnArchiveAsTheFileDoes)
 {
     ZipWriter writer;
@@ -1200,6 +1207,7 @@ TEST(AppearanceHandler, NamesTheImagesOfFilesAsTheRegistryDoes)
 
     Design design;
     design.fixture.context().setAttachmentFactory(&attachments);
+    design.fixture.context().setDesignDirectory(directory.path());
     const HandlerRun run = design.fixture.load(
         R"xml(<subcomponents><stage><subcomponents>
 <nosecone><appearance><decal name="textures/a.png" rotation="0" edgemode="REPEAT"/></appearance></nosecone>
@@ -1231,6 +1239,117 @@ TEST(AppearanceHandler, NamesTheImagesOfFilesAsTheRegistryDoes)
     EXPECT_EQ(imageText(document, "decals/c.png"), "image c");
     EXPECT_EQ(imageText(document, "decals/missing.png"), "NOT_FOUND");
     EXPECT_EQ(imageText(document, "textures/a.png"), "no image");
+}
+
+/// Whether the component @p component has an appearance without a decal.
+[[nodiscard]] bool hasAppearanceWithoutDecal(const RocketComponent& component)
+{
+    const std::optional<Appearance>& appearance = component.getAppearance();
+    return appearance.has_value() && !appearance->getTexture().has_value();
+}
+
+/// A design of a nose cone and four body tubes, each with a decal: the nose cone's names an
+/// image of the design's directory, the tubes' name one outside it as @p outside spells it, one
+/// of OpenRocket's built-in textures with a rotation that is no number, and an image without
+/// an edge mode.
+[[nodiscard]] std::string designOfDecalFiles(std::string_view outside)
+{
+    return std::format(
+        R"xml(<subcomponents><stage><subcomponents>
+<nosecone><appearance><decal name="decals/a.png" rotation="0" edgemode="REPEAT"/></appearance></nosecone>
+<bodytube><appearance><decal name="../outside.png" rotation="0" edgemode="REPEAT"/></appearance></bodytube>
+<bodytube><appearance><decal name="{}" rotation="0" edgemode="REPEAT"/></appearance></bodytube>
+<bodytube><appearance><decal name="/datafiles/textures/balsa.jpg" rotation="x" edgemode="REPEAT"/></appearance></bodytube>
+<bodytube><appearance><decal name="../outside.png" rotation="0"/></appearance></bodytube>
+</subcomponents></stage></subcomponents>)xml",
+        outside);
+}
+
+// Not OpenRocket's (decision D8 of 2026-10-14): when the images are files, a decal names one
+// only by a relative path inside the design's directory, as a lookup table is named
+// (DesignFiles::fileOfDesign()). A decal that names another file is ignored with a warning
+// of its own and registers no image, and a rotation that is no number does not fail the load
+// then; a decal that lacks an attribute gets the warning of that, which is asked first. The
+// component keeps the appearance of its element, without a decal. OpenRocket reads every file.
+TEST(AppearanceHandler, ADesignOfFilesReadsAnImageOnlyInsideItsDirectory)
+{
+    const TempDir directory;
+    static_cast<void>(directory.write("design/decals/a.png", "image a"));
+    static_cast<void>(directory.write("outside.png", "outside"));
+    const FileSystemAttachmentFactory attachments(directory.resolve("design"));
+    const std::string absolute = QtRocket::pathToUtf8(directory.resolve("outside.png"));
+
+    Design design;
+    design.fixture.context().setAttachmentFactory(&attachments);
+    design.fixture.context().setDesignDirectory(directory.resolve("design"));
+    const HandlerRun run = design.fixture.load(designOfDecalFiles(absolute));
+    ASSERT_TRUE(run.result.has_value()) << run.result.error().message;
+    EXPECT_EQ(run.texts(),
+              (Texts{LoaderWarnings::decalFileOutsideDesign("../outside.png"),
+                     LoaderWarnings::decalFileOutsideDesign(absolute),
+                     LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+                     std::string(LoaderWarnings::kDecalIgnored)}));
+
+    const RocketComponent& stage = design.fixture.rocket().getChild(1);
+    EXPECT_EQ(decalOf(stage.getChild(0)).getImageName(), "decals/a.png");
+    for (std::size_t i = 1; i < stage.getChildCount(); i++)
+    {
+        EXPECT_TRUE(hasAppearanceWithoutDecal(stage.getChild(i))) << i;
+    }
+    EXPECT_EQ(imageNames(design.fixture.document()), Texts{"decals/a.png"});
+    EXPECT_EQ(imageText(design.fixture.document(), "decals/a.png"), "image a");
+}
+
+// A design whose images are files and that has no directory (it was read from memory without
+// a base directory) reads no image at all, not even one the current directory of the process
+// holds under the name, which OpenRocket would read.
+TEST(AppearanceHandler, ADesignOfFilesWithoutADirectoryReadsNoImage)
+{
+    const TempDir directory;
+    static_cast<void>(directory.write("decals/a.png", "image a"));
+    const QtRocket::Test::CurrentDirectoryGuard inside(directory.path());
+
+    Design design;
+    design.fixture.context().setDesignDirectory(std::nullopt);
+    ASSERT_TRUE(design.fixture.context().getAttachmentFactory()->readsFileSystem());
+    const HandlerRun run = design.fixture.load(designOfDecalFiles("/outside.png"));
+    ASSERT_TRUE(run.result.has_value()) << run.result.error().message;
+    EXPECT_EQ(run.texts(),
+              (Texts{LoaderWarnings::decalFileOutsideDesign("decals/a.png"),
+                     LoaderWarnings::decalFileOutsideDesign("../outside.png"),
+                     LoaderWarnings::decalFileOutsideDesign("/outside.png"),
+                     LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+                     std::string(LoaderWarnings::kDecalIgnored)}));
+    const RocketComponent& stage = design.fixture.rocket().getChild(1);
+    for (std::size_t i = 0; i < stage.getChildCount(); i++)
+    {
+        EXPECT_TRUE(hasAppearanceWithoutDecal(stage.getChild(i))) << i;
+    }
+    EXPECT_EQ(imageNames(design.fixture.document()), Texts{});
+}
+
+// On Windows a name with the name of a device in it ("decals/nul.png") opens the device in any
+// directory, and is refused there with a warning of its own; elsewhere it is a file of the
+// design's directory like any other (DesignFiles::kRefusesDeviceNames).
+TEST(AppearanceHandler, AnImageNamedLikeADeviceIsRefusedOnWindowsOnly)
+{
+    const TempDir                     directory;
+    const FileSystemAttachmentFactory attachments(directory.path());
+    Design                            design;
+    design.fixture.context().setAttachmentFactory(&attachments);
+    design.fixture.context().setDesignDirectory(directory.path());
+    const HandlerRun run = design.fixture.load(
+        R"xml(<subcomponents><stage><subcomponents>
+<nosecone><appearance><decal name="decals/nul.png" rotation="0" edgemode="REPEAT"/></appearance></nosecone>
+</subcomponents></stage></subcomponents>)xml");
+    ASSERT_TRUE(run.result.has_value()) << run.result.error().message;
+#ifdef _WIN32
+    EXPECT_EQ(run.texts(), Texts{LoaderWarnings::decalFileOfDeviceName("decals/nul.png")});
+    EXPECT_EQ(imageNames(design.fixture.document()), Texts{});
+#else
+    EXPECT_EQ(run.texts(), Texts{});
+    EXPECT_EQ(imageNames(design.fixture.document()), Texts{"decals/nul.png"});
+#endif
 }
 
 // The handler asks the context's attachment factory for the attachment of a decal's name, once

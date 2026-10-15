@@ -19,9 +19,10 @@
 // document has humid air (a humidity of 0.5), so a value that leaves it almost no pressure (a
 // <basepressure> of -1 or 0 is taken as the least the reader takes, 0.001 Pa, as in
 // OpenRocket) or that moves the site to the top of the atmospheric model (a <launchaltitude>
-// of 1e300, which the options clamp to 11 km) loads without a warning and is then refused by
-// the validation with an ordinary error. Before that check each of these flew into the
-// BugError of a NaN. They are counted like the refusals for an extension's number.
+// of 1e300, which the options clamp to 11 km, and which since decisions D4 and E5 of
+// 2026-10-14 gives a warning that says so) loads and is then refused by the validation with an
+// ordinary error. Before that check each of these flew into the BugError of a NaN. They are
+// counted like the refusals for an extension's number.
 //
 // The preference store of the loads is that of OpenRocket's tests but for the time step, which
 // is 0 there: a simulation without a <timestep>, as the second one of the document, has its
@@ -533,16 +534,16 @@ constexpr auto kSweepCases = std::to_array<SweepCase>({
     {.value = "<long number>",
      .tally = {.failed = 7, .warned = 60, .silent = 62, .refusedForAnExtension = 8}},
     // A finite number far outside every range (decision U9 of tier 9). Where it passes
-    // silently an option's setter clamps it (the rod angle, the latitude, the longitude, the
-    // launch altitude), it is a direction, which is reduced to one turn (to 0, as it happens),
-    // or it is no number of a simulation at all. The eight numbers of the two extensions are
-    // taken, and the validation then refuses each. The launch altitude is clamped to the 11 km
-    // at which the atmospheric model takes a site, where the humid air of the document has no
-    // density in the model.
+    // silently an option's setter clamps it (the rod angle, the latitude, the longitude), it is
+    // a direction, which is reduced to one turn (to 0, as it happens), or it is no number of a
+    // simulation at all. The eight numbers of the two extensions are taken, and the validation
+    // then refuses each. The launch altitude is clamped to the 11 km at which the atmospheric
+    // model takes a site, with a warning since decisions D4 and E5 of 2026-10-14, and the humid
+    // air of the document has no density there in the model.
     {.value = "1e300",
      .tally = {.failed                = 7,
-               .warned                = 52,
-               .silent                = 70,
+               .warned                = 53,
+               .silent                = 69,
                .refusedForAnExtension = 8,
                .refusedForTheAir      = 1}},
 });

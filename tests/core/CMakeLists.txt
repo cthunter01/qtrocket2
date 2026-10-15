@@ -10,6 +10,7 @@ add_executable(QtRocket_core_tests
     util/DecimalFormatTests.cpp
     util/FileIoTests.cpp
     util/FloatingDecimalTests.cpp
+    util/GaussianRandomTests.cpp
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
@@ -222,6 +223,7 @@ add_executable(QtRocket_core_tests
     simulation/launch_site_air_tests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
+    simulation/nan_flight_tests.cpp
     simulation/natural_frequency_tests.cpp
     simulation/PlotAppearanceTests.cpp
     simulation/ProgressListenerTests.cpp
@@ -291,9 +293,11 @@ add_executable(QtRocket_core_tests
     file/openrocket/CsvLookupHandlerTests.cpp
     file/openrocket/CustomExpressionHandlerTests.cpp
     file/openrocket/DatatypeHandlerTests.cpp
+    file/openrocket/decal_file_containment_tests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DesignFileState.cpp
+    file/openrocket/DesignFilesTests.cpp
     file/openrocket/DocumentConfigTests.cpp
     file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/DocumentMaterialHandlerTests.cpp

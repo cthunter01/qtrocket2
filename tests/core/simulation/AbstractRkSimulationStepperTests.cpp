@@ -24,8 +24,10 @@
 #include "QtRocket/simulation/Rk6SimulationStepper.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationCalculationException.h"
 #include "QtRocket/simulation/listeners/SimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/Quaternion.h"
 #include "rocket/JavaValueDifferences.h"
 #include "rocket/TestRockets.h"
@@ -40,6 +42,7 @@ namespace
 using QtRocket::AbstractRkSimulationStepper;
 using QtRocket::AbstractSimulationStepper;
 using QtRocket::Coordinate;
+using QtRocket::GeodeticComputationStrategy;
 using QtRocket::Quaternion;
 using QtRocket::Rk4SimulationStepper;
 using QtRocket::Rk6SimulationStepper;
@@ -422,7 +425,8 @@ TEST(AbstractRkSimulationStepper, TheThrustNeedsFlightConditionsOnlyWhenThereIsT
 }
 
 // computeParameters(): the derivatives are the accelerations of the store in world coordinates
-// and the velocities of the status, and a NaN in any of them is a bug.
+// and the velocities of the status, and a NaN in any of them ends the flight with an ordinary
+// error (Java: a BugException; decision D3).
 TEST(AbstractRkSimulationStepper, TheParametersAreTheAccelerationsAndTheVelocities)
 {
     using Deterministic = QtRocket::Test::DeterministicStepper<Rk4SimulationStepper>;
@@ -442,11 +446,11 @@ TEST(AbstractRkSimulationStepper, TheParametersAreTheAccelerationsAndTheVelociti
     EXPECT_TRUE(k.rv.exactlyEquals(Coordinate(0.1, 0.2, 0.3)));
 
     f.status->setRocketVelocity(Coordinate(4, std::numeric_limits<double>::quiet_NaN(), 6));
-    EXPECT_EQ(bugText([&] {
+    EXPECT_EQ(QtRocket::Test::calculationErrorText([&] {
                   static_cast<void>(stepper.computeParameters(*f.status, stepper.getStore()));
               }),
-              "Simulation resulted in not-a-number (NaN) value for params.v, please report a "
-              "bug, c=(4.00000,NaN,6.00000)");
+              "Simulation resulted in not-a-number (NaN) value for params.v, "
+              "c=(4.00000,NaN,6.00000)");
 }
 
 // The stages of a step are evaluated on clones of the status that share its flight data branch
@@ -476,6 +480,77 @@ TEST(AbstractRkSimulationStepper, TheStagesAreEvaluatedAtJavasTimes)
     rk6.step(*six.status, 0.02);
     EXPECT_EQ(*times, (std::vector<double>{t, t + (h / 3), t + (h * 2 / 3), t + (h * 1 / 3),
                                            t + (h * 1 / 2), t + (h * 1 / 2), t + h}));
+}
+
+/// The acceleration of a rocket that has none of the mass it needs: infinitely fast, along x.
+[[nodiscard]] Coordinate infiniteAcceleration(const SimulationStatus& /*status*/)
+{
+    return Coordinate(std::numeric_limits<double>::infinity(), 0, 0);
+}
+
+/// The message of the SimulationCalculationException of one step of 0.02 s of @p stepper from
+/// @p status, or "<none>".
+template <class Stepper>
+[[nodiscard]] std::string stepErrorText(Stepper& stepper, SimulationStatus& status)
+{
+    return QtRocket::Test::calculationErrorText([&] { stepper.step(status, 0.02); });
+}
+
+/// Whether AbstractSimulationStepper::addRocketPosition() of @p status under @p strategy throws
+/// a SimulationCalculationException that carries the status's flight data branch.
+[[nodiscard]] bool positionErrorHasTheBranch(GeodeticComputationStrategy strategy,
+                                             const SimulationStatus&     status)
+{
+    try
+    {
+        (void)AbstractSimulationStepper::addRocketPosition(
+            strategy, status.getSimulationConditions()->getLaunchSite(), status);
+    }
+    catch (const QtRocket::SimulationCalculationException& error)
+    {
+        return error.getFlightDataBranch() != nullptr &&
+               error.getFlightDataBranch() == status.getFlightDataBranch();
+    }
+    return false;
+}
+
+// Not in Java (decision D3): a step whose position comes out infinite (an infinite
+// acceleration, which no NaN check catches) under the scenario's SPHERICAL geodetic computation
+// ends with an ordinary error where Java's addCoordinate() throws a BugException for the NaN
+// location it makes of it: Java's message without its "BUG: ", with the branch of the status.
+// The status has the position already, as in Java. Under FLAT, where Java's geodetic
+// computation checks nothing, the step ends as Java's does, at the check of the values that are
+// too large. (The RK6 stepper does not get that far: one of its stages subtracts an infinite
+// velocity from another, and checkNaN() ends the step with the ordinary error of the NaN.)
+TEST(AbstractRkSimulationStepper, AnInfinitePositionEndsTheStepWithAnOrdinaryError)
+{
+    QtRocket::Test::DeterministicStepper<Rk4SimulationStepper> rk4(infiniteAcceleration);
+    InitializedScenario                                        four("thrust-rk4", rk4);
+    ASSERT_NE(four.status, nullptr);
+    ASSERT_EQ(four.status->getSimulationConditions()->getGeodeticComputation(),
+              GeodeticComputationStrategy::SPHERICAL);
+    EXPECT_EQ(stepErrorText(rk4, *four.status),
+              "addCoordinate resulted in NaN location:  location=WorldCoordinate[lat="
+              "28.610000000000003, lon=-80.6, alt=0.0] delta=(Infinity,-0.21600,10.34000) "
+              "newLat=NaN newLon=NaN");
+    EXPECT_EQ(four.status->getRocketPosition().x, std::numeric_limits<double>::infinity());
+    EXPECT_TRUE(positionErrorHasTheBranch(GeodeticComputationStrategy::SPHERICAL, *four.status));
+    EXPECT_TRUE(positionErrorHasTheBranch(GeodeticComputationStrategy::WGS84, *four.status));
+
+    InitializedScenario flat("thrust-rk4", rk4);
+    ASSERT_NE(flat.status, nullptr);
+    flat.status->getSimulationConditions()->setGeodeticComputation(
+        GeodeticComputationStrategy::FLAT);
+    EXPECT_EQ(stepErrorText(rk4, *flat.status),
+              "Simulation values exceeded limits.  Try selecting a shorter time step.");
+    EXPECT_FALSE(positionErrorHasTheBranch(GeodeticComputationStrategy::FLAT, *flat.status));
+
+    QtRocket::Test::DeterministicStepper<Rk6SimulationStepper> rk6(infiniteAcceleration);
+    InitializedScenario                                        six("thrust-rk6", rk6);
+    ASSERT_NE(six.status, nullptr);
+    EXPECT_EQ(stepErrorText(rk6, *six.status),
+              "Simulation resulted in not-a-number (NaN) value for params.v, "
+              "c=(NaN,-0.80000,42.00000)");
 }
 
 }  // namespace

@@ -182,9 +182,10 @@ public:
     static constexpr std::uint64_t kMaxInstances = 100000;
 
     /// The most components a file may give a rocket: componentCount(), the rocket itself not
-    /// counted (decision U6 of tier 9). A component that would be one more is ignored with
-    /// everything in it and the warning LoaderWarnings::tooManyComponents() (ComponentHandler,
-    /// which asks componentFits()). OpenRocket has no bound.
+    /// counted (decision U6 of tier 9, with the number of decision D5 of 2026-10-14: a
+    /// thousand, where it was ten thousand). A component that would be one more is ignored
+    /// with everything in it and the warning LoaderWarnings::tooManyComponents()
+    /// (ComponentHandler, which asks componentFits()). OpenRocket has no bound.
     ///
     /// Every component a file attaches and every value it sets on one is a change of the
     /// rocket, which every flight configuration answers by building its instances anew, and
@@ -192,15 +193,18 @@ public:
     /// with N squared for components inside one tube and with nearly N cubed for body tubes
     /// side by side, each of which finds its place behind the one before it by looking for
     /// itself among its siblings (RocketComponent::setAfter() and getChildPosition(), as
-    /// OpenRocket's ArrayList.indexOf()). The bound ends that growth; IT DOES NOT MAKE A LOAD
-    /// SHORT. Measured in a release build, whole designs through GeneralRocketLoader: mass
-    /// components in one tube 1250: 3.3 s, 2500: 25 s, 5000: 59 s, 10000: 191 to 301 s; body
-    /// tubes side by side 625: 2.4 s, 1250: 12 s, 2500: 65 s, 5000: 264 s, 10000: 1824 s, half
-    /// an hour at the bound. Stages, booster sets and pod sets grow faster still and have a
-    /// bound of their own, kMaxAssemblies. (The measurements are the DISABLED_ tests of
+    /// OpenRocket's ArrayList.indexOf()). The bound ends that growth. Measured in a release
+    /// build, whole designs through GeneralRocketLoader (2026-10-09): mass components in one
+    /// tube 1250: 3.3 s, 2500: 25 s, 5000: 59 s, 10000: 191 to 301 s; body tubes side by side
+    /// 625: 2.4 s, 1250: 12 s, 2500: 65 s, 5000: 264 s, 10000: 1824 s, which was half an hour
+    /// at the first bound. At this one (2026-10-15, the same build, a machine at a load of 16
+    /// to 22): 999 body tubes side by side 2.1 to 3.4 s, 998 mass components in one tube
+    /// 1.6 s; 10000 of either, which the bound cuts off at a thousand, take as long.
+    /// Stages, booster sets and pod sets grow faster still and have a bound of their own,
+    /// kMaxAssemblies. (The measurements are the DISABLED_ tests of
     /// tests/core/file/openrocket/loader_bounds_tests.cpp.) The largest of the 63 designs of
     /// the repository has 53 components ("Two stage high power rocket").
-    static constexpr std::size_t kMaxComponents = 10000;
+    static constexpr std::size_t kMaxComponents = 1000;
 
     /// The most stages, booster sets and pod sets a file may give a rocket together:
     /// assemblyCount(), the rocket itself not counted. One that would be one more is ignored
@@ -215,12 +219,12 @@ public:
     /// OpenRocket's); an empty stage is not active. Measured in a release build, whole designs
     /// through GeneralRocketLoader: empty stages 250: 0.085 s, 500: 0.9 s, 1000 (8 kB of a
     /// file): 11 to 13 s, 2000: 139 to 165 s, 3000 (24 kB): 607 s, that is with the power 3.4
-    /// to 3.7 of their number, so that the 10000 that kMaxComponents allows would take about
-    /// ten hours; stages of one tube 100: 0.024 s, 250: 0.23 s, 500: 1.75 s, 2000: 195 s;
-    /// booster sets on one tube 100: 0.06 s, 500: 6 to 8 s, 1000: 61 to 74 s; pod sets 100:
-    /// 0.05 s, 500: 4 s, 1000: 37 s. A hundred of any of these kinds load in 0.06 s at the
-    /// most. The 63 designs of the repository have at most 4 stages, 2 pod sets and 1 booster
-    /// set.
+    /// to 3.7 of their number, so that the thousand that kMaxComponents allows would take 11
+    /// to 13 s (and the ten thousand of its first number about ten hours); stages of one tube 100:
+    /// 0.024 s, 250: 0.23 s, 500: 1.75 s, 2000: 195 s; booster sets on one tube 100: 0.06 s, 500: 6
+    /// to 8 s, 1000: 61 to 74 s; pod sets 100: 0.05 s, 500: 4 s, 1000: 37 s. A hundred of any of
+    /// these kinds load in 0.06 s at the most. The 63 designs of the repository have at most 4
+    /// stages, 2 pod sets and 1 booster set.
     static constexpr std::size_t kMaxAssemblies = 100;
 
     /// The most flight configurations a file may give a rocket, the default one not counted

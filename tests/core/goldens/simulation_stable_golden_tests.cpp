@@ -1098,8 +1098,8 @@ struct StableBranch
 void compareStableEvents(Mismatches& m, StableComparison& c, const json& expected,
                          const StableBranch& ours)
 {
-    const std::vector<const FlightEvent*> events = orderedEvents(*ours.branch, false);
-    const std::vector<const json*>        golden = orderedGoldenEvents(expected, false);
+    const std::vector<const FlightEvent*> events = orderedEvents(*ours.branch);
+    const std::vector<const json*>        golden = orderedGoldenEvents(expected);
     if (sequenceOf(golden) != sequenceOf(events))
     {
         c.excluded.numbers += eventNumbers(expected);

@@ -14,7 +14,10 @@
 // (ExampleSource::RESAVE, resave/rocket.ork of its goldens: plain XML of file version 1.11,
 // written before anything was settled. Its simulations keep their options and their summary
 // values and have no stored branch, and its decal images are named and cannot be read: the
-// re-save is the document alone).
+// re-save is the document alone. The re-save of "Parallel booster staging" names its six
+// textures as the original's entries are named, "/datafiles/textures/*", which in a plain
+// design are files by absolute paths that a design may not read: its 17 decals are ignored
+// with a warning for each of the six names, by decision D8 of 2026-10-14).
 //
 // The environment of a load (goldenExampleEnvironment()) is that of the harness, a
 // DesignFileEnvironment:
@@ -24,7 +27,9 @@
 // - the component presets are the six the examples refer to (DesignFileEnvironment::Presets::
 //   EXAMPLES), with which a load gives what OpenRocket's whole preset database gives, or none
 //   (Presets::NONE), which is what the product has before it reads preset files: then three
-//   examples give six "No matching ComponentPreset ..." warnings and lose the six links;
+//   examples give six "No matching ComponentPreset ..." warnings and the six components have no
+//   preset, each keeping the reference its <preset> makes (getUnresolvedPreset(), decision U8
+//   of 2026-10-08); the other thirteen examples name no preset;
 // - the preference store holds what OpenRocket's test preferences answer
 //   (storeJavaTestPreferences()), shows a motor by its common name (setMotorNameColumn(false):
 //   the names of the goldens, "[G40-7]" and not "[G40W-7]") and names no default material;
@@ -42,8 +47,9 @@
 // dimensions are stale in it where OpenRocket's are, and what a getter answers can depend on
 // what was asked before (see AutomaticDimensions.h). It is the state OpenRocket's own tests of
 // the examples look at (ExampleFilesTest) and the one a save writes; with the six presets the
-// load of either source gives no warning (tests/core/file/openrocket/example_files_tests.cpp
-// compares this state with OpenRocket's for every example).
+// load of an original gives no warning, and of a re-save none but the six of the parallel
+// boosters' textures (tests/core/file/openrocket/example_files_tests.cpp compares this state
+// with OpenRocket's for every example).
 //
 // The goldens describe another state, the SETTLED one: the harness settles the automatic
 // dimensions before it dumps geometry, mass, aerodynamics and simulations.

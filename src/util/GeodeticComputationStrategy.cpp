@@ -4,11 +4,12 @@
 #include <format>
 #include <numbers>
 #include <optional>
-#include <source_location>
+#include <string>
 #include <string_view>
 
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/WorldCoordinate.h"
@@ -50,19 +51,31 @@ WorldCoordinate addFlat(const WorldCoordinate& location, const Coordinate& delta
     return {newLat, newLon, newAlt};
 }
 
-/// Throws OpenRocket's BugException for a NaN result, raised at @p where: the caller's line, so
-/// that the error names the strategy that broke rather than this helper.
-[[noreturn]] void nanLocation(const WorldCoordinate& location, const Coordinate& delta,
-                              double newLat, double newLon,
-                              std::source_location where = std::source_location::current())
+/// Java's WorldCoordinate.toString(): each number as Double.toString() prints it ("lat=45.0").
+/// (WorldCoordinate::toString() prints the shortest form instead; see there.)
+[[nodiscard]] std::string javaLocationText(const WorldCoordinate& location)
 {
-    bug(std::format("addCoordinate resulted in NaN location:  location={} delta={} newLat={} "
-                    "newLon={}",
-                    location.toString(), delta.toString(), newLat, newLon),
-        where);
+    return std::format("WorldCoordinate[lat={}, lon={}, alt={}]",
+                       Strings::javaDoubleToString(location.getLatitudeDeg()),
+                       Strings::javaDoubleToString(location.getLongitudeDeg()),
+                       Strings::javaDoubleToString(location.getAltitude()));
 }
 
-WorldCoordinate addSpherical(const WorldCoordinate& location, const Coordinate& delta)
+/// OpenRocket's BugException for a NaN result, as the failure of tryAddCoordinate(): Java's
+/// message without its "BUG: ", the numbers spelled as Java spells them.
+[[nodiscard]] Result<WorldCoordinate> nanLocation(const WorldCoordinate& location,
+                                                  const Coordinate& delta, double newLat,
+                                                  double newLon)
+{
+    return fail(
+        ErrorCode::INVALID_ARGUMENT,
+        std::format("addCoordinate resulted in NaN location:  location={} delta={} "
+                    "newLat={} newLon={}",
+                    javaLocationText(location), delta.toString(),
+                    Strings::javaDoubleToString(newLat), Strings::javaDoubleToString(newLon)));
+}
+
+Result<WorldCoordinate> addSpherical(const WorldCoordinate& location, const Coordinate& delta)
 {
     const double newAlt = location.getAltitude() + delta.z;
 
@@ -74,7 +87,7 @@ WorldCoordinate addSpherical(const WorldCoordinate& location, const Coordinate& 
     // Check for zero movement before computing bearing
     if (MathUtil::equals(d, 0.0))
     {
-        return {location.getLatitudeDeg(), location.getLongitudeDeg(), newAlt};
+        return WorldCoordinate{location.getLatitudeDeg(), location.getLongitudeDeg(), newAlt};
     }
 
     // Java's Math.atan2(y, x) and std::atan2(y, x) take their arguments in the same order: the
@@ -94,11 +107,12 @@ WorldCoordinate addSpherical(const WorldCoordinate& location, const Coordinate& 
 
     if (std::isnan(newLat) || std::isnan(newLon))
     {
-        nanLocation(location, delta, newLat, newLon);
+        return nanLocation(location, delta, newLat, newLon);
     }
 
     // Java: Math.toDegrees(), which WorldCoordinate turns back with Math.toRadians().
-    return {MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon), newAlt};
+    return WorldCoordinate{MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon),
+                           newAlt};
 }
 
 // ******************************************************************** //
@@ -197,7 +211,7 @@ DirectSolution dirct1(double glat1, double glon1, double azimuth, double dist, d
     return {.latitude = glat2, .longitude = glon2, .backAzimuth = baz};
 }
 
-WorldCoordinate addWgs84(const WorldCoordinate& location, const Coordinate& delta)
+Result<WorldCoordinate> addWgs84(const WorldCoordinate& location, const Coordinate& delta)
 {
     const double newAlt = location.getAltitude() + delta.z;
 
@@ -209,7 +223,7 @@ WorldCoordinate addWgs84(const WorldCoordinate& location, const Coordinate& delt
     // Check for zero movement before computing bearing
     if (MathUtil::equals(d, 0.0))
     {
-        return {location.getLatitudeDeg(), location.getLongitudeDeg(), newAlt};
+        return WorldCoordinate{location.getLatitudeDeg(), location.getLongitudeDeg(), newAlt};
     }
 
     const double bearing = std::atan2(delta.x, delta.y);
@@ -222,11 +236,12 @@ WorldCoordinate addWgs84(const WorldCoordinate& location, const Coordinate& delt
 
     if (std::isnan(newLat) || std::isnan(newLon))
     {
-        nanLocation(location, delta, newLat, newLon);
+        return nanLocation(location, delta, newLat, newLon);
     }
 
     // Java: Math.toDegrees(), which WorldCoordinate turns back with Math.toRadians().
-    return {MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon), newAlt};
+    return WorldCoordinate{MathUtil::javaToDegrees(newLat), MathUtil::javaToDegrees(newLon),
+                           newAlt};
 }
 
 Coordinate computeCoriolisAcceleration(const WorldCoordinate& latlon,
@@ -256,6 +271,37 @@ Coordinate computeCoriolisAcceleration(const WorldCoordinate& latlon,
 
 WorldCoordinate addCoordinate(GeodeticComputationStrategy strategy, const WorldCoordinate& location,
                               const Coordinate& delta)
+{
+    // Java's BugException with tryAddCoordinate()'s message, raised in the branch of the
+    // strategy that broke, as Java throws it from SPHERICAL and from WGS84.
+    switch (strategy)
+    {
+        case GeodeticComputationStrategy::FLAT:
+            return addFlat(location, delta);
+        case GeodeticComputationStrategy::SPHERICAL:
+        {
+            Result<WorldCoordinate> added = addSpherical(location, delta);
+            if (!added.has_value())
+            {
+                bug(added.error().message);
+            }
+            return *added;
+        }
+        case GeodeticComputationStrategy::WGS84:
+        {
+            Result<WorldCoordinate> added = addWgs84(location, delta);
+            if (!added.has_value())
+            {
+                bug(added.error().message);
+            }
+            return *added;
+        }
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+Result<WorldCoordinate> tryAddCoordinate(GeodeticComputationStrategy strategy,
+                                         const WorldCoordinate& location, const Coordinate& delta)
 {
     switch (strategy)
     {

@@ -192,7 +192,7 @@ TEST(ScriptingExtension, AnEnabledScriptIsDisabledWhenItsDocumentIsLoaded)
     ASSERT_TRUE(extension.isEnabled());
     WarningSet warnings;
 
-    extension.disableUntrustedScript(warnings);
+    extension.disableLoadedScript(warnings);
 
     EXPECT_FALSE(extension.isEnabled());
     EXPECT_EQ(extension.getScript(), "function startSimulation() {}");
@@ -209,40 +209,56 @@ TEST(ScriptingExtension, AnEnabledScriptIsDisabledWhenItsDocumentIsLoaded)
     // A second script of the document adds the same warning: the set holds it once.
     ScriptingExtension second;
     second.setScript("var a = 1;");
-    second.disableUntrustedScript(warnings);
+    second.disableLoadedScript(warnings);
     EXPECT_FALSE(second.isEnabled());
     EXPECT_EQ(warnings.size(), 1U);
 
     // A script that is disabled already is left alone, without a warning.
     WarningSet none;
-    extension.disableUntrustedScript(none);
+    extension.disableLoadedScript(none);
     EXPECT_FALSE(extension.isEnabled());
     EXPECT_TRUE(none.empty());
 }
 
-/// What disableUntrustedScript() makes of an enabled extension with @p language and @p script:
-/// "enabled" or "disabled", and " warned" when it added a warning.
+/// Whether @p warnings holds the warning of the text @p text.
+[[nodiscard]] bool holds(const WarningSet& warnings, std::string_view text)
+{
+    return warnings.contains(QtRocket::Warning::fromString(std::string(text)));
+}
+
+/// What disableLoadedScript() makes of an enabled extension with @p language and @p script:
+/// "enabled" or "disabled", with " warned" behind it when it added OpenRocket's warning for an
+/// untrusted script and " warned as trusted" when it added QtRocket's for a script that
+/// OpenRocket trusts.
 [[nodiscard]] std::string afterLoading(std::string_view language, std::string_view script)
 {
     ScriptingExtension extension;
     extension.setLanguage(language);
     extension.setScript(script);
     WarningSet warnings;
-    extension.disableUntrustedScript(warnings);
-    return std::string(extension.isEnabled() ? "enabled" : "disabled") +
-           (warnings.empty() ? "" : " warned");
+    extension.disableLoadedScript(warnings);
+    std::string outcome = extension.isEnabled() ? "enabled" : "disabled";
+    if (holds(warnings, ScriptingExtension::kDisabledWarning))
+    {
+        outcome += " warned";
+    }
+    if (holds(warnings, ScriptingExtension::kTrustedScriptDisabledWarning))
+    {
+        outcome += " warned as trusted";
+    }
+    return outcome + (warnings.size() > 1 ? " and more" : "");
 }
 
 // ScriptingExtension.documentLoaded() with ScriptingUtil.isTrustedScript(): a script that is
 // empty once its carriage returns are gone and it is trimmed is trusted, whatever its language,
-// and stays enabled without a warning. That is the extension a user has just added. OpenRocket's
-// answers: probes/tier9c-verify-top-level/out/script.java.out and
-// tier9c-fix-top-level/out/engines.java.out.
+// and stays enabled without a warning, as in OpenRocket (decision E4). That is the extension a
+// user has just added. OpenRocket's answers: probes/tier9c-verify-top-level/out/script.java.out
+// and tier9c-fix-top-level/out/engines.java.out.
 TEST(ScriptingExtension, AnEnabledScriptThatHoldsNothingStaysEnabledWhenItsDocumentIsLoaded)
 {
     ScriptingExtension fresh;
     WarningSet         warnings;
-    fresh.disableUntrustedScript(warnings);
+    fresh.disableLoadedScript(warnings);
     EXPECT_TRUE(fresh.isEnabled());
     EXPECT_TRUE(warnings.empty());
 
@@ -256,7 +272,7 @@ TEST(ScriptingExtension, AnEnabledScriptThatHoldsNothingStaysEnabledWhenItsDocum
     Config enabledOnly;
     enabledOnly.put("enabled", true);
     ScriptingExtension noScript = loaded(enabledOnly);
-    noScript.disableUntrustedScript(warnings);
+    noScript.disableLoadedScript(warnings);
     EXPECT_TRUE(noScript.isEnabled());
     EXPECT_TRUE(warnings.empty());
 
@@ -267,6 +283,132 @@ TEST(ScriptingExtension, AnEnabledScriptThatHoldsNothingStaysEnabledWhenItsDocum
     EXPECT_EQ(afterLoading("JavaScript", "\xEF\xBB\xBF"), "disabled warned");
     EXPECT_EQ(afterLoading("JavaScript", "var a = 1;"), "disabled warned");
     EXPECT_EQ(afterLoading("JavaScript", " ; "), "disabled warned");
+}
+
+/// The roll control script of OpenRocket's example design of the file format 1.7
+/// (tests/data/ork/v1.7-simulation-extensions-and-scripting.ork, as the file stores it but for
+/// its XML escapes): the one script that OpenRocket trusts on every computer by its hash.
+constexpr std::string_view kRollControlScript =
+    "// Name of control fin set\n"
+    "var CONTROL_FIN_NAME = \"CONTROL\";\n"
+    "\n"
+    "// Desired roll rate (rad/sec)\n"
+    "var SETPOINT = 0 * Math.PI / 180;\n"
+    "\n"
+    "// Maximum control fin angle (rad)\n"
+    "var MAX_ANGLE = 15 * Math.PI / 180;\n"
+    "\n"
+    "// PID parameters\n"
+    "var KP = 0.007;\n"
+    "var KI = 0.2;\n"
+    "\n"
+    "////////////////////////////////////////\n"
+    "\n"
+    "var rollrate = 0;\n"
+    "var previousTime = 0;\n"
+    "var intState = 0;\n"
+    "\n"
+    "function postFlightConditions(status, flightConditions) {\n"
+    "\t// Store the current roll rate for later use\n"
+    "\trollrate = flightConditions.getRollRate();\n"
+    "}\n"
+    "\n"
+    "function postStep(status) {\n"
+    "\tvar c = findControlFin(status);\n"
+    "\tvar deltaT = status.getSimulationTime() - previousTime;\n"
+    "\tpreviousTime = status.getSimulationTime();\n"
+    "\t\n"
+    "\tvar error = SETPOINT - rollrate;\n"
+    "\tintState += error * deltaT;\n"
+    "\n"
+    "\tvar p = KP * error;\n"
+    "\tvar i = KI * intState;\n"
+    "\tvar value = p + i;\n"
+    "\n"
+    "\t// Clamp to -MAX_ANGLE .. MAX_ANGLE\n"
+    "\tif (value > MAX_ANGLE) {\n"
+    "\t\tvalue = MAX_ANGLE;\n"
+    "\t}\n"
+    "\tif (value < -MAX_ANGLE) {\n"
+    "\t\tvalue = -MAX_ANGLE;\n"
+    "\t}\n"
+    "\n"
+    "\tc.setCantAngle(value);\n"
+    "}\n"
+    "\n"
+    "function findControlFin(status) {\n"
+    "\tvar c;\n"
+    "\tvar iterator = status.getConfiguration().iterator();\n"
+    "\twhile (iterator.hasNext()) {\n"
+    "\t\tc = iterator.next();\n"
+    "\t\tif (c.getName() == CONTROL_FIN_NAME) {\n"
+    "\t\t\treturn c;\n"
+    "\t\t}\n"
+    "\t}\n"
+    "\tthrow \"Could not find fin with name \" + CONTROL_FIN_NAME;\n"
+    "}\n";
+
+/// @p text with every line feed written as a carriage return and a line feed.
+[[nodiscard]] std::string withCarriageReturns(std::string_view text)
+{
+    std::string out;
+    for (const char c : text)
+    {
+        out += c == '\n' ? std::string("\r\n") : std::string(1, c);
+    }
+    return out;
+}
+
+// Decision D1, a deviation from OpenRocket: the script OpenRocket trusts by its hash
+// (ScriptingUtil.DEFAULT_TRUSTED_HASHES) is disabled on load too, with QtRocket's own warning,
+// where OpenRocket leaves it enabled and runs it. isTrustedScript() stays OpenRocket's rule.
+// (The hash is OpenRocket's value: the probe of the verifier of tier 9c, out/script.java.out.)
+TEST(ScriptingExtension, TheScriptOpenRocketTrustsByItsHashIsDisabledWithAWarningOfItsOwn)
+{
+    EXPECT_EQ(kRollControlScript.size(), 1233U);
+    EXPECT_EQ(ScriptingExtension::normalizeScript(kRollControlScript).size(), 1232U);
+    EXPECT_EQ(ScriptingExtension::scriptHash(
+                  "JavaScript", ScriptingExtension::normalizeScript(kRollControlScript)),
+              "SHA-256:9bf364ce4d4a75f09b29178bf9d6872b232084f73dae20dc7b5b073e54e95a42");
+    EXPECT_TRUE(ScriptingExtension::isTrustedScript("JavaScript", kRollControlScript));
+
+    ScriptingExtension extension;
+    extension.setScript(kRollControlScript);
+    WarningSet warnings;
+    extension.disableLoadedScript(warnings);
+    EXPECT_FALSE(extension.isEnabled());
+    EXPECT_EQ(extension.getScript(), kRollControlScript);
+    ASSERT_EQ(warnings.size(), 1U);
+    EXPECT_EQ(ScriptingExtension::kTrustedScriptDisabledWarning,
+              "Scripts that OpenRocket trusts have been disabled: QtRocket runs no scripts.");
+    EXPECT_EQ((*warnings.begin()).toString(), ScriptingExtension::kTrustedScriptDisabledWarning);
+    EXPECT_EQ((*warnings.begin()).priority(), QtRocket::MessagePriority::NORMAL);
+
+    // With carriage returns and white space around it, it is the same script; with a
+    // character more, or under another name of its language, it is one OpenRocket does not
+    // trust.
+    EXPECT_EQ(afterLoading("JavaScript", "\r\n  " + withCarriageReturns(kRollControlScript) + "\t"),
+              "disabled warned as trusted");
+    EXPECT_EQ(afterLoading("JavaScript", std::string(kRollControlScript) + ";"), "disabled warned");
+    EXPECT_EQ(afterLoading("JavaScript", "/" + std::string(kRollControlScript)), "disabled warned");
+    EXPECT_EQ(afterLoading("javascript", kRollControlScript), "disabled warned");
+    EXPECT_EQ(afterLoading("js", kRollControlScript), "disabled warned");
+
+    // Both kinds in one document: each warning once.
+    ScriptingExtension other;
+    other.setScript("var a = 1;");
+    other.disableLoadedScript(warnings);
+    extension.setEnabled(true);
+    extension.disableLoadedScript(warnings);
+    EXPECT_FALSE(extension.isEnabled());
+    EXPECT_EQ(warnings.size(), 2U);
+    EXPECT_TRUE(holds(warnings, ScriptingExtension::kDisabledWarning));
+
+    // Disabled, the script lets the simulation fly without it; enabled again, it cannot run.
+    EXPECT_EQ(initialized(extension), "ok listeners=0");
+    extension.setEnabled(true);
+    EXPECT_EQ(initialized(extension),
+              "error:QtRocket does not support the scripting language 'JavaScript'");
 }
 
 // ScriptingUtil.normalize() and hash(), with the hashes OpenRocket computes (FixEngines.java,
@@ -447,7 +589,7 @@ TEST(ScriptingExtension, ASimulationDoesNotRunWithAnEnabledScript)
     EXPECT_EQ(simulation.getSimulatedData(), nullptr);
 
     WarningSet warnings;
-    script->disableUntrustedScript(warnings);
+    script->disableLoadedScript(warnings);
     const QtRocket::Result<void> flown = simulation.simulate();
     ASSERT_TRUE(flown.has_value()) << flown.error().message;
     const std::shared_ptr<QtRocket::FlightData>& data = simulation.getSimulatedData();

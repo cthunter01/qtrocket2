@@ -15,13 +15,14 @@
 //    NOT COMPARED: the maximum altitude of the 54 flights. Java flies each in the turbulence
 //    its design's wind has (mostly a standard deviation of 0.2 m/s around 2 m/s), drawn from
 //    java.util.Random with seed 0, and accepts 0.5 m around its literal. QtRocket's turbulence
-//    is another sequence for the same seed (PinkNoise draws from another generator, a decision
-//    of tier 3), and with another realisation OpenRocket's own altitude is more than 0.5 m
-//    from the literal in 35 of the 54 flights (flown with the seeds 0 to 31; by up to 16 m of
-//    617 m: SeedProbe of the probes of tier 9c, part "examples"). QtRocket's altitudes over
-//    the same seeds lie as OpenRocket's do: beyond 0.5 m in 35 of the 54 flights and at
-//    0.500 m in one more, by up to 16 m (the first measurement at the end of this file). The
-//    flights are compared with the calm goldens of the examples instead.
+//    is another sequence for the same seed (PinkNoise draws from GaussianRandom, a generator of
+//    QtRocket's own: decision D12 of 2026-10-14), and with another realisation OpenRocket's own
+//    altitude is more than 0.5 m from the literal in 35 of the 54 flights (flown with the seeds
+//    0 to 31; by up to 16 m of 617 m: SeedProbe of the probes of tier 9c, part "examples").
+//    QtRocket's altitudes over the same seeds lie as OpenRocket's do: beyond 0.5 m in 34 of the
+//    54 flights, by up to 16 m (the first measurement at the end of this file; 35 and one more
+//    at 0.500 m with std::mt19937, the generator before tier 10). The flights are compared with
+//    the calm goldens of the examples instead.
 //
 //    What does not depend on the realisation is asserted here: every flight runs, none has an
 //    error, and its warnings are OpenRocket's, by priority and one by one (the numbers a
@@ -82,6 +83,7 @@
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/logging/MessagePriority.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -108,7 +110,6 @@
 #include "file/ExampleMotors.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
-#include "file/openrocket/ConditionsTestSupport.h"
 #include "file/openrocket/DesignFileState.h"
 #include "file/openrocket/ExampleOrkFiles.h"
 #include "file/openrocket/FlightDataTestSupport.h"
@@ -128,6 +129,7 @@ using QtRocket::FlightConditions;
 using QtRocket::FlightConfiguration;
 using QtRocket::FlightData;
 using QtRocket::LoadedDocument;
+using QtRocket::LoaderWarnings;
 using QtRocket::MassCalculator;
 using QtRocket::MessagePriority;
 using QtRocket::Motor;
@@ -1145,14 +1147,16 @@ struct DeploymentAtTheLimit
 /// The one such simulation of the examples. Java's table expects no warning for it, which
 /// holds for the flight OpenRocket flies with seed 0: flown with the seeds 0 to 31, OpenRocket
 /// deploys at 16.3 to 20.9 m/s and warns with the seeds 17 and 29 (SeedProbe of the probes of
-/// tier 9c, part "examples"). QtRocket's turbulence is another sequence, and not the same in
-/// every standard library either (see PinkNoise): with glibc and the seeds 0 to 31 it deploys
-/// at 16.3 to 20.8 m/s here and warns with seed 1 (the measurements at the end of this file).
-/// No other flight of the examples is near the limit for its spread: "Three stage low power
-/// rocket.ork" Simulation 2 deploys at 17.4 to 19.3 m/s and "Parallel booster staging.ork"
-/// Simulation 2 at 15.7 to 19.1 m/s in OpenRocket's 32 flights (17.3 to 19.1 and 15.3 to
-/// 18.6 m/s in QtRocket's), without a warning in any, and the flights that deploy closer to
-/// 20 m/s do so within 0.05 m/s whatever the seed (19.0 to 19.6 m/s).
+/// tier 9c, part "examples"). QtRocket's turbulence is another sequence (see PinkNoise; its
+/// noise is the same on every platform, the flight, which goes through libm, is not): with the
+/// seeds 0 to 31 it deploys at 16.1 to 19.8 m/s here and warns with none of them (the
+/// measurements at the end of this file, clang debug build with glibc; with std::mt19937, the
+/// generator before tier 10, it deployed at 16.3 to 20.8 m/s and warned with seed 1). No other
+/// flight of the examples is near the limit for its spread: "Three stage low power rocket.ork"
+/// Simulation 2 deploys at 17.4 to 19.3 m/s and "Parallel booster staging.ork" Simulation 2 at
+/// 15.7 to 19.1 m/s in OpenRocket's 32 flights (17.3 to 18.8 and 15.5 to 18.7 m/s in
+/// QtRocket's), without a warning in any, and the flights that deploy closer to 20 m/s do so
+/// within 0.06 m/s whatever the seed (19.0 to 19.6 m/s).
 ///
 /// What is asserted of such a simulation in place of Java's "no such warning" is what holds
 /// whatever the realisation: see deploymentContradictions().
@@ -1175,8 +1179,9 @@ constexpr std::string_view kHighSpeedDeployment = "RecoveryHighSpeedDeployment";
 /// of the deployment event) may lie from the speed the flight compared with its limit when it
 /// deployed, in m/s. The flight handles an event up to a millisecond after its time (the
 /// shortest step towards an event), in which a falling rocket changes its speed by 0.01 m/s;
-/// in the one flight of the second measurement at the end of this file that has the warning,
-/// the two speeds are 20.7595 and 20.7636 m/s.
+/// in the one flight of the second measurement at the end of this file that had the warning
+/// with std::mt19937, the generator before tier 10, the two speeds were 20.7595 and
+/// 20.7636 m/s (with GaussianRandom none of its 32 flights has the warning).
 constexpr double kDeploymentSpeedSlack = 0.05;
 
 /// What is asserted of a simulation of kDeploymentsAtTheLimit about its warnings of a
@@ -2483,17 +2488,51 @@ template <class Line>
     return lines;
 }
 
-/// @p line with the name a re-save gives a decal image whose entry lies outside "decals/":
-/// OpenRocket's saver writes every image as "decals/<file name>", so a texture
-/// "/datafiles/textures/<file name>" of the original is "decals/<file name>" in the re-save.
-[[nodiscard]] std::string withResavedDecalNames(std::string line)
+/// The texts of the decal images that the re-save of an example may not read: the textures of
+/// OpenRocket, which the original holds as entries "/datafiles/textures/<file name>" ("Parallel
+/// booster staging"). In the re-save, a plain design, they are files of absolute paths that a
+/// design may not name (decision D8 of 2026-10-14).
+constexpr std::string_view kTextureDecal = " decal='/datafiles/textures/";
+
+/// The line of a state that lists the decal images of the document, and the start of an image
+/// in it that is one of OpenRocket's textures.
+constexpr std::string_view kDecalImages  = "| decals=";
+constexpr std::string_view kTextureImage = "'/datafiles/textures/";
+
+/// @p line, a line of an original's state, as the re-save gives it: without the decal of an
+/// appearance that is one of OpenRocket's textures, which the re-save ignores (kTextureDecal;
+/// its text runs to the end of the appearance, "]"), and without such an image in the list of
+/// the document's images (kDecalImages: "'<name>'" each, with commas between). A list that is
+/// left empty is "", a line the state does not have.
+[[nodiscard]] std::string withoutTextureDecals(std::string line)
 {
-    return QtRocket::Test::replaceAll(std::move(line), "'/datafiles/textures/", "'decals/");
+    for (std::size_t at = line.find(kTextureDecal); at != std::string::npos;
+         at             = line.find(kTextureDecal, at))
+    {
+        line.erase(at, line.find(']', at) - at);
+    }
+    if (!line.starts_with(kDecalImages) || !line.contains(kTextureImage))
+    {
+        return line;
+    }
+    std::string            images;
+    const std::string_view list = std::string_view(line).substr(kDecalImages.size());
+    for (std::size_t start = 0; start <= list.size();)
+    {
+        const std::size_t      comma = std::min(list.find(',', start), list.size());
+        const std::string_view image = list.substr(start, comma - start);
+        if (!image.starts_with(kTextureImage))
+        {
+            images += std::format("{}{}", images.empty() ? "" : ",", image);
+        }
+        start = comma + 1;
+    }
+    return images.empty() ? std::string() : std::string(kDecalImages) + images;
 }
 
 /// The re-saves of @p states whose design is not the one OpenRocket loads from the original
-/// (designLinesOf() of the state of ExampleOrkFiles.h, with the decal names of a re-save),
-/// each with the first line that differs; "" when every one is.
+/// (designLinesOf() of the state of ExampleOrkFiles.h, without the decals the re-save may not
+/// read), each with the first line that differs; "" when every one is.
 [[nodiscard]] std::string resavesWithAnotherDesign(const std::vector<ExampleState>& states)
 {
     std::string report;
@@ -2508,8 +2547,9 @@ template <class Line>
         Lines original = designLinesOf(row->state);
         for (std::string& line : original)
         {
-            line = withResavedDecalNames(std::move(line));
+            line = withoutTextureDecals(std::move(line));
         }
+        std::erase(original, std::string());
         const Lines texts = QtRocket::Test::textsOf(state.lines);
         const Lines found = designLinesOf(std::span<const std::string>(texts));
         const std::vector<std::string_view> expected(original.begin(), original.end());
@@ -2524,28 +2564,63 @@ template <class Line>
 
 // OpenRocket's re-save of each example (resave/rocket.ork of its goldens: the design as
 // OpenRocket loaded it, saved before anything was settled, as plain XML of file version 1.11
-// without the stored flights) loads without a warning, and holds the design of the original:
-// the same components with the same values, the stale automatic ones included, the same flight
-// configurations with the same ids, names and motors, and the same simulations by name,
-// status, extensions and flight configuration. Only the decal images differ: a re-save is
-// the document alone, so none of its 23 images can be read, and the six textures of the
-// parallel boosters have the names OpenRocket's saver gives them. Freshly loaded, a re-save
-// has the masses, the centres of mass and the length of the original as loaded.
+// without the stored flights) holds the design of the original: the same components with the
+// same values, the stale automatic ones included, the same flight configurations with the
+// same ids, names and motors, and the same simulations by name, status, extensions and flight
+// configuration. Only the decal images differ: a re-save is the document alone, so none of its
+// 17 images can be read, and the six textures of the parallel boosters are not read at all
+// (see the next test): their 17 decals are ignored with six warnings, the only warnings of the
+// re-saves. Freshly loaded, a re-save has the masses, the centres of mass and the length of the
+// original as loaded.
 //
 // (The comparison of the re-saves with their goldens, and of a design QtRocket saves with a
 // re-save, are not made here.)
-TEST(ExampleFilesResaves, LoadWithoutAWarningIntoTheDesignOfTheOriginal)
+TEST(ExampleFilesResaves, LoadIntoTheDesignOfTheOriginal)
 {
     const std::vector<ExampleState> states =
         statesOfTheExamples(ExampleSource::RESAVE, Presets::EXAMPLES);
     ASSERT_EQ(states.size(), 16U);
     EXPECT_EQ(resavesWithAnotherDesign(states), "");
     EXPECT_EQ(totalsOf(states).toText(),
-              "16 files, 0 of version 1.10 and 16 of 1.11, 0 warnings; 327 components, 50 "
+              "16 files, 0 of version 1.10 and 16 of 1.11, 6 warnings; 327 components, 50 "
               "configurations, 65 motors and 1 mounts without one; 54 simulations, 54 loaded, 4 "
-              "with 6 extensions; 0 branches, 0 rows, 0 events, 20 stored warnings; 23 decal "
-              "images, 23 unreadable; 112 document materials");
+              "with 6 extensions; 0 branches, 0 rows, 0 events, 20 stored warnings; 17 decal "
+              "images, 17 unreadable; 112 document materials");
     EXPECT_EQ(examplesWithOtherMasses(ExampleSource::RESAVE), "");
+}
+
+// Not OpenRocket's (decision D8 of 2026-10-14). The original "Parallel booster staging" holds
+// OpenRocket's built-in textures as entries of its archive named "/datafiles/textures/<file
+// name>" (DefaultAppearance.java), which load as the entries they are. OpenRocket's plain
+// re-save names them so too, and in a plain design such a name is a file of an absolute path,
+// which a design may not read: each of its 17 decals is ignored, with one warning for each of
+// the six names, and the document has no image. OpenRocket names the files against the root
+// of the file system and registers six images that cannot be read. (OpenRocket itself always
+// saves a design with decals as an archive, where the names are entries again.)
+TEST(ExampleFilesResaves, ThePlainResaveOfTheParallelBoostersReadsNoTexture)
+{
+    const Result<LoadedDocument> loaded =
+        loadExampleNamed("Parallel booster staging.ork", ExampleSource::RESAVE);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    Lines warnings;
+    for (const QtRocket::Warning& warning : loaded->warnings)
+    {
+        warnings.push_back(warning.toString());
+    }
+    EXPECT_EQ(
+        warnings,
+        (Lines{LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/wadding.png"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/spiral-wound-alpha.png"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/balsa.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/wood.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/hardboard.jpg"),
+               LoaderWarnings::decalFileOutsideDesign("/datafiles/textures/chute.jpg")}));
+    EXPECT_EQ(loaded->document->getDecalImageCount(), 0U);
+    // The original keeps its six images, which are the entries of its archive.
+    const Result<LoadedDocument> original = loadExampleNamed("Parallel booster staging.ork");
+    ASSERT_TRUE(original.has_value()) << original.error().toString();
+    EXPECT_TRUE(original->warnings.empty());
+    EXPECT_EQ(original->document->getDecalImageCount(), 6U);
 }
 
 // ============================================================ for a comparison with the probe

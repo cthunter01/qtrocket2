@@ -67,9 +67,13 @@ namespace QtRocket
 /// THE ATTACHMENTS (decal images, embedded thrust curves): from an archive they are its
 /// entries, found by their exact name, a leading slash included (ZipFileAttachmentFactory),
 /// also when the archive was given as bytes. For a plain or gzip document they are files
-/// (FileSystemAttachmentFactory): beside the design for load(file), in the base directory of
-/// load(bytes), and resolved against the current directory of the process when there is
-/// neither. Nothing is read before an attachment is asked for its bytes. (OpenRocket's loader
+/// (FileSystemAttachmentFactory): beside the design for load(file) and in the base directory
+/// of load(bytes). A file is asked for only by a relative name that stays inside the design's
+/// directory (decision D8 of 2026-10-14, the rule of the lookup tables below): a decal of
+/// another name, "/datafiles/textures/x.jpg" or "../x.png", is ignored with a warning
+/// (AppearanceHandler), an embedded thrust curve is then missing (MotorHandler), and a
+/// document read from bytes without a base directory reads no file at all. Nothing is read
+/// before an attachment is asked for its bytes. (OpenRocket's loader
 /// made for a jar URL, GeneralRocketLoader(URL), is load(bytes) with the bytes of that file:
 /// the entries of an archive, and files without a base directory otherwise.)
 ///
@@ -156,7 +160,7 @@ namespace QtRocket
 /// keeps Java's limit (Attachment::kMaxAttachmentBytes).
 ///
 /// What a document may ask for is bounded too (decision U6 of tier 9; the constants of
-/// DocumentConfig, where each says what it bounds and why): 10000 components of the rocket,
+/// DocumentConfig, where each says what it bounds and why): 1000 components of the rocket,
 /// of which 100 stages, booster sets and pod sets, 1000 flight configurations, 10000
 /// simulations, 10000 levels of one wind model, 1000 decal images, beside the
 /// bounds of the handlers (10000 for one count, 100000 component instances over all flight
@@ -226,6 +230,10 @@ namespace QtRocket
 /// - A lookup table is read from a file inside the design's directory only (see above;
 ///   OpenRocket reads any path a design names, a relative one against the current directory
 ///   of the process).
+/// - So are the attachments of a plain or gzip document, the decal images and the embedded
+///   thrust curves (see above; decision D8 of 2026-10-14). OpenRocket reads any path a decal
+///   names, and every attachment of a document read from a stream from the current directory
+///   of the process.
 /// - A <preset> element whose preset is not found is kept on its component, for a save to
 ///   write back (RocketComponent::getUnresolvedPreset(); OpenRocket forgets it).
 /// - What the environment must hold is checked when the loader is made: a context without a
@@ -276,8 +284,9 @@ public:
 
     /// Loads the design that @p bytes, the contents of a design file, hold (load(InputStream,
     /// String)). Its attachments are the entries of @p bytes when they are an archive, and
-    /// otherwise the files of @p baseDirectory, or files named against the current directory
-    /// when there is none; @p baseDirectory is also the design's directory of the context.
+    /// otherwise the files of @p baseDirectory, or none when there is none (a factory of files
+    /// named against the current directory, which the handlers ask for nothing: see THE
+    /// ATTACHMENTS); @p baseDirectory is also the design's directory of the context.
     /// For bytes that are no archive a @p baseDirectory that is given must be a directory: the
     /// load fails otherwise, as OpenRocket's does (see FAILURES).
     /// The bytes are taken over: an archive is kept by the attachments of the document.

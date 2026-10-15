@@ -1099,16 +1099,24 @@ std::string stepScenarioDifferences(
 
 std::string javaScenarioDifferences(std::string_view name)
 {
-    static constexpr std::array<std::pair<std::string_view, std::string_view>, 2> kReplacements{{
+    // Java's texts that QtRocket gives otherwise: the RK6 stepper's untranslated key, and the
+    // BugExceptions of a NaN or an infinite position in a flight, which are ordinary errors here
+    // (decision D3: AbstractSimulationStepper::checkNaN() without Java's ", please report a
+    // bug", and addRocketPosition() with Java's text without its "BUG: ").
+    static constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kReplacements{{
         {"thrown SimulationCalculationException: error.valuesTooLarge",
          "thrown SimulationCalculationException: Simulation values exceeded limits.  Try "
          "selecting a shorter time step."},
         {"thrown BugException: BUG: addCoordinate resulted in NaN location:  "
          "location=WorldCoordinate[lat=28.610000000000003, lon=-80.6, alt=100.0] "
          "delta=(-Infinity,-Infinity,Infinity) newLat=NaN newLon=NaN",
-         "thrown BugException: BUG: addCoordinate resulted in NaN location:  "
-         "location=WorldCoordinate[lat=28.610000000000003, lon=-80.6, alt=100] "
-         "delta=(-Infinity,-Infinity,Infinity) newLat=nan newLon=nan"},
+         "thrown SimulationCalculationException: addCoordinate resulted in NaN location:  "
+         "location=WorldCoordinate[lat=28.610000000000003, lon=-80.6, alt=100.0] "
+         "delta=(-Infinity,-Infinity,Infinity) newLat=NaN newLon=NaN"},
+        {"thrown BugException: BUG: Simulation resulted in not-a-number (NaN) value for params.a, "
+         "please report a bug, c=(NaN,NaN,NaN)",
+         "thrown SimulationCalculationException: Simulation resulted in not-a-number (NaN) value "
+         "for params.a, c=(NaN,NaN,NaN)"},
     }};
     for (const StepScenarioPin& pin : stepScenarioPins())
     {

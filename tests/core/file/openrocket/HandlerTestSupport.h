@@ -141,7 +141,8 @@ private:
 /// An attachment factory over a map of names to bytes: the attachment of a name it has returns
 /// those bytes, one it was told to fail returns that failure, and any other is missing (its
 /// getBytes() fails with ErrorCode::NOT_FOUND, as an archive without the entry). It records the
-/// names it was asked for.
+/// names it was asked for. Like an archive it does not read the file system, so a handler asks
+/// it for any name (readsFileSystem()).
 class MapAttachmentFactory final : public AttachmentFactory
 {
 public:
@@ -177,6 +178,8 @@ public:
         }
         return std::make_shared<FailingAttachment>(std::string(name));
     }
+
+    [[nodiscard]] bool readsFileSystem() const noexcept override { return false; }
 
     /// The names getAttachment() was called with, in order.
     [[nodiscard]] const std::vector<std::string>& asked() const noexcept { return m_asked; }

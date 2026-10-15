@@ -13,6 +13,7 @@
 #include "QtRocket/simulation/SimulationStepper.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Quaternion.h"
 #include "QtRocket/util/Rotation2D.h"
@@ -23,6 +24,7 @@ namespace QtRocket
 class FlightDataBranch;
 class SimulationConditions;
 class SimulationStatus;
+class WorldCoordinate;
 
 /// What the simulation steppers share (OpenRocket's simulation/AbstractSimulationStepper): the
 /// flight conditions of a status, the atmosphere, the wind and the gravity it flies in, the
@@ -49,9 +51,28 @@ class SimulationStatus;
 /// - The fields of the DataStore that Java leaves null are empty optionals. Reading an empty one
 ///   where Java would throw a NullPointerException is a BugError, and so are a status without
 ///   simulation conditions and conditions without the model or calculator that is asked.
-/// - checkNaN() throws BugError (Java: BugException) with Java's message; a coordinate and a
-///   quaternion are printed by this port's toString() (see Quaternion::toString() for how it
-///   differs from Java's).
+/// - checkNaN() throws SimulationCalculationException where Java throws BugException (decision
+///   D3), so that a flight whose numbers become NaN ends with an ordinary simulation error
+///   (Simulation::simulate(): ErrorCode::SIMULATION_ABORTED): absurd finite dimensions of a
+///   design (a nose cone of 1e150 m, a parachute of 1e300 m, a mass at a radial position of
+///   1e200 m) and air of negative density aloft (an air start at 50 km over humid air) get
+///   there from inputs that are no defect of the program. The message is Java's without its
+///   ", please report a bug"; a coordinate and a quaternion are printed by this port's
+///   toString() (see Quaternion::toString() for how it differs from Java's). A programmer
+///   error (a model, a calculator or a branch that is missing) stays a BugError.
+/// - The world position of a step goes through addRocketPosition(), for the same reason
+///   (decision D3): where Java's geodetic computation throws a BugException for the NaN
+///   location it arrives at (SPHERICAL and WGS84, for a position that is NaN or infinite or
+///   whose horizontal distance overflows: a parachute of an absurd drag coefficient flies the
+///   rocket some 1e277 m in one step), the flight ends with a SimulationCalculationException
+///   with Java's message without its "BUG: " (tryAddCoordinate()). FLAT, for which Java checks
+///   nothing there, passes a NaN or an infinity on as Java does, to the errors OpenRocket
+///   ends such a flight with: the engine's "Simulation resulted in not-a-number (NaN) value,
+///   please report a bug." and the RK steppers' "values too large".
+/// - checkFinite() is QtRocket's own, for the same reason (decision D3): the steppers check
+///   that the nozzle exit areas of the thrusting motors are finite before they go to the
+///   flight conditions (Java: FlightConditions throws an IllegalArgumentException, which is no
+///   SimulationException).
 /// - Java's scratch MutableCoordinates are local Coordinates: the arithmetic of the mutable
 ///   operations is that of the immutable ones (the weights included).
 /// - The thrusting nozzle exit areas are summed per assembly in the order of the status's
@@ -230,21 +251,21 @@ public:
     /// conditions' atmospheric model at the altitude of the rocket above sea level (the z
     /// position plus the altitude of the launch site).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the pressure or the temperature is NaN
+    /// @throws SimulationCalculationException when the pressure or the temperature is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] AtmosphericConditions modelAtmosphericConditions(SimulationStatus& status);
 
     /// The wind to use, which listeners may override: that of the conditions' wind model at the
     /// simulation time and the altitude of the rocket (above sea level and above ground).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the wind has a NaN
+    /// @throws SimulationCalculationException when the wind has a NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] Coordinate modelWindVelocity(SimulationStatus& status);
 
     /// The gravitational acceleration to use, which listeners may override: that of the
     /// conditions' gravity model at the world position of the rocket.
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the gravity is NaN
+    /// @throws SimulationCalculationException when the gravity is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] double modelGravity(SimulationStatus& status);
 
@@ -252,30 +273,45 @@ public:
     /// structure of the status's configuration, cached by the configuration's modification id
     /// (see the class comment).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the centre of mass or an inertia is NaN
+    /// @throws SimulationCalculationException when the centre of mass or an inertia is NaN
     [[nodiscard]] RigidBody calculateStructureMass(SimulationStatus& status);
 
     /// The mass data of the motors at the simulation time, which listeners may override (the
     /// same hooks as for the structure mass).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the centre of mass or an inertia is NaN
+    /// @throws SimulationCalculationException when the centre of mass or an inertia is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] RigidBody calculateMotorMass(SimulationStatus& status);
 
     /// Checks that @p d is not NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug."
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>." (without a flight data branch)
     static void checkNaN(double d, std::string_view var);
 
     /// Checks that no component of @p c (the weight included) is NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug, c=<c>"
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>, c=<c>" (without a flight data branch)
     static void checkNaN(const Coordinate& c, std::string_view var);
 
     /// Checks that no component of @p q is NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug, q=<q>"
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>, q=<q>" (without a flight data branch)
     static void checkNaN(const Quaternion& q, std::string_view var);
+
+    /// Checks that @p d is finite (not in Java; see the class comment).
+    /// @throws SimulationCalculationException "Simulation resulted in a value that is not finite
+    ///         for <var>." (without a flight data branch)
+    static void checkFinite(double d, std::string_view var);
+
+    /// @p location moved by the rocket position of @p status through the geodetic computation
+    /// @p strategy, the world position of the end of a step (Java, in the steppers:
+    /// `geodeticComputation.addCoordinate(w, status.getRocketPosition())`).
+    /// @throws SimulationCalculationException with the message of tryAddCoordinate() and the
+    ///         flight data branch of @p status where Java's addCoordinate() throws its
+    ///         BugException for a NaN location (SPHERICAL and WGS84; see the class comment)
+    [[nodiscard]] static WorldCoordinate addRocketPosition(GeodeticComputationStrategy strategy,
+                                                           const WorldCoordinate&      location,
+                                                           const SimulationStatus&     status);
 
     /// Sets @p status and @p store to values consistent with sitting on the ground: the time
     /// step NaN; the flight conditions of the status with a NaN angle of attack and no

@@ -1653,6 +1653,20 @@ TEST(RailButtonCG, AButtonWithoutAnyVolumeHasNoCG)
     EXPECT_EQ(cg.weight, 0.0);
 }
 
+// Not in Java (decision D3): absurd finite dimensions make the height of the CG overflow to
+// infinity, which Java throws its BugException for ("height of CG: Infinity"). Here the CG is
+// returned with it, and a flight ends with the ordinary error of the stepper's NaN check
+// (nan_flight_tests.cpp).
+TEST(RailButtonCG, AHeightOfTheCGThatOverflowsIsNoBug)
+{
+    const RailButton tall(0.0097, 1e300);
+    ASSERT_EQ(tall.getTotalHeight(), 1e300);
+    const Coordinate cg = tall.getComponentCG();
+    EXPECT_EQ(cg.x, 0.0);
+    EXPECT_FALSE(std::isfinite(cg.y));
+    EXPECT_FALSE(std::isfinite(cg.z));
+}
+
 TEST(RailButtonCG, InconsistentPresetDimensionsAreABug)
 {
     // Java throws a BugException when the CG comes out above the button. The setters'

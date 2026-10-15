@@ -124,7 +124,7 @@ void AbstractEulerStepper::step(SimulationStatus& status, double maxTimeStep)
     // Update the world coordinate
     const SimulationConditions& conditions = conditionsOf(status);
     WorldCoordinate             w          = conditions.getLaunchSite();
-    w = addCoordinate(conditions.getGeodeticComputation(), w, status.getRocketPosition());
+    w = addRocketPosition(conditions.getGeodeticComputation(), w, status);
     status.setRocketWorldPosition(w);
 
     // Store values calculated for time step

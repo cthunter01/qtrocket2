@@ -61,9 +61,17 @@ class Transformation;
 ///   below the zero-area limit.
 ///
 /// Deviations from OpenRocket:
-/// - A fin set without a parent throws BugError (Java: IllegalStateException), and so does a
-///   count of interfering fins below the fin set's own, which a NaN root chord or position gives
-///   (Java: BugException); both are thrown by the constructor.
+/// - A fin set without a parent throws BugError (Java: IllegalStateException), from the
+///   constructor.
+/// - A fin set whose own leading or trailing edge is not at a finite position relative to its
+///   parent (an absurd finite dimension elsewhere in the design, such as a nose cone aft radius
+///   of 1e100 m, makes it NaN) is counted as one with a very small root chord: its own fins
+///   alone interfere. Java compares the NaN with the other fin sets, counts no fin, not even
+///   its own, and throws a BugException ("Counted 0 parallel fins, when component itself has
+///   ..."); here the NaN goes on to the forces, and a flight ends with the ordinary error of
+///   the stepper's NaN check (decision D3 of 2026-10-14). The BugError of a count below the fin
+///   set's own stays, for the finite positions that cannot give it. Other fin sets at no finite
+///   position are not counted, as in Java.
 /// - A parent without an instance location, which no component tree has, throws BugError from
 ///   the constructor too (Java: ArrayIndexOutOfBoundsException from toRelative(...)[0]).
 /// - Java's static K1, K2 and K3 interpolators and its transonic CNa PolyInterpolator are

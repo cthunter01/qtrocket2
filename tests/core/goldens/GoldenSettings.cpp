@@ -31,6 +31,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetReference.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/Strings.h"
 #include "goldens/GoldenGeometry.h"
@@ -124,23 +125,64 @@ void comparePresetAttribute(Mismatches& m, const pugi::xml_node& element, const 
     m.text(std::format("<preset> {}", name), element.attribute(name).value(), actual);
 }
 
+/// Compares the attribute @p name of the <preset> @p element with @p actual, a text of the
+/// reference a component keeps that may be missing, as the attribute may (the type and the
+/// digest): whether there is one on either side, and the texts when there are.
+void compareReferenceAttribute(Mismatches& m, const pugi::xml_node& element, const char* name,
+                               const std::optional<std::string>& actual)
+{
+    const pugi::xml_attribute attribute = element.attribute(name);
+    m.integer(std::format("<preset> {}: number", name), attribute.empty() ? 0 : 1,
+              actual.has_value() ? 1 : 0);
+    if (!attribute.empty() && actual.has_value())
+    {
+        comparePresetAttribute(m, element, name, *actual);
+    }
+}
+
+/// The reference that @p component, of a design loaded without the presets, keeps of the preset
+/// its element @p node names (getUnresolvedPreset(), the user's decision U8 of 2026-10-08): the
+/// component has no preset, whatever the element names, and it keeps a reference exactly when
+/// the element has a <preset>, with the element's four attributes as they are. An element is
+/// counted as compared when the component has no preset and its reference was compared.
+void compareUnresolvedPreset(Mismatches& m, SettingsCounts& counts, const pugi::xml_node& node,
+                             const RocketComponent& component)
+{
+    const ComponentPreset* const                   preset    = component.getPresetComponent();
+    const std::int64_t                             elements  = countChildren(node, kPreset);
+    const std::optional<ComponentPresetReference>& reference = component.getUnresolvedPreset();
+    m.integer("preset of the component, loaded without presets: number", 0,
+              preset != nullptr ? 1 : 0);
+    m.integer("<preset> kept as the component's reference: number", elements,
+              reference.has_value() ? 1 : 0);
+    const pugi::xml_node element = node.child(kPreset);
+    if (element.empty() || !reference.has_value())
+    {
+        return;
+    }
+    compareReferenceAttribute(m, element, "type", reference->type);
+    comparePresetAttribute(m, element, "manufacturer", reference->manufacturer);
+    comparePresetAttribute(m, element, "partno", reference->partNo);
+    compareReferenceAttribute(m, element, "digest", reference->digest);
+    counts.presets += preset == nullptr ? 1 : 0;
+}
+
 /// The component preset of @p component against the <preset> of its element @p node
 /// (RocketComponentSaver.addParams(): the element is there exactly when the component has a
 /// preset, with the name of its type, the simple name of its manufacturer, its part number and
 /// its digest). For a design that was loaded without the presets (@p presets) the component has
-/// none, whatever the element names; an element is then counted as compared when that is so.
+/// none, whatever the element names, and keeps the element's reference instead
+/// (compareUnresolvedPreset()).
 void comparePreset(Mismatches& m, SettingsCounts& counts, const pugi::xml_node& node,
                    const RocketComponent& component, SavedPresets presets)
 {
-    const ComponentPreset* const preset   = component.getPresetComponent();
-    const std::int64_t           elements = countChildren(node, kPreset);
     if (presets == SavedPresets::NOT_FOUND)
     {
-        m.integer("preset of the component, loaded without presets: number", 0,
-                  preset != nullptr ? 1 : 0);
-        counts.presets += preset == nullptr ? static_cast<int>(elements) : 0;
+        compareUnresolvedPreset(m, counts, node, component);
         return;
     }
+    const ComponentPreset* const preset   = component.getPresetComponent();
+    const std::int64_t           elements = countChildren(node, kPreset);
     m.integer("<preset>: number", elements, preset != nullptr ? 1 : 0);
     const pugi::xml_node element = node.child(kPreset);
     if (element.empty() || preset == nullptr)

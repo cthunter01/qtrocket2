@@ -27,19 +27,25 @@ std::shared_ptr<Attachment> FileSystemAttachmentFactory::getFileAttachment(
 std::shared_ptr<Attachment> FileSystemAttachmentFactory::getAttachment(std::string_view name) const
 {
     // Read as UTF-8 on every platform, and no name can make the conversion throw.
-    std::filesystem::path file = pathFromUtf8(name);
-    if (!file.is_absolute() && m_baseDirectory.has_value())
+    return getAttachmentOfFile(name, pathFromUtf8(name));
+}
+
+std::shared_ptr<Attachment> FileSystemAttachmentFactory::getAttachmentOfFile(
+    std::string_view name, const std::filesystem::path& file) const
+{
+    std::filesystem::path resolved = file;
+    if (!resolved.is_absolute() && m_baseDirectory.has_value())
     {
         // Java's File(parent, child) appends the child whatever it starts with. On Windows a
         // name such as "/datafiles/x.jpg" is not absolute (it names no drive), and operator/
         // alone would let its root replace the base directory's.
-        file = *m_baseDirectory / file.relative_path();
+        resolved = *m_baseDirectory / resolved.relative_path();
     }
     // Java's File spells a path without doubled separators and without one at its end, so a
     // name such as "decals/a.png/" names the file "decals/a.png" (which opening the name as
     // it is written would not find).
     return std::make_shared<FileSystemAttachment>(std::string(name),
-                                                  withoutRedundantSeparators(file));
+                                                  withoutRedundantSeparators(resolved));
 }
 
 }  // namespace QtRocket

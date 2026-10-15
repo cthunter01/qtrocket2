@@ -440,7 +440,8 @@ void setStabilityTable(SimulationOptions& o, const MachAoALookup::Builder& built
 // A lookup table replaces a calculation of the flight by numbers from a file, and a run
 // interpolates in whichever rows the flight comes by: every number of a table in use has to be
 // finite. (Before the validation each of these ended in the BugError "Simulation resulted in
-// not-a-number (NaN) value for params.a", or flew on a table that made no sense.)
+// not-a-number (NaN) value for params.a", an ordinary error of the flight since decision D3, or
+// flew on a table that made no sense.)
 TEST(SimulationInputValidation, TheLookupTables)
 {
     const std::vector<OptionCase> cases{
@@ -1134,7 +1135,8 @@ void setStabilityRowOfHugeNumbers(SimulationOptions& o, double v)
 // of a second (the steppers start from a millisecond, but cut a step down to a twentieth of the
 // time step as it is given whenever a limit binds: a run of millions of rows, and with 0 one
 // that does not end), a wind of 1e300 m/s (a BugError), and a lookup table with a cell of
-// 1e300 (the BugError of a NaN in the stepper).
+// 1e300 (the BugError of a NaN in the stepper, which decision D3 has made an ordinary error of
+// the flight; the validation refuses the table before that).
 TEST(SimulationInputValidation, TheAbsurdNumbersOfTheEarlierRunsAreOrdinaryErrors)
 {
     constexpr double kLargest = std::numeric_limits<double>::max();

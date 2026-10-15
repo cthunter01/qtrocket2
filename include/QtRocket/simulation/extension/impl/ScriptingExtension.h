@@ -30,14 +30,18 @@ class WarningSet;
 /// and false: a script is disabled unless its configuration says otherwise.
 ///
 /// What an enabled script does here:
-/// - documentLoaded() leaves it enabled, without a warning, when OpenRocket trusts it whoever
-///   the user is (isTrustedScript()): a script that is empty once its carriage returns are
-///   removed and it is trimmed, which is the state of an extension the user has just added,
-///   and the one script OpenRocket knows by its hash, the roll control script that its example
+/// - documentLoaded() disables every enabled script that holds code, and says so among the
+///   load warnings (disableLoadedScript()). OpenRocket disables only a script it does not
+///   trust (isTrustedScript()), with its warning kDisabledWarning, which QtRocket gives for
+///   those scripts too. A script OpenRocket trusts whoever the user is, and which holds code,
+///   is the one script OpenRocket knows by its hash: the roll control script that its example
 ///   design of the file format 1.7 stored enabled (today's example holds another script, and
-///   stores it disabled). Every other enabled script is disabled there, with OpenRocket's
-///   warning kDisabledWarning among the load warnings. OpenRocket also leaves enabled what the
-///   user has marked as trusted on the computer; QtRocket keeps no such list.
+///   stores it disabled). OpenRocket leaves it enabled and lets it steer the fins; QtRocket
+///   disables it with a warning of its own, kTrustedScriptDisabledWarning (decision D1). A
+///   script that is empty once its carriage returns are removed and it is trimmed, which is
+///   the state of an extension the user has just added, holds no code: it stays enabled,
+///   without a warning, as in OpenRocket (decision E4). OpenRocket also leaves enabled what
+///   the user has marked as trusted on the computer; QtRocket keeps no such list.
 /// - initialize() does nothing for an enabled script that holds nothing but blanks, tabs and
 ///   line ends in a language OpenRocket has an engine for (hasScriptEngine()): OpenRocket runs
 ///   such a script, and it defines no function for the simulation to call, so the flight is
@@ -47,12 +51,17 @@ class WarningSet;
 ///   is that of OpenRocket for a language it has no engine for, with the program's name:
 ///   "QtRocket does not support the scripting language '<language>'" (Java: "Your JRE does not
 ///   support the scripting language '<language>'", which it also has for a script that holds
-///   nothing in such a language).
+///   nothing in such a language). A loaded design only gets there when the user enables a
+///   script again, or with an empty script in a language OpenRocket has no engine for, which
+///   stays enabled on load as in OpenRocket.
 /// A disabled script does nothing in either. So a design that stores that roll control script
-/// enabled loads with the script enabled, as in OpenRocket, and its simulation does not run
-/// until the script is disabled.
+/// enabled loads with the script disabled and a warning, its simulations fly without the
+/// script, and a save writes the script as disabled.
 ///
 /// Deviations from OpenRocket:
+/// - documentLoaded() disables the script OpenRocket trusts by its hash too (decision D1, see
+///   above), with the warning kTrustedScriptDisabledWarning, which OpenRocket does not have:
+///   QtRocket cannot run the script, and a simulation with an enabled script would not run.
 /// - No script is ever run, and of ScriptingUtil and ScriptingSimulationListener only what
 ///   decides whether a script is trusted is ported, as static functions of this class
 ///   (normalizeScript(), scriptHash(), isTrustedScript(), hasScriptEngine()): not the engines,
@@ -64,7 +73,7 @@ class WarningSet;
 /// - getName() puts the language into the text as it is. Java's L10N.replace() gives it to
 ///   Matcher.replaceAll() as a replacement pattern, where a '$' or a backslash is special: a
 ///   language such as "a$b" throws there, and "a\\b" loses its backslash.
-/// - disableUntrustedScript() is an addition: documentLoaded() without the document and the
+/// - disableLoadedScript() is an addition: documentLoaded() without the document and the
 ///   simulation, which Java's method does not use.
 class ScriptingExtension final : public AbstractSimulationExtension
 {
@@ -83,6 +92,11 @@ public:
         "Untrusted scripts have been disabled.  You need to manually enable them in the "
         "Simulation options.";
 
+    /// QtRocket's own warning (decision D1) for an enabled script that OpenRocket trusts, and
+    /// that is disabled on load all the same: the roll control script of OpenRocket's example.
+    static constexpr std::string_view kTrustedScriptDisabledWarning =
+        "Scripts that OpenRocket trusts have been disabled: QtRocket runs no scripts.";
+
     /// A new, enabled extension with an empty JavaScript script (see the class comment).
     ScriptingExtension();
 
@@ -96,15 +110,17 @@ public:
     /// "Extend OpenRocket simulations by custom scripts." (SimulationExtension.scripting.desc).
     [[nodiscard]] std::optional<std::string> getDescription() const override;
 
-    /// disableUntrustedScript(@p warnings).
+    /// disableLoadedScript(@p warnings).
     void documentLoaded(OpenRocketDocument& document, Simulation& simulation,
                         WarningSet& warnings) override;
 
     /// What documentLoaded() does: an enabled script that is not trusted (isTrustedScript() of
-    /// its language and text) is disabled, and kDisabledWarning is added to @p warnings (a
-    /// warning set holds the text once, however many scripts add it). Nothing happens for a
-    /// disabled script and for a trusted one.
-    void disableUntrustedScript(WarningSet& warnings);
+    /// its language and text) is disabled, and kDisabledWarning is added to @p warnings, as in
+    /// Java; an enabled script that is trusted and whose normalised text (normalizeScript()) is
+    /// not empty is disabled too, and kTrustedScriptDisabledWarning is added (decision D1). A
+    /// warning set holds each text once, however many scripts add it. Nothing happens for a
+    /// disabled script and for an enabled one whose normalised text is empty (decision E4).
+    void disableLoadedScript(WarningSet& warnings);
 
     /// Nothing for a disabled script, and for an enabled one that holds nothing but blanks,
     /// tabs and line ends in a language OpenRocket has an engine for.

@@ -1,8 +1,10 @@
 #include "QtRocket/models/PinkNoiseWindModel.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <numbers>
@@ -17,10 +19,10 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/GaussianRandom.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Monitorable.h"
-#include "QtRocket/util/PinkNoise.h"
 #include "QtRocket/util/Signal.h"
 
 namespace
@@ -44,9 +46,10 @@ static_assert(QtRocket::Monitorable<PinkNoiseWindModel>);
 
 // The random source is no part of the model's own storage: it is made when the first velocity is
 // asked for. A design file can ask for a model per wind level and four per simulation, and with
-// the source inline (its generator is some 5000 bytes) 100,000 <windlevel> elements were 900 MB
-// (run 9b). The comparison holds whatever the sizes are on a platform.
-static_assert(sizeof(PinkNoiseWindModel) < sizeof(QtRocket::PinkNoise));
+// the source inline and its generator then (std::mt19937, some 5000 bytes) 100,000 <windlevel>
+// elements were 900 MB (run 9b). The generator of the source now (decision D12 of 2026-10-14)
+// holds 64 bits of state and a value it keeps for the next draw.
+static_assert(sizeof(QtRocket::GaussianRandom) <= 3 * sizeof(double));
 
 /// Counts the emissions of a model's changed() while it lives.
 class ChangeCounter
@@ -187,26 +190,22 @@ TEST_F(PinkNoiseWindModelTest, StandardDeviationAndTurbulence)
 
 TEST_F(PinkNoiseWindModelTest, WindVelocityGeneration)
 {
-    // Deviation: Java checks one seed's 1000 samples against +-0.5; the mean of 1000 samples of
-    // this pink noise scatters by about 0.29 m/s here, and std::normal_distribution differs
-    // between standard libraries, so the mean over five seeds is checked instead (seed 42 first,
-    // as in Java), which keeps the bound clear of the scatter on every platform.
-    double totalAverage = 0;
-    for (int seed = 42; seed < 47; ++seed)
-    {
-        PinkNoiseWindModel seeded(seed);
-        seeded.setAverage(10.0);
-        seeded.setDirection(0.0);  // Wind blowing toward positive X
-        seeded.setStandardDeviation(2.0);
+    // Java's one seed (42, the fixture's) and bound. The noise is QtRocket's own (GaussianRandom,
+    // the same on every platform), so the sample is another than Java's: its mean is 9.99772 m/s
+    // (GaussianProbe.java of the probes of tier 10a, part "goldens-and-turbulence"; the mean of
+    // 1000 samples of this noise scatters by about 0.29 m/s from seed to seed).
+    m_model.setAverage(10.0);
+    m_model.setDirection(0.0);  // Wind blowing toward positive X
+    m_model.setStandardDeviation(2.0);
 
-        double sum = 0;
-        for (const Coordinate& velocity : sampleVelocities(seeded, kSampleSize))
-        {
-            sum += velocity.length();
-        }
-        totalAverage += sum / static_cast<double>(kSampleSize) / 5;
+    // Sample wind velocities over time
+    double sum = 0;
+    for (const Coordinate& velocity : sampleVelocities(m_model, kSampleSize))
+    {
+        sum += velocity.length();
     }
-    EXPECT_NEAR(totalAverage, 10.0, 0.5);
+    // Check statistical properties
+    EXPECT_NEAR(sum / static_cast<double>(kSampleSize), 10.0, 0.5);
 
     // Verify that reset works properly
     m_model.setAverage(10.0);
@@ -313,6 +312,47 @@ TEST_F(PinkNoiseWindModelTest, SameSeedGivesTheSameWind)
     // Between samples the noise is interpolated linearly.
     const Coordinate between = m_model.getWindVelocity(10.025, 0);
     EXPECT_NEAR(between.x, (first[200].x + first[201].x) / 2, 1e-9);
+}
+
+/// A wind speed of the model of seed 42 at a time, from the Java probe GaussianProbe.java (tier
+/// 10a, part "goldens-and-turbulence"), which makes the same noise with StrictMath and Java's
+/// formula of the speed: the bits of the double, and the double as Java prints it.
+struct PinnedSpeed
+{
+    double        time;
+    std::uint64_t bits;
+    double        speed;
+};
+
+// The wind of a seed is the same, bit for bit, on every platform (decision D12 of 2026-10-14):
+// the noise comes from GaussianRandom, and the speed is made of +, -, * and / of it, which
+// -ffp-contract=off keeps from being fused into multiply-adds (see PinkNoiseWindModel). Blowing
+// from the north (direction 0), the velocity is (0, speed, 0), the sine and cosine of 0 being
+// exact in every libm; at another direction the last bits of std::sin and std::cos may differ.
+// The model is asked in the order of the times, as the probe asks its model.
+TEST_F(PinkNoiseWindModelTest, TheSpeedsOfASeedAreTheSameOnEveryPlatform)
+{
+    constexpr std::array<PinnedSpeed, 8> kSpeeds{{
+        {.time = 0.0, .bits = 0x40238ccf98be01adULL, .speed = 9.775021336740645},
+        {.time = 0.01, .bits = 0x4023fa90b486dc83ULL, .speed = 9.98938526293046},
+        {.time = 0.05, .bits = 0x4025b19523aa47daULL, .speed = 10.846840967689719},
+        {.time = 0.1, .bits = 0x4022eeabdf49692eULL, .speed = 9.466155030928885},
+        {.time = 0.125, .bits = 0x40219b7b665e70cdULL, .speed = 8.803675841358563},
+        {.time = 1.0, .bits = 0x4023a4ec298e532cULL, .speed = 9.82211427557339},
+        {.time = 2.5, .bits = 0x4021a2f64758a3efULL, .speed = 8.818285207338674},
+        {.time = 10.0, .bits = 0x4026a1e3f1188f3fULL, .speed = 11.316192182777398},
+    }};
+    m_model.setAverage(10.0);
+    m_model.setDirection(0.0);
+    m_model.setStandardDeviation(2.0);
+    for (const PinnedSpeed& pinned : kSpeeds)
+    {
+        const Coordinate velocity = m_model.getWindVelocity(pinned.time, 0);
+        EXPECT_EQ(std::bit_cast<std::uint64_t>(velocity.y), pinned.bits) << "t=" << pinned.time;
+        EXPECT_EQ(velocity.y, pinned.speed) << "t=" << pinned.time;
+        EXPECT_EQ(velocity.x, 0.0) << "t=" << pinned.time;
+        EXPECT_EQ(velocity.z, 0.0) << "t=" << pinned.time;
+    }
 }
 
 TEST_F(PinkNoiseWindModelTest, DifferentSeedsGiveDifferentWind)

@@ -24,11 +24,12 @@
 // another one in every run of the test, and accepts 1.0 m around its literals (over 20 seeds
 // OpenRocket's altitudes spread by 0.33 to 0.50 m per step and stay within 0.65 m of the
 // literals). QtRocket's turbulence is another sequence for the same seed (PinkNoise draws from
-// another generator, an earlier decision), so its realisations are others too, and the test
-// has to be the same in every run: each flight is flown with the three seeds of kSeeds, set on
-// the options before the run (which changes nothing else: a seed that is not fixed is no
-// change of the simulation), and each of the three altitudes has to be within Java's 1.0 m of
-// Java's literal.
+// GaussianRandom, a generator of QtRocket's own: decision D12 of 2026-10-14), so its
+// realisations are others too, and the test has to be the same in every run: each flight is
+// flown with the three seeds of kSeeds, set on the options before the run (which changes nothing
+// else: a seed that is not fixed is no change of the simulation), and each of the three
+// altitudes has to be within Java's 1.0 m of Java's literal. (The noise of a seed is the same on
+// every platform; the flight, which goes through libm, is not, by far less than that metre.)
 
 #include <algorithm>
 #include <array>
@@ -512,8 +513,13 @@ TEST_F(IntegrationTest, SimpleRocket)
 // A measurement, not a test: the spread of the maximum altitude over 20 realisations of the
 // turbulence, as IntegrationProbe2 prints OpenRocket's: 48.2260 .. 48.6655 as loaded,
 // 37.0094 .. 37.5086 with the mass component at 10 g, 32.5967 .. 33.0878 at 15 g. QtRocket's
-// were 48.2474 .. 48.7515, 37.0331 .. 37.5628 and 32.6182 .. 33.1288 when the test was written
-// (other realisations of the same turbulence). Run with --gtest_also_run_disabled_tests.
+// are 48.4124 .. 48.5899, 37.1531 .. 37.4049 and 32.7445 .. 32.9777 with GaussianRandom (tier
+// 10, clang debug build, glibc; other realisations of the same turbulence: with std::mt19937 and
+// libstdc++'s normal_distribution, the generator before, they were 48.2474 .. 48.7515,
+// 37.0331 .. 37.5628 and 32.6182 .. 33.1288). The narrower band is the chance of 20 seeds: the
+// mean wind of the first 3.5 s of these seeds spreads less with the new generator, over 2000
+// seeds as much (windspread.cpp of the probes of tier 10a, part "goldens-and-turbulence"). Run
+// with --gtest_also_run_disabled_tests.
 TEST_F(IntegrationTest, DISABLED_PrintsTheSpreadOfTheAltitudes)
 {
     const auto flown = [this](int seed) { return flownAltitude(seed); };

@@ -13,6 +13,7 @@
 
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
 #include "QtRocket/util/WorldCoordinate.h"
@@ -25,12 +26,15 @@ using QtRocket::BugError;
 using QtRocket::Coordinate;
 using QtRocket::descriptionKey;
 using QtRocket::displayKey;
+using QtRocket::ErrorCode;
 using QtRocket::GeodeticComputationStrategy;
 using QtRocket::geodeticComputationStrategyFromString;
 using QtRocket::getCoriolisAcceleration;
 using QtRocket::kAllGeodeticComputationStrategies;
 using QtRocket::name;
+using QtRocket::Result;
 using QtRocket::toString;
+using QtRocket::tryAddCoordinate;
 using QtRocket::WorldCoordinate;
 namespace MathUtil = QtRocket::MathUtil;
 
@@ -83,20 +87,6 @@ BugError catchBugError(GeodeticComputationStrategy strategy, const WorldCoordina
         return e;
     }
     return BugError{"nothing was thrown"};
-}
-
-/// True when the value right after @p label in @p what is a NaN, whatever its sign: the NaNs in
-/// the message are computed by libm, whose sign bit is unspecified, and a negative NaN formats
-/// as "-nan" (or "-nan(ind)" on MSVC).
-bool isNaNAfter(std::string_view what, std::string_view label)
-{
-    const auto pos = what.find(label);
-    if (pos == std::string_view::npos)
-    {
-        return false;
-    }
-    const std::string_view value = what.substr(pos + label.size());
-    return value.starts_with("nan") || value.starts_with("-nan");
 }
 
 // ---- Ported from GeodeticComputationStrategyTest.java ----
@@ -617,12 +607,56 @@ TEST(GeodeticComputationStrategy, NaNLocationErrorNamesTheInputs)
     const std::string what = e.what();
     EXPECT_NE(what.find("addCoordinate resulted in NaN location:  location="), std::string::npos)
         << what;
-    EXPECT_NE(what.find("WorldCoordinate[lat=0, lon=0, alt=0]"), std::string::npos) << what;
+    // The location as Java's WorldCoordinate.toString() prints it.
+    EXPECT_NE(what.find("WorldCoordinate[lat=0.0, lon=0.0, alt=0.0]"), std::string::npos) << what;
     // The delta is written by Coordinate::toString(), which spells NaN as Java does.
     EXPECT_NE(what.find("delta=(NaN,0.00000,0.00000)"), std::string::npos) << what;
-    // The new latitude and longitude are computed NaNs, whose spelling may carry a sign.
-    EXPECT_TRUE(isNaNAfter(what, " newLat=")) << what;
-    EXPECT_TRUE(isNaNAfter(what, " newLon=")) << what;
+    // The new latitude and longitude are computed NaNs, spelled as Java spells any NaN.
+    EXPECT_TRUE(what.contains(" newLat=NaN newLon=NaN (")) << what;
+}
+
+/// tryAddCoordinate() of @p strategy, SPHERICAL or WGS84, for a NaN and for an overflowing
+/// distance: the Error with Java's whole message.
+void expectTheNaNLocationAsAnError(GeodeticComputationStrategy strategy)
+{
+    SCOPED_TRACE(toString(strategy));
+    const Result<WorldCoordinate> nan =
+        tryAddCoordinate(strategy, WorldCoordinate(45, 0, 0), Coordinate(kNaN, 0, 0));
+    ASSERT_FALSE(nan.has_value());
+    EXPECT_EQ(nan.error().code, ErrorCode::INVALID_ARGUMENT);
+    EXPECT_EQ(nan.error().message,
+              "addCoordinate resulted in NaN location:  location=WorldCoordinate[lat=45.0, "
+              "lon=0.0, alt=0.0] delta=(NaN,0.00000,0.00000) newLat=NaN newLon=NaN");
+    // A finite distance whose square overflows (hypot() is sqrt(x * x + y * y), as in Java) is
+    // an infinite angle on the curved Earth.
+    EXPECT_FALSE(
+        tryAddCoordinate(strategy, WorldCoordinate(45, 0, 0), Coordinate(1e200, 0, 0)).has_value());
+}
+
+/// tryAddCoordinate() of @p strategy for an ordinary move: what addCoordinate() returns.
+void expectAnOrdinaryMove(GeodeticComputationStrategy strategy)
+{
+    SCOPED_TRACE(toString(strategy));
+    const WorldCoordinate         start(40, -75, 0);
+    const Coordinate              delta(6000, 8000, 0);
+    const Result<WorldCoordinate> moved = tryAddCoordinate(strategy, start, delta);
+    ASSERT_TRUE(moved.has_value());
+    EXPECT_EQ(*moved, addCoordinate(strategy, start, delta));
+}
+
+// Not in Java: tryAddCoordinate() returns as an Error what addCoordinate() throws, with Java's
+// whole message (without the "BUG: " of a BugException), and what addCoordinate() returns
+// otherwise. FLAT checks nothing, so a NaN or an infinity goes through it.
+TEST(GeodeticComputationStrategy, TryAddCoordinateReturnsTheNaNLocationAsAnError)
+{
+    expectTheNaNLocationAsAnError(GeodeticComputationStrategy::SPHERICAL);
+    expectTheNaNLocationAsAnError(GeodeticComputationStrategy::WGS84);
+    expectAnOrdinaryMove(GeodeticComputationStrategy::FLAT);
+    expectAnOrdinaryMove(GeodeticComputationStrategy::SPHERICAL);
+    expectAnOrdinaryMove(GeodeticComputationStrategy::WGS84);
+    EXPECT_TRUE(tryAddCoordinate(GeodeticComputationStrategy::FLAT, WorldCoordinate(45, 0, 0),
+                                 Coordinate(kNaN, kInf, 0))
+                    .has_value());
 }
 
 TEST(GeodeticComputationStrategy, NaNLocationErrorIsRaisedAtTheStrategy)
