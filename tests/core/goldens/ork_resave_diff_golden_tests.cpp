@@ -31,10 +31,10 @@
 //   digests). The archive is loaded back from memory, without a directory (decision O5 of tier 10),
 //   with no warning: every flight comes back bit for bit (flightDifferences(): the summary values,
 //   the stored warnings, the branches with their events and every value), and a save of the reload
-//   is the first save with data but for one known difference, the sixteen stored warnings of the
-//   type RecoveryHighSpeedDeployment (in six examples), which the loader reads back as warnings of
-//   the type Other without their parameter, as OpenRocket's does, until the user's decision E2 of
-//   2026-10-14 (group 'decisions') makes it read them as they were written. OpenRocket's own first
+//   is the first save with data, the sixteen stored warnings of the type
+//   RecoveryHighSpeedDeployment (in six examples) included: the loader reads that type back as it
+//   was written (the user's decision E2 of 2026-10-14), where OpenRocket's reads it as a warning of
+//   the type Other without its parameter. OpenRocket's own first
 //   save with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/,
 //   not part of the repository) is QtRocket's save with data outside the rocket element, byte for
 //   byte: the SHA-256 digests of those texts are pinned (kJavaSavesWithData).
@@ -571,38 +571,20 @@ constexpr RepeatedSaves kDualParachuteSaves{
 /// indentation.
 constexpr std::string_view kHighSpeedWarning = "<warning type=\"RecoveryHighSpeedDeployment\">";
 
-/// @p text as it is saved again after a load before the user's decision E2 of 2026-10-14 (group
-/// 'decisions') is merged: every stored warning of the type RecoveryHighSpeedDeployment (what the
-/// saver writes, Java's class name) of the type Other and without its <parameter> line, as the
-/// loader reads it back (it knows the type by the name HighSpeedDeployment only, as OpenRocket's
-/// loader). Counts those warnings into @p count.
-[[nodiscard]] std::string asReadBackBeforeE2(std::string_view text, std::size_t& count)
+/// The stored warnings of the type RecoveryHighSpeedDeployment (what the saver writes, Java's
+/// class name) in @p text. The loader reads that type back as well as HighSpeedDeployment (the
+/// user's decision E2 of 2026-10-14), so a round trip keeps them.
+[[nodiscard]] std::size_t highSpeedWarningsIn(std::string_view text)
 {
-    std::string result;
-    result.reserve(text.size());
-    bool inHighSpeedWarning = false;
+    std::size_t count = 0;
     for (const std::string_view line : linesOf(text))
     {
-        const std::string_view trimmed = QtRocket::Strings::trim(line);
-        if (trimmed == kHighSpeedWarning)
+        if (QtRocket::Strings::trim(line) == kHighSpeedWarning)
         {
             ++count;
-            inHighSpeedWarning = true;
-            result += std::format("{}<warning type=\"Other\">\n",
-                                  line.substr(0, line.size() - trimmed.size()));
-            continue;
         }
-        if (inHighSpeedWarning && trimmed.starts_with("<parameter>"))
-        {
-            continue;
-        }
-        if (trimmed == "</warning>")
-        {
-            inHighSpeedWarning = false;
-        }
-        result += std::format("{}\n", line);
     }
-    return result;
+    return count;
 }
 
 /// @p text without its <rocket> element (rocketElementOf()).
@@ -623,8 +605,8 @@ struct DataRoundTrips
 {
     std::size_t simulations{0};  ///< the simulations whose flight data were compared
     std::size_t branches{0};     ///< their branches
-    /// The stored warnings of the type RecoveryHighSpeedDeployment that came back as Other
-    /// (asReadBackBeforeE2()).
+    /// The stored warnings of the type RecoveryHighSpeedDeployment in the saves compared
+    /// (highSpeedWarningsIn()).
     std::size_t highSpeedWarnings{0};
     std::size_t javaSaves{0};  ///< the saves with data compared with OpenRocket's (digests)
     std::size_t archives{0};   ///< the .ork archives compared with OpenRocket's
@@ -759,7 +741,7 @@ struct DataRoundTrips
 /// rocket with OpenRocket's own (kJavaSavesWithData), then as an .ork archive (archiveOf(),
 /// which compares the archive with OpenRocket's), loads the archive back from memory without a
 /// directory (decision O5 of tier 10), with no warning, and compares the flight data and the save
-/// of the reload with the first save (asReadBackBeforeE2()), all but the rocket: the first save of
+/// of the reload with the first save, all but the rocket: the first save of
 /// a load writes the automatic dimensions the dual parachute deployment's first save writes
 /// (kDualParachuteSaves), not those of a design saved before. Adds the result to @p trips.
 void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document,
@@ -796,7 +778,8 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
     }
     const std::string second =
         withoutRocket(saveOf(*loaded->document, preferences, warnings, true));
-    const std::string expected = asReadBackBeforeE2(withoutRocket(first), trips.highSpeedWarnings);
+    const std::string expected = withoutRocket(first);
+    trips.highSpeedWarnings += highSpeedWarningsIn(expected);
     if (second != expected)
     {
         trips.problems += std::format("{}: the second save with data differs from the first\n{}",
@@ -897,7 +880,7 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
 // kJavaSavesWithData: the stored flights, events and warnings as Java writes them); the sixteen
 // .ork archives are OpenRocket's, entry for entry (23 decal images, 41 thrust curves); and loaded
 // back from them, the flights of the 54 simulations (69 branches) come back bit for bit, and a
-// second save is the first but for the sixteen warnings of decision E2.
+// second save is the first, the sixteen warnings of decision E2 included.
 TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared  saves;
@@ -921,10 +904,8 @@ TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(trips.archives, 16U);
     EXPECT_EQ(trips.decals, 23U);
     EXPECT_EQ(trips.curves, 41U);
-    // Decision E2 of 2026-10-14 (group 'decisions'): the loader is to read the type
-    // RecoveryHighSpeedDeployment back. Once that is merged, the second save equals the first and
-    // asReadBackBeforeE2() turns this known difference into a reported one: then compare the two
-    // saves as they are and drop this pin.
+    // Decision E2 of 2026-10-14: the loader reads the type RecoveryHighSpeedDeployment back, so
+    // these warnings survive the round trip above.
     EXPECT_EQ(trips.highSpeedWarnings, 16U);
 }
 
@@ -1079,32 +1060,6 @@ TEST(OrkResaveDiffGolden, TheTestRocketsAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(saves.presets, 0U);
     EXPECT_EQ(saves.motors, 48U);
     EXPECT_EQ(saves.simulations, 50U);
-}
-
-// What a second save after a load makes of a stored warning of the type
-// RecoveryHighSpeedDeployment until decision E2 is merged: a warning of the type Other without
-// its parameter; every other line stays.
-TEST(OrkResaveDiffGolden, AHighSpeedWarningIsReadBackAsOtherBeforeE2)
-{
-    constexpr std::string_view kText =
-        "        <warning type=\"RecoveryHighSpeedDeployment\">\n"
-        "          <id>9e26b796-6349-4902-ba33-14816cf9d3bd</id>\n"
-        "          <parameter>31.94803510503947</parameter>\n"
-        "          Text\n"
-        "        </warning>\n"
-        "        <warning type=\"LargeAOA\">\n"
-        "          <parameter>0.5</parameter>\n"
-        "        </warning>\n";
-    std::size_t count = 0;
-    EXPECT_EQ(asReadBackBeforeE2(kText, count),
-              "        <warning type=\"Other\">\n"
-              "          <id>9e26b796-6349-4902-ba33-14816cf9d3bd</id>\n"
-              "          Text\n"
-              "        </warning>\n"
-              "        <warning type=\"LargeAOA\">\n"
-              "          <parameter>0.5</parameter>\n"
-              "        </warning>\n");
-    EXPECT_EQ(count, 1U);
 }
 
 /// A rocket element of a few lines, with the root around it.
