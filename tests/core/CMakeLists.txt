@@ -327,8 +327,11 @@ add_executable(QtRocket_core_tests
     file/openrocket/OpenRocketContentHandlerTests.cpp
     file/openrocket/OpenRocketHandlerTests.cpp
     file/openrocket/OpenRocketLoaderTests.cpp
+    file/openrocket/OpenRocketSaverTests.cpp
+    file/openrocket/OrkWriterTests.cpp
     file/openrocket/OverrideSetterTests.cpp
     file/openrocket/PhotoStudioHandlerTests.cpp
+    file/openrocket/PhotoStudioSaverTests.cpp
     file/openrocket/preset_reference_files_tests.cpp
     file/openrocket/RadiusPositionSetterTests.cpp
     file/openrocket/recorded_ork_files_tests.cpp
@@ -378,6 +381,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenStableSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/ork_resave_diff_golden_tests.cpp
     goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp

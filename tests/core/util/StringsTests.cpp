@@ -1,6 +1,7 @@
 #include "QtRocket/util/Strings.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +20,8 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/util/Chars.h"
+#include "QtRocket/util/JavaRandom.h"
+#include "QtRocket/util/Sha256.h"
 
 namespace
 {
@@ -1753,6 +1756,132 @@ TEST(Strings, OrkEnumNameMatchesLikeFindEnum)
     // The comparison itself is case-sensitive: only the constant's name is lower-cased.
     EXPECT_FALSE(Strings::orkEnumNameMatches("Absolute", "ABSOLUTE"));
     EXPECT_FALSE(Strings::orkEnumNameMatches("", "ABSOLUTE"));
+}
+
+// What follows pins decision O2 of tier 10: Strings::javaFloatToString() is Float.toString() as
+// Java specifies it since JDK 19. The expectations are Float.toString() of JDK 21.0.10 (the probe
+// of tier 10a S1, FloatProbe); where JDK 17.0.20 prints another text, it is named beside.
+
+/// The float of the IEEE 754 bits @p bits.
+[[nodiscard]] float floatOfBits(std::uint32_t bits)
+{
+    return std::bit_cast<float>(bits);
+}
+
+TEST(Strings, JavaFloatToStringMatchesJdk21)
+{
+    EXPECT_EQ(Strings::javaFloatToString(0.0F), "0.0");
+    EXPECT_EQ(Strings::javaFloatToString(-0.0F), "-0.0");
+    EXPECT_EQ(Strings::javaFloatToString(1.0F), "1.0");
+    EXPECT_EQ(Strings::javaFloatToString(-1.0F), "-1.0");
+    EXPECT_EQ(Strings::javaFloatToString(0.1F), "0.1");
+    EXPECT_EQ(Strings::javaFloatToString(0.2F), "0.2");
+    EXPECT_EQ(Strings::javaFloatToString(0.3F), "0.3");
+    EXPECT_EQ(Strings::javaFloatToString(1.5F), "1.5");
+    EXPECT_EQ(Strings::javaFloatToString(5.0F), "5.0");
+    EXPECT_EQ(Strings::javaFloatToString(100.0F), "100.0");
+    EXPECT_EQ(Strings::javaFloatToString(0.01F), "0.01");
+    EXPECT_EQ(Strings::javaFloatToString(0.002F), "0.002");
+    EXPECT_EQ(Strings::javaFloatToString(0.004F), "0.004");
+    EXPECT_EQ(Strings::javaFloatToString(0.299999F), "0.299999");
+    EXPECT_EQ(Strings::javaFloatToString(123456.79F), "123456.79");
+    EXPECT_EQ(Strings::javaFloatToString(12345.678F), "12345.678");
+    EXPECT_EQ(Strings::javaFloatToString(std::numbers::pi_v<float>), "3.1415927");
+    EXPECT_EQ(Strings::javaFloatToString(2.0F / 3.0F), "0.6666667");
+    // The borders of the plain notation: from 0.001 up to but excluding 1e7.
+    EXPECT_EQ(Strings::javaFloatToString(0.001F), "0.001");
+    EXPECT_EQ(Strings::javaFloatToString(floatOfBits(0x3a83126eU)), "9.999999E-4");
+    EXPECT_EQ(Strings::javaFloatToString(9999999.0F), "9999999.0");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e7F), "1.0E7");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e-4F), "1.0E-4");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e-7F), "1.0E-7");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e-10F), "1.0E-10");
+    EXPECT_EQ(Strings::javaFloatToString(-2.5e-6F), "-2.5E-6");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e10F), "1.0E10");
+    EXPECT_EQ(Strings::javaFloatToString(9.8e7F), "9.8E7");
+    EXPECT_EQ(Strings::javaFloatToString(16777216.0F), "1.6777216E7");
+    EXPECT_EQ(Strings::javaFloatToString(33554432.0F), "3.3554432E7");
+    EXPECT_EQ(Strings::javaFloatToString(6.0221409e23F), "6.022141E23");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e23F), "1.0E23");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e38F), "1.0E38");
+    EXPECT_EQ(Strings::javaFloatToString(std::numeric_limits<float>::max()), "3.4028235E38");
+    // Float.MIN_NORMAL: JDK 17 "1.17549435E-38".
+    EXPECT_EQ(Strings::javaFloatToString(std::numeric_limits<float>::min()), "1.1754944E-38");
+    EXPECT_EQ(Strings::javaFloatToString(floatOfBits(0x00800001U)), "1.1754945E-38");
+    // The largest subnormal.
+    EXPECT_EQ(Strings::javaFloatToString(floatOfBits(0x007fffffU)), "1.1754942E-38");
+    EXPECT_EQ(Strings::javaFloatToString(8.5e-38F), "8.5E-38");
+    EXPECT_EQ(Strings::javaFloatToString(4.4e-38F), "4.4E-38");
+    EXPECT_EQ(Strings::javaFloatToString(2.5e-39F), "2.5E-39");
+    EXPECT_EQ(Strings::javaFloatToString(1.0e-40F), "1.0E-40");
+    // JDK 17: "2.2856919E9".
+    EXPECT_EQ(Strings::javaFloatToString(floatOfBits(0x4f083ce4U)), "2.285692E9");
+    // JDK 17: "4.18937487E18".
+    EXPECT_EQ(Strings::javaFloatToString(floatOfBits(0x5e688e99U)), "4.189375E18");
+    EXPECT_EQ(Strings::javaFloatToString(std::numeric_limits<float>::quiet_NaN()), "NaN");
+    EXPECT_EQ(Strings::javaFloatToString(std::numeric_limits<float>::infinity()), "Infinity");
+    EXPECT_EQ(Strings::javaFloatToString(-std::numeric_limits<float>::infinity()), "-Infinity");
+}
+
+/// Strings::javaFloatToString(k * Float.MIN_VALUE) for k = 1 ... 30, as JDK 21 prints them: the
+/// decimal of one or two digits closest to the float where the shortest decimal has one digit
+/// (1E-45 for Float.MIN_VALUE, 1E-44 for seven times it). JDK 17 prints sixteen times
+/// Float.MIN_VALUE as "2.24E-44".
+constexpr std::array<std::string_view, 30> kSmallestFloats{
+    "1.4E-45", "2.8E-45", "4.2E-45", "5.6E-45", "7.0E-45", "8.4E-45", "9.8E-45", "1.1E-44",
+    "1.3E-44", "1.4E-44", "1.5E-44", "1.7E-44", "1.8E-44", "2.0E-44", "2.1E-44", "2.2E-44",
+    "2.4E-44", "2.5E-44", "2.7E-44", "2.8E-44", "2.9E-44", "3.1E-44", "3.2E-44", "3.4E-44",
+    "3.5E-44", "3.6E-44", "3.8E-44", "3.9E-44", "4.1E-44", "4.2E-44",
+};
+
+/// The k of kSmallestFloats whose float javaFloatToString() prints otherwise, with its text.
+std::vector<std::string> wrongSmallestFloats()
+{
+    std::vector<std::string> wrong;
+    for (std::uint32_t k = 1; k <= kSmallestFloats.size(); ++k)
+    {
+        const std::string text = Strings::javaFloatToString(floatOfBits(k));
+        if (text != kSmallestFloats.at(k - 1))
+        {
+            wrong.push_back(std::format("{} * MIN_VALUE: {}", k, text));
+        }
+    }
+    return wrong;
+}
+
+TEST(Strings, JavaFloatToStringOfTheSmallestFloats)
+{
+    EXPECT_EQ(Strings::javaFloatToString(std::numeric_limits<float>::denorm_min()), "1.4E-45");
+    EXPECT_EQ(Strings::javaFloatToString(-std::numeric_limits<float>::denorm_min()), "-1.4E-45");
+    EXPECT_EQ(wrongSmallestFloats(), std::vector<std::string>{});
+}
+
+/// The texts of the floats whose bits are the first @p count numbers JavaRandom(@p seed).nextInt()
+/// draws, each followed by '\n' (FloatProbe's "random" mode).
+std::string textsOfRandomFloats(int count, std::int64_t seed)
+{
+    QtRocket::JavaRandom random(seed);
+    std::string          texts;
+    for (int i = 0; i < count; ++i)
+    {
+        const auto bits = static_cast<std::uint32_t>(random.nextInt());
+        texts += Strings::javaFloatToString(floatOfBits(bits));
+        texts += '\n';
+    }
+    return texts;
+}
+
+// 100000 floats of random bits (one in ten of them JDK 17 prints otherwise; its digest of the
+// same texts is d06cc8cb...). The first ones by name, then the SHA-256 digest of all texts.
+TEST(Strings, JavaFloatToStringOfRandomFloatsMatchesJdk21)
+{
+    const std::string texts = textsOfRandomFloats(100000, 42);
+    EXPECT_TRUE(
+        texts.starts_with("-7.3857914E-4\n1.5687413E-30\n-1.0538038E-10\n1.5234153E-31\n"
+                          "2.285692E9\n-8.5037376E29\n30542.756\n"))
+        << texts.substr(0, 120);
+    EXPECT_EQ(QtRocket::sha256Hex(std::as_bytes(std::span(texts))),
+              "46266cee0b0ba9d5128e0cb03d73b614ddab6877e6687d6394373727e63ec131");
 }
 
 }  // namespace

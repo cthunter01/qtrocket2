@@ -51,8 +51,11 @@ target_sources(QtRocket_core PRIVATE
     openrocket/OpenRocketContentHandler.cpp
     openrocket/OpenRocketHandler.cpp
     openrocket/OpenRocketLoader.cpp
+    openrocket/OpenRocketSaver.cpp
+    openrocket/OrkWriter.cpp
     openrocket/OverrideSetter.cpp
     openrocket/PhotoStudioHandler.cpp
+    openrocket/PhotoStudioSaver.cpp
     openrocket/RadiusPositionSetter.cpp
     openrocket/SimulationConditionsHandler.cpp
     openrocket/SimulationPlotAppearanceHandler.cpp
