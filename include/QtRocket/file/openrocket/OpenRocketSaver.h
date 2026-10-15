@@ -37,7 +37,8 @@ class Preferences;
 /// - <datatypes> with one <type source="customexpression"> per custom expression (name, symbol,
 ///   unit with unittype="auto", expression), followed by a blank line, when the document has
 ///   custom expressions;
-/// - <simulations>, the simulations with a blank line between two of them;
+/// - <simulations>, the simulations with a blank line between two of them, each written by
+///   SimulationSaver (Java's saveSimulation(); their data only when the options save it);
 /// - <photostudio> with PhotoStudioSaver's lines, written also when there are none;
 /// - <docprefs>: each document preference as `<pref key="k" type="boolean|integer|double|string">`
 ///   (OrkWriter::entry() with explicit number types), then, when the document has materials,
@@ -46,7 +47,8 @@ class Preferences;
 ///   then by density, across the three types).
 ///
 /// After the text is complete save() adds QtRocket's save warnings (decision U7 of tier 9: the
-/// texts are here): kDroppedCharacters once when OrkWriter::escape() dropped any character, and
+/// texts are here, but for SimulationSaver::lookupRowsNotSaved(), which SimulationSaver adds while
+/// it writes): kDroppedCharacters once when OrkWriter::escape() dropped any character, and
 /// a warning for each of QtRocket's own load bounds the saved design exceeds, so that QtRocket
 /// would not read it back in full (decision O12 of tier 10): the text beyond
 /// GeneralRocketLoader::kMaxDocumentBytes (documentBeyondLoaderBound()), a rocket of more than

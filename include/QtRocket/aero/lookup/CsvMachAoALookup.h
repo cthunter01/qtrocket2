@@ -48,6 +48,15 @@ inline constexpr std::size_t kMaxFileBytes = std::size_t{32} * 1024 * 1024;
                                             char                         separator = ',',
                                             std::size_t                  maxBytes  = kMaxFileBytes);
 
+/// The lines of the file @p path as fromCsv() reads them (Java's Files.readAllLines(), UTF-8):
+/// split at \n, \r\n and \r, with no empty last line for a final line terminator. Fails with
+/// ErrorCode::IO and the text "Failed to read lookup table from <path>" when the file cannot be
+/// read, is no regular file, holds more than @p maxBytes bytes or is not valid UTF-8 (the bound
+/// is the deviation above). Public for the .ork saver, which reads the file of a lookup table
+/// again to embed its rows (OpenRocketSaver.writeCsvLookup()).
+[[nodiscard]] Result<std::vector<std::string>> readLines(const std::filesystem::path& path,
+                                                         std::size_t maxBytes = kMaxFileBytes);
+
 /// Parses the table from @p lines.
 [[nodiscard]] Result<MachAoALookup> parse(std::span<const std::string> lines,
                                           std::span<const std::string> requiredValueColumns,

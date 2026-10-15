@@ -19,6 +19,7 @@
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/file/openrocket/OrkWriter.h"
 #include "QtRocket/file/openrocket/PhotoStudioSaver.h"
+#include "QtRocket/file/openrocket/SimulationSaver.h"
 #include "QtRocket/logging/ErrorSet.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
@@ -190,17 +191,8 @@ void saveCustomDatatypes(const OpenRocketDocument& document, OrkWriter& writer)
     writer.blankLine();
 }
 
-/// Java's saveSimulation(): the <simulation> element of @p simulation, with its data when
-/// @p saveSimulationData. Save warnings go to @p warnings.
-///
-/// SEAM(S3, the simulation saver): until it is ported, a simulation writes nothing. It is to call
-/// Simulation::getStatus() where Java does (OpenRocketSaver.java:331 and 534).
-void saveSimulation(Simulation& /*simulation*/, bool /*saveSimulationData*/, OrkWriter& /*writer*/,
-                    WarningSet& /*warnings*/)
-{
-}
-
-/// The simulations: <simulations> with a blank line between two of them.
+/// The simulations: <simulations> with a blank line between two of them, each written by
+/// SimulationSaver (Java's saveSimulation()).
 void saveSimulations(const OpenRocketDocument& document, bool saveSimulationData, OrkWriter& writer,
                      WarningSet& warnings)
 {
@@ -214,7 +206,7 @@ void saveSimulations(const OpenRocketDocument& document, bool saveSimulationData
             writer.blankLine();
         }
         first = false;
-        saveSimulation(*simulation, saveSimulationData, writer, warnings);
+        SimulationSaver::saveSimulation(*simulation, saveSimulationData, writer, warnings);
     }
     writer.outdent();
     writer.line("</simulations>");

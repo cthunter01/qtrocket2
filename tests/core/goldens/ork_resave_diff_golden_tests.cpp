@@ -1,9 +1,9 @@
 // QtRocket's .ork save of OpenRocket's designs against OpenRocket's own re-save of them
 // (tests/data/goldens/<input>/resave/rocket.ork, written by the golden harness with
 // OpenRocketSaver and saveSimulationData=false, on the design as loaded or built, before
-// anything was settled), text against text (compareOrkTexts() of GoldenResaves.h: the creator
-// attribute of the root is the only text set aside; a number written otherwise but of the same
-// value would be counted, and none is).
+// anything was settled), the whole text against the whole text (compareOrkTexts() of
+// GoldenResaves.h: the creator attribute of the root is the only text set aside; a number written
+// otherwise but of the same value would be counted, and none is).
 //
 // The inputs (decision O4 of tier 10):
 // - The sixteen examples, each loaded fresh from the ORIGINAL archive under
@@ -11,11 +11,10 @@
 //   without simulation data with the environment's own preference store, as the harness saved
 //   them: the save is the first thing done to the loaded design (the getters of automatic
 //   dimensions store what they compute, so a save depends on what was asked before it; see
-//   AutomaticDimensions.h). Compared: the XML declaration, the root element, the lines between
-//   the rocket and the simulations, everything from </simulations> to the end (part S1 of tier
-//   10a), and the <rocket> element, line for line (part S2: the component savers, the
-//   <motormount> blocks with the motors of the database included). The simulations are
-//   compared by the part that writes them (S3).
+//   AutomaticDimensions.h). Every line is OpenRocket's: the declaration and the root, the
+//   rocket with the <motormount> blocks and the motors of the database, the simulations (the
+//   conditions, the extensions, the summary values and the stored warnings), the photo studio
+//   and the document preferences.
 // - The same design saved again: three more saves of each loaded example. OpenRocket's own
 //   saves of one loaded document differ in one example only, the dual parachute deployment, in
 //   three lines of its rocket (the probe RepeatSaveProbe of the scouts of tier 10,
@@ -23,9 +22,19 @@
 //   packed radius are stored by the first save's getters, then the packed length by the second's),
 //   and the fourth save is the third. QtRocket's saves have to do the same, which holds the order
 //   of the getter calls of the savers to OpenRocket's.
+// - The same design saved once more WITH its simulation data (all sixteen store full flight
+//   data) and loaded back from the text in memory, without a directory (decision O5 of tier 10):
+//   every flight comes back bit for bit (flightDifferences(): the summary values, the stored
+//   warnings, the branches with their events and every value), and a save of the reload is the
+//   first save with data but for one known difference, the sixteen stored warnings of the type
+//   RecoveryHighSpeedDeployment (in six examples), which the loader reads back as warnings of the
+//   type Other without their parameter, as OpenRocket's does, until the user's decision E2 of
+//   2026-10-14 (group 'decisions') makes it read them as they were written. OpenRocket's own save
+//   with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/) is
+//   QtRocket's line for line; those files are not part of the repository.
 // - The three examples with a <preset> again with no presets (Presets::NONE): the six
 //   references that cannot be resolved are kept (the user's decision U8 of 2026-10-08) and
-//   written back, so the rocket is the re-save's all the same.
+//   written back, so the file is the re-save's all the same.
 // - The thirteen test rockets as save(load(re-save)) (loadResave() of GoldenResaves.h, with the
 //   seven motors of TestRockets and OpenRocket's test preferences): the re-save but for one line,
 //   the wall of the pod body of the Alpha III with pods, 2 mm in the file and none in the loaded
@@ -38,30 +47,39 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/StorageOptions.h"
+#include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/openrocket/OpenRocketSaver.h"
 #include "QtRocket/logging/ErrorSet.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenExamples.h"
 #include "goldens/GoldenResaves.h"
+#include "simulation/FlightDifferences.h"
 
 namespace
 {
 
 using QtRocket::ErrorSet;
+using QtRocket::FlightData;
+using QtRocket::GeneralRocketLoader;
 using QtRocket::LoadedDocument;
 using QtRocket::OpenRocketDocument;
 using QtRocket::OpenRocketSaver;
@@ -72,6 +90,7 @@ using QtRocket::WarningSet;
 using QtRocket::Test::compareOrkTexts;
 using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::ExampleSource;
+using QtRocket::Test::flightDifferences;
 using QtRocket::Test::GoldenExample;
 using QtRocket::Test::goldenExampleEnvironment;
 using QtRocket::Test::goldenExamples;
@@ -143,53 +162,6 @@ constexpr std::array<EstimatedSize, 16> kEstimatedSizes{{
     return lines;
 }
 
-/// The index of the first of @p lines from @p from on that is @p line, or lines.size().
-[[nodiscard]] std::size_t indexOf(const std::vector<std::string_view>& lines, std::string_view line,
-                                  std::size_t from = 0)
-{
-    for (std::size_t i = from; i < lines.size(); ++i)
-    {
-        if (lines[i] == line)
-        {
-            return i;
-        }
-    }
-    return lines.size();
-}
-
-/// The document level of an .ork text, one line per line: the declaration, the root with its
-/// creator set aside, the lines from </rocket> to <simulations> and those from </simulations> to
-/// the end. A part that is not there is named instead.
-[[nodiscard]] std::string documentLevel(std::string_view text)
-{
-    const std::vector<std::string_view> lines = linesOf(text);
-    if (lines.size() < 2)
-    {
-        return "(no root)";
-    }
-    std::string       level       = std::string(lines[0]) + "\n" + withoutCreator(lines[1]) + "\n";
-    const std::size_t rocketEnd   = indexOf(lines, "  </rocket>");
-    const std::size_t simulations = indexOf(lines, "  <simulations>", rocketEnd);
-    if (simulations == lines.size())
-    {
-        return level + "(no </rocket> and <simulations>)";
-    }
-    for (std::size_t i = rocketEnd; i <= simulations; ++i)
-    {
-        level += std::string(lines[i]) + "\n";
-    }
-    const std::size_t simulationsEnd = indexOf(lines, "  </simulations>", simulations);
-    if (simulationsEnd == lines.size())
-    {
-        return level + "(no </simulations>)";
-    }
-    for (std::size_t i = simulationsEnd; i < lines.size(); ++i)
-    {
-        level += std::string(lines[i]) + "\n";
-    }
-    return level;
-}
-
 /// The lines that differ between @p before and @p after, two texts of the same number of lines,
 /// each as "<line of before> -> <line of after>" without the indentation, one per line; a text
 /// of another number of lines is named instead.
@@ -216,13 +188,13 @@ constexpr std::array<EstimatedSize, 16> kEstimatedSizes{{
     return changes;
 }
 
-/// Saves @p document without simulation data with @p preferences, as the harness wrote the
-/// re-saves; the warnings of the save go to @p warnings. The text, or the Error's text.
-[[nodiscard]] std::string saveWithoutData(OpenRocketDocument& document,
-                                          const Preferences& preferences, WarningSet& warnings)
+/// Saves @p document, with its simulation data when @p withData, with @p preferences; the
+/// warnings of the save go to @p warnings. The text, or the Error's text.
+[[nodiscard]] std::string saveOf(OpenRocketDocument& document, const Preferences& preferences,
+                                 WarningSet& warnings, bool withData)
 {
     StorageOptions options;
-    options.setSaveSimulationData(false);
+    options.setSaveSimulationData(withData);
     ErrorSet                  errors;
     const Result<std::string> saved =
         OpenRocketSaver::save(document, options, preferences, warnings, errors);
@@ -233,16 +205,26 @@ constexpr std::array<EstimatedSize, 16> kEstimatedSizes{{
     return *saved;
 }
 
-/// What the rocket elements of a set of saves compared with their re-saves gave.
-struct RocketsCompared
+/// Saves @p document without simulation data with @p preferences, as the harness wrote the
+/// re-saves (saveOf()).
+[[nodiscard]] std::string saveWithoutData(OpenRocketDocument& document,
+                                          const Preferences& preferences, WarningSet& warnings)
 {
-    int         designs{0};     ///< the designs saved and compared
-    std::size_t lines{0};       ///< the lines of their rocket elements
-    std::size_t byValue{0};     ///< the lines of the same numbers written otherwise
-    std::size_t components{0};  ///< the components of the saves (their <id> lines)
-    std::size_t presets{0};     ///< the <preset> lines of the saves
-    std::size_t motors{0};      ///< the <motor> elements of the saves
-    std::string problems;       ///< what differs, by design: empty when nothing does
+    return saveOf(document, preferences, warnings, false);
+}
+
+/// What a set of saves compared with their re-saves gave.
+struct SavesCompared
+{
+    int         designs{0};      ///< the designs saved and compared
+    std::size_t lines{0};        ///< the lines of their saves
+    std::size_t byValue{0};      ///< the lines of the same numbers written otherwise
+    std::size_t components{0};   ///< the components of the saves (the <id> lines of the rockets)
+    std::size_t presets{0};      ///< the <preset> lines of the saves
+    std::size_t motors{0};       ///< the <motor> elements of the saves
+    std::size_t simulations{0};  ///< the <simulation> elements of the saves
+    std::size_t warnings{0};     ///< the stored warnings of the saves
+    std::string problems;        ///< what differs, by design: empty when nothing does
 };
 
 /// Whether @p line is an <id> element, with any indentation.
@@ -252,33 +234,44 @@ struct RocketsCompared
     return start != std::string_view::npos && line.substr(start).starts_with("<id>");
 }
 
-/// Compares the rocket element of @p saved, QtRocket's save of the design @p name, with that of
-/// @p resave and adds the result to @p compared; a difference is a problem unless it is
-/// @p expected (changedLines() from the re-save to the save).
-void compareRocketElements(RocketsCompared& compared, std::string_view name, std::string_view saved,
-                           std::string_view resave, std::string_view expected = "")
+/// Counts the components, presets and motors of the rocket of @p saved and its simulations and
+/// stored warnings into @p compared.
+void countParts(SavesCompared& compared, std::string_view saved)
 {
-    const std::string       ours       = rocketElementOf(saved);
-    const std::string       theirs     = rocketElementOf(resave);
-    const OrkTextComparison comparison = compareOrkTexts(ours, theirs);
-    compared.designs++;
-    compared.lines += comparison.lines;
-    compared.byValue += comparison.byValue;
-    for (const std::string_view line : linesOf(ours))
+    for (const std::string_view line : linesOf(rocketElementOf(saved)))
     {
         compared.components += isIdLine(line) ? 1U : 0U;
         compared.presets += line.contains("<preset ") ? 1U : 0U;
         compared.motors += line.contains("<motor configid=") ? 1U : 0U;
     }
-    if (ours.empty() || theirs.empty())
+    for (const std::string_view line : linesOf(saved))
     {
-        compared.problems += std::format("{}: no rocket element\n", name);
+        compared.simulations += line.contains("<simulation status=") ? 1U : 0U;
+        compared.warnings += line.contains("<warning type=") ? 1U : 0U;
+    }
+}
+
+/// Compares @p saved, QtRocket's save of the design @p name, with @p resave, the whole text, and
+/// adds the result to @p compared; a difference is a problem unless it is @p expected
+/// (changedLines() from the re-save to the save).
+void compareSaves(SavesCompared& compared, std::string_view name, std::string_view saved,
+                  std::string_view resave, std::string_view expected = "")
+{
+    const OrkTextComparison comparison = compareOrkTexts(saved, resave);
+    compared.designs++;
+    compared.lines += comparison.lines;
+    compared.byValue += comparison.byValue;
+    countParts(compared, saved);
+    if (saved.empty() || resave.empty())
+    {
+        compared.problems += std::format("{}: nothing to compare\n", name);
         return;
     }
-    if (expected.empty() ? comparison.differing != 0 : changedLines(theirs, ours) != expected)
+    if (expected.empty() ? comparison.differing != 0
+                         : changedLines(withoutCreator(resave), withoutCreator(saved)) != expected)
     {
-        compared.problems += std::format("{}: the rocket differs from the re-save's\n{}", name,
-                                         comparison.differences);
+        compared.problems +=
+            std::format("{}: the save differs from the re-save\n{}", name, comparison.differences);
     }
 }
 
@@ -302,9 +295,8 @@ constexpr RepeatedSaves kDualParachuteSaves{
         "<packedlength>0.11285771168170697</packedlength> -> "
         "<packedlength>0.08709673571783902</packedlength>\n"};
 
-/// Saves @p document three more times after its first save @p first and checks the rocket
-/// elements against kDualParachuteSaves (nothing changes for any other example). Returns the
-/// problems.
+/// Saves @p document three more times after its first save @p first and checks the whole texts
+/// against kDualParachuteSaves (nothing changes for any other example). Returns the problems.
 [[nodiscard]] std::string repeatedSaveProblems(const GoldenExample& example,
                                                OpenRocketDocument&  document,
                                                const std::string&   first)
@@ -312,12 +304,11 @@ constexpr RepeatedSaves kDualParachuteSaves{
     const Preferences& preferences = goldenExampleEnvironment().preferences();
     const bool         dual        = example.name == kDualParachuteSaves.example;
     std::string        problems;
-    std::string        previous = rocketElementOf(first);
+    std::string        previous = first;
     for (int save = 2; save <= 4; ++save)
     {
-        WarningSet        warnings;
-        const std::string rocket =
-            rocketElementOf(saveWithoutData(document, preferences, warnings));
+        WarningSet       warnings;
+        std::string      text = saveWithoutData(document, preferences, warnings);
         std::string_view expected;
         if (dual && save == 2)
         {
@@ -327,21 +318,154 @@ constexpr RepeatedSaves kDualParachuteSaves{
         {
             expected = kDualParachuteSaves.third;
         }
-        const std::string changes = changedLines(previous, rocket);
+        const std::string changes = changedLines(previous, text);
         if (changes != expected)
         {
             problems += std::format("{}: save {} changes\n{}where OpenRocket's changes\n{}",
                                     example.name, save, changes, expected);
         }
-        previous = rocket;
+        previous = std::move(text);
     }
     return problems;
 }
 
-/// Loads @p example fresh, pins its estimate, saves it and compares the document level and the
-/// rocket with the re-save, then saves it three times more (repeatedSaveProblems()). Adds the
-/// rocket's comparison to @p rockets; returns the other problems.
-[[nodiscard]] std::string exampleProblems(const GoldenExample& example, RocketsCompared& rockets)
+/// The line that begins a stored warning of the type RecoveryHighSpeedDeployment, without its
+/// indentation.
+constexpr std::string_view kHighSpeedWarning = "<warning type=\"RecoveryHighSpeedDeployment\">";
+
+/// @p text as it is saved again after a load before the user's decision E2 of 2026-10-14 (group
+/// 'decisions') is merged: every stored warning of the type RecoveryHighSpeedDeployment (what the
+/// saver writes, Java's class name) of the type Other and without its <parameter> line, as the
+/// loader reads it back (it knows the type by the name HighSpeedDeployment only, as OpenRocket's
+/// loader). Counts those warnings into @p count.
+[[nodiscard]] std::string asReadBackBeforeE2(std::string_view text, std::size_t& count)
+{
+    std::string result;
+    result.reserve(text.size());
+    bool inHighSpeedWarning = false;
+    for (const std::string_view line : linesOf(text))
+    {
+        const std::string_view trimmed = QtRocket::Strings::trim(line);
+        if (trimmed == kHighSpeedWarning)
+        {
+            ++count;
+            inHighSpeedWarning = true;
+            result += std::format("{}<warning type=\"Other\">\n",
+                                  line.substr(0, line.size() - trimmed.size()));
+            continue;
+        }
+        if (inHighSpeedWarning && trimmed.starts_with("<parameter>"))
+        {
+            continue;
+        }
+        if (trimmed == "</warning>")
+        {
+            inHighSpeedWarning = false;
+        }
+        result += std::format("{}\n", line);
+    }
+    return result;
+}
+
+/// @p text without its <rocket> element (rocketElementOf()).
+[[nodiscard]] std::string withoutRocket(std::string_view text)
+{
+    const std::string rocket = rocketElementOf(text);
+    std::string       result(text);
+    const std::size_t at = result.find(rocket);
+    if (!rocket.empty() && at != std::string::npos)
+    {
+        result.erase(at, rocket.size());
+    }
+    return result;
+}
+
+/// What the round trips of the examples' flight data gave.
+struct DataRoundTrips
+{
+    std::size_t simulations{0};  ///< the simulations whose flight data were compared
+    std::size_t branches{0};     ///< their branches
+    /// The stored warnings of the type RecoveryHighSpeedDeployment that came back as Other
+    /// (asReadBackBeforeE2()).
+    std::size_t highSpeedWarnings{0};
+    std::string problems;  ///< what differs, by example: empty when nothing does
+};
+
+/// The flight data of the simulations of @p document against those of @p reloaded, the same
+/// document saved and loaded back: what differs (flightDifferences()), counted into @p trips.
+[[nodiscard]] std::string flightProblems(const OpenRocketDocument& document,
+                                         const OpenRocketDocument& reloaded, DataRoundTrips& trips)
+{
+    if (document.getSimulationCount() != reloaded.getSimulationCount())
+    {
+        return std::format("{} simulations back, not {}\n", reloaded.getSimulationCount(),
+                           document.getSimulationCount());
+    }
+    std::string problems;
+    for (std::size_t i = 0; i < document.getSimulationCount(); ++i)
+    {
+        const std::shared_ptr<FlightData>& ours = document.getSimulation(i)->getSimulatedData();
+        const std::shared_ptr<FlightData>& back = reloaded.getSimulation(i)->getSimulatedData();
+        if (ours == nullptr || back == nullptr)
+        {
+            problems += ours == back ? "" : std::format("simulation {}: flight data lost\n", i);
+            continue;
+        }
+        trips.simulations++;
+        trips.branches += ours->getBranchCount();
+        const std::string differences = flightDifferences(*ours, *back);
+        if (!differences.empty())
+        {
+            problems += std::format("simulation {}:\n{}", i, differences);
+        }
+    }
+    return problems;
+}
+
+/// Saves @p document, an example, with its simulation data, loads the text back from memory
+/// without a directory, compares the flight data and the save of the reload with the first save
+/// (asReadBackBeforeE2()), all but the rocket: the rocket of a design read from a plain text has
+/// no decal images (decision O5 of tier 10: they go through the archive), and the first save of a
+/// load writes the automatic dimensions the dual parachute deployment's first save writes
+/// (kDualParachuteSaves), not those of a design saved before. Adds the result to @p trips.
+void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document,
+                      DataRoundTrips& trips)
+{
+    const Preferences&           preferences = goldenExampleEnvironment().preferences();
+    WarningSet                   warnings;
+    const std::string            first = saveOf(document, preferences, warnings, true);
+    const GeneralRocketLoader    loader(goldenExampleEnvironment().context());
+    const Result<LoadedDocument> loaded = loader.load(QtRocket::stringToBytes(first));
+    if (!loaded)
+    {
+        trips.problems += std::format("{}: {}\n", example.name, loaded.error().toString());
+        return;
+    }
+    const std::string flights = flightProblems(document, *loaded->document, trips);
+    if (!flights.empty())
+    {
+        trips.problems += std::format("{}: the flight data differ\n{}", example.name, flights);
+    }
+    const std::string second =
+        withoutRocket(saveOf(*loaded->document, preferences, warnings, true));
+    const std::string expected = asReadBackBeforeE2(withoutRocket(first), trips.highSpeedWarnings);
+    if (second != expected)
+    {
+        trips.problems += std::format("{}: the second save with data differs from the first\n{}",
+                                      example.name, compareOrkTexts(second, expected).differences);
+    }
+    if (!warnings.empty())
+    {
+        trips.problems += std::format("{}: {} save warnings\n", example.name, warnings.size());
+    }
+}
+
+/// Loads @p example fresh, pins its estimate, saves it and compares the whole text with the
+/// re-save, then saves it three times more (repeatedSaveProblems()) and once with its data
+/// (roundTripTheData()). Adds the comparisons to @p saves and @p trips; returns the other
+/// problems.
+[[nodiscard]] std::string exampleProblems(const GoldenExample& example, SavesCompared& saves,
+                                          DataRoundTrips& trips)
 {
     const Result<LoadedDocument> loaded = loadGoldenExample(example);
     if (!loaded)
@@ -371,54 +495,99 @@ constexpr RepeatedSaves kDualParachuteSaves{
     {
         problems += std::format("{}: {} save warnings\n", example.name, warnings.size());
     }
-    const std::string ours   = documentLevel(saved);
-    const std::string theirs = documentLevel(*resave);
-    if (ours != theirs)
-    {
-        problems +=
-            std::format("{}: the document level differs\n--- QtRocket\n{}--- OpenRocket\n{}",
-                        example.name, ours, theirs);
-    }
-    compareRocketElements(rockets, example.name, saved, *resave);
-    return problems + repeatedSaveProblems(example, document, saved);
+    compareSaves(saves, example.name, saved, *resave);
+    problems += repeatedSaveProblems(example, document, saved);
+    roundTripTheData(example, document, trips);
+    return problems;
 }
 
 /// Saves each of the sixteen examples (exampleProblems()): the problems besides those of the
-/// rockets, which go to @p rockets.
-[[nodiscard]] std::string saveTheExamples(RocketsCompared& rockets)
+/// comparisons, which go to @p saves and @p trips.
+[[nodiscard]] std::string saveTheExamples(SavesCompared& saves, DataRoundTrips& trips)
 {
     std::string problems;
     for (const GoldenExample& example : goldenExamples())
     {
-        problems += exampleProblems(example, rockets);
+        problems += exampleProblems(example, saves, trips);
     }
     return problems;
 }
 
-// Each of the sixteen examples is saved as OpenRocket re-saved it: the document level (the
-// declaration, the root of version 1.11, no custom expressions, the photo studio, empty in
-// fourteen and 24 settings in two, no document preference, and the document materials of each)
-// and the rocket, 7200 lines with 327 components, 65 motors and the six presets; OpenRocket's
-// estimate of each file's size; and the saves of one loaded document that follow the first
-// change as OpenRocket's do. Not one number is written otherwise than OpenRocket writes it.
+// Each of the sixteen examples is saved as OpenRocket re-saved it, every one of the 10000 lines:
+// the declaration, the root of version 1.11, the rocket (327 components, 65 motors and the six
+// presets), the 54 simulations with their conditions, extensions, summary values and 20 stored
+// warnings, no custom expression, the photo studio (empty in fourteen and 24 settings in two), no
+// document preference and the document materials of each. Not one number is written otherwise
+// than OpenRocket writes it. With it: OpenRocket's estimate of each file's size; the saves of one
+// loaded document that follow the first change as OpenRocket's do; and saved with their data and
+// loaded back, the flights of the 54 simulations (69 branches) come back bit for bit, and a
+// second save is the first but for the sixteen warnings of decision E2.
 TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 {
-    RocketsCompared rockets;
-    EXPECT_EQ(saveTheExamples(rockets), "");
-    EXPECT_EQ(rockets.problems, "");
-    EXPECT_EQ(rockets.designs, 16);
-    EXPECT_EQ(rockets.lines, 7200U);
-    EXPECT_EQ(rockets.components, 327U);
-    EXPECT_EQ(rockets.byValue, 0U);
-    EXPECT_EQ(rockets.presets, 6U);
-    EXPECT_EQ(rockets.motors, 65U);
+    SavesCompared  saves;
+    DataRoundTrips trips;
+    EXPECT_EQ(saveTheExamples(saves, trips), "");
+    EXPECT_EQ(saves.problems, "");
+    EXPECT_EQ(saves.designs, 16);
+    EXPECT_EQ(saves.lines, 10000U);  // the lines of the sixteen re-saves, as it happens
+    EXPECT_EQ(saves.components, 327U);
+    EXPECT_EQ(saves.byValue, 0U);
+    EXPECT_EQ(saves.presets, 6U);
+    EXPECT_EQ(saves.motors, 65U);
+    EXPECT_EQ(saves.simulations, 54U);
+    EXPECT_EQ(saves.warnings, 20U);
     EXPECT_EQ(goldenExamples().size(), kEstimatedSizes.size());
+
+    EXPECT_EQ(trips.problems, "");
+    EXPECT_EQ(trips.simulations, 54U);
+    EXPECT_EQ(trips.branches, 69U);
+    // Decision E2 of 2026-10-14 (group 'decisions'): the loader is to read the type
+    // RecoveryHighSpeedDeployment back. Once that is merged, the second save equals the first and
+    // asReadBackBeforeE2() turns this known difference into a reported one: then compare the two
+    // saves as they are and drop this pin.
+    EXPECT_EQ(trips.highSpeedWarnings, 16U);
 }
 
-/// Saves the examples whose re-save holds a <preset>, loaded without presets, into @p rockets;
+/// The beginnings of the document materials whose order the presets change.
+constexpr std::string_view kSpiralKraft =
+    "<material>BULK|Paper, spiral kraft glassine, Estes avg, bulk|894.4|0.0|";
+constexpr std::string_view kCarpetThread = "<material>LINE|Carpet Thread|3.3E-4|0.0|";
+constexpr std::string_view kHdpeFilm =
+    "<material>SURFACE|Polyethylene film, HDPE, 1.0 mil, bare|0.0235|0.0|";
+
+/// changedLines() of two document materials @p prefix ... that changed places: the one of the
+/// group Other and the one of the group Custom.
+[[nodiscard]] std::string swappedMaterials(std::string_view prefix)
+{
+    return std::format(
+        "{0}Other</material> -> {0}Custom</material>\n"
+        "{0}Custom</material> -> {0}Other</material>\n",
+        prefix);
+}
+
+/// The lines in which the save of an example loaded without presets differs from OpenRocket's
+/// re-save, which was made with the presets (changedLines() from the re-save to the save): the
+/// order of two document materials of one name and density, one with the group of the file
+/// (Custom) and one with that of a preset (Other). OpenRocket's own save of the same loads
+/// without presets has QtRocket's order (the probe MaterialsProbe of tier 10a S3, Boot2 "none"):
+/// Java's Database puts a material before one that compares equal (name, then density), so two
+/// such materials stand in the order the load added them, which the presets change.
+[[nodiscard]] std::string withoutPresetsChanges(std::string_view name)
+{
+    if (name == "example-3d-printable-nose-cone-and-fins")
+    {
+        return swappedMaterials(kSpiralKraft);
+    }
+    if (name == "example-deployable-payload")
+    {
+        return swappedMaterials(kCarpetThread) + swappedMaterials(kHdpeFilm);
+    }
+    return {};
+}
+
+/// Saves the examples whose re-save holds a <preset>, loaded without presets, into @p saves;
 /// counts the others in @p withoutPresets. Returns what could not be loaded or read.
-[[nodiscard]] std::string saveTheExamplesWithoutPresets(RocketsCompared& rockets,
-                                                        int&             withoutPresets)
+[[nodiscard]] std::string saveTheExamplesWithoutPresets(SavesCompared& saves, int& withoutPresets)
 {
     std::string problems;
     for (const GoldenExample& example : goldenExamples())
@@ -444,25 +613,27 @@ TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
         WarningSet        warnings;
         const std::string saved = saveWithoutData(
             *loaded->document, goldenExampleEnvironment(Presets::NONE).preferences(), warnings);
-        compareRocketElements(rockets, example.name, saved, *resave);
+        compareSaves(saves, example.name, saved, *resave, withoutPresetsChanges(example.name));
     }
     return problems;
 }
 
 // The three examples with a <preset> loaded without presets (Presets::NONE: six "No matching
-// ComponentPreset" warnings) keep the six references (decision U8) and write them back: the
-// rocket is the re-save's, line for line. The thirteen other re-saves hold no <preset>.
+// ComponentPreset" warnings) keep the six references (decision U8) and write them back: the file
+// is the re-save's, line for line, but for the order of three pairs of document materials, which
+// OpenRocket's own saves without presets have too (withoutPresetsChanges()). The thirteen other
+// re-saves hold no <preset>.
 TEST(OrkResaveDiffGolden, TheExamplesWithoutPresetsWriteTheirReferencesBack)
 {
-    RocketsCompared rockets;
-    int             withoutPresets = 0;
-    EXPECT_EQ(saveTheExamplesWithoutPresets(rockets, withoutPresets), "");
-    EXPECT_EQ(rockets.problems, "");
-    EXPECT_EQ(rockets.designs, 3);
-    EXPECT_EQ(rockets.lines, 1118U);
+    SavesCompared saves;
+    int           withoutPresets = 0;
+    EXPECT_EQ(saveTheExamplesWithoutPresets(saves, withoutPresets), "");
+    EXPECT_EQ(saves.problems, "");
+    EXPECT_EQ(saves.designs, 3);
+    EXPECT_EQ(saves.lines, 1658U);
     EXPECT_EQ(withoutPresets, 13);
-    EXPECT_EQ(rockets.presets, 6U);
-    EXPECT_EQ(rockets.byValue, 0U);
+    EXPECT_EQ(saves.presets, 6U);
+    EXPECT_EQ(saves.byValue, 0U);
 }
 
 /// The one line in which QtRocket's save of the loaded re-save of the Alpha III with pods
@@ -471,9 +642,9 @@ TEST(OrkResaveDiffGolden, TheExamplesWithoutPresetsWriteTheirReferencesBack)
 constexpr std::string_view kPodBodyWall =
     "<thickness>0.002</thickness> -> <thickness>0.0</thickness>\n";
 
-/// Loads the re-save of each test rocket and saves it again into @p rockets. Returns what could
+/// Loads the re-save of each test rocket and saves it again into @p saves. Returns what could
 /// not be loaded or read, and the saves that warned.
-[[nodiscard]] std::string saveTheTestRockets(RocketsCompared& rockets)
+[[nodiscard]] std::string saveTheTestRockets(SavesCompared& saves)
 {
     std::string                    problems;
     const std::vector<GoldenInput> inputs = testRocketInputs(problems);
@@ -494,65 +665,54 @@ constexpr std::string_view kPodBodyWall =
         {
             problems += std::format("{}: {} save warnings\n", input.name, warnings.size());
         }
-        compareRocketElements(rockets, input.name, saved, *file,
-                              input.name == kPods ? kPodBodyWall : "");
+        compareSaves(saves, input.name, saved, *file, input.name == kPods ? kPodBodyWall : "");
     }
     return problems;
 }
 
 // The thirteen test rockets, loaded from their re-saves against the seven motors of TestRockets
 // and saved again, are their re-saves but for the wall of the pod body of the Alpha III with pods
-// (OpenRocket's own reload has no wall there either: ResaveGoldenExceptions). 3021 lines with
-// 151 components and 48 motors.
+// (OpenRocket's own reload has no wall there either: ResaveGoldenExceptions): 5090 lines with 151
+// components, 48 motors and 50 simulations (a fixed seed, multi-level winds, the WGS84
+// computation).
 TEST(OrkResaveDiffGolden, TheTestRocketsAreSavedAsOpenRocketResavedThem)
 {
-    RocketsCompared rockets;
-    EXPECT_EQ(saveTheTestRockets(rockets), "");
-    EXPECT_EQ(rockets.problems, "");
-    EXPECT_EQ(rockets.designs, 13);
-    EXPECT_EQ(rockets.lines, 3021U);
-    EXPECT_EQ(rockets.components, 151U);
-    EXPECT_EQ(rockets.byValue, 0U);
-    EXPECT_EQ(rockets.presets, 0U);
-    EXPECT_EQ(rockets.motors, 48U);
+    SavesCompared saves;
+    EXPECT_EQ(saveTheTestRockets(saves), "");
+    EXPECT_EQ(saves.problems, "");
+    EXPECT_EQ(saves.designs, 13);
+    EXPECT_EQ(saves.lines, 5090U);
+    EXPECT_EQ(saves.components, 151U);
+    EXPECT_EQ(saves.byValue, 0U);
+    EXPECT_EQ(saves.presets, 0U);
+    EXPECT_EQ(saves.motors, 48U);
+    EXPECT_EQ(saves.simulations, 50U);
 }
 
-// The comparison finds a difference in each part of the document level it compares.
-TEST(OrkResaveDiffGolden, TheDocumentLevelHoldsEachPartItCompares)
+// What a second save after a load makes of a stored warning of the type
+// RecoveryHighSpeedDeployment until decision E2 is merged: a warning of the type Other without
+// its parameter; every other line stays.
+TEST(OrkResaveDiffGolden, AHighSpeedWarningIsReadBackAsOtherBeforeE2)
 {
     constexpr std::string_view kText =
-        "<?xml version='1.0' encoding='utf-8'?>\n"
-        "<openrocket version=\"1.11\" creator=\"OpenRocket 26\">\n"
-        "  <rocket>\n"
-        "    <name>R</name>\n"
-        "  </rocket>\n"
-        "\n"
-        "  <simulations>\n"
-        "    <simulation/>\n"
-        "  </simulations>\n"
-        "  <photostudio>\n"
-        "  </photostudio>\n"
-        "</openrocket>\n";
-    EXPECT_EQ(documentLevel(kText),
-              "<?xml version='1.0' encoding='utf-8'?>\n"
-              "<openrocket version=\"1.11\" creator=\"CREATOR\">\n"
-              "  </rocket>\n"
-              "\n"
-              "  <simulations>\n"
-              "  </simulations>\n"
-              "  <photostudio>\n"
-              "  </photostudio>\n"
-              "</openrocket>\n");
-    EXPECT_EQ(documentLevel(std::string(kText).replace(kText.find("26"), 2, "27")),
-              documentLevel(kText));
-    EXPECT_NE(documentLevel(std::string(kText).replace(kText.find("1.11"), 4, "1.10")),
-              documentLevel(kText));
-    EXPECT_NE(documentLevel(std::string(kText).replace(kText.find("\n\n"), 2, "\n")),
-              documentLevel(kText));
-    EXPECT_NE(documentLevel(std::string(kText).replace(kText.find("  </photo"), 2, " ")),
-              documentLevel(kText));
-    EXPECT_EQ(documentLevel("<?xml?>\n<openrocket>\n"),
-              "<?xml?>\n<openrocket>\n(no </rocket> and <simulations>)");
+        "        <warning type=\"RecoveryHighSpeedDeployment\">\n"
+        "          <id>9e26b796-6349-4902-ba33-14816cf9d3bd</id>\n"
+        "          <parameter>31.94803510503947</parameter>\n"
+        "          Text\n"
+        "        </warning>\n"
+        "        <warning type=\"LargeAOA\">\n"
+        "          <parameter>0.5</parameter>\n"
+        "        </warning>\n";
+    std::size_t count = 0;
+    EXPECT_EQ(asReadBackBeforeE2(kText, count),
+              "        <warning type=\"Other\">\n"
+              "          <id>9e26b796-6349-4902-ba33-14816cf9d3bd</id>\n"
+              "          Text\n"
+              "        </warning>\n"
+              "        <warning type=\"LargeAOA\">\n"
+              "          <parameter>0.5</parameter>\n"
+              "        </warning>\n");
+    EXPECT_EQ(count, 1U);
 }
 
 /// A rocket element of a few lines, with the root around it.

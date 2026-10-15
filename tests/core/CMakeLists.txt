@@ -343,6 +343,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/simulation_value_sweep_tests.cpp
     file/openrocket/SimulationConditionsHandlerTests.cpp
     file/openrocket/SimulationPlotAppearanceHandlerTests.cpp
+    file/openrocket/SimulationSaverTests.cpp
     file/openrocket/SimulationsHandlerTests.cpp
     file/openrocket/SingleSimulationHandlerTests.cpp
     file/openrocket/StageSeparationConfigurationHandlerTests.cpp

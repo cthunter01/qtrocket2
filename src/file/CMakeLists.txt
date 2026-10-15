@@ -64,6 +64,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/RocketComponentSaver.cpp
     openrocket/SimulationConditionsHandler.cpp
     openrocket/SimulationPlotAppearanceHandler.cpp
+    openrocket/SimulationSaver.cpp
     openrocket/SimulationsHandler.cpp
     openrocket/SingleSimulationHandler.cpp
     openrocket/StageSeparationConfigurationHandler.cpp

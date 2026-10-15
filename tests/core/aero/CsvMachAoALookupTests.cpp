@@ -1,5 +1,6 @@
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -233,6 +234,40 @@ TEST(CsvMachAoALookup, AFileBeyondTheLimitIsAnIoError)
     // Without a limit of the caller's it is 32 MiB.
     EXPECT_EQ(CsvMachAoALookup::kMaxFileBytes, 33554432U);
     EXPECT_TRUE(CsvMachAoALookup::fromCsv(file, cdColumns()).has_value());
+}
+
+/// The failure of readLines() of @p path with the bound @p maxBytes: "IO: <message>", or "lines"
+/// when the file was read.
+[[nodiscard]] std::string linesFailureOf(const std::filesystem::path& path,
+                                         std::size_t maxBytes = CsvMachAoALookup::kMaxFileBytes)
+{
+    const Result<std::vector<std::string>> lines = CsvMachAoALookup::readLines(path, maxBytes);
+    return lines.has_value()
+               ? "lines"
+               : std::string(toString(lines.error().code)) + ": " + lines.error().message;
+}
+
+// readLines(), the read of fromCsv(), public for the .ork saver, which embeds the lines of a
+// table's file (Java: Files.readAllLines()): the lines as splitLines() splits them, every one
+// kept as it is; a file beyond the bound, one that is not UTF-8 and one that is not there are the
+// I/O error of fromCsv().
+TEST(CsvMachAoALookup, ReadsTheLinesOfAFileWithinTheBound)
+{
+    const TempDir                          dir;
+    const std::string                      text  = "Mach,Cd\r\n0.3,0.35\n\n 0.5 \r0.7";
+    const std::filesystem::path            file  = dir.write("table.csv", text);
+    const Result<std::vector<std::string>> lines = CsvMachAoALookup::readLines(file);
+    ASSERT_TRUE(lines.has_value());
+    using Lines = std::vector<std::string>;
+    EXPECT_EQ(lines.value_or(Lines{}), (Lines{"Mach,Cd", "0.3,0.35", "", " 0.5 ", "0.7"}));
+
+    EXPECT_EQ(linesFailureOf(file, text.size()), "lines");
+    const std::string failure = "IO: Failed to read lookup table from ";
+    EXPECT_EQ(linesFailureOf(file, text.size() - 1), failure + QtRocket::pathToUtf8(file));
+    const std::filesystem::path latin1 = dir.write("latin1.csv", "Mach,Cd\n0.3,\xE9\n");
+    EXPECT_EQ(linesFailureOf(latin1), failure + QtRocket::pathToUtf8(latin1));
+    const std::filesystem::path missing = dir.resolve("missing.csv");
+    EXPECT_EQ(linesFailureOf(missing), failure + QtRocket::pathToUtf8(missing));
 }
 
 /// Whether this machine has the device @p device (a POSIX system).
