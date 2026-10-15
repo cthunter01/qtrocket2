@@ -121,7 +121,7 @@ void buildAppearanceElements(Elements& elements, const Appearance& appearance, O
     {
         return;
     }
-    const std::string name     = writer.escape(decal->getImageName());
+    const std::string name     = writer.decalName(decal->getImageName());
     const double      rotation = decal->getRotation();
     elements.push_back(std::format(R"({}<decal name="{}" rotation="{}" edgemode="{}">)", kIndent,
                                    name, Strings::javaDoubleToString(rotation),

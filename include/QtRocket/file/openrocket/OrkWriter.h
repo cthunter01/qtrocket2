@@ -55,6 +55,10 @@ concept OrkInteger = std::integral<T> && !std::same_as<T, bool> && !std::same_as
 ///   readers refuse, U+FFFE and U+FFFF as they are, which both readers refuse too, and a lone
 ///   surrogate as '?' (its UTF-8 encoder).
 /// - entry() escapes the key (Java writes it as it is).
+/// - The name of a decal image is decalImageName() in the archive and in the <decal> both, and
+///   decalName() writes a tab, a line feed or a carriage return in it as a character reference
+///   (Java writes the name of the image as it is in both places, with TextUtil.escapeXML() in the
+///   attribute, so that such a name reads back as another name, which the archive does not hold).
 /// - The text is a std::string in memory (Java streams it through a BufferedWriter). The loader
 ///   and the zip writer hold whole buffers anyway; GeneralRocketLoader::kMaxDocumentBytes bounds
 ///   what QtRocket reads back, and the saver warns beyond it.
@@ -92,6 +96,28 @@ public:
 
     /// escape() without a writer: adds the number of characters dropped to @p dropped.
     [[nodiscard]] static std::string escapeText(std::string_view text, std::size_t& dropped);
+
+    /// The first two steps of escape() without the third: @p text as well-formed UTF-8 (U+FFFD for
+    /// what is not) without the characters XML 1.0 does not allow in a document, which are
+    /// counted into @p dropped; nothing is escaped. A text that needs neither is returned as it
+    /// is. For a text that is not XML markup but must be readable as part of one (the RockSim
+    /// engine files of an archive, which RockSimMotorWriter escapes itself).
+    [[nodiscard]] static std::string sanitizeText(std::string_view text, std::size_t& dropped);
+
+    /// The name under which a decal image of @p name is stored, in an .ork archive (the name of
+    /// its entry) and in the name attribute of each <decal> that shows it (decalName()): one
+    /// name for both, so that a file reads back with every decal where it was (QtRocket's,
+    /// reviews of tier 10a). It is sanitizeText() of @p name, the characters dropped counted into
+    /// @p dropped, with each backslash written as a slash: a zip archive cannot hold a backslash
+    /// in a name as it is (ZipWriter::backslashInName()). Tab, line feed and carriage return
+    /// stay. A name that needs none of this is returned as it is.
+    [[nodiscard]] static std::string decalImageName(std::string_view name, std::size_t& dropped);
+
+    /// The value of the name attribute of a <decal> of the image @p name: escape() of
+    /// decalImageName(), with a tab, a line feed and a carriage return written as "&#9;",
+    /// "&#10;" and "&#13;", which an XML reader reads back as those characters (it turns them
+    /// into spaces when they are written as they are). Counts the characters it drops.
+    [[nodiscard]] std::string decalName(std::string_view name);
 
     /// How many characters escape() has dropped so far.
     [[nodiscard]] std::size_t droppedCharacters() const noexcept { return m_dropped; }

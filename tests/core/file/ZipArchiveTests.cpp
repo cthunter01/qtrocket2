@@ -6,6 +6,7 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -343,6 +344,62 @@ TEST(ZipArchive, TheWriterRefusesANameAddedTwice)
     ASSERT_FALSE(bytes.has_value());
     EXPECT_EQ(bytes.error().code, QtRocket::ErrorCode::IO);
     EXPECT_EQ(bytes.error().message, "duplicate entry: rocket.ork");
+}
+
+// The first refusal is the one finish() gives, and nothing is added after it: an archive is
+// complete or there is none. Each entry is compressed when it is added, so the bytes it was given
+// may change afterwards without changing the archive.
+TEST(ZipArchive, TheWriterKeepsTheFirstRefusalAndCompressesAnEntryWhenItIsAdded)
+{
+    ZipWriter writer;
+    writer.add("a\\b", QtRocket::stringToBytes("A"));
+    writer.add("a\\b", QtRocket::stringToBytes("again"));
+    writer.add("c", QtRocket::stringToBytes("C"));
+    const Result<std::vector<std::byte>> refused = writer.finish();
+    ASSERT_FALSE(refused.has_value());
+    EXPECT_EQ(refused.error().message, ZipWriter::backslashInName("a\\b"));
+
+    ZipWriter              moved;
+    std::vector<std::byte> data = QtRocket::stringToBytes("first");
+    moved.add("one", data);
+    data = QtRocket::stringToBytes("second");
+    moved.add("two", data);
+    ZipWriter                            writerOfTwo = std::move(moved);
+    const Result<std::vector<std::byte>> bytes       = writerOfTwo.finish();
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    const Result<ZipArchive> archive = ZipArchive::fromBytes(*bytes);
+    ASSERT_TRUE(archive.has_value());
+    ASSERT_NE(archive->find("one"), nullptr);
+    EXPECT_EQ(QtRocket::bytesToString(*archive->find("one")), "first");
+    ASSERT_NE(archive->find("two"), nullptr);
+    EXPECT_EQ(QtRocket::bytesToString(*archive->find("two")), "second");
+}
+
+/// The archive of @p count entries "decals/NN.png" of @p data each.
+[[nodiscard]] Result<std::vector<std::byte>> archiveOfCopies(const std::vector<std::byte>& data,
+                                                             int                           count)
+{
+    ZipWriter writer;
+    for (int i = 0; i < count; ++i)
+    {
+        writer.add(std::format("decals/{:02}.png", i), data);
+    }
+    return writer.finish();
+}
+
+// Many entries that deflate well, more than the 32 MiB of a decal image in all, make a small
+// archive that reads back whole.
+TEST(ZipArchive, TheWriterHoldsTheCompressedEntriesOnly)
+{
+    const std::vector<std::byte>         zeros(std::size_t{4} * 1024 * 1024);
+    const Result<std::vector<std::byte>> bytes = archiveOfCopies(zeros, 16);
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    EXPECT_LT(bytes->size(), std::size_t{1024} * 1024);
+    const Result<ZipArchive> archive = ZipArchive::fromBytes(*bytes);
+    ASSERT_TRUE(archive.has_value());
+    ASSERT_EQ(archive->entries().size(), 16U);
+    EXPECT_EQ(archive->entries()[15].name, "decals/15.png");
+    EXPECT_EQ(archive->entries()[15].data, zeros);
 }
 
 /// The Error of finish() of a writer of the one entry @p name, or "" when there is an archive.

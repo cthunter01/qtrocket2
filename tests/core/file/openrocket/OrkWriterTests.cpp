@@ -370,6 +370,41 @@ TEST(OrkWriter, EscapeReplacesMalformedUtf8)
     EXPECT_EQ(writer.droppedCharacters(), 0U);
 }
 
+// sanitizeText() is escape() without the escaping: what XML cannot hold is dropped and counted,
+// malformed UTF-8 is U+FFFD, the markup stays (the RockSim engine files of an archive).
+TEST(OrkWriter, SanitizeTextLeavesTheMarkupAsItIs)
+{
+    std::size_t dropped = 1;
+    EXPECT_EQ(OrkWriter::sanitizeText("<a b=\"&amp;\">\tx\x01y\xFF</a>\n", dropped),
+              "<a b=\"&amp;\">\txy\xEF\xBF\xBD</a>\n");
+    EXPECT_EQ(dropped, 2U);
+    EXPECT_EQ(OrkWriter::sanitizeText("", dropped), "");
+    EXPECT_EQ(dropped, 2U);
+}
+
+// The name under which a decal image is stored, in the archive and in rocket.ork alike: as
+// sanitizeText() gives it, with a backslash as a slash, which a zip entry cannot hold; tab, line
+// feed and carriage return stay. The attribute writes those three as character references,
+// which an XML reader reads back as they are (as they are, it turns them into spaces), and
+// escapes the markup.
+TEST(OrkWriter, NamesADecalImageAsTheArchiveHoldsIt)
+{
+    std::size_t dropped = 0;
+    EXPECT_EQ(OrkWriter::decalImageName("decals/a.png", dropped), "decals/a.png");
+    EXPECT_EQ(OrkWriter::decalImageName("decals/caf\xE9.png", dropped),
+              "decals/caf\xEF\xBF\xBD.png");
+    EXPECT_EQ(OrkWriter::decalImageName("decals\\sub\\b.png", dropped), "decals/sub/b.png");
+    EXPECT_EQ(dropped, 0U);
+    EXPECT_EQ(OrkWriter::decalImageName("decals/c\x01\t\n\r&.png", dropped), "decals/c\t\n\r&.png");
+    EXPECT_EQ(dropped, 1U);
+
+    OrkWriter writer;
+    EXPECT_EQ(writer.decalName("decals/c\x01\t\n\r<&>\".png"),
+              "decals/c&#9;&#10;&#13;&lt;&amp;&gt;&quot;.png");
+    EXPECT_EQ(writer.decalName("decals\\b.png"), "decals/b.png");
+    EXPECT_EQ(writer.droppedCharacters(), 1U);
+}
+
 /// The text of the one entry @p writer wrote: what stands between "> and </entry>.
 [[nodiscard]] std::string entryContent(const std::string& entry)
 {

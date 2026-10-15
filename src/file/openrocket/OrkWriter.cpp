@@ -1,5 +1,6 @@
 #include "QtRocket/file/openrocket/OrkWriter.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -106,6 +107,11 @@ void OrkWriter::blankLine()
 
 std::string OrkWriter::escapeText(std::string_view text, std::size_t& dropped)
 {
+    return Strings::escapeXml(sanitizeText(text, dropped));
+}
+
+std::string OrkWriter::sanitizeText(std::string_view text, std::size_t& dropped)
+{
     const std::string valid = Strings::toValidUtf8(text);
     std::string       kept;
     kept.reserve(valid.size());
@@ -130,12 +136,45 @@ std::string OrkWriter::escapeText(std::string_view text, std::size_t& dropped)
         kept.push_back(view[position]);
         ++position;
     }
-    return Strings::escapeXml(kept);
+    return kept;
+}
+
+std::string OrkWriter::decalImageName(std::string_view name, std::size_t& dropped)
+{
+    std::string stored = sanitizeText(name, dropped);
+    std::ranges::replace(stored, '\\', '/');
+    return stored;
 }
 
 std::string OrkWriter::escape(std::string_view text)
 {
     return escapeText(text, m_dropped);
+}
+
+std::string OrkWriter::decalName(std::string_view name)
+{
+    const std::string escaped = Strings::escapeXml(decalImageName(name, m_dropped));
+    std::string       attribute;
+    attribute.reserve(escaped.size());
+    for (const char c : escaped)
+    {
+        switch (c)
+        {
+            case '\t':
+                attribute += "&#9;";
+                break;
+            case '\n':
+                attribute += "&#10;";
+                break;
+            case '\r':
+                attribute += "&#13;";
+                break;
+            default:
+                attribute += c;
+                break;
+        }
+    }
+    return attribute;
 }
 
 void OrkWriter::elementText(std::string_view name, std::string_view text)

@@ -56,7 +56,10 @@ class OrkWriter;
 ///   of tier 10): also the digests of a preset and of a motor and the type of an unresolved
 ///   preset reference, which Java writes unescaped; for the texts these hold in a file OpenRocket
 ///   can read the result is the same. (The names of constants, numbers and booleans need no
-///   escaping and are written as they are.)
+///   escaping and are written as they are.) The name of a decal is OrkWriter::decalName(): the
+///   name the archive stores the image under (OrkWriter::decalImageName(), which
+///   GeneralRocketSaver writes the entry with), a tab, a line feed or a carriage return written
+///   as a character reference.
 /// - A material's name is written as it is: QtRocket's names are not translated, so Java's
 ///   Translator.getBaseText("material", name) is the name itself.
 /// - The savers take the component as a constant (QtRocket's getters of automatic dimensions are

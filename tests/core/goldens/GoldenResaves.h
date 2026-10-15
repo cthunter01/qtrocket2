@@ -237,8 +237,19 @@ inline constexpr std::size_t kMaxReportedLines = 20;
 /// line ends at '\n'; a '\r' stays in its line and so differs): the value of the creator
 /// attribute of the root element set aside on both sides (withoutCreator()), every other byte
 /// compared, but for numbers of the same value (see OrkTextComparison). Lines are compared at
-/// the same position, so an element that moved differs where it was and where it is.
+/// the same position, so an element that moved differs where it was and where it is. A text that
+/// ends with a line feed where the other does not is one differing line more ("the end:").
 [[nodiscard]] OrkTextComparison compareOrkTexts(std::string_view ours, std::string_view theirs);
+
+/// The lines of @p text, each without its '\n' (a text that ends with '\n' has no empty line
+/// after it).
+[[nodiscard]] std::vector<std::string_view> linesOf(std::string_view text);
+
+/// The lines that differ between @p before and @p after, two texts of the same number of lines
+/// (linesOf()), each as "<line of before> -> <line of after>" without the indentation (the
+/// spaces in front), one per line; for texts of another number of lines "<n> lines -> <m>
+/// lines" instead. Empty when the lines are the same.
+[[nodiscard]] std::string changedLines(std::string_view before, std::string_view after);
 
 /// @p text with the value of its first creator attribute replaced by "CREATOR".
 [[nodiscard]] std::string withoutCreator(std::string_view text);

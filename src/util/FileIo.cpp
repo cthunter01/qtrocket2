@@ -165,32 +165,82 @@ constexpr int kTemporaryNameAttempts = 16;
     return failure;
 }
 
+/// A temporary file of replaceFile(), removed when it goes out of scope (an exception included)
+/// unless it was renamed to its target (release()).
+class TemporaryFile
+{
+public:
+    explicit TemporaryFile(std::filesystem::path path) noexcept : m_path(std::move(path)) { }
+    ~TemporaryFile()
+    {
+        if (!m_path.empty())
+        {
+            std::error_code ignored;
+            std::filesystem::remove(m_path, ignored);
+        }
+    }
+    TemporaryFile(const TemporaryFile&)            = delete;
+    TemporaryFile& operator=(const TemporaryFile&) = delete;
+    TemporaryFile(TemporaryFile&&)                 = delete;
+    TemporaryFile& operator=(TemporaryFile&&)      = delete;
+
+    [[nodiscard]] const std::filesystem::path& path() const noexcept { return m_path; }
+
+    /// The file is the target now: it stays.
+    void release() noexcept { m_path.clear(); }
+
+private:
+    std::filesystem::path m_path;
+};
+
+/// The write permissions of a file, for anyone.
+constexpr std::filesystem::perms kWritePermissions = std::filesystem::perms::owner_write |
+                                                     std::filesystem::perms::group_write |
+                                                     std::filesystem::perms::others_write;
+
 /// replaceFile(): a temporary file in the directory of @p target, which @p write fills and which
-/// is then renamed to @p target; removed again on any failure.
+/// is then renamed to @p target; removed again on any failure. A target marked read-only (no
+/// write permission for anyone; the read-only attribute on Windows) is refused before anything
+/// is made, and a target that is there passes its permissions on to the file that replaces it.
 [[nodiscard]] Result<void> replaceThrough(
     const std::filesystem::path&                                     target,
     const std::function<Result<void>(const std::filesystem::path&)>& write)
 {
-    const Result<std::filesystem::path> temporary = createTemporaryFile(target.parent_path());
-    if (!temporary.has_value())
+    std::error_code                    error;
+    const std::filesystem::file_status existing = std::filesystem::status(target, error);
+    const bool exists = !error && std::filesystem::is_regular_file(existing) &&
+                        existing.permissions() != std::filesystem::perms::unknown;
+    if (exists && (existing.permissions() & kWritePermissions) == std::filesystem::perms::none)
     {
-        return std::unexpected(temporary.error());
+        return fail(ErrorCode::IO,
+                    std::format("cannot replace '{}': the file is read-only", pathToUtf8(target)));
     }
-    Result<void> replaced = write(*temporary);
-    if (replaced.has_value())
+    const Result<std::filesystem::path> created = createTemporaryFile(target.parent_path());
+    if (!created.has_value())
     {
-        std::error_code error;
-        std::filesystem::rename(*temporary, target, error);
-        if (!error)
-        {
-            return {};
-        }
-        replaced = fail(ErrorCode::IO, std::format("cannot replace '{}': {}", pathToUtf8(target),
-                                                   error.message()));
+        return std::unexpected(created.error());
     }
-    std::error_code ignored;
-    std::filesystem::remove(*temporary, ignored);
-    return replaced;
+    TemporaryFile temporary(*created);
+    if (Result<void> written = write(temporary.path()); !written.has_value())
+    {
+        return written;
+    }
+    if (exists)
+    {
+        // The new file is the old one to whoever may read or write it (Java's new file has the
+        // permissions a new file gets). Best effort: a file system without permissions keeps
+        // its own.
+        std::filesystem::permissions(temporary.path(),
+                                     existing.permissions() & std::filesystem::perms::all, error);
+    }
+    std::filesystem::rename(temporary.path(), target, error);
+    if (error)
+    {
+        return fail(ErrorCode::IO,
+                    std::format("cannot replace '{}': {}", pathToUtf8(target), error.message()));
+    }
+    temporary.release();
+    return {};
 }
 
 }  // namespace

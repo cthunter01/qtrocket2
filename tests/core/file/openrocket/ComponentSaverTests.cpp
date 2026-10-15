@@ -81,6 +81,7 @@
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Uuid.h"
 #include "file/RocketLoaderTestSupport.h"
+#include "goldens/GoldenResaves.h"
 #include "rocket/TestRockets.h"
 
 // The component savers (ComponentSaver and the savers it chooses: AssemblySaver,
@@ -136,6 +137,7 @@ using QtRocket::StorageOptions;
 using QtRocket::Uuid;
 using QtRocket::WarningSet;
 using QtRocket::Test::LoaderEnvironment;
+using QtRocket::Test::rocketElementOf;
 
 /// What OpenRocket's saver gives for one component of the kitchen sink.
 struct JavaElements
@@ -1337,12 +1339,13 @@ void addFinsAndRails(BodyTube& body)
     ell.setTabOffsetMethod(AxialMethod::TOP);
     ell.setTabOffset(0.004);
 
-    auto& free = named(body.addChild(std::make_unique<QtRocket::FreeformFinSet>()), 7, "Freeform");
+    auto& freeform =
+        named(body.addChild(std::make_unique<QtRocket::FreeformFinSet>()), 7, "Freeform");
     const std::array<Coordinate, 4> points{Coordinate(0, 0), Coordinate(0.02, 0.03),
                                            Coordinate(0.05, 0.03), Coordinate(0.06, 0)};
-    free.setPoints(points);
-    free.setTabHeight(0.0);
-    free.setTabLength(0.02);
+    freeform.setPoints(points);
+    freeform.setTabHeight(0.0);
+    freeform.setTabLength(0.02);
 
     auto& tubes = named(body.addChild(std::make_unique<QtRocket::TubeFinSet>()), 8, "Tube fins");
     tubes.setFinCount(6);
@@ -1586,18 +1589,6 @@ TEST(ComponentSaver, TheKitchenSinkIsSavedComponentByComponentAsOpenRocketSavesI
     EXPECT_EQ(kinds.size(), QtRocket::kAllComponentKinds.size());
 }
 
-/// The <rocket> element of the .ork text @p text, from "  <rocket>" to "  </rocket>".
-[[nodiscard]] std::string rocketElementOf(const std::string& text)
-{
-    const std::size_t open  = text.find("\n  <rocket>\n");
-    const std::size_t close = text.find("\n  </rocket>\n");
-    if (open == std::string::npos || close == std::string::npos)
-    {
-        return {};
-    }
-    return text.substr(open + 1, close + std::string_view("\n  </rocket>\n").size() - open - 1);
-}
-
 /// OpenRocketSaver's save of @p document, without simulation data, with an empty preference
 /// store; the warnings go to @p warnings.
 [[nodiscard]] std::string saveOf(OpenRocketDocument& document, WarningSet& warnings)
@@ -1651,6 +1642,173 @@ TEST(ComponentSaver, ChoosesTheSaverOfJavasReflection)
               &InternalComponentSaver::bulkheadElements);
     // 22 kinds, 21 savers: AxialStageSaver serves two.
     EXPECT_EQ(distinctSavers(), 21U);
+}
+
+// The elements no committed re-save and not the kitchen sink holds: OpenRocket's getElements() of
+// the components of SaverGapsProbe.components() (the probe of tier 10a's fixer of the group
+// 'saver', out/savergaps.txt), written into this file by scripts/make_gap_elements_table.py.
+// clang-format off
+constexpr std::array<JavaElements, 4> kJavaGapElements{{
+    {.id = "00000000-0000-4000-8000-000000000104", .javaClass = "ShockCord", .lines = R"xml(<shockcord>
+<name>Cord</name>
+<id>00000000-0000-4000-8000-000000000104</id>
+<axialoffset method="top">0.0</axialoffset>
+<position type="top">0.0</position>
+<packedlength>0.025</packedlength>
+<packedradius>0.0125</packedradius>
+<radialposition>0.0</radialposition>
+<radialdirection>0.0</radialdirection>
+<cordlength>auto</cordlength>
+<material type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</material>
+</shockcord>)xml"},
+    {.id = "00000000-0000-4000-8000-000000000105", .javaClass = "TrapezoidFinSet", .lines = R"xml(<trapezoidfinset>
+<name>Bottom tab</name>
+<id>00000000-0000-4000-8000-000000000105</id>
+<instancecount>3</instancecount>
+<fincount>3</fincount>
+<radiusoffset method="surface">0.0</radiusoffset>
+<angleoffset method="relative">0.0</angleoffset>
+<rotation>0.0</rotation>
+<axialoffset method="bottom">0.0</axialoffset>
+<position type="bottom">0.0</position>
+<finish>normal</finish>
+<material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+<thickness>0.003</thickness>
+<crosssection>square</crosssection>
+<cant>0.0</cant>
+<tabheight>0.01</tabheight>
+<tablength>0.02</tablength>
+<tabposition relativeto="end">-0.002999999999999999</tabposition>
+<tabposition relativeto="bottom">-0.002999999999999999</tabposition>
+<filletradius>0.0</filletradius>
+<filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+<rootchord>0.05</rootchord>
+<tipchord>0.03</tipchord>
+<sweeplength>0.02</sweeplength>
+<height>0.04</height>
+</trapezoidfinset>)xml"},
+    {.id = "00000000-0000-4000-8000-000000000106", .javaClass = "TrapezoidFinSet", .lines = R"xml(<trapezoidfinset>
+<name>Absolute tab</name>
+<id>00000000-0000-4000-8000-000000000106</id>
+<instancecount>4</instancecount>
+<fincount>4</fincount>
+<radiusoffset method="surface">0.0</radiusoffset>
+<angleoffset method="relative">0.0</angleoffset>
+<rotation>0.0</rotation>
+<axialoffset method="bottom">0.0</axialoffset>
+<position type="bottom">0.0</position>
+<finish>normal</finish>
+<material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+<thickness>0.003</thickness>
+<crosssection>square</crosssection>
+<cant>0.0</cant>
+<tabheight>0.005</tabheight>
+<tablength>0.015</tablength>
+<tabposition relativeto="center">0.002</tabposition>
+<tabposition relativeto="absolute">0.002</tabposition>
+<filletradius>0.0</filletradius>
+<filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+<rootchord>0.06</rootchord>
+<tipchord>0.03</tipchord>
+<sweeplength>0.02</sweeplength>
+<height>0.04</height>
+</trapezoidfinset>)xml"},
+    {.id = "00000000-0000-4000-8000-000000000107", .javaClass = "TubeFinSet", .lines = R"xml(<tubefinset>
+<name>Tube fins</name>
+<id>00000000-0000-4000-8000-000000000107</id>
+<instancecount>4</instancecount>
+<fincount>4</fincount>
+<radiusoffset method="coaxial">0.0</radiusoffset>
+<angleoffset method="fixed">0.0</angleoffset>
+<rotation>0.0</rotation>
+<axialoffset method="bottom">0.0</axialoffset>
+<position type="bottom">0.0</position>
+<finish>normal</finish>
+<material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+<fincount>4</fincount>
+<rotation>0.0</rotation>
+<radius>0.012</radius>
+<length>0.05</length>
+<thickness>0.001</thickness>
+</tubefinset>)xml"},
+}};
+// clang-format on
+
+/// SaverGapsProbe.components(): a body tube with a shock cord of an automatic length, two
+/// trapezoidal fin sets whose tabs are placed from the bottom of the fin and absolutely, and tube
+/// fins with a radius of their own, in a document, with the events of the rocket switched on.
+[[nodiscard]] std::unique_ptr<OpenRocketDocument> gapComponents()
+{
+    auto rocket = std::make_unique<Rocket>();
+    named(*rocket, 101, "Rocket");
+    auto& stage = named(rocket->addChild(std::make_unique<QtRocket::AxialStage>()), 102, "Stage");
+    auto& body  = named(stage.addChild(std::make_unique<BodyTube>(0.3, 0.025, 0.001)), 103, "Body");
+    body.setOuterRadiusAutomatic(false);
+
+    auto& cord = named(body.addChild(std::make_unique<QtRocket::ShockCord>()), 104, "Cord");
+    cord.setCordLengthAutomatic(true);
+
+    auto& bottom =
+        named(body.addChild(std::make_unique<QtRocket::TrapezoidFinSet>(3, 0.05, 0.03, 0.02, 0.04)),
+              105, "Bottom tab");
+    bottom.setTabHeight(0.01);
+    bottom.setTabLength(0.02);
+    bottom.setTabOffsetMethod(AxialMethod::BOTTOM);
+    bottom.setTabOffset(-0.003);
+
+    auto& absolute =
+        named(body.addChild(std::make_unique<QtRocket::TrapezoidFinSet>(4, 0.06, 0.03, 0.02, 0.04)),
+              106, "Absolute tab");
+    absolute.setTabHeight(0.005);
+    absolute.setTabLength(0.015);
+    absolute.setTabOffsetMethod(AxialMethod::ABSOLUTE);
+    absolute.setTabOffset(0.002);
+
+    auto& tubes = named(body.addChild(std::make_unique<QtRocket::TubeFinSet>()), 107, "Tube fins");
+    tubes.setFinCount(4);
+    tubes.setLength(0.05);
+    tubes.setOuterRadius(0.012);
+    tubes.setThickness(0.001);
+
+    std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createDocumentFromRocket(std::move(rocket));
+    document->getRocket().enableEvents();
+    return document;
+}
+
+/// What the savers give for the components of kJavaGapElements in @p document, in its order,
+/// that differs from OpenRocket's.
+[[nodiscard]] std::string gapDifferences(const OpenRocketDocument& document)
+{
+    const InMemoryPreferences preferences;
+    OrkWriter                 writer;
+    std::string               differences;
+    for (const JavaElements& java : kJavaGapElements)
+    {
+        const RocketComponent* const component =
+            document.getRocket().findComponent(Uuid::javaFromString(java.id).value_or(Uuid{}));
+        const std::string ours =
+            component == nullptr
+                ? "(no component)"
+                : joined(ComponentSaver::getElements(*component, writer, preferences));
+        if (ours != java.lines)
+        {
+            differences += std::format("--- {} {}\n{}\n--- OpenRocket\n{}\n", java.id,
+                                       java.javaClass, ours, java.lines);
+        }
+    }
+    return differences;
+}
+
+// What the kitchen sink and the re-saves leave out, as OpenRocket's savers write it: a shock
+// cord's automatic length ("auto"); a fin tab placed from the bottom of the fin (the legacy
+// position "end", and the offset Java works out of -0.003, -0.002999999999999999) and placed
+// absolutely (the legacy position "center" with the offset), each followed by its own line; a
+// tube fin set's radius of its own.
+TEST(ComponentSaver, WritesWhatNoReSaveHoldsAsOpenRocket)
+{
+    const std::unique_ptr<OpenRocketDocument> document = gapComponents();
+    EXPECT_EQ(gapDifferences(*document), "");
 }
 
 /// The lines of the trapezoidal fin set of a new design with a tab of @p height and @p length.

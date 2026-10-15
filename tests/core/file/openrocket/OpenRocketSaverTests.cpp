@@ -50,6 +50,7 @@
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Version.h"
 #include "file/RocketLoaderTestSupport.h"
+#include "goldens/GoldenResaves.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationRunSupport.h"
 
@@ -86,6 +87,8 @@ using QtRocket::WarningSet;
 using QtRocket::Test::JavaTestPreferences;
 using QtRocket::Test::junitEquals;
 using QtRocket::Test::LoaderEnvironment;
+using QtRocket::Test::rocketElementOf;
+using QtRocket::Test::withoutCreator;
 
 /// What a save gave: the text, or the Error's message, and the warnings.
 struct Saved
@@ -115,33 +118,18 @@ struct Saved
     return saved;
 }
 
-/// @p text with the value of its first creator attribute replaced by "CREATOR".
-[[nodiscard]] std::string withoutCreator(std::string text)
-{
-    constexpr std::string_view kAttribute = "creator=\"";
-    const std::size_t          start      = text.find(kAttribute);
-    if (start == std::string::npos)
-    {
-        return text;
-    }
-    const std::size_t value = start + kAttribute.size();
-    const std::size_t end   = text.find('"', value);
-    return text.replace(value, end - value, "CREATOR");
-}
-
-/// @p text without the lines of its <rocket> element (from "  <rocket>" to "  </rocket>"), which
-/// stand as one line "  <rocket/>" instead.
+/// @p text without the lines of its <rocket> element (rocketElementOf(), from "  <rocket>" to
+/// "  </rocket>"), which stand as one line "  <rocket/>" instead.
 [[nodiscard]] std::string withoutRocket(const std::string& text)
 {
-    constexpr std::string_view kOpen  = "\n  <rocket>\n";
-    constexpr std::string_view kClose = "\n  </rocket>\n";
-    const std::size_t          open   = text.find(kOpen);
-    const std::size_t          close  = text.find(kClose);
-    if (open == std::string::npos || close == std::string::npos)
+    const std::string rocket = rocketElementOf(text);
+    const std::size_t at     = rocket.empty() ? std::string::npos : text.find(rocket);
+    if (at == std::string::npos)
     {
         return text;
     }
-    return text.substr(0, open) + "\n  <rocket/>\n" + text.substr(close + kClose.size());
+    std::string result(text);
+    return result.replace(at, rocket.size(), "  <rocket/>\n");
 }
 
 /// The document level of @p text: withoutRocket() of withoutCreator().

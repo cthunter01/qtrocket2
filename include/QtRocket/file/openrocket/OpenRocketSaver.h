@@ -53,7 +53,14 @@ class Preferences;
 /// would not read it back in full (decision O12 of tier 10): the text beyond
 /// GeneralRocketLoader::kMaxDocumentBytes (documentBeyondLoaderBound()), a rocket of more than
 /// DocumentConfig::kMaxComponents components (componentsBeyondLoaderBound()). The file is
-/// written all the same.
+/// written all the same. Only these two bounds, the ones decision O12 names, are checked: a
+/// design beyond another of the loader's bounds is saved without a warning and comes back
+/// without what the loader leaves out (with the loader's warnings): components nested deeper
+/// than ComponentHandler::kMaxDepth, more than DocumentConfig::kMaxAssemblies assemblies,
+/// kMaxFlightConfigurations flight configurations, kMaxSimulations simulations, kMaxWindLevels
+/// levels of a wind, kMaxDecalImages decal images or kMaxInstances component instances, and
+/// lists of an extension's configuration nested deeper than ConfigHandler::kMaxListDepth (an
+/// open point of tier 10a for the user).
 ///
 /// OpenRocket's file/RocketSaver, the abstract base class of the savers, is not ported as a
 /// class: its save(dest, doc, warnings, errors) with the document's default storage options is

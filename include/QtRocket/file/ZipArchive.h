@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -49,22 +50,31 @@ private:
 /// central header says "made by" version 2.0 on MS-DOS (20) and "needed" version 2.0, as Java's
 /// do; there is no extra field and no file attribute.
 ///
+/// An entry is compressed into the archive when it is added (add()), as Java's stream writes it:
+/// the writer keeps the compressed archive and nothing of the bytes it was given, so that an
+/// archive of many large, well compressed entries (the decal images of a design) needs no more
+/// memory than the archive and the one entry being added.
+///
 /// The time of the entries: the local time of finish() unless a time is set (setEntryTime()),
 /// which every entry then carries as given, whatever the time zone of the process, so that the
 /// same entries give an archive of the same headers on every platform (the deflated bytes are
 /// zlib's, and zlib and zlib-ng deflate differently: compare the entries of an archive, never its
 /// bytes).
 ///
-/// The names are written as given, byte for byte. finish() refuses, and gives no archive for:
+/// The names are written as given, byte for byte. add() refuses, and finish() then gives the
+/// first refusal and no archive at all, for:
 /// - a name added twice: "duplicate entry: <name>" (ErrorCode::IO), Java's ZipException;
 /// - a name of more than 65535 bytes: "entry name too long" (ErrorCode::INVALID_ARGUMENT), the
 ///   text of Java's refusal of a name of more than 65535 characters;
 /// - a name that holds a backslash or a NUL character (ErrorCode::INVALID_ARGUMENT,
 ///   backslashInName() and nulInName()).
+/// An entry of more than 2 GiB, an archive that would grow beyond 2 GiB
+/// (ErrorCode::UNSUPPORTED_FORMAT) and memory that runs out (outOfMemory(), ErrorCode::IO) fail
+/// the archive the same way: nothing an entry holds makes the writer throw.
 ///
 /// Deviations from java.util.zip.ZipOutputStream:
-/// - The refusals are made by finish(), for the whole archive; Java refuses a name when the
-///   entry is begun (putNextEntry()), behind the entries before it.
+/// - A refused name fails the whole archive, which finish() reports; Java refuses the name when
+///   the entry is begun (putNextEntry()), behind the entries before it.
 /// - Java writes a name of more than 65535 bytes but not characters (UTF-8 of two or three
 ///   bytes a character) with its length cut to 16 bits, an archive no reader reads right; it is
 ///   refused here.
@@ -80,6 +90,7 @@ private:
 ///   zip header can hold, is written as 1980-01-01 00:00:00, and a second is written in steps of
 ///   two (an odd second as the one before it). A time after 2107 is refused (Java writes the
 ///   latest time a header can hold and the time itself in an extra field).
+/// - The archive is held in memory and is at most 2 GiB long (Java streams it to the file).
 class ZipWriter
 {
 public:
@@ -100,6 +111,9 @@ public:
     /// The failure for a name of more than 65535 bytes (Java's text).
     static constexpr std::string_view kNameTooLong = "entry name too long";
 
+    /// The failure for an archive that would be longer than 2 GiB (QtRocket's text).
+    static constexpr std::string_view kArchiveTooLarge = "zip archive larger than 2 GiB";
+
     /// The failure for @p name added twice (Java's text): "duplicate entry: <name>".
     [[nodiscard]] static std::string duplicateEntry(std::string_view name);
 
@@ -116,6 +130,10 @@ public:
     /// "The zip entry time 2108-01-01 00:00:00 is not a date and time from 1980 to 2107."
     [[nodiscard]] static std::string invalidEntryTime(const EntryTime& time);
 
+    /// The failure for the memory that ran out while the entry @p name was added (QtRocket's
+    /// text): "Out of memory writing the zip entry <name>".
+    [[nodiscard]] static std::string outOfMemory(std::string_view name);
+
     /// The 32 bits of @p time in the MS-DOS form of a zip header: the date in the high 16 bits
     /// (the year from 1980 in 7 bits, the month in 4, the day in 5), the time in the low 16 (the
     /// hour in 5 bits, the minute in 6, the second halved in 5); a time before 1980 is
@@ -123,8 +141,17 @@ public:
     /// field out of its range, a day included that its month does not have.
     [[nodiscard]] static std::optional<std::uint32_t> dosDateTime(const EntryTime& time) noexcept;
 
-    /// Queues an entry. The name is checked by finish().
-    void add(std::string name, std::span<const std::byte> data);
+    ZipWriter();
+    ~ZipWriter();
+    ZipWriter(const ZipWriter&)            = delete;
+    ZipWriter& operator=(const ZipWriter&) = delete;
+    ZipWriter(ZipWriter&&) noexcept;
+    ZipWriter& operator=(ZipWriter&&) noexcept;
+
+    /// Compresses an entry of @p name and @p data into the archive (see the class comment). A
+    /// name that cannot be written, or a failure of the archive, is kept for finish(), and
+    /// nothing more is added after it.
+    void add(std::string_view name, std::span<const std::byte> data);
 
     /// Sets the time every entry carries; nullopt (the default) for the local time of finish().
     void setEntryTime(std::optional<EntryTime> time) noexcept { m_entryTime = time; }
@@ -133,21 +160,15 @@ public:
         return m_entryTime;
     }
 
-    /// The complete archive with every entry added so far, or the failure of a name or of the
-    /// entry time (see the class comment), for which there is no archive at all.
-    [[nodiscard]] Result<std::vector<std::byte>> finish() const;
+    /// The complete archive with every entry added, or the first failure of add() or the
+    /// failure of the entry time (see the class comment), for which there is no archive at all.
+    /// The writer is done then: it may not be added to or finished again.
+    [[nodiscard]] Result<std::vector<std::byte>> finish();
 
 private:
-    struct Pending
-    {
-        std::string            name;
-        std::vector<std::byte> data;
-    };
+    struct State;
 
-    /// The failure of the first name that cannot be written (see the class comment), or none.
-    [[nodiscard]] Result<void> checkNames() const;
-
-    std::vector<Pending>     m_pending;
+    std::unique_ptr<State>   m_state;
     std::optional<EntryTime> m_entryTime;
 };
 

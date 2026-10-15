@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "QtRocket/document/StorageOptions.h"
@@ -35,21 +36,25 @@ class Preferences;
 ///    included, the image of the decal of its appearance and that of its inside appearance
 ///    (an InsideColorComponent's), each image once, in the order of their names
 ///    (Strings::javaCompareTo(); Java: a TreeSet of the images, which compare by name), each
-///    under its name, with the bytes DecalImage::getBytes() gives. An image the user chose to
+///    under the name rocket.ork gives it (OrkWriter::decalImageName(): its name unless that is
+///    not well-formed UTF-8 or holds what a design file cannot hold, which decalImageRenamed()
+///    then warns of), with the bytes DecalImage::getBytes() gives. An image the user chose to
 ///    leave out (DecalImage::isIgnored()) is not written and is no longer left out afterwards
 ///    (setIgnored(false)): the flag is cleared when the image's turn comes, as in Java, so it
 ///    stays cleared when a later image then fails the save;
 /// 4. "thrustcurves/<digest>.rse": every thrust-curve motor of the design, written as a
-///    RockSim engine file (RockSimMotorWriter, UTF-8), so that the file carries the motors
-///    with it. A motor is of the design when a component that is a motor mount
-///    (MotorMount::isMotorMount(), a mount that is no longer one does not count) has it in
-///    one of the flight configurations of the rocket (Rocket::getIds()). Motors are taken in
-///    the order of the components (pre-order) and, for each, of the configurations; a motor
-///    whose digest is empty is left out, and of two motors of the same digest the first.
-///    Every such motor is written, those of the motor database too (the file can then be
-///    read where the database lacks them).
+///    RockSim engine file (RockSimMotorWriter, UTF-8, with OrkWriter::sanitizeText(): what XML
+///    cannot hold in its texts is left out with OpenRocketSaver::kDroppedCharacters, decision E3
+///    of tier 10), so that the file carries the motors with it. A motor is of the design when a
+///    component that is a motor mount (MotorMount::isMotorMount(), a mount that is no longer one
+///    does not count) has it in one of the flight configurations of the rocket (Rocket::getIds()).
+///    Motors are taken in the order of the components (pre-order) and, for each, of the
+///    configurations; a motor whose digest is empty is left out, and of two motors of the same
+///    digest the first. Every such motor is written, those of the motor database too (the file can
+///    then be read where the database lacks them).
 /// After a successful save the options hold no preview image any more
-/// (StorageOptions::clearPreviewImage()), as in Java.
+/// (StorageOptions::clearPreviewImage()), as in Java: for save(), once the file is in place, so
+/// that a save that failed to write the file keeps the image for the next.
 ///
 /// FAILURES, for which there is no archive and no file is touched: an Error of
 /// OpenRocketSaver::save(); the Error of a decal image whose bytes cannot be read
@@ -58,28 +63,37 @@ class Preferences;
 /// OpenRocket's frame does), or that the document does not know (a decal naming no image of
 /// OpenRocketDocument::findDecalImage(): decalNotFound() with the name); ZipWriter's refusal of
 /// two entries of one name ("duplicate entry: <name>", such as a decal image named
-/// "rocket.ork") or of a name it cannot write; and for storage options of the types ROCKSIM and
-/// RASAERO, unsupportedFileType() (ErrorCode::UNSUPPORTED_FORMAT): QtRocket writes neither
-/// format yet.
+/// "rocket.ork", or two decal images whose names rocket.ork writes as one) or of a name it cannot
+/// write, and its failures of an archive beyond 2 GiB; memory that runs out (kOutOfMemory,
+/// ErrorCode::IO: nothing a document holds makes a save throw); and for storage options of the
+/// types ROCKSIM and RASAERO, unsupportedFileType() (ErrorCode::UNSUPPORTED_FORMAT): QtRocket
+/// writes neither format yet.
 ///
 /// SAVING TO A FILE (save()): a temporary file is made in the directory of the file first
 /// (FileIo replaceFileWith()), then the archive is made and written to it, and the temporary
 /// file is renamed to the file, which it replaces. A failure of any step leaves the file as it
 /// was and removes the temporary file; a directory that cannot take the file fails before the
-/// document is written (Java's order: the temporary file is made first).
+/// document is written (Java's order: the temporary file is made first). A file marked
+/// read-only is not replaced, and the file keeps the permissions it had (FileIo replaceFile()).
 ///
 /// The caller (the command line, later the GUI) sets the document's file and its saved state
 /// after a successful save (OpenRocketDocument::setFile(), setSaved(true)), as OpenRocket's
 /// BasicFrame does: the saver does not.
 ///
-/// The warnings and the errors of the last save are getWarnings() and getErrors(); they are
-/// cleared when a save begins (Java: when the design begins to be written). QtRocket's own
-/// warning of the container is fileBeyondLoaderBound().
+/// The warnings and the errors of the last save are getWarnings() and getErrors(), and its missing
+/// decal image getMissingDecal(); all three are cleared when a save begins, a save() that fails
+/// before the design is written included (Java: the warnings when the design begins to be
+/// written; the missing image is the exception's). QtRocket's own warnings of the container are
+/// fileBeyondLoaderBound() and decalImageRenamed().
 ///
 /// Deviations from OpenRocket:
 /// - The archive is built in memory and returned (saveToBytes()) or written whole; Java streams
-///   it into the file. Java's SavingProgress callback is not ported: there is no stream to
-///   watch (estimateFileSize() is, for a caller that wants to show what is coming).
+///   it into the file. Each entry is compressed when it is added (ZipWriter), so a design with
+///   many large decal images that compress well needs the memory of the compressed archive and of
+///   one image, and memory that runs out anyway is an Error (kOutOfMemory; Java: an
+///   OutOfMemoryError). (Each image is read through its attachment, an archive's from the start
+///   of that archive, as in Java.) Java's SavingProgress callback is not ported: there is no
+///   stream to watch (estimateFileSize() is, for a caller that wants to show what is coming).
 /// - ROCKSIM and RASAERO: Java writes them with RockSimSaver and RASAeroSaver (Milestone 8:
 ///   // HOOK(rocksim), // HOOK(rasaero)); estimateFileSize() is 0 for them.
 /// - Nothing is written when the save fails: Java has written rocket.ork (and the decals
@@ -88,12 +102,20 @@ class Preferences;
 ///   headers whenever they are made, the time of Options::entryTime (Java: always the moment
 ///   of the save).
 /// - ZipWriter refuses entry names Java writes (a backslash, a NUL character, more than 65535
-///   bytes; see ZipWriter).
+///   bytes; see ZipWriter). A decal image is stored under OrkWriter::decalImageName(), its name
+///   with a backslash as a slash, without what XML cannot hold and as well-formed UTF-8, in the
+///   archive and in rocket.ork alike (Java: the name as it is in both, which for such a name
+///   makes a file in which the decal is lost, or that no reader reads).
+/// - The texts of an embedded RockSim engine file go through OrkWriter::sanitizeText() (Java
+///   writes them as RockSimMotorWriter escapes them).
 /// - A decal that names an image the document does not know fails as a missing image (Java's
 ///   decal holds its image, so there is no such decal).
-/// - fileBeyondLoaderBound(): a warning of QtRocket's (decision O12 of tier 10).
+/// - fileBeyondLoaderBound() and decalImageRenamed(): warnings of QtRocket's (decision O12 of
+///   tier 10; the reviews of tier 10a).
 /// - No "<file>-bak" is made while the file is replaced (see FileIo replaceFile()), and the
-///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp").
+///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp"). A
+///   file marked read-only is not replaced, and the new file has the permissions of the old one
+///   (Java replaces a read-only file, and the new one has the permissions of a new file).
 class GeneralRocketSaver final
 {
 public:
@@ -115,6 +137,16 @@ public:
     /// The Error of a save with storage options of @p fileType (ROCKSIM or RASAERO): "QtRocket
     /// cannot save a design in the <name> format yet." (QtRocket's text).
     [[nodiscard]] static std::string unsupportedFileType(StorageOptions::FileType fileType);
+
+    /// The save warning for the decal image @p name, which is stored as @p stored
+    /// (OrkWriter::decalImageName(); QtRocket's text): "The decal image "<name>" is saved as
+    /// "<stored>": a design file cannot hold its name as it is." (@p name as well-formed UTF-8).
+    [[nodiscard]] static std::string decalImageRenamed(std::string_view name,
+                                                       std::string_view stored);
+
+    /// The Error of a save that ran out of memory (QtRocket's text).
+    static constexpr std::string_view kOutOfMemory =
+        "There was not enough memory to save the design.";
 
     /// A saver that writes with @p preferences, the application's, which decide whether a flight
     /// configuration's name is its own (OpenRocketSaver::save()). They must outlive the saver.
@@ -158,9 +190,25 @@ public:
     }
 
 private:
+    /// Clears the warnings, the errors and the missing decal image of the last save.
+    void clearLastSave();
+
+    /// The archive of @p document with @p options (see the class comment), or the Error of the
+    /// save, running out of memory included; the options are left as they are.
+    [[nodiscard]] Result<std::vector<std::byte>> archive(OpenRocketDocument&   document,
+                                                         const StorageOptions& options);
+
+    /// archive() but for the memory: the entries in their order.
+    [[nodiscard]] Result<std::vector<std::byte>> buildArchive(OpenRocketDocument&   document,
+                                                              const StorageOptions& options);
+
     /// Adds the decal images the components of @p document show to @p archive (step 3 of the
     /// class comment).
     [[nodiscard]] Result<void> addDecals(OpenRocketDocument& document, ZipWriter& archive);
+
+    /// Adds the thrust curves of the motors of @p document to @p archive (step 4 of the class
+    /// comment).
+    void addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive);
 
     const Preferences*          m_preferences;
     Options                     m_options;

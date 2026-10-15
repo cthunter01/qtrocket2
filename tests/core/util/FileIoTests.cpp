@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -297,6 +298,81 @@ TEST(FileIo, ReplaceFileWithAsksForTheDataWhenTheTemporaryFileExists)
         return QtRocket::Result<std::vector<std::byte>>(QtRocket::stringToBytes("new"));
     }));
     EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+}
+
+/// Whether replaceFileWith() of @p file passes on the exception its data throw.
+[[nodiscard]] bool passesOnTheExceptionOfTheData(const std::filesystem::path& file)
+{
+    try
+    {
+        std::ignore =
+            QtRocket::replaceFileWith(file, [] -> QtRocket::Result<std::vector<std::byte>> {
+                throw std::runtime_error("no memory for the data");
+            });
+    }
+    catch (const std::runtime_error&)
+    {
+        return true;
+    }
+    return false;
+}
+
+// An exception of the data passes through replaceFileWith(), and the temporary file is removed
+// all the same: the target stays as it was.
+TEST(FileIo, AnExceptionOfTheDataLeavesNoTemporaryFile)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "old");
+    EXPECT_TRUE(passesOnTheExceptionOfTheData(file));
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "old");
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
+}
+
+/// The permissions to write a file, for anyone.
+constexpr std::filesystem::perms kAnyWrite = std::filesystem::perms::owner_write |
+                                             std::filesystem::perms::group_write |
+                                             std::filesystem::perms::others_write;
+
+// A file marked read-only (no write permission for anyone: the read-only attribute on Windows)
+// is not replaced, on every platform (a rename replaces it on Linux and macOS and fails on
+// Windows): the failure says so before a temporary file is made, and the file stays.
+TEST(FileIo, AReadOnlyFileIsNotReplaced)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "kept");
+    std::error_code             error;
+    std::filesystem::permissions(file, kAnyWrite, std::filesystem::perm_options::remove, error);
+    ASSERT_FALSE(error) << error.message();
+    const QtRocket::Result<void> replaced =
+        QtRocket::replaceFile(file, QtRocket::stringToBytes("new"));
+    // Writable again, so that the directory can be removed on every platform.
+    std::filesystem::permissions(file, std::filesystem::perms::owner_write,
+                                 std::filesystem::perm_options::add, error);
+    ASSERT_FALSE(replaced.has_value());
+    EXPECT_EQ(replaced.error().code, ErrorCode::IO);
+    EXPECT_EQ(replaced.error().message,
+              "cannot replace '" + QtRocket::pathToUtf8(file) + "': the file is read-only");
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "kept");
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
+}
+
+// A file that is replaced keeps its permissions: a design only its owner may read stays so
+// (POSIX; Windows has the read-only attribute alone, which refuses the replacement).
+TEST(FileIo, AReplacedFileKeepsItsPermissions)
+{
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows files have no POSIX permissions";
+#else
+    const TempDir                    dir;
+    const std::filesystem::path      file = dir.write("private.ork", "old");
+    constexpr std::filesystem::perms kOwnerOnly =
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
+    std::filesystem::permissions(file, kOwnerOnly);
+    ASSERT_TRUE(QtRocket::replaceFile(file, QtRocket::stringToBytes("new")));
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+    EXPECT_EQ(std::filesystem::status(file).permissions() & std::filesystem::perms::all,
+              kOwnerOnly);
+#endif
 }
 
 // A file named without a directory is replaced in the current directory.

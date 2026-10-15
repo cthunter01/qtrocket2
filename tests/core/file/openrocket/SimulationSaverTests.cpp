@@ -12,6 +12,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <span>
 #include <string>
@@ -55,6 +56,7 @@
 #include "QtRocket/simulation/extension/UnknownSimulationExtension.h"
 #include "QtRocket/simulation/extension/impl/JavaCode.h"
 #include "QtRocket/simulation/extension/impl/ScriptingExtension.h"
+#include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BigDecimal.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Config.h"
@@ -67,6 +69,7 @@
 #include "QtRocket/util/Uuid.h"
 #include "TestTempDir.h"
 #include "file/RocketLoaderTestSupport.h"
+#include "goldens/GoldenResaves.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationRunSupport.h"
 
@@ -109,6 +112,7 @@ using QtRocket::StorageOptions;
 using QtRocket::Uuid;
 using QtRocket::Warning;
 using QtRocket::WarningSet;
+using QtRocket::Test::changedLines;
 using QtRocket::Test::JavaTestPreferences;
 using QtRocket::Test::LoaderEnvironment;
 using QtRocket::Test::TempDir;
@@ -2097,36 +2101,6 @@ struct Rounding
     return rounding;
 }
 
-/// The lines in which @p before and @p after differ, "<before> -> <after>" without the
-/// indentation; a text of another number of lines is named instead.
-[[nodiscard]] std::string changedLines(std::string_view before, std::string_view after)
-{
-    std::vector<std::string_view> a;
-    std::vector<std::string_view> b;
-    for (auto [text, lines] : {std::pair{before, &a}, std::pair{after, &b}})
-    {
-        while (!text.empty())
-        {
-            const std::size_t end = text.find('\n');
-            lines->push_back(text.substr(0, end));
-            text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
-        }
-    }
-    if (a.size() != b.size())
-    {
-        return std::format("{} lines -> {} lines\n", a.size(), b.size());
-    }
-    std::string changes;
-    for (std::size_t i = 0; i < a.size(); ++i)
-    {
-        if (a[i] != b[i])
-        {
-            changes += std::format("{} -> {}\n", Strings::trim(a[i]), Strings::trim(b[i]));
-        }
-    }
-    return changes;
-}
-
 // A flight simulated anew is stored rounded (OpenRocket's storage format: six decimals from
 // 0.001 to below 10000, seven significant digits beyond, 0 within 5e-9 of zero), so it reads back
 // changed within that rounding only. From the first save on, the text of the data is a fixed
@@ -2161,6 +2135,85 @@ TEST(SimulationSaver, StoresAFreshFlightRoundedToItsFormat)
     const Result<LoadedDocument> twice = reload(environment, second.text);
     ASSERT_TRUE(twice.has_value()) << twice.error().toString();
     EXPECT_EQ(changedLines(second.text, saveOf(*twice->document, true).text), "");
+}
+
+// Decision O11 of tier 10: <launchroddirection> is the EFFECTIVE direction (Java:
+// SimulationOptions.getLaunchRodDirection(), OpenRocketSaver.java:349). Launched into an average
+// wind it is the wind's direction, 0.3 rad, not the stored 1.2 rad (OpenRocket's text from the
+// probe SaverGapsProbe of tier 10a's fixer of the group 'saver'; the stored direction would be
+// 68.75493541569878): floor, *, / only, the same on every platform. Launched into a multi-level
+// wind it is the direction of the wind at time 0 and the launch altitude, which goes through
+// libm and is not pinned (decision O11): it is the getter's, written as Java writes a double.
+TEST(SimulationSaver, WritesTheEffectiveLaunchRodDirection)
+{
+    OneSimulation      design;
+    SimulationOptions& o = design.simulation->getOptions();
+    o.setLaunchRodDirection(1.2);
+    o.getAverageWindModel().setDirection(0.3);
+    o.setLaunchIntoWind(true);
+    EXPECT_EQ(elementOf(saveOf(*design.document, false).text, "<launchroddirection>",
+                        "</launchroddirection>"),
+              "        <launchroddirection>17.188733853924695</launchroddirection>\n");
+
+    ASSERT_TRUE(o.getMultiLevelWindModel().addWindLevel(100.0, 5.0, 0.9, 0.0).has_value());
+    o.setWindModelType(QtRocket::WindModelType::MULTI_LEVEL);
+    o.setLaunchAltitude(50.0);
+    const std::string effective =
+        Strings::javaDoubleToString((o.getLaunchRodDirection() * 360.0) / (2.0 * std::numbers::pi));
+    EXPECT_NE(effective, "68.75493541569878");
+    EXPECT_EQ(elementOf(saveOf(*design.document, false).text, "<launchroddirection>",
+                        "</launchroddirection>"),
+              std::format("        <launchroddirection>{}</launchroddirection>\n", effective));
+}
+
+// A column of a type of its own (a custom expression's) is written by its name, its save key,
+// escaped as OpenRocket escapes it (OpenRocket's text from SaverGapsProbe), and the branch reads
+// back with a column of that name and its values. (The name is this test's alone: the types are
+// known process-wide.)
+TEST(SimulationSaver, WritesAColumnOfACustomTypeByItsEscapedName)
+{
+    const FlightDataType& custom =
+        FlightDataType::getType("QtRocket A&B <saved>", "qtrSavedAB", QtRocket::UnitGroupId::NONE);
+    const std::array<const FlightDataType*, 2> types{&type(FlightDataTypeId::TYPE_TIME), &custom};
+    const auto branch = std::make_shared<FlightDataBranch>("Custom", types);
+    branch->addPoint();
+    branch->setValue(type(FlightDataTypeId::TYPE_TIME), 0.0);
+    branch->setValue(custom, 1.5);
+    branch->addPoint();
+    branch->setValue(type(FlightDataTypeId::TYPE_TIME), 0.1);
+    branch->setValue(custom, -2.25);
+    branch->immute();
+
+    OneSimulation design;
+    design.document->addSimulation(std::make_shared<Simulation>(
+        design.document.get(), design.document->getRocket(), Simulation::Status::EXTERNAL,
+        "Custom data", SimulationOptions(design.preferences.store),
+        std::vector<std::shared_ptr<SimulationExtension>>{},
+        std::make_shared<FlightData>(
+            std::initializer_list<std::shared_ptr<FlightDataBranch>>{branch}),
+        std::map<std::string, PlotAppearance>{}, &design.preferences.store));
+    const Saved saved = saveOf(*design.document, true);
+    EXPECT_EQ(elementOf(saved.text, "<flightdata ", "</flightdata>"),
+              "      <flightdata flighttime=\"0.1\">\n"
+              "        <databranch name=\"Custom\" types=\"time,QtRocket A&amp;B &lt;saved&gt;\">\n"
+              "          <datapoint>0,1.5</datapoint>\n"
+              "          <datapoint>0.1,-2.25</datapoint>\n"
+              "        </databranch>\n"
+              "      </flightdata>\n");
+
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> loaded = reload(environment, saved.text);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    ASSERT_EQ(loaded->document->getSimulationCount(), 2U);
+    const std::shared_ptr<FlightData>& data =
+        loaded->document->getSimulation(1)->getSimulatedData();
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->getBranchCount(), 1U);
+    const std::vector<const FlightDataType*> back = data->getBranch(0).getTypes();
+    ASSERT_EQ(back.size(), 2U);
+    EXPECT_EQ(back[1]->getName(), "QtRocket A&B <saved>");
+    EXPECT_EQ(data->getBranch(0).get(*back[1]).value_or(std::vector<double>{}),
+              (std::vector<double>{1.5, -2.25}));
 }
 
 }  // namespace

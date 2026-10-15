@@ -34,9 +34,10 @@
 //   is the first save with data but for one known difference, the sixteen stored warnings of the
 //   type RecoveryHighSpeedDeployment (in six examples), which the loader reads back as warnings of
 //   the type Other without their parameter, as OpenRocket's does, until the user's decision E2 of
-//   2026-10-14 (group 'decisions') makes it read them as they were written. OpenRocket's own save
-//   with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/) is
-//   QtRocket's line for line; those files are not part of the repository.
+//   2026-10-14 (group 'decisions') makes it read them as they were written. OpenRocket's own first
+//   save with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/,
+//   not part of the repository) is QtRocket's save with data outside the rocket element, byte for
+//   byte: the SHA-256 digests of those texts are pinned (kJavaSavesWithData).
 // - The three examples with a <preset> again with no presets (Presets::NONE): the six
 //   references that cannot be resolved are kept (the user's decision U8 of 2026-10-08) and
 //   written back, so the file is the re-save's all the same.
@@ -53,6 +54,7 @@
 #include <cstdint>
 #include <format>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -70,6 +72,8 @@
 #include "QtRocket/logging/ErrorSet.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/preferences/Preferences.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/util/Error.h"
@@ -97,6 +101,7 @@ using QtRocket::Result;
 using QtRocket::StorageOptions;
 using QtRocket::WarningSet;
 using QtRocket::ZipArchive;
+using QtRocket::Test::changedLines;
 using QtRocket::Test::compareOrkTexts;
 using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::ExampleSource;
@@ -107,6 +112,7 @@ using QtRocket::Test::goldenExamples;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::kMaxReportedLines;
 using QtRocket::Test::kPods;
+using QtRocket::Test::linesOf;
 using QtRocket::Test::LoadedResave;
 using QtRocket::Test::loadGoldenExample;
 using QtRocket::Test::loadResave;
@@ -144,6 +150,53 @@ constexpr std::array<EstimatedSize, 16> kEstimatedSizes{{
     {.file = "Three stage low power rocket.ork", .bytes = 394640},
     {.file = "Tube fin rocket.ork", .bytes = 65320},
     {.file = "Two stage high power rocket.ork", .bytes = 160300},
+}};
+
+/// OpenRocket's own save WITH simulation data of an example as loaded, its first save (the scouts'
+/// SaverProbe of tier 10, saver-simulations out/java/<example>.save1.xml, not in the repository):
+/// the SHA-256 digest of its text without the creator and without the rocket element
+/// (withoutCreator(), withoutRocket(); the rocket of a first save is not that of the later saves
+/// the test compares: kDualParachuteSaves). Written by scripts/make_java_save_digests.py of the
+/// probes of tier 10a's fixer of the group 'saver' from those files.
+struct JavaSaveWithData
+{
+    std::string_view file;
+    std::string_view sha256;
+};
+
+constexpr std::array<JavaSaveWithData, 16> kJavaSavesWithData{{
+    {.file   = "3D printable nose cone and fins.ork",
+     .sha256 = "1f5ac695a30bca373035c4dc652f956fb3db0fc83bf81a264ef81c77df91e035"},
+    {.file   = "Airstart timing.ork",
+     .sha256 = "571283ab8f8313228f09ed9247f439ec096a4748e9304ad7b16e46b98c44701a"},
+    {.file   = "ARC payload rocket.ork",
+     .sha256 = "05b9a77fe36646ff4571a971188e04db4828ce8a02e4aa16ef3e0256cc75c0a3"},
+    {.file   = "A simple model rocket.ork",
+     .sha256 = "d81c33ec6a84aa29b24887e73f4a237fbad890645de32f1e5c0b484b29ead8ad"},
+    {.file   = "Chute release.ork",
+     .sha256 = "a5abe999864d068f2aaf2316eff5cd172df267d42e07fe977312d26a5535c77d"},
+    {.file   = "Clustered motors.ork",
+     .sha256 = "35d1b5a5e01a10c1dfd3c5466c81ca45ea24f551e845d16cedddc89b5ba66242"},
+    {.file   = "Deployable payload.ork",
+     .sha256 = "caafea4d587b28cc9172200f0dea7ab603a015d924d5ba2962bd19b352853350"},
+    {.file   = "Dual parachute deployment.ork",
+     .sha256 = "f5fd5cb7ad00dcd87fc06359da5536668ccf68705c404c8ddc87c2a646fd8234"},
+    {.file   = "Parallel booster staging.ork",
+     .sha256 = "8ba9675d3cb7efb6c3eb4e15efb47c5587e42b7d10c0a773b23bd36f9fd066fb"},
+    {.file   = "Pods--airframes and winglets.ork",
+     .sha256 = "46a1d20779eed1f5c0b3cdc970307b002a7ed9077375a407668b07ab9af49f14"},
+    {.file   = "Pods--powered with recovery deployment.ork",
+     .sha256 = "9e3cb252a0677eabb847d06ef6e41f7f6284834455bcb8cefc92d142ded329ac"},
+    {.file   = "Simulation extensions.ork",
+     .sha256 = "69195380e3add32ef11ce7c0df3dac951243366029028bf6156261cf77b63828"},
+    {.file   = "Simulation scripting.ork",
+     .sha256 = "37d12c53ca5085f3e29857855503485617f6723ceadc579178611b9248d34ab2"},
+    {.file   = "Three stage low power rocket.ork",
+     .sha256 = "4f3fa0ce994f7b6a94c447342b037f3fb3b7704004402d9d1434ef56c4c0af59"},
+    {.file   = "Tube fin rocket.ork",
+     .sha256 = "09869f8b618012be46b83ebb60c722e12d76e57b6d251f52b1887cdb14e0ee4d"},
+    {.file   = "Two stage high power rocket.ork",
+     .sha256 = "ed55479f33575adc1613ec6f00fd661b3dcc11cbc91cd1997f7e695b5bbf7d72"},
 }};
 
 /// OpenRocket's .ork archive of an example: the entries of GeneralRocketSaver's save of the
@@ -346,6 +399,20 @@ constexpr std::array<EmbeddedCurve, 26> kEmbeddedCurves{{
     return "(none)";
 }
 
+/// The digest of OpenRocket's save with data of the example in @p file (kJavaSavesWithData), or
+/// "(none)".
+[[nodiscard]] std::string_view javaSaveDigestOf(std::string_view file)
+{
+    for (const JavaSaveWithData& save : kJavaSavesWithData)
+    {
+        if (save.file == file)
+        {
+            return save.sha256;
+        }
+    }
+    return "(none)";
+}
+
 /// The pinned estimate of the example in @p file, or -1.
 [[nodiscard]] std::int64_t estimatedSizeOf(std::string_view file)
 {
@@ -357,45 +424,6 @@ constexpr std::array<EmbeddedCurve, 26> kEmbeddedCurves{{
         }
     }
     return -1;
-}
-
-/// The lines of @p text, each without its '\n'.
-[[nodiscard]] std::vector<std::string_view> linesOf(std::string_view text)
-{
-    std::vector<std::string_view> lines;
-    while (!text.empty())
-    {
-        const std::size_t end = text.find('\n');
-        lines.push_back(text.substr(0, end));
-        text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
-    }
-    return lines;
-}
-
-/// The lines that differ between @p before and @p after, two texts of the same number of lines,
-/// each as "<line of before> -> <line of after>" without the indentation, one per line; a text
-/// of another number of lines is named instead.
-[[nodiscard]] std::string changedLines(std::string_view before, std::string_view after)
-{
-    const std::vector<std::string_view> a = linesOf(before);
-    const std::vector<std::string_view> b = linesOf(after);
-    if (a.size() != b.size())
-    {
-        return std::format("{} lines -> {} lines\n", a.size(), b.size());
-    }
-    std::string changes;
-    for (std::size_t i = 0; i < a.size(); ++i)
-    {
-        if (a[i] != b[i])
-        {
-            const std::size_t from = a[i].find_first_not_of(' ');
-            const std::size_t to   = b[i].find_first_not_of(' ');
-            changes +=
-                std::format("{} -> {}\n", a[i].substr(from == std::string_view::npos ? 0 : from),
-                            b[i].substr(to == std::string_view::npos ? 0 : to));
-        }
-    }
-    return changes;
 }
 
 /// Saves @p document, with its simulation data when @p withData, with @p preferences; the
@@ -598,10 +626,11 @@ struct DataRoundTrips
     /// The stored warnings of the type RecoveryHighSpeedDeployment that came back as Other
     /// (asReadBackBeforeE2()).
     std::size_t highSpeedWarnings{0};
-    std::size_t archives{0};  ///< the .ork archives compared with OpenRocket's
-    std::size_t decals{0};    ///< their decal images
-    std::size_t curves{0};    ///< their thrust curves
-    std::string problems;     ///< what differs, by example: empty when nothing does
+    std::size_t javaSaves{0};  ///< the saves with data compared with OpenRocket's (digests)
+    std::size_t archives{0};   ///< the .ork archives compared with OpenRocket's
+    std::size_t decals{0};     ///< their decal images
+    std::size_t curves{0};     ///< their thrust curves
+    std::string problems;      ///< what differs, by example: empty when nothing does
 };
 
 /// What differs between @p entry, of QtRocket's archive of an example, and OpenRocket's:
@@ -726,7 +755,8 @@ struct DataRoundTrips
     return problems;
 }
 
-/// Saves @p document, an example, with its simulation data, then as an .ork archive (archiveOf(),
+/// Saves @p document, an example, with its simulation data and compares that text outside the
+/// rocket with OpenRocket's own (kJavaSavesWithData), then as an .ork archive (archiveOf(),
 /// which compares the archive with OpenRocket's), loads the archive back from memory without a
 /// directory (decision O5 of tier 10), with no warning, and compares the flight data and the save
 /// of the reload with the first save (asReadBackBeforeE2()), all but the rocket: the first save of
@@ -735,9 +765,17 @@ struct DataRoundTrips
 void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document,
                       DataRoundTrips& trips)
 {
-    const Preferences&           preferences = goldenExampleEnvironment().preferences();
-    WarningSet                   warnings;
-    const std::string            first   = saveOf(document, preferences, warnings, true);
+    const Preferences& preferences = goldenExampleEnvironment().preferences();
+    WarningSet         warnings;
+    const std::string  first   = saveOf(document, preferences, warnings, true);
+    const std::string  outside = withoutRocket(withoutCreator(first));
+    if (QtRocket::sha256Hex(std::as_bytes(std::span(outside))) != javaSaveDigestOf(example.file))
+    {
+        trips.problems += std::format(
+            "{}: the save with data is not OpenRocket's outside the rocket (kJavaSavesWithData)\n",
+            example.name);
+    }
+    trips.javaSaves++;
     const std::vector<std::byte> archive = archiveOf(example, document, first, trips);
     const GeneralRocketLoader    loader(goldenExampleEnvironment().context());
     const Result<LoadedDocument> loaded = loader.load(archive);
@@ -770,6 +808,30 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
     }
 }
 
+/// The estimate of @p document, an example, with options that save no simulation data: 80 bytes a
+/// component, the rocket included, and 100 a simulation (Java's estimateFileSize() counts the data
+/// points only when the options save them). What differs, or "".
+[[nodiscard]] std::string estimateWithoutDataProblem(const GoldenExample&      example,
+                                                     const OpenRocketDocument& document)
+{
+    std::int64_t components = 0;
+    for ([[maybe_unused]] const QtRocket::RocketComponent& component :
+         document.getRocket().subtree(true))
+    {
+        ++components;
+    }
+    const std::int64_t expected = (OpenRocketSaver::kBytesPerComponentCompressed * components) +
+                                  (OpenRocketSaver::kBytesPerSimulationCompressed *
+                                   static_cast<std::int64_t>(document.getSimulationCount()));
+    StorageOptions     withoutData;
+    withoutData.setSaveSimulationData(false);
+    const std::int64_t estimate = OpenRocketSaver::estimateFileSize(document, withoutData);
+    return estimate == expected
+               ? ""
+               : std::format("{}: estimateFileSize without data {} where it is {}\n", example.name,
+                             estimate, expected);
+}
+
 /// Loads @p example fresh, pins its estimate, saves it and compares the whole text with the
 /// re-save, then saves it three times more (repeatedSaveProblems()) and once with its data
 /// (roundTripTheData()). Adds the comparisons to @p saves and @p trips; returns the other
@@ -792,6 +854,7 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
         problems += std::format("{}: estimateFileSize {} where OpenRocket's is {}\n", example.name,
                                 estimate, estimatedSizeOf(example.file));
     }
+    problems += estimateWithoutDataProblem(example, document);
 
     WarningSet        warnings;
     const std::string saved =
@@ -828,11 +891,13 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
 // presets), the 54 simulations with their conditions, extensions, summary values and 20 stored
 // warnings, no custom expression, the photo studio (empty in fourteen and 24 settings in two), no
 // document preference and the document materials of each. Not one number is written otherwise
-// than OpenRocket writes it. With it: OpenRocket's estimate of each file's size; the saves of one
-// loaded document that follow the first change as OpenRocket's do; the sixteen .ork archives are
-// OpenRocket's, entry for entry (23 decal images, 41 thrust curves); and loaded back from them,
-// the flights of the 54 simulations (69 branches) come back bit for bit, and a second save is the
-// first but for the sixteen warnings of decision E2.
+// than OpenRocket writes it. With it: OpenRocket's estimate of each file's size, with and without
+// the simulation data; the saves of one loaded document that follow the first change as
+// OpenRocket's do; the saves with data are OpenRocket's outside the rocket element (the digests of
+// kJavaSavesWithData: the stored flights, events and warnings as Java writes them); the sixteen
+// .ork archives are OpenRocket's, entry for entry (23 decal images, 41 thrust curves); and loaded
+// back from them, the flights of the 54 simulations (69 branches) come back bit for bit, and a
+// second save is the first but for the sixteen warnings of decision E2.
 TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared  saves;
@@ -850,6 +915,7 @@ TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(goldenExamples().size(), kEstimatedSizes.size());
 
     EXPECT_EQ(trips.problems, "");
+    EXPECT_EQ(trips.javaSaves, 16U);
     EXPECT_EQ(trips.simulations, 54U);
     EXPECT_EQ(trips.branches, 69U);
     EXPECT_EQ(trips.archives, 16U);
@@ -989,6 +1055,18 @@ constexpr std::string_view kPodBodyWall =
 // (OpenRocket's own reload has no wall there either: ResaveGoldenExceptions): 5090 lines with 151
 // components, 48 motors and 50 simulations (a fixed seed, multi-level winds, the WGS84
 // computation).
+//
+// One line of them goes through libm, which decision O11 of tier 10 says never to pin across
+// platforms: the <launchroddirection> of the simulation "[C6-5] multi-level wind" of the Estes
+// Alpha III (testrocket-estes-alpha-iii, re-save line 564, "90.0"), which launches into a
+// multi-level wind, so that its direction is the wind's at time 0 and the launch altitude
+// (MultiLevelPinkNoiseWindModel::getWindDirection()): std::sin and std::cos of the level's
+// direction pi/2 (the double 1.5707963267948966; standard deviation 0, so no noise is added) and
+// std::atan2 of the result. At that point the exact results lie far inside half an ulp of 1.0, of
+// 6.123233995736766e-17 and of the same double pi/2 (atan2's exact result differs from it by
+// about 1e-33), so every faithful libm (glibc, Apple's, MSVC's UCRT) gives Java's numbers, and the
+// line is exact on every platform; a libm that misses one of them by an ulp would turn this test
+// red in that one line, which then may be compared by value within 1 ulp (decision O5).
 TEST(OrkResaveDiffGolden, TheTestRocketsAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared saves;
@@ -1049,7 +1127,8 @@ constexpr std::string_view kRocket =
 
 // The comparison of the texts: the creator is the only text set aside; a number of the same value
 // written otherwise is counted, not reported (none is expected of a save); a changed digit, a
-// carriage return, a line missing and two lines in another order are reported in their lines.
+// carriage return, a line missing and two lines in another order are reported in their lines,
+// and the line feed missing at the end of a text.
 TEST(OrkResaveDiffGolden, TheComparisonReportsEveryChangeButTheCreator)
 {
     const OrkTextComparison same =
@@ -1087,6 +1166,13 @@ TEST(OrkResaveDiffGolden, TheComparisonReportsEveryChangeButTheCreator)
     const OrkTextComparison missing = compareOrkTexts(kRocket, changed("</openrocket>\n", ""));
     EXPECT_EQ(missing.differing, 1U);
     EXPECT_EQ(missing.differences, "line 8:\n  QtRocket:   </openrocket>\n  OpenRocket: (none)\n");
+
+    const OrkTextComparison end =
+        compareOrkTexts(kRocket, changed("</openrocket>\n", "</openrocket>"));
+    EXPECT_EQ(end.differing, 1U);
+    EXPECT_EQ(end.differences,
+              "the end:\n  QtRocket:   a line feed at the end\n"
+              "  OpenRocket: no line feed at the end\n");
 }
 
 // A report names at most kMaxReportedLines lines and counts the others.

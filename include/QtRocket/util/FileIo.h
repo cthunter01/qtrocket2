@@ -48,11 +48,18 @@ namespace QtRocket
 /// (or missing, when it was missing): ErrorCode::IO, "cannot create a temporary file in
 /// '<directory>'" for a directory that does not exist or cannot be written to, writeFile()'s
 /// failures and "cannot replace '<target>': <reason>". A target that is a directory, or that is
-/// open in another program on Windows, is not replaced.
+/// open in another program on Windows, is not replaced, and neither is a file marked read-only
+/// (no write permission for anyone, which is the read-only attribute on Windows): "cannot replace
+/// '<target>': the file is read-only", before anything is made. A file that is replaced passes
+/// its permissions (std::filesystem::perms::all of them) on to the new one, as far as the file
+/// system keeps them.
 ///
 /// Deviations from Java: Java moves an existing target aside to "<target>-bak" first and then
 /// renames the temporary file, putting the target back when that fails; a rename that replaces
-/// the target needs no such step. Java's temporary file is "ORSave<digits>.tmp".
+/// the target needs no such step. Java's temporary file is "ORSave<digits>.tmp". Java replaces a
+/// read-only file (the rename on Linux and macOS, the move aside on Windows) and gives the new
+/// file the permissions of a new file; QtRocket refuses the one and keeps the other on every
+/// platform (std::filesystem::rename replaces a read-only file on POSIX and fails on Windows).
 [[nodiscard]] Result<void> replaceFile(const std::filesystem::path& target,
                                        std::span<const std::byte>   data);
 

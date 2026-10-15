@@ -243,19 +243,6 @@ struct NumbersOfALine
            std::bit_cast<std::uint64_t>(*x) == std::bit_cast<std::uint64_t>(*y);
 }
 
-/// The lines of @p text, each without its '\n'.
-[[nodiscard]] std::vector<std::string_view> linesOf(std::string_view text)
-{
-    std::vector<std::string_view> lines;
-    while (!text.empty())
-    {
-        const std::size_t end = text.find('\n');
-        lines.push_back(text.substr(0, end));
-        text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
-    }
-    return lines;
-}
-
 /// @p line as a report shows it: a carriage return as "\r", a missing line as "(none)".
 [[nodiscard]] std::string shown(const std::string_view* line)
 {
@@ -278,7 +265,63 @@ struct NumbersOfALine
     return text;
 }
 
+/// Counts and reports in @p comparison whether one of @p ours and @p theirs ends with a line feed
+/// and the other does not (linesOf() gives the same lines for both).
+void compareTheEnds(std::string_view ours, std::string_view theirs, OrkTextComparison& comparison)
+{
+    const bool oursEnds   = ours.ends_with('\n');
+    const bool theirsEnds = theirs.ends_with('\n');
+    if (oursEnds == theirsEnds)
+    {
+        return;
+    }
+    ++comparison.differing;
+    if (comparison.differing <= kMaxReportedLines)
+    {
+        constexpr std::string_view kWith    = "a line feed at the end";
+        constexpr std::string_view kWithout = "no line feed at the end";
+        comparison.differences +=
+            std::format("the end:\n  QtRocket:   {}\n  OpenRocket: {}\n",
+                        oursEnds ? kWith : kWithout, theirsEnds ? kWith : kWithout);
+    }
+}
+
 }  // namespace
+
+std::vector<std::string_view> linesOf(std::string_view text)
+{
+    std::vector<std::string_view> lines;
+    while (!text.empty())
+    {
+        const std::size_t end = text.find('\n');
+        lines.push_back(text.substr(0, end));
+        text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
+    }
+    return lines;
+}
+
+std::string changedLines(std::string_view before, std::string_view after)
+{
+    const std::vector<std::string_view> a = linesOf(before);
+    const std::vector<std::string_view> b = linesOf(after);
+    if (a.size() != b.size())
+    {
+        return std::format("{} lines -> {} lines\n", a.size(), b.size());
+    }
+    std::string changes;
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+        if (a[i] != b[i])
+        {
+            const std::size_t from = a[i].find_first_not_of(' ');
+            const std::size_t to   = b[i].find_first_not_of(' ');
+            changes +=
+                std::format("{} -> {}\n", a[i].substr(from == std::string_view::npos ? 0 : from),
+                            b[i].substr(to == std::string_view::npos ? 0 : to));
+        }
+    }
+    return changes;
+}
 
 // ================================================================================= the loads
 
@@ -466,6 +509,7 @@ OrkTextComparison compareOrkTexts(std::string_view ours, std::string_view theirs
                                                   i + 1, shown(a), shown(b));
         }
     }
+    compareTheEnds(oursText, theirsText, comparison);
     if (comparison.differing > kMaxReportedLines)
     {
         comparison.differences +=

@@ -8,10 +8,12 @@
 #include <format>
 #include <functional>
 #include <memory>
+#include <new>
 #include <optional>
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -23,6 +25,7 @@
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/motor/RockSimMotorWriter.h"
 #include "QtRocket/file/openrocket/OpenRocketSaver.h"
+#include "QtRocket/file/openrocket/OrkWriter.h"
 #include "QtRocket/logging/ErrorSet.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
@@ -156,6 +159,13 @@ std::string GeneralRocketSaver::unsupportedFileType(StorageOptions::FileType fil
     return std::format("QtRocket cannot save a design in the {} format yet.", name(fileType));
 }
 
+std::string GeneralRocketSaver::decalImageRenamed(std::string_view name, std::string_view stored)
+{
+    return std::format(
+        R"(The decal image "{}" is saved as "{}": a design file cannot hold its name as it is.)",
+        Strings::toValidUtf8(name), stored);
+}
+
 GeneralRocketSaver::GeneralRocketSaver(const Preferences& preferences)
   : GeneralRocketSaver(preferences, Options{})
 {
@@ -175,19 +185,57 @@ Result<void> GeneralRocketSaver::save(const std::filesystem::path& file,
 Result<void> GeneralRocketSaver::save(const std::filesystem::path& file,
                                       OpenRocketDocument& document, StorageOptions& options)
 {
+    // What a failure before the archive is made reports is this save's, not the last one's.
+    clearLastSave();
     // Java: the temporary file is made in the directory of the file first, the archive is
     // written into it, and it is renamed over the file.
-    return replaceFileWith(file,
-                           [this, &document, &options] { return saveToBytes(document, options); });
+    const Result<void> saved =
+        replaceFileWith(file, [this, &document, &options] { return archive(document, options); });
+    if (saved.has_value())
+    {
+        // Only when the file is there (Java clears it after the archive was written).
+        options.clearPreviewImage();
+    }
+    return saved;
 }
 
 Result<std::vector<std::byte>> GeneralRocketSaver::saveToBytes(OpenRocketDocument& document,
                                                                StorageOptions&     options)
 {
+    Result<std::vector<std::byte>> bytes = archive(document, options);
+    if (bytes.has_value())
+    {
+        options.clearPreviewImage();
+    }
+    return bytes;
+}
+
+void GeneralRocketSaver::clearLastSave()
+{
     m_warnings.clear();
     m_errors.clear();
     m_missingDecal.reset();
+}
 
+Result<std::vector<std::byte>> GeneralRocketSaver::archive(OpenRocketDocument&   document,
+                                                           const StorageOptions& options)
+{
+    clearLastSave();
+    try
+    {
+        return buildArchive(document, options);
+    }
+    catch (const std::bad_alloc&)
+    {
+        // A design whose decals are large images of few bytes in the file it was loaded from
+        // may need more memory than there is (QtRocket's own; Java streams the archive).
+        return fail(ErrorCode::IO, std::string(kOutOfMemory));
+    }
+}
+
+Result<std::vector<std::byte>> GeneralRocketSaver::buildArchive(OpenRocketDocument&   document,
+                                                                const StorageOptions& options)
+{
     ZipWriter archive;
     archive.setEntryTime(m_options.entryTime);
     {
@@ -215,23 +263,13 @@ Result<std::vector<std::byte>> GeneralRocketSaver::saveToBytes(OpenRocketDocumen
     }
 
     // The thrust curves of the motors.
-    for (const std::shared_ptr<const ThrustCurveMotor>& motor : uniqueMotors(document.getRocket()))
-    {
-        const std::string rse = RockSimMotorWriter::write(*motor);
-        archive.add(std::format("thrustcurves/{}.rse", motor->getDigest()),
-                    std::as_bytes(std::span(rse)));
-    }
+    addThrustCurves(document, archive);
 
     Result<std::vector<std::byte>> bytes = archive.finish();
-    if (!bytes.has_value())
-    {
-        return bytes;
-    }
-    if (bytes->size() > GeneralRocketLoader::kMaxFileBytes)
+    if (bytes.has_value() && bytes->size() > GeneralRocketLoader::kMaxFileBytes)
     {
         m_warnings.add(fileBeyondLoaderBound(bytes->size()));
     }
-    options.clearPreviewImage();
     return bytes;
 }
 
@@ -258,9 +296,34 @@ Result<void> GeneralRocketSaver::addDecals(OpenRocketDocument& document, ZipWrit
             }
             return std::unexpected(bytes.error());
         }
-        archive.add(image->getName(), *bytes);
+        // The name every <decal> of the image has in rocket.ork (OrkWriter::decalName()), whose
+        // dropped characters the design's text has counted.
+        std::size_t       dropped = 0;
+        const std::string stored  = OrkWriter::decalImageName(image->getName(), dropped);
+        if (stored != image->getName())
+        {
+            m_warnings.add(decalImageRenamed(image->getName(), stored));
+        }
+        archive.add(stored, *bytes);
     }
     return {};
+}
+
+void GeneralRocketSaver::addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive)
+{
+    for (const std::shared_ptr<const ThrustCurveMotor>& motor : uniqueMotors(document.getRocket()))
+    {
+        // Decision E3 of tier 10 for the texts of the motor (RockSimMotorWriter escapes the
+        // markup but keeps what XML cannot hold): a file both programs can read.
+        std::size_t       dropped = 0;
+        const std::string rse = OrkWriter::sanitizeText(RockSimMotorWriter::write(*motor), dropped);
+        if (dropped > 0)
+        {
+            m_warnings.add(OpenRocketSaver::kDroppedCharacters);
+        }
+        archive.add(std::format("thrustcurves/{}.rse", motor->getDigest()),
+                    std::as_bytes(std::span(rse)));
+    }
 }
 
 std::int64_t GeneralRocketSaver::estimateFileSize(const OpenRocketDocument& document,

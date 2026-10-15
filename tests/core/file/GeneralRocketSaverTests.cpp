@@ -1,11 +1,14 @@
 #include "QtRocket/file/GeneralRocketSaver.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <format>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <optional>
 #include <span>
 #include <string>
@@ -28,6 +31,7 @@
 #include "QtRocket/file/motor/RockSimMotorWriter.h"
 #include "QtRocket/file/openrocket/OpenRocketSaver.h"
 #include "QtRocket/logging/ErrorSet.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/Manufacturer.h"
 #include "QtRocket/motor/Motor.h"
@@ -358,7 +362,7 @@ TEST(GeneralRocketSaver, AMissingDecalFailsTheSaveAndNothingIsWritten)
     ASSERT_FALSE(saved.has_value());
     EXPECT_EQ(saved.error().code, ErrorCode::NOT_FOUND);
     EXPECT_EQ(saved.error().message, QtRocket::decalNotFound("decals/gone.png").error().message);
-    EXPECT_EQ(saver.getMissingDecal(), missing);
+    ASSERT_EQ(saver.getMissingDecal(), missing);
     EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "the old design");
     EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
                             std::filesystem::directory_iterator()),
@@ -402,7 +406,8 @@ TEST(GeneralRocketSaver, ADecalOfNoImageOfTheDocumentFailsAsAMissingImage)
 }
 
 // An image named as another entry of the archive fails the save as Java's ZipOutputStream fails
-// it ("duplicate entry: rocket.ork"), and so does a name ZipWriter cannot write as it is.
+// it ("duplicate entry: rocket.ork"), and so do two images that are stored under one name
+// (OrkWriter::decalImageName()).
 TEST(GeneralRocketSaver, RefusesADecalImageNamedAsAnotherEntry)
 {
     DecalDocument design;
@@ -416,13 +421,16 @@ TEST(GeneralRocketSaver, RefusesADecalImageNamedAsAnotherEntry)
     EXPECT_EQ(duplicate.error().code, ErrorCode::IO);
     EXPECT_EQ(duplicate.error().message, "duplicate entry: rocket.ork");
 
-    design.image("decals\\back.png", "back");
-    design.nose->setAppearance(appearanceWith("decals\\back.png"));
-    const Result<std::vector<std::byte>> backslash =
-        saver.saveToBytes(*design.document, design.document->getDefaultStorageOptions());
-    ASSERT_FALSE(backslash.has_value());
-    EXPECT_EQ(backslash.error().code, ErrorCode::INVALID_ARGUMENT);
-    EXPECT_EQ(backslash.error().message, ZipWriter::backslashInName("decals\\back.png"));
+    DecalDocument twins;
+    twins.image("decals/c\x01.png", "control");
+    twins.image("decals/c.png", "plain");
+    twins.nose->setAppearance(appearanceWith("decals/c\x01.png"));
+    twins.body->setAppearance(appearanceWith("decals/c.png"));
+    const Result<std::vector<std::byte>> stored =
+        saver.saveToBytes(*twins.document, twins.document->getDefaultStorageOptions());
+    ASSERT_FALSE(stored.has_value());
+    EXPECT_EQ(stored.error().code, ErrorCode::IO);
+    EXPECT_EQ(stored.error().message, "duplicate entry: decals/c.png");
 }
 
 /// OpenRocketSaverTest.createEmbeddedTestMotor(@p digest): an Estes F12X of unknown type with
@@ -852,6 +860,313 @@ TEST(GeneralRocketSaver, TheBoundWarningNamesTheLoadersBound)
     EXPECT_EQ(GeneralRocketSaver::fileBeyondLoaderBound(2000000000),
               "The saved file is 2000000000 bytes long; QtRocket loads a file of at most "
               "1073741824 bytes and will not open this one.");
+}
+
+// An image left out (isIgnored()) is no longer left out once its turn has come, also when an image
+// after it then fails the save: the flag is cleared as the archive is made, as in Java.
+TEST(GeneralRocketSaver, AnIgnoredImageBeforeAMissingOneIsNoLongerIgnored)
+{
+    DecalDocument                     design;
+    const std::shared_ptr<DecalImage> ignored = design.registerImage("decals/a.png", "a");
+    const std::shared_ptr<DecalImage> missing =
+        design.document->getDecalImage(std::make_shared<FailingAttachment>("decals/b.png"));
+    design.nose->setAppearance(appearanceWith("decals/a.png"));
+    design.body->setAppearance(appearanceWith("decals/b.png"));
+    ignored->setIgnored(true);
+
+    const InMemoryPreferences            preferences;
+    GeneralRocketSaver                   saver(preferences);
+    const Result<std::vector<std::byte>> bytes =
+        saver.saveToBytes(*design.document, design.document->getDefaultStorageOptions());
+    ASSERT_FALSE(bytes.has_value());
+    EXPECT_EQ(bytes.error().code, ErrorCode::NOT_FOUND);
+    EXPECT_EQ(saver.getMissingDecal(), missing);
+    EXPECT_FALSE(ignored->isIgnored());
+}
+
+/// A decal image of a name a design file cannot hold as it is (malformed UTF-8, a control
+/// character, a backslash) or that an XML reader reads back otherwise (a tab, a line feed): its
+/// name, the name it is stored under and its bytes.
+struct OddName
+{
+    std::string_view name;
+    std::string_view stored;
+    std::string_view bytes;
+};
+
+constexpr std::array<OddName, 5> kOddNames{{
+    {.name = "decals/a\tb\nc.png", .stored = "decals/a\tb\nc.png", .bytes = "whitespace"},
+    {.name = "decals/back\\slash.png", .stored = "decals/back/slash.png", .bytes = "backslash"},
+    {.name = "decals/caf\xE9.png", .stored = "decals/caf\xEF\xBF\xBD.png", .bytes = "latin-1"},
+    {.name = "decals/ctl\x01.png", .stored = "decals/ctl.png", .bytes = "control"},
+    {.name = "decals/zeta.png", .stored = "decals/zeta.png", .bytes = "plain"},
+}};
+
+/// A design whose rocket, stage, nose cone, body tube and the inside of the nose cone show the
+/// images of kOddNames, in this order, with an inner tube behind them whose motor is in no
+/// database (createEmbeddedTestMotor()), in the selected flight configuration.
+[[nodiscard]] DecalDocument oddlyNamedDesign()
+{
+    DecalDocument design;
+    for (const OddName& odd : kOddNames)
+    {
+        design.image(std::string(odd.name), odd.bytes);
+    }
+    QtRocket::Rocket& rocket = design.document->getRocket();
+    rocket.setAppearance(appearanceWith(std::string(kOddNames[0].name)));
+    rocket.getChild(0).setAppearance(appearanceWith(std::string(kOddNames[1].name)));
+    design.nose->setAppearance(appearanceWith(std::string(kOddNames[2].name)));
+    design.body->setAppearance(appearanceWith(std::string(kOddNames[3].name)));
+    design.nose->getInsideColorComponentHandler().setInsideAppearance(
+        appearanceWith(std::string(kOddNames[4].name)));
+    QtRocket::InnerTube& inner = design.body->addChild(std::make_unique<QtRocket::InnerTube>());
+    const FlightConfigurationId fcid;
+    rocket.createFlightConfiguration(fcid);
+    rocket.setSelectedConfiguration(fcid);
+    putMotor(inner, fcid, createEmbeddedTestMotor(std::string(kEmbeddedMotorDigest)));
+    return design;
+}
+
+/// The entries the archive of oddlyNamedDesign() has: rocket.ork, the images under their stored
+/// names, the motor.
+[[nodiscard]] std::vector<std::string> oddlyNamedEntries()
+{
+    std::vector<std::string> names{"rocket.ork"};
+    for (const OddName& odd : kOddNames)
+    {
+        names.emplace_back(odd.stored);
+    }
+    names.push_back(std::format("thrustcurves/{}.rse", kEmbeddedMotorDigest));
+    return names;
+}
+
+/// The texts of @p warnings, sorted.
+[[nodiscard]] std::vector<std::string> warningTexts(const QtRocket::WarningSet& warnings)
+{
+    std::vector<std::string> texts;
+    for (const QtRocket::Warning& warning : warnings)
+    {
+        texts.push_back(warning.toString());
+    }
+    std::ranges::sort(texts);
+    return texts;
+}
+
+/// The bytes of each image of @p document under the stored names of kOddNames, joined by spaces
+/// ("(none)" for one that is missing or cannot be read).
+[[nodiscard]] std::string storedImages(const OpenRocketDocument& document)
+{
+    std::string texts;
+    for (const OddName& odd : kOddNames)
+    {
+        const std::shared_ptr<DecalImage>    image = document.findDecalImage(odd.stored);
+        const Result<std::vector<std::byte>> bytes =
+            image != nullptr ? image->getBytes() : QtRocket::decalNotFound(odd.stored);
+        texts += (bytes.has_value() ? QtRocket::bytesToString(*bytes) : "(none)") + " ";
+    }
+    return texts;
+}
+
+/// The digest of the motor of the first motor mount of the selected configuration of @p rocket,
+/// or "(none)".
+[[nodiscard]] std::string motorDigestOf(const QtRocket::Rocket& rocket)
+{
+    const QtRocket::MotorMount* const mount = firstMotorMount(rocket);
+    if (mount == nullptr)
+    {
+        return "(none)";
+    }
+    const MotorConfiguration& config =
+        mount->getMotorConfig(rocket.getSelectedConfiguration().getFlightConfigurationId());
+    return config.isEmpty() ? "(none)" : config.getMotor()->getDigest();
+}
+
+// A decal image is stored under one name in the archive and in rocket.ork
+// (OrkWriter::decalImageName(), reviews of tier 10a): the name of an image that a design file
+// cannot hold as it is gets a save warning (decalImageRenamed(), and the dropped characters'),
+// and the file loads back from its bytes with every image where it was and the motor that follows
+// them in the archive (a name that is no UTF-8 would stop a reader of the archive's local headers
+// at its entry, OpenRocket's too, and every entry behind it would be lost). A second save of the
+// reload is the same archive, without a warning.
+TEST(GeneralRocketSaver, StoresEachDecalImageUnderTheNameRocketOrkGivesIt)
+{
+    DecalDocument                        design = oddlyNamedDesign();
+    const InMemoryPreferences            preferences;
+    GeneralRocketSaver                   saver(preferences);
+    const Result<std::vector<std::byte>> bytes =
+        saver.saveToBytes(*design.document, design.document->getDefaultStorageOptions());
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    EXPECT_EQ(entryNames(*bytes), oddlyNamedEntries());
+    std::vector<std::string> expected{
+        std::string(OpenRocketSaver::kDroppedCharacters),
+        GeneralRocketSaver::decalImageRenamed(kOddNames[1].name, kOddNames[1].stored),
+        GeneralRocketSaver::decalImageRenamed(kOddNames[2].name, kOddNames[2].stored),
+        GeneralRocketSaver::decalImageRenamed(kOddNames[3].name, kOddNames[3].stored)};
+    std::ranges::sort(expected);
+    EXPECT_EQ(warningTexts(saver.getWarnings()), expected);
+    EXPECT_TRUE(
+        entryText(*bytes, "rocket.ork").contains("<decal name=\"decals/a&#9;b&#10;c.png\""));
+
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> loaded = reload(environment, *bytes);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    EXPECT_TRUE(loaded->warnings.empty());
+    EXPECT_EQ(storedImages(*loaded->document), "whitespace backslash latin-1 control plain ");
+    EXPECT_EQ(motorDigestOf(loaded->document->getRocket()), kEmbeddedMotorDigest);
+
+    const Result<std::vector<std::byte>> again =
+        saver.saveToBytes(*loaded->document, loaded->document->getDefaultStorageOptions());
+    ASSERT_TRUE(again.has_value()) << again.error().toString();
+    EXPECT_EQ(entryNames(*again), oddlyNamedEntries());
+    EXPECT_TRUE(saver.getWarnings().empty());
+}
+
+// The text of the warning of a decal image that is stored under another name.
+TEST(GeneralRocketSaver, TheRenamedDecalWarningNamesBothNames)
+{
+    EXPECT_EQ(GeneralRocketSaver::decalImageRenamed("decals/a\\b.png", "decals/a/b.png"),
+              "The decal image \"decals/a\\b.png\" is saved as \"decals/a/b.png\": a design file "
+              "cannot hold its name as it is.");
+    EXPECT_EQ(
+        GeneralRocketSaver::decalImageRenamed("decals/\xE9.png", "decals/\xEF\xBF\xBD.png"),
+        "The decal image \"decals/\xEF\xBF\xBD.png\" is saved as \"decals/\xEF\xBF\xBD.png\": a "
+        "design file cannot hold its name as it is.");
+}
+
+// Decision E3 for an embedded RockSim engine file: a control character of a motor's texts is left
+// out (with OpenRocketSaver's warning) and bytes that are no UTF-8 are U+FFFD, so that the file is
+// one the motor loaders read; the markup is RockSimMotorWriter's.
+TEST(GeneralRocketSaver, TheTextsOfAnEmbeddedMotorAreReadable)
+{
+    Result<ThrustCurveMotor> built =
+        ThrustCurveMotor::Builder()
+            .setManufacturer(QtRocket::Manufacturer::getManufacturer("Estes"))
+            .setDesignation("F12X")
+            .setDescription("Desc\x01ription\xFF")
+            .setMotorType(Motor::Type::UNKNOWN)
+            .setStandardDelays({0, 3, 5, Motor::kPluggedDelay})
+            .setDiameter(0.024)
+            .setLength(0.07)
+            .setTimePoints({0, 1, 2})
+            .setThrustPoints({0, 1, 0})
+            .setCGPoints({Coordinate(0.035, 0, 0, 0.100), Coordinate(0.033, 0, 0, 0.070),
+                          Coordinate(0.031, 0, 0, 0.040)})
+            .setDigest("odd-texts")
+            .build();
+    ASSERT_TRUE(built.has_value());
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    QtRocket::BodyTube& body =
+        document->getRocket().getChild(0).addChild(std::make_unique<QtRocket::BodyTube>());
+    QtRocket::InnerTube&        inner = body.addChild(std::make_unique<QtRocket::InnerTube>());
+    const FlightConfigurationId fcid;
+    document->getRocket().createFlightConfiguration(fcid);
+    putMotor(inner, fcid, std::make_shared<const ThrustCurveMotor>(std::move(*built)));
+
+    const InMemoryPreferences            preferences;
+    GeneralRocketSaver                   saver(preferences);
+    const Result<std::vector<std::byte>> bytes =
+        saver.saveToBytes(*document, document->getDefaultStorageOptions());
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    std::string expected(kEmbeddedMotorRse);
+    expected.replace(expected.find("<comments>Desc</comments>"),
+                     std::string_view("<comments>Desc</comments>").size(),
+                     "<comments>Description\xEF\xBF\xBD</comments>");
+    const std::string rse = entryText(*bytes, "thrustcurves/odd-texts.rse");
+    EXPECT_EQ(rse, expected);
+    EXPECT_EQ(warningTexts(saver.getWarnings()),
+              std::vector<std::string>{std::string(OpenRocketSaver::kDroppedCharacters)});
+    const Result<std::vector<ThrustCurveMotor::Builder>> motors =
+        QtRocket::GeneralMotorLoader().load(QtRocket::stringToBytes(rse), "odd-texts.rse");
+    ASSERT_TRUE(motors.has_value()) << motors.error().toString();
+    EXPECT_EQ(motors->size(), 1U);
+}
+
+// The warnings, the errors and the missing decal image are those of the last save, also of a save
+// that failed before the design was written (a missing directory): a caller that asks for the
+// missing image (as OpenRocket's frame does) is not sent after the image of an earlier save.
+TEST(GeneralRocketSaver, AFailedSaveForgetsTheLastOne)
+{
+    DecalDocument design;
+    std::ignore =
+        design.document->getDecalImage(std::make_shared<FailingAttachment>("decals/gone.png"));
+    design.nose->setAppearance(appearanceWith("decals/gone.png"));
+    design.document->getRocket().setName("bad\x01name");
+    const TempDir             directory;
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver        saver(preferences);
+    ASSERT_FALSE(saver.save(directory.resolve("design.ork"), *design.document).has_value());
+    ASSERT_NE(saver.getMissingDecal(), nullptr);
+    ASSERT_FALSE(saver.getWarnings().empty());
+
+    const Result<void> saved =
+        saver.save(directory.resolve("no/such/design.ork"), *design.document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().code, ErrorCode::IO);
+    EXPECT_EQ(saver.getMissingDecal(), nullptr);
+    EXPECT_TRUE(saver.getWarnings().empty());
+    EXPECT_TRUE(saver.getErrors().empty());
+}
+
+// A save whose file cannot be put in place (the target is a directory) fails after the archive was
+// made, and the options keep their preview image for the next save: it is cleared once the file
+// is there (Java clears it after the archive was written).
+TEST(GeneralRocketSaver, KeepsThePreviewImageWhenTheFileCannotBeWritten)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    StorageOptions& options = document->getDefaultStorageOptions();
+    options.setPreviewImage(previewBytes());
+    const TempDir               directory;
+    const std::filesystem::path target = directory.resolve("taken");
+    std::ignore                        = directory.write("taken/inside.txt", "inside");
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver        saver(preferences);
+    const Result<void>        saved = saver.save(target, *document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().code, ErrorCode::IO);
+    EXPECT_TRUE(options.getPreviewImage().has_value());
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1);
+
+    ASSERT_TRUE(saver.save(directory.resolve("design.ork"), *document).has_value());
+    EXPECT_FALSE(options.getPreviewImage().has_value());
+}
+
+/// An attachment whose bytes never fit in memory: getBytes() throws std::bad_alloc, as a decal
+/// image of 32 MiB does when the memory has run out.
+class ExhaustingAttachment final : public QtRocket::Attachment
+{
+public:
+    explicit ExhaustingAttachment(std::string name) : Attachment(std::move(name)) { }
+
+    [[nodiscard]] Result<std::vector<std::byte>> getBytes() const override
+    {
+        throw std::bad_alloc();
+    }
+};
+
+// A save that runs out of memory is an Error, not an exception (nothing a document holds makes a
+// save throw): the file stays as it was and no temporary file is left.
+TEST(GeneralRocketSaver, RunningOutOfMemoryIsAnErrorThatLeavesTheFile)
+{
+    DecalDocument design;
+    std::ignore =
+        design.document->getDecalImage(std::make_shared<ExhaustingAttachment>("decals/huge.png"));
+    design.nose->setAppearance(appearanceWith("decals/huge.png"));
+    const TempDir               directory;
+    const std::filesystem::path file = directory.write("design.ork", "the old design");
+    const InMemoryPreferences   preferences;
+    GeneralRocketSaver          saver(preferences);
+    const Result<void>          saved = saver.save(file, *design.document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().code, ErrorCode::IO);
+    EXPECT_EQ(saved.error().message, GeneralRocketSaver::kOutOfMemory);
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "the old design");
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1);
 }
 
 }  // namespace
