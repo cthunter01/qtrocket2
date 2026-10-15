@@ -298,12 +298,14 @@ private:
 };
 
 /// Runs the scenario named @p name and returns its differences from Java's values, with the
-/// tolerances above and with the two texts that differ from Java's on purpose replaced:
+/// tolerances above and with the three texts that differ from Java's on purpose replaced:
 /// - Java's RK6 stepper throws its "values too large" exception with the untranslated key
 ///   "error.valuesTooLarge" as the message (see AbstractRkSimulationStepper); the message here
 ///   is the text of the RK4 stepper;
-/// - the BugError of addCoordinate() for a NaN location prints the location and the numbers as
-///   WorldCoordinate::toString() and std::format do (see there), not as Java does.
+/// - Java's BugException of addCoordinate() for the NaN location of an infinite position is
+///   the ordinary error of AbstractSimulationStepper::checkFinite() here (decision D3);
+/// - Java's BugException of checkNaN() is a SimulationCalculationException here, with Java's
+///   text without its ", please report a bug" (decision D3).
 /// Empty when the scenario reproduces OpenRocket; a line saying so when there is no such
 /// scenario.
 [[nodiscard]] std::string javaScenarioDifferences(std::string_view name);

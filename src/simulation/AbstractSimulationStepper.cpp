@@ -35,6 +35,7 @@
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
+#include "QtRocket/simulation/exception/SimulationCalculationException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/SimulationListenerHelper.h"
 #include "QtRocket/util/BugError.h"
@@ -68,11 +69,17 @@ namespace
     return *branch;
 }
 
-/// The NaN message of checkNaN(), up to where the three overloads differ.
+/// The NaN message of checkNaN(), up to where the three overloads differ: Java's without its
+/// ", please report a bug" (decision D3: the NaN of a flight is no defect of the program).
 [[nodiscard]] std::string nanMessage(std::string_view var)
 {
-    return std::format(
-        "Simulation resulted in not-a-number (NaN) value for {}, please report a bug", var);
+    return std::format("Simulation resulted in not-a-number (NaN) value for {}", var);
+}
+
+/// The message of checkFinite(), up to where the two overloads differ.
+[[nodiscard]] std::string notFiniteMessage(std::string_view var)
+{
+    return std::format("Simulation resulted in a value that is not finite for {}", var);
 }
 
 /// The thetaRotation and the lateral pitch rate of flight conditions a listener gave (Java:
@@ -606,6 +613,13 @@ void AbstractSimulationStepper::setThrustingNozzleExitAreas(const SimulationStat
             existing->second = existing->second + area;
         }
     }
+    // Not in Java (decision D3): an area that overflowed (a motor of an absurd diameter) ends the
+    // flight with an ordinary error, where FlightConditions refuses it (Java: an
+    // IllegalArgumentException that leaves the simulation).
+    for (const FlightConditions::NozzleExitArea& entry : areasByAssembly)
+    {
+        checkFinite(entry.second, "thrustingNozzleExitArea");
+    }
     conditions.setThrustingNozzleExitAreas(areasByAssembly);
 }
 
@@ -756,7 +770,8 @@ void AbstractSimulationStepper::checkNaN(double d, std::string_view var)
 {
     if (std::isnan(d))
     {
-        bug(nanMessage(var) + ".");
+        // Java: a BugException (decision D3).
+        throw SimulationCalculationException(nanMessage(var) + ".", nullptr);
     }
 }
 
@@ -764,7 +779,9 @@ void AbstractSimulationStepper::checkNaN(const Coordinate& c, std::string_view v
 {
     if (c.isNaN())
     {
-        bug(std::format("{}, c={}", nanMessage(var), c.toString()));
+        // Java: a BugException (decision D3).
+        throw SimulationCalculationException(std::format("{}, c={}", nanMessage(var), c.toString()),
+                                             nullptr);
     }
 }
 
@@ -772,7 +789,26 @@ void AbstractSimulationStepper::checkNaN(const Quaternion& q, std::string_view v
 {
     if (q.isNaN())
     {
-        bug(std::format("{}, q={}", nanMessage(var), q.toString()));
+        // Java: a BugException (decision D3).
+        throw SimulationCalculationException(std::format("{}, q={}", nanMessage(var), q.toString()),
+                                             nullptr);
+    }
+}
+
+void AbstractSimulationStepper::checkFinite(double d, std::string_view var)
+{
+    if (!std::isfinite(d))
+    {
+        throw SimulationCalculationException(notFiniteMessage(var) + ".", nullptr);
+    }
+}
+
+void AbstractSimulationStepper::checkFinite(const Coordinate& c, std::string_view var)
+{
+    if (!std::isfinite(c.x) || !std::isfinite(c.y) || !std::isfinite(c.z))
+    {
+        throw SimulationCalculationException(
+            std::format("{}, c={}", notFiniteMessage(var), c.toString()), nullptr);
     }
 }
 

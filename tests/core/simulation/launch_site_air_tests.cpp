@@ -7,7 +7,9 @@
 // - humid air whose vapour pressure is more than the pressure there is has a negative density
 //   in OpenRocket's atmospheric conditions, and the flight ended in the BugError of a NaN. The
 //   validation now asks the atmospheric model for the density at the launch altitude and
-//   refuses air that has none, with an ordinary error;
+//   refuses air that has none, with an ordinary error before anything runs. (Since decision
+//   D3 the NaN of a flight is an ordinary error too, SIMULATION_ABORTED: what a flight meets
+//   aloft, an air start at 50 km over humid air, ends there; nan_flight_tests.cpp.)
 // - in very dense air (a launch temperature of 5 K) the step to the apogee leaves a horizontal
 //   air speed between 1e-8 and 1e-7 m/s, which the steppers of the descent normalised and
 //   Coordinate::normalize() refused ("Cannot normalize zero coordinate", as OpenRocket's
@@ -231,6 +233,10 @@ enum class Ending
     REFUSED,
     /// simulate() failed with another ordinary error.
     FAILED,
+    /// simulate() failed with the ordinary error of a NaN or an infinity in the flight
+    /// (AbstractSimulationStepper::checkNaN() and checkFinite(); a BugError before decision
+    /// D3).
+    NOT_A_NUMBER,
     /// simulate() threw a BugError.
     BUG,
 };
@@ -243,7 +249,7 @@ struct AirCase
     /// The one ending the case has, or FLEW for a case that may fly or end in an ordinary
     /// error of the computation (the ends of the ranges are no flights anyone plans, and
     /// whether "Simulation values exceeded limits" is met there may differ by platform); a
-    /// BugError is never an ending.
+    /// BugError and the error of a NaN are never an ending.
     Ending expected;
 };
 
@@ -265,8 +271,14 @@ struct Flown
         {
             return {};
         }
-        return {.ending = result.error().code == ErrorCode::INVALID_ARGUMENT ? Ending::REFUSED
-                                                                             : Ending::FAILED,
+        if (result.error().code == ErrorCode::INVALID_ARGUMENT)
+        {
+            return {.ending = Ending::REFUSED, .text = result.error().message};
+        }
+        // checkNaN()'s "... not-a-number (NaN) value ..." and checkFinite()'s "... a value that
+        // is not finite ...".
+        const bool notANumber = result.error().message.starts_with("Simulation resulted in ");
+        return {.ending = notANumber ? Ending::NOT_A_NUMBER : Ending::FAILED,
                 .text   = result.error().message};
     }
     catch (const BugError& error)
@@ -286,6 +298,8 @@ struct Flown
             return "refused";
         case Ending::FAILED:
             return "failed";
+        case Ending::NOT_A_NUMBER:
+            return "NaN";
         case Ending::BUG:
             return "BUG";
     }
@@ -351,7 +365,7 @@ TEST(LaunchSiteAirFlights, TheExampleFliesInOrdinaryHumidAir)
 }
 
 // Every end of every row of the atmosphere, one at a time, in dry air: a Result, never a
-// BugError.
+// BugError, nor the error of a NaN.
 TEST(LaunchSiteAirFlights, NoEndOfARangeOfTheAtmosphereEndsInABugError)
 {
     const std::vector<AirCase> cases{

@@ -2665,10 +2665,11 @@ TEST(SingleSimulationHandler, TheExtensionsAreTheProvidersObjects)
 }
 
 // What the loader does with every extension after the whole document
-// (SimulationExtension::documentLoaded()): a script that the file has enabled is disabled, with
-// OpenRocket's warning, unless it is one OpenRocket trusts on every computer (an empty one, and
-// the roll control script of its example: ScriptingExtension::isTrustedScript()). The handler
-// itself leaves the script as the file has it.
+// (SimulationExtension::documentLoaded()): a script that the file has enabled and that holds
+// code is disabled, with OpenRocket's warning when OpenRocket does not trust it (and with
+// QtRocket's own for the roll control script of its example, which OpenRocket trusts: decision
+// D1; ScriptingExtension::disableLoadedScript()); an empty one stays enabled. The handler itself
+// leaves the script as the file has it.
 TEST(SingleSimulationHandler, AnEnabledScriptIsDisabledByTheLoadersNextStep)
 {
     SimulationFixture                 fixture;

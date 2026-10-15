@@ -10,6 +10,7 @@
 #include <numbers>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -32,6 +33,7 @@
 #include "QtRocket/simulation/SimulationConditions.h"
 #include "QtRocket/simulation/SimulationStatus.h"
 #include "QtRocket/simulation/SimulationStepper.h"
+#include "QtRocket/simulation/exception/SimulationCalculationException.h"
 #include "QtRocket/simulation/exception/SimulationException.h"
 #include "QtRocket/simulation/listeners/CloneableSimulationListener.h"
 #include "QtRocket/util/Coordinate.h"
@@ -538,38 +540,86 @@ TEST(AbstractSimulationStepperDataStore, AFlightThatDropsTheInnerBoostersEndsWit
 
 // ================================================================================ checkNaN
 
-// StepperTableProbe, "checkNaN": Java's messages. The message for a number ends with a full
-// stop; those for a coordinate and a quaternion go on with the value instead.
-TEST(AbstractSimulationStepper, CheckNaNThrowsJavasMessages)
+/// The message of the SimulationCalculationException of checkNaN(@p value, @p var), or
+/// "<none>".
+template <class Value>
+[[nodiscard]] std::string nanCheckOf(const Value& value, std::string_view var)
 {
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(1.5, "x"); }), "<none>");
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(kInf, "x"); }), "<none>");
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(kNaN, "store.timeStep"); }),
-              "Simulation resulted in not-a-number (NaN) value for store.timeStep, please report "
-              "a bug.");
+    return QtRocket::Test::calculationErrorText(
+        [&value, var] { AbstractSimulationStepper::checkNaN(value, var); });
+}
 
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(Coordinate(1, 2, 3, 4), "wind"); }),
-              "<none>");
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(Coordinate(1, kNaN, 3), "wind"); }),
-              "Simulation resulted in not-a-number (NaN) value for wind, please report a bug, "
-              "c=(1.00000,NaN,3.00000)");
+/// The message of the SimulationCalculationException of checkFinite(@p value, @p var), or
+/// "<none>".
+template <class Value>
+[[nodiscard]] std::string finiteCheckOf(const Value& value, std::string_view var)
+{
+    return QtRocket::Test::calculationErrorText(
+        [&value, var] { AbstractSimulationStepper::checkFinite(value, var); });
+}
+
+/// Whether checkNaN() of a NaN throws a SimulationCalculationException without a flight data
+/// branch (the check has none at hand). A BugError would leave the test.
+[[nodiscard]] bool nanCheckHasNoBranch()
+{
+    try
+    {
+        AbstractSimulationStepper::checkNaN(kNaN, "x");
+    }
+    catch (const QtRocket::SimulationCalculationException& error)
+    {
+        return error.getFlightDataBranch() == nullptr;
+    }
+    return false;
+}
+
+// StepperTableProbe, "checkNaN": Java's messages, without their ", please report a bug", in a
+// SimulationCalculationException where Java throws a BugException (decision D3: a NaN of a
+// flight is an ordinary error of the simulation). The message for a number ends with a full
+// stop; those for a coordinate and a quaternion go on with the value instead.
+TEST(AbstractSimulationStepper, CheckNaNThrowsAnOrdinaryErrorWithJavasMessages)
+{
+    EXPECT_EQ(nanCheckOf(1.5, "x"), "<none>");
+    EXPECT_EQ(nanCheckOf(kInf, "x"), "<none>");
+    EXPECT_EQ(nanCheckOf(kNaN, "store.timeStep"),
+              "Simulation resulted in not-a-number (NaN) value for store.timeStep.");
+
+    EXPECT_EQ(nanCheckOf(Coordinate(1, 2, 3, 4), "wind"), "<none>");
+    EXPECT_EQ(nanCheckOf(Coordinate(1, kNaN, 3), "wind"),
+              "Simulation resulted in not-a-number (NaN) value for wind, c=(1.00000,NaN,3.00000)");
     // A NaN weight counts, and is not printed (the coordinate is not "weighted").
-    EXPECT_EQ(
-        bugText([] { AbstractSimulationStepper::checkNaN(Coordinate(1, 2, 3, kNaN), "params.a"); }),
-        "Simulation resulted in not-a-number (NaN) value for params.a, please report a "
-        "bug, c=(1.00000,2.00000,3.00000)");
+    EXPECT_EQ(nanCheckOf(Coordinate(1, 2, 3, kNaN), "params.a"),
+              "Simulation resulted in not-a-number (NaN) value for params.a, "
+              "c=(1.00000,2.00000,3.00000)");
 
-    EXPECT_EQ(bugText([] { AbstractSimulationStepper::checkNaN(Quaternion(1, 0, 0, 0), "q"); }),
-              "<none>");
+    EXPECT_EQ(nanCheckOf(Quaternion(1, 0, 0, 0), "q"), "<none>");
     // Java prints "q=Quaternion[NaN,0.500000,0.250000,0.000000,norm=NaN]": the quaternion's
     // toString() spells NaN differently here (see Quaternion::toString()).
-    EXPECT_EQ(bugText([] {
-                  AbstractSimulationStepper::checkNaN(Quaternion(kNaN, 0.5, 0.25, 0),
-                                                      "orientation");
-              }),
-              "Simulation resulted in not-a-number (NaN) value for orientation, please report a "
-              "bug, q=" +
+    EXPECT_EQ(nanCheckOf(Quaternion(kNaN, 0.5, 0.25, 0), "orientation"),
+              "Simulation resulted in not-a-number (NaN) value for orientation, q=" +
                   Quaternion(kNaN, 0.5, 0.25, 0).toString());
+
+    EXPECT_TRUE(nanCheckHasNoBranch());
+}
+
+// Not in Java (decision D3): checkFinite() refuses an infinity as well as a NaN, of a number
+// and of the x, y and z of a coordinate (not of its weight), with an ordinary error of its own.
+TEST(AbstractSimulationStepper, CheckFiniteThrowsAnOrdinaryError)
+{
+    EXPECT_EQ(finiteCheckOf(1.5, "x"), "<none>");
+    EXPECT_EQ(finiteCheckOf(-1e308, "x"), "<none>");
+    EXPECT_EQ(finiteCheckOf(kInf, "area"),
+              "Simulation resulted in a value that is not finite for area.");
+    EXPECT_EQ(finiteCheckOf(kNaN, "area"),
+              "Simulation resulted in a value that is not finite for area.");
+
+    EXPECT_EQ(finiteCheckOf(Coordinate(1, 2, 3), "p"), "<none>");
+    EXPECT_EQ(finiteCheckOf(Coordinate(1, 2, 3, kInf), "p"), "<none>");
+    EXPECT_EQ(finiteCheckOf(Coordinate(-kInf, 0, kInf), "p"),
+              "Simulation resulted in a value that is not finite for p, c=(-Infinity,0.00000,"
+              "Infinity)");
+    EXPECT_EQ(finiteCheckOf(Coordinate(0, kNaN, 0), "p"),
+              "Simulation resulted in a value that is not finite for p, c=(0.00000,NaN,0.00000)");
 }
 
 // ========================================================================== the mass cache

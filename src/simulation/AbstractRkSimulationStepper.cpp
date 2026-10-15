@@ -463,6 +463,9 @@ void AbstractRkSimulationStepper::finishStep(SimulationStatus& status, const Coo
 
     const SimulationConditions& conditions = conditionsOf(status);
     WorldCoordinate             w          = conditions.getLaunchSite();
+    // Not in Java (decision D3): a position that is not finite would be a NaN location, which
+    // is a BugError of the geodetic computation; it is an ordinary error of the flight.
+    checkFinite(status.getRocketPosition(), "status.getRocketPosition()");
     w = addCoordinate(conditions.getGeodeticComputation(), w, status.getRocketPosition());
     status.setRocketWorldPosition(w);
 

@@ -40,6 +40,10 @@ class SimulationStatus;
 ///   that gap by itself: the step to the apogee ends with a vertical velocity of 0, and what
 ///   is left is the horizontal airspeed, which very dense air (a launch temperature of 5 K)
 ///   has braked to some 1e-8 m/s by then. No result of OpenRocket's is changed by this.
+/// - A position that is not finite at the end of a step (a rocket of no mass, whose
+///   acceleration is infinite) ends the flight with an ordinary error,
+///   AbstractSimulationStepper::checkFinite() before the geodetic computation (decision D3);
+///   in Java the geodetic computation throws a BugException for the NaN location it gives.
 /// - Logging is not ported.
 class AbstractEulerStepper : public AbstractSimulationStepper
 {
@@ -62,6 +66,7 @@ public:
     /// One Euler step of at most @p maxTimeStep (see the class comment); a NaN @p maxTimeStep
     /// records the status and the step's data and sets the landed values.
     /// @throws SimulationException from a simulation listener
+    /// @throws SimulationCalculationException when the new position is not finite
     void step(SimulationStatus& status, double maxTimeStep) override;
 
     /// The acceleration of @p status into @p store: forces with the drag coefficient

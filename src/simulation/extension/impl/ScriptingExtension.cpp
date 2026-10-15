@@ -71,10 +71,10 @@ std::optional<std::string> ScriptingExtension::getDescription() const
 void ScriptingExtension::documentLoaded(OpenRocketDocument& /*document*/,
                                         Simulation& /*simulation*/, WarningSet& warnings)
 {
-    disableUntrustedScript(warnings);
+    disableLoadedScript(warnings);
 }
 
-void ScriptingExtension::disableUntrustedScript(WarningSet& warnings)
+void ScriptingExtension::disableLoadedScript(WarningSet& warnings)
 {
     /*
      * Scripts that the user has not explicitly indicated as trusted are disabled
@@ -86,6 +86,14 @@ void ScriptingExtension::disableUntrustedScript(WarningSet& warnings)
         {
             setEnabled(false);
             warnings.add(Warning::fromString(std::string(kDisabledWarning)));
+        }
+        // Not in Java (decision D1): a script that OpenRocket trusts and that holds code, the
+        // roll control script of its example, is disabled too, with a text of QtRocket's own.
+        // A script that is empty once normalised stays enabled, as in OpenRocket (decision E4).
+        else if (!normalizeScript(getScript()).empty())
+        {
+            setEnabled(false);
+            warnings.add(Warning::fromString(std::string(kTrustedScriptDisabledWarning)));
         }
     }
 }
@@ -140,7 +148,7 @@ bool ScriptingExtension::isTrustedScript(std::string_view language, std::string_
     const std::string hash = scriptHash(language, normal);
     // HOOK(scripting): Java goes on to ask the preferences whether the user has marked the
     // script with this hash as trusted (ScriptingUtil.setTrustedScript()). QtRocket keeps no
-    // such list: it runs no script.
+    // such list: it runs no script, and disables on load even what it trusts.
     return std::ranges::any_of(kDefaultTrustedHashes,
                                [&hash](std::string_view trusted) { return trusted == hash; });
 }

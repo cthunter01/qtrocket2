@@ -17,11 +17,12 @@
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/ParallelStage.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/simulation/exception/SimulationCalculationException.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/ModId.h"
 #include "rocket/TestRockets.h"
 
-/// What the tests of simulation/ share: a rocket to take event sources from and two helpers.
+/// What the tests of simulation/ share: a rocket to take event sources from and a few helpers.
 namespace QtRocket::Test
 {
 
@@ -125,6 +126,21 @@ private:
             text.erase(location);
         }
         return text;
+    }
+    return "<none>";
+}
+
+/// Runs @p body and returns the message of the SimulationCalculationException it throws, as
+/// Simulation::simulate() reports it; "<none>" when nothing is thrown.
+[[nodiscard]] inline std::string calculationErrorText(const std::function<void()>& body)
+{
+    try
+    {
+        body();
+    }
+    catch (const SimulationCalculationException& error)
+    {
+        return error.what();
     }
     return "<none>";
 }

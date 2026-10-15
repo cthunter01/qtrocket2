@@ -49,9 +49,20 @@ class SimulationStatus;
 /// - The fields of the DataStore that Java leaves null are empty optionals. Reading an empty one
 ///   where Java would throw a NullPointerException is a BugError, and so are a status without
 ///   simulation conditions and conditions without the model or calculator that is asked.
-/// - checkNaN() throws BugError (Java: BugException) with Java's message; a coordinate and a
-///   quaternion are printed by this port's toString() (see Quaternion::toString() for how it
-///   differs from Java's).
+/// - checkNaN() throws SimulationCalculationException where Java throws BugException (decision
+///   D3), so that a flight whose numbers become NaN ends with an ordinary simulation error
+///   (Simulation::simulate(): ErrorCode::SIMULATION_ABORTED): absurd finite dimensions of a
+///   design (a nose cone of 1e150 m, a parachute of 1e300 m, a mass at a radial position of
+///   1e200 m) and air of negative density aloft (an air start at 50 km over humid air) get
+///   there from inputs that are no defect of the program. The message is Java's without its
+///   ", please report a bug"; a coordinate and a quaternion are printed by this port's
+///   toString() (see Quaternion::toString() for how it differs from Java's). A programmer
+///   error (a model, a calculator or a branch that is missing) stays a BugError.
+/// - checkFinite() is QtRocket's own, for the same reason (decision D3): the steppers check
+///   that the position of a step is finite before they turn it into a world position (an
+///   infinite position gives a NaN location there, which is Java's BugException), and that the
+///   nozzle exit areas of the thrusting motors are finite before they go to the flight
+///   conditions (Java: FlightConditions throws an IllegalArgumentException).
 /// - Java's scratch MutableCoordinates are local Coordinates: the arithmetic of the mutable
 ///   operations is that of the immutable ones (the weights included).
 /// - The thrusting nozzle exit areas are summed per assembly in the order of the status's
@@ -230,21 +241,21 @@ public:
     /// conditions' atmospheric model at the altitude of the rocket above sea level (the z
     /// position plus the altitude of the launch site).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the pressure or the temperature is NaN
+    /// @throws SimulationCalculationException when the pressure or the temperature is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] AtmosphericConditions modelAtmosphericConditions(SimulationStatus& status);
 
     /// The wind to use, which listeners may override: that of the conditions' wind model at the
     /// simulation time and the altitude of the rocket (above sea level and above ground).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the wind has a NaN
+    /// @throws SimulationCalculationException when the wind has a NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] Coordinate modelWindVelocity(SimulationStatus& status);
 
     /// The gravitational acceleration to use, which listeners may override: that of the
     /// conditions' gravity model at the world position of the rocket.
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the gravity is NaN
+    /// @throws SimulationCalculationException when the gravity is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] double modelGravity(SimulationStatus& status);
 
@@ -252,30 +263,40 @@ public:
     /// structure of the status's configuration, cached by the configuration's modification id
     /// (see the class comment).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the centre of mass or an inertia is NaN
+    /// @throws SimulationCalculationException when the centre of mass or an inertia is NaN
     [[nodiscard]] RigidBody calculateStructureMass(SimulationStatus& status);
 
     /// The mass data of the motors at the simulation time, which listeners may override (the
     /// same hooks as for the structure mass).
     /// @throws SimulationException from a simulation listener
-    /// @throws BugError when the centre of mass or an inertia is NaN
+    /// @throws SimulationCalculationException when the centre of mass or an inertia is NaN
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] RigidBody calculateMotorMass(SimulationStatus& status);
 
     /// Checks that @p d is not NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug."
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>." (without a flight data branch)
     static void checkNaN(double d, std::string_view var);
 
     /// Checks that no component of @p c (the weight included) is NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug, c=<c>"
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>, c=<c>" (without a flight data branch)
     static void checkNaN(const Coordinate& c, std::string_view var);
 
     /// Checks that no component of @p q is NaN.
-    /// @throws BugError "Simulation resulted in not-a-number (NaN) value for <var>, please
-    ///         report a bug, q=<q>"
+    /// @throws SimulationCalculationException "Simulation resulted in not-a-number (NaN) value
+    ///         for <var>, q=<q>" (without a flight data branch)
     static void checkNaN(const Quaternion& q, std::string_view var);
+
+    /// Checks that @p d is finite (not in Java; see the class comment).
+    /// @throws SimulationCalculationException "Simulation resulted in a value that is not finite
+    ///         for <var>." (without a flight data branch)
+    static void checkFinite(double d, std::string_view var);
+
+    /// Checks that the x, y and z of @p c are finite (not in Java; see the class comment).
+    /// @throws SimulationCalculationException "Simulation resulted in a value that is not finite
+    ///         for <var>, c=<c>" (without a flight data branch)
+    static void checkFinite(const Coordinate& c, std::string_view var);
 
     /// Sets @p status and @p store to values consistent with sitting on the ground: the time
     /// step NaN; the flight conditions of the status with a NaN angle of attack and no

@@ -222,6 +222,7 @@ add_executable(QtRocket_core_tests
     simulation/launch_site_air_tests.cpp
     simulation/motor_cluster_pods_tests.cpp
     simulation/motor_pressure_correction_tests.cpp
+    simulation/nan_flight_tests.cpp
     simulation/natural_frequency_tests.cpp
     simulation/PlotAppearanceTests.cpp
     simulation/ProgressListenerTests.cpp

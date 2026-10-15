@@ -44,6 +44,9 @@ class SimulationStatus;
 ///   random source being null).
 /// - Java's RK6 stepper has no translation of "error.valuesTooLarge" and shows that key as its
 ///   message; here both steppers throw kValuesTooLarge, the text of the RK4 stepper.
+/// - A position that is not finite at the end of a step ends the flight with an ordinary error,
+///   AbstractSimulationStepper::checkFinite() before the geodetic computation (decision D3);
+///   in Java the geodetic computation throws a BugException for the NaN location it gives.
 /// - Logging is not ported.
 class AbstractRkSimulationStepper : public AbstractSimulationStepper
 {
@@ -144,7 +147,7 @@ public:
     /// The derivatives at @p status: calculateAcceleration() into @p store, then the linear
     /// and rotational acceleration in world coordinates and the velocity and rotation velocity
     /// of the status.
-    /// @throws BugError when one of them has a NaN
+    /// @throws SimulationCalculationException when one of them has a NaN (checkNaN())
     [[nodiscard]] RkParameters computeParameters(SimulationStatus& status, DataStore& store);
 
     /// The thrust of the motors of the status's active stages at the simulation time, which
@@ -154,8 +157,8 @@ public:
     /// correction is stored in @p store.thrustCorrection (0 without thrust or without a known
     /// nozzle area). As OpenRocket notes, the moments of off-centre motors are not taken into
     /// account.
-    /// @throws BugError when the thrust is NaN, or the store has no flight conditions while
-    ///         there is thrust
+    /// @throws SimulationCalculationException when the thrust is NaN (checkNaN())
+    /// @throws BugError when the store has no flight conditions while there is thrust
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Java's instance method
     [[nodiscard]] double calculateThrust(SimulationStatus& status, DataStore& store);
 
@@ -203,6 +206,9 @@ protected:
     /// velocity of @p status, rotates the orientation by @p deltaO (normalized if necessary),
     /// sets the world position through the geodetic computation, advances the simulation time
     /// by the store's time step, and verifies that the values did not run out of range.
+    /// @throws SimulationCalculationException when the new position is not finite
+    ///         (checkFinite(), before the geodetic computation, which would make a NaN
+    ///         location of it: not in Java, where that is a BugException)
     /// @throws SimulationCalculationException (kValuesTooLarge) when the square of the
     ///         velocity, the position or the rotation velocity exceeds 1e18
     /// @throws BugError when the time step is negative or NaN

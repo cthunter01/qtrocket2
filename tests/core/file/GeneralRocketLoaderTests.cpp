@@ -1292,6 +1292,8 @@ TEST(GeneralRocketLoader, GivesWhatOpenRocketGivesForEveryCaseOfTheProbe)
 // The cases with an expectation of QtRocket's own:
 // - the three in which an element stands before <rocket>: OpenRocket has no document yet and
 //   dies of a NullPointerException; here the document exists from the start;
+// - the two with the roll control script that OpenRocket trusts by its hash and leaves
+//   enabled: QtRocket disables it with a warning of its own (decision D1);
 // - the extension of an unknown id, which is kept (decisions D11 and L10) where OpenRocket
 //   drops it;
 // - the simulation of a new flight configuration: OpenRocket's document hears it change twice
@@ -1301,6 +1303,7 @@ TEST(GeneralRocketLoader, FewCasesOfTheProbeAreAnsweredOtherwiseThanOpenRocket)
 {
     EXPECT_THAT(kOwnLoadCases,
                 ElementsAre("c-docprefs-first", "c-photostudio-first", "c-simulations-first",
+                            "p-ext-script-trusted", "p-ext-script-trusted-and-text",
                             "p-ext-unknown", "p-sim-new-configuration"));
 }
 
