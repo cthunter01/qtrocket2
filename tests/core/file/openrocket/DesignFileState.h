@@ -119,10 +119,12 @@ enum class StateDetail
                                               StateDetail detail = StateDetail::RECORDED);
 
 /// The state of the design file @p file as a loader of @p environment loads it, in the lines
-/// the top of this file lists; a load that fails gives its failure after the version.
+/// the top of this file lists; a load that fails gives its failure after the version. @p idsOf
+/// as for designBytesState().
 [[nodiscard]] std::vector<std::string> designFileState(DesignFileEnvironment&       environment,
                                                        const std::filesystem::path& file,
-                                                       StateDetail detail = StateDetail::RECORDED);
+                                                       StateDetail detail = StateDetail::RECORDED,
+                                                       std::string_view idsOf = {});
 
 /// What a test does with a design as loaded, before anything else is asked of it: called with
 /// the load that succeeded.
@@ -137,11 +139,17 @@ using AsLoaded = std::function<void(const LoadedDocument& loaded)>;
 /// loaded what the state does not depend on (the masses of a design without a stale automatic
 /// dimension, the settings of its components), saving a load: what it asks of the load is part
 /// of the state otherwise (an automatic dimension stores what it computes; a copy of the
-/// rocket is no way around that, a copy brings automatic dimensions up to date).
+/// rocket is no way around that, a copy brings automatic dimensions up to date). @p idsOf, when
+/// not empty, is the text whose ids a flight configuration's id has to be among to be printed in
+/// full in the lines of the rocket (describeRocket(); else "random"), in place of the document of
+/// @p bytes: a round trip of a design whose loader drew the ids of its flight configurations
+/// passes the original design's document, so that those ids, which the save wrote, stay "random"
+/// as in the state of the original.
 [[nodiscard]] std::vector<std::string> designBytesState(const DesignFileEnvironment& environment,
                                                         std::vector<std::byte>       bytes,
                                                         StateDetail detail = StateDetail::RECORDED,
-                                                        const AsLoaded& asLoaded = nullptr);
+                                                        const AsLoaded&  asLoaded = nullptr,
+                                                        std::string_view idsOf    = {});
 
 /// A line of a state in its short form, and the lines it stands for.
 struct CompactLine

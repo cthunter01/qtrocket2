@@ -37,7 +37,11 @@
 //   the type Other without its parameter. OpenRocket's own first
 //   save with data of the same sixteen loads (the scouts' SaverProbe, saver-simulations out/java/,
 //   not part of the repository) is QtRocket's save with data outside the rocket element, byte for
-//   byte: the SHA-256 digests of those texts are pinned (kJavaSavesWithData).
+//   byte: the SHA-256 digests of those texts are pinned (kJavaSavesWithData). For two examples,
+//   "Deployable payload" and "Pods--powered with recovery deployment", the goldens hold that save
+//   itself (resave-data/rocket.ork.gz, the manifest's "resaves.withData": stored events of every
+//   kind the examples have, stored warnings with their sources, the boosters' branches, 70
+//   columns), and QtRocket's save with data is it, the whole text but for the creator.
 // - The three examples with a <preset> again with no presets (Presets::NONE): the six
 //   references that cannot be resolved are kept (the user's decision U8 of 2026-10-08) and
 //   written back, so the file is the re-save's all the same.
@@ -45,6 +49,24 @@
 //   seven motors of TestRockets and OpenRocket's test preferences): the re-save but for one line,
 //   the wall of the pod body of the Alpha III with pods, 2 mm in the file and none in the loaded
 //   tube (a tube without a radius keeps no wall), as OpenRocket's own reload has it.
+// - The eighteen design files of tests/data/ork (the legacy files: OpenRocket 0.9 to 23.09, the
+//   file formats 1.0 to 1.9), each loaded as the harness loaded it for its re-save
+//   (legacy-*/resave/rocket.ork; the harness's environment with the six presets of the examples,
+//   which are the presets of the tests; DesignFileEnvironment) and saved without simulation data.
+//   A loader draws the ids of the components, flight configurations and simulations of the
+//   formats 1.0 to 1.4, which name none: they are numbered by their first occurrence on both sides
+//   (withDrawnIdsNumbered()). The save is the re-save but for QtRocket's own decisions
+//   (kLegacySaveChanges): the references to presets the six presets do not hold (U8), the scripts
+//   disabled on load (D1) and the extension of an unknown id that is kept (D11).
+// - The saver-coverage documents of the harness (coverage-*/resave/rocket.ork, built by
+//   CoverageDocuments.java and fixed points of OpenRocket's own save and load): what no other
+//   re-save holds (a kit name, a custom reference length, CD and CG overrides with the flags of
+//   their subcomponents, a line style, a drogue, a nozzle exit diameter, a custom expression,
+//   document preferences, all 29 photo settings, the extended ISA atmosphere, a constant gravity,
+//   landing dispersion settings, plot appearances, drag and stability lookup tables, stored flight
+//   data with an abort and an event after the landing), so that with the other goldens they hold
+//   every element and attribute name OpenRocket's saver writes. Each is loaded from its re-save
+//   and saved again as the harness saved it: the re-save, every line.
 //
 // The same loop pins OpenRocket's estimateFileSize() of each loaded example (one load per
 // example serves everything).
@@ -52,6 +74,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <span>
@@ -81,6 +104,7 @@
 #include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Strings.h"
 #include "file/DesignFileEnvironment.h"
+#include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenExamples.h"
 #include "goldens/GoldenResaves.h"
@@ -112,6 +136,7 @@ using QtRocket::Test::goldenExamples;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::kMaxReportedLines;
 using QtRocket::Test::kPods;
+using QtRocket::Test::lineChanges;
 using QtRocket::Test::lineViewsOf;
 using QtRocket::Test::LoadedResave;
 using QtRocket::Test::loadGoldenExample;
@@ -120,6 +145,7 @@ using QtRocket::Test::OrkTextComparison;
 using QtRocket::Test::rocketElementOf;
 using QtRocket::Test::sameByValue;
 using QtRocket::Test::testRocketInputs;
+using QtRocket::Test::withDrawnIdsNumbered;
 using QtRocket::Test::withoutCreator;
 
 using Presets = DesignFileEnvironment::Presets;
@@ -489,17 +515,26 @@ void countParts(SavesCompared& compared, std::string_view saved)
     }
 }
 
-/// Compares @p saved, QtRocket's save of the design @p name, with @p resave, the whole text, and
-/// adds the result to @p compared; a difference is a problem unless it is @p expected
-/// (changedLines() from the re-save to the save).
-void compareSaves(SavesCompared& compared, std::string_view name, std::string_view saved,
-                  std::string_view resave, std::string_view expected = "")
+/// Compares @p saved, a save of QtRocket, with @p resave, the whole text (compareOrkTexts()), and
+/// counts the save, its lines and its parts into @p compared.
+OrkTextComparison countedComparison(SavesCompared& compared, std::string_view saved,
+                                    std::string_view resave)
 {
     const OrkTextComparison comparison = compareOrkTexts(saved, resave);
     compared.designs++;
     compared.lines += comparison.lines;
     compared.byValue += comparison.byValue;
     countParts(compared, saved);
+    return comparison;
+}
+
+/// Compares @p saved, QtRocket's save of the design @p name, with @p resave, the whole text, and
+/// adds the result to @p compared; a difference is a problem unless it is @p expected
+/// (changedLines() from the re-save to the save).
+void compareSaves(SavesCompared& compared, std::string_view name, std::string_view saved,
+                  std::string_view resave, std::string_view expected = "")
+{
+    const OrkTextComparison comparison = countedComparison(compared, saved, resave);
     if (saved.empty() || resave.empty())
     {
         compared.problems += std::format("{}: nothing to compare\n", name);
@@ -609,10 +644,14 @@ struct DataRoundTrips
     /// (highSpeedWarningsIn()).
     std::size_t highSpeedWarnings{0};
     std::size_t javaSaves{0};  ///< the saves with data compared with OpenRocket's (digests)
-    std::size_t archives{0};   ///< the .ork archives compared with OpenRocket's
-    std::size_t decals{0};     ///< their decal images
-    std::size_t curves{0};     ///< their thrust curves
-    std::string problems;      ///< what differs, by example: empty when nothing does
+    /// The saves with data compared with OpenRocket's re-saves with data, the whole text
+    /// (dataResaveProblem()), and their lines.
+    std::size_t dataResaves{0};
+    std::size_t dataResaveLines{0};
+    std::size_t archives{0};  ///< the .ork archives compared with OpenRocket's
+    std::size_t decals{0};    ///< their decal images
+    std::size_t curves{0};    ///< their thrust curves
+    std::string problems;     ///< what differs, by example: empty when nothing does
 };
 
 /// What differs between @p entry, of QtRocket's archive of an example, and OpenRocket's:
@@ -737,12 +776,39 @@ struct DataRoundTrips
     return problems;
 }
 
+/// What differs between @p first, QtRocket's save with data of @p example, and OpenRocket's re-save
+/// with data of the example when the goldens have one (two examples: the manifest's
+/// "resaves.withData"), the whole text but for the creator; counted into @p trips. That re-save is
+/// OpenRocket's first save of a load of the example; @p first follows four saves without data,
+/// which change nothing in an example that is not stale as loaded (kDualParachuteSaves), as
+/// neither of the two is.
+[[nodiscard]] std::string dataResaveProblem(const GoldenExample& example, std::string_view first,
+                                            DataRoundTrips& trips)
+{
+    const QtRocket::Test::ResaveWithData* const data =
+        QtRocket::Test::resaveWithDataOf(example.name);
+    if (data == nullptr)
+    {
+        return {};
+    }
+    const std::string theirs =
+        QtRocket::Test::documentOfDesignFile(QtRocket::Test::goldensDir() / data->resave);
+    const OrkTextComparison comparison = compareOrkTexts(first, theirs);
+    trips.dataResaves++;
+    trips.dataResaveLines += comparison.lines;
+    return comparison.differing == 0 && comparison.byValue == 0
+               ? ""
+               : std::format("{}: the save with data is not OpenRocket's re-save with data\n{}",
+                             example.name, comparison.differences);
+}
+
 /// Saves @p document, an example, with its simulation data and compares that text outside the
-/// rocket with OpenRocket's own (kJavaSavesWithData), then as an .ork archive (archiveOf(),
-/// which compares the archive with OpenRocket's), loads the archive back from memory without a
-/// directory (decision O5 of tier 10), with no warning, and compares the flight data and the save
-/// of the reload with the first save, all but the rocket: the first save of
-/// a load writes the automatic dimensions the dual parachute deployment's first save writes
+/// rocket with OpenRocket's own (kJavaSavesWithData), and the whole text with OpenRocket's
+/// re-save with data where there is one (dataResaveProblem()), then as an .ork archive
+/// (archiveOf(), which compares the archive with OpenRocket's), loads the archive back from memory
+/// without a directory (decision O5 of tier 10), with no warning, and compares the flight data and
+/// the save of the reload with the first save, all but the rocket: the first save of a load writes
+/// the automatic dimensions the dual parachute deployment's first save writes
 /// (kDualParachuteSaves), not those of a design saved before. Adds the result to @p trips.
 void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document,
                       DataRoundTrips& trips)
@@ -758,6 +824,7 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
             example.name);
     }
     trips.javaSaves++;
+    trips.problems += dataResaveProblem(example, first, trips);
     const std::vector<std::byte> archive = archiveOf(example, document, first, trips);
     const GeneralRocketLoader    loader(goldenExampleEnvironment().context());
     const Result<LoadedDocument> loaded = loader.load(archive);
@@ -880,7 +947,8 @@ void roundTripTheData(const GoldenExample& example, OpenRocketDocument& document
 // kJavaSavesWithData: the stored flights, events and warnings as Java writes them); the sixteen
 // .ork archives are OpenRocket's, entry for entry (23 decal images, 41 thrust curves); and loaded
 // back from them, the flights of the 54 simulations (69 branches) come back bit for bit, and a
-// second save is the first, the sixteen warnings of decision E2 included.
+// second save is the first, the sixteen warnings of decision E2 included. The saves with data of
+// the two examples whose re-saves with data the goldens hold are those re-saves, all 5752 lines.
 TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared  saves;
@@ -899,6 +967,8 @@ TEST(OrkResaveDiffGolden, TheExamplesAreSavedAsOpenRocketResavedThem)
 
     EXPECT_EQ(trips.problems, "");
     EXPECT_EQ(trips.javaSaves, 16U);
+    EXPECT_EQ(trips.dataResaves, 2U);
+    EXPECT_EQ(trips.dataResaveLines, 5752U);
     EXPECT_EQ(trips.simulations, 54U);
     EXPECT_EQ(trips.branches, 69U);
     EXPECT_EQ(trips.archives, 16U);
@@ -1060,6 +1130,218 @@ TEST(OrkResaveDiffGolden, TheTestRocketsAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(saves.presets, 0U);
     EXPECT_EQ(saves.motors, 48U);
     EXPECT_EQ(saves.simulations, 50U);
+}
+
+// =========================================================================== the legacy files
+
+/// The lines in which QtRocket's save of a design file of tests/data/ork, loaded as OpenRocket's
+/// harness loaded it, differs from OpenRocket's re-save (lineChanges() from the re-save to the
+/// save, both with the creator set aside and the ids the loaders drew numbered:
+/// withDrawnIdsNumbered()). Every other file is saved as OpenRocket re-saved it.
+struct LegacySaveChanges
+{
+    std::string_view input;
+    std::string_view changes;
+};
+
+/// The references to presets of SEMROC that v1.5-preset-usage.ork names, and a copy of it with
+/// its decal images, which the six presets of the legacy files' environment do not hold (as
+/// OpenRocket's test environment does not): OpenRocket's loader warns and forgets them, so its
+/// re-save has none; QtRocket's warns and keeps them, and writes them back (decision U8 of
+/// 2026-10-08), each after the <id> of its component.
+constexpr std::string_view kSemrocReferences =
+    "+ <preset type=\"NOSE_CONE\" manufacturer=\"SEMROC Astronautics\" partno=\"BNC-55F\" "
+    "digest=\"b2ffefd485ea774f3c63322e1b8820b3\"/>\n"
+    "+ <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" partno=\"BT-55\" "
+    "digest=\"3c547f48d153d6bef75cf178357e3fc7\"/>\n"
+    "+ <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC Astronautics\" partno=\"RA-5055\" "
+    "digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+    "+ <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC Astronautics\" partno=\"RA-5055\" "
+    "digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+    "+ <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" partno=\"BT-50J\" "
+    "digest=\"4dd60fdb119e05990a4903fc36e67bf9\"/>\n"
+    "+ <preset type=\"LAUNCH_LUG\" manufacturer=\"SEMROC Astronautics\" partno=\"LL-117\" "
+    "digest=\"a0af9e35fb430dda0ca561850ce3921e\"/>\n"
+    "+ <preset type=\"PARACHUTE\" manufacturer=\"SEMROC Astronautics\" partno=\"PN-18\" "
+    "digest=\"57273aa3aefaad85242e3b591e847671\"/>\n";
+
+constexpr std::array<LegacySaveChanges, 4> kLegacySaveChanges{{
+    {.input = "legacy-v1-5-preset-usage", .changes = kSemrocReferences},
+    {.input = "legacy-v1-6-preset-usage-decals-first", .changes = kSemrocReferences},
+    // The roll control script of OpenRocket's example, stored enabled in two simulations, which
+    // OpenRocket trusts by its hash and keeps enabled; QtRocket runs no script and disables every
+    // script with code on load (decisions D1 and E4), so its save writes them disabled. And the
+    // extension of the id net.sf.openrocket.simulation.extension.impl.AirStart, which no provider
+    // knows today: OpenRocket's loader warns and drops it, QtRocket's warns and keeps it with its
+    // configuration (decision D11), so its save writes it back.
+    {.input   = "legacy-v1-7-simulation-extensions-and-scripting",
+     .changes = "- <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
+                "+ <entry key=\"enabled\" type=\"boolean\">false</entry>\n"
+                "+ <extension extensionid=\"info.openrocket.core.simulation.extension.impl."
+                "AirStart\">\n"
+                "+ <entry key=\"launchAltitude\" type=\"number\">1000.0</entry>\n"
+                "+ </extension>\n"
+                "- <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
+                "+ <entry key=\"enabled\" type=\"boolean\">false</entry>\n"},
+    // A reference to a body tube of FlisKits, as kSemrocReferences.
+    {.input   = "legacy-v1-7-tube-fin",
+     .changes = "+ <preset type=\"BODY_TUBE\" manufacturer=\"FlisKits\" partno=\"BT-50-18\" "
+                "digest=\"e64b2b02cb13361924b3d78c0a68911d\"/>\n"},
+}};
+
+/// The changes of kLegacySaveChanges for @p input, or none.
+[[nodiscard]] std::string_view legacySaveChangesOf(std::string_view input)
+{
+    for (const LegacySaveChanges& changes : kLegacySaveChanges)
+    {
+        if (changes.input == input)
+        {
+            return changes.changes;
+        }
+    }
+    return {};
+}
+
+/// What the saves of the legacy files gave, beyond what SavesCompared counts.
+struct LegacySaves
+{
+    int         loadWarnings{0};    ///< the warnings of the loads
+    std::size_t differingLines{0};  ///< the lines that differ where they stand (compareOrkTexts())
+    std::size_t changedLines{0};    ///< the lines of the changes (kLegacySaveChanges)
+};
+
+/// Loads the legacy file of @p input in an environment of its own (that of the harness's legacy
+/// files: the bundled motor database, the six presets of the examples, OpenRocket's test
+/// preferences), saves it without simulation data and compares the save with OpenRocket's
+/// re-save (kLegacySaveChanges). Adds the comparison to @p saves; returns the problems.
+[[nodiscard]] std::string legacySaveProblems(const QtRocket::Test::ResaveInput& input,
+                                             SavesCompared& saves, LegacySaves& legacy)
+{
+    const DesignFileEnvironment  environment;
+    const std::filesystem::path  file = QtRocket::Test::legacyFileOf(input);
+    const GeneralRocketLoader    loader(environment.context());
+    const Result<LoadedDocument> loaded = loader.load(file);
+    const Result<std::string>    resave =
+        QtRocket::readTextFile(QtRocket::Test::goldensDir() / input.resave);
+    if (!loaded || !resave)
+    {
+        return std::format("{}: no load or no re-save\n", input.name);
+    }
+    legacy.loadWarnings += static_cast<int>(loaded->warnings.size());
+    WarningSet        warnings;
+    const std::string saved =
+        saveWithoutData(*loaded->document, environment.preferences(), warnings);
+    const std::string       original   = QtRocket::Test::documentOfDesignFile(file);
+    const std::string       ours       = withDrawnIdsNumbered(withoutCreator(saved), original);
+    const std::string       theirs     = withDrawnIdsNumbered(withoutCreator(*resave), original);
+    const OrkTextComparison comparison = countedComparison(saves, ours, theirs);
+    legacy.differingLines += comparison.differing;
+    const std::string changes = lineChanges(theirs, ours);
+    legacy.changedLines += lineViewsOf(changes).size();
+    std::string problems;
+    if (!warnings.empty())
+    {
+        problems += std::format("{}: {} save warnings\n", input.name, warnings.size());
+    }
+    if (changes != legacySaveChangesOf(input.name))
+    {
+        problems += std::format("{}: the save differs from the re-save in\n{}where it is to in\n{}",
+                                input.name, changes, legacySaveChangesOf(input.name));
+    }
+    return problems;
+}
+
+/// legacySaveProblems() of each legacy file of the manifest.
+[[nodiscard]] std::string saveTheLegacyFiles(SavesCompared& saves, LegacySaves& legacy)
+{
+    std::string problems;
+    for (const QtRocket::Test::ResaveInput& input :
+         QtRocket::Test::resaveInputsOf(QtRocket::Test::kLegacyKind, problems))
+    {
+        problems += legacySaveProblems(input, saves, legacy);
+    }
+    return problems;
+}
+
+// The eighteen design files of tests/data/ork (OpenRocket 0.9 to 23.09, the file formats 1.0 to
+// 1.9), each loaded as the harness loaded it (22 warnings of the loads) and saved without
+// simulation data, are OpenRocket's re-saves of them, line for line (8405 lines with 306
+// components, 39 motors, 36 simulations and 25 stored warnings; the ids the loaders drew
+// numbered), but for the 22 lines of kLegacySaveChanges: the 15 references to presets QtRocket
+// keeps, the two scripts it disables and the extension it keeps.
+TEST(OrkResaveDiffGolden, TheLegacyFilesAreSavedAsOpenRocketResavedThem)
+{
+    SavesCompared saves;
+    LegacySaves   legacy;
+    EXPECT_EQ(saveTheLegacyFiles(saves, legacy), "");
+    EXPECT_EQ(saves.designs, 18);
+    EXPECT_EQ(saves.lines, 8405U);
+    EXPECT_EQ(saves.byValue, 0U);
+    EXPECT_EQ(saves.components, 306U);
+    EXPECT_EQ(saves.presets, 15U);
+    EXPECT_EQ(saves.motors, 39U);
+    EXPECT_EQ(saves.simulations, 36U);
+    EXPECT_EQ(saves.warnings, 25U);
+    EXPECT_EQ(legacy.loadWarnings, 22);
+    EXPECT_EQ(legacy.changedLines, 22U);
+}
+
+// ====================================================================== the coverage documents
+
+/// Loads the re-save of the coverage document @p input in an environment of its own, saves it
+/// with or without its simulation data as the harness saved it and compares the save with the
+/// re-save, the whole text. Adds the comparison to @p saves; returns the problems.
+[[nodiscard]] std::string coverageSaveProblems(const QtRocket::Test::ResaveInput& input,
+                                               SavesCompared&                     saves)
+{
+    const DesignFileEnvironment  environment;
+    const std::filesystem::path  file = QtRocket::Test::goldensDir() / input.resave;
+    const GeneralRocketLoader    loader(environment.context());
+    const Result<LoadedDocument> loaded = loader.load(file);
+    const Result<std::string>    resave = QtRocket::readTextFile(file);
+    if (!loaded || !resave)
+    {
+        return std::format("{}: no load or no re-save\n", input.name);
+    }
+    WarningSet        warnings;
+    const std::string saved =
+        saveOf(*loaded->document, environment.preferences(), warnings, input.saveSimulationData);
+    compareSaves(saves, input.name, saved, *resave);
+    if (!loaded->warnings.empty() || !warnings.empty())
+    {
+        return std::format("{}: {} load warnings, {} save warnings\n", input.name,
+                           loaded->warnings.size(), warnings.size());
+    }
+    return {};
+}
+
+/// coverageSaveProblems() of each coverage document of the manifest.
+[[nodiscard]] std::string saveTheCoverageDocuments(SavesCompared& saves)
+{
+    std::string problems;
+    for (const QtRocket::Test::ResaveInput& input :
+         QtRocket::Test::resaveInputsOf(QtRocket::Test::kCoverageKind, problems))
+    {
+        problems += coverageSaveProblems(input, saves);
+    }
+    return problems;
+}
+
+// The saver-coverage documents of the harness (CoverageDocuments.java: what no other re-save
+// holds, with them every element and attribute name OpenRocket's saver writes), loaded from
+// their re-saves without a warning and saved again without one, are their re-saves, every one of
+// the 674 lines (20 components, 2 simulations, a stored warning).
+TEST(OrkResaveDiffGolden, TheCoverageDocumentsAreSavedAsOpenRocketResavedThem)
+{
+    SavesCompared saves;
+    EXPECT_EQ(saveTheCoverageDocuments(saves), "");
+    EXPECT_EQ(saves.problems, "");
+    EXPECT_EQ(saves.designs, 2);
+    EXPECT_EQ(saves.lines, 674U);
+    EXPECT_EQ(saves.byValue, 0U);
+    EXPECT_EQ(saves.components, 20U);
+    EXPECT_EQ(saves.simulations, 2U);
+    EXPECT_EQ(saves.warnings, 1U);
 }
 
 /// A rocket element of a few lines, with the root around it.

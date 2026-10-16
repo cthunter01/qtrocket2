@@ -3,6 +3,7 @@ package info.qtrocket.goldens;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,9 +21,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import java.util.zip.Deflater;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
@@ -41,6 +48,7 @@ import info.openrocket.core.document.OpenRocketDocumentFactory;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.document.StorageOptions;
 import info.openrocket.core.file.GeneralRocketLoader;
+import info.openrocket.core.file.GeneralRocketSaver;
 import info.openrocket.core.file.openrocket.OpenRocketSaver;
 import info.openrocket.core.logging.ErrorSet;
 import info.openrocket.core.logging.WarningSet;
@@ -58,6 +66,7 @@ import info.openrocket.core.simulation.SimulationOptions;
 import info.openrocket.core.simulation.SimulationStepperMethod;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.util.BuildProperties;
+import info.openrocket.core.util.DecalNotFoundException;
 import info.openrocket.core.util.GeodeticComputationStrategy;
 import info.openrocket.core.util.TestRockets;
 
@@ -65,7 +74,7 @@ import info.openrocket.core.util.TestRockets;
  * Dumps OpenRocket reference data ("goldens") for the C++ port. See README.md for what is dumped,
  * the file formats and how to regenerate.
  * <p>
- * Usage: {@code GoldenDumper --openrocket <checkout> --examples <dir> --out <dir> --work <dir>
+ * Usage: {@code GoldenDumper --openrocket <checkout> --examples <dir> --legacy <dir> --out <dir> --work <dir>
  * [--commit <hash>] [--preset-commit <hash>] [--dirty true|false]
  * [--stable-examples documents|full|none] [--uuid-salt <text>] [--last-bit <pattern>]
  * [--only <input name>]...}
@@ -78,6 +87,29 @@ public final class GoldenDumper {
 	/** Output directory prefixes owned by this dumper (anything else in the output directory is kept). */
 	private static final String EXAMPLE_PREFIX = "example-";
 	private static final String TEST_ROCKET_PREFIX = "testrocket-";
+	/** The re-saves of the design files of tests/data/ork (the legacy files). */
+	private static final String LEGACY_PREFIX = "legacy-";
+	/** The re-saves of the saver-coverage documents ({@link CoverageDocuments}). */
+	private static final String COVERAGE_PREFIX = "coverage-";
+
+	/**
+	 * The examples whose re-save WITH simulation data is dumped as well ({@code resave-data/rocket.ork.gz}).
+	 * Between them they hold stored events of every kind the examples have, stored warnings with their
+	 * sources, several branches (the boosters of "Deployable payload") and the 70 columns of "Pods--powered
+	 * with recovery deployment"; 0.4 MB compressed.
+	 */
+	private static final List<String> DATA_RESAVE_EXAMPLES = List.of("example-deployable-payload",
+			"example-pods-powered-with-recovery-deployment");
+
+	/**
+	 * The digests of the component presets of the environment of the legacy files: the six presets the
+	 * example designs name, which are the presets the C++ tests have (tests/core/rocket/preset/ExamplePresets.h)
+	 * until QtRocket reads preset files. With them OpenRocket finds what QtRocket finds, and its re-save of a
+	 * legacy file is what a port of its saver writes for QtRocket's load of the file.
+	 */
+	private static final Set<String> EXAMPLE_PRESET_DIGESTS = Set.of("e9c3e97d32e96762f65e051d74cb9fd7",
+			"b595c8a31baaf325291d5c957f3940f8", "9a96b8806749e790db29bacfbc70eb1e", "18363dec5642206a109389ef48efcb32",
+			"a59dec8e4034a2fee5955dbf4ff07f1c", "6f564a198c80de3af437608827fa1bc1");
 
 	/** The subdirectory of an input directory that holds the input's stable-step set. */
 	private static final String STABLE_DIR = "stable";
@@ -185,6 +217,8 @@ public final class GoldenDumper {
 	private static final class Arguments {
 		Path openrocket;
 		Path examples;
+		/** The directory of the legacy design files (tests/data/ork). */
+		Path legacy;
 		Path out;
 		Path work;
 		String commit = "unknown";
@@ -215,31 +249,29 @@ public final class GoldenDumper {
 		Arguments a = parse(args);
 		Path core = a.openrocket.resolve("core");
 
-		List<Path> exampleFiles;
-		try (Stream<Path> files = Files.list(a.examples)) {
-			exampleFiles = files.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ork"))
-					.sorted(Comparator.comparing(p -> p.getFileName().toString()))
-					.toList();
+		Map<String, Path> examplesByName = inputFiles(a.examples, EXAMPLE_PREFIX);
+		Map<String, Path> legacyByName = inputFiles(a.legacy, LEGACY_PREFIX);
+		Map<String, CoverageDocuments.Document> coverageByName = new LinkedHashMap<>();
+		for (Map.Entry<String, CoverageDocuments.Document> entry : CoverageDocuments.DOCUMENTS.entrySet()) {
+			coverageByName.put(COVERAGE_PREFIX + entry.getKey(), entry.getValue());
 		}
-		Map<String, Path> examplesByName = new LinkedHashMap<>();
-		for (Path file : exampleFiles) {
-			String stem = file.getFileName().toString().replaceFirst("[.][^.]+$", "");
-			if (examplesByName.put(EXAMPLE_PREFIX + slug(stem), file) != null) {
-				throw new IllegalStateException("Two example files have the input name " + EXAMPLE_PREFIX + slug(stem));
-			}
-		}
-		checkOnlyNames(a.only, examplesByName.keySet());
+		List<String> fileInputs = new ArrayList<>(examplesByName.keySet());
+		fileInputs.addAll(legacyByName.keySet());
+		fileInputs.addAll(coverageByName.keySet());
+		checkOnlyNames(a.only, fileInputs);
 
-		Map<String, Object> databases = bootstrap(core, useProcessDirectory(a.work));
+		Path processDirectory = useProcessDirectory(a.work);
+		Environment environment = bootstrap(core, processDirectory);
 
 		List<Map<String, Object>> inputs = new ArrayList<>();
+		List<Object> withData = Json.array();
 		cleanOutput(a.out, a.only);
 		for (Map.Entry<String, Path> example : examplesByName.entrySet()) {
 			String name = example.getKey();
 			if (!a.only.isEmpty() && !a.only.contains(name)) {
 				continue;
 			}
-			inputs.add(dumpExample(a, name, example.getValue()));
+			inputs.add(dumpExample(a, name, example.getValue(), withData));
 		}
 		for (Map.Entry<String, Supplier<Rocket>> entry : TEST_ROCKETS.entrySet()) {
 			String name = TEST_ROCKET_PREFIX + entry.getKey();
@@ -249,8 +281,34 @@ public final class GoldenDumper {
 			inputs.add(dumpTestRocket(a, name, entry.getKey(), entry.getValue()));
 		}
 
+		// The inputs of the re-saves alone, after every other input: nothing they do can change a file of
+		// the inputs above (they switch the injector, and load files no other input loads).
+		List<Object> resaveInputs = Json.array();
+		Injector legacyInjector = null;
+		for (Map.Entry<String, Path> legacy : legacyByName.entrySet()) {
+			String name = legacy.getKey();
+			if (!a.only.isEmpty() && !a.only.contains(name)) {
+				continue;
+			}
+			if (legacyInjector == null) {
+				legacyInjector = legacyInjector(environment);
+			}
+			resaveInputs.add(dumpLegacy(a, name, legacy.getValue(), legacyInjector, processDirectory));
+		}
+		for (Map.Entry<String, CoverageDocuments.Document> coverage : coverageByName.entrySet()) {
+			String name = coverage.getKey();
+			if (!a.only.isEmpty() && !a.only.contains(name)) {
+				continue;
+			}
+			resaveInputs.add(dumpCoverage(a, name, coverage.getValue(), processDirectory));
+		}
+
 		if (a.only.isEmpty()) {
-			writeManifest(a, databases, inputs);
+			Map<String, Object> resaves = Json.object();
+			resaves.put("legacyPresetDigests", new ArrayList<Object>(new TreeSet<>(EXAMPLE_PRESET_DIGESTS)));
+			resaves.put("withData", withData);
+			resaves.put("inputs", resaveInputs);
+			writeManifest(a, environment.databases(), inputs, resaves);
 		} else {
 			log("--only given: manifest.json not written");
 		}
@@ -268,6 +326,7 @@ public final class GoldenDumper {
 			switch (option) {
 				case "--openrocket" -> a.openrocket = Path.of(value).toAbsolutePath().normalize();
 				case "--examples" -> a.examples = Path.of(value).toAbsolutePath().normalize();
+				case "--legacy" -> a.legacy = Path.of(value).toAbsolutePath().normalize();
 				case "--out" -> a.out = Path.of(value).toAbsolutePath().normalize();
 				case "--work" -> a.work = Path.of(value).toAbsolutePath().normalize();
 				case "--commit" -> a.commit = value;
@@ -280,9 +339,9 @@ public final class GoldenDumper {
 				default -> throw new IllegalArgumentException("Unknown option " + option);
 			}
 		}
-		if (a.openrocket == null || a.examples == null || a.out == null || a.work == null) {
+		if (a.openrocket == null || a.examples == null || a.legacy == null || a.out == null || a.work == null) {
 			throw new IllegalArgumentException(
-					"Usage: GoldenDumper --openrocket <dir> --examples <dir> --out <dir> --work <dir> "
+					"Usage: GoldenDumper --openrocket <dir> --examples <dir> --legacy <dir> --out <dir> --work <dir> "
 							+ "[--commit <hash>] [--preset-commit <hash>] [--dirty true|false] "
 							+ "[--stable-examples documents|full|none] [--uuid-salt <text>] "
 							+ "[--last-bit <pattern>] [--only <name>]...");
@@ -299,11 +358,32 @@ public final class GoldenDumper {
 	}
 
 	/**
+	 * The design files of {@code directory} (the names ending in .ork, in any case), sorted by file name, by
+	 * their input names: {@code prefix} and the {@link #slug} of the file name without its extension.
+	 */
+	private static Map<String, Path> inputFiles(Path directory, String prefix) throws IOException {
+		List<Path> files;
+		try (Stream<Path> list = Files.list(directory)) {
+			files = list.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ork"))
+					.sorted(Comparator.comparing(p -> p.getFileName().toString()))
+					.toList();
+		}
+		Map<String, Path> byName = new LinkedHashMap<>();
+		for (Path file : files) {
+			String stem = file.getFileName().toString().replaceFirst("[.][^.]+$", "");
+			if (byName.put(prefix + slug(stem), file) != null) {
+				throw new IllegalStateException("Two design files have the input name " + prefix + slug(stem));
+			}
+		}
+		return byName;
+	}
+
+	/**
 	 * Fails (before anything is deleted or written) when an {@code --only} name matches no input, listing
 	 * the valid names: a typo would otherwise skip every input and still report success.
 	 */
-	private static void checkOnlyNames(Set<String> only, Set<String> exampleNames) {
-		List<String> valid = new ArrayList<>(exampleNames);
+	private static void checkOnlyNames(Set<String> only, List<String> otherNames) {
+		List<String> valid = new ArrayList<>(otherNames);
 		for (String key : TEST_ROCKETS.keySet()) {
 			valid.add(TEST_ROCKET_PREFIX + key);
 		}
@@ -366,9 +446,10 @@ public final class GoldenDumper {
 	 * of {@link #presetFiles}, sorted) and the bundled thrust curve database (initial_motors.db, read
 	 * with ThrustCurveMotorSQLiteDatabase from a private copy in {@code processDirectory}, the
 	 * directory of this process: a copy at a path that every dumper shares could be replaced by a
-	 * concurrent one while this one reads it).
+	 * concurrent one while this one reads it). Returns the databases with their description for the
+	 * manifest.
 	 */
-	private static Map<String, Object> bootstrap(Path core, Path processDirectory) throws Exception {
+	private static Environment bootstrap(Path core, Path processDirectory) throws Exception {
 		// BaseTestCase.setUp()
 		Module testModule = new ServicesForTesting();
 		Application.setInjector(Guice.createInjector(Modules.override(testModule).with(new PluginModule())));
@@ -420,7 +501,48 @@ public final class GoldenDumper {
 		o.put("presetFileSha256", presetSha256);
 		o.put("presetCount", presets.listAll().size());
 		log("motor database: " + motorList.size() + " motors; presets: " + presets.listAll().size());
-		return o;
+		return new Environment(o, presets, motors);
+	}
+
+	/**
+	 * The databases of the run: the component presets and the motors the harness's injector binds, with
+	 * their description for the manifest ({@code databases}).
+	 */
+	private record Environment(Map<String, Object> databases, ComponentPresetDatabase presets,
+			ThrustCurveMotorSetDatabase motors) {
+	}
+
+	/**
+	 * The injector of the legacy files: the harness's, with the presets of {@link #EXAMPLE_PRESET_DIGESTS}
+	 * alone (taken from the harness's preset database, which has to hold each of them once). Made after
+	 * every input of the other kinds is written, so that nothing it does at its creation can touch them.
+	 */
+	private static Injector legacyInjector(Environment environment) {
+		List<ComponentPreset> chosen = new ArrayList<>();
+		Set<String> digests = new TreeSet<>();
+		for (ComponentPreset preset : environment.presets().listAll()) {
+			if (EXAMPLE_PRESET_DIGESTS.contains(preset.getDigest())) {
+				chosen.add(preset);
+				digests.add(preset.getDigest());
+			}
+		}
+		if (chosen.size() != EXAMPLE_PRESET_DIGESTS.size() || !digests.equals(EXAMPLE_PRESET_DIGESTS)) {
+			throw new IllegalStateException("The preset database holds " + chosen.size()
+					+ " presets of the example designs' digests, not each of the six once: " + digests);
+		}
+		ComponentPresetDatabase examplePresets = new ComponentPresetDatabase();
+		examplePresets.addAll(chosen);
+		ThrustCurveMotorSetDatabase motors = environment.motors();
+		Module dbOverrides = new AbstractModule() {
+			@Override
+			protected void configure() {
+				bind(ComponentPresetDao.class).toInstance(examplePresets);
+				bind(ThrustCurveMotorSetDatabase.class).toInstance(motors);
+				bind(MotorDatabase.class).to(ThrustCurveMotorSetDatabase.class);
+			}
+		};
+		return Guice.createInjector(Modules.override(new ServicesForTesting()).with(dbOverrides),
+				new PluginModule());
 	}
 
 	/** The build copy of the preset submodule inside core/src/main/resources/datafiles/components. */
@@ -462,7 +584,12 @@ public final class GoldenDumper {
 	// ---------------------------------------------------------------------------------------------
 	// Inputs
 
-	private static Map<String, Object> dumpExample(Arguments a, String name, Path file) throws Exception {
+	/**
+	 * Dumps the example {@code file} (its passes) and, for an example of {@link #DATA_RESAVE_EXAMPLES}, its
+	 * re-save with simulation data, whose manifest entry goes to {@code withData}.
+	 */
+	private static Map<String, Object> dumpExample(Arguments a, String name, Path file, List<Object> withData)
+			throws Exception {
 		log(name);
 		Map<String, Object> entry = Json.object();
 		entry.put("name", name);
@@ -478,6 +605,174 @@ public final class GoldenDumper {
 			List<Object> stableSimulations = examplePass(a, name, file, Pass.STABLE, entry);
 			entry.put("stableSimulations", stableSimulations);
 		}
+		if (DATA_RESAVE_EXAMPLES.contains(name)) {
+			withData.add(resaveWithData(a, name, file));
+		}
+		return entry;
+	}
+
+	/**
+	 * {@code <input>/resave-data/rocket.ork.gz}: OpenRocketSaver's XML of the example as loaded WITH its
+	 * simulation data ({@code StorageOptions.setSaveSimulationData(true)}), gzip-compressed. It is the first
+	 * save of a load of its own, made after the passes over the example: the saves of one loaded design can
+	 * differ (a save stores the automatic dimensions its getters compute), and the passes change nothing
+	 * they wrote. Returns the entry of {@code resaves.withData} of the manifest.
+	 */
+	private static Map<String, Object> resaveWithData(Arguments a, String name, Path file) throws Exception {
+		log(name + ": re-save with simulation data");
+		DeterministicUuids.reseed(name + "/resave-data" + a.uuidSalt);
+		OpenRocketDocument doc = new GeneralRocketLoader(file.toFile()).load();
+		String path = name + "/resave-data/rocket.ork.gz";
+		writeGzip(a.out.resolve(path), saveXml(doc, true));
+		Map<String, Object> entry = Json.object();
+		entry.put("input", name);
+		entry.put("resave", path);
+		return entry;
+	}
+
+	/**
+	 * {@code legacy-<name>/resave/rocket.ork}: OpenRocketSaver's XML of the design file {@code file} of
+	 * tests/data/ork as loaded, without simulation data (as {@link #resave}), in the environment of the
+	 * legacy files (the harness's with the six presets of the example designs alone: {@link #legacyInjector}).
+	 * An archive whose first entry is not the document is loaded packed again with its document first
+	 * ({@link #documentFirst}). Then GeneralRocketSaver saves the loaded design as an .ork archive with
+	 * the simulation data: the manifest entry records the names of the archive's entries, or the decal
+	 * whose image could not be found.
+	 */
+	private static Map<String, Object> dumpLegacy(Arguments a, String name, Path file, Injector legacyInjector,
+			Path processDirectory) throws Exception {
+		log(name);
+		Map<String, Object> entry = Json.object();
+		entry.put("name", name);
+		entry.put("kind", "legacy");
+		entry.put("source", "tests/data/ork/" + file.getFileName());
+		entry.put("sourceSha256", sha256(file));
+		Injector harnessInjector = Application.getInjector();
+		Application.setInjector(legacyInjector);
+		try {
+			DeterministicUuids.reseed(name + a.uuidSalt);
+			Path loaded = documentFirst(file, processDirectory);
+			entry.put("documentEntryMovedFirst", !loaded.equals(file));
+			OpenRocketDocument doc = new GeneralRocketLoader(loaded.toFile()).load();
+			resave(Pass.DEFAULT, a.out.resolve(name), doc);
+			entry.put("resave", name + "/resave/rocket.ork");
+			Path archive = processDirectory.resolve("archive.ork");
+			StorageOptions options = new StorageOptions();
+			options.setSaveSimulationData(true);
+			try {
+				new GeneralRocketSaver().save(archive.toFile(), doc, options);
+				entry.put("archiveEntries", new ArrayList<Object>(entryNames(archive)));
+				entry.put("archiveError", null);
+			} catch (DecalNotFoundException e) {
+				// Its message holds the absolute path of the file it looked for: the name of the decal only.
+				entry.put("archiveEntries", null);
+				entry.put("archiveError", "DecalNotFoundException: " + e.getDecal().getName());
+			} finally {
+				Files.deleteIfExists(archive);
+				if (!loaded.equals(file)) {
+					Files.delete(loaded);
+				}
+			}
+		} finally {
+			Application.setInjector(harnessInjector);
+		}
+		return entry;
+	}
+
+	/**
+	 * {@code file}, or, when it is a zip archive whose first entry is not named *.ork, a copy of it in the
+	 * directory {@code work} with its first *.ork entry moved in front, as tier 9c's RecordedProbe packs it
+	 * for RecordedOrkFiles.h. OpenRocket reads the first entry of an archive only and makes the empty rocket
+	 * of one whose first entry is a directory (v1.6-preset-usage-decals-first.ork); QtRocket takes the
+	 * first *.ork entry.
+	 */
+	private static Path documentFirst(Path file, Path work) throws IOException {
+		byte[] bytes = Files.readAllBytes(file);
+		if (bytes.length < 4 || bytes[0] != 'P' || bytes[1] != 'K' || bytes[2] != 3 || bytes[3] != 4) {
+			return file;
+		}
+		Map<String, byte[]> entries = new LinkedHashMap<>();
+		String document = null;
+		try (ZipInputStream in = new ZipInputStream(Files.newInputStream(file))) {
+			ZipEntry entry;
+			while ((entry = in.getNextEntry()) != null) {
+				entries.put(entry.getName(), entry.isDirectory() ? null : in.readAllBytes());
+				if (document == null && entry.getName().toLowerCase(Locale.ROOT).endsWith(".ork")) {
+					document = entry.getName();
+				}
+			}
+		}
+		if (document == null || entries.keySet().iterator().next().equals(document)) {
+			return file;
+		}
+		Path packed = work.resolve("repacked").resolve(file.getFileName().toString());
+		Files.createDirectories(packed.getParent());
+		try (OutputStream out = Files.newOutputStream(packed); ZipOutputStream zip = new ZipOutputStream(out)) {
+			zip.putNextEntry(new ZipEntry(document));
+			zip.write(entries.get(document));
+			zip.closeEntry();
+			for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+				if (entry.getKey().equals(document)) {
+					continue;
+				}
+				zip.putNextEntry(new ZipEntry(entry.getKey()));
+				if (entry.getValue() != null) {
+					zip.write(entry.getValue());
+				}
+				zip.closeEntry();
+			}
+		}
+		return packed;
+	}
+
+	/** The names of the entries of the zip archive {@code file}, in their order. */
+	private static List<String> entryNames(Path file) throws IOException {
+		List<String> names = new ArrayList<>();
+		try (ZipInputStream in = new ZipInputStream(Files.newInputStream(file))) {
+			ZipEntry entry;
+			while ((entry = in.getNextEntry()) != null) {
+				names.add(entry.getName());
+			}
+		}
+		return names;
+	}
+
+	/**
+	 * {@code coverage-<name>/resave/rocket.ork}: OpenRocketSaver's XML of a saver-coverage document
+	 * ({@link CoverageDocuments}) as built, with its simulation data when the document says so. The
+	 * document has to be a fixed point of OpenRocket's save and load: its save, loaded again without a
+	 * warning, saves as the same bytes; anything else fails the dump.
+	 */
+	private static Map<String, Object> dumpCoverage(Arguments a, String name, CoverageDocuments.Document document,
+			Path processDirectory) throws Exception {
+		log(name);
+		DeterministicUuids.reseed(name + a.uuidSalt);
+		OpenRocketDocument doc = document.builder().get();
+		byte[] saved = saveXml(doc, document.saveSimulationData());
+
+		Path copy = processDirectory.resolve("coverage.ork");
+		Files.write(copy, saved);
+		DeterministicUuids.reseed(name + "/reload" + a.uuidSalt);
+		GeneralRocketLoader loader = new GeneralRocketLoader(copy.toFile());
+		OpenRocketDocument reloaded = loader.load();
+		Files.delete(copy);
+		if (!loader.getWarnings().isEmpty()) {
+			throw new IllegalStateException(name + ": OpenRocket's load of the save warns: " + loader.getWarnings());
+		}
+		if (!Arrays.equals(saved, saveXml(reloaded, document.saveSimulationData()))) {
+			throw new IllegalStateException(name + " is no fixed point of OpenRocket's save and load");
+		}
+
+		Path file = a.out.resolve(name).resolve("resave/rocket.ork");
+		Files.createDirectories(file.getParent());
+		Files.write(file, saved);
+		Map<String, Object> entry = Json.object();
+		entry.put("name", name);
+		entry.put("kind", "coverage");
+		entry.put("source", CoverageDocuments.class.getName() + "." + document.method() + "()");
+		entry.put("sourceSha256", null);
+		entry.put("saveSimulationData", document.saveSimulationData());
+		entry.put("resave", name + "/resave/rocket.ork");
 		return entry;
 	}
 
@@ -604,9 +899,9 @@ public final class GoldenDumper {
 	 * {@code MultiLevelPinkNoiseWindModel} takes that level from the preferences that were current
 	 * when the class was loaded (here the test preferences, which answer 0), so it is set explicitly
 	 * to what an installed OpenRocket gives: one level at 0 m with the average wind's speed,
-	 * direction and standard deviation.
+	 * direction and standard deviation. The simulations of {@link CoverageDocuments} start from them too.
 	 */
-	private static SimulationOptions applicationDefaultOptions() {
+	static SimulationOptions applicationDefaultOptions() {
 		ApplicationDefaultsPreferences defaults = new ApplicationDefaultsPreferences();
 		SimulationOptions options = new DefaultSimulationOptionFactory(defaults).getDefault();
 		options.setTimeStep(defaults.getTimeStep());
@@ -681,8 +976,13 @@ public final class GoldenDumper {
 	 * without simulation data (StorageOptions.setSaveSimulationData(false)).
 	 */
 	private static void resave(Pass pass, Path dir, OpenRocketDocument doc) throws IOException {
+		writeOrVerify(pass, dir.resolve("resave/rocket.ork"), saveXml(doc, false));
+	}
+
+	/** OpenRocketSaver's XML of {@code doc}, with or without its simulation data. */
+	private static byte[] saveXml(OpenRocketDocument doc, boolean saveSimulationData) throws IOException {
 		StorageOptions options = new StorageOptions();
-		options.setSaveSimulationData(false);
+		options.setSaveSimulationData(saveSimulationData);
 		WarningSet warnings = new WarningSet();
 		ErrorSet errors = new ErrorSet();
 		ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
@@ -690,7 +990,20 @@ public final class GoldenDumper {
 		if (!errors.isEmpty()) {
 			throw new IOException("OpenRocketSaver reported errors: " + errors);
 		}
-		writeOrVerify(pass, dir.resolve("resave/rocket.ork"), out.toByteArray());
+		return out.toByteArray();
+	}
+
+	/** Writes {@code bytes} gzip-compressed at the best compression to {@code file}. */
+	private static void writeGzip(Path file, byte[] bytes) throws IOException {
+		Files.createDirectories(file.getParent());
+		try (OutputStream out = Files.newOutputStream(file);
+				GZIPOutputStream gzip = new GZIPOutputStream(out, 1 << 16) {
+					{
+						def.setLevel(Deflater.BEST_COMPRESSION);
+					}
+				}) {
+			gzip.write(bytes);
+		}
 	}
 
 	/**
@@ -718,7 +1031,8 @@ public final class GoldenDumper {
 		try (Stream<Path> list = Files.list(out)) {
 			dirs = list.filter(Files::isDirectory).filter(p -> {
 				String n = p.getFileName().toString();
-				boolean ours = n.startsWith(EXAMPLE_PREFIX) || n.startsWith(TEST_ROCKET_PREFIX);
+				boolean ours = n.startsWith(EXAMPLE_PREFIX) || n.startsWith(TEST_ROCKET_PREFIX)
+						|| n.startsWith(LEGACY_PREFIX) || n.startsWith(COVERAGE_PREFIX);
 				return ours && (only.isEmpty() || only.contains(n));
 			}).toList();
 		}
@@ -734,8 +1048,12 @@ public final class GoldenDumper {
 		}
 	}
 
-	private static void writeManifest(Arguments a, Map<String, Object> databases, List<Map<String, Object>> inputs)
-			throws IOException {
+	/**
+	 * Writes manifest.json. {@code resaves} holds what the re-saves of the legacy files and of the
+	 * saver-coverage documents and the re-saves with simulation data add (README.md, "resaves").
+	 */
+	private static void writeManifest(Arguments a, Map<String, Object> databases, List<Map<String, Object>> inputs,
+			Map<String, Object> resaves) throws IOException {
 		Map<String, Object> root = Json.object();
 		root.put("schema", "manifest");
 		root.put("schemaVersion", SCHEMA_VERSION);
@@ -790,6 +1108,7 @@ public final class GoldenDumper {
 		root.put("tolerances", tolerances);
 
 		root.put("inputs", new ArrayList<Object>(inputs));
+		root.put("resaves", resaves);
 		Json.write(a.out.resolve("manifest.json"), root);
 	}
 

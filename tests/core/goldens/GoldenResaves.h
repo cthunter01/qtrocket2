@@ -19,10 +19,19 @@
 //   (the user's decision U10 of 2026-10-08: JDK 17's longer forms of a double are the same
 //   number), and every other difference is reported, a carriage return or a changed order of
 //   elements included.
+// - The re-saves the manifest lists under "resaves" (tools/openrocket-goldens/README.md): those of
+//   the design files of tests/data/ork (the legacy files, kLegacyKind) and of the saver-coverage
+//   documents the harness builds (kCoverageKind), and the re-saves WITH simulation data of two
+//   examples (loadManifestResaves()); with what their comparisons need: the ids a loader drew
+//   numbered (withDrawnIdsNumbered()), the lines added and removed between two texts
+//   (lineChanges()) and the entries that differ between two archives (archiveChanges()):
+//   ork_resave_diff_golden_tests.cpp and tests/core/file/openrocket/legacy_ork_roundtrip_tests.cpp.
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -367,5 +376,104 @@ inline constexpr std::size_t kMaxReportedLines = 20;
 /// digit or '.' precedes it, with an optional '-', and is digits with an optional fraction and
 /// exponent ("E", an optional '-', digits): the digits inside a word (an id) are none.
 [[nodiscard]] bool sameByValue(std::string_view ours, std::string_view theirs);
+
+/// @p text with every UUID that @p original does not spell out (knownIds() of
+/// ComponentHandlerTestSupport.h) replaced by "drawn-id-<n>", numbered from 1 in the order of
+/// their first occurrence in @p text. A loader draws a random id for a component, a flight
+/// configuration or a simulation that the file names none for (the designs of the formats 1.0
+/// to 1.4), and a save writes it: two programs, or two loads, draw other ids, which this makes the
+/// same wherever they stand in the same places. An id of the file stays as it is.
+[[nodiscard]] std::string withDrawnIdsNumbered(std::string_view text, std::string_view original);
+
+/// The lines that are removed from @p before and added to @p after, a longest common
+/// subsequence of their lines apart, in the order of the texts: "- <line>" for a line of
+/// @p before alone and "+ <line>" for one of @p after alone, each without its indentation (the
+/// spaces in front) and ended by '\n'. A line that changed is a "-" line and a "+" line. Empty
+/// when the texts have the same lines. Texts too long to compare so (more than 25 million pairs
+/// of differing lines in the middle) give "<n> lines -> <m> lines".
+[[nodiscard]] std::string lineChanges(std::string_view before, std::string_view after);
+
+/// lineChanges() of two texts given as their lines.
+[[nodiscard]] std::string lineChanges(std::span<const std::string_view> before,
+                                      std::span<const std::string_view> after);
+
+/// What differs between the .ork archives @p first and @p second of one design: the names of
+/// their entries in their order, and the uncompressed bytes of each (an entry that differs is
+/// shown by changedLines() of its texts); empty when nothing does. Counts the entries of @p first
+/// into @p entries. (Decision O7 of tier 10: never the bytes of the archives themselves, which
+/// carry the time of the save and the deflate stream of the zlib at hand.)
+[[nodiscard]] std::string archiveChanges(std::span<const std::byte> first,
+                                         std::span<const std::byte> second, std::size_t& entries);
+
+// =============================== the re-saves of the legacy files and the coverage documents
+
+/// What the manifest's "resaves" calls the re-saves of the design files of tests/data/ork.
+inline constexpr std::string_view kLegacyKind = "legacy";
+/// ... and those of the saver-coverage documents the harness builds (CoverageDocuments.java).
+inline constexpr std::string_view kCoverageKind = "coverage";
+
+/// A re-save of "resaves.inputs" of the manifest. File names are relative to goldensDir().
+struct ResaveInput
+{
+    std::string name;  ///< "legacy-v1-6-apocd", "coverage-kitchen-sink"
+    std::string kind;  ///< kLegacyKind or kCoverageKind
+    /// The file of the repository a legacy re-save was made from ("tests/data/ork/<file>"), or
+    /// the method of the harness that builds a coverage document.
+    std::string source;
+    /// The SHA-256 of the legacy file, as 64 hexadecimal digits; empty for a coverage document.
+    std::string sourceSha256;
+    /// OpenRocket's re-save: OpenRocketSaver's XML of the design as loaded (as built), without
+    /// simulation data for a legacy file, with it where saveSimulationData says so.
+    std::string resave;
+    /// Whether the legacy file is an archive whose first entry is not the document, which the
+    /// harness gave OpenRocket packed again with the document first (OpenRocket reads the first
+    /// entry only; QtRocket takes the first *.ork entry, decision T3).
+    bool documentEntryMovedFirst{false};
+    /// Whether the re-save of a coverage document holds its simulation data (always false for a
+    /// legacy file).
+    bool saveSimulationData{false};
+    /// The entries of OpenRocket's .ork archive of a legacy file as loaded (GeneralRocketSaver,
+    /// with the simulation data), in their order; empty when it could not be saved.
+    std::vector<std::string> archiveEntries;
+    /// Why OpenRocket could not save that archive: "DecalNotFoundException: <the decal's name>";
+    /// empty when it could.
+    std::string archiveError;
+};
+
+/// A re-save WITH simulation data of an example ("resaves.withData"): OpenRocketSaver's XML of
+/// the first save of a load of the example, gzip-compressed.
+struct ResaveWithData
+{
+    std::string input;   ///< the example's golden input
+    std::string resave;  ///< the file, relative to goldensDir()
+};
+
+/// "resaves" of the manifest.
+struct ManifestResaves
+{
+    /// The digests of the component presets of the environment of the legacy files: the six of
+    /// the example designs (makeExamplePresetDatabase()), sorted.
+    std::vector<std::string>    legacyPresetDigests;
+    std::vector<ResaveWithData> withData;
+    std::vector<ResaveInput>    inputs;
+};
+
+/// Interprets "resaves" of the parsed manifest @p manifest (ErrorCode::PARSE when it is missing,
+/// a required field is missing or has the wrong type, or a kind is neither kLegacyKind nor
+/// kCoverageKind).
+[[nodiscard]] Result<ManifestResaves> parseManifestResaves(const nlohmann::json& manifest);
+
+/// "resaves" of goldensDir()/manifest.json, read once per test process.
+[[nodiscard]] const Result<ManifestResaves>& manifestResaves();
+
+/// The re-saves of the kind @p kind, in the manifest's order; the reason in @p problem when the
+/// manifest cannot be read.
+[[nodiscard]] std::vector<ResaveInput> resaveInputsOf(std::string_view kind, std::string& problem);
+
+/// The re-save with simulation data of the example input @p input, or null.
+[[nodiscard]] const ResaveWithData* resaveWithDataOf(std::string_view input);
+
+/// The file a legacy re-save was made from: its "source" in the repository.
+[[nodiscard]] std::filesystem::path legacyFileOf(const ResaveInput& input);
 
 }  // namespace QtRocket::Test

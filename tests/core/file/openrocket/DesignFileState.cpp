@@ -237,7 +237,8 @@ std::string loadedDocumentState(const Result<LoadedDocument>& loaded, const Load
 }
 
 std::vector<std::string> designFileState(DesignFileEnvironment&       environment,
-                                         const std::filesystem::path& file, StateDetail detail)
+                                         const std::filesystem::path& file, StateDetail detail,
+                                         std::string_view idsOf)
 {
     const DefaultUnitsGuard           units;
     const std::string                 document = documentOfDesignFile(file);
@@ -246,12 +247,12 @@ std::vector<std::string> designFileState(DesignFileEnvironment&       environmen
     const GeneralRocketLoader         loader(environment.context(), countingOptions(events));
     const Result<LoadedDocument>      loaded = loader.load(file);
     return linesOf(version + loadedDocumentState(loaded, *events, environment.preferences(),
-                                                 document, detail));
+                                                 idsOf.empty() ? document : idsOf, detail));
 }
 
 std::vector<std::string> designBytesState(const DesignFileEnvironment& environment,
                                           std::vector<std::byte> bytes, StateDetail detail,
-                                          const AsLoaded& asLoaded)
+                                          const AsLoaded& asLoaded, std::string_view idsOf)
 {
     const DefaultUnitsGuard           units;
     const std::string                 document = documentOfDesignBytes(bytes, "the design bytes");
@@ -264,7 +265,7 @@ std::vector<std::string> designBytesState(const DesignFileEnvironment& environme
         asLoaded(*loaded);
     }
     return linesOf(version + loadedDocumentState(loaded, *events, environment.preferences(),
-                                                 document, detail));
+                                                 idsOf.empty() ? document : idsOf, detail));
 }
 
 namespace

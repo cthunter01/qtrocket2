@@ -52,6 +52,8 @@
 #include "TestPaths.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenMismatches.h"
+#include "goldens/GoldenResaves.h"
+#include "rocket/preset/ExamplePresets.h"
 
 namespace
 {
@@ -61,6 +63,9 @@ using QtRocket::ErrorCode;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::GoldenManifest;
 using QtRocket::Test::GoldenSimulation;
+using QtRocket::Test::ManifestResaves;
+using QtRocket::Test::ResaveInput;
+using QtRocket::Test::ResaveWithData;
 
 constexpr std::size_t kExampleCount    = 16;
 constexpr std::size_t kTestRocketCount = 13;
@@ -341,6 +346,15 @@ std::set<std::string> listedFiles(const GoldenManifest& manifest)
                 listed.insert(simulation.json);
                 listed.insert(simulation.branches.begin(), simulation.branches.end());
             }
+        }
+    }
+    // The re-saves with simulation data of two examples, in their directories ("resaves").
+    const QtRocket::Result<ManifestResaves>& resaves = QtRocket::Test::manifestResaves();
+    if (resaves)
+    {
+        for (const ResaveWithData& data : resaves->withData)
+        {
+            listed.insert(data.resave);
         }
     }
     return listed;
@@ -1620,6 +1634,206 @@ TEST(GoldenSchema, EveryFileOfAnInputIsListed)
     {
         EXPECT_TRUE(std::filesystem::is_regular_file(QtRocket::Test::goldensDir() / file))
             << "listed but missing: " << file;
+    }
+}
+
+// ---- the re-saves of "resaves": the legacy files, the coverage documents, the saves with data
+// ----
+
+/// The declaration and the start of the root element of every re-save: OpenRocketSaver's, file
+/// version 1.11, by the OpenRocket of @p version (the manifest's "openrocket.version").
+[[nodiscard]] std::string resaveStart(std::string_view version)
+{
+    return std::format(
+        "<?xml version='1.0' encoding='utf-8'?>\n"
+        "<openrocket version=\"1.11\" creator=\"OpenRocket {}\">\n",
+        version);
+}
+
+/// What is wrong with the legacy re-save @p input, one line each: its name and its source (a
+/// design file of tests/data/ork, by its SHA-256), the archive OpenRocket saved of it (the entries
+/// or the error, rocket.ork first), the flag of a document that is not the first entry.
+[[nodiscard]] std::string legacyInputProblems(const ResaveInput& input)
+{
+    std::string                                    problems;
+    const std::filesystem::path                    file  = QtRocket::Test::legacyFileOf(input);
+    const QtRocket::Result<std::vector<std::byte>> bytes = QtRocket::readFile(file);
+    if (!input.name.starts_with("legacy-") || !input.source.starts_with("tests/data/ork/") ||
+        !bytes || QtRocket::sha256Hex(*bytes) != input.sourceSha256)
+    {
+        problems += std::format("{}: not the re-save of the file it names\n", input.name);
+    }
+    const bool apocd = file.filename() == "v1.6-apocd.ork";
+    if (apocd != !input.archiveError.empty() || apocd != input.archiveEntries.empty() ||
+        (!apocd && input.archiveEntries.front() != "rocket.ork"))
+    {
+        problems += std::format("{}: the archive is not as OpenRocket saves it\n", input.name);
+    }
+    if (input.documentEntryMovedFirst !=
+            (file.filename() == "v1.6-preset-usage-decals-first.ork") ||
+        input.saveSimulationData)
+    {
+        problems += std::format("{}: the flags are not those of the file\n", input.name);
+    }
+    return problems;
+}
+
+/// What is wrong with the files of the re-saves of @p resaves, one line each: a listed file that
+/// is missing, or is no plain re-save of OpenRocket @p version (a re-save with data: gzip).
+[[nodiscard]] std::string resaveFileProblems(const ManifestResaves& resaves,
+                                             std::string_view       version)
+{
+    std::string problems;
+    for (const ResaveInput& input : resaves.inputs)
+    {
+        const QtRocket::Result<std::string> text =
+            QtRocket::readTextFile(QtRocket::Test::goldensDir() / input.resave);
+        if (!text || !text->starts_with(resaveStart(version)) ||
+            input.resave != input.name + "/resave/rocket.ork")
+        {
+            problems += std::format("{}: not a re-save of OpenRocket {}\n", input.resave, version);
+        }
+    }
+    for (const ResaveWithData& data : resaves.withData)
+    {
+        const QtRocket::Result<std::vector<std::byte>> bytes =
+            QtRocket::readFile(QtRocket::Test::goldensDir() / data.resave);
+        const QtRocket::Result<std::vector<std::byte>> plain =
+            bytes ? QtRocket::gzipInflate(*bytes) : QtRocket::Result<std::vector<std::byte>>{};
+        if (!bytes || !plain ||
+            !QtRocket::bytesToString(*plain).starts_with(resaveStart(version)) ||
+            data.resave != data.input + "/resave-data/rocket.ork.gz")
+        {
+            problems +=
+                std::format("{}: not a gzip re-save of OpenRocket {}\n", data.resave, version);
+        }
+    }
+    return problems;
+}
+
+// The re-saves of "resaves" (tools/openrocket-goldens/README.md): one of each of the eighteen
+// design files of tests/data/ork (the legacy files, named after the file, made from the file of
+// the repository by its SHA-256; OpenRocket's archive of each, but for v1.6-apocd.ork, whose decal
+// images are no files), the two saver-coverage documents of the harness, and the re-saves with
+// simulation data of two examples. The legacy files are loaded with the six presets of the
+// examples: the digests are those of the presets of the tests.
+TEST(GoldenSchema, ManifestListsTheResaves)
+{
+    const GoldenManifest                     manifest = loadManifestOrFail();
+    const QtRocket::Result<ManifestResaves>& resaves  = QtRocket::Test::manifestResaves();
+    ASSERT_TRUE(resaves.has_value()) << resaves.error().toString();
+
+    std::set<std::string> names;
+    std::string           problems;
+    std::size_t           legacy   = 0;
+    std::size_t           coverage = 0;
+    for (const ResaveInput& input : resaves->inputs)
+    {
+        EXPECT_TRUE(names.insert(input.name).second) << "duplicate re-save " << input.name;
+        if (input.kind == QtRocket::Test::kLegacyKind)
+        {
+            problems += legacyInputProblems(input);
+            ++legacy;
+            continue;
+        }
+        EXPECT_TRUE(input.name.starts_with("coverage-") && input.sourceSha256.empty())
+            << input.name;
+        ++coverage;
+    }
+    EXPECT_EQ(problems, "");
+    EXPECT_EQ(legacy, 18U);
+    EXPECT_EQ(coverage, 2U);
+    EXPECT_EQ(resaveFileProblems(*resaves, manifest.openrocketVersion), "");
+
+    std::vector<std::string> inputs;
+    for (const ResaveWithData& data : resaves->withData)
+    {
+        inputs.push_back(data.input);
+        EXPECT_NE(manifest.find(data.input), nullptr) << data.input;
+    }
+    EXPECT_EQ(inputs, (std::vector<std::string>{"example-deployable-payload",
+                                                "example-pods-powered-with-recovery-deployment"}));
+
+    std::vector<std::string> digests;
+    digests.reserve(QtRocket::Test::kExamplePresetReferences.size());
+    for (const auto& reference : QtRocket::Test::kExamplePresetReferences)
+    {
+        digests.emplace_back(reference.digest);
+    }
+    std::ranges::sort(digests);
+    EXPECT_EQ(resaves->legacyPresetDigests, digests);
+}
+
+/// A directory name of the re-saves the dumper owns.
+bool isResaveDirectoryName(std::string_view name)
+{
+    return name.starts_with("legacy-") || name.starts_with("coverage-");
+}
+
+// Every directory of a re-save of "resaves" is one, and holds nothing but the re-save.
+TEST(GoldenSchema, EveryResaveDirectoryIsAResave)
+{
+    const QtRocket::Result<ManifestResaves>& resaves = QtRocket::Test::manifestResaves();
+    ASSERT_TRUE(resaves.has_value()) << resaves.error().toString();
+    std::set<std::string> listed;
+    for (const ResaveInput& input : resaves->inputs)
+    {
+        listed.insert(input.resave);
+    }
+    std::size_t directories = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(QtRocket::Test::goldensDir()))
+    {
+        const std::string name = entry.path().filename().string();
+        if (entry.is_directory() && isResaveDirectoryName(name))
+        {
+            ++directories;
+            expectDirectoryListed(name, listed);
+        }
+    }
+    EXPECT_EQ(directories, resaves->inputs.size());
+}
+
+// "resaves" of a manifest: the legacy and coverage re-saves with their fields, the re-saves with
+// data; a missing list, a field of the wrong type or a kind of no re-save is refused.
+TEST(GoldenData, ParsesTheResavesOfAManifest)
+{
+    const json                              manifest = json::parse(R"json({"resaves": {
+        "legacyPresetDigests": ["a", "b"],
+        "withData": [{"input": "example-x", "resave": "example-x/resave-data/rocket.ork.gz"}],
+        "inputs": [
+          {"name": "legacy-x", "kind": "legacy", "source": "tests/data/ork/x.ork",
+           "sourceSha256": "00", "documentEntryMovedFirst": true, "resave": "legacy-x/resave/rocket.ork",
+           "archiveEntries": null, "archiveError": "DecalNotFoundException: decals/y.png"},
+          {"name": "coverage-z", "kind": "coverage", "source": "Z.z()", "sourceSha256": null,
+           "saveSimulationData": true, "resave": "coverage-z/resave/rocket.ork"}]}})json");
+    const QtRocket::Result<ManifestResaves> resaves =
+        QtRocket::Test::parseManifestResaves(manifest);
+    ASSERT_TRUE(resaves.has_value()) << resaves.error().toString();
+    EXPECT_EQ(resaves->legacyPresetDigests, (std::vector<std::string>{"a", "b"}));
+    ASSERT_EQ(resaves->withData.size(), 1U);
+    EXPECT_EQ(resaves->withData[0].resave, "example-x/resave-data/rocket.ork.gz");
+    ASSERT_EQ(resaves->inputs.size(), 2U);
+    const ResaveInput& legacy = resaves->inputs[0];
+    EXPECT_TRUE(legacy.documentEntryMovedFirst);
+    EXPECT_FALSE(legacy.saveSimulationData);
+    EXPECT_TRUE(legacy.archiveEntries.empty());
+    EXPECT_EQ(legacy.archiveError, "DecalNotFoundException: decals/y.png");
+    EXPECT_EQ(QtRocket::Test::legacyFileOf(legacy),
+              QtRocket::Test::testDataDir() / "ork" / "x.ork");
+    EXPECT_TRUE(resaves->inputs[1].saveSimulationData);
+    EXPECT_EQ(resaves->inputs[1].sourceSha256, "");
+
+    json badKind                                               = manifest;
+    badKind["resaves"]["inputs"][1]["kind"]                    = "example";
+    json badEntries                                            = manifest;
+    badEntries["resaves"]["inputs"][0]["archiveEntries"]       = json::array({1});
+    json badFlag                                               = manifest;
+    badFlag["resaves"]["inputs"][0]["documentEntryMovedFirst"] = "yes";
+    json noInputs                                              = manifest;
+    noInputs["resaves"].erase("inputs");
+    for (const json& bad : {badKind, badEntries, badFlag, noInputs, json::object()})
+    {
+        EXPECT_EQ(errorCode(QtRocket::Test::parseManifestResaves(bad)), ErrorCode::PARSE) << bad;
     }
 }
 

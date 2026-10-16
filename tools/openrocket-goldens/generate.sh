@@ -155,7 +155,8 @@ out="$(cd "$out" && pwd)"
 "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
     -Dfile.encoding=UTF-8 \
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \
-    --openrocket "$openrocket" --examples "$repo/data/examples" --out "$out" --work "$work" \
+    --openrocket "$openrocket" --examples "$repo/data/examples" --legacy "$repo/tests/data/ork" \
+    --out "$out" --work "$work" \
     --commit "$commit" --preset-commit "$preset_commit" --dirty "$dirty" \
     --stable-examples "$stable_examples" --uuid-salt "$uuid_salt" --last-bit "$last_bit" \
     ${only[@]+"${only[@]}"}

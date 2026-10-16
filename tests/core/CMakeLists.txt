@@ -325,6 +325,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/IntSetterTests.cpp
     file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
+    file/openrocket/legacy_ork_roundtrip_tests.cpp
     file/openrocket/loader_bounds_tests.cpp
     file/openrocket/loader_value_sweep_tests.cpp
     file/openrocket/LoaderWarningsTests.cpp

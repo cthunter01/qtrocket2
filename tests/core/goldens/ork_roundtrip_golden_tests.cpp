@@ -71,11 +71,9 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/FileIo.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/openrocket/DesignFileState.h"
 #include "file/openrocket/ExampleOrkFiles.h"
@@ -96,8 +94,8 @@ using QtRocket::OpenRocketDocument;
 using QtRocket::Preferences;
 using QtRocket::Result;
 using QtRocket::Rocket;
-using QtRocket::ZipArchive;
 using QtRocket::Test::addResaveRun;
+using QtRocket::Test::archiveChanges;
 using QtRocket::Test::AsLoaded;
 using QtRocket::Test::changeToTheReload;
 using QtRocket::Test::CompactLine;
@@ -424,43 +422,6 @@ TEST(OrkRoundTripGolden, TheExamplesWithoutPresetsKeepTheirSixReferences)
 }
 
 // ========================================================================= the test rockets
-
-/// What differs between the archives @p first and @p second of one design: the names of their
-/// entries in their order, and the uncompressed bytes of each (a rocket.ork that differs is shown
-/// by its lines). Counts the entries of @p first into @p entries.
-[[nodiscard]] std::string archiveChanges(std::span<const std::byte> first,
-                                         std::span<const std::byte> second, std::size_t& entries)
-{
-    const Result<ZipArchive> a = ZipArchive::fromBytes(first);
-    const Result<ZipArchive> b = ZipArchive::fromBytes(second);
-    if (!a || !b)
-    {
-        return "an archive cannot be read\n";
-    }
-    entries += a->entries().size();
-    if (a->entries().size() != b->entries().size())
-    {
-        return std::format("{} entries -> {} entries\n", a->entries().size(), b->entries().size());
-    }
-    std::string changes;
-    for (std::size_t i = 0; i < a->entries().size(); ++i)
-    {
-        const ZipArchive::Entry& before = a->entries()[i];
-        const ZipArchive::Entry& after  = b->entries()[i];
-        if (before.name != after.name)
-        {
-            changes += std::format("entry {}: {} -> {}\n", i, before.name, after.name);
-        }
-        else if (before.data != after.data)
-        {
-            changes +=
-                std::format("{} changed\n{}", before.name,
-                            QtRocket::Test::changedLines(QtRocket::bytesToString(before.data),
-                                                         QtRocket::bytesToString(after.data)));
-        }
-    }
-    return changes;
-}
 
 /// What the round trips of the test rockets compared and found.
 struct TestRocketRoundTrips

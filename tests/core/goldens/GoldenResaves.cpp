@@ -6,10 +6,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <format>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <set>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,6 +26,7 @@
 
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/models/GravityModelType.h"
 #include "QtRocket/models/MultiLevelPinkNoiseWindModel.h"
 #include "QtRocket/models/PinkNoiseWindModel.h"
@@ -32,10 +38,14 @@
 #include "QtRocket/simulation/SimulationOptions.h"
 #include "QtRocket/simulation/SimulationStepperMethod.h"
 #include "QtRocket/util/Error.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/GeodeticComputationStrategy.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
+#include "QtRocket/util/Uuid.h"
+#include "TestPaths.h"
 #include "file/DesignFileEnvironment.h"
+#include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "goldens/AutomaticDimensions.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenDesign.h"
@@ -439,9 +449,12 @@ void compareTheEnds(std::string_view ours, std::string_view theirs, OrkTextCompa
     return environment;
 }
 
-/// @p loaded, a load with a loader of @p environment, with that environment; or its Error.
+/// @p loaded, a load with a loader of @p environment, moved out with that environment; or its
+/// Error. (@p loaded is taken by reference: GCC's -Wmaybe-uninitialized, in the ci-gcc build,
+/// takes the vector of warnings of a Result moved into a parameter for uninitialized once this
+/// file inlines it.)
 [[nodiscard]] Result<LoadedResave> asLoadedResave(
-    std::unique_ptr<DesignFileEnvironment> environment, Result<LoadedDocument> loaded)
+    std::unique_ptr<DesignFileEnvironment> environment, Result<LoadedDocument>& loaded)
 {
     if (!loaded)
     {
@@ -515,7 +528,7 @@ Result<LoadedResave> loadResave(const GoldenInput& input, PreparePreferences pre
     std::unique_ptr<DesignFileEnvironment> environment = testRocketEnvironment(prepare);
     const GeneralRocketLoader              loader(environment->context());
     Result<LoadedDocument> loaded = loader.load(QtRocket::Test::goldensDir() / input.resave);
-    return asLoadedResave(std::move(environment), std::move(loaded));
+    return asLoadedResave(std::move(environment), loaded);
 }
 
 Result<LoadedResave> loadTestRocketBytes(std::vector<std::byte> bytes, PreparePreferences prepare)
@@ -523,7 +536,7 @@ Result<LoadedResave> loadTestRocketBytes(std::vector<std::byte> bytes, PreparePr
     std::unique_ptr<DesignFileEnvironment> environment = testRocketEnvironment(prepare);
     const GeneralRocketLoader              loader(environment->context());
     Result<LoadedDocument>                 loaded = loader.load(std::move(bytes));
-    return asLoadedResave(std::move(environment), std::move(loaded));
+    return asLoadedResave(std::move(environment), loaded);
 }
 
 /// The inputs of the manifest that are rockets of TestRockets.java, in its order; the reason
@@ -808,6 +821,412 @@ OrkTextComparison compareOrkTexts(std::string_view ours, std::string_view theirs
             std::format("... and {} more lines\n", comparison.differing - kMaxReportedLines);
     }
     return comparison;
+}
+
+namespace
+{
+
+/// The length of a UUID as java.util.UUID.toString() writes it.
+constexpr std::size_t kUuidLength = 36;
+
+/// Whether @p c can be part of a UUID's text.
+[[nodiscard]] bool isUuidChar(char c) noexcept
+{
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == '-';
+}
+
+/// Whether @p text, kUuidLength characters, is a UUID as Java writes one: hexadecimal digits in
+/// groups of 8, 4, 4, 4 and 12, separated by '-'.
+[[nodiscard]] bool isUuidText(std::string_view text) noexcept
+{
+    for (std::size_t i = 0; i < text.size(); ++i)
+    {
+        const bool dash = i == 8 || i == 13 || i == 18 || i == 23;
+        if (dash != (text[i] == '-') || !isUuidChar(text[i]))
+        {
+            return false;
+        }
+    }
+    return text.size() == kUuidLength;
+}
+
+/// The line @p line without the spaces in front.
+[[nodiscard]] std::string_view withoutIndentation(std::string_view line)
+{
+    const std::size_t start = line.find_first_not_of(' ');
+    return start == std::string_view::npos ? std::string_view{} : line.substr(start);
+}
+
+/// The most pairs of lines lineChanges() compares (memory of four bytes each).
+constexpr std::size_t kMaxComparedPairs = 25'000'000;
+
+}  // namespace
+
+std::string withDrawnIdsNumbered(std::string_view text, std::string_view original)
+{
+    const std::set<Uuid>       known = knownIds(original);
+    std::map<std::string, int> numbers;
+    std::string                result;
+    std::size_t                i = 0;
+    while (i < text.size())
+    {
+        std::size_t end = i;
+        while (end < text.size() && isUuidChar(text[end]))
+        {
+            ++end;
+        }
+        if (end == i)
+        {
+            result += text[i++];
+            continue;
+        }
+        const std::string_view run = text.substr(i, end - i);
+        if (isUuidText(run) && !known.contains(Uuid::javaFromString(run).value_or(Uuid::nil())))
+        {
+            const auto [at, added] =
+                numbers.try_emplace(std::string(run), static_cast<int>(numbers.size()) + 1);
+            result += std::format("drawn-id-{}", at->second);
+        }
+        else
+        {
+            result += run;
+        }
+        i = end;
+    }
+    return result;
+}
+
+std::string lineChanges(std::span<const std::string_view> before,
+                        std::span<const std::string_view> after)
+{
+    // The lines both start and end with stay out of the table.
+    std::size_t start = 0;
+    while (start < before.size() && start < after.size() && before[start] == after[start])
+    {
+        ++start;
+    }
+    std::size_t endBefore = before.size();
+    std::size_t endAfter  = after.size();
+    while (endBefore > start && endAfter > start && before[endBefore - 1] == after[endAfter - 1])
+    {
+        --endBefore;
+        --endAfter;
+    }
+    const std::size_t n = endBefore - start;
+    const std::size_t m = endAfter - start;
+    if ((n + 1) * (m + 1) > kMaxComparedPairs)
+    {
+        return std::format("{} lines -> {} lines\n", before.size(), after.size());
+    }
+    // common[i * (m + 1) + j]: the length of a longest common subsequence of the lines of the
+    // middle of before from i and of the middle of after from j.
+    std::vector<std::uint32_t> common((n + 1) * (m + 1), 0);
+    for (std::size_t i = n; i-- > 0;)
+    {
+        for (std::size_t j = m; j-- > 0;)
+        {
+            common[(i * (m + 1)) + j] =
+                before[start + i] == after[start + j]
+                    ? common[((i + 1) * (m + 1)) + j + 1] + 1
+                    : std::max(common[((i + 1) * (m + 1)) + j], common[(i * (m + 1)) + j + 1]);
+        }
+    }
+    std::string changes;
+    std::size_t i = 0;
+    std::size_t j = 0;
+    while (i < n || j < m)
+    {
+        if (i < n && j < m && before[start + i] == after[start + j])
+        {
+            ++i;
+            ++j;
+        }
+        else if (j == m ||
+                 (i < n && common[((i + 1) * (m + 1)) + j] >= common[(i * (m + 1)) + j + 1]))
+        {
+            changes += std::format("- {}\n", withoutIndentation(before[start + i++]));
+        }
+        else
+        {
+            changes += std::format("+ {}\n", withoutIndentation(after[start + j++]));
+        }
+    }
+    return changes;
+}
+
+std::string lineChanges(std::string_view before, std::string_view after)
+{
+    const std::vector<std::string_view> a = lineViewsOf(before);
+    const std::vector<std::string_view> b = lineViewsOf(after);
+    return lineChanges(a, b);
+}
+
+std::string archiveChanges(std::span<const std::byte> first, std::span<const std::byte> second,
+                           std::size_t& entries)
+{
+    const Result<ZipArchive> a = ZipArchive::fromBytes(first);
+    const Result<ZipArchive> b = ZipArchive::fromBytes(second);
+    if (!a || !b)
+    {
+        return "an archive cannot be read\n";
+    }
+    entries += a->entries().size();
+    if (a->entries().size() != b->entries().size())
+    {
+        return std::format("{} entries -> {} entries\n", a->entries().size(), b->entries().size());
+    }
+    std::string changes;
+    for (std::size_t i = 0; i < a->entries().size(); ++i)
+    {
+        const ZipArchive::Entry& before = a->entries()[i];
+        const ZipArchive::Entry& after  = b->entries()[i];
+        if (before.name != after.name)
+        {
+            changes += std::format("entry {}: {} -> {}\n", i, before.name, after.name);
+        }
+        else if (before.data != after.data)
+        {
+            changes +=
+                std::format("{} changed\n{}", before.name,
+                            changedLines(bytesToString(before.data), bytesToString(after.data)));
+        }
+    }
+    return changes;
+}
+
+// =============================== the re-saves of the legacy files and the coverage documents
+
+namespace
+{
+
+constexpr std::string_view kResavesContext = R"(manifest.json "resaves")";
+
+/// The string @p key of @p object into @p target; a missing one, or one that is no string, is
+/// the failure. With @p optional, a missing one or a null leaves @p target empty.
+[[nodiscard]] Result<void> readResaveString(const json& object, std::string_view key,
+                                            std::string& target, bool optional = false)
+{
+    const auto value = object.find(key);
+    if (value == object.end() || value->is_null())
+    {
+        if (optional)
+        {
+            return {};
+        }
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: missing string "{}")", kResavesContext, key));
+    }
+    if (!value->is_string())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: "{}" is not a string)", kResavesContext, key));
+    }
+    target = value->get<std::string>();
+    return {};
+}
+
+/// The strings of the list @p key of @p object into @p target; a list of other values, or
+/// anything but a list or a null, is the failure. A missing list or a null leaves @p target
+/// empty.
+[[nodiscard]] Result<void> readResaveStrings(const json& object, std::string_view key,
+                                             std::vector<std::string>& target)
+{
+    const auto value = object.find(key);
+    if (value == object.end() || value->is_null())
+    {
+        return {};
+    }
+    if (!value->is_array() ||
+        !std::ranges::all_of(*value, [](const json& item) { return item.is_string(); }))
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: "{}" is not a list of strings)", kResavesContext, key));
+    }
+    for (const json& item : *value)
+    {
+        target.push_back(item.get<std::string>());
+    }
+    return {};
+}
+
+/// The boolean @p key of @p object, false when it is missing; anything but a boolean is the
+/// failure.
+[[nodiscard]] Result<bool> readResaveFlag(const json& object, std::string_view key)
+{
+    const auto value = object.find(key);
+    if (value == object.end())
+    {
+        return false;
+    }
+    if (!value->is_boolean())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: "{}" is not a boolean)", kResavesContext, key));
+    }
+    return value->get<bool>();
+}
+
+/// One entry of "resaves.inputs".
+[[nodiscard]] Result<ResaveInput> parseResaveInput(const json& object)
+{
+    if (!object.is_object())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format("{}: an input is not an object", kResavesContext));
+    }
+    ResaveInput input;
+    for (const auto& [key, target] :
+         {std::pair{"name", &input.name}, std::pair{"kind", &input.kind},
+          std::pair{"source", &input.source}, std::pair{"resave", &input.resave}})
+    {
+        if (Result<void> read = readResaveString(object, key, *target); !read)
+        {
+            return std::unexpected(read.error());
+        }
+    }
+    if (input.kind != kLegacyKind && input.kind != kCoverageKind)
+    {
+        return fail(ErrorCode::PARSE, std::format("{}: {} is of the unknown kind {}",
+                                                  kResavesContext, input.name, input.kind));
+    }
+    Result<bool> moved    = readResaveFlag(object, "documentEntryMovedFirst");
+    Result<bool> withData = readResaveFlag(object, "saveSimulationData");
+    if (!moved || !withData)
+    {
+        return std::unexpected(!moved ? moved.error() : withData.error());
+    }
+    input.documentEntryMovedFirst = *moved;
+    input.saveSimulationData      = *withData;
+    for (const Result<void>& read :
+         {readResaveString(object, "sourceSha256", input.sourceSha256, true),
+          readResaveString(object, "archiveError", input.archiveError, true),
+          readResaveStrings(object, "archiveEntries", input.archiveEntries)})
+    {
+        if (!read)
+        {
+            return std::unexpected(read.error());
+        }
+    }
+    return input;
+}
+
+/// One entry of "resaves.withData".
+[[nodiscard]] Result<ResaveWithData> parseResaveWithData(const json& object)
+{
+    ResaveWithData data;
+    if (!object.is_object())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format("{}: a re-save with data is not an object", kResavesContext));
+    }
+    for (const auto& [key, target] :
+         {std::pair{"input", &data.input}, std::pair{"resave", &data.resave}})
+    {
+        if (Result<void> read = readResaveString(object, key, *target); !read)
+        {
+            return std::unexpected(read.error());
+        }
+    }
+    return data;
+}
+
+/// The list @p key of @p resaves, each entry parsed by @p parse into @p target.
+template <typename T, typename Parse>
+[[nodiscard]] Result<void> readResaveList(const json& resaves, std::string_view key,
+                                          std::vector<T>& target, Parse parse)
+{
+    const auto list = resaves.find(key);
+    if (list == resaves.end() || !list->is_array())
+    {
+        return fail(ErrorCode::PARSE,
+                    std::format(R"({}: missing list "{}")", kResavesContext, key));
+    }
+    for (const json& item : *list)
+    {
+        Result<T> parsed = parse(item);
+        if (!parsed)
+        {
+            return std::unexpected(parsed.error());
+        }
+        target.push_back(std::move(*parsed));
+    }
+    return {};
+}
+
+}  // namespace
+
+Result<ManifestResaves> parseManifestResaves(const json& manifest)
+{
+    const auto resaves = manifest.find("resaves");
+    if (resaves == manifest.end() || !resaves->is_object())
+    {
+        return fail(ErrorCode::PARSE, R"(manifest.json: missing object "resaves")");
+    }
+    ManifestResaves result;
+    if (Result<void> read =
+            readResaveStrings(*resaves, "legacyPresetDigests", result.legacyPresetDigests);
+        !read)
+    {
+        return std::unexpected(read.error());
+    }
+    if (Result<void> read =
+            readResaveList(*resaves, "withData", result.withData, parseResaveWithData);
+        !read)
+    {
+        return std::unexpected(read.error());
+    }
+    if (Result<void> read = readResaveList(*resaves, "inputs", result.inputs, parseResaveInput);
+        !read)
+    {
+        return std::unexpected(read.error());
+    }
+    return result;
+}
+
+const Result<ManifestResaves>& manifestResaves()
+{
+    static const Result<ManifestResaves> kResaves = [] -> Result<ManifestResaves> {
+        const Result<json> manifest = loadGoldenJson("manifest.json");
+        if (!manifest)
+        {
+            return std::unexpected(manifest.error());
+        }
+        return parseManifestResaves(*manifest);
+    }();
+    return kResaves;
+}
+
+std::vector<ResaveInput> resaveInputsOf(std::string_view kind, std::string& problem)
+{
+    const Result<ManifestResaves>& resaves = manifestResaves();
+    if (!resaves)
+    {
+        problem = resaves.error().toString();
+        return {};
+    }
+    std::vector<ResaveInput> inputs;
+    std::ranges::copy_if(resaves->inputs, std::back_inserter(inputs),
+                         [kind](const ResaveInput& input) { return input.kind == kind; });
+    return inputs;
+}
+
+const ResaveWithData* resaveWithDataOf(std::string_view input)
+{
+    const Result<ManifestResaves>& resaves = manifestResaves();
+    if (!resaves)
+    {
+        return nullptr;
+    }
+    const auto found = std::ranges::find(resaves->withData, input, &ResaveWithData::input);
+    return found == resaves->withData.end() ? nullptr : &*found;
+}
+
+std::filesystem::path legacyFileOf(const ResaveInput& input)
+{
+    constexpr std::string_view kTestData = "tests/data/";
+    const std::string_view     source    = input.source;
+    return testDataDir() /
+           pathFromUtf8(source.starts_with(kTestData) ? source.substr(kTestData.size()) : source);
 }
 
 }  // namespace QtRocket::Test
