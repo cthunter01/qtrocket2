@@ -1312,9 +1312,31 @@ TEST(OrkResaveDiffGolden, TheLegacyFilesAreSavedAsOpenRocketResavedThem)
 
 // ====================================================================== the coverage documents
 
+/// @p resave with the lookup file the harness names, "/lookups/drag.csv" (CoverageDocuments.java),
+/// written as a save on this platform writes it. The options keep a lookup file as Java's
+/// Path.toAbsolutePath().normalize() makes it, which on Windows puts the current drive in front
+/// and the native separators in ("D:\lookups\drag.csv"), in OpenRocket on Windows too; the
+/// re-save was made on Linux, where the path stays as it is.
+[[nodiscard]] std::string withThisPlatformsLookupFile(std::string resave)
+{
+    constexpr std::string_view kHarnessFile     = "/lookups/drag.csv";
+    const std::string          harnessAttribute = std::format(R"(file="{}")", kHarnessFile);
+    const std::string          localAttribute   = std::format(
+        R"(file="{}")",
+        QtRocket::pathToUtf8(
+            std::filesystem::absolute(std::filesystem::path(kHarnessFile)).lexically_normal()));
+    for (std::size_t at = resave.find(harnessAttribute); at != std::string::npos;
+         at             = resave.find(harnessAttribute, at + localAttribute.size()))
+    {
+        resave.replace(at, harnessAttribute.size(), localAttribute);
+    }
+    return resave;
+}
+
 /// Loads the re-save of the coverage document @p input in an environment of its own, saves it
 /// with or without its simulation data as the harness saved it and compares the save with the
-/// re-save, the whole text. Adds the comparison to @p saves; returns the problems.
+/// re-save, the whole text, its lookup file as this platform writes it
+/// (withThisPlatformsLookupFile()). Adds the comparison to @p saves; returns the problems.
 [[nodiscard]] std::string coverageSaveProblems(const QtRocket::Test::ResaveInput& input,
                                                SavesCompared&                     saves)
 {
@@ -1330,7 +1352,7 @@ TEST(OrkResaveDiffGolden, TheLegacyFilesAreSavedAsOpenRocketResavedThem)
     WarningSet        warnings;
     const std::string saved =
         saveOf(*loaded->document, environment.preferences(), warnings, input.saveSimulationData);
-    compareSaves(saves, input.name, saved, *resave);
+    compareSaves(saves, input.name, saved, withThisPlatformsLookupFile(*resave));
     if (!loaded->warnings.empty() || !warnings.empty())
     {
         return std::format("{}: {} load warnings, {} save warnings\n", input.name,
