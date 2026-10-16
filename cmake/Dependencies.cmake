@@ -83,6 +83,10 @@ set(MZ_FETCH_LIBS       ON  CACHE BOOL "" FORCE)
 if(FETCHCONTENT_TRY_FIND_PACKAGE_MODE STREQUAL "NEVER")
     set(MZ_FORCE_FETCH_LIBS ON CACHE BOOL "" FORCE)
 endif()
+# The zlib-ng that minizip-ng fetches, at a fixed release: its clone_repo() takes ZLIB_REPOSITORY and ZLIB_TAG when
+# they are set, and the moving branch 'stable' otherwise.
+set(ZLIB_REPOSITORY     https://github.com/zlib-ng/zlib-ng.git CACHE STRING "" FORCE)
+set(ZLIB_TAG            2.3.3 CACHE STRING "" FORCE)
 FetchContent_Declare(minizip-ng
     GIT_REPOSITORY https://github.com/zlib-ng/minizip-ng.git
     GIT_TAG        4.2.2

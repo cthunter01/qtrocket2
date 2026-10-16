@@ -37,8 +37,9 @@ source and link them in):
   Licensed under the Apache License 2.0, the Boost Software License 1.0 or the MIT License; used here under the
   MIT License (below).
 - minizip-ng 4.2.2 (https://github.com/zlib-ng/minizip-ng): Copyright (C) Nathan Moinvaziri. zlib License (below).
-- zlib-ng (https://github.com/zlib-ng/zlib-ng), the zlib that minizip-ng fetches and builds (a build that finds
-  an installed zlib uses that one): Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler. zlib License (below).
+- zlib-ng 2.3.3 (https://github.com/zlib-ng/zlib-ng), the zlib that minizip-ng fetches and builds (a build that
+  finds an installed zlib uses that one): Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler. zlib License
+  (below).
 - SQLite 3.53.4 (https://sqlite.org): in the public domain.
 
 The tests also use GoogleTest (BSD 3-Clause License) and nlohmann/json (MIT License); neither is part of the
