@@ -339,6 +339,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/OpenRocketContentHandlerTests.cpp
     file/openrocket/OpenRocketHandlerTests.cpp
     file/openrocket/OpenRocketLoaderTests.cpp
+    file/openrocket/OpenRocketSaverTestMotors.cpp
     file/openrocket/OpenRocketSaverTests.cpp
     file/openrocket/OrkWriterTests.cpp
     file/openrocket/OverrideSetterTests.cpp
@@ -408,6 +409,7 @@ add_executable(QtRocket_core_tests
     goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp
+    goldens/test_documents_golden_tests.cpp
     goldens/test_rockets_golden_tests.cpp
 )
 target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

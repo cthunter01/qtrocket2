@@ -6,15 +6,15 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
-#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/Preferences.h"
 
 /// The document makers of OpenRocket's TestRockets (core/src/main/java/.../util/
 /// TestRockets.java: makeTestRocket_v100() ... makeTestRocket_for_estimateFileSize(), with
 /// getTestMotor(), which only they use), built call for call as the Java makers build them, from
-/// the rocket makers of rocket/TestRockets.h where Java calls those, and the motor database of
-/// OpenRocketSaverTest, the one test class that uses them. The definitions are in
-/// TestDocuments.cpp.
+/// the rocket makers of rocket/TestRockets.h where Java calls those. The definitions are in
+/// TestDocuments.cpp. The motor database of OpenRocketSaverTest, the one test class that uses
+/// them, is file/openrocket/OpenRocketSaverTestMotors.h's (a document sits below the file
+/// formats).
 ///
 /// Where Java's `new Simulation(rocket)` reads the application preferences (OpenRocket's test
 /// preferences), a maker that makes simulations takes the preference store they are to read, as
@@ -41,15 +41,6 @@ inline constexpr std::string_view kV105PresetDigest = "bca1f5bf3caeec8d8fa3bf510
 /// standard delays, 24 by 70 mm, a thrust of 1 N at 1 s over 2 s, every CG point Coordinate.NUL),
 /// of the digest "digestA".
 [[nodiscard]] std::shared_ptr<const ThrustCurveMotor> getTestMotor();
-
-/// OpenRocketSaverTest.readMotor(): the motor of tests/data/motors/Estes_A8.rse, or null with a
-/// test failure.
-[[nodiscard]] std::shared_ptr<const ThrustCurveMotor> readEstesA8Motor();
-
-/// OpenRocketSaverTest's motor database (MotorDbProvider): exactly the Estes A8 of
-/// readEstesA8Motor() and an F12X of the manufacturer "A" with the digest "digestA" (getTestMotor()
-/// without its case info), two motor sets. A test failure when either is missing.
-[[nodiscard]] std::unique_ptr<ThrustCurveMotorSetDatabase> openRocketSaverTestMotors();
 
 /// TestRockets.makeTestRocket_v100(): "v100", a stage "Stage1" holding a body tube (12 m,
 /// radius 1 m, wall 5 cm).

@@ -56,10 +56,10 @@
 #include "TestPaths.h"
 #include "TestTempDir.h"
 #include "document/TestAttachments.h"
-#include "document/TestDocuments.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
+#include "file/openrocket/OpenRocketSaverTestMotors.h"
 
 // GeneralRocketSaver: the .ork archive of a design and its file. The archives of OpenRocket's
 // sixteen examples are compared with OpenRocket's own in the golden test of the saver

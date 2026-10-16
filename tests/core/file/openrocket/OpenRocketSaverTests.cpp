@@ -55,6 +55,7 @@
 #include "document/TestDocuments.h"
 #include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
+#include "file/openrocket/OpenRocketSaverTestMotors.h"
 #include "goldens/GoldenResaves.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationRunSupport.h"
@@ -469,10 +470,11 @@ struct Reloaded
 
 /// One warning of OpenRocket's reload of a maker's document: OpenRocket's GeneralRocketSaver
 /// archive of it, saved with the simulation data and loaded back in the set-up of
-/// OpenRocketSaverTest (probe TestDocumentsProbe of run 10b, its "ZW" lines, with the English
-/// texts). The archive holds a thrustcurves/<digest>.rse of each motor of the document: the
-/// motors of TestRockets have made-up digests, which the motor read back from the file does not
-/// give, so each one is also the warning that the attachment holds no motor of its digest.
+/// OpenRocketSaverTest (the "ZW" lines of tests/data/goldens/test-documents/report.txt, which
+/// tools/openrocket-test-documents/generate.sh prints, with the English texts). The archive holds a
+/// thrustcurves/<digest>.rse of each motor of the document: the motors of TestRockets have made-up
+/// digests, which the motor read back from the file does not give, so each one is also the warning
+/// that the attachment holds no motor of its digest.
 struct ReloadWarning
 {
     std::string_view maker;
@@ -524,7 +526,7 @@ constexpr std::array<ReloadWarning, 17> kJavaReloadWarnings{{
      .warning = "No motor with designation 'G77' for manufacturer 'AeroTech' found."},
 }};
 
-/// What OpenRocket's reload of a maker's document holds (the same probe): the number of
+/// What OpenRocket's reload of a maker's document holds (the same report): the number of
 /// components, the rocket included, and the status of each simulation; a script extension as
 /// "script enabled|disabled".
 struct ReloadedDocument
@@ -674,6 +676,16 @@ TEST(OpenRocketSaver, TestCreateLoadSave)
         ++loaded;
     }
     EXPECT_EQ(loaded, 16U);
+}
+
+// The motor database of OpenRocketSaverTest (MotorDbProvider): the Estes A8 and the "A" F12X
+// "digestA", which is TestRockets.getTestMotor() without its case info, each a motor set of its
+// own.
+TEST(OpenRocketSaver, TheMotorDatabaseOfTheTest)
+{
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database =
+        QtRocket::Test::openRocketSaverTestMotors();
+    EXPECT_EQ(database->getMotorSets().size(), 2U);
 }
 
 /// The activeness of stages 0, 1 and 2 in @p config, as "true false true".
@@ -835,8 +847,8 @@ TEST(OpenRocketSaver, EstimatesTheFileSizeAsOpenRocket)
     EXPECT_EQ(OpenRocketSaver::estimateFileSize(*empty, options), 160);
 }
 
-/// OpenRocket's estimate of the document of a maker, with the simulation data (probe
-/// TestDocumentsProbe of run 10b).
+/// OpenRocket's estimate of the document of a maker, with the simulation data
+/// (tests/data/goldens/test-documents/report.txt).
 struct JavaEstimate
 {
     std::string_view maker;
@@ -1026,14 +1038,19 @@ TEST(OpenRocketSaver, TestTrustedScriptEnabledOnLoad)
                                     "\n");
 
     const ScriptReload empty = reloadScript("");
+    EXPECT_EQ(empty.simulations, 1U);
     EXPECT_EQ(empty.extensions, 1U);
     EXPECT_TRUE(empty.enabled) << "decision E4";
     EXPECT_EQ(empty.script, "");
     EXPECT_EQ(empty.warnings, kV110ReloadWarnings);
 
     const ScriptReload blank = reloadScript(" \r\n\t");
+    EXPECT_EQ(blank.simulations, 1U);
     EXPECT_EQ(blank.extensions, 1U);
     EXPECT_TRUE(blank.enabled) << "decision E4";
+    // The save writes the carriage return as it is; the end-of-line handling of XML turns the
+    // CR LF into an LF on the reload, in OpenRocket's too (SaverPortsProbe: "blank").
+    EXPECT_EQ(blank.script, " \n\t");
     EXPECT_EQ(blank.warnings, kV110ReloadWarnings);
 }
 

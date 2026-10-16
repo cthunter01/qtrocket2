@@ -1,5 +1,6 @@
 // The save halves of OpenRocket's SimulationLookupCopyTest (core/src/test/.../simulation) and the
-// core half of Swing's AerodynamicLookupTruncationTest (swing/src/test/.../gui/simulation): the
+// core halves of Swing's AerodynamicLookupTruncationTest and AerodynamicLookupPreservationTest
+// (swing/src/test/.../gui/simulation; their dialog halves are Milestone 4's): the
 // lookup tables of a simulation saved by OpenRocketSaver and loaded back from the text, as the
 // Java tests' roundTrip() saves them into a stream and reads them with OpenRocketLoader from
 // memory, which is a design without a directory: the CSV file the options name (which does not
@@ -396,6 +397,145 @@ TEST_P(LookupTruncationRoundTrip, TestEditingLongTablePreservesFinalRows)
 INSTANTIATE_TEST_SUITE_P(DragAndStability, LookupTruncationRoundTrip, ::testing::Bool(),
                          [](const ::testing::TestParamInfo<bool>& paramInfo) {
                              return std::string(paramInfo.param ? "Drag" : "Stability");
+                         });
+
+/// A method of AerodynamicLookupPreservationTest: the edits the dialog applies to the tables of
+/// the test's options() and the Cd and Cp at Mach 0 the test expects of the reloaded tables.
+struct LookupPreservationCase
+{
+    /// The Java method, with its parameter.
+    std::string_view name;
+    /// The row the edit puts under the header of the drag table ("Mach,Cd") and of the stability
+    /// table ("Mach,Cn,Cm,Cp"); empty when the dialog leaves the table as it is.
+    std::string_view dragRow;
+    std::string_view stabilityRow;
+    double           cd{0};
+    double           cp{0};
+};
+
+constexpr std::array<LookupPreservationCase, 4> kLookupPreservationCases{{
+    {.name         = "TestAcceptingUnchangedEditorPreservesEmbeddedData",
+     .dragRow      = "",
+     .stabilityRow = "",
+     .cd           = 1,
+     .cp           = 1},
+    {.name         = "TestEditingOneTablePreservesTheOther_Drag",
+     .dragRow      = "0,2",
+     .stabilityRow = "",
+     .cd           = 2,
+     .cp           = 1},
+    {.name         = "TestEditingOneTablePreservesTheOther_Stability",
+     .dragRow      = "",
+     .stabilityRow = "0,1,1,2",
+     .cd           = 1,
+     .cp           = 2},
+    // The dialog refuses the first apply (its stability table is "invalid") and changes nothing;
+    // the second applies the drag edit with the corrected stability table.
+    {.name         = "TestRetryAfterInvalidStabilityTableRetainsDragEdit",
+     .dragRow      = "0,2",
+     .stabilityRow = "0,1,1,3",
+     .cd           = 2,
+     .cp           = 3},
+}};
+
+/// AerodynamicLookupPreservationTest.options(): options of @p preferences (Java: new
+/// SimulationOptions()) with the drag table {"Mach,Cd", "0,1"} and the stability table
+/// {"Mach,Cn,Cm,Cp", "0,1,1,1"} of kMissingCsv, their rows kept.
+[[nodiscard]] SimulationOptions preservationOptions(Preferences& preferences)
+{
+    SimulationOptions options(preferences);
+    const Lines       drag{"Mach,Cd", "0,1"};
+    const Lines       stability{"Mach,Cn,Cm,Cp", "0,1,1,1"};
+    options.setDragLookup(QtRocket::pathFromUtf8(kMissingCsv), lookupTableOf(drag, dragColumns()),
+                          drag);
+    options.setStabilityLookup(QtRocket::pathFromUtf8(kMissingCsv),
+                               lookupTableOf(stability, stabilityColumns()), stability);
+    return options;
+}
+
+/// AerodynamicLookupDialog.applyAndClose() with the edits of @p edit: each table set again with
+/// the path the options have, with the table and the rows of its edit, or with its own table and
+/// rows when the edit leaves it alone.
+void applyLookupEdits(SimulationOptions& options, const LookupPreservationCase& edit)
+{
+    std::shared_ptr<const MachAoALookup> dragTable = options.getDragLookupTable();
+    std::optional<Lines>                 dragRows  = options.getDragLookupCsvRows();
+    if (!edit.dragRow.empty())
+    {
+        dragRows  = Lines{"Mach,Cd", std::string(edit.dragRow)};
+        dragTable = lookupTableOf(*dragRows, dragColumns());
+    }
+    std::shared_ptr<const MachAoALookup> stabilityTable = options.getStabilityLookupTable();
+    std::optional<Lines>                 stabilityRows  = options.getStabilityLookupCsvRows();
+    if (!edit.stabilityRow.empty())
+    {
+        stabilityRows  = Lines{"Mach,Cn,Cm,Cp", std::string(edit.stabilityRow)};
+        stabilityTable = lookupTableOf(*stabilityRows, stabilityColumns());
+    }
+    options.setDragLookup(options.getDragLookupCsvPath(), dragTable, dragRows);
+    options.setStabilityLookup(options.getStabilityLookupCsvPath(), stabilityTable, stabilityRows);
+}
+
+/// What the reload of AerodynamicLookupPreservationTest's options gives: Cd and Cp at Mach 0
+/// (NaN for a table that is missing) and the warnings of the reload.
+struct PreservedLookups
+{
+    double cd{std::numeric_limits<double>::quiet_NaN()};
+    double cp{std::numeric_limits<double>::quiet_NaN()};
+    Lines  warnings;
+};
+
+/// The test's roundTrip() of preservationOptions() after applyLookupEdits(@p edit): a simulation
+/// "Lookup test" of a new empty design that has not been simulated, saved and loaded back.
+[[nodiscard]] PreservedLookups reloadPreservedLookups(Preferences&                  preferences,
+                                                      const LookupPreservationCase& edit)
+{
+    SimulationOptions options = preservationOptions(preferences);
+    applyLookupEdits(options, edit);
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createEmptyRocket();
+    document->addSimulation(std::make_shared<Simulation>(
+        document.get(), document->getRocket(), Simulation::Status::NOT_SIMULATED, "Lookup test",
+        std::move(options), std::vector<std::shared_ptr<QtRocket::SimulationExtension>>{}, nullptr,
+        std::map<std::string, QtRocket::PlotAppearance>{}, &preferences));
+    const LookupRoundTrip    trip   = saveAndLoadLookups(*document);
+    const SimulationOptions& loaded = trip.options();
+
+    PreservedLookups preserved;
+    if (const std::shared_ptr<const MachAoALookup> drag = loaded.getDragLookupTable())
+    {
+        preserved.cd = drag->interpolate(0, 0, "cd");
+    }
+    if (const std::shared_ptr<const MachAoALookup> stability = loaded.getStabilityLookupTable())
+    {
+        preserved.cp = stability->interpolate(0, 0, "cp");
+    }
+    preserved.warnings = trip.warnings;
+    return preserved;
+}
+
+class LookupPreservationRoundTrip : public ::testing::TestWithParam<LookupPreservationCase>
+{ };
+
+// Port of the core halves of AerodynamicLookupPreservationTest (Swing): the tables the lookup
+// dialog leaves after an edit of one table, of the other, of both or of none, saved and read
+// back, each with its own rows. The dialog itself (its text areas, applyAndClose() and the error
+// it shows for the invalid stability table) is Milestone 4's; applyLookupEdits() sets what its
+// applyAndClose() sets. The reload's warning is the one of the time step 0 of OpenRocket's test
+// preferences, as for the truncation test.
+TEST_P(LookupPreservationRoundTrip, TablesSurviveTheDialogAndARoundTrip)
+{
+    JavaTestPreferences    preferences;
+    const PreservedLookups loaded = reloadPreservedLookups(preferences.store, GetParam());
+    EXPECT_EQ(loaded.cd, GetParam().cd);
+    EXPECT_EQ(loaded.cp, GetParam().cp);
+    EXPECT_EQ(loaded.warnings, Lines{std::string(kIllegalTimeStep)});
+}
+
+INSTANTIATE_TEST_SUITE_P(AerodynamicLookupPreservationTest, LookupPreservationRoundTrip,
+                         ::testing::ValuesIn(kLookupPreservationCases),
+                         [](const ::testing::TestParamInfo<LookupPreservationCase>& paramInfo) {
+                             return std::string(paramInfo.param.name);
                          });
 
 }  // namespace

@@ -1,0 +1,76 @@
+== makers (OpenRocketSaver, saveSimulationData=true, then GeneralRocketLoader)
+v100 estimate=240 presets= statuses=
+  plain bytes=1091 components=3 sims=0 statuses=
+  zip entries= rocket.ork components=3 sims=0 statuses= same-warnings=true
+v101_withFinTabs estimate=320 presets= statuses=
+  plain bytes=2572 components=4 sims=0 statuses=
+  zip entries= rocket.ork components=4 sims=0 statuses= same-warnings=true
+v101_withTubeCouplerChild estimate=400 presets= statuses=
+  plain bytes=2682 components=5 sims=0 statuses=
+  zip entries= rocket.ork components=5 sims=0 statuses= same-warnings=true
+v104_withSimulationData estimate=520 presets= statuses= Simulation Can't Be Run Simulation Can't Be Run
+  plain bytes=5846 components=4 sims=2 statuses= Simulation Can't Be Run Simulation Can't Be Run
+  W Illegal time step defined, ignoring.
+  zip entries= rocket.ork components=4 sims=2 statuses= Simulation Can't Be Run Simulation Can't Be Run same-warnings=true
+  ZW Illegal time step defined, ignoring.
+v104_withMotor estimate=320 presets= statuses=
+  plain bytes=2198 components=4 sims=0 statuses=
+  zip entries= rocket.ork components=4 sims=0 statuses= same-warnings=true
+v105_withComponentPreset estimate=240 presets= Body Tube=bca1f5bf3caeec8d8fa3bf5100a68808 statuses=
+  plain bytes=1238 components=3 sims=0 statuses=
+  W No matching ComponentPreset for component Body Tube found matching manufacturer partno
+  zip entries= rocket.ork components=3 sims=0 statuses= same-warnings=true
+  ZW No matching ComponentPreset for component Body Tube found matching manufacturer partno
+v105_withCustomExpression estimate=240 presets= statuses=
+  plain bytes=1334 components=3 sims=0 statuses=
+  zip entries= rocket.ork components=3 sims=0 statuses= same-warnings=true
+v105_withLowerStageRecoveryDevice estimate=400 presets= statuses=
+  plain bytes=2468 components=5 sims=0 statuses=
+  zip entries= rocket.ork components=5 sims=0 statuses= same-warnings=true
+v106_withAppearance estimate=240 presets= statuses=
+  plain bytes=1323 components=3 sims=0 statuses=
+  zip entries= rocket.ork components=3 sims=0 statuses= same-warnings=true
+v106_withMotorMountIgnitionConfig estimate=320 presets= statuses=
+  plain bytes=2215 components=4 sims=0 statuses=
+  zip entries= rocket.ork components=4 sims=0 statuses= same-warnings=true
+v106_withRecoveryDeviceDeploymentConfig estimate=320 presets= statuses=
+  plain bytes=2491 components=4 sims=0 statuses=
+  zip entries= rocket.ork components=4 sims=0 statuses= same-warnings=true
+v106_withStageSeparationConfig estimate=480 presets= statuses=
+  plain bytes=2896 components=6 sims=0 statuses=
+  zip entries= rocket.ork components=6 sims=0 statuses= same-warnings=true
+v110_withSimulationExtension estimate=900 presets= statuses= Simulation Can't Be Run[script enabled=true same=true]
+  plain bytes=13812 components=10 sims=1 statuses= Simulation Can't Be Run[script enabled=false same=true]
+  W No motor with designation 'B4' for manufacturer 'Estes' found.
+  W No motor with designation 'C6' for manufacturer 'Estes' found.
+  W Illegal time step defined, ignoring.
+  W Untrusted scripts have been disabled.  You need to manually enable them in the Simulation options.
+  zip entries= rocket.ork thrustcurves/digest A8 test.rse thrustcurves/digest B4 test.rse thrustcurves/digest C6 test.rse components=10 sims=1 statuses= Simulation Can't Be Run[script enabled=false same=true] same-warnings=false
+  ZW Embedded motor attachment 'thrustcurves/digest A8 test.rse' contains no motor matching digest 'digest A8 test'.
+  ZW Embedded motor attachment 'thrustcurves/digest B4 test.rse' contains no motor matching digest 'digest B4 test'.
+  ZW No motor with designation 'B4' for manufacturer 'Estes' found.
+  ZW Embedded motor attachment 'thrustcurves/digest C6 test.rse' contains no motor matching digest 'digest C6 test'.
+  ZW No motor with designation 'C6' for manufacturer 'Estes' found.
+  ZW Illegal time step defined, ignoring.
+  ZW Untrusted scripts have been disabled.  You need to manually enable them in the Simulation options.
+v108_withBoosters estimate=1280 presets= statuses=
+  plain bytes=12846 components=16 sims=0 statuses=
+  W No motor with designation 'M1350' for manufacturer 'AeroTech' found.
+  W No motor with designation 'G77' for manufacturer 'AeroTech' found.
+  zip entries= rocket.ork thrustcurves/digest M1350 test.rse thrustcurves/digest G77 test.rse components=16 sims=0 statuses= same-warnings=false
+  ZW Embedded motor attachment 'thrustcurves/digest M1350 test.rse' contains no motor matching digest 'digest M1350 test'.
+  ZW No motor with designation 'M1350' for manufacturer 'AeroTech' found.
+  ZW Embedded motor attachment 'thrustcurves/digest G77 test.rse' contains no motor matching digest 'digest G77 test'.
+  ZW No motor with designation 'G77' for manufacturer 'AeroTech' found.
+v108_withDisabledStage estimate=1280 presets= statuses=
+  plain bytes=12847 components=16 sims=0 statuses=
+  W No motor with designation 'M1350' for manufacturer 'AeroTech' found.
+  W No motor with designation 'G77' for manufacturer 'AeroTech' found.
+  zip entries= rocket.ork thrustcurves/digest M1350 test.rse thrustcurves/digest G77 test.rse components=16 sims=0 statuses= same-warnings=false
+  ZW Embedded motor attachment 'thrustcurves/digest M1350 test.rse' contains no motor matching digest 'digest M1350 test'.
+  ZW No motor with designation 'M1350' for manufacturer 'AeroTech' found.
+  ZW Embedded motor attachment 'thrustcurves/digest G77 test.rse' contains no motor matching digest 'digest G77 test'.
+  ZW No motor with designation 'G77' for manufacturer 'AeroTech' found.
+for_estimateFileSize estimate=1120 presets= statuses= <i><b>ABORTED</b></i> <i><b>ABORTED</b></i>
+  plain bytes=10890 components=9 sims=2 statuses= <i><b>ABORTED</b></i> <i><b>ABORTED</b></i>
+  zip entries= rocket.ork components=9 sims=2 statuses= <i><b>ABORTED</b></i> <i><b>ABORTED</b></i> same-warnings=true
