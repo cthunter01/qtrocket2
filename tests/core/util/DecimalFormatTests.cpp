@@ -1,6 +1,7 @@
 #include "QtRocket/util/DecimalFormat.h"
 
 #include <limits>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -152,6 +153,53 @@ TEST(DecimalFormat, DecimalSeparatorAtEitherEnd)
     EXPECT_EQ(DecimalFormat(".00").format(0.125), ".12");
     EXPECT_EQ(DecimalFormat("0.").format(1.5), "2.");
     EXPECT_EQ(DecimalFormat("0.").format(-0.0), "-0.");
+}
+
+TEST(DecimalFormat, PatternsWithoutARequiredDigit)
+{
+    // Without any '0', Java reads the '#' next to the point as one.
+    const DecimalFormat hashes("##.##");
+    EXPECT_EQ(hashes.getMinimumIntegerDigits(), 1);
+    EXPECT_EQ(hashes.format(0.25), "0.25");
+    const DecimalFormat fraction(".##");
+    EXPECT_EQ(fraction.getMinimumIntegerDigits(), 0);
+    EXPECT_EQ(fraction.getMinimumFractionDigits(), 1);
+    EXPECT_EQ(fraction.getMaximumFractionDigits(), 2);
+    EXPECT_EQ(fraction.format(0.25), ".25");
+    EXPECT_EQ(fraction.format(0.0), ".0");
+    EXPECT_EQ(fraction.format(1.5), "1.5");
+    // A point alone requires no digit and is always shown.
+    EXPECT_EQ(DecimalFormat(".").format(1.5), "2.");
+    EXPECT_EQ(DecimalFormat(".").format(0.25), "0.");
+    EXPECT_EQ(DecimalFormat("#.0").format(0.045), ".0");
+    // Nor does scientific notation need an integer digit.
+    EXPECT_EQ(DecimalFormat("#E0").format(1.5), ".2E1");
+    EXPECT_EQ(DecimalFormat("#E0").format(-0.0), "-E0");
+    EXPECT_EQ(DecimalFormat(".00E0").format(1e-5), ".10E-4");
+}
+
+TEST(DecimalFormat, DigitCountsAreLimitedForADouble)
+{
+    // At most 309 integer and 340 fraction digits, whatever the pattern asks for.
+    const std::string zeros(400, '0');
+    EXPECT_EQ(DecimalFormat("0." + zeros).format(1.0), "1." + std::string(340, '0'));
+    EXPECT_EQ(DecimalFormat(zeros).format(1.0), std::string(308, '0') + "1");
+    EXPECT_EQ(DecimalFormat("#." + std::string(400, '#')).format(4.9e-324),
+              "0." + std::string(323, '0') + "49");
+}
+
+TEST(DecimalFormat, StartsFromJdk17sDigitsWhereTheyAreNotTheShortest)
+{
+    // FloatingDecimal's departures from the shortest digits (see FloatingDecimalTests.cpp) show
+    // through: the wrapped 64-bit test, the end of the interval counted in with big integers, and
+    // the quarter-gap margin of a subnormal power of two.
+    EXPECT_EQ(DecimalFormat("#").format(0x1.7606c1e42a3b5p84), "28260635462337084000000000");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1.7606c1e42a3b5p84), "28.261E24");
+    EXPECT_EQ(DecimalFormat("#").format(0x1.52d02c7e14af6p87), "204800000000000000000000000");
+    EXPECT_EQ(DecimalFormat("0.00E0").format(0x1.52d02c7e14af6p87), "2.05E26");
+    EXPECT_EQ(DecimalFormat("0.00E0").format(0x1p-1069), "1.58E-322");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1p-1069), "158E-324");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(1e-7), "100E-9");
 }
 
 TEST(DecimalFormat, NaNAndInfinities)

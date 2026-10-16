@@ -111,4 +111,113 @@ TEST(FloatingDecimal, NaNAndInfinitiesHaveNoDigits)
     EXPECT_THROW(static_cast<void>(FloatingDecimal::binaryToAscii(kInf)), BugError);
 }
 
+// The tests below pin the places where JDK 17's conversion departs from a shortest-digits one,
+// each with a value that shows it. Every expectation is JDK 17's Double.toString or the state of
+// its converter (jdk.internal.math.FloatingDecimal, read through reflection in a JDK 17 run).
+
+TEST(FloatingDecimal, IntegersBelow2To63AreWrittenFromTheirExactValue)
+{
+    // Exact up to 2^58; from there rounded half up to tens, from 2^61 to hundreds. No flags.
+    const FloatingDecimal::BinaryToAscii exact = FloatingDecimal::binaryToAscii(0x1p57);
+    EXPECT_EQ(exact.digits, "144115188075855872");
+    EXPECT_EQ(exact.decimalExponent, 18);
+    EXPECT_FALSE(exact.digitsRoundedUp);
+    EXPECT_FALSE(exact.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p57), "1.44115188075855872E17");
+
+    // 288230376151711744: the 4 is dropped; 288230376151711808: the 8 rounds the 0 up.
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p58), "2.8823037615171174E17");
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p58 + 64), "2.8823037615171181E17");
+
+    // 9223372036854774784, the largest double below 2^63: 84 rounds up to a hundred, unflagged.
+    const FloatingDecimal::BinaryToAscii largest = FloatingDecimal::binaryToAscii(0x1p63 - 1024);
+    EXPECT_EQ(largest.digits, "92233720368547748");
+    EXPECT_EQ(largest.decimalExponent, 19);
+    EXPECT_FALSE(largest.digitsRoundedUp);
+    EXPECT_FALSE(largest.decimalDigitsExact);
+}
+
+TEST(FloatingDecimal, TheUpperEndCountsInOnlyInBigIntegerArithmetic)
+{
+    // Both values lie exactly half a gap below a shorter decimal: 1e23 below 10^23, where JDK 17
+    // computes in 64-bit integers and leaves the end out, and the same significand at 2^87
+    // (204799999999999982820130816) below 2.048e26, where it computes in big integers and
+    // counts the end in.
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.52d02c7e14af6p76), "9.999999999999999E22");
+    const FloatingDecimal::BinaryToAscii inclusive =
+        FloatingDecimal::binaryToAscii(0x1.52d02c7e14af6p87);
+    EXPECT_EQ(inclusive.digits, "2048");
+    EXPECT_EQ(inclusive.decimalExponent, 27);
+    EXPECT_TRUE(inclusive.digitsRoundedUp);
+    EXPECT_FALSE(inclusive.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.52d02c7e14af6p87), "2.048E26");
+}
+
+TEST(FloatingDecimal, Jdk17s64BitUpperEndTestWrapsAround)
+{
+    // 0x1.7606c1e42a3b5p84 = 28260635462337084975480832: after "28260635462337084" the rest,
+    // 0.975 of a unit, would round up ("...085") in exact arithmetic; JDK 17's 64-bit sum wraps
+    // and the digit stays.
+    const FloatingDecimal::BinaryToAscii wrapped =
+        FloatingDecimal::binaryToAscii(0x1.7606c1e42a3b5p84);
+    EXPECT_EQ(wrapped.digits, "28260635462337084");
+    EXPECT_EQ(wrapped.decimalExponent, 26);
+    EXPECT_FALSE(wrapped.digitsRoundedUp);
+    EXPECT_FALSE(wrapped.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.26732daed94d7p84), "2.2248006613431304E25");
+    // 2^85 is in the same range but does not reach the wrap.
+    const FloatingDecimal::BinaryToAscii power = FloatingDecimal::binaryToAscii(0x1p85);
+    EXPECT_EQ(power.digits, "38685626227668134");
+    EXPECT_TRUE(power.digitsRoundedUp);
+}
+
+TEST(FloatingDecimal, ATieOfTheLastDigitGoesToTheEvenDigit)
+{
+    // 2^-25 = 2.98023223876953125e-8 and 2^50 + 0.25 end in a 5 one place beyond the digits
+    // generated, inside the rounding interval: the last digit stays even, unflagged.
+    const FloatingDecimal::BinaryToAscii down = FloatingDecimal::binaryToAscii(0x1p-25);
+    EXPECT_EQ(down.digits, "29802322387695312");
+    EXPECT_EQ(down.decimalExponent, -7);
+    EXPECT_FALSE(down.digitsRoundedUp);
+    EXPECT_FALSE(down.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p50 + 0.25), "1.1258999068426242E15");
+    // 2^50 + 0.75: the odd 7 goes up to 8.
+    const FloatingDecimal::BinaryToAscii up = FloatingDecimal::binaryToAscii(0x1p50 + 0.75);
+    EXPECT_EQ(up.digits, "11258999068426248");
+    EXPECT_TRUE(up.digitsRoundedUp);
+}
+
+TEST(FloatingDecimal, ASingleBitSignificandGetsAQuarterGapMargin)
+{
+    // Also where the neighbours are equally far on both sides: the subnormal powers of two. With
+    // half a gap, "1.6E-322" and "8.095E-320" would read back as 2^-1069 and 2^-1060 too.
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p-1069), "1.58E-322");
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p-1060), "8.0948E-320");
+    EXPECT_TRUE(FloatingDecimal::binaryToAscii(0x1p-1060).digitsRoundedUp);
+    // Above 2^-1022 the lower gap is half the upper one, and 2^69 gets a digit more than it needs.
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1p69), "5.9029581035870565E20");
+}
+
+TEST(FloatingDecimal, AnEstimateOneTooHighStartsWithARoundedUpZero)
+{
+    // The nearest doubles to 1e-7 and 1e-322 lie within their margin below the power of ten, and
+    // the decimal exponent estimate is one too high for both: "0" then "9", rounded up to "10".
+    const FloatingDecimal::BinaryToAscii tenth = FloatingDecimal::binaryToAscii(1e-7);
+    EXPECT_EQ(tenth.digits, "10");
+    EXPECT_EQ(tenth.decimalExponent, -6);
+    EXPECT_TRUE(tenth.digitsRoundedUp);
+    EXPECT_FALSE(tenth.decimalDigitsExact);
+    const FloatingDecimal::BinaryToAscii tiny = FloatingDecimal::binaryToAscii(1e-322);
+    EXPECT_EQ(tiny.digits, "10");
+    EXPECT_EQ(tiny.decimalExponent, -321);
+    EXPECT_TRUE(tiny.digitsRoundedUp);
+    // 1e-321 is the only such power of ten whose estimate is right: "99" carries to "10", which
+    // leaves the flag unset.
+    const FloatingDecimal::BinaryToAscii carried = FloatingDecimal::binaryToAscii(1e-321);
+    EXPECT_EQ(carried.digits, "10");
+    EXPECT_EQ(carried.decimalExponent, -320);
+    EXPECT_FALSE(carried.digitsRoundedUp);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(1e-321), "1.0E-321");
+}
+
 }  // namespace

@@ -220,5 +220,5 @@ before it runs, and Windows SmartScreen warns the first time.
 QtRocket is free software under the GNU General Public License, version 3 or (at your option) any later version:
 see [LICENSE](LICENSE). It is a re-implementation of OpenRocket, Copyright (C) 2007-2025 Sampo Niskanen and
 others, also licensed under the GPL version 3 or later; the motor database, the example designs and the test
-designs are OpenRocket's. [NOTICE](NOTICE) gives the details, the code translated from OpenJDK and the notices of
-the third-party libraries that the program contains.
+designs are OpenRocket's. [NOTICE](NOTICE) gives the details and the notices of the third-party libraries that the
+program contains.

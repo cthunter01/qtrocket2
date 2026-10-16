@@ -14,18 +14,6 @@ are example and test designs of OpenRocket's releases 0.9.3 to 23.09, copied unc
 tests/data/ork/README.md lists the release and the path of each.
 
 
-Code translated from OpenJDK
-----------------------------
-
-To print numbers digit for digit as Java prints them, two source files translate parts of the class library of
-OpenJDK (https://openjdk.org), Copyright (c) Oracle and/or its affiliates, licensed under the GNU General Public
-License version 2 with the "Classpath" exception:
-
-- src/util/FloatingDecimal.cpp: the binary-to-decimal conversion of jdk.internal.math.FloatingDecimal
-  (BinaryToASCIIBuffer.dtoa), with some of its comments.
-- src/util/DecimalFormat.cpp: the rounding of java.text.DigitList (set, shouldRoundUp and round).
-
-
 Third-party software
 --------------------
 
