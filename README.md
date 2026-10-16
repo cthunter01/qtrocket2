@@ -1,6 +1,17 @@
 # QtRocket
 
-TODO: what QtRocket does.
+QtRocket is a model rocket design and flight simulation program: a C++23 re-implementation of
+[OpenRocket](https://openrocket.info) (Java). It follows OpenRocket's design and algorithms: the component model
+(nose cones, body tubes, fins, transitions, pods, inner tubes, recovery devices, mass components, ...), the
+extended Barrowman aerodynamics, the mass and inertia calculations, the event-driven six-degree-of-freedom flight
+simulation (Runge-Kutta steppers, staging, recovery, tumbling, ground hit), the ISA atmosphere, wind and gravity
+models, the thrust-curve motor database and motor files (`.eng`, `.rse`), the `.ork` design files (it loads file
+format versions 1.0 to 1.11 and writes 1.11, OpenRocket's current format) and the CSV export of flight data.
+
+Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_core`), and the command-line tool
+`QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
+example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
+OpenRocket's unit tests. The graphical user interface (Qt 6) comes in Milestone 2.
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -11,20 +22,23 @@ TODO: what QtRocket does.
 - Optional: clang-tidy, clang-format, llvm-cov/llvm-profdata (coverage), Doxygen (docs), ccache.
   On macOS, clang-tidy comes from Homebrew (`brew install llvm`). Coverage uses Xcode's llvm-cov.
 
-GoogleTest is used from the system when installed, otherwise downloaded at configure time.
+The libraries are taken from the system when installed, otherwise downloaded at configure time and built with the
+project (`cmake/Dependencies.cmake`): pugixml (XML), minizip-ng with zlib (zip and gzip), SQLite (the motor
+database) and fast_float (number parsing); GoogleTest and nlohmann_json for the tests only. The release archives
+always build them from source.
 
 ## Build
 Linux and macOS:
 ```sh
 cmake --workflow --preset dev          # configure + build + test, Clang Debug
-./build/clang-debug/bin/QtRocket
+./build/clang-debug/bin/QtRocket_cli --help
 ```
 
 Windows, from a **Developer PowerShell for VS** (Ninja needs MSVC's environment; VS Code's CMake Tools and
 Visual Studio set it up themselves):
 ```powershell
 cmake --workflow --preset dev-msvc     # configure + build + test, MSVC Debug
-.\build\msvc-debug\bin\QtRocket.exe
+.\build\msvc-debug\bin\QtRocket_cli.exe --help
 ```
 
 | Preset | Platforms | What it is |
@@ -49,6 +63,134 @@ CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, 
 
 API docs: `cmake --build --preset clang-debug --target docs`, then open `build/clang-debug/docs/html/index.html`.
 
+## The command-line tool
+`QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:
+
+```sh
+QtRocket_cli info "data/examples/A simple model rocket.ork"
+QtRocket_cli simulate "data/examples/A simple model rocket.ork" --calm --time-step 0.01 --csv flight.csv
+QtRocket_cli simulate "data/examples/Two stage high power rocket.ork" --all --seed 42
+QtRocket_cli motors --search "estes c6"
+```
+
+`QtRocket_cli --help` prints:
+
+```text
+Usage: QtRocket_cli <command> [options]
+
+Commands:
+  info FILE [--config NAME|NUMBER] [--mach M] [--db FILE]
+      Print the length, the masses, the CG, the CP and the stability of every
+      flight configuration of the design FILE, or of the one --config names
+      (its exact name, else its number as 'info' prints it: 0 is the default
+      configuration). The CP is computed at Mach M (default 0.3).
+
+  simulate FILE [--sim NAME|NUMBER | --all] [--calm] [--seed N]
+           [--time-step S] [--csv OUT] [--db FILE]
+      Run the first simulation of the design FILE, the one --sim names (its
+      exact name, else its number from 1), or with --all every simulation, and
+      print the summary, the events and the warnings of each flight.
+        --calm         no turbulence: the standard deviation of the wind is 0
+                       (the average wind stays)
+        --seed N       the random seed (default: a new one, unless the design
+                       fixes one; the seed used is printed)
+        --time-step S  the time step in seconds, from 0.0001 to 10
+        --csv OUT      write the flight data of the first branch to the CSV
+                       file OUT; with several simulations, simulation N writes
+                       to OUT with -N before its extension
+
+  motors [--search TEXT] [--db FILE]
+      List the motors of the motor database: all, or those whose manufacturer,
+      designation, common name or case contains every word of TEXT (ignoring
+      case).
+
+  motors --load FILE
+      List the motors of a motor file (.eng, .rse, .zip or .db).
+
+  --version
+      Print the version.
+
+  --help
+      Print this help.
+
+--db FILE reads the motors from the motor database FILE instead of
+motors/initial_motors.db in the data directory (share/QtRocket beside the
+directory of the program).
+
+Every value is printed in SI units. The warnings of a load go to the standard
+error.
+
+Exit codes:
+  0  success
+  1  usage error: a wrong command, option or value, or a simulation or flight
+     configuration the design does not have
+  2  a design file or a motor file cannot be loaded
+  3  a simulation fails or is aborted
+  4  an output file or the standard output cannot be written, or the motor
+     database cannot be read
+  5  internal error
+```
+
+`info` prints, per flight configuration, the length, the masses with and without motors, the CG, the CP and CNα,
+the worst CP and the stability in calibers. `simulate` prints the summary (apogee, velocities, acceleration, Mach
+number, times, ...), the flight events and the warnings of each simulation, and the random seed it used, so that
+`--seed` repeats the flight. A CSV file holds every column of the flight data of the first branch except the
+computation time, as OpenRocket's CSV export writes it with the options its export dialog starts with (each
+column in its default unit, `#` comments, the flight events between the rows). The tool never changes a design
+file; lines always end with `\n`, on Windows too.
+
+## Data files and the installed layout
+`data/` holds what QtRocket ships, copied unchanged from OpenRocket:
+- `data/motors/initial_motors.db`: the thrust-curve motor database (SQLite).
+- `data/examples/*.ork`: OpenRocket's 16 example designs.
+
+An installation (and every release archive) has this layout:
+
+```text
+bin/QtRocket_cli
+share/QtRocket/motors/initial_motors.db
+share/QtRocket/examples/*.ork
+share/doc/QtRocket/LICENSE, NOTICE, README.md
+```
+
+`QtRocket_cli` finds its data beside itself, in `<directory of the program>/../share/QtRocket`, so an archive works
+wherever it is unpacked. The build tree has the same layout: building the tool copies the motor database to
+`build/<preset>/share/QtRocket/motors/`. `--db FILE` reads another motor database instead. A system installation
+uses the standard directories (`cmake --install build/<preset> --prefix <dir>`).
+
+## Tests
+Every test is in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
+`QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). Test data lives in
+`tests/data/`. ctest labels select parts of the suite:
+
+```sh
+ctest --preset clang-debug                 # everything
+ctest --preset clang-debug -L golden       # the comparisons with OpenRocket's golden data
+ctest --preset clang-debug -L cli          # QtRocket_cli run as a program
+ctest --preset clang-debug -LE golden      # everything but the golden comparisons
+build/clang-debug/bin/QtRocket_core_tests --gtest_filter='BodyTube.*'
+```
+
+A GoogleTest suite whose name contains `Golden` gets the label `golden`, whatever its file; the comparisons are
+mostly in `*_golden_tests.cpp`, and the CLI's milestone run (`cli.milestone`) carries the label too. Re-run them
+after any change to the aerodynamics, mass, simulation, component geometry or file code.
+
+### Golden data
+`tests/data/goldens/` holds what OpenRocket computes for its 16 example designs and the 13 rockets of its
+`TestRockets` class: geometry, mass and aerodynamics per flight configuration, the complete simulations at the
+designs' own time step, the simulations at a stable 0.01 s step (complete for the test rockets; the summaries and
+events for the examples), and OpenRocket's own re-save of each design. The Java harness in
+`tools/openrocket-goldens/` writes it from a local OpenRocket checkout; CMake and CI never need Java. To regenerate
+(JDK 17 and an OpenRocket checkout at the commit `tests/data/goldens/manifest.json` records):
+
+```sh
+tools/openrocket-goldens/generate.sh
+ctest --preset clang-debug -L golden
+```
+
+[tools/openrocket-goldens/README.md](tools/openrocket-goldens/README.md) describes the harness, the file formats,
+the tolerances of the comparisons and the other fixtures it can write.
+
 ## Releases
 The Release workflow (`.github/workflows/release.yml`) runs only when started by hand, never on a push:
 1. Raise `VERSION` in `project()` in `CMakeLists.txt`, then commit and push.
@@ -67,9 +209,16 @@ publish a GitHub release with the archives, a `SHA256SUMS` file and generated re
 
 The C++ runtime is linked into the Linux and Windows executables, so users need no libstdc++ or VC++
 Redistributable. Dependencies are always built from source, never taken from the build machine. An archive holds
-what the `install()` rules install: add rules for anything else it should ship.
+what the `install()` rules install (the layout above): add rules for anything else it should ship.
 Build one locally with `cmake --workflow --preset dist-linux` (or `dist-macos`, `dist-windows`); it lands in
 `build/dist-<os>/package/`.
 
-The executables are not code-signed. A macOS browser download needs `xattr -d com.apple.quarantine bin/QtRocket`
+The executables are not code-signed. A macOS browser download needs `xattr -d com.apple.quarantine bin/QtRocket_cli`
 before it runs, and Windows SmartScreen warns the first time.
+
+## Licence
+QtRocket is free software under the GNU General Public License, version 3 or (at your option) any later version:
+see [LICENSE](LICENSE). It is a re-implementation of OpenRocket, Copyright (C) 2007-2025 Sampo Niskanen and
+others, also licensed under the GPL version 3 or later; the motor database, the example designs and the test
+designs are OpenRocket's. [NOTICE](NOTICE) gives the details, the code translated from OpenJDK and the notices of
+the third-party libraries that the program contains.

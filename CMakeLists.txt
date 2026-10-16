@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)   # FetchContent SYSTEM + EXCLUDE_FROM_ALL + FIND_PACKAGE_ARGS
-project(QtRocket VERSION 0.1.0
+project(QtRocket VERSION 0.2.0
         DESCRIPTION "Model rocket design and flight simulation, a C++ re-implementation of OpenRocket"
         LANGUAGES C CXX)
 
@@ -52,6 +52,9 @@ add_subdirectory(src)
 # Shipped data files: the motor database and the example designs (read at run time from share/QtRocket).
 include(GNUInstallDirs)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/QtRocket)
+# The licence, OpenRocket's and the third-party notices, and the README go with every archive (share/doc/QtRocket).
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/NOTICE ${PROJECT_SOURCE_DIR}/README.md
+        DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 if(QTROCKET_BUILD_TESTS)
     enable_testing()
