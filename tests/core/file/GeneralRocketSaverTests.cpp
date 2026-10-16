@@ -1170,8 +1170,8 @@ TEST(GeneralRocketSaver, WarnsOfAttachmentsLongerThanTheLoaderReads)
 // A save over a file marked read-only replaces it, as OpenRocket's does, and the new file is
 // read-only too (it keeps the old one's permissions; Java's would be writable). The save has the
 // warning fileWasReadOnly() (QtRocket's own, the user's answer of 2026-10-16) beside those of the
-// design; the file holds the archive of the design. A save over a writable file has no such
-// warning.
+// design; the file holds the archive of the design. The next save over the file, which is still
+// read-only, warns again; a save over a writable file has no such warning.
 TEST(GeneralRocketSaver, ReplacesAReadOnlyFileWithAWarning)
 {
     const std::unique_ptr<OpenRocketDocument> document =
@@ -1195,6 +1195,15 @@ TEST(GeneralRocketSaver, ReplacesAReadOnlyFileWithAWarning)
         saver.saveToBytes(*document, document->getDefaultStorageOptions());
     ASSERT_TRUE(archive.has_value());
     EXPECT_EQ(*written, *archive);
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1);
+
+    // Still read-only: the same again.
+    ASSERT_TRUE(saver.save(file, *document).has_value());
+    EXPECT_EQ(warningTexts(saver.getWarnings()), expected);
+    EXPECT_TRUE(isReadOnly(file));
+    EXPECT_EQ(QtRocket::readFile(file).value_or(std::vector<std::byte>{}), *archive);
     EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
                             std::filesystem::directory_iterator()),
               1);
@@ -1226,6 +1235,34 @@ TEST(GeneralRocketSaver, AFailedSaveLeavesAReadOnlyFileAsItWas)
     EXPECT_TRUE(saver.getWarnings().empty());
     EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "the old design");
     EXPECT_TRUE(isReadOnly(file));
+}
+
+// A save that fails after the design was written (the file is a directory, which no rename
+// replaces) returns its Error and has no warning fileWasReadOnly(); its warnings are those the
+// design gave before the failure, as Java's are (saveInternal() fills them, and the failed rename
+// throws after it). Nothing but the directory is left.
+TEST(GeneralRocketSaver, ASaveThatFailsAfterTheDesignWasWrittenKeepsItsWarnings)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    document->getRocket().setName("bad\x01name");
+    const TempDir               directory;
+    const std::filesystem::path file = directory.resolve("design.ork");
+    ASSERT_TRUE(std::filesystem::create_directory(file));
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver        saver(preferences);
+    const Result<void>        saved = saver.save(file, *document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().code, ErrorCode::IO);
+    EXPECT_TRUE(
+        saved.error().message.starts_with("cannot replace '" + QtRocket::pathToUtf8(file) + "': "))
+        << saved.error().message;
+    EXPECT_EQ(warningTexts(saver.getWarnings()),
+              std::vector<std::string>{std::string(OpenRocketSaver::kDroppedCharacters)});
+    EXPECT_TRUE(std::filesystem::is_directory(file));
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1);
 }
 
 // The read-only warning names the file as UTF-8.

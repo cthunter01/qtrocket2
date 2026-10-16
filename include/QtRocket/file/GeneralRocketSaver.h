@@ -74,11 +74,15 @@ class Preferences;
 /// file is renamed to the file, which it replaces. A failure of any step leaves the file as it
 /// was and removes the temporary file; a directory that cannot take the file fails before the
 /// document is written (Java's order: the temporary file is made first). The new file has the
-/// permissions the file had (FileIo replaceFile()). A file marked read-only (no write
-/// permission for anyone, the read-only attribute on Windows) is replaced as OpenRocket
-/// replaces it, and so stays read-only; a save that replaced one has the save warning
-/// fileWasReadOnly() (the user's answer of 2026-10-16), and a save that fails has its Error
-/// alone.
+/// permissions the file had, and its owner can read it (FileIo replaceFile()). A file marked
+/// read-only (no write permission for anyone, the read-only attribute on Windows) is replaced,
+/// as OpenRocket replaces it, and keeps its permissions, so it stays read-only (a deviation, see
+/// below); a save that replaced one has the save warning fileWasReadOnly() (the user's answer of
+/// 2026-10-16). A save that fails returns its Error and has no warning fileWasReadOnly(); its
+/// warnings are those the design gave before the failure, as Java's are: none when it failed
+/// before the design was written (a directory that cannot take the file, an Error of the
+/// archive), the design's when the file could not be written or renamed (a target that is a
+/// directory, or that is open in another program on Windows).
 ///
 /// The caller (the command line, later the GUI) sets the document's file and its saved state
 /// after a successful save (OpenRocketDocument::setFile(), setSaved(true)), as OpenRocket's
@@ -87,9 +91,10 @@ class Preferences;
 /// The warnings and the errors of the last save are getWarnings() and getErrors(), and its missing
 /// decal image getMissingDecal(); all three are cleared when a save begins, a save() that fails
 /// before the design is written included (Java: the warnings when the design begins to be
-/// written; the missing image is the exception's). They are what a caller shows the user (the
-/// command line saves nothing; the GUI will). QtRocket's own warnings of the container are
-/// decalImageRenamed(), fileWasReadOnly() and those of the loader's bounds below.
+/// written; the missing image is the exception's), and a failed save keeps what it gave before
+/// it failed (see above). They are what a caller shows the user (the command line saves
+/// nothing; the GUI will). QtRocket's own warnings of the container are decalImageRenamed(),
+/// fileWasReadOnly() and those of the loader's bounds below.
 ///
 /// THE LOADER'S BOUNDS (decision O12 of tier 10, and the user's answer of 2026-10-16: a save
 /// warning for every bound of QtRocket's loader that the saved design exceeds). The file is
@@ -142,8 +147,9 @@ class Preferences;
 ///   10a; the user's answers of 2026-10-16). Java has none of them.
 /// - No "<file>-bak" is made while the file is replaced (see FileIo replaceFile()), and the
 ///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp"). The
-///   new file has the permissions of the old one, so a read-only file that is replaced stays
-///   read-only (Java: the permissions of a new file, so it becomes writable).
+///   new file has the permissions of the old one, with read permission for its owner added, so
+///   a read-only file that is replaced stays read-only (Java: the permissions of a new file, so
+///   it becomes writable).
 class GeneralRocketSaver final
 {
 public:

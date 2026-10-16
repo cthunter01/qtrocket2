@@ -43,6 +43,14 @@ namespace QtRocket
 class XmlScanner final
 {
 public:
+    /// The JDK's jdk.xml.maxXMLNameLimit: the longest name of an element or an attribute (or its
+    /// prefix, or its local part) that scan() passes, in UTF-16 code units.
+    static constexpr std::size_t kMaxNameLength = 1000;
+
+    /// The JDK's jdk.xml.elementAttributeLimit: the most attributes an element may have, namespace
+    /// declarations included.
+    static constexpr std::size_t kMaxAttributes = 10000;
+
     /// What scan() found.
     struct Report
     {
@@ -79,6 +87,16 @@ public:
     /// a name or not. Only the declaration is read, so @p text need not be more than that: a
     /// reader of bytes finds the encoding this way before it can decode the rest.
     [[nodiscard]] static std::optional<std::string> declaredEncoding(std::string_view text);
+
+    /// Whether @p name, UTF-8, can name an attribute without a namespace prefix in an XML 1.0
+    /// document that scan() passes, which then hands it on as an attribute of that name: it is
+    /// well-formed UTF-8, an NCName by the name tables scan() applies to an XML 1.0 document
+    /// (Xerces's XMLChar: a name start character, then name characters, and no colon, which would
+    /// make a prefix), at most kMaxNameLength UTF-16 code units long, and not "xmlns", which
+    /// declares a namespace. For a writer that takes attribute names from data
+    /// (SimulationSaver): a name it passes keeps the document well-formed, given at most
+    /// kMaxAttributes of them to an element and no name twice.
+    [[nodiscard]] static bool isPlainAttributeName(std::string_view name);
 };
 
 }  // namespace QtRocket

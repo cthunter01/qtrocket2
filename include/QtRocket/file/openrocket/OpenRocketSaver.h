@@ -50,11 +50,13 @@ class Rocket;
 ///
 /// After the text is complete save() adds QtRocket's save warnings (decision U7 of tier 9: the
 /// texts are here, but for SimulationSaver::lookupRowsNotSaved(), which SimulationSaver adds while
-/// it writes): kDroppedCharacters once when OrkWriter::escape() dropped any character, and
-/// a warning for each of the bounds of QtRocket's loader that the saved design exceeds, so that
-/// QtRocket would not read it back in full (decision O12 of tier 10, and the user's answer of
-/// 2026-10-16: a save warning for every bound the design exceeds). The file is written all the
-/// same.
+/// it writes): kDroppedCharacters once when OrkWriter::escape() dropped any character,
+/// dispersionAttributesLeftOut() once when SimulationSaver left out attributes of landing
+/// dispersion settings that the loader could not read back (SimulationSaver::attributesLeftOut()
+/// of every simulation), and a warning for each of the bounds of QtRocket's loader that the saved
+/// design exceeds, so that QtRocket would not read it back in full (decision O12 of tier 10, and
+/// the user's answer of 2026-10-16: a save warning for every bound the design exceeds). The file
+/// is written all the same.
 ///
 /// THE LOADER'S BOUNDS. The bounds of the text are checked here, those of the archive by
 /// GeneralRocketSaver. Each is counted as the loader counts it, in the order in which it reads
@@ -71,11 +73,14 @@ class Rocket;
 ///   level 1: nestingBeyondLoaderBound(), with the level of the deepest;
 /// - more than DocumentConfig::kMaxAssemblies stages, booster sets and pod sets
 ///   (DocumentConfig::assemblyCount()): assembliesBeyondLoaderBound();
-/// - an instance count of a launch lug, a rail button, a centering ring, a bulkhead, a pod set or
-///   a booster set, or the line count of a parachute, above DocumentConfig::kMaxCount, which the
-///   loader refuses (IntSetter; a fin set clamps its count to 8 itself, and an inner tube sets
-///   its count through its cluster configuration): countsBeyondLoaderBound(), with how many and
-///   the largest;
+/// - an instance count (<instancecount>) or the line count of a parachute (<linecount>) above the
+///   maximum of the setter the loader applies to it, which refuses the count (IntSetter::maximum()
+///   of DocumentConfig::findSetter(): the saver asks the loader's table, so that the two
+///   agree). That is DocumentConfig::kMaxCount for the instance counts of a launch lug, a rail
+///   button, a centering ring, a bulkhead, a pod set and a booster set and for the line count of
+///   a parachute (a fin set clamps its count to 8 itself, and an inner tube sets its count
+///   through its cluster configuration): countsBeyondLoaderBound(), with how many and the
+///   largest;
 /// - more component instances over all flight configurations than DocumentConfig::kMaxInstances
 ///   at any moment of the load (DocumentConfig::instanceLoad()): the loader makes the flight
 ///   configurations of the rocket first, then attaches each component, in the order of the file,
@@ -114,9 +119,14 @@ class Rocket;
 ///   GeneralRocketLoader returns): it bounds what a load reports, not what it reads, so a design
 ///   beyond it loads in full; and which warnings a load gives is the loader's answer to every
 ///   element, which the saver cannot count without loading the file;
-/// - the XML scanner's 1000 characters of an element or attribute name and 10000 attributes of
-///   an element: the saver writes the names of its own vocabulary, never a name out of the
-///   design, and a dozen attributes to an element at most;
+/// - the XML scanner's limits (XmlScanner::kMaxNameLength UTF-16 units of an element or
+///   attribute name, XmlScanner::kMaxAttributes attributes of an element) and its names: the
+///   saver writes the names of its own vocabulary, a dozen attributes to an element at most,
+///   but in one place, the landing dispersion settings, whose attributes are named by the design.
+///   There SimulationSaver writes no attribute the loader could not read back (a name that
+///   XmlScanner::isPlainAttributeName() refuses, an attribute beyond kMaxAttributes of one
+///   element) and save() warns of what it left out (dispersionAttributesLeftOut()): the loader
+///   would refuse the whole file, which is never written (decision 3 of tier 10);
 /// - the file version (always one the loader knows, see kFileVersion) and the document type
 ///   declaration the loader refuses (the saver writes none);
 /// - ConfigHandler::kMaxListDepth for a <pref> of the document preferences, which the loader
@@ -150,6 +160,8 @@ class Rocket;
 /// - The document preferences are written sorted by key (DocumentPreferences::preferences(), a
 ///   std::map; Java iterates a HashMap, whose order is unspecified).
 /// - The save warnings above are QtRocket's own; Java gives none.
+/// - Attributes of landing dispersion settings that the loader could not read back are left out
+///   (see SimulationSaver; Java writes the attributes of its own MonteCarloSettings).
 /// - The creator is QtRocket's.
 /// - estimateFileSize() counts in 64 bits (Java multiplies ints, which wrap beyond about 21
 ///   million data points).
@@ -178,6 +190,13 @@ public:
     static constexpr std::string_view kDroppedCharacters =
         "Characters that a design file cannot hold (control characters other than tab, line feed "
         "and carriage return, U+FFFE, U+FFFF) were left out of the saved texts.";
+
+    /// The save warning for @p count attributes of landing dispersion settings that the saver
+    /// left out (SimulationSaver::attributesLeftOut(); QtRocket's text): "<count> attributes of
+    /// landing dispersion settings were left out of the saved design: a design file holds at
+    /// most <kMaxAttributes> attributes to an element, each named by an XML 1.0 name without a
+    /// colon of at most <kMaxNameLength> characters, other than "xmlns"."
+    [[nodiscard]] static std::string dispersionAttributesLeftOut(std::size_t count);
 
     /// The save warning for a document text of @p bytes bytes, beyond
     /// GeneralRocketLoader::kMaxDocumentBytes: "The saved design is <bytes> bytes long; QtRocket
@@ -212,8 +231,9 @@ public:
     /// The save warning for a load that comes to @p instances component instances over all
     /// flight configurations, beyond DocumentConfig::kMaxInstances: "The saved rocket comes to
     /// <instances> component instances over its flight configurations while it is read;
-    /// QtRocket loads at most <kMaxInstances> and will ignore the components, counts and flight
-    /// configurations that would go beyond when it opens this file."
+    /// QtRocket loads at most <kMaxInstances> and will ignore the components, counts, cluster
+    /// layouts and flight configurations that would go beyond, with the motors and simulations
+    /// of those configurations, when it opens this file."
     [[nodiscard]] static std::string instancesBeyondLoaderBound(std::uint64_t instances);
 
     /// The save warning for @p configurations flight configurations, beyond

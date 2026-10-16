@@ -4,8 +4,10 @@
 #include <cstddef>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -260,6 +262,63 @@ TEST(XmlScanner, AppliesTheJdkAttributeLimit)
     EXPECT_EQ(errorOf(XmlScanner::scan("<a" + attributes + R"( xmlns:p="u"/>)")),
               R"(JAXP00010002:  Element "a" has more than "10,000" attributes, "10,000" is the )"
               "limit imposed by the JDK.");
+}
+
+/// The names of @p names that isPlainAttributeName() judges otherwise than @p plain, or that
+/// scan() judges otherwise as the one attribute of an element of an XML 1.0 document.
+[[nodiscard]] std::vector<std::string> namesJudgedOtherwise(std::span<const std::string> names,
+                                                            bool                         plain)
+{
+    std::vector<std::string> otherwise;
+    for (const std::string& name : names)
+    {
+        const bool scanned =
+            !XmlScanner::scan(std::format(R"(<?xml version="1.0"?><e {}="v"/>)", name))
+                 .error.has_value();
+        if (XmlScanner::isPlainAttributeName(name) != plain || scanned != plain)
+        {
+            otherwise.push_back(name);
+        }
+    }
+    return otherwise;
+}
+
+// isPlainAttributeName() is the rule of scan() for the name of an attribute without a prefix in
+// an XML 1.0 document: a name it takes, the scan takes as an attribute's name, and one it
+// refuses the scan refuses, but for "xmlns" and a name with a colon, which the scan takes as a
+// namespace declaration or a prefixed name.
+TEST(XmlScanner, IsPlainAttributeNameIsTheScansRuleForAnXml10AttributeName)
+{
+    const std::string                longest(XmlScanner::kMaxNameLength, 'a');
+    const std::array<std::string, 9> plain{
+        "a",         "_",        "xml",
+        "a-b.c_9",   "\xC3\x80", "a\xC2\xB7",
+        "a\xCC\x80", longest,    std::string(XmlScanner::kMaxNameLength - 1, 'a') + "\xC3\x80"};
+    const std::array<std::string, 14> notPlain{"",
+                                               "1a",
+                                               "-a",
+                                               ".a",
+                                               "a b",
+                                               "a\x01",
+                                               "\xC3\x97",
+                                               "a\xC3\x97",
+                                               "\xE2\x81\xB0",
+                                               "\xE3\x80\x80",
+                                               "\xCC\x80"
+                                               "a",
+                                               "\xF0\x90\x80\x80",
+                                               "a\xFF",
+                                               longest + "a"};
+    EXPECT_EQ(namesJudgedOtherwise(plain, true), std::vector<std::string>{});
+    EXPECT_EQ(namesJudgedOtherwise(notPlain, false), std::vector<std::string>{});
+    // Well-formed, but no attribute of that name.
+    EXPECT_FALSE(XmlScanner::isPlainAttributeName("xmlns"));
+    EXPECT_FALSE(XmlScanner::isPlainAttributeName("xml:lang"));
+    EXPECT_FALSE(XmlScanner::isPlainAttributeName("a:b"));
+    EXPECT_FALSE(XmlScanner::isPlainAttributeName(":a"));
+    EXPECT_FALSE(XmlScanner::scan(R"(<e xmlns="v" xml:lang="v"/>)").error.has_value());
+    // A malformed sequence would be written as it is, and read as U+FFFD.
+    EXPECT_FALSE(XmlScanner::isPlainAttributeName("\xED\xA0\x80"));
 }
 
 TEST(XmlScanner, FindsDuplicatesInLongAttributeListsAsXercesDoes)

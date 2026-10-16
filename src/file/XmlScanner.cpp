@@ -181,10 +181,6 @@ constexpr std::array<CharRange, 18> kNameChar11{{
 /// Where the document ends; no character has this value.
 constexpr char32_t kEof = 0x110000;
 
-/// The JDK's jdk.xml.maxXMLNameLimit: the longest name (or prefix or local part), in UTF-16 units.
-constexpr std::size_t kMaxNameLength = 1000;
-/// The JDK's jdk.xml.elementAttributeLimit.
-constexpr std::size_t kMaxAttributes = 10000;
 /// XMLAttributesImpl.SIZE_LIMIT: up to this many attributes, duplicates are looked for pairwise.
 constexpr std::size_t kSmallAttributeList = 20;
 
@@ -541,12 +537,12 @@ private:
         fatal(
             std::format("JAXP00010005: The length of entity \"[xml]\" is \"{}\" that exceeds the "
                         "\"{}\" limit set by \"FEATURE_SECURE_PROCESSING\".",
-                        grouped(utf16Length(name)), grouped(kMaxNameLength)));
+                        grouped(utf16Length(name)), grouped(XmlScanner::kMaxNameLength)));
     }
 
     static void checkNameLength(std::u32string_view name)
     {
-        if (utf16Length(name) > kMaxNameLength)
+        if (utf16Length(name) > XmlScanner::kMaxNameLength)
         {
             nameTooLong(name);
         }
@@ -1206,12 +1202,13 @@ private:
                 elementUnterminated(element);
             }
             scanAttribute(element, attributes);
-            if (attributes.size() > kMaxAttributes)
+            if (attributes.size() > XmlScanner::kMaxAttributes)
             {
-                fatal(std::format(
-                    "JAXP00010002:  Element \"{}\" has more than \"{}\" attributes, "
-                    "\"{}\" is the limit imposed by the JDK.",
-                    utf8(element.rawname), grouped(kMaxAttributes), grouped(kMaxAttributes)));
+                fatal(
+                    std::format("JAXP00010002:  Element \"{}\" has more than \"{}\" attributes, "
+                                "\"{}\" is the limit imposed by the JDK.",
+                                utf8(element.rawname), grouped(XmlScanner::kMaxAttributes),
+                                grouped(XmlScanner::kMaxAttributes)));
             }
         }
         if (m_seenDoctype)
@@ -1862,6 +1859,25 @@ XmlScanner::Report XmlScanner::scan(std::string_view text)
 std::optional<std::string> XmlScanner::declaredEncoding(std::string_view text)
 {
     return Scanner(Strings::toCodePoints(text)).declaredEncoding();
+}
+
+bool XmlScanner::isPlainAttributeName(std::string_view name)
+{
+    // A malformed sequence would reach the scan as U+FFFD, which no XML 1.0 name holds; and the
+    // text must be written as it is.
+    if (name.empty() || name == "xmlns" || Strings::toValidUtf8(name) != name)
+    {
+        return false;
+    }
+    const std::u32string codePoints = Strings::toCodePoints(name);
+    // Scanner::isNcNameStart() and isNameChar() of an XML 1.0 document, the colon left out.
+    if (codePoints.front() == U':' || !inRanges(kNameStart10, codePoints.front()))
+    {
+        return false;
+    }
+    return std::ranges::all_of(codePoints,
+                               [](char32_t c) { return c != U':' && inRanges(kNameChar10, c); }) &&
+           utf16Length(codePoints) <= kMaxNameLength;
 }
 
 }  // namespace QtRocket

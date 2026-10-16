@@ -44,8 +44,9 @@ namespace QtRocket
 struct FileReplacement
 {
     /// Whether the file that was replaced was marked read-only: no write permission for anyone,
-    /// which is the read-only attribute on Windows. It was replaced all the same, as OpenRocket
-    /// replaces it, and the new file is read-only too. False when there was no such file.
+    /// which is the read-only attribute on Windows (for a link, the file it pointed to). It was
+    /// replaced all the same, as OpenRocket replaces it, and the new file is read-only too.
+    /// False when there was no such file.
     bool wasReadOnly{false};
 };
 
@@ -60,7 +61,9 @@ struct FileReplacement
 /// open in another program on Windows, is not replaced.
 ///
 /// A file that is replaced passes its permissions (std::filesystem::perms::all of them) on to
-/// the new one, as far as the file system keeps them. A file marked read-only (no write
+/// the new one, as far as the file system keeps them, but for read permission for its owner,
+/// which the new file always has (QtRocket's rule: a file of mode 000 would otherwise give a
+/// file that its owner cannot read after the save). A file marked read-only (no write
 /// permission for anyone, which is the read-only attribute on Windows) is replaced as any other,
 /// so the new file is read-only too, and the result says that it was read-only
 /// (FileReplacement::wasReadOnly), for the caller to tell the user. On Linux and macOS the rename
@@ -68,12 +71,19 @@ struct FileReplacement
 /// read-only attribute is cleared just before the rename and put back when the rename fails,
 /// which leaves the file as it was.
 ///
+/// A @p target that is a symbolic link is replaced as Java's renames replace it: the link itself
+/// becomes the new file, and the file it pointed to stays as it was. The new file has the
+/// permissions of the file the link pointed to, and wasReadOnly says whether that file was
+/// read-only. Nothing is ever changed through the link (on Windows the read-only attribute is
+/// cleared only on a target that is the file itself, so a link that is itself marked read-only
+/// is not replaced there).
+///
 /// Deviations from Java: Java moves an existing target aside to "<target>-bak" first and then
 /// renames the temporary file, putting the target back when that fails; a rename that replaces
 /// the target needs no such step. Java's temporary file is "ORSave<digits>.tmp". Java gives the
 /// new file the permissions of a new file, so a read-only file it replaces is writable after
 /// the save; here the new file keeps the permissions of the old one, read-only included, on
-/// every platform.
+/// every platform, with read permission for its owner added.
 [[nodiscard]] Result<FileReplacement> replaceFile(const std::filesystem::path& target,
                                                   std::span<const std::byte>   data);
 

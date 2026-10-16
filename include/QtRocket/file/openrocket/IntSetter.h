@@ -76,6 +76,13 @@ public:
                                    const Attributes& attributes, WarningSet& warnings,
                                    const DocumentLoadingContext& context) const override;
 
+    /// The largest number the setter sets: a larger one is refused with
+    /// LoaderWarnings::countAboveBound(). None when it refuses no number for being too large
+    /// (any int, or a count the component clamps itself). The saver asks it, through
+    /// DocumentConfig::findSetter(), to warn of the counts the loader will refuse
+    /// (OpenRocketSaver::beyondLoaderBounds()).
+    [[nodiscard]] std::optional<int> maximum() const noexcept { return m_maximum; }
+
 private:
     SetFunction        m_set;
     std::optional<int> m_maximum;

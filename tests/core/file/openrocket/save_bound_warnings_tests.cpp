@@ -5,6 +5,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -18,6 +19,7 @@
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/XmlScanner.h"
 #include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/ConfigHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
@@ -33,6 +35,7 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Bulkhead.h"
 #include "QtRocket/rocket/CenteringRing.h"
+#include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Decal.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/InnerTube.h"
@@ -45,6 +48,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
+#include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/PlotAppearance.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationOptions.h"
@@ -190,8 +194,8 @@ TEST(SaveBoundWarnings, NameTheCountAndTheLoadersBound)
     EXPECT_EQ(OpenRocketSaver::instancesBeyondLoaderBound(100010),
               "The saved rocket comes to 100010 component instances over its flight "
               "configurations while it is read; QtRocket loads at most 100000 and will ignore the "
-              "components, counts and flight configurations that would go beyond when it opens "
-              "this file.");
+              "components, counts, cluster layouts and flight configurations that would go beyond, "
+              "with the motors and simulations of those configurations, when it opens this file.");
     EXPECT_EQ(OpenRocketSaver::flightConfigurationsBeyondLoaderBound(1001),
               "The saved design has 1001 flight configurations; QtRocket loads at most 1000 and "
               "will ignore the ones beyond, with their motors and simulations, when it opens this "
@@ -387,6 +391,109 @@ TEST(SaveBoundWarnings, CountsTheCountsOfEveryKindTheLoaderRefuses)
             QtRocket::Parachute().getLineCount()}));
 }
 
+/// A design of its own whose component of @p kind, made as the loader makes it
+/// (DocumentConfig::createComponent()), has the instance count DocumentConfig::kMaxCount + 1,
+/// in the first of the body tube, the stage and the rocket that takes it. Null for the rocket
+/// and for a component that does not keep that count (it clamps it, or has no count of its own).
+[[nodiscard]] std::unique_ptr<Design> designOfACountBeyondTheBound(QtRocket::ComponentKind kind)
+{
+    std::unique_ptr<RocketComponent> component =
+        DocumentConfig::createComponent(QtRocket::xmlName(kind));
+    if (component == nullptr)
+    {
+        return nullptr;
+    }
+    component->setInstanceCount(DocumentConfig::kMaxCount + 1);
+    if (component->getInstanceCount() != DocumentConfig::kMaxCount + 1)
+    {
+        return nullptr;
+    }
+    auto             design = std::make_unique<Design>();
+    RocketComponent& tube   = design->bodyTube();
+    for (RocketComponent* const parent :
+         {&tube, &design->stage(), static_cast<RocketComponent*>(&design->rocket())})
+    {
+        if (parent->isCompatible(*component))
+        {
+            parent->addChild(std::move(component));
+            return design;
+        }
+    }
+    return nullptr;
+}
+
+/// The component of @p kind in the tree of @p rocket.
+[[nodiscard]] const RocketComponent* componentOfKind(const QtRocket::Rocket& rocket,
+                                                     QtRocket::ComponentKind kind)
+{
+    for (const RocketComponent& component : rocket.subtree(true))
+    {
+        if (component.kind() == kind)
+        {
+            return &component;
+        }
+    }
+    return nullptr;
+}
+
+/// What the saver and the loader say of an instance count of kMaxCount + 1 for each kind of
+/// component that keeps one (designOfACountBeyondTheBound()).
+struct CountVerdicts
+{
+    /// The kinds whose count the loader refuses (the count comes back as the one the component
+    /// is made with, and the load warns countAboveBound()).
+    std::vector<std::string> refused;
+    /// "<kind>: saver <warns>, loader <refuses>" for each kind of which the two disagree.
+    std::vector<std::string> disagreements;
+};
+
+[[nodiscard]] CountVerdicts countVerdicts()
+{
+    constexpr int kBeyond = DocumentConfig::kMaxCount + 1;
+    CountVerdicts verdicts;
+    for (const QtRocket::ComponentKind kind : QtRocket::kAllComponentKinds)
+    {
+        const std::unique_ptr<Design> design = designOfACountBeyondTheBound(kind);
+        if (design == nullptr)
+        {
+            continue;
+        }
+        const Saved saved = saveOf(*design);
+        const bool  warns =
+            saved.warnings ==
+            std::vector<std::string>{OpenRocketSaver::countsBeyondLoaderBound(1, kBeyond)};
+        const Reloaded               reloaded(saved.text);
+        const RocketComponent* const loaded =
+            reloaded.loaded.has_value() ? componentOfKind(reloaded.document().getRocket(), kind)
+                                        : nullptr;
+        const bool refuses = loaded != nullptr && loaded->getInstanceCount() != kBeyond &&
+                             reloaded.warned(LoaderWarnings::countAboveBound(kBeyond - 1));
+        if (refuses)
+        {
+            verdicts.refused.emplace_back(QtRocket::className(kind));
+        }
+        if (warns != refuses || loaded == nullptr)
+        {
+            verdicts.disagreements.push_back(
+                std::format("{}: saver {}, loader {}", QtRocket::className(kind), warns, refuses));
+        }
+    }
+    return verdicts;
+}
+
+// The saver warns of an instance count exactly where the loader refuses it: for every kind of
+// component that keeps an instance count above kMaxCount, made as the loader makes it, a count
+// of kMaxCount + 1 is saved and loaded back. (The saver asks the loader's setter table, see
+// OpenRocketSaver; this compares the two ends.)
+TEST(SaveBoundWarnings, WarnsOfAnInstanceCountExactlyWhereTheLoaderRefusesIt)
+{
+    const CountVerdicts verdicts = countVerdicts();
+    EXPECT_TRUE(verdicts.disagreements.empty()) << ::testing::PrintToString(verdicts.disagreements);
+    EXPECT_EQ(verdicts.refused,
+              (std::vector<std::string>{"ParallelStage", "PodSet", "LaunchLug", "RailButton",
+                                        "CenteringRing", "Bulkhead"}));
+}
+
 // ----------------------------------------------------------------------------- the instances
 
 /// A design of @p configurations flight configurations whose body tube holds a launch lug of
@@ -420,15 +527,37 @@ TEST(SaveBoundWarnings, WarnsOfMoreInstancesThanTheLoaderTakes)
         reloaded.document().getRocket().getChild(0).getChild(0).getChild(0).getInstanceCount(), 1);
 }
 
+/// designOfInstances(@p lugs, 9) and whether the loader attaches a pod set after the launch
+/// lug: what ComponentHandler asks (DocumentConfig::childFits()) of a pod set as the loader makes
+/// it (DocumentConfig::createComponent(), 2 instances), with the rocket as the loader has it then.
+/// The pod set is added after that, with one instance: 10 * (3 + @p lugs + 2) instances while
+/// it is attached, 10 * (3 + @p lugs + 1) once it is read.
+[[nodiscard]] std::pair<std::unique_ptr<Design>, bool> designOfALatePodSet(int lugs)
+{
+    std::unique_ptr<Design>                design = designOfInstances(lugs, 9);
+    RocketComponent&                       tube   = design->rocket().getChild(0).getChild(0);
+    const std::unique_ptr<RocketComponent> made   = DocumentConfig::createComponent("podset");
+    const bool                             fits   = DocumentConfig::childFits(tube, *made);
+    tube.addChild(std::make_unique<QtRocket::PodSet>()).setInstanceCount(1);
+    return {std::move(design), fits};
+}
+
 // The loader attaches a component with the count its constructor gives it (a pod set 2) and
 // sets the component's count after that: a pod set of one instance that brings the rocket to
-// exactly kMaxInstances takes it beyond while it is attached, and the loader refuses it.
+// exactly kMaxInstances takes it beyond while it is attached, and the loader refuses it. One
+// that takes the rocket to exactly kMaxInstances while it is attached is attached. (The round
+// trip of that design takes seconds, every change of the rocket after the pod set rebuilding
+// 100000 instances: the loader's rule is asked of the rocket as the loader has it then.)
 TEST(SaveBoundWarnings, WarnsOfAComponentBeyondTheInstancesWhileItIsAttached)
 {
+    // 10 * (3 + 9995 + 2) = 100000 while the pod set is attached: the bound.
+    const auto [atTheBound, attached] = designOfALatePodSet(9995);
+    EXPECT_TRUE(attached);
+    EXPECT_TRUE(saveOf(*atTheBound).warnings.empty());
+
     // 10 * (3 + 9996 + 1) = 100000, and 10 * (3 + 9996 + 2) while the pod set is attached.
-    const std::unique_ptr<Design> design = designOfInstances(9996, 9);
-    RocketComponent&              tube   = design->rocket().getChild(0).getChild(0);
-    tube.addChild(std::make_unique<QtRocket::PodSet>()).setInstanceCount(1);
+    const auto [design, fits] = designOfALatePodSet(9996);
+    EXPECT_FALSE(fits);
     ASSERT_EQ(DocumentConfig::instanceLoad(design->rocket()), DocumentConfig::kMaxInstances);
 
     const Saved saved = saveOf(*design);
@@ -832,6 +961,176 @@ TEST(SaveBoundWarnings, WarnsOfListsNestedDeeperThanTheLoaderReads)
     const Reloaded reloaded(beyond.text);
     ASSERT_TRUE(reloaded.loaded.has_value());
     EXPECT_TRUE(reloaded.warned(std::string(LoaderWarnings::kListNestedTooDeeply)));
+}
+
+// ------------------------------------------------------- the landing dispersion settings
+
+using DispersionAttributes = QtRocket::LandingDispersionSettings::Attributes;
+
+/// The attributes "runs" and "seed", then @p others attributes "a0", "a1", ... of the value "1".
+[[nodiscard]] DispersionAttributes settingsAttributes(std::size_t others)
+{
+    DispersionAttributes attributes{{"runs", "500"}, {"seed", "12345"}};
+    for (std::size_t i = 0; i < others; ++i)
+    {
+        attributes.emplace(std::format("a{}", i), "1");
+    }
+    return attributes;
+}
+
+/// The attributes "parameter", "distribution" and "spread" of an uncertainty, then @p others
+/// attributes "a0", "a1", ... of the value "1".
+[[nodiscard]] DispersionAttributes uncertaintyAttributes(std::size_t others)
+{
+    DispersionAttributes attributes{
+        {"parameter", "windspeed"}, {"distribution", "normal"}, {"spread", "0.5"}};
+    for (std::size_t i = 0; i < others; ++i)
+    {
+        attributes.emplace(std::format("a{}", i), "1");
+    }
+    return attributes;
+}
+
+/// A design of one simulation with landing dispersion settings of the attributes @p attributes
+/// and of one uncertainty of the attributes @p uncertainty.
+[[nodiscard]] std::unique_ptr<Design> designOfDispersion(DispersionAttributes attributes,
+                                                         DispersionAttributes uncertainty)
+{
+    auto design = std::make_unique<Design>();
+    design->addSimulation().setLandingDispersionSettings(
+        QtRocket::LandingDispersionSettings(std::move(attributes), {std::move(uncertainty)}));
+    return design;
+}
+
+/// The landing dispersion settings of the one simulation of a loaded design; none when it has
+/// none, or not one simulation.
+[[nodiscard]] std::optional<QtRocket::LandingDispersionSettings> dispersionOf(
+    const OpenRocketDocument& document)
+{
+    if (document.getSimulationCount() != 1)
+    {
+        return std::nullopt;
+    }
+    return document.getSimulation(0)->getLandingDispersionSettings();
+}
+
+/// The <landingdispersion> element of the saved text @p text, its children included; empty when
+/// it has none.
+[[nodiscard]] std::string_view dispersionElementOf(std::string_view text)
+{
+    constexpr std::string_view kEnd   = "</landingdispersion>";
+    const std::size_t          start  = text.find("<landingdispersion");
+    const std::size_t          finish = text.find(kEnd, start);
+    return start == std::string_view::npos || finish == std::string_view::npos
+               ? std::string_view{}
+               : text.substr(start, finish + kEnd.size() - start);
+}
+
+// The landing dispersion settings are the one place where the design names attributes. An
+// element may have kMaxAttributes of them, the most the loader's XML scanner reads; the first
+// ones written ("runs" and "seed", "parameter", "distribution" and "spread") count first. An
+// attribute beyond them, which would make the loader refuse the whole file, is left out with
+// the warning dispersionAttributesLeftOut(): of the element and of an uncertainty the one
+// written last ("a9998" and "a9997", the others being written by name), so that the design
+// beyond the bound is written as the design at the bound. That file loads.
+TEST(SaveBoundWarnings, WritesTheMostAttributesOfLandingDispersionSettingsTheLoaderReads)
+{
+    constexpr std::size_t         kBound = QtRocket::XmlScanner::kMaxAttributes;
+    const std::unique_ptr<Design> atTheBound =
+        designOfDispersion(settingsAttributes(kBound - 2), uncertaintyAttributes(kBound - 3));
+    const Saved kept = saveOf(*atTheBound);
+    EXPECT_TRUE(kept.warnings.empty());
+    ASSERT_FALSE(dispersionElementOf(kept.text).empty());
+
+    const Saved beyond = saveOf(
+        *designOfDispersion(settingsAttributes(kBound - 1), uncertaintyAttributes(kBound - 2)));
+    EXPECT_EQ(beyond.warnings,
+              std::vector<std::string>{OpenRocketSaver::dispersionAttributesLeftOut(2)});
+    EXPECT_EQ(dispersionElementOf(beyond.text), dispersionElementOf(kept.text));
+    const Reloaded reloaded(beyond.text);
+    ASSERT_TRUE(reloaded.loaded.has_value());
+    EXPECT_EQ(dispersionOf(reloaded.document()),
+              atTheBound->document->getSimulation(0)->getLandingDispersionSettings());
+}
+
+// An attribute whose name the loader cannot read back is left out with the warning
+// dispersionAttributesLeftOut(), which counts them all: a name longer than kMaxNameLength, one
+// with a colon (a namespace prefix), "xmlns" (a namespace declaration), one that is no name of
+// XML 1.0 (U+00D7, and U+2070, a name character of XML 1.1 only) and one that is not UTF-8.
+// The file loads, with the others.
+TEST(SaveBoundWarnings, LeavesOutTheAttributesOfLandingDispersionSettingsTheLoaderCannotRead)
+{
+    const std::string    longest(QtRocket::XmlScanner::kMaxNameLength, 'n');
+    DispersionAttributes attributes = settingsAttributes(0);
+    attributes.emplace(longest, "1");
+    attributes.emplace(longest + "n", "1");
+    attributes.emplace("a:b", "1");
+    attributes.emplace("xmlns", "1");
+    attributes.emplace("\xC3\x97", "1");
+    attributes.emplace("x\xFF", "1");
+    DispersionAttributes uncertainty = uncertaintyAttributes(0);
+    uncertainty.emplace("\xE2\x81\xB0", "1");
+    const Saved saved = saveOf(*designOfDispersion(attributes, uncertainty));
+    EXPECT_EQ(saved.warnings,
+              std::vector<std::string>{OpenRocketSaver::dispersionAttributesLeftOut(6)});
+    const Reloaded reloaded(saved.text);
+    ASSERT_TRUE(reloaded.loaded.has_value());
+    DispersionAttributes kept = settingsAttributes(0);
+    kept.emplace(longest, "1");
+    EXPECT_EQ(dispersionOf(reloaded.document()),
+              QtRocket::LandingDispersionSettings(kept, {uncertaintyAttributes(0)}));
+}
+
+/// @p text, a saved design whose <landingdispersion> has the attribute x="1", as a design file of
+/// XML 1.1 in which that attribute is named U+2070, a name character of XML 1.1 only; empty
+/// when the text is not of that form.
+[[nodiscard]] std::string asXml11WithAWiderName(std::string text)
+{
+    constexpr std::string_view kDeclaration = "<?xml version='1.0'";
+    const std::size_t          element      = text.find("<landingdispersion ");
+    const std::size_t          attribute    = text.find(R"( x="1")", element);
+    if (!text.starts_with(kDeclaration) || element == std::string::npos ||
+        attribute == std::string::npos)
+    {
+        return {};
+    }
+    text.replace(attribute, std::string_view(R"( x="1")").size(), " \xE2\x81\xB0=\"1\"");
+    text.replace(0, kDeclaration.size(), "<?xml version='1.1'");
+    return text;
+}
+
+// A design file of XML 1.1, whose names are wider, can give landing dispersion settings an
+// attribute that XML 1.0 cannot name, and the loader keeps it. The saver, which writes XML 1.0,
+// leaves it out with the warning dispersionAttributesLeftOut(), so that the file it writes
+// loads.
+TEST(SaveBoundWarnings, LeavesOutAnAttributeOfAnXml11FileThatXml10CannotName)
+{
+    DispersionAttributes attributes = settingsAttributes(0);
+    attributes.emplace("x", "1");
+    const Saved saved = saveOf(*designOfDispersion(attributes, uncertaintyAttributes(0)));
+    ASSERT_TRUE(saved.warnings.empty());
+    const std::string xml11 = asXml11WithAWiderName(saved.text);
+    ASSERT_FALSE(xml11.empty());
+    Reloaded loaded(xml11);
+    ASSERT_TRUE(loaded.loaded.has_value());
+    DispersionAttributes wider = settingsAttributes(0);
+    wider.emplace("\xE2\x81\xB0", "1");
+    EXPECT_EQ(dispersionOf(loaded.document()),
+              QtRocket::LandingDispersionSettings(wider, {uncertaintyAttributes(0)}));
+
+    WarningSet                warnings;
+    QtRocket::ErrorSet        errors;
+    const Result<std::string> resaved = OpenRocketSaver::save(
+        *loaded.loaded->document, loaded.environment.preferences(), warnings, errors);
+    ASSERT_TRUE(resaved.has_value()) << resaved.error().toString();
+    EXPECT_EQ(warnings.size(), 1U);
+    EXPECT_TRUE(warnings.contains(
+        QtRocket::Warning::fromString(OpenRocketSaver::dispersionAttributesLeftOut(1))));
+    const Reloaded again(*resaved);
+    ASSERT_TRUE(again.loaded.has_value());
+    EXPECT_EQ(
+        dispersionOf(again.document()),
+        QtRocket::LandingDispersionSettings(settingsAttributes(0), {uncertaintyAttributes(0)}));
 }
 
 }  // namespace

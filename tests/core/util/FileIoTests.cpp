@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <ios>
 #include <stdexcept>
@@ -420,6 +421,67 @@ TEST(FileIo, AReplacedFileKeepsItsPermissions)
     EXPECT_EQ(std::filesystem::status(file).permissions() & std::filesystem::perms::all,
               kOwnerOnly);
 #endif
+}
+
+// A file of no permissions at all is read-only too, and is replaced by one that its owner can
+// read (QtRocket's rule): a save must not leave a design its owner cannot open (POSIX).
+TEST(FileIo, AFileOfNoPermissionsIsReplacedByOneItsOwnerCanRead)
+{
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows files have no POSIX permissions";
+#else
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("locked.ork", "old");
+    std::filesystem::permissions(file, std::filesystem::perms::none);
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
+        QtRocket::replaceFile(file, QtRocket::stringToBytes("new"));
+    ASSERT_TRUE(replaced.has_value()) << replaced.error().toString();
+    EXPECT_TRUE(replaced->wasReadOnly);
+    EXPECT_EQ(std::filesystem::status(file).permissions() & std::filesystem::perms::all,
+              std::filesystem::perms::owner_read);
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+#endif
+}
+
+/// A symbolic link "a/link.ork" in @p dir to the file "b/real.ork" of the text "old", which is
+/// marked read-only; empty where no link can be made (Windows without the privilege).
+[[nodiscard]] std::filesystem::path linkToAReadOnlyFile(const TempDir& dir)
+{
+    const std::filesystem::path real = dir.write("b/real.ork", "old");
+    EXPECT_TRUE(makeReadOnly(real));
+    std::filesystem::create_directories(dir.resolve("a"));
+    const std::filesystem::path link = dir.resolve("a/link.ork");
+    std::error_code             error;
+    std::filesystem::create_symlink(real, link, error);
+    return error ? std::filesystem::path{} : link;
+}
+
+/// What stands at @p file: "<link|file> <read-only|writable> <its text>".
+[[nodiscard]] std::string stateOf(const std::filesystem::path& file)
+{
+    return std::format("{} {} {}", std::filesystem::is_symlink(file) ? "link" : "file",
+                       isReadOnly(file) ? "read-only" : "writable",
+                       QtRocket::readTextFile(file).value_or("?"));
+}
+
+// A target that is a symbolic link is replaced as Java's renames replace it: the link becomes
+// the new file, which has the permissions of the file the link pointed to (here read-only, which
+// the result says), and that file stays as it was: nothing is changed through the link.
+TEST(FileIo, ALinkIsReplacedAndTheFileItPointedToStaysAsItWas)
+{
+    const TempDir               dir;
+    const std::filesystem::path link = linkToAReadOnlyFile(dir);
+    if (link.empty())
+    {
+        GTEST_SKIP() << "no symbolic link can be made here";
+    }
+    ASSERT_EQ(stateOf(link), "link read-only old");
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
+        QtRocket::replaceFile(link, QtRocket::stringToBytes("new"));
+    EXPECT_TRUE(replaced.has_value() && replaced->wasReadOnly);
+    EXPECT_EQ(stateOf(link), "file read-only new");
+    EXPECT_EQ(stateOf(dir.resolve("b/real.ork")), "file read-only old");
+    EXPECT_EQ(namesIn(dir.resolve("a")), std::vector<std::string>{"link.ork"});
 }
 
 // A file named without a directory is replaced in the current directory.

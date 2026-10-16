@@ -22,10 +22,12 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/StorageOptions.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
+#include "QtRocket/file/XmlScanner.h"
 #include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/ComponentSaver.h"
 #include "QtRocket/file/openrocket/ConfigHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/file/openrocket/IntSetter.h"
 #include "QtRocket/file/openrocket/LoaderWarnings.h"
 #include "QtRocket/file/openrocket/OrkWriter.h"
 #include "QtRocket/file/openrocket/PhotoStudioSaver.h"
@@ -51,6 +53,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/simulation/FlightData.h"
 #include "QtRocket/simulation/FlightDataBranch.h"
+#include "QtRocket/simulation/LandingDispersionSettings.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationInputRanges.h"
 #include "QtRocket/simulation/SimulationOptions.h"
@@ -296,6 +299,19 @@ void addSaveWarnings(const OpenRocketDocument& document, const OrkWriter& writer
     {
         warnings.add(OpenRocketSaver::kDroppedCharacters);
     }
+    std::size_t attributesLeftOut = 0;
+    for (const std::shared_ptr<Simulation>& simulation : document.getSimulations())
+    {
+        if (const std::optional<LandingDispersionSettings>& settings =
+                simulation->getLandingDispersionSettings())
+        {
+            attributesLeftOut += SimulationSaver::attributesLeftOut(*settings);
+        }
+    }
+    if (attributesLeftOut > 0)
+    {
+        warnings.add(OpenRocketSaver::dispersionAttributesLeftOut(attributesLeftOut));
+    }
     if (writer.size() > GeneralRocketLoader::kMaxDocumentBytes)
     {
         warnings.add(OpenRocketSaver::documentBeyondLoaderBound(writer.size()));
@@ -329,6 +345,19 @@ void addSaveWarnings(const OpenRocketDocument& document, const OrkWriter& writer
     return count > 0 ? static_cast<std::uint64_t>(count) : 0;
 }
 
+/// Where @p kind stands in kAllComponentKinds.
+[[nodiscard]] std::size_t kindIndex(ComponentKind kind)
+{
+    for (std::size_t i = 0; i < kAllComponentKinds.size(); ++i)
+    {
+        if (kAllComponentKinds.at(i) == kind)
+        {
+            return i;
+        }
+    }
+    QTROCKET_UNREACHABLE();
+}
+
 /// The instance count a component of @p kind has when the loader attaches it: what its
 /// constructor gives it (DocumentConfig::createComponent(), which ComponentHandler makes it
 /// with), 2 for a pod set and a booster set, 3 for a fin set. The rocket, which the loader does
@@ -345,40 +374,63 @@ void addSaveWarnings(const OpenRocketDocument& document, const OrkWriter& writer
         }
         return counts;
     }();
-    for (std::size_t i = 0; i < kAllComponentKinds.size(); ++i)
-    {
-        if (kAllComponentKinds.at(i) == kind)
+    return kCounts.at(kindIndex(kind));
+}
+
+/// The largest number that the loader's setter of the parameter element @p element takes for a
+/// component of @p kind: IntSetter::maximum() of the setter the loader applies
+/// (DocumentConfig::findSetter()), above which it refuses the number. None when that setter
+/// takes any number, or there is no such setter.
+[[nodiscard]] std::optional<int> loaderMaximum(ComponentKind kind, std::string_view element)
+{
+    const auto* const setter =
+        dynamic_cast<const IntSetter*>(DocumentConfig::findSetter(kind, element).setter);
+    return setter != nullptr ? setter->maximum() : std::nullopt;
+}
+
+/// loaderMaximum() of the instance count of a component of @p kind, which its saver writes as
+/// <instancecount>: DocumentConfig::kMaxCount for the kinds whose setter in DocumentConfig's
+/// table has that maximum (a launch lug, a rail button, a centering ring and a bulkhead, a pod
+/// set and a booster set), none for the others (a fin set clamps its count to 8 itself, and an
+/// inner tube sets its count through its cluster configuration). The loader's table is asked,
+/// so that the two cannot disagree.
+[[nodiscard]] std::optional<int> instanceCountMaximum(ComponentKind kind)
+{
+    static const std::array<std::optional<int>, kAllComponentKinds.size()> kMaxima = [] {
+        std::array<std::optional<int>, kAllComponentKinds.size()> maxima{};
+        for (std::size_t i = 0; i < kAllComponentKinds.size(); ++i)
         {
-            return kCounts.at(i);
+            maxima.at(i) = loaderMaximum(kAllComponentKinds.at(i), "instancecount");
         }
-    }
-    QTROCKET_UNREACHABLE();
+        return maxima;
+    }();
+    return kMaxima.at(kindIndex(kind));
 }
 
-/// Whether the loader refuses an instance count of a component of @p kind above
-/// DocumentConfig::kMaxCount: the IntSetters of DocumentConfig's table that have that maximum
-/// (LaunchLug, RailButton, RadiusRingComponent, PodSet and ParallelStage "instancecount"). A
-/// fin set keeps 8 of a larger count, as it does itself, and an inner tube sets its count
-/// through its cluster configuration.
-[[nodiscard]] bool instanceCountIsBounded(ComponentKind kind) noexcept
+/// A count of a component that the loader refuses above the maximum of its setter.
+struct BoundedCount
 {
-    constexpr std::array<ComponentKind, 6> kBounded{
-        ComponentKind::LAUNCH_LUG, ComponentKind::RAIL_BUTTON, ComponentKind::CENTERING_RING,
-        ComponentKind::BULKHEAD,   ComponentKind::POD_SET,     ComponentKind::PARALLEL_STAGE};
-    return std::ranges::find(kBounded, kind) != kBounded.end();
-}
+    int count;
+    int maximum;
+};
 
-/// The count of @p component that the loader holds to DocumentConfig::kMaxCount (see
-/// instanceCountIsBounded(); the line count of a parachute too), or none.
-[[nodiscard]] std::optional<int> boundedCountOf(const RocketComponent& component)
+/// The count of @p component that the loader refuses above the maximum of its setter
+/// (loaderMaximum()): its instance count (instanceCountMaximum()) or the line count of a
+/// parachute (<linecount>, kMaxCount), or none.
+[[nodiscard]] std::optional<BoundedCount> boundedCountOf(const RocketComponent& component)
 {
-    if (instanceCountIsBounded(component.kind()))
+    if (const std::optional<int> maximum = instanceCountMaximum(component.kind()))
     {
-        return component.getInstanceCount();
+        return BoundedCount{.count = component.getInstanceCount(), .maximum = *maximum};
     }
     if (const auto* const parachute = dynamic_cast<const Parachute*>(&component))
     {
-        return parachute->getLineCount();
+        static const std::optional<int> kLineMaximum =
+            loaderMaximum(ComponentKind::PARACHUTE, "linecount");
+        if (kLineMaximum.has_value())
+        {
+            return BoundedCount{.count = parachute->getLineCount(), .maximum = *kLineMaximum};
+        }
     }
     return std::nullopt;
 }
@@ -394,7 +446,8 @@ struct ComponentCounts
     std::size_t assemblies{0};
     /// The level of the deepest component: 1 for a stage.
     std::size_t deepest{0};
-    /// The counts above DocumentConfig::kMaxCount (boundedCountOf()), and the largest of them.
+    /// The counts above the maximum of their setter, DocumentConfig::kMaxCount
+    /// (boundedCountOf()), and the largest of them.
     std::size_t countsAboveBound{0};
     int         largestCount{0};
     /// The instances of the whole tree (instancesOfSubtree() of the rocket).
@@ -425,11 +478,11 @@ void countComponent(const PendingComponent& pending, ComponentCounts& counts)
         ++counts.assemblies;
     }
     counts.deepest = std::max(counts.deepest, pending.depth);
-    if (const std::optional<int> count = boundedCountOf(component);
-        count.has_value() && *count > DocumentConfig::kMaxCount)
+    if (const std::optional<BoundedCount> bounded = boundedCountOf(component);
+        bounded.has_value() && bounded->count > bounded->maximum)
     {
         ++counts.countsAboveBound;
-        counts.largestCount = std::max(counts.largestCount, *count);
+        counts.largestCount = std::max(counts.largestCount, bounded->count);
     }
     // DocumentConfig::childFits() when the component is attached, instanceCountFits() when its
     // count is set (only a count above the one it has is asked about).
@@ -688,6 +741,15 @@ std::string OpenRocketSaver::documentBeyondLoaderBound(std::size_t bytes)
         bytes, GeneralRocketLoader::kMaxDocumentBytes);
 }
 
+std::string OpenRocketSaver::dispersionAttributesLeftOut(std::size_t count)
+{
+    return std::format(
+        "{} attributes of landing dispersion settings were left out of the saved design: a "
+        "design file holds at most {} attributes to an element, each named by an XML 1.0 name "
+        "without a colon of at most {} characters, other than \"xmlns\".",
+        count, XmlScanner::kMaxAttributes, XmlScanner::kMaxNameLength);
+}
+
 std::string OpenRocketSaver::componentsBeyondLoaderBound(std::size_t components)
 {
     return std::format(
@@ -726,8 +788,9 @@ std::string OpenRocketSaver::instancesBeyondLoaderBound(std::uint64_t instances)
 {
     return std::format(
         "The saved rocket comes to {} component instances over its flight configurations while "
-        "it is read; QtRocket loads at most {} and will ignore the components, counts and flight "
-        "configurations that would go beyond when it opens this file.",
+        "it is read; QtRocket loads at most {} and will ignore the components, counts, cluster "
+        "layouts and flight configurations that would go beyond, with the motors and simulations "
+        "of those configurations, when it opens this file.",
         instances, DocumentConfig::kMaxInstances);
 }
 
