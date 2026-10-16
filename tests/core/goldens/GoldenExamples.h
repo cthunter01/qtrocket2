@@ -49,7 +49,8 @@
 // the examples look at (ExampleFilesTest) and the one a save writes; with the six presets the
 // load of an original gives no warning, and of a re-save none but the six of the parallel
 // boosters' textures (tests/core/file/openrocket/example_files_tests.cpp compares this state
-// with OpenRocket's for every example).
+// with OpenRocket's for every example). A test that saved an example loads its save in the same
+// environment with loadGoldenExampleFromBytes() (ork_roundtrip_golden_tests.cpp).
 //
 // The goldens describe another state, the SETTLED one: the harness settles the automatic
 // dimensions before it dumps geometry, mass, aerodynamics and simulations.
@@ -66,6 +67,7 @@
 // The names a design shows (a flight configuration's, an AirStart extension's) are formatted
 // with the default units: a test that looks at them holds a DefaultUnitsGuard.
 
+#include <cstddef>
 #include <filesystem>
 #include <ostream>
 #include <string>
@@ -146,6 +148,16 @@ inline void PrintTo(const GoldenExample& example, std::ostream* out)
 /// of the load.
 [[nodiscard]] Result<LoadedDocument> loadGoldenExample(
     const GoldenExample& example, ExampleSource source = ExampleSource::ORIGINAL,
+    DesignFileEnvironment::Presets presets = DesignFileEnvironment::Presets::EXAMPLES,
+    GeneralRocketLoader::Options   options = {});
+
+/// Loads the design that @p bytes hold, the contents of a design file (an .ork archive a test
+/// saved an example to, say), in the environment of @p presets, from memory and without a
+/// directory (GeneralRocketLoader::load(bytes)): an archive brings its decal images and thrust
+/// curves with it, and plain or gzip bytes read no file. A new document as loaded, with the
+/// warnings of the load, or the Error of the loader; @p options as for loadGoldenExample().
+[[nodiscard]] Result<LoadedDocument> loadGoldenExampleFromBytes(
+    std::vector<std::byte>         bytes,
     DesignFileEnvironment::Presets presets = DesignFileEnvironment::Presets::EXAMPLES,
     GeneralRocketLoader::Options   options = {});
 

@@ -327,6 +327,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/IntSetterTests.cpp
     file/openrocket/LandingDispersionSettingsHandlerTests.cpp
     file/openrocket/legacy_ork_files_tests.cpp
+    file/openrocket/legacy_ork_roundtrip_tests.cpp
     file/openrocket/loader_bounds_tests.cpp
     file/openrocket/loader_value_sweep_tests.cpp
     file/openrocket/LoaderWarningsTests.cpp
@@ -405,7 +406,9 @@ add_executable(QtRocket_core_tests
     goldens/GoldenStableSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/ork_interop_saves_tests.cpp
     goldens/ork_resave_diff_golden_tests.cpp
+    goldens/ork_roundtrip_golden_tests.cpp
     goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp

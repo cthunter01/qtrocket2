@@ -12,10 +12,14 @@ files. The data is committed; neither CMake nor CI ever needs Java.
 - `src/main/java/info/qtrocket/goldens/`: `GoldenDumper` (entry point, OpenRocket bootstrap, inputs,
   manifest) and its helpers `GeometryDumper`, `MassDumper`, `AeroDumper`, `SimulationDumper`,
   `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`, `LastBitPerturbation`,
-  `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`.
+  `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`, and `CoverageDocuments`
+  (the saver-coverage documents, see [Re-saves alone](#re-saves-alone)).
 - `src/main/java/info/qtrocket/goldens/CsvExportDumper.java` is not run by `generate.sh`: it writes
   the fixtures of the CSV export test, `tests/data/csv/` (see
   [CSV export fixtures](#csv-export-fixtures)).
+- `interop.sh` and `src/main/java/info/qtrocket/goldens/InteropCheck.java`: the interop check of
+  plan section 7, run by hand: OpenRocket reads the design files QtRocket saved (see
+  [Interop check](#interop-check)). It writes nothing into `tests/data`.
 - `motors/` (`MotorsDumper.java`, `dump-motors.sh`) belongs to the motor port: it writes
   `tests/data/goldens/motors.json` (digests and derived values of every curve of
   `initial_motors.db` and the test `.eng`/`.rse` files, plus the curves OpenRocket skips). This
@@ -35,8 +39,11 @@ the component presets the examples name, OpenRocket's test preferences.
 |---|---|---|
 | Example designs | the 16 files of `data/examples/` (identical to OpenRocket's `core/src/main/resources/datafiles/examples/`) | `example-<file name, lower case, runs of other characters as '-'>` |
 | Test rockets | the 13 `info.openrocket.core.util.TestRockets` factories `makeEstesAlphaIII`, `makeBeta`, `makeSimple2Stage`, `makeBigBlue`, `makeIsoHaisu`, `makeFalcon9Heavy`, `makeMultiStageEventTestRocket`, `makeEndPlateRocket`, `makeEstesAlphaIIIWithPods`, `makeEstesAlphaIIIWithMotorPods`, `makeEstesAlphaIIIWithSecondMotor`, `makeEstesAlphaIIIwithInlinePod`, `makeClusterPods` | `testrocket-estes-alpha-iii`, `testrocket-beta`, ..., `testrocket-cluster-pods` (see `GoldenDumper.TEST_ROCKETS`) |
+| Legacy files (re-save alone) | the 18 design files of `tests/data/ork` (OpenRocket 0.9 to 23.09, file formats 1.0 to 1.9; `tests/data/ork/README.md`) | `legacy-<file name, as for the examples>`: `legacy-simplerocket`, `legacy-v1-0-roll-stabilized`, ..., `legacy-v1-9-chute-release` |
+| Saver-coverage documents (re-save alone) | the documents `CoverageDocuments` builds: `kitchenSink()`, `storedFlight()` | `coverage-kitchen-sink`, `coverage-stored-flight` |
 
-Each input directory holds:
+Each input directory of an example or a test rocket holds (the directory of a re-save alone holds
+its `resave/rocket.ork` and nothing else; see [Re-saves alone](#re-saves-alone)):
 
 | File | Content |
 |---|---|
@@ -47,6 +54,7 @@ Each input directory holds:
 | `sim_<NN>_<name>_branch<i>.csv.gz` | the full time series of branch `i` of that simulation |
 | `stable/sim_<NN>_<name>.json`, `stable/sim_<NN>_<name>_branch<i>.csv.gz` | the stable-step set: the same simulation run with a time step of 0.01 s and nothing else changed, in the same format. The test rockets have both files; the example designs have the documents alone, without the time series (see [How OpenRocket is run](#how-openrocket-is-run)) |
 | `resave/rocket.ork` | `OpenRocketSaver`'s XML for the design as loaded (as built, for the test rockets), without simulation data |
+| `resave-data/rocket.ork.gz` | two examples only ("Deployable payload", "Pods--powered with recovery deployment"): `OpenRocketSaver`'s XML for the design as loaded WITH its simulation data, gzip-compressed (see [Re-saves alone](#re-saves-alone)) |
 
 `<NN>` is the simulation's index in the document (two digits) and `<name>` its name made
 file-system safe the same way as the directory names.
@@ -247,7 +255,17 @@ the paths of `geometry`, `mass`, `aero` and `resave`, `simulations` (`name`, `js
 `branches`: the CSV files) and, for an input with a stable-step set, `stableSimulations`: the same
 simulations in the same order with their files in `<input>/stable/` (entries of the same shape,
 with an empty `branches` in a set without time series; an input without the set has no such key).
-All paths are relative to `tests/data/goldens/`.
+All paths are relative to `tests/data/goldens/`. Last, `resaves`, which the re-saves alone add
+(see [Re-saves alone](#re-saves-alone)): `legacyPresetDigests` (the digests of the six presets of the
+environment of the legacy files, sorted), `withData` (`input` and `resave`, the file, of each
+re-save with simulation data of an example) and `inputs`: per re-save alone its `name`, `kind`
+(`legacy` or `coverage`), `source` (the `tests/data/ork` file, or the `CoverageDocuments` method),
+`sourceSha256` (legacy files; null for a coverage document) and `resave`; a legacy file has
+`documentEntryMovedFirst` (whether the archive was packed again with its document first),
+`archiveEntries` (the entries of OpenRocket's `.ork` archive of the design as loaded, saved with the
+simulation data, in their order) and `archiveError` (when that archive cannot be saved:
+`DecalNotFoundException: <the decal's name>`; then `archiveEntries` is null), a coverage document
+`saveSimulationData` (how its re-save was saved).
 
 ### geometry.json
 
@@ -437,6 +455,89 @@ What QtRocket's tests do with these files:
     `testrocket-estes-alpha-iii-with-pods`).
   After the load 36 of the 50 simulations are `NOT_SIMULATED` and the 14 of a configuration
   without motors `CANT_RUN`.
+
+### Re-saves alone
+
+Three kinds of re-saves have no other golden: they pin what QtRocket's saver writes against what
+OpenRocket's writes, where the examples and the test rockets do not reach (the user's decision E6
+of 2026-10-14). The harness writes them after every example and test rocket (the re-saves with data
+of an example right after its passes, from a load of their own), and nothing they do reaches another
+file: with them added, every other file of `tests/data/goldens` but `manifest.json`, which lists
+them under `resaves` at its end, is byte-identical to before (checked file by file in run 10b).
+
+- **The legacy files** (`legacy-*/resave/rocket.ork`): OpenRocket's re-save of each design file of
+  `tests/data/ork` as loaded, as `resave/rocket.ork` of the examples (plain XML, version 1.11,
+  without simulation data). They are loaded in the harness's environment, but for the presets: the
+  six presets the example designs name, taken from the harness's preset database by their digests
+  (`resaves.legacyPresetDigests`). Those are the presets the C++ tests have
+  (`tests/core/rocket/preset/ExamplePresets.h`) until QtRocket reads preset files, so OpenRocket's
+  load finds what QtRocket's finds, and its re-save is what a port of its saver writes for the
+  design as QtRocket loads it (`tests/core/file/openrocket/RecordedOrkFiles.h` records the loads in
+  the same environment): the references the six presets do not hold (seven `<preset>` elements of
+  SEMROC parts in `v1.5-preset-usage.ork` and in its copy with decals, one of FlisKits in
+  `v1.7-tube-fin.ork`) are refused by both loaders with a warning; OpenRocket forgets them,
+  QtRocket keeps them and writes them back (decision U8). Every file is a fixed point of
+  OpenRocket's own save and load after this first save (the probe FixedPointProbe of the tier-10
+  scouts). Two files need a word:
+  - `v1.6-preset-usage-decals-first.ork` is an archive whose first entry is the directory
+    `decals/`: OpenRocket reads the first entry of an archive only and makes the empty rocket of
+    it. The harness gives OpenRocket the archive packed again with its document first
+    (`documentEntryMovedFirst`), as `RecordedOrkFiles.h` does; QtRocket takes the first `*.ork`
+    entry of the file as it is (decision T3).
+  - `v1.6-apocd.ork` is plain XML that names five decal images, files beside it which
+    `tests/data/ork` does not have: its plain re-save is written, but OpenRocket's `.ork` archive
+    of it cannot be (`archiveError`: `DecalNotFoundException` for its first decal image).
+  A loader draws an id wherever the file stores none (every component of the formats 1.0 to 1.8,
+  which store no component id; a flight configuration the file does not name, such as those of
+  `simplerocket.ork`'s simulations with an empty `<configid>`): the re-saves hold the ids of the
+  harness's sequence, which a port does not draw; a test numbers them (see below).
+- **The saver-coverage documents** (`coverage-*/resave/rocket.ork`): designs `CoverageDocuments`
+  builds, which hold every element and attribute name OpenRocket's saver writes that the other
+  OpenRocket outputs among the goldens do not hold. `kitchen-sink`: TestRockets' Estes Alpha III
+  with a kit name, a custom reference length, the CD and CG overrides of a body tube with their
+  subcomponent flags, its line style and colour, a drogue, a nozzle exit diameter, a custom
+  expression, two document preferences, all 29 settings of the photo studio, and a simulation that
+  never ran with the extended ISA atmosphere, a constant gravity, a fixed random seed, a
+  multi-level wind, landing dispersion settings, plot appearances, and drag and stability lookup
+  tables with their rows (one with a file name); saved without simulation data. `stored-flight`:
+  the same rocket with a simulation whose flight data is made by the harness (not simulated): a
+  branch with an event after the landing (its warning's `eventid`) and an abort (`cause`); saved
+  with the simulation data, which a save without it leaves out. With them, the goldens hold all 231
+  element names and 61 attribute names that the saver's sources (`OpenRocketSaver.java`,
+  `savers/*.java`, code that is commented out left aside) can write. Each document has to be a
+  fixed point of OpenRocket's save and load (`GoldenDumper.dumpCoverage` fails the dump otherwise):
+  its save, loaded again without a warning and saved, gives the same bytes. Hence its motors are
+  database motors (Estes A8, B4 and C6 of the bundled database, the smallest digest of each
+  designation, in place of the makers' synthetic ones, which a reload would not find), its document
+  preferences a string and a boolean (a number is written with its type, which OpenRocket's loader
+  does not read back), and it has no component preset and no script.
+- **The re-saves with simulation data** (`resave-data/rocket.ork.gz` of "Deployable payload" and
+  "Pods--powered with recovery deployment", `resaves.withData`): `OpenRocketSaver`'s XML of the
+  example as loaded, with its simulation data, gzip-compressed at the best compression; the first
+  save of a load of its own (a save stores the automatic dimensions its getters compute, so the
+  saves of one loaded design can differ: neither of these two is stale as loaded). Between them they
+  hold stored events of every kind the examples have but `TUMBLE` (which "3D printable nose cone and
+  fins", "Parallel booster staging" and "Three stage low power rocket" store; the C++ test pins the
+  digests of QtRocket's saves with data of all sixteen examples, `kJavaSavesWithData`), stored
+  warnings with their sources, the boosters' branches and the 70 columns of the powered pods: 0.4 MB
+  compressed (2 MB of text).
+
+What QtRocket's tests do with them: `tests/core/goldens/ork_resave_diff_golden_tests.cpp` saves each
+legacy file, loaded in the same environment (DesignFileEnvironment), and compares the save with the
+re-save line by line, the creator aside and the ids a loader drew numbered by their first
+occurrence on both sides: the same text but for QtRocket's own decisions (the references to presets
+it keeps, the scripts it disables on load, decision D1, and the extension of an unknown id it keeps,
+decision D11), each line listed with its line number and its indentation; it saves each coverage
+document loaded from its re-save as the harness
+saved it, which has to be the re-save, every line; and it compares its saves with data of the two
+examples with the re-saves with data, the whole text.
+`tests/core/file/openrocket/legacy_ork_roundtrip_tests.cpp` saves each legacy file as an `.ork`
+archive with its data, whose entries are to be
+`archiveEntries` (and which fails as OpenRocket's for `v1.6-apocd.ork`, whose plain save is taken
+then), loads it back and compares the state of the reload with the state of the file as loaded
+(`RecordedOrkFiles.h`): the changes are those OpenRocket's own round trip makes (printed by a Java
+probe of run 10b, `LegacyRoundTripProbe`, in the same lines), but for the same decisions.
+`goldens_schema_tests.cpp` checks the entries of `resaves` against the files.
 
 ## Tolerances
 
@@ -681,15 +782,18 @@ checkout's commit differs from the one in the existing `manifest.json`. It then 
 `git rev-parse HEAD` and the submodule's recorded commit in `manifest.json`, compiles OpenRocket's
 `core` (and `ServicesForTesting`) into `tools/openrocket-goldens/build/`, runs `GoldenDumper` with a
 fixed locale and time zone, and prints the size of the data. A run takes a few minutes. It deletes
-and rewrites only the `example-*` and `testrocket-*` directories and `manifest.json`.
+and rewrites only the `example-*`, `testrocket-*`, `legacy-*` and `coverage-*` directories and
+`manifest.json`.
 
 The version written into `manifest.json` and `creator=` of the re-saved files is OpenRocket's
 `build.version` with the commit hash appended as OpenRocket's build does, except that the hash is
 always 9 characters long (`git rev-parse --short=9`): git's automatic length depends on the size of
 the clone, and the goldens must not.
 
-`--only` rewrites just the named inputs and leaves `manifest.json` alone; a name that matches no input
-is an error (before anything is deleted). Commit only the output of a full run: OpenRocket keeps
+`--only` rewrites just the named inputs and leaves `manifest.json` alone (an input of a re-save
+alone, `legacy-*` or `coverage-*`, can be named too; an example with a re-save with data writes it
+with its passes); a name that matches no input is an error (before anything is deleted). Commit only
+the output of a full run: OpenRocket keeps
 process-wide state (the flight data type registry, the UUID sequence of earlier inputs), so a
 partial run can differ in labels such as a custom column's symbol.
 
@@ -757,7 +861,9 @@ done
 ```
 
 `manifest.json` also records `javaVersion`, which changes with every JDK update. The committed data
-is about 48 MB (JSON 9.4 MB, time series 37.7 MB, re-saved designs 0.7 MB), of which the
+is about 50 MB (JSON 9.4 MB, time series 37.7 MB, re-saved designs 1.2 MB: those of the examples and
+the test rockets 0.7 MB, of the legacy files 0.4 MB, of the coverage documents 0.03 MB; the re-saves
+with simulation data 0.4 MB), of which the
 stable-step set of the test rockets is 13.4 MB (103 files: JSON 0.6 MB, time series 12.8 MB) and
 that of the example designs 0.9 MB (54 documents); `motors.json`, which the motor harness writes,
 is another 1.5 MB.
@@ -765,6 +871,112 @@ is another 1.5 MB.
 After regenerating, run the C++ tests (`goldens_schema_tests.cpp` checks the structure; the golden
 comparison tests check the values) and review the diff: a change of OpenRocket's results changes the
 reference for the port.
+
+## Interop check
+
+Plan section 7 asks that a design QtRocket saved opens in OpenRocket without a warning. `InteropCheck`
+asks more of every file: that OpenRocket gets from QtRocket's save the design it gets from its own
+save of the same input. It is run by hand, at a milestone exit or after a change to the saver; CI
+has no Java and never runs it. Two steps:
+
+```sh
+# 1. QtRocket writes its saves (a DISABLED_ test, which ctest and CI never run):
+cmake --build --preset clang-debug
+build/clang-debug/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
+# 2. OpenRocket reads them:
+tools/openrocket-goldens/interop.sh            # or: interop.sh <saves directory>
+```
+
+The test `OrkInteropSaves.DISABLED_WritesTheSavesOfTheInteropCheck`
+(`tests/core/goldens/ork_interop_saves_tests.cpp`) writes into `interop-saves` of the build tree, the
+directory above the `bin/` of the test program (`build/clang-debug/interop-saves` here, which is
+the default directory of `interop.sh`); a command-line argument `--interop-saves=<directory>` of the
+test program names another directory. It removes the saves of an earlier run from the directory
+first (the files of the names it can write, nothing else) and writes 65 files, each named
+`<input>.<form>.ork` after the input of `manifest.json` and the form of the save (`zip-data`,
+`zip-nodata`: an `.ork` archive of `GeneralRocketSaver` with or without the simulation data;
+`plain-data`, `plain-nodata`: the plain XML of `OpenRocketSaver`). A directory that holds any other
+`*.ork` file is refused: the test fails, names the files and writes nothing. Each save is the first
+save of a load of its own, as OpenRocket's save it is compared with:
+
+| Inputs | Loaded by QtRocket | Saved as |
+|---|---|---|
+| the 16 examples | from `data/examples`, with the six presets of the examples (`goldenExampleEnvironment()`) | an archive with the document's default storage options (all 16 save their flight data), and plain XML without the simulation data |
+| the 13 test rockets | from their re-saves, against the seven motors of TestRockets (`loadResave()`) | an archive with the document's default storage options (no data) |
+| the 18 legacy files | from `tests/data/ork`, as `RecordedOrkFiles.h` records them | an archive with the simulation data; plain XML with it for `v1.6-apocd.ork`, whose archive OpenRocket cannot save either (`archiveError`) |
+| the 2 coverage documents | from their re-saves | an archive with the document's default storage options |
+
+`interop.sh` needs what `generate.sh` needs (Java 17; the OpenRocket checkout at the commit of the
+goldens with its preset submodule, without local changes, or `ALLOW_DIRTY=1`; it warns when the
+commit is not the one `manifest.json` records), builds the harness as `generate.sh` does and runs
+`InteropCheck` in the harness's bootstrap, which takes about half a minute. It prints a report on
+standard output, every file with what was checked, what was allowed and why, what was not compared
+and why, and what failed, and exits with 0 when every file passes and every allowance of the list
+below was used exactly as often as the list says (`InteropCheck.EXPECTED_ALLOWANCES`), 1 otherwise
+and 2 on a usage error. A file that is missing, or an `.ork` file of the directory that belongs to no
+input, fails too. Gradle leaves a daemon running: stop it afterwards (`<openrocket>/gradlew --stop`).
+
+Each input is loaded in the environment of its goldens: the harness's (the examples and the coverage
+documents), the legacy files' (six presets) or, for the test rockets, a motor database of exactly
+the seven motors of TestRockets and no preset (their motors are synthetic: the bundled database would
+give the mounts real motors of the same designations). With Q OpenRocket's load of QtRocket's save,
+O its load of the input and OO its load of its own save of O in the same form, a file passes when:
+
+- every load warning of Q is on the allow-list below and O gives the same warning;
+- Q is not empty: it has the components and simulations of O and OO (OpenRocket makes an empty rocket,
+  without a warning, of an archive whose first entry is not the document);
+- for an archive saved with the default storage options, O's defaults save the data where QtRocket's
+  did;
+- OpenRocket's re-save of Q (`OpenRocketSaver`, with the simulation data) is its re-save of OO, line for
+  line, the ids the loaders drew for a design that names none numbered by their first occurrence
+  (`withDrawnIdsNumbered()` of `GoldenResaves.h`), but for the lines on the allow-list. OO, not the
+  committed re-save: OpenRocket's own round trip changes a design (its saver writes the warning type
+  `RecoveryHighSpeedDeployment`, which its loader reads as `Other` without the speed);
+- the geometry, mass and aerodynamics documents of Q, dumped after the re-save and the settling of
+  the automatic dimensions as `GoldenDumper` dumps them, are the committed `geometry.json`,
+  `mass.json` and `aero.json` of an example, byte for byte; those of OO for a test rocket (whose
+  goldens describe the maker's rocket, which OpenRocket's reload of the re-save changes in 14 values:
+  [resave/rocket.ork](#resaverocketork)), and for a legacy file or a coverage document whose
+  components have the same ids in Q and OO (the coverage documents and `v1.9-chute-release.ork`; the
+  files of the formats 1.0 to 1.8 name no component id, so the two loaders draw other ones, and
+  OpenRocket's sums follow the ids in the last bit: the report lists these seventeen under "not
+  compared");
+- the options of every simulation are those of O, or of OO where OpenRocket's own save changes them
+  (a random seed that is not fixed is drawn by each load and left out); for an example or a test
+  rocket, made reproducible as the harness makes them, also the options and extensions of the golden
+  simulation documents (and, for an example, the harness's record of what it changed);
+- the stored flight data of every simulation (the summary values, the warnings, each branch with
+  the bits of every value of every type and its events) is that of O, or that of OO where OpenRocket's
+  own save changes it (the report says how: a plain save without the data; the warning type above;
+  the six decimal places and the recomputed summary values of a legacy file's first save);
+- the decal images (by name, with the SHA-256 of their bytes, or unreadable as in OpenRocket's own
+  plain save) are those of O, or of OO;
+- an archive has the entries of OpenRocket's own archive of O, in name and order, each with the same
+  bytes (`rocket.ork` aside, which the re-saves compare), and every `thrustcurves/<digest>.rse` in it
+  loads with a curve of its digest (`MotorDigest.isDigestCompatible()`, as OpenRocket's
+  `MotorHandler` takes an embedded curve), but for the allowed ones.
+
+The allow-list (`InteropCheck.ALLOWED_WARNINGS`, `ALLOWED_RESAVE_CHANGES`, and the thrust curves:
+a synthetic digest in a test rocket, `ALLOWED_CURVES` in any other input). Each allowance has to be
+used exactly as often as `EXPECTED_ALLOWANCES` says over all 65 files (the counts below), so that it
+cannot hide a new case of its kind:
+
+| What | Where | Why |
+|---|---|---|
+| load warning "Simulation extension with id '...' not found." | `legacy-v1-7-simulation-extensions-and-scripting` (1) | decisions D11 and L10: QtRocket keeps the extension of an unknown id and writes it back; OpenRocket warns and drops it, in its load of the input too |
+| load warning "No matching ComponentPreset for component ..." | `legacy-v1-5-preset-usage`, `legacy-v1-6-preset-usage-decals-first` (6 each), `legacy-v1-7-tube-fin` (1) | decision U8: QtRocket keeps a `<preset>` reference its presets cannot resolve and writes it back; OpenRocket, without the preset as well (the six presets of the legacy files' environment), warns and forgets it, in its load of the input too |
+| re-save lines `<entry key="enabled" type="boolean">false</entry>` where OpenRocket's own has `true` | `legacy-v1-7-simulation-extensions-and-scripting` (2) | decisions D1 and E4: QtRocket runs no script and disables every enabled script with code on load, the roll control script OpenRocket trusts by its hash included |
+| a thrust curve whose digest no curve of it gives | the 26 of the test rockets, each named by a synthetic digest (`digest <designation> test`) | the synthetic digests of TestRockets ("digest A8 test"); OpenRocket's own archive has the same bytes |
+| the same | `thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse` of "Pods--powered with recovery deployment" (1; this input and this entry only) | the RockSim text of the bundled database's Estes A10 of that digest, which read back gives a curve of the digest 6c22c2c6a938ec433d9e0208c31f4476: OpenRocket's RockSim writer does not keep this digest, and its own archive has the same bytes (its loader takes the database motor of the digest first and never reads the entry) |
+
+The run of tier 10 (run 10b, QtRocket at the commit of the run, OpenRocket 5f164fd0e, JDK 17):
+65 files of 49 inputs, 0 failed; allowed: U8 13, D1 and E4 2, D11 and L10 1, the test rockets'
+thrust curves 26, OpenRocket's RockSim writer 1; not compared: the dumps of the seventeen legacy
+files of the formats 1.0 to 1.8. On the standard error, where the tool names each file
+before its check (`[interop] <file>`), OpenRocket logs four errors "attempt to add an empty motorConfig"
+with their stack traces, all while it loads legacy inputs (`v1.0-roll-stabilized.ork`,
+`v1.4-roll-stabilized.ork`, twice `v1.6-boosted-dart.ork`: an empty motor of a flight configuration),
+none for a QtRocket save. The whole check takes about 25 s.
 
 ## CSV export fixtures
 

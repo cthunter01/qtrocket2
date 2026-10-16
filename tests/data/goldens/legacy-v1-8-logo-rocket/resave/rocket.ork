@@ -1,0 +1,208 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Rocket</name>
+    <id>e48e87af-868d-4a91-bffb-7646e5aca7ba</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>238aa9cf-de26-465d-b49e-4e058592cf4a</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>196a1888-8e6d-4997-a58d-0334b0764c67</id>
+            <appearance>
+              <paint red="255" green="242" blue="243" alpha="255"/>
+              <shine>0.2</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.07619999999999999</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.0127</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>90d5e52a-c8be-4cdf-af93-44ff860f405c</id>
+            <appearance>
+              <paint red="210" green="0" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.025399999999999975</length>
+            <thickness>0.002</thickness>
+            <radius>auto 0.0127</radius>
+
+            <subcomponents>
+              <podset>
+                <name>Pod Set</name>
+                <id>c7e306aa-9997-4cb9-af37-c65bc49f9355</id>
+                <instancecount>3</instancecount>
+                <radiusoffset method="relative">0.022224999999999998</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.09652</axialoffset>
+                <position type="bottom">0.09652</position>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Nose Cone</name>
+                    <id>99055a08-3b31-441e-84c8-4a5a355d0d7e</id>
+                    <appearance>
+                      <paint red="255" green="242" blue="243" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.0127</length>
+                    <thickness>0.002</thickness>
+                    <shape>ellipsoid</shape>
+                    <shapeclipped>false</shapeclipped>
+                    <aftradius>0.00635</aftradius>
+                    <aftshoulderradius>0.0</aftshoulderradius>
+                    <aftshoulderlength>0.0</aftshoulderlength>
+                    <aftshoulderthickness>0.0</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+
+                  <transition>
+                    <name>Transition</name>
+                    <id>dedcbfda-a60e-4511-9a9c-bc28694ab188</id>
+                    <appearance>
+                      <paint red="210" green="0" blue="0" alpha="255"/>
+                      <shine>0.3</shine>
+                      <opacityaffectstexture>false</opacityaffectstexture>
+                    </appearance>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.0508</length>
+                    <thickness>0.002</thickness>
+                    <shape>ogive</shape>
+                    <shapeparameter>1.0</shapeparameter>
+                    <foreradius>auto 0.00635</foreradius>
+                    <aftradius>0.0</aftradius>
+                    <foreshoulderradius>0.0</foreshoulderradius>
+                    <foreshoulderlength>0.0</foreshoulderlength>
+                    <foreshoulderthickness>0.0</foreshoulderthickness>
+                    <foreshouldercapped>false</foreshouldercapped>
+                    <aftshoulderradius>0.0</aftshoulderradius>
+                    <aftshoulderlength>0.0</aftshoulderlength>
+                    <aftshoulderthickness>0.0</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                  </transition>
+                </subcomponents>
+              </podset>
+            </subcomponents>
+          </bodytube>
+
+          <transition>
+            <name>Transition</name>
+            <id>11a6df93-6c4f-41f4-a4cb-5dbfa477e9d7</id>
+            <appearance>
+              <paint red="210" green="0" blue="0" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.07619999999999999</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <foreradius>auto 0.0127</foreradius>
+            <aftradius>0.00635</aftradius>
+            <foreshoulderradius>0.0</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+
+            <subcomponents>
+              <freeformfinset>
+                <name>Freeform Fin Set.8</name>
+                <id>331896d3-c6db-4712-a8ee-800f19df3c9d</id>
+                <appearance>
+                  <paint red="255" green="242" blue="243" alpha="255"/>
+                  <shine>0.2</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>8.128E-4</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.9905999999999999</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.02032" y="0.0254"/>
+                  <point x="0.05675" y="0.029337"/>
+                  <point x="0.0508" y="-0.005648776307720205"/>
+                </finpoints>
+              </freeformfinset>
+            </subcomponents>
+          </transition>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+    <roll>2.2514747350726863</roll>
+    <yaw>0.06981317007977318</yaw>
+    <pitch>0.5235987755982989</pitch>
+    <advance>-0.030479999999999997</advance>
+    <viewAlt>-0.14239515377446402</viewAlt>
+    <viewAz>1.9384807492195624</viewAz>
+    <viewDistance>0.24637999999999996</viewDistance>
+    <fov>1.0</fov>
+    <lightAlt>0.17453292519943295</lightAlt>
+    <lightAz>-2.6878070480712677</lightAz>
+    <sunlight red="255" green="255" blue="255" alpha="255"/>
+    <ambiance>0.5000000119209289</ambiance>
+    <skyColor red="136" green="136" blue="136" alpha="255"/>
+    <motionBlurred>false</motionBlurred>
+    <flame>true</flame>
+    <flameColor red="255" green="100" blue="50" alpha="255"/>
+    <smoke>false</smoke>
+    <smokeColor red="230" green="230" blue="230" alpha="102"/>
+    <sparks>false</sparks>
+    <exhaustScale>1.0</exhaustScale>
+    <flameAspectRatio>1.2200000000000002</flameAspectRatio>
+    <sparkConcentration>0.2</sparkConcentration>
+    <sparkWeight>0.0</sparkWeight>
+    <sky></sky>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

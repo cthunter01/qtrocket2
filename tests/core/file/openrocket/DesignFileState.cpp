@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "QtRocket/document/DecalImage.h"
@@ -104,6 +105,18 @@ std::string versionLine(const DesignFileEnvironment& environment, std::string_vi
     const Result<void>           read  = SimpleSax::readXml(bytes, handler, warnings);
     return (read ? std::string() : failureLine(read.error())) +
            std::format("version={}\n", context.getFileVersion());
+}
+
+std::string rootOfDocument(std::string_view document)
+{
+    constexpr std::string_view kRoot = "<openrocket";
+    const std::size_t          start = document.find(kRoot);
+    const std::size_t end = start == std::string_view::npos ? start : document.find('>', start);
+    if (end == std::string_view::npos)
+    {
+        return {};
+    }
+    return std::string(document.substr(0, end + 1)) + "</openrocket>";
 }
 
 std::string nameLines(const OpenRocketDocument& document, const Preferences& preferences)
@@ -224,7 +237,8 @@ std::string loadedDocumentState(const Result<LoadedDocument>& loaded, const Load
 }
 
 std::vector<std::string> designFileState(DesignFileEnvironment&       environment,
-                                         const std::filesystem::path& file, StateDetail detail)
+                                         const std::filesystem::path& file, StateDetail detail,
+                                         std::string_view idsOf)
 {
     const DefaultUnitsGuard           units;
     const std::string                 document = documentOfDesignFile(file);
@@ -233,7 +247,27 @@ std::vector<std::string> designFileState(DesignFileEnvironment&       environmen
     const GeneralRocketLoader         loader(environment.context(), countingOptions(events));
     const Result<LoadedDocument>      loaded = loader.load(file);
     return linesOf(version + loadedDocumentState(loaded, *events, environment.preferences(),
-                                                 document, detail));
+                                                 idsOf.empty() ? document : idsOf, detail));
+}
+
+std::vector<std::string> designBytesState(const DesignFileEnvironment& environment,
+                                          std::vector<std::byte> bytes, StateDetail detail,
+                                          const Described& described, std::string_view idsOf)
+{
+    const DefaultUnitsGuard           units;
+    const std::string                 document = documentOfDesignBytes(bytes, "the design bytes");
+    const std::string                 version  = versionLine(environment, rootOfDocument(document));
+    const std::shared_ptr<LoadEvents> events   = std::make_shared<LoadEvents>();
+    const GeneralRocketLoader         loader(environment.context(), countingOptions(events));
+    const Result<LoadedDocument>      loaded = loader.load(std::move(bytes));
+    std::vector<std::string>          state =
+        linesOf(version + loadedDocumentState(loaded, *events, environment.preferences(),
+                                              idsOf.empty() ? document : idsOf, detail));
+    if (loaded && described)
+    {
+        described(*loaded);
+    }
+    return state;
 }
 
 namespace

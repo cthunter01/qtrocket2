@@ -1,0 +1,852 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>apocalypse</name>
+    <id>e7595a83-fbc5-4e5b-ab9e-7939d9789218</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage</name>
+        <id>abb8f0f8-5528-4c26-a82a-31e9391a2f24</id>
+        <overridemass>4.0</overridemass>
+        <overridesubcomponentsmass>true</overridesubcomponentsmass>
+        <overridecg>1.05829</overridecg>
+        <overridesubcomponentscg>true</overridesubcomponentscg>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose cone</name>
+            <id>883958ad-3ebe-48b5-a020-45901e95aebf</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/Apocalypse_CONE_pointsFrfl.jpg" rotation="0.0" edgemode="MIRROR">
+                <center x="0.5" y="0.5"/>
+                <offset x="-1.0" y="-1.0"/>
+                <scale x="-2.0" y="-1.0"/>
+              </decal>
+            </appearance>
+            <overridemass>0.283495</overridemass>
+            <overridesubcomponentsmass>false</overridesubcomponentsmass>
+            <overridecg>0.2286</overridecg>
+            <overridesubcomponentscg>false</overridesubcomponentscg>
+            <finish>smooth</finish>
+            <material type="bulk" density="1049.21" shearModulus="0.0" group="Custom">RS: Polystyrene PS</material>
+            <length>0.42545</length>
+            <thickness>0.00318</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.05</aftradius>
+            <aftshoulderradius>0.049215</aftshoulderradius>
+            <aftshoulderlength>0.0762</aftshoulderlength>
+            <aftshoulderthickness>0.00318</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body tube sup</name>
+            <id>79bf0cca-2201-4181-8d06-acfa6160ef82</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/Apocalypse_logo_HAUT_fr2.jpg" rotation="0.0" edgemode="REPEAT">
+                <center x="0.5" y="0.5"/>
+                <offset x="-1.0" y="-1.0"/>
+                <scale x="-2.0" y="-1.0"/>
+              </decal>
+            </appearance>
+            <finish>smooth</finish>
+            <material type="bulk" density="1121.29" shearModulus="0.0" group="Custom">RS: Paper</material>
+            <length>0.6317999999999999</length>
+            <thickness>9.699999999999986E-4</thickness>
+            <radius>0.05</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>8041fb49-c9a5-4c1b-b7ab-f3bc62658ea9</id>
+                <axialoffset method="top">0.3556</axialoffset>
+                <position type="top">0.3556</position>
+                <overridemass>0.07370879999999999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <overridecg>0.0</overridecg>
+                <overridesubcomponentscg>false</overridesubcomponentscg>
+                <material type="bulk" density="958.705" shearModulus="0.0" group="Custom">RS: Kraft phenolic</material>
+                <length>0.1524</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+                <thickness>0.0010748000000000077</thickness>
+              </tubecoupler>
+
+              <parachute>
+                <name>Main Parachute</name>
+                <id>6defd1e0-07f9-41b6-8973-2136312d10a7</id>
+                <axialoffset method="top">0.0968</axialoffset>
+                <position type="top">0.0968</position>
+                <overridemass>0.08788299999999999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <overridecg>0.0</overridecg>
+                <overridesubcomponentscg>false</overridesubcomponentscg>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.045000000000000005</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>0.75</cd>
+                <material type="surface" density="2.7098958420476206E-5" shearModulus="0.0" group="Custom">RS: 1.9 oz. Ripstop Nylon (SkyAngle)</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.9144</diameter>
+                <linecount>8</linecount>
+                <linelength>0.6858</linelength>
+                <linematerial type="line" density="0.00102" shearModulus="0.0" group="Custom">RS: 1/16 In. braided nylon</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Elec Bay</name>
+            <id>c8c32a9d-6f90-4329-bac3-24f31dabade7</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/Apocalypse_logo_medium2.jpg" rotation="0.0" edgemode="REPEAT">
+                <center x="0.5" y="0.5"/>
+                <offset x="-1.0" y="-1.0"/>
+                <scale x="-2.0" y="-1.0"/>
+              </decal>
+            </appearance>
+            <finish>smooth</finish>
+            <material type="bulk" density="1121.29" shearModulus="0.0" group="Custom">RS: Paper</material>
+            <length>0.1118</length>
+            <thickness>9.699999999999986E-4</thickness>
+            <radius>0.05</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>4ac24268-767a-4326-8f86-90272322e587</id>
+                <axialoffset method="top">0.3556</axialoffset>
+                <position type="top">0.3556</position>
+                <overridemass>0.07370879999999999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <overridecg>0.0</overridecg>
+                <overridesubcomponentscg>false</overridesubcomponentscg>
+                <material type="bulk" density="958.705" shearModulus="0.0" group="Custom">RS: Kraft phenolic</material>
+                <length>0.1524</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+                <thickness>0.0010748000000000077</thickness>
+              </tubecoupler>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube inf1</name>
+            <id>647ad695-a10f-488f-9591-7aa318448774</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/Apocalypse_logo_bas_coup2.jpg" rotation="0.0" edgemode="REPEAT">
+                <center x="0.5" y="0.5"/>
+                <offset x="-1.0" y="-1.0"/>
+                <scale x="-2.0" y="-1.0"/>
+              </decal>
+            </appearance>
+            <finish>smooth</finish>
+            <material type="bulk" density="1121.29" shearModulus="0.0" group="Custom">RS: Paper</material>
+            <length>0.2018</length>
+            <thickness>9.699999999999986E-4</thickness>
+            <radius>0.05</radius>
+
+            <subcomponents>
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>d5dade98-ea84-4287-9534-60089353f1ff</id>
+                <axialoffset method="top">0.3556</axialoffset>
+                <position type="top">0.3556</position>
+                <overridemass>0.07370879999999999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <overridecg>0.0</overridecg>
+                <overridesubcomponentscg>false</overridesubcomponentscg>
+                <material type="bulk" density="958.705" shearModulus="0.0" group="Custom">RS: Kraft phenolic</material>
+                <length>0.1524</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+                <thickness>0.0010748000000000077</thickness>
+              </tubecoupler>
+
+              <parachute>
+                <name>drogue Parachute</name>
+                <id>7991a6c7-0ce1-4099-8e5c-b4962b314221</id>
+                <axialoffset method="top">0.12029999999999999</axialoffset>
+                <position type="top">0.12029999999999999</position>
+                <overridemass>0.08788299999999999</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <overridecg>0.0</overridecg>
+                <overridesubcomponentscg>false</overridesubcomponentscg>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.045000000000000005</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>0.75</cd>
+                <material type="surface" density="6.663512241985067E-4" shearModulus="0.0" group="Custom">RS: 1.9 oz. Ripstop Nylon (SkyAngle)</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.1844</diameter>
+                <linecount>8</linecount>
+                <linelength>0.6858</linelength>
+                <linematerial type="line" density="0.00102" shearModulus="0.0" group="Custom">RS: 1/16 In. braided nylon</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube inf2</name>
+            <id>b84795a6-1a17-4d0f-a460-79320942affc</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>smooth</finish>
+            <material type="bulk" density="1121.29" shearModulus="0.0" group="Custom">RS: Paper</material>
+            <length>0.5636</length>
+            <thickness>9.699999999999986E-4</thickness>
+            <radius>0.05</radius>
+
+            <subcomponents>
+              <innertube>
+                <name>Body tube</name>
+                <id>50c12159-031f-47cf-9d22-08de15f494e6</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="1121.29" shearModulus="0.0" group="Custom">RS: Paper</material>
+                <length>0.4606</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.02743</outerradius>
+                <thickness>2.500000000000002E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                </motormount>
+              </innertube>
+
+              <freeformfinset>
+                <name>Custom Fin-1</name>
+                <id>496d0336-4924-4e1a-848b-4b8951aa14a7</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="decals/fin rad-test5.jpg" rotation="0.0" edgemode="MIRROR">
+                    <center x="0.5" y="0.5"/>
+                    <offset x="-1.0" y="-1.0"/>
+                    <scale x="-1.0" y="-1.0"/>
+                  </decal>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="top">0.127</axialoffset>
+                <position type="top">0.127</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.023370000000000002</tabheight>
+                <tablength>0.406</tablength>
+                <tabposition relativeto="front">0.0</tabposition>
+                <tabposition relativeto="top">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0136306" y="0.0152533"/>
+                  <point x="0.117158" y="0.0253139"/>
+                  <point x="0.2284" y="0.128"/>
+                  <point x="0.258" y="0.119"/>
+                  <point x="0.282" y="0.025"/>
+                  <point x="0.32" y="0.022"/>
+                  <point x="0.354" y="0.067"/>
+                  <point x="0.382" y="0.058"/>
+                  <point x="0.395" y="0.013"/>
+                  <point x="0.398" y="0.011300000000000001"/>
+                  <point x="0.406" y="0.002"/>
+                  <point x="0.406" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 1a</name>
+                <id>1247c6ce-8d3d-4db6-b907-5a2403e4d437</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-2.8650009700383143</angleoffset>
+                <rotation>-2.8650009700383143</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114111" y="0.019915600000000002"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 1b</name>
+                <id>85abbd05-cfd8-4d11-928a-4ff371d890e8</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">3.009999399252072</angleoffset>
+                <rotation>3.009999399252072</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Custom Fin-2</name>
+                <id>e0a9cf2d-0741-411b-95b7-008ebf01fe1a</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="decals/fin rad-test5.jpg" rotation="0.0" edgemode="MIRROR">
+                    <center x="0.5" y="0.5"/>
+                    <offset x="-1.0" y="-1.0"/>
+                    <scale x="-1.0" y="-1.0"/>
+                  </decal>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">90.0002104591497</angleoffset>
+                <rotation>90.0002104591497</rotation>
+                <axialoffset method="top">0.127</axialoffset>
+                <position type="top">0.127</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.023370000000000002</tabheight>
+                <tablength>0.3175</tablength>
+                <tabposition relativeto="front">0.0</tabposition>
+                <tabposition relativeto="top">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0136306" y="0.0152533"/>
+                  <point x="0.117158" y="0.0253139"/>
+                  <point x="0.2284" y="0.128"/>
+                  <point x="0.258" y="0.119"/>
+                  <point x="0.282" y="0.025"/>
+                  <point x="0.32" y="0.022"/>
+                  <point x="0.354" y="0.067"/>
+                  <point x="0.382" y="0.058"/>
+                  <point x="0.395" y="0.013"/>
+                  <point x="0.398" y="0.011300000000000001"/>
+                  <point x="0.406" y="0.002"/>
+                  <point x="0.406" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 2a</name>
+                <id>9f9a28e7-6f71-45d7-86ba-f2744ca418c0</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">86.13503717319718</angleoffset>
+                <rotation>86.13503717319718</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 2b</name>
+                <id>80ef5f2e-80a5-41a3-ab9c-94b7b9de6a5c</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">93.38524511278261</angleoffset>
+                <rotation>93.38524511278261</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Custom Fin-3</name>
+                <id>7e0371be-f3e8-4635-8890-6cdbe7b937ec</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="decals/fin rad-test5.jpg" rotation="0.0" edgemode="MIRROR">
+                    <center x="0.5" y="0.5"/>
+                    <offset x="-1.0" y="-1.0"/>
+                    <scale x="-1.0" y="-1.0"/>
+                  </decal>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">179.99984796050427</angleoffset>
+                <rotation>179.99984796050427</rotation>
+                <axialoffset method="top">0.127</axialoffset>
+                <position type="top">0.127</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.023370000000000002</tabheight>
+                <tablength>0.3175</tablength>
+                <tabposition relativeto="front">0.0</tabposition>
+                <tabposition relativeto="top">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0136306" y="0.0152533"/>
+                  <point x="0.117158" y="0.0253139"/>
+                  <point x="0.2284" y="0.128"/>
+                  <point x="0.258" y="0.119"/>
+                  <point x="0.282" y="0.025"/>
+                  <point x="0.32" y="0.022"/>
+                  <point x="0.354" y="0.067"/>
+                  <point x="0.382" y="0.058"/>
+                  <point x="0.395" y="0.013"/>
+                  <point x="0.398" y="0.011300000000000001"/>
+                  <point x="0.406" y="0.002"/>
+                  <point x="0.406" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 3a</name>
+                <id>d8ea8722-c0a7-44fa-a347-3929f8388a68</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">176.00976987521324</angleoffset>
+                <rotation>176.00976987521324</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 3b</name>
+                <id>0b43a214-223e-4191-8039-07c54c6928ee</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-177.2399102613591</angleoffset>
+                <rotation>-177.2399102613591</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Custom Fin-4</name>
+                <id>d2020406-9088-46a1-a4fd-393685726ac7</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="decals/fin rad-test5.jpg" rotation="0.0" edgemode="MIRROR">
+                    <center x="0.5" y="0.5"/>
+                    <offset x="-1.0" y="-1.0"/>
+                    <scale x="-1.0" y="-1.0"/>
+                  </decal>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-90.0002104591497</angleoffset>
+                <rotation>-90.0002104591497</rotation>
+                <axialoffset method="top">0.127</axialoffset>
+                <position type="top">0.127</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <tabheight>0.023370000000000002</tabheight>
+                <tablength>0.3175</tablength>
+                <tabposition relativeto="front">0.0</tabposition>
+                <tabposition relativeto="top">0.0</tabposition>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0136306" y="0.0152533"/>
+                  <point x="0.117158" y="0.0253139"/>
+                  <point x="0.2284" y="0.128"/>
+                  <point x="0.258" y="0.119"/>
+                  <point x="0.282" y="0.025"/>
+                  <point x="0.32" y="0.022"/>
+                  <point x="0.354" y="0.067"/>
+                  <point x="0.382" y="0.058"/>
+                  <point x="0.395" y="0.013"/>
+                  <point x="0.398" y="0.011300000000000001"/>
+                  <point x="0.406" y="0.002"/>
+                  <point x="0.406" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 4a</name>
+                <id>2d4a80ee-c373-4241-9593-894483a6f5d9</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-86.49027100617829</angleoffset>
+                <rotation>-86.49027100617829</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <freeformfinset>
+                <name>Contre fins 4b</name>
+                <id>563296bf-b68c-4b9f-98b8-f34e68915b39</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-94.48990774179484</angleoffset>
+                <rotation>-94.48990774179484</rotation>
+                <axialoffset method="top">0.1349</axialoffset>
+                <position type="top">0.1349</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <thickness>0.00478</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.0038" y="0.007"/>
+                  <point x="0.114" y="0.02"/>
+                  <point x="0.272906" y="0.02"/>
+                  <point x="0.381787" y="0.01"/>
+                  <point x="0.38726900000000003" y="0.009"/>
+                  <point x="0.391" y="0.004"/>
+                  <point x="0.3921009999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <centeringring>
+                <name>Ring</name>
+                <id>cc9d6118-a090-49b8-b032-a18193099ddf</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.10790000000000001</axialoffset>
+                <position type="top">0.10790000000000001</position>
+                <material type="bulk" density="724.996" shearModulus="0.0" group="Custom">RS: Aircraft plywood (Birch)</material>
+                <length>0.00318</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Ring</name>
+                <id>4b48b3c4-e29d-488f-a8b5-724b9af2f3be</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.5596</axialoffset>
+                <position type="top">0.5596</position>
+                <material type="bulk" density="724.996" shearModulus="0.0" group="Custom">RS: Aircraft plywood (Birch)</material>
+                <length>0.00318</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <bulkhead>
+                <name>Bulkhead</name>
+                <id>c2b08fd3-763b-44c7-9e4c-6282e05b2a18</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <material type="bulk" density="680.785" shearModulus="0.0" group="Custom">RS: Birch</material>
+                <length>0.0030499999999999998</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.049030000000000004</outerradius>
+              </bulkhead>
+
+              <launchlug>
+                <name>Launch lug</name>
+                <id>11df4292-58bf-4407-9e75-1d0250dfd094</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">-134.99974273092943</angleoffset>
+                <radialdirection>-134.99974273092943</radialdirection>
+                <axialoffset method="top">0.54</axialoffset>
+                <position type="top">0.54</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="1199.78" shearModulus="0.0" group="Custom">RS: Polycarbonate</material>
+                <radius>0.006715</radius>
+                <length>0.01</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <launchlug>
+                <name>Launch lug</name>
+                <id>2a91a232-5b0b-4771-9164-6cba4c860863</id>
+                <appearance>
+                  <paint red="187" green="187" blue="187" alpha="255"/>
+                  <shine>0.3</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">-134.99974273092943</angleoffset>
+                <radialdirection>-134.99974273092943</radialdirection>
+                <axialoffset method="top">0.0125</axialoffset>
+                <position type="top">0.0125</position>
+                <finish>smooth</finish>
+                <material type="bulk" density="1199.78" shearModulus="0.0" group="Custom">RS: Polycarbonate</material>
+                <radius>0.006715</radius>
+                <length>0.01</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+            </subcomponents>
+          </bodytube>
+
+          <transition>
+            <name>Transition</name>
+            <id>b86cbf90-9d84-469a-b972-47bb15ad1dd7</id>
+            <appearance>
+              <paint red="187" green="187" blue="187" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>polished</finish>
+            <material type="bulk" density="847.056" shearModulus="0.0" group="Custom">RS: Urethane</material>
+            <length>0.04445</length>
+            <thickness>0.00521</thickness>
+            <shape>conical</shape>
+            <foreradius>0.05</foreradius>
+            <aftradius>0.03975</aftradius>
+            <foreshoulderradius>0.049530000000000005</foreshoulderradius>
+            <foreshoulderlength>0.00635</foreshoulderlength>
+            <foreshoulderthickness>0.00521</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.00521</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>SURFACE|RS: 1.9 oz. Ripstop Nylon (SkyAngle)|2.7098958420476206E-5|0.0|Custom</material>
+      <material>SURFACE|RS: 1.9 oz. Ripstop Nylon (SkyAngle)|6.663512241985067E-4|0.0|Custom</material>
+      <material>LINE|RS: 1/16 In. braided nylon|0.00102|0.0|Custom</material>
+      <material>BULK|RS: Aircraft plywood (Birch)|724.996|0.0|Custom</material>
+      <material>BULK|RS: Birch|680.785|0.0|Custom</material>
+      <material>BULK|RS: Kraft phenolic|958.705|0.0|Custom</material>
+      <material>BULK|RS: Paper|1121.29|0.0|Custom</material>
+      <material>BULK|RS: Polycarbonate|1199.78|0.0|Custom</material>
+      <material>BULK|RS: Polystyrene PS|1049.21|0.0|Custom</material>
+      <material>BULK|RS: Urethane|847.056|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

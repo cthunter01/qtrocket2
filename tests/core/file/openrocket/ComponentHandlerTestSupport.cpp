@@ -1018,45 +1018,50 @@ std::vector<std::string> casesThatThrowWhenCutOff(std::span<const RocketCase> ca
     return thrown;
 }
 
-std::string documentOfDesignFile(const std::filesystem::path& path)
+std::string documentOfDesignBytes(std::span<const std::byte> bytes, std::string_view source)
 {
-    Result<std::vector<std::byte>> bytes = readFile(path);
-    if (!bytes)
+    if (looksLikeGzip(bytes))
     {
-        bug(std::format("cannot read {}: {}", pathToUtf8(path), bytes.error().message));
-    }
-    if (looksLikeGzip(*bytes))
-    {
-        Result<std::vector<std::byte>> inflated = gzipInflate(*bytes);
+        Result<std::vector<std::byte>> inflated = gzipInflate(bytes);
         if (!inflated)
         {
-            bug(std::format("cannot inflate {}: {}", pathToUtf8(path), inflated.error().message));
+            bug(std::format("cannot inflate {}: {}", source, inflated.error().message));
         }
         return bytesToString(*inflated);
     }
-    if (bytes->size() > 2 && (*bytes)[0] == std::byte{'P'} && (*bytes)[1] == std::byte{'K'})
+    if (bytes.size() > 2 && bytes[0] == std::byte{'P'} && bytes[1] == std::byte{'K'})
     {
-        ZipInputStream zip(*bytes);
+        ZipInputStream zip(bytes);
         while (true)
         {
             const Result<std::optional<ZipInputStream::Entry>> entry = zip.nextEntry();
             if (!entry || !entry->has_value())
             {
-                bug(std::format("no .ork entry in {}", pathToUtf8(path)));
+                bug(std::format("no .ork entry in {}", source));
             }
             if (Strings::toLower((*entry)->name).ends_with(".ork"))
             {
                 const Result<std::vector<std::byte>> contents = zip.readEntry();
                 if (!contents)
                 {
-                    bug(std::format("cannot read the entry of {}: {}", pathToUtf8(path),
+                    bug(std::format("cannot read the entry of {}: {}", source,
                                     contents.error().message));
                 }
                 return bytesToString(*contents);
             }
         }
     }
-    return bytesToString(*bytes);
+    return bytesToString(bytes);
+}
+
+std::string documentOfDesignFile(const std::filesystem::path& path)
+{
+    const Result<std::vector<std::byte>> bytes = readFile(path);
+    if (!bytes)
+    {
+        bug(std::format("cannot read {}: {}", pathToUtf8(path), bytes.error().message));
+    }
+    return documentOfDesignBytes(*bytes, pathToUtf8(path));
 }
 
 namespace

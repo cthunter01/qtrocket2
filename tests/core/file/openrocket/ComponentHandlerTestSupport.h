@@ -196,6 +196,12 @@ struct RocketCase
 /// @throws BugError when the file cannot be read or is an archive without such an entry
 [[nodiscard]] std::string documentOfDesignFile(const std::filesystem::path& path);
 
+/// The same of @p bytes, the contents of a design file (an archive a test saved to memory, say);
+/// @p source names them in the message of the BugError.
+/// @throws BugError when the bytes are an archive without such an entry, or cannot be unpacked
+[[nodiscard]] std::string documentOfDesignBytes(std::span<const std::byte> bytes,
+                                                std::string_view           source);
+
 /// The rocket element of the design file @p path (see documentOfDesignFile()).
 /// @throws BugError when the file cannot be read or holds no rocket element
 [[nodiscard]] std::string rocketElementOfDesignFile(const std::filesystem::path& path);

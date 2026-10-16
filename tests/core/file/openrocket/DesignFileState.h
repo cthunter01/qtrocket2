@@ -5,7 +5,8 @@
 // of part "examples"): what the tests that compare whole loaded files with OpenRocket share.
 // Test-only.
 //
-// The state of a file as loaded, before anything is settled, is these lines (designFileState()):
+// The state of a file as loaded, before anything is settled, is these lines (designFileState(),
+// and designBytesState() for the contents of a file, such as an archive a test saved):
 //
 //     version=<n>             the file version OpenRocketHandler leaves in the loading context
 //     W <text>                the warnings of the load, in order
@@ -34,7 +35,9 @@
 // computes. The masses and the length of a design as loaded are therefore asked of a second
 // load, on which nothing else was asked before (massAndLength()).
 
+#include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -56,6 +59,13 @@ namespace QtRocket::Test
 /// read comes first, on a line of its own.
 [[nodiscard]] std::string versionLine(const DesignFileEnvironment& environment,
                                       std::string_view             text);
+
+/// @p document, the text of a design file, without what its root element holds: the start tag
+/// of <openrocket> with what stands before it, and an end tag ("" when it has no such tag).
+/// OpenRocketHandler takes the file version from that tag alone, so versionLine() of this is the
+/// version of the whole document, without a second reading of all it holds (the stored flights:
+/// some seconds for the sixteen examples in a debug build).
+[[nodiscard]] std::string rootOfDocument(std::string_view document);
 
 /// "name default '<name>'" and "name <n> '<name>'": the name each flight configuration of
 /// the rocket of @p document shows (FlightConfiguration::getName()), the default one first and
@@ -109,10 +119,38 @@ enum class StateDetail
                                               StateDetail detail = StateDetail::RECORDED);
 
 /// The state of the design file @p file as a loader of @p environment loads it, in the lines
-/// the top of this file lists; a load that fails gives its failure after the version.
+/// the top of this file lists; a load that fails gives its failure after the version. @p idsOf
+/// as for designBytesState().
 [[nodiscard]] std::vector<std::string> designFileState(DesignFileEnvironment&       environment,
                                                        const std::filesystem::path& file,
-                                                       StateDetail detail = StateDetail::RECORDED);
+                                                       StateDetail detail = StateDetail::RECORDED,
+                                                       std::string_view idsOf = {});
+
+/// What a test asks of a load after its state was described (designBytesState()): called with
+/// the load that succeeded.
+using Described = std::function<void(const LoadedDocument& loaded)>;
+
+/// The state of the design @p bytes hold, the contents of a design file (an .ork archive a test
+/// saved to memory, say), as a loader of @p environment loads it from memory without a
+/// directory (GeneralRocketLoader::load(bytes)): the lines of designFileState(), but for a
+/// document that cannot be read, whose version line is that of its root element alone
+/// (rootOfDocument(); the failure is that of the load, which follows). The state is the load's as
+/// loaded: nothing is asked of the load before it is described (an automatic dimension stores
+/// what it computes, so what is asked first is part of the state; a copy of the rocket is no way
+/// around that: it keeps the stored dimensions but not the caches of the load, and its first
+/// answers differ from the load's, in OpenRocket too). @p described, when given, is
+/// called with the load after its state was described, for a test that asks more of the same
+/// load (the settings of its components, say), saving a load. @p idsOf, when not empty, is the
+/// text whose ids a flight configuration's id has to be among to be printed in full in the lines
+/// of the rocket (describeRocket(); else "random"), in place of the document of @p bytes: a round
+/// trip of a design whose loader drew the ids of its flight configurations passes the original
+/// design's document, so that those ids, which the save wrote, stay "random" as in the state of
+/// the original.
+[[nodiscard]] std::vector<std::string> designBytesState(const DesignFileEnvironment& environment,
+                                                        std::vector<std::byte>       bytes,
+                                                        StateDetail detail = StateDetail::RECORDED,
+                                                        const Described& described = nullptr,
+                                                        std::string_view idsOf     = {});
 
 /// A line of a state in its short form, and the lines it stands for.
 struct CompactLine

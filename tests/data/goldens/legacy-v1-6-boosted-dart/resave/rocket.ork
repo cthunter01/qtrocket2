@@ -1,0 +1,671 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Nike Apache Boosted Dart</name>
+    <id>6732aab4-46ef-41b1-a0d1-1ce3c4461a55</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>Demonstration of boosted dart simulation.  The simulations show the effect of different stage separation timing on the dart altitude.</comment>
+    <designer>Kevin Ruland, Bill Kuker</designer>
+    <designtype>original</designtype>
+    <revision>March 2013, refined design and appearance.</revision>
+    <motorconfiguration configid="bb09f70f-1e69-4ba8-b165-ba19cf33d78c">
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <motorconfiguration configid="f5e1eae4-7420-4fd4-826b-31b025a1bcb1" default="true">
+      <name>Separation @1s</name>
+      <stage number="0" active="true"/>
+      <stage number="1" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Dart</name>
+        <id>24b2064f-735f-4bde-9dab-905c9d823909</id>
+        <overridemass>1.53087424875</overridemass>
+        <overridesubcomponentsmass>true</overridesubcomponentsmass>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose cone</name>
+            <id>8760b315-eac7-4126-88b3-992f822e5123</id>
+            <appearance>
+              <paint red="204" green="204" blue="204" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <color red="102" green="102" blue="102" alpha="255"/>
+            <linestyle>solid</linestyle>
+            <finish>normal</finish>
+            <material type="bulk" density="193.2898055421134" shearModulus="0.0" group="Custom">Balsa</material>
+            <length>0.22499999999999998</length>
+            <thickness>filled</thickness>
+            <shape>conical</shape>
+            <aftradius>auto 0.019875</aftradius>
+            <aftshoulderradius>0.01647825</aftshoulderradius>
+            <aftshoulderlength>0.019049999999999997</aftshoulderlength>
+            <aftshoulderthickness>0.01647825</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>202010a0-390d-45c6-b808-c7f8640cc7bb</id>
+            <appearance>
+              <paint red="153" green="153" blue="153" alpha="255"/>
+              <shine>1.0</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.0075</length>
+            <thickness>0.003</thickness>
+            <radius>auto 0.019875</radius>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>96aced51-0ab3-4457-919a-033c875a084b</id>
+            <appearance>
+              <paint red="204" green="204" blue="204" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.1275</length>
+            <thickness>0.003</thickness>
+            <radius>0.019875</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal fin set</name>
+                <id>a7af647c-df66-45e0-abf4-1ff554bfda53</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>1.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.015</axialoffset>
+                <position type="bottom">0.015</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.001</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.003</rootchord>
+                <tipchord>0.0015</tipchord>
+                <sweeplength>0.037500000000000006</sweeplength>
+                <height>0.045</height>
+              </trapezoidfinset>
+
+              <parachute>
+                <name>Dart Parachute</name>
+                <id>6ca29ad5-fe01-4858-b548-dfb16d9eafce</id>
+                <axialoffset method="top">0.036000000000000004</axialoffset>
+                <position type="top">0.036000000000000004</position>
+                <packedlength>0.0795</packedlength>
+                <packedradius>0.010499999999999999</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.44999999999999996</diameter>
+                <linecount>6</linecount>
+                <linelength>0.44999999999999996</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+
+          <transition>
+            <name>Transition</name>
+            <id>e1fe1cd0-a936-4ae7-97e8-cd57022b2f22</id>
+            <appearance>
+              <paint red="153" green="153" blue="153" alpha="255"/>
+              <shine>1.0</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.03</length>
+            <thickness>0.003</thickness>
+            <shape>conical</shape>
+            <foreradius>auto 0.019875</foreradius>
+            <aftradius>auto 0.019125</aftradius>
+            <foreshoulderradius>0.0</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>a485ff1d-925c-4833-9788-e51362cbb172</id>
+            <appearance>
+              <paint red="204" green="204" blue="204" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/openRocket.png" rotation="1.5707963267948966" edgemode="STICKER">
+                <center x="0.0" y="0.0"/>
+                <offset x="-2.7755575615628914E-17" y="-0.65"/>
+                <scale x="4.999999999999999" y="3.333333333333333"/>
+              </decal>
+            </appearance>
+            <color red="102" green="102" blue="102" alpha="255"/>
+            <linestyle>solid</linestyle>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.33</length>
+            <thickness>0.0011249999999999984</thickness>
+            <radius>0.019125</radius>
+          </bodytube>
+
+          <transition>
+            <name>Transition</name>
+            <id>fd9b72bb-8d10-4b1e-bdf8-65a3d5a1b3de</id>
+            <appearance>
+              <paint red="153" green="153" blue="153" alpha="255"/>
+              <shine>1.0</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <color red="51" green="51" blue="51" alpha="255"/>
+            <linestyle>solid</linestyle>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.015</length>
+            <thickness>0.003</thickness>
+            <shape>conical</shape>
+            <foreradius>auto 0.019125</foreradius>
+            <aftradius>auto 0.023250000000000003</aftradius>
+            <foreshoulderradius>0.0</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>1e065374-879b-4275-b832-8f62a84eb772</id>
+            <appearance>
+              <paint red="204" green="204" blue="204" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <color red="153" green="153" blue="153" alpha="255"/>
+            <linestyle>solid</linestyle>
+            <finish>normal</finish>
+            <material type="bulk" density="1259.7437709760566" shearModulus="0.0" group="Custom">Polycarbonate</material>
+            <length>0.135</length>
+            <thickness>0.001500000000000004</thickness>
+            <radius>0.023250000000000003</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal fin set</name>
+                <id>ab8184b8-b654-4dad-82e2-53b1883fca28</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>0.4</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <color red="153" green="153" blue="0" alpha="255"/>
+                <linestyle>solid</linestyle>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.0045000000000000005</axialoffset>
+                <position type="bottom">-0.0045000000000000005</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0045000000000000005</thickness>
+                <crosssection>airfoil</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.126</rootchord>
+                <tipchord>0.054000000000000006</tipchord>
+                <sweeplength>0.07275</sweeplength>
+                <height>0.045</height>
+              </trapezoidfinset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Booster</name>
+        <id>7b04fd3f-1173-45a6-83ca-e90513202ea8</id>
+        <separationevent>burnout</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+        <separationconfiguration configid="f5e1eae4-7420-4fd4-826b-31b025a1bcb1">
+            <separationevent>launch</separationevent>
+            <separationaltitude>200.0</separationaltitude>
+            <separationdelay>1.0</separationdelay>
+        </separationconfiguration>
+
+        <subcomponents>
+          <transition>
+            <name>Transition</name>
+            <id>a0a37e01-0202-4633-b2ae-8fd3ac3fd005</id>
+            <appearance>
+              <paint red="255" green="255" blue="235" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+            <length>0.06675</length>
+            <thickness>filled</thickness>
+            <shape>conical</shape>
+            <foreradius>0.023250000000000003</foreradius>
+            <aftradius>auto 0.056249999999999994</aftradius>
+            <foreshoulderradius>0.021675</foreshoulderradius>
+            <foreshoulderlength>0.069</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>true</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>true</aftshouldercapped>
+          </transition>
+
+          <transition>
+            <name>Transition</name>
+            <id>a4665a22-5aed-4df0-82a1-36878e0071e7</id>
+            <appearance>
+              <paint red="255" green="255" blue="235" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+            <length>0.07500000000000001</length>
+            <thickness>filled</thickness>
+            <shape>conical</shape>
+            <foreradius>0.056249999999999994</foreradius>
+            <aftradius>auto 0.05025</aftradius>
+            <foreshoulderradius>0.003</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.04725</aftshoulderradius>
+            <aftshoulderlength>0.056999999999999995</aftshoulderlength>
+            <aftshoulderthickness>0.0075</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>158b761a-8558-43f1-bbe0-36ae23a4eade</id>
+            <appearance>
+              <paint red="255" green="255" blue="235" alpha="255"/>
+              <shine>0.30000001192092896</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/us.png" rotation="1.5707963267948966" edgemode="STICKER">
+                <center x="0.0" y="0.0"/>
+                <offset x="-0.1" y="-0.7000000000000001"/>
+                <scale x="9.999999999999986" y="1.9999999999999996"/>
+              </decal>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.795</length>
+            <thickness>0.003</thickness>
+            <radius>0.05025</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal fin set #1</name>
+                <id>44fc7662-feb4-48a6-a696-16b3960828ea</id>
+                <appearance>
+                  <paint red="255" green="0" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">-0.037500000000000006</axialoffset>
+                <position type="bottom">-0.037500000000000006</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0045000000000000005</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14250000000000002</rootchord>
+                <tipchord>0.0675</tipchord>
+                <sweeplength>0.037500000000000006</sweeplength>
+                <height>0.129</height>
+              </trapezoidfinset>
+
+              <trapezoidfinset>
+                <name>Trapezoidal fin set #2</name>
+                <id>49038fba-044c-4822-ad38-ebeba62b51e4</id>
+                <appearance>
+                  <paint red="255" green="0" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">90.0</angleoffset>
+                <rotation>90.0</rotation>
+                <axialoffset method="bottom">-0.037500000000000006</axialoffset>
+                <position type="bottom">-0.037500000000000006</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0045000000000000005</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14250000000000002</rootchord>
+                <tipchord>0.0675</tipchord>
+                <sweeplength>0.037500000000000006</sweeplength>
+                <height>0.129</height>
+              </trapezoidfinset>
+
+              <trapezoidfinset>
+                <name>Trapezoidal fin set #3</name>
+                <id>49736fcb-8e2f-425f-8355-4453bd86bc96</id>
+                <appearance>
+                  <paint red="255" green="0" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">180.0</angleoffset>
+                <rotation>180.0</rotation>
+                <axialoffset method="bottom">-0.037500000000000006</axialoffset>
+                <position type="bottom">-0.037500000000000006</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0045000000000000005</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14250000000000002</rootchord>
+                <tipchord>0.0675</tipchord>
+                <sweeplength>0.037500000000000006</sweeplength>
+                <height>0.129</height>
+              </trapezoidfinset>
+
+              <trapezoidfinset>
+                <name>Trapezoidal fin set #4</name>
+                <id>fbd53470-7bc6-433e-8100-19aa40989189</id>
+                <appearance>
+                  <paint red="254" green="255" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <color red="200" green="0" blue="167" alpha="255"/>
+                <linestyle>solid</linestyle>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-90.0</angleoffset>
+                <rotation>-90.0</rotation>
+                <axialoffset method="bottom">-0.037500000000000006</axialoffset>
+                <position type="bottom">-0.037500000000000006</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.0045000000000000005</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.14250000000000002</rootchord>
+                <tipchord>0.0675</tipchord>
+                <sweeplength>0.037500000000000006</sweeplength>
+                <height>0.129</height>
+              </trapezoidfinset>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>675c6d04-0d68-4ffa-9138-1fcd282efad5</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.2193</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.02</outerradius>
+                <thickness>0.0</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.0</overhang>
+                </motormount>
+              </innertube>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>73853952-3d06-4444-96a2-d1b18d10f34d</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.17145</axialoffset>
+                <position type="bottom">-0.17145</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.003</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>8dc04e40-33a9-4750-9523-d6b04703a0a4</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.01</axialoffset>
+                <position type="bottom">-0.01</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.003</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <parachute>
+                <name>Booster Parachute</name>
+                <id>cf6e8dbc-0125-41de-b882-b4547a8b1744</id>
+                <axialoffset method="top">0.075</axialoffset>
+                <position type="top">0.075</position>
+                <packedlength>0.07200000000000001</packedlength>
+                <packedradius>0.033</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>apogee</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.44999999999999996</diameter>
+                <linecount>6</linecount>
+                <linelength>0.44999999999999996</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+
+              <launchlug>
+                <name>Launch lug</name>
+                <id>50d3b611-a7a1-4bbd-b0ad-d9d7aa90782a</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">0.0</angleoffset>
+                <radialdirection>0.0</radialdirection>
+                <axialoffset method="middle">0.165</axialoffset>
+                <position type="middle">0.165</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.00375</radius>
+                <length>0.03</length>
+                <thickness>0.0015</thickness>
+              </launchlug>
+
+              <launchlug>
+                <name>Launch lug</name>
+                <id>d7b421b3-b0b2-46da-bb75-4240f5868dc4</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">0.0</angleoffset>
+                <radialdirection>0.0</radialdirection>
+                <axialoffset method="middle">-0.28200000000000003</axialoffset>
+                <position type="middle">-0.28200000000000003</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.00375</radius>
+                <length>0.03</length>
+                <thickness>0.0015</thickness>
+              </launchlug>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>Simulation 1</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>bb09f70f-1e69-4ba8-b165-ba19cf33d78c</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="1907.2" maxvelocity="293.54" maxacceleration="381.46" maxmach="0.86414" timetoapogee="17.848" flighttime="98.198" groundhitvelocity="34.721" launchrodvelocity="28.148">
+        <warning type="Other">
+          <id>a000fc91-a6bc-4482-84ff-42c1af937a85</id>
+          <description>Discontinuity in rocket body diameter.</description>
+          <priority>NORMAL</priority>
+          Discontinuity in rocket body diameter.
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Simulation 2</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>f5e1eae4-7420-4fd4-826b-31b025a1bcb1</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="2009.5" maxvelocity="293.38" maxacceleration="381.46" maxmach="0.86375" timetoapogee="18.342" flighttime="102.74" groundhitvelocity="34.803" launchrodvelocity="28.147">
+        <warning type="Other">
+          <id>85ba08ca-f86d-49f9-be26-db02e15f9d39</id>
+          <description>Discontinuity in rocket body diameter.</description>
+          <priority>NORMAL</priority>
+          Discontinuity in rocket body diameter.
+        </warning>
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>BULK|Balsa|193.2898055421134|0.0|Custom</material>
+      <material>BULK|Polycarbonate|1259.7437709760566|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>

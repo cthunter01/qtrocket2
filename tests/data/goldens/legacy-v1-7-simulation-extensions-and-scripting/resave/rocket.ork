@@ -1,0 +1,772 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Simulation extension example</name>
+    <id>c34b3865-c057-43f0-9eae-4794d082c924</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <comment>This design demonstrates active roll control using a simulation extension written in JavaScript.
+
+The main fins are slightly misaligned, which causes roll to occur.
+
+The fin set named CONTROL acts as a canard to control the rocket&#39;s roll.  The simulation listener checks the current roll rate during flight and applies a PID controller to control the angle of these fins, counter-acting the roll caused by the main fins.
+
+You can see the applied script by opening a simulation and selecting Simulation options, then clicking the configuration icon of the simulation extension.
+
+This is the first configuration of the Iso-Haisu hybrid rocket which was used to demonstrate active control of a rocket by the Finnish Astronautical Society.</comment>
+    <designer>Sampo Niskanen (based on HyperLOC 1600)</designer>
+    <designtype>original</designtype>
+    <motorconfiguration configid="487170d2-211b-49a5-b58b-9c222d926522" default="true">
+      <stage number="0" active="true"/>
+    </motorconfiguration>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Primary stage</name>
+        <id>d142e6c1-2220-43fc-9093-270ff504102d</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose cone</name>
+            <id>1204486b-f776-4f08-8b21-e89fdbca9778</id>
+            <appearance>
+              <paint red="255" green="255" blue="255" alpha="255"/>
+              <shine>0.3</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <overridemass>0.61</overridemass>
+            <overridesubcomponentsmass>false</overridesubcomponentsmass>
+            <finish>normal</finish>
+            <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+            <length>0.53</length>
+            <thickness>0.005</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>auto 0.07</aftradius>
+            <aftshoulderradius>0.063</aftshoulderradius>
+            <aftshoulderlength>0.11</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+
+            <subcomponents>
+              <masscomponent>
+                <name>Nose cone payload</name>
+                <id>16627e76-ba28-44f0-a1c7-4c0535fd418d</id>
+                <axialoffset method="bottom">0.11</axialoffset>
+                <position type="bottom">0.11</position>
+                <packedlength>0.5</packedlength>
+                <packedradius>0.03</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>0.65</mass>
+                <masscomponenttype>masscomponent</masscomponenttype>
+              </masscomponent>
+            </subcomponents>
+          </nosecone>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>213d0d3b-6c7c-4ba2-8bbe-fa144944e18a</id>
+            <appearance>
+              <paint red="237" green="34" blue="7" alpha="255"/>
+              <shine>0.30000001192092896</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <overridemass>0.366</overridemass>
+            <overridesubcomponentsmass>false</overridesubcomponentsmass>
+            <finish>normal</finish>
+            <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+            <length>0.505</length>
+            <thickness>0.005</thickness>
+            <radius>0.07</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Main parachute</name>
+                <id>665f6285-b7ad-40df-be5f-e3dcb1483323</id>
+                <axialoffset method="top">0.17</axialoffset>
+                <position type="top">0.17</position>
+                <overridemass>0.28</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <packedlength>0.055999999999999994</packedlength>
+                <packedradius>0.055</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>altitude</deployevent>
+                <deployaltitude>250.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>1.5</diameter>
+                <linecount>6</linecount>
+                <linelength>1.0</linelength>
+                <linematerial type="line" density="0.0035" group="Nylons">Braided nylon (3 mm, 1/8 in)</linematerial>
+              </parachute>
+
+              <shockcord>
+                <name>Shock cord</name>
+                <id>75687102-5565-4dcf-8342-eab85ffceae5</id>
+                <axialoffset method="top">0.21</axialoffset>
+                <position type="top">0.21</position>
+                <packedlength>0.027999999999999997</packedlength>
+                <packedradius>0.05</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>7.62</cordlength>
+                <material type="line" density="0.016" group="Nylons">Tubular nylon (14 mm, 9/16 in)</material>
+              </shockcord>
+
+              <masscomponent>
+                <name>Payload</name>
+                <id>f07b5ea5-b2d3-4bc5-86ea-39c4e1ef2787</id>
+                <axialoffset method="top">0.25</axialoffset>
+                <position type="top">0.25</position>
+                <packedlength>0.4</packedlength>
+                <packedradius>0.061</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>1.1</mass>
+                <masscomponenttype>masscomponent</masscomponenttype>
+              </masscomponent>
+
+              <trapezoidfinset>
+                <name>CONTROL</name>
+                <id>85a79871-d051-4d9b-ad1f-9391e537b719</id>
+                <appearance>
+                  <paint red="255" green="0" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>2</instancecount>
+                <fincount>2</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">90.0</angleoffset>
+                <rotation>90.0</rotation>
+                <axialoffset method="top">0.28</axialoffset>
+                <position type="top">0.28</position>
+                <comment>These fins are used to control the roll of the rocket.  The simulation listeners modifies the cant of these fins based on a PID-controller, attempting to reduce the roll rate to zero.</comment>
+                <finish>normal</finish>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <thickness>0.008</thickness>
+                <crosssection>airfoil</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.05</rootchord>
+                <tipchord>0.05</tipchord>
+                <sweeplength>0.0</sweeplength>
+                <height>0.1</height>
+              </trapezoidfinset>
+
+              <bulkhead>
+                <name>Bulkhead</name>
+                <id>173460a4-6aac-4f00-ac46-107600a73ed1</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.256</axialoffset>
+                <position type="bottom">-0.256</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+              </bulkhead>
+
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>3e56c46f-5c7d-4946-9747-97dfaa5f3bfb</id>
+                <axialoffset method="bottom">0.15</axialoffset>
+                <position type="bottom">0.15</position>
+                <overridemass>0.36</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.28</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.004</thickness>
+              </tubecoupler>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>f1f1e6c9-4137-4806-b8d9-c9f08d02c9f4</id>
+            <appearance>
+              <paint red="212" green="185" blue="145" alpha="255"/>
+              <shine>0.30000001192092896</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+              <decal name="decals/skunk.jpg" rotation="0.0" edgemode="CLAMP">
+                <center x="0.0" y="0.0"/>
+                <offset x="-0.30000000000000004" y="0.0"/>
+                <scale x="2.499999999999999" y="1.0"/>
+              </decal>
+            </appearance>
+            <overridemass>0.67</overridemass>
+            <overridesubcomponentsmass>false</overridesubcomponentsmass>
+            <finish>normal</finish>
+            <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+            <length>0.605</length>
+            <thickness>0.005</thickness>
+            <radius>0.07</radius>
+
+            <subcomponents>
+              <parachute>
+                <name>Drogue parachute</name>
+                <id>82650ca5-5dc7-40de-a24b-edc8fefcb6f6</id>
+                <axialoffset method="top">0.22</axialoffset>
+                <position type="top">0.22</position>
+                <overridemass>0.028</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <packedlength>0.049</packedlength>
+                <packedradius>0.055</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>apogee</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.5</diameter>
+                <linecount>6</linecount>
+                <linelength>0.3</linelength>
+                <linematerial type="line" density="0.0035" group="Nylons">Braided nylon (3 mm, 1/8 in)</linematerial>
+              </parachute>
+
+              <shockcord>
+                <name>Shock cord</name>
+                <id>c98fe8d2-bdf1-4d41-8516-40a4cbbbc565</id>
+                <axialoffset method="top">0.26</axialoffset>
+                <position type="top">0.26</position>
+                <packedlength>0.027999999999999997</packedlength>
+                <packedradius>0.05</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>7.62</cordlength>
+                <material type="line" density="0.016" group="Nylons">Tubular nylon (14 mm, 9/16 in)</material>
+              </shockcord>
+
+              <tubecoupler>
+                <name>Tube coupler</name>
+                <id>a485f9ee-9ccb-4596-84ce-c42136c63db2</id>
+                <axialoffset method="top">0.47</axialoffset>
+                <position type="top">0.47</position>
+                <overridemass>0.36</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.28</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.004</thickness>
+              </tubecoupler>
+
+              <bulkhead>
+                <name>Bulkhead</name>
+                <id>9eaad3b3-09f8-41ce-8453-ef0b4105afc4</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.29000000000000004</axialoffset>
+                <position type="top">0.29000000000000004</position>
+                <overridemass>0.05</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+              </bulkhead>
+            </subcomponents>
+          </bodytube>
+
+          <bodytube>
+            <name>Body tube</name>
+            <id>ed204acd-c58a-4cfb-873d-1aab2cbbc60d</id>
+            <appearance>
+              <paint red="250" green="201" blue="2" alpha="255"/>
+              <shine>0.30000001192092896</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <overridemass>1.268</overridemass>
+            <overridesubcomponentsmass>false</overridesubcomponentsmass>
+            <finish>normal</finish>
+            <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+            <length>1.065</length>
+            <thickness>0.005</thickness>
+            <radius>0.07</radius>
+
+            <subcomponents>
+              <innertube>
+                <name>Inner Tube</name>
+                <id>a2c49978-71b5-4dcd-b8f2-77e83cef0ee1</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <overridemass>0.388</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.86</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.04</outerradius>
+                <thickness>0.001899999999999999</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.02</overhang>
+                  <motor configid="487170d2-211b-49a5-b58b-9c222d926522">
+                    <type>hybrid</type>
+                    <manufacturer>HyperTEK</manufacturer>
+                    <digest>5498ead583ab6cd6900a533b1cb69df8</digest>
+                    <designation>2800CC172L-L540</designation>
+                    <diameter>0.111</diameter>
+                    <length>0.876</length>
+                    <delay>none</delay>
+                  </motor>
+                  <ignitionconfiguration configid="487170d2-211b-49a5-b58b-9c222d926522">
+                    <ignitionevent>automatic</ignitionevent>
+                    <ignitiondelay>0.0</ignitiondelay>
+                  </ignitionconfiguration>
+                </motormount>
+              </innertube>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>1b266c73-e8a2-4480-88e2-93efbd515226</id>
+                <appearance>
+                  <paint red="204" green="175" blue="0" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <overridemass>0.038</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>bb37ebed-e924-48d4-b9d4-adf048dc8b3f</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.28</axialoffset>
+                <position type="top">0.28</position>
+                <overridemass>0.038</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Centering ring</name>
+                <id>dda27572-f917-42a5-b840-82a049b2f961</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="top">0.83</axialoffset>
+                <position type="top">0.83</position>
+                <overridemass>0.038</overridemass>
+                <overridesubcomponentsmass>false</overridesubcomponentsmass>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <trapezoidfinset>
+                <name>Main fin set #1</name>
+                <id>05f80e3a-87a1-422f-b122-b0dfbb055f74</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">90.0</angleoffset>
+                <rotation>90.0</rotation>
+                <axialoffset method="bottom">-0.03</axialoffset>
+                <position type="bottom">-0.03</position>
+                <finish>normal</finish>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>1.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.495</rootchord>
+                <tipchord>0.1</tipchord>
+                <sweeplength>0.3</sweeplength>
+                <height>0.185</height>
+              </trapezoidfinset>
+
+              <trapezoidfinset>
+                <name>Main fin set #2</name>
+                <id>582ea6de-50ac-4664-9fc4-1df63504f9b2</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                  <decal name="decals/sticker.gif" rotation="0.0" edgemode="STICKER">
+                    <center x="0.0" y="0.0"/>
+                    <offset x="-0.5" y="0.0"/>
+                    <scale x="3.3333333333333317" y="2.499999999999999"/>
+                  </decal>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-150.00000000000003</angleoffset>
+                <rotation>-150.00000000000003</rotation>
+                <axialoffset method="bottom">-0.03</axialoffset>
+                <position type="bottom">-0.03</position>
+                <finish>normal</finish>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>1.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.495</rootchord>
+                <tipchord>0.1</tipchord>
+                <sweeplength>0.3</sweeplength>
+                <height>0.185</height>
+              </trapezoidfinset>
+
+              <trapezoidfinset>
+                <name>Main fin set #3</name>
+                <id>4d26002f-0547-4f71-a164-c33a2a10670f</id>
+                <appearance>
+                  <paint red="204" green="204" blue="204" alpha="255"/>
+                  <shine>0.0</shine>
+                  <opacityaffectstexture>false</opacityaffectstexture>
+                </appearance>
+                <instancecount>1</instancecount>
+                <fincount>1</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">-30.000000000000014</angleoffset>
+                <rotation>-30.000000000000014</rotation>
+                <axialoffset method="bottom">-0.03</axialoffset>
+                <position type="bottom">-0.03</position>
+                <finish>normal</finish>
+                <material type="bulk" density="690.0" shearModulus="0.0" group="Custom">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>1.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>0.495</rootchord>
+                <tipchord>0.1</tipchord>
+                <sweeplength>0.3</sweeplength>
+                <height>0.185</height>
+              </trapezoidfinset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="notsimulated">
+      <name>No controlling</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>487170d2-211b-49a5-b58b-9c222d926522</configid>
+        <launchrodlength>2.5</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="2450.6" maxvelocity="238.68" maxacceleration="52.188" maxmach="0.70855" timetoapogee="22.466" flighttime="113.57" groundhitvelocity="9.9409" launchrodvelocity="15.148" deploymentvelocity="31.889">
+        <warning type="Other">
+          <id>a523bb6a-2ac9-4d6c-94c1-5b1f6cca0630</id>
+          <description>Recovery device deployment at high speed (31.9 m/s).</description>
+          <priority>NORMAL</priority>
+          Recovery device deployment at high speed (31.9 m/s).
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Active roll control</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>487170d2-211b-49a5-b58b-9c222d926522</configid>
+        <launchrodlength>2.5</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <extension extensionid="info.openrocket.core.simulation.extension.impl.ScriptingExtension">
+        <entry key="language" type="string">JavaScript</entry>
+        <entry key="script" type="string">// Name of control fin set
+var CONTROL_FIN_NAME = &quot;CONTROL&quot;;
+
+// Desired roll rate (rad/sec)
+var SETPOINT = 0 * Math.PI / 180;
+
+// Maximum control fin angle (rad)
+var MAX_ANGLE = 15 * Math.PI / 180;
+
+// PID parameters
+var KP = 0.007;
+var KI = 0.2;
+
+////////////////////////////////////////
+
+var rollrate = 0;
+var previousTime = 0;
+var intState = 0;
+
+function postFlightConditions(status, flightConditions) {
+	// Store the current roll rate for later use
+	rollrate = flightConditions.getRollRate();
+}
+
+function postStep(status) {
+	var c = findControlFin(status);
+	var deltaT = status.getSimulationTime() - previousTime;
+	previousTime = status.getSimulationTime();
+	
+	var error = SETPOINT - rollrate;
+	intState += error * deltaT;
+
+	var p = KP * error;
+	var i = KI * intState;
+	var value = p + i;
+
+	// Clamp to -MAX_ANGLE .. MAX_ANGLE
+	if (value &gt; MAX_ANGLE) {
+		value = MAX_ANGLE;
+	}
+	if (value &lt; -MAX_ANGLE) {
+		value = -MAX_ANGLE;
+	}
+
+	c.setCantAngle(value);
+}
+
+function findControlFin(status) {
+	var c;
+	var iterator = status.getConfiguration().iterator();
+	while (iterator.hasNext()) {
+		c = iterator.next();
+		if (c.getName() == CONTROL_FIN_NAME) {
+			return c;
+		}
+	}
+	throw &quot;Could not find fin with name &quot; + CONTROL_FIN_NAME;
+}
+</entry>
+        <entry key="enabled" type="boolean">true</entry>
+      </extension>
+      <flightdata maxaltitude="2446.3" maxvelocity="238.64" maxacceleration="52.18" maxmach="0.70844" timetoapogee="22.436" flighttime="113.85" groundhitvelocity="9.9389" launchrodvelocity="15.148" deploymentvelocity="31.898">
+        <warning type="Other">
+          <id>50aca032-26f7-4c2f-86c0-f43eda4f8ad8</id>
+          <description>Listeners modified the flight simulation</description>
+          <priority>NORMAL</priority>
+          Listeners modified the flight simulation
+        </warning>
+        <warning type="Other">
+          <id>da9a49d6-c8e6-4aaa-b61e-76ccf02383db</id>
+          <description>Recovery device deployment at high speed (31.9 m/s).</description>
+          <priority>NORMAL</priority>
+          Recovery device deployment at high speed (31.9 m/s).
+        </warning>
+      </flightdata>
+    </simulation>
+
+    <simulation status="notsimulated">
+      <name>Roll control + air-start</name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>487170d2-211b-49a5-b58b-9c222d926522</configid>
+        <launchrodlength>1.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>2.0</windaverage>
+        <windturbulence>0.1</windturbulence>
+        <winddirection>1.5707963267948966</winddirection>
+        <wind model="average">
+          <speed>2.0</speed>
+          <direction>1.5707963267948966</direction>
+          <standarddeviation>0.2</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>45.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>flat</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <extension extensionid="info.openrocket.core.simulation.extension.impl.ScriptingExtension">
+        <entry key="language" type="string">JavaScript</entry>
+        <entry key="script" type="string">// Name of control fin set
+var CONTROL_FIN_NAME = &quot;CONTROL&quot;;
+
+// Desired roll rate (rad/sec)
+var SETPOINT = 0 * Math.PI / 180;
+
+// Maximum control fin angle (rad)
+var MAX_ANGLE = 15 * Math.PI / 180;
+
+// PID parameters
+var KP = 0.007;
+var KI = 0.2;
+
+////////////////////////////////////////
+
+var rollrate = 0;
+var previousTime = 0;
+var intState = 0;
+
+function postFlightConditions(status, flightConditions) {
+	// Store the current roll rate for later use
+	rollrate = flightConditions.getRollRate();
+}
+
+function postStep(status) {
+	var c = findControlFin(status);
+	var deltaT = status.getSimulationTime() - previousTime;
+	previousTime = status.getSimulationTime();
+	
+	var error = SETPOINT - rollrate;
+	intState += error * deltaT;
+
+	var p = KP * error;
+	var i = KI * intState;
+	var value = p + i;
+
+	// Clamp to -MAX_ANGLE .. MAX_ANGLE
+	if (value &gt; MAX_ANGLE) {
+		value = MAX_ANGLE;
+	}
+	if (value &lt; -MAX_ANGLE) {
+		value = -MAX_ANGLE;
+	}
+
+	c.setCantAngle(value);
+}
+
+function findControlFin(status) {
+	var c;
+	var iterator = status.getConfiguration().iterator();
+	while (iterator.hasNext()) {
+		c = iterator.next();
+		if (c.getName() == CONTROL_FIN_NAME) {
+			return c;
+		}
+	}
+	throw &quot;Could not find fin with name &quot; + CONTROL_FIN_NAME;
+}
+</entry>
+        <entry key="enabled" type="boolean">true</entry>
+      </extension>
+      <flightdata maxaltitude="3564.5" maxvelocity="243.69" maxacceleration="52.772" maxmach="0.73203" timetoapogee="23.043" flighttime="144.45" groundhitvelocity="9.9391" launchrodvelocity="9.6376" deploymentvelocity="31.882">
+        <warning type="Other">
+          <id>27245c5d-ae52-445e-857b-17f9e34590de</id>
+          <description>Listeners modified the flight simulation</description>
+          <priority>NORMAL</priority>
+          Listeners modified the flight simulation
+        </warning>
+        <warning type="Other">
+          <id>22f00f40-defd-4c4d-82c2-f8166a7fb27b</id>
+          <description>Recovery device deployment at high speed (31.9 m/s).</description>
+          <priority>NORMAL</priority>
+          Recovery device deployment at high speed (31.9 m/s).
+        </warning>
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+    <docmaterials>
+      <material>BULK|Cardboard|690.0|0.0|Custom</material>
+    </docmaterials>
+  </docprefs>
+</openrocket>
