@@ -49,16 +49,18 @@ holds what the `install()` rules install: `bin/QtRocket_cli`, `share/QtRocket/` 
   `RunCli.cmake` (`tests/core/cli/CMakeLists.txt`)
 - Test support to reuse, never duplicate (`find tests/core -name '*.h'` lists it all): `tests/core/TestPaths.h`,
   `tests/core/TestTempDir.h`, `tests/core/unit/DefaultUnitsGuard.h`, `tests/core/rocket/TestRockets.h`
-  (OpenRocket's TestRockets), `tests/core/motor/TestMotorDatabase.h`, `tests/core/simulation/FlightDifferences.h`,
-  `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h` and `RecordedOrkFiles.h` in
-  `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h`, `tests/core/cli/CliRunSupport.h`, and the
+  (OpenRocket's TestRockets), `tests/core/document/TestDocuments.h` (its 16 document makers),
+  `tests/core/motor/TestMotorDatabase.h`, `tests/core/simulation/FlightDifferences.h`,
+  `tests/core/file/DesignFileEnvironment.h`, `DesignFileState.h`, `ExampleOrkFiles.h`, `RecordedOrkFiles.h` and
+  `OpenRocketSaverTestMotors.h` in `tests/core/file/openrocket/`, `tests/core/goldens/Golden*.h`,
+  `tests/core/cli/CliRunSupport.h`, and the
   `*Support.h` and `*Pins.h` headers beside each subsystem's tests
 - `tests/data/`: test fixtures (`ork/`, `motors/`, `csv/`, `cli/`, ...) and `goldens/`, OpenRocket's results for
   the 16 examples and the 13 test rockets (generated; never edited by hand)
 - `data/`: the shipped data, installed to `share/QtRocket/`: `motors/initial_motors.db` (OpenRocket's motor
   database) and `examples/*.ork` (OpenRocket's 16 example designs)
-- `tools/openrocket-goldens/`: the Java harness that writes `tests/data/goldens/` (its README says how); never built
-  by CMake or CI
+- `tools/openrocket-goldens/`: the Java harness that writes `tests/data/goldens/` (its README says how), and
+  `tools/openrocket-test-documents/`, which writes `tests/data/goldens/test-documents/`; never built by CMake or CI
 - `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy);
   `cmake/Dependencies.cmake`: third-party libraries via FetchContent (pugixml, minizip-ng with zlib, SQLite,
   fast_float; GoogleTest and nlohmann_json for the tests only)
