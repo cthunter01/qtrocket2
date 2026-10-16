@@ -2863,7 +2863,7 @@ TEST(SimulationLookupCopy, ChangedStabilityRowsAreCopiedAndNotifyEvenWhenTablesA
 }
 
 // The part of SimulationLookupCopyTest.testCopiedLookupsSurviveSaveAndReloadWithoutExternalFiles
-// that needs no .ork round trip (the JUnit test itself waits for the file tier).
+// that needs no .ork round trip (the round trip: file/openrocket/lookup_round_trip_tests.cpp).
 TEST(SimulationLookupCopy, CopiedLookupsCarryTheirTablesAndRows)
 {
     const SimulationOptions source = lookupOptions("2.0");

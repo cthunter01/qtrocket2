@@ -955,8 +955,8 @@ INSTANTIATE_TEST_SUITE_P(Probe, LookupElements, ::testing::ValuesIn(kLookupCases
 // here is the loading, with the <conditions> element OpenRocketSaver writes for such options
 // written out by hand: the table's rows embedded, and the name of a CSV file that does not
 // exist, as the absolute path the options keep and the saver writes. It is loaded as the test
-// loads it, from memory, which is a design without a directory. The whole round trip waits for
-// the saver (tier 10).
+// loads it, from memory, which is a design without a directory. The whole round trip, through
+// OpenRocketSaver, is in lookup_round_trip_tests.cpp (SimulationLookupCopyRoundTrip).
 
 /// SimulationLookupCopyTest.CSV
 constexpr std::string_view kMissingCsv = "missing-beta-test-lookup.csv";

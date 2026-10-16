@@ -1,5 +1,6 @@
 // ShockCordTest.java (core/src/test/.../rocketcomponent), ported (but for the .ork round trip,
-// which needs the document and the file format), and the shock cord's own behaviour.
+// which needs the document and the file format: file/openrocket/save_load_tests.cpp), and the
+// shock cord's own behaviour.
 
 #include "QtRocket/rocket/ShockCord.h"
 

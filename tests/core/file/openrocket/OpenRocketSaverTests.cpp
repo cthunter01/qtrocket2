@@ -940,6 +940,103 @@ TEST(OpenRocketSaver, TestUntrustedScriptDisabledOnLoad)
     EXPECT_EQ(ext->getScript(), kSimulationExtensionScript);
 }
 
+/// What the reload of makeTestRocketV110WithSimulationExtension(@p script) gives, saved by
+/// OpenRocketSaver with new storage options and loaded back from the text in the set-up of
+/// OpenRocketSaverTest (no presets, its database of two motors).
+struct ScriptReload
+{
+    std::size_t simulations{0};
+    std::size_t extensions{0};
+    /// Whether the script extension is enabled, and its text.
+    bool        enabled{false};
+    std::string script{"(no script extension)"};
+    /// The warnings of the load, one per line.
+    std::string warnings;
+};
+
+[[nodiscard]] ScriptReload reloadScript(std::string_view script)
+{
+    JavaTestPreferences                       preferences;
+    const std::unique_ptr<OpenRocketDocument> rocketDoc =
+        makeTestRocketV110WithSimulationExtension(script, preferences.store);
+    const Saved saved = saveOf(*rocketDoc);
+    EXPECT_EQ(saved.error, "");
+
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> motors =
+        QtRocket::Test::openRocketSaverTestMotors();
+    const DesignFileEnvironment  environment(DesignFileEnvironment::Presets::NONE, *motors);
+    const Result<LoadedDocument> rocketDocLoaded =
+        GeneralRocketLoader(environment.context()).load(QtRocket::stringToBytes(saved.text));
+    ScriptReload reload;
+    if (!rocketDocLoaded.has_value())
+    {
+        ADD_FAILURE() << rocketDocLoaded.error().toString();
+        return reload;
+    }
+    for (const QtRocket::Warning& warning : rocketDocLoaded->warnings)
+    {
+        reload.warnings += warning.toString() + "\n";
+    }
+    reload.simulations = rocketDocLoaded->document->getSimulationCount();
+    if (reload.simulations == 0)
+    {
+        return reload;
+    }
+    const std::vector<std::shared_ptr<QtRocket::SimulationExtension>>& extensions =
+        rocketDocLoaded->document->getSimulation(0)->getSimulationExtensions();
+    reload.extensions = extensions.size();
+    if (const auto* ext = extensions.empty() ? nullptr
+                                             : dynamic_cast<const QtRocket::ScriptingExtension*>(
+                                                   extensions.front().get()))
+    {
+        reload.enabled = ext->isEnabled();
+        reload.script  = ext->getScript();
+    }
+    return reload;
+}
+
+/// OpenRocket's warnings of the reload of the document of
+/// makeTestRocket_v110_withSimulationExtension() as plain XML, the warning of a disabled script
+/// set aside (probe SaverPortsProbe of run 10b): the Alpha III's B4 and C6 are not in the
+/// database of OpenRocketSaverTest, and the time step of its preferences is 0.
+constexpr std::string_view kV110ReloadWarnings =
+    "No motor with designation 'B4' for manufacturer 'Estes' found.\n"
+    "No motor with designation 'C6' for manufacturer 'Estes' found.\n"
+    "Illegal time step defined, ignoring.\n";
+
+// Port of OpenRocketSaverTest.testTrustedScriptEnabledOnLoad, INVERTED by decision D1 (deviation;
+// orchestrator decision Q3 of run 10b). Java marks the script "TESTING" as trusted on the
+// computer (ScriptingUtil.setTrustedScript()) and expects it enabled after the reload, with its
+// text. QtRocket keeps no such list and runs no scripts: every enabled script that holds code is
+// disabled on load, and "TESTING" gets OpenRocket's own warning, as OpenRocket gives it for the
+// script when it is not marked trusted (probe SaverPortsProbe: "untrusted"). An enabled script
+// that holds nothing stays enabled without a warning, as in OpenRocket (decision E4; the probe:
+// "empty" and "blank"). (The roll control script OpenRocket trusts by its hash, which QtRocket
+// disables with ScriptingExtension::kTrustedScriptDisabledWarning, is in
+// ScriptingExtensionTests and in the tests of the file v1.7 that holds it.)
+TEST(OpenRocketSaver, TestTrustedScriptEnabledOnLoad)
+{
+    const ScriptReload testing = reloadScript("TESTING");
+    EXPECT_EQ(testing.simulations, 1U);
+    EXPECT_EQ(testing.extensions, 1U);
+    EXPECT_FALSE(testing.enabled) << "decision D1: OpenRocket, which trusts it, keeps it enabled";
+    EXPECT_EQ(testing.script, "TESTING");
+    EXPECT_EQ(testing.warnings, std::string(kV110ReloadWarnings) +
+                                    std::string(QtRocket::ScriptingExtension::kDisabledWarning) +
+                                    "\n");
+
+    const ScriptReload empty = reloadScript("");
+    EXPECT_EQ(empty.extensions, 1U);
+    EXPECT_TRUE(empty.enabled) << "decision E4";
+    EXPECT_EQ(empty.script, "");
+    EXPECT_EQ(empty.warnings, kV110ReloadWarnings);
+
+    const ScriptReload blank = reloadScript(" \r\n\t");
+    EXPECT_EQ(blank.extensions, 1U);
+    EXPECT_TRUE(blank.enabled) << "decision E4";
+    EXPECT_EQ(blank.warnings, kV110ReloadWarnings);
+}
+
 /// TestRockets.makeEstesAlphaIII() in a document, with the preference store of OpenRocket's
 /// tests for its simulations (Java: new Simulation(rocket) reads the application's).
 struct AlphaDocument
