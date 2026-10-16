@@ -1,0 +1,237 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>for_estimateFileSize</name>
+    <id>96d3bff7-6817-4a27-9858-ae21fc4083a9</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>46bc5401-6509-4db0-9f23-bcce1d55dcc6</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>72a8c77e-5e04-49c7-83e8-e28679a6b8a3</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>5.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>55531bd4-b4df-4078-ba01-b5147171a8df</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>1.5</rootchord>
+                <tipchord>1.5</tipchord>
+                <sweeplength>0.0</sweeplength>
+                <height>1.5</height>
+              </trapezoidfinset>
+
+              <parachute>
+                <name>Parachute</name>
+                <id>7f8375de-77b7-4c42-acae-04e492442722</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>altitude</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>6</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Stage2</name>
+        <id>49aa99f0-70b1-4f5f-9e03-8f884145e425</id>
+        <separationevent>ejection</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>4df98607-04a3-46a0-ab1e-dbe0eb6b86af</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>3.0</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.5</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>30f3a2ff-2f20-454f-b905-8dd07ea51215</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>15.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>2826d806-9994-4440-9f3f-e4ea541c14e6</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <thickness>0.005</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</filletmaterial>
+                <rootchord>1.0</rootchord>
+                <tipchord>1.0</tipchord>
+                <sweeplength>0.0</sweeplength>
+                <height>1.0</height>
+              </trapezoidfinset>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+    <simulation status="aborted">
+      <name></name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>0.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>0.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>0.0</winddirection>
+        <wind model="average">
+          <speed>0.0</speed>
+          <direction>0.0</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>0.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="extendedisa">
+          <basetemperature>288.0</basetemperature>
+          <basepressure>100000.0</basepressure>
+          <baserelativehumidity>0.0</baserelativehumidity>
+        </atmosphere>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="0" maxvelocity="0" timetoapogee="0" flighttime="0">
+        <databranch name="Stage1" types="time,altitude,altitude_above_sea,velocity_z,velocity_total,position_x,position_y,position_xy,position_direction,velocity_xy,latitude,longitude,orientation_theta,orientation_phi,computation_time">
+          <event time="0" type="simabort" id="0348b385-523b-4266-8989-780427a59141" cause="nomotorsdefined"/>
+          <event time="0" type="launch" id="8658342a-5dde-4aa8-8af4-258f574eb35a" source="96d3bff7-6817-4a27-9858-ae21fc4083a9"/>
+          <datapoint>0,0,0,0,0,0,0,0,0,0,0,0,1.570796,0,0.062916</datapoint>
+        </databranch>
+      </flightdata>
+    </simulation>
+
+    <simulation status="aborted">
+      <name></name>
+      <simulator>RK4Simulator</simulator>
+      <calculator>BarrowmanCalculator</calculator>
+      <conditions>
+        <configid>ffffffff-f4f2-f1f0-0000-00000000162c</configid>
+        <launchrodlength>0.0</launchrodlength>
+        <launchintowind>false</launchintowind>
+        <launchrodangle>0.0</launchrodangle>
+        <launchroddirection>0.0</launchroddirection>
+        <windaverage>0.0</windaverage>
+        <windturbulence>0.0</windturbulence>
+        <winddirection>0.0</winddirection>
+        <wind model="average">
+          <speed>0.0</speed>
+          <direction>0.0</direction>
+          <standarddeviation>0.0</standarddeviation>
+        </wind>
+        <wind model="multilevel" altituderef="msl">
+          <windlevel altitude="0.0" speed="0.0" direction="0.0" standarddeviation="0.0"/>
+        </wind>
+        <windmodeltype>Average</windmodeltype>
+        <launchaltitude>0.0</launchaltitude>
+        <launchlatitude>0.0</launchlatitude>
+        <launchlongitude>0.0</launchlongitude>
+        <geodeticmethod>spherical</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
+        <atmosphere model="isa"/>
+        <gravity model="wgs"/>
+        <timestep>0.05</timestep>
+        <maxtime>1200.0</maxtime>
+        <recoveryspeedwarning>20.0</recoveryspeedwarning>
+        <drogueLowspeedwarning>3.048</drogueLowspeedwarning>
+        <recoverydroguemainhighspeedwarning>30.48</recoverydroguemainhighspeedwarning>
+        <recoverydroguemainlowspeedwarning>15.24</recoverydroguemainlowspeedwarning>
+      </conditions>
+      <flightdata maxaltitude="0" maxvelocity="0" timetoapogee="0" flighttime="0">
+        <databranch name="Stage1" types="time,altitude,altitude_above_sea,velocity_z,velocity_total,position_x,position_y,position_xy,position_direction,velocity_xy,latitude,longitude,orientation_theta,orientation_phi,computation_time">
+          <event time="0" type="simabort" id="56d85c23-10e0-4490-88ec-6d3dade7634c" cause="nomotorsdefined"/>
+          <event time="0" type="launch" id="ff382bf6-aa5e-45e2-8df7-c7eb7a8bef49" source="96d3bff7-6817-4a27-9858-ae21fc4083a9"/>
+          <datapoint>0,0,0,0,0,0,0,0,0,0,0,0,1.570796,0,0.011694</datapoint>
+        </databranch>
+      </flightdata>
+    </simulation>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

@@ -1,6 +1,7 @@
 // ParachuteTest.java (core/src/test/.../rocketcomponent; but for the .ork round trip, which needs
-// the document and the file format) and ParachuterComponentTests.java (core/src/test/.../preset),
-// ported, and the parachute's own behaviour.
+// the document and the file format: file/openrocket/save_load_tests.cpp) and
+// ParachuterComponentTests.java (core/src/test/.../preset), ported, and the parachute's own
+// behaviour.
 
 #include "QtRocket/rocket/Parachute.h"
 

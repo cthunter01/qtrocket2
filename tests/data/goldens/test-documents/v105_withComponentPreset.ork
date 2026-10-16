@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>v105_withComponentPreset</name>
+    <id>ca253f4a-313c-469a-a37f-e02d70b006fd</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>17031aa7-caad-4a69-9814-acf79e5fb546</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>ab8010fb-0dc4-40f7-9254-57f6a63fbc61</id>
+            <preset type="BODY_TUBE" manufacturer="manufacturer" partno="partno" digest="bca1f5bf3caeec8d8fa3bf5100a68808"/>
+            <finish>normal</finish>
+            <material type="bulk" density="21.22065907891938" shearModulus="0.0" group="Custom">TubeCustom</material>
+            <length>2.0</length>
+            <thickness>0.5</thickness>
+            <radius>1.0</radius>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

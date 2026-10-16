@@ -59,6 +59,7 @@
 #include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/HandlerTestSupport.h"
+#include "file/openrocket/OpenRocketSaverTestMotors.h"
 
 // GeneralRocketSaver: the .ork archive of a design and its file. The archives of OpenRocket's
 // sixteen examples are compared with OpenRocket's own in the golden test of the saver
@@ -550,65 +551,6 @@ constexpr std::string_view kEmbeddedMotorRse =
     " </engine-list>\n"
     "</engine-database>\n";
 
-/// The motor of tests/data/motors/Estes_A8.rse (OpenRocketSaverTest.readMotor()), or null with
-/// a test failure.
-[[nodiscard]] std::shared_ptr<const ThrustCurveMotor> readMotor()
-{
-    const Result<std::vector<std::byte>> a8 =
-        QtRocket::readFile(QtRocket::Test::testDataDir() / "motors" / "Estes_A8.rse");
-    if (!a8.has_value())
-    {
-        ADD_FAILURE() << "Problem in unit test, cannot find Estes_A8.rse";
-        return nullptr;
-    }
-    const Result<std::vector<ThrustCurveMotor::Builder>> builders =
-        QtRocket::GeneralMotorLoader().load(*a8, "Estes_A8.rse");
-    if (!builders.has_value() || builders->empty())
-    {
-        ADD_FAILURE() << "Could not load motor";
-        return nullptr;
-    }
-    Result<ThrustCurveMotor> motor = builders->front().build();
-    if (!motor.has_value())
-    {
-        ADD_FAILURE() << motor.error().toString();
-        return nullptr;
-    }
-    return std::make_shared<const ThrustCurveMotor>(std::move(*motor));
-}
-
-/// OpenRocketSaverTest's motor database (MotorDbProvider): the Estes A8 of
-/// tests/data/motors/Estes_A8.rse and an F12X of the manufacturer "A" with the digest "digestA".
-[[nodiscard]] std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> javaTestMotorDatabase()
-{
-    auto database = std::make_unique<QtRocket::ThrustCurveMotorSetDatabase>();
-    if (std::shared_ptr<const ThrustCurveMotor> a8 = readMotor())
-    {
-        database->addMotor(std::move(a8));
-    }
-    Result<ThrustCurveMotor> f12x =
-        ThrustCurveMotor::Builder()
-            .setManufacturer(QtRocket::Manufacturer::getManufacturer("A"))
-            .setDesignation("F12X")
-            .setDescription("Desc")
-            .setMotorType(Motor::Type::UNKNOWN)
-            .setStandardDelays({})
-            .setDiameter(0.024)
-            .setLength(0.07)
-            .setTimePoints({0, 1, 2})
-            .setThrustPoints({0, 1, 0})
-            .setCGPoints({Coordinate::kNul, Coordinate::kNul, Coordinate::kNul})
-            .setDigest("digestA")
-            .build();
-    EXPECT_TRUE(f12x.has_value());
-    if (f12x.has_value())
-    {
-        database->addMotor(std::make_shared<const ThrustCurveMotor>(std::move(*f12x)));
-    }
-    EXPECT_EQ(database->getMotorSets().size(), 2U);
-    return database;
-}
-
 /// The first component of @p rocket that is a motor mount, or null.
 [[nodiscard]] const QtRocket::MotorMount* firstMotorMount(const QtRocket::Rocket& rocket)
 {
@@ -683,7 +625,8 @@ TEST(GeneralRocketSaver, TestCustomMotorEmbeddedAsRseInOrk)
     EXPECT_EQ(fromRse->getMotorType(), Motor::Type::UNKNOWN);
 
     // The motor round-trips through save and load.
-    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database = javaTestMotorDatabase();
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database =
+        QtRocket::Test::openRocketSaverTestMotors();
     const DesignFileEnvironment  environment(DesignFileEnvironment::Presets::NONE, *database);
     const Result<LoadedDocument> rocketDocLoaded =
         GeneralRocketLoader(environment.context()).load(file);
@@ -716,7 +659,8 @@ TEST(GeneralRocketSaver, TestSavedFileSizeWithSimulationData)
     const std::uintmax_t originalSize = std::filesystem::file_size(originalFile);
     ASSERT_GT(originalSize, 0U) << "Original example file is empty or missing";
 
-    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database = javaTestMotorDatabase();
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database =
+        QtRocket::Test::openRocketSaverTestMotors();
     const DesignFileEnvironment  environment(DesignFileEnvironment::Presets::NONE, *database);
     const Result<LoadedDocument> doc =
         GeneralRocketLoader(environment.context()).load(originalFile);

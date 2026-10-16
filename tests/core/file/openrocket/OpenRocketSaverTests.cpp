@@ -1,5 +1,6 @@
 #include "QtRocket/file/openrocket/OpenRocketSaver.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -18,6 +19,7 @@
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/document/StorageOptions.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
+#include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/logging/ErrorSet.h"
@@ -25,6 +27,7 @@
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/material/MaterialGroup.h"
+#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -49,7 +52,10 @@
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/Version.h"
+#include "document/TestDocuments.h"
+#include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
+#include "file/openrocket/OpenRocketSaverTestMotors.h"
 #include "goldens/GoldenResaves.h"
 #include "rocket/TestRockets.h"
 #include "simulation/SimulationRunSupport.h"
@@ -84,9 +90,12 @@ using QtRocket::Result;
 using QtRocket::Simulation;
 using QtRocket::StorageOptions;
 using QtRocket::WarningSet;
+using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::JavaTestPreferences;
 using QtRocket::Test::junitEquals;
+using QtRocket::Test::kSimulationExtensionScript;
 using QtRocket::Test::LoaderEnvironment;
+using QtRocket::Test::makeTestRocketV110WithSimulationExtension;
 using QtRocket::Test::rocketElementOf;
 using QtRocket::Test::withoutCreator;
 
@@ -267,35 +276,12 @@ TEST(OpenRocketSaver, WritesTheDocumentPreferencesSortedByKey)
         << saved.text;
 }
 
-/// OpenRocketSaverTest.SIMULATION_EXTENSION_SCRIPT.
-constexpr std::string_view kSimulationExtensionScript = "// Test <  &\n// >\n// <![CDATA[";
-
-/// TestRockets.makeTestRocket_v110_withSimulationExtension(@p script): the Estes Alpha III with
-/// one simulation holding an enabled JavaScript extension of @p script.
-[[nodiscard]] std::unique_ptr<OpenRocketDocument> makeTestRocketV110WithSimulationExtension(
-    std::string_view script)
-{
-    QtRocket::Test::TestEstesAlphaIII   alpha;
-    QtRocket::Rocket&                   rocket = *alpha.rocket;
-    std::unique_ptr<OpenRocketDocument> document =
-        OpenRocketDocumentFactory::createDocumentFromRocket(std::move(alpha.rocket));
-    const auto simulation = std::make_shared<QtRocket::Simulation>(rocket);
-    const auto extension  = std::make_shared<QtRocket::ScriptingExtension>();
-    extension->setEnabled(true);
-    extension->setLanguage("JavaScript");
-    extension->setScript(script);
-    simulation->getSimulationExtensions().push_back(extension);
-    document->addSimulation(simulation);
-
-    rocket.enableEvents();
-    return document;
-}
-
 // Port of OpenRocketSaverTest.testFileVersion111_withSimulationExtension.
 TEST(OpenRocketSaver, TestFileVersion111WithSimulationExtension)
 {
+    JavaTestPreferences                       preferences;
     const std::unique_ptr<OpenRocketDocument> rocketDoc =
-        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript);
+        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript, preferences.store);
     EXPECT_EQ(OpenRocketSaver::calculateNecessaryFileVersion(*rocketDoc, StorageOptions{}), 111);
     EXPECT_EQ(OpenRocketSaver::kFileVersion, 111);
     EXPECT_EQ(OpenRocketSaver::fileVersionText(OpenRocketSaver::kFileVersion), "1.11");
@@ -482,6 +468,226 @@ struct Reloaded
     return saveAndReload(document, options, false);
 }
 
+/// One warning of OpenRocket's reload of a maker's document: OpenRocket's GeneralRocketSaver
+/// archive of it, saved with the simulation data and loaded back in the set-up of
+/// OpenRocketSaverTest (the "ZW" lines of tests/data/goldens/test-documents/report.txt, which
+/// tools/openrocket-test-documents/generate.sh prints, with the English texts). The archive holds a
+/// thrustcurves/<digest>.rse of each motor of the document: the motors of TestRockets have made-up
+/// digests, which the motor read back from the file does not give, so each one is also the warning
+/// that the attachment holds no motor of its digest.
+struct ReloadWarning
+{
+    std::string_view maker;
+    std::string_view warning;
+};
+
+/// The warnings, in the order of each reload; the makers not named here reload without one.
+constexpr std::array<ReloadWarning, 17> kJavaReloadWarnings{{
+    {.maker = "v104_withSimulationData", .warning = "Illegal time step defined, ignoring."},
+    {.maker   = "v105_withComponentPreset",
+     .warning = "No matching ComponentPreset for component Body Tube found matching "
+                "manufacturer partno"},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "Embedded motor attachment 'thrustcurves/digest A8 test.rse' contains no motor "
+                "matching digest 'digest A8 test'."},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "Embedded motor attachment 'thrustcurves/digest B4 test.rse' contains no motor "
+                "matching digest 'digest B4 test'."},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "No motor with designation 'B4' for manufacturer 'Estes' found."},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "Embedded motor attachment 'thrustcurves/digest C6 test.rse' contains no motor "
+                "matching digest 'digest C6 test'."},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "No motor with designation 'C6' for manufacturer 'Estes' found."},
+    {.maker = "v110_withSimulationExtension", .warning = "Illegal time step defined, ignoring."},
+    {.maker   = "v110_withSimulationExtension",
+     .warning = "Untrusted scripts have been disabled.  You need to manually enable them in the "
+                "Simulation options."},
+    {.maker   = "v108_withBoosters",
+     .warning = "Embedded motor attachment 'thrustcurves/digest M1350 test.rse' contains no "
+                "motor matching digest 'digest M1350 test'."},
+    {.maker   = "v108_withBoosters",
+     .warning = "No motor with designation 'M1350' for manufacturer 'AeroTech' found."},
+    {.maker   = "v108_withBoosters",
+     .warning = "Embedded motor attachment 'thrustcurves/digest G77 test.rse' contains no motor "
+                "matching digest 'digest G77 test'."},
+    {.maker   = "v108_withBoosters",
+     .warning = "No motor with designation 'G77' for manufacturer 'AeroTech' found."},
+    {.maker   = "v108_withDisabledStage",
+     .warning = "Embedded motor attachment 'thrustcurves/digest M1350 test.rse' contains no "
+                "motor matching digest 'digest M1350 test'."},
+    {.maker   = "v108_withDisabledStage",
+     .warning = "No motor with designation 'M1350' for manufacturer 'AeroTech' found."},
+    {.maker   = "v108_withDisabledStage",
+     .warning = "Embedded motor attachment 'thrustcurves/digest G77 test.rse' contains no motor "
+                "matching digest 'digest G77 test'."},
+    {.maker   = "v108_withDisabledStage",
+     .warning = "No motor with designation 'G77' for manufacturer 'AeroTech' found."},
+}};
+
+/// What OpenRocket's reload of a maker's document holds (the same report): the number of
+/// components, the rocket included, and the status of each simulation; a script extension as
+/// "script enabled|disabled".
+struct ReloadedDocument
+{
+    std::string_view maker;
+    std::string_view summary;
+};
+
+constexpr std::array<ReloadedDocument, 16> kJavaReloadedDocuments{{
+    {.maker = "v100", .summary = "3 components;"},
+    {.maker = "v101_withFinTabs", .summary = "4 components;"},
+    {.maker = "v101_withTubeCouplerChild", .summary = "5 components;"},
+    {.maker = "v104_withSimulationData", .summary = "4 components; CANT_RUN CANT_RUN"},
+    {.maker = "v104_withMotor", .summary = "4 components;"},
+    {.maker = "v105_withComponentPreset", .summary = "3 components;"},
+    {.maker = "v105_withCustomExpression", .summary = "3 components;"},
+    {.maker = "v105_withLowerStageRecoveryDevice", .summary = "5 components;"},
+    {.maker = "v106_withAppearance", .summary = "3 components;"},
+    {.maker = "v106_withMotorMountIgnitionConfig", .summary = "4 components;"},
+    {.maker = "v106_withRecoveryDeviceDeploymentConfig", .summary = "4 components;"},
+    {.maker = "v106_withStageSeparationConfig", .summary = "6 components;"},
+    {.maker = "v110_withSimulationExtension", .summary = "10 components; CANT_RUN script disabled"},
+    {.maker = "v108_withBoosters", .summary = "16 components;"},
+    {.maker = "v108_withDisabledStage", .summary = "16 components;"},
+    {.maker = "for_estimateFileSize", .summary = "9 components; ABORTED ABORTED"},
+}};
+
+/// The summary kJavaReloadedDocuments gives @p maker; empty for a maker it does not name.
+[[nodiscard]] std::string_view javaSummaryOf(std::string_view maker)
+{
+    for (const ReloadedDocument& java : kJavaReloadedDocuments)
+    {
+        if (java.maker == maker)
+        {
+            return java.summary;
+        }
+    }
+    return {};
+}
+
+/// The summary of @p document as kJavaReloadedDocuments writes it.
+[[nodiscard]] std::string summaryOf(OpenRocketDocument& document)
+{
+    std::size_t components = 0;
+    for ([[maybe_unused]] const QtRocket::RocketComponent& component :
+         document.getRocket().subtree(true))
+    {
+        ++components;
+    }
+    std::string summary = std::format("{} components;", components);
+    for (std::size_t i = 0; i < document.getSimulationCount(); ++i)
+    {
+        Simulation& simulation = *document.getSimulation(i);
+        summary += std::format(" {}", QtRocket::name(simulation.getStatus()));
+        for (const std::shared_ptr<QtRocket::SimulationExtension>& extension :
+             simulation.getSimulationExtensions())
+        {
+            if (const auto* script =
+                    dynamic_cast<const QtRocket::ScriptingExtension*>(extension.get()))
+            {
+                summary += script->isEnabled() ? " script enabled" : " script disabled";
+            }
+        }
+    }
+    return summary;
+}
+
+/// What differs between OpenRocket's and QtRocket's save of @p maker's document through
+/// GeneralRocketSaver (with the simulation data), loaded back from the bytes against
+/// @p motors: whether it loads, the warnings of the load and the reloaded document's summary.
+/// Empty when nothing does.
+[[nodiscard]] std::string createLoadSaveProblems(
+    const QtRocket::Test::TestDocumentMaker&     maker,
+    const QtRocket::ThrustCurveMotorSetDatabase& motors)
+{
+    JavaTestPreferences                       preferences;
+    const std::unique_ptr<OpenRocketDocument> rocketDoc = maker.make(preferences.store);
+
+    StorageOptions options;
+    options.setSaveSimulationData(true);
+
+    // Save rockets, load, validate
+    QtRocket::GeneralRocketSaver         saver(preferences.store);
+    const Result<std::vector<std::byte>> bytes = saver.saveToBytes(*rocketDoc, options);
+    if (!bytes.has_value())
+    {
+        return "the save failed: " + bytes.error().toString();
+    }
+    const DesignFileEnvironment  environment(DesignFileEnvironment::Presets::NONE, motors);
+    const Result<LoadedDocument> rocketDocLoaded =
+        GeneralRocketLoader(environment.context()).load(*bytes);
+    if (!rocketDocLoaded.has_value())
+    {
+        return "the load failed: " + rocketDocLoaded.error().toString();
+    }
+    if (rocketDocLoaded->document == nullptr)
+    {
+        return "no document";
+    }
+    std::string expected;
+    for (const ReloadWarning& warning : kJavaReloadWarnings)
+    {
+        if (warning.maker == maker.name)
+        {
+            expected += std::format("{}\n", warning.warning);
+        }
+    }
+    std::string warnings;
+    for (const QtRocket::Warning& warning : rocketDocLoaded->warnings)
+    {
+        warnings += std::format("{}\n", warning.toString());
+    }
+    std::string problems;
+    if (warnings != expected)
+    {
+        problems += std::format("the warnings\n{}instead of OpenRocket's\n{}", warnings, expected);
+    }
+    const std::string summary = summaryOf(*rocketDocLoaded->document);
+    if (summary != javaSummaryOf(maker.name))
+    {
+        problems += std::format("reloaded as \"{}\"\n", summary);
+    }
+    if (!saver.getWarnings().empty())
+    {
+        problems += "the save gave a warning\n";
+    }
+    return problems;
+}
+
+// Port of OpenRocketSaverTest.testCreateLoadSave: each of the sixteen document makers of
+// TestRockets (document/TestDocuments.h) is saved with the simulation data and loaded back in
+// the set-up of OpenRocketSaverTest: no component presets, a motor database of the Estes A8 of
+// tests/data/motors/Estes_A8.rse and the "A" F12X "digestA". Java saves the plain XML to a file
+// (OpenRocketSaver) and asserts only that a document is loaded; the save here goes through
+// GeneralRocketSaver to bytes and is loaded from them (decision O5), and the warnings of each
+// load and the reloaded document are those of OpenRocket's reload of its own GeneralRocketSaver
+// archive of the same maker. (That the save itself is OpenRocket's is
+// TestDocumentsGolden.EveryDocumentIsSavedAsOpenRocketSavesIt.)
+TEST(OpenRocketSaver, TestCreateLoadSave)
+{
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> motors =
+        QtRocket::Test::openRocketSaverTestMotors();
+    std::size_t loaded = 0;
+    for (const QtRocket::Test::TestDocumentMaker& maker : QtRocket::Test::testDocumentMakers())
+    {
+        EXPECT_EQ(createLoadSaveProblems(maker, *motors), "") << maker.name;
+        ++loaded;
+    }
+    EXPECT_EQ(loaded, 16U);
+}
+
+// The motor database of OpenRocketSaverTest (MotorDbProvider): the Estes A8 and the "A" F12X
+// "digestA", which is TestRockets.getTestMotor() without its case info, each a motor set of its
+// own.
+TEST(OpenRocketSaver, TheMotorDatabaseOfTheTest)
+{
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> database =
+        QtRocket::Test::openRocketSaverTestMotors();
+    EXPECT_EQ(database->getMotorSets().size(), 2U);
+}
+
 /// The activeness of stages 0, 1 and 2 in @p config, as "true false true".
 [[nodiscard]] std::string activenessOf(const QtRocket::FlightConfiguration& config)
 {
@@ -491,14 +697,10 @@ struct Reloaded
 
 // Port of OpenRocketSaverTest.testSaveStageActiveness: the activeness of the stages of every
 // flight configuration survives a save and a load (<motorconfiguration><stage number active/>).
-// TestRockets.makeTestRocket_v108_withDisabledStage(): the Falcon 9 Heavy with stage 0 of its
-// selected configuration inactive.
 TEST(OpenRocketSaver, TestSaveStageActiveness)
 {
-    QtRocket::Test::TestFalcon9Heavy falcon;
-    falcon.rocket->getSelectedConfiguration().setStageActive(0, false, false);
     const std::unique_ptr<OpenRocketDocument> rocketDoc =
-        OpenRocketDocumentFactory::createDocumentFromRocket(std::move(falcon.rocket));
+        QtRocket::Test::makeTestRocketV108WithDisabledStage();
 
     // Save rockets, load, validate
     Reloaded first = saveAndReload(*rocketDoc);
@@ -549,31 +751,12 @@ TEST(OpenRocketSaver, TestSaveStageActiveness)
         << " empty rocket, selected config, stage 0 should have been enabled after saving";
 }
 
-/// TestRockets.makeTestRocket_v106_withAppearance(): a stage holding a body tube (12 m, radius
-/// 1 m, wall 5 cm) with an appearance (paint 100, 25, 50, shine 1, no decal).
-[[nodiscard]] std::unique_ptr<OpenRocketDocument> makeTestRocketV106WithAppearance()
-{
-    auto rocket = std::make_unique<QtRocket::Rocket>();
-    rocket->setName("v106_withAppearance");
-
-    // make stage
-    auto& stage = rocket->addChild(std::make_unique<QtRocket::AxialStage>());
-    stage.setName("Stage1");
-
-    // make body tube with an appearance setting
-    auto bodyTube = std::make_unique<QtRocket::BodyTube>(12, 1, 0.05);
-    bodyTube->setAppearance(QtRocket::Appearance(QtRocket::Color(100, 25, 50), 1));
-    stage.addChild(std::move(bodyTube));
-
-    rocket->enableEvents();
-    return OpenRocketDocumentFactory::createDocumentFromRocket(std::move(rocket));
-}
-
 // Port of OpenRocketSaverTest.testAppearanceTextureOpacityRoundTrip: the paint's alpha and
 // <opacityaffectstexture> survive a save and a load.
 TEST(OpenRocketSaver, TestAppearanceTextureOpacityRoundTrip)
 {
-    const std::unique_ptr<OpenRocketDocument> rocketDoc = makeTestRocketV106WithAppearance();
+    const std::unique_ptr<OpenRocketDocument> rocketDoc =
+        QtRocket::Test::makeTestRocketV106WithAppearance();
     QtRocket::RocketComponent& bodyTube = rocketDoc->getRocket().getStage(0)->getChild(0);
     bodyTube.setAppearance(
         QtRocket::Appearance(QtRocket::Color(100, 25, 50, 128), 1, std::nullopt, true));
@@ -640,14 +823,15 @@ TEST(OpenRocketSaver, WarnsOfMoreComponentsThanTheLoaderReads)
               OpenRocketSaver::componentsBeyondLoaderBound(DocumentConfig::kMaxComponents + 1));
 }
 
-// Port of OpenRocketSaverTest.testEstimateFileSize, which asserts nothing; QtRocket pins the
-// formula: 80 bytes per component (the rocket included), 100 per simulation, and 100 per data
-// point when the data is saved. The estimates of the sixteen examples, OpenRocket's own, are
-// pinned in OrkResaveDiffGolden.
+// The formula of the estimate: 80 bytes per component (the rocket included), 100 per simulation,
+// and 100 per data point when the data is saved. The estimates of the sixteen examples,
+// OpenRocket's own, are pinned in OrkResaveDiffGolden, those of the document makers in
+// TestEstimateFileSize.
 TEST(OpenRocketSaver, EstimatesTheFileSizeAsOpenRocket)
 {
+    JavaTestPreferences                       preferences;
     const std::unique_ptr<OpenRocketDocument> rocketDoc =
-        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript);
+        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript, preferences.store);
     StorageOptions options;
     options.setSaveSimulationData(true);
     // The components of the Alpha III with the rocket, and its one simulation, without data.
@@ -661,6 +845,63 @@ TEST(OpenRocketSaver, EstimatesTheFileSizeAsOpenRocket)
               static_cast<std::int64_t>((components * 80) + 100));
     const std::unique_ptr<OpenRocketDocument> empty = OpenRocketDocumentFactory::createNewRocket();
     EXPECT_EQ(OpenRocketSaver::estimateFileSize(*empty, options), 160);
+}
+
+/// OpenRocket's estimate of the document of a maker, with the simulation data
+/// (tests/data/goldens/test-documents/report.txt).
+struct JavaEstimate
+{
+    std::string_view maker;
+    std::int64_t     estimate;
+};
+
+constexpr std::array<JavaEstimate, 16> kJavaEstimates{{
+    {.maker = "v100", .estimate = 240},
+    {.maker = "v101_withFinTabs", .estimate = 320},
+    {.maker = "v101_withTubeCouplerChild", .estimate = 400},
+    {.maker = "v104_withSimulationData", .estimate = 520},
+    {.maker = "v104_withMotor", .estimate = 320},
+    {.maker = "v105_withComponentPreset", .estimate = 240},
+    {.maker = "v105_withCustomExpression", .estimate = 240},
+    {.maker = "v105_withLowerStageRecoveryDevice", .estimate = 400},
+    {.maker = "v106_withAppearance", .estimate = 240},
+    {.maker = "v106_withMotorMountIgnitionConfig", .estimate = 320},
+    {.maker = "v106_withRecoveryDeviceDeploymentConfig", .estimate = 320},
+    {.maker = "v106_withStageSeparationConfig", .estimate = 480},
+    {.maker = "v110_withSimulationExtension", .estimate = 900},
+    {.maker = "v108_withBoosters", .estimate = 1280},
+    {.maker = "v108_withDisabledStage", .estimate = 1280},
+    // two simulations of one data point each
+    {.maker = "for_estimateFileSize", .estimate = 1120},
+}};
+
+/// "<maker> <estimate>" of the document of @p maker, with the simulation data.
+[[nodiscard]] std::string estimateOf(const QtRocket::Test::TestDocumentMaker& maker)
+{
+    JavaTestPreferences                       preferences;
+    const std::unique_ptr<OpenRocketDocument> rocketDoc = maker.make(preferences.store);
+    StorageOptions                            options;
+    options.setSaveSimulationData(true);
+    return std::format("{} {}", maker.name, OpenRocketSaver::estimateFileSize(*rocketDoc, options));
+}
+
+// Port of OpenRocketSaverTest.testEstimateFileSize, which estimates the size of
+// makeTestRocket_v104_withSimulationData() and asserts nothing ("TODO: fix estimateFileSize so
+// that it's a lot more accurate"): QtRocket's estimate of the document of every maker is
+// OpenRocket's.
+TEST(OpenRocketSaver, TestEstimateFileSize)
+{
+    std::string ours;
+    for (const QtRocket::Test::TestDocumentMaker& maker : QtRocket::Test::testDocumentMakers())
+    {
+        ours += estimateOf(maker) + "\n";
+    }
+    std::string theirs;
+    for (const JavaEstimate& java : kJavaEstimates)
+    {
+        theirs += std::format("{} {}\n", java.maker, java.estimate);
+    }
+    EXPECT_EQ(ours, theirs);
 }
 
 // ============================================================ the simulations (part S3)
@@ -696,8 +937,9 @@ TEST(OpenRocketSaver, EstimatesTheFileSizeAsOpenRocket)
 // this one OpenRocket disables too.)
 TEST(OpenRocketSaver, TestUntrustedScriptDisabledOnLoad)
 {
+    JavaTestPreferences                       preferences;
     const std::unique_ptr<OpenRocketDocument> rocketDoc =
-        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript);
+        makeTestRocketV110WithSimulationExtension(kSimulationExtensionScript, preferences.store);
     const StorageOptions options;
     const Reloaded       rocketDocLoaded = saveAndReload(*rocketDoc, options, false);
     ASSERT_EQ(rocketDocLoaded.document->getSimulationCount(), 1U);
@@ -708,6 +950,108 @@ TEST(OpenRocketSaver, TestUntrustedScriptDisabledOnLoad)
     ASSERT_NE(ext, nullptr);
     EXPECT_FALSE(ext->isEnabled());
     EXPECT_EQ(ext->getScript(), kSimulationExtensionScript);
+}
+
+/// What the reload of makeTestRocketV110WithSimulationExtension(@p script) gives, saved by
+/// OpenRocketSaver with new storage options and loaded back from the text in the set-up of
+/// OpenRocketSaverTest (no presets, its database of two motors).
+struct ScriptReload
+{
+    std::size_t simulations{0};
+    std::size_t extensions{0};
+    /// Whether the script extension is enabled, and its text.
+    bool        enabled{false};
+    std::string script{"(no script extension)"};
+    /// The warnings of the load, one per line.
+    std::string warnings;
+};
+
+[[nodiscard]] ScriptReload reloadScript(std::string_view script)
+{
+    JavaTestPreferences                       preferences;
+    const std::unique_ptr<OpenRocketDocument> rocketDoc =
+        makeTestRocketV110WithSimulationExtension(script, preferences.store);
+    const Saved saved = saveOf(*rocketDoc);
+    EXPECT_EQ(saved.error, "");
+
+    const std::unique_ptr<QtRocket::ThrustCurveMotorSetDatabase> motors =
+        QtRocket::Test::openRocketSaverTestMotors();
+    const DesignFileEnvironment  environment(DesignFileEnvironment::Presets::NONE, *motors);
+    const Result<LoadedDocument> rocketDocLoaded =
+        GeneralRocketLoader(environment.context()).load(QtRocket::stringToBytes(saved.text));
+    ScriptReload reload;
+    if (!rocketDocLoaded.has_value())
+    {
+        ADD_FAILURE() << rocketDocLoaded.error().toString();
+        return reload;
+    }
+    for (const QtRocket::Warning& warning : rocketDocLoaded->warnings)
+    {
+        reload.warnings += warning.toString() + "\n";
+    }
+    reload.simulations = rocketDocLoaded->document->getSimulationCount();
+    if (reload.simulations == 0)
+    {
+        return reload;
+    }
+    const std::vector<std::shared_ptr<QtRocket::SimulationExtension>>& extensions =
+        rocketDocLoaded->document->getSimulation(0)->getSimulationExtensions();
+    reload.extensions = extensions.size();
+    if (const auto* ext = extensions.empty() ? nullptr
+                                             : dynamic_cast<const QtRocket::ScriptingExtension*>(
+                                                   extensions.front().get()))
+    {
+        reload.enabled = ext->isEnabled();
+        reload.script  = ext->getScript();
+    }
+    return reload;
+}
+
+/// OpenRocket's warnings of the reload of the document of
+/// makeTestRocket_v110_withSimulationExtension() as plain XML, the warning of a disabled script
+/// set aside (probe SaverPortsProbe of run 10b): the Alpha III's B4 and C6 are not in the
+/// database of OpenRocketSaverTest, and the time step of its preferences is 0.
+constexpr std::string_view kV110ReloadWarnings =
+    "No motor with designation 'B4' for manufacturer 'Estes' found.\n"
+    "No motor with designation 'C6' for manufacturer 'Estes' found.\n"
+    "Illegal time step defined, ignoring.\n";
+
+// Port of OpenRocketSaverTest.testTrustedScriptEnabledOnLoad, INVERTED by decision D1 (deviation;
+// orchestrator decision Q3 of run 10b). Java marks the script "TESTING" as trusted on the
+// computer (ScriptingUtil.setTrustedScript()) and expects it enabled after the reload, with its
+// text. QtRocket keeps no such list and runs no scripts: every enabled script that holds code is
+// disabled on load, and "TESTING" gets OpenRocket's own warning, as OpenRocket gives it for the
+// script when it is not marked trusted (probe SaverPortsProbe: "untrusted"). An enabled script
+// that holds nothing stays enabled without a warning, as in OpenRocket (decision E4; the probe:
+// "empty" and "blank"). (The roll control script OpenRocket trusts by its hash, which QtRocket
+// disables with ScriptingExtension::kTrustedScriptDisabledWarning, is in
+// ScriptingExtensionTests and in the tests of the file v1.7 that holds it.)
+TEST(OpenRocketSaver, TestTrustedScriptEnabledOnLoad)
+{
+    const ScriptReload testing = reloadScript("TESTING");
+    EXPECT_EQ(testing.simulations, 1U);
+    EXPECT_EQ(testing.extensions, 1U);
+    EXPECT_FALSE(testing.enabled) << "decision D1: OpenRocket, which trusts it, keeps it enabled";
+    EXPECT_EQ(testing.script, "TESTING");
+    EXPECT_EQ(testing.warnings, std::string(kV110ReloadWarnings) +
+                                    std::string(QtRocket::ScriptingExtension::kDisabledWarning) +
+                                    "\n");
+
+    const ScriptReload empty = reloadScript("");
+    EXPECT_EQ(empty.simulations, 1U);
+    EXPECT_EQ(empty.extensions, 1U);
+    EXPECT_TRUE(empty.enabled) << "decision E4";
+    EXPECT_EQ(empty.script, "");
+    EXPECT_EQ(empty.warnings, kV110ReloadWarnings);
+
+    const ScriptReload blank = reloadScript(" \r\n\t");
+    EXPECT_EQ(blank.simulations, 1U);
+    EXPECT_EQ(blank.extensions, 1U);
+    EXPECT_TRUE(blank.enabled) << "decision E4";
+    // The save writes the carriage return as it is; the end-of-line handling of XML turns the
+    // CR LF into an LF on the reload, in OpenRocket's too (SaverPortsProbe: "blank").
+    EXPECT_EQ(blank.script, " \n\t");
+    EXPECT_EQ(blank.warnings, kV110ReloadWarnings);
 }
 
 /// TestRockets.makeEstesAlphaIII() in a document, with the preference store of OpenRocket's

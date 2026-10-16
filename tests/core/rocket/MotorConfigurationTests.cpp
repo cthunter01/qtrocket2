@@ -133,6 +133,8 @@ TEST_F(MotorConfigurationTest, MotorName)
     EXPECT_EQ(config.toMotorName(m_preferences), "G77-P");
 }
 
+// OpenRocketSaverTest.testMotorConfigurationNozzleExitDiameter (Java :455-457): selecting
+// another motor clears the nozzle geometry of the previous one.
 TEST_F(MotorConfigurationTest, ANewMotorResetsTheNozzleExitDiameter)
 {
     MotorConfiguration config{*m_mount, m_fcid};
@@ -170,9 +172,12 @@ TEST_F(MotorConfigurationTest, ANewMotorResetsTheNozzleExitDiameter)
     return ::testing::AssertionSuccess();
 }
 
+// OpenRocketSaverTest.testMotorConfigurationNozzleExitDiameter (Java :445-448 and :451-453): no
+// diameter at first, and none that is negative or larger than the motor's.
 TEST_F(MotorConfigurationTest, NozzleExitDiameterIsValidated)
 {
     MotorConfiguration config{*m_mount, m_fcid};
+    EXPECT_EQ(config.getNozzleExitDiameter(), 0.0);
     EXPECT_TRUE(config.setNozzleExitDiameter(1.0).has_value()) << "no motor: no upper bound";
     EXPECT_EQ(config.getNozzleExitDiameter(), 1.0);
 
@@ -244,6 +249,9 @@ TEST_F(MotorConfigurationTest, ASourceGivesItsSettingsIncludingTheIgnition)
     EXPECT_EQ(copied.getIgnitionEvent(), IgnitionEvent::AUTOMATIC);
 }
 
+// The nozzle exit diameter's part: OpenRocketSaverTest.testMotorConfigurationNozzleExitDiameter
+// (Java :449-450), whose other assertions are ANewMotorResetsTheNozzleExitDiameter's and
+// NozzleExitDiameterIsValidated's.
 TEST_F(MotorConfigurationTest, CopyCloneAndCopyFrom)
 {
     MotorConfiguration source{*m_mount, m_fcid};
@@ -251,12 +259,15 @@ TEST_F(MotorConfigurationTest, CopyCloneAndCopyFrom)
     source.setEjectionDelay(5);
     source.setIgnitionEvent(IgnitionEvent::LAUNCH);
     source.setIgnitionDelay(0.5);
+    ASSERT_TRUE(source.setNozzleExitDiameter(0.006).has_value());
+    EXPECT_EQ(source.getNozzleExitDiameter(), 0.006);
 
     const MotorConfiguration clone = source.clone();
     EXPECT_EQ(clone, source) << "equal: the same mid";
     EXPECT_EQ(clone.getFcid(), m_fcid);
     EXPECT_EQ(clone.getMotor(), source.getMotor());
     EXPECT_EQ(clone.getEjectionDelay(), 5.0);
+    EXPECT_EQ(clone.getNozzleExitDiameter(), 0.006);
     EXPECT_EQ(clone.getIgnitionEvent(), IgnitionEvent::LAUNCH);
     EXPECT_EQ(clone.getIgnitionDelay(), 0.5);
     EXPECT_TRUE(clone.hasIgnitionOverride());
@@ -269,11 +280,13 @@ TEST_F(MotorConfigurationTest, CopyCloneAndCopyFrom)
     EXPECT_EQ(copy.getMid(), (MotorConfigurationId{m_mount->getId(), newId.key()}));
     EXPECT_EQ(copy.getMotor(), source.getMotor());
     EXPECT_EQ(copy.getIgnitionEvent(), IgnitionEvent::LAUNCH);
+    EXPECT_EQ(copy.getNozzleExitDiameter(), 0.006);
 
     MotorConfiguration target{*m_inner, newId};
     target.copyFrom(source);
     EXPECT_EQ(target.getMotor(), source.getMotor());
     EXPECT_EQ(target.getEjectionDelay(), 5.0);
+    EXPECT_EQ(target.getNozzleExitDiameter(), 0.006);
     EXPECT_EQ(target.getIgnitionDelay(), 0.5);
     EXPECT_TRUE(target.hasIgnitionOverride());
     EXPECT_EQ(&target.getMount(), static_cast<QtRocket::MotorMount*>(m_inner.get()))

@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>v106_withAppearance</name>
+    <id>e31db66a-73c4-4232-900c-fa7cbc293164</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Stage1</name>
+        <id>1bc249ca-d0c7-4e33-bf7e-8ee9c2229cb8</id>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>5657b65b-f037-4abe-abeb-162288e8ac7d</id>
+            <appearance>
+              <paint red="100" green="25" blue="50" alpha="255"/>
+              <shine>1.0</shine>
+              <opacityaffectstexture>false</opacityaffectstexture>
+            </appearance>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>12.0</length>
+            <thickness>0.05</thickness>
+            <radius>1.0</radius>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>
