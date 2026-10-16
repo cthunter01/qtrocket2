@@ -96,8 +96,9 @@ import info.openrocket.core.util.TestRockets;
  * byte for byte, for an example; those of OO for a test rocket (the goldens of a test rocket describe
  * the maker's rocket, which OpenRocket's reload of its re-save changes in fourteen values: README.md,
  * "resave/rocket.ork"), and for a coverage document or a legacy file whose components have the same
- * ids in Q and OO (a loader draws the ids of the formats 1.0 to 1.4, and OpenRocket's sums follow
- * them in the last bit);</li>
+ * ids in Q and OO (a loader draws the component ids of the formats 1.0 to 1.8, which store none, and
+ * OpenRocket's sums follow them in the last bit; the report lists a comparison it leaves out under
+ * "not compared");</li>
  * <li>the options of every simulation of Q are those of O (or of OO, where OpenRocket's own save
  * changes them); for an example or a test rocket also, made reproducible as the harness makes them,
  * the options and extensions of the golden simulation documents (and the harness's record of what it
@@ -109,12 +110,13 @@ import info.openrocket.core.util.TestRockets;
  * are those of OpenRocket's own archive of O in name and order, each with the same bytes (rocket.ork
  * aside, which the re-saves compare), and every thrust curve in it, {@code thrustcurves/<digest>.rse},
  * loads with a curve of its digest (MotorDigest.isDigestCompatible, as OpenRocket's MotorHandler takes
- * an embedded curve), or is allowed: a synthetic digest of TestRockets, or a curve whose digest OpenRocket's
- * RockSim writer does not keep (an Estes A10 of the bundled database); either has the bytes of OpenRocket's own
- * archive.</li>
+ * an embedded curve), or is allowed: a synthetic digest of TestRockets ("digest A8 test") in a test rocket,
+ * or the one curve whose digest OpenRocket's RockSim writer does not keep ({@link #ALLOWED_CURVES}: an Estes
+ * A10 of the bundled database); either has the bytes of OpenRocket's own archive.</li>
  * </ul>
- * Prints a report on standard output, every file with what was checked, allowed and found, and exits
- * with 0 when every file passes, 1 when one fails and 2 on a usage error.
+ * Prints a report on standard output, every file with what was checked, allowed, not compared and found, and
+ * exits with 0 when every file passes and every allowance was used as often as {@link #EXPECTED_ALLOWANCES}
+ * says, 1 otherwise and 2 on a usage error.
  * <p>
  * Usage: {@code InteropCheck --openrocket <checkout> --goldens <tests/data/goldens> --examples <data/examples>
  * --legacy <tests/data/ork> --saves <directory> --work <directory>}
@@ -188,6 +190,34 @@ public final class InteropCheck {
 							+ "load, the roll control script OpenRocket trusts by its hash included, so its save "
 							+ "writes it disabled"));
 
+	/** A thrust curve of an archive whose digest OpenRocket's RockSim writer does not keep. */
+	private record AllowedCurve(String input, String entry) {
+	}
+
+	/**
+	 * The thrust curves of the archives of other inputs than the test rockets that load with a curve of another
+	 * digest, in OpenRocket's own archive too: the RockSim text of the bundled database's Estes A10 of this digest
+	 * reads back as a curve of the digest 6c22c2c6a938ec433d9e0208c31f4476 (OpenRocket's loader takes the database
+	 * motor of the digest first and never reads the entry).
+	 */
+	private static final List<AllowedCurve> ALLOWED_CURVES = List.of(new AllowedCurve(
+			"example-pods-powered-with-recovery-deployment", "thrustcurves/e5b53def203dd437ebf0d67846f6cd3b.rse"));
+
+	/** The short name of the allowance of a synthetic digest of TestRockets. */
+	private static final String SYNTHETIC_DIGESTS = "TestRockets' synthetic digests";
+	/** The short name of the allowance of {@link #ALLOWED_CURVES}. */
+	private static final String ROCKSIM_WRITER = "OpenRocket's RockSim writer";
+
+	/**
+	 * How often the files of all inputs use each allowance (by the short names of the allow-lists): a count
+	 * that differs fails the check, so that an allowance cannot hide a new case of its kind.
+	 */
+	private static final Map<String, Integer> EXPECTED_ALLOWANCES = Map.of("U8", 13, "D1 and E4", 2,
+			"D11 and L10", 1, SYNTHETIC_DIGESTS, 26, ROCKSIM_WRITER, 1);
+
+	/** A synthetic digest of TestRockets, as the name of an entry gives it: "digest A8 test". */
+	private static final Pattern SYNTHETIC_DIGEST = Pattern.compile("digest [A-Z][0-9]+ test");
+
 	/** The generators of the motors of TestRockets, in the order the test rockets' motor database has them. */
 	private static final List<String> TEST_ROCKET_MOTORS = List.of("generateMotor_A8_18mm",
 			"generateMotor_A10_13mm", "generateMotor_B4_18mm", "generateMotor_C6_18mm", "generateMotor_D21_18mm",
@@ -214,6 +244,8 @@ public final class InteropCheck {
 		final List<String> checked = new ArrayList<>();
 		/** What was allowed, each with the short name of its reason (a decision). */
 		final Map<String, String> allowed = new LinkedHashMap<>();
+		/** What was not compared, and why. */
+		final List<String> notCompared = new ArrayList<>();
 		final List<String> failures = new ArrayList<>();
 
 		Report(String file) {
@@ -750,6 +782,7 @@ public final class InteropCheck {
 	}
 
 	private static void checkFlightData(Described q, Described o, Described oo, Report report) {
+		int failures = report.failures.size();
 		int asOriginal = 0;
 		int asOwnSave = 0;
 		for (int i = 0; i < q.flightData().size() && i < o.flightData().size() && i < oo.flightData().size(); i++) {
@@ -766,8 +799,10 @@ public final class InteropCheck {
 								"the save's", "the input's")));
 			}
 		}
-		report.checked.add("the flight data of " + asOriginal + " simulations as the input's, of " + asOwnSave
-				+ " as OpenRocket's own save");
+		if (report.failures.size() == failures) {
+			report.checked.add("the flight data of " + asOriginal + " simulations as the input's, of " + asOwnSave
+					+ " as OpenRocket's own save");
+		}
 	}
 
 	private static void checkDecals(Described q, Described o, Described oo, Report report) {
@@ -825,6 +860,7 @@ public final class InteropCheck {
 			report.failures.add("the entries " + ours.keySet() + ", OpenRocket's archive " + theirs.keySet());
 			return;
 		}
+		int failures = report.failures.size();
 		int decals = 0;
 		int curves = 0;
 		for (Map.Entry<String, byte[]> entry : ours.entrySet()) {
@@ -843,8 +879,10 @@ public final class InteropCheck {
 				decals++;
 			}
 		}
-		report.checked.add("the " + ours.size() + " entries as OpenRocket's archive (" + decals
-				+ " decal images, " + curves + " thrust curves)");
+		if (report.failures.size() == failures) {
+			report.checked.add("the " + ours.size() + " entries as OpenRocket's archive (" + decals
+					+ " decal images, " + curves + " thrust curves)");
+		}
 	}
 
 	/** A thrust curve of the archive: it loads, with a curve of the digest its name gives. */
@@ -866,16 +904,16 @@ public final class InteropCheck {
 					+ motor.getDigest());
 		}
 		// The entry has the bytes of the same entry of OpenRocket's own archive (checkArchive()).
-		if (input.kind() == Kind.TEST_ROCKET && !motors.isEmpty()) {
-			report.allowed.put("the thrust curve " + name + " " + loaded + " (a synthetic digest of TestRockets, "
-					+ "which no curve gives: OpenRocket's own archive has the same bytes)",
-					"TestRockets' synthetic digests");
-		} else if (!motors.isEmpty()) {
-			report.allowed.put("the thrust curve " + name + " " + loaded + " (OpenRocket's RockSim writer does not "
-					+ "keep the digest of this curve: OpenRocket's own archive has the same bytes)",
-					"OpenRocket's RockSim writer");
-		} else {
+		if (motors.isEmpty()) {
 			report.failures.add("the thrust curve " + name + " holds no motor");
+		} else if (input.kind() == Kind.TEST_ROCKET && SYNTHETIC_DIGEST.matcher(digest).matches()) {
+			report.allowed.put("the thrust curve " + name + " " + loaded + " (a synthetic digest of TestRockets, "
+					+ "which no curve gives: OpenRocket's own archive has the same bytes)", SYNTHETIC_DIGESTS);
+		} else if (ALLOWED_CURVES.contains(new AllowedCurve(input.name(), name))) {
+			report.allowed.put("the thrust curve " + name + " " + loaded + " (OpenRocket's RockSim writer does not "
+					+ "keep the digest of this curve: OpenRocket's own archive has the same bytes)", ROCKSIM_WRITER);
+		} else {
+			report.failures.add("the thrust curve " + name + " " + loaded + " loads with no curve of its digest");
 		}
 	}
 
@@ -997,8 +1035,8 @@ public final class InteropCheck {
 			expected = dumps(input.name(), ownLoad.document(), new WarningSet());
 			reference = "those of OpenRocket's own save";
 		} else {
-			report.checked.add("the dumps not compared: the components have other ids than in OpenRocket's own save"
-					+ " (drawn by the loaders)");
+			report.notCompared.add("geometry.json, mass.json and aero.json: the components have other ids than in "
+					+ "OpenRocket's own save (drawn by the loaders), and OpenRocket's sums follow the ids in the last bit");
 			return;
 		}
 		WarningSet warnings = input.kind() == Kind.EXAMPLE ? qtRocket.warnings() : new WarningSet();
@@ -1034,13 +1072,30 @@ public final class InteropCheck {
 				System.out.println("  allowed: " + line.getKey());
 				allowed.merge(line.getValue(), 1, Integer::sum);
 			}
+			for (String line : report.notCompared) {
+				System.out.println("  not compared: " + line);
+			}
 			for (String line : report.failures) {
 				System.out.println("  FAILED: " + line);
 			}
 		}
 		System.out.println();
+		List<String> wrongCounts = new ArrayList<>();
+		Set<String> names = new TreeSet<>(EXPECTED_ALLOWANCES.keySet());
+		names.addAll(allowed.keySet());
+		for (String name : names) {
+			int expected = EXPECTED_ALLOWANCES.getOrDefault(name, 0);
+			int found = allowed.getOrDefault(name, 0);
+			if (found != expected) {
+				wrongCounts.add(name + " " + found + " times, not " + expected);
+			}
+		}
+		for (String line : wrongCounts) {
+			System.out.println("FAILED: an allowance used otherwise than expected: " + line);
+		}
 		System.out.println("InteropCheck: " + inputs + " inputs, " + reports.size() + " files, " + failed
-				+ " failed; allowed: " + (allowed.isEmpty() ? "nothing" : allowed));
-		return failed == 0 ? 0 : 1;
+				+ " failed; allowed: " + (allowed.isEmpty() ? "nothing" : allowed)
+				+ (wrongCounts.isEmpty() ? "" : "; " + wrongCounts.size() + " allowances used otherwise than expected"));
+		return failed == 0 && wrongCounts.isEmpty() ? 0 : 1;
 	}
 }

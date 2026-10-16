@@ -40,8 +40,9 @@
 //   byte: the SHA-256 digests of those texts are pinned (kJavaSavesWithData). For two examples,
 //   "Deployable payload" and "Pods--powered with recovery deployment", the goldens hold that save
 //   itself (resave-data/rocket.ork.gz, the manifest's "resaves.withData": stored events of every
-//   kind the examples have, stored warnings with their sources, the boosters' branches, 70
-//   columns), and QtRocket's save with data is it, the whole text but for the creator.
+//   kind the examples have but TUMBLE, which three other examples store and kJavaSavesWithData
+//   covers, stored warnings with their sources, the boosters' branches, 70 columns), and
+//   QtRocket's save with data is it, the whole text but for the creator.
 // - The three examples with a <preset> again with no presets (Presets::NONE): the six
 //   references that cannot be resolved are kept (the user's decision U8 of 2026-10-08) and
 //   written back, so the file is the re-save's all the same.
@@ -53,11 +54,13 @@
 //   file formats 1.0 to 1.9), each loaded as the harness loaded it for its re-save
 //   (legacy-*/resave/rocket.ork; the harness's environment with the six presets of the examples,
 //   which are the presets of the tests; DesignFileEnvironment) and saved without simulation data.
-//   A loader draws the ids of the components, flight configurations and simulations of the
-//   formats 1.0 to 1.4, which name none: they are numbered by their first occurrence on both sides
-//   (withDrawnIdsNumbered()). The save is the re-save but for QtRocket's own decisions
-//   (kLegacySaveChanges): the references to presets the six presets do not hold (U8), the scripts
-//   disabled on load (D1) and the extension of an unknown id that is kept (D11).
+//   A loader draws an id wherever the file stores none (every component of the formats 1.0 to
+//   1.8, which store no component id; a flight configuration the file does not name, such as
+//   those of simplerocket.ork's simulations with an empty <configid>): the drawn ids are numbered
+//   by their first occurrence on both sides (withDrawnIdsNumbered()). The save is the re-save but
+//   for QtRocket's own decisions (kLegacySaveChanges, every line in its place): the references to
+//   presets the six presets do not hold (U8), the scripts disabled on load (D1) and the extension
+//   of an unknown id that is kept (D11).
 // - The saver-coverage documents of the harness (coverage-*/resave/rocket.ork, built by
 //   CoverageDocuments.java and fixed points of OpenRocket's own save and load): what no other
 //   re-save holds (a kit name, a custom reference length, CD and CG overrides with the flags of
@@ -136,12 +139,12 @@ using QtRocket::Test::goldenExamples;
 using QtRocket::Test::GoldenInput;
 using QtRocket::Test::kMaxReportedLines;
 using QtRocket::Test::kPods;
-using QtRocket::Test::lineChanges;
 using QtRocket::Test::lineViewsOf;
 using QtRocket::Test::LoadedResave;
 using QtRocket::Test::loadGoldenExample;
 using QtRocket::Test::loadResave;
 using QtRocket::Test::OrkTextComparison;
+using QtRocket::Test::placedLineChanges;
 using QtRocket::Test::rocketElementOf;
 using QtRocket::Test::sameByValue;
 using QtRocket::Test::testRocketInputs;
@@ -1135,58 +1138,75 @@ TEST(OrkResaveDiffGolden, TheTestRocketsAreSavedAsOpenRocketResavedThem)
 // =========================================================================== the legacy files
 
 /// The lines in which QtRocket's save of a design file of tests/data/ork, loaded as OpenRocket's
-/// harness loaded it, differs from OpenRocket's re-save (lineChanges() from the re-save to the
-/// save, both with the creator set aside and the ids the loaders drew numbered:
-/// withDrawnIdsNumbered()). Every other file is saved as OpenRocket re-saved it.
+/// harness loaded it, differs from OpenRocket's re-save (placedLineChanges() from the re-save to
+/// the save, both with the creator set aside and the ids the loaders drew numbered:
+/// withDrawnIdsNumbered()): each line with its number, in the re-save for a "-" line and in the
+/// save for a "+" line, and its indentation, so that a line written in another place or indented
+/// otherwise differs. Every other file is saved as OpenRocket re-saved it.
 struct LegacySaveChanges
 {
     std::string_view input;
     std::string_view changes;
 };
 
-/// The references to presets of SEMROC that v1.5-preset-usage.ork names, and a copy of it with
-/// its decal images, which the six presets of the legacy files' environment do not hold (as
-/// OpenRocket's test environment does not): OpenRocket's loader warns and forgets them, so its
-/// re-save has none; QtRocket's warns and keeps them, and writes them back (decision U8 of
-/// 2026-10-08), each after the <id> of its component.
-constexpr std::string_view kSemrocReferences =
-    "+ <preset type=\"NOSE_CONE\" manufacturer=\"SEMROC Astronautics\" partno=\"BNC-55F\" "
-    "digest=\"b2ffefd485ea774f3c63322e1b8820b3\"/>\n"
-    "+ <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" partno=\"BT-55\" "
-    "digest=\"3c547f48d153d6bef75cf178357e3fc7\"/>\n"
-    "+ <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC Astronautics\" partno=\"RA-5055\" "
-    "digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
-    "+ <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC Astronautics\" partno=\"RA-5055\" "
-    "digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
-    "+ <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" partno=\"BT-50J\" "
-    "digest=\"4dd60fdb119e05990a4903fc36e67bf9\"/>\n"
-    "+ <preset type=\"LAUNCH_LUG\" manufacturer=\"SEMROC Astronautics\" partno=\"LL-117\" "
-    "digest=\"a0af9e35fb430dda0ca561850ce3921e\"/>\n"
-    "+ <preset type=\"PARACHUTE\" manufacturer=\"SEMROC Astronautics\" partno=\"PN-18\" "
-    "digest=\"57273aa3aefaad85242e3b591e847671\"/>\n";
-
+// The references to presets of SEMROC that v1.5-preset-usage.ork names, and a copy of it with
+// its decal images, which the six presets of the legacy files' environment do not hold (as
+// OpenRocket's test environment does not): OpenRocket's loader warns and forgets them, so its
+// re-save has none; QtRocket's warns and keeps them, and writes them back (decision U8 of
+// 2026-10-08), each after the <id> of its component: the nose cone, the body tube, two centering
+// rings, the inner tube, the launch lug and the parachute.
 constexpr std::array<LegacySaveChanges, 4> kLegacySaveChanges{{
-    {.input = "legacy-v1-5-preset-usage", .changes = kSemrocReferences},
-    {.input = "legacy-v1-6-preset-usage-decals-first", .changes = kSemrocReferences},
-    // The roll control script of OpenRocket's example, stored enabled in two simulations, which
-    // OpenRocket trusts by its hash and keeps enabled; QtRocket runs no script and disables every
-    // script with code on load (decisions D1 and E4), so its save writes them disabled. And the
-    // extension of the id net.sf.openrocket.simulation.extension.impl.AirStart, which no provider
-    // knows today: OpenRocket's loader warns and drops it, QtRocket's warns and keeps it with its
-    // configuration (decision D11), so its save writes it back.
+    {.input   = "legacy-v1-5-preset-usage",
+     .changes = "+ 23:             <preset type=\"NOSE_CONE\" manufacturer=\"SEMROC Astronautics\" "
+                "partno=\"BNC-55F\" digest=\"b2ffefd485ea774f3c63322e1b8820b3\"/>\n"
+                "+ 41:             <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" "
+                "partno=\"BT-55\" digest=\"3c547f48d153d6bef75cf178357e3fc7\"/>\n"
+                "+ 52:                 <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"RA-5055\" digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+                "+ 68:                 <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"RA-5055\" digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+                "+ 84:                 <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"BT-50J\" digest=\"4dd60fdb119e05990a4903fc36e67bf9\"/>\n"
+                "+ 119:                 <preset type=\"LAUNCH_LUG\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"LL-117\" digest=\"a0af9e35fb430dda0ca561850ce3921e\"/>\n"
+                "+ 136:                 <preset type=\"PARACHUTE\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"PN-18\" digest=\"57273aa3aefaad85242e3b591e847671\"/>\n"},
+    {.input   = "legacy-v1-6-preset-usage-decals-first",
+     .changes = "+ 23:             <preset type=\"NOSE_CONE\" manufacturer=\"SEMROC Astronautics\" "
+                "partno=\"BNC-55F\" digest=\"b2ffefd485ea774f3c63322e1b8820b3\"/>\n"
+                "+ 46:             <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC Astronautics\" "
+                "partno=\"BT-55\" digest=\"3c547f48d153d6bef75cf178357e3fc7\"/>\n"
+                "+ 67:                 <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"RA-5055\" digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+                "+ 88:                 <preset type=\"CENTERING_RING\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"RA-5055\" digest=\"1dec8a924dc469f50cd54cf2725ae484\"/>\n"
+                "+ 104:                 <preset type=\"BODY_TUBE\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"BT-50J\" digest=\"4dd60fdb119e05990a4903fc36e67bf9\"/>\n"
+                "+ 144:                 <preset type=\"LAUNCH_LUG\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"LL-117\" digest=\"a0af9e35fb430dda0ca561850ce3921e\"/>\n"
+                "+ 161:                 <preset type=\"PARACHUTE\" manufacturer=\"SEMROC "
+                "Astronautics\" partno=\"PN-18\" digest=\"57273aa3aefaad85242e3b591e847671\"/>\n"},
+    // The roll control script of OpenRocket's example, stored enabled in the simulations "Active
+    // roll control" and "Roll control + air-start", which OpenRocket trusts by its hash and keeps
+    // enabled; QtRocket runs no script and disables every script with code on load (decisions D1
+    // and E4), so its save writes them disabled. And the extension of the id
+    // net.sf.openrocket.simulation.extension.impl.AirStart of "Roll control + air-start", which no
+    // provider knows today: OpenRocket's loader warns and drops it, QtRocket's warns and keeps it
+    // with its configuration (decision D11), so its save writes it back in its place, the first
+    // extension of that simulation, before the script (the re-save's line 686).
     {.input   = "legacy-v1-7-simulation-extensions-and-scripting",
-     .changes = "- <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
-                "+ <entry key=\"enabled\" type=\"boolean\">false</entry>\n"
-                "+ <extension extensionid=\"info.openrocket.core.simulation.extension.impl."
-                "AirStart\">\n"
-                "+ <entry key=\"launchAltitude\" type=\"number\">1000.0</entry>\n"
-                "+ </extension>\n"
-                "- <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
-                "+ <entry key=\"enabled\" type=\"boolean\">false</entry>\n"},
-    // A reference to a body tube of FlisKits, as kSemrocReferences.
+     .changes = "- 632:         <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
+                "+ 632:         <entry key=\"enabled\" type=\"boolean\">false</entry>\n"
+                "+ 686:       <extension extensionid=\"info.openrocket.core.simulation.extension."
+                "impl.AirStart\">\n"
+                "+ 687:         <entry key=\"launchAltitude\" type=\"number\">1000.0</entry>\n"
+                "+ 688:       </extension>\n"
+                "- 747:         <entry key=\"enabled\" type=\"boolean\">true</entry>\n"
+                "+ 750:         <entry key=\"enabled\" type=\"boolean\">false</entry>\n"},
+    // A reference to a body tube of FlisKits, as the references of SEMROC above.
     {.input   = "legacy-v1-7-tube-fin",
-     .changes = "+ <preset type=\"BODY_TUBE\" manufacturer=\"FlisKits\" partno=\"BT-50-18\" "
-                "digest=\"e64b2b02cb13361924b3d78c0a68911d\"/>\n"},
+     .changes = "+ 40:             <preset type=\"BODY_TUBE\" manufacturer=\"FlisKits\" "
+                "partno=\"BT-50-18\" digest=\"e64b2b02cb13361924b3d78c0a68911d\"/>\n"},
 }};
 
 /// The changes of kLegacySaveChanges for @p input, or none.
@@ -1236,7 +1256,7 @@ struct LegacySaves
     const std::string       theirs     = withDrawnIdsNumbered(withoutCreator(*resave), original);
     const OrkTextComparison comparison = countedComparison(saves, ours, theirs);
     legacy.differingLines += comparison.differing;
-    const std::string changes = lineChanges(theirs, ours);
+    const std::string changes = placedLineChanges(theirs, ours);
     legacy.changedLines += lineViewsOf(changes).size();
     std::string problems;
     if (!warnings.empty())
@@ -1267,8 +1287,9 @@ struct LegacySaves
 // 1.9), each loaded as the harness loaded it (22 warnings of the loads) and saved without
 // simulation data, are OpenRocket's re-saves of them, line for line (8405 lines with 306
 // components, 39 motors, 36 simulations and 25 stored warnings; the ids the loaders drew
-// numbered), but for the 22 lines of kLegacySaveChanges: the 15 references to presets QtRocket
-// keeps, the two scripts it disables and the extension it keeps.
+// numbered), but for the 22 lines of kLegacySaveChanges, each in its place and with its
+// indentation: the 15 references to presets QtRocket keeps, the two scripts it disables and the
+// extension it keeps.
 TEST(OrkResaveDiffGolden, TheLegacyFilesAreSavedAsOpenRocketResavedThem)
 {
     SavesCompared saves;
@@ -1284,6 +1305,9 @@ TEST(OrkResaveDiffGolden, TheLegacyFilesAreSavedAsOpenRocketResavedThem)
     EXPECT_EQ(saves.warnings, 25U);
     EXPECT_EQ(legacy.loadWarnings, 22);
     EXPECT_EQ(legacy.changedLines, 22U);
+    // The lines that differ where they stand (compareOrkTexts()): those of the changes and the
+    // lines after an added one, which stand a line or more lower than in the re-save.
+    EXPECT_EQ(legacy.differingLines, 682U);
 }
 
 // ====================================================================== the coverage documents
@@ -1460,6 +1484,29 @@ TEST(OrkResaveDiffGolden, TheRocketElementIsItsLines)
     EXPECT_EQ(rocketElementOf("  <rocket>\n  </rocket>\n"), "  <rocket>\n  </rocket>\n");
     EXPECT_EQ(rocketElementOf("<openrocket>\n  <rocket>\n"), "");
     EXPECT_EQ(rocketElementOf("<openrocket/>\n"), "");
+}
+
+// The changes of two texts with the place of every line (placedLineChanges(), which
+// kLegacySaveChanges is written in): the same lines added in another place, or indented
+// otherwise, are other changes, where lineChanges() tells them apart by neither.
+TEST(OrkResaveDiffGolden, ThePlacedChangesTellWhereALineStands)
+{
+    constexpr std::string_view kResave =
+        "<a>\n  <s>\n    <x/>\n  </s>\n  <s>\n    <x/>\n  </s>\n</a>\n";
+    constexpr std::string_view kInTheFirst =
+        "<a>\n  <s>\n    <x/>\n    <y/>\n  </s>\n  <s>\n    <x/>\n  </s>\n</a>\n";
+    constexpr std::string_view kInTheSecond =
+        "<a>\n  <s>\n    <x/>\n  </s>\n  <s>\n    <x/>\n    <y/>\n  </s>\n</a>\n";
+    constexpr std::string_view kIndented =
+        "<a>\n  <s>\n    <x/>\n      <y/>\n  </s>\n  <s>\n    <x/>\n  </s>\n</a>\n";
+    EXPECT_EQ(placedLineChanges(kResave, kInTheFirst), "+ 4:     <y/>\n");
+    EXPECT_EQ(placedLineChanges(kResave, kInTheSecond), "+ 7:     <y/>\n");
+    EXPECT_EQ(placedLineChanges(kResave, kIndented), "+ 4:       <y/>\n");
+    EXPECT_EQ(QtRocket::Test::lineChanges(kResave, kInTheFirst), "+ <y/>\n");
+    EXPECT_EQ(QtRocket::Test::lineChanges(kResave, kInTheSecond), "+ <y/>\n");
+    EXPECT_EQ(QtRocket::Test::lineChanges(kResave, kIndented), "+ <y/>\n");
+    EXPECT_EQ(placedLineChanges(kInTheFirst, kInTheSecond), "- 4:     <y/>\n+ 7:     <y/>\n");
+    EXPECT_EQ(placedLineChanges(kResave, kResave), "");
 }
 
 }  // namespace

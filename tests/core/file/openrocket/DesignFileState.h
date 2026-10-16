@@ -126,30 +126,31 @@ enum class StateDetail
                                                        StateDetail detail = StateDetail::RECORDED,
                                                        std::string_view idsOf = {});
 
-/// What a test does with a design as loaded, before anything else is asked of it: called with
+/// What a test asks of a load after its state was described (designBytesState()): called with
 /// the load that succeeded.
-using AsLoaded = std::function<void(const LoadedDocument& loaded)>;
+using Described = std::function<void(const LoadedDocument& loaded)>;
 
 /// The state of the design @p bytes hold, the contents of a design file (an .ork archive a test
 /// saved to memory, say), as a loader of @p environment loads it from memory without a
 /// directory (GeneralRocketLoader::load(bytes)): the lines of designFileState(), but for a
 /// document that cannot be read, whose version line is that of its root element alone
-/// (rootOfDocument(); the failure is that of the load, which follows). @p asLoaded, when given,
-/// is called with the load before the state is described, for a test that asks the design as
-/// loaded what the state does not depend on (the masses of a design without a stale automatic
-/// dimension, the settings of its components), saving a load: what it asks of the load is part
-/// of the state otherwise (an automatic dimension stores what it computes; a copy of the
-/// rocket is no way around that, a copy brings automatic dimensions up to date). @p idsOf, when
-/// not empty, is the text whose ids a flight configuration's id has to be among to be printed in
-/// full in the lines of the rocket (describeRocket(); else "random"), in place of the document of
-/// @p bytes: a round trip of a design whose loader drew the ids of its flight configurations
-/// passes the original design's document, so that those ids, which the save wrote, stay "random"
-/// as in the state of the original.
+/// (rootOfDocument(); the failure is that of the load, which follows). The state is the load's as
+/// loaded: nothing is asked of the load before it is described (an automatic dimension stores
+/// what it computes, so what is asked first is part of the state; a copy of the rocket is no way
+/// around that: it keeps the stored dimensions but not the caches of the load, and its first
+/// answers differ from the load's, in OpenRocket too). @p described, when given, is
+/// called with the load after its state was described, for a test that asks more of the same
+/// load (the settings of its components, say), saving a load. @p idsOf, when not empty, is the
+/// text whose ids a flight configuration's id has to be among to be printed in full in the lines
+/// of the rocket (describeRocket(); else "random"), in place of the document of @p bytes: a round
+/// trip of a design whose loader drew the ids of its flight configurations passes the original
+/// design's document, so that those ids, which the save wrote, stay "random" as in the state of
+/// the original.
 [[nodiscard]] std::vector<std::string> designBytesState(const DesignFileEnvironment& environment,
                                                         std::vector<std::byte>       bytes,
                                                         StateDetail detail = StateDetail::RECORDED,
-                                                        const AsLoaded&  asLoaded = nullptr,
-                                                        std::string_view idsOf    = {});
+                                                        const Described& described = nullptr,
+                                                        std::string_view idsOf     = {});
 
 /// A line of a state in its short form, and the lines it stands for.
 struct CompactLine

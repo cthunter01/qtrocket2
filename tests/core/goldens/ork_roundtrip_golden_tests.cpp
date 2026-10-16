@@ -16,18 +16,19 @@
 //   (OrkRoundTripGolden.TheExamplesComeBackInOpenRocketsState). The archive is the first save
 //   of the loaded design: a save stores the automatic dimensions its getters compute, so the
 //   saves of one loaded document can differ (kDualParachuteSaves of ork_resave_diff), and a
-//   first save writes what the design file held. The state of the reload (designBytesState() of
-//   DesignFileState.h: the warnings of the load, the document with its flight configurations,
-//   simulations, storage options, undo state, materials, photo settings and decal images, the
-//   change events of the load, every component with all it holds, the names of the
-//   configurations, every motor, every decal image with its size, every simulation with its
-//   options, extensions, summary values, stored warnings and the events and a digest of every
-//   column of every branch, and the document materials) is OpenRocket's state of the original
-//   archive as loaded (ExampleOrkFiles.h), line for line, with one known difference
-//   (kRoundTripChanges): the file version. And the reload has OpenRocket's masses, centres of
-//   mass and length of the original as loaded (the rows' numbers, asked of a design on which
-//   nothing else was asked: see roundTripTheExamples()) and, after settling, as settled (the
-//   settled numbers).
+//   first save writes what the design file held. The state of the reload as loaded, nothing asked
+//   of it before (designBytesState() of DesignFileState.h: the warnings of the load, the
+//   document with its flight configurations, simulations, storage options, undo state,
+//   materials, photo settings and decal images, the change events of the load, every component
+//   with all it holds, the names of the configurations, every motor, every decal image with its
+//   size, every simulation with its options, extensions, summary values, stored warnings and the
+//   events and a digest of every column of every branch, and the document materials) is
+//   OpenRocket's state of the original archive as loaded (ExampleOrkFiles.h), line for line, with
+//   one known difference (kRoundTripChanges): the file version. And a second reload of the same
+//   archive, on which nothing else is asked before, has OpenRocket's masses, centres of mass and
+//   length of the original as loaded (the rows' numbers), needs no settling pass after them, and
+//   has, settled, OpenRocket's settled numbers: the state and the numbers are asked of the reloads
+//   as OpenRocket's were asked of the original (see roundTripTheExamples()).
 //
 //   The sixteen stored warnings of a high-speed deployment (in six examples) come back with their
 //   speed because the loader reads the type the saver writes, RecoveryHighSpeedDeployment, as
@@ -96,7 +97,6 @@ using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::Test::addResaveRun;
 using QtRocket::Test::archiveChanges;
-using QtRocket::Test::AsLoaded;
 using QtRocket::Test::changeToTheReload;
 using QtRocket::Test::CompactLine;
 using QtRocket::Test::compactState;
@@ -105,6 +105,7 @@ using QtRocket::Test::ComparedSimulations;
 using QtRocket::Test::compareLoadedResave;
 using QtRocket::Test::compareSavedSettings;
 using QtRocket::Test::compareSimulations;
+using QtRocket::Test::Described;
 using QtRocket::Test::designBytesState;
 using QtRocket::Test::designCountsOfTheTestRockets;
 using QtRocket::Test::DesignFileEnvironment;
@@ -225,16 +226,16 @@ struct ExampleRoundTrips
 };
 
 /// Compares the state of the archive @p archive of @p example, loaded back in the environment of
-/// @p presets (designBytesState()), with @p expected, OpenRocket's state of the original as
-/// loaded, but for expectedChanges(). @p asLoaded is handed the reload before its state is
-/// described (designBytesState()). Counts into @p trips.
+/// @p presets (designBytesState(): the reload as loaded), with @p expected, OpenRocket's state of
+/// the original as loaded, but for expectedChanges(). @p described is handed the reload after its
+/// state was described (designBytesState()). Counts into @p trips.
 void compareTheState(const GoldenExample& example, std::span<const std::string_view> expected,
-                     std::vector<std::byte> archive, Presets presets, const AsLoaded& asLoaded,
+                     std::vector<std::byte> archive, Presets presets, const Described& described,
                      ExampleRoundTrips& trips)
 {
     const std::vector<CompactLine> state =
         compactState(designBytesState(goldenExampleEnvironment(presets), std::move(archive),
-                                      StateDetail::WITH_DOCUMENT_PREFERENCES, asLoaded));
+                                      StateDetail::WITH_DOCUMENT_PREFERENCES, described));
     trips.stateLines += state.size();
     const std::string changes = stateChanges(expected, state);
     trips.newVersions += changes == kRoundTripChanges ? 1 : 0;
@@ -245,16 +246,24 @@ void compareTheState(const GoldenExample& example, std::span<const std::string_v
     }
 }
 
-/// Compares the masses, centres of mass and length of @p rocket, the design of a reload of the
-/// archive of the example of the row @p row as loaded, asked first (massAndLength() of
-/// DesignFileState.h), with OpenRocket's numbers of the original as loaded, then, with the
-/// automatic dimensions settled as the golden harness settles them, with its settled numbers.
-/// (The number of the settling passes is not compared: asking the numbers has already brought
-/// the one stale design, the dual parachute deployment, where the one pass of OpenRocket's
-/// settling brings it.) Counts into @p trips.
-void compareTheNumbers(const GoldenExample& example, const ExampleOrkFile& row,
-                       const Rocket& rocket, ExampleRoundTrips& trips)
+/// Loads the archive @p archive of the example of the row @p row back, asks the masses, centres
+/// of mass and length of its design first (massAndLength() of DesignFileState.h) and compares
+/// them with OpenRocket's numbers of the original as loaded; then settles the automatic
+/// dimensions as the golden harness settles them, which has to take no pass, and compares the
+/// numbers with OpenRocket's settled numbers. Asking the numbers brings the one stale design,
+/// the dual parachute deployment, where the one pass of OpenRocket's settling brings it, so no
+/// reload needs a pass after them; one that did would be stale where OpenRocket's original is
+/// not, in a dimension the numbers did not ask. Counts into @p trips.
+void compareTheNumbersOfALoad(const GoldenExample& example, const ExampleOrkFile& row,
+                              std::vector<std::byte> archive, ExampleRoundTrips& trips)
 {
+    const Result<LoadedDocument> loaded = loadGoldenExampleFromBytes(std::move(archive));
+    if (!loaded)
+    {
+        trips.problems += std::format("{}: {}\n", example.name, loaded.error().toString());
+        return;
+    }
+    const Rocket&     rocket  = loaded->document->getRocket();
     const std::string numbers = wrongNumbers(row.numbers, massAndLength(rocket));
     const Result<int> passes  = settleAutomaticDimensions(rocket);
     const std::string settled = passes ? wrongNumbers(row.settled, massAndLength(rocket))
@@ -266,19 +275,11 @@ void compareTheNumbers(const GoldenExample& example, const ExampleOrkFile& row,
             std::format("{}: the numbers of the reload as loaded\n{}and as settled\n{}",
                         example.name, numbers, settled);
     }
-}
-
-/// compareTheNumbers() of a load of its own of the archive @p archive.
-void compareTheNumbersOfALoad(const GoldenExample& example, const ExampleOrkFile& row,
-                              std::vector<std::byte> archive, ExampleRoundTrips& trips)
-{
-    const Result<LoadedDocument> loaded = loadGoldenExampleFromBytes(std::move(archive));
-    if (!loaded)
+    if (passes && *passes != 0)
     {
-        trips.problems += std::format("{}: {}\n", example.name, loaded.error().toString());
-        return;
+        trips.problems += std::format("{}: {} settling passes after the numbers of the reload\n",
+                                      example.name, *passes);
     }
-    compareTheNumbers(example, row, loaded->document->getRocket(), trips);
 }
 
 /// Loads @p example fresh from the original archive in the environment of @p presets and saves it
@@ -300,7 +301,20 @@ void compareTheNumbersOfALoad(const GoldenExample& example, const ExampleOrkFile
 }
 
 /// Saves each of the sixteen examples to an archive and compares its reload with OpenRocket's
-/// state and numbers of the original (compareTheState(), compareTheNumbers()).
+/// state of the original (compareTheState()) and a second reload with OpenRocket's numbers of
+/// the original (compareTheNumbersOfALoad()).
+///
+/// What is asked of a design as loaded is part of its state (an automatic dimension stores what
+/// it computes; a copy of the rocket is no way around that: see designBytesState()), so the
+/// state and the numbers are asked of two loads of the archive, as ExampleOrkFiles.h has them of
+/// two loads of the original: the state of a reload on which nothing was asked before, and the
+/// numbers of one on which nothing was asked before them.
+///
+/// OrkResaveDiffGolden.TheExamplesAreSavedAsOpenRocketResavedThem loads an archive of each
+/// example back too, but its loads are not shared with these: ctest runs every test in a
+/// process of its own, so two tests share no load; that archive is not the first save of a load
+/// (four saves without data come before it, which change the dual parachute deployment); and
+/// one test of both would mix the comparison of the saved texts with the loaded state.
 [[nodiscard]] ExampleRoundTrips roundTripTheExamples()
 {
     ExampleRoundTrips trips;
@@ -314,24 +328,6 @@ void compareTheNumbersOfALoad(const GoldenExample& example, const ExampleOrkFile
                 std::format("{}: no row in ExampleOrkFiles.h or no archive\n", example.name);
             continue;
         }
-        // What is asked of a design as loaded is part of its state (an automatic dimension
-        // stores what it computes), and a copy of a design is no design as loaded (a copy of a
-        // rocket brings automatic dimensions up to date, in OpenRocket too). But a design whose
-        // automatic dimensions are all up to date as loaded, which OpenRocket's settling does
-        // not change (fifteen of the sixteen), stores what it holds already: its numbers are
-        // asked of the reload itself before the state is described, which saves a load (the
-        // comparison of the state would show a change). The dual parachute deployment, stale as
-        // loaded, gets a load of its own.
-        if (row->settlingPasses == 0)
-        {
-            compareTheState(
-                example, row->state, std::move(archive), Presets::EXAMPLES,
-                [&example, row, &trips](const LoadedDocument& reload) {
-                    compareTheNumbers(example, *row, reload.document->getRocket(), trips);
-                },
-                trips);
-            continue;
-        }
         compareTheState(example, row->state, archive, Presets::EXAMPLES, nullptr, trips);
         compareTheNumbersOfALoad(example, *row, std::move(archive), trips);
     }
@@ -343,7 +339,8 @@ void compareTheNumbersOfALoad(const GoldenExample& example, const ExampleOrkFile
 // their 69 branches of stored flight data (all sixteen save their data by default), 20 stored
 // warnings and 112 document materials among the lines, every one of them as OpenRocket has it,
 // but for the file version of the fourteen examples of version 1.10. The masses, centres of mass
-// and length, as loaded and as settled, are OpenRocket's too.
+// and length of a second reload, as loaded and as settled, are OpenRocket's too, and the settling
+// takes no pass after the numbers.
 TEST(OrkRoundTripGolden, TheExamplesComeBackInOpenRocketsState)
 {
     const ExampleRoundTrips trips = roundTripTheExamples();
@@ -357,8 +354,8 @@ TEST(OrkRoundTripGolden, TheExamplesComeBackInOpenRocketsState)
 
 /// Compares @p reload, the reload of the archive of @p example loaded without presets, with the
 /// settings elements of OpenRocket's re-save of the example, the references to presets included
-/// (compareSavedSettings() with SavedPresets::NOT_FOUND), which asks nothing that a state holds
-/// of an automatic dimension. Counts into @p trips.
+/// (compareSavedSettings() with SavedPresets::NOT_FOUND), after the state of the reload was
+/// described. Counts into @p trips.
 void compareTheReferences(const GoldenExample& example, const LoadedDocument& reload,
                           ExampleRoundTrips& trips)
 {
@@ -380,8 +377,8 @@ void compareTheReferences(const GoldenExample& example, const LoadedDocument& re
 }
 
 /// Saves each example that needs its presets (a row of ExampleOrkFiles.h with a state without
-/// presets), loaded without them, to an archive and compares its reload with the references of
-/// the re-save (compareTheReferences()) and with OpenRocket's state without presets.
+/// presets), loaded without them, to an archive and compares its reload with OpenRocket's state
+/// without presets, then with the references of the re-save (compareTheReferences()).
 [[nodiscard]] ExampleRoundTrips roundTripTheExamplesWithoutPresets()
 {
     ExampleRoundTrips trips;
@@ -434,9 +431,10 @@ struct TestRocketRoundTrips
 };
 
 /// Loads the re-save of the test rocket @p input, saves it to an archive and loads that back
-/// against the seven motors; saves the reload again and compares the two archives
-/// (archiveChanges()), then the reload with the goldens and the re-save (compareLoadedResave(),
-/// compareSimulations()). Counts into @p trips.
+/// against the seven motors; compares the reload as loaded with the goldens and the re-save
+/// (compareLoadedResave(), which counts the settling passes the reload needs, and
+/// compareSimulations()), then saves the reload again and compares the two archives
+/// (archiveChanges()). Counts into @p trips.
 void roundTripTheTestRocket(const GoldenInput& input, TestRocketRoundTrips& trips)
 {
     Result<DesignGoldens>      goldens = loadDesignGoldens(input.name);
@@ -455,6 +453,9 @@ void roundTripTheTestRocket(const GoldenInput& input, TestRocketRoundTrips& trip
         trips.problems += std::format("{}: no archive, or no reload of it\n", input.name);
         return;
     }
+    changeToTheReload(input.name, goldens->geometry, trips.designs.changes);
+    addResaveRun(trips.designs, input.name, compareLoadedResave(*reload, *goldens, **file));
+    compareSimulations(trips.simulations, input, *reload, goldens->geometry, **file);
     const std::vector<std::byte> second = archiveOf(
         input.name, *reload->loaded.document, reload->environment->preferences(), trips.problems);
     const std::string changes = archiveChanges(first, second, trips.entries);
@@ -463,9 +464,6 @@ void roundTripTheTestRocket(const GoldenInput& input, TestRocketRoundTrips& trip
         trips.problems += std::format("{}: the save of the reload is not the first save\n{}",
                                       input.name, changes);
     }
-    changeToTheReload(input.name, goldens->geometry, trips.designs.changes);
-    addResaveRun(trips.designs, input.name, compareLoadedResave(*reload, *goldens, **file));
-    compareSimulations(trips.simulations, input, *reload, goldens->geometry, **file);
 }
 
 /// roundTripTheTestRocket() of each test rocket of the manifest.
@@ -484,14 +482,15 @@ void roundTripTheTestRocket(const GoldenInput& input, TestRocketRoundTrips& trip
 
 // The thirteen test rockets come back from their archives as the rockets of their goldens, but
 // for the fourteen values OpenRocket's own reload of the re-saves changes (kReloadChanges): the
-// reloads give no warning and have no stale automatic dimension, and the comparison holds what
-// ResaveGolden holds for the reloads of the re-saves (151 components with their ids, 47 flight
-// configurations, the masses, 1175 points of the aerodynamics, the settings elements of the
-// re-saves) and what ResaveGoldenSimulations holds for their fifty simulations (36 not simulated,
-// 14 that cannot run without a motor, 1808 values of their options, the fifty stored directions
-// of the launch rod). Saved again, each reload gives the first archive, all 39 entries: the
-// thirteen rocket.ork and a RockSim engine file of each of the 26 motors of their mounts, one per
-// rocket and digest, named by the synthetic digest ("thrustcurves/digest A8 test.rse").
+// reloads give no warning and, as loaded, have no stale automatic dimension, and the comparison
+// holds what ResaveGolden holds for the reloads of the re-saves (151 components with their ids,
+// 47 flight configurations, the masses, 1175 points of the aerodynamics, the settings elements of
+// the re-saves) and what ResaveGoldenSimulations holds for their fifty simulations (36 not
+// simulated, 14 that cannot run without a motor, 1808 values of their options, the fifty stored
+// directions of the launch rod). Saved again after those comparisons, each reload gives the first
+// archive, all 39 entries: the thirteen rocket.ork and a RockSim engine file of each of the 26
+// motors of their mounts, one per rocket and digest, named by the synthetic digest
+// ("thrustcurves/digest A8 test.rse").
 TEST(OrkRoundTripGolden, TheTestRocketsComeBackAsTheRocketsOfTheGoldens)
 {
     const TestRocketRoundTrips trips = roundTripTheTestRockets();

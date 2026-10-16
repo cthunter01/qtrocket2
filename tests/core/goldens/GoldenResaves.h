@@ -24,7 +24,8 @@
 //   documents the harness builds (kCoverageKind), and the re-saves WITH simulation data of two
 //   examples (loadManifestResaves()); with what their comparisons need: the ids a loader drew
 //   numbered (withDrawnIdsNumbered()), the lines added and removed between two texts
-//   (lineChanges()) and the entries that differ between two archives (archiveChanges()):
+//   (lineChanges(), and placedLineChanges() with the place of each) and the entries that differ
+//   between two archives (archiveChanges()):
 //   ork_resave_diff_golden_tests.cpp and tests/core/file/openrocket/legacy_ork_roundtrip_tests.cpp.
 
 #include <array>
@@ -379,10 +380,12 @@ inline constexpr std::size_t kMaxReportedLines = 20;
 
 /// @p text with every UUID that @p original does not spell out (knownIds() of
 /// ComponentHandlerTestSupport.h) replaced by "drawn-id-<n>", numbered from 1 in the order of
-/// their first occurrence in @p text. A loader draws a random id for a component, a flight
-/// configuration or a simulation that the file names none for (the designs of the formats 1.0
-/// to 1.4), and a save writes it: two programs, or two loads, draw other ids, which this makes the
-/// same wherever they stand in the same places. An id of the file stays as it is.
+/// their first occurrence in @p text. A loader draws a random id wherever the file stores none
+/// (every component of the formats 1.0 to 1.8, which store no component id; a flight
+/// configuration the file does not name, such as the one a simulation with an empty <configid>
+/// gets; and simulations, events and warnings), and a save writes it: two programs, or two
+/// loads, draw other ids, which this makes the same wherever they stand in the same places. An
+/// id of the file stays as it is.
 [[nodiscard]] std::string withDrawnIdsNumbered(std::string_view text, std::string_view original);
 
 /// The lines that are removed from @p before and added to @p after, a longest common
@@ -396,6 +399,12 @@ inline constexpr std::size_t kMaxReportedLines = 20;
 /// lineChanges() of two texts given as their lines.
 [[nodiscard]] std::string lineChanges(std::span<const std::string_view> before,
                                       std::span<const std::string_view> after);
+
+/// lineChanges() with the place of every line: "- <n>: <line>" for the line n of @p before
+/// and "+ <n>: <line>" for the line n of @p after (numbered from 1), each line as it is, its
+/// indentation included. A line that moved is a change where it was and where it is, and a
+/// line indented otherwise is a change.
+[[nodiscard]] std::string placedLineChanges(std::string_view before, std::string_view after);
 
 /// What differs between the .ork archives @p first and @p second of one design: the names of
 /// their entries in their order, and the uncompressed bytes of each (an entry that differs is

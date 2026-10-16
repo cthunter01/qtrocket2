@@ -8,14 +8,17 @@
 //
 // The saves go into the directory interop-saves of the build tree (the directory above the bin/ of
 // the test program: build/<preset>/interop-saves), or into the directory a command-line argument
-// --interop-saves=<directory> names. The test makes the directory, removes the *.ork files an
-// earlier run left there, and writes one file per save, named <input>.<form>.ork after the input of
-// the goldens' manifest (tests/data/goldens/manifest.json) and the form of the save: "zip-data" or
+// --interop-saves=<directory> names. The test makes the directory, removes the saves an earlier run
+// left there, and writes one file per save, named <input>.<form>.ork after the input of the
+// goldens' manifest (tests/data/goldens/manifest.json) and the form of the save: "zip-data" or
 // "zip-nodata" for an .ork archive (GeneralRocketSaver) with or without the simulation data,
-// "plain-data" or "plain-nodata" for plain XML (OpenRocketSaver). Each save is the first save of a
-// load of its own: a save stores the automatic dimensions its getters compute, so the saves of one
-// loaded document can differ (kDualParachuteSaves of ork_resave_diff_golden_tests.cpp), and
-// OpenRocket's own save, which the check compares with, is the first save of its load. 65 files:
+// "plain-data" or "plain-nodata" for plain XML (OpenRocketSaver). It removes no other file: a
+// directory that holds another *.ork file (a design of the user's, say) is refused, and nothing is
+// written into it (the check fails on an .ork file that is no save of an input). Each save is the
+// first save of a load of its own: a save stores the automatic dimensions its getters compute, so
+// the saves of one loaded document can differ (kDualParachuteSaves of
+// ork_resave_diff_golden_tests.cpp), and OpenRocket's own save, which the check compares with, is
+// the first save of its load. 65 files:
 // - the sixteen examples (data/examples), loaded from the original archives with the six presets
 //   of the examples (goldenExampleEnvironment()): an archive with the document's default storage
 //   options (all sixteen save their flight data) and plain XML without the simulation data (the
@@ -29,11 +32,13 @@
 // - the two saver-coverage documents of the harness, loaded from their re-saves
 //   (DesignFileEnvironment): an archive with the document's default storage options.
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <format>
 #include <optional>
 #include <print>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -105,26 +110,91 @@ constexpr std::string_view kBuildTreeDirectory = "interop-saves";
     return program->parent_path().parent_path() / kBuildTreeDirectory;
 }
 
-/// Makes @p directory and removes the files named *.ork in it, the saves of an earlier run, so
-/// that the check reads the saves of this run alone; what went wrong, or "".
+/// The forms of a save, as its file name has them.
+constexpr std::array<std::string_view, 4> kForms{"zip-data", "zip-nodata", "plain-data",
+                                                 "plain-nodata"};
+
+/// The names of the files this test can write, <input>.<form>.ork for every input of the
+/// manifest and every form; what went wrong goes to @p problems.
+[[nodiscard]] std::set<std::string> saveNames(std::string& problems)
+{
+    std::vector<std::string> inputs;
+    for (const GoldenExample& example : QtRocket::Test::goldenExamples())
+    {
+        inputs.push_back(example.name);
+    }
+    for (const GoldenInput& input : QtRocket::Test::testRocketInputs(problems))
+    {
+        inputs.push_back(input.name);
+    }
+    constexpr std::array<std::string_view, 2> kResaveKinds{QtRocket::Test::kLegacyKind,
+                                                           QtRocket::Test::kCoverageKind};
+    for (const std::string_view kind : kResaveKinds)
+    {
+        for (const ResaveInput& input : QtRocket::Test::resaveInputsOf(kind, problems))
+        {
+            inputs.push_back(input.name);
+        }
+    }
+    std::set<std::string> names;
+    for (const std::string& input : inputs)
+    {
+        for (const std::string_view form : kForms)
+        {
+            names.insert(std::format("{}.{}.ork", input, form));
+        }
+    }
+    return names;
+}
+
+/// Makes @p directory and removes the saves of an earlier run from it (saveNames()), so that the
+/// check reads the saves of this run alone; what went wrong, or "". A directory that holds any
+/// other file named *.ork is refused, and nothing is removed from it.
 [[nodiscard]] std::string preparedDirectory(const std::filesystem::path& directory)
 {
-    std::error_code error;
+    std::string                 problems;
+    const std::set<std::string> names = saveNames(problems);
+    std::error_code             error;
     std::filesystem::create_directories(directory, error);
     std::vector<std::filesystem::path> earlier;
+    std::string                        others;
     for (const std::filesystem::directory_entry& entry :
          std::filesystem::directory_iterator(directory, error))
     {
-        if (entry.is_regular_file() && entry.path().extension() == ".ork")
+        if (!entry.is_regular_file() || entry.path().extension() != ".ork")
+        {
+            continue;
+        }
+        if (names.contains(QtRocket::pathToUtf8(entry.path().filename())))
         {
             earlier.push_back(entry.path());
         }
+        else
+        {
+            others += std::format(" {}", QtRocket::pathToUtf8(entry.path().filename()));
+        }
+    }
+    if (error)
+    {
+        return problems + std::format("{}: {}\n", QtRocket::pathToUtf8(directory), error.message());
+    }
+    if (!others.empty())
+    {
+        return problems + std::format(
+                              "{} holds .ork files that are no saves of this test, which "
+                              "it does not remove: name an empty directory, or move "
+                              "them:{}\n",
+                              QtRocket::pathToUtf8(directory), others);
     }
     for (const std::filesystem::path& file : earlier)
     {
         std::filesystem::remove(file, error);
+        if (error)
+        {
+            problems += std::format("{}: {}\n", QtRocket::pathToUtf8(file), error.message());
+        }
     }
-    return error ? std::format("{}: {}\n", QtRocket::pathToUtf8(directory), error.message()) : "";
+    return problems;
 }
 
 /// What the test wrote.
@@ -299,6 +369,11 @@ TEST(OrkInteropSaves, DISABLED_WritesTheSavesOfTheInteropCheck)
     }
     InteropSaves saves{
         .directory = *directory, .files = 0, .problems = preparedDirectory(*directory)};
+    // Nothing is written into a directory that could not be prepared.
+    if (!saves.problems.empty())
+    {
+        FAIL() << saves.problems;
+    }
     writeTheExamples(saves);
     writeTheTestRockets(saves);
     writeTheLegacyFiles(saves);

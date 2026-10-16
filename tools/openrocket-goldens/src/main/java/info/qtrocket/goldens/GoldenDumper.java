@@ -94,9 +94,10 @@ public final class GoldenDumper {
 
 	/**
 	 * The examples whose re-save WITH simulation data is dumped as well ({@code resave-data/rocket.ork.gz}).
-	 * Between them they hold stored events of every kind the examples have, stored warnings with their
-	 * sources, several branches (the boosters of "Deployable payload") and the 70 columns of "Pods--powered
-	 * with recovery deployment"; 0.4 MB compressed.
+	 * Between them they hold stored events of every kind the examples have but TUMBLE (which "3D printable
+	 * nose cone and fins", "Parallel booster staging" and "Three stage low power rocket" store), stored
+	 * warnings with their sources, several branches (the boosters of "Deployable payload") and the 70 columns
+	 * of "Pods--powered with recovery deployment"; 0.4 MB compressed.
 	 */
 	private static final List<String> DATA_RESAVE_EXAMPLES = List.of("example-deployable-payload",
 			"example-pods-powered-with-recovery-deployment");

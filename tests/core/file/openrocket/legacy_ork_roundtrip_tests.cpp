@@ -22,16 +22,24 @@
 //   RecordedOrkFiles.h) is the state of the file as loaded but for the changes of a first save,
 //   which are OpenRocket's own (kOpenRocketStateChanges: what OpenRocket's state of its own save
 //   of the file, as loaded, has in place of its state of the file, printed by the probe
-//   LegacyRoundTripProbe in the same lines) but for QtRocket's own (kOwnStateChanges). A first
-//   save writes the file as version 1.11; the motor a load could not find, and the empty motor of
-//   a configuration, are not written, nor the warnings of a load and the type of a duplicate
-//   motor; a simulation that was OUTDATED is LOADED, its stored data written with the precision
-//   of the saver (STORAGE_DECIMAL_PLACES) and its types in the order of the branch; a motor's
-//   ignition becomes its own (the last flag of "ign=" and of a motor of a configuration); a stage
-//   without a CD override loses the CD flag of the old <overridesubcomponents>. The ids the first
-//   load drew for the flight configurations of the designs of the formats 1.0 to 1.4, which name
-//   none, are written by the save and read back: they are told apart by the ids of the original
-//   document, as "random" (designBytesState(), idsOf), as in its state and in the probe's.
+//   LegacyRoundTripProbe in the same lines) but for QtRocket's own (kOwnStateChanges). The
+//   changes of a first save that kOpenRocketStateChanges holds: the file version becomes 1.11
+//   ("version=", eighteen files); the warnings of the load are gone, as nothing a save writes
+//   gives them again (the motors a load could not find or found twice, the references to presets
+//   the six presets do not hold, the unknown attributes of an appearance, the extension of an
+//   unknown id; "W" lines); the modification ids of simplerocket.ork ("modids"); the number of the
+//   change events of the load ("events rocket=", eighteen files); the motor a load could not find
+//   and the empty motor of a configuration are not written, and a motor's ignition becomes its
+//   own (the last flag of "ign=" and of a motor of a configuration); a stage loses the flags of
+//   the old <overridesubcomponents> for an override it does not have; the length and the tab
+//   position of the eight freeform fin sets of v1.6-apocd.ork change in the last digit; the
+//   photo setting smokeOpacity of v1.8-logo-rocket.ork is gone ("photo="); and the stored data are
+//   written with the precision of the saver (STORAGE_DECIMAL_PLACES), so the digests of their
+//   columns change ("col"). A simulation keeps its status (v1.9-chute-release.ork's OUTDATED one
+//   too) and its branches keep the order of their types. The ids the first load drew for the flight
+//   configurations a file does not name (the four of simplerocket.ork's simulations with an empty
+//   <configid>) are written by the save and read back: they are told apart by the ids of the
+//   original document, as "random" (designBytesState(), idsOf), as in its state and in the probe's.
 
 #include <algorithm>
 #include <array>

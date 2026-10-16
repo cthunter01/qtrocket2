@@ -896,8 +896,31 @@ std::string withDrawnIdsNumbered(std::string_view text, std::string_view origina
     return result;
 }
 
-std::string lineChanges(std::span<const std::string_view> before,
-                        std::span<const std::string_view> after)
+namespace
+{
+
+/// How lineChanges() and placedLineChanges() write a line.
+enum class ChangeForm
+{
+    /// "- <line>" / "+ <line>", without the indentation.
+    BARE,
+    /// "- <n>: <line>" / "+ <n>: <line>", the number of the line in its text and the line as it
+    /// is.
+    PLACED,
+};
+
+/// A line of a change in the form @p form: @p mark ('-' or '+'), the line @p line, the
+/// @p index-th of its text (from 0).
+[[nodiscard]] std::string changeLine(ChangeForm form, char mark, std::size_t index,
+                                     std::string_view line)
+{
+    return form == ChangeForm::BARE ? std::format("{} {}\n", mark, withoutIndentation(line))
+                                    : std::format("{} {}: {}\n", mark, index + 1, line);
+}
+
+/// The changes of lineChanges() between @p before and @p after, each line in the form @p form.
+[[nodiscard]] std::string changesOf(std::span<const std::string_view> before,
+                                    std::span<const std::string_view> after, ChangeForm form)
 {
     // The lines both start and end with stay out of the table.
     std::size_t start = 0;
@@ -944,14 +967,24 @@ std::string lineChanges(std::span<const std::string_view> before,
         else if (j == m ||
                  (i < n && common[((i + 1) * (m + 1)) + j] >= common[(i * (m + 1)) + j + 1]))
         {
-            changes += std::format("- {}\n", withoutIndentation(before[start + i++]));
+            changes += changeLine(form, '-', start + i, before[start + i]);
+            ++i;
         }
         else
         {
-            changes += std::format("+ {}\n", withoutIndentation(after[start + j++]));
+            changes += changeLine(form, '+', start + j, after[start + j]);
+            ++j;
         }
     }
     return changes;
+}
+
+}  // namespace
+
+std::string lineChanges(std::span<const std::string_view> before,
+                        std::span<const std::string_view> after)
+{
+    return changesOf(before, after, ChangeForm::BARE);
 }
 
 std::string lineChanges(std::string_view before, std::string_view after)
@@ -959,6 +992,13 @@ std::string lineChanges(std::string_view before, std::string_view after)
     const std::vector<std::string_view> a = lineViewsOf(before);
     const std::vector<std::string_view> b = lineViewsOf(after);
     return lineChanges(a, b);
+}
+
+std::string placedLineChanges(std::string_view before, std::string_view after)
+{
+    const std::vector<std::string_view> a = lineViewsOf(before);
+    const std::vector<std::string_view> b = lineViewsOf(after);
+    return changesOf(a, b, ChangeForm::PLACED);
 }
 
 std::string archiveChanges(std::span<const std::byte> first, std::span<const std::byte> second,
