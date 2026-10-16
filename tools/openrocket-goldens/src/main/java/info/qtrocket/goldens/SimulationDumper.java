@@ -220,7 +220,8 @@ final class SimulationDumper {
 		return null;
 	}
 
-	private static Map<String, Object> options(SimulationOptions options) {
+	/** The options of a simulation as its document writes them ({@code options}; InteropCheck compares them too). */
+	static Map<String, Object> options(SimulationOptions options) {
 		Map<String, Object> o = Json.object();
 		o.put("launchRodLength", options.getLaunchRodLength());
 		o.put("launchIntoWind", options.getLaunchIntoWind());
@@ -273,7 +274,11 @@ final class SimulationDumper {
 		return o;
 	}
 
-	private static List<Object> extensions(Simulation sim) {
+	/**
+	 * The extensions of a simulation as its document writes them ({@code extensions}; InteropCheck compares
+	 * them too).
+	 */
+	static List<Object> extensions(Simulation sim) {
 		List<Object> list = Json.array();
 		for (SimulationExtension extension : sim.getSimulationExtensions()) {
 			Map<String, Object> o = Json.object();

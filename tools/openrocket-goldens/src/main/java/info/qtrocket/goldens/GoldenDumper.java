@@ -403,7 +403,7 @@ public final class GoldenDumper {
 	 * ({@link #bootstrap}). The directory is deleted when the JVM exits (after the files in it, which
 	 * are registered for deletion later).
 	 */
-	private static Path useProcessDirectory(Path work) throws IOException {
+	static Path useProcessDirectory(Path work) throws IOException {
 		Path dir = work.resolve("process-" + ProcessHandle.current().pid());
 		Files.createDirectories(dir);
 		dir.toFile().deleteOnExit();
@@ -449,7 +449,7 @@ public final class GoldenDumper {
 	 * concurrent one while this one reads it). Returns the databases with their description for the
 	 * manifest.
 	 */
-	private static Environment bootstrap(Path core, Path processDirectory) throws Exception {
+	static Environment bootstrap(Path core, Path processDirectory) throws Exception {
 		// BaseTestCase.setUp()
 		Module testModule = new ServicesForTesting();
 		Application.setInjector(Guice.createInjector(Modules.override(testModule).with(new PluginModule())));
@@ -508,7 +508,7 @@ public final class GoldenDumper {
 	 * The databases of the run: the component presets and the motors the harness's injector binds, with
 	 * their description for the manifest ({@code databases}).
 	 */
-	private record Environment(Map<String, Object> databases, ComponentPresetDatabase presets,
+	record Environment(Map<String, Object> databases, ComponentPresetDatabase presets,
 			ThrustCurveMotorSetDatabase motors) {
 	}
 
@@ -517,7 +517,7 @@ public final class GoldenDumper {
 	 * alone (taken from the harness's preset database, which has to hold each of them once). Made after
 	 * every input of the other kinds is written, so that nothing it does at its creation can touch them.
 	 */
-	private static Injector legacyInjector(Environment environment) {
+	static Injector legacyInjector(Environment environment) {
 		List<ComponentPreset> chosen = new ArrayList<>();
 		Set<String> digests = new TreeSet<>();
 		for (ComponentPreset preset : environment.presets().listAll()) {
@@ -686,7 +686,7 @@ public final class GoldenDumper {
 	 * of one whose first entry is a directory (v1.6-preset-usage-decals-first.ork); QtRocket takes the
 	 * first *.ork entry.
 	 */
-	private static Path documentFirst(Path file, Path work) throws IOException {
+	static Path documentFirst(Path file, Path work) throws IOException {
 		byte[] bytes = Files.readAllBytes(file);
 		if (bytes.length < 4 || bytes[0] != 'P' || bytes[1] != 'K' || bytes[2] != 3 || bytes[3] != 4) {
 			return file;
@@ -980,7 +980,7 @@ public final class GoldenDumper {
 	}
 
 	/** OpenRocketSaver's XML of {@code doc}, with or without its simulation data. */
-	private static byte[] saveXml(OpenRocketDocument doc, boolean saveSimulationData) throws IOException {
+	static byte[] saveXml(OpenRocketDocument doc, boolean saveSimulationData) throws IOException {
 		StorageOptions options = new StorageOptions();
 		options.setSaveSimulationData(saveSimulationData);
 		WarningSet warnings = new WarningSet();

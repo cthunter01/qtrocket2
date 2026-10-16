@@ -400,6 +400,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenStableSimulations.cpp
     goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
+    goldens/ork_interop_saves_tests.cpp
     goldens/ork_resave_diff_golden_tests.cpp
     goldens/ork_roundtrip_golden_tests.cpp
     goldens/resave_golden_tests.cpp
