@@ -37,10 +37,10 @@ namespace
     return parsed;
 }
 
-/// The warning the type attribute @p type of a <warning> element asks for, with @p parameter
-/// as its number and @p text as its description.
-[[nodiscard]] std::unique_ptr<Warning> makeWarning(std::string_view type, double parameter,
-                                                   std::string text)
+}  // namespace
+
+std::unique_ptr<Warning> WarningHandler::makeWarning(std::string_view type, double parameter,
+                                                     std::string text)
 {
     if (type == "LargeAOA")
     {
@@ -57,8 +57,6 @@ namespace
     }
     return std::make_unique<Warning::Other>(Warning::fromString(std::move(text)));
 }
-
-}  // namespace
 
 WarningHandler::WarningHandler(const Rocket& rocket, WarningSet& warningSet)
   : m_rocket(&rocket), m_warningSet(&warningSet)

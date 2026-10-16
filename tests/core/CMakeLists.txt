@@ -350,6 +350,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/RadiusPositionSetterTests.cpp
     file/openrocket/recorded_ork_files_tests.cpp
     file/openrocket/rocket_element_tests.cpp
+    file/openrocket/save_bound_warnings_tests.cpp
     file/openrocket/save_load_tests.cpp
     file/openrocket/setter_robustness_tests.cpp
     file/openrocket/setter_table_tests.cpp

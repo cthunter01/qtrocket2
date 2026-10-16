@@ -36,6 +36,17 @@ public:
     ~TempDir()
     {
         std::error_code ignored;
+        // Windows removes no read-only file: whatever a test marked read-only is made writable
+        // first (not through a link, which may lead out of the directory).
+        for (auto entry = std::filesystem::recursive_directory_iterator(m_path, ignored);
+             entry != std::filesystem::recursive_directory_iterator(); entry.increment(ignored))
+        {
+            if (!entry->is_symlink(ignored))
+            {
+                std::filesystem::permissions(entry->path(), std::filesystem::perms::owner_write,
+                                             std::filesystem::perm_options::add, ignored);
+            }
+        }
         std::filesystem::remove_all(m_path, ignored);
     }
     TempDir(const TempDir&)            = delete;
@@ -74,6 +85,29 @@ public:
 private:
     std::filesystem::path m_path;
 };
+
+/// The permissions to write a file, for anyone.
+inline constexpr std::filesystem::perms kAnyWritePermission = std::filesystem::perms::owner_write |
+                                                              std::filesystem::perms::group_write |
+                                                              std::filesystem::perms::others_write;
+
+/// Whether @p file is marked read-only: no write permission for anyone (the read-only attribute
+/// on Windows).
+[[nodiscard]] inline bool isReadOnly(const std::filesystem::path& file)
+{
+    return (std::filesystem::status(file).permissions() & kAnyWritePermission) ==
+           std::filesystem::perms::none;
+}
+
+/// Marks @p file read-only (see isReadOnly()); whether that worked. A TempDir removes such a
+/// file too.
+[[nodiscard]] inline bool makeReadOnly(const std::filesystem::path& file)
+{
+    std::error_code error;
+    std::filesystem::permissions(file, kAnyWritePermission, std::filesystem::perm_options::remove,
+                                 error);
+    return !error && isReadOnly(file);
+}
 
 /// Makes a directory the current directory of the process while it lives, and the directory
 /// that was current before again when it ends. For a test of code that reads a file by a

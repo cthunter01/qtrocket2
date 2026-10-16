@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -8,6 +9,7 @@
 #include "QtRocket/file/simplesax/ElementHandler.h"
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
+#include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/Uuid.h"
@@ -105,6 +107,13 @@ class Rocket;
 class WarningHandler final : public AbstractElementHandler
 {
 public:
+    /// The warning a <warning> element whose type attribute is @p type makes, with @p parameter
+    /// as its number and @p text, the description, as its text (see the class comment), before
+    /// it gets the id, the priority and the sources that were read. OpenRocketSaver asks it too,
+    /// to count the stored warnings of a flight as this handler will read them back.
+    [[nodiscard]] static std::unique_ptr<Warning> makeWarning(std::string_view type,
+                                                              double parameter, std::string text);
+
     /// A handler of a <warning> element that looks the sources up in @p rocket and adds the
     /// warning to @p warningSet when the element closes. Both must outlive the handler.
     WarningHandler(const Rocket& rocket, WarningSet& warningSet);

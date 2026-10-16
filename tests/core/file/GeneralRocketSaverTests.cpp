@@ -92,7 +92,9 @@ using QtRocket::ZipArchive;
 using QtRocket::ZipWriter;
 using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::FailingAttachment;
+using QtRocket::Test::isReadOnly;
 using QtRocket::Test::LoaderEnvironment;
+using QtRocket::Test::makeReadOnly;
 using QtRocket::Test::MemoryAttachment;
 using QtRocket::Test::TempDir;
 
@@ -798,12 +800,18 @@ TEST(GeneralRocketSaver, KeepsTheWarningsOfTheLastSave)
     EXPECT_TRUE(saver.getWarnings().empty());
 }
 
-// The text of the warning for a file QtRocket would not open takes the bound from the loader.
+// The text of the warning for a file QtRocket would not open takes the bound from the loader, as
+// does the one for attachments the loader would not read.
 TEST(GeneralRocketSaver, TheBoundWarningNamesTheLoadersBound)
 {
     EXPECT_EQ(GeneralRocketSaver::fileBeyondLoaderBound(2000000000),
               "The saved file is 2000000000 bytes long; QtRocket loads a file of at most "
               "1073741824 bytes and will not open this one.");
+    EXPECT_EQ(GeneralRocketSaver::attachmentsBeyondLoaderBound(2, 40000000),
+              "Attachments of the saved file (decal images or thrust curves) are longer than "
+              "QtRocket reads: 2 of more than 33554432 bytes, the longest 40000000 bytes long. "
+              "QtRocket will not read them when it opens this file.");
+    EXPECT_EQ(QtRocket::Attachment::kMaxAttachmentBytes, std::size_t{33554432});
 }
 
 // An image left out (isIgnored()) is no longer left out once its turn has come, also when an image
@@ -1111,6 +1119,121 @@ TEST(GeneralRocketSaver, RunningOutOfMemoryIsAnErrorThatLeavesTheFile)
     EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
                             std::filesystem::directory_iterator()),
               1);
+}
+
+// The loader reads at most Attachment::kMaxAttachmentBytes bytes of an entry it reads as an
+// attachment (ZipFileAttachment): of a decal image of a byte more than that and one of that size,
+// the first is counted by attachmentsBeyondLoaderBound() (with the code that counts the thrust
+// curves too, whose test would need a motor of half a million points), and the archive is made
+// all the same. Loaded back, the longer image is given up at the bound (ZipWriter's local headers
+// do not declare the sizes; ZipFileAttachmentTests read an entry at the bound).
+TEST(GeneralRocketSaver, WarnsOfAttachmentsLongerThanTheLoaderReads)
+{
+    constexpr std::size_t kBound = QtRocket::Attachment::kMaxAttachmentBytes;
+    DecalDocument         design;
+    // The longer image first in the archive (the images are written in the order of their
+    // names), so that the reload reads it without the other.
+    std::ignore = design.document->getDecalImage(std::make_shared<MemoryAttachment>(
+        "decals/a-beyond.png", std::vector<std::byte>(kBound + 1, std::byte{'a'})));
+    design.nose->setAppearance(appearanceWith("decals/a-beyond.png"));
+    std::ignore = design.document->getDecalImage(std::make_shared<MemoryAttachment>(
+        "decals/b-at.png", std::vector<std::byte>(kBound, std::byte{'b'})));
+    design.body->setAppearance(appearanceWith("decals/b-at.png"));
+    const InMemoryPreferences            preferences;
+    GeneralRocketSaver                   saver(preferences);
+    const Result<std::vector<std::byte>> bytes =
+        saver.saveToBytes(*design.document, design.document->getDefaultStorageOptions());
+    ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
+    EXPECT_EQ(
+        warningTexts(saver.getWarnings()),
+        std::vector<std::string>{GeneralRocketSaver::attachmentsBeyondLoaderBound(1, kBound + 1)});
+
+    LoaderEnvironment            environment;
+    const Result<LoadedDocument> loaded = reload(environment, *bytes);
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    const std::shared_ptr<DecalImage> beyond =
+        loaded->document->findDecalImage("decals/a-beyond.png");
+    ASSERT_NE(beyond, nullptr);
+    const Result<std::vector<std::byte>> beyondBytes = beyond->getBytes();
+    ASSERT_FALSE(beyondBytes.has_value());
+    EXPECT_EQ(beyondBytes.error().message, "Input exceeds maximum size of 33554432 bytes");
+}
+
+/// "the old design" in the file @p name of @p directory, marked read-only; empty when that
+/// cannot be done.
+[[nodiscard]] std::filesystem::path readOnlyFile(const TempDir& directory, std::string_view name)
+{
+    const std::filesystem::path file = directory.write(name, "the old design");
+    return makeReadOnly(file) ? file : std::filesystem::path{};
+}
+
+// A save over a file marked read-only replaces it, as OpenRocket's does, and the new file is
+// read-only too (it keeps the old one's permissions; Java's would be writable). The save has the
+// warning fileWasReadOnly() (QtRocket's own, the user's answer of 2026-10-16) beside those of the
+// design; the file holds the archive of the design. A save over a writable file has no such
+// warning.
+TEST(GeneralRocketSaver, ReplacesAReadOnlyFileWithAWarning)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    document->getRocket().setName("bad\x01name");
+    const TempDir               directory;
+    const std::filesystem::path file = readOnlyFile(directory, "design.ork");
+    ASSERT_FALSE(file.empty());
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver saver(preferences, GeneralRocketSaver::Options{.entryTime = kEntryTime});
+    const Result<void> saved = saver.save(file, *document);
+    ASSERT_TRUE(saved.has_value()) << saved.error().toString();
+    std::vector<std::string> expected{std::string(OpenRocketSaver::kDroppedCharacters),
+                                      GeneralRocketSaver::fileWasReadOnly(file)};
+    std::ranges::sort(expected);
+    EXPECT_EQ(warningTexts(saver.getWarnings()), expected);
+    EXPECT_TRUE(isReadOnly(file));
+    const Result<std::vector<std::byte>> written = QtRocket::readFile(file);
+    ASSERT_TRUE(written.has_value());
+    const Result<std::vector<std::byte>> archive =
+        saver.saveToBytes(*document, document->getDefaultStorageOptions());
+    ASSERT_TRUE(archive.has_value());
+    EXPECT_EQ(*written, *archive);
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator(directory.path()),
+                            std::filesystem::directory_iterator()),
+              1);
+
+    // Writable again: an ordinary save.
+    std::filesystem::permissions(file, std::filesystem::perms::owner_write,
+                                 std::filesystem::perm_options::add);
+    ASSERT_TRUE(saver.save(file, *document).has_value());
+    EXPECT_EQ(warningTexts(saver.getWarnings()),
+              std::vector<std::string>{std::string(OpenRocketSaver::kDroppedCharacters)});
+}
+
+// A save over a read-only file that fails (a decal image is missing) leaves the file as it was,
+// read-only, and has its Error and no warning of the file.
+TEST(GeneralRocketSaver, AFailedSaveLeavesAReadOnlyFileAsItWas)
+{
+    DecalDocument design;
+    std::ignore =
+        design.document->getDecalImage(std::make_shared<FailingAttachment>("decals/a.png"));
+    design.nose->setAppearance(appearanceWith("decals/a.png"));
+    const TempDir               directory;
+    const std::filesystem::path file = readOnlyFile(directory, "design.ork");
+    ASSERT_FALSE(file.empty());
+    const InMemoryPreferences preferences;
+    GeneralRocketSaver        saver(preferences);
+    const Result<void>        saved = saver.save(file, *design.document);
+    ASSERT_FALSE(saved.has_value());
+    EXPECT_EQ(saved.error().code, ErrorCode::NOT_FOUND);
+    EXPECT_TRUE(saver.getWarnings().empty());
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "the old design");
+    EXPECT_TRUE(isReadOnly(file));
+}
+
+// The read-only warning names the file as UTF-8.
+TEST(GeneralRocketSaver, TheReadOnlyWarningNamesTheFile)
+{
+    EXPECT_EQ(GeneralRocketSaver::fileWasReadOnly(std::filesystem::path(u8"dir/d\u00E9sign.ork")),
+              "The file 'dir/d\xC3\xA9sign.ork' was read-only; QtRocket replaced it and left it "
+              "read-only.");
 }
 
 }  // namespace

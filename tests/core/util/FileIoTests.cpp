@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -21,6 +23,8 @@ namespace
 {
 
 using QtRocket::ErrorCode;
+using QtRocket::Test::isReadOnly;
+using QtRocket::Test::makeReadOnly;
 using QtRocket::Test::TempDir;
 
 TEST(FileIo, WritesAndReadsBytesAsTheyAre)
@@ -205,14 +209,20 @@ TEST(FileIo, WritesDataOfSeveralPiecesAndTextAsTheyAre)
 }
 
 // replaceFile() replaces a file with new data and makes a missing one; nothing else is left in
-// the directory.
+// the directory. Neither was read-only.
 TEST(FileIo, ReplaceFileReplacesOrMakesTheFile)
 {
     const TempDir               dir;
     const std::filesystem::path file = dir.write("design.ork", "the old design, which is longer");
-    ASSERT_TRUE(QtRocket::replaceFile(file, QtRocket::stringToBytes("new")));
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
+        QtRocket::replaceFile(file, QtRocket::stringToBytes("new"));
+    ASSERT_TRUE(replaced.has_value()) << replaced.error().toString();
+    EXPECT_FALSE(replaced->wasReadOnly);
     EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
-    ASSERT_TRUE(QtRocket::replaceFile(dir.resolve("other.ork"), QtRocket::stringToBytes("other")));
+    const QtRocket::Result<QtRocket::FileReplacement> made =
+        QtRocket::replaceFile(dir.resolve("other.ork"), QtRocket::stringToBytes("other"));
+    ASSERT_TRUE(made.has_value()) << made.error().toString();
+    EXPECT_FALSE(made->wasReadOnly);
     EXPECT_EQ(QtRocket::readTextFile(dir.resolve("other.ork")).value_or(""), "other");
     EXPECT_EQ(namesIn(dir.path()), (std::vector<std::string>{"design.ork", "other.ork"}));
 }
@@ -224,7 +234,7 @@ TEST(FileIo, AFailedReplaceLeavesTheTargetAndNoTemporaryFile)
     const TempDir               dir;
     const std::filesystem::path target = dir.resolve("target");
     std::ignore                        = dir.write("target/inside.txt", "inside");
-    const QtRocket::Result<void> replaced =
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
         QtRocket::replaceFile(target, QtRocket::stringToBytes("new"));
     ASSERT_FALSE(replaced.has_value());
     EXPECT_EQ(replaced.error().code, ErrorCode::IO);
@@ -240,17 +250,17 @@ TEST(FileIo, AFailedReplaceLeavesTheTargetAndNoTemporaryFile)
 // of replaceFileWith() are not asked for (Java makes the temporary file before it writes).
 TEST(FileIo, ReplacingAFileInAMissingDirectoryFailsBeforeTheDataAreAsked)
 {
-    const TempDir                dir;
-    const std::filesystem::path  missing = dir.resolve("none");
-    const QtRocket::Result<void> replaced =
+    const TempDir                                     dir;
+    const std::filesystem::path                       missing = dir.resolve("none");
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
         QtRocket::replaceFile(missing / "file.ork", QtRocket::stringToBytes("x"));
     ASSERT_FALSE(replaced.has_value());
     EXPECT_EQ(replaced.error().code, ErrorCode::IO);
     EXPECT_EQ(replaced.error().message,
               "cannot create a temporary file in '" + QtRocket::pathToUtf8(missing) + "'");
 
-    bool                         asked = false;
-    const QtRocket::Result<void> with  = QtRocket::replaceFileWith(
+    bool                                              asked = false;
+    const QtRocket::Result<QtRocket::FileReplacement> with  = QtRocket::replaceFileWith(
         missing / "file.ork", [&asked] -> QtRocket::Result<std::vector<std::byte>> {
             asked = true;
             return std::vector<std::byte>{};
@@ -265,8 +275,8 @@ TEST(FileIo, ReplacingAFileInAMissingDirectoryFailsBeforeTheDataAreAsked)
 [[nodiscard]] std::pair<QtRocket::Error, std::string> failingReplace(
     const std::filesystem::path& file)
 {
-    std::string                  seen;
-    const QtRocket::Result<void> replaced =
+    std::string                                       seen;
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
         QtRocket::replaceFileWith(file, [&seen, &file] -> QtRocket::Result<std::vector<std::byte>> {
             for (const std::string& name : namesIn(file.parent_path()))
             {
@@ -328,36 +338,73 @@ TEST(FileIo, AnExceptionOfTheDataLeavesNoTemporaryFile)
     EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
 }
 
-/// The permissions to write a file, for anyone.
-constexpr std::filesystem::perms kAnyWrite = std::filesystem::perms::owner_write |
-                                             std::filesystem::perms::group_write |
-                                             std::filesystem::perms::others_write;
-
 // A file marked read-only (no write permission for anyone: the read-only attribute on Windows)
-// is not replaced, on every platform (a rename replaces it on Linux and macOS and fails on
-// Windows): the failure says so before a temporary file is made, and the file stays.
-TEST(FileIo, AReadOnlyFileIsNotReplaced)
+// is replaced as any other, as OpenRocket replaces it, and the new file is read-only too; the
+// result says that it was read-only. (A rename replaces such a file on Linux and macOS; on
+// Windows its read-only attribute is cleared for the rename.) Nothing else is left behind.
+TEST(FileIo, AReadOnlyFileIsReplacedAndStaysReadOnly)
 {
     const TempDir               dir;
-    const std::filesystem::path file = dir.write("design.ork", "kept");
-    std::error_code             error;
-    std::filesystem::permissions(file, kAnyWrite, std::filesystem::perm_options::remove, error);
-    ASSERT_FALSE(error) << error.message();
-    const QtRocket::Result<void> replaced =
+    const std::filesystem::path file = dir.write("design.ork", "old");
+    ASSERT_TRUE(makeReadOnly(file));
+    const QtRocket::Result<QtRocket::FileReplacement> replaced =
         QtRocket::replaceFile(file, QtRocket::stringToBytes("new"));
-    // Writable again, so that the directory can be removed on every platform.
-    std::filesystem::permissions(file, std::filesystem::perms::owner_write,
-                                 std::filesystem::perm_options::add, error);
-    ASSERT_FALSE(replaced.has_value());
-    EXPECT_EQ(replaced.error().code, ErrorCode::IO);
-    EXPECT_EQ(replaced.error().message,
-              "cannot replace '" + QtRocket::pathToUtf8(file) + "': the file is read-only");
-    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "kept");
+    ASSERT_TRUE(replaced.has_value()) << replaced.error().toString();
+    EXPECT_TRUE(replaced->wasReadOnly);
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+    EXPECT_TRUE(isReadOnly(file));
     EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
 }
 
+// A replacement of a read-only file that fails before the rename (here the data) leaves the file
+// as it was, read-only, and no temporary file.
+TEST(FileIo, AFailedReplaceLeavesAReadOnlyFileAsItWas)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "old");
+    ASSERT_TRUE(makeReadOnly(file));
+    const auto [error, seen] = failingReplace(file);
+    EXPECT_EQ(error.message, "no data");
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "old");
+    EXPECT_TRUE(isReadOnly(file));
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
+}
+
+// A read-only file that is open elsewhere: on Windows a rename cannot replace an open file, so
+// the replacement fails after the read-only attribute was cleared for it, which is then set
+// again; the file stays as it was, and the temporary file, which took the file's permissions
+// and so is read-only too, is removed all the same. On Linux and macOS a rename replaces an open
+// file as any other.
+TEST(FileIo, AReadOnlyFileThatIsOpenIsLeftAsItWasWhereItCannotBeReplaced)
+{
+    const TempDir               dir;
+    const std::filesystem::path file = dir.write("design.ork", "old");
+    ASSERT_TRUE(makeReadOnly(file));
+    QtRocket::Result<QtRocket::FileReplacement> replaced;
+    {
+        const std::ifstream open(file, std::ios::binary);
+        ASSERT_TRUE(open.is_open());
+        replaced = QtRocket::replaceFile(file, QtRocket::stringToBytes("new"));
+    }
+    EXPECT_TRUE(isReadOnly(file));
+    EXPECT_EQ(namesIn(dir.path()), std::vector<std::string>{"design.ork"});
+#ifdef _WIN32
+    ASSERT_FALSE(replaced.has_value());
+    EXPECT_EQ(replaced.error().code, ErrorCode::IO);
+    EXPECT_TRUE(replaced.error().message.starts_with("cannot replace '" +
+                                                     QtRocket::pathToUtf8(file) + "': "))
+        << replaced.error().message;
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "old");
+#else
+    ASSERT_TRUE(replaced.has_value()) << replaced.error().toString();
+    EXPECT_TRUE(replaced->wasReadOnly);
+    EXPECT_EQ(QtRocket::readTextFile(file).value_or(""), "new");
+#endif
+}
+
 // A file that is replaced keeps its permissions: a design only its owner may read stays so
-// (POSIX; Windows has the read-only attribute alone, which refuses the replacement).
+// (POSIX; Windows has the read-only attribute alone, which AReadOnlyFileIsReplacedAndStaysReadOnly
+// covers).
 TEST(FileIo, AReplacedFileKeepsItsPermissions)
 {
 #ifdef _WIN32

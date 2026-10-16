@@ -73,8 +73,12 @@ class Preferences;
 /// (FileIo replaceFileWith()), then the archive is made and written to it, and the temporary
 /// file is renamed to the file, which it replaces. A failure of any step leaves the file as it
 /// was and removes the temporary file; a directory that cannot take the file fails before the
-/// document is written (Java's order: the temporary file is made first). A file marked
-/// read-only is not replaced, and the file keeps the permissions it had (FileIo replaceFile()).
+/// document is written (Java's order: the temporary file is made first). The new file has the
+/// permissions the file had (FileIo replaceFile()). A file marked read-only (no write
+/// permission for anyone, the read-only attribute on Windows) is replaced as OpenRocket
+/// replaces it, and so stays read-only; a save that replaced one has the save warning
+/// fileWasReadOnly() (the user's answer of 2026-10-16), and a save that fails has its Error
+/// alone.
 ///
 /// The caller (the command line, later the GUI) sets the document's file and its saved state
 /// after a successful save (OpenRocketDocument::setFile(), setSaved(true)), as OpenRocket's
@@ -83,8 +87,31 @@ class Preferences;
 /// The warnings and the errors of the last save are getWarnings() and getErrors(), and its missing
 /// decal image getMissingDecal(); all three are cleared when a save begins, a save() that fails
 /// before the design is written included (Java: the warnings when the design begins to be
-/// written; the missing image is the exception's). QtRocket's own warnings of the container are
-/// fileBeyondLoaderBound() and decalImageRenamed().
+/// written; the missing image is the exception's). They are what a caller shows the user (the
+/// command line saves nothing; the GUI will). QtRocket's own warnings of the container are
+/// decalImageRenamed(), fileWasReadOnly() and those of the loader's bounds below.
+///
+/// THE LOADER'S BOUNDS (decision O12 of tier 10, and the user's answer of 2026-10-16: a save
+/// warning for every bound of QtRocket's loader that the saved design exceeds). The file is
+/// written whatever they say. The bounds of the text of rocket.ork are OpenRocketSaver's, whose
+/// warnings this save has too; those of the archive are checked here, as the loader meets them:
+/// - an archive longer than GeneralRocketLoader::kMaxFileBytes, which the loader does not open:
+///   fileBeyondLoaderBound();
+/// - decal images and embedded thrust curves longer than Attachment::kMaxAttachmentBytes, the
+///   most a ZipFileAttachment of the loader reads of an entry (a decal image is read when it is
+///   shown or saved again, an embedded thrust curve when the motor database lacks its motor):
+///   attachmentsBeyondLoaderBound(), one warning for all of them. Every embedded thrust curve
+///   counts, also that of a motor the database has, which a reader elsewhere may lack.
+/// The other bounds of the archive and its reader cannot be exceeded by a file this saver
+/// writes: an archive beyond 2 GiB, an entry name longer than 65535 bytes, a backslash or a
+/// NUL character in one (ZipWriter refuses to write each of them, and the save fails, writing
+/// nothing); the 2 GiB of a gzip stream (no gzip stream is written); the rules by which the
+/// loader finds the document (rocket.ork is the first entry, and its text starts with the XML
+/// declaration and <openrocket within its first 300 bytes); the rule that a design read from a
+/// plain file reads only the decal images and thrust curves in its directory (DesignFiles: the
+/// loader reads the entries of an archive whatever their names); the preview image (the loader
+/// does not read it); and ZipFileMotorLoader::kMaxNesting (the motor files of the database,
+/// which a design load does not read).
 ///
 /// Deviations from OpenRocket:
 /// - The archive is built in memory and returned (saveToBytes()) or written whole; Java streams
@@ -110,12 +137,13 @@ class Preferences;
 ///   writes them as RockSimMotorWriter escapes them).
 /// - A decal that names an image the document does not know fails as a missing image (Java's
 ///   decal holds its image, so there is no such decal).
-/// - fileBeyondLoaderBound() and decalImageRenamed(): warnings of QtRocket's (decision O12 of
-///   tier 10; the reviews of tier 10a).
+/// - fileBeyondLoaderBound(), attachmentsBeyondLoaderBound(), decalImageRenamed() and
+///   fileWasReadOnly(): warnings of QtRocket's (decision O12 of tier 10; the reviews of tier
+///   10a; the user's answers of 2026-10-16). Java has none of them.
 /// - No "<file>-bak" is made while the file is replaced (see FileIo replaceFile()), and the
-///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp"). A
-///   file marked read-only is not replaced, and the new file has the permissions of the old one
-///   (Java replaces a read-only file, and the new one has the permissions of a new file).
+///   temporary file is "QtRocket-<16 hexadecimal digits>.tmp" (Java: "ORSave<digits>.tmp"). The
+///   new file has the permissions of the old one, so a read-only file that is replaced stays
+///   read-only (Java: the permissions of a new file, so it becomes writable).
 class GeneralRocketSaver final
 {
 public:
@@ -133,6 +161,20 @@ public:
     /// file is <bytes> bytes long; QtRocket loads a file of at most <kMaxFileBytes> bytes and
     /// will not open this one."
     [[nodiscard]] static std::string fileBeyondLoaderBound(std::size_t bytes);
+
+    /// The save warning for @p count entries of the archive that the loader reads as attachments
+    /// (decal images and embedded thrust curves) and that are longer than
+    /// Attachment::kMaxAttachmentBytes, the longest of them @p longest bytes long (QtRocket's
+    /// text): "Attachments of the saved file (decal images or thrust curves) are longer than
+    /// QtRocket reads: <count> of more than <kMaxAttachmentBytes> bytes, the longest <longest>
+    /// bytes long. QtRocket will not read them when it opens this file."
+    [[nodiscard]] static std::string attachmentsBeyondLoaderBound(std::size_t count,
+                                                                  std::size_t longest);
+
+    /// The save warning for a save that replaced @p file, a file marked read-only (QtRocket's
+    /// text, the user's answer of 2026-10-16): "The file '<file>' was read-only; QtRocket
+    /// replaced it and left it read-only." (@p file as pathToUtf8() spells it).
+    [[nodiscard]] static std::string fileWasReadOnly(const std::filesystem::path& file);
 
     /// The Error of a save with storage options of @p fileType (ROCKSIM or RASAERO): "QtRocket
     /// cannot save a design in the <name> format yet." (QtRocket's text).
@@ -202,13 +244,29 @@ private:
     [[nodiscard]] Result<std::vector<std::byte>> buildArchive(OpenRocketDocument&   document,
                                                               const StorageOptions& options);
 
+    /// The attachments of an archive that are longer than the loader reads
+    /// (attachmentsBeyondLoaderBound()).
+    struct LargeAttachments
+    {
+        /// How many there are.
+        std::size_t count{0};
+        /// The bytes of the longest.
+        std::size_t longest{0};
+
+        /// Counts an attachment of @p bytes bytes when it is longer than
+        /// Attachment::kMaxAttachmentBytes.
+        void add(std::size_t bytes) noexcept;
+    };
+
     /// Adds the decal images the components of @p document show to @p archive (step 3 of the
-    /// class comment).
-    [[nodiscard]] Result<void> addDecals(OpenRocketDocument& document, ZipWriter& archive);
+    /// class comment), each to @p large.
+    [[nodiscard]] Result<void> addDecals(OpenRocketDocument& document, ZipWriter& archive,
+                                         LargeAttachments& large);
 
     /// Adds the thrust curves of the motors of @p document to @p archive (step 4 of the class
-    /// comment).
-    void addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive);
+    /// comment), each to @p large.
+    void addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive,
+                         LargeAttachments& large);
 
     const Preferences*          m_preferences;
     Options                     m_options;
