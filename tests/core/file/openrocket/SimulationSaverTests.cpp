@@ -1763,7 +1763,9 @@ TEST(SimulationSaver, WarnsWhenTheFileOfATableCannotBeReadAgain)
 // Decision E3 of tier 10: the keys of an extension's configuration and the attributes of the
 // landing dispersion settings, which OpenRocket writes unescaped, are escaped, and the file reads
 // back with every text as it was. The attributes beyond runs and seed (and beyond parameter,
-// distribution and spread) follow by name; one whose name is no XML name is left out.
+// distribution and spread) follow by name; one whose name is no XML name is left out, with the
+// save warning OpenRocketSaver::dispersionAttributesLeftOut() (save_bound_warnings_tests.cpp has
+// the rule).
 TEST(SimulationSaver, EscapesTheKeysAndAttributesOpenRocketWritesUnescaped)
 {
     OneSimulation design;
@@ -1790,6 +1792,9 @@ TEST(SimulationSaver, EscapesTheKeysAndAttributesOpenRocketWritesUnescaped)
               "zeta=\"z&amp;\">\n"
               "        <uncertainty parameter=\"p&amp;\" spread=\"0.1\" extra=\"&#39;e&#39;\"/>\n"
               "      </landingdispersion>\n");
+    EXPECT_EQ(saved.warnings.size(), 1U);
+    EXPECT_TRUE(saved.warnings.contains(
+        QtRocket::Warning::fromString(OpenRocketSaver::dispersionAttributesLeftOut(2))));
 
     LoaderEnvironment            environment;
     const Result<LoadedDocument> loaded = reload(environment, saved.text);

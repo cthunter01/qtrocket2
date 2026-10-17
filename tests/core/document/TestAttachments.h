@@ -26,6 +26,13 @@ public:
     {
     }
 
+    /// An attachment whose bytes are @p bytes (for many bytes, which stringToBytes() copies one
+    /// at a time).
+    MemoryAttachment(std::string name, std::vector<std::byte> bytes)
+      : Attachment(std::move(name)), m_bytes(std::move(bytes))
+    {
+    }
+
     [[nodiscard]] Result<std::vector<std::byte>> getBytes() const override
     {
         ++m_reads;

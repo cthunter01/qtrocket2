@@ -30,10 +30,7 @@
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
 #include "QtRocket/preferences/Preferences.h"
-#include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
-#include "QtRocket/rocket/InsideColorComponent.h"
-#include "QtRocket/rocket/InsideColorComponentHandler.h"
 #include "QtRocket/rocket/MotorConfiguration.h"
 #include "QtRocket/rocket/MotorMount.h"
 #include "QtRocket/rocket/Rocket.h"
@@ -47,37 +44,6 @@ namespace QtRocket
 
 namespace
 {
-
-/// The name of the image of the decal of @p appearance, appended to @p names when there is one.
-void addDecalName(std::vector<std::string>& names, const std::optional<Appearance>& appearance)
-{
-    if (appearance.has_value() && appearance->getTexture().has_value())
-    {
-        names.push_back(appearance->getTexture()->getImageName());
-    }
-}
-
-/// The names of the decal images the components of @p rocket show, the rocket included: of the
-/// decal of each component's appearance and of its inside appearance, each name once, sorted
-/// with Strings::javaCompareTo() (Java: a TreeSet of the images, which compare by name).
-[[nodiscard]] std::vector<std::string> usedDecalNames(const Rocket& rocket)
-{
-    std::vector<std::string> names;
-    for (const RocketComponent& component : rocket.subtree(true))
-    {
-        addDecalName(names, component.getAppearance());
-        if (const auto* const inside = dynamic_cast<const InsideColorComponent*>(&component))
-        {
-            addDecalName(names, inside->getInsideColorComponentHandler().getInsideAppearance());
-        }
-    }
-    std::ranges::sort(names, [](const std::string& a, const std::string& b) {
-        return Strings::javaCompareTo(a, b) < 0;
-    });
-    const auto duplicates = std::ranges::unique(names);
-    names.erase(duplicates.begin(), duplicates.end());
-    return names;
-}
 
 /// The thrust-curve motors of @p rocket (Java: collectUniqueMotors()): of every component that is
 /// a motor mount (isMotorMount()), in pre-order, the motor of each flight configuration of the
@@ -154,6 +120,21 @@ std::string GeneralRocketSaver::fileBeyondLoaderBound(std::size_t bytes)
         bytes, GeneralRocketLoader::kMaxFileBytes);
 }
 
+std::string GeneralRocketSaver::attachmentsBeyondLoaderBound(std::size_t count, std::size_t longest)
+{
+    return std::format(
+        "Attachments of the saved file (decal images or thrust curves) are longer than QtRocket "
+        "reads: {} of more than {} bytes, the longest {} bytes long. QtRocket will not read them "
+        "when it opens this file.",
+        count, Attachment::kMaxAttachmentBytes, longest);
+}
+
+std::string GeneralRocketSaver::fileWasReadOnly(const std::filesystem::path& file)
+{
+    return std::format("The file '{}' was read-only; QtRocket replaced it and left it read-only.",
+                       pathToUtf8(file));
+}
+
 std::string GeneralRocketSaver::unsupportedFileType(StorageOptions::FileType fileType)
 {
     return std::format("QtRocket cannot save a design in the {} format yet.", name(fileType));
@@ -189,14 +170,21 @@ Result<void> GeneralRocketSaver::save(const std::filesystem::path& file,
     clearLastSave();
     // Java: the temporary file is made in the directory of the file first, the archive is
     // written into it, and it is renamed over the file.
-    const Result<void> saved =
+    const Result<FileReplacement> saved =
         replaceFileWith(file, [this, &document, &options] { return archive(document, options); });
-    if (saved.has_value())
+    if (!saved.has_value())
     {
-        // Only when the file is there (Java clears it after the archive was written).
-        options.clearPreviewImage();
+        return std::unexpected(saved.error());
     }
-    return saved;
+    // QtRocket's own (the user's answer of 2026-10-16): Java replaces a read-only file without
+    // a word.
+    if (saved->wasReadOnly)
+    {
+        m_warnings.add(fileWasReadOnly(file));
+    }
+    // Only when the file is there (Java clears it after the archive was written).
+    options.clearPreviewImage();
+    return {};
 }
 
 Result<std::vector<std::byte>> GeneralRocketSaver::saveToBytes(OpenRocketDocument& document,
@@ -257,25 +245,46 @@ Result<std::vector<std::byte>> GeneralRocketSaver::buildArchive(OpenRocketDocume
     }
 
     // Now the decal images.
-    if (const Result<void> decals = addDecals(document, archive); !decals.has_value())
+    LargeAttachments large;
+    if (const Result<void> decals = addDecals(document, archive, large); !decals.has_value())
     {
         return std::unexpected(decals.error());
     }
 
     // The thrust curves of the motors.
-    addThrustCurves(document, archive);
+    addThrustCurves(document, archive, large);
 
     Result<std::vector<std::byte>> bytes = archive.finish();
-    if (bytes.has_value() && bytes->size() > GeneralRocketLoader::kMaxFileBytes)
+    if (!bytes.has_value())
+    {
+        return bytes;
+    }
+    // The bounds of the archive that QtRocket's loader has, in the order in which it meets them
+    // (decision O12 of tier 10 and the user's answer of 2026-10-16; see the class comment).
+    if (bytes->size() > GeneralRocketLoader::kMaxFileBytes)
     {
         m_warnings.add(fileBeyondLoaderBound(bytes->size()));
+    }
+    if (large.count > 0)
+    {
+        m_warnings.add(attachmentsBeyondLoaderBound(large.count, large.longest));
     }
     return bytes;
 }
 
-Result<void> GeneralRocketSaver::addDecals(OpenRocketDocument& document, ZipWriter& archive)
+void GeneralRocketSaver::LargeAttachments::add(std::size_t bytes) noexcept
 {
-    for (const std::string& name : usedDecalNames(document.getRocket()))
+    if (bytes > Attachment::kMaxAttachmentBytes)
+    {
+        ++count;
+        longest = std::max(longest, bytes);
+    }
+}
+
+Result<void> GeneralRocketSaver::addDecals(OpenRocketDocument& document, ZipWriter& archive,
+                                           LargeAttachments& large)
+{
+    for (const std::string& name : OpenRocketSaver::decalImageNames(document.getRocket()))
     {
         const std::shared_ptr<DecalImage> image = document.findDecalImage(name);
         if (image == nullptr)
@@ -304,12 +313,14 @@ Result<void> GeneralRocketSaver::addDecals(OpenRocketDocument& document, ZipWrit
         {
             m_warnings.add(decalImageRenamed(image->getName(), stored));
         }
+        large.add(bytes->size());
         archive.add(stored, *bytes);
     }
     return {};
 }
 
-void GeneralRocketSaver::addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive)
+void GeneralRocketSaver::addThrustCurves(const OpenRocketDocument& document, ZipWriter& archive,
+                                         LargeAttachments& large)
 {
     for (const std::shared_ptr<const ThrustCurveMotor>& motor : uniqueMotors(document.getRocket()))
     {
@@ -321,6 +332,7 @@ void GeneralRocketSaver::addThrustCurves(const OpenRocketDocument& document, Zip
         {
             m_warnings.add(OpenRocketSaver::kDroppedCharacters);
         }
+        large.add(rse.size());
         archive.add(std::format("thrustcurves/{}.rse", motor->getDigest()),
                     std::as_bytes(std::span(rse)));
     }

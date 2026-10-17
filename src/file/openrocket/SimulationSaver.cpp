@@ -6,17 +6,18 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
-#include <initializer_list>
 #include <map>
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "QtRocket/aero/lookup/CsvMachAoALookup.h"
+#include "QtRocket/file/XmlScanner.h"
 #include "QtRocket/file/openrocket/OrkWriter.h"
 #include "QtRocket/logging/Message.h"
 #include "QtRocket/logging/MessagePriority.h"
@@ -246,37 +247,39 @@ void writeConditions(const Simulation& simulation, OrkWriter& writer, WarningSet
 
 // ---------------------------------------------------------------------- landing dispersion
 
-/// Whether @p name can be the name of an XML attribute, as far as the saver checks: not empty,
-/// starting with a letter, '_', ':' or a byte of a multi-byte character, and going on with
-/// those, digits, '-' and '.'.
-[[nodiscard]] bool isXmlName(std::string_view name) noexcept
-{
-    const auto startsName = [](char c) {
-        const auto byte = static_cast<unsigned char>(c);
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == ':' ||
-               byte >= 0x80;
-    };
-    if (name.empty() || !startsName(name.front()))
-    {
-        return false;
-    }
-    return std::ranges::all_of(name, [&startsName](char c) {
-        return startsName(c) || (c >= '0' && c <= '9') || c == '-' || c == '.';
-    });
-}
+/// The attributes of the <landingdispersion> element that are written first, in this order.
+constexpr std::array<std::string_view, 2> kSettingsFirst{"runs", "seed"};
+/// The attributes of an <uncertainty> element that are written first, in this order.
+constexpr std::array<std::string_view, 3> kUncertaintyFirst{"parameter", "distribution", "spread"};
 
-/// The attributes @p attributes as XML text, each with a space before it: those named in
-/// @p first first, in that order, then the others by name; an attribute that is not there, or
-/// whose name is no XML name, is left out.
-[[nodiscard]] std::string attributesText(const LandingDispersionSettings::Attributes& attributes,
-                                         std::initializer_list<std::string_view>      first,
-                                         OrkWriter&                                   writer)
+/// The attributes of one element of the landing dispersion settings that the saver writes, and
+/// how many it leaves out.
+struct WrittenAttributes
 {
-    std::string text;
-    const auto  append = [&text, &writer](std::string_view name, std::string_view value) {
-        if (isXmlName(name))
+    /// The names and values, in the order they are written.
+    std::vector<std::pair<std::string_view, std::string_view>> attributes;
+    std::size_t                                                leftOut{0};
+};
+
+/// The attributes of @p attributes that the saver writes: those named in @p first first, in that
+/// order, then the others by name; of them those whose names a design file can hold
+/// (XmlScanner::isPlainAttributeName(), the loader's rule for an XML 1.0 document), and of
+/// those the first XmlScanner::kMaxAttributes, the most the loader takes of an element. The
+/// others are left out, and counted.
+[[nodiscard]] WrittenAttributes writtenAttributes(
+    const LandingDispersionSettings::Attributes& attributes,
+    std::span<const std::string_view>            first)
+{
+    WrittenAttributes written;
+    const auto        take = [&written](std::string_view name, std::string_view value) {
+        if (XmlScanner::isPlainAttributeName(name) &&
+            written.attributes.size() < XmlScanner::kMaxAttributes)
         {
-            text += std::format(R"( {}="{}")", name, writer.escape(value));
+            written.attributes.emplace_back(name, value);
+        }
+        else
+        {
+            ++written.leftOut;
         }
     };
     for (const std::string_view name : first)
@@ -284,15 +287,27 @@ void writeConditions(const Simulation& simulation, OrkWriter& writer, WarningSet
         const auto found = attributes.find(name);
         if (found != attributes.end())
         {
-            append(name, found->second);
+            take(name, found->second);
         }
     }
     for (const auto& [name, value] : attributes)
     {
         if (std::ranges::find(first, std::string_view{name}) == first.end())
         {
-            append(name, value);
+            take(name, value);
         }
+    }
+    return written;
+}
+
+/// The attributes writtenAttributes() gives as XML text, each with a space before it.
+[[nodiscard]] std::string attributesText(const LandingDispersionSettings::Attributes& attributes,
+                                         std::span<const std::string_view> first, OrkWriter& writer)
+{
+    std::string text;
+    for (const auto& [name, value] : writtenAttributes(attributes, first).attributes)
+    {
+        text += std::format(R"( {}="{}")", name, writer.escape(value));
     }
     return text;
 }
@@ -310,13 +325,12 @@ void saveLandingDispersionSettings(const std::optional<LandingDispersionSettings
     // HOOK(monte-carlo): Java writes its MonteCarloSettings: the run count and the seed, then
     // per MonteCarloParameter in its order the uncertainty with Double.toString() of the spread.
     writer.line(std::format("<landingdispersion{}>",
-                            attributesText(settings->getAttributes(), {"runs", "seed"}, writer)));
+                            attributesText(settings->getAttributes(), kSettingsFirst, writer)));
     writer.indent();
     for (const LandingDispersionSettings::Attributes& uncertainty : settings->getUncertainties())
     {
-        writer.line(std::format(
-            "<uncertainty{}/>",
-            attributesText(uncertainty, {"parameter", "distribution", "spread"}, writer)));
+        writer.line(std::format("<uncertainty{}/>",
+                                attributesText(uncertainty, kUncertaintyFirst, writer)));
     }
     writer.outdent();
     writer.line("</landingdispersion>");
@@ -572,6 +586,16 @@ void SimulationSaver::saveSimulation(Simulation& simulation, bool saveSimulation
 
     writer.outdent();
     writer.line("</simulation>");
+}
+
+std::size_t SimulationSaver::attributesLeftOut(const LandingDispersionSettings& settings)
+{
+    std::size_t leftOut = writtenAttributes(settings.getAttributes(), kSettingsFirst).leftOut;
+    for (const LandingDispersionSettings::Attributes& uncertainty : settings.getUncertainties())
+    {
+        leftOut += writtenAttributes(uncertainty, kUncertaintyFirst).leftOut;
+    }
+    return leftOut;
 }
 
 void SimulationSaver::saveFlightDataBranch(const FlightDataBranch& branch, OrkWriter& writer)

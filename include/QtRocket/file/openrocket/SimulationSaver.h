@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -9,6 +10,7 @@ namespace QtRocket
 {
 
 class FlightDataBranch;
+class LandingDispersionSettings;
 class OrkWriter;
 class Simulation;
 
@@ -72,10 +74,17 @@ class Simulation;
 ///   until the Monte Carlo analysis exists: HOOK(monte-carlo)): the element's attributes "runs"
 ///   and "seed" first, then the others by name; the uncertainties in their stored order, each
 ///   with "parameter", "distribution" and "spread" first and then its other attributes by name;
-///   every value escaped, an attribute that is not there left out, and an attribute whose name
-///   is no XML name (only a caller can make one) left out. Java writes its MonteCarloSettings:
-///   the number of runs and the seed, then the uncertainties in the order of its parameters,
-///   each spread as Double.toString() prints it.
+///   every value escaped, and an attribute that is not there left out. These are the one place
+///   where the names of attributes come from the design, so an attribute that the loader could
+///   not read back is left out too (attributesLeftOut(); decision 3 of tier 10, never write an
+///   unreadable file, and the user's answer of 2026-10-16): one whose name is not a name of an XML
+///   1.0 document without a prefix of at most XmlScanner::kMaxNameLength characters, or is
+///   "xmlns" (XmlScanner::isPlainAttributeName(); a caller can make such a name, and so can an
+///   XML 1.1 file, whose names are wider, or a name of characters that are not well-formed
+///   UTF-8), and every attribute of an element beyond its first XmlScanner::kMaxAttributes.
+///   OpenRocketSaver warns of them (dispersionAttributesLeftOut()). Java writes its
+///   MonteCarloSettings: the number of runs and the seed, then the uncertainties in the order of
+///   its parameters, each spread as Double.toString() prints it.
 /// - A source of a stored warning that names no component of the rocket is written with the id
 ///   the warning keeps (MessageSource::removed(), from the file that was loaded); Java writes
 ///   the id of its REMOVED component, a random one per process.
@@ -108,6 +117,11 @@ public:
     /// then one <datapoint> per row, every value with 6 decimals
     /// (Strings::doubleToString()).
     static void saveFlightDataBranch(const FlightDataBranch& branch, OrkWriter& writer);
+
+    /// How many attributes of @p settings saveSimulation() leaves out (see the deviations): of
+    /// the element and of every uncertainty, those whose names a design file cannot hold and
+    /// those beyond the first XmlScanner::kMaxAttributes of an element.
+    [[nodiscard]] static std::size_t attributesLeftOut(const LandingDispersionSettings& settings);
 
     /// The save warning for a lookup table whose rows could not be embedded: the options of the
     /// simulation @p simulation hold no rows for the element @p element ("draglookup",

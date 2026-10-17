@@ -176,6 +176,10 @@ public:
         if (!m_path.empty())
         {
             std::error_code ignored;
+            // A temporary file that took the permissions of a read-only target is read-only
+            // itself, and Windows does not remove a read-only file.
+            std::filesystem::permissions(m_path, std::filesystem::perms::owner_write,
+                                         std::filesystem::perm_options::add, ignored);
             std::filesystem::remove(m_path, ignored);
         }
     }
@@ -198,49 +202,129 @@ constexpr std::filesystem::perms kWritePermissions = std::filesystem::perms::own
                                                      std::filesystem::perms::group_write |
                                                      std::filesystem::perms::others_write;
 
-/// replaceFile(): a temporary file in the directory of @p target, which @p write fills and which
-/// is then renamed to @p target; removed again on any failure. A target marked read-only (no
-/// write permission for anyone; the read-only attribute on Windows) is refused before anything
-/// is made, and a target that is there passes its permissions on to the file that replaces it.
-[[nodiscard]] Result<void> replaceThrough(
-    const std::filesystem::path&                                     target,
-    const std::function<Result<void>(const std::filesystem::path&)>& write)
+/// Whether a rename cannot replace a file marked read-only: Windows's MoveFileEx, through which
+/// std::filesystem::rename() replaces a file there, refuses one; rename() on Linux and macOS
+/// replaces it as it is.
+#ifdef _WIN32
+constexpr bool kRenameRefusesReadOnlyTarget = true;
+#else
+constexpr bool kRenameRefusesReadOnlyTarget = false;
+#endif
+
+/// The file replaceThrough() is to replace.
+struct ReplacedTarget
+{
+    /// The permissions (std::filesystem::perms::all of them) of the file the target names, a
+    /// link followed, when it is a regular file that has permissions; none when there is no such
+    /// file. The new file gets them (see replaceThrough()).
+    std::optional<std::filesystem::perms> permissions;
+    /// Whether the directory entry of the target is that file itself, not a link to it: the
+    /// rename replaces the entry, so only a file's own read-only attribute can stand in its way.
+    bool isFile{false};
+
+    /// Whether the target names a file marked read-only: no write permission for anyone (the
+    /// read-only attribute on Windows).
+    [[nodiscard]] bool isReadOnly() const noexcept
+    {
+        return permissions.has_value() &&
+               (*permissions & kWritePermissions) == std::filesystem::perms::none;
+    }
+};
+
+/// What stands at @p target now (see ReplacedTarget).
+[[nodiscard]] ReplacedTarget replacedTarget(const std::filesystem::path& target)
 {
     std::error_code                    error;
     const std::filesystem::file_status existing = std::filesystem::status(target, error);
-    const bool exists = !error && std::filesystem::is_regular_file(existing) &&
-                        existing.permissions() != std::filesystem::perms::unknown;
-    if (exists && (existing.permissions() & kWritePermissions) == std::filesystem::perms::none)
+    if (error || !std::filesystem::is_regular_file(existing) ||
+        existing.permissions() == std::filesystem::perms::unknown)
     {
-        return fail(ErrorCode::IO,
-                    std::format("cannot replace '{}': the file is read-only", pathToUtf8(target)));
+        return {};
     }
-    const Result<std::filesystem::path> created = createTemporaryFile(target.parent_path());
+    const std::filesystem::file_status entry = std::filesystem::symlink_status(target, error);
+    return {.permissions = existing.permissions() & std::filesystem::perms::all,
+            .isFile      = !error && std::filesystem::is_regular_file(entry)};
+}
+
+/// Renames @p temporary to @p target, which it replaces. Where a rename cannot replace a file
+/// marked read-only (kRenameRefusesReadOnlyTarget), such a target (@p replaced) has its
+/// read-only attribute cleared first and set again when the rename fails, so that a failure
+/// leaves it as it was. Only a target that is the file itself is cleared, never through a link
+/// (perm_options::nofollow): the rename replaces a link, not the file it points to, which must
+/// stay as it is.
+[[nodiscard]] Result<void> renameOver(const std::filesystem::path& temporary,
+                                      const std::filesystem::path& target,
+                                      const ReplacedTarget&        replaced)
+{
+    const auto cannotReplace = [&target](const std::error_code& error) {
+        return fail(ErrorCode::IO,
+                    std::format("cannot replace '{}': {}", pathToUtf8(target), error.message()));
+    };
+    const bool clearsReadOnly =
+        kRenameRefusesReadOnlyTarget && replaced.isFile && replaced.isReadOnly();
+    std::error_code error;
+    if (clearsReadOnly)
+    {
+        std::filesystem::permissions(
+            target, std::filesystem::perms::owner_write,
+            std::filesystem::perm_options::add | std::filesystem::perm_options::nofollow, error);
+        if (error)
+        {
+            return cannotReplace(error);
+        }
+    }
+    std::filesystem::rename(temporary, target, error);
+    if (error)
+    {
+        if (clearsReadOnly)
+        {
+            std::error_code ignored;
+            std::filesystem::permissions(
+                target, replaced.permissions.value_or(std::filesystem::perms::none),
+                std::filesystem::perm_options::replace | std::filesystem::perm_options::nofollow,
+                ignored);
+        }
+        return cannotReplace(error);
+    }
+    return {};
+}
+
+/// replaceFile(): a temporary file in the directory of @p target, which @p write fills and which
+/// is then renamed to @p target; removed again on any failure. A target that is there passes its
+/// permissions on to the file that replaces it, read-only included, with read permission for
+/// its owner added (see renameOver() for a read-only target).
+[[nodiscard]] Result<FileReplacement> replaceThrough(
+    const std::filesystem::path&                                     target,
+    const std::function<Result<void>(const std::filesystem::path&)>& write)
+{
+    const ReplacedTarget                replaced = replacedTarget(target);
+    const Result<std::filesystem::path> created  = createTemporaryFile(target.parent_path());
     if (!created.has_value())
     {
         return std::unexpected(created.error());
     }
     TemporaryFile temporary(*created);
-    if (Result<void> written = write(temporary.path()); !written.has_value())
+    if (const Result<void> written = write(temporary.path()); !written.has_value())
     {
-        return written;
+        return std::unexpected(written.error());
     }
-    if (exists)
+    if (replaced.permissions.has_value())
     {
         // The new file is the old one to whoever may read or write it (Java's new file has the
-        // permissions a new file gets). Best effort: a file system without permissions keeps
-        // its own.
-        std::filesystem::permissions(temporary.path(),
-                                     existing.permissions() & std::filesystem::perms::all, error);
+        // permissions a new file gets), but its owner can always read it: a file of no
+        // permissions at all would otherwise be one that its owner cannot open after the save
+        // (QtRocket's rule). Best effort: a file system without permissions keeps its own.
+        std::error_code ignored;
+        std::filesystem::permissions(
+            temporary.path(), *replaced.permissions | std::filesystem::perms::owner_read, ignored);
     }
-    std::filesystem::rename(temporary.path(), target, error);
-    if (error)
+    if (const Result<void> renamed = renameOver(temporary.path(), target, replaced);
+        !renamed.has_value())
     {
-        return fail(ErrorCode::IO,
-                    std::format("cannot replace '{}': {}", pathToUtf8(target), error.message()));
+        return std::unexpected(renamed.error());
     }
     temporary.release();
-    return {};
+    return FileReplacement{.wasReadOnly = replaced.isReadOnly()};
 }
 
 }  // namespace
@@ -293,15 +377,17 @@ Result<void> writeTextFile(const std::filesystem::path& path, std::string_view t
     return closeAfterWriting(out, path);
 }
 
-Result<void> replaceFile(const std::filesystem::path& target, std::span<const std::byte> data)
+Result<FileReplacement> replaceFile(const std::filesystem::path& target,
+                                    std::span<const std::byte>   data)
 {
     return replaceThrough(target, [data](const std::filesystem::path& temporary) {
         return writeFile(temporary, data);
     });
 }
 
-Result<void> replaceFileWith(const std::filesystem::path&                           target,
-                             const std::function<Result<std::vector<std::byte>>()>& contents)
+Result<FileReplacement> replaceFileWith(
+    const std::filesystem::path&                           target,
+    const std::function<Result<std::vector<std::byte>>()>& contents)
 {
     return replaceThrough(target,
                           [&contents](const std::filesystem::path& temporary) -> Result<void> {
