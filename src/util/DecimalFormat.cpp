@@ -32,13 +32,16 @@ constexpr int kFractionDigitLimit = 340;
 constexpr std::string_view kInfinitySign = "\xE2\x88\x9E";
 
 /// A decimal number as its significant digits and the place of the point: the value is
-/// 0.<digits> * 10^pointPosition. Zero has no digits.
+/// 0.<digits> * 10^pointPosition. Zero has no digits and the point position 0; otherwise the
+/// first digit is not a zero.
 struct DecimalDigits
 {
     std::string digits;
     int         pointPosition{0};
 
     [[nodiscard]] int count() const noexcept { return static_cast<int>(digits.size()); }
+
+    [[nodiscard]] bool isZero() const noexcept { return digits.empty(); }
 
     /// The digit of 10^@p power, '0' where the number has none.
     [[nodiscard]] char digitOfPower(int power) const
@@ -50,18 +53,21 @@ struct DecimalDigits
     /// The power of ten of the last digit, the point position for zero.
     [[nodiscard]] int lastPower() const noexcept { return pointPosition - count(); }
 
-    [[nodiscard]] bool isZero() const { return digits.find_first_not_of('0') == std::string::npos; }
-
     void dropTrailingZeros()
     {
         const std::size_t last = digits.find_last_not_of('0');
-        digits.resize(last == std::string::npos ? std::min<std::size_t>(digits.size(), 1)
-                                                : last + 1);
+        digits.resize(last == std::string::npos ? 0 : last + 1);
+    }
+
+    void becomeZero()
+    {
+        digits.clear();
+        pointPosition = 0;
     }
 };
 
-/// The digits JDK 17's DecimalFormat starts from, with FloatingDecimal's two flags, which tell
-/// where the double lies relative to them.
+/// The number DecimalFormat rounds, with FloatingDecimal's two flags, which tell where the double
+/// lies relative to its digits.
 struct StartingDigits
 {
     DecimalDigits number;
@@ -69,85 +75,70 @@ struct StartingDigits
     bool          convertedExact{false};
 };
 
-/// The digits of FloatingDecimal's conversion (not the shortest ones) as Double.toString writes
-/// them, from the first non-zero digit on, because JDK 17 reads them back from that text. The text
-/// adds zeros: up to the point and one after it for a whole number below 10^7 ("980.0"), and a
-/// second digit in E-form ("5.0E-6"). The second one matters when the value is rounded just before
-/// its first digit, see roundsUp(); the others are dropped before rounding.
+/// JDK 17's DecimalFormat starts from FloatingDecimal's digits in the compatible format (not the
+/// shortest ones), which it reads back from Double.toString's text. That text adds zeros (up to
+/// the point and one after it for a whole number below 10^7, "980.0", and a second digit in
+/// E-form), but they never change a result, so they are left out here. Rounding drops trailing
+/// zeros before it cuts whenever it keeps at least one digit. It keeps none only for a number
+/// below one unit of the last place kept (point position -maxFraction, at most 0), where the text
+/// adds a zero only in E-form, below 10^-3, and there the conversion has already forced a second
+/// digit ("50" for 5e-6).
 [[nodiscard]] StartingDigits startingDigits(double magnitude)
 {
     const FloatingDecimal::BinaryToAscii converted = FloatingDecimal::binaryToAscii(magnitude);
-    StartingDigits                       start;
-    start.convertedUp     = converted.digitsRoundedUp;
-    start.convertedExact  = converted.decimalDigitsExact;
-    DecimalDigits& number = start.number;
-    if (converted.digits == "0")
+    StartingDigits                       start{.number         = {},
+                                               .convertedUp    = converted.digitsRoundedUp,
+                                               .convertedExact = converted.decimalDigitsExact};
+    if (converted.digits != "0")
     {
-        return start;
-    }
-    number.digits        = converted.digits;
-    number.pointPosition = converted.decimalExponent;
-    const int exponent   = number.pointPosition;
-    if (exponent >= 1 && exponent <= 7)
-    {
-        number.digits.append(static_cast<std::size_t>(std::max(0, exponent - number.count())), '0');
-        if (number.count() == exponent)
-        {
-            number.digits += '0';
-        }
-    }
-    else if ((exponent < -2 || exponent > 7) && number.count() == 1)
-    {
-        number.digits += '0';
+        start.number.digits        = converted.digits;
+        start.number.pointPosition = converted.decimalExponent;
     }
     return start;
 }
 
-/// Whether keeping the first @p keep digits rounds the kept part up, under RoundingMode.HALF_EVEN
-/// applied to the double's binary value as JDK 17 decides it from the digits and the two flags of
-/// the conversion. A first dropped digit other than 5 decides alone. After a 5, any non-zero digit
-/// means above the tie; zeros alone (which occur only when nothing is kept, the zeros coming from
-/// the text) count as a tie, rounded to the even zero. A 5 that is the last digit is a tie of the
-/// digits only: the double lies below it when the conversion rounded up to it, above it when the
-/// conversion was not exact, and only an exact tie goes to the even neighbour.
-[[nodiscard]] bool roundsUp(const DecimalDigits& number, int keep, bool convertedUp,
-                            bool convertedExact)
+/// Where the digits from index @p keep on lie against half a unit of the last kept digit: -1
+/// below, 0 at, 1 above, for the double these digits stand for, as JDK 17 decides it. A first
+/// dropped digit other than 5 decides alone. After a 5, any non-zero digit is above, and zeros
+/// alone count as half a unit; they occur only when nothing is kept, as the conversion's own
+/// trailing zeros, and JDK 17 does not look further there: with "0.#####" it formats 5e-6, whose
+/// double lies above 5e-6 and whose digits are "50", as "0". A 5 that is the last digit is half a
+/// unit in the digits only: the double is there when the conversion was exact, below when the
+/// conversion rounded up to the 5, and above otherwise.
+[[nodiscard]] int compareDroppedWithHalf(const StartingDigits& start, std::size_t keep)
 {
-    if (keep >= number.count())
-    {
-        return false;
-    }
-    const auto cut   = static_cast<std::size_t>(keep);
-    const char first = number.digits[cut];
+    const std::string& digits = start.number.digits;
+    const char         first  = digits[keep];
     if (first != '5')
     {
-        return first > '5';
+        return first < '5' ? -1 : 1;
     }
-    if (cut + 1 < number.digits.size())
+    if (keep + 1 < digits.size())
     {
-        return number.digits.find_first_not_of('0', cut + 1) != std::string::npos;
+        return digits.find_first_not_of('0', keep + 1) == std::string::npos ? 0 : 1;
     }
-    if (convertedUp)
+    if (start.convertedExact)
     {
-        return false;
+        return 0;
     }
-    if (!convertedExact)
-    {
-        return true;
-    }
-    return cut > 0 && (number.digits[cut - 1] - '0') % 2 != 0;
+    return start.convertedUp ? -1 : 1;
 }
 
-/// Keeps the first @p keep digits (@p keep >= 0), adding one to the last kept digit when @p up,
-/// and drops trailing zeros. A carry out of the first digit leaves "1" one place higher.
-void keepDigits(DecimalDigits& number, int keep, bool up)
+/// Keeps the first @p keep digits of the number (@p keep >= 0), rounding the double it stands for
+/// with RoundingMode.HALF_EVEN: up above half a unit of the last kept digit, and at half a unit
+/// only to an even digit (zero counting as even when nothing is kept). A carry out of the first
+/// digit leaves "1" one place higher; trailing zeros are dropped.
+void keepRounded(StartingDigits& start, int keep)
 {
+    DecimalDigits& number = start.number;
     if (keep >= number.count())
     {
         return;
     }
-    auto length = static_cast<std::size_t>(keep);
-    if (up)
+    auto       length  = static_cast<std::size_t>(keep);
+    const int  dropped = compareDroppedWithHalf(start, length);
+    const bool odd     = length > 0 && (number.digits[length - 1] - '0') % 2 != 0;
+    if (dropped > 0 || (dropped == 0 && odd))
     {
         while (length > 0 && number.digits[length - 1] == '9')
         {
@@ -163,31 +154,33 @@ void keepDigits(DecimalDigits& number, int keep, bool up)
     }
     number.digits.resize(length);
     number.dropTrailingZeros();
+    if (number.isZero())
+    {
+        number.becomeZero();
+    }
 }
 
-/// Rounds @p number half to even, as JDK 17 does, to @p maxFraction fraction digits.
-void roundToFractionDigits(DecimalDigits& number, int maxFraction, bool convertedUp,
-                           bool convertedExact)
+/// Rounds the number half to even, as JDK 17 does, to @p maxFraction fraction digits.
+void roundToFractionDigits(StartingDigits& start, int maxFraction)
 {
-    const int keep = maxFraction + number.pointPosition;
+    const int keep = maxFraction + start.number.pointPosition;
     if (keep < 0)
     {
-        number.digits.clear();  // below half of the last place: zero
+        start.number.becomeZero();  // below half of the last place
         return;
     }
     if (keep > 0)
     {
-        number.dropTrailingZeros();
+        start.number.dropTrailingZeros();
     }
-    keepDigits(number, keep, roundsUp(number, keep, convertedUp, convertedExact));
+    keepRounded(start, keep);
 }
 
-/// Rounds @p number half to even, as JDK 17 does, to @p maxDigits significant digits.
-void roundToSignificantDigits(DecimalDigits& number, int maxDigits, bool convertedUp,
-                              bool convertedExact)
+/// Rounds the number half to even, as JDK 17 does, to @p maxDigits significant digits.
+void roundToSignificantDigits(StartingDigits& start, int maxDigits)
 {
-    number.dropTrailingZeros();
-    keepDigits(number, maxDigits, roundsUp(number, maxDigits, convertedUp, convertedExact));
+    start.number.dropTrailingZeros();
+    keepRounded(start, maxDigits);
 }
 
 /// floor(@p numerator / @p denominator) for a positive denominator.
@@ -197,7 +190,7 @@ void roundToSignificantDigits(DecimalDigits& number, int maxDigits, bool convert
     return (numerator % denominator != 0 && numerator < 0) ? quotient - 1 : quotient;
 }
 
-/// The digit counts in effect for a double (the pattern's, within the limits above).
+/// The digit counts in effect for a double: the pattern's, within the limits above.
 struct DigitCounts
 {
     int  minInteger{0};
@@ -206,6 +199,16 @@ struct DigitCounts
     int  maxFraction{0};
     bool pointAlwaysShown{false};
     int  minExponentDigits{0};
+
+    [[nodiscard]] DigitCounts limitedForADouble() const
+    {
+        DigitCounts limited = *this;
+        limited.minInteger  = std::min(minInteger, kIntegerDigitLimit);
+        limited.maxInteger  = std::min(maxInteger, kIntegerDigitLimit);
+        limited.minFraction = std::min(minFraction, kFractionDigitLimit);
+        limited.maxFraction = std::min(maxFraction, kFractionDigitLimit);
+        return limited;
+    }
 };
 
 /// Plain notation: the integer digits, at least minInteger of them (leading zeros) and no more
@@ -242,34 +245,36 @@ void writePlain(std::string& text, const DecimalDigits& number, const DigitCount
 /// Scientific notation. With more maximum than minimum integer digits, and more than one, the
 /// exponent is a multiple of the maximum and one to that many digits come before the point
 /// ("##0.##E0": 12345 is "12.345E3"); otherwise the minimum integer digits come before it. The
-/// digits written are at least the minimum integer plus minimum fraction digits. Zero has the
-/// exponent 0.
+/// mantissa has at least the minimum integer plus minimum fraction digits, padded with zeros.
+/// Zero has the exponent 0 and, before the point, one digit or the minimum integer digits.
 void writeScientific(std::string& text, const DecimalDigits& number, const DigitCounts& counts)
 {
-    const bool repeating = counts.maxInteger > 1 && counts.maxInteger > counts.minInteger;
-    const int  exponent =
-        repeating ? floorDivide(number.pointPosition - 1, counts.maxInteger) * counts.maxInteger
-                  : number.pointPosition - counts.minInteger;
-    const bool zero         = number.isZero();
-    const int  zeroIntegers = repeating ? 1 : counts.minInteger;
-    const int  beforePoint  = zero ? zeroIntegers : number.pointPosition - exponent;
-    const int  written =
-        std::max({number.count(), counts.minInteger + counts.minFraction, beforePoint});
-    for (int i = 0; i < written; ++i)
+    const bool repeating   = counts.maxInteger > 1 && counts.maxInteger > counts.minInteger;
+    int        exponent    = 0;
+    int        beforePoint = repeating ? 1 : counts.minInteger;
+    if (!number.isZero())
     {
-        if (i == beforePoint)
-        {
-            text += '.';
-        }
-        text += i < number.count() ? number.digits[static_cast<std::size_t>(i)] : '0';
+        exponent =
+            repeating ? floorDivide(number.pointPosition - 1, counts.maxInteger) * counts.maxInteger
+                      : number.pointPosition - counts.minInteger;
+        beforePoint = number.pointPosition - exponent;
     }
-    if (counts.pointAlwaysShown && written == beforePoint)
+    std::string mantissa = number.digits;
+    mantissa.resize(static_cast<std::size_t>(std::max(
+                        {number.count(), counts.minInteger + counts.minFraction, beforePoint})),
+                    '0');
+    const auto point = static_cast<std::size_t>(beforePoint);
+    if (point < mantissa.size())
     {
-        text += '.';
+        mantissa.insert(point, 1, '.');
     }
-    const int shownExponent = zero ? 0 : exponent;
-    text += shownExponent < 0 ? "E-" : "E";
-    text += std::format("{:0{}}", std::abs(shownExponent), counts.minExponentDigits);
+    else if (counts.pointAlwaysShown)
+    {
+        mantissa += '.';
+    }
+    text += mantissa;
+    text += std::format("E{}{:0{}}", exponent < 0 ? "-" : "", std::abs(exponent),
+                        counts.minExponentDigits);
 }
 
 /// The parts of a pattern: integer digits '#'* '0'*, then optionally '.' and fraction digits
@@ -376,37 +381,23 @@ std::string DecimalFormat::format(double value) const
     {
         return text + std::string(kInfinitySign);
     }
-
-    const DigitCounts counts{
-        .minInteger        = std::min(m_minIntegerDigits, kIntegerDigitLimit),
-        .maxInteger        = std::min(m_maxIntegerDigits, kIntegerDigitLimit),
-        .minFraction       = std::min(m_minFractionDigits, kFractionDigitLimit),
-        .maxFraction       = std::min(m_maxFractionDigits, kFractionDigitLimit),
-        .pointAlwaysShown  = m_decimalSeparatorAlwaysShown,
-        .minExponentDigits = m_minExponentDigits,
-    };
-    StartingDigits start  = startingDigits(std::abs(value));
-    DecimalDigits& number = start.number;
+    const DigitCounts counts = DigitCounts{.minInteger        = m_minIntegerDigits,
+                                           .maxInteger        = m_maxIntegerDigits,
+                                           .minFraction       = m_minFractionDigits,
+                                           .maxFraction       = m_maxFractionDigits,
+                                           .pointAlwaysShown  = m_decimalSeparatorAlwaysShown,
+                                           .minExponentDigits = m_minExponentDigits}
+                                   .limitedForADouble();
+    StartingDigits    start  = startingDigits(std::abs(value));
     if (m_useExponentialNotation)
     {
-        roundToSignificantDigits(number, counts.maxInteger + counts.maxFraction, start.convertedUp,
-                                 start.convertedExact);
+        roundToSignificantDigits(start, counts.maxInteger + counts.maxFraction);
+        writeScientific(text, start.number, counts);
     }
     else
     {
-        roundToFractionDigits(number, counts.maxFraction, start.convertedUp, start.convertedExact);
-    }
-    if (number.isZero())
-    {
-        number.pointPosition = 0;
-    }
-    if (m_useExponentialNotation)
-    {
-        writeScientific(text, number, counts);
-    }
-    else
-    {
-        writePlain(text, number, counts);
+        roundToFractionDigits(start, counts.maxFraction);
+        writePlain(text, start.number, counts);
     }
     return text;
 }

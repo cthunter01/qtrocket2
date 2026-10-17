@@ -6,15 +6,18 @@
 /// prints (as up to JDK 18) and the digits its java.text.DecimalFormat starts from (as up to JDK 25
 /// at least). It is not a shortest-digits conversion (JDK-4511638). Where it departs from one, as
 /// FloatingDecimal.cpp describes in detail, with the values that show it in a JDK 17 run:
-/// - an integer below 2^63 is written from its exact value, rounded half up from 2^58 on to the
-///   largest power of ten not above a quarter of the gap between neighbouring doubles
+/// - an integer below 2^63 is written from its exact value, rounded from 2^58 on to the largest
+///   power of ten not above a quarter of the gap between neighbouring doubles
 ///   ("1.15292150460684698E18" for 2^60);
-/// - a value exactly a margin below a shorter decimal keeps its longer digits when JDK 17 computes
-///   in 64-bit integers ("9.999999999999999E22" for 1e23), and that 64-bit test wraps around for
-///   some values between 2^84 and 2^85;
+/// - a shorter decimal exactly at an end of the rounding interval is not taken, except at the
+///   upper end when JDK 17 computes in big integers: 1e23 lies half a gap below 10^23 and, in
+///   64-bit integers, prints as "9.999999999999999E22"; that 64-bit test wraps around for some
+///   values between 2^84 and 2^85, and counts both ends as reached for some between 2^85 and
+///   2^86, where ten times the margin overflows;
 /// - below a power of two both margins are a quarter of the gap above, so 2^69 gets a digit more
 ///   than it needs ("5.9029581035870565E20");
-/// - in E-form a second digit is always generated ("4.9E-324" for the smallest subnormal);
+/// - outside the integers below 2^63, a second digit is always generated in E-form (from 10^8 and
+///   below 10^-3: "4.9E-324" for the smallest subnormal, digits "10" for 1e-4 but "1" for 1e-3);
 /// - the decimal exponent is estimated, and when the estimate is one too high for a value within
 ///   its margin below a power of ten, the digits come from a leading zero rounded up, which shows
 ///   in digitsRoundedUp.
@@ -42,8 +45,8 @@ struct BinaryToAscii
 
 /// Converts a finite @p value, its sign included. The compatible format, which Double.toString and
 /// DecimalFormat use, forces a second digit only in E-form (below 10^-3 and from 10^8); with it
-/// off, as java.util.Formatter converts, the second digit is always forced ("50" for 0.5, where the
-/// compatible format gives "5").
+/// off, as java.util.Formatter converts, every value except an integer below 2^63 gets a second
+/// digit ("50" for 0.5, where the compatible format gives "5", but "5" for 5.0 in both).
 /// @throws BugError for NaN or an infinity, which have no digits
 [[nodiscard]] BinaryToAscii binaryToAscii(double value, bool compatibleFormat = true);
 

@@ -3,12 +3,15 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <string>
-#include <utility>
+#include <string_view>
+#include <system_error>
 
 #include "QtRocket/util/BugError.h"
 
@@ -18,7 +21,7 @@
 // - Guy L. Steele Jr. and Jon L White, "How to Print Floating-Point Numbers Accurately" (PLDI
 //   1990), and Robert G. Burger and R. Kent Dybvig, "Printing Floating-Point Numbers Quickly and
 //   Accurately" (PLDI 1996): free-format digit generation with exact integers. The value is the
-//   fraction r/s, every double within m/s of it reads back as the same double, and digits are
+//   fraction r/s, every number within m/s of it reads back as this double, and digits are
 //   produced while neither end of that interval is reached; the last digit is then rounded.
 // - David M. Gay, "Correctly Rounded Binary-Decimal and Decimal-Binary Conversions" (AT&T Bell
 //   Laboratories Numerical Analysis Manuscript 90-10, 1990): the first decimal exponent estimated
@@ -27,7 +30,8 @@
 // JDK 17 does not print the shortest digits, and FloatingDecimal.h lists how its output departs
 // from them. Each departure is reproduced below where it arises; the comments there say what JDK
 // 17 does and how that is known (its output for the values named, or, for the two flags, its
-// internal state read through jdk.internal.math in a JDK 17 run).
+// internal state read through jdk.internal.math in a JDK 17 run), and which details are only
+// those of QtRocket's earlier conversion (commit 219df0d), whose output this one keeps.
 
 namespace QtRocket::FloatingDecimal
 {
@@ -44,6 +48,9 @@ constexpr int           kExponentMask = 0x7FF;
 constexpr int kUnitExponentOffset = 1075;
 /// The power of two of every subnormal's last significand bit.
 constexpr int kSubnormalUnitExponent = 1 - kUnitExponentOffset;
+
+/// The smallest n with 10 * n >= 2^63: ten times a number below it fits a signed 64-bit integer.
+constexpr std::uint64_t kJdkWordLimit = 922337203685477581;
 
 /// A non-negative integer of at most kLimbCount 32-bit limbs, least significant first. The
 /// conversion's numbers stay below 2^800 (a subnormal scaled by 10^324, its margin grown by the
@@ -62,6 +69,13 @@ public:
     }
 
     [[nodiscard]] bool isZero() const noexcept { return m_length == 0; }
+
+    /// The value, which must fit 64 bits.
+    [[nodiscard]] std::uint64_t toWord() const
+    {
+        QTROCKET_ASSERT(m_length <= 2);
+        return std::uint64_t{m_limbs.at(0)} | (std::uint64_t{m_limbs.at(1)} << 32U);
+    }
 
     /// The sign of this minus @p other.
     [[nodiscard]] int compare(const Natural& other) const
@@ -225,6 +239,8 @@ private:
     std::size_t                           m_length{0};
 };
 
+constexpr Natural kJdkWordLimitNatural{kJdkWordLimit};
+
 /// A positive finite double as significand * 2^unitExponent, the significand holding the implicit
 /// bit of a normal number.
 struct BinaryValue
@@ -255,15 +271,23 @@ struct BinaryValue
 }
 
 /// Gay's estimate of floor(log10(value)): log10 of the significand scaled into [1, 2), taken from
-/// its tangent at 1.5, plus the binary exponent times log10(2). The tangent lies above the
-/// logarithm, so the estimate is exact or one too high (it exceeds log10 by less than 0.032), and
-/// never too low: within a binade it rises with the value, and for the smallest double at or above
-/// each power of ten it is at least that power's exponent (checked for every power). The constants,
-/// shorter than Gay's, and the order of evaluation without fused multiply-adds are those of the
-/// conversion this file replaced, which took them from JDK 17: the estimate decides which values
-/// take the leading-zero branch of generateDigits(), which shows in digitsRoundedUp, and the size
-/// of the scaled numbers, which decides JDK 17's arithmetic. Whether the shorter constants matter
-/// is not known: Gay's longer ones gave the same output for every value of the differential test.
+/// a straight line through log10(1.5) with the slope of the logarithm there, plus the binary
+/// exponent times log10(2). It exceeds log10(value) by less than 0.032, and its constants, a
+/// little short of the true ones (0.176091259 is 5.6e-11 below log10(1.5)), can put it below
+/// log10(value) by less than 1e-10 near a significand of 1.5. So the estimate is exact or one too
+/// high wherever it is not too low at the smallest double at or above a power of ten: within a
+/// binade it rises with the value, and floor(log10) steps only at powers of ten. The test
+/// TheDecimalExponentEstimateIsNeverTooLow converts those doubles; an estimate too low there
+/// would make the first digit ten or more and trip an assertion of the digit generation.
+///
+/// The constants and the order of evaluation, without fused multiply-adds, are those of QtRocket's
+/// earlier conversion, which took them from JDK 17: the estimate decides which values take the
+/// leading-zero branch of writeDigits(), which shows in digitsRoundedUp, and the size of the scaled
+/// numbers, which decides JDK 17's arithmetic. Gay's longer constants would floor differently for
+/// about 1.4e9 doubles, none of them next to a power of ten. A check during the review of this file
+/// found no output that changes: in full for the one window of them (1.2e6 doubles in the binade
+/// of 2^86, decimal exponent 26) where the estimate also changes JDK 17's arithmetic, and on a
+/// sample of the others.
 [[nodiscard]] int estimateDecimalExponent(const BinaryValue& value)
 {
     const int    topBit     = value.topBitExponent();
@@ -275,13 +299,14 @@ struct BinaryValue
 }
 
 /// JDK 17 prints an integer below 2^63 from its exact value, not from the digit loop: "1234" for
-/// 1234.0 whatever the format. From 2^58 on, it rounds the value half up to the largest power of
-/// ten that is not above a quarter of the gap between neighbouring doubles (10 from 2^58, 100
-/// from 2^61): 2^60 = 1152921504606846976 prints as "1.15292150460684698E18" (JDK 17's
-/// Double.toString). No double there lies halfway between two candidates (a multiple of 64 never
-/// ends in 5, nor a multiple of 512 in 50), so half up cannot be told from half even. It flags
-/// neither digitsRoundedUp nor decimalDigitsExact here (read in a JDK 17 run). Returns false for
-/// any other @p magnitude.
+/// 1234.0 whatever the format. From 2^58 on, it rounds the value to the largest power of ten that
+/// is not above a quarter of the gap between neighbouring doubles (10 from 2^58, 100 from 2^61):
+/// 2^60 = 1152921504606846976 prints as "1.15292150460684698E18" (JDK 17's Double.toString). The
+/// rounding here is half up, as QtRocket's earlier conversion rounded; no JDK 17 output can confirm
+/// it, because no double there lies halfway between two candidates (a multiple of 64 never ends in
+/// 5, nor a multiple of 512 in 50), so half up cannot be told from half even. JDK 17 flags neither
+/// digitsRoundedUp nor decimalDigitsExact here (read in a JDK 17 run). Returns false for any other
+/// @p magnitude.
 [[nodiscard]] bool writeSmallInteger(BinaryToAscii& out, double magnitude, const BinaryValue& value)
 {
     constexpr double kTwoTo63 = 0x1p63;
@@ -310,116 +335,186 @@ struct BinaryValue
             ++integer;
         }
     }
-    std::string text    = std::format("{}", integer);
+    std::array<char, 20> buffer{};  // 2^64 has twenty digits
+    const auto [end, error] =
+        std::to_chars(buffer.data(), std::next(buffer.data(), buffer.size()), integer);
+    QTROCKET_ASSERT(error == std::errc{});
+    const std::string_view text(buffer.data(), end);
     out.decimalExponent = static_cast<int>(text.size()) + dropped;
-    text.erase(text.find_last_not_of('0') + 1);
-    out.digits = std::move(text);
+    out.digits.assign(text.substr(0, text.find_last_not_of('0') + 1));
     return true;
 }
 
-/// The decimal fraction being written, as integers over one denominator (Steele and White's R, S
-/// and M): the part of the value not yet written is remainder / unit units of the digit being
-/// generated, and margin / unit is half the gap to a neighbouring double in the same units.
-struct ScaledFraction
+/// The value scaled for its first digit, as integers over one denominator (Steele and White's R,
+/// S and M): the part of the value not yet written is remainder / unit units of the digit being
+/// generated, and margin / unit is half the gap to a neighbouring double in the same units. The
+/// member functions are the steps of writeDigits() in exact big-integer arithmetic, with the
+/// upper-end test JDK 17 uses when it computes in big integers.
+class NaturalFraction
 {
-    Natural remainder;
-    Natural unit;
-    Natural margin;
-    /// JDK 17 runs its digit loop in 64-bit integers for this value; see reachesUpperEnd().
-    bool jdkWordArithmetic{false};
+public:
+    /// Scales @p value for the first digit at 10^@p decimalExponent: remainder / unit = value /
+    /// 10^decimalExponent. The three numbers are the smallest integers with their ratios (no
+    /// common power of two), as JDK 17 scales them, because its choice of arithmetic depends on
+    /// their size, see fitsJdkWords().
+    ///
+    /// The margin is the same on both sides: half the gap normally, and a quarter of the gap above
+    /// when the significand is a power of two. JDK 17 takes that quarter for every single-bit
+    /// significand, also for the subnormal powers of two and for 2^-1022, whose neighbours are
+    /// equally far on both sides. The narrower upper side gives 2^69 its extra digit:
+    /// "5.9029581035870565E20" in JDK 17, where "5.902958103587057E20" reads back as 2^69 too.
+    NaturalFraction(const BinaryValue& value, int decimalExponent)
+    {
+        const int trailingZeros = std::countr_zero(value.significand);
+        const int oddExponent   = value.unitExponent + trailingZeros;
+        const int marginExponent =
+            value.unitExponent - 1 - (value.isPowerOfTwo() ? 1 : 0);  // in powers of two
+        const int fivesBelow      = std::max(0, -decimalExponent);    // 10^-k = 5^-k * 2^-k
+        const int fivesAbove      = std::max(0, decimalExponent);
+        const int twosOfRemainder = oddExponent + fivesBelow;
+        const int twosOfUnit      = fivesAbove;
+        const int twosOfMargin    = marginExponent + fivesBelow;
+        const int common          = std::min({twosOfRemainder, twosOfUnit, twosOfMargin});
+
+        m_remainder = Natural(value.significand >> static_cast<unsigned>(trailingZeros));
+        m_remainder.multiplyByPowerOfFive(fivesBelow);
+        m_remainder.shiftLeft(twosOfRemainder - common);
+        m_unit = Natural(1);
+        m_unit.multiplyByPowerOfFive(fivesAbove);
+        m_unit.shiftLeft(twosOfUnit - common);
+        m_margin = Natural(1);
+        m_margin.multiplyByPowerOfFive(fivesBelow);
+        m_margin.shiftLeft(twosOfMargin - common);
+    }
+
+    /// Whether JDK 17 generates this value's digits in 64-bit integers: when ten times the unit
+    /// fits a signed one. It also looks at the size of the remainder, but an enumeration of every
+    /// class of values (binary exponent, significant bits, decimal exponent) made when this file
+    /// was written found that the unit alone decides. In big integers otherwise.
+    [[nodiscard]] bool fitsJdkWords() const { return m_unit.compare(kJdkWordLimitNatural) < 0; }
+
+    [[nodiscard]] const Natural& remainder() const noexcept { return m_remainder; }
+    [[nodiscard]] const Natural& unit() const noexcept { return m_unit; }
+    [[nodiscard]] const Natural& margin() const noexcept { return m_margin; }
+
+    [[nodiscard]] bool belowOneUnit() const { return m_remainder.compare(m_unit) < 0; }
+
+    /// Whether the remainder lies below the margin: dropping the rest keeps the digits inside the
+    /// rounding interval. Never when it is equal (strict on both of JDK 17's routes).
+    [[nodiscard]] bool reachesLowerEnd() const { return m_remainder.compare(m_margin) < 0; }
+
+    /// Whether rounding the last digit up keeps the digits inside the rounding interval: remainder
+    /// + margin against one unit. Burger and Dybvig count the end of the interval in when the
+    /// significand is even (a reader that rounds half to even reads it back as this double) and
+    /// out when it is odd. JDK 17 in big integers counts it in whatever the significand, and in
+    /// 64-bit integers out, see WordFraction::reachesUpperEnd(). So for a value exactly a margin
+    /// below a shorter decimal the digits depend on the size of its scaled numbers: the
+    /// significand of 1e23 at 2^87, 204799999999999982820130816, lies exactly half a gap below
+    /// 2.048 * 10^26, on the big-integer side, and JDK 17 prints "2.048E26".
+    [[nodiscard]] bool reachesUpperEnd() const
+    {
+        Natural sum = m_remainder;
+        sum.add(m_margin);
+        return sum.compare(m_unit) >= 0;
+    }
+
+    [[nodiscard]] int takeDigit() { return m_remainder.takeDigit(m_unit); }
+
+    void nextPlace()
+    {
+        m_remainder.multiply(10);
+        m_margin.multiply(10);
+    }
+
+    [[nodiscard]] bool isExhausted() const { return m_remainder.isZero(); }
+
+    /// The sign of 2 * remainder - unit: whether the rest is below, at or above half a unit.
+    [[nodiscard]] int compareWithHalfUnit() const
+    {
+        Natural doubled = m_remainder;
+        doubled.add(m_remainder);
+        return doubled.compare(m_unit);
+    }
+
+private:
+    Natural m_remainder;
+    Natural m_unit;
+    Natural m_margin;
 };
 
-/// The smallest n with 10 * n >= 2^63: ten times a number below it fits a signed 64-bit integer.
-constexpr Natural kWordLimit{922337203685477581};
-
-/// Scales @p value for the first digit at 10^@p decimalExponent: remainder / unit = value /
-/// 10^decimalExponent. The three numbers are the smallest integers with their ratios (no common
-/// power of two), as JDK 17 scales them, because its choice of arithmetic depends on their size.
+/// The steps of writeDigits() in exact 64-bit arithmetic, for the values JDK 17 converts with
+/// 64-bit integers (NaturalFraction::fitsJdkWords()). This is QtRocket's own fast path: it
+/// converts the usual values (from about 10^-2 up to 10^26) two to three times as fast as the big
+/// integers do.
 ///
-/// The margin is half the gap to the lower neighbour, on both sides: half the gap normally, and a
-/// quarter of the gap above when the significand is a power of two. JDK 17 takes that quarter for
-/// every single-bit significand, also for the subnormal powers of two and for 2^-1022, whose
-/// neighbours are equally far on both sides. The narrower upper side gives 2^69 its extra digit:
-/// "5.9029581035870565E20" in JDK 17, where "5.902958103587057E20" reads back as 2^69 too.
-[[nodiscard]] ScaledFraction scaleFraction(const BinaryValue& value, int decimalExponent)
+/// No number overflows: the remainder is below ten units at the start (the estimate is never too
+/// low) and after nextPlace(), and below one after takeDigit(); the margin starts below one unit
+/// (half a gap is at most 2^-53 of a normal value; subnormals never come here) and, since the loop
+/// goes on only while it is not above the remainder, stays below ten units; so their sum stays
+/// below eleven units, under 2^64.
+class WordFraction
 {
-    const int trailingZeros = std::countr_zero(value.significand);
-    const int oddExponent   = value.unitExponent + trailingZeros;
-    const int marginExponent =
-        value.unitExponent - 1 - (value.isPowerOfTwo() ? 1 : 0);  // in powers of two
-    const int fivesBelow      = std::max(0, -decimalExponent);    // 10^-k = 5^-k * 2^-k for k < 0
-    const int fivesAbove      = std::max(0, decimalExponent);
-    const int twosOfRemainder = oddExponent + fivesBelow;
-    const int twosOfUnit      = fivesAbove;
-    const int twosOfMargin    = marginExponent + fivesBelow;
-    const int common          = std::min({twosOfRemainder, twosOfUnit, twosOfMargin});
-
-    ScaledFraction scaled;
-    scaled.remainder = Natural(value.significand >> static_cast<unsigned>(trailingZeros));
-    scaled.remainder.multiplyByPowerOfFive(fivesBelow);
-    scaled.remainder.shiftLeft(twosOfRemainder - common);
-    scaled.unit = Natural(1);
-    scaled.unit.multiplyByPowerOfFive(fivesAbove);
-    scaled.unit.shiftLeft(twosOfUnit - common);
-    scaled.margin = Natural(1);
-    scaled.margin.multiplyByPowerOfFive(fivesBelow);
-    scaled.margin.shiftLeft(twosOfMargin - common);
-    // JDK 17 generates the digits in 64-bit integers when ten times the unit fits a signed one
-    // (its estimate of the remainder's size never decides on its own: checked over every
-    // exponent class), and in big integers otherwise.
-    scaled.jdkWordArithmetic = scaled.unit.compare(kWordLimit) < 0;
-    return scaled;
-}
-
-/// Whether the remainder lies below the margin: dropping the rest keeps the digits inside the
-/// rounding interval.
-[[nodiscard]] bool reachesLowerEnd(const ScaledFraction& f)
-{
-    return f.remainder.compare(f.margin) < 0;
-}
-
-/// Whether rounding the last digit up keeps the digits inside the rounding interval: remainder +
-/// margin against one unit.
-///
-/// Burger and Dybvig count the end of the interval in when the significand is even (a reader that
-/// rounds half to even reads it back as this double) and out when it is odd. JDK 17 counts it out
-/// when it computes in 64-bit integers and in when it computes in big integers, whatever the
-/// significand, so for a value exactly a margin below a shorter decimal the digits depend on the
-/// size of its scaled numbers. 1e23 = 0x1.52d02c7e14af6p76 = 99999999999999991611392 lies exactly
-/// half a gap below 10^23, on the 64-bit side, and JDK 17 prints "9.999999999999999E22"; the same
-/// significand at 2^87, 204799999999999982820130816, lies exactly half a gap below 2.048 * 10^26,
-/// on the big-integer side, and JDK 17 prints "2.048E26".
-///
-/// In 64-bit integers JDK 17 moreover forms ten times the sum in a signed 64-bit integer, which
-/// wraps to a negative number, failing the test, when it reaches 2^63. (When ten times the margin
-/// alone reaches 2^63, JDK 17 counts both ends as reached, as exact arithmetic does.) Enumerating
-/// every exponent class shows that the wrap happens only between 2^84 and 2^85, at the seventeenth
-/// digit, where it keeps a digit that the exact test rounds up: JDK 17 prints
-/// 0x1.7606c1e42a3b5p84 = 28260635462337084975480832 as "2.8260635462337084E25", where the exact
-/// test gives "2.8260635462337085E25".
-[[nodiscard]] bool reachesUpperEnd(const ScaledFraction& f)
-{
-    Natural sum = f.remainder;
-    sum.add(f.margin);
-    const int order = sum.compare(f.unit);
-    if (!f.jdkWordArithmetic)
+public:
+    explicit WordFraction(const NaturalFraction& scaled)
+      : m_remainder{scaled.remainder().toWord()},
+        m_unit{scaled.unit().toWord()},
+        m_margin{scaled.margin().toWord()}
     {
-        return order >= 0;
+        QTROCKET_ASSERT(m_unit < kJdkWordLimit && m_remainder < 10 * m_unit && m_margin < m_unit);
     }
-    if (order <= 0)
-    {
-        return false;
-    }
-    return sum.compare(kWordLimit) < 0 || f.margin.compare(kWordLimit) >= 0;
-}
 
-/// The sign of 2 * remainder - unit: whether the rest is below, at or above half a unit.
-[[nodiscard]] int compareWithHalfUnit(const ScaledFraction& f)
-{
-    Natural doubled = f.remainder;
-    doubled.add(f.remainder);
-    return doubled.compare(f.unit);
-}
+    [[nodiscard]] bool belowOneUnit() const noexcept { return m_remainder < m_unit; }
+
+    [[nodiscard]] bool reachesLowerEnd() const noexcept { return m_remainder < m_margin; }
+
+    /// JDK 17's upper-end test in 64-bit integers. It is strict: 1e23 = 0x1.52d02c7e14af6p76 =
+    /// 99999999999999991611392 lies exactly half a gap below 10^23 and JDK 17 prints
+    /// "9.999999999999999E22". JDK 17 moreover forms ten times the sum in a signed 64-bit
+    /// integer, which wraps to a negative number, failing the test, when the sum reaches
+    /// kJdkWordLimit. An enumeration of every class of values made when this file was written
+    /// found that this happens only between 2^84 and 2^85, at the seventeenth digit, where it
+    /// keeps a digit that the exact test rounds up: JDK 17 prints 0x1.7606c1e42a3b5p84 =
+    /// 28260635462337084975480832 as "2.8260635462337084E25", where the exact test gives
+    /// "...085E25". When ten times the margin alone reaches 2^63, JDK 17 counts both ends as
+    /// reached and rounds to the nearer digit: it prints 0x1.bebd5bef7b22dp85 =
+    /// 67509392340440294547783680 as "6.7509392340440295E25", rounded up. The test here states
+    /// those outcomes as exact conditions; nothing wraps.
+    [[nodiscard]] bool reachesUpperEnd() const noexcept
+    {
+        const std::uint64_t sum = m_remainder + m_margin;
+        return sum > m_unit && (sum < kJdkWordLimit || m_margin >= kJdkWordLimit);
+    }
+
+    [[nodiscard]] int takeDigit() noexcept
+    {
+        const std::uint64_t digit = m_remainder / m_unit;
+        m_remainder %= m_unit;
+        return static_cast<int>(digit);
+    }
+
+    void nextPlace() noexcept
+    {
+        m_remainder *= 10;
+        m_margin *= 10;
+    }
+
+    [[nodiscard]] bool isExhausted() const noexcept { return m_remainder == 0; }
+
+    [[nodiscard]] int compareWithHalfUnit() const noexcept
+    {
+        const std::uint64_t doubled = 2 * m_remainder;
+        if (doubled == m_unit)
+        {
+            return 0;
+        }
+        return doubled < m_unit ? -1 : 1;
+    }
+
+private:
+    std::uint64_t m_remainder;
+    std::uint64_t m_unit;
+    std::uint64_t m_margin;
+};
 
 /// Adds one to the last digit, the carry running through trailing nines, which become zeros and
 /// stay in the digits. A carry out of the first digit leaves "10...0", as many digits as before,
@@ -442,12 +537,11 @@ void incrementLastDigit(BinaryToAscii& out)
     ++out.decimalExponent;
 }
 
-/// Generates the digits of @p value outside writeSmallInteger()'s range.
-void generateDigits(BinaryToAscii& out, const BinaryValue& value, bool compatibleFormat)
+/// Generates the digits of the value that @p f holds, scaled for a first digit at 10^@p exponent,
+/// in the arithmetic of @p f (NaturalFraction or WordFraction, which differ in the upper-end test).
+template <typename Fraction>
+void writeDigits(BinaryToAscii& out, Fraction& f, int exponent, bool compatibleFormat)
 {
-    int            exponent = estimateDecimalExponent(value);
-    ScaledFraction f        = scaleFraction(value, exponent);
-
     // With the estimate one too high the value lies below one unit and its first digit would be
     // a zero. JDK 17 drops that zero and moves down one place, unless rounding it up stays inside
     // the interval, that is unless the value lies within its margin below 10^exponent: then the
@@ -460,67 +554,74 @@ void generateDigits(BinaryToAscii& out, const BinaryValue& value, bool compatibl
     //
     // JDK 17 always writes a second digit when the decimal exponent is below -3 or from 8 on, and
     // with the compatible format off for every exponent: the end tests after the first digit are
-    // ignored. Below -3 that matches Double.toString's E-form ("4.9E-324" for the smallest
-    // subnormal, where "5" would do). Two details come from the conversion this file replaced
-    // (which took them from JDK 17) and show in no output, so no JDK 17 run can confirm them
-    // (variants without them differed on no value of the differential test): the threshold is 8
-    // although E-form starts at 7, but a non-integer of [10^7, 10^8) needs more than one digit
-    // anyway; and after a dropped zero the check has been spent on the zero, so the first real
-    // digit is tested, but that digit is a 9 (the value lies above 0.93 * 10^exponent) and ends
-    // nothing.
+    // skipped. Below -3 that matches Double.toString's E-form ("4.9E-324" for the smallest
+    // subnormal, where "5" would do; 1e-4 is "10" but 1e-3 "1" in a JDK 17 run). Two details are
+    // those of QtRocket's earlier conversion and show in no output, so no JDK 17 run can confirm
+    // them (variants without them gave the same output on every value compared when this file was
+    // written): the threshold is 8 although E-form starts at 7, but a non-integer of [10^7, 10^8)
+    // needs more than one digit anyway; and after a dropped zero the first real digit is always
+    // tested, but that digit is a 9 (the value lies above 0.93 * 10^exponent) and ends nothing.
     bool testFirstDigit = true;
-    if (f.remainder.compare(f.unit) < 0 && !reachesUpperEnd(f))
+    if (f.belowOneUnit() && !f.reachesUpperEnd())
     {
         --exponent;
-        f.remainder.multiply(10);
-        f.margin.multiply(10);
+        f.nextPlace();
     }
     else
     {
         testFirstDigit = compatibleFormat && exponent >= -3 && exponent < 8;
     }
 
-    bool atLowerEnd = false;
-    bool atUpperEnd = false;
-    for (bool first = true;; first = false)
+    out.digits.push_back(static_cast<char>('0' + f.takeDigit()));
+    bool atLowerEnd = testFirstDigit && f.reachesLowerEnd();
+    bool atUpperEnd = testFirstDigit && f.reachesUpperEnd();
+    while (!atLowerEnd && !atUpperEnd)
     {
-        const int digit = f.remainder.takeDigit(f.unit);
-        out.digits.push_back(static_cast<char>('0' + digit));
-        if (first && !testFirstDigit)
-        {
-            atLowerEnd = false;
-            atUpperEnd = false;
-        }
-        else
-        {
-            atLowerEnd = reachesLowerEnd(f);
-            atUpperEnd = reachesUpperEnd(f);
-        }
-        if (atLowerEnd || atUpperEnd)
-        {
-            break;
-        }
-        f.remainder.multiply(10);
-        f.margin.multiply(10);
+        f.nextPlace();
+        out.digits.push_back(static_cast<char>('0' + f.takeDigit()));
+        atLowerEnd = f.reachesLowerEnd();
+        atUpperEnd = f.reachesUpperEnd();
     }
-    out.decimalExponent    = exponent + 1;
-    out.decimalDigitsExact = f.remainder.isZero();
+    out.decimalExponent = exponent + 1;
+    // Whether nothing is left after the last digit: the digits are the value's whole decimal
+    // expansion. The rounding below never raises such digits, since a zero rest lies below the
+    // margin and below half a unit. JDK 17 sets the flag so for 0.25, for 0.5 in both formats and
+    // for 1e19 ("10" with the forced second digit), as its state in a JDK 17 run shows.
+    out.decimalDigitsExact = f.isExhausted();
 
     // Round the last digit: up when only the upper end is reached; when both are, to the nearer
-    // of the two candidates, and on an exact tie to an even digit.
+    // of the two candidates. On an exact tie JDK 17 keeps the even digit (2^-25, 2^50 + 0.25 and
+    // 2^50 + 0.75 in a JDK 17 run), a choice that Burger and Dybvig leave open.
     if (!atUpperEnd)
     {
         return;
     }
     if (atLowerEnd)
     {
-        const int half = compareWithHalfUnit(f);
-        if (half < 0 || (half == 0 && (out.digits.back() - '0') % 2 == 0))
+        const int  half = f.compareWithHalfUnit();
+        const bool odd  = (out.digits.back() - '0') % 2 != 0;
+        if (half < 0 || (half == 0 && !odd))
         {
             return;
         }
     }
     incrementLastDigit(out);
+}
+
+/// Generates the digits of @p value outside writeSmallInteger()'s range.
+void generateDigits(BinaryToAscii& out, const BinaryValue& value, bool compatibleFormat)
+{
+    const int       exponent = estimateDecimalExponent(value);
+    NaturalFraction scaled(value, exponent);
+    if (scaled.fitsJdkWords())
+    {
+        WordFraction words(scaled);
+        writeDigits(out, words, exponent, compatibleFormat);
+    }
+    else
+    {
+        writeDigits(out, scaled, exponent, compatibleFormat);
+    }
 }
 
 }  // namespace
@@ -559,32 +660,37 @@ std::string toJavaFormatString(double value)
 
 std::string toJavaFormatString(const BinaryToAscii& converted)
 {
-    // Double.toString's layout: plain from 0.001 up to 10^7 with at least one digit after the
-    // point, otherwise one digit, the point, at least one more digit and the power of ten.
     const std::string& digits   = converted.digits;
     const auto         count    = static_cast<int>(digits.size());
     const int          exponent = converted.decimalExponent;  // value = 0.digits * 10^exponent
     std::string        text     = converted.negative ? "-" : "";
-    if (exponent >= 1 && exponent <= 7)
+
+    // Double.toString's Javadoc: from 10^-3 up to but excluding 10^7, the integer part and the
+    // fraction, each at least one digit, around a point; otherwise the "computerized scientific
+    // notation", one digit, a point, at least one more digit, "E" and the power of ten.
+    if (exponent < -2 || exponent > 7)
     {
-        const auto whole = static_cast<std::size_t>(std::min(count, exponent));
-        text += digits.substr(0, whole);
-        text.append(static_cast<std::size_t>(std::max(0, exponent - count)), '0');
-        text += '.';
-        text += count > exponent ? digits.substr(whole) : std::string("0");
-    }
-    else if (exponent >= -2 && exponent <= 0)
-    {
-        text += "0.";
-        text.append(static_cast<std::size_t>(-exponent), '0');
-        text += digits;
-    }
-    else
-    {
-        text += digits.front();
-        text += '.';
-        text += count > 1 ? digits.substr(1) : std::string("0");
+        std::string mantissa = digits;
+        mantissa.resize(std::max<std::size_t>(mantissa.size(), 2), '0');
+        mantissa.insert(1, 1, '.');
+        text += mantissa;
         text += std::format("E{}", exponent - 1);
+        return text;
+    }
+    // The digit of 10^power: the digits fill the powers from exponent - 1 down.
+    const auto digitOfPower = [&](int power) {
+        const int index = exponent - 1 - power;
+        return index >= 0 && index < count ? digits[static_cast<std::size_t>(index)] : '0';
+    };
+    for (int power = std::max(exponent, 1) - 1; power >= 0; --power)
+    {
+        text += digitOfPower(power);
+    }
+    text += '.';
+    const int lowestPower = std::min(-1, exponent - count);
+    for (int power = -1; power >= lowestPower; --power)
+    {
+        text += digitOfPower(power);
     }
     return text;
 }

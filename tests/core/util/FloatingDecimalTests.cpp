@@ -1,10 +1,16 @@
 #include "QtRocket/util/FloatingDecimal.h"
 
+#include <array>
+#include <cmath>
+#include <format>
 #include <limits>
+#include <optional>
+#include <string>
 
 #include <gtest/gtest.h>
 
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Strings.h"
 
 namespace
 {
@@ -218,6 +224,123 @@ TEST(FloatingDecimal, AnEstimateOneTooHighStartsWithARoundedUpZero)
     EXPECT_EQ(carried.decimalExponent, -320);
     EXPECT_FALSE(carried.digitsRoundedUp);
     EXPECT_EQ(FloatingDecimal::toJavaFormatString(1e-321), "1.0E-321");
+}
+
+TEST(FloatingDecimal, TenTimesTheMarginOverflowing64BitsCountsBothEnds)
+{
+    // 0x1.bebd5bef7b22dp85 = 67509392340440294547783680: at the seventeenth digit ten times the
+    // margin no longer fits JDK 17's signed 64-bit integers, and it counts both ends of the
+    // interval as reached, so the last digit is rounded to the nearer one: "...294" up to "...295".
+    const FloatingDecimal::BinaryToAscii converted =
+        FloatingDecimal::binaryToAscii(0x1.bebd5bef7b22dp85);
+    EXPECT_EQ(converted.digits, "67509392340440295");
+    EXPECT_EQ(converted.decimalExponent, 26);
+    EXPECT_TRUE(converted.digitsRoundedUp);
+    EXPECT_FALSE(converted.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(0x1.bebd5bef7b22dp85, false).digits,
+              "67509392340440295");
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.bebd5bef7b22dp85), "6.7509392340440295E25");
+}
+
+TEST(FloatingDecimal, TheLowerEndIsNeverCountedIn)
+{
+    // Each value lies exactly half a gap above a shorter decimal that reads back as the same
+    // double (17242540750000000000, 19117367586784000000, 8682276388864 * 10^18): JDK 17 does not
+    // take it, on its 64-bit route (the first two) as on its big-integer one (the third).
+    const FloatingDecimal::BinaryToAscii first =
+        FloatingDecimal::binaryToAscii(0x1.de939eea19e52p63);
+    EXPECT_EQ(first.digits, "17242540750000001");
+    EXPECT_EQ(first.decimalExponent, 20);
+    EXPECT_FALSE(first.digitsRoundedUp);
+    EXPECT_FALSE(first.decimalDigitsExact);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.de939eea19e52p63), "1.7242540750000001E19");
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.094e888832d3cp64), "1.9117367586784002E19");
+    const FloatingDecimal::BinaryToAscii big =
+        FloatingDecimal::binaryToAscii(0x1.b657cace8930ap102);
+    EXPECT_EQ(big.digits, "8682276388864001");
+    EXPECT_EQ(big.decimalExponent, 31);
+    EXPECT_TRUE(big.digitsRoundedUp);
+    EXPECT_EQ(FloatingDecimal::toJavaFormatString(0x1.b657cace8930ap102), "8.682276388864001E30");
+}
+
+TEST(FloatingDecimal, TheForcedSecondDigitStartsBelow10ToMinus3)
+{
+    // In the compatible format a value of one digit keeps it down to 10^-3 and gets a second one
+    // below (Double.toString switches to E-form there).
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-2).digits, "1");
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-3).digits, "1");
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-3).decimalExponent, -2);
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-3, false).digits, "10");
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-4).digits, "10");
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(1e-4).decimalExponent, -3);
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(5e-4).digits, "50");
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(5e-4).decimalExponent, -3);
+    // 9e-4 is 0.00089999999999999997536...: "89" rounded up to "90".
+    EXPECT_EQ(FloatingDecimal::binaryToAscii(9e-4).digits, "90");
+    EXPECT_TRUE(FloatingDecimal::binaryToAscii(9e-4).digitsRoundedUp);
+}
+
+TEST(FloatingDecimal, DigitsThatAreTheWholeValueAreFlaggedExact)
+{
+    // 10^19 is a double above 2^63, so it goes through the digit loop: the forced second digit
+    // leaves nothing over.
+    const FloatingDecimal::BinaryToAscii tens = FloatingDecimal::binaryToAscii(1e19);
+    EXPECT_EQ(tens.digits, "10");
+    EXPECT_EQ(tens.decimalExponent, 20);
+    EXPECT_FALSE(tens.digitsRoundedUp);
+    EXPECT_TRUE(tens.decimalDigitsExact);
+    const FloatingDecimal::BinaryToAscii half = FloatingDecimal::binaryToAscii(0.5, false);
+    EXPECT_EQ(half.digits, "50");
+    EXPECT_TRUE(half.decimalDigitsExact);
+    EXPECT_TRUE(FloatingDecimal::binaryToAscii(0.5).decimalDigitsExact);
+}
+
+/// The doubles next to 10^@p power: the nearest one and its two neighbours, so also the smallest
+/// double at or above the power.
+[[nodiscard]] std::array<double, 3> doublesNextToPowerOfTen(int power)
+{
+    const double nearest =
+        QtRocket::Strings::javaParseDouble(std::format("1e{}", power)).value_or(kNaN);
+    return {std::nextafter(nearest, 0.0), nearest, std::nextafter(nearest, kInf)};
+}
+
+/// Whether @p value's conversion in the given format starts with a non-zero digit and reads back
+/// as @p value; a decimal exponent estimated too low makes the conversion throw BugError instead.
+[[nodiscard]] bool convertsAndReadsBack(double value, bool compatibleFormat)
+{
+    const FloatingDecimal::BinaryToAscii converted =
+        FloatingDecimal::binaryToAscii(value, compatibleFormat);
+    const std::string text = FloatingDecimal::toJavaFormatString(converted);
+    return converted.digits.front() != '0' &&
+           QtRocket::Strings::javaParseDouble(text) == std::optional<double>(value);
+}
+
+/// The doubles next to the powers of ten from 10^-323 to 10^308 whose conversion in either format
+/// fails convertsAndReadsBack().
+[[nodiscard]] std::string powerOfTenNeighboursThatFail()
+{
+    constexpr int kLowestPower  = -323;
+    constexpr int kHighestPower = 308;
+    std::string   failures;
+    for (int power = kLowestPower; power <= kHighestPower; ++power)
+    {
+        for (const double value : doublesNextToPowerOfTen(power))
+        {
+            if (!convertsAndReadsBack(value, true) || !convertsAndReadsBack(value, false))
+            {
+                failures += std::format(" {:a}", value);
+            }
+        }
+    }
+    return failures;
+}
+
+TEST(FloatingDecimal, TheDecimalExponentEstimateIsNeverTooLow)
+{
+    // The estimate rises with the value within a binade and floor(log10) steps only at powers of
+    // ten, so these doubles are the ones where an estimate too low would show (see
+    // estimateDecimalExponent() in FloatingDecimal.cpp). They cover both of JDK 17's routes.
+    EXPECT_EQ(powerOfTenNeighboursThatFail(), "");
 }
 
 }  // namespace
