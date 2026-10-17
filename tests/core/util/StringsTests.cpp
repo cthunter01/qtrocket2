@@ -534,7 +534,7 @@ TEST(Strings, DoubleToStringExtremes)
 TEST(Strings, DoubleToStringPrintsLargeIntegersExactly)
 {
     // Java's Formatter prints an integer below 2^63 from its exact digits, not the shortest
-    // round-trip digits (FloatingDecimal.developLongDigits); expectations replayed on JDK 17.
+    // round-trip digits (FloatingDecimal's integer path); expectations replayed on JDK 17.
     EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 52) + 1, 3, false), "4503599627370497");
     EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 53), 3, false), "9007199254740992");
     EXPECT_EQ(Strings::doubleToString(std::ldexp(1.0, 54), 3, false), "18014398509481984");
