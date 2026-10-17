@@ -1,6 +1,7 @@
 #include "QtRocket/util/DecimalFormat.h"
 
 #include <limits>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -114,8 +115,9 @@ TEST(DecimalFormat, FractionPatternsDecideTiesByFloatingDecimalsFlags)
 
 TEST(DecimalFormat, RoundingIntoTheFirstDigitLooksAtTheTrailingZeros)
 {
-    // Double.toString(5e-6) is "5.0E-6": DigitList sees "50", and a '5' followed by a zero is no
-    // tie there, so it rounds down, where the exact value (5.000000000000000409e-6) is above it.
+    // Double.toString(5e-6) is "5.0E-6": DecimalFormat starts from the digits "50", and a '5'
+    // followed by a zero is no tie there, so it rounds down, where the exact value
+    // (5.000000000000000409e-6) is above it.
     EXPECT_EQ(DecimalFormat("0.#####").format(5e-6), "0");
     EXPECT_EQ(DecimalFormat("0.#####").format(-5e-6), "-0");
     EXPECT_EQ(DecimalFormat("0.#####").format(1.5e-5), "0.00002");
@@ -152,6 +154,74 @@ TEST(DecimalFormat, DecimalSeparatorAtEitherEnd)
     EXPECT_EQ(DecimalFormat(".00").format(0.125), ".12");
     EXPECT_EQ(DecimalFormat("0.").format(1.5), "2.");
     EXPECT_EQ(DecimalFormat("0.").format(-0.0), "-0.");
+}
+
+TEST(DecimalFormat, PatternsWithoutARequiredDigit)
+{
+    // Without any '0', Java reads the '#' next to the point as one.
+    const DecimalFormat hashes("##.##");
+    EXPECT_EQ(hashes.getMinimumIntegerDigits(), 1);
+    EXPECT_EQ(hashes.format(0.25), "0.25");
+    const DecimalFormat fraction(".##");
+    EXPECT_EQ(fraction.getMinimumIntegerDigits(), 0);
+    EXPECT_EQ(fraction.getMinimumFractionDigits(), 1);
+    EXPECT_EQ(fraction.getMaximumFractionDigits(), 2);
+    EXPECT_EQ(fraction.format(0.25), ".25");
+    EXPECT_EQ(fraction.format(0.0), ".0");
+    EXPECT_EQ(fraction.format(1.5), "1.5");
+    // A point alone requires no digit and is always shown.
+    EXPECT_EQ(DecimalFormat(".").format(1.5), "2.");
+    EXPECT_EQ(DecimalFormat(".").format(0.25), "0.");
+    EXPECT_EQ(DecimalFormat("#.0").format(0.045), ".0");
+    // Nor does scientific notation need an integer digit.
+    EXPECT_EQ(DecimalFormat("#E0").format(1.5), ".2E1");
+    EXPECT_EQ(DecimalFormat("#E0").format(-0.0), "-E0");
+    EXPECT_EQ(DecimalFormat(".00E0").format(1e-5), ".10E-4");
+}
+
+TEST(DecimalFormat, DigitCountsAreLimitedForADouble)
+{
+    // At most 309 integer and 340 fraction digits, whatever the pattern asks for.
+    const std::string zeros(400, '0');
+    EXPECT_EQ(DecimalFormat("0." + zeros).format(1.0), "1." + std::string(340, '0'));
+    EXPECT_EQ(DecimalFormat(zeros).format(1.0), std::string(308, '0') + "1");
+    EXPECT_EQ(DecimalFormat("#." + std::string(400, '#')).format(4.9e-324),
+              "0." + std::string(323, '0') + "49");
+}
+
+TEST(DecimalFormat, StartsFromJdk17sDigitsWhereTheyAreNotTheShortest)
+{
+    // FloatingDecimal's departures from the shortest digits (see FloatingDecimalTests.cpp) show
+    // through: the wrapped 64-bit test, the end of the interval counted in with big integers, and
+    // the quarter-gap margin of a subnormal power of two.
+    EXPECT_EQ(DecimalFormat("#").format(0x1.7606c1e42a3b5p84), "28260635462337084000000000");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1.7606c1e42a3b5p84), "28.261E24");
+    EXPECT_EQ(DecimalFormat("#").format(0x1.52d02c7e14af6p87), "204800000000000000000000000");
+    EXPECT_EQ(DecimalFormat("0.00E0").format(0x1.52d02c7e14af6p87), "2.05E26");
+    EXPECT_EQ(DecimalFormat("0.00E0").format(0x1p-1069), "1.58E-322");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1p-1069), "158E-324");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(1e-7), "100E-9");
+    // Both ends counted as reached where ten times the margin overflows 64 bits, the lower end
+    // never counted in.
+    EXPECT_EQ(DecimalFormat("#").format(0x1.bebd5bef7b22dp85), "67509392340440295000000000");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1.bebd5bef7b22dp85), "67.509E24");
+    EXPECT_EQ(DecimalFormat("#").format(0x1.de939eea19e52p63), "17242540750000001000");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(0x1.b657cace8930ap102), "8.6823E30");
+}
+
+TEST(DecimalFormat, FirstDigitsAroundTheForcedSecondDigit)
+{
+    // 1e-4 and 5e-4 have the digits "10" and "50" (a second digit forced below 10^-3), 1e-3 "1".
+    // With nothing kept, 5e-4's "50" is a tie, rounded to the even zero, although its double lies
+    // above 5e-4.
+    EXPECT_EQ(DecimalFormat("0.0##").format(1e-4), "0.0");
+    EXPECT_EQ(DecimalFormat("0.0##").format(5e-4), "0.0");
+    EXPECT_EQ(DecimalFormat("0.0##").format(9e-4), "0.001");
+    EXPECT_EQ(DecimalFormat("0.0##").format(1e-3), "0.001");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(1e-4), "100E-6");
+    EXPECT_EQ(DecimalFormat("0.00E0").format(5e-4), "5.00E-4");
+    EXPECT_EQ(DecimalFormat("#").format(1e19), "10000000000000000000");
+    EXPECT_EQ(DecimalFormat("##0.##E0").format(1e19), "10E18");
 }
 
 TEST(DecimalFormat, NaNAndInfinities)

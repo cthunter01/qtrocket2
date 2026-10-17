@@ -8,19 +8,19 @@ namespace QtRocket
 
 /// java.text.DecimalFormat for the number patterns OpenRocket's units use ("#", "0", "0.0",
 /// "0.#", "0.0##", "#.###", "0.00", "0.##", "0.00E0", ...), formatting doubles digit for digit as
-/// JDK 17 to 25 do. The digits come from FloatingDecimal's conversion (not the shortest digits, see
-/// FloatingDecimal.h) and are rounded half to even as DigitList rounds them, deciding a tie at the
-/// last digit by whether that conversion rounded up, truncated or was exact: with "0.#", 0.15
-/// gives "0.1" (the double is just below the tie), 0.45 gives "0.5" (just above) and 0.25 "0.2"
-/// (an exact tie, to even); with "0.00E0", 1235000 gives "1.24E6" (integers below 2^63 are never
-/// flagged exact, so their ties round up); with "#", 2^69 gives "590295810358705650000".
+/// JDK 17 to 25 do. It starts from the digits of FloatingDecimal's conversion (not the shortest
+/// ones, see FloatingDecimal.h) and rounds them half to even, telling from the conversion whether
+/// a final 5 lies above, below or exactly at the double: with "0.#", 0.15 gives "0.1" (the double
+/// is just below 0.15), 0.45 gives "0.5" (just above) and 0.25 "0.2" (exact, to even); with
+/// "0.00E0", 1235000 gives "1.24E6" (an integer below 2^63 is never marked exact, so its ties
+/// round up); with "#", 2^69 gives "590295810358705650000".
 ///
 /// A negative value that rounds to zero keeps its sign ("-0", "-0.0"), as does -0.0; NaN is "NaN"
-/// and the infinities "∞" (U+221E) and "-∞". Symbols are the ones of Locale.US (a point, no
+/// and the infinities "∞" (U+221E) and "-∞". The symbols are those of Locale.US (a point, no
 /// grouping) whatever the process locale; OpenRocket follows the default locale.
 ///
-/// Supported pattern syntax: optional '#' then '0' integer digits, an optional '.' with '0' then
-/// '#' fraction digits, and an optional "E" with '0' exponent digits. Prefixes, suffixes, grouping,
+/// Supported pattern syntax: integer digits '#'* '0'*, optionally a '.' and fraction digits
+/// '0'* '#'*, optionally "E" and one or more '0' for the exponent. Prefixes, suffixes, grouping,
 /// percent and negative subpatterns are not supported.
 class DecimalFormat
 {
