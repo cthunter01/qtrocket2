@@ -20,6 +20,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 option(QTROCKET_BUILD_TESTS "Build the unit tests" ${PROJECT_IS_TOP_LEVEL})
+# The GUI needs Qt 6.8 or newer; without Qt, configure with -DQTROCKET_BUILD_GUI=OFF for the core and the CLI alone.
+option(QTROCKET_BUILD_GUI "Build the Qt 6 GUI: QtRocket_gui, the QtRocket application and its tests" ON)
 option(QTROCKET_BUILD_DOCS "Add a 'docs' target when Doxygen is found" ${PROJECT_IS_TOP_LEVEL})
 option(QTROCKET_WARNINGS_AS_ERRORS "Treat compiler and clang-tidy warnings as errors" OFF)
 option(QTROCKET_ENABLE_COVERAGE "Clang source-based coverage and a 'coverage' target" OFF)
@@ -47,7 +49,38 @@ endif()
 include(${PROJECT_SOURCE_DIR}/cmake/ProjectOptions.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
+# QtRocket_data: the build tree has the installed layout, so the programs find data/ (the motor database and the
+# example designs) in share/QtRocket beside their bin/, as in an archive (src/cli/DataDirectory.cpp, and the GUI's own
+# rule). The programs and the test executables that read it depend on this copy.
+file(GLOB_RECURSE qtrocket_data_files CONFIGURE_DEPENDS LIST_DIRECTORIES false
+     RELATIVE ${PROJECT_SOURCE_DIR}/data ${PROJECT_SOURCE_DIR}/data/*)
+set(qtrocket_data_copies "")
+foreach(data_file IN LISTS qtrocket_data_files)
+    set(data_copy ${PROJECT_BINARY_DIR}/share/QtRocket/${data_file})
+    cmake_path(GET data_copy PARENT_PATH data_copy_directory)
+    add_custom_command(OUTPUT ${data_copy}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${data_copy_directory}
+        COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/data/${data_file} ${data_copy}
+        DEPENDS ${PROJECT_SOURCE_DIR}/data/${data_file}
+        COMMENT "Copying data/${data_file} into the build tree"
+        VERBATIM)
+    list(APPEND qtrocket_data_copies ${data_copy})
+endforeach()
+add_custom_target(QtRocket_data DEPENDS ${qtrocket_data_copies})
+
 add_subdirectory(src)
+
+# The GUI (gui/): Qt is required when it is on, never just used when found, so that a build without Qt cannot
+# silently lose the GUI. Qt 6.8 is the oldest Qt supported (CI builds it on macOS and Windows, the newest on Linux).
+if(QTROCKET_BUILD_GUI)
+    set(qtrocket_qt_components Core Gui Widgets Svg)
+    if(QTROCKET_BUILD_TESTS)
+        list(APPEND qtrocket_qt_components Test)
+    endif()
+    find_package(Qt6 6.8 REQUIRED COMPONENTS ${qtrocket_qt_components})
+    message(STATUS "QtRocket GUI: Qt ${Qt6_VERSION}")
+    add_subdirectory(gui)
+endif()
 
 # Shipped data files: the motor database and the example designs (read at run time from share/QtRocket).
 include(GNUInstallDirs)

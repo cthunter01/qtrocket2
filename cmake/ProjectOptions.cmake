@@ -91,3 +91,28 @@ function(QtRocket_configure_target target)
         set_target_properties(${target} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
     endif()
 endfunction()
+
+# QtRocket_configure_qt_target(<target>)
+# QtRocket_configure_target() plus what every Qt target of ours (QtRocket_gui, the QtRocket application and
+# QtRocket_gui_tests) needs. Call it instead of QtRocket_configure_target() for a target that uses Qt.
+# - AUTOMOC on this target only: a global CMAKE_AUTOMOC (qt_standard_project_setup() sets one) would also give the
+#   core, its tests and GoogleTest moc steps. AUTOMOC reads only the headers that are sources of the target, so every
+#   header is listed in its area's CMakeLists.txt (an unlisted Q_OBJECT header fails to link: "undefined reference
+#   to vtable"). No AUTOUIC (no .ui files) and no AUTORCC (resources go through qt_add_resources()).
+# - QT_NO_KEYWORDS: no signals/slots/emit/foreach macros (Q_SIGNALS, Q_EMIT); Qt's emit macro would break the core's
+#   Signal::emit() (util/Signal.h refuses to compile under it).
+# - QT_ENABLE_STRICT_MODE_UP_TO=0x060800: nothing that Qt 6.8 deprecates (QT_DISABLE_DEPRECATED_UP_TO), no
+#   contextless connect(), no narrowing in connect(), no implicit QString/QByteArray/QUrl conversions, ...
+# - QT_WARN_DEPRECATED_UP_TO=0x060800: Qt warns about every deprecation up to 7.0 by default, which with -Werror
+#   breaks the build on a newer Qt for APIs whose replacement Qt 6.8 (the oldest Qt supported, CI's on macOS and
+#   Windows) does not have yet.
+# - QT_NO_CAST_FROM_ASCII: every string literal is tr() (user-visible text) or QStringLiteral.
+function(QtRocket_configure_qt_target target)
+    QtRocket_configure_target(${target})
+    set_target_properties(${target} PROPERTIES AUTOMOC ON)
+    target_compile_definitions(${target} PRIVATE
+        QT_NO_KEYWORDS
+        QT_ENABLE_STRICT_MODE_UP_TO=0x060800
+        QT_WARN_DEPRECATED_UP_TO=0x060800
+        QT_NO_CAST_FROM_ASCII)
+endfunction()

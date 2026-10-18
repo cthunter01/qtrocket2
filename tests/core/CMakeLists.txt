@@ -1,3 +1,44 @@
+# QtRocket_test_support: the helpers of the tests, every source here without a TEST (the test rockets and documents,
+# the *Support.cpp files, the readers of the golden data, ...), compiled once into a Qt-free library that
+# QtRocket_core_tests and QtRocket_gui_tests (tests/gui) link. It brings what the helpers use: the include directory
+# tests/core ("rocket/TestRockets.h"), the data directories (TestPaths.h), QtRocket::core, QtRocket::cli
+# (CliRunSupport runs the command-line tool's commands), GoogleTest (the helpers report through ADD_FAILURE() and
+# EXPECT_*), and pugixml and nlohmann_json (the golden data). Listed per subsystem in the same order as src/.
+add_library(QtRocket_test_support STATIC
+    rocket/preset/ExamplePresets.cpp
+    rocket/TestRockets.cpp
+    aero/BarrowmanTestRockets.cpp
+    simulation/extension/example/ExtensionFlightSupport.cpp
+    simulation/StepperScenarioPins.cpp
+    simulation/StepperTestSupport.cpp
+    document/TestDocuments.cpp
+    file/openrocket/ComponentHandlerTestSupport.cpp
+    file/openrocket/DesignFileState.cpp
+    file/openrocket/DocumentHandlerTestSupport.cpp
+    file/openrocket/OpenRocketSaverTestMotors.cpp
+    cli/CliRunSupport.cpp
+    goldens/GoldenBodies.cpp
+    goldens/GoldenData.cpp
+    goldens/GoldenDesign.cpp
+    goldens/GoldenExamples.cpp
+    goldens/GoldenGeometry.cpp
+    goldens/GoldenMismatches.cpp
+    goldens/GoldenResaves.cpp
+    goldens/GoldenSettings.cpp
+    goldens/GoldenSimulations.cpp
+    goldens/GoldenStableSimulations.cpp
+    goldens/GoldenWarnings.cpp
+)
+target_include_directories(QtRocket_test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(QtRocket_test_support PUBLIC QtRocket::core QtRocket::cli GTest::gtest pugixml::pugixml
+    nlohmann_json::nlohmann_json)
+# Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from any
+# working directory.
+target_compile_definitions(QtRocket_test_support PUBLIC
+    QTROCKET_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data"
+    QTROCKET_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+QtRocket_configure_target(QtRocket_test_support)
+
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
@@ -120,7 +161,6 @@ add_executable(QtRocket_core_tests
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp
     rocket/preset/example_presets_tests.cpp
-    rocket/preset/ExamplePresets.cpp
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RadiusRingComponentTests.cpp
@@ -136,7 +176,6 @@ add_executable(QtRocket_core_tests
     rocket/StructuralComponentTests.cpp
     rocket/SymmetricComponentTests.cpp
     rocket/test_rockets_tests.cpp
-    rocket/TestRockets.cpp
     rocket/ThicknessRingComponentTests.cpp
     rocket/TransitionShapeTests.cpp
     rocket/TransitionTests.cpp
@@ -164,7 +203,6 @@ add_executable(QtRocket_core_tests
     aero/BarrowmanCalculatorTests.cpp
     aero/BarrowmanDragCalculatorTests.cpp
     aero/BarrowmanStabilityCalculatorTests.cpp
-    aero/BarrowmanTestRockets.cpp
     aero/CalcFactoryTests.cpp
     aero/component_drag_tests.cpp
     aero/ComponentAssemblyCalcTests.cpp
@@ -205,7 +243,6 @@ add_executable(QtRocket_core_tests
     simulation/EventQueueTests.cpp
     simulation/extension/example/AirStartTests.cpp
     simulation/extension/example/extension_flight_tests.cpp
-    simulation/extension/example/ExtensionFlightSupport.cpp
     simulation/extension/example/RollControlTests.cpp
     simulation/extension/impl/JavaCodeTests.cpp
     simulation/extension/impl/ScriptingExtensionTests.cpp
@@ -246,8 +283,6 @@ add_executable(QtRocket_core_tests
     simulation/SimulationStatusTests.cpp
     simulation/SimulationStepperMethodTests.cpp
     simulation/SimulationTests.cpp
-    simulation/StepperScenarioPins.cpp
-    simulation/StepperTestSupport.cpp
     simulation/system_listener_tests.cpp
     simulation/tumble_detector_simulation_tests.cpp
     simulation/TumbleDetectorTests.cpp
@@ -265,7 +300,6 @@ add_executable(QtRocket_core_tests
     document/OpenRocketDocumentTests.cpp
     document/StorageOptionsTests.cpp
     document/test_documents_tests.cpp
-    document/TestDocuments.cpp
     file/csv_export_golden_tests.cpp
     file/CsvExportTests.cpp
     file/DatabaseMotorFinderTests.cpp
@@ -290,7 +324,6 @@ add_executable(QtRocket_core_tests
     file/openrocket/ColorSetterTests.cpp
     file/openrocket/component_handler_robustness_tests.cpp
     file/openrocket/ComponentHandlerTests.cpp
-    file/openrocket/ComponentHandlerTestSupport.cpp
     file/openrocket/ComponentParameterHandlerTests.cpp
     file/openrocket/ComponentPresetSetterTests.cpp
     file/openrocket/ComponentSaverTests.cpp
@@ -301,10 +334,8 @@ add_executable(QtRocket_core_tests
     file/openrocket/decal_file_containment_tests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
-    file/openrocket/DesignFileState.cpp
     file/openrocket/DesignFilesTests.cpp
     file/openrocket/DocumentConfigTests.cpp
-    file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/DocumentMaterialHandlerTests.cpp
     file/openrocket/DocumentPreferencesHandlerTests.cpp
     file/openrocket/DoubleSetterTests.cpp
@@ -340,7 +371,6 @@ add_executable(QtRocket_core_tests
     file/openrocket/OpenRocketContentHandlerTests.cpp
     file/openrocket/OpenRocketHandlerTests.cpp
     file/openrocket/OpenRocketLoaderTests.cpp
-    file/openrocket/OpenRocketSaverTestMotors.cpp
     file/openrocket/OpenRocketSaverTests.cpp
     file/openrocket/OrkWriterTests.cpp
     file/openrocket/OverrideSetterTests.cpp
@@ -380,7 +410,6 @@ add_executable(QtRocket_core_tests
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
-    cli/CliRunSupport.cpp
     cli/CliTests.cpp
     cli/DataDirectoryTests.cpp
     cli/InfoCommandTests.cpp
@@ -393,19 +422,8 @@ add_executable(QtRocket_core_tests
     goldens/example_simulation_golden_tests.cpp
     goldens/example_simulation_stable_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
-    goldens/GoldenBodies.cpp
-    goldens/GoldenData.cpp
-    goldens/GoldenDesign.cpp
-    goldens/GoldenExamples.cpp
     goldens/GoldenExamplesTests.cpp
-    goldens/GoldenGeometry.cpp
-    goldens/GoldenMismatches.cpp
-    goldens/GoldenResaves.cpp
     goldens/goldens_schema_tests.cpp
-    goldens/GoldenSettings.cpp
-    goldens/GoldenSimulations.cpp
-    goldens/GoldenStableSimulations.cpp
-    goldens/GoldenWarnings.cpp
     goldens/motors_golden_tests.cpp
     goldens/ork_interop_saves_tests.cpp
     goldens/ork_resave_diff_golden_tests.cpp
@@ -416,7 +434,8 @@ add_executable(QtRocket_core_tests
     goldens/test_documents_golden_tests.cpp
     goldens/test_rockets_golden_tests.cpp
 )
-target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# The helpers (QtRocket_test_support) bring the include directory tests/core and the data directories.
+target_link_libraries(QtRocket_core_tests PRIVATE QtRocket_test_support)
 # The third-party canary tests use the libraries directly; everything else goes through QtRocket::core, except
 # nlohmann_json, which reads the golden reference data (tests/core/goldens over tests/data/goldens).
 # GTest::gmock: the loader tests use GoogleMock's matchers (EXPECT_THAT, ElementsAre). A GoogleTest that is built
@@ -424,14 +443,9 @@ target_include_directories(QtRocket_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DI
 target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::core GTest::gtest_main GTest::gmock pugixml::pugixml
     SQLite::SQLite3 nlohmann_json::nlohmann_json)
 # The command-line tool's commands (src/cli), run in this process by tests/core/cli. The tests of its data directory
-# look at the build tree's copy of the motor database, which QtRocket_cli_data makes.
+# look at the build tree's copy of the motor database, which QtRocket_data makes.
 target_link_libraries(QtRocket_core_tests PRIVATE QtRocket::cli)
-add_dependencies(QtRocket_core_tests QtRocket_cli_data)
-# Test data (fixtures, goldens) and the shipped data files are read from the source tree, so the tests run from
-# any working directory.
-target_compile_definitions(QtRocket_core_tests PRIVATE
-    QTROCKET_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data"
-    QTROCKET_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+add_dependencies(QtRocket_core_tests QtRocket_data)
 QtRocket_configure_target(QtRocket_core_tests)
 
 include(GoogleTest)

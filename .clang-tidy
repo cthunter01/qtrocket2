@@ -35,7 +35,8 @@ Checks: >
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '(include|src|tests)/'
-ExcludeHeaderFilterRegex: '(_deps|third_party)/'
+# _autogen: the files moc writes for AUTOMOC (QtRocket_gui_autogen/include/...), which the filter above matches.
+ExcludeHeaderFilterRegex: '(_deps|third_party|_autogen)/'
 FormatStyle: file
 
 CheckOptions:
@@ -141,3 +142,7 @@ CheckOptions:
   readability-implicit-bool-conversion.AllowIntegerConditions: false
   # Single-arg constructors must be `explicit`.
   google-explicit-constructor.IgnoredConversionOperators: ''
+  # Qt: include the forwarding headers (<QWidget>, <Qt> for the Qt:: enums), which carry IWYU export pragmas. Two
+  # kinds of Qt symbols have none: the macros of qtmetamacros.h (Q_OBJECT, Q_SIGNALS, Q_EMIT, ...) and QtTest's helpers
+  # in QtTest/qtest*.h (QTest::keyClicks in qtestkeyboard.h, ...), which come with <QObject> and <QTest>.
+  misc-include-cleaner.IgnoreHeaders: 'qtmetamacros\.h;QtTest/qtest[a-z_]*\.h'

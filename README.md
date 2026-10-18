@@ -11,7 +11,8 @@ format versions 1.0 to 1.11 and writes 1.11, OpenRocket's current format) and th
 Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_core`), and the command-line tool
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
-OpenRocket's unit tests. The graphical user interface (Qt 6) comes in Milestone 2.
+OpenRocket's unit tests. Milestone 2, under way, builds the graphical user interface: the program `QtRocket`
+(Qt 6 Widgets), which so far shows an empty main window.
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -19,6 +20,18 @@ OpenRocket's unit tests. The graphical user interface (Qt 6) comes in Milestone 
   - Linux: GCC 14+ or Clang 18+
   - macOS: Xcode 16.3+ or its Command Line Tools (Apple Clang 17+)
   - Windows: Visual Studio 2022 17.7+ (MSVC) with the "Desktop development with C++" workload
+- Qt 6.8 or newer, for the GUI: the modules Core, Gui, Widgets and Svg, and Test for the tests. Without Qt,
+  configure with `-DQTROCKET_BUILD_GUI=OFF` (for example `cmake --preset clang-debug -DQTROCKET_BUILD_GUI=OFF`):
+  that builds the core and the command-line tool alone. CMake finds Qt where the system installs it, or through
+  `CMAKE_PREFIX_PATH` (the directory that holds Qt's `lib/cmake/Qt6`):
+  - Fedora: `sudo dnf install qt6-qtbase-devel qt6-qtsvg-devel`
+  - Arch Linux: `sudo pacman -S qt6-base qt6-svg`
+  - Debian 13+ and Ubuntu 25.04+: `sudo apt install qt6-base-dev qt6-svg-dev` (Ubuntu 24.04's Qt 6.4 is too old:
+    use Qt's online installer or [aqtinstall](https://github.com/miurahr/aqtinstall) there)
+  - macOS: Qt's online installer or aqtinstall (the macOS build of Qt 6.8 or newer), or Homebrew's `qt`
+  - Windows: Qt's online installer or aqtinstall, the "MSVC 2022 64-bit" build of Qt 6.8 or newer; put its `bin`
+    directory on `PATH` (the program and the tests load Qt's DLLs from there) and pass its directory as
+    `CMAKE_PREFIX_PATH` unless `bin` is already on `PATH` when CMake configures
 - Optional: clang-tidy, clang-format, llvm-cov/llvm-profdata (coverage), Doxygen (docs), ccache.
   On macOS, clang-tidy comes from Homebrew (`brew install llvm`). Coverage uses Xcode's llvm-cov.
 
@@ -32,6 +45,7 @@ Linux and macOS:
 ```sh
 cmake --workflow --preset dev          # configure + build + test, Clang Debug
 ./build/clang-debug/bin/QtRocket_cli --help
+./build/clang-debug/bin/QtRocket       # the GUI
 ```
 
 Windows, from a **Developer PowerShell for VS** (Ninja needs MSVC's environment; VS Code's CMake Tools and
@@ -39,6 +53,7 @@ Visual Studio set it up themselves):
 ```powershell
 cmake --workflow --preset dev-msvc     # configure + build + test, MSVC Debug
 .\build\msvc-debug\bin\QtRocket_cli.exe --help
+.\build\msvc-debug\bin\QtRocket.exe     # the GUI
 ```
 
 | Preset | Platforms | What it is |
@@ -51,7 +66,7 @@ cmake --workflow --preset dev-msvc     # configure + build + test, MSVC Debug
 | `tidy` | Linux, macOS | Clang Debug running clang-tidy on every file; findings are errors |
 | `coverage` | Linux, macOS | `cmake --workflow --preset coverage` writes `build/coverage/coverage/html/index.html` |
 | `ci-gcc`, `ci-clang`, `ci-msvc` | as their compiler | Release builds with warnings as errors, as run in CI |
-| `dist-linux`, `dist-macos`, `dist-windows` | Linux, macOS, Windows | The release archives (see [Releases](#releases)) |
+| `dist-linux`, `dist-macos`, `dist-windows` | Linux, macOS, Windows | The release archives (see [Releases](#releases)); no GUI yet |
 
 A preset exists only on the platforms it supports; `cmake --list-presets` shows the ones for this machine.
 Each workflow preset (`dev`, `dev-msvc`, `ci-gcc`, `ci-clang`, `ci-msvc`, `asan`, `tsan`, `tidy`, `coverage`)
@@ -59,9 +74,15 @@ configures, builds and tests in one command, and the `dist-*` ones also package.
 `cmake --preset <p>`, `cmake --build --preset <p>`, `ctest --preset <p>`.
 
 CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, `asan`, `tidy`), macOS
-(`ci-clang`) and Windows (`ci-msvc`).
+(`ci-clang`) and Windows (`ci-msvc`), with the GUI: against the newest Qt on Linux (Arch Linux's packages) and Qt
+6.8.3, the oldest Qt supported, on macOS and Windows.
 
 API docs: `cmake --build --preset clang-debug --target docs`, then open `build/clang-debug/docs/html/index.html`.
+
+## The GUI
+`QtRocket` is the graphical program (Qt 6 Widgets), which Milestone 2 builds: so far it shows an empty main window.
+`QtRocket --version` prints its version and `QtRocket --help` its options. The release archives hold the
+command-line tool alone until the GUI is released (Milestone 9).
 
 ## The command-line tool
 `QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:
@@ -154,19 +175,23 @@ share/doc/QtRocket/LICENSE, NOTICE, README.md
 ```
 
 `QtRocket_cli` finds its data beside itself, in `<directory of the program>/../share/QtRocket`, so an archive works
-wherever it is unpacked. The build tree has the same layout: building the tool copies the motor database to
-`build/<preset>/share/QtRocket/motors/`. `--db FILE` reads another motor database instead. A system installation
+wherever it is unpacked. The build tree has the same layout: building the programs copies `data/` to
+`build/<preset>/share/QtRocket/`. `--db FILE` reads another motor database instead. A system installation
 uses the standard directories (`cmake --install build/<preset> --prefix <dir>`).
 
 ## Tests
-Every test is in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
-`QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). Test data lives in
-`tests/data/`. ctest labels select parts of the suite:
+The core's tests are in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
+`QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). The GUI's tests are in
+`QtRocket_gui_tests` (GoogleTest with QtTest's helpers, `tests/gui/<area>/`); they run on Qt's offscreen platform,
+so no window appears. The lint tests (`tests/lint/`) check rules of the source tree that the compiler cannot, such
+as the include order of the layers. Test data lives in `tests/data/`. ctest labels select parts of the suite:
 
 ```sh
 ctest --preset clang-debug                 # everything
 ctest --preset clang-debug -L golden       # the comparisons with OpenRocket's golden data
 ctest --preset clang-debug -L cli          # QtRocket_cli run as a program
+ctest --preset clang-debug -L gui          # the GUI's tests
+ctest --preset clang-debug -L lint         # the checks of the source tree
 ctest --preset clang-debug -LE golden      # everything but the golden comparisons
 build/clang-debug/bin/QtRocket_core_tests --gtest_filter='BodyTube.*'
 ```

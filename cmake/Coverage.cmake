@@ -18,8 +18,12 @@ endif()
 find_program(LLVM_PROFDATA_PROGRAM llvm-profdata HINTS ${llvm_tool_hints} REQUIRED)
 find_program(LLVM_COV_PROGRAM llvm-cov HINTS ${llvm_tool_hints} REQUIRED)
 
-# Every test executable whose coverage should be counted.
+# Every test executable whose coverage should be counted: the core's and the GUI's (which covers gui/; the files moc
+# and rcc write are under build/, which IGNORE_REGEX leaves out).
 set(coverage_targets QtRocket_core_tests)
+if(TARGET QtRocket_gui_tests)
+    list(APPEND coverage_targets QtRocket_gui_tests)
+endif()
 
 set(coverage_binaries "")
 foreach(target IN LISTS coverage_targets)

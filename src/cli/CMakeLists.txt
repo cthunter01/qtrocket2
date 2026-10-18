@@ -24,16 +24,8 @@ target_link_libraries(QtRocket_cli PRIVATE QtRocket::cli)
 QtRocket_configure_target(QtRocket_cli)
 
 # The build tree has the installed layout: bin/QtRocket_cli finds its motor database in share/QtRocket/motors
-# (DataDirectory), so a copy of the database goes there whenever the executable is built.
-set(cli_build_motor_database ${PROJECT_BINARY_DIR}/share/QtRocket/motors/initial_motors.db)
-add_custom_command(OUTPUT ${cli_build_motor_database}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/share/QtRocket/motors
-    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/data/motors/initial_motors.db ${cli_build_motor_database}
-    DEPENDS ${PROJECT_SOURCE_DIR}/data/motors/initial_motors.db
-    COMMENT "Copying the motor database into the build tree"
-    VERBATIM)
-add_custom_target(QtRocket_cli_data DEPENDS ${cli_build_motor_database})
-add_dependencies(QtRocket_cli QtRocket_cli_data)
+# (DataDirectory), where QtRocket_data (the top-level CMakeLists.txt) copies data/ whenever the executable is built.
+add_dependencies(QtRocket_cli QtRocket_data)
 
 include(GNUInstallDirs)
 install(TARGETS QtRocket_cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

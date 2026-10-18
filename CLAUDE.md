@@ -2,8 +2,9 @@
 
 C++23 re-implementation of OpenRocket (Java, GPLv3): the Qt-free library `QtRocket_core` (component model,
 aerodynamics, mass, flight simulation, `.ork` files, motor database, CSV export) and the command-line tool
-`QtRocket_cli`. Milestone 1, the headless core, is done; the Qt 6 GUI comes from Milestone 2. Built with CMake
-presets + Ninja, tested with GoogleTest. Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
+`QtRocket_cli`. Milestone 1, the headless core, is done; Milestone 2 builds the Qt 6 Widgets GUI (`gui/`, the
+program `QtRocket`). Built with CMake presets + Ninja, tested with GoogleTest. Cross-platform: Linux (GCC, Clang),
+macOS (Apple Clang) and Windows (MSVC).
 
 ## Commands
 - Build and test (Clang Debug): `cmake --workflow --preset dev`
@@ -12,8 +13,10 @@ presets + Ninja, tested with GoogleTest. Cross-platform: Linux (GCC, Clang), mac
 - One test: `ctest --preset clang-debug -R 'BodyTube\.'` or
   `build/clang-debug/bin/QtRocket_core_tests --gtest_filter='BodyTube.*'`
 - By label: `ctest --preset clang-debug -L golden` (comparisons with OpenRocket's golden data), `-L cli` (the
-  command-line tool run as a program), `-LE golden` (everything else)
-- The tool: `build/clang-debug/bin/QtRocket_cli info "data/examples/A simple model rocket.ork"` (and `--help`)
+  command-line tool run as a program), `-L gui` (the GUI's tests, offscreen), `-L lint` (checks of the source
+  tree: the layers, QtTest's macros), `-LE golden` (everything else)
+- The tool: `build/clang-debug/bin/QtRocket_cli info "data/examples/A simple model rocket.ork"` (and `--help`); the
+  GUI: `build/clang-debug/bin/QtRocket`
 - Before finishing a change, also run `cmake --workflow --preset tidy` (clang-tidy, warnings are errors),
   `cmake --workflow --preset asan` (AddressSanitizer + UBSan) and `cmake --workflow --preset ci-gcc` (GCC Release,
   warnings are errors). Run one preset at a time (two runs in one build directory corrupt ninja's log), send the
@@ -34,7 +37,8 @@ Releases: the `Release` GitHub workflow (`.github/workflows/release.yml`) runs o
 `v<project VERSION>` and publishes the `dist-*` archives, so the version is raised in `project()` in
 `CMakeLists.txt` (keep `project(QtRocket VERSION x.y.z` on one line: the workflow reads it with sed). An archive
 holds what the `install()` rules install: `bin/QtRocket_cli`, `share/QtRocket/` (the contents of `data/`) and
-`share/doc/QtRocket/` (LICENSE, NOTICE, README.md). Start the workflow or create a tag only when the user asks.
+`share/doc/QtRocket/` (LICENSE, NOTICE, README.md); the `dist-*` presets build no GUI (until Milestone 9). Start
+the workflow or create a tag only when the user asks.
 
 ## Layout
 - `include/QtRocket/<subsystem>/`: public headers (some subsystems have subdirectories: `file/openrocket/`,
@@ -43,10 +47,18 @@ holds what the `install()` rules install: `bin/QtRocket_cli`, `share/QtRocket/` 
   `src/<subsystem>/CMakeLists.txt` adds the subsystem's sources with `target_sources(QtRocket_core PRIVATE ...)`
 - `src/cli/`: `QtRocket_cli_lib` (alias `QtRocket::cli`: the commands, headers in `include/QtRocket/cli/`) and the
   `QtRocket_cli` executable (`main.cpp`). It finds its data in `<directory of the program>/../share/QtRocket`, in
-  the build tree (a copy of the motor database) as in an installed archive
+  the build tree (where the target `QtRocket_data` copies `data/`) as in an installed archive
+- `gui/`: the GUI (section GUI): `QtRocket_gui` (alias `QtRocket::gui`), headers in
+  `gui/include/QtRocket/gui/<area>/`, sources in `gui/src/<area>/` (a `CMakeLists.txt` per area), `gui/resources/`,
+  and the program `QtRocket` (`gui/main.cpp`)
 - `tests/core/<subsystem>/`: GoogleTest files, all in `QtRocket_core_tests` (`tests/core/CMakeLists.txt`);
   `tests/core/goldens/` compares with OpenRocket's golden data; `tests/core/cli/` also runs the executable through
-  `RunCli.cmake` (`tests/core/cli/CMakeLists.txt`)
+  `RunCli.cmake` (`tests/core/cli/CMakeLists.txt`). The helper sources (every `.cpp` there without a `TEST`) form
+  the Qt-free library `QtRocket_test_support`, which both test executables link: a new helper goes into its list
+- `tests/gui/<area>/`: the GUI's tests, all in `QtRocket_gui_tests` (`tests/gui/CMakeLists.txt`, a `CMakeLists.txt`
+  per area), with `tests/gui/GuiTestMain.cpp`, `GuiTestSupport.h` (the fixture `GuiTest`) and `ExpectedQtMessage.h`
+- `tests/lint/`: the lint tests (`cmake/CheckLayers.cmake`, `cmake/CheckNoQtTestMacros.cmake`), on the source tree
+  and on planted trees that each break one rule
 - Test support to reuse, never duplicate (`find tests/core -name '*.h'` lists it all): `tests/core/TestPaths.h`,
   `tests/core/TestTempDir.h`, `tests/core/unit/DefaultUnitsGuard.h`, `tests/core/rocket/TestRockets.h`
   (OpenRocket's TestRockets), `tests/core/document/TestDocuments.h` (its 16 document makers),
@@ -61,16 +73,19 @@ holds what the `install()` rules install: `bin/QtRocket_cli`, `share/QtRocket/` 
   database) and `examples/*.ork` (OpenRocket's 16 example designs)
 - `tools/openrocket-goldens/`: the Java harness that writes `tests/data/goldens/` (its README says how), and
   `tools/openrocket-test-documents/`, which writes `tests/data/goldens/test-documents/`; never built by CMake or CI
-- `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy);
+- `cmake/ProjectOptions.cmake`: `QtRocket_configure_target()` (warnings, sanitizers, coverage, tidy) and
+  `QtRocket_configure_qt_target()`;
   `cmake/Dependencies.cmake`: third-party libraries via FetchContent (pugixml, minizip-ng with zlib, SQLite,
   fast_float; GoogleTest and nlohmann_json for the tests only)
 
 ## Layers
 The subsystems of `QtRocket_core`, in the order of `src/CMakeLists.txt`; each includes only those before it:
 `util` → `unit` → `logging` → `preferences` → `material` → `motor` → `rocket` → `models` → `mass` → `aero` →
-`simulation` → `document` → `file`. `cli/` sits on top of the core (the GUI will too). So `rocket/` never includes
-`aero/`, `mass/` or `simulation/`, `simulation/` never includes `document/`, and `document/` never includes `file/`.
-The comment in `src/CMakeLists.txt` explains where this order differs from OpenRocket's packages.
+`simulation` → `document` → `file` → `figure` (the Qt-free 2D figure geometry). `cli/` sits on top of the core, and
+so does the GUI (its own order: section GUI). So `rocket/` never includes `aero/`, `mass/` or `simulation/`,
+`simulation/` never includes `document/`, and `document/` never includes `file/`. The comment in
+`src/CMakeLists.txt` explains where this order differs from OpenRocket's packages. The test `lint.layers`
+(`cmake/CheckLayers.cmake`) checks both orders; a new subsystem or area is added there too.
 
 ## Conventions
 - Headers are `.h` (never `.hpp`) and use `#pragma once`
@@ -79,10 +94,11 @@ The comment in `src/CMakeLists.txt` explains where this order differs from OpenR
   `tests/core/rocket/BodyTubeTests.cpp`. Tests that are not about one class: `lower_snake_case_tests.cpp`
 - Code lives in `namespace QtRocket` (test helpers in `QtRocket::Test`); project includes use quotes and the
   subsystem: `#include "QtRocket/rocket/BodyTube.h"`
-- Every new target must call `QtRocket_configure_target(<target>)`
+- Every new target must call `QtRocket_configure_target(<target>)` (a Qt target
+  `QtRocket_configure_qt_target(<target>)`)
 - New source files go into their `src/<subsystem>/CMakeLists.txt`, new tests into `tests/core/CMakeLists.txt`
   (grouped by subsystem in the order of `src/`); keep each list alphabetical, ignoring case
-- The core is Qt-free: no Qt header or `Q*` type in `include/` or `src/`. Qt code lives only in `gui/` (Milestone 2)
+- The core is Qt-free: no Qt header or `Q*` type in `include/` or `src/`. Qt code lives only in `gui/`
 - Errors: a recoverable failure (parsing, loading, I/O, the motor database, the command line) is a `Result<T>`
   (`std::expected<T, Error>`, `util/Error.h`). Loaders and savers return a `Result` and collect warnings; they never
   throw. A broken invariant is a programming error: a `BugError` (`util/BugError.h`, a `std::logic_error`) through
@@ -90,7 +106,7 @@ The comment in `src/CMakeLists.txt` explains where this order differs from OpenR
   `std::logic_error`. A simulation abort is a `FlightEvent` (`SIM_ABORT`), and the `SimulationException` family
   (`simulation/exception/`) is the only exception that crosses the simulation loop
 - No owning raw pointers and no raw `new`/`delete`: the component tree owns its children with `std::unique_ptr`;
-  observers hold raw pointers
+  observers hold raw pointers (the GUI's Qt objects: `makeChild()`, section GUI)
 - Threads: a `Rocket`, `OpenRocketDocument` or `Simulation` belongs to one thread. A simulation runs on another
   thread only as a `Simulation::duplicateForIndependentSimulation()` (made on the owning thread; it owns its copy
   of the rocket) and hands its `FlightData` back by value; a loaded motor database is immutable and shared. After
@@ -104,9 +120,56 @@ The comment in `src/CMakeLists.txt` explains where this order differs from OpenR
   of `rocket/`, or `file/`. Golden data and generated test tables change only through their generators
 - Tests are deterministic and leave no process-wide state behind (default units, the flight data type registry,
   shared preferences, the current directory). An optional measurement or a tool run by hand is a `DISABLED_` test
-- GUI (from Milestone 2): every user-visible string goes through `tr()`; layouts are built in code (no `.ui`
-  files); QCustomPlot sits in `third_party/` as its own target with warnings off, excluded from clang-tidy
-  (`.clang-tidy` `ExcludeHeaderFilterRegex`) and coverage
+- GUI: section GUI. Plots (from Milestone 3) come from rocketplot by FetchContent at tag `v0.6.0`, with `SYSTEM` and
+  without `EXCLUDE_FROM_ALL` (which would drop its licence files' install rules); `ROCKETPLOT_SANITIZERS` is set
+  from `QTROCKET_SANITIZERS` before `FetchContent_MakeAvailable`, and the `asan`, `tsan` and `coverage` presets set
+  `FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER` (an installed rocketplot has no sanitizer instrumentation)
+
+## GUI
+Qt 6 Widgets, Qt 6.8 or newer (Core, Gui, Widgets, Svg; Test for the tests). The option `QTROCKET_BUILD_GUI` (ON,
+with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the CLI alone.
+- Areas of `gui/`, in include order (each includes only those before it, and any subsystem of the core):
+  `util` → `settings` → `binding` → `widgets` → `tree` → `figure` → `configdialog` → `dialogs` → `main` → `app`,
+  with `gui/main.cpp` on top. `binding/` is Qt-free (no Qt header, no other area); a lower area reaches a higher
+  one only through signals or injected interfaces; the GUI never includes `QtRocket/cli/`. Namespace
+  `QtRocket::Gui` (test helpers `QtRocket::Gui::Test`), `#include "QtRocket/gui/util/MakeChild.h"`
+- Every Qt target calls `QtRocket_configure_qt_target()`: per-target AUTOMOC and `QT_NO_KEYWORDS` (also PUBLIC on
+  `QtRocket_gui`: the core's `Signal::emit()`), `QT_ENABLE_STRICT_MODE_UP_TO=0x060800`,
+  `QT_WARN_DEPRECATED_UP_TO=0x060800`, `QT_NO_CAST_FROM_ASCII`. So `Q_SIGNALS`/`Q_EMIT`, no `Q_SLOTS` (connect
+  member function pointers or lambdas, always with a context object, also for a queued call), and nothing newer
+  than Qt 6.8 or deprecated by it (CI builds Qt 6.8.3 on macOS and Windows, the newest on Linux)
+- Every header is listed with its source in its area's `CMakeLists.txt` (AUTOMOC reads only listed headers: an
+  unlisted `Q_OBJECT` header fails to link, "undefined reference to vtable"). Resources only through the
+  `qt_add_resources()` call in `gui/resources/CMakeLists.txt` (a `.qrc` with AUTORCC in a static library loses its
+  files at run time). Layouts are built in code (no `.ui` files). No `<windows.h>`: its macros `ABSOLUTE`,
+  `RELATIVE` and `ERROR` clash with enum constants of the core
+- Ownership: a parented `QObject` is made with `makeChild<T>(parent, args...)` (`util/MakeChild.h`), the GUI's only
+  `new`; a parentless window or dialog lives on the stack or in a `std::unique_ptr`; a parented object goes with
+  `deleteLater()`, never `delete`
+- Text: every user-visible string is `tr("<the English text of OpenRocket's messages.properties>")` with a
+  `//: <key>` translator comment above it (OpenRocket's typos verbatim; "OpenRocket" becomes "QtRocket" in
+  QtRocket's own texts); other literals are `QStringLiteral`; non-ASCII as escapes. Paths go through
+  `pathFromUtf8`/`pathToUtf8`, never `toStdString()`
+- The core's objects: no component pointer survives a `TREE` or `UNDO` event (`Rocket::loadFrom` replaces every
+  component); never undo, redo or `addUndoPosition` inside a rocket slot (queue it). A `BugError` is caught only by
+  `Guard`'s wrapper and the `QApplication::notify` backstop
+- clang-tidy: include Qt's forwarding headers (`<QWidget>`, `<Qt>` for the `Qt::` enums); `qtmetamacros.h` and
+  `QtTest/qtest*.h` (`Q_OBJECT`, `QTest::keyClicks`, ...) are ignored by misc-include-cleaner. `qsizetype` against
+  `std::size_t` trips GCC's `-Wuseless-cast`/`-Wsign-conversion` and MSVC's C4267/C4244: convert explicitly, only
+  where needed. A `makeChild()` result goes into `auto*` (modernize-use-auto); kept only in a local or a `QPointer`,
+  it is a leak to clang-analyzer, which cannot see Qt's parent: hand it to Qt (a layout, `connect()`) or a member
+- Tests: GoogleTest with QtTest's helpers only (`QTest::mouseClick`, `QTest::keyClicks`, `QSignalSpy`,
+  `QTest::qWaitFor`, `QAbstractItemModelTester` in its Warning mode). QtTest's assertion macros (`QVERIFY`,
+  `QCOMPARE`, `QTRY_*`, `QFAIL`, `QSKIP`, `QEXPECT_FAIL`, `QFETCH`, `QTEST`) pass silently outside QtTest:
+  `lint.no-qttest-macros` rejects them. `GuiTestMain.cpp` runs every test offscreen (unless `QT_QPA_PLATFORM` says
+  otherwise), in en_US, with QSettings in a temporary directory, and fails a test on a Qt warning that no
+  `ExpectedQtMessage` expects. A test is a `TEST_F` of the fixture `GuiTest`, through an alias named after the
+  class (`using MainWindow = GuiTest;`); it fails a test for a top-level widget, clipboard content, a default unit
+  or a current directory left behind. Never show a window on
+  the desktop; every modal question goes through `UserPrompts`, answered by a scripted double; QSettings only on a
+  temporary INI file; no pixel or font assertions (compare geometry and texts); `objectName` = the Java property
+- After a change to `gui/`, the `tidy` and `asan` presets as for the core. On Windows, Qt's `bin` must be on PATH
+  to run the GUI and its tests (also for ctest's listing of them)
 
 ## clang-tidy
 The `tidy` preset and CI run clang-tidy (`.clang-tidy`) with warnings as errors:
