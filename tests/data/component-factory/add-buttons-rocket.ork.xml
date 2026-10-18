@@ -1,0 +1,417 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Rocket</name>
+    <id>5593eb0b-2cc8-4a09-ae83-3e44aa309244</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>c0c71751-11e7-40ec-9f1e-911337751f9f</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>25b2cdc0-817c-48a4-b5b7-253760755cc9</id>
+            <finish>normal</finish>
+            <material type="bulk" density="1050.0" shearModulus="1.23E9" group="Plastics">Polystyrene</material>
+            <length>0.15000000000000002</length>
+            <thickness>0.002</thickness>
+            <shape>ogive</shape>
+            <shapeparameter>1.0</shapeparameter>
+            <aftradius>0.025</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>77889add-31f4-43a9-ac5e-1009d0defa01</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.2</length>
+            <thickness>0.002</thickness>
+            <radius>auto 0.025</radius>
+
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Trapezoidal Fin Set</name>
+                <id>fc389eb1-0a4c-447e-a942-3ba48acbe0e9</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                <rootchord>0.05</rootchord>
+                <tipchord>0.05</tipchord>
+                <sweeplength>0.025</sweeplength>
+                <height>0.03</height>
+              </trapezoidfinset>
+
+              <ellipticalfinset>
+                <name>Elliptical Fin Set</name>
+                <id>af71553a-6ddc-4690-8f4a-c7a9601b9084</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                <rootchord>0.05</rootchord>
+                <height>0.05</height>
+              </ellipticalfinset>
+
+              <freeformfinset>
+                <name>Freeform Fin Set</name>
+                <id>880b7c6a-882f-425f-b3d8-8f8d80fd75e9</id>
+                <instancecount>3</instancecount>
+                <fincount>3</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                <thickness>0.003</thickness>
+                <crosssection>square</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.025" y="0.05"/>
+                  <point x="0.075" y="0.05"/>
+                  <point x="0.04999999999999999" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <tubefinset>
+                <name>Tube Fin Set</name>
+                <id>779275c2-3269-4622-a556-88d50ddb0ab7</id>
+                <instancecount>6</instancecount>
+                <fincount>6</fincount>
+                <radiusoffset method="coaxial">0.0</radiusoffset>
+                <angleoffset method="fixed">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <fincount>6</fincount>
+                <rotation>0.0</rotation>
+                <radius>auto</radius>
+                <length>0.1</length>
+                <thickness>0.002</thickness>
+              </tubefinset>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>162a918d-0700-4f1c-ab97-084b34db0d9b</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0582</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+
+              <launchlug>
+                <name>Launch Lug</name>
+                <id>ae640937-bf9e-4dc2-ada2-f990d2091538</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <radialdirection>180.0</radialdirection>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.005</radius>
+                <length>0.03</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>b7fe4c01-e9c1-4290-bc75-7924bd23a634</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.07</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.0095</outerradius>
+                <thickness>5.000000000000004E-4</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+              </innertube>
+
+              <tubecoupler>
+                <name>Tube Coupler</name>
+                <id>bd5b3c69-f73d-4557-a7ae-2288c62fe952</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.06</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.0</thickness>
+              </tubecoupler>
+
+              <centeringring>
+                <name>Centering Ring</name>
+                <id>02e826fb-1977-4a67-aa94-ef79a29ac8a8</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <bulkhead>
+                <name>Bulkhead</name>
+                <id>2c0641a7-fe3e-4ff9-9225-ce30b5128ce9</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.002</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+              </bulkhead>
+
+              <engineblock>
+                <name>Engine Block</name>
+                <id>6224c0d2-e19a-4d99-bccc-9ac2926eaa4b</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.005</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <thickness>0.0</thickness>
+              </engineblock>
+
+              <parachute>
+                <name>Parachute</name>
+                <id>c5f364d3-ee39-4c19-9a29-0b97db841829</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>6</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+
+              <streamer>
+                <name>Streamer</name>
+                <id>ace0615d-0821-47c1-b072-298e22745d88</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>ejection</deployevent>
+                <deployaltitude>200.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <striplength>0.5</striplength>
+                <stripwidth>0.05</stripwidth>
+              </streamer>
+
+              <shockcord>
+                <name>Shock Cord</name>
+                <id>dbb9ea57-ede9-4834-afbe-47c508a85ce9</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>auto</cordlength>
+                <material type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</material>
+              </shockcord>
+
+              <masscomponent>
+                <name>Mass Component</name>
+                <id>50851e5a-9965-45b6-8f64-f948889eef15</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>0.0</mass>
+                <masscomponenttype>masscomponent</masscomponenttype>
+              </masscomponent>
+
+              <podset>
+                <name>Pod Set</name>
+                <id>4b0a8931-c3cf-4e4a-81ef-8845f250a82a</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="relative">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+
+                <subcomponents>
+                  <bodytube>
+                    <name>Body Tube</name>
+                    <id>146cea01-60fc-447a-88e0-3dbbd3b7f8e4</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                    <length>0.2</length>
+                    <thickness>0.002</thickness>
+                    <radius>auto 0.025</radius>
+                  </bodytube>
+                </subcomponents>
+              </podset>
+
+              <parallelstage>
+                <name>Booster Set</name>
+                <id>10559046-7d05-40e4-a3b0-f7b4beb08f7b</id>
+                <instancecount>2</instancecount>
+                <radiusoffset method="relative">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <separationevent>ejection</separationevent>
+                <separationaltitude>200.0</separationaltitude>
+                <separationdelay>0.0</separationdelay>
+
+                <subcomponents>
+                  <nosecone>
+                    <name>Nose Cone</name>
+                    <id>8f784a3a-2773-478d-8289-138f4978b345</id>
+                    <finish>normal</finish>
+                    <material type="bulk" density="1050.0" shearModulus="1.23E9" group="Plastics">Polystyrene</material>
+                    <length>0.15000000000000002</length>
+                    <thickness>0.002</thickness>
+                    <shape>ogive</shape>
+                    <shapeparameter>1.0</shapeparameter>
+                    <aftradius>0.025</aftradius>
+                    <aftshoulderradius>0.0</aftshoulderradius>
+                    <aftshoulderlength>0.0</aftshoulderlength>
+                    <aftshoulderthickness>0.0</aftshoulderthickness>
+                    <aftshouldercapped>false</aftshouldercapped>
+                    <isflipped>false</isflipped>
+                  </nosecone>
+                </subcomponents>
+              </parallelstage>
+            </subcomponents>
+          </bodytube>
+
+          <transition>
+            <name>Transition</name>
+            <id>701b3d9c-7f8f-4291-9ceb-d5a241f530c8</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.07500000000000001</length>
+            <thickness>0.002</thickness>
+            <shape>conical</shape>
+            <foreradius>auto 0.025</foreradius>
+            <aftradius>auto -1.0</aftradius>
+            <foreshoulderradius>0.0</foreshoulderradius>
+            <foreshoulderlength>0.0</foreshoulderlength>
+            <foreshoulderthickness>0.0</foreshoulderthickness>
+            <foreshouldercapped>false</foreshouldercapped>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+          </transition>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>9ffd9cd2-d0b1-4c1f-a424-c51bf29ca37a</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.2</length>
+            <thickness>0.002</thickness>
+            <radius>auto 0.025</radius>
+          </bodytube>
+        </subcomponents>
+      </stage>
+
+      <stage>
+        <name>Stage</name>
+        <id>0e852cc4-05ca-45bc-b85c-78134654b013</id>
+        <separationevent>ejection</separationevent>
+        <separationaltitude>200.0</separationaltitude>
+        <separationdelay>0.0</separationdelay>
+
+        <subcomponents>
+          <bodytube>
+            <name>Body Tube</name>
+            <id>158c35f0-1037-4653-a635-c803cd5e68c3</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.2</length>
+            <thickness>0.002</thickness>
+            <radius>auto 0.025</radius>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

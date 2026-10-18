@@ -52,9 +52,10 @@ class ComponentPreset;
 ///   for 9 tubes when there are 8 fires an event.
 ///
 /// Deviations from OpenRocket:
-/// - A new tube fin set's material is the built-in bulk default (see ExternalComponent); the GUI
-///   calls applyDefaultMaterial() on a tube fin set it creates, which applies the preferences'
-///   default for "TubeFinSet" (then "Tube", "ExternalComponent", "RocketComponent").
+/// - A new tube fin set's material is the built-in bulk default (see ExternalComponent);
+///   ComponentFactory calls applyDefaultMaterial() on a tube fin set it makes, which applies the
+///   preferences' default for "TubeFinSet" (then "Tube", "ExternalComponent",
+///   "RocketComponent").
 /// - Java's field radiusMethod (RELATIVE) is not ported: nothing reads it. The radius method and
 ///   offset are RocketComponent's (COAXIAL and 0), and setRadius(), setRadiusOffset() and
 ///   setRadiusMethod() do nothing, as Java's stubs.

@@ -87,6 +87,7 @@ add_executable(QtRocket_core_tests
     rocket/CenteringRingTests.cpp
     rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
+    rocket/ComponentFactoryTests.cpp
     rocket/DeploymentConfigurationTests.cpp
     rocket/document_material_tests.cpp
     rocket/EllipticalFinSetTests.cpp
@@ -281,6 +282,7 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorLoaderTests.cpp
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
+    file/openrocket/add_buttons_save_tests.cpp
     file/openrocket/AnglePositionSetterTests.cpp
     file/openrocket/AppearanceHandlerTests.cpp
     file/openrocket/AtmosphereHandlerTests.cpp

@@ -9,6 +9,7 @@ target_sources(QtRocket_core PRIVATE
     ClusterConfiguration.cpp
     ComponentAssembly.cpp
     ComponentChangeEvent.cpp
+    ComponentFactory.cpp
     ComponentKind.cpp
     Decal.cpp
     DeploymentConfiguration.cpp
