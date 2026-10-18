@@ -377,6 +377,18 @@ add_executable(QtRocket_core_tests
     file/ZipFileAttachmentFactoryTests.cpp
     file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
+    figure/AffineTransform2DTests.cpp
+    figure/ComponentShapeTests.cpp
+    figure/FigureArcTests.cpp
+    figure/FigureEllipseTests.cpp
+    figure/FigureLineTests.cpp
+    figure/FigurePathTests.cpp
+    figure/FigureRectTests.cpp
+    figure/FigureRoundRectTests.cpp
+    figure/FigureShapeTests.cpp
+    figure/FigureViewTests.cpp
+    figure/PathSegmentTests.cpp
+    figure/RocketComponentShapeProviderTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
