@@ -2,5 +2,15 @@
 # for tests about no one class, in alphabetical order (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
     BuildInfoTests.cpp
+    ColorConversionTests.cpp
+    ComponentIconsTests.cpp
+    EnumTextTests.cpp
+    GuardTests.cpp
+    GuiServicesTests.cpp
+    icon_resources_tests.cpp
+    IconsTests.cpp
     MakeChildTests.cpp
+    QtStringsTests.cpp
+    SvgIconEngineTests.cpp
+    ThemeColorsTests.cpp
 )

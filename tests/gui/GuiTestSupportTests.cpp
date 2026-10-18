@@ -2,9 +2,11 @@
 
 #include <filesystem>
 
+#include <QApplication>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QMimeData>
+#include <QPalette>
 #include <QString>
 #include <QWidget>
 
@@ -12,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/unit/UnitGroup.h"
+#include "ScopedApplicationPalette.h"
 #include "TestTempDir.h"
 
 // The checks of the fixture GuiTest, each made to fail once with GoogleTest's own failure capture
@@ -110,6 +113,32 @@ TEST(GuiTest, FailsATestThatChangesTheCurrentDirectoryAndChangesItBack)
         },
         "the test changed the current directory to ");
     EXPECT_EQ(std::filesystem::current_path(), current);
+}
+
+TEST(GuiTest, FailsATestThatChangesTheApplicationPaletteAndPutsItBack)
+{
+    const QPalette palette = QGuiApplication::palette();
+    EXPECT_NONFATAL_FAILURE(
+        {
+            GuiTestProbe probe;
+            probe.runSetUp();
+            QApplication::setPalette(ScopedApplicationPalette::dark());
+            probe.runTearDown();
+        },
+        "the test changed the application's palette");
+    EXPECT_EQ(QGuiApplication::palette(), palette);
+}
+
+TEST(GuiTest, PassesATestWhoseScopedPaletteEndsInIt)
+{
+    GuiTestProbe probe;
+    probe.runSetUp();
+    {
+        const ScopedApplicationPalette dark(ScopedApplicationPalette::dark());
+        EXPECT_EQ(QGuiApplication::palette().color(QPalette::Window),
+                  ScopedApplicationPalette::dark().color(QPalette::Window));
+    }
+    probe.runTearDown();
 }
 
 }  // namespace

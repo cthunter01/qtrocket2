@@ -11,6 +11,7 @@
 #include <QEvent>
 #include <QGuiApplication>
 #include <QMimeData>
+#include <QPalette>
 #include <QString>
 #include <QStringList>
 #include <QWidget>
@@ -51,6 +52,7 @@ void GuiTest::SetUp()
     }
     std::error_code error;
     m_currentDirectory = std::filesystem::current_path(error);
+    m_palette          = QGuiApplication::palette();
 }
 
 void GuiTest::TearDown()
@@ -86,6 +88,12 @@ void GuiTest::TearDown()
     {
         ADD_FAILURE() << "the test changed the current directory to " << pathToUtf8(current);
         std::filesystem::current_path(m_currentDirectory, error);
+    }
+
+    if (QGuiApplication::palette() != m_palette)
+    {
+        ADD_FAILURE() << "the test changed the application's palette";
+        QApplication::setPalette(m_palette);
     }
 }
 

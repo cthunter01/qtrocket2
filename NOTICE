@@ -33,7 +33,16 @@ source and link them in):
 The tests also use GoogleTest (BSD 3-Clause License) and nlohmann/json (MIT License); neither is part of the
 program.
 
-MIT License (pugixml, fast_float; the copyright lines are above):
+The GUI (the program QtRocket, gui/; not yet part of the release archives) contains icons copied from OpenRocket
+(gui/resources/icons/, whose README.md lists the files):
+
+- OpenRocket's component icons, window icons and its own icons in Lucide's style: part of OpenRocket, GNU General
+  Public License version 3 or later, as above.
+- Icons of Lucide (https://lucide.dev), some of them as OpenRocket edited them: Copyright (c) 2026 Lucide Icons
+  and Contributors. ISC License (below). The Lucide icons derived from Feather (https://feathericons.com) are
+  also Copyright (c) 2013-present Cole Bemis, MIT License (below).
+
+MIT License (pugixml, fast_float, Feather; the copyright lines are above):
 
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
   documentation files (the "Software"), to deal in the Software without restriction, including without
@@ -64,3 +73,14 @@ zlib License (minizip-ng, zlib-ng; the copyright lines are above):
   2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the
      original software.
   3. This notice may not be removed or altered from any source distribution.
+
+ISC License (Lucide; the copyright line is above):
+
+  Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
+  granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING
+  ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL,
+  DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+  WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
+  USE OR PERFORMANCE OF THIS SOFTWARE.

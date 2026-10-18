@@ -13,11 +13,11 @@
 #    main, app, with gui/main.cpp on top; any subsystem of the core, but never QtRocket/cli (the GUI does not link
 #    the command-line tool's library).
 # 3. The core is Qt-free: no Qt header in include/ or src/.
-# 4. In gui/: no `new` outside gui/include/QtRocket/gui/util/MakeChild.h (makeChild() is the GUI's only `new`), no
-#    Q_SLOTS (function-pointer connect() needs none), no <windows.h> (its macros ABSOLUTE, RELATIVE and ERROR clash
-#    with enum constants of the core), no .ui file (layouts are built in code), no .qrc file (resources go through
-#    qt_add_resources(): a .qrc in the static library loses its files at run time), and binding/ is Qt-free: no Qt
-#    header and no header of another GUI area (they all use Qt).
+# 4. In gui/: no `new` outside gui/include/QtRocket/gui/util/MakeChild.h (makeChild() and makeQtOwned() hold the
+#    GUI's only `new`), no Q_SLOTS (function-pointer connect() needs none), no <windows.h> (its macros ABSOLUTE,
+#    RELATIVE and ERROR clash with enum constants of the core), no .ui file (layouts are built in code), no .qrc
+#    file (resources go through qt_add_resources(): a .qrc in the static library loses its files at run time), and
+#    binding/ is Qt-free: no Qt header and no header of another GUI area (they all use Qt).
 # Comments and string literals do not count for the `new` and Q_SLOTS checks. Every violation is listed, then the
 # script fails.
 
