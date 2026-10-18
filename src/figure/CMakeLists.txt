@@ -1,6 +1,8 @@
 target_sources(QtRocket_core PRIVATE
     AffineTransform2D.cpp
+    BodyTubeShapes.cpp
     ComponentShape.cpp
+    EmptyShapes.cpp
     FigureArc.cpp
     FigureEllipse.cpp
     FigureLine.cpp
@@ -9,6 +11,12 @@ target_sources(QtRocket_core PRIVATE
     FigureRoundRect.cpp
     FigureShape.cpp
     FigureView.cpp
+    LaunchLugShapes.cpp
     PathSegment.cpp
+    RingComponentShapes.cpp
     RocketComponentShapeProvider.cpp
+    SymmetricComponentShapes.cpp
+    TransitionShapes.cpp
+    TubeFinSetShapes.cpp
+    TubeShapes.cpp
 )

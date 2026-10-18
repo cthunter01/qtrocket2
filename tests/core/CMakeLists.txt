@@ -378,7 +378,10 @@ add_executable(QtRocket_core_tests
     file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
     figure/AffineTransform2DTests.cpp
+    figure/body_shapes_design_tests.cpp
+    figure/BodyTubeShapesTests.cpp
     figure/ComponentShapeTests.cpp
+    figure/EmptyShapesTests.cpp
     figure/FigureArcTests.cpp
     figure/FigureEllipseTests.cpp
     figure/FigureLineTests.cpp
@@ -387,8 +390,14 @@ add_executable(QtRocket_core_tests
     figure/FigureRoundRectTests.cpp
     figure/FigureShapeTests.cpp
     figure/FigureViewTests.cpp
+    figure/LaunchLugShapesTests.cpp
     figure/PathSegmentTests.cpp
+    figure/RingComponentShapesTests.cpp
     figure/RocketComponentShapeProviderTests.cpp
+    figure/SymmetricComponentShapesTests.cpp
+    figure/TransitionShapesTests.cpp
+    figure/TubeFinSetShapesTests.cpp
+    figure/TubeShapesTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
