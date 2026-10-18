@@ -58,6 +58,35 @@ class DecalImage;
 ///   of the same file name gets a new image under a new name ("a.png" of another directory
 ///   becomes "decals/a (1).png" while "decals/a.png" is a removed image).
 ///
+/// Images of another document (importImage(), for components carried here from another
+/// document: OpenRocketDocument::importDecalImage()). Java's registry has no such operation: a
+/// pasted component holds the other document's image object, which its saver writes although
+/// the registry does not list it (see the deviations). Here a component names its image, so the
+/// image has to come into this registry, and the components are made to name it as it is
+/// called here. The image this registry uses for an imported image @p image, of name N, is the
+/// first of:
+/// 1. the image named N here, registered or removed, when it has the same source as @p image
+///    (DecalImage::hasSameSource()): it is the same image, such as the original of a copy taken
+///    from this document, or an earlier import of the same image;
+/// 2. another image here of the same source, under whatever name: an earlier import that had
+///    to be renamed (the first registered one in name order, else the first removed one);
+/// 3. the image named N here when the bytes of both can be read and are equal: the same
+///    picture, such as one of OpenRocket's built-in textures that every example design stores
+///    under its name ("/datafiles/textures/balsa.jpg"). Shared rather than copied, so that
+///    designs exchanging components do not collect numbered copies of one picture; an image
+///    whose bytes cannot be read is not the same as any other;
+/// 4. a copy of @p image (DecalImage::copyWithName()), registered under N when no image here,
+///    registered or removed, has that name, else under makeUniqueName(N), OpenRocket's rule for
+///    a name that is taken (the rule makeUniqueImage() follows: "decals/a.png" beside another
+///    "decals/a.png" becomes "decals/a (1).png", "/datafiles/textures/balsa.jpg" becomes
+///    "decals//datafiles/textures/balsa.jpg"). A name that is free is kept as it is, without
+///    the prefix makeUniqueName() would give it: it is the name the other document's file
+///    holds the image under.
+/// A removed image that rule 1, 2 or 3 picks is registered again: a component is to use it. The
+/// copy shares the attachment and so the bytes of @p image (an archive's bytes stay with the
+/// attachments that read them), and never the image object: the images of two registries
+/// differ in their flags, their decal files and their listeners.
+///
 /// Deviations from OpenRocket:
 /// - Java's registry forgets a removed image, while the components that an undo brings back
 ///   still hold the object, so the texture and its bytes come back with the undo and Java's
@@ -87,7 +116,16 @@ class DecalImage;
 ///   are additions: a rocket/Decal holds the name of its image, not the image.
 /// - hasDecalImage() is an addition, for a caller that bounds the images of a document (the
 ///   .ork loader): whether getDecalImage() would make a new image.
-/// - removeDecal() is public (Java: package-private, called by the document).
+/// - removeDecal() is public (Java: package-private, called by the document), and so is
+///   registerAgain(), an addition, for the undo of imported images (OpenRocketDocument).
+/// - importImage() is an addition (see "Images of another document"). In Java a component
+///   pasted from another document keeps that document's image object: the image is never
+///   registered here, so the decal list and the appearance editor do not show it, and when an
+///   image of this document has the same name (two designs that both name
+///   "/datafiles/textures/balsa.jpg", one with other bytes), the saver's set of images, sorted
+///   by name, writes one of the two and the components of the other show it after the next load
+///   (probe DecalTransferProbe of Milestone 2: the pasted fin sets come back with the target's
+///   bytes).
 /// - A null attachment is a BugError (Java: NullPointerException).
 /// - Not copyable or movable: a copy would share the images of another document.
 class DecalRegistry
@@ -142,6 +180,30 @@ public:
     /// Whether an image is registered under exactly @p name; false for a removed one.
     [[nodiscard]] bool isRegistered(std::string_view name) const;
 
+    /// What importImage() did with an image of another registry.
+    struct Import
+    {
+        /// The image of this registry that the decals of the imported image are to name from
+        /// now on (by its name, which may differ from the imported image's): one this registry
+        /// had, or the copy importImage() registered.
+        std::shared_ptr<DecalImage> image;
+        /// Whether importImage() registered it: a new copy, or an image that removeDecal() had
+        /// taken out, registered again. False when it was registered already.
+        bool registered{false};
+    };
+
+    /// The image of this registry for @p image, an image of another registry or a copy of
+    /// one, which components that come into this registry's document show (see "Images of
+    /// another document" in the class comment): an image this registry has, registered again
+    /// when it was removed, or a copy of @p image registered now. Reads the bytes of both
+    /// images when this registry has an image of @p image's name and another source.
+    [[nodiscard]] Import importImage(const DecalImage& image);
+
+    /// Registers the removed image named @p name again and returns it (what getDecalImage()
+    /// does for a removed image of the same source); null when no removed image has that
+    /// name, also when a registered one has it.
+    std::shared_ptr<DecalImage> registerAgain(std::string_view name);
+
     /// The number of registered images.
     [[nodiscard]] std::size_t size() const noexcept { return m_registeredDecals.size(); }
     [[nodiscard]] bool        empty() const noexcept { return m_registeredDecals.empty(); }
@@ -154,8 +216,13 @@ private:
     [[nodiscard]] static std::shared_ptr<DecalImage> findDecalForFile(
         const Images& images, const std::filesystem::path& file);
 
-    /// Registers the removed image named @p name again and returns it; null when there is none.
-    std::shared_ptr<DecalImage> registerAgain(std::string_view name);
+    /// The image of the same source as @p image (DecalImage::hasSameSource()): the first
+    /// registered one in name order, else the first removed one, else null.
+    [[nodiscard]] std::shared_ptr<DecalImage> findSameSource(const DecalImage& image) const;
+
+    /// importImage()'s result for @p image, an image of this registry: registered again when it
+    /// was removed.
+    [[nodiscard]] Import reuse(const std::shared_ptr<DecalImage>& image);
 
     /// The registered images.
     Images m_registeredDecals;

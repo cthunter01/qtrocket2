@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -74,7 +75,8 @@ class Simulation;
 /// - a change of a document preference: D(preferences);
 /// - removeDecal(): the events of the components that lose the image, then D(document);
 /// - a change of a registered decal image: the events of the components that use it;
-/// - clearUndo(): U; addUndoPosition(), startUndo() and stopUndo(): nothing.
+/// - clearUndo(): U; addUndoPosition(), startUndo(), stopUndo() and importDecalImage():
+///   nothing.
 /// A slot may change the document, with the care a listener needs in Java too. Three things it
 /// must not do:
 /// - destroy the document;
@@ -119,12 +121,14 @@ class Simulation;
 ///   document clean (a run, a new status) makes no undo step: the state's copy of that
 ///   simulation is refreshed instead, so that an undo back to this state brings the results
 ///   along.
-/// - undo() and redo() load a state into the rocket (Rocket::loadFrom()) and into the
-///   simulations: Simulation::loadFrom() by position when their number is the same, else new
-///   simulations made from the state's (the list is replaced: see "The simulations"). As in
-///   Java the history is asked again for the simulations once the rocket is loaded: when a slot
-///   of the rocket's event changed the history (clearUndo(), addUndoPosition()), the simulations
-///   are loaded from the state that is at the position then, which leaves them as they are.
+/// - undo() and redo() load a state into the rocket (Rocket::loadFrom()), first putting the
+///   imported decal images into the registry's list or taking them out as the state had them
+///   (see "Imported decal images"), and into the simulations: Simulation::loadFrom() by
+///   position when their number is the same, else new simulations made from the state's (the
+///   list is replaced: see "The simulations"). As in Java the history is asked again for the
+///   simulations once the rocket is loaded: when a slot of the rocket's event changed the
+///   history (clearUndo(), addUndoPosition()), the simulations are loaded from the state that
+///   is at the position then, which leaves them as they are.
 /// As in Java, the simulations an undo or redo makes do not emit changed() when their options
 /// change (Simulation::cloneForUndo()), so such a change is noticed only with the next event.
 ///
@@ -158,6 +162,20 @@ class Simulation;
 /// those the components name, looked up with findDecalImage(), not getDecalList() (Java's
 /// saver collects decal.getImage() from the components).
 ///
+/// Imported decal images: components carried here from another document (ComponentCopy) bring
+/// the images they show with them, and importDecalImage() puts each into the registry
+/// (DecalRegistry::importImage(): an image the document has, registered again when it was
+/// removed, or a copy, renamed when its name is taken), right before the components go in. The
+/// images it registers belong to the change that follows, the insertion of the components, and
+/// undo and redo treat them so: every state of the undo history records which of them were
+/// registered when it was made, and loading a state (undo(), redo()) registers them again or
+/// takes them out of the list, as removeDecal() takes an image out (the image stays, its name
+/// taken and findDecalImage() finding it, for the redo that brings the components back). So an
+/// undo of a paste leaves getDecalList() as it was before the paste. An imported image stops
+/// following the history, and is from then on left alone by undo and redo like every other
+/// image (as in Java), once removeDecal() takes it out or getDecalImage() hands it out: the
+/// user then has chosen it, or chosen to remove it, outside the change that brought it.
+///
 /// Deviations from OpenRocket:
 /// - Simulations are heard while they are in the list (see above). Java's Simulation registers
 ///   its document as a listener when it is constructed and never removes it, so there a
@@ -182,6 +200,11 @@ class Simulation;
 ///   component that undo or redo made does not fire at all. Here the components that use the
 ///   image when it changes fire, in tree order, for the images registered in the document
 ///   (getDecalImage(), makeUniqueDecal()) until removeDecal() takes them out.
+/// - importDecalImage() and the imported images' part in the undo history are additions (see
+///   "Imported decal images"). Java pastes the other document's image objects into the rocket
+///   and registers nothing: the pasted images are missing from getDecalList() and from the
+///   appearance editor, and an image of the same name the document has already is saved in
+///   their place (DecalRegistry, deviations).
 /// - countDecalUsage(), makeUniqueDecal() and removeDecal() compare the name of the image with
 ///   the name a decal holds (Java compares the image objects; names are unique in a registry).
 ///   findDecalImage() is an addition, for whoever has a Decal and needs its image.
@@ -360,6 +383,16 @@ public:
     /// list, whose name an undo may have put back on a component. A saver finds the images of
     /// the components with this.
     [[nodiscard]] std::shared_ptr<DecalImage> findDecalImage(std::string_view name) const;
+
+    /// The image of this document for @p image, an image of another document that components
+    /// about to come into this one show (DecalRegistry::importImage()): an image the document
+    /// has, or a copy of @p image registered now under its name or, when that is taken, a
+    /// unique one. The components are to name the image returned, whose name may differ from
+    /// @p image's. For ComponentCopy::insertInto(), which calls it after the caller's
+    /// addUndoPosition() and before it inserts the components: an image registered here
+    /// follows the undo history (see "Imported decal images" in the class comment). Emits
+    /// nothing; the change that follows does. An addition (Java registers nothing).
+    [[nodiscard]] std::shared_ptr<DecalImage> importDecalImage(const DecalImage& image);
 
     // --------------------------------------------------------------------- simulations
 
@@ -591,6 +624,13 @@ private:
     /// Takes the image named @p name off every component; true when a component used it.
     bool clearDecalUsage(std::string_view name);
 
+    /// The names of the imported images (m_importedDecals) that are registered now.
+    [[nodiscard]] std::set<std::string, std::less<>> registeredImportedDecals() const;
+
+    /// Registers every imported image whose name is in @p registered and is not registered,
+    /// and takes every other registered one out of the list (see "Imported decal images").
+    void restoreImportedDecals(const std::set<std::string, std::less<>>& registered);
+
     // Java's private helpers of the undo mechanism, under their names.
     void               checkDescription(const std::optional<std::string>& description);
     [[nodiscard]] bool isCheckNoModification(const std::optional<std::string>& description);
@@ -666,6 +706,9 @@ private:
     StorageOptions m_storageOptions;
 
     DecalRegistry m_decalRegistry;
+    /// The names of the images importDecalImage() registered that follow the undo history
+    /// (see "Imported decal images" in the class comment).
+    std::set<std::string, std::less<>> m_importedDecals;
 
     Signal<>                           m_undoRedoChanged;
     Signal<const DocumentChangeEvent&> m_documentChanged;

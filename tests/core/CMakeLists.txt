@@ -255,6 +255,7 @@ add_executable(QtRocket_core_tests
     simulation/wind_model_seed_reproducibility_tests.cpp
     document/attachments/FileSystemAttachmentTests.cpp
     document/AttachmentTests.cpp
+    document/decal_transfer_tests.cpp
     document/DecalImageTests.cpp
     document/DecalRegistryTests.cpp
     document/events/DocumentChangeEventTests.cpp
@@ -301,6 +302,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/CustomExpressionHandlerTests.cpp
     file/openrocket/DatatypeHandlerTests.cpp
     file/openrocket/decal_file_containment_tests.cpp
+    file/openrocket/decal_transfer_save_tests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DesignFileState.cpp

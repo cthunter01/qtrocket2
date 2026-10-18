@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -17,6 +19,7 @@
 #include <vector>
 
 #include "QtRocket/document/DecalImage.h"
+#include "QtRocket/document/DecalRegistry.h"
 #include "QtRocket/document/events/DocumentChangeEvent.h"
 #include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/Appearance.h"
@@ -199,6 +202,9 @@ struct OpenRocketDocument::UndoState
     std::optional<std::string> description;
     /// The simulations (Simulation::cloneForUndo()), which refer to the document's rocket.
     std::vector<std::unique_ptr<Simulation>> simulations;
+    /// The imported decal images that were registered (see "Imported decal images" in the
+    /// class comment).
+    std::set<std::string, std::less<>> registeredImports;
 };
 
 // Java: "main constructor, enable events in the rocket and initializes the document".
@@ -386,6 +392,8 @@ bool OpenRocketDocument::removeDecal(const DecalImage* decal)
     {
         m_decalConnections.erase(name);
     }
+    // An imported image the user removes no longer follows the undo history.
+    m_importedDecals.erase(name);
     if (clearedUsage || removed)
     {
         fireDocumentChangeEvent(
@@ -434,6 +442,8 @@ std::shared_ptr<DecalImage> OpenRocketDocument::getDecalImage(
     const std::shared_ptr<const Attachment>& attachment)
 {
     std::shared_ptr<DecalImage> image = m_decalRegistry.getDecalImage(attachment);
+    // An imported image the user chooses no longer follows the undo history.
+    m_importedDecals.erase(image->getName());
     watchDecalImage(image);
     return image;
 }
@@ -446,6 +456,53 @@ bool OpenRocketDocument::hasDecalImage(const std::shared_ptr<const Attachment>& 
 std::shared_ptr<DecalImage> OpenRocketDocument::findDecalImage(std::string_view name) const
 {
     return m_decalRegistry.find(name);
+}
+
+std::shared_ptr<DecalImage> OpenRocketDocument::importDecalImage(const DecalImage& image)
+{
+    DecalRegistry::Import imported = m_decalRegistry.importImage(image);
+    if (imported.registered)
+    {
+        m_importedDecals.insert(imported.image->getName());
+        watchDecalImage(imported.image);
+    }
+    return std::move(imported.image);
+}
+
+std::set<std::string, std::less<>> OpenRocketDocument::registeredImportedDecals() const
+{
+    std::set<std::string, std::less<>> registered;
+    for (const std::string& name : m_importedDecals)
+    {
+        if (m_decalRegistry.isRegistered(name))
+        {
+            registered.insert(name);
+        }
+    }
+    return registered;
+}
+
+void OpenRocketDocument::restoreImportedDecals(const std::set<std::string, std::less<>>& registered)
+{
+    for (const std::string& name : m_importedDecals)
+    {
+        const bool wanted = registered.contains(name);
+        if (wanted == m_decalRegistry.isRegistered(name))
+        {
+            continue;
+        }
+        if (wanted)
+        {
+            watchDecalImage(m_decalRegistry.registerAgain(name));
+        }
+        else
+        {
+            // What removeDecal() does to the registry, without touching the components.
+            const std::shared_ptr<DecalImage> image = m_decalRegistry.find(name);
+            m_decalRegistry.removeDecal(image.get());
+            m_decalConnections.erase(name);
+        }
+    }
 }
 
 void OpenRocketDocument::watchDecalImage(const std::shared_ptr<DecalImage>& image)
@@ -983,6 +1040,8 @@ void OpenRocketDocument::loadStateAtPosition(bool checkStructure)
             {
                 m_rocket->checkComponentStructure();
             }
+            // The images first: the components the rocket's event names show them.
+            restoreImportedDecals(state->registeredImports);
             m_rocket->loadFrom(*state->rocket);
             if (checkStructure)
             {
@@ -1026,6 +1085,7 @@ std::shared_ptr<OpenRocketDocument::UndoState> OpenRocketDocument::currentState(
     std::shared_ptr<UndoState> state = std::make_shared<UndoState>();
     state->rocket                    = m_rocket->copyRocketWithOriginalId();
     state->simulations               = copySimulationsForUndo();
+    state->registeredImports         = registeredImportedDecals();
     return state;
 }
 
