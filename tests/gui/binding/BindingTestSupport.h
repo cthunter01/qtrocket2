@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,9 +74,29 @@ struct BeanProperty
     bool   automatic{false};
     int    sets{0};
     int    gets{0};
+    /// Read by checkedSource() only: whether the field can be edited, and the problem shown in
+    /// place of the value.
+    bool                       enabled{true};
+    std::optional<std::string> problem = std::nullopt;
 
     /// The source of the property (get, set, and the automatic pair), for any component.
     [[nodiscard]] PropertySource<double> source();
+
+    /// The source of the property with getChecked (problem as its Error while there is one), set
+    /// and isEnabled, for any component.
+    [[nodiscard]] PropertySource<double> checkedSource();
+};
+
+/// An integer that is not a component's, with a count of the setter's calls; the setter fires a
+/// NONFUNCTIONAL change of the component it is called for.
+struct IntBeanProperty
+{
+    int  value{0};
+    bool enabled{true};
+    int  sets{0};
+
+    /// The source of the integer (get, set and isEnabled), for any component.
+    [[nodiscard]] PropertySource<int> source();
 };
 
 /// The source of a body tube's length.

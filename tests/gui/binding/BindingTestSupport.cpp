@@ -10,6 +10,7 @@
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/Error.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -72,6 +73,41 @@ PropertySource<double> BeanProperty::source()
                 automatic = newAutomatic;
                 component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
             },
+    });
+}
+
+PropertySource<double> BeanProperty::checkedSource()
+{
+    return PropertySource<double>::of<RocketComponent>({
+        .getChecked = [this](const RocketComponent&) -> Result<double> {
+            ++gets;
+            if (problem.has_value())
+            {
+                return fail(ErrorCode::INVALID_ARGUMENT, *problem);
+            }
+            return value;
+        },
+        .set =
+            [this](RocketComponent& component, double newValue) {
+                ++sets;
+                value = newValue;
+                component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+            },
+        .isEnabled = [this](const RocketComponent&) { return enabled; },
+    });
+}
+
+PropertySource<int> IntBeanProperty::source()
+{
+    return PropertySource<int>::of<RocketComponent>({
+        .get = [this](const RocketComponent&) { return value; },
+        .set =
+            [this](RocketComponent& component, int newValue) {
+                ++sets;
+                value = newValue;
+                component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+            },
+        .isEnabled = [this](const RocketComponent&) { return enabled; },
     });
 }
 

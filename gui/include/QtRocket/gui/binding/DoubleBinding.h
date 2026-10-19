@@ -43,7 +43,7 @@ class SliderMapping;
 /// the current unit (util/ExpressionParser), converts it and sets it; nextValue() and
 /// previousValue() give the next and the previous value in the current unit, by the unit's own
 /// step (Unit::getNextValue()) or a fixed step in the current unit (Java's
-/// getSpinnerModel(stepSize): the shape parameters, the fin points), nothing at the bound,
+/// getSpinnerModel(stepSize): the shape parameters, the fin fillet radius), nothing at the bound,
 /// clamped to it otherwise, and the other way round for a unit whose multiplier is negative.
 /// The slider: sliderPosition() and setSliderPosition() with a SliderMapping. Every write that
 /// comes from a widget (commitText(), setUnitValue(), stepUp(), stepDown(), setSliderPosition(),

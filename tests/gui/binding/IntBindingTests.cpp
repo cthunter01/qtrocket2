@@ -63,28 +63,8 @@ constexpr int kIntMax = std::numeric_limits<int>::max();
     });
 }
 
-/// An integer that is not a component's, with a count of the setter's calls; the setter fires a
-/// NONFUNCTIONAL change of the component it is called for.
-struct IntBean
-{
-    int  value{0};
-    bool enabled{true};
-    int  sets{0};
-
-    [[nodiscard]] IntSource source()
-    {
-        return IntSource::of<RocketComponent>({
-            .get = [this](const RocketComponent&) { return value; },
-            .set =
-                [this](RocketComponent& component, int newValue) {
-                    ++sets;
-                    value = newValue;
-                    component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
-                },
-            .isEnabled = [this](const RocketComponent&) { return enabled; },
-        });
-    }
-};
+/// An integer that is not a component's (the support's IntBeanProperty).
+using IntBean = Test::IntBeanProperty;
 
 /// A rocket of two tubes, with a trapezoidal fin set on each.
 struct FinRocket

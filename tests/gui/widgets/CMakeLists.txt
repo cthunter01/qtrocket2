@@ -5,5 +5,13 @@ target_sources(QtRocket_gui_tests PRIVATE
     FlowLayoutTests.cpp
     HtmlLabelTests.cpp
     IconToggleButtonTests.cpp
+    IntSpinBoxTests.cpp
+    number_field_tests.cpp
+    SelectionKeyFilterTests.cpp
+    SpinBoxEditingTests.cpp
     StyledLabelTests.cpp
+    UnitSelectorTests.cpp
+    UnitSpinBoxTests.cpp
+    ValueSliderTests.cpp
+    WidgetTestSupport.cpp
 )
