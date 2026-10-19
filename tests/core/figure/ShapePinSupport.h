@@ -15,15 +15,18 @@
 #include <gtest/gtest.h>
 
 #include "QtRocket/figure/ComponentShape.h"
+#include "QtRocket/figure/FigureArc.h"
 #include "QtRocket/figure/FigureEllipse.h"
 #include "QtRocket/figure/FigureLine.h"
 #include "QtRocket/figure/FigurePath.h"
 #include "QtRocket/figure/FigureRect.h"
+#include "QtRocket/figure/FigureRoundRect.h"
 #include "QtRocket/figure/FigureShape.h"
 #include "QtRocket/figure/FigureView.h"
 #include "QtRocket/figure/PathSegment.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Transformation.h"
 #include "figure/FigureTestSupport.h"
@@ -132,6 +135,16 @@ namespace QtRocket::Test
         case PinShape::PATH_DOUBLE:
         case PinShape::PATH_FLOAT:
             return FigureShape{pinnedPath(pin)};
+        case PinShape::ROUND_RECT:
+            return FigureShape{FigureRoundRect{v[0], v[1], v[2], v[3], v[4], v[5]}};
+        case PinShape::ARC_OPEN:
+            return FigureShape{
+                FigureArc{v[0], v[1], v[2], v[3], v[4], v[5], FigureArc::Type::OPEN}};
+        case PinShape::ARC_CHORD:
+            return FigureShape{
+                FigureArc{v[0], v[1], v[2], v[3], v[4], v[5], FigureArc::Type::CHORD}};
+        case PinShape::ARC_PIE:
+            return FigureShape{FigureArc{v[0], v[1], v[2], v[3], v[4], v[5], FigureArc::Type::PIE}};
     }
     QTROCKET_UNREACHABLE();
 }
@@ -139,9 +152,18 @@ namespace QtRocket::Test
 namespace Detail
 {
 
-/// The four parameters of a rectangle, an ellipse or a line, or nothing.
+/// The parameters of a rectangle, an ellipse or a line (four), of a rounded rectangle or an arc
+/// (six, the arc's type aside), or nothing.
 [[nodiscard]] inline std::vector<double> primitiveParameters(const FigureShape& shape)
 {
+    if (const auto* r = shape.getIf<FigureRoundRect>())
+    {
+        return {r->x(), r->y(), r->width(), r->height(), r->arcWidth(), r->arcHeight()};
+    }
+    if (const auto* a = shape.getIf<FigureArc>())
+    {
+        return {a->x(), a->y(), a->width(), a->height(), a->angleStart(), a->angleExtent()};
+    }
     if (const auto* r = shape.getIf<FigureRect>())
     {
         return {r->x(), r->y(), r->width(), r->height()};
@@ -155,6 +177,17 @@ namespace Detail
         return {l->x1(), l->y1(), l->x2(), l->y2()};
     }
     return {};
+}
+
+/// "(a, b, ...)" of @p values.
+[[nodiscard]] inline std::string joinedParameters(const std::vector<double>& values)
+{
+    std::string text = "(";
+    for (std::size_t i = 0; i < values.size(); ++i)
+    {
+        text += std::format("{}{}", i == 0 ? "" : ", ", values[i]);
+    }
+    return text + ")";
 }
 
 }  // namespace Detail
@@ -187,6 +220,14 @@ namespace Detail
         }
         return segmentsNear(path->segments(), expectedPath->segments(), tolerance);
     }
+    if (const auto* arc = actual.getIf<FigureArc>())
+    {
+        const auto* expectedArc = expected.getIf<FigureArc>();
+        if (expectedArc == nullptr || arc->type() != expectedArc->type())
+        {
+            return ::testing::AssertionFailure() << "another arc type";
+        }
+    }
     const std::vector<double> a = Detail::primitiveParameters(actual);
     const std::vector<double> e = Detail::primitiveParameters(expected);
     for (std::size_t i = 0; i < e.size(); ++i)
@@ -194,15 +235,30 @@ namespace Detail
         if (!figureValueNear(a[i], e[i], tolerance))
         {
             return ::testing::AssertionFailure()
-                   << std::format("({}, {}, {}, {}), expected ({}, {}, {}, {})", a[0], a[1], a[2],
-                                  a[3], e[0], e[1], e[2], e[3]);
+                   << Detail::joinedParameters(a) << ", expected " << Detail::joinedParameters(e);
         }
     }
     return ::testing::AssertionSuccess();
 }
 
-/// Success when @p actual are the pinned shapes, in order (shapeMatchesPin()), each a visible
-/// shape of @p component with its colour and line style.
+/// Whether @p shape is a shape of @p component as @p pin says: visible with the component's colour,
+/// or invisible with Color::invisible(), and the component's line style either way.
+[[nodiscard]] inline bool shapeOfComponentAsPinned(const ComponentShape&  shape,
+                                                   const RocketComponent& component,
+                                                   const ShapePin&        pin)
+{
+    if (&shape.component() != &component || shape.isVisible() != pin.visible ||
+        shape.lineStyle() != component.getLineStyle())
+    {
+        return false;
+    }
+    return pin.visible ? shape.color() == component.getColor()
+                       : shape.color() == Color::invisible();
+}
+
+/// Success when @p actual are the pinned shapes, in order (shapeMatchesPin()), each a shape of
+/// @p component with its line style, visible with its colour or, where the pin says so,
+/// invisible.
 [[nodiscard]] inline ::testing::AssertionResult shapesMatchPins(
     std::span<const ComponentShape> actual, std::span<const ShapePin> pins,
     const RocketComponent& component, double tolerance = 0)
@@ -215,11 +271,11 @@ namespace Detail
     for (std::size_t i = 0; i < pins.size(); ++i)
     {
         const ComponentShape& shape = actual[i];
-        if (&shape.component() != &component || !shape.isVisible() ||
-            shape.color() != component.getColor() || shape.lineStyle() != component.getLineStyle())
+        if (!shapeOfComponentAsPinned(shape, component, pins[i]))
         {
             return ::testing::AssertionFailure()
-                   << "shape " << i << " is not a visible shape of " << component.toString();
+                   << "shape " << i << " is not a " << (pins[i].visible ? "visible" : "invisible")
+                   << " shape of " << component.toString();
         }
         const ::testing::AssertionResult result =
             shapeMatchesPin(shape.shape(), pins[i], tolerance);
@@ -300,6 +356,37 @@ using ShapeFunction = std::vector<ComponentShape> (*)(const RocketComponent&,
     {
         return ::testing::AssertionFailure()
                << name << " " << figureViewName(view) << ": " << result.message();
+    }
+    return ::testing::AssertionSuccess();
+}
+
+/// handBuiltAsJava() with @p tolerance for every pin of the case @p name ("<name>") or of its
+/// variants ("<name>/<variant>": "/axial", "/off", ...), in whichever views the generator pinned;
+/// a failure when there is none.
+[[nodiscard]] inline ::testing::AssertionResult handBuiltVariantsAsJava(
+    ShapeFunction side, ShapeFunction back, const RocketComponent& component,
+    std::span<const HandBuiltPin> pins, std::string_view name, double tolerance = 0)
+{
+    int checked = 0;
+    for (const HandBuiltPin& pin : pins)
+    {
+        const bool variant = pin.name.size() > name.size() && pin.name.starts_with(name) &&
+                             pin.name[name.size()] == '/';
+        if (pin.name != name && !variant)
+        {
+            continue;
+        }
+        const ::testing::AssertionResult result =
+            handBuiltAsJava(side, back, component, pins, pin.name, pin.view, tolerance);
+        if (!result)
+        {
+            return result;
+        }
+        ++checked;
+    }
+    if (checked == 0)
+    {
+        return ::testing::AssertionFailure() << "no pins of " << name;
     }
     return ::testing::AssertionSuccess();
 }

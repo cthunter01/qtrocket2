@@ -1,13 +1,19 @@
 #include "QtRocket/figure/RocketComponentShapeProvider.h"
 
-#include <format>
 #include <vector>
 
 #include "QtRocket/figure/BodyTubeShapes.h"
+#include "QtRocket/figure/ComponentAssemblyShapes.h"
 #include "QtRocket/figure/ComponentShape.h"
 #include "QtRocket/figure/FigureView.h"
+#include "QtRocket/figure/FinSetShapes.h"
 #include "QtRocket/figure/LaunchLugShapes.h"
+#include "QtRocket/figure/MassComponentShapes.h"
+#include "QtRocket/figure/ParachuteShapes.h"
+#include "QtRocket/figure/RailButtonShapes.h"
 #include "QtRocket/figure/RingComponentShapes.h"
+#include "QtRocket/figure/ShockCordShapes.h"
+#include "QtRocket/figure/StreamerShapes.h"
 #include "QtRocket/figure/TransitionShapes.h"
 #include "QtRocket/figure/TubeFinSetShapes.h"
 #include "QtRocket/rocket/ComponentKind.h"
@@ -18,26 +24,11 @@
 namespace QtRocket::RocketComponentShapeProvider
 {
 
-namespace
-{
-
-/// Java's IllegalArgumentException of findShapeService, for a kind that has no provider yet.
-[[noreturn]] void noProvider(const RocketComponent& component)
-{
-    bug(std::format("No suitable shape provider found for component: {} ({})", component.toString(),
-                    className(component.kind())));
-}
-
-}  // namespace
-
 std::vector<ComponentShape> getShapesSide(const RocketComponent& component,
                                           const Transformation&  transformation)
 {
     switch (component.kind())
     {
-        case ComponentKind::AXIAL_STAGE:
-            // ComponentAssemblyShapes ignores normal stages.
-            return {};
         case ComponentKind::BODY_TUBE:
             return BodyTubeShapes::getShapesSide(component, transformation);
         case ComponentKind::TRANSITION:
@@ -53,19 +44,26 @@ std::vector<ComponentShape> getShapesSide(const RocketComponent& component,
         case ComponentKind::CENTERING_RING:
         case ComponentKind::BULKHEAD:
             return RingComponentShapes::getShapesSide(component, transformation);
-        case ComponentKind::ROCKET:
-        case ComponentKind::PARALLEL_STAGE:
-        case ComponentKind::POD_SET:
         case ComponentKind::TRAPEZOID_FIN_SET:
         case ComponentKind::ELLIPTICAL_FIN_SET:
         case ComponentKind::FREEFORM_FIN_SET:
+            return FinSetShapes::getShapesSide(component, transformation);
         case ComponentKind::RAIL_BUTTON:
+            return RailButtonShapes::getShapesSide(component, transformation);
         case ComponentKind::MASS_COMPONENT:
+            return MassComponentShapes::getShapesSide(component, transformation);
         case ComponentKind::SHOCK_CORD:
+            return ShockCordShapes::getShapesSide(component, transformation);
         case ComponentKind::PARACHUTE:
+            return ParachuteShapes::getShapesSide(component, transformation);
         case ComponentKind::STREAMER:
-            // The providers of these kinds arrive with the shape ports of run 1, part F3.
-            noProvider(component);
+            return StreamerShapes::getShapesSide(component, transformation);
+        case ComponentKind::ROCKET:
+        case ComponentKind::AXIAL_STAGE:
+        case ComponentKind::PARALLEL_STAGE:
+        case ComponentKind::POD_SET:
+            // ComponentAssemblyShapes returns nothing for a plain AxialStage.
+            return ComponentAssemblyShapes::getShapesSide(component, transformation);
     }
     QTROCKET_UNREACHABLE();
 }
@@ -75,9 +73,6 @@ std::vector<ComponentShape> getShapesBack(const RocketComponent& component,
 {
     switch (component.kind())
     {
-        case ComponentKind::AXIAL_STAGE:
-            // ComponentAssemblyShapes ignores normal stages.
-            return {};
         case ComponentKind::BODY_TUBE:
             return BodyTubeShapes::getShapesBack(component, transformation);
         case ComponentKind::TRANSITION:
@@ -93,19 +88,26 @@ std::vector<ComponentShape> getShapesBack(const RocketComponent& component,
         case ComponentKind::CENTERING_RING:
         case ComponentKind::BULKHEAD:
             return RingComponentShapes::getShapesBack(component, transformation);
-        case ComponentKind::ROCKET:
-        case ComponentKind::PARALLEL_STAGE:
-        case ComponentKind::POD_SET:
         case ComponentKind::TRAPEZOID_FIN_SET:
         case ComponentKind::ELLIPTICAL_FIN_SET:
         case ComponentKind::FREEFORM_FIN_SET:
+            return FinSetShapes::getShapesBack(component, transformation);
         case ComponentKind::RAIL_BUTTON:
+            return RailButtonShapes::getShapesBack(component, transformation);
         case ComponentKind::MASS_COMPONENT:
+            return MassComponentShapes::getShapesBack(component, transformation);
         case ComponentKind::SHOCK_CORD:
+            return ShockCordShapes::getShapesBack(component, transformation);
         case ComponentKind::PARACHUTE:
+            return ParachuteShapes::getShapesBack(component, transformation);
         case ComponentKind::STREAMER:
-            // The providers of these kinds arrive with the shape ports of run 1, part F3.
-            noProvider(component);
+            return StreamerShapes::getShapesBack(component, transformation);
+        case ComponentKind::ROCKET:
+        case ComponentKind::AXIAL_STAGE:
+        case ComponentKind::PARALLEL_STAGE:
+        case ComponentKind::POD_SET:
+            // ComponentAssemblyShapes returns nothing for a plain AxialStage.
+            return ComponentAssemblyShapes::getShapesBack(component, transformation);
     }
     QTROCKET_UNREACHABLE();
 }

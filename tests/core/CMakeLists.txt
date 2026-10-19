@@ -380,6 +380,7 @@ add_executable(QtRocket_core_tests
     figure/AffineTransform2DTests.cpp
     figure/body_shapes_design_tests.cpp
     figure/BodyTubeShapesTests.cpp
+    figure/ComponentAssemblyShapesTests.cpp
     figure/ComponentShapeTests.cpp
     figure/EmptyShapesTests.cpp
     figure/FigureArcTests.cpp
@@ -390,10 +391,19 @@ add_executable(QtRocket_core_tests
     figure/FigureRoundRectTests.cpp
     figure/FigureShapeTests.cpp
     figure/FigureViewTests.cpp
+    figure/fin_mass_shapes_design_tests.cpp
+    figure/FinSetShapesTests.cpp
     figure/LaunchLugShapesTests.cpp
+    figure/MassComponentShapesTests.cpp
+    figure/ParachuteShapesTests.cpp
     figure/PathSegmentTests.cpp
+    figure/RailButtonShapesTests.cpp
     figure/RingComponentShapesTests.cpp
+    figure/rocket_figure_geometry_design_tests.cpp
     figure/RocketComponentShapeProviderTests.cpp
+    figure/RocketFigureGeometryTests.cpp
+    figure/ShockCordShapesTests.cpp
+    figure/StreamerShapesTests.cpp
     figure/SymmetricComponentShapesTests.cpp
     figure/TransitionShapesTests.cpp
     figure/TubeFinSetShapesTests.cpp

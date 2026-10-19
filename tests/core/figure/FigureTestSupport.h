@@ -37,6 +37,12 @@ struct ContainsCase
 /// values that are zero but for rounding.
 inline constexpr double kTranscendentalTolerance = 1e-14;
 
+/// The relative tolerance for a Path2D.Float's coordinates whose double inputs went through sin or
+/// cos (a cant rotation, an elliptical fin, a rotated figure): one unit in the last place of a
+/// float of order 1, since a double that differs from Java's in its last bit can round to the
+/// neighbouring float.
+inline constexpr double kFloatTolerance = 0x1p-23;
+
 /// True when @p actual is within @p tolerance of @p expected, relative to max(1, |expected|).
 [[nodiscard]] inline bool figureValueNear(double actual, double expected, double tolerance)
 {
