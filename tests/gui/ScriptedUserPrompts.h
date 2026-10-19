@@ -13,6 +13,7 @@
 #include <QStringList>
 #include <QtContainerFwd>
 
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 
 class QWidget;
@@ -49,6 +50,7 @@ public:
         DESIGN_INFORMATION,
         MESSAGE,
         WARNINGS,
+        INTERNAL_ERROR,
     };
 
     /// One question or message, as the code under test asked it.
@@ -84,6 +86,7 @@ public:
     void answerOpenFiles(std::optional<OpenFileAnswer> answer);
     void answerSaveFile(std::optional<SaveFileAnswer> answer);
     void answerDesignInformation(DesignInformationEdit edit = {});
+    void answerInternalError(InternalErrorAnswer answer);
 
     /// Every question and message so far, in order.
     [[nodiscard]] const std::vector<Prompt>& prompts() const noexcept { return m_prompts; }
@@ -121,11 +124,16 @@ public:
     void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override;
     void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
+    /// Recorded with the failure's kind (BUG, EXCEPTION, UNKNOWN, ERROR_CONDITION), its message
+    /// and its context as the texts; the cancelling answer is CONTINUE.
+    [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
+                                                        const Guard::Failure& failure) override;
 
 private:
-    using Answer = std::variant<InsertPositionAnswer, DiscardAnswer, SaveChangesAnswer, bool,
-                                std::optional<bool>, std::optional<OpenFileAnswer>,
-                                std::optional<SaveFileAnswer>, DesignInformationEdit>;
+    using Answer =
+        std::variant<InsertPositionAnswer, DiscardAnswer, SaveChangesAnswer, bool,
+                     std::optional<bool>, std::optional<OpenFileAnswer>,
+                     std::optional<SaveFileAnswer>, DesignInformationEdit, InternalErrorAnswer>;
 
     struct Scripted
     {

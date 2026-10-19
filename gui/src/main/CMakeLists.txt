@@ -4,5 +4,6 @@ target_sources(QtRocket_gui PRIVATE
     MainMenus.cpp ${gui_include_dir}/main/MainMenus.h
     MainWindow.cpp ${gui_include_dir}/main/MainWindow.h
     UndoRedoActions.cpp ${gui_include_dir}/main/UndoRedoActions.h
+    WidgetUserPrompts.cpp ${gui_include_dir}/main/WidgetUserPrompts.h
     WindowManager.cpp ${gui_include_dir}/main/WindowManager.h
 )

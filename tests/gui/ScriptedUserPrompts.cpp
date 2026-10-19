@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/util/BugError.h"
@@ -61,6 +62,22 @@ namespace
     QTROCKET_UNREACHABLE();
 }
 
+[[nodiscard]] QString failureKindName(Guard::Failure::Kind kind)
+{
+    switch (kind)
+    {
+        case Guard::Failure::Kind::BUG:
+            return QStringLiteral("BUG");
+        case Guard::Failure::Kind::EXCEPTION:
+            return QStringLiteral("EXCEPTION");
+        case Guard::Failure::Kind::UNKNOWN:
+            return QStringLiteral("UNKNOWN");
+        case Guard::Failure::Kind::ERROR_CONDITION:
+            return QStringLiteral("ERROR_CONDITION");
+    }
+    QTROCKET_UNREACHABLE();
+}
+
 }  // namespace
 
 ScriptedUserPrompts::Prompt ScriptedUserPrompts::makePrompt(Kind kind, QString title,
@@ -106,6 +123,8 @@ std::string_view ScriptedUserPrompts::kindName(Kind kind)
             return "MESSAGE";
         case Kind::WARNINGS:
             return "WARNINGS";
+        case Kind::INTERNAL_ERROR:
+            return "INTERNAL_ERROR";
     }
     QTROCKET_UNREACHABLE();
 }
@@ -163,6 +182,11 @@ void ScriptedUserPrompts::answerDesignInformation(DesignInformationEdit edit)
 {
     script(Kind::DESIGN_INFORMATION,
            Answer(std::in_place_type<DesignInformationEdit>, std::move(edit)));
+}
+
+void ScriptedUserPrompts::answerInternalError(InternalErrorAnswer answer)
+{
+    script(Kind::INTERNAL_ERROR, Answer(std::in_place_type<InternalErrorAnswer>, answer));
 }
 
 UserPrompts::InsertPositionAnswer ScriptedUserPrompts::askInsertPosition(
@@ -251,6 +275,14 @@ void ScriptedUserPrompts::showWarnings(QWidget* /*parent*/, const WarningsMessag
     QStringList texts = message.lines;
     texts.append(message.warnings);
     m_prompts.push_back(makePrompt(Kind::WARNINGS, message.title, texts));
+}
+
+UserPrompts::InternalErrorAnswer ScriptedUserPrompts::showInternalError(
+    QWidget* /*parent*/, const Guard::Failure& failure)
+{
+    return next(makePrompt(Kind::INTERNAL_ERROR, {},
+                           {failureKindName(failure.kind), failure.message, failure.context}),
+                InternalErrorAnswer::CONTINUE);
 }
 
 void ScriptedUserPrompts::script(Kind kind, Answer answer)

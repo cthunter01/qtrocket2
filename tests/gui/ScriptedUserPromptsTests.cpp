@@ -15,6 +15,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/Rocket.h"
 
@@ -127,6 +128,31 @@ TEST_F(ScriptedUserPromptsTest, RecordsMessagesWithoutAScript)
                      QStringLiteral("disk full")}));
     EXPECT_EQ(prompts.prompts().at(1).kind, Kind::WARNINGS);
     EXPECT_EQ(prompts.prompts().at(1).texts.size(), 2);
+}
+
+TEST_F(ScriptedUserPromptsTest, AnswersTheInternalErrorAndRecordsTheFailure)
+{
+    ScriptedUserPrompts prompts;
+    prompts.answerInternalError(UserPrompts::InternalErrorAnswer::QUIT);
+    Guard::Failure failure;
+    failure.kind    = Guard::Failure::Kind::BUG;
+    failure.message = QStringLiteral("BUG: broken (Rocket.cpp:12)");
+    failure.context = QStringLiteral("Delete");
+    EXPECT_EQ(prompts.showInternalError(nullptr, failure), UserPrompts::InternalErrorAnswer::QUIT);
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts().front().kind, Kind::INTERNAL_ERROR);
+    EXPECT_EQ(prompts.prompts().front().texts,
+              (QStringList{QStringLiteral("BUG"), QStringLiteral("BUG: broken (Rocket.cpp:12)"),
+                           QStringLiteral("Delete")}));
+}
+
+TEST_F(ScriptedUserPromptsTest, AnUnscriptedInternalErrorFailsTheTestAndContinues)
+{
+    ScriptedUserPrompts              prompts;
+    UserPrompts::InternalErrorAnswer answer = UserPrompts::InternalErrorAnswer::QUIT;
+    EXPECT_NONFATAL_FAILURE(answer = prompts.showInternalError(nullptr, Guard::Failure{}),
+                            "unexpected INTERNAL_ERROR question: the script has no answer left");
+    EXPECT_EQ(answer, UserPrompts::InternalErrorAnswer::CONTINUE);
 }
 
 TEST_F(ScriptedUserPromptsTest, AnUnscriptedQuestionFailsTheTestAndCancels)

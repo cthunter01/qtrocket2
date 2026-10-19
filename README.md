@@ -12,7 +12,7 @@ Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_co
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
 OpenRocket's unit tests. Milestone 2, under way, builds the graphical user interface: the program `QtRocket`
-(Qt 6 Widgets), which so far shows an empty main window.
+(Qt 6 Widgets), which so far opens the window of a new design with its menus.
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -80,9 +80,12 @@ CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, 
 API docs: `cmake --build --preset clang-debug --target docs`, then open `build/clang-debug/docs/html/index.html`.
 
 ## The GUI
-`QtRocket` is the graphical program (Qt 6 Widgets), which Milestone 2 builds: so far it shows an empty main window.
-`QtRocket --version` prints its version and `QtRocket --help` its options. The release archives hold the
-command-line tool alone until the GUI is released (Milestone 9).
+`QtRocket` is the graphical program (Qt 6 Widgets), which Milestone 2 builds: so far it opens the window of a new
+design, with its menus (New, Close design and Quit work; the design panel, the figure and the other items are still
+empty). Design files named on the command line are not opened yet. `QtRocket --version` prints its version and
+`QtRocket --help` its options. Its preferences are kept in an INI file: `~/.config/QtRocket/QtRocket.ini` on Linux
+(under `$XDG_CONFIG_HOME` when that is set) and macOS, `%APPDATA%\QtRocket\QtRocket.ini` on Windows. The release
+archives hold the command-line tool alone until the GUI is released (Milestone 9).
 
 ## The command-line tool
 `QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:

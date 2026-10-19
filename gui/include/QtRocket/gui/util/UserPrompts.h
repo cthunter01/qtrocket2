@@ -7,6 +7,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "QtRocket/gui/util/Guard.h"
+
 class QWidget;
 
 namespace QtRocket
@@ -86,6 +88,15 @@ public:
         SAVE,
         DISCARD,
         CANCEL,
+    };
+
+    /// What the user chose in the internal error dialog.
+    enum class InternalErrorAnswer
+    {
+        /// Go on working; closing the dialog answers this too.
+        CONTINUE,
+        /// End the application at once, without saving any design.
+        QUIT,
     };
 
     /// The icon and kind of a message or question.
@@ -230,6 +241,13 @@ public:
     virtual void showMessage(QWidget* parent, const Message& message) = 0;
 
     virtual void showWarnings(QWidget* parent, const WarningsMessage& message) = 0;
+
+    /// The internal error dialog (OpenRocket's SwingExceptionHandler.showDialog(), in QtRocket's
+    /// words: dialogs/InternalErrorDialog) for a failure the error hook (Guard) was given, with
+    /// Continue and Quit. The application's error hook shows it (app/ApplicationSession) and
+    /// acts on the answer.
+    [[nodiscard]] virtual InternalErrorAnswer showInternalError(QWidget*              parent,
+                                                                const Guard::Failure& failure) = 0;
 };
 
 }  // namespace QtRocket::Gui

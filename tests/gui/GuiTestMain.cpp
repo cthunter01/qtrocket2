@@ -1,5 +1,7 @@
 // main() of QtRocket_gui_tests: GoogleTest with one QApplication for the whole process, set up so
-// that no test can reach the user's desktop or depend on it.
+// that no test can reach the user's desktop or depend on it. The QApplication is the
+// application's own (QtRocket::Gui::Application), so that the tests run under its backstop for
+// exceptions (notify()) and its event handling.
 // - The platform is offscreen unless QT_QPA_PLATFORM names another: no window ever appears. ctest
 //   sets the variable for the tests, but not for gtest_discover_tests' listing run
 //   (--gtest_list_tests), which builds the QApplication too and has no display in CI.
@@ -8,11 +10,16 @@
 // - QStandardPaths' test mode, and every QSettings made without a file name is an INI file in a
 //   temporary directory of this process (the code under test takes its own INI file anyway).
 // - A Qt warning, critical or fatal message during a test fails it (ExpectedQtMessage).
+// - So does a report of the error hook (Guard: a guarded slot or the notify() backstop caught an
+//   exception, or the code reported an error condition) that the test does not expect: the
+//   hook of the process fails the test, unless the test records the reports itself
+//   (RecordingGuardHook) or starts the application (ApplicationSession, whose hook asks the
+//   test's UserPrompts).
 
 #include <cstdio>
 #include <print>
+#include <string>
 
-#include <QApplication>
 #include <QLocale>
 #include <QSettings>
 #include <QStandardPaths>
@@ -22,6 +29,9 @@
 #include <gtest/gtest.h>
 
 #include "ExpectedQtMessage.h"
+#include "QtRocket/gui/app/Application.h"
+#include "QtRocket/gui/util/Guard.h"
+#include "QtRocket/gui/util/QtStrings.h"
 
 namespace
 {
@@ -42,11 +52,28 @@ void prepareEnvironment()
     }
 }
 
+/// The error hook of the test process: a report fails the test that runs (outside a test it is
+/// only printed, as GoogleTest has no test to fail).
+void failOnReport(const QtRocket::Gui::Guard::Failure& failure)
+{
+    const std::string text =
+        QtRocket::Gui::QtStrings::toUtf8(QtRocket::Gui::Guard::describe(failure));
+    if (::testing::UnitTest::GetInstance()->current_test_info() != nullptr)
+    {
+        ADD_FAILURE() << "unexpected report of the error hook: " << text;
+    }
+    else
+    {
+        std::println(stderr, "QtRocket_gui_tests: report of the error hook: {}", text);
+    }
+}
+
 int runTests(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     QtRocket::Gui::Test::ExpectedQtMessage::installHandler();
-    const QApplication application(argc, argv);
+    const QtRocket::Gui::Application application(argc, argv);
+    static_cast<void>(QtRocket::Gui::Guard::setHook(&failOnReport));
     QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
     QStandardPaths::setTestModeEnabled(true);
 
