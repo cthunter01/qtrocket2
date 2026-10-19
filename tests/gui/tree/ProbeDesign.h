@@ -49,6 +49,14 @@ public:
     explicit ProbeDesign(Booster booster = Booster::WITH_SIDE_BOOSTERS);
     ~ProbeDesign();
 
+    /// A new document of the design, for whoever opens it elsewhere (a window).
+    [[nodiscard]] static std::unique_ptr<OpenRocketDocument> makeDocument(
+        Booster booster = Booster::WITH_SIDE_BOOSTERS);
+
+    /// The first component of @p rocket in tree order named @p name; a test failure and the
+    /// Rocket when there is none.
+    [[nodiscard]] static RocketComponent& find(Rocket& rocket, std::string_view name);
+
     ProbeDesign(const ProbeDesign&)            = delete;
     ProbeDesign& operator=(const ProbeDesign&) = delete;
     ProbeDesign(ProbeDesign&&)                 = delete;

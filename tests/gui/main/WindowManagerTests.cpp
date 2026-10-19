@@ -22,12 +22,17 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
+#include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
+#include "QtRocket/gui/tree/DocumentSelectionModel.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
 
@@ -64,6 +69,7 @@ protected:
     }
 
     [[nodiscard]] Gui::Test::ScriptedUserPrompts& prompts() { return m_services.prompts(); }
+    [[nodiscard]] const GuiServices&              services() const { return m_services.services(); }
 
     /// Destroys the manager.
     void destroyManager() { m_manager.reset(); }
@@ -162,6 +168,23 @@ TEST_F(WindowManagerTest, NewDesignOpensAShownReplaceableWindowOfANewRocket)
     EXPECT_EQ(menusCreated.at(0).at(0).value<MainMenus*>(), &window.menus());
     EXPECT_EQ(menusCreated.at(0).at(1).value<MainWindow*>(), &window);
     EXPECT_TRUE(prompts().prompts().empty());
+}
+
+TEST_F(WindowManagerTest, EveryWindowHasADesignPanelWithTheFirstStageSelected)
+{
+    const MainWindow&  window = manager().newDesign();
+    const DesignPanel* panel  = window.componentDesignPanel();
+    ASSERT_NE(panel, nullptr);
+    EXPECT_EQ(window.designPanel(), panel);
+    EXPECT_EQ(&panel->mainWindow(), &window);
+    EXPECT_EQ(panel->selection().selectedComponent(), &window.document().getRocket().getChild(0));
+
+    // The application's clipboard, unless the manager was given another.
+    EXPECT_EQ(&manager().clipboard(), &OpenRocketClipboard::instance());
+    OpenRocketClipboard clipboard;
+    const WindowManager other(services(), clipboard, LastWindowBehaviour::EXIT);
+    EXPECT_EQ(&other.clipboard(), &clipboard);
+    EXPECT_EQ(other.lastWindowBehaviour(), LastWindowBehaviour::EXIT);
 }
 
 TEST_F(WindowManagerTest, OpensAWindowWithItsSizesSetBeforeItIsShown)

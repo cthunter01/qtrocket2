@@ -12,5 +12,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     DocumentSelectionModelTests.cpp
     ProbeDesign.cpp
     TreeEditingSupport.cpp
+    TreeViewMouse.cpp
     undo_redo_selection_tests.cpp
 )

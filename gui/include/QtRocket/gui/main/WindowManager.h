@@ -22,6 +22,8 @@ class Rocket;
 namespace QtRocket::Gui
 {
 
+class OpenRocketClipboard;
+
 /// The open design windows (BasicFrame's static part: its list of frames, newAction(),
 /// closeAction(), quitAction(), closeIfReplaceable(), findFrame()). It owns each window and its
 /// document, the document outside its window: a closed window is destroyed (later, from the
@@ -30,9 +32,13 @@ namespace QtRocket::Gui
 ///
 /// - newDesign() opens a window on a new design (OpenRocketDocumentFactory::createNewRocket():
 ///   "Rocket" with the stage "Sustainer", saved, no file); addDocument() opens one on a document
-///   that was loaded (run 3's file operations). A window opens as BasicFrame's: its size and the
-///   remembered geometry (MainWindow), then 30 pixels right of and below the window opened before
-///   it (WindowGeometry::cascade()), then shown.
+///   that was loaded (run 3's file operations). A window opens as BasicFrame's: with its design
+///   panel (a DesignPanel: the component tree, its selection and actions, the add buttons; the
+///   first stage selected, the tree with the keyboard focus), its size and the remembered
+///   geometry (MainWindow), then 30 pixels right of and below the window opened before it
+///   (WindowGeometry::cascade()), then shown. Every window's design panel shares the component
+///   clipboard (the application's, OpenRocketClipboard::instance(), unless the manager was made
+///   with another one).
 /// - A window of a new design is "replaceable": a New or an Open from it while its design is
 ///   still saved closes it, and the new window takes its place (closeIfReplaceable()). As in
 ///   Java a replaceable window stays so for good: it is not replaced once the design has
@@ -44,6 +50,9 @@ namespace QtRocket::Gui
 ///   it; Cancel keeps it. When the last window is closed, the application exits (exitRequested())
 ///   on Linux and Windows; on macOS it keeps running with the menu bar of no window (File: New,
 ///   Open, Open recent, Open example, Quit; Help: DummyFrameMenuOSX), unless it is quitting.
+///   The window asks for the configuration dialog to close (MainWindow::
+///   requestConfigDialogClose()) before the question and after it closed, as
+///   BasicFrame.closeAction() disposes the dialog.
 /// - quit() closes the windows from the last opened to the first; a window that stays open (its
 ///   question cancelled, its save failed) stops the quit, and the windows closed so far stay
 ///   closed. When all are closed, the application exits.
@@ -75,10 +84,15 @@ public:
     /// The platform's: KEEP_RUNNING on macOS, EXIT on the others.
     [[nodiscard]] static LastWindowBehaviour platformLastWindowBehaviour() noexcept;
 
-    /// No window yet; the objects of @p services must outlive this object.
+    /// No window yet; the objects of @p services must outlive this object. The windows share the
+    /// application's component clipboard (OpenRocketClipboard::instance()).
     explicit WindowManager(const GuiServices&  services,
                            LastWindowBehaviour behaviour = platformLastWindowBehaviour(),
                            QObject*            parent    = nullptr);
+    /// As above, the windows sharing @p clipboard, which must outlive this object (a test's own).
+    WindowManager(const GuiServices& services, OpenRocketClipboard& clipboard,
+                  LastWindowBehaviour behaviour = platformLastWindowBehaviour(),
+                  QObject*            parent    = nullptr);
     ~WindowManager() override;
     WindowManager(const WindowManager&)            = delete;
     WindowManager& operator=(const WindowManager&) = delete;
@@ -121,6 +135,8 @@ public:
     [[nodiscard]] bool isReplaceable(const MainWindow& window) const noexcept;
     /// What happens when the last window is closed.
     [[nodiscard]] LastWindowBehaviour lastWindowBehaviour() const noexcept { return m_behaviour; }
+    /// The component clipboard the windows share.
+    [[nodiscard]] OpenRocketClipboard& clipboard() const noexcept { return *m_clipboard; }
 
     /// The menu bar of no window (parentless: macOS shows it while no window is active), made
     /// when the last window is closed with KEEP_RUNNING; null before.
@@ -163,9 +179,10 @@ private:
     /// After the last window was closed: exits, or shows the menu bar of no window.
     void lastWindowClosed();
 
-    GuiServices         m_services;
-    LastWindowBehaviour m_behaviour;
-    SaveHook            m_saveHook;
+    GuiServices          m_services;
+    OpenRocketClipboard* m_clipboard;
+    LastWindowBehaviour  m_behaviour;
+    SaveHook             m_saveHook;
     /// The open windows; each Entry by pointer, so that one stays where it is while a question
     /// (a nested event loop) runs.
     std::vector<std::unique_ptr<Entry>> m_entries;

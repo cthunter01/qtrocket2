@@ -4,6 +4,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     DescriptionAreaTests.cpp
     FlowLayoutTests.cpp
     HtmlLabelTests.cpp
+    IconButtonTests.cpp
     IconToggleButtonTests.cpp
     StyledLabelTests.cpp
 )

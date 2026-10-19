@@ -54,9 +54,21 @@ std::string javaList(const std::vector<std::string>& texts)
 
 }  // namespace
 
-ProbeDesign::ProbeDesign(Booster booster) : m_document(OpenRocketDocumentFactory::createNewRocket())
+ProbeDesign::ProbeDesign(Booster booster) : m_document(makeDocument(booster))
 {
-    RocketComponent& stage = rocket().getChild(0);
+    for (const RocketComponent& component : rocket().subtree())
+    {
+        m_originalIds.insert(component.getId());
+    }
+}
+
+ProbeDesign::~ProbeDesign() = default;
+
+std::unique_ptr<OpenRocketDocument> ProbeDesign::makeDocument(Booster booster)
+{
+    std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+    Rocket&                             rocket   = document->getRocket();
+    RocketComponent&                    stage    = rocket.getChild(0);
     add<NoseCone>(stage, "NC");
     RocketComponent& bt1 = add<BodyTube>(stage, "BT1");
     RocketComponent& it  = add<InnerTube>(bt1, "IT");
@@ -67,7 +79,7 @@ ProbeDesign::ProbeDesign(Booster booster) : m_document(OpenRocketDocumentFactory
     add<Parachute>(bt2, "Chute");
     if (booster != Booster::NONE)
     {
-        RocketComponent& second = add<AxialStage>(rocket(), "Booster");
+        RocketComponent& second = add<AxialStage>(rocket, "Booster");
         if (booster == Booster::WITH_SIDE_BOOSTERS)
         {
             RocketComponent& bbt  = add<BodyTube>(second, "BBT");
@@ -75,13 +87,8 @@ ProbeDesign::ProbeDesign(Booster booster) : m_document(OpenRocketDocumentFactory
             add<BodyTube>(side, "PBT");
         }
     }
-    for (const RocketComponent& component : rocket().subtree())
-    {
-        m_originalIds.insert(component.getId());
-    }
+    return document;
 }
-
-ProbeDesign::~ProbeDesign() = default;
 
 Rocket& ProbeDesign::rocket() const
 {
@@ -90,7 +97,12 @@ Rocket& ProbeDesign::rocket() const
 
 RocketComponent& ProbeDesign::find(std::string_view name) const
 {
-    for (RocketComponent& component : rocket().subtree())
+    return find(rocket(), name);
+}
+
+RocketComponent& ProbeDesign::find(Rocket& rocket, std::string_view name)
+{
+    for (RocketComponent& component : rocket.subtree())
     {
         if (component.getName() == name)
         {
@@ -98,7 +110,7 @@ RocketComponent& ProbeDesign::find(std::string_view name) const
         }
     }
     ADD_FAILURE() << "no component named " << name;
-    return rocket();
+    return rocket;
 }
 
 std::vector<RocketComponent*> ProbeDesign::find(std::initializer_list<std::string_view> names) const

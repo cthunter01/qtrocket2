@@ -59,6 +59,7 @@
 #include "goldens/GoldenExamples.h"
 #include "rocket/TestRockets.h"
 #include "tree/ComponentTreeTranscript.h"
+#include "tree/TreeViewMouse.h"
 
 namespace QtRocket::Gui
 {
@@ -163,27 +164,18 @@ protected:
         return {10, m_view->visualRect(rows.last()).bottom() + 40};
     }
 
-    /// A double-click as a platform delivers it to a widget: press, release, double-click,
-    /// release (Qt drops the second press).
+    /// A double-click at @p position of the viewport (Test::doubleClickAt()).
     void doubleClick(const QPoint& position, Qt::KeyboardModifiers modifiers = {},
                      Qt::MouseButton button = Qt::LeftButton) const
     {
-        QWidget* viewport = m_view->viewport();
-        QTest::mousePress(viewport, button, modifiers, position);
-        QTest::mouseRelease(viewport, button, modifiers, position);
-        QTest::mouseDClick(viewport, button, modifiers, position);
-        QTest::mouseRelease(viewport, button, modifiers, position);
+        Gui::Test::doubleClickAt(*m_view->viewport(), position, modifiers, button);
     }
 
-    /// A context menu event of the mouse at @p position of the viewport, after the right button's
-    /// press and release there.
+    /// A click of the right button and the context menu event at @p position of the viewport
+    /// (Test::rightClickAt()).
     void rightClick(const QPoint& position, Qt::KeyboardModifiers modifiers = {}) const
     {
-        QWidget* viewport = m_view->viewport();
-        QTest::mouseClick(viewport, Qt::RightButton, modifiers, position);
-        QContextMenuEvent event(QContextMenuEvent::Mouse, position, viewport->mapToGlobal(position),
-                                modifiers);
-        QApplication::sendEvent(viewport, &event);
+        Gui::Test::rightClickAt(*m_view->viewport(), position, modifiers);
     }
 
     [[nodiscard]] std::vector<std::string> selectedNames() const
