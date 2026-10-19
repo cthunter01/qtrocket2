@@ -425,6 +425,7 @@ add_executable(QtRocket_core_tests
     goldens/example_simulation_stable_golden_tests.cpp
     goldens/figure_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
+    goldens/from_scratch_reference_golden_tests.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
     goldens/GoldenDesign.cpp
@@ -432,6 +433,7 @@ add_executable(QtRocket_core_tests
     goldens/GoldenExamplesTests.cpp
     goldens/GoldenFigure.cpp
     goldens/GoldenGeometry.cpp
+    goldens/GoldenGuiReference.cpp
     goldens/GoldenMismatches.cpp
     goldens/GoldenResaves.cpp
     goldens/goldens_schema_tests.cpp

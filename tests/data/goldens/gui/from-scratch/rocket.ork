@@ -1,0 +1,234 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.11" creator="OpenRocket 26.xx-SNAPSHOT-5f164fd0e">
+  <rocket>
+    <name>Rocket</name>
+    <id>db810b34-14f7-47c1-a6f1-e1408f03c53c</id>
+    <axialoffset method="absolute">0.0</axialoffset>
+    <position type="absolute">0.0</position>
+    <designer>QtRocket exit scenario</designer>
+    <designtype>original</designtype>
+    <referencetype>maximum</referencetype>
+
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <id>764e69da-833a-48c5-91b9-3b8a0fd2ab27</id>
+
+        <subcomponents>
+          <nosecone>
+            <name>Nose Cone</name>
+            <id>f6bbf16c-a760-420e-aa7f-4dd4bfe0ccfe</id>
+            <finish>smooth</finish>
+            <material type="bulk" density="1200.0" shearModulus="7.86E8" group="Plastics">Polycarbonate (Lexan)</material>
+            <length>0.1</length>
+            <thickness>0.0015</thickness>
+            <shape>ellipsoid</shape>
+            <shapeclipped>false</shapeclipped>
+            <aftradius>auto 0.020499999999999997</aftradius>
+            <aftshoulderradius>0.0</aftshoulderradius>
+            <aftshoulderlength>0.0</aftshoulderlength>
+            <aftshoulderthickness>0.0</aftshoulderthickness>
+            <aftshouldercapped>false</aftshouldercapped>
+            <isflipped>false</isflipped>
+          </nosecone>
+
+          <bodytube>
+            <name>Body Tube</name>
+            <id>a2058495-93b7-4213-afec-10692278ec2f</id>
+            <finish>normal</finish>
+            <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+            <length>0.3</length>
+            <thickness>5.0E-4</thickness>
+            <radius>0.020499999999999997</radius>
+
+            <subcomponents>
+              <freeformfinset>
+                <name>Freeform Fin Set</name>
+                <id>0ccc9062-9d96-4706-8506-2f48d04d39e1</id>
+                <instancecount>4</instancecount>
+                <fincount>4</fincount>
+                <radiusoffset method="surface">0.0</radiusoffset>
+                <angleoffset method="relative">0.0</angleoffset>
+                <rotation>0.0</rotation>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
+                <thickness>0.003</thickness>
+                <crosssection>rounded</crosssection>
+                <cant>0.0</cant>
+                <filletradius>0.0</filletradius>
+                <filletmaterial type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</filletmaterial>
+                <finpoints>
+                  <point x="0.0" y="0.0"/>
+                  <point x="0.03" y="0.055"/>
+                  <point x="0.07500000000000001" y="0.055"/>
+                  <point x="0.07250000000000001" y="0.03"/>
+                  <point x="0.07" y="0.0"/>
+                </finpoints>
+              </freeformfinset>
+
+              <innertube>
+                <name>Inner Tube</name>
+                <id>5239f142-54e7-40bd-94b6-28438a38d556</id>
+                <axialoffset method="bottom">0.0</axialoffset>
+                <position type="bottom">0.0</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.075</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>0.013000000000000001</outerradius>
+                <thickness>0.0010000000000000009</thickness>
+                <clusterconfiguration>single</clusterconfiguration>
+                <clusterscale>1.0</clusterscale>
+                <clusterrotation>0.0</clusterrotation>
+                <motormount>
+                  <ignitionevent>automatic</ignitionevent>
+                  <ignitiondelay>0.0</ignitiondelay>
+                  <overhang>0.005</overhang>
+                </motormount>
+              </innertube>
+
+              <centeringring>
+                <name>Fore centering ring</name>
+                <id>a0a5556d-b1c9-4a47-b06f-a53d8f912cab</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.06</axialoffset>
+                <position type="bottom">-0.06</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.003</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <centeringring>
+                <name>Aft centering ring</name>
+                <id>f87f5b70-8bc7-4181-b84a-073b2dd75140</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.0</instanceseparation>
+                <axialoffset method="bottom">-0.005</axialoffset>
+                <position type="bottom">-0.005</position>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <length>0.003</length>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <outerradius>auto</outerradius>
+                <innerradius>auto</innerradius>
+              </centeringring>
+
+              <parachute>
+                <name>Parachute</name>
+                <id>357f1203-504b-422e-834c-764a9a64d805</id>
+                <axialoffset method="top">0.02</axialoffset>
+                <position type="top">0.02</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>altitude</deployevent>
+                <deployaltitude>150.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.3</diameter>
+                <linecount>8</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+
+              <shockcord>
+                <name>Shock Cord</name>
+                <id>4c5fb593-f14d-4c2e-b8a9-8a110453026b</id>
+                <axialoffset method="top">0.0</axialoffset>
+                <position type="top">0.0</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cordlength>0.6</cordlength>
+                <material type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</material>
+              </shockcord>
+
+              <launchlug>
+                <name>Launch Lug</name>
+                <id>d5aeda73-1e70-4f0d-bc40-d8b5e5d7c275</id>
+                <instancecount>1</instancecount>
+                <instanceseparation>0.06</instanceseparation>
+                <angleoffset method="relative">180.0</angleoffset>
+                <radialdirection>180.0</radialdirection>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
+                <radius>0.005</radius>
+                <length>0.05</length>
+                <thickness>0.001</thickness>
+              </launchlug>
+
+              <railbutton>
+                <name>Rail Button</name>
+                <id>c970a692-b3f2-4202-9394-1ba59cb4576d</id>
+                <instancecount>2</instancecount>
+                <instanceseparation>0.15</instanceseparation>
+                <angleoffset method="relative">90.0</angleoffset>
+                <axialoffset method="middle">0.0</axialoffset>
+                <position type="middle">0.0</position>
+                <finish>normal</finish>
+                <material type="bulk" density="1420.0" shearModulus="9.46E8" group="Plastics">Delrin</material>
+                <outerdiameter>0.0097</outerdiameter>
+                <innerdiameter>0.008</innerdiameter>
+                <height>0.0097</height>
+                <baseheight>0.002</baseheight>
+                <flangeheight>0.002</flangeheight>
+                <screwheight>0.0</screwheight>
+              </railbutton>
+
+              <masscomponent>
+                <name>Altimeter</name>
+                <id>8d96cd2e-7142-40cb-bf06-eb4c398b5118</id>
+                <axialoffset method="top">0.08</axialoffset>
+                <position type="top">0.08</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <mass>0.015</mass>
+                <masscomponenttype>altimeter</masscomponenttype>
+              </masscomponent>
+
+              <parachute>
+                <name>Drogue</name>
+                <id>8e4d08fe-8684-430b-9c55-0e643b728faf</id>
+                <axialoffset method="top">0.02</axialoffset>
+                <position type="top">0.02</position>
+                <packedlength>0.025</packedlength>
+                <packedradius>0.0125</packedradius>
+                <radialposition>0.0</radialposition>
+                <radialdirection>0.0</radialdirection>
+                <cd>auto</cd>
+                <material type="surface" density="0.067" group="Fabrics">Ripstop nylon</material>
+                <deployevent>altitude</deployevent>
+                <deployaltitude>150.0</deployaltitude>
+                <deploydelay>0.0</deploydelay>
+                <diameter>0.15</diameter>
+                <linecount>8</linecount>
+                <linelength>auto</linelength>
+                <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+
+  <simulations>
+  </simulations>
+  <photostudio>
+  </photostudio>
+  <docprefs>
+  </docprefs>
+</openrocket>

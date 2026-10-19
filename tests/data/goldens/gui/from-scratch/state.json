@@ -1,0 +1,2874 @@
+{
+  "schema": "gui-from-scratch-reference",
+  "schemaVersion": 1,
+  "generator": "tools/openrocket-gui-reference/generate.sh (GuiReference)",
+  "openrocket": {
+    "commit": "5f164fd0e05d6e188857b0185601293b7a6e9eaf",
+    "version": "26.xx-SNAPSHOT-5f164fd0e",
+    "dirty": false,
+    "javaVersion": "17.0.20.1"
+  },
+  "scenario": {
+    "file": "scenario.json",
+    "sha256": "f749186c8639f7119ffb5c7c14ce578bc37ff10db5c7afa04ceac1ad8dedec75",
+    "title": "A rocket designed from scratch in the GUI",
+    "steps": 98
+  },
+  "reference": {
+    "file": "rocket.ork",
+    "savedAs": "rocket.ork",
+    "archiveEntries": [
+      "rocket.ork"
+    ]
+  },
+  "steps": [
+    {
+      "index": 0,
+      "step": "new",
+      "undo": {
+        "text": "Undo",
+        "enabled": false
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": true,
+      "selection": [
+        [
+          "Sustainer"
+        ]
+      ],
+      "treeSha256": "0301bfbab0001b4072da6f2d1b5262b40c0e261443d117ca4aeb4d3b452f6e1c",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.0 stage=0 sep=EJECTION:0.0:200.0",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[false] motors=0"
+      ]
+    },
+    {
+      "index": 1,
+      "step": "select",
+      "undo": {
+        "text": "Undo",
+        "enabled": false
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": true,
+      "selection": [
+        [
+          "Sustainer"
+        ]
+      ],
+      "treeSha256": "0301bfbab0001b4072da6f2d1b5262b40c0e261443d117ca4aeb4d3b452f6e1c"
+    },
+    {
+      "index": 2,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "19adc9ac347481811e7e9fe6cedcef6d0f08df0d6899e971f321e9e46cd774db"
+    },
+    {
+      "index": 3,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "a8db5a83611abd929b0a4e5469bd35785313655661705ec21b9dc1515e134a16"
+    },
+    {
+      "index": 4,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "9700bb7a7c1e28d65876e13baf2b367bae2f9dc4487e399acd89da5da8a5a803"
+    },
+    {
+      "index": 5,
+      "step": "check",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "52aa96583a4fbdff3a496a9456b724e10e5f5a9cc0de348be287c0408a3bee76"
+    },
+    {
+      "index": 6,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "a1d4b5963318c00999f89d4487a2590cead7d024026b6f8f3a41d973038d3313"
+    },
+    {
+      "index": 7,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "0843f9e5211eabd42e0a3c532efe899988ce5df247332a46228016be6603d470"
+    },
+    {
+      "index": 8,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "662e38212718a6c652ede55be584dd3b8fdfe1704d26e886309a97cf11e13c28"
+    },
+    {
+      "index": 9,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "treeSha256": "662e38212718a6c652ede55be584dd3b8fdfe1704d26e886309a97cf11e13c28",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.1 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.025:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 10,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "open": {
+        "window": "BodyTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube"
+        ]
+      },
+      "treeSha256": "652965ad8d4e62c388b01356489f878d22fec8dc9854fd8393718412323c9f71"
+    },
+    {
+      "index": 11,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "open": {
+        "window": "BodyTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube"
+        ]
+      },
+      "treeSha256": "f66e2ce4d51d2eda9d68596596c5d5f178a246db5c90d20598ef928fd0e58934"
+    },
+    {
+      "index": 12,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "open": {
+        "window": "BodyTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube"
+        ]
+      },
+      "treeSha256": "b80b35a4681be49ded184be3069fd907fe8568ca320ae0c9c3ae6fb0da15fb33"
+    },
+    {
+      "index": 13,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "open": {
+        "window": "BodyTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube"
+        ]
+      },
+      "treeSha256": "b2d808600416e3c48eacb65af01f07a97c17ea63f1df0ad31b2e7f232b2400c6"
+    },
+    {
+      "index": 14,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "b2d808600416e3c48eacb65af01f07a97c17ea63f1df0ad31b2e7f232b2400c6",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 15,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "adc4e5b7b2e31319f9de65e75b5ec806d1ea24a50c3c5d0eb75a02f489e5068a"
+    },
+    {
+      "index": 16,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "4c75d92835b74a2994d298884572215701ce01015b5162abc2cdf545a1a7357d"
+    },
+    {
+      "index": 17,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "0b2eb8c10fb8b2fff7facd2db67ee4f7332da5990b28b2444e3940344d75b378"
+    },
+    {
+      "index": 18,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "38a2fd5e822e68517e255313a7d87152fc845196f18a3e6af972ef133251e431"
+    },
+    {
+      "index": 19,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "3091e9340373642d4e542ea5969df32ab7078622381ad25e5026ae938dafa74a"
+    },
+    {
+      "index": 20,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "62a1cca7c636e491f411ac6cf0f61425a9a1fbdaaaf7f1806ab9d35c4871941c"
+    },
+    {
+      "index": 21,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "62a1cca7c636e491f411ac6cf0f61425a9a1fbdaaaf7f1806ab9d35c4871941c"
+    },
+    {
+      "index": 22,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "2725ee6a210030c3e7383f5f33b21c8fc5c4704d326b023e53c73f9e71a242d8"
+    },
+    {
+      "index": 23,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "treeSha256": "2725ee6a210030c3e7383f5f33b21c8fc5c4704d326b023e53c73f9e71a242d8",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 24,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "2725ee6a210030c3e7383f5f33b21c8fc5c4704d326b023e53c73f9e71a242d8"
+    },
+    {
+      "index": 25,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "b8faefa315f05ad75c0238050783788362492dc377755617cfbb43c0273f08ea"
+    },
+    {
+      "index": 26,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "df481899207b5b8f4601c1381c6f36d56edf6d39887081f65c7f6815c27be9e0"
+    },
+    {
+      "index": 27,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "d6156edf15282482017747343bf079bd11ff6a0bfbf87a62d1ebab58a87c3fd1"
+    },
+    {
+      "index": 28,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "5fd49d6272056ff80bdc920c35ea57725be3ecccbaca783d74d76b22cea09a44"
+    },
+    {
+      "index": 29,
+      "step": "check",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "e5474124bf50ed2d2068d12e18b73fce2e835c4f63b726237b13cbf9c22aa8ec"
+    },
+    {
+      "index": 30,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "open": {
+        "window": "InnerTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      },
+      "treeSha256": "41cf39644bf0ec86a3d440887deada2b66049977bf534bf74d650ef7b0af1000"
+    },
+    {
+      "index": 31,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Inner Tube"
+        ]
+      ],
+      "treeSha256": "41cf39644bf0ec86a3d440887deada2b66049977bf534bf74d650ef7b0af1000",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 32,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Inner Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "41cf39644bf0ec86a3d440887deada2b66049977bf534bf74d650ef7b0af1000"
+    },
+    {
+      "index": 33,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Centering Ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Centering Ring"
+        ]
+      },
+      "treeSha256": "40f265a0b176cfec72f6c1cc00b6377c3b86fd75753dfd91c8702c820fcb1edb"
+    },
+    {
+      "index": 34,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      },
+      "treeSha256": "7ff6e2a31fa394300e076d5ca729d009505cfe6e843d1f1cb9fbf30efcb7f0aa"
+    },
+    {
+      "index": 35,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      },
+      "treeSha256": "47d68234fe57ce9245c48cdcabe9ae07ed521e1d6c78727b9748ba953fccfb79"
+    },
+    {
+      "index": 36,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      },
+      "treeSha256": "47d68234fe57ce9245c48cdcabe9ae07ed521e1d6c78727b9748ba953fccfb79"
+    },
+    {
+      "index": 37,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      },
+      "treeSha256": "26207e074815d6f8f6f377e9c727fcdf0eeb2d47e59025380b3e565025bc8d3b"
+    },
+    {
+      "index": 38,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Fore centering ring"
+        ]
+      ],
+      "treeSha256": "26207e074815d6f8f6f377e9c727fcdf0eeb2d47e59025380b3e565025bc8d3b",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 39,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "26207e074815d6f8f6f377e9c727fcdf0eeb2d47e59025380b3e565025bc8d3b"
+    },
+    {
+      "index": 40,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Centering Ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Centering Ring"
+        ]
+      },
+      "treeSha256": "24f41ddf2f637ea371ef3a08692215832c88b88f3698502931e1c1e0739ea5e0"
+    },
+    {
+      "index": 41,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      },
+      "treeSha256": "3863d8bbe39e10c5867a94eeb7f58c4f1c04056ac71b3ad15ad46fe70cbf2ef1"
+    },
+    {
+      "index": 42,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      },
+      "treeSha256": "9848edc28647b2f221beecb28b83cbd5cfe7bbf044f0f8c6e82bf5d068c8b8a7"
+    },
+    {
+      "index": 43,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      },
+      "treeSha256": "9848edc28647b2f221beecb28b83cbd5cfe7bbf044f0f8c6e82bf5d068c8b8a7"
+    },
+    {
+      "index": 44,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      ],
+      "open": {
+        "window": "CenteringRingConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      },
+      "treeSha256": "e67bba09e5221fc80ca604a11d16bf198730f9755fa4cdb81038c2b72ea4636b"
+    },
+    {
+      "index": 45,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Aft centering ring"
+        ]
+      ],
+      "treeSha256": "e67bba09e5221fc80ca604a11d16bf198730f9755fa4cdb81038c2b72ea4636b",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 46,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Centering Ring)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "e67bba09e5221fc80ca604a11d16bf198730f9755fa4cdb81038c2b72ea4636b"
+    },
+    {
+      "index": 47,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "c7b0fe7f2f308f46dd90b75597995b48650f789e06850414a2e45ca9a86b5a46"
+    },
+    {
+      "index": 48,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "c7b0fe7f2f308f46dd90b75597995b48650f789e06850414a2e45ca9a86b5a46"
+    },
+    {
+      "index": 49,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "24942e1b12cb51b01faab8c2e1c8eedfc8a1bd2bf704b27fb4eb607b68f7f5a1"
+    },
+    {
+      "index": 50,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "43f9a4c24bb639c8c8eec14ea13c973128a0ea147ca7f44f1ce600a4f5a6bbd8"
+    },
+    {
+      "index": 51,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "294e08f87f09c196040c1b33eb9799ee9100f8c6a28541478cf44c1cab13f314"
+    },
+    {
+      "index": 52,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      },
+      "treeSha256": "6e0a554d07e18627f27abf1bd3858dbebfac0798733993a7d82e6878c56d54a4"
+    },
+    {
+      "index": 53,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "treeSha256": "6e0a554d07e18627f27abf1bd3858dbebfac0798733993a7d82e6878c56d54a4",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 54,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "6e0a554d07e18627f27abf1bd3858dbebfac0798733993a7d82e6878c56d54a4"
+    },
+    {
+      "index": 55,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Shock Cord)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Shock Cord"
+        ]
+      ],
+      "open": {
+        "window": "ShockCordConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Shock Cord"
+        ]
+      },
+      "treeSha256": "9ad7d23b7043d107ffb1842c345bbcff25bf4a63ec11cf56cece0aa22369e13b"
+    },
+    {
+      "index": 56,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Shock Cord)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Shock Cord"
+        ]
+      ],
+      "open": {
+        "window": "ShockCordConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Shock Cord"
+        ]
+      },
+      "treeSha256": "784d1e55eeba67bcac4c8ddf0ea93d5922d0b0fb5aee8aab1e9a7840ad852356"
+    },
+    {
+      "index": 57,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Shock Cord)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Shock Cord"
+        ]
+      ],
+      "treeSha256": "784d1e55eeba67bcac4c8ddf0ea93d5922d0b0fb5aee8aab1e9a7840ad852356",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 58,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Shock Cord)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "784d1e55eeba67bcac4c8ddf0ea93d5922d0b0fb5aee8aab1e9a7840ad852356"
+    },
+    {
+      "index": 59,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Launch Lug)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      ],
+      "open": {
+        "window": "LaunchLugConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      },
+      "treeSha256": "888f2d2a6c922cba25193a6de23666dd18528511af3ca1886e6cf43f91750880"
+    },
+    {
+      "index": 60,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Launch Lug)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      ],
+      "open": {
+        "window": "LaunchLugConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      },
+      "treeSha256": "9eeac1cb261d139b8e9465b62c373f0acec79260370f79aed9516f0b73f4066f"
+    },
+    {
+      "index": 61,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Launch Lug)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      ],
+      "open": {
+        "window": "LaunchLugConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      },
+      "treeSha256": "9eeac1cb261d139b8e9465b62c373f0acec79260370f79aed9516f0b73f4066f"
+    },
+    {
+      "index": 62,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Launch Lug)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Launch Lug"
+        ]
+      ],
+      "treeSha256": "9eeac1cb261d139b8e9465b62c373f0acec79260370f79aed9516f0b73f4066f",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 63,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Launch Lug)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "9eeac1cb261d139b8e9465b62c373f0acec79260370f79aed9516f0b73f4066f"
+    },
+    {
+      "index": 64,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      ],
+      "open": {
+        "window": "RailButtonConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      },
+      "treeSha256": "16b39a898458b43a7a2197c5742c253ab33f1e2872ad603ab50000ff86c8316a"
+    },
+    {
+      "index": 65,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      ],
+      "open": {
+        "window": "RailButtonConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      },
+      "treeSha256": "aa3ff1bb624e42cccb274a3a1ad0cec4dcdca27a90e8e761a6eb9c5da85fff24"
+    },
+    {
+      "index": 66,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      ],
+      "open": {
+        "window": "RailButtonConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      },
+      "treeSha256": "59fbbbe4323b697e9d356e9c499043befd788173d03c54933d19322ed4fdbf07"
+    },
+    {
+      "index": 67,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      ],
+      "open": {
+        "window": "RailButtonConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      },
+      "treeSha256": "e023afb45321f0a54e13a1b15084606229732a7058d93dd573aabccd2785fe3f"
+    },
+    {
+      "index": 68,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Rail Button"
+        ]
+      ],
+      "treeSha256": "e023afb45321f0a54e13a1b15084606229732a7058d93dd573aabccd2785fe3f",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 69,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Rail Button)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "e023afb45321f0a54e13a1b15084606229732a7058d93dd573aabccd2785fe3f"
+    },
+    {
+      "index": 70,
+      "step": "add",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Mass Component"
+        ]
+      ],
+      "open": {
+        "window": "MassComponentConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Mass Component"
+        ]
+      },
+      "treeSha256": "53e24702f8ce89071902e43d6893d66aa53f318716885a6a70f24cd9cd2f8239"
+    },
+    {
+      "index": 71,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      ],
+      "open": {
+        "window": "MassComponentConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      },
+      "treeSha256": "cc3bd0d3c5ba0fe4b47a9dfada866a62db33c96486a21e2463913566d8bde863"
+    },
+    {
+      "index": 72,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      ],
+      "open": {
+        "window": "MassComponentConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      },
+      "treeSha256": "4fb58b256d56410fe80813cabc1b3974270515b0d941bdfe77ba51c74e52a8b3"
+    },
+    {
+      "index": 73,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      ],
+      "open": {
+        "window": "MassComponentConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      },
+      "treeSha256": "710d5e80bd0f31e60c807e42ae05f336d901d9891dc0b4e212b4e67891418cfb"
+    },
+    {
+      "index": 74,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      ],
+      "open": {
+        "window": "MassComponentConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      },
+      "treeSha256": "45c008dc9067723da73d9123e0752a6d225682032edb4fc1403d742eb5682730"
+    },
+    {
+      "index": 75,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Altimeter"
+        ]
+      ],
+      "treeSha256": "45c008dc9067723da73d9123e0752a6d225682032edb4fc1403d742eb5682730",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 76,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "treeSha256": "45c008dc9067723da73d9123e0752a6d225682032edb4fc1403d742eb5682730"
+    },
+    {
+      "index": 77,
+      "step": "edit",
+      "undo": {
+        "text": "Undo (Add Mass Component)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "45c008dc9067723da73d9123e0752a6d225682032edb4fc1403d742eb5682730"
+    },
+    {
+      "index": 78,
+      "step": "button",
+      "undo": {
+        "text": "Undo (Convert fin set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "FreeformFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      },
+      "treeSha256": "8df0656454a5e58fe5a896a1e7af1f3fd10e3f8aa25eb4cdc884ce7373a09039",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.04,0.055;0.07500000000000001,0.055;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 79,
+      "step": "editPoint",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "FreeformFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      },
+      "treeSha256": "1f96fa7ed6ab4903d4116d45f86c19e96e04fa382062dcb149d3d262f83d36e0"
+    },
+    {
+      "index": 80,
+      "step": "insertPoint",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "FreeformFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      },
+      "treeSha256": "7c851e37b271a9a951cf64a8659aa783077e44d010d12d9966606cce4efeecd8"
+    },
+    {
+      "index": 81,
+      "step": "editPoint",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "FreeformFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      },
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d"
+    },
+    {
+      "index": 82,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 83,
+      "step": "undo",
+      "undo": {
+        "text": "Undo (Convert fin set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "treeSha256": "8df0656454a5e58fe5a896a1e7af1f3fd10e3f8aa25eb4cdc884ce7373a09039",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.04,0.055;0.07500000000000001,0.055;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 84,
+      "step": "redo",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Freeform Fin Set"
+        ]
+      ],
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 85,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d"
+    },
+    {
+      "index": 86,
+      "step": "copy",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Parachute"
+        ]
+      ],
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d"
+    },
+    {
+      "index": 87,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Modify Freeform Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "treeSha256": "c28c9d29a9ecca2a8e83b9deeb56fd294eaf8670dcf35d5877ed21435247724d"
+    },
+    {
+      "index": 88,
+      "step": "paste",
+      "undo": {
+        "text": "Undo (Paste Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          {
+            "name": "Parachute",
+            "occurrence": 2
+          }
+        ]
+      ],
+      "treeSha256": "8a1da12e66c8c2854c034bce69280dd59b4f0631892b5c1ea4878415dffb3308",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 89,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Paste Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          {
+            "name": "Parachute",
+            "occurrence": 2
+          }
+        ]
+      ],
+      "treeSha256": "8a1da12e66c8c2854c034bce69280dd59b4f0631892b5c1ea4878415dffb3308"
+    },
+    {
+      "index": 90,
+      "step": "edit",
+      "undo": {
+        "text": "Undo (Paste Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          {
+            "name": "Parachute",
+            "occurrence": 2
+          }
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          {
+            "name": "Parachute",
+            "occurrence": 2
+          }
+        ]
+      },
+      "treeSha256": "8a1da12e66c8c2854c034bce69280dd59b4f0631892b5c1ea4878415dffb3308"
+    },
+    {
+      "index": 91,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Drogue"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Drogue"
+        ]
+      },
+      "treeSha256": "044a83377f77dacf1a6d235f0710cc33ea3b878e86cf003e9a0a50325ddb5ffe"
+    },
+    {
+      "index": 92,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Drogue"
+        ]
+      ],
+      "open": {
+        "window": "ParachuteConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Drogue"
+        ]
+      },
+      "treeSha256": "4392773e6539517d268ec23f1b00d8ea40512fea90fcd28360dab42bd5b535bb"
+    },
+    {
+      "index": 93,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Drogue"
+        ]
+      ],
+      "treeSha256": "4392773e6539517d268ec23f1b00d8ea40512fea90fcd28360dab42bd5b535bb",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Drogue' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 94,
+      "step": "saveAs",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        []
+      ],
+      "open": {
+        "window": "SaveDesignInfoPanel",
+        "component": []
+      },
+      "treeSha256": "4392773e6539517d268ec23f1b00d8ea40512fea90fcd28360dab42bd5b535bb"
+    },
+    {
+      "index": 95,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        []
+      ],
+      "open": {
+        "window": "SaveDesignInfoPanel",
+        "component": []
+      },
+      "treeSha256": "3d902824e38efc5a7ab144e1f6ac576e78f53aa90d0727894e63308bbfee97b7"
+    },
+    {
+      "index": 96,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        []
+      ],
+      "open": {
+        "window": "file chooser"
+      },
+      "treeSha256": "3d902824e38efc5a7ab144e1f6ac576e78f53aa90d0727894e63308bbfee97b7",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 designer='QtRocket exit scenario' ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Drogue' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 97,
+      "step": "chooseFile",
+      "undo": {
+        "text": "Undo (Modify Parachute)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": true,
+      "selection": [
+        []
+      ],
+      "treeSha256": "3d902824e38efc5a7ab144e1f6ac576e78f53aa90d0727894e63308bbfee97b7",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 designer='QtRocket exit scenario' ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      FreeformFinSet 'Freeform Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+        "      InnerTube 'Inner Tube' axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:false",
+        "      CenteringRing 'Fore centering ring' axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      CenteringRing 'Aft centering ring' axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+        "      Parachute 'Parachute' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      ShockCord 'Shock Cord' axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "      LaunchLug 'Launch Lug' axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+        "      RailButton 'Rail Button' axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+        "      MassComponent 'Altimeter' axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+        "      Parachute 'Drogue' axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    }
+  ],
+  "loaded": {
+    "lines": [
+      "version=111",
+      "rocket 'Rocket' stages=1 components=14 configurations=0 selected=default",
+      "config default active=t",
+      "storage fileType=OPENROCKET saveSimulationData=false explicitlySet=false",
+      "saved=false undoAvailable=false redoAvailable=false undoDescription=null history=1 position=0 clean=true file=null",
+      "modids mass=true aero=false tree=false functional=true snapshot=true",
+      "materials=[]",
+      "expressions=0 photo={} decals=[]",
+      "events rocket=94",
+      "| Rocket 'Rocket' id=db810b34-14f7-47c1-a6f1-e1408f03c53c axial=ABSOLUTE:0.0 x=0.0 designer='QtRocket exit scenario' ref=MAXIMUM customref=0.01 design=ORIGINAL",
+      "|   AxialStage 'Sustainer' id=764e69da-833a-48c5-91b9-3b8a0fd2ab27 axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+      "|     NoseCone 'Nose Cone' id=f6bbf16c-a760-420e-aa7f-4dd4bfe0ccfe axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+      "|     BodyTube 'Body Tube' id=a2058495-93b7-4213-afec-10692278ec2f axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+      "|       FreeformFinSet 'Freeform Fin Set' id=0ccc9062-9d96-4706-8506-2f48d04d39e1 axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.003 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] points=0.0,0.0;0.03,0.055;0.07500000000000001,0.055;0.07250000000000001,0.03;0.07,0.0",
+      "|       InnerTube 'Inner Tube' id=5239f142-54e7-40bd-94b6-28438a38d556 axial=BOTTOM:0.0 x=0.22499999999999998 len=0.075 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.013000000000000001:false inner=0.012:false radial=0.0:0.0 cluster=single:1.0:0.0 mount=true overhang=0.005 ign=AUTOMATIC:0.0:true",
+      "|       CenteringRing 'Fore centering ring' id=a0a5556d-b1c9-4a47-b06f-a53d8f912cab axial=BOTTOM:-0.06 x=0.237 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+      "|       CenteringRing 'Aft centering ring' id=f87f5b70-8bc7-4181-b84a-073b2dd75140 axial=BOTTOM:-0.005 x=0.292 len=0.003 inst=1 mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] outer=0.019999999999999997:true inner=0.013000000000000001:true radial=0.0:0.0 spacing=0.0",
+      "|       Parachute 'Parachute' id=357f1203-504b-422e-834c-764a9a64d805 axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.3 lines=8:0.44999999999999996:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+      "|       ShockCord 'Shock Cord' id=4c5fb593-f14d-4c2e-b8a9-8a110453026b axial=TOP:0.0 x=0.0 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cord=0.6:false mat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+      "|       LaunchLug 'Launch Lug' id=d5aeda73-1e70-4f0d-bc40-d8b5e5d7c275 axial=MIDDLE:0.0 x=0.125 len=0.05 inst=1 angle=RELATIVE:3.141592653589793 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.005 thick=0.001 spacing=0.06",
+      "|       RailButton 'Rail Button' id=c970a692-b3f2-4202-9394-1ba59cb4576d axial=MIDDLE:0.0 x=0.15 len=0.0 inst=2 angle=RELATIVE:1.5707963267948966 finish=NORMAL mat=[BULK|Delrin|1420.0|9.46E8|Plastics] diameter=0.0097:0.008 height=0.0097:0.002:0.002:0.0 spacing=0.15",
+      "|       MassComponent 'Altimeter' id=8d96cd2e-7142-40cb-bf06-eb4c398b5118 axial=TOP:0.08 x=0.08 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 mass=0.015 type=ALTIMETER",
+      "|       Parachute 'Drogue' id=8e4d08fe-8684-430b-9c55-0e643b728faf axial=TOP:0.02 x=0.02 len=0.025 packed=0.025:0.0125:false radial=0.0:0.0 cd=0.8:true drogue=false mat=[SURFACE|Ripstop nylon|0.067|0.0|Fabrics] deploy=ALTITUDE:0.0:150.0 diameter=0.15 lines=8:0.22499999999999998:true linemat=[LINE|Elastic cord (round 2 mm, 1/16 in)|0.0018|0.0|Elastics]",
+      "| selected=default",
+      "| config default name='[{motors}]' preload=null active=[true] motors=0",
+      "name default '[No motors]'",
+      "docprefs=0"
+    ],
+    "numbers": [
+      "structure.mass=0.07824927326283096",
+      "structure.cm.x=0.19204978525006083",
+      "structure.cm.y=-3.1327891562164107E-4",
+      "structure.cm.z=5.355719768213232E-4",
+      "length=0.40499999999999997"
+    ]
+  }
+}
