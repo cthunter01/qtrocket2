@@ -181,6 +181,10 @@ Result<GoldenInput> parseInput(const nlohmann::json& json)
     {
         return std::unexpected(hash.error());
     }
+    if (auto figure = readOptionalString(json, "figure", context, input.figure); !figure)
+    {
+        return std::unexpected(figure.error());
+    }
     if (auto read = readSimulations(json, "simulations", context, input.simulations); !read)
     {
         return std::unexpected(read.error());

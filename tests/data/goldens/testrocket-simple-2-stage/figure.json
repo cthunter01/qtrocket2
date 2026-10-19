@@ -1,0 +1,175 @@
+{
+ "schema": "figure",
+ "schemaVersion": 1,
+ "input": "testrocket-simple-2-stage",
+ "configuration": {"index": 1, "id": "d010716e-ce0e-469d-ae46-190f3653ebbf", "isDefault": false, "name": "[No motors]"},
+ "showMarkers": false,
+ "selection": [],
+ "views": [
+  {
+   "view": "side",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.01414213562373095, 0.2, 0.0282842712474619],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    },
+    {
+     "path": "/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.1, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    }
+   ],
+   "motors": []
+  },
+  {
+   "view": "top",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 6.123233995736766E-17, 1.0, 0.0, -1.0, 6.123233995736766E-17], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.01414213562373095, 0.2, 0.0282842712474619],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    },
+    {
+     "path": "/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.1, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    }
+   ],
+   "motors": []
+  },
+  {
+   "view": "back",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [-0.01414213562373095, -0.01414213562373095, 0.0282842712474619, 0.0282842712474619],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.01, -0.01, 0.02, 0.02], "visible": true}
+     ]
+    },
+    {
+     "path": "/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.01, -0.01, 0.02, 0.02], "visible": true}
+     ]
+    }
+   ],
+   "motors": []
+  },
+  {
+   "view": "side",
+   "rotation": 0.5235987755982988,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 0.8660254037844387, -0.49999999999999994, 0.0, 0.49999999999999994, 0.8660254037844387], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.01414213562373095, 0.2, 0.0282842712474619],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    },
+    {
+     "path": "/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.1, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    }
+   ],
+   "motors": []
+  },
+  {
+   "view": "side",
+   "rotation": 3.9269908169872414,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.7071067811865477, 0.7071067811865475, 0.0, -0.7071067811865475, -0.7071067811865477], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.01414213562373095, 0.2, 0.0282842712474619],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    },
+    {
+     "path": "/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.1, -0.01, 0.1, 0.02], "visible": true}
+     ]
+    }
+   ],
+   "motors": []
+  }
+ ]
+}

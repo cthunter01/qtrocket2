@@ -1,5 +1,6 @@
-// Builds the golden-data dumper against OpenRocket's core, compiled here from a local, read-only
-// checkout of OpenRocket (nothing is written into that checkout).
+// Builds the golden-data dumper against OpenRocket's core and the shape providers of its Swing
+// module's 2D rocket figure, compiled here from a local, read-only checkout of OpenRocket (nothing is
+// written into that checkout).
 //
 //   ./gradlew -p tools/openrocket-goldens -PopenrocketDir=/path/to/openrocket goldensClasspath
 //
@@ -29,6 +30,8 @@ def openrocketCore = new File(openrocketDir, 'core')
 if (!new File(openrocketCore, 'src/main/java/info/openrocket/core/startup/Application.java').isFile()) {
     throw new GradleException("Not an OpenRocket checkout: ${openrocketDir}")
 }
+// The Swing module: of it only the shape providers of the 2D rocket figure are compiled (FigureDumper).
+def openrocketSwing = new File(openrocketDir, 'swing')
 
 // OpenRocket core's third-party dependencies, read from core/build.gradle of the checkout so that
 // they always match the commit being built ("implementation 'group:artifact:version'" lines).
@@ -82,10 +85,25 @@ sourceSets {
             include 'info/openrocket/core/ServicesForTesting.java'
         }
     }
+    // The shape providers of Swing's 2D rocket figure (package info.openrocket.swing.gui.rocketfigure,
+    // which imports nothing of Swing but the core, java.awt.geom and java.util), with the service
+    // registration through which RocketComponentShapeProvider finds them; nothing else of the Swing
+    // module. FigureDumper replicates the geometry half of RocketFigure, which needs Swing.
+    openrocketFigure {
+        java {
+            srcDir new File(openrocketSwing, 'src/main/java')
+            include 'info/openrocket/swing/gui/rocketfigure/*.java'
+        }
+        resources {
+            srcDir new File(openrocketSwing, 'src/main/resources')
+            include 'META-INF/services/info.openrocket.swing.gui.rocketfigure.RocketComponentShapeService'
+        }
+    }
 }
 
 configurations {
     openrocketTestSupportImplementation.extendsFrom openrocketImplementation
+    openrocketFigureImplementation.extendsFrom openrocketImplementation
     implementation.extendsFrom openrocketImplementation
 }
 
@@ -93,8 +111,10 @@ dependencies {
     openrocketCoreDependencies.each { coordinates -> openrocketImplementation coordinates }
     openrocketImplementation files(new File(openrocketCore, 'libs/script-api-1.0.jar'))
     openrocketTestSupportImplementation sourceSets.openrocket.output
+    openrocketFigureImplementation sourceSets.openrocket.output
     implementation sourceSets.openrocket.output
     implementation sourceSets.openrocketTestSupport.output
+    implementation sourceSets.openrocketFigure.output
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -106,6 +126,9 @@ tasks.withType(JavaCompile).configureEach {
 
 // OpenRocket's sources produce many deprecation/unchecked notes; they are not ours to fix.
 tasks.named('compileOpenrocketJava', JavaCompile) {
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+tasks.named('compileOpenrocketFigureJava', JavaCompile) {
     options.compilerArgs += ['-nowarn', '-Xlint:none']
 }
 

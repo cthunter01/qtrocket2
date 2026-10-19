@@ -113,6 +113,7 @@ struct GoldenInput
     std::string                   mass;
     std::string                   aero;
     std::string                   resave;  ///< OpenRocket's re-save of the design (XML)
+    std::string                   figure;  ///< figure.json, the 2D figure; empty if unnamed
     std::vector<GoldenSimulation> simulations;
     /// The stable-step set (<input>/stable/): the same simulations, in the same order, run with
     /// GoldenManifest::stableTimeStep. Empty for an input that has none (its entry has no

@@ -1,0 +1,1745 @@
+{
+ "schema": "figure",
+ "schemaVersion": 1,
+ "input": "testrocket-cluster-pods",
+ "configuration": {"index": 1, "id": "45c067ed-8aa7-4d7d-a4a1-15a7dcc3b797", "isDefault": false, "name": "[2× C6-0; 12× C6-0]"},
+ "showMarkers": false,
+ "selection": [],
+ "views": [
+  {
+   "view": "side",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.11336033372585055, 0.2, 0.2267206674517011],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.025, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.019, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.0, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, 0.02425, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 0.025750000000000002, 0.2, 0.028000000000000004], "visible": true},
+      {"type": "line", "points": [0.20075, 0.025, 0.203, 0.025], "visible": true},
+      {"type": "line", "points": [0.2, 0.02425, 0.2, 0.022], "visible": true},
+      {"type": "line", "points": [0.19925, 0.025, 0.197, 0.025], "visible": true},
+      {"type": "rect", "frame": [0.197, 0.022, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.013249999999999996, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.011749999999999995, 0.2, -0.009499999999999995], "visible": true},
+      {"type": "line", "points": [0.20075, -0.012499999999999995, 0.203, -0.012499999999999995], "visible": true},
+      {"type": "line", "points": [0.2, -0.013249999999999996, 0.2, -0.015499999999999996], "visible": true},
+      {"type": "line", "points": [0.19925, -0.012499999999999995, 0.197, -0.012499999999999995], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.015499999999999996, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.013250000000000012, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.01175000000000001, 0.2, -0.00950000000000001], "visible": true},
+      {"type": "line", "points": [0.20075, -0.012500000000000011, 0.203, -0.012500000000000011], "visible": true},
+      {"type": "line", "points": [0.2, -0.013250000000000012, 0.2, -0.015500000000000012], "visible": true},
+      {"type": "line", "points": [0.19925, -0.012500000000000011, 0.197, -0.012500000000000011], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.015500000000000012, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, 0.025, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.04999999999999999, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.050000000000000024, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.012000000000000005, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.031, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.05, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 3,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.069, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 4,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.020249999999999997, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 5,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.02974999999999999, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 6,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.039249999999999986, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 7,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.04874999999999998, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 8,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.02025000000000001, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 9,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.02975000000000002, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 10,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.03925000000000003, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 11,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.048750000000000036, 0.07, 0.019], "visible": true}
+     ]
+    }
+   ],
+   "motors": [
+    {
+     "mount": "/0/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.0185, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, 5.000000000000004E-4, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, 0.012500000000000006, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, -0.019749999999999997, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 2,
+     "shape": {"type": "rect", "frame": [0.13, -0.01975000000000001, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 3,
+     "shape": {"type": "rect", "frame": [0.13, 0.0315, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 4,
+     "shape": {"type": "rect", "frame": [0.13, -0.02924999999999999, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 5,
+     "shape": {"type": "rect", "frame": [0.13, -0.02925000000000002, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 6,
+     "shape": {"type": "rect", "frame": [0.13, 0.0505, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 7,
+     "shape": {"type": "rect", "frame": [0.13, -0.038749999999999986, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 8,
+     "shape": {"type": "rect", "frame": [0.13, -0.03875000000000003, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 9,
+     "shape": {"type": "rect", "frame": [0.13, 0.0695, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 10,
+     "shape": {"type": "rect", "frame": [0.13, -0.04824999999999998, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 11,
+     "shape": {"type": "rect", "frame": [0.13, -0.048250000000000036, 0.07, 0.018], "visible": true}
+    }
+   ]
+  },
+  {
+   "view": "top",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 6.123233995736766E-17, 1.0, 0.0, -1.0, 6.123233995736766E-17], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.11336033372585055, 0.2, 0.2267206674517011],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.025, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.0095, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.0095, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -7.499999999999985E-4, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 7.500000000000015E-4, 0.2, 0.003000000000000002], "visible": true},
+      {"type": "line", "points": [0.20075, 1.5308084989341916E-18, 0.203, 1.5308084989341916E-18], "visible": true},
+      {"type": "line", "points": [0.2, -7.499999999999985E-4, 0.2, -0.0029999999999999988], "visible": true},
+      {"type": "line", "points": [0.19925, 1.5308084989341916E-18, 0.197, 1.5308084989341916E-18], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.0029999999999999988, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, 0.02090063509461097, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 0.02240063509461097, 0.2, 0.02465063509461097], "visible": true},
+      {"type": "line", "points": [0.20075, 0.02165063509461097, 0.203, 0.02165063509461097], "visible": true},
+      {"type": "line", "points": [0.2, 0.02090063509461097, 0.2, 0.01865063509461097], "visible": true},
+      {"type": "line", "points": [0.19925, 0.02165063509461097, 0.197, 0.02165063509461097], "visible": true},
+      {"type": "rect", "frame": [0.197, 0.01865063509461097, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.02240063509461096, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.02090063509461096, 0.2, -0.018650635094610957], "visible": true},
+      {"type": "line", "points": [0.20075, -0.02165063509461096, 0.203, -0.02165063509461096], "visible": true},
+      {"type": "line", "points": [0.2, -0.02240063509461096, 0.2, -0.024650635094610962], "visible": true},
+      {"type": "line", "points": [0.19925, -0.02165063509461096, 0.197, -0.02165063509461096], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.024650635094610962, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.024999999999999998, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, 0.018301270189221938, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.06830127018922191, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009499999999999998, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009499999999999998, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009499999999999996, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 3,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009499999999999995, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 4,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.009119546181365438, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 5,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.025574028853269773, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 6,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.0420285115251741, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 7,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.05848299419707844, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 8,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.028119546181365425, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 9,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.044574028853269755, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 10,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.061028511525174085, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 11,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.07748299419707841, 0.07, 0.019], "visible": true}
+     ]
+    }
+   ],
+   "motors": [
+    {
+     "mount": "/0/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.009, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, -0.009, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.008999999999999998, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, 0.009619546181365438, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 2,
+     "shape": {"type": "rect", "frame": [0.13, -0.027619546181365424, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 3,
+     "shape": {"type": "rect", "frame": [0.13, -0.008999999999999998, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 4,
+     "shape": {"type": "rect", "frame": [0.13, 0.026074028853269773, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 5,
+     "shape": {"type": "rect", "frame": [0.13, -0.044074028853269755, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 6,
+     "shape": {"type": "rect", "frame": [0.13, -0.008999999999999996, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 7,
+     "shape": {"type": "rect", "frame": [0.13, 0.042528511525174104, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 8,
+     "shape": {"type": "rect", "frame": [0.13, -0.060528511525174085, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 9,
+     "shape": {"type": "rect", "frame": [0.13, -0.008999999999999994, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 10,
+     "shape": {"type": "rect", "frame": [0.13, 0.05898299419707844, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 11,
+     "shape": {"type": "rect", "frame": [0.13, -0.07698299419707841, 0.07, 0.018], "visible": true}
+    }
+   ]
+  },
+  {
+   "view": "back",
+   "rotation": 0.0,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [-0.11336033372585055, -0.11336033372585055, 0.2267206674517011, 0.2267206674517011],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.025, -0.025, 0.05, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, -0.019, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, 0.0, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [-7.5E-4, 0.02425, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.0, 0.025750000000000002, 0.0, 0.028000000000000004], "visible": true},
+      {"type": "line", "points": [7.5E-4, 0.025, 0.003, 0.025], "visible": true},
+      {"type": "line", "points": [0.0, 0.02425, 0.0, 0.022], "visible": true},
+      {"type": "line", "points": [-7.5E-4, 0.025, -0.003, 0.025], "visible": true},
+      {"type": "rect", "frame": [-0.003, 0.022, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.02090063509461097, -0.013249999999999996, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.02165063509461097, -0.011749999999999995, 0.02165063509461097, -0.009499999999999995], "visible": true},
+      {"type": "line", "points": [0.02240063509461097, -0.012499999999999995, 0.02465063509461097, -0.012499999999999995], "visible": true},
+      {"type": "line", "points": [0.02165063509461097, -0.013249999999999996, 0.02165063509461097, -0.015499999999999996], "visible": true},
+      {"type": "line", "points": [0.02090063509461097, -0.012499999999999995, 0.01865063509461097, -0.012499999999999995], "visible": true},
+      {"type": "rect", "frame": [0.01865063509461097, -0.015499999999999996, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [-0.02240063509461096, -0.013250000000000012, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [-0.02165063509461096, -0.01175000000000001, -0.02165063509461096, -0.00950000000000001], "visible": true},
+      {"type": "line", "points": [-0.02090063509461096, -0.012500000000000011, -0.018650635094610957, -0.012500000000000011], "visible": true},
+      {"type": "line", "points": [-0.02165063509461096, -0.013250000000000012, -0.02165063509461096, -0.015500000000000012], "visible": true},
+      {"type": "line", "points": [-0.02240063509461096, -0.012500000000000011, -0.024650635094610962, -0.012500000000000011], "visible": true},
+      {"type": "rect", "frame": [-0.024650635094610962, -0.015500000000000012, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.025, 0.025, 0.05, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [0.018301270189221938, -0.04999999999999999, 0.05, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 0,
+     "displayOrder": 1,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.06830127018922191, -0.050000000000000024, 0.05, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, 0.012000000000000005, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, 0.031, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, 0.05, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 3,
+     "instanceNumber": 3,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.0095, 0.069, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 4,
+     "instanceNumber": 0,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [0.009119546181365438, -0.020249999999999997, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 5,
+     "instanceNumber": 1,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [0.025574028853269773, -0.02974999999999999, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 6,
+     "instanceNumber": 2,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [0.0420285115251741, -0.039249999999999986, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 7,
+     "instanceNumber": 3,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [0.05848299419707844, -0.04874999999999998, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 8,
+     "instanceNumber": 0,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.028119546181365425, -0.02025000000000001, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 9,
+     "instanceNumber": 1,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.044574028853269755, -0.02975000000000002, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 10,
+     "instanceNumber": 2,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.061028511525174085, -0.03925000000000003, 0.019, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 11,
+     "instanceNumber": 3,
+     "displayOrder": 14,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "ellipse", "frame": [-0.07748299419707841, -0.048750000000000036, 0.019, 0.019], "visible": true}
+     ]
+    }
+   ],
+   "motors": [
+    {
+     "mount": "/0/0/0",
+     "location": 0,
+     "shape": {"type": "ellipse", "frame": [-0.009, -0.0185, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/0",
+     "location": 1,
+     "shape": {"type": "ellipse", "frame": [-0.009, 5.000000000000004E-4, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 0,
+     "shape": {"type": "ellipse", "frame": [-0.009, 0.012500000000000006, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 1,
+     "shape": {"type": "ellipse", "frame": [0.009619546181365438, -0.019749999999999997, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 2,
+     "shape": {"type": "ellipse", "frame": [-0.027619546181365424, -0.01975000000000001, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 3,
+     "shape": {"type": "ellipse", "frame": [-0.009, 0.0315, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 4,
+     "shape": {"type": "ellipse", "frame": [0.026074028853269773, -0.02924999999999999, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 5,
+     "shape": {"type": "ellipse", "frame": [-0.044074028853269755, -0.02925000000000002, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 6,
+     "shape": {"type": "ellipse", "frame": [-0.009, 0.0505, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 7,
+     "shape": {"type": "ellipse", "frame": [0.042528511525174104, -0.038749999999999986, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 8,
+     "shape": {"type": "ellipse", "frame": [-0.060528511525174085, -0.03875000000000003, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 9,
+     "shape": {"type": "ellipse", "frame": [-0.009, 0.0695, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 10,
+     "shape": {"type": "ellipse", "frame": [0.05898299419707844, -0.04824999999999998, 0.018, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 11,
+     "shape": {"type": "ellipse", "frame": [-0.07698299419707841, -0.048250000000000036, 0.018, 0.018], "visible": true}
+    }
+   ]
+  },
+  {
+   "view": "side",
+   "rotation": 0.5235987755982988,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, 0.8660254037844387, -0.49999999999999994, 0.0, 0.49999999999999994, 0.8660254037844387], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.11336033372585055, 0.2, 0.2267206674517011],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.025, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.017727241335952167, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.001272758664047833, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, 0.02090063509461097, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 0.02240063509461097, 0.2, 0.02465063509461097], "visible": true},
+      {"type": "line", "points": [0.20075, 0.02165063509461097, 0.203, 0.02165063509461097], "visible": true},
+      {"type": "line", "points": [0.2, 0.02090063509461097, 0.2, 0.01865063509461097], "visible": true},
+      {"type": "line", "points": [0.19925, 0.02165063509461097, 0.197, 0.02165063509461097], "visible": true},
+      {"type": "rect", "frame": [0.197, 0.01865063509461097, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.022400635094610963, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.020900635094610962, 0.2, -0.018650635094610964], "visible": true},
+      {"type": "line", "points": [0.20075, -0.021650635094610963, 0.203, -0.021650635094610963], "visible": true},
+      {"type": "line", "points": [0.2, -0.022400635094610963, 0.2, -0.024650635094610962], "visible": true},
+      {"type": "line", "points": [0.19925, -0.021650635094610963, 0.197, -0.021650635094610963], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.024650635094610962, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -7.50000000000016E-4, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 7.499999999999841E-4, 0.2, 0.0029999999999999844], "visible": true},
+      {"type": "line", "points": [0.20075, -1.5959455978986624E-17, 0.203, -1.5959455978986624E-17], "visible": true},
+      {"type": "line", "points": [0.2, -7.50000000000016E-4, 0.2, -0.003000000000000016], "visible": true},
+      {"type": "line", "points": [0.19925, -1.5959455978986624E-17, 0.197, -1.5959455978986624E-17], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.003000000000000016, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, 0.018301270189221938, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.06830127018922193, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.025000000000000033, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.009119546181365438, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.025574028853269766, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.0420285115251741, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 3,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.05848299419707844, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 4,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.028119546181365432, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 5,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.04457402885326976, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 6,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.06102851152517409, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 7,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.07748299419707841, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 8,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009500000000000014, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 9,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009500000000000028, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 10,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009500000000000034, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 11,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.009500000000000048, 0.07, 0.019], "visible": true}
+     ]
+    }
+   ],
+   "motors": [
+    {
+     "mount": "/0/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.017227241335952166, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, -7.727586640478325E-4, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, 0.009619546181365438, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, -0.02761954618136543, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 2,
+     "shape": {"type": "rect", "frame": [0.13, -0.009000000000000013, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 3,
+     "shape": {"type": "rect", "frame": [0.13, 0.026074028853269766, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 4,
+     "shape": {"type": "rect", "frame": [0.13, -0.04407402885326976, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 5,
+     "shape": {"type": "rect", "frame": [0.13, -0.009000000000000027, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 6,
+     "shape": {"type": "rect", "frame": [0.13, 0.042528511525174104, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 7,
+     "shape": {"type": "rect", "frame": [0.13, -0.06052851152517409, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 8,
+     "shape": {"type": "rect", "frame": [0.13, -0.009000000000000034, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 9,
+     "shape": {"type": "rect", "frame": [0.13, 0.05898299419707844, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 10,
+     "shape": {"type": "rect", "frame": [0.13, -0.07698299419707841, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 11,
+     "shape": {"type": "rect", "frame": [0.13, -0.009000000000000048, 0.07, 0.018], "visible": true}
+    }
+   ]
+  },
+  {
+   "view": "side",
+   "rotation": 3.9269908169872414,
+   "figureRotation": {"rotation": [1.0, 0.0, 0.0, 0.0, -0.7071067811865477, 0.7071067811865475, 0.0, -0.7071067811865475, -0.7071067811865477], "translation": [0.0, 0.0, 0.0]},
+   "subjectBounds": [0.0, -0.11336033372585055, 0.2, 0.2267206674517011],
+   "instances": [
+    {
+     "path": "/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.025, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.002782485578727797, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.016217514421272203, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.018427669529663692, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.01692766952966369, 0.2, -0.01467766952966369], "visible": true},
+      {"type": "line", "points": [0.20075, -0.01767766952966369, 0.203, -0.01767766952966369], "visible": true},
+      {"type": "line", "points": [0.2, -0.018427669529663692, 0.2, -0.02067766952966369], "visible": true},
+      {"type": "line", "points": [0.19925, -0.01767766952966369, 0.197, -0.01767766952966369], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.02067766952966369, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, 0.023398145657226706, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, 0.024898145657226707, 0.2, 0.02714814565722671], "visible": true},
+      {"type": "line", "points": [0.20075, 0.024148145657226706, 0.203, 0.024148145657226706], "visible": true},
+      {"type": "line", "points": [0.2, 0.023398145657226706, 0.2, 0.021148145657226704], "visible": true},
+      {"type": "line", "points": [0.19925, 0.024148145657226706, 0.197, 0.024148145657226706], "visible": true},
+      {"type": "rect", "frame": [0.197, 0.021148145657226704, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 100,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.19925, -0.0072204761275630035, 0.0015, 0.0015], "visible": true},
+      {"type": "line", "points": [0.2, -0.005720476127563004, 0.2, -0.0034704761275630037], "visible": true},
+      {"type": "line", "points": [0.20075, -0.006470476127563004, 0.203, -0.006470476127563004], "visible": true},
+      {"type": "line", "points": [0.2, -0.0072204761275630035, 0.2, -0.009470476127563004], "visible": true},
+      {"type": "line", "points": [0.19925, -0.006470476127563004, 0.197, -0.006470476127563004], "visible": true},
+      {"type": "rect", "frame": [0.197, -0.009470476127563004, 0.006, 0.006], "visible": false}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.060355339059327384, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, 0.02329629131445341, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 0,
+     "displayOrder": 0,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.0, -0.037940952255126004, 0.2, 0.05], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 0,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.02470279579551078, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 1,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.03813782463805518, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 2,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.05157285348059959, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 3,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.06500788232314399, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 4,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.011267405265214971, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 5,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.02961999596470727, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 6,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.047972586664199554, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 7,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, 0.06632517736369185, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 8,
+     "instanceNumber": 0,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.015064609469704183, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 9,
+     "instanceNumber": 1,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.019982171326652066, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 10,
+     "instanceNumber": 2,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.024899733183599948, 0.07, 0.019], "visible": true}
+     ]
+    },
+    {
+     "path": "/0/0/1/0/0",
+     "extraRender": false,
+     "context": 11,
+     "instanceNumber": 3,
+     "displayOrder": 5,
+     "color": null,
+     "lineStyle": null,
+     "shapes": [
+      {"type": "rect", "frame": [0.13, -0.02981729504054783, 0.07, 0.019], "visible": true}
+     ]
+    }
+   ],
+   "motors": [
+    {
+     "mount": "/0/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.0022824855787277965, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, -0.015717514421272203, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 0,
+     "shape": {"type": "rect", "frame": [0.13, -0.024202795795510778, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 1,
+     "shape": {"type": "rect", "frame": [0.13, 0.011767405265214971, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 2,
+     "shape": {"type": "rect", "frame": [0.13, -0.014564609469704183, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 3,
+     "shape": {"type": "rect", "frame": [0.13, -0.03763782463805518, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 4,
+     "shape": {"type": "rect", "frame": [0.13, 0.03011999596470727, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 5,
+     "shape": {"type": "rect", "frame": [0.13, -0.019482171326652066, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 6,
+     "shape": {"type": "rect", "frame": [0.13, -0.05107285348059959, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 7,
+     "shape": {"type": "rect", "frame": [0.13, 0.048472586664199555, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 8,
+     "shape": {"type": "rect", "frame": [0.13, -0.024399733183599948, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 9,
+     "shape": {"type": "rect", "frame": [0.13, -0.06450788232314399, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 10,
+     "shape": {"type": "rect", "frame": [0.13, 0.06682517736369185, 0.07, 0.018], "visible": true}
+    },
+    {
+     "mount": "/0/0/1/0/0",
+     "location": 11,
+     "shape": {"type": "rect", "frame": [0.13, -0.02931729504054783, 0.07, 0.018], "visible": true}
+    }
+   ]
+  }
+ ]
+}

@@ -23,6 +23,7 @@
    "mass": "example-3d-printable-nose-cone-and-fins/mass.json",
    "aero": "example-3d-printable-nose-cone-and-fins/aero.json",
    "resave": "example-3d-printable-nose-cone-and-fins/resave/rocket.ork",
+   "figure": "example-3d-printable-nose-cone-and-fins/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-3d-printable-nose-cone-and-fins/sim_00_simulation-1.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-3d-printable-nose-cone-and-fins/sim_01_simulation-2.json", "branches": ["example-3d-printable-nose-cone-and-fins/sim_01_simulation-2_branch0.csv.gz"]},
@@ -47,6 +48,7 @@
    "mass": "example-a-simple-model-rocket/mass.json",
    "aero": "example-a-simple-model-rocket/aero.json",
    "resave": "example-a-simple-model-rocket/resave/rocket.ork",
+   "figure": "example-a-simple-model-rocket/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-a-simple-model-rocket/sim_00_simulation-1.json", "branches": ["example-a-simple-model-rocket/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-a-simple-model-rocket/sim_01_simulation-2.json", "branches": ["example-a-simple-model-rocket/sim_01_simulation-2_branch0.csv.gz"]},
@@ -71,6 +73,7 @@
    "mass": "example-arc-payload-rocket/mass.json",
    "aero": "example-arc-payload-rocket/aero.json",
    "resave": "example-arc-payload-rocket/resave/rocket.ork",
+   "figure": "example-arc-payload-rocket/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-arc-payload-rocket/sim_00_simulation-1.json", "branches": ["example-arc-payload-rocket/sim_00_simulation-1_branch0.csv.gz", "example-arc-payload-rocket/sim_00_simulation-1_branch1.csv.gz"]}
    ],
@@ -87,6 +90,7 @@
    "mass": "example-airstart-timing/mass.json",
    "aero": "example-airstart-timing/aero.json",
    "resave": "example-airstart-timing/resave/rocket.ork",
+   "figure": "example-airstart-timing/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-airstart-timing/sim_00_simulation-1.json", "branches": ["example-airstart-timing/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-airstart-timing/sim_01_simulation-2.json", "branches": ["example-airstart-timing/sim_01_simulation-2_branch0.csv.gz"]},
@@ -111,6 +115,7 @@
    "mass": "example-chute-release/mass.json",
    "aero": "example-chute-release/aero.json",
    "resave": "example-chute-release/resave/rocket.ork",
+   "figure": "example-chute-release/figure.json",
    "simulations": [
     {"name": "Simulation 2", "json": "example-chute-release/sim_00_simulation-2.json", "branches": ["example-chute-release/sim_00_simulation-2_branch0.csv.gz"]},
     {"name": "Simulation 3", "json": "example-chute-release/sim_01_simulation-3.json", "branches": ["example-chute-release/sim_01_simulation-3_branch0.csv.gz"]}
@@ -129,6 +134,7 @@
    "mass": "example-clustered-motors/mass.json",
    "aero": "example-clustered-motors/aero.json",
    "resave": "example-clustered-motors/resave/rocket.ork",
+   "figure": "example-clustered-motors/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-clustered-motors/sim_00_simulation-1.json", "branches": ["example-clustered-motors/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-clustered-motors/sim_01_simulation-2.json", "branches": ["example-clustered-motors/sim_01_simulation-2_branch0.csv.gz"]},
@@ -153,6 +159,7 @@
    "mass": "example-deployable-payload/mass.json",
    "aero": "example-deployable-payload/aero.json",
    "resave": "example-deployable-payload/resave/rocket.ork",
+   "figure": "example-deployable-payload/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-deployable-payload/sim_00_simulation-1.json", "branches": ["example-deployable-payload/sim_00_simulation-1_branch0.csv.gz", "example-deployable-payload/sim_00_simulation-1_branch1.csv.gz"]},
     {"name": "Simulation 2", "json": "example-deployable-payload/sim_01_simulation-2.json", "branches": ["example-deployable-payload/sim_01_simulation-2_branch0.csv.gz", "example-deployable-payload/sim_01_simulation-2_branch1.csv.gz"]},
@@ -177,6 +184,7 @@
    "mass": "example-dual-parachute-deployment/mass.json",
    "aero": "example-dual-parachute-deployment/aero.json",
    "resave": "example-dual-parachute-deployment/resave/rocket.ork",
+   "figure": "example-dual-parachute-deployment/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-dual-parachute-deployment/sim_00_simulation-1.json", "branches": ["example-dual-parachute-deployment/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-dual-parachute-deployment/sim_01_simulation-2.json", "branches": ["example-dual-parachute-deployment/sim_01_simulation-2_branch0.csv.gz"]},
@@ -203,6 +211,7 @@
    "mass": "example-parallel-booster-staging/mass.json",
    "aero": "example-parallel-booster-staging/aero.json",
    "resave": "example-parallel-booster-staging/resave/rocket.ork",
+   "figure": "example-parallel-booster-staging/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-parallel-booster-staging/sim_00_simulation-1.json", "branches": ["example-parallel-booster-staging/sim_00_simulation-1_branch0.csv.gz", "example-parallel-booster-staging/sim_00_simulation-1_branch1.csv.gz"]},
     {"name": "Simulation 2", "json": "example-parallel-booster-staging/sim_01_simulation-2.json", "branches": ["example-parallel-booster-staging/sim_01_simulation-2_branch0.csv.gz"]}
@@ -221,6 +230,7 @@
    "mass": "example-pods-airframes-and-winglets/mass.json",
    "aero": "example-pods-airframes-and-winglets/aero.json",
    "resave": "example-pods-airframes-and-winglets/resave/rocket.ork",
+   "figure": "example-pods-airframes-and-winglets/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-pods-airframes-and-winglets/sim_00_simulation-1.json", "branches": ["example-pods-airframes-and-winglets/sim_00_simulation-1_branch0.csv.gz"]},
     {"name": "Simulation 2", "json": "example-pods-airframes-and-winglets/sim_01_simulation-2.json", "branches": ["example-pods-airframes-and-winglets/sim_01_simulation-2_branch0.csv.gz"]},
@@ -245,6 +255,7 @@
    "mass": "example-pods-powered-with-recovery-deployment/mass.json",
    "aero": "example-pods-powered-with-recovery-deployment/aero.json",
    "resave": "example-pods-powered-with-recovery-deployment/resave/rocket.ork",
+   "figure": "example-pods-powered-with-recovery-deployment/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-pods-powered-with-recovery-deployment/sim_00_simulation-1.json", "branches": ["example-pods-powered-with-recovery-deployment/sim_00_simulation-1_branch0.csv.gz"]}
    ],
@@ -261,6 +272,7 @@
    "mass": "example-simulation-extensions/mass.json",
    "aero": "example-simulation-extensions/aero.json",
    "resave": "example-simulation-extensions/resave/rocket.ork",
+   "figure": "example-simulation-extensions/figure.json",
    "simulations": [
     {"name": "No controlling", "json": "example-simulation-extensions/sim_00_no-controlling.json", "branches": ["example-simulation-extensions/sim_00_no-controlling_branch0.csv.gz"]},
     {"name": "Active roll control", "json": "example-simulation-extensions/sim_01_active-roll-control.json", "branches": ["example-simulation-extensions/sim_01_active-roll-control_branch0.csv.gz"]},
@@ -281,6 +293,7 @@
    "mass": "example-simulation-scripting/mass.json",
    "aero": "example-simulation-scripting/aero.json",
    "resave": "example-simulation-scripting/resave/rocket.ork",
+   "figure": "example-simulation-scripting/figure.json",
    "simulations": [
     {"name": "No controlling", "json": "example-simulation-scripting/sim_00_no-controlling.json", "branches": ["example-simulation-scripting/sim_00_no-controlling_branch0.csv.gz"]},
     {"name": "Active roll control", "json": "example-simulation-scripting/sim_01_active-roll-control.json", "branches": ["example-simulation-scripting/sim_01_active-roll-control_branch0.csv.gz"]},
@@ -301,6 +314,7 @@
    "mass": "example-three-stage-low-power-rocket/mass.json",
    "aero": "example-three-stage-low-power-rocket/aero.json",
    "resave": "example-three-stage-low-power-rocket/resave/rocket.ork",
+   "figure": "example-three-stage-low-power-rocket/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-three-stage-low-power-rocket/sim_00_simulation-1.json", "branches": ["example-three-stage-low-power-rocket/sim_00_simulation-1_branch0.csv.gz", "example-three-stage-low-power-rocket/sim_00_simulation-1_branch1.csv.gz", "example-three-stage-low-power-rocket/sim_00_simulation-1_branch2.csv.gz"]},
     {"name": "Simulation 2", "json": "example-three-stage-low-power-rocket/sim_01_simulation-2.json", "branches": ["example-three-stage-low-power-rocket/sim_01_simulation-2_branch0.csv.gz", "example-three-stage-low-power-rocket/sim_01_simulation-2_branch1.csv.gz", "example-three-stage-low-power-rocket/sim_01_simulation-2_branch2.csv.gz"]},
@@ -321,6 +335,7 @@
    "mass": "example-tube-fin-rocket/mass.json",
    "aero": "example-tube-fin-rocket/aero.json",
    "resave": "example-tube-fin-rocket/resave/rocket.ork",
+   "figure": "example-tube-fin-rocket/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-tube-fin-rocket/sim_00_simulation-1.json", "branches": ["example-tube-fin-rocket/sim_00_simulation-1_branch0.csv.gz"]}
    ],
@@ -337,6 +352,7 @@
    "mass": "example-two-stage-high-power-rocket/mass.json",
    "aero": "example-two-stage-high-power-rocket/aero.json",
    "resave": "example-two-stage-high-power-rocket/resave/rocket.ork",
+   "figure": "example-two-stage-high-power-rocket/figure.json",
    "simulations": [
     {"name": "Simulation 1", "json": "example-two-stage-high-power-rocket/sim_00_simulation-1.json", "branches": ["example-two-stage-high-power-rocket/sim_00_simulation-1_branch0.csv.gz", "example-two-stage-high-power-rocket/sim_00_simulation-1_branch1.csv.gz"]},
     {"name": "Simulation 2", "json": "example-two-stage-high-power-rocket/sim_01_simulation-2.json", "branches": ["example-two-stage-high-power-rocket/sim_01_simulation-2_branch0.csv.gz", "example-two-stage-high-power-rocket/sim_01_simulation-2_branch1.csv.gz"]}
@@ -355,6 +371,7 @@
    "mass": "testrocket-estes-alpha-iii/mass.json",
    "aero": "testrocket-estes-alpha-iii/aero.json",
    "resave": "testrocket-estes-alpha-iii/resave/rocket.ork",
+   "figure": "testrocket-estes-alpha-iii/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-estes-alpha-iii/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii/sim_01_a8-0_branch0.csv.gz"]},
@@ -387,6 +404,7 @@
    "mass": "testrocket-beta/mass.json",
    "aero": "testrocket-beta/aero.json",
    "resave": "testrocket-beta/resave/rocket.ork",
+   "figure": "testrocket-beta/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-beta/sim_00_no-motors.json", "branches": ["testrocket-beta/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[A8-0; None]", "json": "testrocket-beta/sim_01_a8-0-none.json", "branches": ["testrocket-beta/sim_01_a8-0-none_branch0.csv.gz"]},
@@ -413,6 +431,7 @@
    "mass": "testrocket-simple-2-stage/mass.json",
    "aero": "testrocket-simple-2-stage/aero.json",
    "resave": "testrocket-simple-2-stage/resave/rocket.ork",
+   "figure": "testrocket-simple-2-stage/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-simple-2-stage/sim_00_no-motors.json", "branches": ["testrocket-simple-2-stage/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[No motors]", "json": "testrocket-simple-2-stage/sim_01_no-motors.json", "branches": ["testrocket-simple-2-stage/sim_01_no-motors_branch0.csv.gz"]}
@@ -431,6 +450,7 @@
    "mass": "testrocket-big-blue/mass.json",
    "aero": "testrocket-big-blue/aero.json",
    "resave": "testrocket-big-blue/resave/rocket.ork",
+   "figure": "testrocket-big-blue/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-big-blue/sim_00_no-motors.json", "branches": ["testrocket-big-blue/sim_00_no-motors_branch0.csv.gz"]}
    ],
@@ -447,6 +467,7 @@
    "mass": "testrocket-iso-haisu/mass.json",
    "aero": "testrocket-iso-haisu/aero.json",
    "resave": "testrocket-iso-haisu/resave/rocket.ork",
+   "figure": "testrocket-iso-haisu/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-iso-haisu/sim_00_no-motors.json", "branches": ["testrocket-iso-haisu/sim_00_no-motors_branch0.csv.gz"]}
    ],
@@ -463,6 +484,7 @@
    "mass": "testrocket-falcon-9-heavy/mass.json",
    "aero": "testrocket-falcon-9-heavy/aero.json",
    "resave": "testrocket-falcon-9-heavy/resave/rocket.ork",
+   "figure": "testrocket-falcon-9-heavy/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-falcon-9-heavy/sim_00_no-motors.json", "branches": ["testrocket-falcon-9-heavy/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[None; M1350-0; 8× G77-0]", "json": "testrocket-falcon-9-heavy/sim_01_none-m1350-0-8-g77-0.json", "branches": ["testrocket-falcon-9-heavy/sim_01_none-m1350-0-8-g77-0_branch0.csv.gz"]}
@@ -481,6 +503,7 @@
    "mass": "testrocket-multi-stage-event-test-rocket/mass.json",
    "aero": "testrocket-multi-stage-event-test-rocket/aero.json",
    "resave": "testrocket-multi-stage-event-test-rocket/resave/rocket.ork",
+   "figure": "testrocket-multi-stage-event-test-rocket/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-multi-stage-event-test-rocket/sim_00_no-motors.json", "branches": ["testrocket-multi-stage-event-test-rocket/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[C6-5; C6-0; 2× A10-0]", "json": "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0.json", "branches": ["testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch0.csv.gz", "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch1.csv.gz", "testrocket-multi-stage-event-test-rocket/sim_01_c6-5-c6-0-2-a10-0_branch2.csv.gz"]}
@@ -499,6 +522,7 @@
    "mass": "testrocket-end-plate-rocket/mass.json",
    "aero": "testrocket-end-plate-rocket/aero.json",
    "resave": "testrocket-end-plate-rocket/resave/rocket.ork",
+   "figure": "testrocket-end-plate-rocket/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-end-plate-rocket/sim_00_no-motors.json", "branches": ["testrocket-end-plate-rocket/sim_00_no-motors_branch0.csv.gz"]}
    ],
@@ -515,6 +539,7 @@
    "mass": "testrocket-estes-alpha-iii-with-pods/mass.json",
    "aero": "testrocket-estes-alpha-iii-with-pods/aero.json",
    "resave": "testrocket-estes-alpha-iii-with-pods/resave/rocket.ork",
+   "figure": "testrocket-estes-alpha-iii-with-pods/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-pods/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii-with-pods/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-pods/sim_01_a8-0_branch0.csv.gz"]},
@@ -541,6 +566,7 @@
    "mass": "testrocket-estes-alpha-iii-with-motor-pods/mass.json",
    "aero": "testrocket-estes-alpha-iii-with-motor-pods/aero.json",
    "resave": "testrocket-estes-alpha-iii-with-motor-pods/resave/rocket.ork",
+   "figure": "testrocket-estes-alpha-iii-with-motor-pods/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[2× A10-0, A8-0]", "json": "testrocket-estes-alpha-iii-with-motor-pods/sim_01_2-a10-0-a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-motor-pods/sim_01_2-a10-0-a8-0_branch0.csv.gz"]},
@@ -567,6 +593,7 @@
    "mass": "testrocket-estes-alpha-iii-with-second-motor/mass.json",
    "aero": "testrocket-estes-alpha-iii-with-second-motor/aero.json",
    "resave": "testrocket-estes-alpha-iii-with-second-motor/resave/rocket.ork",
+   "figure": "testrocket-estes-alpha-iii-with-second-motor/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[A10-5, A8-0]", "json": "testrocket-estes-alpha-iii-with-second-motor/sim_01_a10-5-a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-second-motor/sim_01_a10-5-a8-0_branch0.csv.gz"]},
@@ -593,6 +620,7 @@
    "mass": "testrocket-estes-alpha-iii-with-inline-pod/mass.json",
    "aero": "testrocket-estes-alpha-iii-with-inline-pod/aero.json",
    "resave": "testrocket-estes-alpha-iii-with-inline-pod/resave/rocket.ork",
+   "figure": "testrocket-estes-alpha-iii-with-inline-pod/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_00_no-motors.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[A8-0]", "json": "testrocket-estes-alpha-iii-with-inline-pod/sim_01_a8-0.json", "branches": ["testrocket-estes-alpha-iii-with-inline-pod/sim_01_a8-0_branch0.csv.gz"]},
@@ -619,6 +647,7 @@
    "mass": "testrocket-cluster-pods/mass.json",
    "aero": "testrocket-cluster-pods/aero.json",
    "resave": "testrocket-cluster-pods/resave/rocket.ork",
+   "figure": "testrocket-cluster-pods/figure.json",
    "simulations": [
     {"name": "[No motors]", "json": "testrocket-cluster-pods/sim_00_no-motors.json", "branches": ["testrocket-cluster-pods/sim_00_no-motors_branch0.csv.gz"]},
     {"name": "[2× C6-0; 12× C6-0]", "json": "testrocket-cluster-pods/sim_01_2-c6-0-12-c6-0.json", "branches": ["testrocket-cluster-pods/sim_01_2-c6-0-12-c6-0_branch0.csv.gz"]}

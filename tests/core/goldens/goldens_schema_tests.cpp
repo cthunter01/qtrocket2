@@ -339,6 +339,10 @@ std::set<std::string> listedFiles(const GoldenManifest& manifest)
     for (const auto& input : manifest.inputs)
     {
         listed.insert({input.geometry, input.mass, input.aero, input.resave});
+        if (!input.figure.empty())
+        {
+            listed.insert(input.figure);
+        }
         for (const auto* simulations : {&input.simulations, &input.stableSimulations})
         {
             for (const auto& simulation : *simulations)

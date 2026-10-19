@@ -939,7 +939,8 @@ public final class GoldenDumper {
 
 	private static void dumpDesign(Pass pass, Path dir, String name, Rocket rocket, ComponentIndex index,
 			WarningSet loadWarnings, Map<String, Object> entry) throws IOException {
-		// Geometry, mass and aero describe the settled automatic dimensions (see AutomaticDimensions).
+		// Geometry, mass, aero and the figure describe the settled automatic dimensions (see
+		// AutomaticDimensions). The figure comes last: it reads the design and changes nothing.
 		int changedPasses = AutomaticDimensions.settle(rocket, index);
 		if (changedPasses > 0 && pass == Pass.DEFAULT) {
 			log("  automatic dimensions: " + changedPasses + " settling pass(es) changed values");
@@ -948,11 +949,13 @@ public final class GoldenDumper {
 				Json.bytes(GeometryDumper.dump(name, rocket, index, loadWarnings)));
 		writeOrVerify(pass, dir.resolve("mass.json"), Json.bytes(MassDumper.dump(name, rocket, index)));
 		writeOrVerify(pass, dir.resolve("aero.json"), Json.bytes(AeroDumper.dump(name, rocket, index)));
+		writeOrVerify(pass, dir.resolve("figure.json"), Json.bytes(FigureDumper.dump(name, rocket, index)));
 		if (pass == Pass.DEFAULT) {
 			entry.put("geometry", name + "/geometry.json");
 			entry.put("mass", name + "/mass.json");
 			entry.put("aero", name + "/aero.json");
 			entry.put("resave", name + "/resave/rocket.ork");
+			entry.put("figure", name + "/figure.json");
 		}
 	}
 
