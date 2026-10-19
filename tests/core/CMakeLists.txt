@@ -8,6 +8,7 @@ add_executable(QtRocket_core_tests
     util/ConfigTests.cpp
     util/CoordinateTests.cpp
     util/DecimalFormatTests.cpp
+    util/ExpressionParserTests.cpp
     util/FileIoTests.cpp
     util/FloatingDecimalTests.cpp
     util/GaussianRandomTests.cpp
