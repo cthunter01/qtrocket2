@@ -74,6 +74,9 @@ namespace QtRocket::Gui
 ///   background simulation of Milestone 4. What is shown is what OpenRocket shows with the
 ///   preference "backgroundFlight" off.
 /// - Only paint(painter, scale, visible): Java's paint(g2, scale) throws.
+/// - The small and bold fonts are always S - 1.5 and S + 1.5. Java keeps its initial small 10 and
+///   bold 13 when the first size it computes is 12, the size of its initial regular font
+///   (updateFontSizes() returns early when the regular font has the size already).
 class RocketInfo final : public FigureElement
 {
     Q_DECLARE_TR_FUNCTIONS(RocketInfo)

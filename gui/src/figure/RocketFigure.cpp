@@ -102,8 +102,13 @@ void RocketFigure::setSelection(std::span<const RocketComponent* const> componen
         }
     }
     m_selection = std::move(selection);
-    // The markers of pod sets and booster sets may depend on the selection (ShowMarkers).
-    invalidateGeometry();
+    // The geometry depends on the selection only through the markers of pod sets and booster
+    // sets (ShowMarkers); the selected components' wider lines are chosen at paint time.
+    // figureGeometry() builds it again when the preference has changed since it was built.
+    if (m_preferences->isShowMarkers())
+    {
+        invalidateGeometry();
+    }
     updateFigure();
     fireChangeEvent();
 }
@@ -166,6 +171,12 @@ void RocketFigure::clearRelativeTopExtra() noexcept
 
 std::vector<RocketComponent*> RocketFigure::componentsAt(QPointF pixel)
 {
+    // The projection of the rocket as it is now, as paintFigure() makes it: a change of the
+    // rocket since the last paint or update may have moved the origin.
+    updateSubjectDimensions();
+    updateCanvasOrigin();
+    updateTransform();
+
     // Calculate point in shapes' coordinates
     bool             invertible = false;
     const QTransform inverse    = projection().inverted(&invertible);

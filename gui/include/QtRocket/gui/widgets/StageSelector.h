@@ -30,7 +30,9 @@ namespace QtRocket::Gui
 ///   RocketPanel.btn.Stages.NoChildren.ttip; such a stage is never active) or when it is the
 ///   only active stage (tooltip RocketPanel.btn.Stages.LastActive.ttip). Otherwise its tooltip
 ///   is RocketPanel.btn.Stages.Toggle.ttip, and an inactive stage's button shows the icon
-///   COMPONENT_DISABLED. The buttons are equally high (Java's size group "sgy stagebuttons").
+///   COMPONENT_DISABLED. The buttons are equally high (Java's size group "sgy stagebuttons")
+///   and packed at the left: the selector does not grow in a layout (horizontal size policy
+///   Maximum), and a wider selector leaves the room to the right of its buttons.
 /// - A click calls toggleStage(): FlightConfiguration::toggleStage() on the selected
 ///   configuration, then the rocket's change event kToggleChange for that configuration
 ///   (StageSelector.java:127-131). No undo position is added: a toggle is not an undoable edit

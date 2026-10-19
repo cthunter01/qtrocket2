@@ -39,7 +39,8 @@ class FigureElement;
 ///   bounds), built for the view, the rotation, the selection and the preference ShowMarkers
 ///   (Preferences::isShowMarkers()), and painted by RocketFigurePainter. The geometry is kept
 ///   until something it depends on changes and built again when it is next needed (a paint, a
-///   resize, a hit test), so a resize does not rebuild it.
+///   resize, a hit test), so a resize does not rebuild it, nor does a change of the selection
+///   while ShowMarkers is off (the selected components are drawn wider at paint time).
 /// - It listens to the rocket. Every change event drops the geometry at once (a TREE or UNDO
 ///   event replaces every component object: the geometry's pointers must not outlive the event),
 ///   and the events of one pass of the event loop are answered once: updateFigure(), then
@@ -58,8 +59,9 @@ class FigureElement;
 ///
 /// Deviations from OpenRocket:
 /// - Java rebuilds the shapes at every paint, and its hit test (getComponentsByPoint()) uses the
-///   shapes of the last paint, which may be older than the rocket; here the geometry is that of
-///   the rocket as it is now, and the hit test builds it when it is missing. The hit test is
+///   shapes and the projection of the last paint, which may be older than the rocket; here the
+///   geometry is that of the rocket as it is now, and the hit test builds it when it is missing
+///   and brings the subject, the origin and the projection up to date first. The hit test is
 ///   FigureShape::contains(), Java's Shape.contains() (the NON_ZERO rule for paths, open
 ///   polylines closed), not QPainterPath::contains().
 /// - A paint brings the subject, the origin and the projection up to date as Java's does, but not
@@ -130,8 +132,9 @@ public:
     /// The components with a shape at the widget's pixel @p pixel (getComponentsByPoint()): each
     /// once, in the order their shapes are drawn (RocketFigureGeometry::componentsAt()), so the
     /// one of the highest display order comes first; Java's click selects the first. Invisible
-    /// shapes and hidden components count, as in Java. The pointers are valid until the rocket's
-    /// next change event.
+    /// shapes and hidden components count, as in Java. The pixel is mapped with the projection
+    /// of the rocket as it is now (the subject, the origin and the projection are brought up to
+    /// date first). The pointers are valid until the rocket's next change event.
     [[nodiscard]] std::vector<RocketComponent*> componentsAt(QPointF pixel);
 
     /// Drops the geometry and updateFigure(): for a change of the rocket that fired no event.

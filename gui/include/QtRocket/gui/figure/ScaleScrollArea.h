@@ -48,8 +48,15 @@ class ScaleFigure;
 /// Every change is applied at once: the figure is laid out (resized) before setScaling(),
 /// setFitting() and updateScaling() return, where Java revalidates later.
 ///
-/// Deviation from OpenRocket: the area has the platform style's frame instead of a light grey
-/// line border.
+/// A scroll repaints the whole visible figure, as the design view's JViewport.SIMPLE_SCROLL_MODE
+/// does in Java (RocketPanel), so that what a figure paints at its visible rectangle (the
+/// information overlay) is not carried along with the pixels Qt moves.
+///
+/// Deviations from OpenRocket:
+/// - The area has the platform style's frame instead of a light grey line border.
+/// - The change a refit of the figure causes does not make it fit again: Java's figure listener
+///   refits on every change, its own refit's too, which recurses until the stack overflows for a
+///   design longer than about 1e161 m (see ScaleFigure::scaleTo()).
 class ScaleScrollArea : public QScrollArea
 {
     Q_OBJECT
@@ -137,7 +144,8 @@ protected:
 private:
     /// Java's revalidate(): brings the figure up to date, lays it out and repaints the rulers.
     void revalidate();
-    /// The figure changed: repaints the rulers and fits again when fitting.
+    /// The figure changed: repaints the rulers and fits again when fitting, unless the change is
+    /// that of the refit itself.
     void figureChanged();
     /// Scrolls so that the figure's pixel @p topLeft is at the viewport's top left corner, as
     /// far as the scroll bars go (scrollRectToVisible() of a viewport-sized rectangle).
@@ -154,6 +162,7 @@ private:
     const Unit*      m_rulerUnit;
     bool             m_fit            = false;
     bool             m_figureRescaled = false;
+    bool             m_refitting      = false;
     QPointF          m_viewCentre{0.5, 0.5};
     int              m_resizeDepth = 0;
     Qt::MouseButtons m_panButtons{Qt::MiddleButton | Qt::RightButton};

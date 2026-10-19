@@ -7,6 +7,7 @@
 #include <QFont>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QSizePolicy>
 #include <QString>
 #include <QToolButton>
 #include <QWidget>
@@ -71,6 +72,11 @@ StageSelector::StageSelector(Rocket& rocket, QWidget* parent)
 {
     // MigLayout "gap rel!, insets 0": no margins, the style's spacing between related items.
     m_layout->setContentsMargins(0, 0, 0, 0);
+    // The buttons stay packed at the left whatever width the selector gets (Java's ribbon cell
+    // "pushx" leaves the selector at its preferred size): a stretch after them, and no growing
+    // in a layout, which the stretch would otherwise ask for.
+    m_layout->addStretch(1);
+    setSizePolicy(QSizePolicy::Maximum, sizePolicy().verticalPolicy());
     m_rocketConnection = rocket.addComponentChangeListener(
         guarded([this] { updateButtons(); }, QStringLiteral("Stage selector")));
     updateButtons();
@@ -190,7 +196,8 @@ void StageSelector::resizeButtons(std::size_t count)
         button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         connect(button, &QToolButton::clicked, this,
                 guarded([this, index] { buttonClicked(index); }, QStringLiteral("Stage selector")));
-        m_layout->addWidget(button);
+        // Before the stretch.
+        m_layout->insertWidget(static_cast<int>(index), button);
         m_buttons.push_back(button);
         m_stageIds.emplace_back();
     }

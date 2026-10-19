@@ -234,6 +234,12 @@ void ScaleScrollArea::showEvent(QShowEvent* event)
 void ScaleScrollArea::scrollContentsBy(int dx, int dy)
 {
     QScrollArea::scrollContentsBy(dx, dy);
+    // Java's JViewport.SIMPLE_SCROLL_MODE (RocketPanel's): the whole view is painted again on
+    // every scroll. QScrollArea::setWidget() makes the figure fill its background, so Qt takes it
+    // for opaque, moves its pixels and paints only the strip a scroll uncovers; the figure's
+    // absolute extras (the design view's information overlay), drawn at the visible rectangle,
+    // would move with the rocket and be drawn a second time, cut, in the strip.
+    m_figure->update();
     m_horizontalRuler->update();
     m_verticalRuler->update();
 }
@@ -290,8 +296,12 @@ void ScaleScrollArea::figureChanged()
 {
     m_horizontalRuler->update();
     m_verticalRuler->update();
-    if (m_fit)
+    // Deviation: the change a refit causes is not answered with another refit (Java's is, and
+    // would end only when scaleTo() reports no change; ScaleFigure::scaleTo() makes sure it
+    // does). The fit depends on the area's size and the subject, which a refit leaves as they are.
+    if (m_fit && !m_refitting)
     {
+        const QScopedValueRollback<bool> refitting(m_refitting, true);
         m_figureRescaled = m_figure->scaleToFit(fitViewSize());
     }
 }

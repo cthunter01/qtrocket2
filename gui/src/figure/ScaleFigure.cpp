@@ -63,7 +63,12 @@ QPointF ScaleFigure::toModel(const QPointF& pixel) const
 
 bool ScaleFigure::scaleTo(double newScale, QSize visibleBounds)
 {
-    if (MathUtil::equals(m_userScale, newScale, newScale * 0.01) &&
+    // Deviation: the very scale it has is no change either. Java's test alone,
+    // |user - new| < new * 0.01 * new, fails for an identical scale below about 1e-161, where the
+    // product underflows to 0: a scroll area that fits a design longer than about 1e161 m (an .ork
+    // can hold one) would then be told of a change and fit again without end, until the stack
+    // overflows (Java catches its StackOverflowError on the event thread; here the process dies).
+    if ((newScale == m_userScale || MathUtil::equals(m_userScale, newScale, newScale * 0.01)) &&
         m_visibleBounds == visibleBounds)
     {
         return false;
@@ -153,8 +158,13 @@ QSize ScaleFigure::canvasSizeFor(QSize visibleBounds, const Rectangle2D& content
 QPoint ScaleFigure::viewOrigin(FigureView view, QSize figureSize, const Rectangle2D& subject,
                                double scale) noexcept
 {
-    const long long subjectWidth  = javaInt(subject.width * scale);
-    const long long subjectHeight = javaInt(subject.height * scale);
+    // Deviation: the subject counts at most as large as the largest canvas (canvasSizeFor()), so
+    // that the origin of an absurdly large design stays inside the canvas (Java's int arithmetic
+    // wraps instead).
+    const long long subjectWidth =
+        std::min<long long>(javaInt(subject.width * scale), QWIDGETSIZE_MAX - (2LL * kBorderWidth));
+    const long long subjectHeight = std::min<long long>(javaInt(subject.height * scale),
+                                                        QWIDGETSIZE_MAX - (2LL * kBorderHeight));
     const long long midX          = std::max<long long>(figureSize.width(), subjectWidth) / 2;
 
     if (view == FigureView::BACK)

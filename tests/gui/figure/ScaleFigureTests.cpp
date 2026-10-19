@@ -348,10 +348,53 @@ TEST_F(ScaleFigureTest, AbsurdScalesSaturateInsteadOfOverflowing)
     EXPECT_EQ(ScaleFigure::canvasSizeFor({10, 10}, subject, kNaN), QSize(60, 40));
     constexpr int kIntMax = std::numeric_limits<int>::max();
     // Java's int arithmetic would wrap: (INT_MAX + 40) / 2 and INT_MAX / 2 - INT_MAX / 2 + 2^31.
+    // The subject counts as large as the largest canvas, QWIDGETSIZE_MAX less the border
+    // (16777155 x 16777175 pixels); the origin's x is -(int)(-1e300) = 2^31, saturated.
+    constexpr int kLargestSubjectWidth  = QWIDGETSIZE_MAX - 60;
+    constexpr int kLargestSubjectHeight = QWIDGETSIZE_MAX - 40;
     EXPECT_EQ(ScaleFigure::viewOrigin(FigureView::SIDE, {100, 100}, subject, 1e300),
-              QPoint(kIntMax, static_cast<int>((static_cast<long long>(kIntMax) + 40) / 2)));
+              QPoint(kIntMax, (kLargestSubjectHeight + 40) / 2));
     EXPECT_EQ(ScaleFigure::viewOrigin(FigureView::BACK, {100, 100}, subject, 1e300),
-              QPoint(kIntMax / 2, 70));
+              QPoint(kLargestSubjectWidth / 2, 70));
+}
+
+TEST_F(ScaleFigureTest, TheOriginOfAnAbsurdlyLargeSubjectStaysInsideTheCanvas)
+{
+    // A design whose radius or fin is absurdly large, at the user scale 1 (3779.5296 pixels per
+    // metre): the canvas is QWIDGETSIZE_MAX high, and the axis is in its middle, where Java's
+    // int arithmetic and an unbounded subject would put it at (INT_MAX + 40) / 2, far below it.
+    const Rectangle2D tall{.x = 0, .y = -5e299, .width = 1, .height = 1e300};
+    const double      scale  = 3779.5296;
+    const QSize       canvas = ScaleFigure::canvasSizeFor({764, 564}, tall, scale);
+    EXPECT_EQ(canvas, QSize(3839, QWIDGETSIZE_MAX));
+    const QPoint origin = ScaleFigure::viewOrigin(FigureView::SIDE, canvas, tall, scale);
+    EXPECT_EQ(origin, QPoint(30, QWIDGETSIZE_MAX / 2));
+    EXPECT_LT(origin.y(), canvas.height());
+
+    // As wide: the back view's axis in the middle of the canvas, too.
+    const Rectangle2D wide{.x = -5e299, .y = -5e299, .width = 1e300, .height = 1e300};
+    const QSize       square = ScaleFigure::canvasSizeFor({764, 564}, wide, scale);
+    EXPECT_EQ(square, QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
+    EXPECT_EQ(ScaleFigure::viewOrigin(FigureView::BACK, square, wide, scale),
+              QPoint(QWIDGETSIZE_MAX / 2, 20 + (QWIDGETSIZE_MAX / 2)));
+}
+
+TEST_F(ScaleFigureTest, TheCurrentScaleIsNoChangeEvenWhereJavasToleranceUnderflows)
+{
+    // Java's MathUtil.equals(user, new, new * 0.01) compares |user - new| with
+    // new * 0.01 * |new|, which is 0 below about 1e-161: an identical scale would be a change, and
+    // a fitting scroll area would fit again without end (ScaleScrollAreaTests). 1e-150 is above
+    // that limit, the others below it.
+    TestScaleFigure  figure(kMetreSubject, FigureView::SIDE, nullptr);
+    const QSignalSpy changed(&figure, &ScaleFigure::changed);
+    for (const double tiny : {1e-150, 1e-170, 1e-201, 1e-300})
+    {
+        SCOPED_TRACE(tiny);
+        EXPECT_TRUE(figure.scaleTo(tiny, {760, 560}));
+        EXPECT_EQ(figure.userScale(), tiny);
+        EXPECT_FALSE(figure.scaleTo(tiny, {760, 560}));
+    }
+    EXPECT_EQ(changed.count(), 4);
 }
 
 TEST_F(ScaleFigureTest, FitScaleOfAnEmptyAreaIsTheUserScale)

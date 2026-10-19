@@ -49,8 +49,11 @@ namespace QtRocket::Gui
 /// overflows, as well as the non-finite and negative ones Java refuses (a zero scale makes the
 /// projection singular and the rulers' tick distances infinite). Java's int arithmetic on the
 /// canvas size and the origin wraps for absurd scales; here it saturates, and the canvas is at
-/// most QWIDGETSIZE_MAX pixels. scaleTo() also updates the projection (Java's does at the next
-/// paint).
+/// most QWIDGETSIZE_MAX pixels, and viewOrigin() counts a subject at most as large as the canvas
+/// can hold, so that the origin stays inside it. scaleTo() also updates the projection (Java's
+/// does at the next paint). scaleTo() takes the current scale as no change also where Java's
+/// tolerance underflows to 0 (scales below about 1e-161): Java's fitting scroll pane then fits
+/// again and again until its stack overflows.
 class ScaleFigure : public QWidget
 {
     Q_OBJECT
@@ -91,11 +94,11 @@ public:
 
     /// Sets the user scale to @p newScale for a visible area of @p visibleBounds pixels
     /// (scaleTo(double, Dimension)): updates the origin, the canvas and the projection and emits
-    /// changed(). Nothing changes, and the result is false, when the scale is within
-    /// newScale * 0.01 of the current one by MathUtil::equals() (a relative tolerance of
-    /// newScale percent, a Java quirk kept: no change below 10 % at a scale of 10) and the visible
-    /// size is the same, or when the scale is not finite, not positive, or overflows the
-    /// absolute scale (see the class comment).
+    /// changed(). Nothing changes, and the result is false, when the scale is the current one or
+    /// within newScale * 0.01 of it by MathUtil::equals() (a relative tolerance of newScale
+    /// percent, a Java quirk kept: no change below 10 % at a scale of 10) and the visible size is
+    /// the same, or when the scale is not finite, not positive, or overflows the absolute scale
+    /// (see the class comment).
     bool scaleTo(double newScale, QSize visibleBounds);
     /// scaleTo() the fitScale() of @p visibleBounds (scaleTo(Dimension)); false for an empty size.
     bool scaleToFit(QSize visibleBounds);
@@ -131,8 +134,9 @@ public:
                                              double scale) noexcept;
     /// The pixel position of the subject's origin in the design view (RocketFigure's
     /// updateCanvasOrigin()) for a widget of @p figureSize pixels showing @p subject (metres) at
-    /// @p scale pixels per metre. With w and h the subject's pixels (truncated) and mid half the
-    /// larger of the widget's width and w: side and top views (mid - w/2 - (int)(x * scale),
+    /// @p scale pixels per metre. With w and h the subject's pixels (truncated, and at most
+    /// QWIDGETSIZE_MAX less twice the border: the largest canvas) and mid half the larger of the
+    /// widget's width and w: side and top views (mid - w/2 - (int)(x * scale),
     /// max(widget height, h + 40)/2), the subject centred; back view (mid, 20 + widget
     /// height/2).
     [[nodiscard]] static QPoint viewOrigin(FigureView view, QSize figureSize,

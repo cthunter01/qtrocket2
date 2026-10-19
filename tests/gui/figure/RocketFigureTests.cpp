@@ -22,9 +22,11 @@
 #include <QRegion>
 #include <QSignalSpy>
 #include <QSize>
+#include <QTest>
 #include <QTransform>
 #include <QWidget>
 #include <Qt>
+#include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
@@ -39,6 +41,8 @@
 #include "QtRocket/gui/figure/FigureElement.h"
 #include "QtRocket/gui/figure/RocketFigurePainter.h"
 #include "QtRocket/gui/figure/ScaleFigure.h"
+#include "QtRocket/gui/figure/ScaleScrollArea.h"
+#include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -327,6 +331,103 @@ TEST_F(RocketFigureTest, FindsOverlappingComponentsTheHighestDisplayOrderFirst)
     beta.body->setVisible(false);
     EXPECT_EQ(figure.componentsAt(point), expected);
     EXPECT_TRUE(figure.componentsAt(QPointF(1, 1)).empty());
+}
+
+TEST_F(RocketFigureTest, HitTestsTheRocketAsItIsNowBeforeTheFigureHasCaughtUp)
+{
+    Rocket    rocket;
+    BodyTube& body = rocket.addChild(std::make_unique<AxialStage>())
+                         .addChild(std::make_unique<BodyTube>(0.4, 0.02));
+    rocket.enableEvents();
+    const InMemoryPreferences preferences;
+    RocketFigure              figure(rocket, preferences, kDotsPerInch, nullptr);
+    // A figure wider than the rocket at either length: the rocket is centred in it.
+    ASSERT_TRUE(figure.scaleTo(0.5, QSize(3000, 1000)));
+    figure.resize(figure.canvasSize());
+    figure.updateFigure();
+    ASSERT_EQ(figure.size(), QSize(3000, 1000));
+    const QPoint before = figure.subjectOrigin();
+
+    // Twice as long: the origin moves left by half the added length. The figure has not caught
+    // up with the event, but the hit test maps the pixel as the rocket is drawn now: 5 cm behind
+    // the front of the body tube (with the old origin, 15 cm before it).
+    body.setLength(0.8);
+    ASSERT_FALSE(figure.hasFigureGeometry());
+    const double scale  = figure.absoluteScale();
+    const QPoint origin = ScaleFigure::viewOrigin(FigureView::SIDE, figure.size(),
+                                                  figure.figureGeometry().subjectBounds(), scale);
+    EXPECT_NEAR(before.x() - origin.x(), 0.2 * scale, 1.0);
+    const QPointF                       pixel(origin.x() + (0.05 * scale), origin.y());
+    const std::vector<RocketComponent*> expected{&body};
+    EXPECT_EQ(figure.componentsAt(pixel), expected);
+    EXPECT_EQ(figure.subjectOrigin(), origin);
+
+    // The same once it has caught up.
+    deliverRocketChanges(figure);
+    EXPECT_EQ(figure.size(), QSize(3000, 1000));
+    EXPECT_EQ(figure.subjectOrigin(), origin);
+    EXPECT_EQ(figure.componentsAt(pixel), expected);
+}
+
+TEST_F(RocketFigureTest, ASelectionChangesTheGeometryOnlyThroughTheMarkers)
+{
+    // A rocket whose events are switched off after it was built: a change it makes is seen only
+    // by a geometry built after it, so a geometry that was kept shows the old length.
+    Rocket    rocket;
+    BodyTube& body = rocket.addChild(std::make_unique<AxialStage>())
+                         .addChild(std::make_unique<BodyTube>(0.3, 0.02));
+    rocket.enableEvents();
+    InMemoryPreferences preferences;
+    RocketFigure        figure(rocket, preferences, kDotsPerInch, nullptr);
+    rocket.enableEvents(false);
+    const std::vector<const RocketComponent*> selection{&body};
+
+    // ShowMarkers off: the selected components are drawn wider at paint time, and the geometry
+    // is kept.
+    body.setLength(0.5);
+    figure.setSelection(selection);
+    EXPECT_TRUE(figure.isSelected(body));
+    EXPECT_DOUBLE_EQ(figure.figureGeometry().subjectBounds().width, 0.3);
+    figure.setSelection({});
+    EXPECT_DOUBLE_EQ(figure.figureGeometry().subjectBounds().width, 0.3);
+
+    // ShowMarkers on: the markers of pod sets and booster sets depend on the selection. The
+    // preference's change itself makes a new geometry.
+    preferences.setShowMarkers(true);
+    EXPECT_DOUBLE_EQ(figure.figureGeometry().subjectBounds().width, 0.5);
+    body.setLength(0.7);
+    figure.setSelection(selection);
+    EXPECT_DOUBLE_EQ(figure.figureGeometry().subjectBounds().width, 0.7);
+}
+
+TEST_F(RocketFigureTest, AFittingScrollAreaShowsAnAbsurdlyLongRocket)
+{
+    // A body tube 1e200 m long loads from an .ork without a warning. Fitting it once recursed
+    // until the stack overflowed (ScaleFigure::scaleTo()'s tolerance underflows below a scale of
+    // about 1e-161).
+    const QtRocket::Test::TestBeta beta;
+    beta.body->setLength(1e200);
+    const InMemoryPreferences preferences;
+    QWidget                   holder;  // the figure's parent until the area takes it over
+    auto* figure = makeChild<RocketFigure>(&holder, *beta.rocket, preferences, kDotsPerInch);
+    ScaleScrollArea area(figure, nullptr);
+    area.resize(800, 600);
+    area.setFitting(true);
+    const double fit = area.userScale();
+    EXPECT_GT(fit, 0);
+    EXPECT_LT(fit, 1e-200);
+    EXPECT_EQ(fit, area.fitScale());
+
+    // Every rocket change fits again (the design view's updateScaling()), and the view shows it.
+    beta.body->setLength(1e300);
+    deliverRocketChanges(*figure);
+    area.updateScaling();
+    EXPECT_GT(area.userScale(), 0);
+    EXPECT_LT(area.userScale(), fit);
+    EXPECT_EQ(area.userScale(), area.fitScale());
+    area.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&area));
+    EXPECT_FALSE(figure->figureGeometry().shapes().empty());
 }
 
 /// A figure element that records what it was painted with.

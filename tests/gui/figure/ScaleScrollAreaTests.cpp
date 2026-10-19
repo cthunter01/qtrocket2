@@ -1,6 +1,7 @@
 #include "QtRocket/gui/figure/ScaleScrollArea.h"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 #include <QApplication>
@@ -26,6 +27,7 @@
 
 #include "ExpectedQtMessage.h"
 #include "GuiTestSupport.h"
+#include "PaintedRegionRecorder.h"
 #include "QtRocket/figure/FigureView.h"
 #include "QtRocket/gui/figure/Ruler.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -239,6 +241,29 @@ TEST_F(ScaleScrollAreaTest, RelativeScalingIsToTheFit)
     EXPECT_EQ(area.userScale(), 1.5 * kSimpleFit760x560);
 }
 
+TEST_F(ScaleScrollAreaTest, FitsAnAbsurdlyLongSubject)
+{
+    // Above about 1e161 m Java's scaleTo() tolerance underflows to 0, so that every refit was a
+    // change, which made the figure listener fit again until the stack overflowed (here the
+    // process died). An .ork can hold such a body tube.
+    for (const double length : {1e160, 1e161, 1e162, 1e200, 1e300})
+    {
+        SCOPED_TRACE(length);
+        const Rectangle2D subject{.x = 0, .y = -0.05, .width = length, .height = 0.1};
+        AreaWithFigure    shown(subject);
+        shown.area.setFitting(true);
+        const double fit =
+            ScaleFigure::fitScaleFor(shown.area.fitViewSize(), subject, shown.figure->baseScale());
+        EXPECT_GT(fit, 0);
+        EXPECT_TRUE(std::isfinite(fit));
+        EXPECT_EQ(shown.area.userScale(), fit);
+        // A change of the figure and an update fit again, and end.
+        shown.figure->setSubject({.x = 0, .y = -0.05, .width = 2 * length, .height = 0.1});
+        shown.area.updateScaling();
+        EXPECT_EQ(shown.area.userScale(), fit / 2);
+    }
+}
+
 TEST_F(ScaleScrollAreaTest, AHiddenAreaFitsOnceShown)
 {
     AreaWithFigure shown(kSimpleSide, false);
@@ -326,6 +351,26 @@ TEST_F(ScaleScrollAreaTest, TheWheelScrolls)
     EXPECT_EQ(shown.vertical().value(),
               std::min(QApplication::wheelScrollLines() * ScaleScrollArea::kScrollStep,
                        shown.vertical().pageStep()));
+}
+
+TEST_F(ScaleScrollAreaTest, AScrollRepaintsAllOfTheVisibleFigure)
+{
+    // QScrollArea::setWidget() makes the figure fill its background: Qt would move its pixels
+    // and paint only the uncovered strip, and what the figure paints at its visible rectangle
+    // (the design view's overlay) would be carried along. Java's design view scrolls in
+    // JViewport.SIMPLE_SCROLL_MODE, which paints everything.
+    AreaWithFigure shown;
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&shown.area));
+    EXPECT_TRUE(shown.figure->autoFillBackground());
+    shown.area.setScaling(4.0);
+    shown.horizontal().setValue(200);
+    shown.vertical().setValue(100);
+
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*shown.figure, shown.horizontal(), 100));
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*shown.figure, shown.vertical(), 60));
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*shown.figure, shown.horizontal(), -30));
+    // What can be seen of the figure is the viewport (the figure is larger).
+    EXPECT_EQ(shown.figure->visibleRegion().boundingRect().size(), shown.area.viewport()->size());
 }
 
 TEST_F(ScaleScrollAreaTest, TheRulerUnitCanBeChanged)

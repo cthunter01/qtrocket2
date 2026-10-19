@@ -433,7 +433,7 @@ TEST_F(RocketInfoTest, LaysOutTheCaretsAndTheConditions)
 
     // The conditions, small and dim, centred under the block.
     const Item& conditions = layout.items.at(12);
-    EXPECT_EQ(textOf(conditions), "at M=0.300 ​");
+    EXPECT_EQ(textOf(conditions), "at M=0.300 \u200B");
     EXPECT_EQ(conditions.font, Item::FontRole::SMALL);
     EXPECT_EQ(conditions.colour, ThemeColors::color(ThemeColors::Key::TEXT_DIM));
     ASSERT_GT(layout.block(), conditions.width);

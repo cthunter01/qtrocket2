@@ -15,11 +15,16 @@
 #include <QLayout>
 #include <QMargins>
 #include <QPointer>
+#include <QRect>
+#include <QSize>
+#include <QSizePolicy>
 #include <QString>
 #include <QStringList>
+#include <QTest>
 #include <QToolButton>
 #include <Qt>
 #include <QtContainerFwd>
+#include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
@@ -131,6 +136,41 @@ TEST_F(StageSelectorTest, MakesAToggleButtonPerStageInTreeOrder)
     const QtRocket::Test::TestEstesAlphaIIIWithPods pods;
     const StageSelector                             single(*pods.rocket, nullptr);
     EXPECT_EQ(single.buttonCount(), 1U);
+}
+
+/// The geometries of @p selector's buttons, in its coordinates.
+[[nodiscard]] std::vector<QRect> buttonGeometries(const StageSelector& selector)
+{
+    std::vector<QRect> geometries;
+    geometries.reserve(selector.buttonCount());
+    for (std::size_t i = 0; i < selector.buttonCount(); ++i)
+    {
+        geometries.push_back(selector.button(i)->geometry());
+    }
+    return geometries;
+}
+
+TEST_F(StageSelectorTest, KeepsItsButtonsPackedAtTheLeft)
+{
+    // Java's ribbon puts the selector in a "pushx" cell: the cell takes the room to spare, the
+    // selector keeps its preferred size, and its buttons stand together ("gap rel!").
+    const QtRocket::Test::TestFalcon9Heavy falcon;
+    StageSelector                          selector(*falcon.rocket, nullptr);
+    ASSERT_EQ(selector.buttonCount(), 3U);
+    EXPECT_EQ(selector.sizePolicy().horizontalPolicy(), QSizePolicy::Maximum);
+    const QSize hint = selector.sizeHint();
+    selector.resize(hint);
+    selector.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&selector));
+    const std::vector<QRect> packed = buttonGeometries(selector);
+    EXPECT_EQ(packed.front().x(), 0);
+    EXPECT_LT(packed.back().right(), hint.width());
+
+    // Three times as wide: the buttons stay where they are, with the room to their right.
+    selector.resize(3 * hint.width(), hint.height());
+    QCoreApplication::processEvents();
+    EXPECT_EQ(selector.width(), 3 * hint.width());
+    EXPECT_EQ(buttonGeometries(selector), packed);
 }
 
 TEST_F(StageSelectorTest, AClickTogglesTheStageAndFiresTheToggleEvent)

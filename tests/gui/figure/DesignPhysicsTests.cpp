@@ -26,14 +26,18 @@
 #include <QObject>
 #include <QPoint>
 #include <QRegion>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QSize>
 #include <QString>
+#include <QTest>
 #include <QWidget>
+#include <QtWidgets/qtestsupport_widgets.h>
 
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "PaintedRegionRecorder.h"
 #include "QtRocket/aero/BarrowmanCalculator.h"
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/cli/CliOutput.h"
@@ -44,6 +48,8 @@
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/figure/RocketFigure.h"
 #include "QtRocket/gui/figure/RocketInfo.h"
+#include "QtRocket/gui/figure/ScaleScrollArea.h"
+#include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/logging/Warning.h"
 #include "QtRocket/logging/WarningSet.h"
@@ -599,6 +605,30 @@ TEST_F(DesignPhysicsTest, DropsAPendingComputationWithTheDocument)
     document.reset();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
     SUCCEED();
+}
+
+TEST_F(DesignPhysicsTest, TheOverlayIsPaintedAgainWholeWhenTheViewScrolls)
+{
+    // The overlay is drawn at the figure's visible rectangle, so a scroll must paint all of it
+    // again (Java: RocketPanel's JViewport.SIMPLE_SCROLL_MODE). Were only the uncovered strip
+    // painted, the old overlay would move with the rocket and a cut copy appear in the strip.
+    const QtRocket::Test::TestBeta beta;
+    const InMemoryPreferences      preferences;
+    QWidget                        holder;  // the figure's parent until the area takes it over
+    auto* figure = makeChild<RocketFigure>(&holder, *beta.rocket, preferences, kDotsPerInch);
+    ScaleScrollArea     area(figure, nullptr);
+    const DesignPhysics design(*figure, preferences);
+    area.resize(800, 600);
+    area.show();
+    ASSERT_TRUE(QTest::qWaitForWindowExposed(&area));
+    area.setFitting(true);
+    area.setScaling(4.0);
+    area.horizontalScrollBar()->setValue(area.horizontalScrollBar()->maximum() / 2);
+    ASSERT_FALSE(paintedTexts(*figure).empty());
+
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*figure, *area.horizontalScrollBar(), 100));
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*figure, *area.verticalScrollBar(), 60));
+    EXPECT_TRUE(Gui::Test::paintsAllOfItAfterScrolling(*figure, *area.horizontalScrollBar(), -150));
 }
 
 TEST_F(DesignPhysicsTest, IsNeverAChildOfItsFigure)

@@ -5,6 +5,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     CGCaretTests.cpp
     CPCaretTests.cpp
     DesignPhysicsTests.cpp
+    PaintedRegionRecorder.cpp
     RecordingPaintDevice.cpp
     rocket_figure_paint_golden_tests.cpp
     rocket_info_golden_tests.cpp
