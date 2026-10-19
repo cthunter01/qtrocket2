@@ -16,5 +16,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     ScaleScrollAreaTests.cpp
     ScaleSelectorTests.cpp
     ScrollAreaZoomModelTests.cpp
+    stage_toggle_tests.cpp
     TestScaleFigure.cpp
 )
