@@ -29,9 +29,10 @@ class FlightConfigurationId;
 /// leaves. Deviation: Java's constructor reads both from the application preferences
 /// (getDefaultComponentMaterial(RecoveryDevice.class, SURFACE), the RecoveryDevice class chain
 /// for a parachute and a streamer alike) and keeps the default in a final field; rocket/ has no
-/// access to the preferences (see StructuralComponent), so whoever creates a device for the user
-/// applies that material with setDefaultMaterial() and setMaterial(). A document material set
-/// by setMaterial() or taken from a preset is announced to the rocket's document, where Java
+/// access to the preferences (see StructuralComponent), so
+/// ComponentFactory::applyDefaultMaterials() applies that material to a new device with
+/// setDefaultMaterial() and setMaterial(). A document material set by setMaterial() or taken
+/// from a preset is announced to the rocket's document, where Java
 /// adds it to the document's preferences (RocketComponent::notifyDocumentMaterial(); see
 /// StructuralComponent); the default material a preset without a usable MATERIAL leaves is not,
 /// as in Java.

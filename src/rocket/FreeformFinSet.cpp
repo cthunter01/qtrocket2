@@ -132,6 +132,33 @@ FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, b
     return result;
 }
 
+std::optional<std::size_t> FreeformFinSet::getConfigListenerPointIdx(const FreeformFinSet& edited,
+                                                                     const FreeformFinSet& other,
+                                                                     std::size_t index) noexcept
+{
+    const std::size_t editedCount = edited.getPointCount();
+    const std::size_t otherCount  = other.getPointCount();
+    if (index >= editedCount || otherCount == 0)
+    {
+        // Java never asks for a point the edited fin set lacks; a listener without points
+        // fails every call.
+        return std::nullopt;
+    }
+    if (index == editedCount - 1)
+    {
+        // If editing the last point, also edit the last point of the listener
+        return otherCount - 1;
+    }
+    if (index >= otherCount - 1)
+    {
+        // The last point of the listener when this is not the last point (Java: -1), or one the
+        // listener does not have (Java: the index, which the listener's call refuses)
+        return std::nullopt;
+    }
+    // Index-wise editing
+    return index;
+}
+
 Result<void> FreeformFinSet::addPoint(std::size_t index, Point2D location)
 {
     // (Not index + 1 > size: that wraps for the largest index, which is what a -1 becomes.)

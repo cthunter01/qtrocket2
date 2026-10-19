@@ -173,16 +173,28 @@ public:
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> secondaryStabilityUnits(
         double reference);
     /// UNITS_STABILITY with the caliber and percentage units reading the reference length from
-    /// @p referenceLengthProvider on every conversion (OpenRocket's Rocket and
-    /// FlightConfiguration forms, once the rocket model supplies a provider). A provider must
-    /// apply OpenRocket's floor itself (CaliberUnit.calculateCaliber's kDefaultCaliber below
-    /// 0.1 mm); a reference of 0 or NaN converts to an infinity or NaN, as in Java. The same
-    /// lifetime rule as stabilityUnits().
+    /// @p referenceLengthProvider on every conversion. A provider must apply OpenRocket's floor
+    /// itself (CaliberUnit.calculateCaliber's kDefaultCaliber below 0.1 mm); a reference of 0 or
+    /// NaN converts to an infinity or NaN, as in Java. The same lifetime rule as
+    /// stabilityUnits().
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> stabilityUnits(
         const std::function<double()>& referenceLengthProvider);
     /// UNITS_SECONDARY_STABILITY with a reference length provider.
     [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> secondaryStabilityUnits(
         const std::function<double()>& referenceLengthProvider);
+    /// UNITS_STABILITY with a caliber unit reading its reference from @p caliberProvider and a
+    /// percentage unit reading its own from @p lengthProvider, each on every conversion: the
+    /// form behind OpenRocket's stabilityUnits(Rocket) and stabilityUnits(FlightConfiguration),
+    /// whose two units refer to different lengths (the caliber and the aerodynamic length).
+    /// rocket/StabilityUnits.h builds those groups with this; the same rules as the
+    /// one-provider form.
+    [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> stabilityUnits(
+        const std::function<double()>& caliberProvider,
+        const std::function<double()>& lengthProvider);
+    /// UNITS_SECONDARY_STABILITY with a caliber provider and a length provider.
+    [[nodiscard]] static std::unique_ptr<StabilityUnitGroup> secondaryStabilityUnits(
+        const std::function<double()>& caliberProvider,
+        const std::function<double()>& lengthProvider);
 
     /// Appends a unit; the group takes ownership.
     void addUnit(std::unique_ptr<Unit> unit);
@@ -276,6 +288,9 @@ public:
     StabilityUnitGroup(UnitGroup& stabilityUnit, double reference);
     StabilityUnitGroup(UnitGroup&                     stabilityUnit,
                        const std::function<double()>& referenceLengthProvider);
+    /// The caliber unit reads @p caliberProvider, the percentage unit @p lengthProvider.
+    StabilityUnitGroup(UnitGroup& stabilityUnit, const std::function<double()>& caliberProvider,
+                       const std::function<double()>& lengthProvider);
 
     /// Sets the default here and in the group this was made from.
     void setDefaultUnit(int n) override;

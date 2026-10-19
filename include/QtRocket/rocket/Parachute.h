@@ -26,9 +26,9 @@ class ComponentPreset;
 /// LINE_MATERIAL leaves. Deviation: Java's constructor reads both from the application
 /// preferences (getDefaultComponentMaterial(Parachute.class, LINE), the Parachute class chain)
 /// and keeps the default in a final field; rocket/ has no access to the preferences (see
-/// StructuralComponent), so whoever creates a parachute for the user applies that material with
-/// setDefaultLineMaterial() and setLineMaterial() (and the canopy's as RecoveryDevice says). It
-/// holds no children.
+/// StructuralComponent), so ComponentFactory::applyDefaultMaterials() applies that material to
+/// a new parachute with setDefaultLineMaterial() and setLineMaterial() (and the canopy's as
+/// RecoveryDevice says). It holds no children.
 ///
 /// Presets: loadFromPreset() is Java's two overloads in one; PresetLoadOptions::allowAutoRadius
 /// is Java's params[0] (true when not given), which the .ork loader passes as false.

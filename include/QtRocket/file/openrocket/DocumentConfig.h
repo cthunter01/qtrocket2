@@ -302,7 +302,7 @@ public:
     /// Java's constructors take a new component's materials from the application's
     /// preferences; here a new component has the built-in defaults (see ExternalComponent),
     /// and ComponentHandler, which makes the components of a file, gives it the defaults of
-    /// the loading context's preferences.
+    /// the loading context's preferences (ComponentFactory::applyDefaultMaterials()).
     [[nodiscard]] static std::unique_ptr<RocketComponent> createComponent(std::string_view element);
 
     /// What the walk along a component's classes found for an element.

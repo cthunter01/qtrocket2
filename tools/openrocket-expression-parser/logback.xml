@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OpenRocket logs through slf4j/logback. ExpressionParser warns about every input it cannot parse,
+     which the dumper asks for on purpose: its log is off; the rest keeps to warnings and errors. -->
+<configuration>
+	<appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+		<target>System.err</target>
+		<encoder>
+			<pattern>[openrocket] %-5level %logger{0}: %msg%n</pattern>
+		</encoder>
+	</appender>
+	<logger name="info.openrocket.core.util.ExpressionParser" level="OFF"/>
+	<root level="WARN">
+		<appender-ref ref="STDERR"/>
+	</root>
+</configuration>

@@ -17,8 +17,9 @@ class ComponentPreset;
 /// The material is held by value (see Material). A new component is made of the built-in default
 /// bulk material, "Cardboard" (builtinDefaultComponentMaterial()). Deviation: OpenRocket's
 /// constructor takes the default material of the component's class from the application
-/// preferences; rocket/ has no access to them, so whoever creates a component for the user
-/// applies getDefaultComponentMaterial() (MaterialPreferences.h) with setMaterial().
+/// preferences; rocket/ has no access to them, so ComponentFactory::applyDefaultMaterials()
+/// (rocket/ComponentFactory.h), which completes every new component the user adds or a file
+/// holds, applies getDefaultComponentMaterial() (MaterialPreferences.h) with setMaterial().
 ///
 /// Document materials: when the material set (by setMaterial() or a preset) is a document
 /// material and the rocket belongs to a document, Java adds it to the document's preferences

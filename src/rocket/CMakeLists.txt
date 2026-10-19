@@ -9,6 +9,7 @@ target_sources(QtRocket_core PRIVATE
     ClusterConfiguration.cpp
     ComponentAssembly.cpp
     ComponentChangeEvent.cpp
+    ComponentFactory.cpp
     ComponentKind.cpp
     Decal.cpp
     DeploymentConfiguration.cpp
@@ -53,6 +54,7 @@ target_sources(QtRocket_core PRIVATE
     RocketComponent.cpp
     RocketUtils.cpp
     ShockCord.cpp
+    StabilityUnits.cpp
     StageSeparationConfiguration.cpp
     Streamer.cpp
     StructuralComponent.cpp

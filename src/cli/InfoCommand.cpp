@@ -26,10 +26,11 @@
 #include "QtRocket/rocket/AutomaticDimensions.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/Rocket.h"
-#include "QtRocket/rocket/RocketComponent.h"
-#include "QtRocket/rocket/SymmetricComponent.h"
+#include "QtRocket/rocket/StabilityUnits.h"
 #include "QtRocket/simulation/Simulation.h"
-#include "QtRocket/unit/CaliberUnit.h"
+#include "QtRocket/unit/Unit.h"
+#include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/MathUtil.h"
@@ -50,7 +51,9 @@ struct ConfigurationNumbers
     WarningSet warnings;
     RigidBody  launch;
     RigidBody  structure;
-    double     caliber{0};
+    /// The configuration's stability units (RocketInfo's stabilityUnits); they convert the
+    /// margin to calibers.
+    std::unique_ptr<UnitGroup::StabilityUnitGroup> stabilityUnits;
 };
 
 /// The numbers of @p configuration at the Mach number @p mach (see InfoCommand), in the order of
@@ -79,13 +82,13 @@ struct ConfigurationNumbers
     calculator.checkGeometry(configuration, configuration.getRocket(), &warnings);
     const Coordinate worstCp = calculator.getWorstCP(configuration, worstConditions, &warnings);
 
-    return ConfigurationNumbers{.length    = length,
-                                .cp        = cp,
-                                .worstCp   = worstCp,
-                                .warnings  = std::move(warnings),
-                                .launch    = MassCalculator::calculateLaunch(configuration),
-                                .structure = MassCalculator::calculateStructure(configuration),
-                                .caliber   = InfoCommand::caliber(configuration)};
+    return ConfigurationNumbers{.length         = length,
+                                .cp             = cp,
+                                .worstCp        = worstCp,
+                                .warnings       = std::move(warnings),
+                                .launch         = MassCalculator::calculateLaunch(configuration),
+                                .structure      = MassCalculator::calculateStructure(configuration),
+                                .stabilityUnits = StabilityUnits::stabilityUnits(configuration)};
 }
 
 /// Whether @p cp is a CP: one with lift (RocketInfoContextHelper.applyCgAndCp()).
@@ -98,6 +101,14 @@ struct ConfigurationNumbers
 [[nodiscard]] bool hasMass(const RigidBody& body)
 {
     return body.getMass() > MassCalculator::kMinMass;
+}
+
+/// The caliber unit of @p stabilityUnits.
+[[nodiscard]] const Unit& calibers(const UnitGroup& stabilityUnits)
+{
+    const Unit* caliber = stabilityUnits.getUnit("cal");
+    QTROCKET_ASSERT(caliber != nullptr);
+    return *caliber;
 }
 
 /// Prints the numbers of a configuration, its heading excepted.
@@ -135,7 +146,8 @@ void printNumbers(const ConfigurationNumbers& numbers, double mach, CliOutput& o
     {
         // RocketInfo.getStabilityValue(): cp - cg, shown in calibers.
         const double margin = numbers.worstCp.x - numbers.launch.getCM().x;
-        output.outLine("  stability: {} cal ({} m)", margin / numbers.caliber, margin);
+        output.outLine("  stability: {} cal ({} m)",
+                       calibers(*numbers.stabilityUnits).toUnit(margin), margin);
     }
     else
     {
@@ -265,20 +277,7 @@ ExitCode InfoCommand::run(const CliArguments& arguments, CliEnvironment& environ
 
 double InfoCommand::caliber(const FlightConfiguration& configuration)
 {
-    double largest = 0;
-    for (const RocketComponent* component : configuration.getActiveComponents())
-    {
-        if (const auto* symmetric = dynamic_cast<const SymmetricComponent*>(component))
-        {
-            largest = MathUtil::max(largest, symmetric->getForeRadius() * 2,
-                                    symmetric->getAftRadius() * 2);
-        }
-    }
-    if (largest < 0.0001)
-    {
-        largest = CaliberUnit::kDefaultCaliber;
-    }
-    return largest;
+    return StabilityUnits::calculateCaliber(configuration);
 }
 
 }  // namespace QtRocket

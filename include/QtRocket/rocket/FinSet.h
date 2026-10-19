@@ -110,7 +110,7 @@ inline constexpr std::array<FinCrossSection, 3> kAllFinCrossSections{
 /// A new fin set's material and fillet material are the built-in bulk default, "Cardboard"
 /// (ExternalComponent::defaultMaterial()); Java's constructor asks the application preferences
 /// for the default material of the component's class for both, which applyDefaultMaterial()
-/// completes for whoever creates a fin set for the user: once the application has run
+/// completes when ComponentFactory makes a fin set: once the application has run
 /// loadDefaultComponentMaterials() (material/MaterialPreferences.h) that is "Balsa" for every fin
 /// set.
 ///

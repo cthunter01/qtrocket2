@@ -46,9 +46,10 @@ class ComponentPreset;
 /// one lug; the angle method is always RELATIVE (setAngleMethod() does nothing).
 ///
 /// Deviations from OpenRocket:
-/// - A new launch lug's material is the built-in bulk default (see ExternalComponent); the GUI
-///   calls applyDefaultMaterial() on a launch lug it creates, which applies the preferences'
-///   default for "LaunchLug" (then "Tube", "ExternalComponent", "RocketComponent").
+/// - A new launch lug's material is the built-in bulk default (see ExternalComponent);
+///   ComponentFactory calls applyDefaultMaterial() on a launch lug it makes, which applies the
+///   preferences' default for "LaunchLug" (then "Tube", "ExternalComponent",
+///   "RocketComponent").
 /// - The multi-edit config listeners are not ported (see RocketComponent).
 // NOLINTNEXTLINE(misc-multiple-inheritance): the InsideColorComponent mixin carries data
 class LaunchLug : public Tube,

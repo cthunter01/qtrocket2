@@ -57,6 +57,8 @@ class Attachment;
 ///   export onto it.
 /// - fireChangeEvent() takes no source: the slots of changed() take no argument.
 /// - copyWithName() is Java's clone() followed by the registry setting the name, in one step.
+/// - hasSameSource() is an addition, for carrying images to another document
+///   (DecalRegistry::importImage()).
 /// - Not copyable or movable: an image is shared (std::shared_ptr) and heard by its listeners.
 class DecalImage
 {
@@ -109,6 +111,13 @@ public:
     /// A new image named @p name with this image's attachment and decal file; it is not ignored
     /// and has no listeners (Java: clone(), then the registry sets the name).
     [[nodiscard]] std::shared_ptr<DecalImage> copyWithName(std::string name) const;
+
+    /// Whether @p other reads its bytes where this image reads them: from the same attachment,
+    /// the very object, and from the same decal file, or neither has one. A copy
+    /// (copyWithName()) has its original's source until one of the two is given another decal
+    /// file, whatever the names. The bytes are not read: two images of different sources may
+    /// still have the same bytes.
+    [[nodiscard]] bool hasSameSource(const DecalImage& other) const noexcept;
 
     /// Emitted by fireChangeEvent().
     [[nodiscard]] Signal<>& changed() noexcept { return m_changed; }

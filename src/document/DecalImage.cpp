@@ -84,4 +84,9 @@ std::shared_ptr<DecalImage> DecalImage::copyWithName(std::string name) const
     return copy;
 }
 
+bool DecalImage::hasSameSource(const DecalImage& other) const noexcept
+{
+    return m_attachment == other.m_attachment && m_decalFile == other.m_decalFile;
+}
+
 }  // namespace QtRocket

@@ -17,6 +17,7 @@
 #include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/attachments/FileSystemAttachment.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 
@@ -151,6 +152,19 @@ void addNumber(std::set<int>& counts, const FileNameParts& registered)
 [[nodiscard]] std::filesystem::path withoutTrailingSeparator(const std::filesystem::path& file)
 {
     return hasTrailingSeparator(file) ? file.parent_path() : file;
+}
+
+/// Whether the bytes of @p a and @p b can both be read and are the same. An image that cannot
+/// be read is the same as no other (DecalRegistry::importImage(), rule 3).
+[[nodiscard]] bool sameBytes(const DecalImage& a, const DecalImage& b)
+{
+    const Result<std::vector<std::byte>> first = a.getBytes();
+    if (!first.has_value())
+    {
+        return false;
+    }
+    const Result<std::vector<std::byte>> second = b.getBytes();
+    return second.has_value() && *first == *second;
 }
 
 }  // namespace
@@ -338,6 +352,85 @@ std::shared_ptr<DecalImage> DecalRegistry::find(std::string_view name) const
 bool DecalRegistry::isRegistered(std::string_view name) const
 {
     return m_registeredDecals.contains(name);
+}
+
+DecalRegistry::Import DecalRegistry::importImage(const DecalImage& image)
+{
+    const std::string&                name  = image.getName();
+    const std::shared_ptr<DecalImage> named = find(name);
+    // 1. The image of the name is the imported one.
+    if (named != nullptr && named->hasSameSource(image))
+    {
+        return reuse(named);
+    }
+    // 2. An image of the same source under another name: an earlier import that was renamed.
+    if (const std::shared_ptr<DecalImage> same = findSameSource(image))
+    {
+        return reuse(same);
+    }
+    // 3. The image of the name shows the same picture.
+    if (named != nullptr && sameBytes(*named, image))
+    {
+        return reuse(named);
+    }
+    // 4. A copy, under the name when it is free, else under OpenRocket's unique name.
+    std::string newName = named == nullptr ? name : makeUniqueName(name);
+    // A name means one image (see "Removed images"): the unique name is no image's.
+    QTROCKET_ASSERT(find(newName) == nullptr);
+    std::shared_ptr<DecalImage> copy = image.copyWithName(newName);
+    m_registeredDecals.insert_or_assign(std::move(newName), copy);
+    return Import{.image = std::move(copy), .registered = true};
+}
+
+std::size_t DecalRegistry::countImports(
+    const std::vector<std::shared_ptr<const DecalImage>>& images) const
+{
+    // The imports themselves, into a registry of the same images: importImage() changes the
+    // maps only (it registers copies and moves removed images back), never an image.
+    DecalRegistry scratch;
+    scratch.m_registeredDecals = m_registeredDecals;
+    scratch.m_detachedDecals   = m_detachedDecals;
+    std::size_t count          = 0;
+    for (const std::shared_ptr<const DecalImage>& image : images)
+    {
+        QTROCKET_ASSERT(image != nullptr);
+        if (scratch.importImage(*image).registered)
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
+DecalRegistry::Import DecalRegistry::reuse(const std::shared_ptr<DecalImage>& image)
+{
+    if (isRegistered(image->getName()))
+    {
+        return Import{.image = image, .registered = false};
+    }
+    return Import{.image = registerAgain(image->getName()), .registered = true};
+}
+
+std::shared_ptr<DecalImage> DecalRegistry::findSameSource(const DecalImage& image) const
+{
+    for (const Images* const images : {&m_registeredDecals, &m_detachedDecals})
+    {
+        // Of several, the first in name order, as findDecalForFile() finds one.
+        std::shared_ptr<DecalImage> found;
+        for (const auto& [name, candidate] : *images)
+        {
+            if (candidate->hasSameSource(image) &&
+                (found == nullptr || candidate->compareTo(*found) < 0))
+            {
+                found = candidate;
+            }
+        }
+        if (found != nullptr)
+        {
+            return found;
+        }
+    }
+    return nullptr;
 }
 
 std::shared_ptr<DecalImage> DecalRegistry::findDecalForFile(const Images&                images,

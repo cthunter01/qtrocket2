@@ -18,6 +18,8 @@ namespace QtRocket
 {
 
 class ComponentPreset;
+class MaterialStorage;
+class Preferences;
 
 /// An axially symmetric body component, the solid of revolution of a profile r = f(x) >= 0
 /// around the x axis (OpenRocket's SymmetricComponent, together with its only base class
@@ -122,6 +124,14 @@ public:
 
     /// True: body components follow one another.
     [[nodiscard]] bool isAfter() const override;
+
+    /// ExternalComponent::applyDefaultMaterial(), which assigns the material without an event,
+    /// then clears the integrated properties as componentChanged() does on a mass change: a mass
+    /// or CG getter may have run since the component was made (Java's constructor assigns the
+    /// material before anything is cached), and the getters are to follow the new material at
+    /// once.
+    void applyDefaultMaterial(const Preferences&     preferences,
+                              const MaterialStorage& storage) override;
 
     // ---- bounds
 
@@ -231,6 +241,10 @@ protected:
     mutable std::optional<Coordinate> m_cg;
 
 private:
+    /// Empties the caches of the integrated properties (componentChanged() on an aerodynamic or
+    /// mass change, applyDefaultMaterial()).
+    void clearIntegratedProperties() const noexcept;
+
     /// A pointer to a SymmetricComponent with the constness of @p Self.
     template <class Self>
     using SymmetricPointer =

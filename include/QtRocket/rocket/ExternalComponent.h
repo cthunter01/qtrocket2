@@ -27,8 +27,9 @@ class Preferences;
 ///   Java's constructor asks the global application preferences
 ///   (getDefaultComponentMaterial(getClass(), BULK)), which there is no global for here; with
 ///   OpenRocket's test preferences that is Cardboard too, so the golden data and the ported tests
-///   agree. Whoever creates a component for the user (the GUI) calls applyDefaultMaterial() on
-///   it right away, which completes Java's constructor with the user's per-class default. The
+///   agree. ComponentFactory (rocket/ComponentFactory.h), which makes the components the user
+///   adds and completes those the .ork loader makes, calls applyDefaultMaterial() on a new one
+///   right away, which completes Java's constructor with the user's per-class default. The
 ///   exception is RailButton, which starts with RailButton::defaultMaterial() ("Delrin"), as its
 ///   Java constructor sets it after ExternalComponent's.
 /// - Where Java's setMaterial() and loadFromPreset() add a document material to the document's

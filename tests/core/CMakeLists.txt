@@ -49,6 +49,7 @@ add_executable(QtRocket_core_tests
     util/ConfigTests.cpp
     util/CoordinateTests.cpp
     util/DecimalFormatTests.cpp
+    util/ExpressionParserTests.cpp
     util/FileIoTests.cpp
     util/FloatingDecimalTests.cpp
     util/GaussianRandomTests.cpp
@@ -128,6 +129,7 @@ add_executable(QtRocket_core_tests
     rocket/CenteringRingTests.cpp
     rocket/ClusterConfigurationTests.cpp
     rocket/ComponentChangeEventTests.cpp
+    rocket/ComponentFactoryTests.cpp
     rocket/DeploymentConfigurationTests.cpp
     rocket/document_material_tests.cpp
     rocket/EllipticalFinSetTests.cpp
@@ -171,6 +173,7 @@ add_executable(QtRocket_core_tests
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/ShockCordTests.cpp
+    rocket/StabilityUnitsTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
     rocket/StreamerTests.cpp
     rocket/StructuralComponentTests.cpp
@@ -289,6 +292,7 @@ add_executable(QtRocket_core_tests
     simulation/wind_model_seed_reproducibility_tests.cpp
     document/attachments/FileSystemAttachmentTests.cpp
     document/AttachmentTests.cpp
+    document/decal_transfer_tests.cpp
     document/DecalImageTests.cpp
     document/DecalRegistryTests.cpp
     document/events/DocumentChangeEventTests.cpp
@@ -315,6 +319,7 @@ add_executable(QtRocket_core_tests
     file/motor/RockSimMotorLoaderTests.cpp
     file/motor/RockSimMotorWriterTests.cpp
     file/motor/ZipFileMotorLoaderTests.cpp
+    file/openrocket/add_buttons_save_tests.cpp
     file/openrocket/AnglePositionSetterTests.cpp
     file/openrocket/AppearanceHandlerTests.cpp
     file/openrocket/AtmosphereHandlerTests.cpp
@@ -332,6 +337,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/CustomExpressionHandlerTests.cpp
     file/openrocket/DatatypeHandlerTests.cpp
     file/openrocket/decal_file_containment_tests.cpp
+    file/openrocket/decal_transfer_save_tests.cpp
     file/openrocket/DeploymentConfigurationHandlerTests.cpp
     file/openrocket/design_vocabulary_tests.cpp
     file/openrocket/DesignFilesTests.cpp

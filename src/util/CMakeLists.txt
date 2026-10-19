@@ -7,6 +7,7 @@ target_sources(QtRocket_core PRIVATE
     Coordinate.cpp
     DecimalFormat.cpp
     Error.cpp
+    ExpressionParser.cpp
     FileIo.cpp
     FloatingDecimal.cpp
     GaussianRandom.cpp

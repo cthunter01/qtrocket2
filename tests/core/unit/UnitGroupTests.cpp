@@ -952,4 +952,55 @@ TEST_F(UnitGroupTest, SecondaryStabilityProvidersAreReadOnEveryConversion)
     EXPECT_EQ(dynamicSecondary->toStringUnit(0.1), "25 %");
 }
 
+/// The two references of TwoProvidersGiveTheCaliberAndThePercentageEachItsOwnReference.
+struct TwoReferences
+{
+    double caliber;
+    double length;
+};
+
+/// A provider that reads @p references' caliber whenever it is called.
+[[nodiscard]] std::function<double()> caliberReader(const TwoReferences& references)
+{
+    return [&references] { return references.caliber; };
+}
+
+/// A provider that reads @p references' length whenever it is called.
+[[nodiscard]] std::function<double()> lengthReader(const TwoReferences& references)
+{
+    return [&references] { return references.length; };
+}
+
+TEST_F(UnitGroupTest, TwoProvidersGiveTheCaliberAndThePercentageEachItsOwnReference)
+{
+    // The form behind rocket/StabilityUnits.h: OpenRocket's caliber unit and percentage unit of
+    // a configuration refer to two different lengths.
+    TwoReferences                 references{.caliber = 0.05, .length = 0.5};
+    const std::function<double()> caliberProvider = caliberReader(references);
+    const std::function<double()> lengthProvider  = lengthReader(references);
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> primary =
+        UnitGroup::stabilityUnits(caliberProvider, lengthProvider);
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> secondary =
+        UnitGroup::secondaryStabilityUnits(caliberProvider, lengthProvider);
+    EXPECT_EQ(primary->getUnitCount(), 6);
+    EXPECT_EQ(primary->getDefaultUnit().getUnit(), "cal");
+    EXPECT_EQ(secondary->getDefaultUnit().getUnit(), "%");
+    EXPECT_EQ(primary->getUnit(4).toUnit(0.1), 2.0);
+    EXPECT_EQ(&primary->getPercentageOfLengthUnit(), &primary->getUnit(5));
+    EXPECT_DOUBLE_EQ(primary->getPercentageOfLengthUnit().toUnit(0.1), 20.0);
+    EXPECT_EQ(secondary->toStringUnit(0.1), "20 %");
+    EXPECT_DOUBLE_EQ(secondary->getUnit(4).toUnit(0.1), 2.0);
+
+    references.caliber = 0.1;
+    references.length  = 0.25;
+    EXPECT_EQ(primary->toStringUnit(0.1), "1 cal");
+    EXPECT_EQ(secondary->toStringUnit(0.1), "40 %");
+
+    // Each unit reads only its own provider; an empty one keeps the placeholder's behaviour.
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> caliberOnly =
+        UnitGroup::stabilityUnits(caliberProvider, std::function<double()>{});
+    EXPECT_EQ(caliberOnly->toStringUnit(0.1), "1 cal");
+    EXPECT_THROW(static_cast<void>(caliberOnly->getPercentageOfLengthUnit().toUnit(1.0)), BugError);
+}
+
 }  // namespace

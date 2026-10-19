@@ -473,15 +473,28 @@ void SymmetricComponent::componentChanged(const ComponentChangeEvent& event)
     ExternalComponent::componentChanged(event);
     if (event.isAerodynamicChange() || event.isMassChange())
     {
-        m_wetArea                 = kNaN;
-        m_planArea                = kNaN;
-        m_planCenter              = kNaN;
-        m_volume                  = kNaN;
-        m_fullVolume              = kNaN;
-        m_longitudinalUnitInertia = kNaN;
-        m_rotationalUnitInertia   = kNaN;
-        m_cg.reset();
+        clearIntegratedProperties();
     }
+}
+
+void SymmetricComponent::clearIntegratedProperties() const noexcept
+{
+    m_wetArea                 = kNaN;
+    m_planArea                = kNaN;
+    m_planCenter              = kNaN;
+    m_volume                  = kNaN;
+    m_fullVolume              = kNaN;
+    m_longitudinalUnitInertia = kNaN;
+    m_rotationalUnitInertia   = kNaN;
+    m_cg.reset();
+}
+
+void SymmetricComponent::applyDefaultMaterial(const Preferences&     preferences,
+                                              const MaterialStorage& storage)
+{
+    ExternalComponent::applyDefaultMaterial(preferences, storage);
+    // Not Java's: a getter may have cached values of the built-in material (see the header).
+    clearIntegratedProperties();
 }
 
 // ============================================================================= neighbours

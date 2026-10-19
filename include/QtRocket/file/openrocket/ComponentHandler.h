@@ -96,8 +96,10 @@ class RocketComponent;
 ///   Java asks the application for is handed in, here with the loading context), where
 ///   OpenRocket's constructors take them themselves: a component of this library is made with
 ///   the built-in defaults (see ExternalComponent, StructuralComponent, RecoveryDevice,
-///   Parachute). The handler does it only when the context has preferences and application
-///   materials, and those hold the three built-in materials the lookup falls back on
+///   Parachute), which the handler completes with ComponentFactory::applyDefaultMaterials()
+///   (rocket/ComponentFactory.h), as the GUI's add buttons complete the components they make.
+///   The handler does it only when the context has preferences and application materials,
+///   and those hold the three built-in materials the lookup falls back on
 ///   (OpenRocket's databases always do; getDefaultComponentMaterial() has a BugError for a
 ///   storage without one). Otherwise a new component keeps the built-in defaults, which are
 ///   what preferences that name no default give.

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -53,8 +54,9 @@ namespace QtRocket
 ///   conversion fails with an exception, the fin set goes back to its place in the tree (Java
 ///   leaves it detached); see convertFinSet().
 /// - copyWithOriginalID(), which copies the point list, is the implicit copy constructor.
-/// - The multi-edit config listeners (and getConfigListenerPointIdx()) are not ported, by
-///   decision, nor is the logging of a detected intersection.
+/// - The multi-edit config listeners are not ported, by decision (the GUI applies an edit to every
+///   selected component itself), nor is the logging of a detected intersection. Their point
+///   index rule is: getConfigListenerPointIdx(), public and static.
 class FreeformFinSet : public FinSet
 {
 public:
@@ -117,6 +119,25 @@ public:
     [[nodiscard]] Result<void> removePoint(std::size_t index);
 
     [[nodiscard]] std::size_t getPointCount() const noexcept { return m_points.size(); }
+
+    /// The point of @p other that an edit of the point @p index of @p edited also edits when
+    /// both are selected (a multi-component edit: setPoint(), addPoint() and removePoint() of the
+    /// fin point editor), or nullopt when @p other is left alone. OpenRocket's private
+    /// getConfigListenerPointIdx(listener, index), which addPoint(), removePoint() and setPoint()
+    /// ask for each config listener before they change @p edited:
+    /// - the last point of @p edited gives the last point of @p other;
+    /// - any other point gives the same index, except the last point of @p other, which is then
+    ///   left alone (Java returns -1, and the listener's call throws an
+    ///   IllegalFinPointException that Java swallows).
+    /// Deviation: an index that @p other does not have (at or beyond its point count) is
+    /// nullopt too, where Java returns it and the listener's call fails with the exception it
+    /// swallows; an index that @p edited does not have is nullopt (Java never asks, as the
+    /// edited fin set's own call fails first). So a caller edits @p other at the index returned
+    /// and leaves it alone otherwise; the edit can still fail on @p other (addPoint() before
+    /// point 0, removePoint() of point 0), which the caller ignores, as Java does. The index of
+    /// addPoint() is the point the new one goes before.
+    [[nodiscard]] static std::optional<std::size_t> getConfigListenerPointIdx(
+        const FreeformFinSet& edited, const FreeformFinSet& other, std::size_t index) noexcept;
 
     /// Replaces the outline: the points are moved so that the first is at the origin, limited to
     /// kSnapLargerThan and then clamped by update(@p validateFinTab). An outline that intersects

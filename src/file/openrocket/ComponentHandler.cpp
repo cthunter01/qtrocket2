@@ -16,13 +16,8 @@
 #include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/preferences/Preferences.h"
-#include "QtRocket/rocket/ComponentKind.h"
-#include "QtRocket/rocket/ExternalComponent.h"
-#include "QtRocket/rocket/Parachute.h"
-#include "QtRocket/rocket/RecoveryDevice.h"
+#include "QtRocket/rocket/ComponentFactory.h"
 #include "QtRocket/rocket/RocketComponent.h"
-#include "QtRocket/rocket/ShockCord.h"
-#include "QtRocket/rocket/StructuralComponent.h"
 #include "QtRocket/util/Error.h"
 
 namespace QtRocket
@@ -54,32 +49,11 @@ namespace
            materials.findMaterial(Material::Type::LINE, kDefaultLineMaterialName).has_value();
 }
 
-/// The materials Java's constructors of a recovery device take from the preferences: the
-/// canopy's, asked for RecoveryDevice.class whatever the device is (so a default stored for
-/// Parachute or Streamer is not seen: the class chain without its first class), which is also
-/// the default a preset without a usable material leaves; and for a parachute the lines',
-/// asked for Parachute.class.
-void applyDefaultMaterials(RecoveryDevice& device, const Preferences& preferences,
-                           const MaterialStorage& materials)
-{
-    const ComponentClassChain chain = componentClassChain(device.kind());
-    const Material canopy = getDefaultComponentMaterial(preferences, chain.subspan(1),
-                                                        Material::Type::SURFACE, materials);
-    device.setDefaultMaterial(canopy);
-    device.setMaterial(canopy);
-    if (auto* const parachute = dynamic_cast<Parachute*>(&device))
-    {
-        const Material line =
-            getDefaultComponentMaterial(preferences, chain, Material::Type::LINE, materials);
-        parachute->setDefaultLineMaterial(line);
-        parachute->setLineMaterial(line);
-    }
-}
-
 /// Completes Java's constructor of the new @p component, which is not in a tree yet, so that
 /// nothing is fired: the materials OpenRocket's constructors ask the application's
-/// preferences for (see the class comment). Nothing is done without preferences or without
-/// application materials that hold the built-in fallbacks.
+/// preferences for (ComponentFactory::applyDefaultMaterials(); see the class comment). Nothing
+/// is done without preferences or without application materials that hold the built-in
+/// fallbacks.
 void applyDefaultMaterials(RocketComponent& component, const DocumentLoadingContext& context)
 {
     const Preferences* const     preferences = context.getPreferences();
@@ -88,26 +62,7 @@ void applyDefaultMaterials(RocketComponent& component, const DocumentLoadingCont
     {
         return;
     }
-    const ComponentClassChain chain = componentClassChain(component.kind());
-    if (auto* const external = dynamic_cast<ExternalComponent*>(&component))
-    {
-        // The fillets of a fin set too; a rail button stays Delrin.
-        external->applyDefaultMaterial(*preferences, *materials);
-    }
-    else if (auto* const structural = dynamic_cast<StructuralComponent*>(&component))
-    {
-        structural->setMaterial(
-            getDefaultComponentMaterial(*preferences, chain, Material::Type::BULK, *materials));
-    }
-    else if (auto* const cord = dynamic_cast<ShockCord*>(&component))
-    {
-        cord->setMaterial(
-            getDefaultComponentMaterial(*preferences, chain, Material::Type::LINE, *materials));
-    }
-    else if (auto* const device = dynamic_cast<RecoveryDevice*>(&component))
-    {
-        applyDefaultMaterials(*device, *preferences, *materials);
-    }
+    ComponentFactory::applyDefaultMaterials(component, *preferences, *materials);
 }
 
 }  // namespace
