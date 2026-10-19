@@ -1,5 +1,6 @@
 #include "ExpectedQtMessage.h"
 
+#include <QGuiApplication>
 #include <QMessageLogContext>
 #include <QString>
 
@@ -32,6 +33,14 @@ TEST(ExpectedQtMessage, DebugAndInfoMessagesPass)
 {
     qDebug("a debug message");
     qInfo("an info message");
+}
+
+TEST(ExpectedQtMessage, DropsAndCountsTheOffscreenPlatformsSizeHintsWarning)
+{
+    ASSERT_EQ(QGuiApplication::platformName(), QStringLiteral("offscreen"));
+    const int before = ExpectedQtMessage::droppedOffscreenWarnings();
+    qWarning("This plugin does not support propagateSizeHints()");
+    EXPECT_EQ(ExpectedQtMessage::droppedOffscreenWarnings(), before + 1);
 }
 
 TEST(ExpectedQtMessage, SwallowsTheMessagesItExpects)

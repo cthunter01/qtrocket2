@@ -14,6 +14,10 @@ jobs:
     name: linux / ${{ matrix.preset }}
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    # The container sets no locale, and Qt warns on the standard error that "C" is not UTF-8, which the tests of the
+    # GUI program (gui.version, gui.help, gui.start: nothing on the standard error) would fail on.
+    env:
+      LANG: C.UTF-8
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +44,8 @@ jobs:
     steps:
       - name: Install Ninja
         run: brew install ninja
-      # Puts Qt's bin on PATH, where CMake finds Qt and the tests its libraries and plugins.
+      # Puts Qt's bin on PATH, where CMake finds Qt and the tests its libraries and plugins. Qt 6.8.3 predates the
+      # macOS 26 SDK, which has no AGL framework: the root CMakeLists.txt works around Qt's link to it.
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:

@@ -140,6 +140,36 @@ TEST_F(WindowGeometryTest, RemembersTheWindowWhileItIsShown)
     EXPECT_EQ(next.geometry(), lastShown);
 }
 
+TEST_F(WindowGeometryTest, RemembersTheWindowWhenItIsClosed)
+{
+    InMemoryPreferences preferences;
+    QWidget             window;
+    auto* const geometry = makeChild<WindowGeometry>(&window, preferences, QStringLiteral("Test"));
+    geometry->setObjectName(QStringLiteral("geometry"));
+    window.setGeometry(100, 120, 300, 200);
+    window.show();
+    // Another window of its kind stored its place since this one last moved.
+    preferences.getNode("windows").remove(WindowGeometry::key(QStringLiteral("Test")));
+    window.close();
+    EXPECT_EQ(storedGeometry(preferences, QStringLiteral("Test")),
+              window.saveGeometry().toBase64().toStdString());
+}
+
+TEST_F(WindowGeometryTest, AStoredPlaceOnNoScreenIsRestoredOntoTheScreen)
+{
+    // SwingPreferences.isPointOnScreen(): a place that is on no screen any more is not used.
+    InMemoryPreferences preferences;
+    QWidget             away;
+    away.setGeometry(5000, 5000, 300, 200);
+    WindowGeometry::save(preferences, QStringLiteral("Test"), away);
+
+    QWidget window;
+    EXPECT_TRUE(WindowGeometry::restore(preferences, QStringLiteral("Test"), window));
+    EXPECT_NE(QGuiApplication::screenAt(window.frameGeometry().topLeft()), nullptr);
+    EXPECT_TRUE(screenGeometry().contains(window.frameGeometry()));
+    EXPECT_EQ(window.size(), QSize(300, 200));
+}
+
 TEST_F(WindowGeometryTest, InitialSizeIsNinetyPercentOfTheScreen)
 {
     QWidget window;

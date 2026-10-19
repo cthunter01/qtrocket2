@@ -46,6 +46,7 @@ struct SaveQuestion
     Qt::TextFormat               format = Qt::AutoText;
     QMessageBox::StandardButtons buttons;
     QMessageBox::StandardButton  defaultButton = QMessageBox::NoButton;
+    bool                         qtDialog      = false;
 };
 
 /// Records the "Design not saved" question and clicks @p button (Esc for NoButton).
@@ -58,10 +59,11 @@ struct AnswerSaveQuestion
     {
         auto* const box = qobject_cast<QMessageBox*>(&widget);
         ASSERT_NE(box, nullptr);
-        seen->title   = box->windowTitle();
-        seen->text    = box->text();
-        seen->format  = box->textFormat();
-        seen->buttons = box->standardButtons();
+        seen->title    = box->windowTitle();
+        seen->text     = box->text();
+        seen->format   = box->textFormat();
+        seen->buttons  = box->standardButtons();
+        seen->qtDialog = box->testOption(QMessageBox::Option::DontUseNativeDialog);
         if (box->defaultButton() != nullptr)
         {
             seen->defaultButton = box->standardButton(box->defaultButton());
@@ -122,6 +124,8 @@ TEST_F(WidgetUserPromptsTest, AsksBasicFramesQuestionWhetherToSaveTheDesign)
     EXPECT_EQ(seen.format, Qt::PlainText);
     EXPECT_EQ(seen.buttons, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
     EXPECT_EQ(seen.defaultButton, QMessageBox::Yes);
+    // Never a platform theme's native message box, which would show the name as rich text.
+    EXPECT_TRUE(seen.qtDialog);
 }
 
 TEST_F(WidgetUserPromptsTest, NoDiscardsAndCancelOrEscCancels)

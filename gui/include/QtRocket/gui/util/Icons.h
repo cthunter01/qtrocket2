@@ -1,10 +1,15 @@
 #pragma once
 
 #include <array>
+#include <utility>
+#include <vector>
 
 #include <QIcon>
+#include <QRgb>
 #include <QString>
 #include <QStringList>
+
+#include "QtRocket/gui/util/ThemeColors.h"
 
 class QFont;
 
@@ -131,6 +136,10 @@ public:
     /// Icons.java's name of @p id ("FILE_NEW").
     [[nodiscard]] static QString name(Id id);
 
+    /// Icons.java's colour map of @p id: each placeholder RGB of its SVG (0xRRGGBB; 0 is black)
+    /// and the key whose colour stands in for it when it is drawn (SvgIconEngine).
+    [[nodiscard]] static std::vector<std::pair<QRgb, ThemeColors::Key>> colorMap(Id id);
+
     /// Icons.java's scale multiplier of @p id: 0.75 for the *_SUBCOMPONENT markers, else 1.
     [[nodiscard]] static double scaleMultiplier(Id id);
 
@@ -139,8 +148,8 @@ public:
     /// square).
     [[nodiscard]] static int iconHeight(Id id, const QFont& font);
 
-    /// The window icon: OpenRocket's icon-016, -048, -064, -128 and -256.png (GUIUtil's
-    /// application icons, and the 128-pixel one of the About dialog).
+    /// The window icon: OpenRocket's icon-016, -048, -064 and -256.png (GUIUtil's application
+    /// icons; GUIUtil also asks for an icon-032.png, which OpenRocket does not have).
     [[nodiscard]] static QIcon windowIcon();
 
     /// The resources of windowIcon(), ":/icons/app/icon-<size>.png", smallest first.

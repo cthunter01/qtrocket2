@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <QAction>
+#include <QLayout>
 #include <QMenuBar>
 #include <QObject>
 #include <QString>
@@ -206,6 +207,10 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
                     QStringLiteral("Close design")));
     m_entries.push_back(std::move(entry));
     Q_EMIT menusCreated(&window.menus(), &window);
+    // The layout's sizes before the platform window exists: a window whose minimum size is set
+    // as it is shown passes it on to the platform window, which the offscreen platform cannot
+    // take (it warns "This plugin does not support propagateSizeHints()" on every start).
+    window.layout()->activate();
     window.show();
     Q_EMIT windowOpened(&window);
     return window;

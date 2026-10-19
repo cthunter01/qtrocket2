@@ -24,7 +24,8 @@ class MainWindow;
 /// in SwingStartup's order:
 /// 1. the error hook (SwingExceptionHandler): every failure the GUI reports (Guard: a guarded
 ///    slot, the application's notify() backstop, an error condition) shows the internal error
-///    dialog (UserPrompts::showInternalError()); Quit there ends the application at once with
+///    dialog (UserPrompts::showInternalError()) on the GUI thread (a report from another thread
+///    is handed to it, queued); Quit there ends the application at once with
 ///    kInternalErrorExitCode (exitRequested()), without saving anything;
 /// 2. the windows (WindowManager over the context's services, with the platform's last-window
 ///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0);
@@ -43,8 +44,10 @@ class MainWindow;
 /// BasicFrame.reopen() opens the most recent design instead when the preference "open the last
 /// design at start" is set).
 ///
-/// Deviations: OpenRocket's splash screen, welcome dialog, update checks, plug-in migration and
-/// look-and-feel set-up have no counterpart (the splash: Milestone 9). On macOS, Qt reports the
+/// Deviations: a report from another thread does not wait for the dialog (SwingExceptionHandler
+/// waits for an uncaught exception's, invokeAndWait()), so that a worker the GUI thread waits for
+/// cannot block it. OpenRocket's splash screen, welcome dialog, update checks, plug-in migration
+/// and look-and-feel set-up have no counterpart (the splash: Milestone 9). On macOS, Qt reports the
 /// Dock's reopen as the application becoming active, which it also becomes by other means
 /// (Cmd-Tab): whenever the application becomes active without a window, a New design opens,
 /// where OpenRocket opens one only for the Dock's reopen.

@@ -1,13 +1,22 @@
 #include "QtRocket/gui/main/MainMenus.h"
 
+#include <array>
+#include <cstddef>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <QAction>
+#include <QIcon>
+#include <QImage>
 #include <QKeySequence>
+#include <QList>
 #include <QMenu>
 #include <QMenuBar>
+#include <QSize>
 #include <QString>
 #include <Qt>
 
@@ -17,6 +26,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/gui/main/MainWindow.h"
+#include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "TestGuiServices.h"
@@ -165,6 +175,153 @@ void collectActions(const QMenu& menu, std::vector<const QAction*>& actions)
     return names;
 }
 
+/// The keys that more than one of @p actions has, each as "<key>: <name> <name> ...".
+[[nodiscard]] Texts sharedKeys(const std::vector<const QAction*>& actions)
+{
+    std::map<std::string, std::string> owners;
+    std::map<std::string, int>         counts;
+    for (const QAction* action : actions)
+    {
+        for (const QKeySequence& key : action->shortcuts())
+        {
+            const std::string text = QtStrings::toUtf8(key.toString());
+            owners[text] += " " + itemName(*action);
+            ++counts[text];
+        }
+    }
+    Texts shared;
+    for (const auto& [key, count] : counts)
+    {
+        if (count > 1)
+        {
+            shared.push_back(key + ":" + owners[key]);
+        }
+    }
+    return shared;
+}
+
+/// An item as OpenRocket has it (BasicFrame, RocketActions, UndoRedoAction, messages.properties):
+/// its text with the mnemonic marked, its accessible description (here the status tip; empty for
+/// none), its tooltip (empty for none of its own: Qt's of the text) and its icon.
+struct Item
+{
+    std::string_view         name;
+    std::string_view         text;
+    std::string_view         statusTip;
+    std::string_view         toolTip;
+    std::optional<Icons::Id> icon;
+};
+
+constexpr Item item(std::string_view name, std::string_view text, std::string_view statusTip,
+                    std::string_view toolTip, std::optional<Icons::Id> icon)
+{
+    return {.name = name, .text = text, .statusTip = statusTip, .toolTip = toolTip, .icon = icon};
+}
+
+using Id = Icons::Id;
+
+// Every item of a design window's File and Edit menus, in their order.
+constexpr std::array kDesignWindowItems{
+    item("newAction", "&New", "Create a new rocket design", "", Id::FILE_NEW),
+    item("openAction", "&Open\u2026", "Open a rocket design", "", Id::FILE_OPEN),
+    item("openRecentMenu", "Open recent", "Open a recent rocket design", "", Id::FILE_OPEN_RECENT),
+    item("openExampleMenu", "Open example", "Open an example rocket design", "",
+         Id::FILE_OPEN_EXAMPLE),
+    item("saveAction", "&Save", "Save the current rocket design", "", Id::FILE_SAVE),
+    item("saveAsAction", "S&ave as\u2026", "Save the current rocket design to a new file", "",
+         Id::FILE_SAVE_AS),
+    item("propertiesAction", "Propert&ies", "View the file properties", "", Id::CONFIGURE),
+    item("closeAction", "&Close design", "Close the current rocket design", "", Id::FILE_CLOSE),
+    item("quitAction", "&Quit", "Quit the program", "", Id::FILE_QUIT),
+    item("undoAction", "&Undo", "Undo the previous operation", "", Id::EDIT_UNDO),
+    item("redoAction", "&Redo", "Redo the previously undone operation", "", Id::EDIT_REDO),
+    item("editAction", "&Edit", "", "Edit the selected component.", Id::EDIT_EDIT),
+    item("cutAction", "Cu&t", "",
+         "Cut these components or simulations to the clipboard and delete from this design",
+         Id::EDIT_CUT),
+    item("copyAction", "&Copy", "", "Copy these components (and subcomponents) to the clipboard.",
+         Id::EDIT_COPY),
+    item("pasteAction", "Paste", "",
+         "Paste the components or simulations on the clipboard to the design.", Id::EDIT_PASTE),
+    item("duplicateAction", "&Duplicate", "", "Duplicate this component (and subcomponents).",
+         Id::EDIT_DUPLICATE),
+    item("deleteAction", "Delete", "", "Delete the selected components or simulations.",
+         Id::EDIT_DELETE),
+    item("selectMenu", "Select", "", "", std::nullopt),
+    item("selectSameColorAction", "Components of same color", "",
+         "Select all components of the same color as this component.", std::nullopt),
+    item("deselectAllAction", "Deselect all", "", "Deselect all currently selected components.",
+         std::nullopt),
+    item("visibilityMenu", "Visibility", "", "", std::nullopt),
+    item("toggleVisibilityAction", "Hide selected", "", "Hide selected component(s).",
+         Id::COMPONENT_HIDDEN),
+    item("showAllComponentsAction", "Show all", "", "Show all components.", Id::COMPONENT_SHOWING),
+    item("preferencesAction", "Preferences", "Setup the application preferences", "",
+         Id::PREFERENCES),
+};
+
+/// @p icon drawn at 16 pixels (two icons are the same when they draw the same).
+[[nodiscard]] QImage drawnIcon(const QIcon& icon)
+{
+    return icon.pixmap(QSize(16, 16)).toImage();
+}
+
+/// What of @p action differs from @p expected, one text each.
+[[nodiscard]] Texts differences(const QAction& action, const Item& expected)
+{
+    Texts      found;
+    const auto name = std::string(expected.name);
+    const auto text = QtStrings::fromUtf8(expected.text);
+    // An action without a tooltip of its own shows Qt's of its text.
+    const QAction plain(text);
+    const QString toolTip =
+        expected.toolTip.empty() ? plain.toolTip() : QtStrings::fromUtf8(expected.toolTip);
+    if (action.text() != text)
+    {
+        found.push_back(name + " text: " + QtStrings::toUtf8(action.text()));
+    }
+    if (action.statusTip() != QtStrings::fromUtf8(expected.statusTip))
+    {
+        found.push_back(name + " status tip: " + QtStrings::toUtf8(action.statusTip()));
+    }
+    if (action.toolTip() != toolTip)
+    {
+        found.push_back(name + " tooltip: " + QtStrings::toUtf8(action.toolTip()));
+    }
+    const bool sameIcon = expected.icon.has_value()
+                              ? drawnIcon(action.icon()) == drawnIcon(Icons::icon(*expected.icon))
+                              : action.icon().isNull();
+    if (!sameIcon)
+    {
+        found.push_back(name + " icon");
+    }
+    return found;
+}
+
+/// What of @p actions differs from @p expected, item by item and in order.
+[[nodiscard]] Texts itemDifferences(const std::vector<const QAction*>& actions,
+                                    const std::vector<Item>&           expected)
+{
+    Texts found;
+    if (actions.size() != expected.size())
+    {
+        found.push_back(std::to_string(actions.size()) + " items");
+    }
+    for (std::size_t index = 0; index < actions.size() && index < expected.size(); ++index)
+    {
+        const QAction& action = *actions.at(index);
+        const Item&    wanted = expected.at(index);
+        if (itemName(action) != wanted.name)
+        {
+            found.push_back(itemName(action) + " in the place of " + std::string(wanted.name));
+            continue;
+        }
+        const Texts more = differences(action, wanted);
+        found.insert(found.end(), more.begin(), more.end());
+    }
+    return found;
+}
+
 /// A design window's menus: those of a window of a new design.
 class DesignWindowMenusTest : public Test::GuiTest
 {
@@ -232,8 +389,8 @@ TEST_F(DesignWindowMenusTest, FileMenuHasOpenRocketsItemsInItsOrder)
         (Texts{"newAction", "openAction", "openRecentMenu", "openExampleMenu", "---", "saveAction",
                "saveAsAction", "---", "propertiesAction", "closeAction", "---", "quitAction"}));
     EXPECT_EQ(itemTexts(*menus().fileMenu()),
-              (Texts{"&New", "&Open…", "Open recent", "Open example", "---", "&Save", "S&ave as…",
-                     "---", "Propert&ies", "&Close design", "---", "&Quit"}));
+              (Texts{"&New", "&Open\u2026", "Open recent", "Open example", "---", "&Save",
+                     "S&ave as\u2026", "---", "Propert&ies", "&Close design", "---", "&Quit"}));
 }
 
 TEST_F(DesignWindowMenusTest, EditMenuHasOpenRocketsItemsInItsOrder)
@@ -302,7 +459,8 @@ TEST_F(DesignWindowMenusTest, ItemsHaveTheStandardKeysOrMenuKeys)
     EXPECT_EQ(keys(*m.copyAction()), standardKeys(QKeySequence::Copy));
     EXPECT_EQ(keys(*m.pasteAction()), standardKeys(QKeySequence::Paste));
     EXPECT_EQ(keys(*m.duplicateAction()), menuKey(Qt::Key_D));
-    EXPECT_EQ(keys(*m.deleteAction()), standardKeys(QKeySequence::Delete));
+    // RocketActions' Delete key alone, whatever the platform's key scheme.
+    EXPECT_EQ(m.deleteAction()->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::Key_Delete)});
     EXPECT_EQ(keys(*m.selectSameColorAction()), "");
     EXPECT_EQ(keys(*m.deselectAllAction()), "");
     EXPECT_EQ(keys(*m.toggleVisibilityAction()), "");
@@ -310,6 +468,18 @@ TEST_F(DesignWindowMenusTest, ItemsHaveTheStandardKeysOrMenuKeys)
     EXPECT_EQ(keys(*m.preferencesAction()), "");
     EXPECT_FALSE(m.newAction()->shortcuts().isEmpty());
     EXPECT_FALSE(m.closeAction()->shortcuts().isEmpty());
+}
+
+TEST_F(DesignWindowMenusTest, NoTwoItemsShareAKey)
+{
+    // An ambiguous window shortcut triggers neither item (Qt warns "Ambiguous shortcut overload").
+    EXPECT_EQ(sharedKeys(allActions()), Texts{});
+}
+
+TEST_F(DesignWindowMenusTest, EveryItemHasOpenRocketsTextDescriptionTooltipAndIcon)
+{
+    const std::vector<Item> items(kDesignWindowItems.begin(), kDesignWindowItems.end());
+    EXPECT_EQ(itemDifferences(allActions(), items), Texts{});
 }
 
 TEST_F(DesignWindowMenusTest, EveryItemIsAWindowShortcutWithoutAMenuRoleButPreferencesAndQuit)

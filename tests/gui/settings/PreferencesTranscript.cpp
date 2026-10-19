@@ -354,7 +354,7 @@ void writeUpdatesAndUnits(Preferences& p, Calls& calls)
     calls.add("setDisplaySecondaryStability(false)");
     p.storeDefaultUnits();
     calls.add("storeDefaultUnits()");
-    p.setDefaultDirectory(std::filesystem::path(u8"/designs/résumé"));
+    p.setDefaultDirectory(std::filesystem::path(u8"/designs/r\u00E9sum\u00E9"));
     calls.add("setDefaultDirectory");
     p.setDefaultFlightConfigName("[{motors}] config");
     calls.add("setDefaultFlightConfigName");

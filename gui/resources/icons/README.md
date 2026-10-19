@@ -10,7 +10,7 @@ paths are case-sensitive, and OpenRocket's `Icons.java` asks for `cd-override.sv
 | --- | --- | --- | --- |
 | `actions/` | 38 SVG icons of the menus, the tree and the figure (`util/Icons`) | `pix/icons/lucide/` | Lucide (ISC; the Feather-derived icons also MIT) or OpenRocket's own edits and drawings of them (GPL-3.0-or-later) |
 | `components/` | 71 PNG component icons, small and large, with the `_dark` variants (`util/ComponentIcons`) | `pix/componenticons/` | OpenRocket (GPL-3.0-or-later) |
-| `app/` | 5 PNG window icons, 16 to 256 pixels | `pix/icon/icon-016.png` ... `icon-256.png` | OpenRocket (GPL-3.0-or-later) |
+| `app/` | 4 PNG window icons, 16 to 256 pixels (GUIUtil's) | `pix/icon/icon-016.png`, `-048`, `-064`, `-256` | OpenRocket (GPL-3.0-or-later) |
 
 `actions/`: 15 of the 38 SVGs are plain exports of [Lucide](https://lucide.dev) (`class="lucide ..."`); the others
 are OpenRocket's edits of Lucide icons (more colours, other strokes) or its own drawings in Lucide's style

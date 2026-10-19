@@ -9,9 +9,11 @@
 
 #include <QApplication>
 #include <QGuiApplication>
+#include <QMetaObject>
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QThread>
 #include <QTimer>
 #include <QWidget>
 #include <Qt>
@@ -150,6 +152,14 @@ void ApplicationSession::reopenIfNoWindow()
 
 void ApplicationSession::showInternalError(const Guard::Failure& failure)
 {
+    if (QThread::currentThread() != thread())
+    {
+        // SwingExceptionHandler shows its dialog on the event dispatch thread: a report from
+        // another thread is reported again on the GUI thread, from its event loop.
+        static_cast<void>(QMetaObject::invokeMethod(
+            this, [failure] { Guard::report(failure); }, Qt::QueuedConnection));
+        return;
+    }
     QWidget* parent = QApplication::activeModalWidget();
     if (parent == nullptr)
     {

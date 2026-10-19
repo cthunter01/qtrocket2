@@ -1,9 +1,14 @@
 #include "QtRocket/gui/util/ThemeColors.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdlib>
+#include <string>
 #include <string_view>
+#include <vector>
 
+#include <QByteArrayView>
 #include <QColor>
 #include <QPalette>
 
@@ -30,6 +35,117 @@ int channelDistance(const QColor& a, const QColor& b)
 {
     return std::max({std::abs(a.red() - b.red()), std::abs(a.green() - b.green()),
                      std::abs(a.blue() - b.blue()), std::abs(a.alpha() - b.alpha())});
+}
+
+/// A key's value in OpenRocket's two theme files (themes/FlatLightLaf.properties and
+/// FlatDarculaLaf.properties), as FlatLaf writes it (#RRGGBB or #RRGGBBAA), every reference
+/// ($OR.colors.blue, ...) resolved.
+struct ThemeValue
+{
+    Key              key;
+    std::string_view light;
+    std::string_view dark;
+};
+
+constexpr ThemeValue value(Key key, std::string_view light, std::string_view dark)
+{
+    return {.key = key, .light = light, .dark = dark};
+}
+
+// In the order of ThemeColors::kAllKeys.
+constexpr std::array kThemeValues{
+    value(Key::BLUE, "#2D7FF9", "#6EA8FE"),
+    value(Key::PURPLE, "#9F5CF5", "#C592FF"),
+    value(Key::YELLOW, "#a68002", "#ffd64a"),
+    value(Key::ORANGE, "#d99800", "#FFB066"),
+    value(Key::RED, "#ff0000", "#f68f8f"),
+    value(Key::DARK_RED, "#c80000", "#e56767"),
+    value(Key::GREEN, "#20C968", "#66DE93"),
+    value(Key::BACKGROUND, "#ffffff", "#494c4f"),
+    value(Key::BORDER, "#000000", "#616365"),
+    value(Key::TEXT, "#000000", "#adadad"),
+    value(Key::TEXT_DIM, "#808080", "#b6b6b6"),
+    value(Key::TEXT_DISABLED, "#808080", "#a1a1a1"),
+    value(Key::INFO, "#2D7FF9", "#6EA8FE"),        // $OR.colors.blue
+    value(Key::WARNING, "#d99800", "#FFB066"),     // $OR.colors.orange
+    value(Key::ERROR, "#ff0000", "#f68f8f"),       // $OR.colors.red
+    value(Key::DARK_ERROR, "#c80000", "#e56767"),  // $OR.colors.darkRed
+    value(Key::MULTI_COMP_EDIT, "#aa0064", "#de92b0"),
+    value(Key::MOTOR_BORDER, "#000000c8", "#00000064"),
+    value(Key::MOTOR_FILL, "#00000064", "#00000032"),
+    value(Key::CG, "#0000ff", "#5585fd"),
+    value(Key::CP, "#ff0000", "#ff486a"),
+    value(Key::URL, "#0000ff", "#96a7ff"),
+    // lighten() and darken() of FlatLaf's Tree.textForeground (#000000, #bbbbbb) by 25 %.
+    value(Key::VISIBILITY_HIDDEN_FOREGROUND, "#404040", "#7b7b7b"),
+    value(Key::FIN_GRID_MAJOR, "#0000ff50", "#8787c7c5"),
+    value(Key::FIN_GRID_MINOR, "#0000ff1e", "#7979bd45"),
+    value(Key::FIN_POINT, "#c80000ff", "#d96c6cff"),
+    value(Key::FIN_SELECTED_POINT, "#c80000ff", "#e84e4eff"),
+    value(Key::FIN_BODY_LINE, "#000000", "#ffffff"),
+    value(Key::FIN_SNAP_HIGHLIGHT, "#ff0000", "#ff3a3aff"),
+    value(Key::RULER, "#735a09", "#ffd64a"),          // dark: $OR.colors.yellow
+    value(Key::ICONS_DEFAULT, "#000000", "#ffffff"),  // light: $OR.colors.text
+    value(Key::ICONS_TINT_COLOR, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_HELP, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_OVERRIDE, "#2D7FF9", "#6EA8FE"),               // $OR.colors.info
+    value(Key::ICONS_OVERRIDE_SUBCOMPONENT, "#808080", "#b6b6b6"),  // $OR.colors.text.dim
+    value(Key::ICONS_LOCKED, "#f1c066", "#f1c066"),
+    value(Key::ICONS_DELETE, "#c80000", "#f68f8f"),  // $OR.colors.darkRed, $OR.colors.red
+    value(Key::ICONS_PLUS, "#20C968", "#66DE93"),
+    value(Key::ICONS_DUPLICATE, "#2D7FF9", "#6EA8FE"),  // $OR.icons.tintColor
+    value(Key::ICONS_PENCIL, "#a68002", "#ffd64a"),
+    value(Key::ICONS_ZOOM_IN, "#20C968", "#66DE93"),
+    value(Key::ICONS_ZOOM_OUT, "#c80000", "#e56767"),
+    value(Key::ICONS_ZOOM_FIT, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_IMPORT, "#c80000", "#e56767"),
+    value(Key::ICONS_MOVE_UP, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_MOVE_DOWN, "#9F5CF5", "#C592FF"),
+    value(Key::ICONS_UNDO, "#c80000", "#e56767"),
+    value(Key::ICONS_REDO, "#2D7FF9", "#6EA8FE"),
+    value(Key::ICONS_MAGNET_RED, "#fc5e42", "#E86B55"),
+    value(Key::ICONS_MAGNET_WHITE, "#ffffff", "#E1E3E2"),
+};
+
+/// The colour FlatLaf reads from @p text: #RRGGBB, or #RRGGBBAA with the alpha last (Qt's
+/// "#AARRGGBB" has it first).
+[[nodiscard]] QColor flatLafColor(std::string_view text)
+{
+    const std::string_view hex    = text.substr(1);
+    const unsigned int     digits = QByteArrayView(hex).toUInt(nullptr, 16);
+    if (hex.size() == 6)
+    {
+        return QColor::fromRgb(digits);
+    }
+    return {static_cast<int>(digits >> 24U), static_cast<int>((digits >> 16U) & 0xffU),
+            static_cast<int>((digits >> 8U) & 0xffU), static_cast<int>(digits & 0xffU)};
+}
+
+/// The keys whose value in @p theme is not the theme file's, each as "<key> <value>".
+[[nodiscard]] std::vector<std::string> keysWithAnotherValue(Theme theme)
+{
+    std::vector<std::string> different;
+    for (const ThemeValue& expected : kThemeValues)
+    {
+        const QColor color = ThemeColors::themeColor(expected.key, theme);
+        if (color != flatLafColor(theme == Theme::LIGHT ? expected.light : expected.dark))
+        {
+            different.push_back(std::string(ThemeColors::keyName(expected.key)) + " " +
+                                color.name(QColor::HexArgb).toStdString());
+        }
+    }
+    return different;
+}
+
+TEST_F(ThemeColorsTest, EveryKeyHasTheValuesOfOpenRocketsThemeFiles)
+{
+    ASSERT_EQ(kThemeValues.size(), ThemeColors::kAllKeys.size());
+    for (std::size_t index = 0; index < kThemeValues.size(); ++index)
+    {
+        EXPECT_EQ(kThemeValues.at(index).key, ThemeColors::kAllKeys.at(index)) << index;
+    }
+    EXPECT_EQ(keysWithAnotherValue(Theme::LIGHT), std::vector<std::string>{});
+    EXPECT_EQ(keysWithAnotherValue(Theme::DARK), std::vector<std::string>{});
 }
 
 TEST_F(ThemeColorsTest, ALightPaletteIsTheLightThemeAndADarkOneTheDarkTheme)

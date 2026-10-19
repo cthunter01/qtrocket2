@@ -1,10 +1,18 @@
 #include "QtRocket/gui/util/Icons.h"
 
+#include <algorithm>
+#include <array>
+#include <format>
 #include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include <QByteArray>
 #include <QColor>
 #include <QFile>
 #include <QFont>
+#include <QIODevice>
 #include <QIcon>
 #include <QImage>
 #include <QList>
@@ -78,6 +86,145 @@ QStringList brokenIcons()
         }
     }
     return broken;
+}
+
+using ColorMap = std::vector<std::pair<QRgb, Key>>;
+
+/// An icon's colour map as Icons.java writes it (SVG_THEME_COLOR_RGB is 0x000000, and
+/// SVG_DEFAULT_COLOR_KEY OR.icons.default): loadIcon(svg, png, name) maps black to the default,
+/// loadIcon(..., colorKey) black to colorKey, and a Map.of() what it names.
+struct IconColors
+{
+    Id       id;
+    ColorMap colors;
+};
+
+/// Icons.java's colour map of every icon of the GUI.
+[[nodiscard]] std::vector<IconColors> iconsJavaColorMaps()
+{
+    const auto plain = [](Id id) {
+        return IconColors{.id = id, .colors = {{0x000000, Key::ICONS_DEFAULT}}};
+    };
+    const auto single = [](Id id, Key key) {
+        return IconColors{.id = id, .colors = {{0x000000, key}}};
+    };
+    const auto tinted = [](Id id, QRgb rgb, Key key) {
+        return IconColors{.id = id, .colors = {{0x000000, Key::ICONS_DEFAULT}, {rgb, key}}};
+    };
+    const ColorMap magnet{{0xE86B55, Key::ICONS_MAGNET_RED}, {0xE1E3E2, Key::ICONS_MAGNET_WHITE}};
+    return {
+        tinted(Id::FILE_NEW, 0x499C54, Key::ICONS_PLUS),
+        plain(Id::FILE_OPEN),
+        tinted(Id::FILE_OPEN_RECENT, 0x2D2DBD, Key::ICONS_TINT_COLOR),
+        tinted(Id::FILE_OPEN_EXAMPLE, 0x2D2DBD, Key::ICONS_TINT_COLOR),
+        plain(Id::FILE_SAVE),
+        tinted(Id::FILE_SAVE_AS, 0xFAC132, Key::ICONS_PENCIL),
+        tinted(Id::FILE_CLOSE, 0xC80000, Key::RED),
+        single(Id::FILE_QUIT, Key::RED),
+        single(Id::EDIT_UNDO, Key::ICONS_UNDO),
+        single(Id::EDIT_REDO, Key::ICONS_REDO),
+        tinted(Id::EDIT_EDIT, 0xFAC132, Key::ICONS_PENCIL),
+        plain(Id::EDIT_CUT),
+        plain(Id::EDIT_COPY),
+        tinted(Id::EDIT_PASTE, 0xC80000, Key::ICONS_IMPORT),
+        tinted(Id::EDIT_DUPLICATE, 0x2D2DBD, Key::ICONS_DUPLICATE),
+        single(Id::EDIT_DELETE, Key::ICONS_DELETE),
+        single(Id::HELP_ABOUT, Key::ICONS_HELP),
+        tinted(Id::ZOOM_IN, 0x499C54, Key::ICONS_ZOOM_IN),
+        tinted(Id::ZOOM_OUT, 0xC80000, Key::ICONS_ZOOM_OUT),
+        tinted(Id::ZOOM_RESET, 0x2D2DBD, Key::ICONS_ZOOM_FIT),
+        single(Id::PAN_VIEW, Key::PURPLE),
+        tinted(Id::RULER, 0xFAC132, Key::RULER),
+        IconColors{.id = Id::SNAP_CLICK, .colors = magnet},
+        IconColors{.id = Id::SNAP, .colors = magnet},
+        plain(Id::PREFERENCES),
+        tinted(Id::CONFIGURE, 0x2D2DBD, Key::ICONS_TINT_COLOR),
+        plain(Id::HELP),
+        single(Id::UP, Key::ICONS_MOVE_UP),
+        single(Id::DOWN, Key::ICONS_MOVE_DOWN),
+        plain(Id::RESET),
+        single(Id::MASS_OVERRIDE, Key::ICONS_OVERRIDE),
+        single(Id::MASS_OVERRIDE_SUBCOMPONENT, Key::ICONS_OVERRIDE_SUBCOMPONENT),
+        single(Id::CG_OVERRIDE, Key::ICONS_OVERRIDE),
+        single(Id::CG_OVERRIDE_SUBCOMPONENT, Key::ICONS_OVERRIDE_SUBCOMPONENT),
+        single(Id::CD_OVERRIDE, Key::ICONS_OVERRIDE),
+        single(Id::CD_OVERRIDE_SUBCOMPONENT, Key::ICONS_OVERRIDE_SUBCOMPONENT),
+        plain(Id::COMPONENT_HIDDEN),
+        plain(Id::COMPONENT_SHOWING),
+        plain(Id::COMPONENT_DISABLED),
+        tinted(Id::COMPONENT_ENABLED, 0x499C54, Key::GREEN),
+        tinted(Id::LOCKED, 0xF1C066, Key::ICONS_LOCKED),
+        plain(Id::UNLOCKED),
+    };
+}
+
+/// @p colors in a fixed order (Icons.java's Map.of() has none).
+[[nodiscard]] ColorMap sorted(ColorMap colors)
+{
+    std::ranges::sort(colors);
+    return colors;
+}
+
+/// The icons whose colour map is not Icons.java's, by name.
+[[nodiscard]] QStringList iconsWithAnotherColorMap()
+{
+    QStringList different;
+    for (const IconColors& expected : iconsJavaColorMaps())
+    {
+        if (sorted(Icons::colorMap(expected.id)) != sorted(expected.colors))
+        {
+            different.append(Icons::name(expected.id));
+        }
+    }
+    return different;
+}
+
+/// Whether the SVG @p svg writes the colour @p rgb, as #rrggbb (in either case) or rgb(r,g,b).
+[[nodiscard]] bool writesColor(const QByteArray& svg, QRgb rgb)
+{
+    const std::string hex      = std::format("#{:06x}", rgb & kRgbMask);
+    const std::string function = std::format("rgb({},{},{})", qRed(rgb), qGreen(rgb), qBlue(rgb));
+    QByteArray        compact  = svg.toLower();
+    compact.replace(' ', QByteArray());
+    return compact.contains(QByteArrayView(hex)) || compact.contains(QByteArrayView(function));
+}
+
+/// "<icon> <rgb>" for each placeholder colour of a colour map (other than black, which an SVG
+/// may also write as black, currentColor or no fill at all) that its SVG does not write, which
+/// would leave the colour as it is drawn.
+[[nodiscard]] QStringList placeholdersMissingFromTheirSvg()
+{
+    QStringList missing;
+    for (const Id id : Icons::kAllIds)
+    {
+        QFile file(Icons::resourcePath(id));
+        if (!file.open(QIODevice::ReadOnly))
+        {
+            missing.append(Icons::name(id) + QStringLiteral(" (no SVG)"));
+            continue;
+        }
+        const QByteArray svg = file.readAll();
+        for (const std::pair<QRgb, Key>& placeholder : Icons::colorMap(id))
+        {
+            const QRgb rgb = placeholder.first;
+            if (rgb != 0x000000 && !writesColor(svg, rgb))
+            {
+                missing.append(Icons::name(id) + QStringLiteral(" ") + QString::number(rgb, 16));
+            }
+        }
+    }
+    return missing;
+}
+
+TEST_F(IconsTest, EveryIconHasTheColourMapOfIconsJava)
+{
+    EXPECT_EQ(iconsJavaColorMaps().size(), Icons::kAllIds.size());
+    EXPECT_EQ(iconsWithAnotherColorMap(), QStringList());
+}
+
+TEST_F(IconsTest, EveryPlaceholderColourIsInItsSvg)
+{
+    EXPECT_EQ(placeholdersMissingFromTheirSvg(), QStringList());
 }
 
 TEST_F(IconsTest, EveryIconOfTheGuiLoadsAndDraws)
@@ -167,18 +314,18 @@ TEST_F(IconsTest, TheSubcomponentMarkersAreThreeQuartersTheSize)
     EXPECT_EQ(Icons::iconHeight(Id::MASS_OVERRIDE_SUBCOMPONENT, font), 15);
 }
 
-TEST_F(IconsTest, TheWindowIconHasOpenRocketsFiveSizes)
+TEST_F(IconsTest, TheWindowIconHasTheSizesOfOpenRocketsFrames)
 {
-    EXPECT_EQ(
-        Icons::windowIconResources(),
-        (QStringList{
-            QStringLiteral(":/icons/app/icon-016.png"), QStringLiteral(":/icons/app/icon-048.png"),
-            QStringLiteral(":/icons/app/icon-064.png"), QStringLiteral(":/icons/app/icon-128.png"),
-            QStringLiteral(":/icons/app/icon-256.png")}));
+    // GUIUtil loads icon-256, -064, -048, -032 and -016.png; there is no icon-032.png.
+    EXPECT_EQ(Icons::windowIconResources(),
+              (QStringList{QStringLiteral(":/icons/app/icon-016.png"),
+                           QStringLiteral(":/icons/app/icon-048.png"),
+                           QStringLiteral(":/icons/app/icon-064.png"),
+                           QStringLiteral(":/icons/app/icon-256.png")}));
     const QIcon icon = Icons::windowIcon();
     EXPECT_FALSE(icon.isNull());
-    EXPECT_EQ(icon.availableSizes(), (QList<QSize>{QSize(16, 16), QSize(48, 48), QSize(64, 64),
-                                                   QSize(128, 128), QSize(256, 256)}));
+    EXPECT_EQ(icon.availableSizes(),
+              (QList<QSize>{QSize(16, 16), QSize(48, 48), QSize(64, 64), QSize(256, 256)}));
 }
 
 TEST_F(IconsTest, NamesEachIconAsIconsJava)

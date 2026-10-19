@@ -18,7 +18,9 @@
 /// the report to the standard error; the application installs one that opens the internal error
 /// dialog, and a test one that records the reports.
 ///
-/// Only the GUI thread reports (Milestone 2 runs nothing on another thread).
+/// Any thread may report: the hook runs on the thread that reports, and one that opens a dialog
+/// hands a report from another thread to the GUI thread first (the application's does,
+/// app/ApplicationSession).
 namespace QtRocket::Gui
 {
 

@@ -6,7 +6,18 @@
 //   sets the variable for the tests, but not for gtest_discover_tests' listing run
 //   (--gtest_list_tests), which builds the QApplication too and has no display in CI.
 // - The variables that scale the screen or the fonts, pick a platform theme or a style are unset,
-//   and the default locale is en_US (a German one would read "12,5" in a spin box).
+//   and the default locale is en_US (a German one would read "12,5" in a spin box). So the tests
+//   see Qt's default key bindings only (offscreen: the Windows scheme), never those of the GNOME
+//   or KDE themes, which differ (GNOME's standard Delete keys hold Ctrl+D).
+// - Qt paints on the GUI thread only (QT_NO_GUI_THREADPOOL): Qt's raster engine shares a large
+//   fill out to the threads of its own pool, whose locking ThreadSanitizer cannot see in an
+//   uninstrumented Qt, so every painting test would report races under the tsan preset.
+// - The offscreen platform has fonts on every system: on Windows it reads them from
+//   QT_QPA_FONTDIR only, which is the system's font directory unless set. The font database is
+//   read, and the application's font looked up, before the first test, so that the platform's
+//   one-time messages about fonts are printed then instead of failing whichever test measures a
+//   text first (on macOS the offscreen platform's font family "Sans Serif" does not exist, which
+//   Qt warns of once).
 // - QStandardPaths' test mode, and every QSettings made without a file name is an INI file in a
 //   temporary directory of this process (the code under test takes its own INI file anyway).
 // - A Qt warning, critical or fatal message during a test fails it (ExpectedQtMessage).
@@ -20,9 +31,12 @@
 #include <print>
 #include <string>
 
+#include <QFontMetrics>
+#include <QGuiApplication>
 #include <QLocale>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QString>
 #include <QTemporaryDir>
 #include <QtEnvironmentVariables>
 
@@ -50,6 +64,23 @@ void prepareEnvironment()
     {
         qunsetenv(name);
     }
+    qputenv("QT_NO_GUI_THREADPOOL", "1");
+#ifdef _WIN32
+    if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR"))
+    {
+        const QString windows = qEnvironmentVariable("WINDIR", QStringLiteral("C:/Windows"));
+        qputenv("QT_QPA_FONTDIR", (windows + QStringLiteral("/Fonts")).toLocal8Bit());
+    }
+#endif
+}
+
+/// After the QApplication, before the tests: reads the font database and resolves the
+/// application's font, as the first text a test measures would.
+void resolveTheApplicationFont()
+{
+    const QFontMetrics metrics(QGuiApplication::font());
+    static_cast<void>(metrics.height());
+    static_cast<void>(metrics.horizontalAdvance(QStringLiteral("QtRocket")));
 }
 
 /// The error hook of the test process: a report fails the test that runs (outside a test it is
@@ -76,6 +107,7 @@ int runTests(int argc, char** argv)
     static_cast<void>(QtRocket::Gui::Guard::setHook(&failOnReport));
     QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
     QStandardPaths::setTestModeEnabled(true);
+    resolveTheApplicationFont();
 
     const QTemporaryDir settingsDirectory;
     if (!settingsDirectory.isValid())

@@ -26,7 +26,8 @@ struct Registry
 {
     std::mutex                      mutex;
     std::vector<ExpectedQtMessage*> guards;
-    QtMessageHandler                previous = nullptr;
+    QtMessageHandler                previous                 = nullptr;
+    int                             droppedOffscreenWarnings = 0;
 };
 
 Registry& registry()
@@ -114,6 +115,12 @@ int ExpectedQtMessage::count() const
     return m_count;
 }
 
+int ExpectedQtMessage::droppedOffscreenWarnings()
+{
+    const std::scoped_lock lock(registry().mutex);
+    return registry().droppedOffscreenWarnings;
+}
+
 void ExpectedQtMessage::installHandler()
 {
     Registry&              shared = registry();
@@ -147,6 +154,8 @@ void ExpectedQtMessage::handleMessage(QtMsgType type, const QMessageLogContext& 
     }
     if (isOffscreenLimitation(type, message))
     {
+        const std::scoped_lock lock(shared.mutex);
+        ++shared.droppedOffscreenWarnings;
         return;
     }
     if (type == QtDebugMsg || type == QtInfoMsg || !insideTest())

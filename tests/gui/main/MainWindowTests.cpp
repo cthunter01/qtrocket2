@@ -156,11 +156,11 @@ TEST_F(MainWindowTest, TitleFollowsTheRocketsEditsUndoAndSave)
 TEST_F(MainWindowTest, TitleShowsAModifiedMarkOfTheNameAsItIs)
 {
     rocket().setName("A[*]B");
-    EXPECT_EQ(MainWindow::titleFor(document()), QStringLiteral(u"[*]A[*​]B"));
-    EXPECT_EQ(shownTitle(), modifiedMark() + "A[*​]B");
+    EXPECT_EQ(MainWindow::titleFor(document()), QStringLiteral(u"[*]A[*\u200B]B"));
+    EXPECT_EQ(shownTitle(), modifiedMark() + "A[*\u200B]B");
     document().setSaved(true);
     window().refreshTitle();
-    EXPECT_EQ(shownTitle(), "A[*​]B");
+    EXPECT_EQ(shownTitle(), "A[*\u200B]B");
 }
 
 TEST_F(MainWindowTest, PanelsTakeThePlacesOfThePlaceholders)
@@ -199,6 +199,42 @@ TEST_F(MainWindowTest, OpensAt90PercentOfTheScreenWithTheDividerAt40Percent)
     ASSERT_EQ(sizes.size(), 2);
     EXPECT_EQ(sizes.at(0), static_cast<int>(length * MainWindow::kDividerLocation));
     EXPECT_EQ(sizes.at(0) + sizes.at(1), length);
+}
+
+TEST_F(MainWindowTest, EachSideOfTheDividerTakesHalfOfAChangeOfTheHeight)
+{
+    // JSplitPane.setResizeWeight(0.5).
+    window().show();
+    ASSERT_TRUE(window().isVisible());
+    const QList<int> before       = window().splitter()->sizes();
+    const int        heightBefore = window().splitter()->height();
+    window().resize(window().width(), window().height() - 100);
+    const QList<int> after  = window().splitter()->sizes();
+    const int        change = window().splitter()->height() - heightBefore;
+    ASSERT_EQ(before.size(), 2);
+    ASSERT_EQ(after.size(), 2);
+    ASSERT_LT(change, -50);
+    EXPECT_NEAR(after.at(0) - before.at(0), change / 2.0, 1.0);
+    EXPECT_NEAR(after.at(1) - before.at(1), change / 2.0, 1.0);
+}
+
+TEST_F(MainWindowTest, ASideKeepsItsMinimumHeightAndTheOtherTakesTheRestOfAChange)
+{
+    // BasicSplitPaneUI.distributeSpace(): the side that would go below its minimum takes what it
+    // lacks from the other one.
+    window().show();
+    ASSERT_TRUE(window().isVisible());
+    const QList<int> before = window().splitter()->sizes();
+    ASSERT_EQ(before.size(), 2);
+    window().rocketPanel()->setMinimumHeight(before.at(1) - 20);
+    const int heightBefore = window().splitter()->height();
+    window().resize(window().width(), window().height() - 100);
+    const int        change = window().splitter()->height() - heightBefore;
+    const QList<int> after  = window().splitter()->sizes();
+    ASSERT_EQ(after.size(), 2);
+    ASSERT_LT(change, -50);
+    EXPECT_EQ(after.at(1), before.at(1) - 20);
+    EXPECT_EQ(after.at(0), before.at(0) + change + 20);
 }
 
 TEST_F(MainWindowTest, RemembersItsGeometryAsMainWindow)

@@ -38,10 +38,11 @@ class UndoRedoActions;
 /// where its action has one (the Edit menu shows them, as Swing does); a stable object name
 /// (newAction, openRecentMenu, ...) names it for the code that connects it and for the tests.
 /// The keys are window shortcuts: the platform's standard keys where Qt has one (New, Open,
-/// Save, Save as, Close, Undo, Redo, Cut, Copy, Paste, Delete) and Ctrl (on macOS Cmd) with Q
-/// (Quit), E (Edit), D (Duplicate) and I (Properties), which no platform binds for every
-/// desktop. On macOS, Preferences and Quit go to the application menu (their menu roles); every
-/// other item keeps its place.
+/// Save, Save as, Close, Undo, Redo, Cut, Copy, Paste), Ctrl (on macOS Cmd) with Q (Quit), E
+/// (Edit), D (Duplicate) and I (Properties), which no platform binds for every desktop, and the
+/// Delete key alone for Delete (the GNOME and X11 schemes' standard Delete keys hold Ctrl+D,
+/// Duplicate's). No two items share a key. On macOS, Preferences and Quit go to the application
+/// menu (their menu roles); every other item keeps its place.
 ///
 /// Deviations: the items of later milestones are left out where OpenRocket has them (File:
 /// Import > (RockSim M8), Export as > (RockSim, SVG M8), Save decal images... (M5), Print design

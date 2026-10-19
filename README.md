@@ -83,9 +83,11 @@ API docs: `cmake --build --preset clang-debug --target docs`, then open `build/c
 `QtRocket` is the graphical program (Qt 6 Widgets), which Milestone 2 builds: so far it opens the window of a new
 design, with its menus (New, Close design and Quit work; the design panel, the figure and the other items are still
 empty). Design files named on the command line are not opened yet. `QtRocket --version` prints its version and
-`QtRocket --help` its options. Its preferences are kept in an INI file: `~/.config/QtRocket/QtRocket.ini` on Linux
-(under `$XDG_CONFIG_HOME` when that is set) and macOS, `%APPDATA%\QtRocket\QtRocket.ini` on Windows. The release
-archives hold the command-line tool alone until the GUI is released (Milestone 9).
+`QtRocket --help` its options, also without a display; on Windows the program has no console of its own, so their
+text shows only when it goes to a file or a pipe (`QtRocket.exe --version | more`). Its preferences are kept in an
+INI file: `~/.config/QtRocket/QtRocket.ini` on Linux (under `$XDG_CONFIG_HOME` when that is set) and macOS,
+`%APPDATA%\QtRocket\QtRocket.ini` on Windows. The release archives hold the command-line tool alone until the GUI
+is released (Milestone 9).
 
 ## The command-line tool
 `QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:

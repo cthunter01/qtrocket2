@@ -28,8 +28,8 @@ TEST_F(MenuTextTest, MarksTheFirstOccurrenceOfTheMnemonicInEitherCase)
     // SwingUtilities.findDisplayedMnemonicIndex(): the first of the upper and the lower case.
     EXPECT_EQ(MenuText::withMnemonic(QStringLiteral("Undo"), QChar(u'U')), QStringLiteral("&Undo"));
     EXPECT_EQ(MenuText::withMnemonic(QStringLiteral("Cut"), QChar(u'T')), QStringLiteral("Cu&t"));
-    EXPECT_EQ(MenuText::withMnemonic(QStringLiteral("Save as…"), QChar(u'A')),
-              QStringLiteral("S&ave as…"));
+    EXPECT_EQ(MenuText::withMnemonic(QStringLiteral(u"Save as\u2026"), QChar(u'A')),
+              QStringLiteral(u"S&ave as\u2026"));
     EXPECT_EQ(MenuText::withMnemonic(QStringLiteral("Properties"), QChar(u'I')),
               QStringLiteral("Propert&ies"));
     EXPECT_EQ(MenuText::withMnemonic(QStringLiteral("abA"), QChar(u'A')), QStringLiteral("&abA"));

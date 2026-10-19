@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -265,6 +266,29 @@ TEST_F(ApplicationSessionTest, AGuardedSlotThatThrowsShowsTheInternalErrorAndThe
     sender.setObjectName(QStringLiteral("again"));
     ASSERT_EQ(exits.count(), 1);
     EXPECT_EQ(exits.at(0).at(0).toInt(), ApplicationSession::kInternalErrorExitCode);
+    EXPECT_EQ(session.windows().windowCount(), 1U);
+}
+
+/// Reports an error condition, from the thread it runs on.
+void reportFromAWorker()
+{
+    Guard::reportErrorCondition(QStringLiteral("from a worker"), QStringLiteral("Worker"));
+}
+
+TEST_F(ApplicationSessionTest, AReportFromAnotherThreadIsShownOnTheGuiThread)
+{
+    const ApplicationSession& session = start();
+    prompts().answerInternalError(UserPrompts::InternalErrorAnswer::CONTINUE);
+    std::thread worker(&reportFromAWorker);
+    worker.join();
+    // Not asked on the worker: the GUI thread's event loop asks.
+    EXPECT_TRUE(prompts().prompts().empty());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
+    ASSERT_EQ(prompts().prompts().size(), 1U);
+    EXPECT_EQ(prompts().prompts().front().kind, PromptKind::INTERNAL_ERROR);
+    EXPECT_EQ(prompts().prompts().front().texts,
+              (QStringList{QStringLiteral("ERROR_CONDITION"), QStringLiteral("from a worker"),
+                           QStringLiteral("Worker")}));
     EXPECT_EQ(session.windows().windowCount(), 1U);
 }
 

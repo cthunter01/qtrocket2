@@ -5,4 +5,5 @@ target_sources(QtRocket_gui PRIVATE
     ApplicationContext.cpp ${gui_include_dir}/app/ApplicationContext.h
     ApplicationSession.cpp ${gui_include_dir}/app/ApplicationSession.h
     DataPaths.cpp ${gui_include_dir}/app/DataPaths.h
+    StartupGuard.cpp ${gui_include_dir}/app/StartupGuard.h
 )

@@ -8,6 +8,8 @@
 #include "QtRocket/util/Signal.h"
 
 class QCloseEvent;
+class QEvent;
+class QObject;
 class QShowEvent;
 class QSplitter;
 class QTabWidget;
@@ -41,9 +43,10 @@ class WindowGeometry;
 ///   proxy icon of macOS).
 /// - The size is BasicFrame's: 90 % of the screen, then the geometry the last main window had
 ///   (WindowGeometry "MainWindow"), and the splitter's divider at 0.4 of its height when the
-///   window is first shown (JSplitPane.setDividerLocation(0.4)); further space goes half to each
-///   side (resizeWeight 0.5). Where a further window opens is the WindowManager's
-///   (WindowGeometry::cascade()).
+///   window is first shown (JSplitPane.setDividerLocation(0.4)); a change of its height goes half
+///   to each side (resizeWeight 0.5: BasicSplitPaneUI's distributeSpace(), where QSplitter alone
+///   shares it in proportion to the sides' heights). Where a further window opens is the
+///   WindowManager's (WindowGeometry::cascade()).
 /// - Closing the window (its close button, the platform) closes nothing by itself: it asks the
 ///   WindowManager through closeRequested(), as BasicFrame's DO_NOTHING_ON_CLOSE frame calls
 ///   closeAction().
@@ -58,6 +61,8 @@ class MainWindow final : public QMainWindow
 public:
     /// JSplitPane.setDividerLocation(0.4) of the splitter.
     static constexpr double kDividerLocation = 0.4;
+    /// JSplitPane.setResizeWeight(0.5) of the splitter: the top side's part of a change.
+    static constexpr double kResizeWeight = 0.5;
 
     /// The window of @p document, which must outlive it, with the application's @p services
     /// (whose objects outlive it too).
@@ -91,6 +96,10 @@ public:
     /// " (<file name>)" when the document has a file (BasicFrame.setTitle()).
     [[nodiscard]] static QString titleFor(const OpenRocketDocument& document);
 
+    /// Shares a change of the splitter's height between its sides by the resize weight, before
+    /// the splitter lays them out.
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 Q_SIGNALS:
     /// The window was asked to close (its close button, the platform); the WindowManager closes
     /// it, asking first to save the design.
@@ -101,6 +110,10 @@ protected:
     void showEvent(QShowEvent* event) override;
 
 private:
+    /// BasicSplitPaneUI.distributeSpace(): the sides' heights after the splitter's height changed
+    /// by @p change.
+    void distributeSpace(int change);
+
     OpenRocketDocument*                                  m_document;
     GuiServices                                          m_services;
     UndoRedoActions*                                     m_undoRedo;

@@ -33,6 +33,10 @@ public:
     /// How many expected messages have come so far.
     [[nodiscard]] int count() const;
 
+    /// How many of the offscreen platform's propagateSizeHints() warnings were dropped so far in
+    /// the process (for a test that a window opens without one).
+    [[nodiscard]] static int droppedOffscreenWarnings();
+
     /// Installs the message handler for the whole test run (once, in main(), after
     /// InitGoogleTest()).
     static void installHandler();

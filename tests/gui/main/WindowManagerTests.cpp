@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "ExpectedQtMessage.h"
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
@@ -161,6 +162,18 @@ TEST_F(WindowManagerTest, NewDesignOpensAShownReplaceableWindowOfANewRocket)
     EXPECT_EQ(menusCreated.at(0).at(0).value<MainMenus*>(), &window.menus());
     EXPECT_EQ(menusCreated.at(0).at(1).value<MainWindow*>(), &window);
     EXPECT_TRUE(prompts().prompts().empty());
+}
+
+TEST_F(WindowManagerTest, OpensAWindowWithItsSizesSetBeforeItIsShown)
+{
+    // A window that gets its minimum size as it is shown makes the offscreen platform warn that
+    // it cannot pass size limits on, which the program would print at every start.
+    const int         before = Gui::Test::ExpectedQtMessage::droppedOffscreenWarnings();
+    const MainWindow& window = manager().newDesign();
+    EXPECT_TRUE(window.isVisible());
+    static_cast<void>(manager().addDocument(OpenRocketDocumentFactory::createNewRocket()));
+    EXPECT_EQ(manager().windowCount(), 2U);
+    EXPECT_EQ(Gui::Test::ExpectedQtMessage::droppedOffscreenWarnings(), before);
 }
 
 TEST_F(WindowManagerTest, NewDesignFromASavedReplaceableWindowTakesItsPlace)

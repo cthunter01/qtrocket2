@@ -49,7 +49,6 @@ qt_add_resources(QtRocket_gui "gui_resources"
     icons/app/icon-016.png
     icons/app/icon-048.png
     icons/app/icon-064.png
-    icons/app/icon-128.png
     icons/app/icon-256.png
     icons/components/altimeter-small.png
     icons/components/altimeter_dark-small.png

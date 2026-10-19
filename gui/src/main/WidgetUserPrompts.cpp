@@ -51,6 +51,9 @@ UserPrompts::SaveChangesAnswer WidgetUserPrompts::askSaveChanges(QWidget*       
                     tr("Design not saved"), saveChangesText(designName),
                     QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, parent);
     box.setObjectName(QStringLiteral("saveChangesQuestion"));
+    // Qt's own dialog: a platform theme's native one (KDE's) shows the text as rich text and
+    // drops the default button.
+    box.setOption(QMessageBox::Option::DontUseNativeDialog);
     box.setTextFormat(Qt::PlainText);
     box.setDefaultButton(QMessageBox::Yes);
     box.setEscapeButton(QMessageBox::Cancel);

@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <QFile>
@@ -147,8 +146,9 @@ constexpr std::array<Entry, Icons::kAllIds.size()> kEntries{{
     plain(Id::UNLOCKED, "UNLOCKED", "lock-open"),
 }};
 
-/// The window icons' sizes.
-constexpr std::array<std::string_view, 5> kWindowIconSizes{"016", "048", "064", "128", "256"};
+/// The window icons' sizes: GUIUtil's (it also asks for icon-032.png, which OpenRocket does not
+/// have, and skips it).
+constexpr std::array<std::string_view, 4> kWindowIconSizes{"016", "048", "064", "256"};
 
 const Entry& entry(Id id)
 {
@@ -161,20 +161,25 @@ const Entry& entry(Id id)
 
 QIcon Icons::icon(Id id)
 {
-    const Entry&  value = entry(id);
-    const QString path  = resourcePath(id);
+    const QString path = resourcePath(id);
     if (!QFile::exists(path))
     {
         Guard::reportErrorCondition(QStringLiteral("Image file %1 not found, ignoring.").arg(path));
         return {};
     }
+    return QIcon(makeQtOwned<SvgIconEngine>(path, colorMap(id)));
+}
+
+std::vector<Placeholder> Icons::colorMap(Id id)
+{
+    const Entry&             value = entry(id);
     std::vector<Placeholder> placeholders;
     placeholders.reserve(value.colorCount);
     for (std::size_t index = 0; index < value.colorCount; ++index)
     {
         placeholders.push_back(value.colors.at(index));
     }
-    return QIcon(makeQtOwned<SvgIconEngine>(path, std::move(placeholders)));
+    return placeholders;
 }
 
 QString Icons::resourcePath(Id id)

@@ -89,13 +89,13 @@ QStringList namedResources()
     return named;
 }
 
-TEST_F(IconResources, HoldTheThirtyEightSvgsTheSeventyOneComponentIconsAndTheFiveWindowIcons)
+TEST_F(IconResources, HoldTheThirtyEightSvgsTheSeventyOneComponentIconsAndTheFourWindowIcons)
 {
     const QStringList files = iconResources();
-    EXPECT_EQ(files.size(), 38 + 71 + 5);
+    EXPECT_EQ(files.size(), 38 + 71 + 4);
     EXPECT_EQ(files.filter(QStringLiteral(":/icons/actions/")).size(), 38);
     EXPECT_EQ(files.filter(QStringLiteral(":/icons/components/")).size(), 71);
-    EXPECT_EQ(files.filter(QStringLiteral(":/icons/app/")).size(), 5);
+    EXPECT_EQ(files.filter(QStringLiteral(":/icons/app/")).size(), 4);
 }
 
 TEST_F(IconResources, EveryResourceLoads)

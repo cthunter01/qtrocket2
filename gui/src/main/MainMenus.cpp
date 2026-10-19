@@ -262,7 +262,9 @@ void MainMenus::addComponentItems()
     m_delete =
         addAction(*m_editMenu, QStringLiteral("deleteAction"), MenuText::escaped(tr("Delete")));
     m_delete->setIcon(Icons::icon(Icons::Id::EDIT_DELETE));
-    m_delete->setShortcuts(QKeySequence::Delete);
+    // RocketActions' VK_DELETE alone, not QKeySequence::Delete: the GNOME and X11 key schemes add
+    // Ctrl+D to that, which Duplicate has, and an ambiguous key triggers neither.
+    m_delete->setShortcut(QKeySequence(Qt::Key_Delete));
     //: RocketActions.DelAct.ttip.Delete
     m_delete->setToolTip(tr("Delete the selected components or simulations."));
 }

@@ -2,7 +2,15 @@
 // It reads the command line (--help, --version, design files to open), makes the services
 // (ApplicationContext: the user's preferences, the materials, the motor database) and starts the
 // application (ApplicationSession: the error hook, the windows, the first window), then runs the
-// event loop until the last window is closed or the user quits.
+// event loop until the last window is closed or the user quits. A failure of the start is shown
+// in the internal error dialog (StartupGuard).
+//
+// --help and --version are answered before the QApplication is made, so that they work without
+// a display too (the QApplication's platform would end the program first); a command line that
+// holds Qt's own options (-platform, -style, ...) is read once more after the QApplication, which
+// takes those out. On Windows the program has no console (WIN32_EXECUTABLE): what --help and
+// --version print shows only where the output goes to a file or a pipe
+// (QtRocket.exe --version | more).
 //
 // Two environment variables are test hooks of the program (the test gui.start,
 // tests/gui/CMakeLists.txt); nothing else sets them:
@@ -15,6 +23,7 @@
 #include <cstdio>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <print>
 
 #include <QApplication>
@@ -31,6 +40,7 @@
 #include "QtRocket/gui/app/ApplicationContext.h"
 #include "QtRocket/gui/app/ApplicationSession.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/app/StartupGuard.h"
 #include "QtRocket/gui/main/WidgetUserPrompts.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/BuildInfo.h"
@@ -50,7 +60,9 @@ struct CommandLine
     ApplicationSession::Options options;
 };
 
-CommandLine readCommandLine()
+/// Reads the command line of the QCoreApplication. With @p reportErrors false, a command line
+/// that cannot be read starts the application (exitCode -1) without a message.
+CommandLine readCommandLine(bool reportErrors)
 {
     // parse() rather than process(): process() answers --help and --version itself, in a message
     // box on Windows when the program has no console, and leaves through exit().
@@ -64,8 +76,12 @@ CommandLine readCommandLine()
     CommandLine commandLine;
     if (!parser.parse(QCoreApplication::arguments()))
     {
-        std::println(stderr, "QtRocket: {}", QtRocket::Gui::QtStrings::toUtf8(parser.errorText()));
-        commandLine.exitCode = 1;
+        if (reportErrors)
+        {
+            std::println(stderr, "QtRocket: {}",
+                         QtRocket::Gui::QtStrings::toUtf8(parser.errorText()));
+            commandLine.exitCode = 1;
+        }
         return commandLine;
     }
     if (parser.isSet(versionOption))
@@ -92,15 +108,25 @@ CommandLine readCommandLine()
     return commandLine;
 }
 
-int run(int argc, char** argv)
+/// The exit code of --help, --version or an option QtRocket does not know when the command line
+/// asks for one of them without Qt's own options, read before the QApplication exists (with a
+/// QCoreApplication of its own, which loads no platform); empty to start the application.
+std::optional<int> answerBeforeTheApplication(int& argc, char** argv)
 {
-    QtRocket::Gui::Application application(argc, argv);
-    const CommandLine          commandLine = readCommandLine();
+    const QCoreApplication commandLineApplication(argc, argv);
+    QCoreApplication::setApplicationName(QtRocket::Gui::BuildInfo::applicationName());
+    QCoreApplication::setApplicationVersion(QtRocket::Gui::BuildInfo::applicationVersion());
+    const CommandLine commandLine = readCommandLine(false);
     if (commandLine.exitCode >= 0)
     {
         return commandLine.exitCode;
     }
+    return std::nullopt;
+}
 
+/// Makes the services, starts the application and runs its event loop.
+int startApplication(QtRocket::Gui::Application& application, const CommandLine& commandLine)
+{
     if (const QString directory = qEnvironmentVariable("QTROCKET_TEST_SETTINGS_DIRECTORY");
         !directory.isEmpty())
     {
@@ -119,6 +145,25 @@ int run(int argc, char** argv)
     return QApplication::exec();
 }
 
+int run(int argc, char** argv)
+{
+    if (const std::optional<int> exitCode = answerBeforeTheApplication(argc, argv);
+        exitCode.has_value())
+    {
+        return *exitCode;
+    }
+    QtRocket::Gui::Application application(argc, argv);
+    const CommandLine          commandLine = readCommandLine(true);
+    if (commandLine.exitCode >= 0)
+    {
+        return commandLine.exitCode;
+    }
+    // The internal error dialog of a start that fails before the session's own hook exists.
+    QtRocket::Gui::WidgetUserPrompts startupPrompts;
+    return QtRocket::Gui::StartupGuard::run(
+        startupPrompts, [&] { return startApplication(application, commandLine); });
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -127,9 +172,10 @@ int main(int argc, char** argv)
     {
         return run(argc, argv);
     }
-    // What the start-up throws (a BugError before the event loop runs); in the event loop the
-    // error hook and Application::notify() catch everything. Not std::print: it can throw, and
-    // nothing may escape main.
+    // What escapes before the QApplication exists or StartupGuard runs (a std::bad_alloc); the
+    // start's failures go to StartupGuard's dialog, and in the event loop the error hook and
+    // Application::notify() catch everything. Not std::print: it can throw, and nothing may
+    // escape main.
     catch (const std::exception& error)
     {
         static_cast<void>(std::fputs("QtRocket: internal error: ", stderr));

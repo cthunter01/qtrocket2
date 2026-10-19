@@ -2,6 +2,7 @@
 // where QSettings writes.
 
 #include <QDir>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QLocale>
 #include <QSettings>
@@ -29,6 +30,23 @@ TEST(GuiTestEnvironment, LeavesNoScaleThemeOrStyleVariable)
     {
         EXPECT_FALSE(qEnvironmentVariableIsSet(name)) << name;
     }
+}
+
+TEST(GuiTestEnvironment, QtPaintsOnTheGuiThreadOnly)
+{
+    // Qt's thread pool of the raster engine is off: its threads' locking is invisible to
+    // ThreadSanitizer in an uninstrumented Qt.
+    EXPECT_TRUE(qEnvironmentVariableIsSet("QT_NO_GUI_THREADPOOL"));
+}
+
+TEST(GuiTestEnvironment, ThePlatformHasFonts)
+{
+    // Without the system's fonts (the offscreen platform on Windows without QT_QPA_FONTDIR) Qt
+    // warns in whichever test first measures a text, and every text is drawn in boxes.
+    EXPECT_FALSE(QFontDatabase::families().isEmpty());
+#ifdef _WIN32
+    EXPECT_FALSE(qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR"));
+#endif
 }
 
 TEST(GuiTestEnvironment, TheDefaultLocaleIsAmericanEnglish)

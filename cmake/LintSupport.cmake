@@ -1,13 +1,15 @@
 # Helpers of the lint scripts that the lint.* tests run (cmake -P): CheckLayers.cmake and CheckNoQtTestMacros.cmake.
 
 # qtrocket_lint_sources(<out_var> <directory>...)
-# Every C++ file (.h, .hpp, .cpp, .cc, .cxx) under the directories, sorted. A directory that does not exist gives none.
+# Every C++ file (.h, .hpp, .cpp, .cc, .cxx, .inl, .ipp, and Objective-C++ .mm, where macOS-only code would go) under
+# the directories, sorted. A directory that does not exist gives none.
 function(qtrocket_lint_sources out_var)
     set(files "")
     foreach(directory IN LISTS ARGN)
         if(IS_DIRECTORY "${directory}")
             file(GLOB_RECURSE found LIST_DIRECTORIES false
-                 "${directory}/*.h" "${directory}/*.hpp" "${directory}/*.cpp" "${directory}/*.cc" "${directory}/*.cxx")
+                 "${directory}/*.h" "${directory}/*.hpp" "${directory}/*.cpp" "${directory}/*.cc" "${directory}/*.cxx"
+                 "${directory}/*.inl" "${directory}/*.ipp" "${directory}/*.mm")
             list(APPEND files ${found})
         endif()
     endforeach()
@@ -91,14 +93,42 @@ function(qtrocket_lint_strip_line line_var in_comment_var)
     set(${in_comment_var} "${in_comment}" PARENT_SCOPE)
 endfunction()
 
-# qtrocket_lint_include(<out_var> <line>)
-# The path that an #include line names ("QtRocket/rocket/BodyTube.h", "QWidget", ...), or "" for another line.
+# qtrocket_lint_include(<out_var> <line> [<quoted_var>])
+# The path that an #include (or Objective-C #import) line names ("QtRocket/rocket/BodyTube.h", "QWidget", ...), or ""
+# for another line; <quoted_var> is TRUE for "path", FALSE for <path>.
 function(qtrocket_lint_include out_var line)
     set(path "")
-    if(line MATCHES "^[ \t]*#[ \t]*include[ \t]*[\"<]([^\">]+)[\">]")
-        set(path "${CMAKE_MATCH_1}")
+    set(quoted FALSE)
+    if(line MATCHES "^[ \t]*#[ \t]*(include|import)[ \t]*([\"<])([^\">]+)[\">]")
+        set(path "${CMAKE_MATCH_3}")
+        if(CMAKE_MATCH_2 STREQUAL "\"")
+            set(quoted TRUE)
+        endif()
     endif()
     set(${out_var} "${path}" PARENT_SCOPE)
+    if(ARGC GREATER 2)
+        set(${ARGV2} ${quoted} PARENT_SCOPE)
+    endif()
+endfunction()
+
+# qtrocket_lint_include_path_problem(<out_var> <file> <path> <quoted>)
+# What is wrong with the path of an include of the file, or "": an include climbs out of no directory ("../x.h"),
+# and a quoted one names "QtRocket/<subsystem>/..." or a private header beside the file ("MinizipHandle.h"), so that
+# the layer checks see what it includes ("../main/MainWindow.h" or "widgets/Spinner.h" would get past them).
+function(qtrocket_lint_include_path_problem out_var file path quoted)
+    set(problem "")
+    string(REPLACE "${qtrocket_lint_backslash}" "/" slashed "${path}")
+    if(slashed MATCHES "(^|/)\\.\\.(/|$)")
+        set(problem "a relative include: name the header as \"QtRocket/<subsystem>/<header>\"")
+    elseif(quoted AND NOT slashed MATCHES "^QtRocket/")
+        get_filename_component(directory "${file}" DIRECTORY)
+        if(slashed MATCHES "/")
+            set(problem "a quoted include is \"QtRocket/<subsystem>/<header>\" or a header beside the file")
+        elseif(NOT EXISTS "${directory}/${slashed}")
+            set(problem "not a header beside the file: name the header as \"QtRocket/<subsystem>/<header>\"")
+        endif()
+    endif()
+    set(${out_var} "${problem}" PARENT_SCOPE)
 endfunction()
 
 # qtrocket_lint_is_qt_include(<out_var> <path>)

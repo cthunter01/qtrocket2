@@ -27,7 +27,7 @@ constexpr const char* kUtf8 = "Fin\xC3\xA9 \xC2\xB0 \xCE\xBC \xF0\x9F\x9A\x80";
 TEST_F(QtStringsTest, ConvertsUtf8BothWays)
 {
     const QString text = QtStrings::fromUtf8(kUtf8);
-    EXPECT_EQ(text, QStringLiteral(u"Finé ° μ \U0001F680"));
+    EXPECT_EQ(text, QStringLiteral(u"Fin\u00E9 \u00B0 \u03BC \U0001F680"));
     EXPECT_EQ(QtStrings::toUtf8(text), std::string(kUtf8));
     EXPECT_EQ(QtStrings::toUtf8(QString()), std::string());
 }
@@ -36,7 +36,7 @@ TEST_F(QtStringsTest, ReadsBrokenUtf8AsReplacementCharacters)
 {
     EXPECT_EQ(QtStrings::fromUtf8("a\xFF"
                                   "b"),
-              QStringLiteral(u"a�b"));
+              QStringLiteral(u"a\uFFFDb"));
 }
 
 TEST_F(QtStringsTest, ConvertsPathsThroughTheCoresUtf8Paths)
