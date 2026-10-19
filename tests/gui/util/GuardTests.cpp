@@ -41,6 +41,7 @@ void throwRuntimeError()
 
 void throwInt()
 {
+    // NOLINTNEXTLINE(bugprone-std-exception-baseclass): a throw that is no std::exception
     throw 42;
 }
 

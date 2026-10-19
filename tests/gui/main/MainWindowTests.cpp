@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <QCoreApplication>
@@ -76,7 +77,7 @@ protected:
     }
 
     /// The modified mark the style shows in a title.
-    [[nodiscard]] std::string modifiedMark() const
+    [[nodiscard]] std::string_view modifiedMark() const
     {
         return m_window->style()->styleHint(QStyle::SH_TitleBar_ModifyNotification, nullptr,
                                             m_window.get()) != 0
@@ -141,7 +142,7 @@ TEST_F(MainWindowTest, TitleFollowsTheRocketsEditsUndoAndSave)
     rocket().setName("Mars");
     EXPECT_EQ(QtStrings::toUtf8(window().windowTitle()), "[*]Mars");
     EXPECT_TRUE(window().isWindowModified());
-    EXPECT_EQ(shownTitle(), modifiedMark() + "Mars");
+    EXPECT_EQ(shownTitle(), std::string(modifiedMark()) + "Mars");
 
     // Undo never makes a design saved again.
     window().menus().undoAction()->trigger();
@@ -160,7 +161,7 @@ TEST_F(MainWindowTest, TitleShowsAModifiedMarkOfTheNameAsItIs)
 {
     rocket().setName("A[*]B");
     EXPECT_EQ(MainWindow::titleFor(document()), QStringLiteral(u"[*]A[*\u200B]B"));
-    EXPECT_EQ(shownTitle(), modifiedMark() + "A[*\u200B]B");
+    EXPECT_EQ(shownTitle(), std::string(modifiedMark()) + "A[*\u200B]B");
     document().setSaved(true);
     window().refreshTitle();
     EXPECT_EQ(shownTitle(), "A[*\u200B]B");
