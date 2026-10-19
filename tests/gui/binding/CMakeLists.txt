@@ -11,5 +11,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     multi_edit_tests.cpp
     PropertySourceTests.cpp
     SliderMappingTests.cpp
+    StringBindingTests.cpp
     TransitionShapeBindingTests.cpp
 )

@@ -11,5 +11,6 @@ target_sources(QtRocket_gui PRIVATE
     MaterialBinding.cpp ${gui_include_dir}/binding/MaterialBinding.h
     ${gui_include_dir}/binding/PropertySource.h
     SliderMapping.cpp ${gui_include_dir}/binding/SliderMapping.h
+    StringBinding.cpp ${gui_include_dir}/binding/StringBinding.h
     TransitionShapeBinding.cpp ${gui_include_dir}/binding/TransitionShapeBinding.h
 )

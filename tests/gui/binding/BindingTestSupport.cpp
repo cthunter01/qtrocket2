@@ -1,6 +1,7 @@
 #include "BindingTestSupport.h"
 
 #include <memory>
+#include <string>
 
 #include "QtRocket/gui/binding/Binding.h"
 #include "QtRocket/gui/binding/PropertySource.h"
@@ -103,6 +104,20 @@ PropertySource<int> IntBeanProperty::source()
         .get = [this](const RocketComponent&) { return value; },
         .set =
             [this](RocketComponent& component, int newValue) {
+                ++sets;
+                value = newValue;
+                component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);
+            },
+        .isEnabled = [this](const RocketComponent&) { return enabled; },
+    });
+}
+
+PropertySource<std::string> StringBeanProperty::source()
+{
+    return PropertySource<std::string>::of<RocketComponent>({
+        .get = [this](const RocketComponent&) { return value; },
+        .set =
+            [this](RocketComponent& component, const std::string& newValue) {
                 ++sets;
                 value = newValue;
                 component.fireComponentChangeEvent(ComponentChangeEvent::kNonFunctionalChange);

@@ -156,6 +156,15 @@ void ComponentSelection::componentChanged(const ComponentChangeEvent& event)
     refresh();
 }
 
+void ComponentSelection::dropComponents() noexcept
+{
+    m_invalidated = true;
+    m_main        = nullptr;
+    m_others.clear();
+    m_rocket = nullptr;
+    m_rocketConnection.disconnect();
+}
+
 void ComponentSelection::invalidate()
 {
     if (m_invalidated)
@@ -163,12 +172,16 @@ void ComponentSelection::invalidate()
         return;
     }
     // The components of the event live until it is delivered; this selection lets go of them now.
-    m_invalidated = true;
-    m_main        = nullptr;
-    m_others.clear();
-    m_rocket = nullptr;
-    m_rocketConnection.disconnect();
+    dropComponents();
     m_listeners.emit(Phase::INVALIDATED);
+}
+
+void ComponentSelection::release() noexcept
+{
+    if (!m_invalidated)
+    {
+        dropComponents();
+    }
 }
 
 }  // namespace QtRocket::Gui

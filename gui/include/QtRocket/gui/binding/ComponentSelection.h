@@ -74,7 +74,8 @@ namespace QtRocket::Gui
 /// UNDO change it becomes invalid: Rocket::loadFrom() (undo, redo) replaces every component object,
 /// and a component taken out of the tree is destroyed once its event is delivered, so the
 /// selection drops its pointers inside that event and never touches a component again. It is
-/// invalid as well once the rocket has gone or its listeners were reset (Rocket::resetListeners()).
+/// invalid as well once the rocket has gone or its listeners were reset (Rocket::resetListeners()),
+/// and once release() ended it (a closing dialog).
 /// After that apply() and every accessor of the components are BugErrors; isValid() says which.
 /// On every other event it refreshes its bindings in two phases: Phase::READ (each binding
 /// re-reads what it shows, so that a binding whose bound is another binding sees that one's new
@@ -115,8 +116,8 @@ public:
     ComponentSelection(ComponentSelection&&)                 = delete;
     ComponentSelection& operator=(ComponentSelection&&)      = delete;
 
-    /// False once a TREE or UNDO change has reached the selection, or the rocket has gone or reset
-    /// its listeners.
+    /// False once a TREE or UNDO change has reached the selection, the rocket has gone or reset
+    /// its listeners, or release() ended it.
     [[nodiscard]] bool isValid() const noexcept;
 
     /// The component the fields show (Java: the dialog's component).
@@ -169,8 +170,18 @@ public:
     /// Adds a listener of the phases (the bindings; see the class comment).
     PhaseSignal::Connection addListener(PhaseSignal::Slot slot);
 
+    /// Ends the selection on purpose, before its components can go (a dialog that closes:
+    /// widgets/BindingScope::release()): it lets go of the components and the rocket as a TREE or
+    /// UNDO change does, but tells its listeners nothing, so that nothing is refreshed while the
+    /// dialog goes. Its bindings are invalid from then on and drop every write a widget makes (the
+    /// focus loss of a closing dialog's field, which then reaches no component). Nothing happens
+    /// when the selection is invalid already.
+    void release() noexcept;
+
 private:
     void componentChanged(const ComponentChangeEvent& event);
+    /// Lets go of the components, the rocket and the rocket's connection.
+    void dropComponents() noexcept;
     void invalidate();
     void checkValid() const;
 

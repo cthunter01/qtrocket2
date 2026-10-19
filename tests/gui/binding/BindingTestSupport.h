@@ -99,6 +99,19 @@ struct IntBeanProperty
     [[nodiscard]] PropertySource<int> source();
 };
 
+/// A text that is not a component's (TextFieldListenerTest's RecordingListener: the last text
+/// set), with a count of the setter's calls; the setter fires a NONFUNCTIONAL change of the
+/// component it is called for.
+struct StringBeanProperty
+{
+    std::string value;
+    bool        enabled{true};
+    int         sets{0};
+
+    /// The source of the text (get, set and isEnabled), for any component.
+    [[nodiscard]] PropertySource<std::string> source();
+};
+
 /// The source of a body tube's length.
 [[nodiscard]] PropertySource<double> bodyTubeLength();
 

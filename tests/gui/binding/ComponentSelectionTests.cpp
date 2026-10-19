@@ -325,6 +325,40 @@ TEST_F(ComponentSelectionTest, AnUndoInvalidatesTheSelectionBeforeItsComponentsA
     selection->refresh();
 }
 
+TEST_F(ComponentSelectionTest, ReleaseEndsTheSelectionWithoutTellingItsListeners)
+{
+    // A closing dialog (BindingScope::release()): the selection lets go of its components at
+    // once and refreshes nothing more.
+    const TwoTubeRocket                   design;
+    const std::array<RocketComponent*, 1> others{design.tubeB};
+    ComponentSelection                    selection(*design.tubeA, others);
+    const PhaseRecorder                   phases(selection);
+    selection.release();
+    EXPECT_FALSE(selection.isValid());
+    EXPECT_TRUE(phases.phases().empty());
+    EXPECT_THROW(std::ignore = selection.getMain(), BugError);
+    EXPECT_THROW(selection.apply<BodyTube>(SetLength{0.1}), BugError);
+    EXPECT_DOUBLE_EQ(design.tubeA->getLength(), 0.3);
+    EXPECT_DOUBLE_EQ(design.tubeB->getLength(), 0.5);
+
+    design.tubeA->setLength(1.0);
+    selection.refresh();
+    selection.release();
+    EXPECT_TRUE(phases.phases().empty());
+    EXPECT_FALSE(selection.isValid());
+}
+
+TEST_F(ComponentSelectionTest, ReleaseAfterAnInvalidatingEventChangesNothing)
+{
+    const TwoTubeRocket design;
+    ComponentSelection  selection(*design.tubeA);
+    const PhaseRecorder phases(selection);
+    std::ignore = design.stage->addChild(std::make_unique<BodyTube>());
+    selection.release();
+    EXPECT_FALSE(selection.isValid());
+    EXPECT_EQ(phases.phases(), (std::vector<Phase>{Phase::INVALIDATED}));
+}
+
 TEST_F(ComponentSelectionTest, ASelectionOutlivingItsRocketIsInvalid)
 {
     std::unique_ptr<ComponentSelection> selection;
