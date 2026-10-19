@@ -13,6 +13,8 @@
 #include <QAbstractItemView>
 #include <QContextMenuEvent>
 #include <QDrag>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QItemSelection>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
@@ -37,6 +39,7 @@
 #include <QtContainerFwd>
 #include <QtTypes>
 
+#include "QtRocket/gui/tree/ComponentMimeData.h"
 #include "QtRocket/gui/tree/ComponentTreeDelegate.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -301,6 +304,35 @@ void ComponentTreeView::startDrag(Qt::DropActions supportedActions)
     // the model to remove the rows after a move (clearOrRemove()).
     drag->setMimeData(dragged.release());
     static_cast<void>(drag->exec(supportedActions, defaultAction));
+}
+
+void ComponentTreeView::dragMoveEvent(QDragMoveEvent* event)
+{
+    QTreeView::dragMoveEvent(event);
+    if (event->isAccepted() && isForeignDrag(*event))
+    {
+        // Into another rocket always a copy: the copy cursor (canImportTarget()).
+        event->setDropAction(Qt::CopyAction);
+        event->accept();
+    }
+}
+
+void ComponentTreeView::dropEvent(QDropEvent* event)
+{
+    if (isForeignDrag(*event))
+    {
+        // Not accepted: QAbstractItemView drops only an event that is not accepted yet.
+        event->setDropAction(Qt::CopyAction);
+    }
+    QTreeView::dropEvent(event);
+}
+
+bool ComponentTreeView::isForeignDrag(const QDropEvent& event) const
+{
+    // Not "data": QWidget has a member of that name (GCC's -Wshadow).
+    const ComponentMimeData* drag = ComponentMimeData::fromMimeData(event.mimeData());
+    return drag != nullptr && !drag->isFrom(m_model->document()) &&
+           event.possibleActions().testFlag(Qt::CopyAction);
 }
 
 void ComponentTreeView::setSelection(const QRect& rect, QItemSelectionModel::SelectionFlags command)

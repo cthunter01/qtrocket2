@@ -14,19 +14,24 @@
 #include <QMimeData>
 #include <QModelIndex>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariant>
+#include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
 
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/tree/ComponentDrop.h"
 #include "QtRocket/gui/tree/ComponentMimeData.h"
 #include "QtRocket/gui/tree/ComponentToolTip.h"
 #include "QtRocket/gui/util/ComponentIcons.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/Icons.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
@@ -248,6 +253,11 @@ QVariant ComponentTreeModel::componentData(const RocketComponent& component, int
 
 Qt::ItemFlags ComponentTreeModel::flags(const QModelIndex& index) const
 {
+    if (!index.isValid())
+    {
+        // The blank space below the rows takes drops: the end of the Rocket (ComponentDrop).
+        return Qt::ItemIsDropEnabled;
+    }
     if (!owns(index))
     {
         return Qt::NoItemFlags;
@@ -326,17 +336,54 @@ QMimeData* ComponentTreeModel::mimeData(const QModelIndexList& indexes) const
     return std::make_unique<ComponentMimeData>(*m_document, std::move(ids)).release();
 }
 
-bool ComponentTreeModel::canDropMimeData(const QMimeData* /*data*/, Qt::DropAction /*action*/,
-                                         int /*row*/, int /*column*/,
-                                         const QModelIndex& /*parent*/) const
+bool ComponentTreeModel::canDropMimeData(const QMimeData* data, Qt::DropAction action, int row,
+                                         int /*column*/, const QModelIndex& parent) const
 {
-    return false;
+    const ComponentMimeData* drag = ComponentMimeData::fromMimeData(data);
+    if (drag == nullptr)
+    {
+        return false;
+    }
+    const std::optional<ComponentDrop::Target> target = ComponentDrop::target(*this, row, parent);
+    return target.has_value() && ComponentDrop::canDrop(*m_document, *drag, action, *target);
 }
 
-bool ComponentTreeModel::dropMimeData(const QMimeData* /*data*/, Qt::DropAction /*action*/,
-                                      int /*row*/, int /*column*/, const QModelIndex& /*parent*/)
+bool ComponentTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row,
+                                      int /*column*/, const QModelIndex& parent)
 {
-    return false;
+    const ComponentMimeData* drag = ComponentMimeData::fromMimeData(data);
+    if (drag == nullptr)
+    {
+        return false;
+    }
+    const std::optional<ComponentDrop::Target> target = ComponentDrop::target(*this, row, parent);
+    if (!target.has_value())
+    {
+        return false;
+    }
+    ComponentDrop::Outcome outcome;
+    // Nothing may leave a drop event into Qt's event loop.
+    Guard::run([&] { outcome = ComponentDrop::drop(*m_document, *drag, action, *target); },
+               QStringLiteral("Drop"));
+    if (outcome.refusal.has_value() && m_prompts != nullptr)
+    {
+        // After the drop: a modal message inside the drop event would run while the platform's
+        // drag still holds the mouse.
+        QTimer::singleShot(0, this,
+                           [prompts = m_prompts, parentWindow = m_dialogParent,
+                            message = std::move(*outcome.refusal)] {
+                               Guard::run(
+                                   [&] { prompts->showMessage(parentWindow.data(), message); },
+                                   QStringLiteral("Drop"));
+                           });
+    }
+    return outcome.dropped;
+}
+
+void ComponentTreeModel::setUserPrompts(UserPrompts* prompts, QWidget* dialogParent)
+{
+    m_prompts      = prompts;
+    m_dialogParent = dialogParent;
 }
 
 // ------------------------------------------------------------------------------ components

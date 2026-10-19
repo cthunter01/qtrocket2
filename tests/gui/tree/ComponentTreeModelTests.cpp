@@ -361,7 +361,9 @@ TEST_F(ComponentTreeModelTest, LetsEveryComponentButTheRocketBeDragged)
     EXPECT_EQ(model.flags(model.indexOf(*design.fins)), Qt::ItemIsSelectable | Qt::ItemIsEnabled |
                                                             Qt::ItemIsDragEnabled |
                                                             Qt::ItemNeverHasChildren);
-    EXPECT_EQ(model.flags(QModelIndex()), Qt::NoItemFlags);
+    // The blank space below the rows takes drops: the end of the Rocket (ComponentDrop, as
+    // JTree's drop below the last row).
+    EXPECT_EQ(model.flags(QModelIndex()), Qt::ItemIsDropEnabled);
 }
 
 TEST_F(ComponentTreeModelTest, ShowsTheNameTheIconAndTheToolTipOfAComponent)
@@ -566,15 +568,35 @@ TEST_F(ComponentTreeModelTest, DragsNothingWithTheRocketOrWithoutComponents)
     EXPECT_EQ(model.supportedDropActions(), Qt::CopyAction | Qt::MoveAction);
 }
 
-TEST_F(ComponentTreeModelTest, TakesNoDropYet)
+// The drop rules themselves are ComponentDrop's (ComponentDropTests.cpp); the model answers Qt
+// with them.
+TEST_F(ComponentTreeModelTest, TakesDropsByTheRules)
 {
     Design                           design;
     ComponentTreeModel               model(*design.document, design.preferences);
     const std::unique_ptr<QMimeData> data{model.mimeData({model.indexOf(*design.innerTube)})};
-    const QModelIndex                noseCone = model.indexOf(*design.noseCone);
+    const QModelIndex                fins     = model.indexOf(*design.fins);
+    const QModelIndex                stage    = model.indexOf(*design.stage);
+    const QModelIndex                bodyTube = model.indexOf(*design.bodyTube);
+    QMimeData                        foreign;
+    foreign.setText(QStringLiteral("not components"));
 
-    EXPECT_FALSE(model.canDropMimeData(data.get(), Qt::MoveAction, -1, 0, noseCone));
-    EXPECT_FALSE(model.dropMimeData(data.get(), Qt::MoveAction, -1, 0, noseCone));
+    // A fin set takes no inner tube, a stage neither; nor does anything take another program's
+    // drag; and a row of the invalid root is no place.
+    EXPECT_FALSE(model.canDropMimeData(data.get(), Qt::MoveAction, -1, 0, fins));
+    EXPECT_FALSE(model.canDropMimeData(data.get(), Qt::MoveAction, 0, 0, stage));
+    EXPECT_FALSE(model.canDropMimeData(&foreign, Qt::MoveAction, 0, 0, bodyTube));
+    EXPECT_FALSE(model.canDropMimeData(data.get(), Qt::MoveAction, 1, 0, QModelIndex()));
+    EXPECT_FALSE(model.canDropMimeData(data.get(), Qt::LinkAction, 0, 0, bodyTube));
+    EXPECT_FALSE(model.dropMimeData(data.get(), Qt::MoveAction, -1, 0, fins));
+    EXPECT_THAT(mirrorDifferences(model, design.rocket()), IsEmpty());
+
+    // On the body tube's row (row -1): its first child, where the inner tube is already.
+    EXPECT_TRUE(model.canDropMimeData(data.get(), Qt::MoveAction, -1, 0, bodyTube));
+    EXPECT_FALSE(model.dropMimeData(data.get(), Qt::MoveAction, -1, 0, bodyTube));
+    // After the fin set.
+    EXPECT_TRUE(model.dropMimeData(data.get(), Qt::MoveAction, 2, 0, bodyTube));
+    EXPECT_EQ(design.bodyTube->getChild(1).getId(), design.innerTube->getId());
     EXPECT_THAT(mirrorDifferences(model, design.rocket()), IsEmpty());
 }
 

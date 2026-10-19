@@ -18,6 +18,8 @@
 
 class QAbstractItemModel;
 class QContextMenuEvent;
+class QDragMoveEvent;
+class QDropEvent;
 class QKeyEvent;
 class QMouseEvent;
 class QWidget;
@@ -66,6 +68,8 @@ class ComponentTreeModel;
 ///   selected) and never removes rows afterwards (QAbstractItemView's clearOrRemove() would ask
 ///   the model to remove the moved rows, which the drop moved already). A collapsed row hovered
 ///   for 2 seconds during a drag expands (JTree's 2000 ms timer).
+/// - Dropping: the model's rules (ComponentDrop); a drag of another document's components is
+///   always a copy, so the view proposes the copy action for it (Java's canImportTarget()).
 ///
 /// THE STATE ACROSS A CHANGE OF THE TREE. The model answers every change event of the rocket
 /// with the TREE or the UNDO bit with a model reset (ComponentTreeModel), after which a QTreeView
@@ -159,6 +163,10 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
     void startDrag(Qt::DropActions supportedActions) override;
+    /// QTreeView's, then the copy action for another document's components (ComponentDrop).
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    /// QTreeView's with the copy action for another document's components.
+    void dropEvent(QDropEvent* event) override;
     /// The rows from the top of @p rect to its bottom (a range selected with Shift, or by
     /// dragging over rows), in their order from the top, as JTree's getPathBetweenRows() gives
     /// them: QTreeView puts a child's rows before its parent's, which would make a child the
@@ -209,6 +217,8 @@ private:
     [[nodiscard]] QPixmap dragPixmap(const QModelIndexList& indexes, QRect& rect) const;
     /// Whether editRequested() may be emitted now.
     [[nodiscard]] bool editAllowed() const;
+    /// Whether @p event carries components of another document than the view's (a copy).
+    [[nodiscard]] bool isForeignDrag(const QDropEvent& event) const;
 
     ComponentTreeModel*       m_model;
     std::optional<SavedState> m_saved;

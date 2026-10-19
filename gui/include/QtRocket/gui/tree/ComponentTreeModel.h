@@ -9,9 +9,11 @@
 #include <QAbstractItemModel>
 #include <QModelIndex>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
+#include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
 
@@ -32,6 +34,8 @@ class RocketComponent;
 
 namespace QtRocket::Gui
 {
+
+class UserPrompts;
 
 /// The component tree of a document's rocket as a Qt item model (OpenRocket's
 /// ComponentTreeModel): one top-level row, the Rocket, and below every component its children,
@@ -67,9 +71,13 @@ namespace QtRocket::Gui
 /// tooltip of the component alone (ComponentToolTip; toolTip() gives the one for a selection);
 /// and for the delegate kComponentIdRole, kInactiveRole, kHiddenRole and kMarkersRole.
 ///
-/// Drag and drop: the Rocket cannot be dragged, a component that allows children takes drops;
-/// mimeData() makes a ComponentMimeData. Dropping (canDropMimeData(), dropMimeData()) refuses
-/// everything here; the drop rules come with the tree's drag and drop (ComponentDrop).
+/// Drag and drop: the Rocket cannot be dragged, a component that allows children takes drops,
+/// and so does the blank space below the rows (the invalid index: the end of the Rocket, as
+/// JTree's drop below the last row); mimeData() makes a ComponentMimeData, and
+/// canDropMimeData() and dropMimeData() answer with the drop rules of ComponentDrop. A drop
+/// that the rules allow but that would exceed a bound (ComponentLimits) is refused with a
+/// message through the UserPrompts of setUserPrompts(), shown once the drop is over (none
+/// without them).
 ///
 /// The document must outlive the model, and its rocket keep its events enabled (a document's
 /// rocket does).
@@ -113,7 +121,9 @@ public:
     [[nodiscard]] QVariant    data(const QModelIndex& index,
                                    int                role = Qt::DisplayRole) const override;
     /// Selectable and enabled; drag-enabled but for the Rocket; drop-enabled when the component
-    /// allows children, else never having children (Qt::ItemNeverHasChildren).
+    /// allows children, else never having children (Qt::ItemNeverHasChildren). The invalid
+    /// index (the blank space below the rows) is drop-enabled: a drop there goes to the end of
+    /// the Rocket.
     [[nodiscard]] Qt::ItemFlags flags(const QModelIndex& index) const override;
 
     /// Copy and move (Java: COPY_OR_MOVE).
@@ -126,12 +136,22 @@ public:
     /// without an ancestor among them, in tree order; null when the Rocket is among them (Java:
     /// the Rocket cannot be dragged) or none is left. The caller (the drag) owns it.
     [[nodiscard]] QMimeData* mimeData(const QModelIndexList& indexes) const override;
-    /// False: the drop rules are not here yet.
+    /// Whether @p data, a ComponentMimeData, may be dropped at Qt's drop position (@p row,
+    /// @p parent) with @p action (ComponentDrop::target() and ComponentDrop::canDrop());
+    /// @p column is not used.
     [[nodiscard]] bool canDropMimeData(const QMimeData* data, Qt::DropAction action, int row,
                                        int column, const QModelIndex& parent) const override;
-    /// False, nothing is dropped: the drop rules are not here yet.
+    /// Drops @p data at Qt's drop position (@p row, @p parent) with @p action
+    /// (ComponentDrop::drop()): true when the components were moved or copied. A refusal with
+    /// a message is shown through the UserPrompts of setUserPrompts() once the drop is over
+    /// (queued). What the drop throws is reported (Guard) and the drop is false.
     bool dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column,
                       const QModelIndex& parent) override;
+
+    /// Where a refused drop tells why (ComponentDrop::Outcome::refusal): @p prompts, which must
+    /// outlive the model, with @p dialogParent as the message's parent (or none when it is
+    /// gone); null prompts (the default) say nothing.
+    void setUserPrompts(UserPrompts* prompts, QWidget* dialogParent);
 
     // -------------------------------------------------------------------------- components
 
@@ -232,6 +252,8 @@ private:
     bool                                    m_resetting{false};
     std::optional<std::pair<Uuid, int>>     m_pendingReset;
     ComponentChangeSignal::ScopedConnection m_changes;
+    UserPrompts*                            m_prompts{nullptr};
+    QPointer<QWidget>                       m_dialogParent;
 };
 
 }  // namespace QtRocket::Gui
