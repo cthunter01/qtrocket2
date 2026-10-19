@@ -9,11 +9,11 @@ namespace QtRocket
 {
 
 /// Calibers (OpenRocket's CaliberUnit): lengths as multiples of a rocket's reference length, the
-/// largest body diameter. OpenRocket reads that length from a Rocket or FlightConfiguration and
-/// caches it by their modification ids; the rocket model is not ported yet, so the reference
-/// comes from a provider function that is evaluated on every conversion, or is a constant.
-/// (CaliberUnit.calculateCaliber, which walks the rocket's SymmetricComponents and falls back to
-/// kDefaultCaliber below 0.1 mm, arrives with the rocket model as such a provider.)
+/// largest body diameter. The reference comes from a provider function that is evaluated on
+/// every conversion, or is a constant. OpenRocket's unit reads it from a Rocket or a
+/// FlightConfiguration, which the unit subsystem sits below: rocket/StabilityUnits.h has that
+/// form as a provider (CaliberUnit.calculateCaliber(), which walks the SymmetricComponents and
+/// falls back to kDefaultCaliber below 0.1 mm, cached by the modification ids as in Java).
 class CaliberUnit final : public GeneralUnit
 {
 public:

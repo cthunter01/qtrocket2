@@ -3,11 +3,14 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -41,6 +44,7 @@
 #include "QtRocket/util/Geometry2D.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
+#include "QtRocket/util/Strings.h"
 #include "QtRocket/util/Transformation.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/AxialOffsetSupport.h"
@@ -2417,5 +2421,721 @@ TEST(FreeformFinSet, ConvertADetachedDefaultFinSet)
     EXPECT_EQ(again.detached->getName(), "My Trapezoidal Fin Set");
     EXPECT_NE(again.detached.get(), &named);
 }
+
+// ================================================================ the multi-edit point index
+
+// The expectations of this section were printed by the Java probe StabilityUnitsProbe.java of
+// Milestone 2, run 1, part C4 (OpenRocket 5f164fd0e, JDK 17). It calls the private
+// FreeformFinSet.getConfigListenerPointIdx(listener, index) through reflection, and it edits a
+// fin set A that has a second fin set B as its config listener, as OpenRocket's multi-component
+// fin point editor does, printing B's points (Double.toHexString) after each edit.
+
+/// An outline of @p count points: the origin, the interior points (0.01 k + @p shift,
+/// 0.02 + 0.001 k) and the last (0.01 (count - 1) + 0.05, 0) (the probe's points()).
+[[nodiscard]] std::vector<Coordinate> probeOutline(std::size_t count, double shift)
+{
+    std::vector<Coordinate> points;
+    points.reserve(count);
+    points.emplace_back(0.0, 0.0);
+    for (std::size_t k = 1; k + 1 < count; k++)
+    {
+        const auto kk = static_cast<double>(k);
+        points.emplace_back((0.01 * kk) + shift, 0.02 + (0.001 * kk));
+    }
+    points.emplace_back((0.01 * static_cast<double>(count - 1)) + 0.05, 0.0);
+    return points;
+}
+
+/// A fin set without a parent and with probeOutline(@p count, 0) (the probe's finWithPoints()).
+[[nodiscard]] std::unique_ptr<FreeformFinSet> finSetWithPoints(std::size_t count)
+{
+    auto fins = std::make_unique<FreeformFinSet>();
+    fins->setPoints(probeOutline(count, 0.0));
+    return fins;
+}
+
+/// Java's getConfigListenerPointIdx() for every point i of an edited fin set of @p edited
+/// points and a listener of @p other points, separated by spaces.
+struct JavaPointIndexRow
+{
+    std::size_t      edited;
+    std::size_t      other;
+    std::string_view results;
+};
+
+// NOLINTBEGIN(modernize-use-designated-initializers): a table printed by the Java probe
+constexpr std::array<JavaPointIndexRow, 25> kJavaPointIndices{{
+    {2, 2, "0 1"},          {2, 3, "0 2"},          {2, 4, "0 3"},          {2, 5, "0 4"},
+    {2, 6, "0 5"},          {3, 2, "0 -1 1"},       {3, 3, "0 1 2"},        {3, 4, "0 1 3"},
+    {3, 5, "0 1 4"},        {3, 6, "0 1 5"},        {4, 2, "0 -1 2 1"},     {4, 3, "0 1 -1 2"},
+    {4, 4, "0 1 2 3"},      {4, 5, "0 1 2 4"},      {4, 6, "0 1 2 5"},      {5, 2, "0 -1 2 3 1"},
+    {5, 3, "0 1 -1 3 2"},   {5, 4, "0 1 2 -1 3"},   {5, 5, "0 1 2 3 4"},    {5, 6, "0 1 2 3 5"},
+    {6, 2, "0 -1 2 3 4 1"}, {6, 3, "0 1 -1 3 4 2"}, {6, 4, "0 1 2 -1 4 3"}, {6, 5, "0 1 2 3 -1 4"},
+    {6, 6, "0 1 2 3 4 5"},
+}};
+// NOLINTEND(modernize-use-designated-initializers)
+
+/// @p row's Java results as getConfigListenerPointIdx() gives them: the index where Java's
+/// listener call succeeds, "-" where it fails (-1, or an index the listener does not have).
+[[nodiscard]] std::string expectedPointIndices(const JavaPointIndexRow& row)
+{
+    std::string      expected;
+    std::string_view rest = row.results;
+    while (!rest.empty())
+    {
+        const std::size_t      space = rest.find(' ');
+        const std::string_view token = rest.substr(0, space);
+        rest = space == std::string_view::npos ? std::string_view{} : rest.substr(space + 1);
+        const std::optional<int> java = QtRocket::Strings::parseInt(token);
+        EXPECT_TRUE(java.has_value()) << row.results;
+        if (!expected.empty())
+        {
+            expected += ' ';
+        }
+        const int index = java.value_or(-1);
+        expected += index >= 0 && std::cmp_less(index, row.other) ? std::to_string(index) : "-";
+    }
+    return expected;
+}
+
+/// getConfigListenerPointIdx() for every point of a fin set of @p editedCount points and another
+/// one of @p otherCount, in the notation of expectedPointIndices().
+[[nodiscard]] std::string pointIndices(std::size_t editedCount, std::size_t otherCount)
+{
+    const std::unique_ptr<FreeformFinSet> edited = finSetWithPoints(editedCount);
+    const std::unique_ptr<FreeformFinSet> other  = finSetWithPoints(otherCount);
+    std::string                           result;
+    for (std::size_t i = 0; i < editedCount; i++)
+    {
+        if (!result.empty())
+        {
+            result += ' ';
+        }
+        const std::optional<std::size_t> index =
+            FreeformFinSet::getConfigListenerPointIdx(*edited, *other, i);
+        result += index.has_value() ? std::to_string(*index) : "-";
+    }
+    return result;
+}
+
+TEST(FreeformFinSet, ConfigListenerPointIndexMatchesOpenRocket)
+{
+    for (const JavaPointIndexRow& row : kJavaPointIndices)
+    {
+        EXPECT_EQ(pointIndices(row.edited, row.other), expectedPointIndices(row))
+            << row.edited << " points edited, " << row.other << " points other";
+    }
+}
+
+/// getConfigListenerPointIdx() of @p edited and @p other gives nothing for the indices that
+/// Java's negative ints become.
+void expectNoPointIndexFromNegatives(const FreeformFinSet& edited, const FreeformFinSet& other)
+{
+    for (const std::size_t index : kIndicesFromNegatives)
+    {
+        EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(edited, other, index), std::nullopt)
+            << index;
+    }
+}
+
+TEST(FreeformFinSet, ConfigListenerPointIndexCases)
+{
+    const std::unique_ptr<FreeformFinSet> six  = finSetWithPoints(6);
+    const std::unique_ptr<FreeformFinSet> four = finSetWithPoints(4);
+
+    // The edited fin set's last point edits the other's last point.
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *four, 5), 3U);
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*four, *six, 3), 5U);
+    // Any other point edits the same point ...
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *four, 0), 0U);
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *four, 2), 2U);
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*four, *six, 2), 2U);
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *six, 4), 4U);
+    // ... but never the other's last one (Java: -1),
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *four, 3), std::nullopt);
+    // nor one the other does not have (Java hands the index on, and the call fails),
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*six, *four, 4), std::nullopt);
+    // nor for a point the edited fin set does not have (Java never asks).
+    EXPECT_EQ(FreeformFinSet::getConfigListenerPointIdx(*four, *six, 4), std::nullopt);
+    expectNoPointIndexFromNegatives(*four, *six);
+}
+
+/// The edits of OpenRocket's multi-component fin point editor.
+enum class PointEdit
+{
+    SET,
+    ADD,
+    REMOVE,
+};
+
+/// "set", "add" or "remove".
+[[nodiscard]] std::string_view pointEditText(PointEdit edit)
+{
+    switch (edit)
+    {
+        case PointEdit::SET:
+            return "set";
+        case PointEdit::ADD:
+            return "add";
+        case PointEdit::REMOVE:
+            return "remove";
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+/// One edit of the probe: A (of @c edited points) is edited at @c index, B (of @c other points)
+/// is its config listener; @c editedOk is whether A's own call succeeded, and B ends with the
+/// @c otherPointCount points of @c otherPoints (x and y in turn).
+struct JavaPointEditCase
+{
+    PointEdit              edit;
+    std::size_t            edited;
+    std::size_t            other;
+    std::size_t            index;
+    bool                   editedOk;
+    std::size_t            otherPointCount;
+    std::array<double, 14> otherPoints;
+};
+
+// NOLINTBEGIN(modernize-use-designated-initializers): a table printed by the Java probe
+constexpr std::array<JavaPointEditCase, 57> kJavaPointEdits{{
+    {PointEdit::SET,
+     4,
+     4,
+     0,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.0624dd2f1aap-10, 0x1.5810624dd2f1bp-6, 0x1.6872b020c49bap-7,
+      0x1.6872b020c49bap-6, 0x1.16872b020c49cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     4,
+     1,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.6872b020c49bap-6, 0x1.eb851eb851eb8p-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     4,
+     2,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.0624dd2f1a9fcp-5,
+      0x1.eb851eb851eb8p-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     4,
+     3,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.5810624dd2f18p-5, 0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     4,
+     0,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     4,
+     1,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.cac083126e979p-7, 0x1.999999999999ap-6, 0x1.a9fbe76c8b43ap-7,
+      0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     4,
+     2,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.89374bc6a7efap-6,
+      0x1.999999999999ap-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     4,
+     3,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.16872b020c49cp-5, 0x1.999999999999ap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     4,
+     0,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     4,
+     1,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     4,
+     2,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     4,
+     3,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     6,
+     0,
+     true,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.0624dd2f1aap-10, 0x1.5810624dd2f1bp-6, 0x1.6872b020c49bap-7,
+      0x1.6872b020c49bap-6, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6, 0x1.fbe76c8b43959p-6,
+      0x1.89374bc6a7efap-6, 0x1.6872b020c49bcp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     6,
+     1,
+     true,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.6872b020c49bap-6, 0x1.eb851eb851eb8p-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.9999999999998p-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     6,
+     2,
+     true,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.0624dd2f1a9fcp-5,
+      0x1.eb851eb851eb8p-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.9999999999998p-4, 0x0.0p0}},
+    {PointEdit::SET,
+     4,
+     6,
+     3,
+     true,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.5810624dd2f18p-5, 0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     6,
+     0,
+     false,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.9999999999998p-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     6,
+     1,
+     true,
+     7,
+     {0x0.0p0, 0x0.0p0, 0x1.cac083126e979p-7, 0x1.999999999999ap-6, 0x1.a9fbe76c8b43ap-7,
+      0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5,
+      0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5, 0x1.89374bc6a7efap-6, 0x1.9999999999998p-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     6,
+     2,
+     true,
+     7,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.89374bc6a7efap-6,
+      0x1.999999999999ap-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5,
+      0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5, 0x1.89374bc6a7efap-6, 0x1.9999999999998p-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     4,
+     6,
+     3,
+     true,
+     7,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.16872b020c49cp-5, 0x1.999999999999ap-6, 0x1.9999999999998p-4,
+      0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     6,
+     0,
+     false,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.9999999999998p-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     6,
+     1,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5,
+      0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5, 0x1.89374bc6a7efap-6, 0x1.9999999999998p-4,
+      0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     6,
+     2,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.0e5604189374cp-5,
+      0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5, 0x1.89374bc6a7efap-6, 0x1.9999999999998p-4,
+      0x0.0p0}},
+    {PointEdit::REMOVE,
+     4,
+     6,
+     3,
+     false,
+     6,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.0e5604189374cp-5, 0x1.78d4fdf3b645ap-6, 0x1.604189374bc6bp-5,
+      0x1.89374bc6a7efap-6, 0x1.9999999999998p-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     0,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.0624dd2f1aap-10, 0x1.5810624dd2f1bp-6, 0x1.6872b020c49bap-7,
+      0x1.6872b020c49bap-6, 0x1.16872b020c49cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     1,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.6872b020c49bap-6, 0x1.eb851eb851eb8p-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     2,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.0624dd2f1a9fcp-5,
+      0x1.eb851eb851eb8p-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     3,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     4,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     6,
+     4,
+     5,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.fbe76c8b43958p-5, 0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     0,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     1,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.cac083126e979p-7, 0x1.999999999999ap-6, 0x1.a9fbe76c8b43ap-7,
+      0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     2,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.89374bc6a7efap-6,
+      0x1.999999999999ap-6, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     3,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     4,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     6,
+     4,
+     5,
+     true,
+     5,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.ba5e353f7cedap-5, 0x1.999999999999ap-6, 0x1.47ae147ae147cp-4,
+      0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     0,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     1,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.78d4fdf3b645ap-6, 0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     2,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     3,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     4,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     6,
+     4,
+     5,
+     false,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.78d4fdf3b645ap-6,
+      0x1.6872b020c49bap-6, 0x1.47ae147ae147cp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     5,
+     3,
+     0,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.0624dd2f1aap-10, 0x1.5810624dd2f1bp-6, 0x1.db22d0e560418p-5, 0x0.0p0}},
+    {PointEdit::SET,
+     5,
+     3,
+     1,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.6872b020c49bap-6, 0x1.eb851eb851eb8p-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     5,
+     3,
+     2,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     5,
+     3,
+     3,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::SET,
+     5,
+     3,
+     4,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.a9fbe76c8b438p-5, 0x0.0p0}},
+    {PointEdit::ADD,
+     5,
+     3,
+     0,
+     false,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     5,
+     3,
+     1,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.cac083126e979p-7, 0x1.999999999999ap-6, 0x1.a9fbe76c8b43ap-7,
+      0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     5,
+     3,
+     2,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     5,
+     3,
+     3,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::ADD,
+     5,
+     3,
+     4,
+     true,
+     4,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.6872b020c49bap-5,
+      0x1.999999999999ap-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     5,
+     3,
+     0,
+     false,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::REMOVE, 5, 3, 1, true, 2, {0x0.0p0, 0x0.0p0, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     5,
+     3,
+     2,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     5,
+     3,
+     3,
+     true,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+    {PointEdit::REMOVE,
+     5,
+     3,
+     4,
+     false,
+     3,
+     {0x0.0p0, 0x0.0p0, 0x1.a9fbe76c8b43ap-7, 0x1.5810624dd2f1bp-6, 0x1.1eb851eb851ecp-4, 0x0.0p0}},
+}};
+// NOLINTEND(modernize-use-designated-initializers)
+
+/// What GoogleTest prints for the case of a test that failed: "set at 3, 6 points edited, 4
+/// points other".
+// NOLINTNEXTLINE(readability-identifier-naming): the name GoogleTest looks for
+void PrintTo(const JavaPointEditCase& c, std::ostream* out)
+{
+    *out << std::format("{} at {}, {} points edited, {} points other", pointEditText(c.edit),
+                        c.index, c.edited, c.other);
+}
+
+/// "set_6_4_at_3" for the edit at 3 of a fin set of 6 points with another one of 4.
+[[nodiscard]] std::string pointEditName(const ::testing::TestParamInfo<JavaPointEditCase>& info)
+{
+    const JavaPointEditCase& c = info.param;
+    return std::format("{}_{}_{}_at_{}", pointEditText(c.edit), c.edited, c.other, c.index);
+}
+
+/// Applies @p edit to the point @p index of @p fins with the probe's arguments for an edit of
+/// the point @p editedIndex: OpenRocket hands its config listeners the edited fin set's
+/// arguments (the new point's coordinates), only the index is the listener's own.
+[[nodiscard]] Result<void> applyPointEdit(FreeformFinSet& fins, PointEdit edit, std::size_t index,
+                                          std::size_t editedIndex)
+{
+    const auto i = static_cast<double>(editedIndex);
+    switch (edit)
+    {
+        case PointEdit::SET:
+            return fins.setPoint(index, 0.012 + (0.01 * i), 0.03);
+        case PointEdit::ADD:
+            return fins.addPoint(index, Point2D{0.004 + (0.01 * i), 0.025});
+        case PointEdit::REMOVE:
+            return fins.removePoint(index);
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+/// The probe's rocket: a stage holding a body tube (0.5 m, radius 0.02 m, wall 1 mm) with two
+/// freeform fin sets A and B; events enabled.
+class TwoFreeformFinSets : public ::testing::TestWithParam<JavaPointEditCase>
+{
+protected:
+    TwoFreeformFinSets()
+    {
+        auto& stage = m_rocket.addChild(std::make_unique<AxialStage>());
+        auto& body  = stage.addChild(std::make_unique<BodyTube>(0.5, 0.02, 0.001));
+        m_a         = &body.addChild(std::make_unique<FreeformFinSet>());
+        m_b         = &body.addChild(std::make_unique<FreeformFinSet>());
+        m_rocket.enableEvents();
+    }
+
+    Rocket          m_rocket;
+    FreeformFinSet* m_a{nullptr};
+    FreeformFinSet* m_b{nullptr};
+};
+
+TEST_P(TwoFreeformFinSets, AMultiComponentEditOfPointsAsInOpenRocket)
+{
+    const JavaPointEditCase& c = GetParam();
+    m_a->setPoints(probeOutline(c.edited, 0.0));
+    m_b->setPoints(probeOutline(c.other, 0.003));
+
+    // What OpenRocket's edit does for its config listener before it edits A, done by the caller:
+    // B is edited at the index the helper gives, with A's arguments, and a failure there is
+    // ignored, as Java ignores the listener's IllegalFinPointException.
+    if (const std::optional<std::size_t> index =
+            FreeformFinSet::getConfigListenerPointIdx(*m_a, *m_b, c.index))
+    {
+        std::ignore = applyPointEdit(*m_b, c.edit, *index, c.index);
+    }
+    EXPECT_EQ(applyPointEdit(*m_a, c.edit, c.index, c.index).has_value(), c.editedOk);
+
+    const std::vector<Coordinate> points = m_b->getFinPoints();
+    ASSERT_EQ(points.size(), c.otherPointCount);
+    for (std::size_t i = 0; i < points.size(); i++)
+    {
+        EXPECT_EQ(points[i].x, c.otherPoints.at(2 * i)) << "point " << i;
+        EXPECT_EQ(points[i].y, c.otherPoints.at((2 * i) + 1)) << "point " << i;
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(OpenRocketProbe, TwoFreeformFinSets, ::testing::ValuesIn(kJavaPointEdits),
+                         pointEditName);
 
 }  // namespace

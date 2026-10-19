@@ -694,6 +694,20 @@ std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::secondaryStabilityUnit
                                                 referenceLengthProvider);
 }
 
+std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::stabilityUnits(
+    const std::function<double()>& caliberProvider, const std::function<double()>& lengthProvider)
+{
+    return std::make_unique<StabilityUnitGroup>(unitGroup(UnitGroupId::STABILITY), caliberProvider,
+                                                lengthProvider);
+}
+
+std::unique_ptr<UnitGroup::StabilityUnitGroup> UnitGroup::secondaryStabilityUnits(
+    const std::function<double()>& caliberProvider, const std::function<double()>& lengthProvider)
+{
+    return std::make_unique<StabilityUnitGroup>(unitGroup(UnitGroupId::SECONDARY_STABILITY),
+                                                caliberProvider, lengthProvider);
+}
+
 void UnitGroup::addUnit(std::unique_ptr<Unit> unit)
 {
     QTROCKET_ASSERT(unit != nullptr);
@@ -913,6 +927,14 @@ UnitGroup::StabilityUnitGroup::StabilityUnitGroup(
     UnitGroup& stabilityUnit, const std::function<double()>& referenceLengthProvider)
   : StabilityUnitGroup(stabilityUnit, std::make_unique<CaliberUnit>(referenceLengthProvider),
                        std::make_unique<PercentageOfLengthUnit>(referenceLengthProvider))
+{
+}
+
+UnitGroup::StabilityUnitGroup::StabilityUnitGroup(UnitGroup&                     stabilityUnit,
+                                                  const std::function<double()>& caliberProvider,
+                                                  const std::function<double()>& lengthProvider)
+  : StabilityUnitGroup(stabilityUnit, std::make_unique<CaliberUnit>(caliberProvider),
+                       std::make_unique<PercentageOfLengthUnit>(lengthProvider))
 {
 }
 

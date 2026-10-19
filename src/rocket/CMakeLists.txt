@@ -54,6 +54,7 @@ target_sources(QtRocket_core PRIVATE
     RocketComponent.cpp
     RocketUtils.cpp
     ShockCord.cpp
+    StabilityUnits.cpp
     StageSeparationConfiguration.cpp
     Streamer.cpp
     StructuralComponent.cpp

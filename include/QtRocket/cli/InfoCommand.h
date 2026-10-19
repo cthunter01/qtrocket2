@@ -58,8 +58,9 @@ struct CliArguments;
 ///   roll rate of 0, which adds its own warnings; those warnings are the configuration's
 ///   "warnings";
 /// - the stability, as the design window shows it (RocketInfo.getStabilityValue()): the worst CP
-///   less the CG, in calibers of the configuration (CaliberUnit.calculateCaliber(), caliber())
-///   and in metres.
+///   less the CG, in calibers of the configuration (the caliber unit of its stability units,
+///   StabilityUnits::stabilityUnits(), as RocketInfo converts it; CaliberUnit.calculateCaliber(),
+///   caliber()) and in metres.
 ///
 /// Deviations from OpenRocket's design window:
 /// - A CP whose CNa is not above MathUtil::kEpsilon is "none (no lift)" (a lone body tube): the
@@ -91,7 +92,7 @@ public:
     /// The caliber of @p configuration (CaliberUnit.calculateCaliber(FlightConfiguration)): the
     /// largest fore or aft diameter of the symmetric components among its active components
     /// (FlightConfiguration::getActiveComponents()), or CaliberUnit::kDefaultCaliber when that is
-    /// below 0.1 mm.
+    /// below 0.1 mm. StabilityUnits::calculateCaliber(), which the stability units divide by.
     [[nodiscard]] static double caliber(const FlightConfiguration& configuration);
 };
 

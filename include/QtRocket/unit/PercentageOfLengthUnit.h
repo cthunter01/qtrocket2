@@ -10,8 +10,10 @@ namespace QtRocket
 
 /// Lengths as a percentage of a rocket's aerodynamic length (OpenRocket's
 /// PercentageOfLengthUnit), the secondary stability unit. As CaliberUnit, the reference length
-/// comes from a provider evaluated on every conversion, or is a constant, until the rocket model
-/// exists (OpenRocket reads FlightConfiguration.getLengthAerodynamic()).
+/// comes from a provider evaluated on every conversion, or is a constant; rocket/StabilityUnits.h
+/// has OpenRocket's Rocket and FlightConfiguration forms as providers
+/// (StabilityUnits::getPercentageReferenceLength(), Java's getReferenceLength():
+/// FlightConfiguration::getLengthAerodynamic()).
 class PercentageOfLengthUnit final : public GeneralUnit
 {
 public:

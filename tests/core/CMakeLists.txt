@@ -133,6 +133,7 @@ add_executable(QtRocket_core_tests
     rocket/RocketComponentTests.cpp
     rocket/RocketTests.cpp
     rocket/ShockCordTests.cpp
+    rocket/StabilityUnitsTests.cpp
     rocket/StageSeparationConfigurationTests.cpp
     rocket/StreamerTests.cpp
     rocket/StructuralComponentTests.cpp
