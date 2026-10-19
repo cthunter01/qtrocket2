@@ -1,5 +1,7 @@
 # Builds and tests the CI presets on Linux, macOS and Windows, and checks formatting.
 # Linux runs in an Arch Linux container so CI has the same current GCC/Clang as the dev machine.
+# Qt: Linux takes Arch's packages (the newest Qt), macOS and Windows Qt 6.8.3, the oldest Qt the GUI supports, so CI
+# builds the GUI against both ends: nothing newer than Qt 6.8 and nothing it deprecates.
 name: CI
 
 on:
@@ -12,14 +14,19 @@ jobs:
     name: linux / ${{ matrix.preset }}
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    # The container sets no locale, and Qt warns on the standard error that "C" is not UTF-8, which the tests of the
+    # GUI program (gui.version, gui.help, gui.start: nothing on the standard error) would fail on.
+    env:
+      LANG: C.UTF-8
     strategy:
       fail-fast: false
       matrix:
         preset: [ci-gcc, ci-clang, asan, tidy]
     steps:
       - name: Install toolchain
-        # llvm brings llvm-symbolizer, so sanitizer reports show functions and lines.
-        run: pacman -Syu --noconfirm --needed cmake ninja clang llvm git
+        # llvm brings llvm-symbolizer, so sanitizer reports show functions and lines. qt6-base and qt6-svg: the GUI
+        # (its tests run on the offscreen platform); ttf-dejavu: the container has no font for Qt to draw text with.
+        run: pacman -Syu --noconfirm --needed cmake ninja clang llvm git qt6-base qt6-svg ttf-dejavu
       - uses: actions/checkout@v7
       - name: Configure, build and test
         run: cmake --workflow --preset ${{ matrix.preset }}
@@ -37,6 +44,14 @@ jobs:
     steps:
       - name: Install Ninja
         run: brew install ninja
+      # Puts Qt's bin on PATH, where CMake finds Qt and the tests its libraries and plugins. Qt 6.8.3 predates the
+      # macOS 26 SDK, which has no AGL framework: the root CMakeLists.txt works around Qt's link to it.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          archives: 'qtbase qtsvg'
+          cache: true
       - uses: actions/checkout@v7
       - name: Configure, build and test
         run: cmake --workflow --preset ${{ matrix.preset }}
@@ -48,6 +63,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ilammy/msvc-dev-cmd@v1
+      # After the MSVC environment. Puts Qt's bin on PATH: CMake finds Qt there, and the tests (also
+      # gtest_discover_tests' listing run) load Qt's DLLs and its plugins from there.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: 'win64_msvc2022_64'
+          archives: 'qtbase qtsvg'
+          cache: true
       - name: Configure, build and test
         run: cmake --workflow --preset ci-msvc
 

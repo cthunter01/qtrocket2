@@ -91,3 +91,44 @@ function(QtRocket_configure_target target)
         set_target_properties(${target} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
     endif()
 endfunction()
+
+# QtRocket_configure_qt_target(<target>)
+# QtRocket_configure_target() plus what every Qt target of ours (QtRocket_gui, the QtRocket application and
+# QtRocket_gui_tests) needs. Call it instead of QtRocket_configure_target() for a target that uses Qt.
+# - AUTOMOC on this target only: a global CMAKE_AUTOMOC (qt_standard_project_setup() sets one) would also give the
+#   core, its tests and GoogleTest moc steps. AUTOMOC reads only the headers that are sources of the target, so every
+#   header is listed in its area's CMakeLists.txt (an unlisted Q_OBJECT header fails to link: "undefined reference
+#   to vtable"). No AUTOUIC (no .ui files) and no AUTORCC (resources go through qt_add_resources()).
+# - QT_NO_KEYWORDS: no signals/slots/emit/foreach macros (Q_SIGNALS, Q_EMIT); Qt's emit macro would break the core's
+#   Signal::emit() (util/Signal.h refuses to compile under it).
+# - QT_ENABLE_STRICT_MODE_UP_TO=0x060800: nothing that Qt 6.8 deprecates (QT_DISABLE_DEPRECATED_UP_TO), no
+#   contextless connect(), no narrowing in connect(), no implicit QString/QByteArray/QUrl conversions, ...
+# - QT_WARN_DEPRECATED_UP_TO=0x060800: Qt warns about every deprecation up to 7.0 by default, which with -Werror
+#   breaks the build on a newer Qt for APIs whose replacement Qt 6.8 (the oldest Qt supported, CI's on macOS and
+#   Windows) does not have yet.
+# - QT_NO_CAST_FROM_ASCII: every string literal is tr() (user-visible text) or QStringLiteral.
+function(QtRocket_configure_qt_target target)
+    QtRocket_configure_target(${target})
+    set_target_properties(${target} PROPERTIES AUTOMOC ON)
+    target_compile_definitions(${target} PRIVATE
+        QT_NO_KEYWORDS
+        QT_ENABLE_STRICT_MODE_UP_TO=0x060800
+        QT_WARN_DEPRECATED_UP_TO=0x060800
+        QT_NO_CAST_FROM_ASCII)
+endfunction()
+
+# QtRocket_automoc_follows_sources(<target>)
+# Makes AUTOMOC run again whenever the list of sources of <target> changes. AUTOMOC runs again when a CMakeLists.txt
+# file of the directory that made its target changes, but not when one of a subdirectory does: a Q_OBJECT header
+# added to an area's list (gui/src/<area>/CMakeLists.txt, tests/gui/<area>/CMakeLists.txt) would not be moc'ed in an
+# existing build directory, and the build would fail with "undefined reference to vtable" until a clean build. This
+# writes a hash of the list into a file of the build directory (only when it changes) and reads it as a list file of
+# the calling directory, which AUTOMOC then depends on. Call it in the directory that made <target>, after every
+# subdirectory that adds sources to it.
+function(QtRocket_automoc_follows_sources target)
+    get_target_property(sources ${target} SOURCES)
+    string(SHA256 sources_hash "${sources}")
+    set(stamp ${CMAKE_CURRENT_BINARY_DIR}/${target}_sources.cmake)
+    file(CONFIGURE OUTPUT ${stamp} CONTENT "# The sources of ${target}, for AUTOMOC: ${sources_hash}\n")
+    include(${stamp})
+endfunction()

@@ -118,8 +118,8 @@
     {
       "name": "dist",
       "hidden": true,
-      "description": "Release archives: dependencies are built from source and linked in, never taken from the build machine",
-      "cacheVariables": { "FETCHCONTENT_TRY_FIND_PACKAGE_MODE": "NEVER" }
+      "description": "Release archives: dependencies are built from source and linked in, never taken from the build machine; no GUI until Milestone 9 bundles Qt",
+      "cacheVariables": { "FETCHCONTENT_TRY_FIND_PACKAGE_MODE": "NEVER", "QTROCKET_BUILD_GUI": "OFF" }
     },
     {
       "name": "dist-linux",

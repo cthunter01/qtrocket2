@@ -1,1 +1,5 @@
 add_subdirectory(core)
+if(QTROCKET_BUILD_GUI)
+    add_subdirectory(gui)
+endif()
+add_subdirectory(lint)
