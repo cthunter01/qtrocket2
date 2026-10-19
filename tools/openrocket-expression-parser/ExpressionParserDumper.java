@@ -77,21 +77,27 @@ public class ExpressionParserDumper {
 
     /**
      * A C++ string literal of the UTF-8 encoding of s: printable ASCII as itself, the rest in octal
-     * (a text of printable ASCII alone as cppAsciiLiteral() writes it).
+     * (a text of printable ASCII alone as cppAsciiLiteral() writes it). A digit right after an octal
+     * escape is an octal escape too: the escape is complete after three digits, but MSVC warns
+     * (C4125, an error with /WX) that a decimal digit ends it.
      */
     private static String cppUtf8Literal(String s) {
         if (s.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
             return cppAsciiLiteral(s);
         }
         StringBuilder out = new StringBuilder("\"");
+        boolean afterOctal = false;
         for (byte b : s.getBytes(StandardCharsets.UTF_8)) {
             int v = b & 0xFF;
             if (v == '"' || v == '\\') {
                 out.append('\\').append((char) v);
-            } else if (v >= 0x20 && v < 0x7F) {
+                afterOctal = false;
+            } else if (v >= 0x20 && v < 0x7F && !(afterOctal && v >= '0' && v <= '9')) {
                 out.append((char) v);
+                afterOctal = false;
             } else {
                 out.append(String.format("\\%03o", v));
+                afterOctal = true;
             }
         }
         return out.append('"').toString();

@@ -290,7 +290,7 @@ void readStepMember(JsonReader& reader, const json& object, std::string_view mem
             reader.failure(context, std::format(R"(the tool knows no member "{}")", member));
             return;
         }
-        step.*(found->member) = reader.string(object, member, context);
+        step.*found->member = reader.string(object, member, context);
     }
 }
 

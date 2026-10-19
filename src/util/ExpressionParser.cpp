@@ -621,7 +621,7 @@ struct Token
             ++at;
             continue;
         }
-        Result<Token> token = [&]() -> Result<Token> {
+        Result<Token> token = [&] -> Result<Token> {
             if (isDigitOrPoint(c))
             {
                 return readNumber(infix, at);

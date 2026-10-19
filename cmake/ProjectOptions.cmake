@@ -115,6 +115,12 @@ function(QtRocket_configure_qt_target target)
         QT_ENABLE_STRICT_MODE_UP_TO=0x060800
         QT_WARN_DEPRECATED_UP_TO=0x060800
         QT_NO_CAST_FROM_ASCII)
+    # MSVC reports C4702 (unreachable code) inside Qt's headers once a Release build inlines them: Qt 6.8's
+    # QtPrivate::lengthHelperContainerLoop() ends in a 'return' that a u"..." literal turned into a QStringView makes
+    # unreachable. /external:W0 does not silence a warning of the code generator, so it is off for Qt targets.
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /wd4702)
+    endif()
 endfunction()
 
 # QtRocket_automoc_follows_sources(<target>)

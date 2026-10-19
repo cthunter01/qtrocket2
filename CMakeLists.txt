@@ -79,14 +79,13 @@ if(QTROCKET_BUILD_GUI)
     endif()
     # A work-around for Qt before 6.8.4 and 6.9.2 on macOS 26: Qt's FindWrapOpenGL.cmake links the AGL framework on
     # every Apple build ('-framework AGL' when it finds none), and the macOS 26 SDK no longer has it ('ld: framework
-    # AGL not found'; Qt commit cdb33c3d5621 removed the linkage). Its find_library(WrapOpenGL_AGL NAMES AGL) keeps a
-    # value found before, so where the SDK has no AGL that variable names the OpenGL framework, which Qt links anyway.
-    # CI's macOS job builds against Qt 6.8.3 on macOS 26. Remove this once the oldest Qt supported is 6.9.2 or newer.
+    # AGL not found'; Qt commit cdb33c3d5621 removed the linkage, which nothing of Qt needs). Its
+    # find_library(WrapOpenGL_AGL NAMES AGL) keeps a value found before, so that variable names the OpenGL framework,
+    # which Qt links anyway. On every Apple build: a search for AGL itself can find the run-time framework under
+    # /System/Library/Frameworks although the SDK lacks it (CI's first macOS run). CI's macOS job builds against Qt
+    # 6.8.3 on macOS 26. Remove this once the oldest Qt supported is 6.9.2 or newer.
     if(APPLE)
-        find_library(qtrocket_agl_framework NAMES AGL)
-        if(NOT qtrocket_agl_framework)
-            find_library(WrapOpenGL_AGL NAMES OpenGL)
-        endif()
+        find_library(WrapOpenGL_AGL NAMES OpenGL)
     endif()
     find_package(Qt6 6.8 REQUIRED COMPONENTS ${qtrocket_qt_components})
     message(STATUS "QtRocket GUI: Qt ${Qt6_VERSION}")
