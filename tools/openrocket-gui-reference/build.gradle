@@ -1,0 +1,189 @@
+// Builds the GUI reference tool against OpenRocket's core and Swing modules, compiled here from a
+// local, read-only checkout of OpenRocket (nothing is written into that checkout).
+//
+//   ./gradlew -p tools/openrocket-gui-reference -PopenrocketDir=/path/to/openrocket guiReferenceClasspath
+//
+// generate.sh does this and then runs the tool with the class path written to
+// build/gui-reference-classpath.txt. See README.md.
+//
+// As tools/openrocket-goldens/build.gradle does for the core alone, and for the same reasons
+// (building OpenRocket's own project writes into the checkout, needs its plugins and may reach the
+// network): OpenRocket's sources are compiled into this project's build directory, on the class path
+// (module-info.java excluded), and generate.sh checks that the checkout has no modified, untracked
+// or ignored files among them, so that the classes are those of the commit the tool records.
+
+plugins {
+    id 'java'
+}
+
+def openrocketDirValue = providers.gradleProperty('openrocketDir')
+        .orElse(providers.environmentVariable('OPENROCKET_DIR'))
+        .getOrNull()
+if (openrocketDirValue == null) {
+    throw new GradleException('Set -PopenrocketDir=<OpenRocket checkout> (or the OPENROCKET_DIR environment variable)')
+}
+def openrocketDir = file(openrocketDirValue)
+def openrocketCoreDir = new File(openrocketDir, 'core')
+def openrocketSwingDir = new File(openrocketDir, 'swing')
+if (!new File(openrocketCoreDir, 'src/main/java/info/openrocket/core/startup/Application.java').isFile()
+        || !new File(openrocketSwingDir, 'src/main/java/info/openrocket/swing/gui/main/BasicFrame.java').isFile()) {
+    throw new GradleException("Not an OpenRocket checkout: ${openrocketDir}")
+}
+
+// The third-party dependencies of OpenRocket's core and Swing modules, read from their build.gradle
+// files in the checkout so that they always match the commit being built: the plain
+// "implementation 'group:artifact:version'" lines, the Swing lines that name a version through a
+// variable of that file ("implementation \"group:artifact:$name\"", the variable being one of its
+// "def name = \"value\"" lines or an ext property "name = otherName" set from one), and LWJGL's
+// modules, whose versions come from the LWJGL BOM the Swing build imports. Neither the LWJGL natives
+// nor the test dependencies are needed: the tool never opens a window, let alone the 3D view.
+def implementationLines = { File buildFile ->
+    def text = buildFile.readLines()
+    def variables = [:]
+    text.each { line ->
+        def definition = (line =~ /^\s*def\s+(\w+)\s*=\s*"([^"]+)"/)
+        if (definition.find()) {
+            variables[definition.group(1)] = definition.group(2)
+        }
+    }
+    text.each { line ->
+        def alias = (line =~ /^\s*(\w+)\s*=\s*(\w+)\s*$/)
+        if (alias.find() && variables.containsKey(alias.group(2))) {
+            variables[alias.group(1)] = variables[alias.group(2)]
+        }
+    }
+    def coordinates = []
+    text.each { line ->
+        def plain = (line =~ /^\s*implementation\s+'([^':]+:[^':]+:[^']+)'/)
+        def interpolated = (line =~ /^\s*implementation\s*\(?\s*"([^"]+)"/)
+        if (plain.find()) {
+            coordinates << plain.group(1)
+        } else if (interpolated.find()) {
+            def value = interpolated.group(1).replaceAll(/\$\{?(\w+)\}?/) { all, name ->
+                if (!variables.containsKey(name)) {
+                    throw new GradleException("Unknown variable \$${name} in ${buildFile}: ${line.trim()}")
+                }
+                variables[name]
+            }
+            coordinates << value
+        }
+    }
+    return [coordinates, variables]
+}
+def (coreDependencies, coreVariables) = implementationLines(new File(openrocketCoreDir, 'build.gradle'))
+def (swingDependencies, swingVariables) = implementationLines(new File(openrocketSwingDir, 'build.gradle'))
+if (coreDependencies.isEmpty() || swingDependencies.isEmpty()) {
+    throw new GradleException('No dependencies found in the build.gradle files of the OpenRocket checkout')
+}
+def lwjglVersion = swingVariables['lwjglVersionValue']
+if (lwjglVersion == null) {
+    throw new GradleException('No lwjglVersionValue in swing/build.gradle of the OpenRocket checkout')
+}
+
+// OpenRocket's processResources appends the short commit hash to a -SNAPSHOT build.version; the saver
+// writes that version into creator="OpenRocket <version>" of the .ork file. As in
+// tools/openrocket-goldens/build.gradle, the hash has 9 characters whatever the clone.
+def openrocketShortHash = providers.exec {
+    workingDir = openrocketDir
+    commandLine 'git', 'rev-parse', '--short=9', 'HEAD'
+}.standardOutput.asText.map { it.trim() }
+
+repositories {
+    mavenCentral()
+    // Two of the Swing module's dependencies (jSystemThemeDetector, lwjgl3-awt) come from JitPack, as
+    // in swing/build.gradle.
+    maven { url = 'https://jitpack.io' }
+}
+
+java {
+    // Class path only, as OpenRocket's tests run (module-info.java of both modules is excluded).
+    modularity.inferModulePath = false
+}
+
+sourceSets {
+    // OpenRocket's core.
+    openrocket {
+        java {
+            srcDir new File(openrocketCoreDir, 'src/main/java')
+            exclude 'module-info.java'
+        }
+        resources {
+            srcDir new File(openrocketCoreDir, 'src/main/resources')
+            // Git-ignored copies that OpenRocket's own build leaves there (see
+            // tools/openrocket-goldens/build.gradle): only tracked files go onto the class path.
+            exclude 'ReleaseNotes.md'
+            exclude 'datafiles/components/database/**'
+        }
+    }
+    // OpenRocket's Swing module, all of it: the add buttons, actions, models and configuration
+    // panels the tool drives, and what they load (icons, the look and feel's resources).
+    openrocketSwing {
+        java {
+            srcDir new File(openrocketSwingDir, 'src/main/java')
+            exclude 'module-info.java'
+        }
+        resources {
+            srcDir new File(openrocketSwingDir, 'src/main/resources')
+        }
+    }
+}
+
+configurations {
+    openrocketSwingImplementation.extendsFrom openrocketImplementation
+    implementation.extendsFrom openrocketSwingImplementation
+}
+
+dependencies {
+    coreDependencies.each { coordinates -> openrocketImplementation coordinates }
+    openrocketImplementation files(new File(openrocketCoreDir, 'libs/script-api-1.0.jar'))
+    openrocketSwingImplementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+    swingDependencies.each { coordinates -> openrocketSwingImplementation coordinates }
+    openrocketSwingImplementation sourceSets.openrocket.output
+    implementation sourceSets.openrocket.output
+    implementation sourceSets.openrocketSwing.output
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    // No implicit source path: javac must not find the modules' module-info.java next to the sources.
+    options.sourcepath = files()
+}
+
+// OpenRocket's sources produce many deprecation/unchecked notes; they are not ours to fix.
+tasks.named('compileOpenrocketJava', JavaCompile) {
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+tasks.named('compileOpenrocketSwingJava', JavaCompile) {
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+
+// The tool itself compiles without warnings.
+tasks.named('compileJava', JavaCompile) {
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
+
+tasks.named('processOpenrocketResources', ProcessResources) {
+    inputs.property('openrocketShortHash', openrocketShortHash)
+    filesMatching('build.properties') {
+        filter { line ->
+            if (line.startsWith('build.version=') && line.trim().endsWith('-SNAPSHOT')) {
+                "${line}-${openrocketShortHash.get()}"
+            } else {
+                line
+            }
+        }
+    }
+}
+
+// Writes the tool's runtime class path (one line, platform path separator) for generate.sh.
+tasks.register('guiReferenceClasspath') {
+    dependsOn tasks.named('classes')
+    def output = layout.buildDirectory.file('gui-reference-classpath.txt')
+    def runtimeClasspath = sourceSets.main.runtimeClasspath
+    inputs.files(runtimeClasspath)
+    outputs.file(output)
+    doLast {
+        output.get().asFile.text = runtimeClasspath.files.collect { it.absolutePath }.join(File.pathSeparator)
+    }
+}

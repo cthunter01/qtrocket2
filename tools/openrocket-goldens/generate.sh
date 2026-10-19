@@ -25,7 +25,8 @@
 # "--only <input name>" is the only argument: everything else GoldenDumper takes is set here, from the
 # checkout and the environment.
 #
-# The checkout is only read: OpenRocket's core is compiled into tools/openrocket-goldens/build.
+# The checkout is only read: OpenRocket's core (and the shape providers of the Swing module's 2D rocket
+# figure, swing/.../gui/rocketfigure) is compiled into tools/openrocket-goldens/build.
 # motors.json (and tools/openrocket-goldens/motors/) are produced by motors/dump-motors.sh, not here.
 set -euo pipefail
 
@@ -71,7 +72,9 @@ fi
 # commit the superproject records, and unmodified.
 submodule_path=core/resources-src/datafiles/openrocket-database
 sources=(core/src/main/java core/src/main/resources core/build.gradle core/libs
-    core/src/test/java/info/openrocket/core/ServicesForTesting.java)
+    core/src/test/java/info/openrocket/core/ServicesForTesting.java
+    swing/src/main/java/info/openrocket/swing/gui/rocketfigure
+    swing/src/main/resources/META-INF/services/info.openrocket.swing.gui.rocketfigure.RocketComponentShapeService)
 ignored_copies='^!! core/src/main/resources/(ReleaseNotes\.md|datafiles/components/database/)'
 problems=()
 if ! git -C "$openrocket" diff --quiet HEAD --; then

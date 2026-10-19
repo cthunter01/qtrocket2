@@ -16,8 +16,8 @@
 #                    preset submodule that is not at its recorded commit (the comparisons with the goldens
 #                    can then fail for that reason alone)
 #
-# The checkout is only read: OpenRocket's core is compiled into tools/openrocket-goldens/build, as generate.sh
-# does. The exit status is InteropCheck's: 0 when every file passes, 1 when one fails (the report on standard
+# The checkout is only read: OpenRocket's core (and the shape providers of the Swing module's 2D rocket
+# figure) is compiled into tools/openrocket-goldens/build, as generate.sh does. The exit status is InteropCheck's: 0 when every file passes, 1 when one fails (the report on standard
 # output says why), 2 on a usage error.
 set -euo pipefail
 
@@ -57,7 +57,9 @@ fi
 # The checkout must be the commit the goldens were made from, without local changes (generate.sh's checks).
 submodule_path=core/resources-src/datafiles/openrocket-database
 sources=(core/src/main/java core/src/main/resources core/build.gradle core/libs
-    core/src/test/java/info/openrocket/core/ServicesForTesting.java)
+    core/src/test/java/info/openrocket/core/ServicesForTesting.java
+    swing/src/main/java/info/openrocket/swing/gui/rocketfigure
+    swing/src/main/resources/META-INF/services/info.openrocket.swing.gui.rocketfigure.RocketComponentShapeService)
 ignored_copies='^!! core/src/main/resources/(ReleaseNotes\.md|datafiles/components/database/)'
 problems=()
 if ! git -C "$openrocket" diff --quiet HEAD --; then

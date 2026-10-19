@@ -2,17 +2,20 @@
 
 `tools/openrocket-goldens` runs OpenRocket (Java) on a fixed set of rocket designs and writes what it
 computes into `tests/data/goldens/`: geometry and mass properties, extended-Barrowman aerodynamics,
-complete simulations and OpenRocket's own re-save of each design. QtRocket's golden tests
-(`tests/core/goldens/*_golden_tests.cpp`, plan section 6.4) compare the C++ port against these
-files. The data is committed; neither CMake nor CI ever needs Java.
+complete simulations, OpenRocket's own re-save of each design and what its 2D rocket figure draws.
+QtRocket's golden tests (`tests/core/goldens/*_golden_tests.cpp`, plan section 6.4) compare the C++
+port against these files. The data is committed; neither CMake nor CI ever needs Java.
 
 - `generate.sh`: builds the dumper and regenerates `tests/data/goldens/` (see [Regenerating](#regenerating)).
 - `build.gradle`, `settings.gradle`: a stand-alone Gradle project that compiles OpenRocket's `core`
-  from a local checkout (read only) together with the dumper.
+  and the shape providers of its Swing module's 2D rocket figure (the package
+  `info.openrocket.swing.gui.rocketfigure`) from a local checkout (read only) together with the
+  dumper.
 - `src/main/java/info/qtrocket/goldens/`: `GoldenDumper` (entry point, OpenRocket bootstrap, inputs,
-  manifest) and its helpers `GeometryDumper`, `MassDumper`, `AeroDumper`, `SimulationDumper`,
-  `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`, `LastBitPerturbation`,
-  `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`, and `CoverageDocuments`
+  manifest) and its helpers `GeometryDumper`, `MassDumper`, `AeroDumper`, `FigureDumper`,
+  `SimulationDumper`, `JitterRemoval`, `AutomaticDimensions`, `DeterministicUuids`,
+  `LastBitPerturbation`, `ApplicationDefaultsPreferences`, `ComponentIndex`, `Values`, `Json`, and
+  `CoverageDocuments`
   (the saver-coverage documents, see [Re-saves alone](#re-saves-alone)).
 - `src/main/java/info/qtrocket/goldens/CsvExportDumper.java` is not run by `generate.sh`: it writes
   the fixtures of the CSV export test, `tests/data/csv/` (see
@@ -20,6 +23,11 @@ files. The data is committed; neither CMake nor CI ever needs Java.
 - `interop.sh` and `src/main/java/info/qtrocket/goldens/InteropCheck.java`: the interop check of
   plan section 7, run by hand: OpenRocket reads the design files QtRocket saved (see
   [Interop check](#interop-check)). It writes nothing into `tests/data`.
+- `figure-pins/` (`generate.sh`, the probes `src/probe/BodyShapesProbe.java` and
+  `FinMassShapesProbe.java`, the generators `gen_body_shape_pins.py` and `gen_fin_mass_shape_pins.py`)
+  is not run by `generate.sh` either: it writes the pin tables of the figure's shape tests,
+  `tests/core/figure/BodyShapePins.h`, `FinMassShapePins.h` and `FigureGeometryPins.h` (see
+  [Figure pin tables](#figure-pin-tables)).
 - `motors/` (`MotorsDumper.java`, `dump-motors.sh`) belongs to the motor port: it writes
   `tests/data/goldens/motors.json` (digests and derived values of every curve of
   `initial_motors.db` and the test `.eng`/`.rse` files, plus the curves OpenRocket skips). This
@@ -50,6 +58,7 @@ its `resave/rocket.ork` and nothing else; see [Re-saves alone](#re-saves-alone))
 | `geometry.json` | per component: geometry, mass properties, instances; per flight configuration: active stages, motors, reference values, bounds, the transform of every active instance |
 | `mass.json` | per flight configuration: the STRUCTURE, LAUNCH, BURNOUT and MOTOR rigid bodies of `MassCalculator` and its CM analysis |
 | `aero.json` | per flight configuration: CP/CNα, total forces and the per-component force analysis of `BarrowmanCalculator` at 25 flight conditions, worst CP per Mach number, geometry warnings |
+| `figure.json` | what OpenRocket's 2D rocket figure (`RocketFigure`) draws of the selected flight configuration in five views: the subject bounds, the shapes of every instance with their display order, and the motors |
 | `sim_<NN>_<name>.json` | one simulation: options, what the harness changed, extensions, result, summary values, warnings, and per branch the columns, events and extremes |
 | `sim_<NN>_<name>_branch<i>.csv.gz` | the full time series of branch `i` of that simulation |
 | `stable/sim_<NN>_<name>.json`, `stable/sim_<NN>_<name>_branch<i>.csv.gz` | the stable-step set: the same simulation run with a time step of 0.01 s and nothing else changed, in the same format. The test rockets have both files; the example designs have the documents alone, without the time series (see [How OpenRocket is run](#how-openrocket-is-run)) |
@@ -76,9 +85,9 @@ file-system safe the same way as the directory names.
   `PreferencesForTesting` answer 0, `false` or `null` to most queries; that is the environment
   OpenRocket's own unit tests (and their pinned values) use.
 - **Order**, per input: re-save; settle the automatic dimensions (below); `geometry.json`;
-  `mass.json`; `aero.json`; the simulations. Per-configuration values are computed with that
-  configuration selected (`Rocket.setSelectedConfiguration`, as the simulation engine does for its
-  private copy), and the original selection is restored afterwards. Component-level values of
+  `mass.json`; `aero.json`; `figure.json`; the simulations. Per-configuration values are computed
+  with that configuration selected (`Rocket.setSelectedConfiguration`, as the simulation engine does
+  for its private copy), and the original selection is restored afterwards. Component-level values of
   `geometry.json` are taken with the document's own selected configuration.
 - **Settled automatic dimensions** (`AutomaticDimensions`): OpenRocket computes automatic
   dimensions lazily and stores them in the component. `BodyTube.getOuterRadius()` (auto radius) and
@@ -136,8 +145,9 @@ file-system safe the same way as the directory names.
   - In a pass of its own (`GoldenDumper.Pass.STABLE`), after every file of the input has been
     written: the UUID sequence is reseeded from the input's name, the rocket is built and the
     document set up again (an example design is loaded again), and the default pass is repeated
-    call by call: the re-save, the settling of the automatic dimensions, the geometry, mass and
-    aerodynamic dumps, then the simulations in the same order, each made reproducible as before.
+    call by call: the re-save, the settling of the automatic dimensions, the geometry, mass,
+    aerodynamic and figure dumps, then the simulations in the same order, each made reproducible as
+    before.
     So a stable simulation meets the same components with the same ids in the same state as its
     default-step simulation, and its `flightConfiguration.id` is the one of `geometry.json`.
   - The stable pass writes only the simulations. Everything else it would write it compares with
@@ -199,7 +209,7 @@ file-system safe the same way as the directory names.
 Conventions for every JSON file:
 
 - Every file starts with `"schema"` (`"manifest"`, `"geometry"`, `"mass"`, `"aero"`,
-  `"simulation"`), `"schemaVersion"` (currently 1, `GoldenDumper.SCHEMA_VERSION` and
+  `"figure"`, `"simulation"`), `"schemaVersion"` (currently 1, `GoldenDumper.SCHEMA_VERSION` and
   `kGoldenSchemaVersion` in `GoldenData.h`) and, except the manifest, `"input"` (the input's name).
   The version is raised when a field changes its meaning or disappears, not for an addition: the
   stable-step set added files, manifest entries and two keys of `harness` in its own files, and
@@ -251,7 +261,7 @@ with `UUID_SALT`) or `lastBitPerturbation` (made with `LAST_BIT`: the pattern):
 `tolerances` (below) and `inputs`: per input its `name`, `kind` (`example` or `testrocket`),
 `source` (the `data/examples/` file, or the TestRockets method), `sourceSha256` (example files;
 `GoldenSchema.ManifestListsEveryInput` holds the files of `data/examples/` against it),
-the paths of `geometry`, `mass`, `aero` and `resave`, `simulations` (`name`, `json`,
+the paths of `geometry`, `mass`, `aero`, `resave` and `figure`, `simulations` (`name`, `json`,
 `branches`: the CSV files) and, for an input with a stable-step set, `stableSimulations`: the same
 simulations in the same order with their files in `<input>/stable/` (entries of the same shape,
 with an empty `branches` in a set without time series; an input without the set has no such key).
@@ -359,6 +369,95 @@ damping geometry of the active components across configurations):
   golden `theta` is an equally bad direction for the port (`compareWorstTheta()` in
   `tests/core/goldens/GoldenDesign.h`, tested in `aero_golden_tests.cpp`), but not which of
   several equally bad directions is found.
+
+### figure.json
+
+What OpenRocket's 2D rocket figure draws of the design (`FigureDumper`): the figure of the rocket's
+selected flight configuration, as `info.openrocket.swing.gui.scalefigure.RocketFigure` computes it
+before it paints, in the figure's coordinates (metres, y up, before the projection to pixels).
+RocketFigure itself needs Swing (its preferences and a component), so the harness replicates its
+geometry half line by line: `updateSubjectDimensions()`, `updateShapes()` with
+`addShapesFromInstanceEntries()` and `addThisShape()`, and the shapes `drawMotors()` fills. The shapes
+themselves come from OpenRocket's own shape providers, the 20 classes of
+`swing/src/main/java/info/openrocket/swing/gui/rocketfigure` (which import nothing but the core,
+`java.awt.geom` and `java.util`), compiled read-only by `build.gradle` together with their service
+registration (`swing/src/main/resources/META-INF/services/...RocketComponentShapeService`) and asked
+through `RocketComponentShapeProvider` as RocketFigure asks them; `generate.sh` checks those files of
+the checkout as it checks the core's. The figure is dumped after `aero.json` and changes nothing in
+the design (with it added, every other file of `tests/data/goldens` but `manifest.json`, which lists
+it, is byte-identical to before); the stable pass checks it byte for byte like the other design
+documents.
+
+- `configuration`: the selected configuration's header (`index`, `id`, `isDefault`, `name`, as in the
+  other documents); `showMarkers`: RocketFigure's preference "only show pod set/booster markers when
+  selected" (`isShowMarkers()`), false as in a new installation, so every pod set and booster set
+  draws its marker; `selection`: the paths of the selected components, none.
+- `views`, five: the side, top and back views at rotation 0, and the side view rotated about the
+  rocket's axis by π/6 (30°, the first angle the rotation control snaps to) and by 5π/4 (225°: sine
+  and cosine both negative, the rocket seen from below and behind). Each has `view` (`side`, `top`,
+  `back`), `rotation` (radians), `figureRotation` (`getFigureRotation()`: `rotate_x(rotation)`, in
+  the top view applied after `rotate_x(-π/2)`; a transformation as in `geometry.json`), which every
+  instance's transformation (`figureRotation` applied after its `InstanceContext`'s, those of
+  `geometry.json`) and the motors go through, `subjectBounds` (`[x, y, width, height]`:
+  `(min x, -maxR, length, 2 maxR)` in the side and top views, `(-maxR, -maxR, 2 maxR, 2 maxR)` in
+  the back view, maxR the larger `Math.hypot(y, z)` of the two corners of the configuration's
+  bounding box), `instances` and `motors`.
+- `instances`: every instance RocketFigure asks shapes for (the active instances, then the extra
+  render instances, but those of the rocket and of plain stages, which `addThisShape()` skips), each
+  with `path`, `extraRender`, `context` (its index among the component's `InstanceContext`s),
+  `instanceNumber`, `displayOrder` (`getDisplayOrder_side()` in the side and top views,
+  `getDisplayOrder_back()` in the back view; RocketFigure draws the highest first, so the lowest
+  ends on top), `color` (the component's `getColor()` as `[r, g, b, a]`, or null) and `lineStyle`
+  (`getLineStyle()` by name, or null), which every shape of the instance carries but the invisible
+  ones, and `shapes` in the provider's order.
+- `motors`: for every active motor whose mount is visible, at each of the mount's
+  `getComponentLocations()`, `mount` (path), `location` (the index) and `shape` (a `rect` from the
+  front of the motor, its length long and its diameter high, in the side and top views; an
+  `ellipse` of its diameter in the back view).
+- A shape is `{"type", its parameters, "visible"}`: `rect` and `ellipse` with `frame` (`[x, y,
+  width, height]`), `roundRect` with `frame` and `arc` (`[arc width, arc height]`, full diameters as
+  Java keeps them), `arc` with `frame`, `angles` (`[start, extent]` in degrees) and `arcType` (`open`,
+  `chord`, `pie`), `line` with `points` (`[x1, y1, x2, y2]`), and `path` with `precision` (`float`
+  for a `Path2D.Float`: fin outlines, tabs and roots, conical transitions, the fins' back views;
+  `double` for a `Path2D.Double`, which `AffineTransform.createTransformedShape` makes of a rotated
+  rail button too), `winding` (`nonZero` or `evenOdd`), `segments` (the letters of its
+  `PathIterator`'s segments, M, L, Q, C and Z, a run of one letter written as the letter and its
+  length: `"ML182Z"` is a move, 182 lines and a close) and `coordinates` (the x and y of every point
+  of every segment in their order: one point for M and L, two for Q, three for C, none for Z; a
+  `Path2D.Float`'s floats written as the doubles they are). `visible` is false for a shape the
+  provider gives the colour `ORColor.INVISIBLE`: the selection areas of rail buttons and of the pod
+  set and booster set markers. These six classes are all the providers make; any other fails the
+  dump.
+- Orders. RocketFigure keeps its shapes in a `PriorityQueue` ordered by display order alone, fed from
+  `InstanceMap`s, which are hash maps (keyed by components, which hash by their ids), and
+  `drawMotors()` iterates `getActiveMotors()`, a hash map too: neither order is reproducible, and
+  neither is kept. The instances are written in the tree order of their components, the active
+  ones before the extra render ones, a component's in context order; the motors in the tree order
+  of their mounts, a mount's by location. Sorted the same way, a port's instances have to be these
+  one for one, which gives every display order the same set of instances in both.
+- Not dumped: the figure with the markers preference on or with a selection (the pin tests of
+  `tests/core/figure`, made with probes, cover those), the other flight configurations, carets, the
+  info overlay and the 3D views. No golden design has a deployment charge, the one shape OpenRocket
+  draws at random (an unseeded `java.util.Random` on every paint).
+- Size: 3.0 MB for the 29 designs (238 KB for "Pods--airframes and winglets", the largest; 4 KB for
+  the two body tubes of "simple-2-stage"), every number written with `Double.toString` as in every
+  other file, so a float path keeps its exact floats.
+
+How QtRocket compares them: `tests/core/goldens/figure_golden_tests.cpp` builds
+`RocketFigureGeometry` (`figure/`) for the selected configuration of each design, loaded and settled
+as the other golden tests load it (`GoldenExamples.h`; the test rockets built by their makers and
+settled), in each view, and compares the subject bounds, the instances (QtRocket's drawing order,
+display order descending with ties in the order above, is checked first) and the motors. A value is
+compared exactly where the arithmetic allows it: when QtRocket's figure rotation and the instance's
+`InstanceContext` transformation are Java's bit for bit (`figureRotation` and `geometry.json`) and the
+component's shapes use nothing but `+ - * /` and `sqrt`; otherwise within 1e-14 relative to
+max(1, |value|), a float path within 2^-23. On Linux 5201 of the 5472 shapes and all 280 motors are
+compared exactly (the figure rotations and the instance transformations are Java's there); the 271
+others are those of the five rail buttons, the seven canted fin sets, the elliptical fin set and
+the two power nose cones, of which all but six are Java's bit for bit as well: six shapes of the
+two instances of the rail button of "Parallel booster staging" (angle offset -π/2) differ from
+Java's in the last bit, by 4e-19 m. The subject bounds go through `Math.hypot`, fdlibm's, and are compared within 1e-14. The deployment
+charge's rays (none in the goldens) would be compared by their number and range only.
 
 ### sim_&lt;NN&gt;_&lt;name&gt;.json and the branch CSV files
 
@@ -774,14 +873,16 @@ tools/openrocket-goldens/generate.sh --only example-a-simple-model-rocket   # de
 `generate.sh` checks the checkout and refuses it (`ALLOW_DIRTY=1` overrides, and `manifest.json`
 then records `"dirty": true`) when it has modified tracked files, untracked or ignored files among
 what the build compiles or packages (`core/src/main/java`, `core/src/main/resources`,
-`core/build.gradle`, `core/libs`, `ServicesForTesting.java`; the two ignored copies OpenRocket's own
+`core/build.gradle`, `core/libs`, `ServicesForTesting.java`, the Swing module's
+`gui/rocketfigure` sources and their service registration; the two ignored copies OpenRocket's own
 build leaves in `core/src/main/resources`, `ReleaseNotes.md` and the preset `database/`, are
 excluded from the class path by `build.gradle` and not read), or when the preset submodule is not
 initialized at the commit the superproject records or has local changes. It warns when the
 checkout's commit differs from the one in the existing `manifest.json`. It then records
 `git rev-parse HEAD` and the submodule's recorded commit in `manifest.json`, compiles OpenRocket's
-`core` (and `ServicesForTesting`) into `tools/openrocket-goldens/build/`, runs `GoldenDumper` with a
-fixed locale and time zone, and prints the size of the data. A run takes a few minutes. It deletes
+`core` (and `ServicesForTesting` and the figure's shape providers) into
+`tools/openrocket-goldens/build/`, runs `GoldenDumper` with a fixed locale and time zone, and prints
+the size of the data. A run takes a few minutes. It deletes
 and rewrites only the `example-*`, `testrocket-*`, `legacy-*` and `coverage-*` directories and
 `manifest.json`.
 
@@ -861,9 +962,9 @@ done
 ```
 
 `manifest.json` also records `javaVersion`, which changes with every JDK update. The committed data
-is about 50 MB (JSON 9.4 MB, time series 37.7 MB, re-saved designs 1.2 MB: those of the examples and
-the test rockets 0.7 MB, of the legacy files 0.4 MB, of the coverage documents 0.03 MB; the re-saves
-with simulation data 0.4 MB), of which the
+is about 53 MB (JSON 12.4 MB, of which the figures 3.0 MB; time series 37.7 MB; re-saved designs
+1.2 MB: those of the examples and the test rockets 0.7 MB, of the legacy files 0.4 MB, of the
+coverage documents 0.03 MB; the re-saves with simulation data 0.4 MB), of which the
 stable-step set of the test rockets is 13.4 MB (103 files: JSON 0.6 MB, time series 12.8 MB) and
 that of the example designs 0.9 MB (54 documents); `motors.json`, which the motor harness writes,
 is another 1.5 MB.
@@ -977,6 +1078,45 @@ before its check (`[interop] <file>`), OpenRocket logs four errors "attempt to a
 with their stack traces, all while it loads legacy inputs (`v1.0-roll-stabilized.ork`,
 `v1.4-roll-stabilized.ork`, twice `v1.6-boosted-dart.ork`: an empty motor of a flight configuration),
 none for a QtRocket save. The whole check takes about 25 s.
+
+## Figure pin tables
+
+`figure-pins/generate.sh` writes the three generated tables of the figure's shape tests in
+`tests/core/figure`, which pin what OpenRocket's shape providers return for single instances
+(`figure.json` holds whole figures): `BodyShapePins.h` (body tubes, transitions and nose cones,
+rings, launch lugs, tube fins, `EmptyShapes`), `FinMassShapePins.h` (fin sets, mass components,
+recovery devices, shock cords, rail buttons, the markers of pod sets, booster sets and the rocket) and
+`FigureGeometryPins.h` (the figure of whole designs, also with the markers preference on and a pod set
+or booster set selected, which `figure.json` does not dump; a rocket with booster sets without
+children, the only extra render instances; a new design). The probes were written by parts F2 and F3
+of milestone 2 (run 1); the selection of what is pinned is in the two generators. The script needs
+what `generate.sh` needs (Java 17, the OpenRocket checkout), builds the harness as `generate.sh` does,
+compiles the two probes against its classes (and the Swing module's self-contained `PrintUnit`, of
+which `BodyShapesProbe` asks the print scale) into `build/figure-pins`, runs them headless on the
+examples of `data/examples` and the test rockets (with no component presets, unlike the goldens:
+three examples then name presets OpenRocket cannot find), with every double written by
+`Double.toHexString` into `build/figure-pins/*.txt`, and writes the headers through the generators
+(`PINS_OUT` writes them into another directory). The dumps are the same on every run but for the rays
+of the hand-built deployment charge (an unseeded `java.util.Random`), which the generators leave out:
+the headers are byte for byte the same. They were moved here from the probes' scratch directories in
+part F4; the dumps were then byte-identical to the probes' own, which ran against OpenRocket's own
+build of its core and Swing classes, but for those rays.
+
+The script checks the checkout as `generate.sh` does, among what the harness compiles and the probes
+read (`core/src/main/java`, `core/src/main/resources`, `core/build.gradle`, `core/libs`,
+`ServicesForTesting.java`, `swing/.../gui/rocketfigure`, its `RocketComponentShapeService` service
+file and `swing/.../gui/print/PrintUnit.java`; not the preset submodule, since the probes load no
+presets): it refuses a modified tracked file or an untracked or ignored file there unless
+`ALLOW_DIRTY=1`. Each header records the commit and whether the
+checkout had local changes, in its head comment and as `kOpenRocketCommit` and `kOpenRocketDirty`;
+`FigurePinsGolden` (`tests/core/figure/figure_pins_provenance_tests.cpp`) requires the commit of
+`manifest.json` and a clean checkout. The probes run with a fresh `java.util.prefs` store as the
+other tools do (`java.util.prefs.userRoot`, which only Linux honours) and with `openrocket.debug.prefs`,
+which keeps OpenRocket off the user's own preferences on every system (the node `OpenRocket-debug`,
+cleared when `SwingPreferences` starts; `TranslatorProvider` reads no locale from it). The hand-built
+cases end with three boundary cases that no design reaches: a ring wall of exactly 0.0012 m, a nose
+cone whose samples lie just over 1 mm apart, and a canted fin set with a tab shorter than the root's
+divisions (its back view's search for the lowest tab point passes over points of equal height).
 
 ## CSV export fixtures
 

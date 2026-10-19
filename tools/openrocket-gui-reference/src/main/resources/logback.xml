@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OpenRocket logs through slf4j/logback; the tool only wants its warnings and errors. -->
+<configuration>
+	<appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+		<target>System.err</target>
+		<encoder>
+			<pattern>[openrocket] %-5level %logger{0}: %msg%n</pattern>
+		</encoder>
+	</appender>
+	<!-- The models of the configuration dialogs register with and unregister from the components more
+	     than once; the rocket's listener bookkeeping warns about each, in OpenRocket's own GUI too. -->
+	<logger name="info.openrocket.core.rocketcomponent.Rocket" level="ERROR"/>
+	<root level="WARN">
+		<appender-ref ref="STDERR"/>
+	</root>
+</configuration>

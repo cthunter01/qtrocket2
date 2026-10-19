@@ -21,7 +21,9 @@ add_library(QtRocket_test_support STATIC
     goldens/GoldenData.cpp
     goldens/GoldenDesign.cpp
     goldens/GoldenExamples.cpp
+    goldens/GoldenFigure.cpp
     goldens/GoldenGeometry.cpp
+    goldens/GoldenGuiReference.cpp
     goldens/GoldenMismatches.cpp
     goldens/GoldenResaves.cpp
     goldens/GoldenSettings.cpp
@@ -413,6 +415,38 @@ add_executable(QtRocket_core_tests
     file/ZipFileAttachmentFactoryTests.cpp
     file/ZipFileAttachmentTests.cpp
     file/ZipInputStreamTests.cpp
+    figure/AffineTransform2DTests.cpp
+    figure/body_shapes_design_tests.cpp
+    figure/BodyTubeShapesTests.cpp
+    figure/ComponentAssemblyShapesTests.cpp
+    figure/ComponentShapeTests.cpp
+    figure/EmptyShapesTests.cpp
+    figure/figure_pins_provenance_tests.cpp
+    figure/FigureArcTests.cpp
+    figure/FigureEllipseTests.cpp
+    figure/FigureLineTests.cpp
+    figure/FigurePathTests.cpp
+    figure/FigureRectTests.cpp
+    figure/FigureRoundRectTests.cpp
+    figure/FigureShapeTests.cpp
+    figure/FigureViewTests.cpp
+    figure/fin_mass_shapes_design_tests.cpp
+    figure/FinSetShapesTests.cpp
+    figure/LaunchLugShapesTests.cpp
+    figure/MassComponentShapesTests.cpp
+    figure/ParachuteShapesTests.cpp
+    figure/PathSegmentTests.cpp
+    figure/RailButtonShapesTests.cpp
+    figure/RingComponentShapesTests.cpp
+    figure/rocket_figure_geometry_design_tests.cpp
+    figure/RocketComponentShapeProviderTests.cpp
+    figure/RocketFigureGeometryTests.cpp
+    figure/ShockCordShapesTests.cpp
+    figure/StreamerShapesTests.cpp
+    figure/SymmetricComponentShapesTests.cpp
+    figure/TransitionShapesTests.cpp
+    figure/TubeFinSetShapesTests.cpp
+    figure/TubeShapesTests.cpp
     cli/cli_golden_tests.cpp
     cli/CliArgumentsTests.cpp
     cli/CliOutputTests.cpp
@@ -427,7 +461,9 @@ add_executable(QtRocket_core_tests
     goldens/example_design_golden_tests.cpp
     goldens/example_simulation_golden_tests.cpp
     goldens/example_simulation_stable_golden_tests.cpp
+    goldens/figure_golden_tests.cpp
     goldens/fin_geometry_golden_tests.cpp
+    goldens/from_scratch_reference_golden_tests.cpp
     goldens/GoldenExamplesTests.cpp
     goldens/goldens_schema_tests.cpp
     goldens/motors_golden_tests.cpp
