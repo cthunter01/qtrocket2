@@ -383,6 +383,7 @@ add_executable(QtRocket_core_tests
     figure/ComponentAssemblyShapesTests.cpp
     figure/ComponentShapeTests.cpp
     figure/EmptyShapesTests.cpp
+    figure/figure_pins_provenance_tests.cpp
     figure/FigureArcTests.cpp
     figure/FigureEllipseTests.cpp
     figure/FigureLineTests.cpp

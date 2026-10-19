@@ -6,7 +6,10 @@
 //
 // - the scenario is well formed, and state.json is the record of exactly this scenario (the
 //   SHA-256 of scenario.json, a record per step of the same kind), made with the OpenRocket of
-//   the other goldens; every record's tree digest is the digest of its tree;
+//   the other goldens; every record's tree digest is the digest of its tree, and every step that
+//   sets a field changed the tree (a value the field already had would check nothing);
+// - the component paths the exit test resolves (GoldenGuiReference.h) name the components of the
+//   records in QtRocket's load, and a later child of a name by its occurrence;
 // - QtRocket loads the saved design (rocket.ork) without warnings, into the state OpenRocket's
 //   own load gives (designFileState() of DesignFileState.h, line for line, the component ids of
 //   the file included), with OpenRocket's masses, centres of mass and length;
@@ -18,8 +21,10 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -33,6 +38,12 @@
 #include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/material/MaterialStorage.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/AxialStage.h"
+#include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/Parachute.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Sha256.h"
@@ -48,17 +59,29 @@
 namespace
 {
 
+using QtRocket::AxialStage;
+using QtRocket::BodyTube;
+using QtRocket::ErrorCode;
 using QtRocket::GeneralRocketLoader;
 using QtRocket::LoadedDocument;
+using QtRocket::Parachute;
 using QtRocket::Result;
+using QtRocket::Rocket;
+using QtRocket::RocketComponent;
+using QtRocket::ShockCord;
 using QtRocket::ThrustCurveMotorSetDatabase;
 using QtRocket::Uuid;
 using QtRocket::Test::DefaultUnitsGuard;
 using QtRocket::Test::DesignFileEnvironment;
+using QtRocket::Test::GuiComponentPath;
+using QtRocket::Test::guiComponentPathOf;
+using QtRocket::Test::guiComponentPathText;
 using QtRocket::Test::GuiReference;
 using QtRocket::Test::GuiScenario;
 using QtRocket::Test::GuiStepKind;
 using QtRocket::Test::guiStepName;
+using QtRocket::Test::GuiStepRecord;
+using QtRocket::Test::resolveGuiComponentPath;
 
 using Presets = DesignFileEnvironment::Presets;
 
@@ -211,6 +234,93 @@ constexpr std::array kSaveAndReloadChanges{
     return misplaced;
 }
 
+/// The field steps (type, choose, check, editPoint, insertPoint) whose record has the tree digest
+/// of the record before, by index.
+[[nodiscard]] std::vector<std::size_t> fieldStepsThatChangeNothing(const GuiReference& reference)
+{
+    std::vector<std::size_t> unchanged;
+    for (std::size_t at = 1; at < reference.steps.size(); at++)
+    {
+        const GuiStepRecord& record = reference.steps[at];
+        const bool field = record.kind == GuiStepKind::TYPE || record.kind == GuiStepKind::CHOOSE ||
+                           record.kind == GuiStepKind::CHECK ||
+                           record.kind == GuiStepKind::EDIT_POINT ||
+                           record.kind == GuiStepKind::INSERT_POINT;
+        if (field && record.treeSha256 == reference.steps[at - 1].treeSha256)
+        {
+            unchanged.push_back(record.index);
+        }
+    }
+    return unchanged;
+}
+
+/// The component paths of the records: the selections, and the components of the open dialogs.
+[[nodiscard]] std::vector<GuiComponentPath> recordedPaths(const GuiReference& reference)
+{
+    std::vector<GuiComponentPath> paths;
+    for (const GuiStepRecord& record : reference.steps)
+    {
+        paths.insert(paths.end(), record.selection.begin(), record.selection.end());
+        if (record.windowComponent)
+        {
+            paths.push_back(*record.windowComponent);
+        }
+    }
+    return paths;
+}
+
+/// What resolving @p paths in a rocket gave: how many named a component, and those whose
+/// component has another path (as text).
+struct PathRoundTrips
+{
+    std::size_t              resolved{0};
+    std::vector<std::string> wrong;
+};
+
+/// Resolves each of @p paths in @p rocket and takes the path of the component it names; the paths
+/// that name none (a component of an earlier tree) are skipped.
+[[nodiscard]] PathRoundTrips roundTrips(const Rocket&                     rocket,
+                                        std::span<const GuiComponentPath> paths)
+{
+    PathRoundTrips trips;
+    for (const GuiComponentPath& path : paths)
+    {
+        const Result<const RocketComponent*> component = resolveGuiComponentPath(rocket, path);
+        if (!component)
+        {
+            continue;
+        }
+        trips.resolved++;
+        if (guiComponentPathOf(**component) != path)
+        {
+            trips.wrong.push_back(
+                std::format("{} -> {}", guiComponentPathText(path),
+                            guiComponentPathText(guiComponentPathOf(**component))));
+        }
+    }
+    return trips;
+}
+
+/// The components of @p rocket (the rocket included) whose path does not resolve to them, by
+/// name.
+[[nodiscard]] std::vector<std::string> componentsNotNamedByTheirPath(const Rocket& rocket)
+{
+    std::vector<const RocketComponent*> components = rocket.getAllChildren();
+    components.push_back(&rocket);
+    std::vector<std::string> wrong;
+    for (const RocketComponent* component : components)
+    {
+        const GuiComponentPath               path     = guiComponentPathOf(*component);
+        const Result<const RocketComponent*> resolved = resolveGuiComponentPath(rocket, path);
+        if (!resolved || *resolved != component)
+        {
+            wrong.push_back(
+                std::format("{} ({})", component->getName(), guiComponentPathText(path)));
+        }
+    }
+    return wrong;
+}
+
 /// The lines of @p state that are warnings ("W <text>").
 [[nodiscard]] std::vector<std::string> warningLinesOf(const std::vector<std::string>& state)
 {
@@ -281,6 +391,92 @@ TEST(FromScratchReferenceGolden, EveryTreeDigestIsTheDigestOfItsTree)
     EXPECT_TRUE(reference->steps.back().tree.has_value());
     EXPECT_TRUE(reference->steps.back().saved);
     EXPECT_EQ(wrongDigests(*reference), std::vector<std::string>{});
+}
+
+TEST(FromScratchReferenceGolden, EveryFieldStepChangesTheTree)
+{
+    // A step that gives a field the value it already has would also pass a binding that does
+    // nothing; the tool refuses such a scenario, and this guards the committed record.
+    const Result<GuiReference> reference = loadReference();
+    ASSERT_TRUE(reference.has_value()) << reference.error().toString();
+    EXPECT_EQ(fieldStepsThatChangeNothing(*reference), std::vector<std::size_t>{});
+}
+
+// ======================================================================== the component paths
+
+TEST(FromScratchReferenceGolden, TheRecordedPathsNameTheirComponentsInTheReload)
+{
+    const Result<GuiReference> reference = loadReference();
+    ASSERT_TRUE(reference.has_value()) << reference.error().toString();
+    ASSERT_FALSE(reference->steps.empty());
+    GuiEnvironment               environment;
+    const DefaultUnitsGuard      units;
+    const GeneralRocketLoader    loader(environment.get().context());
+    const Result<LoadedDocument> loaded = loader.load(referenceFile());
+    ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
+    const Rocket& rocket = loaded->document->getRocket();
+
+    // After the save the selection is the rocket (Save as selects it), the empty path.
+    const std::vector<GuiComponentPath>& last = reference->steps.back().selection;
+    EXPECT_EQ(last, std::vector<GuiComponentPath>{GuiComponentPath{}});
+    const PathRoundTrips lastTrips = roundTrips(rocket, last);
+    EXPECT_EQ(lastTrips.resolved, last.size());
+    EXPECT_EQ(lastTrips.wrong, std::vector<std::string>{});
+
+    // The selections and dialog components of every record that are still in the saved tree
+    // (not the trapezoidal fin set before its conversion, nor the copy before its renaming).
+    const std::vector<GuiComponentPath> paths = recordedPaths(*reference);
+    const PathRoundTrips                trips = roundTrips(rocket, paths);
+    EXPECT_GT(trips.resolved, paths.size() / 2);
+    EXPECT_EQ(trips.wrong, std::vector<std::string>{});
+    EXPECT_EQ(componentsNotNamedByTheirPath(rocket), std::vector<std::string>{});
+}
+
+/// The error code of @p result, nullopt when it has a value.
+[[nodiscard]] std::optional<ErrorCode> errorCodeOf(const Result<const RocketComponent*>& result)
+{
+    return result ? std::nullopt : std::optional<ErrorCode>{result.error().code};
+}
+
+TEST(FromScratchReferenceGolden, AnOccurrenceNamesALaterChildOfTheSameName)
+{
+    // Children of one name, as the scenario's paste makes them: two parachutes, and a shock cord
+    // of that name between them (the occurrence counts names, whatever the class).
+    Rocket rocket;
+    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
+    stage.setName("Sustainer");
+    auto& tube = stage.addChild(std::make_unique<BodyTube>());
+    tube.setName("Body Tube");
+    auto& first = tube.addChild(std::make_unique<Parachute>());
+    first.setName("Parachute");
+    tube.addChild(std::make_unique<ShockCord>()).setName("Parachute");
+    auto& copy = tube.addChild(std::make_unique<Parachute>());
+    copy.setName("Parachute");
+
+    const GuiComponentPath third{{.name = "Sustainer", .occurrence = 1},
+                                 {.name = "Body Tube", .occurrence = 1},
+                                 {.name = "Parachute", .occurrence = 3}};
+    EXPECT_EQ(resolveGuiComponentPath(rocket, third).value_or(nullptr), &copy);
+    EXPECT_EQ(guiComponentPathOf(copy), third);
+    EXPECT_EQ(guiComponentPathText(third), "Sustainer/Body Tube/Parachute#3");
+
+    // An element without an occurrence is the first child of its name.
+    const GuiComponentPath plain{
+        {.name = "Sustainer"}, {.name = "Body Tube"}, {.name = "Parachute"}};
+    EXPECT_EQ(resolveGuiComponentPath(rocket, plain).value_or(nullptr), &first);
+    EXPECT_EQ(guiComponentPathOf(first), plain);
+    EXPECT_EQ(guiComponentPathText(plain), "Sustainer/Body Tube/Parachute");
+
+    // No fourth child of the name, no child of another name; the rocket is the empty path.
+    GuiComponentPath fourth  = third;
+    fourth.back().occurrence = 4;
+    EXPECT_EQ(errorCodeOf(resolveGuiComponentPath(rocket, fourth)), ErrorCode::NOT_FOUND);
+    const GuiComponentPath missing{{.name = "Sustainer"}, {.name = "Nose cone"}};
+    EXPECT_EQ(errorCodeOf(resolveGuiComponentPath(rocket, missing)), ErrorCode::NOT_FOUND);
+    EXPECT_EQ(resolveGuiComponentPath(rocket, {}).value_or(nullptr), &rocket);
+    EXPECT_EQ(guiComponentPathOf(rocket), GuiComponentPath{});
+    EXPECT_EQ(guiComponentPathText({}), "(rocket)");
+    EXPECT_EQ(componentsNotNamedByTheirPath(rocket), std::vector<std::string>{});
 }
 
 // ================================================================================== the design

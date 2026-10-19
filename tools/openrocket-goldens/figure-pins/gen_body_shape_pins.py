@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes tests/core/figure/BodyShapePins.h from BodyShapesProbe.java's output.
 
-usage: gen_body_shape_pins.py DUMP OUT_HEADER
+usage: gen_body_shape_pins.py DUMP OUT_HEADER OPENROCKET_COMMIT DIRTY
 """
 import math
 import sys
@@ -249,7 +249,37 @@ namespace QtRocket::Test::BodyShapePins
 """
 
 
+def provenance_args(args):
+    """The OpenRocket commit and the dirty flag of the command line (generate.sh passes them)."""
+    commit, dirty = args
+    if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
+        sys.exit(f"not a commit: {commit}")
+    if dirty not in ("true", "false"):
+        sys.exit(f"dirty is true or false, not {dirty}")
+    return commit, dirty == "true"
+
+
+def with_provenance(header, commit, dirty):
+    """@p header with the OpenRocket commit the pins come from: a comment line and the constants
+    kOpenRocketCommit and kOpenRocketDirty (inside the clang-format off region)."""
+    checkout = "a checkout with local changes (ALLOW_DIRTY=1)" if dirty else "a clean checkout"
+    paragraph_end = "\n\n#include <array>\n"
+    assert header.count(paragraph_end) == 1
+    header = header.replace(
+        paragraph_end,
+        f"\n//\n// From OpenRocket {commit}, {checkout}.\n\n#include <array>\n#include <string_view>\n")
+    nolint = "// NOLINTBEGIN(modernize-use-std-numbers): Java's values, of which some lie near a constant\n"
+    assert header.endswith(nolint)
+    return header + (
+        "\n/// The OpenRocket commit the pins come from, and whether its checkout had local changes.\n"
+        f'inline constexpr std::string_view kOpenRocketCommit = "{commit}";\n'
+        f"inline constexpr bool kOpenRocketDirty = {'true' if dirty else 'false'};\n")
+
+
 def main():
+    if len(sys.argv) != 5:
+        sys.exit(__doc__)
+    commit, dirty = provenance_args(sys.argv[3:])
     designs, hand = parse(sys.argv[1])
     w = Writer()
     design_lines = []
@@ -278,7 +308,7 @@ def main():
             f'HandBuiltPin{{"{r["name"]}", {VIEWS[r["view"]]}, {lit(r["scale"])},\n'
             f"        {w.transform_name(r['transform'])}, {shapes}}}"
         )
-    out = [HEADER]
+    out = [with_provenance(HEADER, commit, dirty)]
     out.extend(w.value_lines)
     out.append("")
     out.extend(w.shape_lines)

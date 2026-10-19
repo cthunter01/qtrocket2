@@ -54,7 +54,7 @@
                 <position type="bottom">0.0</position>
                 <finish>normal</finish>
                 <material type="bulk" density="170.0" shearModulus="2.3E8" group="Woods">Balsa</material>
-                <thickness>0.003</thickness>
+                <thickness>0.0025</thickness>
                 <crosssection>rounded</crosssection>
                 <cant>0.0</cant>
                 <filletradius>0.0</filletradius>
@@ -94,8 +94,8 @@
                 <id>a0a5556d-b1c9-4a47-b06f-a53d8f912cab</id>
                 <instancecount>1</instancecount>
                 <instanceseparation>0.0</instanceseparation>
-                <axialoffset method="bottom">-0.06</axialoffset>
-                <position type="bottom">-0.06</position>
+                <axialoffset method="top">0.237</axialoffset>
+                <position type="top">0.237</position>
                 <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
                 <length>0.003</length>
                 <radialposition>0.0</radialposition>
@@ -109,8 +109,8 @@
                 <id>f87f5b70-8bc7-4181-b84a-073b2dd75140</id>
                 <instancecount>1</instancecount>
                 <instanceseparation>0.0</instanceseparation>
-                <axialoffset method="bottom">-0.005</axialoffset>
-                <position type="bottom">-0.005</position>
+                <axialoffset method="middle">0.1435</axialoffset>
+                <position type="middle">0.1435</position>
                 <material type="bulk" density="680.0" shearModulus="4.0E8" group="PaperProducts">Cardboard</material>
                 <length>0.003</length>
                 <radialposition>0.0</radialposition>
@@ -133,7 +133,7 @@
                 <deployevent>altitude</deployevent>
                 <deployaltitude>150.0</deployaltitude>
                 <deploydelay>0.0</deploydelay>
-                <diameter>0.3</diameter>
+                <diameter>0.35000000000000003</diameter>
                 <linecount>8</linecount>
                 <linelength>auto</linelength>
                 <linematerial type="line" density="0.0018" group="Elastics">Elastic cord (round 2 mm, 1/16 in)</linematerial>
@@ -157,8 +157,8 @@
                 <id>d5aeda73-1e70-4f0d-bc40-d8b5e5d7c275</id>
                 <instancecount>1</instancecount>
                 <instanceseparation>0.06</instanceseparation>
-                <angleoffset method="relative">180.0</angleoffset>
-                <radialdirection>180.0</radialdirection>
+                <angleoffset method="relative">135.0</angleoffset>
+                <radialdirection>135.0</radialdirection>
                 <axialoffset method="middle">0.0</axialoffset>
                 <position type="middle">0.0</position>
                 <finish>normal</finish>

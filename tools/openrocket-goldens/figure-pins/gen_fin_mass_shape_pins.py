@@ -2,7 +2,7 @@
 """Writes tests/core/figure/FinMassShapePins.h and tests/core/figure/FigureGeometryPins.h from
 FinMassShapesProbe.java's output.
 
-usage: gen_fin_mass_shape_pins.py DUMP OUT_SHAPE_HEADER OUT_GEOMETRY_HEADER
+usage: gen_fin_mass_shape_pins.py DUMP OUT_SHAPE_HEADER OUT_GEOMETRY_HEADER OPENROCKET_COMMIT DIRTY
 """
 import math
 import sys
@@ -360,7 +360,7 @@ namespace QtRocket::Test::FigureGeometryPins
 FOOTER_LINES = ["// NOLINTEND(modernize-use-std-numbers)", "// clang-format on", ""]
 
 
-def write_shape_header(designs, hand, out_path):
+def write_shape_header(designs, hand, out_path, commit, dirty):
     w = Writer()
     design_lines = []
     design_entries = []
@@ -394,7 +394,7 @@ def write_shape_header(designs, hand, out_path):
             f'HandBuiltPin{{"{r["name"]}", {VIEWS[r["view"]]}, 1.0,\n'
             f"        {w.transform_name(r['transform'])}, {name}}}"
         )
-    out = [SHAPE_HEADER]
+    out = [with_provenance(SHAPE_HEADER, commit, dirty)]
     out.extend(w.value_lines)
     out.append("")
     out.extend(w.shape_lines)
@@ -447,7 +447,7 @@ def figure_instances(figure):
     return result
 
 
-def write_geometry_header(geometries, out_path):
+def write_geometry_header(geometries, out_path, commit, dirty):
     blocks = []
     entries = []
     for source, name, all_views, markers in GEOMETRY_DESIGNS:
@@ -472,7 +472,7 @@ def write_geometry_header(geometries, out_path):
                 f'FigurePin{{"{source}", "{name}", {VIEWS[g["view"]]}, {lit(g["rotation"])}, '
                 f'{str(g["markers"]).lower()}, {g["selection"]},\n        {array4(g["bounds"])}, {var}Instances, '
                 f'{var}Motors}}')
-    out = [GEOMETRY_HEADER]
+    out = [with_provenance(GEOMETRY_HEADER, commit, dirty)]
     out.extend(blocks)
     out.append("")
     out.append(f"inline constexpr std::array<FigurePin, {len(entries)}> kFigures{{{{")
@@ -485,10 +485,40 @@ def write_geometry_header(geometries, out_path):
         f.write("\n".join(out))
 
 
+def provenance_args(args):
+    """The OpenRocket commit and the dirty flag of the command line (generate.sh passes them)."""
+    commit, dirty = args
+    if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
+        sys.exit(f"not a commit: {commit}")
+    if dirty not in ("true", "false"):
+        sys.exit(f"dirty is true or false, not {dirty}")
+    return commit, dirty == "true"
+
+
+def with_provenance(header, commit, dirty):
+    """@p header with the OpenRocket commit the pins come from: a comment line and the constants
+    kOpenRocketCommit and kOpenRocketDirty (inside the clang-format off region)."""
+    checkout = "a checkout with local changes (ALLOW_DIRTY=1)" if dirty else "a clean checkout"
+    paragraph_end = "\n\n#include <array>\n"
+    assert header.count(paragraph_end) == 1
+    header = header.replace(
+        paragraph_end,
+        f"\n//\n// From OpenRocket {commit}, {checkout}.\n\n#include <array>\n#include <string_view>\n")
+    nolint = "// NOLINTBEGIN(modernize-use-std-numbers): Java's values, of which some lie near a constant\n"
+    assert header.endswith(nolint)
+    return header + (
+        "\n/// The OpenRocket commit the pins come from, and whether its checkout had local changes.\n"
+        f'inline constexpr std::string_view kOpenRocketCommit = "{commit}";\n'
+        f"inline constexpr bool kOpenRocketDirty = {'true' if dirty else 'false'};\n")
+
+
 def main():
+    if len(sys.argv) != 6:
+        sys.exit(__doc__)
+    commit, dirty = provenance_args(sys.argv[4:])
     designs, geometries, hand = parse(sys.argv[1])
-    write_shape_header(designs, hand, sys.argv[2])
-    write_geometry_header(geometries, sys.argv[3])
+    write_shape_header(designs, hand, sys.argv[2], commit, dirty)
+    write_geometry_header(geometries, sys.argv[3], commit, dirty)
 
 
 if __name__ == "__main__":

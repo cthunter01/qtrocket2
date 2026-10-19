@@ -18,8 +18,11 @@
 // Every number is the exact double Java computed (written by Double.toHexString), here in its
 // shortest decimal form; a Path2D.Float's coordinates are the doubles of its floats. A shape whose
 // pin ends in false is invisible (ORColor.INVISIBLE).
+//
+// From OpenRocket 5f164fd0e05d6e188857b0185601293b7a6e9eaf, a clean checkout.
 
 #include <array>
+#include <string_view>
 
 #include "QtRocket/figure/FigureView.h"
 #include "figure/ShapePins.h"
@@ -29,6 +32,10 @@ namespace QtRocket::Test::FinMassShapePins
 
 // clang-format off
 // NOLINTBEGIN(modernize-use-std-numbers): Java's values, of which some lie near a constant
+
+/// The OpenRocket commit the pins come from, and whether its checkout had local changes.
+inline constexpr std::string_view kOpenRocketCommit = "5f164fd0e05d6e188857b0185601293b7a6e9eaf";
+inline constexpr bool kOpenRocketDirty = false;
 
 inline constexpr std::array<double, 6> kValues0{0.117, -0.003, 0.016, 0.006, 0.0042, 0.0042};
 inline constexpr std::array<double, 6> kValues1{
@@ -3450,6 +3457,38 @@ inline constexpr std::array<double, 4> kValues797{
 inline constexpr std::array<double, 4> kValues798{
     -0.022124177182346196, 0.020750741553553175, 0.0048, 0.0048
 };
+inline constexpr std::array<double, 10> kValues799{
+    0.28880515694618225, 0.0, 0.28880515694618225, -0.009999999776482582,
+    0.2907951772212982, -0.009999999776482582, 0.2907951772212982, 0.0,
+    0.28880515694618225, 0.0
+};
+inline constexpr std::array<double, 10> kValues800{
+    -0.002400997094810009, 0.0, -0.002400997094810009, -0.009999999776482582,
+    -0.0026006638072431087, -0.009999999776482582, -0.0026006638072431087, 0.0,
+    -0.002400997094810009, 0.0
+};
+inline constexpr std::array<double, 16> kValues801{
+    -0.002400997094810009, 0.0, -0.0026006638072431087, 0.0,
+    -0.0026006638072431087, -0.009999999776482582, -0.002400997094810009, -0.009999999776482582,
+    -0.005386009346693754, -0.009999999776482582, -0.005585676524788141, -0.009999999776482582,
+    -0.005585676524788141, 0.0, -0.005386009346693754, 0.0
+};
+inline constexpr std::array<double, 10> kValues802{
+    0.13880516588687897, 0.03713163733482361, 0.13880516588687897, 0.029483215883374214,
+    0.14079517126083374, 0.029611844569444656, 0.14079517126083374, 0.0372602678835392,
+    0.13880516588687897, 0.03713163733482361
+};
+inline constexpr std::array<double, 10> kValues803{
+    -0.011897295713424683, 0.03617013990879059, -0.018339471891522408, 0.028521716594696045,
+    -0.018492186442017555, 0.028650345280766487, -0.012050009332597256, 0.03629876673221588,
+    -0.011897295713424683, 0.03617013990879059
+};
+inline constexpr std::array<double, 16> kValues804{
+    -0.011897295713424683, 0.03617013990879059, -0.012050009332597256, 0.03629876673221588,
+    -0.018492186442017555, 0.028650345280766487, -0.018339471891522408, 0.028521716594696045,
+    -0.020622536540031433, 0.030444715172052383, -0.02077524922788143, 0.030573343858122826,
+    -0.014333073049783707, 0.03822176530957222, -0.014180359430611134, 0.03809313848614693
+};
 
 inline constexpr std::array<ShapePin, 4> kShapes0{{
     ShapePin{PinShape::ROUND_RECT, kValues0, ""},
@@ -4822,6 +4861,28 @@ inline constexpr std::array<ShapePin, 6> kShapes248{{
     ShapePin{PinShape::RECT, kValues798, "", false},
 }};
 inline constexpr std::array<ShapePin, 0> kShapes249{};
+inline constexpr std::array<ShapePin, 3> kShapes250{{
+    ShapePin{PinShape::PATH_FLOAT, kValues417, "ML3"},
+    ShapePin{PinShape::PATH_FLOAT, kValues799, "ML4"},
+    ShapePin{PinShape::PATH_FLOAT, kValues419, "ML33"},
+}};
+inline constexpr std::array<ShapePin, 4> kShapes251{{
+    ShapePin{PinShape::PATH_FLOAT, kValues420, "ML3Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues421, "ML5Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues800, "ML4Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues801, "ML7Z"},
+}};
+inline constexpr std::array<ShapePin, 3> kShapes252{{
+    ShapePin{PinShape::PATH_FLOAT, kValues424, "ML3"},
+    ShapePin{PinShape::PATH_FLOAT, kValues802, "ML4"},
+    ShapePin{PinShape::PATH_FLOAT, kValues426, "ML33"},
+}};
+inline constexpr std::array<ShapePin, 4> kShapes253{{
+    ShapePin{PinShape::PATH_FLOAT, kValues427, "ML3Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues428, "ML5Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues803, "ML4Z"},
+    ShapePin{PinShape::PATH_FLOAT, kValues804, "ML7Z"},
+}};
 
 inline constexpr TransformPin kTransform0{
     1.0, 0.0, 0.0,
@@ -5810,7 +5871,7 @@ inline constexpr std::array<DesignPin, 16> kDesigns{{
     DesignPin{"testrocket", "makeMultiStageEventTestRocket", kDesignMakemultistageeventtestrocket},
 }};
 
-inline constexpr std::array<HandBuiltPin, 182> kHandBuilt{{
+inline constexpr std::array<HandBuiltPin, 186> kHandBuilt{{
     HandBuiltPin{"fin-trapezoid/axial", FigureView::SIDE, 1.0,
         kTransform87, kShapes125},
     HandBuiltPin{"fin-trapezoid/axial", FigureView::BACK, 1.0,
@@ -6175,6 +6236,14 @@ inline constexpr std::array<HandBuiltPin, 182> kHandBuilt{{
         kTransform88, kShapes249},
     HandBuiltPin{"stage/off", FigureView::BACK, 1.0,
         kTransform88, kShapes249},
+    HandBuiltPin{"fin-canted-short-tab/axial", FigureView::SIDE, 1.0,
+        kTransform87, kShapes250},
+    HandBuiltPin{"fin-canted-short-tab/axial", FigureView::BACK, 1.0,
+        kTransform87, kShapes251},
+    HandBuiltPin{"fin-canted-short-tab/off", FigureView::SIDE, 1.0,
+        kTransform88, kShapes252},
+    HandBuiltPin{"fin-canted-short-tab/off", FigureView::BACK, 1.0,
+        kTransform88, kShapes253},
 }};
 // NOLINTEND(modernize-use-std-numbers)
 // clang-format on

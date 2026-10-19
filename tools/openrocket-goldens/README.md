@@ -1102,6 +1102,22 @@ the headers are byte for byte the same. They were moved here from the probes' sc
 part F4; the dumps were then byte-identical to the probes' own, which ran against OpenRocket's own
 build of its core and Swing classes, but for those rays.
 
+The script checks the checkout as `generate.sh` does, among what the harness compiles and the probes
+read (`core/src/main/java`, `core/src/main/resources`, `core/build.gradle`, `core/libs`,
+`ServicesForTesting.java`, `swing/.../gui/rocketfigure`, its `RocketComponentShapeService` service
+file and `swing/.../gui/print/PrintUnit.java`; not the preset submodule, since the probes load no
+presets): it refuses a modified tracked file or an untracked or ignored file there unless
+`ALLOW_DIRTY=1`. Each header records the commit and whether the
+checkout had local changes, in its head comment and as `kOpenRocketCommit` and `kOpenRocketDirty`;
+`FigurePinsGolden` (`tests/core/figure/figure_pins_provenance_tests.cpp`) requires the commit of
+`manifest.json` and a clean checkout. The probes run with a fresh `java.util.prefs` store as the
+other tools do (`java.util.prefs.userRoot`, which only Linux honours) and with `openrocket.debug.prefs`,
+which keeps OpenRocket off the user's own preferences on every system (the node `OpenRocket-debug`,
+cleared when `SwingPreferences` starts; `TranslatorProvider` reads no locale from it). The hand-built
+cases end with three boundary cases that no design reaches: a ring wall of exactly 0.0012 m, a nose
+cone whose samples lie just over 1 mm apart, and a canted fin set with a tab shorter than the root's
+divisions (its back view's search for the lowest tab point passes over points of equal height).
+
 ## CSV export fixtures
 
 `CsvExportDumper` writes `tests/data/csv/*.csv.gz`, the fixtures of QtRocket's `CsvExport` golden

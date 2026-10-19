@@ -21,8 +21,11 @@
 // index.
 // Every number is the exact double Java computed (written by Double.toHexString), here in its
 // shortest decimal form.
+//
+// From OpenRocket 5f164fd0e05d6e188857b0185601293b7a6e9eaf, a clean checkout.
 
 #include <array>
+#include <string_view>
 
 #include "QtRocket/figure/FigureView.h"
 #include "figure/ShapePins.h"
@@ -32,6 +35,10 @@ namespace QtRocket::Test::FigureGeometryPins
 
 // clang-format off
 // NOLINTBEGIN(modernize-use-std-numbers): Java's values, of which some lie near a constant
+
+/// The OpenRocket commit the pins come from, and whether its checkout had local changes.
+inline constexpr std::string_view kOpenRocketCommit = "5f164fd0e05d6e188857b0185601293b7a6e9eaf";
+inline constexpr bool kOpenRocketDirty = false;
 
 inline constexpr std::array<FigureInstancePin, 11> kMakeestesalphaiii0Instances{{
     FigureInstancePin{2, false, 0, 0, 1, 2, PinShape::PATH_DOUBLE,

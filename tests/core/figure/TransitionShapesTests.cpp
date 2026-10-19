@@ -140,6 +140,10 @@ TEST(TransitionShapes, RefinedOutlinesAsJava)
     steepPower.setShapeParameter(0.1);
     EXPECT_TRUE(transitionAsJava(steepPower, "refine-power-nose", FigureView::SIDE,
                                  kTranscendentalTolerance));
+    // Samples 1.06 mm apart, just above the 1 mm below which no segment is split: two points at
+    // the tip.
+    EXPECT_TRUE(transitionAsJava(NoseCone{TransitionShape::ELLIPSOID, 0.095, 0.05},
+                                 "refine-short-ellipsoid-nose", FigureView::SIDE));
 }
 
 TEST(TransitionShapes, ABoattailWithBothShouldersAsJava)

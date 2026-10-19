@@ -64,6 +64,9 @@ TEST(RingComponentShapes, InnerTubesAsJava)
     EXPECT_TRUE(ringAsJava(*makeInnerTube(0.075, 0.0125, 0.0112), "ring-inner-tube-0.0112"));
     EXPECT_TRUE(ringAsJava(*makeInnerTube(0.075, 0.0125, 0.0114), "ring-inner-tube-0.0114"));
     EXPECT_TRUE(ringAsJava(*makeInnerTube(0.075, 0.02, 0.0188), "ring-inner-tube-0.0188"));
+    // 0.0024 - 0.0012 is exactly 0.0012, the minimum wall itself: both outlines (Java's >=).
+    EXPECT_EQ(0.0024 - 0.0012, RingComponentShapes::kMinimumWall);
+    EXPECT_TRUE(ringAsJava(*makeInnerTube(0.075, 0.0024, 0.0012), "ring-inner-tube-wall-0.0012"));
 
     InnerTube thick;
     thick.setLength(0.06);

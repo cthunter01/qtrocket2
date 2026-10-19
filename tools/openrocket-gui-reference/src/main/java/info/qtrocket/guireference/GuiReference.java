@@ -57,6 +57,13 @@ public final class GuiReference {
 	/** The seed of the component ids of the scenario (DeterministicUuids). */
 	private static final String UUID_SEED = "gui/from-scratch";
 
+	/**
+	 * The steps that set a value in a dialog: each must change the component tree (its digest), or the step
+	 * would check nothing (a value the field already has, which a binding that does nothing also passes).
+	 */
+	private static final Set<Scenario.Kind> FIELD_STEPS = Set.of(Scenario.Kind.TYPE, Scenario.Kind.CHOOSE,
+			Scenario.Kind.CHECK, Scenario.Kind.EDIT_POINT, Scenario.Kind.INSERT_POINT);
+
 	/** The steps after which a record holds the whole tree, not only its digest. */
 	private static final Set<Scenario.Kind> CHECKPOINTS = Set.of(Scenario.Kind.NEW, Scenario.Kind.OK,
 			Scenario.Kind.BUTTON, Scenario.Kind.UNDO, Scenario.Kind.REDO, Scenario.Kind.PASTE,
@@ -200,8 +207,10 @@ public final class GuiReference {
 		DeterministicUuids.reseed(UUID_SEED);
 		JsonArray records = new JsonArray();
 		Session session = new Session(directory.toFile());
+		JsonObject previous = null;
 		if (record) {
-			records.add(record(scenario.steps().get(0), session));
+			previous = record(scenario.steps().get(0), session);
+			records.add(previous);
 		}
 		for (Scenario.Step step : scenario.steps().subList(1, scenario.steps().size())) {
 			try {
@@ -210,7 +219,14 @@ public final class GuiReference {
 				throw new IllegalStateException("step " + step.index() + " (" + step.kind().name + ") failed", e);
 			}
 			if (record) {
-				records.add(record(step, session));
+				JsonObject current = record(step, session);
+				if (FIELD_STEPS.contains(step.kind())
+						&& current.get("treeSha256").equals(previous.get("treeSha256"))) {
+					throw new IllegalStateException("step " + step.index() + " (" + step.kind().name
+							+ ") left the component tree as it was: give the field a value it does not have");
+				}
+				records.add(current);
+				previous = current;
 			}
 		}
 		if (session.savedFile() == null || session.openWindow() != null) {

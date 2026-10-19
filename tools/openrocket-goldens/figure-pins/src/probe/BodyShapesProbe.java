@@ -425,6 +425,13 @@ public class BodyShapesProbe {
 			emptyShapes("empty-selection/" + suffix, EmptyShapes.getShapesBackWithSelectionSquare(t, 0.0042), t,
 					"back");
 		}
+
+		// Boundary cases: a wall of exactly 0.0012 (0.0024 - 0.0012 is exact in doubles), which draws the
+		// inner outline (>=), and a nose cone whose samples lie 1.06 mm apart, just above the 1 mm below which
+		// the refinement splits no segment (it inserts two points at the tip).
+		handAll("ring-inner-tube-wall-0.0012", innerTube(0.075, 0.0024, 0.0012));
+		hand("refine-short-ellipsoid-nose", new NoseCone(Transition.Shape.ELLIPSOID, 0.095, 0.05),
+				Transformation.IDENTITY, "side");
 	}
 
 	static void emptyShapes(String name, Shape[] shapes, Transformation t, String view) throws Exception {

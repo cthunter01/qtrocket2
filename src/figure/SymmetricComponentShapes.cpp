@@ -1,5 +1,6 @@
 #include "QtRocket/figure/SymmetricComponentShapes.h"
 
+#include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <utility>
@@ -32,13 +33,27 @@ namespace
     return cos / len;
 }
 
+/// Java's cosAngle(v1, v2, v3) > ACCEPTABLE_ANGLE, but for an angle that has no cosine (NaN: a
+/// coordinate that is not finite, or squares that overflow), which is acceptable here (a
+/// deviation, see profilePoints()).
 [[nodiscard]] bool angleAcceptable(const Coordinate& v1, const Coordinate& v2,
                                    const Coordinate& v3) noexcept
 {
-    return cosAngle(v1, v2, v3) > kAcceptableAngle;
+    const double cos = cosAngle(v1, v2, v3);
+    return std::isnan(cos) || cos > kAcceptableAngle;
 }
 
 /// The profile: kMinPoints samples, refined where the outline turns too sharply.
+///
+/// Deviation from OpenRocket: Java's refinement loop has no bound, and it never ends when the
+/// profile is not finite, as for a length of +inf or NaN (a dialog takes "1e400" as +inf, and
+/// setLength() keeps it) or one so large that the squares of the segments overflow, or the radius
+/// becomes NaN (an ogive of 1e300 m), nor where two neighbouring doubles more than 1 mm apart keep
+/// a sharp angle: every pass inserts another midpoint, or the same one again, until the memory
+/// runs out. So, as MassComponentShapes bounds the battery's loop, an angle without a cosine (NaN)
+/// is acceptable, and a segment is split only while its midpoint lies strictly between its ends
+/// (which it always does for a finite segment of at least 1 mm within 2^41 m of the origin). Every
+/// decision for a finite profile of a sane size is Java's.
 [[nodiscard]] std::vector<Coordinate> profilePoints(const SymmetricComponent& c)
 {
     std::vector<Coordinate> points;
@@ -75,6 +90,13 @@ namespace
         }
 
         x = (points[n].x + points[n + 1].x) / 2;
+        // Not in Java: a segment whose midpoint is one of its ends can no longer be halved.
+        const bool halved = x > points[n].x && x < points[n + 1].x;
+        if (!halved)
+        {
+            i++;
+            continue;
+        }
         points.insert(std::next(points.begin(), static_cast<std::ptrdiff_t>(n + 1)),
                       Coordinate{x, c.getRadius(x), 0});
     }

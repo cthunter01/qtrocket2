@@ -159,6 +159,17 @@ TEST(FinSetShapes, CantedAsJava)
     negative.rocket->enableEvents();
     EXPECT_TRUE(finsAsJava(*negative.fins, "fin-canted-negative", kFloatTolerance));
 
+    // A tab shorter than the root's divisions (2.5 mm) has no root point of its own: the back
+    // view's search for its lowest point passes over neighbours of equal height (the root corners,
+    // then the bottom corners), since it stops only where the point before is strictly higher.
+    const auto shortTab = addedTo(probeBody(), trapezoid());
+    shortTab.fins->setCantAngle(0.1);
+    shortTab.fins->setTabHeight(0.01);
+    shortTab.fins->setTabLength(0.002);
+    shortTab.fins->setTabOffset(0);
+    shortTab.rocket->enableEvents();
+    EXPECT_TRUE(finsAsJava(*shortTab.fins, "fin-canted-short-tab", kFloatTolerance));
+
     // At most 0.5 mm thick: the side panels only.
     const auto thin = addedTo(probeBody(), trapezoid());
     thin.fins->setThickness(0.0004);

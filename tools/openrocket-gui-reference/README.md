@@ -50,9 +50,9 @@ file, no untracked or ignored file among `core/src/main/java`, `core/src/main/re
 `core/build.gradle`, `core/libs`, `swing/src/main/java`, `swing/src/main/resources` and
 `swing/build.gradle`; `ALLOW_DIRTY=1` overrides and state.json then records `"dirty": true`), builds
 with Gradle, and runs the tool twice with a fixed locale, time zone and encoding, headless AWT, no
-display and a fresh `java.util.prefs` store each time (OpenRocket's preferences at their defaults):
-into `tests/data/goldens/gui/from-scratch/` and into a temporary directory. It fails unless the two
-runs wrote the same `rocket.ork` and `state.json`. A run takes about ten seconds once Gradle has
+display and a fresh `java.util.prefs` store each time (OpenRocket's preferences at their defaults; see
+[Determinism](#determinism)): into `tests/data/goldens/gui/from-scratch/` and into a temporary
+directory. It fails unless the two runs wrote the same `rocket.ork` and `state.json`. A run takes about ten seconds once Gradle has
 compiled OpenRocket (the first build takes a minute or two).
 
 `GUI_REFERENCE_OUT=<directory>` writes into another directory (the scenario is still read from
@@ -89,7 +89,8 @@ records another scenario (the SHA-256 of its bytes).
 ### What runs and what is replaced
 
 What runs is OpenRocket's own code wherever it runs without a display. What cannot is replaced by
-the calls it makes, copied line for line (each place names its source lines):
+the calls it makes, copied line for line (each place names its source lines), but for the calls that
+change only the window or the application, which the table lists:
 
 | GUI action | What the tool runs |
 |---|---|
@@ -103,12 +104,16 @@ the calls it makes, copied line for line (each place names its source lines):
 | Edit > Copy, Edit > Paste | `RocketActions.CopyAction.copyComponents()` and `PasteAction.pasteComponents()` with their helpers and enabling rules, copied (`EditActions`), on OpenRocket's `OpenRocketClipboard` and `RocketActions.copyComponentsMaintainParent`: the action classes cannot be made headless (their constructors read the menu shortcut key of the toolkit, `RocketActions.KeyStrokes`, which the headless toolkit refuses). Left out: the branches for simulations and the last call, `parentFrame.selectTab(DESIGN_TAB)`. |
 | Edit > Undo, Edit > Redo | OpenRocket's `UndoRedoAction`s (`actionPerformed`) |
 | Convert to freeform | The button's action (`FinSetConfig.java:66-94`): the undo position "Convert fin set", `FreeformFinSet.convertFinSet`, the old dialog closed and the dialog of the freeform fin set opened as of an existing component |
-| The fin point table | `FinPointTableModel.setValueAt` (`FreeformFinSetConfig.java:1000-1036`: the text in the default length unit through `UnitGroup.fromString`, `FreeformFinSet.setPoint`, the first and last rows editable in X only) and `InsertPointAction` / `insertPoint()` (`:592-607`, the midpoint after the selected row) |
-| File > Save as | `BasicFrame.saveAsAction` and `saveAsOpenRocket` (`BasicFrame.java:2167-2250`): the design information dialog when `ShowSaveRocketInfo` asks for it (on by default; the rocket selected first, its Designer, Kit name and Revision fields through `RocketConfig`'s `TextFieldListener`), the file name with `FileHelper.forceExtension(..., "ork")`, `StorageOptionChooser.verifyStorageOptions` (it asks nothing for a design without simulation data), the file type, `GeneralRocketSaver.save(file, document, progress)` as `SaveFileWorker` calls it, `setFile` and `setSaved(true)`. No preview image: `generatePreviewImage()` draws the rocket panel's figure, and QtRocket's saves carry none before Milestone 5 (decision O26). The tool fails rather than overwrite a file (Save as would ask). |
+| The fin point table | `FinPointTableModel.setValueAt` (`FreeformFinSetConfig.java:1000-1036`: the text in the default length unit through `UnitGroup.fromString`, `FreeformFinSet.setPoint`, the first and last rows editable in X only) and `InsertPointAction` / `insertPoint()` (`:592-607`, the midpoint after the selected row). Left out: `beginFinPointEdit()` and `commitFinPointEdit()` around `setPoint` and `addPoint` (`:1024-1029`, `:601-606`), which keep the fin editor's own edit history (its `FinPointFigure`'s, apart from the document's undo), and `updateFields()` after `setPoint` (`:1031`), which refreshes the dialog's fields and figure |
+| File > Save as | `BasicFrame.saveAsAction` and `saveAsOpenRocket` (`BasicFrame.java:2167-2250`): the design information dialog when `ShowSaveRocketInfo` asks for it (on by default; the rocket selected first, its Designer, Kit name and Revision fields through `RocketConfig`'s `TextFieldListener`), the file name with `FileHelper.forceExtension(..., "ork")`, `StorageOptionChooser.verifyStorageOptions` (it asks nothing for a design without simulation data), the file type, `GeneralRocketSaver.save(file, document, progress)` as `SaveFileWorker` calls it, `setFile` and `setSaved(true)`. No preview image: `generatePreviewImage()` draws the rocket panel's figure, and QtRocket's saves carry none before Milestone 5 (decision O26). Left out: `MRUDesignFile.addFile` (`:2180-2181`, the list of recent files), `setTitle()` (`:2250`, the window's title) and `restoreFocus()` (`:2185`). The tool fails rather than overwrite a file (Save as would ask). |
 
 The tool fails on anything a GUI would show a message box or a question for: a disabled button or
 action, an item a combo box does not have, an unknown field, a step of a dialog while none is open
-(or the other way round), a step in a dialog that changes the tree (which closes the dialog). The
+(or the other way round), a step in a dialog that changes the tree (which closes the dialog). It
+also fails on a step that sets a value (`type`, `choose`, `check`, `editPoint`, `insertPoint`) but
+leaves the component tree as it was (its digest the same as after the step before): a value the
+field already has would check nothing, since a GUI whose field does nothing passes it too
+(`FromScratchReferenceGolden` checks the committed record for the same). The
 insert-position question of the body component and stage buttons is never asked by the scenario:
 it adds a body component only when the selected one is the last of its stage.
 
@@ -120,6 +125,12 @@ it adds a body component only when the selected one is the last of its stage.
   reference keeps the document of its only entry, `rocket.ork`, as a plain `.ork` file (the
   OpenRocketSaver XML, which QtRocket and OpenRocket both load); state.json lists the archive's
   entries (`["rocket.ork"]`: no decal, no motor file, no preview).
+- OpenRocket's preferences start at their defaults and are never the user's: `java.util.prefs.userRoot`
+  and `systemRoot` point the store at an empty directory of each run, which only Linux's
+  `FileSystemPreferences` honours (macOS keeps preferences in property lists, Windows in the
+  registry), so `generate.sh` also sets `openrocket.debug.prefs`: `SwingPreferences` then uses the
+  node `OpenRocket-debug`, which it clears when it starts, and `TranslatorProvider` reads no locale
+  from the user's node, on every system. A run with and one without the property wrote the same files.
 - Nothing else depends on the time, the machine or the user: `generate.sh` compares two runs of the
   tool byte for byte.
 
@@ -178,13 +189,14 @@ To use another field, add it to `DialogFields` from the dialog's source.
 The committed scenario: New; the sustainer selected; a nose cone (ellipsoid, 10 cm, automatic base
 diameter, 0.15 cm wall, polycarbonate, smooth paint); a body tube after it (30 cm, outer diameter
 4.1 cm, 0.05 cm wall); four trapezoidal fins in the tube (chords 7 and 3.5 cm, height 5.5 cm, sweep
-4 cm, 3 mm thick, rounded); an inner tube as the motor mount (7.5 cm, diameters 2.6 and 2.4 cm,
-overhang 0.5 cm); two named centering rings placed from the bottom; a parachute (30 cm, 8 lines,
-deployed at 150 m); a shock cord (60 cm); a launch lug (5 cm, at 180 degrees) and two rail buttons
+4 cm, 2.5 mm thick, rounded); an inner tube as the motor mount (7.5 cm, diameters 2.6 and 2.4 cm,
+overhang 0.5 cm); two named centering rings, the fore one placed from the top (23.7 cm), the aft one
+from the middle (14.35 cm; a new ring is placed from the bottom); a parachute (35 cm, 8 lines,
+deployed at 150 m); a shock cord (60 cm); a launch lug (5 cm, at 135 degrees) and two rail buttons
 (15 cm apart, at 90 degrees); an altimeter (a mass component of 15 g); the fin set converted to
 freeform, two points edited and one inserted; Undo and Redo of those edits; the parachute copied and
 pasted into the tube, the copy renamed "Drogue" and made 15 cm; Save as with a designer, file
-`rocket`.
+`rocket`. Every step that sets a value changes the design (see above).
 
 ## state.json
 

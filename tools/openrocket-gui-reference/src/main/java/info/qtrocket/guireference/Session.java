@@ -53,7 +53,8 @@ import info.openrocket.swing.gui.util.SwingPreferences;
  * selection model, the DocumentSelectionModel, the add buttons (ComponentAddButtons and its
  * ComponentButtons, clicked with doClick()) and the UndoRedoActions, wired as BasicFrame and
  * DesignPanel wire them. What cannot run headless is replaced by the core calls it makes, line for
- * line (see README.md, "What runs and what is replaced"):
+ * line but for the calls that change only the window, which each place lists (see README.md, "What
+ * runs and what is replaced"):
  * <ul>
  * <li>the configuration dialog, a JDialog: an add button stops with a HeadlessException where
  * ComponentConfigDialog.showDialog makes it, so the tool does what showDialog does after that (the
@@ -365,7 +366,12 @@ final class Session {
 		dialog = null;
 	}
 
-	/** The fin point table of FreeformFinSetConfig: its cell editor's commit (FinPointTableModel.setValueAt, :1000-1036). */
+	/**
+	 * The fin point table of FreeformFinSetConfig: its cell editor's commit (FinPointTableModel.setValueAt,
+	 * :1000-1036). Left out: beginFinPointEdit() and commitFinPointEdit() around setPoint (:1024-1029),
+	 * which keep the fin editor's own edit history (its FinPointFigure's, apart from the document's undo),
+	 * and updateFields() (:1031), which refreshes the dialog's fields and figure.
+	 */
 	private void editPoint(int row, String column, String text, String unit) throws Exception {
 		FreeformFinSet finset = finPointTable();
 		// The table shows the points in the default length unit (Columns, :934-956); a cell takes text in it.
@@ -393,7 +399,11 @@ final class Session {
 		finset.setPoint(row, c.getX(), c.getY());
 	}
 
-	/** Row @p row selected, "Insert point" of the table's context menu (InsertPointAction, insertPoint() :592-607). */
+	/**
+	 * Row @p row selected, "Insert point" of the table's context menu (InsertPointAction, insertPoint()
+	 * :592-607). Left out: beginFinPointEdit() and commitFinPointEdit() around addPoint (:601-606), the fin
+	 * editor's own edit history.
+	 */
 	private void insertPoint(int row) throws Exception {
 		FreeformFinSet finset = finPointTable();
 		// InsertPointAction.updateEnabledState (:1151-1154).
@@ -457,7 +467,9 @@ final class Session {
 
 	/**
 	 * The file chooser of Save as: @p name typed, Save clicked (openFileSaveAsDialog), then
-	 * saveAsAction (:2174-2179) and saveAsOpenRocket (:2216-2250) without the preview image.
+	 * saveAsAction (:2174-2179) and saveAsOpenRocket (:2216-2250) without the preview image. Left out, as
+	 * they change only the application and the window: MRUDesignFile.addFile (:2180-2181, the list of
+	 * recent files), setTitle() (:2250, the window's title) and restoreFocus() (:2185).
 	 */
 	private void chooseFile(String name) throws Exception {
 		fileChooserOpen = false;

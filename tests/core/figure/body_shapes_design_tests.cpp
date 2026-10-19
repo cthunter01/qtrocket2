@@ -8,7 +8,9 @@
 // transformation and compares the shapes exactly: they come from +, -, * and / of the
 // component's dimensions and the transformation, the outlines of ogive, ellipsoid, parabolic and
 // conical shapes from sqrt as well. A power or Haack outline goes through pow, or acos and sin,
-// and is compared within kTranscendentalTolerance.
+// and is compared within kTranscendentalTolerance, as are the shapes of a tube fin set of
+// automatic radius with three fins or more, whose radius QtRocket computes with the C library's
+// sine (TubeFinSet::getTouchingRadius(): r * sin(pi / n) / (1 - sin(pi / n))).
 
 #include <string>
 
@@ -17,6 +19,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "figure/BodyShapePins.h"
 #include "figure/DesignPinSupport.h"
 #include "figure/FigureTestSupport.h"
@@ -28,18 +31,24 @@ namespace
 using QtRocket::RocketComponent;
 using QtRocket::Transition;
 using QtRocket::TransitionShape;
+using QtRocket::TubeFinSet;
 using QtRocket::Test::DesignPin;
 using QtRocket::Test::kTranscendentalTolerance;
 using QtRocket::Test::PinnedDesign;
 using QtRocket::Test::BodyShapePins::kDesigns;
 
 /// The tolerance of @p component's shapes: an outline sampled from a power or Haack profile
-/// went through pow, acos and sin.
+/// went through pow, acos and sin, the touching radius of tube fins through sin.
 [[nodiscard]] double shapeTolerance(const RocketComponent& component)
 {
     const auto* transition = dynamic_cast<const Transition*>(&component);
     if (transition != nullptr && (transition->getShapeType() == TransitionShape::POWER ||
                                   transition->getShapeType() == TransitionShape::HAACK))
+    {
+        return kTranscendentalTolerance;
+    }
+    const auto* tubeFins = dynamic_cast<const TubeFinSet*>(&component);
+    if (tubeFins != nullptr && tubeFins->isOuterRadiusAutomatic() && tubeFins->getFinCount() >= 3)
     {
         return kTranscendentalTolerance;
     }

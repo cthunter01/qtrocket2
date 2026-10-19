@@ -714,6 +714,19 @@ public class FinMassShapesProbe {
 			handAll("rocket", rocket);
 			handAll("stage", rocket.getChild(0));
 		}
+
+		// A boundary case: a canted fin set with a tab shorter than the root's divisions (2.5 mm), so that no
+		// root point lies on the tab. The back view's search for the tab's lowest point then passes over
+		// neighbours of equal height (the root corners, then the two bottom corners): it moves on while the
+		// point before is not strictly higher.
+		TrapezoidFinSet shortTab = trapezoid();
+		bodyOfNewRocket().addChild(shortTab);
+		shortTab.setCantAngle(0.1);
+		shortTab.setTabHeight(0.01);
+		shortTab.setTabLength(0.002);
+		shortTab.setTabOffset(0);
+		shortTab.getRocket().enableEvents();
+		handAll("fin-canted-short-tab", shortTab);
 	}
 
 	// ------------------------------------------------------------ printing

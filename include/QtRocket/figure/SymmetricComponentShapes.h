@@ -41,6 +41,12 @@ inline constexpr double kMinimumRefinedLength = 0.001;
 /// midpoint, until no point needs one. The path starts at the aft end of the upper edge, runs
 /// forward along it, back along the lower edge (y mirrored) and closes at its start; every point is
 /// nose + (x, +-r), with nose = transformation.transform(origin), times @p scaleFactor.
+///
+/// Deviation from OpenRocket, whose refinement never ends for a profile that is not finite (a
+/// length of +inf or NaN, or one so large that the squares of the segments overflow or the radius
+/// becomes NaN) or that keeps a sharp angle between neighbouring doubles more than 1 mm apart: an
+/// angle without a cosine (NaN) is acceptable, and a segment whose midpoint rounds to one of its
+/// ends is not split. Every decision for a finite profile within 2^41 m of the origin is Java's.
 /// @throws BugError when @p component is not a SymmetricComponent.
 [[nodiscard]] std::vector<ComponentShape> getShapesSide(const RocketComponent& component,
                                                         const Transformation&  transformation,

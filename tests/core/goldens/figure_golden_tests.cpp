@@ -30,8 +30,10 @@
 // but +, -, *, / and sqrt. The providers that use more, as part F2's and F3's pin tests
 // established: the outlines sampled from a power or Haack profile (pow, acos, sin), canted and
 // elliptical fin sets and fin sets on a power or Haack transition (sin and cos before the float
-// rounding of their outlines), rail buttons (the view angle), trackers (their arcs) and mass
-// objects off the axis (cos and sin of their radial direction). Everything else is compared
+// rounding of their outlines), rail buttons (the view angle), trackers (their arcs), mass
+// objects off the axis (cos and sin of their radial direction) and tube fin sets of automatic
+// radius with three fins or more (TubeFinSet::getTouchingRadius(), the sine of pi over the fin
+// count). Everything else is compared
 // within kTranscendentalTolerance (1e-14 relative to max(1, |value|)), a Path2D.Float's
 // coordinates within kFloatTolerance (2^-23: a double that differs from Java's in its last bit can
 // round to the neighbouring float). The subject bounds are always compared within
@@ -83,6 +85,7 @@
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
+#include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/util/Color.h"
 #include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
@@ -140,6 +143,11 @@ using QtRocket::Test::kTranscendentalTolerance;
     if (component.kind() == ComponentKind::RAIL_BUTTON || sampledWithTranscendentals(&component))
     {
         return true;
+    }
+    if (const auto* tubeFins = dynamic_cast<const QtRocket::TubeFinSet*>(&component))
+    {
+        // getOuterRadius() is getTouchingRadius() then: r * sin(pi / n) / (1 - sin(pi / n)).
+        return tubeFins->isOuterRadiusAutomatic() && tubeFins->getFinCount() >= 3;
     }
     if (const auto* fins = dynamic_cast<const QtRocket::FinSet*>(&component))
     {
@@ -819,14 +827,14 @@ TEST(FigureGoldenComparison, ExactUnlessGivenATolerance)
 }
 
 /// @p count ray offsets within the range of rays of length @p reach (the first of length 0, the
-/// last nearly at the end), but for ray @p far, which ends beyond it.
+/// last nearly at the end), but for ray @p outlier, which ends beyond it.
 [[nodiscard]] std::vector<QtRocket::Point2D> raysWithin(double reach, std::size_t count,
-                                                        std::size_t far)
+                                                        std::size_t outlier)
 {
     std::vector<QtRocket::Point2D> rays;
     for (std::size_t i = 0; i < count; ++i)
     {
-        if (i == far)
+        if (i == outlier)
         {
             rays.emplace_back(1.01 * reach, 0);
         }

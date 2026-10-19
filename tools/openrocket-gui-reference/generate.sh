@@ -103,13 +103,18 @@ mkdir -p "$out"
 out="$(cd "$out" && pwd)"
 
 # One run of the tool into $1, with a fresh java.util.prefs store (OpenRocket's preferences at their
-# defaults), a fixed locale, time zone and encoding, headless AWT and no display.
+# defaults), a fixed locale, time zone and encoding, headless AWT and no display. The userRoot and
+# systemRoot properties isolate the store on Linux only (macOS and Windows ignore them), so
+# openrocket.debug.prefs also points OpenRocket at its node "OpenRocket-debug", which SwingPreferences
+# clears when it starts and from which TranslatorProvider reads no locale: the user's own OpenRocket
+# preferences are neither read nor written, on every system.
 run_tool() {
     local target="$1" name="$2"
     mkdir -p "$work/$name/prefs" "$target"
     env -u DISPLAY -u WAYLAND_DISPLAY "$java" -Xmx2g -Djava.awt.headless=true \
         -Duser.language=en -Duser.country=US -Duser.timezone=UTC -Dfile.encoding=UTF-8 \
         -Djava.util.prefs.userRoot="$work/$name/prefs" -Djava.util.prefs.systemRoot="$work/$name/prefs" \
+        -Dopenrocket.debug.prefs=true \
         -cp "$(cat "$here/build/gui-reference-classpath.txt")" info.qtrocket.guireference.GuiReference \
         --scenario "$scenario" --out "$target" --work "$work/$name/saves" \
         --commit "$commit" --dirty "$dirty"
