@@ -5,4 +5,8 @@ target_sources(QtRocket_gui_tests PRIVATE
     ComponentToolTipTests.cpp
     ComponentTreeDelegateTests.cpp
     ComponentTreeModelTests.cpp
+    ComponentTreeTranscript.cpp
+    ComponentTreeViewTests.cpp
+    DocumentSelectionModelTests.cpp
+    undo_redo_selection_tests.cpp
 )

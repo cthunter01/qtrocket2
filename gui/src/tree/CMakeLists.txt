@@ -5,4 +5,6 @@ target_sources(QtRocket_gui PRIVATE
     ComponentToolTip.cpp ${gui_include_dir}/tree/ComponentToolTip.h
     ComponentTreeDelegate.cpp ${gui_include_dir}/tree/ComponentTreeDelegate.h
     ComponentTreeModel.cpp ${gui_include_dir}/tree/ComponentTreeModel.h
+    ComponentTreeView.cpp ${gui_include_dir}/tree/ComponentTreeView.h
+    DocumentSelectionModel.cpp ${gui_include_dir}/tree/DocumentSelectionModel.h
 )
