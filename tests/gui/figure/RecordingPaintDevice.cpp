@@ -236,4 +236,23 @@ int RecordingPaintDevice::metric(PaintDeviceMetric metric) const
     }
 }
 
+std::vector<RecordedPaint> joinTextRuns(std::span<const RecordedPaint> records)
+{
+    std::vector<RecordedPaint> joined;
+    for (const RecordedPaint& record : records)
+    {
+        if (!joined.empty() && record.kind == RecordedPaint::Kind::TEXT &&
+            joined.back().kind == RecordedPaint::Kind::TEXT &&
+            record.transform.map(record.position).y() ==
+                joined.back().transform.map(joined.back().position).y() &&
+            record.pen == joined.back().pen && record.font == joined.back().font)
+        {
+            joined.back().text += record.text;
+            continue;
+        }
+        joined.push_back(record);
+    }
+    return joined;
+}
+
 }  // namespace QtRocket::Gui::Test

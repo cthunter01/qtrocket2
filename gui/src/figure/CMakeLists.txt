@@ -4,9 +4,11 @@ target_sources(QtRocket_gui PRIVATE
     Caret.cpp ${gui_include_dir}/figure/Caret.h
     CGCaret.cpp ${gui_include_dir}/figure/CGCaret.h
     CPCaret.cpp ${gui_include_dir}/figure/CPCaret.h
+    DesignPhysics.cpp ${gui_include_dir}/figure/DesignPhysics.h
     ${gui_include_dir}/figure/FigureElement.h
     RocketFigure.cpp ${gui_include_dir}/figure/RocketFigure.h
     RocketFigurePainter.cpp ${gui_include_dir}/figure/RocketFigurePainter.h
+    RocketInfo.cpp ${gui_include_dir}/figure/RocketInfo.h
     Ruler.cpp ${gui_include_dir}/figure/Ruler.h
     ScaleFigure.cpp ${gui_include_dir}/figure/ScaleFigure.h
     ScaleScrollArea.cpp ${gui_include_dir}/figure/ScaleScrollArea.h

@@ -4,10 +4,13 @@ target_sources(QtRocket_gui_tests PRIVATE
     CaretTests.cpp
     CGCaretTests.cpp
     CPCaretTests.cpp
+    DesignPhysicsTests.cpp
     RecordingPaintDevice.cpp
     rocket_figure_paint_golden_tests.cpp
+    rocket_info_golden_tests.cpp
     RocketFigurePainterTests.cpp
     RocketFigureTests.cpp
+    RocketInfoTests.cpp
     RulerTests.cpp
     ScaleFigureTests.cpp
     ScaleScrollAreaTests.cpp

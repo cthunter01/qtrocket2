@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <vector>
 
 #include <QBrush>
@@ -100,5 +101,12 @@ private:
     std::vector<RecordedPaint> m_records;
     std::unique_ptr<Engine>    m_engine;
 };
+
+/// @p records with each text Qt drew in runs joined into one TEXT record: QPainter hands a text
+/// whose characters need another font than the painter's (a fallback font for "\u0398", say)
+/// to the engine in several items, one per font. Consecutive TEXT records on one baseline with
+/// the same pen and font are joined, the first one's position kept; the other records are
+/// copied.
+[[nodiscard]] std::vector<RecordedPaint> joinTextRuns(std::span<const RecordedPaint> records);
 
 }  // namespace QtRocket::Gui::Test
