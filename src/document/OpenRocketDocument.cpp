@@ -469,6 +469,12 @@ std::shared_ptr<DecalImage> OpenRocketDocument::importDecalImage(const DecalImag
     return std::move(imported.image);
 }
 
+std::size_t OpenRocketDocument::countDecalImports(
+    const std::vector<std::shared_ptr<const DecalImage>>& images) const
+{
+    return m_decalRegistry.countImports(images);
+}
+
 std::set<std::string, std::less<>> OpenRocketDocument::registeredImportedDecals() const
 {
     std::set<std::string, std::less<>> registered;

@@ -104,7 +104,10 @@ public:
     ///
     /// @p component must not be in a tree, as a Java constructor's object is not: the external
     /// component's material is assigned directly, the others through their setters, which then
-    /// reach no rocket, so that nothing is fired. @p materials must hold the built-in materials
+    /// reach no rocket, so that nothing is fired. A getter may have run on it before: the mass
+    /// values a fin set or a body component (SymmetricComponent) cached are cleared with the
+    /// assignment, so that its mass and CG follow the new material at once (the other kinds cache
+    /// nothing their material decides). @p materials must hold the built-in materials
     /// the lookup falls back on ("Cardboard", "Ripstop nylon", "Elastic cord (round 2 mm, 1/16
     /// in)"; OpenRocket's databases always do).
     /// @throws BugError when @p component has a parent, and when @p materials lacks a fallback

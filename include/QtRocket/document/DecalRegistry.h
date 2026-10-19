@@ -68,8 +68,12 @@ class DecalImage;
 /// 1. the image named N here, registered or removed, when it has the same source as @p image
 ///    (DecalImage::hasSameSource()): it is the same image, such as the original of a copy taken
 ///    from this document, or an earlier import of the same image;
-/// 2. another image here of the same source, under whatever name: an earlier import that had
-///    to be renamed (the first registered one in name order, else the first removed one);
+/// 2. any other image here of the same source, under whatever name (the first registered one
+///    in name order, else the first removed one): an earlier import that had to be renamed, the
+///    original of an image that comes back from another document under another name (a round
+///    trip ends with this registry's own image, not a numbered copy of it), and also a copy
+///    that makeUniqueImage() made, which has its original's source until it is given a decal
+///    file of its own (see the deviations);
 /// 3. the image named N here when the bytes of both can be read and are equal: the same
 ///    picture, such as one of OpenRocket's built-in textures that every example design stores
 ///    under its name ("/datafiles/textures/balsa.jpg"). Shared rather than copied, so that
@@ -126,6 +130,14 @@ class DecalImage;
 ///   by name, writes one of the two and the components of the other show it after the next load
 ///   (probe DecalTransferProbe of Milestone 2: the pasted fin sets come back with the target's
 ///   bytes).
+/// - importImage() takes images of the same source for one image (rules 1 and 2), also two
+///   images that another document keeps apart: an image and a copy that makeUniqueImage() made
+///   of it, while the copy has no decal file of its own (OpenRocket's decal editor gives it one
+///   right away, EditDecalHelper.launchEditor(); the two share theirs only when that export
+///   failed, and QtRocket has no decal editor before Milestone 3). Components that show the two
+///   then come into this registry with one image, the first in name order, and the decals of
+///   the other are renamed to it; the bytes are the same. Java's pasted components keep the two
+///   image objects, which its saver writes under their two names.
 /// - A null attachment is a BugError (Java: NullPointerException).
 /// - Not copyable or movable: a copy would share the images of another document.
 class DecalRegistry
@@ -198,6 +210,13 @@ public:
     /// when it was removed, or a copy of @p image registered now. Reads the bytes of both
     /// images when this registry has an image of @p image's name and another source.
     [[nodiscard]] Import importImage(const DecalImage& image);
+
+    /// How many images importImage() of each of @p images, one after the other in their order,
+    /// would register (a copy, or a removed image registered again): by how much size() would
+    /// grow. Changes nothing; reads the bytes of images as importImage() does. An addition, for
+    /// a caller that bounds the images of a document (ComponentCopy::countNewDecalImages()).
+    [[nodiscard]] std::size_t countImports(
+        const std::vector<std::shared_ptr<const DecalImage>>& images) const;
 
     /// Registers the removed image named @p name again and returns it (what getDecalImage()
     /// does for a removed image of the same source); null when no removed image has that

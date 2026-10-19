@@ -31,9 +31,11 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/unit/CaliberUnit.h"
 #include "QtRocket/unit/Unit.h"
 #include "QtRocket/unit/UnitGroup.h"
@@ -44,11 +46,13 @@
 namespace
 {
 
+using QtRocket::AxialMethod;
 using QtRocket::AxialStage;
 using QtRocket::BodyTube;
 using QtRocket::CaliberUnit;
 using QtRocket::ComponentChangeEvent;
 using QtRocket::FlightConfiguration;
+using QtRocket::FlightConfigurationId;
 using QtRocket::NoseCone;
 using QtRocket::Result;
 using QtRocket::Rocket;
@@ -63,6 +67,7 @@ using QtRocket::Test::TestBeta;
 using QtRocket::Test::TestEstesAlphaIII;
 using QtRocket::Test::TestRocketMaker;
 using QtRocket::Test::testRocketMakers;
+using QtRocket::Test::TestSimple2Stage;
 
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 
@@ -652,7 +657,8 @@ TEST(StabilityUnits, ADesignWithoutBodiesHasTheDefaultCaliberAndNoLength)
     const std::unique_ptr<UnitGroup::StabilityUnitGroup> secondary =
         StabilityUnits::secondaryStabilityUnits(configuration);
     EXPECT_EQ(unitNamed(*secondary, "%").toUnit(0.1), kInfinity);
-    EXPECT_EQ(secondary->getDefaultUnit().toStringUnit(0.1), "∞ %");
+    // U+221E INFINITY.
+    EXPECT_EQ(secondary->getDefaultUnit().toStringUnit(0.1), "\xE2\x88\x9E %");
     EXPECT_EQ(secondary->getDefaultUnit().toStringUnit(0.0), "NaN %");
 
     auto& stage = rocket.addChild(std::make_unique<AxialStage>());
@@ -664,6 +670,146 @@ TEST(StabilityUnits, ADesignWithoutBodiesHasTheDefaultCaliberAndNoLength)
     stage.addChild(std::make_unique<BodyTube>(0.1, 0.00004, 0));
     EXPECT_EQ(StabilityUnits::calculateCaliber(configuration), CaliberUnit::kDefaultCaliber);
     expectLengthNear(StabilityUnits::getPercentageReferenceLength(configuration), 0.1, "tiny");
+}
+
+/// What the probe FixerProbe.java (Milestone 2, run 1, the fixer of group C; OpenRocket 5f164fd0e,
+/// JDK 17) printed for a rocket of one stage with one body tube 0.1 m long of the outer radius
+/// @p radius: CaliberUnit.calculateCaliber() of the selected configuration and of the rocket, and
+/// the caliber unit's toUnit(0.1).
+struct JavaCaliberFloor
+{
+    double radius;
+    double caliber;
+    double toUnit;
+};
+
+// NOLINTBEGIN(modernize-use-designated-initializers): a table printed by the Java probe
+constexpr std::array<JavaCaliberFloor, 3> kJavaCaliberFloors{{
+    // 0.5 mm is a caliber, and so is 0.1 mm exactly (Java's test is cal < 0.0001); 0.08 mm is not.
+    {0.00025, 0.0005, 200.0},
+    {0.00005, 0.0001, 1000.0},
+    {0.00004, 0.01, 10.0},
+}};
+// NOLINTEND(modernize-use-designated-initializers)
+
+/// The caliber of a rocket with one body tube of @p java's radius against the probe.
+void expectCaliberFloor(const JavaCaliberFloor& java)
+{
+    Rocket rocket;
+    auto&  stage = rocket.addChild(std::make_unique<AxialStage>());
+    stage.addChild(std::make_unique<BodyTube>(0.1, java.radius, 0));
+    rocket.enableEvents();
+    const FlightConfiguration& configuration = rocket.getSelectedConfiguration();
+    EXPECT_EQ(StabilityUnits::calculateCaliber(configuration), java.caliber) << java.radius;
+    EXPECT_EQ(StabilityUnits::calculateCaliber(rocket), java.caliber) << java.radius;
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> primary =
+        StabilityUnits::stabilityUnits(configuration);
+    EXPECT_EQ(unitNamed(*primary, "cal").toUnit(0.1), java.toUnit) << java.radius;
+}
+
+TEST(StabilityUnits, ACaliberOfATenthOfAMillimetreOrMoreIsKept)
+{
+    const DefaultUnitsGuard guard;
+    for (const JavaCaliberFloor& java : kJavaCaliberFloors)
+    {
+        expectCaliberFloor(java);
+    }
+}
+
+// FixerProbe.java, section N: a body tube at an infinite absolute position spans no length (a
+// bounding box takes no infinite minimum, so its span is never infinity minus infinity: neither
+// reference is ever NaN, and Java's NaN quirk of the sentinel, kept in BoundReference, never
+// shows). Moved back while the events are disabled, the configuration's length follows once a
+// bounding box is computed again (getBoundingBox() always computes it), but the units keep their
+// reference until a modification id changes.
+TEST(StabilityUnits, AnInfinitePositionSpansNoLength)
+{
+    const DefaultUnitsGuard guard;
+    Rocket                  rocket;
+    auto&                   stage = rocket.addChild(std::make_unique<AxialStage>());
+    auto&                   body  = stage.addChild(std::make_unique<BodyTube>(0.1, 0.01, 0.001));
+    rocket.enableEvents();
+    body.setAxialMethod(AxialMethod::ABSOLUTE);
+    body.setAxialOffset(kInfinity);
+    FlightConfiguration& configuration = rocket.getSelectedConfiguration();
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> secondary =
+        StabilityUnits::secondaryStabilityUnits(configuration);
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> rocketUnits =
+        StabilityUnits::stabilityUnits(rocket);
+    const Unit& percent       = unitNamed(*secondary, "%");
+    const Unit& rocketPercent = unitNamed(*rocketUnits, "%");
+    EXPECT_EQ(body.getPosition().x, kInfinity);
+    EXPECT_EQ(StabilityUnits::getPercentageReferenceLength(configuration), 0.0);
+    EXPECT_EQ(percent.toUnit(0.1), kInfinity);
+    EXPECT_EQ(rocketPercent.toUnit(0.1), kInfinity);
+
+    rocket.enableEvents(false);
+    body.setAxialOffset(0);
+    EXPECT_EQ(body.getPosition().x, 0.0);
+    EXPECT_EQ(StabilityUnits::getPercentageReferenceLength(configuration), 0.0);
+    configuration.setAllStages();
+    EXPECT_EQ(StabilityUnits::getPercentageReferenceLength(configuration), 0.0);
+    static_cast<void>(configuration.getBoundingBox());
+    EXPECT_EQ(StabilityUnits::getPercentageReferenceLength(configuration), 0.1);
+    EXPECT_EQ(percent.toUnit(0.1), kInfinity);
+    EXPECT_EQ(rocketPercent.toUnit(0.1), kInfinity);
+
+    rocket.enableEvents(true);
+    EXPECT_EQ(StabilityUnits::getPercentageReferenceLength(configuration), 0.1);
+    EXPECT_EQ(percent.toUnit(0.1), 100.0);
+    EXPECT_EQ(rocketPercent.toUnit(0.1), 100.0);
+}
+
+// ================================================================ the configuration's id
+
+// A group bound to a configuration of the rocket reads the rocket's configuration of that id at
+// every conversion: Rocket::loadFrom() (undo and redo) replaces the configuration objects and
+// removeFlightConfiguration() destroys one, and the group then reads the new one, or the default
+// (review of Milestone 2, run 1: the group held the replaced object). The lengths: each stage
+// of the simple two-stage rocket is 0.1 m long.
+TEST(StabilityUnits, AConfigurationGroupFollowsTheConfigurationOfItsId)
+{
+    const DefaultUnitsGuard     guard;
+    const TestSimple2Stage      two;
+    Rocket&                     rocket        = *two.rocket;
+    FlightConfiguration&        configuration = rocket.createFlightConfiguration();
+    const FlightConfigurationId id            = configuration.getId();
+    configuration.setOnlyStage(0);
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> secondary =
+        StabilityUnits::secondaryStabilityUnits(configuration);
+    const Unit& percent = unitNamed(*secondary, "%");
+    expectLengthNear(percent.toUnit(0.1), 100.0, "the sustainer");
+
+    // An undo of a longer sustainer: the configuration of the id is another object then, with
+    // the stages the saved one had.
+    const std::unique_ptr<Rocket> saved = rocket.copyRocketWithOriginalId();
+    two.sustainerBody->setLength(0.4);
+    expectLengthNear(percent.toUnit(0.1), 25.0, "a longer sustainer");
+    rocket.loadFrom(*saved);
+    ASSERT_EQ(rocket.getFlightConfiguration(id).getId(), id);
+    EXPECT_EQ(rocket.getFlightConfiguration(id).getActiveStageCount(), 1);
+    expectLengthNear(percent.toUnit(0.1), 100.0, "after the undo");
+
+    // Removed: the default configuration, both stages active.
+    rocket.removeFlightConfiguration(id);
+    expectLengthNear(percent.toUnit(0.1), 50.0, "removed");
+}
+
+// A configuration that the rocket does not hold (a copy, such as a simulation's) is bound as the
+// object: the group reads it, not the rocket's configuration of its id.
+TEST(StabilityUnits, AConfigurationTheRocketDoesNotHoldIsBoundAsTheObject)
+{
+    const DefaultUnitsGuard guard;
+    const TestSimple2Stage  two;
+    Rocket&                 rocket = *two.rocket;
+    FlightConfiguration     own(rocket, rocket.getSelectedConfiguration().getId());
+    own.setOnlyStage(1);
+    const std::unique_ptr<UnitGroup::StabilityUnitGroup> secondary =
+        StabilityUnits::secondaryStabilityUnits(own);
+    expectLengthNear(unitNamed(*secondary, "%").toUnit(0.1), 100.0, "the booster alone");
+    expectLengthNear(
+        StabilityUnits::getPercentageReferenceLength(rocket.getSelectedConfiguration()), 0.2,
+        "the rocket's configuration of the id");
 }
 
 }  // namespace

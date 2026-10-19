@@ -394,6 +394,13 @@ public:
     /// nothing; the change that follows does. An addition (Java registers nothing).
     [[nodiscard]] std::shared_ptr<DecalImage> importDecalImage(const DecalImage& image);
 
+    /// How many images importDecalImage() of each of @p images, one after the other in their
+    /// order, would register: by how much getDecalImageCount() would grow
+    /// (DecalRegistry::countImports()). Changes nothing. An addition, for
+    /// ComponentCopy::countNewDecalImages().
+    [[nodiscard]] std::size_t countDecalImports(
+        const std::vector<std::shared_ptr<const DecalImage>>& images) const;
+
     // --------------------------------------------------------------------- simulations
 
     /// The simulations of the document: a copy of the list.

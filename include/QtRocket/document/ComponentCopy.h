@@ -44,17 +44,18 @@ class OpenRocketDocument;
 ///    count plus the number of components that earlier placements of the call put into the same
 ///    parent (the indices are those of RocketComponent::addChild(component, index) called in
 ///    the order of the placements, as Java's paste computes its positions first and then adds
-///    the copies one by one); and no component of the placed trees has an id that a component
-///    of the target's rocket has (make the copy with new ids, copy(), before it goes into the
-///    document it came from). A failed check is a BugError, and the target is as it was, its
-///    decal images included.
+///    the copies one by one); no component of the placed trees has an id that a component of
+///    the target's rocket has (make the copy with new ids, copy(), before it goes into the
+///    document it came from); and no two components of the placed trees share an id (trees
+///    taken over by fromDetached() keep the caller's ids). A failed check is a BugError, and
+///    the target is as it was, its decal images included.
 /// 2. The images the placed components show are put into the target, in the order of their
 ///    names, with OpenRocketDocument::importDecalImage() (see DecalRegistry, "Images of another
-///    document"): the target's image when it has the same one (the same source, or the same
-///    name and the same bytes), else a copy registered under the name or, when the name is
-///    taken, under DecalRegistry::makeUniqueName() of it. The decals of the placed components
-///    are renamed where the target's image has another name (the decal is the same in every
-///    other field). Nothing here can fail: an image whose bytes cannot be read is simply not
+///    document"): the target's image when it has the same one (the same source under any name,
+///    or the same name and the same bytes), else a copy registered under the name or, when the
+///    name is taken, under DecalRegistry::makeUniqueName() of it. The decals of the placed
+///    components are renamed where the target's image has another name (the decal is the same in
+///    every other field). Nothing here can fail: an image whose bytes cannot be read is simply not
 ///    the same as another, and is copied.
 /// 3. The components go in, in the order of the placements, each with addChild(component,
 ///    index): one TREE event each, as Java's paste and drop add theirs (freeze the rocket around
@@ -65,6 +66,12 @@ class OpenRocketDocument;
 ///    with a BugError (what went in stays in).
 /// 4. The inserted components are returned in the order of the placements; a component of the
 ///    copy without a placement is destroyed with it.
+///
+/// Bounds: countNewDecalImages() tells how many images insertInto() would register, without
+/// changing anything, for a caller that refuses a paste that would give the target more images
+/// than the .ork loader reads back (DocumentConfig::kMaxDecalImages, in file/), as it refuses
+/// one of too many components (DocumentConfig::kMaxComponents). Without it, such a document
+/// saves with a warning that QtRocket will not open the file again.
 ///
 /// Undo: call OpenRocketDocument::addUndoPosition() (or startUndo()) before insertInto(), as
 /// Java does before a paste or a drop. The images the call registers then belong to that step:
@@ -85,6 +92,10 @@ class OpenRocketDocument;
 ///   deviations; probe DecalTransferProbe of Milestone 2).
 /// - The images are copies taken when the copy is taken (see above). Java's clipboard holds the
 ///   source's image objects and sees a later change of their decal files.
+/// - Two images of the source that share their source (an image and a copy of it that
+///   makeUniqueDecal() made and nothing gave a decal file of its own) come into the target as
+///   one image, and the decals of the second are renamed to the first (DecalRegistry,
+///   deviations). Java's pasted components keep the two image objects.
 /// - Every placement is checked before anything changes. Java's paste adds what it can, one by
 ///   one, and an addChild() that fails half-way leaves the earlier ones in.
 /// - Not copyable (copy() makes another copy with new ids); movable.
@@ -127,7 +138,8 @@ public:
     /// components of @p source, such as the copies OpenRocket's clipboard keeps, in which a
     /// component whose children were partly selected keeps only those (Java:
     /// RocketActions.copyComponentsMaintainParent() and the clipboard's filter). Their ids are
-    /// the caller's.
+    /// the caller's: insertInto() refuses trees with an id of the target's rocket, or with an id
+    /// that two of the placed components share.
     /// @throws BugError when a tree is null or has a parent
     [[nodiscard]] static Result<ComponentCopy> fromDetached(
         const OpenRocketDocument& source, std::vector<std::unique_ptr<RocketComponent>> components);
@@ -171,6 +183,19 @@ public:
     std::vector<RocketComponent*> insertInto(OpenRocketDocument&           target,
                                              const std::vector<Placement>& placements) &&;
 
+    /// How many decal images insertInto(@p target, @p placements) would register in @p target:
+    /// by how much its getDecalImageCount() would grow, the images the target has already not
+    /// counted, one that removeDecal() took out of its list counted (it is registered again).
+    /// Changes nothing; reads the bytes of images as insertInto() does (rule 3 of
+    /// DecalRegistry's "Images of another document"). For a caller that refuses a paste or a
+    /// drop that would give the document more images than the .ork loader reads back
+    /// (DocumentConfig::kMaxDecalImages), as it refuses one of too many components: ask with
+    /// the placements the paste will use, before addUndoPosition() and insertInto(); nothing
+    /// may change the target in between.
+    /// @throws BugError when a placement fails a check of insertInto()
+    [[nodiscard]] std::size_t countNewDecalImages(const OpenRocketDocument&     target,
+                                                  const std::vector<Placement>& placements) const;
+
 private:
     ComponentCopy(std::vector<std::unique_ptr<RocketComponent>>  components,
                   std::vector<std::shared_ptr<const DecalImage>> decalImages) noexcept;
@@ -178,6 +203,11 @@ private:
     /// Throws a BugError when a placement fails a check of insertInto().
     void checkPlacements(const OpenRocketDocument&     target,
                          const std::vector<Placement>& placements) const;
+
+    /// The images the components of @p placements show, in the order insertInto() imports them
+    /// (the byte order of their names). @p placements passed checkPlacements().
+    [[nodiscard]] std::vector<std::shared_ptr<const DecalImage>> imagesToImport(
+        const std::vector<Placement>& placements) const;
 
     std::vector<std::unique_ptr<RocketComponent>>  m_components;
     std::vector<std::shared_ptr<const DecalImage>> m_decalImages;

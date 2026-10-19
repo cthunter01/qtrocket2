@@ -719,6 +719,42 @@ struct StoredDefault
     return other;
 }
 
+/// "<class>: <mass> <CG x y z weight> <unit inertias>" of @p c, the numbers as Double.toString()
+/// writes them (so that a NaN equals a NaN).
+[[nodiscard]] std::string massPropertiesOf(const RocketComponent& c)
+{
+    const auto text     = [](double value) { return QtRocket::Strings::javaDoubleToString(value); };
+    const Coordinate cg = c.getComponentCG();
+    return std::format("{}: {} ({} {} {} {}) {} {}\n", QtRocket::className(c.kind()),
+                       text(c.getComponentMass()), text(cg.x), text(cg.y), text(cg.z),
+                       text(cg.weight), text(c.getLongitudinalUnitInertia()),
+                       text(c.getRotationalUnitInertia()));
+}
+
+/// The kinds whose component, asked for its mass properties after createWithBuiltinMaterials()
+/// and then completed by applyDefaultMaterials(), has other mass properties than create() gives;
+/// one line each, empty when there is none.
+[[nodiscard]] std::string kindsWithStaleMassAfterCompletion(const InMemoryPreferences& preferences,
+                                                            const MaterialStorage&     materials)
+{
+    std::string stale;
+    for (const ComponentKind kind : kButtonKinds)
+    {
+        const std::unique_ptr<RocketComponent> completed =
+            ComponentFactory::createWithBuiltinMaterials(kind);
+        // The getters cache what they compute of the built-in material.
+        static_cast<void>(massPropertiesOf(*completed));
+        ComponentFactory::applyDefaultMaterials(*completed, preferences, materials);
+        const std::string created =
+            massPropertiesOf(*ComponentFactory::create(kind, preferences, materials));
+        if (massPropertiesOf(*completed) != created)
+        {
+            stale += created;
+        }
+    }
+    return stale;
+}
+
 /// The built-in materials, and preferences as OpenRocket's start leaves them
 /// (loadDefaultComponentMaterials(): "Balsa" for FinSet, "Polystyrene" for NoseCone).
 class ComponentFactoryTest : public ::testing::Test
@@ -826,6 +862,21 @@ TEST_F(ComponentFactoryTest, ReadsThePreferencesAtEveryCall)
 TEST_F(ComponentFactoryTest, CompletesAComponentAsCreateDoes)
 {
     EXPECT_EQ(kindsCompletedOtherwise(m_preferences, m_materials), "");
+}
+
+// A getter may run before the completion (Java's constructor assigns the materials before any
+// can): the mass properties follow the new material all the same. A nose cone's CG weight was
+// the Cardboard one before SymmetricComponent cleared its caches (review of Milestone 2, run 1).
+TEST_F(ComponentFactoryTest, CompletesAComponentWhoseMassWasAskedForAsCreateDoes)
+{
+    EXPECT_EQ(kindsWithStaleMassAfterCompletion(m_preferences, m_materials), "");
+
+    const std::unique_ptr<RocketComponent> nose =
+        ComponentFactory::createWithBuiltinMaterials(ComponentKind::NOSE_CONE);
+    const double cardboard = nose->getComponentCG().weight;
+    ComponentFactory::applyDefaultMaterials(*nose, m_preferences, m_materials);
+    EXPECT_NE(nose->getComponentCG().weight, cardboard);
+    EXPECT_EQ(nose->getComponentCG().weight, nose->getComponentMass());
 }
 
 // A component in a tree is not new: completing it is a programming error, before anything

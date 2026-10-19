@@ -38,7 +38,7 @@ struct ExpressionParityCase
 /// The inputs of parity-inputs.txt, in its order.
 // clang-format off
 // NOLINTBEGIN(modernize-use-designated-initializers): a generated table, one entry per row
-inline constexpr std::array<ExpressionParityCase, 373> kExpressionParityCases{{
+inline constexpr std::array<ExpressionParityCase, 377> kExpressionParityCases{{
     {"1", "1", ParityComparison::EXACT, true, 0x3FF0000000000000ULL},
     {" 2.5 ", " 2.5 ", ParityComparison::EXACT, true, 0x4004000000000000ULL},
     {"\0113", R"(\t3)", ParityComparison::EXACT, true, 0x4008000000000000ULL},
@@ -322,6 +322,7 @@ inline constexpr std::array<ExpressionParityCase, 373> kExpressionParityCases{{
     {"f(x1)=(x1)(4)", "f(x1)=(x1)(4)", ParityComparison::EXACT, true, 0x4010000000000000ULL},
     {"f(_)=(_)(4)", "f(_)=(_)(4)", ParityComparison::EXACT, true, 0x4010000000000000ULL},
     {"f($)=($)(4)", "f($)=($)(4)", ParityComparison::EXACT, true, 0x4010000000000000ULL},
+    {"f(a$)=(a$)(2)", "f(a$)=(a$)(2)", ParityComparison::EXACT, true, 0x4000000000000000ULL},
     {"f(\303\251)=(\303\251)(3)", R"(f(\u00E9)=(\u00E9)(3))", ParityComparison::EXACT, true, 0x4008000000000000ULL},
     {"f(\302\265)=(\302\265)(3)", R"(f(\u00B5)=(\u00B5)(3))", ParityComparison::EXACT, true, 0x4008000000000000ULL},
     {"f(\303\227)=(\303\227)(3)", R"(f(\u00D7)=(\u00D7)(3))", ParityComparison::EXACT, false, 0x0ULL},
@@ -329,6 +330,9 @@ inline constexpr std::array<ExpressionParityCase, 373> kExpressionParityCases{{
     {"f(sin)=5", "f(sin)=5", ParityComparison::EXACT, false, 0x0ULL},
     {"f(SIN)=5", "f(SIN)=5", ParityComparison::EXACT, false, 0x0ULL},
     {"f(round)=5", "f(round)=5", ParityComparison::EXACT, true, 0x4014000000000000ULL},
+    {"(sin)=5", "(sin)=5", ParityComparison::EXACT, true, 0x4014000000000000ULL},
+    {")(sin)=5", ")(sin)=5", ParityComparison::EXACT, true, 0x4014000000000000ULL},
+    {"(x)=(x)(2)", "(x)=(x)(2)", ParityComparison::EXACT, false, 0x0ULL},
     {"f(log10)=log10(100)", "f(log10)=log10(100)", ParityComparison::TOLERANCE, true, 0x4059000000000000ULL},
     {"f(\342\204\252os)=5", R"(f(\u212Aos)=5)", ParityComparison::EXACT, true, 0x4014000000000000ULL},
     {"7%-4", "7%-4", ParityComparison::EXACT, true, 0x4008000000000000ULL},

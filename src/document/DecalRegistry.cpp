@@ -382,6 +382,26 @@ DecalRegistry::Import DecalRegistry::importImage(const DecalImage& image)
     return Import{.image = std::move(copy), .registered = true};
 }
 
+std::size_t DecalRegistry::countImports(
+    const std::vector<std::shared_ptr<const DecalImage>>& images) const
+{
+    // The imports themselves, into a registry of the same images: importImage() changes the
+    // maps only (it registers copies and moves removed images back), never an image.
+    DecalRegistry scratch;
+    scratch.m_registeredDecals = m_registeredDecals;
+    scratch.m_detachedDecals   = m_detachedDecals;
+    std::size_t count          = 0;
+    for (const std::shared_ptr<const DecalImage>& image : images)
+    {
+        QTROCKET_ASSERT(image != nullptr);
+        if (scratch.importImage(*image).registered)
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
 DecalRegistry::Import DecalRegistry::reuse(const std::shared_ptr<DecalImage>& image)
 {
     if (isRegistered(image->getName()))

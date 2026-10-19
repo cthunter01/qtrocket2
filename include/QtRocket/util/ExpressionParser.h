@@ -16,7 +16,8 @@ namespace QtRocket
 /// (variables with values, arrays, custom functions) is not ported: OpenRocket's ExpressionParser
 /// never uses it.
 ///
-/// The language, as OpenRocket has it in the en_US locale:
+/// The language, as OpenRocket has it in the en_US locale (in every locale here: see the first two
+/// deviations):
 /// - A number is a run of ASCII digits and points, read as Double.parseDouble reads it
 ///   (Strings::javaParseDouble(), correctly rounded): "1.", ".5" and "01.200" are numbers, "1.5.2"
 ///   and "." are not, and there is no sign, exponent or suffix ("1e3", "NaN", "Infinity", "0x10"
@@ -61,6 +62,14 @@ namespace QtRocket
 ///   In a locale whose minus sign is U+2212 MINUS SIGN (Swedish, Finnish, ...) OpenRocket also
 ///   takes that sign followed by "3" as -3; here that is invalid, as in en_US. ',' and '.' are
 ///   decimal points in either.
+/// - The function names and the Tokenizer's check of a variable's name are mapped to upper and
+///   lower case as String.toUpperCase() and toLowerCase() map them in en_US (no conditional
+///   special casing), in every locale; Java maps them in the default locale (Tokenizer
+///   .isFunction(), FunctionToken's Function.valueOf(name.toUpperCase()), the Tokenizer
+///   constructor's varName.toLowerCase()). In Turkish and Azerbaijani, where 'i' becomes U+0130
+///   LATIN CAPITAL LETTER I WITH DOT ABOVE and 'I' becomes U+0131 LATIN SMALL LETTER DOTLESS I,
+///   OpenRocket knows no sin, asin, sinh or ceil ("sin(0.5)" is invalid there) and takes
+///   "f(SIN)=5" as 5; here "sin(0.5)" is 0.479... and "f(SIN)=5" is invalid, as in en_US.
 /// - Limits against hostile input, where Java has none: a text longer than kMaxLength bytes, or
 ///   with more than kMaxDepth brackets open at once, is invalid. The parser itself uses no
 ///   recursion, so the limits bound its time and memory, not its stack.

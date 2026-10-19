@@ -41,11 +41,20 @@ class Rocket;
 /// alone), any change while the rocket's events are disabled, and for the Rocket form a stage
 /// toggle of the selected configuration (no rocket event).
 ///
-/// Lifetime and threads: a group refers to its configuration or rocket, which must outlive it.
-/// Rocket::loadFrom() (undo and redo) replaces every configuration object of the rocket, and a
-/// removed configuration is destroyed, so a holder of a configuration-bound group makes it anew
-/// for the current configuration on every change event, as OpenRocket's RocketPanel does
-/// (RocketInfo.setCurrentConfig() in updateExtras()). The units of the group are the group's own
+/// Lifetime and threads: a group refers to its rocket, which must outlive it. A configuration of
+/// the rocket (one that Rocket::getFlightConfiguration() of its id gives, as every configuration
+/// of the design window and the command-line tool is) is held by its id and looked up again at
+/// every conversion: Rocket::loadFrom() (undo and redo) replaces every configuration object of
+/// the rocket, and a removed configuration is destroyed, so the group then reads the rocket's new
+/// configuration of that id, or the default once there is none, which is what a group made anew
+/// for the configuration of that id gives. Java's unit holds the object, which its garbage
+/// collector keeps alive: there an old group goes on reading the replaced or removed
+/// configuration (a difference only for a holder that keeps a group across such a change, which
+/// OpenRocket's RocketPanel does not: RocketInfo.setCurrentConfig() in updateExtras() makes the
+/// groups anew for the current configuration on every change, and so should a holder here). A
+/// configuration the rocket does not hold (a copy such as a simulation's) is held by its address
+/// and must outlive the group; a temporary is refused at compile time. The units of the group
+/// are the group's own
 /// (the plain ones are UNITS_STABILITY's): see UnitGroup::stabilityUnits(double) for the rule
 /// that the group must outlive every unit and Value taken from it. A conversion refreshes the
 /// unit's cache and reads the configuration's mutable caches, so a group belongs to the thread
@@ -74,8 +83,8 @@ public:
     [[nodiscard]] static double getPercentageReferenceLength(const Rocket& rocket);
 
     /// UnitGroup.stabilityUnits(FlightConfiguration): UNITS_STABILITY bound to
-    /// @p configuration (see the class comment for when its references are read and how long
-    /// it may live).
+    /// @p configuration, a configuration of the rocket by its id, else the object (see the class
+    /// comment for when its references are read and how long it may live).
     [[nodiscard]] static std::unique_ptr<UnitGroup::StabilityUnitGroup> stabilityUnits(
         const FlightConfiguration& configuration);
 
@@ -83,6 +92,12 @@ public:
     /// to @p configuration.
     [[nodiscard]] static std::unique_ptr<UnitGroup::StabilityUnitGroup> secondaryStabilityUnits(
         const FlightConfiguration& configuration);
+
+    /// A group would outlive a temporary configuration (see the class comment).
+    static std::unique_ptr<UnitGroup::StabilityUnitGroup> stabilityUnits(
+        const FlightConfiguration&& configuration) = delete;
+    static std::unique_ptr<UnitGroup::StabilityUnitGroup> secondaryStabilityUnits(
+        const FlightConfiguration&& configuration) = delete;
 
     /// UnitGroup.stabilityUnits(Rocket): UNITS_STABILITY bound to @p rocket (the calibers of
     /// every component, the percentage of the selected configuration's length).
@@ -92,6 +107,12 @@ public:
     /// UnitGroup.secondaryStabilityUnits(Rocket): UNITS_SECONDARY_STABILITY bound to @p rocket.
     [[nodiscard]] static std::unique_ptr<UnitGroup::StabilityUnitGroup> secondaryStabilityUnits(
         const Rocket& rocket);
+
+    /// A group would outlive a temporary rocket.
+    static std::unique_ptr<UnitGroup::StabilityUnitGroup> stabilityUnits(const Rocket&& rocket) =
+        delete;
+    static std::unique_ptr<UnitGroup::StabilityUnitGroup> secondaryStabilityUnits(
+        const Rocket&& rocket) = delete;
 };
 
 }  // namespace QtRocket

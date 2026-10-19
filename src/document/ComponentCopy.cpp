@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -233,6 +234,8 @@ void ComponentCopy::checkPlacements(const OpenRocketDocument&     target,
     const Rocket&                                 rocket = target.getRocket();
     std::vector<bool>                             placed(m_components.size(), false);
     std::map<const RocketComponent*, std::size_t> earlier;
+    // The ids of the placed trees so far: no two components of the call may share one.
+    std::set<Uuid> ids;
     for (const Placement& placement : placements)
     {
         if (placement.component >= m_components.size() ||
@@ -279,8 +282,41 @@ void ComponentCopy::checkPlacements(const OpenRocketDocument&     target,
                                 "component of the id of '{}' already; copy() first",
                                 part.getName()));
             }
+            if (!ids.insert(part.getId()).second)
+            {
+                bug(
+                    std::format("ComponentCopy::insertInto(): '{}' has the id of another "
+                                "component that the call places",
+                                part.getName()));
+            }
         }
     }
+}
+
+std::vector<std::shared_ptr<const DecalImage>> ComponentCopy::imagesToImport(
+    const std::vector<Placement>& placements) const
+{
+    DecalNames users;
+    for (const Placement& placement : placements)
+    {
+        addDecalNames(users, *m_components[placement.component]);
+    }
+    std::vector<std::shared_ptr<const DecalImage>> images;
+    images.reserve(users.size());
+    for (const auto& entry : users)
+    {
+        std::shared_ptr<const DecalImage> image = findDecalImage(entry.first);
+        QTROCKET_ASSERT(image != nullptr);
+        images.push_back(std::move(image));
+    }
+    return images;
+}
+
+std::size_t ComponentCopy::countNewDecalImages(const OpenRocketDocument&     target,
+                                               const std::vector<Placement>& placements) const
+{
+    checkPlacements(target, placements);
+    return target.countDecalImports(imagesToImport(placements));
 }
 
 std::vector<RocketComponent*> ComponentCopy::insertInto(OpenRocketDocument&           target,
@@ -291,24 +327,19 @@ std::vector<RocketComponent*> ComponentCopy::insertInto(OpenRocketDocument&     
     // The parents by id, for the insertions after the first (see the class comment).
     std::vector<Uuid> parents;
     parents.reserve(placements.size());
-    DecalNames users;
     for (const Placement& placement : placements)
     {
         parents.push_back(placement.parent->getId());
-        addDecalNames(users, *m_components[placement.component]);
     }
 
     // The images, then the decals that name them by another name in the target.
     DecalNames renames;
-    for (const auto& entry : users)
+    for (const std::shared_ptr<const DecalImage>& image : imagesToImport(placements))
     {
-        const std::string&                      name  = entry.first;
-        const std::shared_ptr<const DecalImage> image = findDecalImage(name);
-        QTROCKET_ASSERT(image != nullptr);
         const std::shared_ptr<DecalImage> imported = target.importDecalImage(*image);
-        if (imported->getName() != name)
+        if (imported->getName() != image->getName())
         {
-            renames.emplace(name, imported->getName());
+            renames.emplace(image->getName(), imported->getName());
         }
     }
     if (!renames.empty())

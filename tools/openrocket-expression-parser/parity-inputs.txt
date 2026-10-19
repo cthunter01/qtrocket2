@@ -315,6 +315,7 @@
 = [f(x1)=(x1)(4)]
 = [f(_)=(_)(4)]
 = [f($)=($)(4)]
+= [f(a$)=(a$)(2)]
 = [f(\u00E9)=(\u00E9)(3)]
 = [f(\u00B5)=(\u00B5)(3)]
 = [f(\u00D7)=(\u00D7)(3)]
@@ -322,6 +323,11 @@
 = [f(sin)=5]
 = [f(SIN)=5]
 = [f(round)=5]
+# The variable part needs a "(" and a ")" at an index above 0: "(sin)" and ")(sin)" name no
+# variable (so no function name is refused) and "(x)=" defines none.
+= [(sin)=5]
+= [)(sin)=5]
+= [(x)=(x)(2)]
 ~ [f(log10)=log10(100)]
 = [f(\u212Aos)=5]
 

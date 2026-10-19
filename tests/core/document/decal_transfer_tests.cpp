@@ -9,6 +9,8 @@
 // sections. The saving half, with OpenRocket's example designs, is in
 // file/openrocket/decal_transfer_save_tests.cpp.
 
+#include <cstddef>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <optional>
@@ -36,6 +38,7 @@
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Uuid.h"
+#include "TestTempDir.h"
 #include "document/DocumentTestSupport.h"
 #include "document/TestAttachments.h"
 
@@ -60,6 +63,7 @@ using QtRocket::Test::AlphaDocument;
 using QtRocket::Test::FailingAttachment;
 using QtRocket::Test::MemoryAttachment;
 using QtRocket::Test::RocketEventRecorder;
+using QtRocket::Test::TempDir;
 using Placement = ComponentCopy::Placement;
 
 /// An attachment whose bytes are @p text.
@@ -391,6 +395,37 @@ TEST(DecalTransfer, ANameClashRenamesTheImageAndTheComponentsFollow)
     EXPECT_EQ(decalsOf(clipboard.getComponent(0)), "decals/a.png decals/b.png");
 }
 
+// Two images whose names both clash, of one base: they are imported in the byte order of their
+// names, so "decals/a (1).png" (a space before the dot) gets the first free number and
+// "decals/a.png" the next.
+TEST(DecalTransfer, ClashingNamesAreNumberedInTheOrderOfTheNames)
+{
+    const AlphaDocument source;
+    OpenRocketDocument& s = source.document();
+    static_cast<void>(s.getDecalImage(memory("decals/a.png", "source a")));
+    static_cast<void>(s.getDecalImage(memory("decals/a (1).png", "source a1")));
+    source.nose().setAppearance(decalAppearance("decals/a.png"));
+    source.body().setAppearance(decalAppearance("decals/a (1).png"));
+    Result<ComponentCopy> copy = ComponentCopy::copyOf(s, {&source.nose(), &source.body()});
+    ASSERT_TRUE(copy.has_value());
+    const AlphaDocument target;
+    OpenRocketDocument& t = target.document();
+    static_cast<void>(t.getDecalImage(memory("decals/a.png", "target a")));
+    static_cast<void>(t.getDecalImage(memory("decals/a (1).png", "target a1")));
+
+    t.addUndoPosition("Paste components");
+    const std::vector<RocketComponent*> pasted = std::move(*copy).insertInto(
+        t, {Placement{.component = 0, .parent = &target.stage(), .index = 2},
+            Placement{.component = 1, .parent = &target.stage(), .index = 3}});
+
+    ASSERT_EQ(pasted.size(), 2U);
+    EXPECT_EQ(decalsOf(*pasted[0]), "decals/a (3).png -");
+    EXPECT_EQ(decalsOf(*pasted[1]), "decals/a (2).png -");
+    EXPECT_EQ(listOf(t), "[decals/a (1).png, decals/a (2).png, decals/a (3).png, decals/a.png]");
+    EXPECT_EQ(bytesOf(t, "decals/a (2).png"), "source a1");
+    EXPECT_EQ(bytesOf(t, "decals/a (3).png"), "source a");
+}
+
 // The name the registry gives a taken name without the "decals/" prefix: OpenRocket's
 // makeUniqueName() rule.
 TEST(DecalTransfer, ATakenNameWithoutThePrefixGetsThePrefix)
@@ -690,6 +725,96 @@ TEST(DecalTransfer, AComponentWithAnIdOfTheTargetIsRefused)
     EXPECT_EQ(source.alpha().stage().getChildCount(), 2U);
 }
 
+// Trees taken over by fromDetached() keep the caller's ids: two placed components of one id are
+// refused, and nothing changes (review of Milestone 2, run 1: they went in, and the rocket had
+// two components of one id).
+TEST(DecalTransfer, TwoPlacedComponentsOfOneIdAreRefused)
+{
+    const Source                                  source;
+    std::vector<std::unique_ptr<RocketComponent>> trees;
+    trees.push_back(source.alpha().chute().copyWithNewIds());
+    trees.push_back(source.alpha().body().copyWithNewIds());
+    trees.push_back(trees[1]->copyWithOriginalId());
+    Result<ComponentCopy> copy = ComponentCopy::fromDetached(source.document(), std::move(trees));
+    ASSERT_TRUE(copy.has_value());
+    const AlphaDocument target;
+    const std::size_t   bodyChildren = target.body().getChildCount();
+
+    EXPECT_THROW(
+        static_cast<void>(std::move(*copy).insertInto(
+            target.document(), {Placement{.component = 0, .parent = &target.body(), .index = 0},
+                                Placement{.component = 1, .parent = &target.stage(), .index = 2},
+                                Placement{.component = 2, .parent = &target.stage(), .index = 3}})),
+        BugError);
+    EXPECT_EQ(target.stage().getChildCount(), 2U);
+    EXPECT_EQ(target.body().getChildCount(), bodyChildren);
+    EXPECT_EQ(listOf(target.document()), "[]");
+}
+
+// ------------------------------------------------------------------------- the images counted
+
+/// countNewDecalImages() of a fresh copy of @p clipboard at the end of @p target's stage, checked
+/// against what insertInto() then registers; returns the count.
+[[nodiscard]] std::size_t countedAndPasted(const ComponentCopy& clipboard,
+                                           const AlphaDocument& target)
+{
+    OpenRocketDocument&          d          = target.document();
+    ComponentCopy                paste      = clipboard.copy();
+    const std::vector<Placement> placements = atTheEndOfTheStage(target);
+    const std::string            before     = listOf(d);
+    const std::size_t            count      = paste.countNewDecalImages(d, placements);
+    EXPECT_EQ(listOf(d), before);
+    const std::size_t images = d.getDecalImageCount();
+    d.addUndoPosition("Paste");
+    static_cast<void>(std::move(paste).insertInto(d, placements));
+    EXPECT_EQ(d.getDecalImageCount(), images + count);
+    return count;
+}
+
+// How many images a paste would register, without registering them, for the GUI's bound on the
+// images of a document (DocumentConfig::kMaxDecalImages): images the target has are not counted,
+// a removed one that the paste registers again is.
+TEST(DecalTransfer, ThePasteCountsTheImagesItWouldRegister)
+{
+    const Source        source;
+    const ComponentCopy clipboard = source.copyOfBody();
+    const AlphaDocument target;
+    static_cast<void>(target.document().getDecalImage(memory("decals/a.png", "target a")));
+
+    // "decals/a.png" is copied under a unique name, "decals/b.png" under its own.
+    EXPECT_EQ(countedAndPasted(clipboard, target), 2U);
+    // Pasted again, both images are there.
+    EXPECT_EQ(countedAndPasted(clipboard, target), 0U);
+    // Inside one document nothing is registered, unless removeDecal() took an image out.
+    OpenRocketDocument& d = source.document();
+    EXPECT_EQ(countedAndPasted(clipboard, source.alpha()), 0U);
+    EXPECT_TRUE(d.removeDecal(source.b().get()));
+    EXPECT_EQ(countedAndPasted(clipboard, source.alpha()), 1U);
+    // Two images of one source are registered once.
+    const Source twins;
+    static_cast<void>(twins.document().makeUniqueDecal(twins.a()));
+    twins.alpha().body().getChild(0).setAppearance(decalAppearance("decals/a (1).png"));
+    const AlphaDocument empty;
+    EXPECT_EQ(countedAndPasted(twins.copyOfBody(), empty), 2U);
+    EXPECT_EQ(listOf(empty.document()), "[decals/a (1).png, decals/b.png]");
+}
+
+// The count checks the placements as insertInto() does.
+TEST(DecalTransfer, TheCountRefusesWhatThePasteRefuses)
+{
+    const Source        source;
+    const ComponentCopy clipboard = source.copyOfBody();
+    const AlphaDocument target;
+    EXPECT_THROW(
+        static_cast<void>(clipboard.countNewDecalImages(
+            target.document(), {Placement{.component = 0, .parent = &target.stage(), .index = 3}})),
+        BugError);
+    EXPECT_THROW(
+        static_cast<void>(clipboard.countNewDecalImages(
+            target.document(), {Placement{.component = 1, .parent = &target.stage(), .index = 0}})),
+        BugError);
+}
+
 // ------------------------------------------------------------------------------------- undo
 
 // DecalTransferProbe, "== undo": OpenRocket's list is "[]" throughout, as its target never
@@ -736,6 +861,28 @@ TEST(DecalTransfer, AnUndoOfThePasteRestoresTheDecalList)
     ASSERT_EQ(pasted.size(), 1U);
     EXPECT_EQ(decalsOf(*pasted[0]), "decals/a (1).png -");
     EXPECT_EQ(listOf(d), "[decals/a (1).png, decals/t.png]");
+}
+
+// The decal list is restored before the rocket's event of the undo and the redo, so that a slot
+// of it finds the list as the state has it (OpenRocketDocument: the images first).
+TEST(DecalTransfer, UndoAndRedoRestoreTheDecalListBeforeTheRocketsEvent)
+{
+    const Source        source;
+    const ComponentCopy clipboard = source.copyOfBody();
+    const AlphaDocument target;
+    OpenRocketDocument& d = target.document();
+    d.clearUndo();
+    static_cast<void>(pasteIntoStage(clipboard, target));
+    DecalsAtEvents    seen(d);
+    const std::string rocket = target.rocket().getName();
+
+    d.undo();
+    EXPECT_EQ(seen.take(),
+              (std::vector<std::string>{std::format("{} tree=true list=[] a=source a", rocket)}));
+    d.redo();
+    EXPECT_EQ(seen.take(),
+              (std::vector<std::string>{std::format(
+                  "{} tree=true list=[decals/a.png, decals/b.png] a=source a", rocket)}));
 }
 
 // A drop from another window is bracketed by startUndo() and stopUndo() (Java's
@@ -794,6 +941,76 @@ TEST(DecalTransfer, InsideOneDocumentTheImagesAreTheDocumentsOwn)
     EXPECT_EQ(listOf(d), "[decals/a.png, decals/c.png]");
     d.redo();
     EXPECT_EQ(listOf(d), "[decals/a.png, decals/b.png, decals/c.png]");
+}
+
+// Inside one document, an image whose decal file was changed since the copy (an external edit,
+// EditDecalHelper.launchEditor() of OpenRocket) is another image now: the pasted components get a
+// copy of the image as it was copied, under a unique name, and the document's own image and the
+// components that show it keep the edit.
+TEST(DecalTransfer, AnImageWhoseDecalFileChangedSinceTheCopyIsAnotherImage)
+{
+    const TempDir               dir;
+    const Source                source;
+    OpenRocketDocument&         d         = source.document();
+    const ComponentCopy         clipboard = source.copyOfBody();
+    const std::filesystem::path edited    = dir.resolve("edited.png");
+    ASSERT_TRUE(QtRocket::writeTextFile(edited, "edited a").has_value());
+    source.a()->setDecalFile(edited);
+    EXPECT_EQ(textOf(*source.a()), "edited a");
+
+    const RocketComponent& pasted = pasteIntoStage(clipboard, source.alpha());
+
+    EXPECT_EQ(decalsOf(pasted), "decals/a (1).png decals/b.png");
+    EXPECT_EQ(decalsOf(pasted.getChild(0)), "decals/a (1).png -");
+    EXPECT_EQ(listOf(d), "[decals/a (1).png, decals/a.png, decals/b.png, decals/c.png]");
+    EXPECT_EQ(bytesOf(d, "decals/a (1).png"), "source a");
+    EXPECT_EQ(d.findDecalImage("decals/a.png"), source.a());
+    EXPECT_EQ(decalsOf(source.alpha().body()), "decals/a.png decals/b.png");
+}
+
+// DecalRegistry, rule 2: a round trip ends with the document's own image. A component copied into
+// another document, which renames its image there, and copied back finds the image it started
+// with, not a numbered copy of it (Java ends the same way: its pasted components keep the image
+// objects).
+TEST(DecalTransfer, ARoundTripEndsWithTheDocumentsOwnImage)
+{
+    const Source        source;
+    const AlphaDocument target;
+    static_cast<void>(target.document().getDecalImage(memory("decals/a.png", "target a")));
+    const ComponentCopy    clipboard = source.copyOfBody();
+    const RocketComponent& there     = pasteIntoStage(clipboard, target);
+    EXPECT_EQ(decalsOf(there), "decals/a (1).png decals/b.png");
+
+    const Result<ComponentCopy> back = ComponentCopy::copyOf(target.document(), {&there});
+    ASSERT_TRUE(back.has_value());
+    const RocketComponent& home = pasteIntoStage(*back, source.alpha());
+
+    EXPECT_EQ(decalsOf(home), "decals/a.png decals/b.png");
+    EXPECT_EQ(decalsOf(home.getChild(0)), "decals/a.png -");
+    EXPECT_EQ(listOf(source.document()), "[decals/a.png, decals/b.png, decals/c.png]");
+    EXPECT_EQ(source.document().countDecalUsage(*source.a()), 4);
+}
+
+// DecalRegistry, deviations: two images of the source that share their source (an image and the
+// copy makeUniqueDecal() made of it, which nothing gave a decal file of its own) come into the
+// target as one image, the first in name order, and the decals of the other follow it; the bytes
+// are the same. Java's pasted components keep the two image objects, which its saver writes under
+// both names.
+TEST(DecalTransfer, TwoImagesOfOneSourceComeAsOneImage)
+{
+    const Source                      source;
+    const std::shared_ptr<DecalImage> unique = source.document().makeUniqueDecal(source.a());
+    ASSERT_EQ(unique->getName(), "decals/a (1).png");
+    source.alpha().body().getChild(0).setAppearance(decalAppearance("decals/a (1).png"));
+    const AlphaDocument target;
+    const ComponentCopy clipboard = source.copyOfBody();
+
+    const RocketComponent& pasted = pasteIntoStage(clipboard, target);
+
+    EXPECT_EQ(listOf(target.document()), "[decals/a (1).png, decals/b.png]");
+    EXPECT_EQ(decalsOf(pasted), "decals/a (1).png decals/b.png");
+    EXPECT_EQ(decalsOf(pasted.getChild(0)), "decals/a (1).png -");
+    EXPECT_EQ(bytesOf(target.document(), "decals/a (1).png"), "source a");
 }
 
 // An imported image that the user removes, or chooses again, no longer follows the undo
