@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QEvent>
 #include <QGuiApplication>
 #include <QList>
@@ -127,7 +128,9 @@ TEST_F(MainWindowTest, TitleIsTheRocketsNameAndTheFilesName)
     EXPECT_EQ(QtStrings::toUtf8(window().windowTitle()), "[*]Rocket");
     window().refreshTitle();
     EXPECT_EQ(QtStrings::toUtf8(window().windowTitle()), "[*]Rocket (My rocket.ork)");
-    EXPECT_EQ(window().windowFilePath(), QtStrings::fromPath(file));
+    // Qt keeps the window's file path with the platform's separators (backslashes on Windows).
+    EXPECT_EQ(QDir::fromNativeSeparators(window().windowFilePath()),
+              QDir::fromNativeSeparators(QtStrings::fromPath(file)));
     EXPECT_EQ(shownTitle(), "Rocket (My rocket.ork)");
     EXPECT_EQ(MainWindow::titleFor(document()), QStringLiteral("[*]Rocket (My rocket.ork)"));
 }

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -75,7 +76,7 @@ void addBody(RocketComponent& parent, double length, double radius)
 }
 
 /// The name the probe gives @p method (AxialMethod.name()).
-[[nodiscard]] std::string axialName(AxialMethod method)
+[[nodiscard]] std::string_view axialName(AxialMethod method)
 {
     switch (method)
     {
@@ -119,7 +120,7 @@ TEST(ComponentAssemblyShapes, PodSetsAsJava)
         pods.setRadiusMethod(RadiusMethod::RELATIVE);
         pods.setRadiusOffset(0.005);
         built.rocket->enableEvents();
-        EXPECT_TRUE(assemblyAsJava(pods, "pods-" + axialName(axial)));
+        EXPECT_TRUE(assemblyAsJava(pods, "pods-" + std::string(axialName(axial))));
     }
 
     const RocketWithBody built = bodyOfNewRocket();
@@ -130,7 +131,7 @@ TEST(ComponentAssemblyShapes, PodSetsAsJava)
     built.rocket->enableEvents();
     EXPECT_TRUE(assemblyAsJava(pods, "pods-FREE"));
 
-    auto& empty = built.body->addChild(std::make_unique<PodSet>());
+    const auto& empty = built.body->addChild(std::make_unique<PodSet>());
     built.rocket->enableEvents();
     EXPECT_TRUE(assemblyAsJava(empty, "pods-empty"));
 }
@@ -146,7 +147,7 @@ TEST(ComponentAssemblyShapes, BoosterSetsAsJava)
         boosters.setAxialMethod(axial);
         boosters.setRadiusMethod(RadiusMethod::SURFACE);
         built.rocket->enableEvents();
-        EXPECT_TRUE(assemblyAsJava(boosters, "boosters-" + axialName(axial)));
+        EXPECT_TRUE(assemblyAsJava(boosters, "boosters-" + std::string(axialName(axial))));
     }
 }
 

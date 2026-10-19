@@ -154,7 +154,7 @@ int FlowLayout::doLayout(const QRect& rect, bool testOnly) const
 int FlowLayout::smartSpacing(QStyle::PixelMetric metric) const
 {
     QObject* owner = parent();
-    if (auto* widget = qobject_cast<QWidget*>(owner))
+    if (const auto* widget = qobject_cast<const QWidget*>(owner))
     {
         return widget->style()->pixelMetric(metric, nullptr, widget);
     }

@@ -118,7 +118,12 @@ TEST_F(WidgetUserPromptsTest, AsksBasicFramesQuestionWhetherToSaveTheDesign)
 {
     SaveQuestion seen;
     EXPECT_EQ(askToSave(QMessageBox::Yes, seen), SaveChangesAnswer::SAVE);
+#ifdef __APPLE__
+    // A QMessageBox drops its title on macOS (Apple's guidelines: QMessageBox::setWindowTitle()).
+    EXPECT_TRUE(seen.title.isEmpty());
+#else
     EXPECT_EQ(seen.title, QStringLiteral("Design not saved"));
+#endif
     EXPECT_EQ(seen.text,
               QStringLiteral("Design 'Rocket' has not been saved.  Do you want to save it?"));
     EXPECT_EQ(seen.format, Qt::PlainText);

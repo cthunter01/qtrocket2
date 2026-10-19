@@ -55,7 +55,7 @@ inline constexpr double kFloatTolerance = 0x1p-23;
     const std::vector<PathSegment>& actual, const std::vector<PathSegment>& expected,
     double tolerance = kTranscendentalTolerance)
 {
-    const auto describe = [&]() {
+    const auto describe = [&] {
         std::ostringstream os;
         os << "\n  actual:  ";
         for (const PathSegment& s : actual)

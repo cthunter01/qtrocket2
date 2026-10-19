@@ -294,6 +294,12 @@ TEST_F(ApplicationSessionTest, AReportFromAnotherThreadIsShownOnTheGuiThread)
 
 TEST_F(ApplicationSessionTest, TheBackstopShowsTheInternalErrorToo)
 {
+    // On macOS an exception thrown in an event handler cannot unwind through Qt's own frames:
+    // the program terminates before notify() can catch it (CI, Qt 6.8.3). Only the guarded
+    // connections (Guard) protect there (Application.h).
+#ifdef __APPLE__
+    GTEST_SKIP() << "macOS: an exception cannot cross Qt's frames to reach notify()";
+#endif
     const ApplicationSession& session = start();
     prompts().answerInternalError(UserPrompts::InternalErrorAnswer::CONTINUE);
     BrokenObject object;

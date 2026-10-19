@@ -37,7 +37,7 @@ using Type = FigureArc::Type;
                                                    const std::vector<PathSegment>& segments,
                                                    const Rectangle2D&              bounds)
 {
-    if (auto result = segmentsNear(arc.segments(), segments); !result)
+    if (const auto result = segmentsNear(arc.segments(), segments); !result)
     {
         return result;
     }

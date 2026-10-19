@@ -24,7 +24,9 @@ namespace QtRocket::Gui
 ///   handler): notify() catches what an event handler throws and reports it to the error hook
 ///   (Guard), so that nothing leaves through Qt's event loop, which cannot carry an exception.
 ///   The connections into the core are guarded (guarded()) and report before it; this catches
-///   what they miss;
+///   what they miss. Not on macOS: there an exception thrown in an event handler cannot unwind
+///   through Qt's own frames, and the program terminates before notify() sees it (CI, Qt 6.8.3),
+///   so only the guarded connections protect;
 /// - the platform's requests: a QFileOpenEvent (macOS opens a design file with the
 ///   application: OSXSetup's open-file handler) goes to the open-files hook, or waits for one
 ///   when none is set (pendingFiles()); a QEvent::Quit (the macOS Dock's or the session's Quit,

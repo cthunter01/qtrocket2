@@ -139,12 +139,12 @@ TEST(AddButtonsSave, TheNormalisationNumbersTheIdsAndHidesTheCreator)
     std::string tree = component.getName();
     if (component.getChildCount() > 0)
     {
-        tree += "[";
+        tree += '[';
         for (std::size_t i = 0; i < component.getChildCount(); ++i)
         {
             tree += (i > 0 ? ", " : "") + treeOf(component.getChild(i));
         }
-        tree += "]";
+        tree += ']';
     }
     return tree;
 }

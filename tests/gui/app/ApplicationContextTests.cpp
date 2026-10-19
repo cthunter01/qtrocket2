@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <QApplication>
+#include <QDir>
 #include <QString>
 
 #include <gtest/gtest.h>
@@ -115,7 +116,9 @@ TEST_F(ApplicationContextTest, TheServicesAreTheContextsObjects)
     EXPECT_EQ(&services.loadingContext(), &context.loadingContext());
     EXPECT_EQ(&services.prompts(), prompts());
     EXPECT_EQ(&context.prompts(), prompts());
-    EXPECT_EQ(context.preferences().fileName(), preferencesFile());
+    // QSettings gives its file with forward slashes on every platform.
+    EXPECT_EQ(QDir::fromNativeSeparators(context.preferences().fileName()),
+              QDir::fromNativeSeparators(preferencesFile()));
 }
 
 TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)

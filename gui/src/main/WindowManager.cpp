@@ -118,7 +118,7 @@ bool WindowManager::close(MainWindow& window)
     entry->closing = true;
     // While the question runs (an event loop), the window must not be closed twice; afterwards
     // it is open again, unless it was closed.
-    const OnScopeExit reopen([this, &window]() noexcept {
+    const OnScopeExit reopen([this, &window] noexcept {
         if (Entry* const current = find(window); current != nullptr)
         {
             current->closing = false;
@@ -143,7 +143,7 @@ bool WindowManager::quit()
         return false;
     }
     m_quitting = true;
-    const OnScopeExit done([this]() noexcept { m_quitting = false; });
+    const OnScopeExit done([this] noexcept { m_quitting = false; });
     while (!m_entries.empty())
     {
         if (!close(*m_entries.back()->window))

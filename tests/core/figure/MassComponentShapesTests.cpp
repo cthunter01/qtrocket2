@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -59,7 +60,7 @@ using Type                    = MassComponent::MassComponentType;
 }
 
 /// The type's name as the probe writes it (MassComponentType.name()).
-[[nodiscard]] std::string typeName(Type type)
+[[nodiscard]] std::string_view typeName(Type type)
 {
     switch (type)
     {
@@ -101,7 +102,7 @@ TEST(MassComponentShapes, EveryTypeAsJava)
         {
             continue;  // its rays are random in Java: DeploymentChargeAsJava
         }
-        EXPECT_TRUE(massAsJava(mass(type, 0.06, 0.012), "mass-" + typeName(type)));
+        EXPECT_TRUE(massAsJava(mass(type, 0.06, 0.012), "mass-" + std::string(typeName(type))));
     }
 }
 
@@ -111,7 +112,8 @@ TEST(MassComponentShapes, ShortLongAndOffAxisAsJava)
     for (const Type type : {Type::ALTIMETER, Type::FLIGHTCOMPUTER, Type::TRACKER,
                             Type::RECOVERYHARDWARE, Type::BATTERY, Type::PAYLOAD})
     {
-        EXPECT_TRUE(massAsJava(mass(type, 0.01, 0.02), "mass-short-" + typeName(type)));
+        EXPECT_TRUE(
+            massAsJava(mass(type, 0.01, 0.02), "mass-short-" + std::string(typeName(type))));
     }
     EXPECT_TRUE(massAsJava(mass(Type::TRACKER, 0.1, 0.005), "mass-long-TRACKER"));
     EXPECT_TRUE(massAsJava(mass(Type::BATTERY, 0.1, 0.005), "mass-long-BATTERY"));
