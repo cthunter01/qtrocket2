@@ -25,6 +25,8 @@ add_subdirectory(src/dialogs)
 add_subdirectory(src/main)
 add_subdirectory(src/app)
 add_subdirectory(resources)
+# The area lists above add the sources: AUTOMOC must notice when one of them changes.
+QtRocket_automoc_follows_sources(QtRocket_gui)
 
 # The application. WIN32_EXECUTABLE: no console window on Windows (Qt's entry point provides WinMain). The macOS
 # bundle and the install() rules come with the release archives of the GUI (Milestone 9).

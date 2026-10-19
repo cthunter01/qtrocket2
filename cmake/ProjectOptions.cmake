@@ -116,3 +116,19 @@ function(QtRocket_configure_qt_target target)
         QT_WARN_DEPRECATED_UP_TO=0x060800
         QT_NO_CAST_FROM_ASCII)
 endfunction()
+
+# QtRocket_automoc_follows_sources(<target>)
+# Makes AUTOMOC run again whenever the list of sources of <target> changes. AUTOMOC runs again when a CMakeLists.txt
+# file of the directory that made its target changes, but not when one of a subdirectory does: a Q_OBJECT header
+# added to an area's list (gui/src/<area>/CMakeLists.txt, tests/gui/<area>/CMakeLists.txt) would not be moc'ed in an
+# existing build directory, and the build would fail with "undefined reference to vtable" until a clean build. This
+# writes a hash of the list into a file of the build directory (only when it changes) and reads it as a list file of
+# the calling directory, which AUTOMOC then depends on. Call it in the directory that made <target>, after every
+# subdirectory that adds sources to it.
+function(QtRocket_automoc_follows_sources target)
+    get_target_property(sources ${target} SOURCES)
+    string(SHA256 sources_hash "${sources}")
+    set(stamp ${CMAKE_CURRENT_BINARY_DIR}/${target}_sources.cmake)
+    file(CONFIGURE OUTPUT ${stamp} CONTENT "# The sources of ${target}, for AUTOMOC: ${sources_hash}\n")
+    include(${stamp})
+endfunction()

@@ -31,6 +31,8 @@ target_link_libraries(QtRocket_gui_tests PRIVATE QtRocket::gui QtRocket_test_sup
     GTest::gmock)
 add_dependencies(QtRocket_gui_tests QtRocket_data)
 QtRocket_configure_qt_target(QtRocket_gui_tests)
+# The area lists above add the tests: AUTOMOC must notice when one of them changes.
+QtRocket_automoc_follows_sources(QtRocket_gui_tests)
 
 include(GoogleTest)
 # As tests/core: listed when ctest runs (PRE_TEST), a generous listing timeout, and the label golden on the suites
