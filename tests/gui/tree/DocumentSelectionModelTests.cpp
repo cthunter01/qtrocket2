@@ -199,6 +199,21 @@ TEST_F(DocumentSelectionModelTest, SetsTheSelection)
     EXPECT_EQ(changes(), 0);
 }
 
+// The first selected component decides OpenRocket's actions and add buttons, so a new order of
+// the same components is a change, which Qt's selection model does not tell.
+TEST_F(DocumentSelectionModelTest, TellsANewOrderOfTheSameComponents)
+{
+    select({m_inner, m_stage});
+    EXPECT_EQ(changes(), 1);
+    select({m_stage, m_inner});
+    EXPECT_THAT(selected(), ElementsAre("Sustainer", "Inner Tube"));
+    EXPECT_EQ(changes(), 1);
+    select({m_stage, m_inner});
+    EXPECT_EQ(changes(), 0);
+    select({m_inner, m_noseCone});
+    EXPECT_EQ(changes(), 1);
+}
+
 TEST_F(DocumentSelectionModelTest, LeavesOutComponentsNotInTheTree)
 {
     const std::unique_ptr<OpenRocketDocument> other = OpenRocketDocumentFactory::createNewRocket();

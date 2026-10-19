@@ -248,8 +248,6 @@ constexpr std::array kDesignWindowItems{
     item("deleteAction", "Delete", "", "Delete the selected components or simulations.",
          Id::EDIT_DELETE),
     item("selectMenu", "Select", "", "", std::nullopt),
-    item("selectSameColorAction", "Components of same color", "",
-         "Select all components of the same color as this component.", std::nullopt),
     item("deselectAllAction", "Deselect all", "", "Deselect all currently selected components.",
          std::nullopt),
     item("visibilityMenu", "Visibility", "", "", std::nullopt),
@@ -402,10 +400,9 @@ TEST_F(DesignWindowMenusTest, EditMenuHasOpenRocketsItemsInItsOrder)
     EXPECT_EQ(itemTexts(*menus().editMenu()),
               (Texts{"&Undo", "&Redo", "---", "&Edit", "Cu&t", "&Copy", "Paste", "&Duplicate",
                      "Delete", "---", "Select", "---", "Visibility", "---", "Preferences"}));
-    EXPECT_EQ(itemNames(*menus().selectMenu()),
-              (Texts{"selectSameColorAction", "deselectAllAction"}));
-    EXPECT_EQ(itemTexts(*menus().selectMenu()),
-              (Texts{"Components of same color", "Deselect all"}));
+    // Components of same color comes with Milestone 5.
+    EXPECT_EQ(itemNames(*menus().selectMenu()), (Texts{"deselectAllAction"}));
+    EXPECT_EQ(itemTexts(*menus().selectMenu()), (Texts{"Deselect all"}));
     EXPECT_EQ(itemNames(*menus().visibilityMenu()),
               (Texts{"toggleVisibilityAction", "showAllComponentsAction"}));
     EXPECT_EQ(itemTexts(*menus().visibilityMenu()), (Texts{"Hide selected", "Show all"}));
@@ -432,7 +429,6 @@ TEST_F(DesignWindowMenusTest, AccessorsGiveTheItemsOfTheMenus)
     EXPECT_EQ(m.duplicateAction()->objectName(), QStringLiteral("duplicateAction"));
     EXPECT_EQ(m.deleteAction()->objectName(), QStringLiteral("deleteAction"));
     EXPECT_EQ(m.selectMenu()->objectName(), QStringLiteral("selectMenu"));
-    EXPECT_EQ(m.selectSameColorAction()->objectName(), QStringLiteral("selectSameColorAction"));
     EXPECT_EQ(m.deselectAllAction()->objectName(), QStringLiteral("deselectAllAction"));
     EXPECT_EQ(m.visibilityMenu()->objectName(), QStringLiteral("visibilityMenu"));
     EXPECT_EQ(m.toggleVisibilityAction()->objectName(), QStringLiteral("toggleVisibilityAction"));
@@ -461,7 +457,6 @@ TEST_F(DesignWindowMenusTest, ItemsHaveTheStandardKeysOrMenuKeys)
     EXPECT_EQ(keys(*m.duplicateAction()), menuKey(Qt::Key_D));
     // RocketActions' Delete key alone, whatever the platform's key scheme.
     EXPECT_EQ(m.deleteAction()->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::Key_Delete)});
-    EXPECT_EQ(keys(*m.selectSameColorAction()), "");
     EXPECT_EQ(keys(*m.deselectAllAction()), "");
     EXPECT_EQ(keys(*m.toggleVisibilityAction()), "");
     EXPECT_EQ(keys(*m.showAllComponentsAction()), "");
@@ -502,8 +497,8 @@ TEST_F(DesignWindowMenusTest, ItemsHaveOpenRocketsIconsDescriptionsAndTooltips)
 {
     const MainMenus& m = menus();
     // OpenRocket's items without an icon: the submenus Select and Visibility, and Select's items.
-    EXPECT_EQ(withoutIcon(allActions()), (Texts{"selectMenu", "selectSameColorAction",
-                                                "deselectAllAction", "visibilityMenu"}));
+    EXPECT_EQ(withoutIcon(allActions()),
+              (Texts{"selectMenu", "deselectAllAction", "visibilityMenu"}));
     EXPECT_EQ(m.newAction()->statusTip(), QStringLiteral("Create a new rocket design"));
     EXPECT_EQ(m.openRecentMenu()->menuAction()->statusTip(),
               QStringLiteral("Open a recent rocket design"));

@@ -43,6 +43,12 @@ template <class Scenario>
 /// The lines of @p text, an expected transcript.
 [[nodiscard]] std::vector<std::string> linesOf(std::string_view text);
 
+/// Where the transcript @p actual differs from @p expected, a text for each line that differs
+/// ("line <n>: <actual> | expected: <expected>", "(none)" for a missing line): empty when they
+/// are the same (a failure then names the lines instead of printing both transcripts whole).
+[[nodiscard]] std::vector<std::string> lineDifferences(const std::vector<std::string>& actual,
+                                                       const std::vector<std::string>& expected);
+
 /// Adds mass components to @p parent, a component of @p rocket, until the rocket has @p count
 /// components (DocumentConfig::componentCount()), within one freeze.
 void fillUpTo(Rocket& rocket, RocketComponent& parent, std::size_t count);

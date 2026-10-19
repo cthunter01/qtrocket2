@@ -13,22 +13,15 @@
 // Here each click makes its component with ComponentFactory::create(), adds the undo position
 // "Add <component name>" and attaches the component where OpenRocket's button did (which position
 // a button chooses is the GUI's: Milestone 2, run 2). The design is saved with
-// GeneralRocketSaver and its rocket.ork compared with OpenRocket's, line for line, after two
-// normalisations of both texts (normalised()):
-// - the text of every <id> element, a random UUID, becomes "#<n>", n numbering the distinct ids
-//   from 1 in the order of their first appearance, so that a reference between ids would still
-//   be compared (the design has none: no simulation, no flight configuration of its own);
-// - the value of the creator attribute becomes "*": QtRocket writes its own name and version.
-// Nothing else is normalised: rocket.ork holds no time stamp (the archive's entry times are not
-// compared), and every number of the design is written as Java writes it.
+// GeneralRocketSaver and its rocket.ork compared with OpenRocket's, line for line, after the two
+// normalisations of AddButtonsDesign.h (the random ids numbered, the creator hidden), which the
+// GUI's add buttons share (tests/gui/main/ComponentAddButtonsTests.cpp).
 
 #include <cstddef>
-#include <filesystem>
 #include <format>
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -37,7 +30,6 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
-#include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/logging/WarningSet.h"
 #include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/MaterialPreferences.h"
@@ -48,8 +40,7 @@
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/Error.h"
-#include "QtRocket/util/FileIo.h"
-#include "TestPaths.h"
+#include "file/openrocket/AddButtonsDesign.h"
 #include "rocket/ComponentFactoryReport.h"
 
 namespace
@@ -64,73 +55,18 @@ using QtRocket::OpenRocketDocument;
 using QtRocket::OpenRocketDocumentFactory;
 using QtRocket::Result;
 using QtRocket::RocketComponent;
-using QtRocket::ZipArchive;
-
-/// The ids normalised() has met, in the order of their first appearance.
-class IdNumbers
-{
-public:
-    /// The number of @p id: 1 for the first id met, 2 for the second, ...
-    [[nodiscard]] std::size_t numberOf(std::string_view id)
-    {
-        for (std::size_t i = 0; i < m_seen.size(); ++i)
-        {
-            if (m_seen[i] == id)
-            {
-                return i + 1;
-            }
-        }
-        m_seen.emplace_back(id);
-        return m_seen.size();
-    }
-
-private:
-    std::vector<std::string> m_seen;
-};
-
-/// @p text with the text of each <id> element replaced by "#<n>" (IdNumbers), and the value of
-/// each creator attribute by "*".
-[[nodiscard]] std::string normalised(std::string_view text)
-{
-    constexpr std::string_view kIdOpen       = "<id>";
-    constexpr std::string_view kIdClose      = "</id>";
-    constexpr std::string_view kCreatorOpen  = "creator=\"";
-    constexpr std::string_view kCreatorClose = "\"";
-    constexpr std::size_t      kNone         = std::string_view::npos;
-    IdNumbers                  ids;
-    std::string                result;
-    std::size_t                at = 0;
-    while (at < text.size())
-    {
-        const std::size_t id      = text.find(kIdOpen, at);
-        const std::size_t creator = text.find(kCreatorOpen, at);
-        const bool        isId    = id != kNone && id <= creator;
-        const std::size_t open    = isId ? id : creator;
-        const std::size_t valueAt =
-            open == kNone ? kNone : open + (isId ? kIdOpen.size() : kCreatorOpen.size());
-        const std::size_t close =
-            valueAt == kNone ? kNone : text.find(isId ? kIdClose : kCreatorClose, valueAt);
-        if (close == kNone)
-        {
-            result += text.substr(at);
-            break;
-        }
-        result += text.substr(at, valueAt - at);
-        result += isId ? std::format("#{}", ids.numberOf(text.substr(valueAt, close - valueAt)))
-                       : std::string("*");
-        at = close;
-    }
-    return result;
-}
+using QtRocket::Test::normalisedDesignText;
+using QtRocket::Test::openRocketsAddButtonsDesign;
+using QtRocket::Test::theOnlyDesignOf;
 
 TEST(AddButtonsSave, TheNormalisationNumbersTheIdsAndHidesTheCreator)
 {
-    EXPECT_EQ(normalised("<openrocket version=\"1.11\" creator=\"QtRocket 0.2.0\">\n"
-                         "<id>b</id><id>a</id>\n<id>b</id><x>a</x>\n</openrocket>\n"),
+    EXPECT_EQ(normalisedDesignText("<openrocket version=\"1.11\" creator=\"QtRocket 0.2.0\">\n"
+                                   "<id>b</id><id>a</id>\n<id>b</id><x>a</x>\n</openrocket>\n"),
               "<openrocket version=\"1.11\" creator=\"*\">\n"
               "<id>#1</id><id>#2</id>\n<id>#1</id><x>a</x>\n</openrocket>\n");
-    EXPECT_EQ(normalised("no element <id>open"), "no element <id>open");
-    EXPECT_EQ(normalised(""), "");
+    EXPECT_EQ(normalisedDesignText("no element <id>open"), "no element <id>open");
+    EXPECT_EQ(normalisedDesignText(""), "");
 }
 
 /// "name[child, child, ...]" of @p component and its subtree, as the dumper's tree() writes it.
@@ -220,30 +156,6 @@ void clickTheScenario(AddButtons& buttons)
     static_cast<void>(buttons.click(ComponentKind::NOSE_CONE, boosters, boosters));
 }
 
-/// OpenRocket's rocket.ork of the design (tests/data/component-factory).
-[[nodiscard]] std::string openRocketsDesign()
-{
-    const std::filesystem::path path =
-        QtRocket::Test::testDataDir() / "component-factory" / "add-buttons-rocket.ork.xml";
-    const Result<std::vector<std::byte>> bytes = QtRocket::readFile(path);
-    EXPECT_TRUE(bytes.has_value()) << bytes.error().toString();
-    return bytes.has_value() ? QtRocket::bytesToString(*bytes) : std::string();
-}
-
-/// The rocket.ork of @p bytes, a design archive, which must be its only entry; empty (and a
-/// failure) otherwise.
-[[nodiscard]] std::string theOnlyDesignOf(const std::vector<std::byte>& bytes)
-{
-    const Result<ZipArchive> archive = ZipArchive::fromBytes(bytes);
-    if (!archive.has_value() || archive->entries().size() != 1 ||
-        archive->find("rocket.ork") == nullptr)
-    {
-        ADD_FAILURE() << "not an archive of rocket.ork alone";
-        return {};
-    }
-    return QtRocket::bytesToString(*archive->find("rocket.ork"));
-}
-
 TEST(AddButtonsSave, TheClicksGiveOpenRocketsUndoTextsAndPlaces)
 {
     AddButtons buttons;
@@ -262,9 +174,9 @@ TEST(AddButtonsSave, TheDesignSavesAsOpenRocketsSave)
     ASSERT_TRUE(bytes.has_value()) << bytes.error().toString();
     EXPECT_TRUE(saver.getWarnings().empty());
 
-    const std::string expected = openRocketsDesign();
+    const std::string expected = openRocketsAddButtonsDesign();
     ASSERT_FALSE(expected.empty());
-    EXPECT_EQ(normalised(theOnlyDesignOf(*bytes)), normalised(expected));
+    EXPECT_EQ(normalisedDesignText(theOnlyDesignOf(*bytes)), normalisedDesignText(expected));
 }
 
 }  // namespace

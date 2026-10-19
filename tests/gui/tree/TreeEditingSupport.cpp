@@ -56,6 +56,27 @@ std::vector<std::string> linesOf(std::string_view text)
     return lines;
 }
 
+std::vector<std::string> lineDifferences(const std::vector<std::string>& actual,
+                                         const std::vector<std::string>& expected)
+{
+    std::vector<std::string> differences;
+    for (std::size_t i = 0; i < std::max(actual.size(), expected.size()); ++i)
+    {
+        const std::string  none = "(none)";
+        const std::string& is   = i < actual.size() ? actual[i] : none;
+        const std::string& was  = i < expected.size() ? expected[i] : none;
+        if (is != was)
+        {
+            std::string difference = "line " + std::to_string(i + 1) + ": ";
+            difference += is;
+            difference += " | expected: ";
+            difference += was;
+            differences.push_back(std::move(difference));
+        }
+    }
+    return differences;
+}
+
 void fillUpTo(Rocket& rocket, RocketComponent& parent, std::size_t count)
 {
     rocket.freeze();

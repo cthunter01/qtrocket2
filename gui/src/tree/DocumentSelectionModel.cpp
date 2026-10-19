@@ -91,8 +91,9 @@ void DocumentSelectionModel::setSelectedComponent(const RocketComponent& compone
 
 void DocumentSelectionModel::setSelectedComponents(std::span<RocketComponent* const> components)
 {
-    QItemSelection selection;
-    QModelIndex    first;
+    const std::vector<Uuid> before = selectedComponentIds();
+    QItemSelection          selection;
+    QModelIndex             first;
     for (const RocketComponent* component : components)
     {
         const QModelIndex index =
@@ -113,6 +114,13 @@ void DocumentSelectionModel::setSelectedComponents(std::span<RocketComponent* co
     }
     selectionModel.select(selection,
                           QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    // Qt tells nothing when the same components are selected in another order, but the order
+    // decides which is the first (RocketActions' and the add buttons' rules).
+    const std::vector<Uuid> after = selectedComponentIds();
+    if (after != before && std::ranges::is_permutation(after, before))
+    {
+        Q_EMIT changed();
+    }
 }
 
 void DocumentSelectionModel::clearComponentSelection()

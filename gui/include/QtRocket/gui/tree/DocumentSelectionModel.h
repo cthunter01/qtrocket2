@@ -74,7 +74,8 @@ public:
     void setSelectedComponent(const RocketComponent& component);
 
     /// Selects @p components in their order (setSelectedComponents()); those that are not in the
-    /// tree are left out.
+    /// tree are left out. changed() comes also when only the order changes (Qt's selection model
+    /// tells nothing then), since the first selected component decides the actions.
     void setSelectedComponents(std::span<RocketComponent* const> components);
 
     /// Selects nothing (clearComponentSelection()).
