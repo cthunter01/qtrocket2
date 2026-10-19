@@ -99,6 +99,19 @@ TEST_F(PropertySourceTest, GetCheckedGivesTheProblemAsAnError)
     EXPECT_EQ(checked.value_or(0.0), 0.3);
 }
 
+TEST_F(PropertySourceTest, GetValueIsForSourcesWithoutAProblem)
+{
+    // The bindings that show no problem text (all but DoubleBinding) read with getValue().
+    const TwoTubeRocket      design;
+    const ComponentSelection selection(*design.tubeA);
+    EXPECT_EQ(bodyTubeLength().getValue(selection), 0.3);
+    EXPECT_EQ(DoubleSource::of<BodyTube>({.getChecked = checkedTubeLength}).getValue(selection),
+              0.3);
+    EXPECT_THROW(
+        std::ignore = DoubleSource::of<BodyTube>({.getChecked = noTubeLength}).getValue(selection),
+        BugError);
+}
+
 TEST_F(PropertySourceTest, TheAccessorsMustBeComplete)
 {
     using Accessors = DoubleSource::Accessors<BodyTube>;

@@ -66,6 +66,10 @@ protected:
     /// Tells the listeners, with the firing guard up.
     void fireChanged();
 
+    /// Whether a write that comes from a widget may reach the components: not while the binding
+    /// tells its listeners (the firing guard) and not once the selection is invalid.
+    [[nodiscard]] bool isWidgetWriteAllowed() const noexcept { return !isFiring() && isValid(); }
+
 private:
     void selectionChanged(ComponentSelection::Phase phase);
 

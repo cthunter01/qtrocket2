@@ -144,11 +144,6 @@ void DoubleBinding::boundChanged()
     fireChanged();
 }
 
-bool DoubleBinding::isWidgetWriteAllowed() const noexcept
-{
-    return !isFiring() && isValid();
-}
-
 // ------------------------------------------------------------------------------------ value
 
 void DoubleBinding::setValue(double value)

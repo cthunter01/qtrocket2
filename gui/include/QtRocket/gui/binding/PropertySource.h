@@ -73,6 +73,21 @@ public:
         return m_get(selection.getMain());
     }
 
+    /// The value of the main component of @p selection, for a binding that shows no problem text
+    /// (every binding but DoubleBinding).
+    /// @throws BugError when the source gives an Error, the selection is invalid or its main
+    ///         component is not of the source's class
+    [[nodiscard]] T getValue(const ComponentSelection& selection) const
+    {
+        Result<T> value = get(selection);
+        if (!value.has_value())
+        {
+            bug("Only a number field shows a problem text, the property gave one: " +
+                value.error().message);
+        }
+        return std::move(*value);
+    }
+
     /// Whether the source has a setter.
     [[nodiscard]] bool isWritable() const noexcept { return static_cast<bool>(m_set); }
 

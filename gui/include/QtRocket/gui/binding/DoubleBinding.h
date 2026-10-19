@@ -204,10 +204,9 @@ protected:
     bool readState() override;
 
 private:
-    void               connectBound(const std::shared_ptr<DoubleBinding>& bound,
-                                    Signal<>::ScopedConnection&           connection);
-    void               boundChanged();
-    [[nodiscard]] bool isWidgetWriteAllowed() const noexcept;
+    void connectBound(const std::shared_ptr<DoubleBinding>& bound,
+                      Signal<>::ScopedConnection&           connection);
+    void boundChanged();
 
     std::optional<DoubleSource>    m_source;
     const UnitGroup*               m_units;

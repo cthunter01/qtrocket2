@@ -5,12 +5,14 @@
 #include <string>
 #include <vector>
 
+#include "QtRocket/gui/binding/Binding.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/util/Signal.h"
 
 namespace QtRocket::Gui::Test
 {
@@ -47,6 +49,19 @@ private:
     std::vector<int>                        m_types;
     std::vector<std::string>                m_sources;
     ComponentChangeSignal::ScopedConnection m_connection;
+};
+
+/// Counts what a binding tells its listeners (Binding::addChangeListener()) while it lives.
+class ChangeCounter
+{
+public:
+    explicit ChangeCounter(Binding& binding);
+
+    [[nodiscard]] int count() const noexcept { return m_count; }
+
+private:
+    int                        m_count{0};
+    Signal<>::ScopedConnection m_connection;
 };
 
 /// A property that is not a component's, as the Java probes' Bean: a value and a count of the

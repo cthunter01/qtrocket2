@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "QtRocket/gui/binding/Binding.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -44,6 +45,11 @@ void RocketEventRecorder::clear()
 {
     m_types.clear();
     m_sources.clear();
+}
+
+ChangeCounter::ChangeCounter(Binding& binding)
+  : m_connection(binding.addChangeListener([this] { ++m_count; }))
+{
 }
 
 PropertySource<double> BeanProperty::source()

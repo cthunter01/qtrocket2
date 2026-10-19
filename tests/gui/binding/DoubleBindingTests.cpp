@@ -26,7 +26,6 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/aero/ComponentDrag.h"
 #include "QtRocket/document/OpenRocketDocument.h"
-#include "QtRocket/gui/binding/Binding.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/binding/PropertySource.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
@@ -53,6 +52,7 @@ using Test::BeanProperty;
 using Test::bodyTubeInnerRadius;
 using Test::bodyTubeLength;
 using Test::bodyTubeOuterRadius;
+using Test::ChangeCounter;
 using Test::TwoTubeRocket;
 
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
@@ -77,21 +77,6 @@ constexpr double kInfinity = std::numeric_limits<double>::infinity();
     }
     return *value;
 }
-
-/// Counts what a binding tells its listeners.
-class ChangeCounter
-{
-public:
-    explicit ChangeCounter(Binding& binding)
-      : m_connection(binding.addChangeListener([this] { ++m_count; }))
-    {
-    }
-    [[nodiscard]] int count() const noexcept { return m_count; }
-
-private:
-    int                        m_count{0};
-    Signal<>::ScopedConnection m_connection;
-};
 
 /// The probe's model over @p bean on the component @p component: a diameter (multiplier 2) of
 /// the length units with no minimum and a maximum of 1 m.
@@ -153,14 +138,14 @@ const std::array<SpinnerUnitRow, 5> kSpinnerTable{{
        {"-4", -0.0508, "-4"},
        {"2000", 0.5, "39.37"}}}},
     {"in/64",
-     "⁶³⁄₆₄",
+     "\u2076\u00b3\u2044\u2086\u2084",
      1.0,
      0.9375,
      {{{"30", 0.381, "30"},
        {"2*3", 0.07619999999999999, "6"},
-       {"1 1/2", 0.019049999999999997, "1 ¹⁄₂"},
+       {"1 1/2", 0.019049999999999997, "1 \u00b9\u2044\u2082"},
        {"-4", -0.0508, "-4"},
-       {"2000", 0.5, "39 ³⁄₈"}}}},
+       {"2000", 0.5, "39 \u00b3\u2044\u2088"}}}},
     {"ft",
      "0.082",
      1.082020997375328,
