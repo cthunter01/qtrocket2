@@ -10,6 +10,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     icon_resources_tests.cpp
     IconsTests.cpp
     MakeChildTests.cpp
+    MenuTextTests.cpp
     QtStringsTests.cpp
     SvgIconEngineTests.cpp
     ThemeColorsTests.cpp

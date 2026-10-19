@@ -16,7 +16,9 @@ namespace QtRocket::Gui::Test
 /// The message handler that GuiTestMain.cpp installs (installHandler()) turns every other message
 /// of warning level or above during a test into a GoogleTest failure; debug and info messages,
 /// and messages outside a test, go on to Qt's handler, which prints them. Guards may be nested:
-/// the most recent one that matches counts the message.
+/// the most recent one that matches counts the message. The offscreen platform's warning that
+/// it cannot pass a window's size limits on ("This plugin does not support
+/// propagateSizeHints()", which every shown window with a layout gives there) is dropped.
 class ExpectedQtMessage
 {
 public:

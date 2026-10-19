@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include <QGuiApplication>
 #include <QMessageLogContext>
 #include <QRegularExpression>
 #include <QString>
@@ -57,6 +58,16 @@ std::string_view typeName(QtMsgType type)
 bool insideTest()
 {
     return ::testing::UnitTest::GetInstance()->current_test_suite() != nullptr;
+}
+
+/// Whether @p message is one of the offscreen platform's warnings that it cannot do something
+/// for a window that the other platforms do, which says nothing about the code under test. The
+/// offscreen platform cannot pass a window's size limits on (QPlatformWindow's default
+/// propagateSizeHints()), so every window with a layout warns when it is shown.
+bool isOffscreenLimitation(QtMsgType type, const QString& message)
+{
+    return type == QtWarningMsg && QGuiApplication::platformName() == QStringLiteral("offscreen") &&
+           message == QStringLiteral("This plugin does not support propagateSizeHints()");
 }
 
 void forward(QtMessageHandler previous, QtMsgType type, const QMessageLogContext& context,
@@ -133,6 +144,10 @@ void ExpectedQtMessage::handleMessage(QtMsgType type, const QMessageLogContext& 
             return;
         }
         previous = shared.previous;
+    }
+    if (isOffscreenLimitation(type, message))
+    {
+        return;
     }
     if (type == QtDebugMsg || type == QtInfoMsg || !insideTest())
     {

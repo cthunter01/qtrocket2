@@ -9,6 +9,7 @@ target_sources(QtRocket_gui PRIVATE
     ${gui_include_dir}/util/GuiServices.h
     Icons.cpp ${gui_include_dir}/util/Icons.h
     ${gui_include_dir}/util/MakeChild.h
+    MenuText.cpp ${gui_include_dir}/util/MenuText.h
     QtStrings.cpp ${gui_include_dir}/util/QtStrings.h
     SvgIconEngine.cpp ${gui_include_dir}/util/SvgIconEngine.h
     ThemeColors.cpp ${gui_include_dir}/util/ThemeColors.h

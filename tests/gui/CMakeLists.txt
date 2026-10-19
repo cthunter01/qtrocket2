@@ -11,9 +11,11 @@ add_executable(QtRocket_gui_tests
     GuiTestMain.cpp
     GuiTestSupport.cpp
     GuiTestSupportTests.cpp
+    RecordingGuardHook.cpp
     ScopedApplicationPalette.cpp
     ScriptedUserPrompts.cpp
     ScriptedUserPromptsTests.cpp
+    TestGuiServices.cpp
 )
 add_subdirectory(util)
 add_subdirectory(settings)

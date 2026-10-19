@@ -15,6 +15,7 @@
 
 #include "GuiTestSupport.h"
 #include "QtRocket/util/BugError.h"
+#include "RecordingGuardHook.h"
 
 namespace QtRocket::Gui
 {
@@ -25,30 +26,7 @@ namespace
 using GuardTest = Test::GuiTest;
 using Kind      = Guard::Failure::Kind;
 
-/// Records every report for as long as it lives, then puts the previous hook back.
-class RecordingHook
-{
-public:
-    RecordingHook()
-      : m_previous(Guard::setHook(
-            [this](const Guard::Failure& failure) { m_failures.push_back(failure); }))
-    {
-    }
-    ~RecordingHook() { static_cast<void>(Guard::setHook(std::move(m_previous))); }
-    RecordingHook(const RecordingHook&)            = delete;
-    RecordingHook& operator=(const RecordingHook&) = delete;
-    RecordingHook(RecordingHook&&)                 = delete;
-    RecordingHook& operator=(RecordingHook&&)      = delete;
-
-    [[nodiscard]] const std::vector<Guard::Failure>& failures() const noexcept
-    {
-        return m_failures;
-    }
-
-private:
-    std::vector<Guard::Failure> m_failures;
-    Guard::Hook                 m_previous;
-};
+using RecordingHook = Test::RecordingGuardHook;
 
 // The guarded callables (out of the test bodies, which then stay simple).
 void throwBug()
