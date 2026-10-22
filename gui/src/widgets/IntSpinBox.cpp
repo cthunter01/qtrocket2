@@ -102,8 +102,15 @@ bool IntSpinBox::commitEdit()
     // QSpinBox's own reading of its text; a text that is no number in the range is reverted.
     const bool                        number  = validate(text, position) == QValidator::Acceptable;
     const std::shared_ptr<IntBinding> binding = m_binding;
-    const QPointer<IntSpinBox>        self(this);
-    const bool taken = number && binding->setSpinnerValue(valueFromText(text));
+    // The count shown, typed again: Java's text field holds an Integer and fires no value change
+    // for an equal one (Integer.equals()), so no setter runs (see the class comment).
+    if (!number || valueFromText(text) == binding->value())
+    {
+        refresh();
+        return false;
+    }
+    const QPointer<IntSpinBox> self(this);
+    const bool                 taken = binding->setSpinnerValue(valueFromText(text));
     if (!self.isNull())
     {
         refresh();

@@ -26,13 +26,15 @@ class IntBinding;
 /// selection).
 ///
 /// A committed number goes to IntBinding::setSpinnerValue(), which clamps it to the binding's
-/// bounds; the arrows and the Up and Down keys commit an edited text first, then step through
-/// IntBinding::stepUp() and stepDown() (Java: the next value is the value plus one, none at the
-/// maximum), so that a value beyond a bound (a file's fin count of 10, the bounds 1 to 8) is
-/// shown as it is and steps back in. The spin box's range is the binding's bounds widened to the
-/// value it shows. After every commit and step it shows the binding's value again, and whenever
-/// the binding tells of a change; once the binding's selection is invalid it keeps the last value
-/// and is disabled.
+/// bounds, unless it is the count shown (Java's text field holds the model's Integer and fires no
+/// value change for an equal one: "3" or "03" typed over 3 calls no setter, and in a multi-edit
+/// the other components keep their own counts); the arrows and the Up and Down keys commit an
+/// edited text first, then step through IntBinding::stepUp() and stepDown() (Java: the next value
+/// is the value plus one, none at the maximum), so that a value beyond a bound (a file's fin count
+/// of 10, the bounds 1 to 8) is shown as it is and steps back in. The spin box's range is the
+/// binding's bounds widened to the value it shows. After every commit and step it shows the
+/// binding's value again, and whenever the binding tells of a change; once the binding's selection
+/// is invalid it keeps the last value and is disabled.
 ///
 /// Enabled: the binding's isEnabled() and setFieldEnabled() together, as UnitSpinBox.
 ///
@@ -57,8 +59,8 @@ public:
 
     [[nodiscard]] const std::shared_ptr<IntBinding>& binding() const noexcept { return m_binding; }
 
-    /// Commits the text when it has been edited since the binding's value was shown, then shows
-    /// the binding's value again: true when there was an edit to commit.
+    /// Commits the text when it has been edited since the binding's value was shown and is
+    /// another count, then shows the binding's value again: true when the binding took the count.
     bool commitEdit();
 
     /// Whether the field may be edited as far as the dialog is concerned (see UnitSpinBox).

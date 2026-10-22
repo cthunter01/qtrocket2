@@ -2,26 +2,35 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <format>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <QApplication>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QEventLoop>
+#include <QLayout>
 #include <QLineEdit>
 #include <QObject>
 #include <QPlainTextEdit>
 #include <QPoint>
+#include <QPointer>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QTabWidget>
 #include <QTest>
+#include <QTimer>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
@@ -31,12 +40,18 @@
 
 #include "ConfigDialogTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/util/Guard.h"
+#include "QtRocket/gui/util/GuiServices.h"
+#include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
+#include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
 #include "QtRocket/gui/widgets/EnumComboBox.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
+#include "QtRocket/gui/widgets/UnitSelector.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/AxialStage.h"
@@ -61,6 +76,7 @@ using ComponentConfigDialogTest = Test::ConfigDialogTest;
 using Test::childNamed;
 using Test::ConfigDialogServices;
 using Test::EveryKindDesign;
+using Test::OffscreenPopupWarnings;
 using Test::ScriptedUserPrompts;
 using Test::tabTitles;
 using Test::typeInto;
@@ -142,8 +158,24 @@ struct KindTabs
     };
 }
 
+/// The default and auto-default buttons of @p dialog, titled @p title, one line each: none, as
+/// Java's dialog has no default button (Enter in a combo box clicks nothing).
+[[nodiscard]] std::string defaultButtons(const QWidget& dialog, const char* title)
+{
+    std::string buttons;
+    for (const QPushButton* button : dialog.findChildren<QPushButton*>())
+    {
+        if (button->isDefault() || button->autoDefault())
+        {
+            buttons += std::format("{}: the button '{}' is a default button\n", title,
+                                   QtStrings::toUtf8(button->text()));
+        }
+    }
+    return buttons;
+}
+
 /// The differences between the dialog of each kind of @p design and @p expected: its title, its
-/// tabs, the first tab selected, its undo position.
+/// tabs, the first tab selected, its undo position, no default button.
 [[nodiscard]] std::string everyKindDifferences(QWidget&                    window,
                                                const ConfigDialogServices& services,
                                                EveryKindDesign&            design)
@@ -184,6 +216,7 @@ struct KindTabs
             differences += std::format("{}: next undo description '{}'\n", expected.title,
                                        undo.value_or("(none)"));
         }
+        differences += defaultButtons(*dialog, expected.title);
         ComponentConfigDialog::disposeDialog();
     }
     return differences;
@@ -800,6 +833,402 @@ TEST_F(ComponentConfigDialogTest, TheWindowTakesItsDialogAlong)
     QWidget next;
     EXPECT_EQ(openedTab(next, services, design, design.component(ComponentKind::TRANSITION)),
               QStringLiteral("General"));
+}
+
+/// The questions of a test, answered by @p delegate (ScriptedUserPrompts), but for the discard
+/// question of Cancel, which runs an event loop as a modal message box does: in it a 0 ms timer
+/// does what the test gives (an undo, the window going), and the deferred deletions posted
+/// meanwhile are carried out, as Qt 6 does in the loop that posted them; then the question gives
+/// its answer.
+class NestedLoopPrompts final : public UserPrompts
+{
+public:
+    NestedLoopPrompts(ScriptedUserPrompts& delegate, std::function<void()> whileAsked,
+                      DiscardAnswer answer)
+      : m_delegate(&delegate), m_whileAsked(std::move(whileAsked)), m_answer(answer)
+    {
+    }
+
+    [[nodiscard]] int            asked() const noexcept { return m_asked; }
+    [[nodiscard]] const QWidget* parent() const noexcept { return m_parent; }
+
+    [[nodiscard]] DiscardAnswer askDiscardChanges(QWidget* parent,
+                                                  DiscardQuestion /*question*/) override
+    {
+        ++m_asked;
+        m_parent = parent;
+        QEventLoop loop;
+        QTimer::singleShot(0, &loop, [this, &loop] {
+            m_whileAsked();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            loop.quit();
+        });
+        loop.exec();
+        return m_answer;
+    }
+
+    [[nodiscard]] InsertPositionAnswer askInsertPosition(QWidget*               parent,
+                                                         InsertPositionQuestion question) override
+    {
+        return m_delegate->askInsertPosition(parent, question);
+    }
+    [[nodiscard]] SaveChangesAnswer askSaveChanges(QWidget*       parent,
+                                                   const QString& designName) override
+    {
+        return m_delegate->askSaveChanges(parent, designName);
+    }
+    [[nodiscard]] bool askOverwrite(QWidget* parent, const QString& fileName) override
+    {
+        return m_delegate->askOverwrite(parent, fileName);
+    }
+    [[nodiscard]] std::optional<bool> askStorageOptions(QWidget* parent,
+                                                        bool     saveSimulationData) override
+    {
+        return m_delegate->askStorageOptions(parent, saveSimulationData);
+    }
+    [[nodiscard]] bool askYesNo(QWidget* parent, const Question& question) override
+    {
+        return m_delegate->askYesNo(parent, question);
+    }
+    [[nodiscard]] std::optional<OpenFileAnswer> askDecalFile(
+        QWidget* parent, const QString& message, const std::filesystem::path& directory) override
+    {
+        return m_delegate->askDecalFile(parent, message, directory);
+    }
+    [[nodiscard]] std::optional<OpenFileAnswer> askOpenFiles(
+        QWidget* parent, const OpenFileRequest& request) override
+    {
+        return m_delegate->askOpenFiles(parent, request);
+    }
+    [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(QWidget*               parent,
+                                                            const SaveFileRequest& request) override
+    {
+        return m_delegate->askSaveFile(parent, request);
+    }
+    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override
+    {
+        m_delegate->editDesignInformation(parent, document);
+    }
+    void showMessage(QWidget* parent, const Message& message) override
+    {
+        m_delegate->showMessage(parent, message);
+    }
+    void showWarnings(QWidget* parent, const WarningsMessage& message) override
+    {
+        m_delegate->showWarnings(parent, message);
+    }
+    [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
+                                                        const Guard::Failure& failure) override
+    {
+        return m_delegate->showInternalError(parent, failure);
+    }
+
+private:
+    ScriptedUserPrompts*  m_delegate;
+    std::function<void()> m_whileAsked;
+    DiscardAnswer         m_answer;
+    int                   m_asked{0};
+    const QWidget*        m_parent{nullptr};
+};
+
+/// Counts the phases a selection tells its listeners while it lives.
+class PhaseCounter
+{
+public:
+    explicit PhaseCounter(ComponentSelection& selection)
+      : m_connection(
+            selection.addListener([this](ComponentSelection::Phase /*phase*/) { ++m_count; }))
+    {
+    }
+
+    [[nodiscard]] int count() const noexcept { return m_count; }
+
+private:
+    int                                               m_count{0};
+    ComponentSelection::PhaseSignal::ScopedConnection m_connection;
+};
+
+/// The services of @p services with the questions of @p prompts.
+[[nodiscard]] GuiServices withPrompts(const GuiServices& services, UserPrompts& prompts)
+{
+    return {services.preferences(), services.materials(), services.motors(),
+            services.loadingContext(), prompts};
+}
+
+/// Undoes @p document (NestedLoopPrompts' action): an UNDO change, which closes the dialog.
+struct UndoDocument
+{
+    OpenRocketDocument* document;
+
+    void operator()() const { document->undo(); }
+};
+
+/// Deletes the window (NestedLoopPrompts' action), and with it the dialog it owns.
+struct DeleteWindow
+{
+    std::unique_ptr<QWidget>* window;
+
+    void operator()() const { window->reset(); }
+};
+
+/// The dialog of @p component, shown with @p services and active, or null.
+[[nodiscard]] ComponentConfigDialog* showActiveDialog(QWidget& window, const GuiServices& services,
+                                                      OpenRocketDocument& document,
+                                                      RocketComponent&    component)
+{
+    ComponentConfigDialog::showDialog(window, services, document, component);
+    ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    if (dialog == nullptr)
+    {
+        ADD_FAILURE() << "no dialog";
+        return nullptr;
+    }
+    dialog->activateWindow();
+    if (!QTest::qWaitForWindowActive(dialog))
+    {
+        ADD_FAILURE() << "the dialog did not become active";
+    }
+    return dialog;
+}
+
+TEST_F(ComponentConfigDialogTest, ADialogClosedWhileTheQuestionIsOpenOutlivesTheQuestion)
+{
+    // Cancel's question, whose parent is the dialog (Java: the panel), runs an event loop in which
+    // an undo closes the dialog (an UNDO change). The dialog is deleted only once the question has
+    // its answer, and it undoes nothing more: the nose cone keeps the name of the step before
+    // (proved under ASan: a dialog deleted in the loop was read afterwards).
+    ConfigDialogServices services;
+    EveryKindDesign      design;
+    design.document->addUndoPosition("Rename");
+    design.component(ComponentKind::NOSE_CONE).setName("Pointy");
+    const Uuid        noseId = design.component(ComponentKind::NOSE_CONE).getId();
+    auto&             tube   = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    const Uuid        tubeId = tube.getId();
+    const double      length = tube.getLength();
+    NestedLoopPrompts prompts(services.prompts(), UndoDocument{design.document.get()},
+                              {.discard = true, .doNotAskAgain = false});
+    const GuiServices own = withPrompts(services.services(), prompts);
+    QWidget           window;
+    ComponentConfigDialog* dialog = showActiveDialog(window, own, *design.document, tube);
+    ASSERT_NE(dialog, nullptr);
+    tube.setLength(0.77);
+    ASSERT_TRUE(dialog->isModified());
+    const QPointer<ComponentConfigDialog> guard(dialog);
+
+    dialog->cancel();
+    EXPECT_EQ(prompts.asked(), 1);
+    ASSERT_FALSE(guard.isNull());
+    EXPECT_EQ(prompts.parent(), dialog);
+    EXPECT_TRUE(dialog->isDisposed());
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    const Rocket& rocket = design.document->getRocket();
+    ASSERT_NE(rocket.findComponent(noseId), nullptr);
+    EXPECT_EQ(rocket.findComponent(noseId)->getName(), "Pointy");
+    const auto* restored = dynamic_cast<const BodyTube*>(rocket.findComponent(tubeId));
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->getLength(), length);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(guard.isNull());
+}
+
+TEST_F(ComponentConfigDialogTest, ADialogDeletedWhileTheQuestionIsOpenIsLeftAlone)
+{
+    // Its window goes while Cancel's question is open, and the dialog with it: Cancel touches
+    // nothing of it afterwards (proved under ASan) and undoes nothing, but "Don't ask me again"
+    // is kept.
+    ConfigDialogServices services;
+    EveryKindDesign      design;
+    auto&                tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    std::unique_ptr<QWidget> window = std::make_unique<QWidget>();
+    NestedLoopPrompts        prompts(services.prompts(), DeleteWindow{&window},
+                                     {.discard = true, .doNotAskAgain = true});
+    const GuiServices        own    = withPrompts(services.services(), prompts);
+    ComponentConfigDialog*   dialog = showActiveDialog(*window, own, *design.document, tube);
+    ASSERT_NE(dialog, nullptr);
+    tube.setLength(0.77);
+    const QPointer<ComponentConfigDialog> guard(dialog);
+
+    dialog->cancel();
+    EXPECT_EQ(prompts.asked(), 1);
+    EXPECT_TRUE(guard.isNull());
+    EXPECT_EQ(window.get(), nullptr);
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_DOUBLE_EQ(tube.getLength(), 0.77);
+    EXPECT_EQ(design.document->getUndoDescription(), "Modify Body Tube");
+    EXPECT_FALSE(services.services().preferences().isShowDiscardConfirmation());
+}
+
+TEST_F(ComponentConfigDialogTest, CancelDropsAPendingEditOfAnUnchangedDialog)
+{
+    // The bindings end before the dialog hides (RocketComponentConfig::release()): the focus
+    // loss of the field, whose edit Cancel leaves pending (a button that takes no focus, as on
+    // macOS), reaches no component.
+    ConfigDialogServices   services;
+    EveryKindDesign        design;
+    QWidget                window;
+    const RocketComponent& tube   = design.component(ComponentKind::BODY_TUBE);
+    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ASSERT_NE(dialog, nullptr);
+    QLineEdit& name = dialog->configurator().nameField();
+    name.setFocus();
+    name.selectAll();
+    QTest::keyClicks(&name, QStringLiteral("Pending"));
+    ASSERT_TRUE(name.hasFocus());
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(tube.getName(), "Body");
+    EXPECT_FALSE(design.document->isUndoAvailable());
+    EXPECT_TRUE(services.prompts().prompts().empty());
+}
+
+TEST_F(ComponentConfigDialogTest, CancelDropsAPendingEditBeforeItUndoes)
+{
+    // A changed dialog, a number pending in its focused field: after Cancel the redo step holds
+    // the committed change but not the pending number.
+    ConfigDialogServices services;
+    EveryKindDesign      design;
+    QWidget              window;
+    services.services().preferences().setShowDiscardConfirmation(false);
+    auto&      tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    const Uuid id   = tube.getId();
+    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ASSERT_NE(dialog, nullptr);
+    dialog->configurator().setSelectedTab(QStringLiteral("Override"));
+    auto* check = childNamed<BoolCheckBox>(*dialog, QStringLiteral("MassOverridden"));
+    auto* field = childNamed<UnitSpinBox>(*dialog, QStringLiteral("OverrideMass"));
+    ASSERT_NE(check, nullptr);
+    ASSERT_NE(field, nullptr);
+    check->click();
+    ASSERT_TRUE(tube.isMassOverridden());
+    const double mass = tube.getOverrideMass();
+    ASSERT_NE(mass, 0.077);
+    typeInto(*field, QStringLiteral("77"));
+    ASSERT_TRUE(field->hasFocus());
+
+    dialog->cancel();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    ASSERT_TRUE(design.document->isRedoAvailable());
+    design.document->redo();
+    const auto* redone =
+        dynamic_cast<const BodyTube*>(design.document->getRocket().findComponent(id));
+    ASSERT_NE(redone, nullptr);
+    EXPECT_TRUE(redone->isMassOverridden());
+    EXPECT_EQ(redone->getOverrideMass(), mass);
+}
+
+TEST_F(ComponentConfigDialogTest, AnUndoClosesTheDialogBeforeItsFieldsAreTold)
+{
+    // The dialog listens to the rocket before its selection does (Java's order): on an UNDO
+    // change it ends its bindings first, so that the selection tells its fields nothing.
+    ConfigDialogServices services;
+    EveryKindDesign      design;
+    QWidget              window;
+    design.document->addUndoPosition("Change");
+    design.component(ComponentKind::NOSE_CONE).setName("Pointy");
+    const ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ASSERT_NE(dialog, nullptr);
+    const std::shared_ptr<ComponentSelection> selection = dialog->configurator().selection();
+    ASSERT_NE(selection, nullptr);
+    const PhaseCounter phases(*selection);
+    design.document->undo();
+    EXPECT_TRUE(dialog->isDisposed());
+    EXPECT_FALSE(selection->isValid());
+    EXPECT_EQ(phases.count(), 0);
+}
+
+TEST_F(ComponentConfigDialogTest, TheNameFieldsContextMenuLeavesAStageNamePending)
+{
+    // Qt's line edit has a context menu, which takes the focus (Qt::PopupFocusReason); Java's
+    // text field has none. A stage's new name (a TREE change, which closes the dialog) stays
+    // pending while the menu is open, as Qt's editingFinished() does, and OK commits it.
+    ConfigDialogServices         services;
+    EveryKindDesign              design;
+    QWidget                      window;
+    const std::string            before = design.booster->getName();
+    ComponentConfigDialog* const dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.booster);
+    ASSERT_NE(dialog, nullptr);
+    QLineEdit& name = dialog->configurator().nameField();
+    name.setFocus();
+    name.selectAll();
+    QTest::keyClicks(&name, QStringLiteral("Upper"));
+    {
+        const OffscreenPopupWarnings warnings;
+        QContextMenuEvent            event(QContextMenuEvent::Mouse, QPoint(5, 5),
+                                           name.mapToGlobal(QPoint(5, 5)));
+        QApplication::sendEvent(&name, &event);
+        QWidget* const menu = QApplication::activePopupWidget();
+        ASSERT_NE(menu, nullptr);
+        EXPECT_EQ(design.booster->getName(), before);
+        EXPECT_EQ(ComponentConfigDialog::dialog(), dialog);
+        menu->close();
+    }
+    EXPECT_EQ(design.booster->getName(), before);
+    dialog->ok();
+    EXPECT_EQ(design.booster->getName(), "Upper");
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+}
+
+TEST_F(ComponentConfigDialogTest, AUnitMenuCommitsAPendingStageName)
+{
+    // As in OpenRocket: its unit selector's popup takes the focus (a temporary focus loss, which
+    // RocketComponentConfig's listener commits), so the stage's new name is committed and the
+    // dialog closes (a TREE change) under the menu.
+    ConfigDialogServices               services;
+    EveryKindDesign                    design;
+    QWidget                            window;
+    const ComponentConfigDialog* const dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.booster);
+    ASSERT_NE(dialog, nullptr);
+    dialog->configurator().setSelectedTab(QStringLiteral("Override"));
+    auto* check    = childNamed<BoolCheckBox>(*dialog, QStringLiteral("MassOverridden"));
+    auto* selector = childNamed<UnitSelector>(*dialog, QStringLiteral("OverrideMass"));
+    ASSERT_NE(check, nullptr);
+    ASSERT_NE(selector, nullptr);
+    check->click();
+    ASSERT_TRUE(selector->isEnabled());
+    QLineEdit& name = dialog->configurator().nameField();
+    name.setFocus();
+    name.selectAll();
+    QTest::keyClicks(&name, QStringLiteral("Upper"));
+    {
+        const OffscreenPopupWarnings warnings;
+        selector->showUnitMenu();
+        EXPECT_EQ(design.booster->getName(), "Upper");
+        EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+        QWidget* const menu = QApplication::activePopupWidget();
+        ASSERT_NE(menu, nullptr);
+        menu->close();
+    }
+}
+
+TEST_F(ComponentConfigDialogTest, APanelsOwnButtonIsNoDefaultButton)
+{
+    // A QPushButton a panel adds (run 3: "Convert to freeform", "Split fins") would become the
+    // dialog's default button when it is shown (QDialog), and Enter in a combo box would click
+    // it; Java's dialog has no default button.
+    ConfigDialogServices   services;
+    EveryKindDesign        design;
+    QWidget                window;
+    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ASSERT_NE(dialog, nullptr);
+    auto* finish = childNamed<EnumComboBox>(*dialog, QStringLiteral("Finish"));
+    ASSERT_NE(finish, nullptr);
+    QWidget& page = *finish->parentWidget();
+    ASSERT_NE(page.layout(), nullptr);
+    auto* button = makeChild<QPushButton>(&page, QStringLiteral("Panel action"));
+    page.layout()->addWidget(button);
+    const QSignalSpy clicks(button, &QPushButton::clicked);
+    dialog->hide();
+    dialog->show();
+    dialog->activateWindow();
+    ASSERT_TRUE(QTest::qWaitForWindowActive(dialog));
+    EXPECT_FALSE(button->isDefault());
+    EXPECT_FALSE(button->autoDefault());
+    finish->setFocus();
+    QTest::keyClick(finish, Qt::Key_Return);
+    EXPECT_EQ(clicks.count(), 0);
+    EXPECT_EQ(ComponentConfigDialog::dialog(), dialog);
 }
 
 }  // namespace

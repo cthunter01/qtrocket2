@@ -32,11 +32,12 @@ namespace QtRocket::Gui
 ///
 /// value() is the source's value of the main component (Java: getSelectedItem()), which may be a
 /// hidden one or one not given at all: then indexOf() gives -1 and the widget shows it apart.
-/// select() sets a value on every selected component (ComponentSelection::apply()); by default
-/// nothing happens when it is value() already (Java's EnumModel: "no duplicate writes", so that
-/// in a multi-edit picking the main component's value leaves the others alone), with
-/// SameValue::SET it is set all the same (Java's TransitionShapeModel, which has no such check:
-/// picking the main's shape gives it to every other selected transition). The binding caches the
+/// select() sets a value on every selected component (ComponentSelection::apply()); nothing
+/// happens when it is value() already, so that in a multi-edit picking the main component's value
+/// leaves the others alone. Java skips it twice: JComboBox.setSelectedItem() calls its model only
+/// for an item other than the one it shows (JDK 17 JComboBox.java:582-620, selectedItemReminder),
+/// which covers TransitionShapeModel too, and EnumModel.setSelectedItem() skips its current value
+/// ("no duplicate writes"). The binding caches the
 /// value and the enabled state, re-reads them once per event of the rocket and tells its
 /// listeners when they or the displayed values changed.
 ///
@@ -61,25 +62,15 @@ template <class E>
 class EnumBinding final : public Binding
 {
 public:
-    /// What select() does with value() itself (see the class comment).
-    enum class SameValue
-    {
-        /// Nothing (Java's EnumModel).
-        SKIP,
-        /// Sets it on every selected component all the same (Java's TransitionShapeModel).
-        SET,
-    };
-
     /// A binding of @p source on the components of @p selection, offering @p values.
     /// @throws BugError when @p selection is null, the source has no setter, or the source cannot
     ///         read the main component
     EnumBinding(std::shared_ptr<ComponentSelection> selection, EnumSource<E> source,
-                std::span<const E> values, SameValue sameValue = SameValue::SKIP)
+                std::span<const E> values)
       : Binding(std::move(selection)),
         m_source(std::move(source)),
         m_values(values.begin(), values.end()),
-        m_displayed(m_values),
-        m_sameValue(sameValue)
+        m_displayed(m_values)
     {
         if (getSelection() == nullptr)
         {
@@ -103,11 +94,11 @@ public:
     [[nodiscard]] E value() const noexcept { return m_value; }
 
     /// The combo box's write (Java: setSelectedItem()): sets @p value on every selected
-    /// component, see the class comment. False, with nothing set, when it is value() and the
-    /// binding skips the same value, while firing and once the selection is invalid.
+    /// component, see the class comment. False, with nothing set, when it is value(), while
+    /// firing and once the selection is invalid.
     bool select(E value)
     {
-        if (!isWidgetWriteAllowed() || (m_sameValue == SameValue::SKIP && value == m_value))
+        if (!isWidgetWriteAllowed() || value == m_value)
         {
             return false;
         }
@@ -193,7 +184,6 @@ private:
     EnumSource<E>  m_source;
     std::vector<E> m_values;
     std::vector<E> m_displayed;
-    SameValue      m_sameValue;
     E              m_value{};
     bool           m_enabled{true};
 };

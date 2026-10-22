@@ -36,6 +36,13 @@ class DoubleBinding;
 /// reverts an edited text and otherwise reaches the dialog, the wheel steps only with the focus,
 /// the text is selected when the focus comes in, Left and Right collapse a selection.
 ///
+/// A commit of the very text the spin box shows (typed again after the select-all of the focus)
+/// sets nothing, as in Java, where the spinner's text field holds the model's value as a String
+/// and fires no value change for an equal one (JFormattedTextField.commitEdit() -> setValue() ->
+/// firePropertyChange(), which drops an equal value), so that the setter is never called: an
+/// automatic value stays automatic, the stored value keeps its precision, and in a multi-edit the
+/// other components keep their own values.
+///
 /// After every commit and step, whatever came of it, the spin box shows the binding's text again
 /// (a commit that changes nothing, or invalid text, fires nothing). It also shows it whenever the
 /// binding tells of a change, also over an edit in progress (Java's editor takes the model's
@@ -88,9 +95,10 @@ public:
     /// @throws BugError when @p step is not finite and positive (Java: IllegalArgumentException)
     void setFixedStep(std::optional<double> step);
 
-    /// Commits the text when it has been edited since the binding's text was shown, then shows
-    /// the binding's text again: true when the binding took a value (DoubleBinding::commitText()),
-    /// false when nothing was edited, the text was invalid or the binding dropped it.
+    /// Commits the text when it has been edited since the binding's text was shown and differs
+    /// from that text, then shows the binding's text again: true when the binding took a value
+    /// (DoubleBinding::commitText()), false when nothing was edited, the text is the one shown
+    /// (see the class comment), the text was invalid or the binding dropped it.
     bool commitEdit();
 
     /// Whether the field may be edited as far as the dialog is concerned (see the class comment).
@@ -129,6 +137,9 @@ private:
     Signal<>::ScopedConnection     m_connection;
     std::optional<double>          m_fixedStep;
     bool                           m_fieldEnabled{true};
+    /// The text refresh() showed last (Java: the value of the spinner's text field), which a
+    /// commit of the same text leaves alone.
+    QString m_shownText;
     /// Set while refresh() shows the binding's state: a focus loss it causes commits nothing.
     bool m_refreshing{false};
 };

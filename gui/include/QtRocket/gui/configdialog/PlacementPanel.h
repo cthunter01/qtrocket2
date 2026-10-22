@@ -28,6 +28,11 @@ class EnumComboBox;
 /// setAxialMethod() fires no event (as in Java), so ComponentSelection::apply() refreshes the
 /// bindings itself (Java's combo listener calls the offset model's stateChanged()).
 ///
+/// Deviation from OpenRocket: in a multi-edit the offset field and slider set the offset of every
+/// selected component (the user's decision U3: each setter on every selected component). Java's
+/// setAxialOffset(double) has no config-listener loop, so there they move the main component only
+/// and the others keep their offsets (ComponentSelection lists this with the other differences).
+///
 /// The panels that use it add rows of their own below the offset (Java: placementPanel.add() of
 /// the fin rotation, a packed length, the rail button's angle): grid() and nextRow().
 ///

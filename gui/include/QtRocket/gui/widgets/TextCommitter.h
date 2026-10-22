@@ -38,8 +38,14 @@ class StringBinding;
 /// - Enter in a line edit (Java: actionPerformed()). The key is taken, so that a dialog's default
 ///   button stays unpressed (Java's text field takes Enter while it has an action listener). In a
 ///   text area Enter is a new line, as in Java.
-/// - Any focus loss of a field (Java: focusLost(), also a temporary one); a focus gain commits
-///   nothing (Java: focusGained() does nothing).
+/// - Any focus loss of a field (Java: focusLost(), also a temporary one), save the one to the
+///   field's own context menu (Qt's rule for QLineEdit::editingFinished()): the edit stays pending
+///   while the user picks Paste, until the field loses the focus for good, Enter or commit().
+///   Java's text fields have no context menu, so a pending stage name (a TREE change, which closes
+///   the dialog) must not be committed under it. A popup elsewhere (a unit selector's menu, a combo
+///   box's list) commits, as in Java, whose focusable popups take the focus from the field
+///   (a temporary focus loss, which RocketComponentConfig's listener does not tell apart). A
+///   focus gain commits nothing (Java: focusGained() does nothing).
 /// - commit() (BindingScope::commitAll(), before OK, Close, a save or an undo: a button that takes
 ///   no focus, as on macOS, leaves the edit pending).
 ///

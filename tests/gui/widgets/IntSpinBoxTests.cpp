@@ -4,6 +4,7 @@
 
 #include "QtRocket/gui/widgets/IntSpinBox.h"
 
+#include <array>
 #include <memory>
 #include <utility>
 
@@ -26,6 +27,7 @@
 #include "QtRocket/gui/widgets/SelectionKeyFilter.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/FinSet.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
 #include "QtRocket/util/BugError.h"
 #include "RecordingGuardHook.h"
@@ -260,6 +262,57 @@ TEST_F(IntSpinBoxTest, CommitEditCommitsAPendingCount)
     QTest::keyClick(&dialog.spin(), Qt::Key_Delete);
     EXPECT_FALSE(dialog.spin().commitEdit());
     EXPECT_EQ(dialog.spin().text(), QStringLiteral("6"));
+}
+
+TEST_F(IntSpinBoxTest, TheShownCountTypedAgainSetsNothing)
+{
+    // Java's spinner text field holds the model's Integer and fires no value change for an equal
+    // one, so the setter is never called.
+    TwoTubeRocket   rocket;
+    IntBeanProperty bean{.value = 3};
+    const Dialog    dialog(std::make_shared<IntBinding>(
+        std::make_shared<ComponentSelection>(*rocket.tubeA), bean.source(), 1, 8));
+    ASSERT_TRUE(dialog.isActive());
+    IntSpinBox& spin = dialog.spin();
+    typeInto(spin, QStringLiteral("3"));
+    ASSERT_TRUE(dialog.editor().isModified());
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_EQ(bean.sets, 0);
+    EXPECT_FALSE(dialog.editor().isModified());
+    typeInto(spin, QStringLiteral("3"));
+    dialog.other().setFocus();
+    EXPECT_EQ(bean.sets, 0);
+    typeInto(spin, QStringLiteral("3"));
+    EXPECT_FALSE(spin.commitEdit());
+    EXPECT_EQ(bean.sets, 0);
+    EXPECT_EQ(spin.text(), QStringLiteral("3"));
+    typeInto(spin, QStringLiteral("4"));
+    EXPECT_TRUE(spin.commitEdit());
+    EXPECT_EQ(bean.sets, 1);
+    EXPECT_EQ(bean.value, 4);
+}
+
+TEST_F(IntSpinBoxTest, TheShownCountTypedAgainLeavesTheOtherSelectedComponentsAlone)
+{
+    // Java (review probe SameTextProbe.java, OpenRocket 5f164fd0e, JDK 17): a multi-edit of fin
+    // sets of 3 and 4 fins; the shown '3' committed: main 3, other 4.
+    FinRocket        rocket;
+    TrapezoidFinSet& other = rocket.design.tubeB->addChild(std::make_unique<TrapezoidFinSet>());
+    other.setFinCount(4);
+    const std::array<RocketComponent*, 1> others{&other};
+    const Dialog                          dialog(std::make_shared<IntBinding>(
+        std::make_shared<ComponentSelection>(*rocket.fins, others), finCount(), 1, 8));
+    ASSERT_TRUE(dialog.isActive());
+    IntSpinBox& spin = dialog.spin();
+    ASSERT_EQ(spin.text(), QStringLiteral("3"));
+    typeInto(spin, QStringLiteral("3"));
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_EQ(rocket.fins->getFinCount(), 3);
+    EXPECT_EQ(other.getFinCount(), 4);
+    typeInto(spin, QStringLiteral("5"));
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_EQ(rocket.fins->getFinCount(), 5);
+    EXPECT_EQ(other.getFinCount(), 5);
 }
 
 TEST_F(IntSpinBoxTest, ACommitOfTheSpinBoxItselfReachesTheBinding)

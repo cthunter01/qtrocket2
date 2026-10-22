@@ -21,15 +21,16 @@ namespace QtRocket::Gui
 /// The components a configuration dialog edits: the main component, whose values the fields
 /// show, the other selected components, which every edit reaches too, and their Rocket. It
 /// replaces OpenRocket's "config listeners" (RocketComponent.addConfigListener() and the
-/// forwarding loop at the top of every setter, 172 of them in 32 files), with which a dialog of
-/// one component edits several at once.
+/// forwarding loops of its setters, 172 of them in 32 files), with which a dialog of one
+/// component edits several at once. Not every Java setter has such a loop, and not every loop
+/// comes first (see the deviations below).
 ///
 /// Edits (the user's decision U3 of 2026-10-17): apply<C>(f) calls f on every selected component
 /// that is a C, each its own call, the others first (in the order given) and the main component
-/// last, as Java's setters forward to their listeners before they set themselves. The calls run
-/// inside one freeze of the rocket (Rocket::freeze()), taken only when the rocket is not frozen
-/// already (a second freeze is a BugError) and thawed also when f throws, so that one edit of
-/// many components fires one merged event when it thaws. It never adds an undo position: the
+/// last, as most of Java's setters forward to their listeners before they set themselves. The
+/// calls run inside one freeze of the rocket (Rocket::freeze()), taken only when the rocket is not
+/// frozen already (a second freeze is a BugError) and thawed also when f throws, so that one edit
+/// of many components fires one merged event when it thaws. It never adds an undo position: the
 /// dialog adds one per session, before the first edit, so that the edit of every component is
 /// one undo step.
 ///
@@ -54,6 +55,14 @@ namespace QtRocket::Gui
 ///   11. NoseCone.setFlipped (the main's radii and shoulders);
 ///   12. ParallelStage.setRadiusMethod and PodSet.setRadiusMethod (setRadius(method, main's
 ///       radius)).
+/// - Java's setters without a forwarding loop change the main component only: in OpenRocket the
+///   placement's "plus" field and slider (RocketComponent.setAxialOffset(double) and
+///   ComponentAssembly's override, bound by PlacementPanel) move the main component alone, and
+///   the others keep their offsets. Here apply() moves every selected component, as U3 applies
+///   each setter to every selected component.
+/// - Java's setters whose loop comes after an early return forward only when the main
+///   component's value changes (RadiusRingComponent.setInstanceSeparation(): when the main has
+///   the value already, the others keep theirs). Here each component gets the value.
 /// - Java drops the others' events and fires only the main component's, none at all when the
 ///   main's value does not change (the others then change without an event). Here every
 ///   component fires its own, and the freeze merges them into one event at the thaw, which also

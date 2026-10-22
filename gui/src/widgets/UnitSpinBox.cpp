@@ -101,7 +101,8 @@ void UnitSpinBox::refresh()
     const DoubleBinding&             binding = *m_binding;
     // The text first: setText() clears isModified(), so the focus loss that disabling a focused
     // spin box causes finds nothing to commit.
-    lineEdit()->setText(QtStrings::fromUtf8(binding.text()));
+    m_shownText = QtStrings::fromUtf8(binding.text());
+    lineEdit()->setText(m_shownText);
     setReadOnly(binding.getProblem().has_value() || !binding.isWritable());
     setEnabled(m_fieldEnabled && binding.isEnabled());
     update();  // the arrows follow stepEnabled()
@@ -111,6 +112,13 @@ bool UnitSpinBox::commitEdit()
 {
     if (m_refreshing || !lineEdit()->isModified())
     {
+        return false;
+    }
+    if (lineEdit()->text() == m_shownText)
+    {
+        // The text shown, typed again: Java's text field fires no value change for it, so no
+        // setter runs (see the class comment).
+        refresh();
         return false;
     }
     const std::string text = QtStrings::toUtf8(lineEdit()->text());

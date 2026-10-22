@@ -267,18 +267,6 @@ TEST_F(EnumBindingTest, PickingTheMainsValueLeavesTheOthersAlone)
     EXPECT_EQ(events.count(), 1U);
 }
 
-TEST_F(EnumBindingTest, SameValueSetGivesTheMainsValueToTheOthers)
-{
-    MassRocket rocket;
-    rocket.massB->setMassComponentType(MassType::ALTIMETER);
-    const std::array<RocketComponent*, 1> others{rocket.massB};
-    const auto                            types = std::make_shared<EnumBinding<MassType>>(
-        std::make_shared<ComponentSelection>(*rocket.massA, others), massComponentType(),
-        kMassTypeChoices, EnumBinding<MassType>::SameValue::SET);
-    EXPECT_TRUE(types->select(MassType::MASSCOMPONENT));
-    EXPECT_EQ(rocket.massB->getMassComponentType(), MassType::MASSCOMPONENT);
-}
-
 TEST_F(EnumBindingTest, AHiddenValueIsShownByNoIndex)
 {
     // The deployment combo of the bottom stage hides "at the separation of the lower stage";

@@ -101,7 +101,11 @@ TEST_F(PlacementPanelTest, ChoosingAMethodKeepsThePosition)
 
 TEST_F(PlacementPanelTest, EverySelectedComponentKeepsItsOwnPosition)
 {
-    // The user's decision U3: each component its own setter; each converts its own offset.
+    // The user's decision U3: each component its own setter; each converts its own offset. The
+    // offset reaches every selected component too, a deviation: Java's setAxialOffset(double) has
+    // no config-listener loop, so its "plus" field moves the main component only (review probe
+    // OffsetProbe.java, OpenRocket 5f164fd0e, JDK 17: rail buttons at 0.02 (main) and 0.05, 0.01
+    // set: 0.01 and 0.05).
     const EveryKindDesign design;
     RocketComponent&      lug    = design.component(ComponentKind::LAUNCH_LUG);
     RocketComponent&      button = design.component(ComponentKind::RAIL_BUTTON);

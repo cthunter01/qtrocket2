@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -14,6 +13,7 @@
 #include "QtRocket/rocket/ComponentKind.h"
 
 class QMoveEvent;
+class QShowEvent;
 class QWidget;
 
 namespace QtRocket
@@ -25,7 +25,6 @@ class RocketComponent;
 namespace QtRocket::Gui
 {
 
-class ComponentSelection;
 class RocketComponentConfig;
 
 /// The configuration dialog of the selected components (OpenRocket's ComponentConfigDialog, swing
@@ -40,10 +39,15 @@ class RocketComponentConfig;
 /// - Undo: one undo step per dialog session. Once the dialog is shown, it adds the undo position
 ///   "Modify <Name>" (several components: "Modify components"), none for a component just added
 ///   (the add button did "Add <Name>" before it).
-/// - The rocket: the dialog has one connection to the rocket. A TREE or UNDO change closes it at
-///   once, inside the event (the selection drops its components there: an undo replaces them all);
-///   any other change refreshes the panel's fields (updateFields()) and marks the dialog modified,
-///   with a '*' before the title, once.
+/// - The rocket: the dialog has one connection to the rocket, made before the selection and the
+///   panel (Java's order), so that its slot runs first. A TREE or UNDO change closes the dialog at
+///   once, inside the event: its bindings end (BindingScope::release(): the selection lets go of
+///   the components silently, before its own slot could tell the fields; an undo replaces every
+///   component) and it hides; any other change refreshes the panel's fields (updateFields()) and
+///   marks the dialog modified, with a '*' before the title, once.
+/// - No default button (Java: setDisposableDialogOptions(this, null)): every QPushButton of the
+///   dialog, a panel's own included, is made no auto-default one when the dialog is shown, so that
+///   Enter in a combo box or a check box clicks nothing.
 /// - OK, Esc and the window's close button keep the changes: the pending edits are committed
 ///   (BindingScope::commitAll(), as a button that takes no focus leaves them pending), the bindings
 ///   end, and the dialog goes. Cancel: an existing component not modified closes; otherwise, unless
@@ -65,7 +69,10 @@ class RocketComponentConfig;
 ///   unchanged Cancel closes without an undo. Java counts those changes, and its unchanged Cancel
 ///   then undid the step before the dialog.
 /// - Cancel asks at once (Java: invokeLater) and undoes at once (Java: after 100 ms); when the
-///   dialog was closed meanwhile (an undo while the question was open) it undoes nothing.
+///   dialog was closed meanwhile (an undo while the question was open) it undoes nothing. The
+///   question's parent is the dialog (Java: the panel), and a dialog closed while the question is
+///   open is deleted only once the question has its answer; a dialog deleted meanwhile with its
+///   window is not touched afterwards.
 /// - The parts library does not open for a new component (Milestone 3). Java moves the dialog onto
 ///   the screen of the start-up window; here a remembered place on no screen is not used, and Qt
 ///   places the dialog over its window.
@@ -148,6 +155,8 @@ public:
     void reject() override;
 
 protected:
+    /// Makes no QPushButton of the dialog an auto-default one (see the class comment).
+    void showEvent(QShowEvent* event) override;
     /// Remembers the position of the shown dialog.
     void moveEvent(QMoveEvent* event) override;
 
@@ -160,11 +169,13 @@ public:
         Key() = default;
     };
 
-    /// The dialog of @p selection, a selection of @p document's rocket, owned by @p window (see
-    /// showDialog()).
+    /// The dialog of @p main and @p others, components of @p document's rocket, owned by
+    /// @p window (see showDialog()); it makes their ComponentSelection once it listens to the
+    /// rocket.
+    /// @throws BugError when an entry of @p others is not in the rocket of @p main
     ComponentConfigDialog(Key key, const GuiServices& services, OpenRocketDocument& document,
-                          std::shared_ptr<ComponentSelection> selection, bool isNewComponent,
-                          QWidget* window);
+                          RocketComponent& main, std::span<RocketComponent* const> others,
+                          bool isNewComponent, QWidget* window);
 
 private:
     /// The rocket changed (Java: componentChanged()).
@@ -174,11 +185,16 @@ private:
     void startCountingModifications() noexcept { m_counting = true; }
 
     /// Closes the dialog: the bindings end (pending edits dropped), the rocket connection goes,
-    /// and the dialog hides and is deleted later. Nothing when it is closed already.
+    /// and the dialog hides and is deleted later (once the question of cancel() has its answer,
+    /// while one is open). Nothing when it is closed already.
     void dispose();
 
     /// Closes the dialog, then undoes back to the session's undo position.
     void discardChanges();
+
+    /// The question of cancel() has its answer: a dialog closed meanwhile is deleted later now.
+    /// Whether it was closed.
+    bool endQuestion();
 
     /// kPositionKey as a key.
     [[nodiscard]] static std::string positionKey();
@@ -194,6 +210,8 @@ private:
     bool                                    m_counting{false};
     bool                                    m_modified{false};
     bool                                    m_disposed{false};
+    /// Set while cancel() asks its question: dispose() leaves the deletion to cancel().
+    bool m_asking{false};
 };
 
 }  // namespace QtRocket::Gui

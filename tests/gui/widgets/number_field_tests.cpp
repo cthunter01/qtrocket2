@@ -42,6 +42,7 @@
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
 #include "QtRocket/gui/util/MakeChild.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/UnitSelector.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/gui/widgets/ValueSlider.h"
@@ -377,7 +378,10 @@ TEST_F(NumberFieldTest, TheUnitChosenShowsTheValueInThatUnitOnly)
 TEST_F(NumberFieldTest, AFractionIsReadInTheCurrentUnit)
 {
     // probe: type 1 3/4, Enter: radius=0.022225 text=[1 3/4]; recommit the shown fraction text:
-    // radius=0.022225, one more setter call; unit -> mm: text=[44.4].
+    // radius=0.022225, one more setter call; unit -> mm: text=[44.4]. QtRocket differs from the
+    // prototype in the recommit: the spin box commits nothing for the very text it shows, as Java
+    // (its text field fires no value change for an equal String: the review's SameTextProbe.java,
+    // OpenRocket 5f164fd0e, JDK 17), and the binding reads the text back instead.
     m_binding->setCurrentUnit(lengthUnit("in/64"));
     typeInto(*m_spin, QStringLiteral("1 3/4"));
     QTest::keyClick(m_spin, Qt::Key_Return);
@@ -385,9 +389,14 @@ TEST_F(NumberFieldTest, AFractionIsReadInTheCurrentUnit)
     EXPECT_EQ(spinText(), QStringLiteral("1 \u00B3\u2044\u2084"));
     EXPECT_EQ(m_bean.sets, 1);
 
-    // The text the spin box shows reads back as the same value.
+    // The spin box leaves the text it shows alone.
     editor().setModified(true);
     focus(*m_other);
+    EXPECT_NEAR(m_bean.value, 1.75 * 0.0254 / 2, kTolerance);
+    EXPECT_EQ(m_bean.sets, 1);
+
+    // The text the spin box shows reads back as the same value.
+    EXPECT_TRUE(m_binding->commitText(QtStrings::toUtf8(spinText())));
     EXPECT_NEAR(m_bean.value, 1.75 * 0.0254 / 2, kTolerance);
     EXPECT_EQ(m_bean.sets, 2);
 

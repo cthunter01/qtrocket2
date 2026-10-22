@@ -18,6 +18,7 @@
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/rocket/BodyTube.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/SymmetricComponent.h"
@@ -110,6 +111,28 @@ struct CountComponents
         [&names](RocketComponent& component) { names.push_back(component.getName()); });
     return names;
 }
+
+/// A rocket listener that drops the last owner of a selection (a dialog closing on the event).
+struct DropOwner
+{
+    std::shared_ptr<ComponentSelection>* owner;
+
+    void operator()(const ComponentChangeEvent& /*event*/) const { owner->reset(); }
+};
+
+/// A selection listener that drops the last owner of its selection when it becomes invalid.
+struct DropOwnerWhenInvalidated
+{
+    std::shared_ptr<ComponentSelection>* owner;
+
+    void operator()(Phase phase) const
+    {
+        if (phase == Phase::INVALIDATED)
+        {
+            owner->reset();
+        }
+    }
+};
 
 /// The names of the body tubes apply<BodyTube>() reaches, in order.
 [[nodiscard]] std::vector<std::string> tubesReached(ComponentSelection& selection)
@@ -374,6 +397,30 @@ TEST_F(ComponentSelectionTest, ASelectionOutlivingItsRocketIsInvalid)
     const ComponentSelection reset(*design.tubeA);
     design.rocket->resetListeners();
     EXPECT_FALSE(reset.isValid());
+}
+
+TEST_F(ComponentSelectionTest, AListenerOfTheThawsEventMayDropTheLastOwner)
+{
+    // A dialog that closes on the event of the thaw drops the last owner of its selection while
+    // apply() still runs: the selection keeps itself alive until apply() returns (proved under
+    // ASan), for a plain change (a rocket listener after the selection's) and for a TREE change
+    // (a listener of Phase::INVALIDATED).
+    const TwoTubeRocket design;
+    auto                owner     = std::make_shared<ComponentSelection>(*design.tubeA);
+    ComponentSelection& selection = *owner;
+    const ComponentChangeSignal::ScopedConnection dropper(
+        design.rocket->addComponentChangeListener(DropOwner{&owner}));
+    selection.apply<BodyTube>(SetLength{0.8});
+    EXPECT_EQ(owner, nullptr);
+    EXPECT_DOUBLE_EQ(design.tubeA->getLength(), 0.8);
+
+    auto                stageOwner     = std::make_shared<ComponentSelection>(*design.stage);
+    ComponentSelection& stageSelection = *stageOwner;
+    const ComponentSelection::PhaseSignal::ScopedConnection stageDropper(
+        stageSelection.addListener(DropOwnerWhenInvalidated{&stageOwner}));
+    stageSelection.applyToEach(SetName{"Booster"});
+    EXPECT_EQ(stageOwner, nullptr);
+    EXPECT_EQ(design.stage->getName(), "Booster");
 }
 
 }  // namespace QtRocket::Gui

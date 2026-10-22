@@ -15,6 +15,7 @@
 #include <QPoint>
 #include <QPointer>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -77,12 +78,11 @@ void ComponentConfigDialog::showDialog(QWidget& window, const GuiServices& servi
     {
         open->ok();
     }
-    DialogState& state     = dialogState();
-    auto         selection = std::make_shared<ComponentSelection>(main, others);
-    if (&selection->getRocket() != &document.getRocket())
+    if (&main.getRoot() != &document.getRocket())
     {
         bug("The configuration dialog edits components of its document's rocket");
     }
+    DialogState& state = dialogState();
     if (state.hadDialog)
     {
         // Not for rockets or stages, which would leave the next component in the Override tab.
@@ -101,11 +101,16 @@ void ComponentConfigDialog::showDialog(QWidget& window, const GuiServices& servi
         state.previousSelectedTab = QString();
     }
 
-    const bool multiEdit = selection->isMultiEdit();
-    auto*      dialog    = makeChild<ComponentConfigDialog>(&window, Key(), services, document,
-                                                            std::move(selection), isNewComponent);
-    state.dialog         = dialog;
-    state.hadDialog      = true;
+    auto* dialog    = makeChild<ComponentConfigDialog>(&window, Key(), services, document, main,
+                                                       others, isNewComponent);
+    state.dialog    = dialog;
+    state.hadDialog = true;
+    if (dialog->m_disposed)
+    {
+        return;  // a TREE or UNDO change while the panel was made closed it
+    }
+    const bool          multiEdit = dialog->m_configurator->selection()->isMultiEdit();
+    const ComponentKind kind      = dialog->m_mainKind;
     dialog->show();
 
     // One undo position per session, none for a new component (its add button made one).
@@ -119,7 +124,7 @@ void ComponentConfigDialog::showDialog(QWidget& window, const GuiServices& servi
         else
         {
             //: ComponentCfgDlg.Modify ("Modify" and the component's type name)
-            document.addUndoPosition(QtStrings::toUtf8(tr("Modify %1").arg(enumText(main.kind()))));
+            document.addUndoPosition(QtStrings::toUtf8(tr("Modify %1").arg(enumText(kind))));
         }
     }
     // The user's decision U4: what happened before the position does not count.
@@ -158,25 +163,29 @@ void ComponentConfigDialog::forgetPreviousDialogs()
 bool ComponentConfigDialog::commitPendingEdits()
 {
     ComponentConfigDialog* open = dialog();
-    return open != nullptr && open->m_configurator->commitAll();
+    return open != nullptr && open->m_configurator != nullptr && open->m_configurator->commitAll();
 }
 
 ComponentConfigDialog::ComponentConfigDialog(Key /*key*/, const GuiServices& services,
-                                             OpenRocketDocument&                 document,
-                                             std::shared_ptr<ComponentSelection> selection,
+                                             OpenRocketDocument& document, RocketComponent& main,
+                                             std::span<RocketComponent* const> others,
                                              bool isNewComponent, QWidget* window)
   : QDialog(window),
     m_services(services),
     m_document(&document),
-    m_mainKind(selection->getMain().kind()),
+    m_mainKind(main.kind()),
     m_newComponent(isNewComponent)
 {
     setObjectName(QString::fromLatin1(kGeometryName));
     setModal(false);
-    // The rocket's listener before the panel, as Java: the panel's own changes reach it (and are
-    // not counted, see startCountingModifications()).
+    // The rocket's listener before the selection and the panel, as Java (its dialog listens
+    // before the panel's models do): the panel's own changes reach it (and are not counted, see
+    // startCountingModifications()), and on a TREE or UNDO change its slot runs first, so that the
+    // dialog closes and ends its bindings (the selection lets go silently, BindingScope::release())
+    // before the selection's own slot would tell every field.
     m_rocketConnection = document.getRocket().addComponentChangeListener(
         [this](const ComponentChangeEvent& event) { componentChanged(event); });
+    auto selection = std::make_shared<ComponentSelection>(main, others);
 
     const bool allSameType = selection->isAllOfOneKind();
     const bool multiEdit   = selection->isMultiEdit();
@@ -216,6 +225,7 @@ ComponentConfigDialog::ComponentConfigDialog(Key /*key*/, const GuiServices& ser
         setWindowTitle(tr("%1 configuration").arg(name));
     }
 
+    // No default button (Java: setDisposableDialogOptions(this, null)): showEvent() clears it.
     connect(&m_configurator->okButton(), &QPushButton::clicked, this,
             guarded([this] { ok(); }, QStringLiteral("okButton")));
     connect(&m_configurator->cancelButton(), &QPushButton::clicked, this,
@@ -236,7 +246,10 @@ ComponentConfigDialog::~ComponentConfigDialog()
         state.lastKind     = m_mainKind;
         state.lastTabName  = selectedTabName();
         m_rocketConnection.disconnect();
-        m_configurator->release();
+        if (m_configurator != nullptr)
+        {
+            m_configurator->release();
+        }
     }
 }
 
@@ -274,6 +287,22 @@ void ComponentConfigDialog::restorePosition()
     move(position);
 }
 
+void ComponentConfigDialog::showEvent(QShowEvent* event)
+{
+    // Java's dialog has no default button: a QPushButton of a panel would otherwise become the
+    // default one (QDialog::setVisible() picks the first auto-default button in the focus chain,
+    // after this event) and Enter in a combo box or a check box would click it.
+    for (QPushButton* button : findChildren<QPushButton*>())
+    {
+        button->setAutoDefault(false);
+        if (button->isDefault())
+        {
+            button->setDefault(false);
+        }
+    }
+    QDialog::showEvent(event);
+}
+
 void ComponentConfigDialog::moveEvent(QMoveEvent* event)
 {
     QDialog::moveEvent(event);
@@ -288,7 +317,7 @@ void ComponentConfigDialog::moveEvent(QMoveEvent* event)
 
 QString ComponentConfigDialog::selectedTabName() const
 {
-    return m_configurator->selectedTabName();
+    return m_configurator != nullptr ? m_configurator->selectedTabName() : QString();
 }
 
 void ComponentConfigDialog::componentChanged(const ComponentChangeEvent& event)
@@ -321,7 +350,10 @@ void ComponentConfigDialog::ok()
         return;
     }
     // A commit may close the dialog (a stage's new name is a TREE change).
-    m_configurator->commitAll();
+    if (m_configurator != nullptr)
+    {
+        m_configurator->commitAll();
+    }
     dispose();
 }
 
@@ -348,19 +380,53 @@ void ComponentConfigDialog::cancel()
         discardChanges();
         return;
     }
-    const UserPrompts::DiscardAnswer answer = m_services.prompts().askDiscardChanges(
-        this, m_newComponent ? UserPrompts::DiscardQuestion::COMPONENT_ADDITION
-                             : UserPrompts::DiscardQuestion::COMPONENT_CHANGES);
+    UserPrompts&                       prompts = m_services.prompts();
+    const UserPrompts::DiscardQuestion question =
+        m_newComponent ? UserPrompts::DiscardQuestion::COMPONENT_ADDITION
+                       : UserPrompts::DiscardQuestion::COMPONENT_CHANGES;
+    // The question may run an event loop (a modal message box) in which anything may close the
+    // dialog (an undo, a request for another dialog) or even delete it (its window going). While
+    // the question is open, dispose() leaves the deletion to this function, so that a question
+    // whose parent is the dialog (Java: the configuration panel) outlives it; after the question
+    // nothing of the dialog is read unless it is still there.
+    const QPointer<ComponentConfigDialog> self(this);
+    UserPrompts::DiscardAnswer            answer;
+    m_asking = true;
+    try
+    {
+        answer = prompts.askDiscardChanges(this, question);
+    }
+    catch (...)
+    {
+        if (!self.isNull())
+        {
+            endQuestion();
+        }
+        throw;
+    }
     // "Don't ask me again" turns the question off whatever the answer (Java).
     if (answer.doNotAskAgain)
     {
         preferences.setShowDiscardConfirmation(false);
     }
-    // A dialog closed meanwhile (an undo while the question was open) undoes nothing more.
-    if (answer.discard && !m_disposed)
+    if (self.isNull() || endQuestion())
+    {
+        return;  // closed meanwhile (an undo while the question was open): nothing more to undo
+    }
+    if (answer.discard)
     {
         discardChanges();
     }
+}
+
+bool ComponentConfigDialog::endQuestion()
+{
+    m_asking = false;
+    if (m_disposed)
+    {
+        deleteLater();  // the deletion dispose() left for the end of the question
+    }
+    return m_disposed;
 }
 
 void ComponentConfigDialog::dispose()
@@ -376,9 +442,15 @@ void ComponentConfigDialog::dispose()
     m_rocketConnection.disconnect();
     // The bindings end before the dialog hides: the focus loss of an edited field then reaches no
     // component.
-    m_configurator->release();
+    if (m_configurator != nullptr)
+    {
+        m_configurator->release();
+    }
     hide();
-    deleteLater();
+    if (!m_asking)
+    {
+        deleteLater();  // otherwise once the question of cancel() has its answer
+    }
 }
 
 void ComponentConfigDialog::discardChanges()

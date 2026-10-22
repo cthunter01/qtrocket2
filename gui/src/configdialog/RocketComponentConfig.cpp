@@ -634,7 +634,7 @@ void RocketComponentConfig::addButtonRow()
     addComponentInfo(*m_buttonRow);
 
     // The multi-component edit label and the mass label.
-    m_multiCompEditLabel = makeChild<StyledLabel>(row, QString(), StyledLabel::Style::BOLD);
+    m_multiCompEditLabel = makeChild<StyledLabel>(row, QString(), -1.0, StyledLabel::Style::BOLD);
     m_multiCompEditLabel->setObjectName(QStringLiteral("multiCompEditLabel"));
     m_multiCompEditLabel->setFontColor(ThemeColors::color(ThemeColors::Key::MULTI_COMP_EDIT));
     m_buttonRow->addWidget(m_multiCompEditLabel);

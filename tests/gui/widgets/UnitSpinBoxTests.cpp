@@ -4,6 +4,7 @@
 
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 
+#include <array>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -30,7 +31,9 @@
 #include "QtRocket/gui/widgets/SelectionKeyFilter.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
+#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/Transition.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "RecordingGuardHook.h"
@@ -59,6 +62,20 @@ using Test::typeInto;
     return std::make_shared<DoubleBinding>(std::make_shared<ComponentSelection>(component), source,
                                            unitGroup(UnitGroupId::LENGTH),
                                            DoubleBinding::Options{});
+}
+
+/// The source of a transition's aft radius with its automatic state (Java's DoubleModel(component,
+/// "AftRadius", 2, UNITS_LENGTH, 0) of the nose cone dialog: a diameter).
+[[nodiscard]] DoubleSource aftRadius()
+{
+    return DoubleSource::of<Transition>({
+        .get = [](const Transition& transition) { return transition.getAftRadius(); },
+        .set = [](Transition& transition, double radius) { transition.setAftRadius(radius); },
+        .isAutomatic =
+            [](const Transition& transition) { return transition.isAftRadiusAutomatic(); },
+        .setAutomatic = [](Transition& transition,
+                           bool        automatic) { transition.setAftRadiusAutomatic(automatic); },
+    });
 }
 
 /// A source whose setter throws a BugError, as a broken invariant of the core would.
@@ -197,6 +214,70 @@ TEST_F(UnitSpinBoxTest, AChangeElsewhereReplacesAnEditInProgress)
     EXPECT_FALSE(window.editor().isModified());
     window.other().setFocus();
     EXPECT_DOUBLE_EQ(rocket.tubeA->getLength(), 0.45);
+}
+
+TEST_F(UnitSpinBoxTest, TheShownTextTypedAgainSetsNothing)
+{
+    // Java's spinner text field holds the model's String and fires no value change for an equal
+    // one, so the setter is never called (review probe SameTextProbe.java, OpenRocket 5f164fd0e,
+    // JDK 17: committing the shown '2.47' leaves the nose cone's aft radius automatic, at
+    // 0.0123456). Here the setter would switch "automatic" off and round the radius to the text.
+    TwoTubeRocket rocket;
+    rocket.tubeA->setOuterRadius(0.0123456);
+    rocket.nose->setAftRadiusAutomatic(true);
+    const double radius = rocket.nose->getAftRadius();
+    ASSERT_DOUBLE_EQ(radius, 0.0123456);
+    const Window window(std::make_shared<DoubleBinding>(
+        std::make_shared<ComponentSelection>(*rocket.nose), aftRadius(),
+        unitGroup(UnitGroupId::LENGTH), DoubleBinding::Options{.multiplier = 2.0, .min = 0.0}));
+    ASSERT_TRUE(window.isActive());
+    UnitSpinBox& spin = window.spin();
+    ASSERT_EQ(spin.text(), QStringLiteral("2.47"));
+    typeInto(spin, QStringLiteral("2.47"));
+    ASSERT_TRUE(window.editor().isModified());
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_TRUE(rocket.nose->isAftRadiusAutomatic());
+    EXPECT_EQ(rocket.nose->getAftRadius(), radius);
+    EXPECT_FALSE(window.editor().isModified());
+    EXPECT_FALSE(spin.commitEdit());
+
+    // The same through the focus loss and commitEdit().
+    typeInto(spin, QStringLiteral("2.47"));
+    window.other().setFocus();
+    EXPECT_TRUE(rocket.nose->isAftRadiusAutomatic());
+    typeInto(spin, QStringLiteral("2.47"));
+    EXPECT_FALSE(spin.commitEdit());
+    EXPECT_TRUE(rocket.nose->isAftRadiusAutomatic());
+    EXPECT_EQ(rocket.nose->getAftRadius(), radius);
+
+    // Another text is a commit (Java: "2.48" set; automatic off).
+    typeInto(spin, QStringLiteral("2.48"));
+    EXPECT_TRUE(spin.commitEdit());
+    EXPECT_FALSE(rocket.nose->isAftRadiusAutomatic());
+    EXPECT_DOUBLE_EQ(rocket.nose->getAftRadius(), 0.0124);
+}
+
+TEST_F(UnitSpinBoxTest, TheShownTextTypedAgainLeavesTheOtherSelectedComponentsAlone)
+{
+    // Java (SameTextProbe): a multi-edit of two tubes, 0.3 m and 0.5 m long; the shown '30'
+    // committed: main 0.3, other 0.5; '300' committed: both 3.0.
+    const TwoTubeRocket                   rocket;
+    const std::array<RocketComponent*, 1> others{rocket.tubeB};
+    const Window                          window(std::make_shared<DoubleBinding>(
+        std::make_shared<ComponentSelection>(*rocket.tubeA, others), bodyTubeLength(),
+        unitGroup(UnitGroupId::LENGTH), DoubleBinding::Options{.min = 0.0}));
+    ASSERT_TRUE(window.isActive());
+    UnitSpinBox& spin = window.spin();
+    ASSERT_EQ(spin.text(), QStringLiteral("30"));
+    typeInto(spin, QStringLiteral("30"));
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_DOUBLE_EQ(rocket.tubeA->getLength(), 0.3);
+    EXPECT_DOUBLE_EQ(rocket.tubeB->getLength(), 0.5);
+
+    typeInto(spin, QStringLiteral("300"));
+    QTest::keyClick(&spin, Qt::Key_Return);
+    EXPECT_DOUBLE_EQ(rocket.tubeA->getLength(), 3.0);
+    EXPECT_DOUBLE_EQ(rocket.tubeB->getLength(), 3.0);
 }
 
 TEST_F(UnitSpinBoxTest, TellsWhenAnEditingIsFinished)

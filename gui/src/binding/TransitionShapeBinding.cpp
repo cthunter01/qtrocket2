@@ -25,8 +25,7 @@ std::shared_ptr<EnumBinding<TransitionShape>> makeTransitionShapeBinding(
     std::shared_ptr<ComponentSelection> selection)
 {
     return std::make_shared<EnumBinding<TransitionShape>>(
-        std::move(selection), transitionShapeSource(), kAllTransitionShapes,
-        EnumBinding<TransitionShape>::SameValue::SET);
+        std::move(selection), transitionShapeSource(), kAllTransitionShapes);
 }
 
 }  // namespace QtRocket::Gui

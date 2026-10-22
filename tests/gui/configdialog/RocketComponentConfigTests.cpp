@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include <QFont>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
@@ -456,6 +457,11 @@ TEST_F(RocketComponentConfigTest, AMultiComponentEditHasNoDescriptionButALabelNa
     EXPECT_EQ(panel->multiComponentEditLabel().toolTip(),
               QStringLiteral("<html>You are editing the following components: <br>Body, "
                              "&lt;i&gt;Booster&lt;/i&gt;"));
+    // Java: StyledLabel(" ", -1, Style.BOLD), the size of the mass label beside it.
+    EXPECT_TRUE(panel->multiComponentEditLabel().font().bold());
+    EXPECT_DOUBLE_EQ(panel->multiComponentEditLabel().font().pointSizeF(),
+                     panel->infoLabel().font().pointSizeF());
+    EXPECT_FALSE(panel->infoLabel().font().bold());
 }
 
 /// The objectNames the Java property names give the Override tab's widgets, and their kinds.

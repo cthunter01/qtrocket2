@@ -22,7 +22,10 @@ class QKeyEvent;
 ///   enabled only while the field is edited); an unedited spin box lets it pass on to the dialog,
 ///   which closes, as in Java.
 /// - Focus loss commits an edited text only, so that tabbing through a dialog loses no precision
-///   (Java: COMMIT_OR_REVERT on an edited field only).
+///   (Java: COMMIT_OR_REVERT on an edited field only). No commit, whatever ends the edit, sets the
+///   value the spin box shows (the same text, or the same count): Java's text field fires no value
+///   change for a value equal to its own (JFormattedTextField.commitEdit() -> setValue()), so its
+///   model's setter never runs; each spin box's commitEdit() checks it.
 /// - The arrow buttons and the Up and Down keys commit the edited text first, then step from the
 ///   committed value (Java: BasicSpinnerUI's ArrowButtonHandler); each spin box's stepBy() does
 ///   it. PageUp and PageDown step ten times (Qt's spin boxes; Java binds no key to them).

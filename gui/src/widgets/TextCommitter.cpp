@@ -6,8 +6,10 @@
 #include <utility>
 #include <vector>
 
+#include <QApplication>
 #include <QChar>
 #include <QEvent>
+#include <QFocusEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QObject>
@@ -87,6 +89,30 @@ void writeText(QWidget& edit, const QString& text)
     const Qt::KeyboardModifiers modifiers = key->modifiers() & ~Qt::KeypadModifier;
     return (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) &&
            modifiers == Qt::NoModifier;
+}
+
+/// Whether @p event is the focus loss of the whole field @p field to its own context menu (a line
+/// edit's menu is its child, a text area's its viewport's): Qt's own rule for
+/// QLineEdit::editingFinished().
+[[nodiscard]] bool isFocusToOwnContextMenu(const QObject& field, const QEvent& event)
+{
+    if (event.type() != QEvent::FocusOut)
+    {
+        return false;
+    }
+    const auto* const focus = dynamic_cast<const QFocusEvent*>(&event);
+    const auto* const edit  = qobject_cast<const QWidget*>(&field);
+    if (focus == nullptr || edit == nullptr || focus->reason() != Qt::PopupFocusReason)
+    {
+        return false;
+    }
+    const QWidget* const popup = QApplication::activePopupWidget();
+    if (popup == nullptr)
+    {
+        return false;
+    }
+    const QWidget* const owner = popup->parentWidget();
+    return owner != nullptr && (owner == edit || edit->isAncestorOf(owner));
 }
 
 }  // namespace
@@ -268,7 +294,7 @@ bool TextCommitter::eventFilter(QObject* watched, QEvent* event)
         event->accept();
         return true;  // taken: a dialog's default button stays unpressed
     }
-    if (event->type() == QEvent::FocusOut)
+    if (event->type() == QEvent::FocusOut && !isFocusToOwnContextMenu(*watched, *event))
     {
         guardedCommit(watched);
         if (alive.isNull())

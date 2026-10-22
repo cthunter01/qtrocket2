@@ -15,7 +15,6 @@
 #include "BindingTestSupport.h"
 #include "GuiTestSupport.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
-#include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Transition.h"
 #include "QtRocket/rocket/TransitionShape.h"
@@ -75,22 +74,43 @@ TEST_F(TransitionShapeBindingTest, AShapeChangedElsewhereIsShown)
     EXPECT_EQ(shapes->value(), TransitionShape::POWER);
 }
 
-TEST_F(TransitionShapeBindingTest, TheMainsShapeReachesTheOthers)
+TEST_F(TransitionShapeBindingTest, PickingTheMainsShapeLeavesTheOthersAlone)
 {
-    // Java's TransitionShapeModel calls setShapeType() every time, and the main's setter forwards
-    // it to the other selected transitions.
+    // Java's dialogs show the model in a plain JComboBox, which never calls the model for the
+    // shape it shows (review probe ShapeComboProbe.java, OpenRocket 5f164fd0e, JDK 17: main A
+    // CONICAL, other B HAACK with the parameter 0.333 and clipped; A's own CONICAL picked: B stays
+    // HAACK 0.333, events 0; OGIVE picked: B OGIVE; B set to POWER, the shown OGIVE picked again:
+    // B stays POWER).
     TransitionRocket rocket;
-    NoseCone&        nose = *rocket.design.nose;
-    nose.setShapeType(TransitionShape::ELLIPSOID);
-    rocket.transition->setShapeType(TransitionShape::OGIVE);
-    const std::array<RocketComponent*, 2> others{&nose, rocket.design.tubeA};
-    const auto                            shapes = makeTransitionShapeBinding(
-        std::make_shared<ComponentSelection>(*rocket.transition, others));
+    Transition&      main  = *rocket.transition;
+    Transition&      other = rocket.design.stage->addChild(std::make_unique<Transition>());
+    main.setShapeType(TransitionShape::CONICAL);
+    other.setShapeType(TransitionShape::HAACK);
+    other.setShapeParameter(0.333);
+    other.setClipped(true);
+    const std::array<RocketComponent*, 2> others{&other, rocket.design.tubeA};
+    const auto                            shapes =
+        makeTransitionShapeBinding(std::make_shared<ComponentSelection>(main, others));
+    // Deviation: Java's model gives every other transition the main's shape when it is made.
+    EXPECT_EQ(other.getShapeType(), TransitionShape::HAACK);
+    EXPECT_EQ(other.getShapeParameter(), 0.333);
+    EXPECT_TRUE(other.isClipped());
+
     const RocketEventRecorder events(*rocket.design.rocket);
+    EXPECT_FALSE(shapes->select(TransitionShape::CONICAL));
+    EXPECT_EQ(other.getShapeType(), TransitionShape::HAACK);
+    EXPECT_EQ(other.getShapeParameter(), 0.333);
+    EXPECT_TRUE(other.isClipped());
+    EXPECT_EQ(events.count(), 0U);
+
     EXPECT_TRUE(shapes->select(TransitionShape::OGIVE));
-    EXPECT_EQ(nose.getShapeType(), TransitionShape::OGIVE);
-    EXPECT_EQ(rocket.transition->getShapeType(), TransitionShape::OGIVE);
+    EXPECT_EQ(main.getShapeType(), TransitionShape::OGIVE);
+    EXPECT_EQ(other.getShapeType(), TransitionShape::OGIVE);
     EXPECT_EQ(events.count(), 1U);
+
+    other.setShapeType(TransitionShape::POWER);
+    EXPECT_FALSE(shapes->select(TransitionShape::OGIVE));
+    EXPECT_EQ(other.getShapeType(), TransitionShape::POWER);
 }
 
 TEST_F(TransitionShapeBindingTest, RefusesAComponentThatIsNoTransition)

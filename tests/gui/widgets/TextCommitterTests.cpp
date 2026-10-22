@@ -14,11 +14,15 @@
 #include <memory>
 #include <tuple>
 
+#include <QApplication>
+#include <QContextMenuEvent>
 #include <QCoreApplication>
 #include <QDialog>
 #include <QFocusEvent>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPlainTextEdit>
+#include <QPoint>
 #include <QPointer>
 #include <QSignalSpy>
 #include <QString>
@@ -48,6 +52,7 @@ namespace
 {
 
 using TextCommitterTest = Test::GuiTest;
+using Test::OffscreenPopupWarnings;
 using Test::RecordingGuardHook;
 using Test::showActiveWith;
 using Test::StringBeanProperty;
@@ -65,6 +70,16 @@ void sendFocus(QWidget& edit, QEvent::Type type)
 {
     QFocusEvent event(type, Qt::OtherFocusReason);
     QCoreApplication::sendEvent(&edit, &event);
+}
+
+/// Opens the context menu of a field as a right click does, sent to @p receiver (a line edit
+/// itself, a text area's viewport): the popup shown, or null.
+[[nodiscard]] QWidget* openContextMenu(QWidget& receiver)
+{
+    QContextMenuEvent event(QContextMenuEvent::Mouse, QPoint(5, 5),
+                            receiver.mapToGlobal(QPoint(5, 5)));
+    QCoreApplication::sendEvent(&receiver, &event);
+    return QApplication::activePopupWidget();
 }
 
 /// A window with a name field, a comment area and a line edit to take the focus, shown active,
@@ -336,6 +351,60 @@ TEST_F(TextCommitterTest, TheFieldsGetTheSelectionKeyFilterAndTabLeavesTheCommen
     // A field added again keeps one filter.
     fields.committer->addField(*fields.name, bindOn(*design.tubeA, componentNameSource()));
     EXPECT_EQ(fields.name->findChildren<SelectionKeyFilter*>().size(), 1);
+}
+
+TEST_F(TextCommitterTest, TheFieldsOwnContextMenuLeavesTheEditPending)
+{
+    // Qt's text fields have a context menu, which takes the focus (Qt::PopupFocusReason); Java's
+    // have none. The edit stays pending while it is open (Qt's rule for editingFinished()), so
+    // that a stage's new name (a TREE change) does not close the dialog under the menu, and the
+    // next focus loss or commit() commits it.
+    const TwoTubeRocket design;
+    QWidget             window;
+    NameAndComment      fields(window, design);
+    ASSERT_TRUE(fields.active);
+    const OffscreenPopupWarnings warnings;
+    fields.name->setFocus();
+    fields.name->selectAll();
+    QTest::keyClicks(fields.name, QStringLiteral("Nose"));
+    QWidget* const nameMenu = openContextMenu(*fields.name);
+    ASSERT_NE(nameMenu, nullptr);
+    EXPECT_EQ(design.tubeA->getName(), "A");
+    nameMenu->close();
+    EXPECT_EQ(design.tubeA->getName(), "A");
+    fields.other->setFocus();
+    EXPECT_EQ(design.tubeA->getName(), "Nose");
+
+    // A text area's menu belongs to its viewport.
+    fields.comment->setFocus();
+    QTest::keyClicks(fields.comment, QStringLiteral("glued"));
+    QWidget* const commentMenu = openContextMenu(*fields.comment->viewport());
+    ASSERT_NE(commentMenu, nullptr);
+    EXPECT_EQ(design.tubeA->getComment(), "");
+    commentMenu->close();
+    EXPECT_EQ(design.tubeA->getComment(), "");
+    EXPECT_TRUE(fields.committer->commit());
+    EXPECT_EQ(design.tubeA->getComment(), "glued");
+}
+
+TEST_F(TextCommitterTest, APopupElsewhereCommits)
+{
+    // As in OpenRocket, whose focusable popups (a unit selector's menu) take the focus from the
+    // field: a temporary focus loss, which RocketComponentConfig's listener commits.
+    const TwoTubeRocket design;
+    QWidget             window;
+    NameAndComment      fields(window, design);
+    ASSERT_TRUE(fields.active);
+    fields.name->setFocus();
+    fields.name->selectAll();
+    QTest::keyClicks(fields.name, QStringLiteral("Nose"));
+    const OffscreenPopupWarnings warnings;
+    QMenu                        menu(&window);
+    menu.addAction(QStringLiteral("mm"));
+    menu.popup(fields.other->mapToGlobal(QPoint(0, 0)));
+    ASSERT_EQ(QApplication::activePopupWidget(), &menu);
+    EXPECT_EQ(design.tubeA->getName(), "Nose");
+    menu.close();
 }
 
 TEST_F(TextCommitterTest, AnInvalidSelectionDisablesTheFieldsAndTakesNothing)
