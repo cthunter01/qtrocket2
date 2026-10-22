@@ -10,6 +10,7 @@
 #include "QtRocket/util/Geometry2D.h"
 #include "QtRocket/util/Signal.h"
 
+class QEvent;
 class QFocusEvent;
 class QHideEvent;
 class QMouseEvent;
@@ -64,9 +65,12 @@ class FinPointFigure;
 ///
 /// Deviations from OpenRocket:
 /// - A drag ends also when the area is hidden (its dialog closes) or destroyed in the middle of
-///   it, and when the dragged fin set has left the rocket (an undo during the drag, whose event
-///   waits in the freeze): the rocket is thawed then, and the drag edits nothing more. Java waits
-///   for a release that never comes and leaves the rocket frozen.
+///   it, when its window is deactivated or it loses the focus (but to a menu that opens), at a
+///   move without the button that began it (its release never came), and when the dragged fin
+///   set has left the rocket (an undo during the drag, whose event waits in the freeze): the
+///   rocket is thawed then, and the drag edits nothing more. Java waits for a release that never
+///   comes and leaves the rocket frozen; the area is the GUI's only holder of a freeze across
+///   events.
 /// - A press of a second button during a drag does nothing; Java begins the drag again and
 ///   freezes the frozen rocket (an error).
 /// - The focus is taken at once, so a press on a point selects it after the table's selection
@@ -140,6 +144,8 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void changeEvent(QEvent* event) override;
     void hideEvent(QHideEvent* event) override;
 
 private:

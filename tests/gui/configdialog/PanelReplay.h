@@ -1,10 +1,11 @@
 #pragma once
 
-// The replay of the Java probes' panel sections (part D1b's D1bProbe, part D1c's D1cProbe, run on
-// OpenRocket's Swing panels under Xvfb): the panel of every component of a kind in a design, edits
-// through a panel as a user makes them, and edits of a panel with a second component selected, each
-// section a header and its sorted lines, as the probes print them. lug_panel_golden_tests.cpp and
-// fin_panel_golden_tests.cpp compare what QtRocket's panels give with the pinned transcripts.
+// The replay of the Java probes' panel sections (LugPanelProbe and FinPanelProbe of
+// tools/openrocket-panel-pins, run on OpenRocket's Swing panels under Xvfb): the panel of every
+// component of a kind in a design, edits through a panel as a user makes them, and edits of a panel
+// with a second component selected, each section a header and its sorted lines, as the probes print
+// them. lug_panel_golden_tests.cpp and fin_panel_golden_tests.cpp compare what QtRocket's panels
+// give with the pinned transcripts.
 
 #include <cstddef>
 #include <functional>

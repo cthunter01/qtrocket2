@@ -1,14 +1,14 @@
 // OpenRocket's panel of the freeform fin set (FreeformFinSetConfig with its FinPointFigure in a
-// FinPointScrollPane, OpenRocket 5f164fd0e) made by D1dProbe under Xvfb, in a dialog that is never
-// shown, against QtRocket's in the same state. The scroll pane is 600 x 400 pixels at 96 dpi,
-// fitted, the figure painted once (Java's hit tests need that). The probe printed, and this test
-// replays:
+// FinPointScrollPane, OpenRocket 5f164fd0e) made by FreeformPanelProbe
+// (tools/openrocket-panel-pins) under Xvfb, in a dialog that is never shown, against QtRocket's in
+// the same state. The scroll pane is 600 x 400 pixels at 96 dpi, fitted, the figure painted once
+// (Java's hit tests need that). The probe printed, and this test replays:
 // - "panel": the panel of every freeform fin set of the 16 examples (loaded without presets) and
 //   the 13 test rockets, each after the design was settled: the tabs' titles and tooltips, the
-//   General and Fin tabs' widgets (as D1cProbe prints them), the Shape tab's (the point table's
-//   headers, cells and editable cells, the labels with their size relative to the default, the
-//   buttons, the check box, the zoom box and the Point Actions menu) and the figure (fitting, the
-//   scale, the x of the origin, the subject and content bounds, the auto zoom point);
+//   General and Fin tabs' widgets (as FinPanelProbe prints them), the Shape tab's (the point
+//   table's headers, cells and editable cells, the labels with their size relative to the default,
+//   the buttons, the check box, the zoom box and the Point Actions menu) and the figure (fitting,
+//   the scale, the x of the origin, the subject and content bounds, the auto zoom point);
 // - "edit": steps on designs of the probe's own (a freeform fin set on a body tube 30 cm long with
 //   a fixed radius of 2.1 cm, on a conical transition, on an ogive nose cone), each followed by
 //   the fin points (getFinPoints()), the table's rows, selection and cells, the figure's selected

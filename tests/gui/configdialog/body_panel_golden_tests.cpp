@@ -1,7 +1,7 @@
 // OpenRocket's panels of the body components (BodyTubeConfig, NoseConeConfig, TransitionConfig,
-// OpenRocket 5f164fd0e) made by D1aProbe under Xvfb, against QtRocket's in the same state. For each
-// design (the 16 examples loaded without presets, the 13 test rockets, the probe's own designs)
-// the probe replays, and so does this test:
+// OpenRocket 5f164fd0e) made by BodyPanelProbe (tools/openrocket-panel-pins) under Xvfb, against
+// QtRocket's in the same state. For each design (the 16 examples loaded without presets, the 13
+// test rockets, the probe's own designs) the probe replays, and so does this test:
 // - "panel": the panel of every body tube, nose cone and transition, in tree order, each after
 //   the design was settled (settleAutomaticDimensions(): the automatic radii are stored lazily,
 //   and the "Automatic" check boxes look at them), and then let go: the General tab's labels,

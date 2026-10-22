@@ -10,8 +10,10 @@
 #include <string_view>
 #include <vector>
 
+#include <QByteArray>
 #include <QColor>
 #include <QImage>
+#include <QImageReader>
 #include <QPainter>
 #include <QRect>
 #include <QRgb>
@@ -84,12 +86,18 @@ constexpr std::string_view kNoFinShape = "Could not deduce fin shape from image.
 /// - greyscale with alpha: Java converts the levels to sRGB (149 becomes 201, white); here they
 ///   stay (149 is black), which leaves the notches of threshold.png, whose other two notches are
 ///   at the same places;
+/// - a TIFF with a transparent white background: Qt's premultiplied image has lost the white,
+///   and the whole image is fin, as in full-black.png, of the same size;
 /// - a walk that never ends fails.
 [[nodiscard]] std::string expectedLine(std::string_view image, std::string_view key)
 {
     if (image == "palette-without-black.png" || image == "palette-transparent.png")
     {
         return javaLine("rectangle.png", key);
+    }
+    if (image == "transparent-white.tiff")
+    {
+        return javaLine("full-black.png", key);
     }
     if (image == "greyscale-alpha.png")
     {
@@ -131,6 +139,17 @@ constexpr std::array<std::string_view, 25> kImages{
     "swept.png",
 };
 
+/// The TIFF images of the report, after the others: Qt reads them only with the TIFF plugin of
+/// its imageformats module, which CI's Qt (qtbase and qtsvg) lacks.
+constexpr std::array<std::string_view, 2> kTiffImages{"transparent-white.tiff",
+                                                      "semi-transparent.tiff"};
+
+/// Whether Qt reads TIFF files here.
+[[nodiscard]] bool readsTiff()
+{
+    return QImageReader::supportedImageFormats().contains(QByteArrayLiteral("tiff"));
+}
+
 /// The files of the report that are no image Qt reads, after the images.
 constexpr std::array<std::string_view, 3> kNoImages{"not-an-image.png", "truncated.png",
                                                     "missing.png"};
@@ -164,6 +183,7 @@ template <std::size_t N>
 TEST_F(CustomFinImporterTest, TheReportHasTheImagesAndCasesOfTheTests)
 {
     std::vector<std::string> images = namesOf(kImages);
+    images.insert(images.end(), kTiffImages.begin(), kTiffImages.end());
     images.insert(images.end(), kNoImages.begin(), kNoImages.end());
     EXPECT_EQ(headersOf("image"), images);
     EXPECT_EQ(headersOf("optimize"), namesOf(kOptimizeCases));
@@ -199,6 +219,17 @@ TEST_F(CustomFinImporterTest, OpenRocketsLinesOfTheDifferencesAreAsDocumented)
               "(0.029,0.0)");
     EXPECT_NE(expectedLine("greyscale-alpha.png", "points"),
               javaLine("greyscale-alpha.png", "points"));
+    // Java's TIFF reader keeps the colour under the alpha: the black block of
+    // transparent-white.tiff only, and the notch of semi-transparent.tiff's alpha 100 white.
+    EXPECT_EQ(javaLine("transparent-white.tiff", "points"),
+              "4: (0.0,0.0) (0.0,0.004) (0.005,0.004) (0.005,0.0)");
+    EXPECT_NE(expectedLine("transparent-white.tiff", "points"),
+              javaLine("transparent-white.tiff", "points"));
+    EXPECT_EQ(javaLine("semi-transparent.tiff", "points"),
+              "8: (0.0,0.0) (0.0,0.011) (0.003,0.011) (0.003,0.007) (0.007,0.007) (0.007,0.011) "
+              "(0.014,0.011) (0.014,0.0)");
+    EXPECT_EQ(expectedLine("semi-transparent.tiff", "points"),
+              javaLine("semi-transparent.tiff", "points"));
     // Java's walk goes round until the heap is full.
     EXPECT_EQ(javaLine("one-pixel-tall.png", "points"), "never ends");
     EXPECT_EQ(javaLine("one-by-one.png", "raw"), "never ends");
@@ -216,7 +247,11 @@ class FinImportGolden : public Test::GuiTest, public ::testing::WithParamInterfa
 TEST_P(FinImportGolden, TracesAndSimplifiesAsOpenRocket)
 {
     const std::string_view image = GetParam();
-    const Result<QImage>   read  = CustomFinImporter::readImage(finImage(image));
+    if (image.ends_with(".tiff") && !readsTiff())
+    {
+        GTEST_SKIP() << "Qt reads no TIFF here (the TIFF plugin of Qt's imageformats module)";
+    }
+    const Result<QImage> read = CustomFinImporter::readImage(finImage(image));
     ASSERT_TRUE(read.has_value()) << read.error().message;
     EXPECT_EQ(resultText(CustomFinImporter::tracePoints(*read)), expectedLine(image, "raw"));
     EXPECT_EQ(resultText(CustomFinImporter::getPoints(finImage(image))),
@@ -224,6 +259,10 @@ TEST_P(FinImportGolden, TracesAndSimplifiesAsOpenRocket)
 }
 
 INSTANTIATE_TEST_SUITE_P(Images, FinImportGolden, ::testing::ValuesIn(kImages),
+                         [](const ::testing::TestParamInfo<std::string_view>& param) {
+                             return finImageTestName(param.param);
+                         });
+INSTANTIATE_TEST_SUITE_P(TiffImages, FinImportGolden, ::testing::ValuesIn(kTiffImages),
                          [](const ::testing::TestParamInfo<std::string_view>& param) {
                              return finImageTestName(param.param);
                          });
@@ -336,6 +375,7 @@ TEST_F(CustomFinImporterTest, ReadsTheTestImagesInTheFormatsTheConversionExpects
     EXPECT_EQ(report.line("image greyscale-alpha.png", "read"), "type=0 size=40x30");
     EXPECT_EQ(report.line("image transparent.png", "read"), "type=6 size=40x30");
     EXPECT_EQ(report.line("image palette-transparent.png", "read"), "type=13 size=40x30");
+    EXPECT_EQ(report.line("image semi-transparent.tiff", "read"), "type=0 size=30x20");
     EXPECT_EQ(CustomFinImporter::readImage(finImage("greyscale.png"))->format(),
               QImage::Format_Grayscale8);
     EXPECT_EQ(CustomFinImporter::readImage(finImage("greyscale16.png"))->format(),
@@ -380,6 +420,61 @@ TEST_F(CustomFinImporterTest, TheThresholdIsJavasInDoublesAndIgnoresAlpha)
     ASSERT_TRUE(image.has_value());
     EXPECT_EQ(CustomFinImporter::javaRgb(*image, 6, 20), qRgba(0, 0, 0, 0));
     EXPECT_EQ(CustomFinImporter::javaRgb(*image, 0, 0), qRgba(255, 255, 255, 0));
+}
+
+TEST_F(CustomFinImporterTest, QtReadsATiffWithAlphaPremultiplied)
+{
+    if (!readsTiff())
+    {
+        GTEST_SKIP() << "Qt reads no TIFF here (the TIFF plugin of Qt's imageformats module)";
+    }
+    const Result<QImage> image = CustomFinImporter::readImage(finImage("semi-transparent.tiff"));
+    ASSERT_TRUE(image.has_value()) << image.error().message;
+    EXPECT_EQ(image->format(), QImage::Format_ARGB32_Premultiplied);
+    // The alpha 100 white of the bottom row: premultiplied (100, 100, 100) in the image, white as
+    // Java's getRGB() gives it.
+    EXPECT_EQ(image->pixel(4, 19), qRgba(100, 100, 100, 100));
+    EXPECT_EQ(CustomFinImporter::javaRgb(*image, 4, 19), qRgba(255, 255, 255, 100));
+    // The transparent white of transparent-white.tiff is gone: transparent black, fin.
+    const Result<QImage> white = CustomFinImporter::readImage(finImage("transparent-white.tiff"));
+    ASSERT_TRUE(white.has_value()) << white.error().message;
+    EXPECT_EQ(CustomFinImporter::javaRgb(*white, 0, 0), qRgba(0, 0, 0, 0));
+}
+
+/// semi-transparent.tiff as FinImportDumper sets its pixels, in @p format.
+[[nodiscard]] QImage semiTransparentImage(QImage::Format format)
+{
+    QImage image(30, 20, QImage::Format_ARGB32);
+    image.fill(Qt::white);
+    {
+        QPainter painter(&image);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.fillRect(QRect(5, 8, 15, 12), Qt::black);
+        const QColor semiWhite(255, 255, 255, 100);
+        painter.fillRect(QRect(4, 19, 1, 1), semiWhite);
+        painter.fillRect(QRect(9, 8, 3, 4), semiWhite);
+    }
+    return image.convertToFormat(format);
+}
+
+TEST_F(CustomFinImporterTest, APremultipliedImageGivesJavasColours)
+{
+    // Any premultiplied image, as Qt's TIFF reader gives one (also where Qt reads no TIFF): the
+    // colour without the alpha's factor, so semi-transparent.tiff's points are Java's.
+    const QImage premultiplied = semiTransparentImage(QImage::Format_ARGB32_Premultiplied);
+    EXPECT_EQ(premultiplied.pixel(4, 19), qRgba(100, 100, 100, 100));
+    EXPECT_EQ(CustomFinImporter::javaRgb(premultiplied, 4, 19), qRgba(255, 255, 255, 100));
+    EXPECT_FALSE(CustomFinImporter::isBlack(CustomFinImporter::javaRgb(premultiplied, 4, 19)));
+    EXPECT_EQ(resultText(CustomFinImporter::getPoints(premultiplied)),
+              javaLine("semi-transparent.tiff", "points"));
+    EXPECT_EQ(resultText(CustomFinImporter::tracePoints(premultiplied)),
+              javaLine("semi-transparent.tiff", "raw"));
+    // The same image not premultiplied gives the same points.
+    EXPECT_EQ(resultText(CustomFinImporter::getPoints(semiTransparentImage(QImage::Format_ARGB32))),
+              javaLine("semi-transparent.tiff", "points"));
+    // A 16-bit premultiplied image too.
+    const QImage wide = semiTransparentImage(QImage::Format_RGBA64_Premultiplied);
+    EXPECT_EQ(CustomFinImporter::javaRgb(wide, 4, 19), qRgba(255, 255, 255, 100));
 }
 
 TEST_F(CustomFinImporterTest, FilesThatAreNoImageFailWithQtsReason)

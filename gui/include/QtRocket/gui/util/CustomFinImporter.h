@@ -67,6 +67,13 @@ namespace QtRocket::Gui
 ///   alpha, which Qt reads as ARGB32, keeps its levels (Java converts them too:
 ///   greyscale-alpha.png), as do images with a colour profile of their own, which Java converts
 ///   through it.
+/// - Qt reads a TIFF file with alpha as a premultiplied image (its TIFF reader premultiplies an
+///   unassociated alpha; Java's keeps it apart). javaRgb() takes the alpha's factor out again, but
+///   the colour of a fully transparent pixel is lost by then: it reads as black, which is fin, so
+///   a TIFF with a transparent white background is fin all over (transparent-white.tiff: the
+///   outline of the whole image, Java's that of its black area). The colour of a partly
+///   transparent pixel comes back to its rounding only, so one of a grey close to the threshold
+///   may still decide otherwise (semi-transparent.tiff's alpha 100 white decides as in Java).
 /// - The point list is a std::vector and the points are compared by their index; Java compares
 ///   them by identity in its list iterators, which is the same, every point being an object of
 ///   its own.
@@ -110,11 +117,13 @@ public:
     static void optimizePoints(std::vector<Coordinate>& points);
 
     /// The colour of the pixel (@p x, @p y) of @p image as Java's BufferedImage.getRGB() gives it
-    /// for the image ImageIO reads from the same file: QImage::pixel(), except for an 8- or
-    /// 16-bit greyscale image (QImage::Format_Grayscale8, Format_Grayscale16: a greyscale PNG or
-    /// JPEG), whose level is taken as linear grey and converted to sRGB as Java's colour model
-    /// converts it (the sRGB transfer function of IEC 61966-2-1, rounded to 8 bits: 100 gives
-    /// 168, 149 gives 201). Greyscale images of 1, 2 or 4 bits are palettes in both.
+    /// for the image ImageIO reads from the same file: QImage::pixel(), unpremultiplied for a
+    /// premultiplied image (QImage::pixelColor(): Qt reads a TIFF with alpha so, see the class
+    /// comment), except for an 8- or 16-bit greyscale image (QImage::Format_Grayscale8,
+    /// Format_Grayscale16: a greyscale PNG or JPEG), whose level is taken as linear grey and
+    /// converted to sRGB as Java's colour model converts it (the sRGB transfer function of
+    /// IEC 61966-2-1, rounded to 8 bits: 100 gives 168, 149 gives 201). Greyscale images of 1, 2
+    /// or 4 bits are palettes in both.
     [[nodiscard]] static QRgb javaRgb(const QImage& image, int x, int y);
 
     /// Whether the colour @p rgb is black for the fin (step 1 of the class comment); the alpha is

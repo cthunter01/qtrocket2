@@ -1,9 +1,9 @@
 #pragma once
 
-// The lines in which the Java probes of the configuration panels (part D1a's D1aProbe, part
-// D1b's D1bProbe, run on OpenRocket's Swing panels under Xvfb) print the widgets of a tab, made
-// from QtRocket's widgets in the same form: what body_panel_golden_tests.cpp and
-// lug_panel_golden_tests.cpp compare with the pinned transcripts.
+// The lines in which the Java probes of the configuration panels (BodyPanelProbe and
+// LugPanelProbe of tools/openrocket-panel-pins, run on OpenRocket's Swing panels under Xvfb) print
+// the widgets of a tab, made from QtRocket's widgets in the same form: what
+// body_panel_golden_tests.cpp and lug_panel_golden_tests.cpp compare with the pinned transcripts.
 
 #include <span>
 #include <string>
@@ -36,7 +36,7 @@ struct ProbeLineOptions
 {
     /// Whether the labels are printed (a probe leaves them out after an edit).
     bool labels = true;
-    /// Whether a label's line ends in " tip=<tooltip>" (D1bProbe's; D1aProbe has none).
+    /// Whether a label's line ends in " tip=<tooltip>" (LugPanelProbe's; BodyPanelProbe has none).
     bool labelTips = false;
 };
 

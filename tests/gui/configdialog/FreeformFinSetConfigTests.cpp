@@ -1,11 +1,14 @@
 #include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <QAction>
@@ -13,12 +16,14 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QEventLoop>
 #include <QLineEdit>
 #include <QList>
 #include <QMenu>
 #include <QModelIndex>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QPushButton>
 #include <QRect>
 #include <QSignalSpy>
@@ -27,6 +32,7 @@
 #include <QTabWidget>
 #include <QTableView>
 #include <QTest>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
@@ -37,6 +43,7 @@
 
 #include "BodyPanelTestSupport.h"
 #include "ConfigDialogTestSupport.h"
+#include "ForwardingUserPrompts.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
@@ -49,6 +56,7 @@
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
 #include "QtRocket/gui/util/CustomFinImporter.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DropdownButton.h"
@@ -81,14 +89,17 @@ using Test::FactoryPanel;
 using Test::finImage;
 using Test::finPointsText;
 using Test::focusOrder;
+using Test::ForwardingUserPrompts;
 using Test::FreeformDesign;
 using Test::hasLinearSlider;
 using Test::missingNumberRows;
 using Test::OffscreenPopupWarnings;
+using Test::RocketEvents;
 using Test::ScriptedUserPrompts;
 using Test::showActive;
 using Test::tabTitles;
 using Test::takesFromZeroUp;
+using Test::withPrompts;
 
 /// The default outline as the fin set gives it.
 constexpr const char* kDefaultPoints =
@@ -400,8 +411,10 @@ TEST_F(FreeformFinSetConfigTest, ExportsTheTableAsCsv)
     EXPECT_EQ(*text, "X / cm, Y / cm, \n0, 0, \n2.5, 5, \n7.5, 5, \n5, 0, \n");
     EXPECT_EQ(services.preferences().getDefaultDirectory(), directory.path());
     ASSERT_EQ(services.prompts().saveFileRequests().size(), 1U);
+    // FileHelper.CSV_FILTER, chosen, and Swing's accept-all filter.
     EXPECT_EQ(services.prompts().saveFileRequests().front().nameFilters,
-              QStringList{QStringLiteral("Comma Separated Files (*.csv)")});
+              (QStringList{QStringLiteral("Comma Separated Files (*.csv)"),
+                           QStringLiteral("All Files (*)")}));
 
     // An existing file: overwritten only when the user says so.
     ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
@@ -567,11 +580,10 @@ TEST_F(FreeformFinSetConfigTest, TheMainComponentMustBeAFreeformFinSet)
 }
 
 /// The dialog of @p design's fin set for @p window, on its Shape tab and active.
-[[nodiscard]] FreeformFinSetConfig* openShapeTab(const ConfigDialogServices& services,
+[[nodiscard]] FreeformFinSetConfig* openShapeTab(const GuiServices&    services,
                                                  const FreeformDesign& design, QWidget& window)
 {
-    ComponentConfigDialog::showDialog(window, services.services(), design.document(),
-                                      design.fins());
+    ComponentConfigDialog::showDialog(window, services, design.document(), design.fins());
     ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
     if (dialog == nullptr)
     {
@@ -598,7 +610,7 @@ TEST_F(FreeformFinSetConfigTest, CtrlZAndYUndoAPointEditInTheShapeTabOnly)
     MainWindow                 window(design.document(), services.services());
     ASSERT_TRUE(showActive(window));
     const QSignalSpy      documentUndo(window.menus().undoAction(), &QAction::triggered);
-    FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
     ASSERT_NE(panel, nullptr);
     panel->selectPointRow(1);
     panel->insertPoint();
@@ -645,7 +657,7 @@ TEST_F(FreeformFinSetConfigTest, AnUndoDuringAFrozenDragClosesTheDialogAtTheNext
     ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
     QWidget window;
     ASSERT_TRUE(showActive(window));
-    const FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
     ASSERT_NE(panel, nullptr);
     QWidget&     figure = panel->finPointFigure();
     const QPoint start  = figurePixel(*panel, 0.03, 0.05);
@@ -670,7 +682,7 @@ TEST_F(FreeformFinSetConfigTest, AnUndoDuringALiveDragClosesTheDialogAtOnce)
     ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
     QWidget window;
     ASSERT_TRUE(showActive(window));
-    const FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
     ASSERT_NE(panel, nullptr);
     QWidget&     figure = panel->finPointFigure();
     const QPoint start  = figurePixel(*panel, 0.03, 0.05);
@@ -690,7 +702,7 @@ TEST_F(FreeformFinSetConfigTest, TheDialogRefreshesTheTableOnEveryChange)
     const FreeformDesign       design;
     QWidget                    window;
     ASSERT_TRUE(showActive(window));
-    const FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
     ASSERT_NE(panel, nullptr);
     ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
     EXPECT_EQ(panel->pointTableModel().valueText(1, 0), QStringLiteral("3"));
@@ -705,7 +717,7 @@ TEST_F(FreeformFinSetConfigTest, ImportsIntoTheDialogsFinSet)
     const FreeformDesign design;
     QWidget              window;
     ASSERT_TRUE(showActive(window));
-    const FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
     ASSERT_NE(panel, nullptr);
     services.prompts().answerOpenFiles(finImageAnswer("rectangle.png"));
     panel->importImageAction().trigger();
@@ -719,6 +731,354 @@ TEST_F(FreeformFinSetConfigTest, ImportsIntoTheDialogsFinSet)
     design.document().undo();
     EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
     EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, AFailedImportCutsNoUndoStepIntoTheChangesBeforeIt)
+{
+    // Java calls startUndo() only once the image gave points: a failure leaves the changes made
+    // before it in the undo step they belong to.
+    ConfigDialogServices                     services;
+    const FreeformDesign                     design;
+    const FactoryPanel<FreeformFinSetConfig> panel(design.document(), services, design.fins());
+    design.document().addUndoPosition("Before");
+    panel->setPointFromTable(1, 0.03, 0.05);
+    const OpenRocketDocument::UndoDetail before = design.document().getUndoDetail();
+    services.prompts().answerOpenFiles(finImageAnswer("floating.png"));
+    panel->importImageAction().trigger();
+    ASSERT_EQ(services.prompts().prompts().back().title,
+              QStringLiteral("Error loading fin profile"));
+    const OpenRocketDocument::UndoDetail after = design.document().getUndoDetail();
+    EXPECT_EQ(after.position, before.position);
+    EXPECT_EQ(after.descriptions, before.descriptions);
+    EXPECT_EQ(after.nextDescription, before.nextDescription);
+    EXPECT_EQ(after.storedDescription, before.storedDescription);
+    EXPECT_EQ(after.clean, before.clean);
+    EXPECT_EQ(design.document().getUndoDescription(), std::optional<std::string>("Before"));
+}
+
+/// The file questions of a test's ScriptedUserPrompts, of which one (@p question) runs an event
+/// loop as a modal file dialog does: in it a 0 ms timer does what the test gives (the dialog
+/// closed), the deferred deletions posted meanwhile are carried out (Qt 6 does so in the loop that
+/// posted them), then the scripted answer is given.
+class FileQuestionLoopPrompts final : public ForwardingUserPrompts
+{
+public:
+    enum class Question : std::uint8_t
+    {
+        OPEN_FILES,
+        SAVE_FILE,
+        OVERWRITE,
+    };
+
+    FileQuestionLoopPrompts(UserPrompts& delegate, Question question,
+                            std::function<void()> whileAsked)
+      : ForwardingUserPrompts(delegate), m_question(question), m_whileAsked(std::move(whileAsked))
+    {
+    }
+
+    // The parent is not passed on: it may have gone in the loop.
+    [[nodiscard]] std::optional<OpenFileAnswer> askOpenFiles(
+        QWidget* /*parent*/, const OpenFileRequest& request) override
+    {
+        runLoopFor(Question::OPEN_FILES);
+        return delegate().askOpenFiles(nullptr, request);
+    }
+    [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(QWidget* /*parent*/,
+                                                            const SaveFileRequest& request) override
+    {
+        runLoopFor(Question::SAVE_FILE);
+        return delegate().askSaveFile(nullptr, request);
+    }
+    [[nodiscard]] bool askOverwrite(QWidget* /*parent*/, const QString& fileName) override
+    {
+        runLoopFor(Question::OVERWRITE);
+        return delegate().askOverwrite(nullptr, fileName);
+    }
+
+private:
+    void runLoopFor(Question question)
+    {
+        if (question != m_question)
+        {
+            return;
+        }
+        QEventLoop loop;
+        QTimer::singleShot(0, &loop, [this, &loop] {
+            m_whileAsked();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            loop.quit();
+        });
+        loop.exec();
+    }
+
+    Question              m_question;
+    std::function<void()> m_whileAsked;
+};
+
+/// The answer of the save dialog that chose @p file in @p directory.
+[[nodiscard]] UserPrompts::SaveFileAnswer saveAnswer(const QtRocket::Test::TempDir& directory,
+                                                     std::string_view               file)
+{
+    return {.file               = directory.resolve(pathFromUtf8(file)),
+            .directory          = directory.path(),
+            .saveSimulationData = std::nullopt};
+}
+
+/// Exports the table of @p design's fin set from its dialog shown with @p services, whose
+/// question closes the dialog; whether the panel has gone afterwards.
+[[nodiscard]] bool exportClosingTheDialog(const GuiServices& services, const FreeformDesign& design)
+{
+    QWidget window;
+    if (!showActive(window))
+    {
+        return false;
+    }
+    FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    if (panel == nullptr)
+    {
+        return false;
+    }
+    const QPointer<FreeformFinSetConfig> alive(panel);
+    panel->exportCsvAction().trigger();
+    return alive.isNull();
+}
+
+TEST_F(FreeformFinSetConfigTest, AnExportWhoseDialogWentDuringTheFileQuestionDoesNothingMore)
+{
+    // The save dialog's event loop, in which the configuration dialog closes and goes (an undo in
+    // another window, for one): nothing of the panel is used afterwards (ASan: the panel's table
+    // model was read after the question), and nothing is written.
+    const QtRocket::Test::TempDir directory;
+    ConfigDialogServices          scripted;
+    scripted.prompts().answerSaveFile(saveAnswer(directory, "fin"));
+    FileQuestionLoopPrompts prompts(scripted.prompts(),
+                                    FileQuestionLoopPrompts::Question::SAVE_FILE,
+                                    [] { ComponentConfigDialog::disposeDialog(); });
+    const FreeformDesign    design;
+    EXPECT_TRUE(exportClosingTheDialog(withPrompts(scripted.services(), prompts), design));
+    EXPECT_FALSE(std::filesystem::exists(directory.resolve("fin.csv")));
+    EXPECT_EQ(scripted.preferences().getDefaultDirectory(), std::nullopt);
+}
+
+TEST_F(FreeformFinSetConfigTest, AnExportWhoseDialogWentDuringTheOverwriteQuestionDoesNothingMore)
+{
+    const QtRocket::Test::TempDir directory;
+    ASSERT_TRUE(writeTextFile(directory.resolve("fin.csv"), "old\n").has_value());
+    ConfigDialogServices scripted;
+    scripted.prompts().answerSaveFile(saveAnswer(directory, "fin.csv"));
+    scripted.prompts().answerOverwrite(true);
+    FileQuestionLoopPrompts prompts(scripted.prompts(),
+                                    FileQuestionLoopPrompts::Question::OVERWRITE,
+                                    [] { ComponentConfigDialog::disposeDialog(); });
+    const FreeformDesign    design;
+    EXPECT_TRUE(exportClosingTheDialog(withPrompts(scripted.services(), prompts), design));
+    const Result<std::string> text = readTextFile(directory.resolve("fin.csv"));
+    ASSERT_TRUE(text.has_value());
+    EXPECT_EQ(*text, "old\n");
+    EXPECT_EQ(scripted.preferences().getDefaultDirectory(), std::nullopt);
+}
+
+TEST_F(FreeformFinSetConfigTest, AnImportWhoseDialogWentDuringTheFileQuestionDoesNothingMore)
+{
+    ConfigDialogServices scripted;
+    scripted.prompts().answerOpenFiles(finImageAnswer("trapezoid.png"));
+    FileQuestionLoopPrompts prompts(scripted.prompts(),
+                                    FileQuestionLoopPrompts::Question::OPEN_FILES,
+                                    [] { ComponentConfigDialog::disposeDialog(); });
+    const GuiServices       services = withPrompts(scripted.services(), prompts);
+    const FreeformDesign    design;
+    QWidget                 window;
+    ASSERT_TRUE(showActive(window));
+    FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    ASSERT_NE(panel, nullptr);
+    const QPointer<FreeformFinSetConfig> alive(panel);
+    panel->importImageAction().trigger();
+    EXPECT_TRUE(alive.isNull());
+    EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
+    EXPECT_NE(design.document().getUndoDescription(),
+              std::optional<std::string>("Import freeform fin set"));
+}
+
+/// Opens the editor of the cell @p row, @p column of @p panel's table and, unless @p text is
+/// empty, types @p text over its text as a user does; the editor, or null.
+[[nodiscard]] QLineEdit* editCell(const FreeformFinSetConfig& panel, int row, int column,
+                                  const QString& text)
+{
+    QTableView&       table = panel.pointTable();
+    const QModelIndex cell  = panel.pointTableModel().index(row, column);
+    table.setCurrentIndex(cell);
+    table.edit(cell);
+    auto* editor = qobject_cast<QLineEdit*>(table.indexWidget(cell));
+    if (editor != nullptr && !text.isEmpty())
+    {
+        editor->selectAll();
+        QTest::keyClicks(editor, text);
+    }
+    return editor;
+}
+
+/// Whether a cell of @p panel's table has an open editor.
+[[nodiscard]] bool hasCellEditor(const FreeformFinSetConfig& panel)
+{
+    const FinPointTableModel& model = panel.pointTableModel();
+    for (int row = 0; row < model.rowCount(); ++row)
+    {
+        for (int column = 0; column < FinPointTableModel::kColumnCount; ++column)
+        {
+            if (panel.pointTable().indexWidget(model.index(row, column)) != nullptr)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+TEST_F(FreeformFinSetConfigTest, AnUndoWithATypedCellOpenCommitsNothing)
+{
+    // The undo closes the dialog inside its event and releases the panel before the cell editor
+    // loses the focus: the text reaches no fin set (Java's JTable keeps it uncommitted), the
+    // redo stays, and the rocket fires the undo's event only (ASan: no change inside the slot).
+    const ConfigDialogServices services;
+    const FreeformDesign       design;
+    design.document().addUndoPosition("Move");
+    ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
+    QWidget window;
+    ASSERT_TRUE(showActive(window));
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
+    ASSERT_NE(panel, nullptr);
+    ASSERT_NE(editCell(*panel, 1, FinPointTableModel::kXColumn, QStringLiteral("1")), nullptr);
+    const RocketEvents events(design.rocket());
+    design.document().undo();
+    QCoreApplication::processEvents();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(design.fins().getFinPoints().at(1).x, 0.025);
+    EXPECT_TRUE(design.document().isRedoAvailable());
+    EXPECT_EQ(events.count(), 1U);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, ClosingTheDialogCommitsATypedCell)
+{
+    // OK, Esc and the window's close button keep the changes (ComponentConfigDialog::ok() commits
+    // the panel), the cell editor's text with them, also where the button takes no focus (macOS,
+    // the close button): Java's JTable drops it (a documented difference).
+    const ConfigDialogServices services;
+    const FreeformDesign       design;
+    QWidget                    window;
+    ASSERT_TRUE(showActive(window));
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
+    ASSERT_NE(panel, nullptr);
+    ASSERT_NE(editCell(*panel, 1, FinPointTableModel::kXColumn, QStringLiteral("1")), nullptr);
+    ComponentConfigDialog::disposeDialog();
+    QCoreApplication::processEvents();
+    EXPECT_EQ(design.fins().getFinPoints().at(1).x, 0.01);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, TheDialogsCommitBeforeASaveOrAnUndoCommitsATypedCell)
+{
+    // ComponentConfigDialog::commitPendingEdits() (the design window's Save and Undo): the cell
+    // is committed and its editor closed, as its focus loss does; the dialog stays.
+    const ConfigDialogServices services;
+    const FreeformDesign       design;
+    QWidget                    window;
+    ASSERT_TRUE(showActive(window));
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
+    ASSERT_NE(panel, nullptr);
+    ASSERT_NE(editCell(*panel, 2, FinPointTableModel::kYColumn, QStringLiteral("6")), nullptr);
+    EXPECT_TRUE(ComponentConfigDialog::commitPendingEdits());
+    EXPECT_EQ(design.fins().getFinPoints().at(2).y, 0.06);
+    EXPECT_FALSE(hasCellEditor(*panel));
+    EXPECT_EQ(panel->finPointFigure().editHistory().size(), 2U);
+    // Nothing is pending any more.
+    EXPECT_FALSE(ComponentConfigDialog::commitPendingEdits());
+    ComponentConfigDialog::disposeDialog();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, AReleasedPanelEditsNoPoint)
+{
+    // The released panel (its dialog closing, an undo): no edit path changes the points, the
+    // figure's mouse included.
+    const ConfigDialogServices               services;
+    const FreeformDesign                     design;
+    const FactoryPanel<FreeformFinSetConfig> panel(design.document(), services, design.fins());
+    panel->selectPointRow(1);
+    panel->insertPoint();
+    panel->updateFields();
+    panel->figureArea().resize(600, 400);
+    panel->figureArea().setFitting(true);
+    panel->selectPointRow(1);
+    const std::string points = finPointsText(design.fins());
+    const QPoint      point1 = figurePixel(*panel, 0.025, 0.05);
+    const QPoint      onSegment =
+        figurePixel(*panel, 0.0125, 0.025);  // halfway between the points 0 and 1
+    panel->release();
+
+    FinPointTableModel& model = panel->pointTableModel();
+    EXPECT_TRUE(model.setData(model.index(1, 0), QStringLiteral("3"), Qt::EditRole));
+    panel->insertPointAction().trigger();
+    panel->deletePointAction().trigger();
+    panel->performFinPointUndo();
+    QTest::mouseClick(&panel->finPointFigure(), Qt::LeftButton, Qt::NoModifier, onSegment);
+    QTest::mousePress(&panel->finPointFigure(), Qt::LeftButton, Qt::NoModifier, point1);
+    EXPECT_EQ(panel->dragIndex(), -1);
+    EXPECT_FALSE(design.rocket().isFrozen());
+    QTest::mouseRelease(&panel->finPointFigure(), Qt::LeftButton, Qt::NoModifier, point1);
+    EXPECT_EQ(finPointsText(design.fins()), points);
+    EXPECT_EQ(panel->finPointFigure().editHistory().size(), 2U);
+}
+
+TEST_F(FreeformFinSetConfigTest, DeletePointCancelsTheCellEditFirst)
+{
+    // Java's deletePoint(): the text typed in another row's cell goes, unset.
+    const ConfigDialogServices services;
+    const FreeformDesign       design(
+        {FreeformDesign::Outline{0, 0, 0.01, 0.02, 0.02, 0.04, 0.04, 0.05, 0.06, 0.03, 0.07, 0}});
+    QWidget window;
+    ASSERT_TRUE(showActive(window));
+    FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
+    ASSERT_NE(panel, nullptr);
+    ASSERT_NE(editCell(*panel, 3, FinPointTableModel::kXColumn, QStringLiteral("5.5")), nullptr);
+    // What the right click on row 1 does (select the row, show the menu), then Delete point.
+    panel->selectPointRow(1);
+    panel->deletePointAction().trigger();
+    QCoreApplication::processEvents();
+    constexpr const char* kDeleted = "(0.0,0.0) (0.02,0.04) (0.04,0.05) (0.06,0.03) (0.07,0.0)";
+    EXPECT_EQ(finPointsText(design.fins()), kDeleted);
+    EXPECT_FALSE(hasCellEditor(*panel));
+    ComponentConfigDialog::disposeDialog();
+    EXPECT_EQ(finPointsText(design.fins()), kDeleted);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, ATypedCellKeepsItsTextWhenThePointsChange)
+{
+    // The dialog's refresh sets no typed editor's text again (Java's JTable never does); an editor
+    // not typed in shows its cell's new value (Java's keeps the text it began with).
+    const ConfigDialogServices services;
+    const FreeformDesign       design;
+    QWidget                    window;
+    ASSERT_TRUE(showActive(window));
+    const FreeformFinSetConfig* panel = openShapeTab(services.services(), design, window);
+    ASSERT_NE(panel, nullptr);
+    QLineEdit* typed = editCell(*panel, 2, FinPointTableModel::kXColumn, QStringLiteral("5.5"));
+    ASSERT_NE(typed, nullptr);
+    ASSERT_TRUE(design.fins().setPoint(1, 0.03, 0.05).has_value());
+    EXPECT_EQ(panel->pointTableModel().valueText(1, 0), QStringLiteral("3"));
+    EXPECT_EQ(typed->text(), QStringLiteral("5.5"));
+    QTest::keyClick(typed, Qt::Key_Return);
+    QCoreApplication::processEvents();
+    EXPECT_EQ(design.fins().getFinPoints().at(2).x, 0.055);
+
+    const QLineEdit* untouched = editCell(*panel, 1, FinPointTableModel::kXColumn, QString());
+    ASSERT_NE(untouched, nullptr);
+    EXPECT_EQ(untouched->text(), QStringLiteral("3"));
+    ASSERT_TRUE(design.fins().setPoint(1, 0.035, 0.05).has_value());
+    EXPECT_EQ(untouched->text(), QStringLiteral("3.5"));
+    ComponentConfigDialog::disposeDialog();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 }
 

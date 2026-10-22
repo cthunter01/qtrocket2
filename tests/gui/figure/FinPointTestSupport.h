@@ -26,10 +26,10 @@ class Rocket;
 namespace QtRocket::Gui::Test
 {
 
-/// Rocket > Stage > a body tube 30 cm long with a fixed radius of 2.1 cm (D1dProbe's) > freeform
-/// fin sets, one per outline (an empty outline: FreeformFinSet's default, (0, 0), (2.5, 5),
-/// (7.5, 5), (5, 0) cm), with the rocket's events on and an empty undo history. The fin sets are
-/// found by id, so fins() stays right across an undo.
+/// Rocket > Stage > a body tube 30 cm long with a fixed radius of 2.1 cm (FreeformPanelProbe's) >
+/// freeform fin sets, one per outline (an empty outline: FreeformFinSet's default, (0, 0), (2.5,
+/// 5), (7.5, 5), (5, 0) cm), with the rocket's events on and an empty undo history. The fin sets
+/// are found by id, so fins() stays right across an undo.
 class FreeformDesign
 {
 public:

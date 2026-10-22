@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <QAbstractItemDelegate>
 #include <QAbstractItemView>
 #include <QAction>
 #include <QCheckBox>
@@ -22,6 +23,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeySequence>
+#include <QLineEdit>
 #include <QMenu>
 #include <QModelIndex>
 #include <QMouseEvent>
@@ -33,6 +35,7 @@
 #include <QSplitter>
 #include <QString>
 #include <QStringList>
+#include <QStyledItemDelegate>
 #include <QTableView>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -120,6 +123,32 @@ void expectSuccess(const Result<void>& result)
     }
 }
 
+/// The point table's delegate: Qt's, but an editor the user has typed in keeps its text when the
+/// points change. Qt's view sets the text of every open editor again on dataChanged(), which the
+/// table's refresh() emits for every cell; Java's JTable never sets an open editor's text again.
+class FinPointCellDelegate final : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void setEditorData(QWidget* editor, const QModelIndex& index) const override
+    {
+        if (const auto* edit = qobject_cast<const QLineEdit*>(editor);
+            edit != nullptr && edit->isModified())
+        {
+            return;
+        }
+        QStyledItemDelegate::setEditorData(editor, index);
+    }
+};
+
+/// Whether @p type is an event of a mouse button or of its moves.
+[[nodiscard]] bool isMouseEvent(QEvent::Type type) noexcept
+{
+    return type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease ||
+           type == QEvent::MouseButtonDblClick || type == QEvent::MouseMove;
+}
+
 /// @p text in lower case (ASCII; Locale.ENGLISH).
 [[nodiscard]] std::string lowerCase(std::string_view text)
 {
@@ -202,6 +231,8 @@ QWidget& FreeformFinSetConfig::makeShapeTab()
     const Preferences& preferences = services().preferences();
     m_figure                       = makeChild<FinPointFigure>(page, m_finPoints, preferences);
     m_area                         = makeChild<FinPointScrollArea>(page, m_figure, preferences);
+    // Once the panel is released, the figure's mouse edits nothing (eventFilter()).
+    m_figure->installEventFilter(this);
 
     // Create the table, the Point Actions button below it, the menus
     QWidget& pointList = makePointList(*page);
@@ -294,6 +325,7 @@ QWidget& FreeformFinSetConfig::makePointList(QWidget& page)
     m_table      = makeChild<QTableView>(panel);
     m_table->setObjectName(QStringLiteral("FinPoints"));
     m_table->setModel(m_tableModel);
+    m_table->setItemDelegate(makeChild<FinPointCellDelegate>(m_table));
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     // A press of the left button edits an editable cell (Java's changeSelection() override), as
@@ -497,6 +529,71 @@ void FreeformFinSetConfig::pointSelectionChanged()
     m_figure->updateFigure();
 }
 
+bool FreeformFinSetConfig::commitAll()
+{
+    // The cell editor first: its focus loss would commit it before any other field's.
+    const bool cell = commitCellEditing();
+    return FinSetConfig::commitAll() || cell;
+}
+
+bool FreeformFinSetConfig::editsEnded() const
+{
+    const std::shared_ptr<ComponentSelection>& selected = selection();
+    return selected == nullptr || !selected->isValid();
+}
+
+QWidget* FreeformFinSetConfig::openCellEditor() const
+{
+    if (m_table == nullptr)
+    {
+        return nullptr;
+    }
+    for (int row = 0; row < m_tableModel->rowCount(); ++row)
+    {
+        for (int column = 0; column < FinPointTableModel::kColumnCount; ++column)
+        {
+            if (QWidget* editor = m_table->indexWidget(m_tableModel->index(row, column)))
+            {
+                return editor;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void FreeformFinSetConfig::cancelCellEditing()
+{
+    if (QWidget* editor = openCellEditor())
+    {
+        // The view's closeEditor() takes the delegate off the editor first: its focus loss then
+        // commits nothing.
+        Q_EMIT m_table->itemDelegate()->closeEditor(editor,
+                                                    QAbstractItemDelegate::RevertModelCache);
+    }
+}
+
+bool FreeformFinSetConfig::commitCellEditing()
+{
+    const QPointer<QWidget> editor(openCellEditor());
+    if (editor.isNull() || editsEnded())
+    {
+        return false;
+    }
+    const FreeformFinSet*         fins = m_finPoints.main();
+    const std::vector<Coordinate> before =
+        fins != nullptr ? fins->getFinPoints() : std::vector<Coordinate>();
+    // What the delegate does on the editor's focus loss: the text set as the cell's edit
+    // (setPointFromTable() through the model), then the editor closed.
+    QAbstractItemDelegate& delegate = *m_table->itemDelegate();
+    Q_EMIT delegate.commitData(editor.data());
+    if (!editor.isNull() && openCellEditor() == editor.data())
+    {
+        Q_EMIT delegate.closeEditor(editor.data(), QAbstractItemDelegate::NoHint);
+    }
+    const FreeformFinSet* after = m_finPoints.main();
+    return after != nullptr && after->getFinPoints() != before;
+}
+
 // ---------------------------------------------------------------------------------- actions
 
 void FreeformFinSetConfig::beginFinPointEdit()
@@ -519,7 +616,8 @@ void FreeformFinSetConfig::commitFinPointEdit()
 
 void FreeformFinSetConfig::performFinPointUndo()
 {
-    if (m_figure == nullptr || dragIndex() >= 0 || m_figure->editHistory().isEditInProgress())
+    if (m_figure == nullptr || dragIndex() >= 0 || m_figure->editHistory().isEditInProgress() ||
+        editsEnded())
     {
         return;
     }
@@ -529,7 +627,8 @@ void FreeformFinSetConfig::performFinPointUndo()
 
 void FreeformFinSetConfig::performFinPointRedo()
 {
-    if (m_figure == nullptr || dragIndex() >= 0 || m_figure->editHistory().isEditInProgress())
+    if (m_figure == nullptr || dragIndex() >= 0 || m_figure->editHistory().isEditInProgress() ||
+        editsEnded())
     {
         return;
     }
@@ -573,7 +672,7 @@ void FreeformFinSetConfig::updateActionStates()
 void FreeformFinSetConfig::insertPoint()
 {
     const int currentPointIdx = selectedPointRow();
-    if (currentPointIdx == -1 || currentPointIdx >= m_tableModel->rowCount() - 1)
+    if (currentPointIdx == -1 || currentPointIdx >= m_tableModel->rowCount() - 1 || editsEnded())
     {
         return;
     }
@@ -603,10 +702,14 @@ void FreeformFinSetConfig::insertPoint()
 void FreeformFinSetConfig::deletePoint()
 {
     const int currentPointIdx = selectedPointRow();
-    if (currentPointIdx == -1)
+    if (currentPointIdx == -1 || editsEnded())
     {
         return;
     }
+
+    // Cancel any active cell editing before deleting the point
+    cancelCellEditing();
+
     beginFinPointEdit();
     try
     {
@@ -622,6 +725,11 @@ void FreeformFinSetConfig::deletePoint()
 
 void FreeformFinSetConfig::setPointFromTable(int row, double x, double y)
 {
+    // A cell editor that commits as the released panel's dialog hides edits nothing.
+    if (editsEnded())
+    {
+        return;
+    }
     beginFinPointEdit();
     try
     {
@@ -660,7 +768,7 @@ void FreeformFinSetConfig::importImage()
     // another window, for one): nothing of the panel is used once it has gone.
     const QPointer<FreeformFinSetConfig>             alive(this);
     const std::optional<UserPrompts::OpenFileAnswer> answer = prompts.askOpenFiles(this, request);
-    if (alive.isNull() || !answer.has_value() || answer->files.empty())
+    if (alive.isNull() || editsEnded() || !answer.has_value() || answer->files.empty())
     {
         return;
     }
@@ -723,23 +831,32 @@ void FreeformFinSetConfig::exportCsv()
     Preferences&                 preferences = services().preferences();
     UserPrompts&                 prompts     = services().prompts();
     UserPrompts::SaveFileRequest request;
-    //: FileHelper.CSV_FILTER
-    request.nameFilters = QStringList{tr("Comma Separated Files (*.csv)")};
+    // FileHelper.CSV_FILTER, chosen, and the accept-all filter of Swing's file chooser
+    // (FileChooser.acceptAllFileFilterText).
+    request.nameFilters =
+        //: FileHelper.CSV_FILTER
+        QStringList{tr("Comma Separated Files (*.csv)"), tr("All Files") + QStringLiteral(" (*)")};
     if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
     {
         request.directory = *directory;
     }
+    // A modal dialog runs the event loop, in which the configuration dialog may go (an undo in
+    // another window, for one): nothing of the panel is used once it has gone.
+    const QPointer<FreeformFinSetConfig>             alive(this);
     const std::optional<UserPrompts::SaveFileAnswer> answer = prompts.askSaveFile(this, request);
-    if (!answer.has_value())
+    if (alive.isNull() || !answer.has_value())
     {
         return;
     }
     const std::filesystem::path file = forceExtension(answer->file, "csv");
     std::error_code             error;
-    if (std::filesystem::exists(file, error) &&
-        !prompts.askOverwrite(this, QtStrings::fromPath(file.filename())))
+    if (std::filesystem::exists(file, error))
     {
-        return;
+        const bool overwrite = prompts.askOverwrite(this, QtStrings::fromPath(file.filename()));
+        if (alive.isNull() || !overwrite)
+        {
+            return;
+        }
     }
 
     if (const Result<void> written = writeCsvFile(*m_tableModel, file); !written.has_value())
@@ -783,6 +900,17 @@ std::filesystem::path FreeformFinSetConfig::forceExtension(const std::filesystem
 
 bool FreeformFinSetConfig::eventFilter(QObject* watched, QEvent* event)
 {
+    if (m_figure != nullptr && watched == m_figure)
+    {
+        if (!isMouseEvent(event->type()) || !editsEnded())
+        {
+            return false;
+        }
+        // Released: the mouse edits nothing; a drag ends (the rocket thawed).
+        static_cast<void>(
+            Guard::run([this] { m_area->endDrag(); }, QStringLiteral("finPointScrollArea")));
+        return true;
+    }
     if (m_table == nullptr || watched != m_table->viewport())
     {
         return FinSetConfig::eventFilter(watched, event);

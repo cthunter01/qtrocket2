@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Regenerates tests/data/fin-images/: the test images of QtRocket's "Import from image" (PNG files written
-# by ImageIO) and (on standard output) the report of what OpenRocket's CustomFinImporter and
+# Regenerates tests/data/fin-images/: the test images of QtRocket's "Import from image" (PNG and TIFF files
+# written by ImageIO) and (on standard output) the report of what OpenRocket's CustomFinImporter and
 # FreeformFinSetConfig.importImage() make of them, whose blocks tests/gui/util/CustomFinImporterTests.cpp and
 # tests/gui/configdialog/FreeformFinSetConfigTests.cpp compare with, both written by OpenRocket's own code
 # (FinImportDumper.java). See README.md.

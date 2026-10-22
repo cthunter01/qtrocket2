@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 
@@ -19,6 +20,7 @@
 
 #include "BodyPanelTestSupport.h"
 #include "ConfigDialogTestSupport.h"
+#include "PanelReplay.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
@@ -32,6 +34,7 @@
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/FreeformFinSet.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
@@ -50,6 +53,7 @@ using FinSetConfigTest = Test::ConfigDialogTest;
 using Test::ConfigDialogServices;
 using Test::EveryKindDesign;
 using Test::FactoryPanel;
+using Test::onBodyTube;
 using Test::typeInto;
 
 /// The trapezoidal fin set of @p design.
@@ -136,6 +140,39 @@ TEST_F(FinSetConfigTest, CalculateAutomaticallyShowsTheTabHeightInTheDefaultUnit
     EXPECT_EQ(&height.getCurrentUnit(), &units.getDefaultUnit());
 }
 
+/// A trapezoidal fin set on the probes' body tube (radius 2.1 cm, 30 cm long) beside an inner
+/// tube as long as the body and wider than it: no tab height fits.
+struct FinsOverAWideTube
+{
+    TrapezoidFinSet*                    fins{nullptr};
+    std::unique_ptr<OpenRocketDocument> document = onBodyTube([this](BodyTube& body) {
+        fins       = &body.addChild(std::make_unique<TrapezoidFinSet>());
+        auto& tube = body.addChild(std::make_unique<InnerTube>());
+        tube.setOuterRadius(0.03);
+        tube.setLength(0.3);
+    });
+};
+
+TEST_F(FinSetConfigTest, CalculateAutomaticallyKeepsTheHeightAndItsUnitWithoutAHeight)
+{
+    // Java sets the tab height, and its unit to the default one, only for a height of 0 or more
+    // (FinSetConfig.java, "if (height >= 0)"): here the tube under the fin is wider than the body.
+    const ConfigDialogServices                services;
+    const FinsOverAWideTube                   design;
+    const FactoryPanel<TrapezoidFinSetConfig> panel(*design.document, services, *design.fins);
+    ASSERT_NE(panel.get(), nullptr);
+    DoubleBinding&   height = *panel->tabHeightWidgets().spinBox->binding();
+    const UnitGroup& units  = unitGroup(UnitGroupId::LENGTH);
+    const Unit*      inch   = units.getUnit("in");
+    ASSERT_NE(inch, nullptr);
+    ASSERT_NE(inch, &units.getDefaultUnit());
+    height.setCurrentUnit(*inch);
+    const double before = design.fins->getTabHeight();
+    panel->calculateAutoTab();
+    EXPECT_EQ(design.fins->getTabHeight(), before);
+    EXPECT_EQ(&height.getCurrentUnit(), inch);
+}
+
 TEST_F(FinSetConfigTest, ConvertToFreeformReopensTheDialogOnEverySelectedFinSet)
 {
     // Three fin sets selected: all three are converted, keeping their ids, and the dialog opens
@@ -207,6 +244,39 @@ TEST_F(FinSetConfigTest, ConvertToFreeformCommitsWhatWasTypedFirst)
     ASSERT_NE(freeform, nullptr);
     EXPECT_DOUBLE_EQ(freeform->getLength(), 0.07);
     ComponentConfigDialog::disposeDialog();
+    // The typed root chord is the dialog's change, before the step "Convert fin set" (Java: the
+    // field's focus loss, then addUndoPosition()): one undo keeps it.
+    design.document->undo();
+    const auto* restored = dynamic_cast<const TrapezoidFinSet*>(finSetWithId(design, id));
+    ASSERT_NE(restored, nullptr);
+    EXPECT_DOUBLE_EQ(restored->getRootChord(), 0.07);
+}
+
+TEST_F(FinSetConfigTest, SplitFinsKeepsWhatWasTypedInTheDialogsStep)
+{
+    // Java disposes the dialog (its field committed) before addUndoPosition("Split fin set"): one
+    // undo brings the fin set back with the cant typed.
+    const ConfigDialogServices services;
+    EveryKindDesign            design;
+    QWidget                    window;
+    TrapezoidFinSet&           fins = trapezoid(design);
+    const Uuid                 id   = fins.getId();
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, fins);
+    ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = qobject_cast<const TrapezoidFinSetConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    dialog->activateWindow();
+    ASSERT_TRUE(QTest::qWaitForWindowActive(dialog));
+    typeInto(*panel->cantWidgets().spinBox, QStringLiteral("5"));
+    panel->splitButton()->click();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(design.document->getUndoDescription(), std::optional<std::string>("Split fin set"));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    design.document->undo();
+    const FinSet* restored = finSetWithId(design, id);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_NEAR(restored->getCantAngle(), 5 * std::numbers::pi / 180, 1e-12);
 }
 
 TEST_F(FinSetConfigTest, ConvertToFreeformOutsideADialogOpensNone)

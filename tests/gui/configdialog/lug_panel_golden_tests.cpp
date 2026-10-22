@@ -1,6 +1,7 @@
 // OpenRocket's panels of the tube fin set, the launch lug and the rail button (TubeFinSetConfig,
-// LaunchLugConfig, RailButtonConfig, OpenRocket 5f164fd0e) made by D1bProbe under Xvfb, against
-// QtRocket's in the same state. The probe printed, and this test replays:
+// LaunchLugConfig, RailButtonConfig, OpenRocket 5f164fd0e) made by LugPanelProbe
+// (tools/openrocket-panel-pins) under Xvfb, against QtRocket's in the same state. The probe
+// printed, and this test replays:
 // - "panel": the panel of every tube fin set, launch lug and rail button of the 16 examples (loaded
 //   without presets) and the 13 test rockets, in tree order, each after the design was settled
 //   (settleAutomaticDimensions()): the General tab's labels (with their tooltips), spin box texts
@@ -178,7 +179,7 @@ void addGeneralLines(const RocketComponentConfig& panel, bool withLabels,
     Test::addTabWidgetLines(*tabs.widget(0), {.labels = withLabels, .labelTips = true}, lines);
 }
 
-/// What the replay prints of the tube fin sets, launch lugs and rail buttons (D1bProbe's).
+/// What the replay prints of the tube fin sets, launch lugs and rail buttons (LugPanelProbe's).
 [[nodiscard]] Test::PanelReplayLines lugLines()
 {
     return {

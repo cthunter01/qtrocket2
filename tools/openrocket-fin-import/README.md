@@ -10,7 +10,8 @@ is committed; neither CMake nor CI ever needs Java.
   core and swing classes and runs it.
 - `FinImportDumper.java`: the dumper. In the Guice set-up of swing's `ServicesForTesting` (its English
   translator) and `PluginModule`, it draws the test images with Java2D or sets their pixels, writes them
-  as PNG files with `ImageIO`, and prints the report (below). Its comments say what each image holds.
+  as PNG files (two of them as TIFF files with alpha) with `ImageIO`, and prints the report (below). Its
+  comments say what each image holds.
 - `logback.xml`: keeps OpenRocket's log to its warnings and errors.
 
 ## Regenerating
@@ -26,8 +27,8 @@ The script writes the images into `tests/data/fin-images/` (or into the director
 argument) and prints the report to standard output; the environment variables are those of
 `tools/openrocket-component-factory/generate.sh` (listed at the head of `generate.sh`). (The committed
 files were written with `OPENROCKET_CLASSPATH`: the classes of a checkout built before, and the jars of
-Gradle's cache.) A regeneration writes the same bytes: ImageIO's PNG writer and Java2D's rasterizer are
-deterministic, and the report holds no time or address.
+Gradle's cache.) A regeneration writes the same bytes: ImageIO's PNG and TIFF writers and Java2D's
+rasterizer are deterministic, and the report holds no time or address.
 
 Two walks never end in Java (`one-pixel-tall.png`, `one-by-one.png`): they add points until the heap is
 full. `generate.sh` runs Java with a heap of 256 MB, which they fill within a second; the dumper catches

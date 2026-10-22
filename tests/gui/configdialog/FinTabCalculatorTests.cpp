@@ -217,8 +217,9 @@ TEST(FinTabCalculatorTest, ThreeRingsWithinRootChord)
 
 TEST(FinTabCalculatorTest, TheLengthsAndOffsetsAreOpenRocketsExactly)
 {
-    // FinSetConfigTest's inputs as above, with the tab offset each gives its model, as D1cProbe
-    // printed them (computeFinTabLength() is + - * only, so the doubles are Java's exactly).
+    // FinSetConfigTest's inputs as above, with the tab offset each gives its model, as
+    // FinPanelProbe printed them (computeFinTabLength() is + - * only, so the doubles are Java's
+    // exactly).
     BodyTube                                plainParent;
     const std::vector<const CenteringRing*> leading =
         addRings(plainParent, twoRings(lengthFirstRing(0.004, AxialMethod::TOP, 0.43),
@@ -273,7 +274,7 @@ TEST(FinTabCalculatorTest, AdjacentRingsMergeAsOpenRocket)
 TEST(FinTabCalculatorTest, RingsWithinAMillimetreSortAsOpenRocket)
 {
     // OpenRocket's comparator calls rings less than 1 mm apart equal, an order that is not
-    // transitive; the rings are sorted as Java's List.sort() sorts them (D1cProbe's "unsorted
+    // transitive; the rings are sorted as Java's List.sort() sorts them (FinPanelProbe's "unsorted
     // rings": six rings 0.6 mm long within 7 mm, given out of order).
     BodyTube                                    parent(1.0, 0.1);
     std::vector<std::unique_ptr<CenteringRing>> made;

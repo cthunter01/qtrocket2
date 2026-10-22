@@ -46,8 +46,8 @@ import info.openrocket.swing.gui.util.CustomFinImporter;
  * gui/util/CustomFinImporter.java and FreeformFinSetConfig.importImage()), for the tests of QtRocket's
  * gui/util/CustomFinImporter and the import action of its FreeformFinSetConfig.
  * <p>
- * Writes the test images (PNG, through ImageIO) into the directory args[0] and prints the report on
- * standard output, in blocks that start with a line "== <title>":
+ * Writes the test images (PNG files and two TIFF files, through ImageIO) into the directory args[0] and prints
+ * the report on standard output, in blocks that start with a line "== <title>":
  * <ul>
  * <li>"== image NAME": "read type=T size=WxH", the image as ImageIO reads it (its BufferedImage type and size;
  * "read null" when ImageIO has no reader for it, "read CLASS: MESSAGE" for its exception), then "raw N:
@@ -280,6 +280,21 @@ public class FinImportDumper {
 		s.dispose();
 		names.add(write(dir, "swept", sw));
 
+		// TIFF files with alpha (TYPE_INT_ARGB; ImageIO's TIFF writer stores the alpha unassociated, its reader
+		// gives it back so). A transparent white background, an opaque black fin: the size of full-black.png.
+		BufferedImage tw = new BufferedImage(12, 8, BufferedImage.TYPE_INT_ARGB);
+		argb(tw, 0, 0, 12, 8, 0x00FFFFFF);
+		argb(tw, 3, 3, 6, 5, 0xFF000000);
+		names.add(write(dir, "transparent-white", "tiff", tw));
+		// An opaque white background, an opaque black fin, white of alpha 100 on the bottom row left of the fin
+		// and in a notch in its top.
+		BufferedImage st2 = new BufferedImage(30, 20, BufferedImage.TYPE_INT_ARGB);
+		argb(st2, 0, 0, 30, 20, 0xFFFFFFFF);
+		argb(st2, 5, 8, 15, 12, 0xFF000000);
+		argb(st2, 4, 19, 1, 1, 0x64FFFFFF);
+		argb(st2, 9, 8, 3, 4, 0x64FFFFFF);
+		names.add(write(dir, "semi-transparent", "tiff", st2));
+
 		// Not images: text, and the first 60 bytes of trapezoid.png.
 		Files.writeString(new File(dir, "not-an-image.png").toPath(), "This is not an image.\n",
 				StandardCharsets.US_ASCII);
@@ -363,9 +378,13 @@ public class FinImportDumper {
 	}
 
 	private static String write(File dir, String name, BufferedImage img) throws Exception {
-		File f = new File(dir, name + ".png");
-		if (!ImageIO.write(img, "png", f)) {
-			throw new IllegalStateException("no PNG writer for " + name);
+		return write(dir, name, "png", img);
+	}
+
+	private static String write(File dir, String name, String format, BufferedImage img) throws Exception {
+		File f = new File(dir, name + "." + format);
+		if (!ImageIO.write(img, format, f)) {
+			throw new IllegalStateException("no " + format + " writer for " + name);
 		}
 		return f.getName();
 	}

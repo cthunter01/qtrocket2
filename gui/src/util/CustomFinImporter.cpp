@@ -16,6 +16,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QList>
+#include <QPixelFormat>
 #include <QRgb>
 #include <QRgba64>
 #include <QString>
@@ -503,6 +504,12 @@ QRgb CustomFinImporter::javaRgb(const QImage& image, int x, int y)
             return qRgb(value, value, value);
         }
         default:
+            // A premultiplied image (Qt reads a TIFF with alpha so; Java's reader does not): the
+            // colour without the alpha's factor, as Java's getRGB() gives it.
+            if (image.pixelFormat().premultiplied() == QPixelFormat::Premultiplied)
+            {
+                return image.pixelColor(x, y).rgba();
+            }
             return image.pixel(x, y);
     }
 }

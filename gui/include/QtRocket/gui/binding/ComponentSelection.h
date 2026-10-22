@@ -71,9 +71,10 @@ namespace QtRocket::Gui
 ///   value did not change; here a component keeps its preset unless its own setter clears it.
 /// - Invalid text in a spinner sets nothing (DoubleBinding::commitText()); Java sets the main's
 ///   last value again, which its forwarding gives every other component.
-/// - Dialog rules that Java decides by the main component alone (the automatic-radius check
-///   boxes that switch "automatic" off) are the dialogs' business: each component by its own
-///   neighbours.
+/// Dialog rules that Java decides by the main component alone are the dialogs' business, and
+/// they decide them as Java: the automatic-radius check boxes (BodyTubeConfig, NoseConeConfig,
+/// TransitionConfig) switch "automatic" off by the main component's neighbours, on every
+/// selected component (the forwarding of the main's setter).
 /// Setters that freeze the rocket themselves (RocketComponent::loadPreset(), splitInstances(true),
 /// FreeformFinSet::convertFinSet(.., true)) must never run inside apply(): the second freeze is a
 /// BugError. Structural operations of several components call their non-freezing forms inside

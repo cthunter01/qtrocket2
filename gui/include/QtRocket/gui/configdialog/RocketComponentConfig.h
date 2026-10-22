@@ -164,8 +164,10 @@ public:
     /// overrides it calls this one).
     virtual void updateFields();
 
-    /// Commits the pending edits of every field (BindingScope::commitAll()).
-    bool commitAll();
+    /// Commits the pending edits of every field (BindingScope::commitAll()); a panel with edits of
+    /// its own that no binding holds commits them too (FreeformFinSetConfig: the point table's
+    /// open cell editor) and calls this one.
+    virtual bool commitAll();
 
     /// Ends the bindings before the dialog goes (BindingScope::release()).
     void release() noexcept;

@@ -276,7 +276,9 @@ void FinPointScrollArea::move(QMouseEvent& event)
         return;
     }
     event.accept();
-    if (isDragTargetGone())
+    // The fin set has gone, or the button that began the drag is no longer held (its release
+    // never came: the mouse lost elsewhere).
+    if (isDragTargetGone() || !event.buttons().testFlag(m_pressButton))
     {
         endDrag();
         return;
@@ -351,6 +353,25 @@ void FinPointScrollArea::focusInEvent(QFocusEvent* event)
     {
         Q_EMIT focusEntered();
     }
+}
+
+void FinPointScrollArea::focusOutEvent(QFocusEvent* event)
+{
+    // A menu that opens takes the focus for a while (the right click's popup, after its drag).
+    if (event->reason() != Qt::PopupFocusReason)
+    {
+        static_cast<void>(Guard::run([this] { endDrag(); }, objectName()));
+    }
+    ScaleScrollArea::focusOutEvent(event);
+}
+
+void FinPointScrollArea::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::ActivationChange && !isActiveWindow())
+    {
+        static_cast<void>(Guard::run([this] { endDrag(); }, objectName()));
+    }
+    ScaleScrollArea::changeEvent(event);
 }
 
 void FinPointScrollArea::hideEvent(QHideEvent* event)

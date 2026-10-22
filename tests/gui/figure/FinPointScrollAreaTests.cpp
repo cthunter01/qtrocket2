@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QEvent>
+#include <QFocusEvent>
 #include <QMouseEvent>
 #include <QObject>
 #include <QPoint>
@@ -41,6 +42,7 @@
 #include "QtRocket/util/Geometry2D.h"
 #include "QtRocket/util/MathUtil.h"
 #include "RecordingPaintDevice.h"
+#include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
 {
@@ -53,9 +55,10 @@ using Test::finPointsText;
 using Test::FreeformDesign;
 using Test::RecordingPaintDevice;
 using Test::RocketEvents;
+using Test::showActive;
 
-/// The editor's figure in its area, 600 x 400 pixels at 96 dots per inch and fitted (D1dProbe's),
-/// not shown; the live update preference as asked.
+/// The editor's figure in its area, 600 x 400 pixels at 96 dots per inch and fitted
+/// (FreeformPanelProbe's), not shown; the live update preference as asked.
 struct Editor
 {
     explicit Editor(const FinPointSelection& selection, bool live = false)
@@ -187,7 +190,7 @@ TEST_F(FinPointScrollAreaTest, APressBesideTheOutlinePansAndDeselects)
 
 TEST_F(FinPointScrollAreaTest, ShiftLocksTheAngleToThePreviousPoint)
 {
-    // D1dProbe's "body tube drags": point 2 locked to point 1 (3.5, 6.5) cm.
+    // FreeformPanelProbe's "body tube drags": point 2 locked to point 1 (3.5, 6.5) cm.
     const FreeformDesign design;
     const Editor         editor(design.selection());
     editor.press(editor.pointPixel(1));
@@ -270,6 +273,9 @@ TEST_F(FinPointScrollAreaTest, ARightClickOnAPointAsksForTheMenu)
     EXPECT_EQ(menu.at(0).at(0).toInt(), 1);
     QTest::mouseClick(editor.figure, Qt::RightButton, Qt::NoModifier, editor.pixel(0.2, 0.2));
     EXPECT_EQ(menu.count(), 1);
+    // The right button only (Java: BUTTON3), not the middle one.
+    QTest::mouseClick(editor.figure, Qt::MiddleButton, Qt::NoModifier, editor.pointPixel(1));
+    EXPECT_EQ(menu.count(), 1);
     // A press and a release elsewhere are no click.
     editor.press(editor.pointPixel(1), Qt::RightButton);
     editor.move(editor.pixel(0.03, 0.05));
@@ -303,6 +309,76 @@ TEST_F(FinPointScrollAreaTest, HidingTheAreaEndsTheDrag)
     EXPECT_FALSE(editor.area.isDragging());
     EXPECT_FALSE(design.rocket().isFrozen());
     EXPECT_EQ(editor.figure->editHistory().size(), 2U);
+}
+
+TEST_F(FinPointScrollAreaTest, ADeactivatedWindowEndsTheDrag)
+{
+    // A release that never comes (the mouse lost to another window): the rocket is not left
+    // frozen while another window works on it.
+    const FreeformDesign design;
+    Editor               editor(design.selection());
+    ASSERT_TRUE(showActive(editor.area));
+    editor.press(editor.pointPixel(1));
+    editor.move(editor.pixel(0.03, 0.06));
+    ASSERT_TRUE(design.rocket().isFrozen());
+    QWidget other;
+    ASSERT_TRUE(showActive(other));
+    EXPECT_FALSE(editor.area.isDragging());
+    EXPECT_FALSE(design.rocket().isFrozen());
+    EXPECT_FALSE(editor.figure->editHistory().isEditInProgress());
+    EXPECT_EQ(editor.figure->editHistory().size(), 2U);
+    editor.release(editor.pixel(0.03, 0.06));
+}
+
+TEST_F(FinPointScrollAreaTest, AnActivationChangeAwayEndsTheDrag)
+{
+    // Every widget of a window hears its activation change; the area, not the active window's,
+    // ends the drag (also without the focus, which a click on a point takes in an active window).
+    const FreeformDesign design;
+    Editor               editor(design.selection());
+    editor.press(editor.pointPixel(1));
+    ASSERT_FALSE(editor.area.isActiveWindow());
+    QEvent change(QEvent::ActivationChange);
+    QApplication::sendEvent(&editor.area, &change);
+    EXPECT_FALSE(editor.area.isDragging());
+    EXPECT_FALSE(design.rocket().isFrozen());
+    editor.release(editor.pointPixel(1));
+}
+
+TEST_F(FinPointScrollAreaTest, LosingTheFocusEndsTheDragButToAMenu)
+{
+    const FreeformDesign design;
+    Editor               editor(design.selection());
+    editor.press(editor.pointPixel(1));
+    // A menu that opens (the right click's popup) takes the focus for a while.
+    QFocusEvent toMenu(QEvent::FocusOut, Qt::PopupFocusReason);
+    QApplication::sendEvent(&editor.area, &toMenu);
+    EXPECT_TRUE(editor.area.isDragging());
+    EXPECT_TRUE(design.rocket().isFrozen());
+    QFocusEvent away(QEvent::FocusOut, Qt::TabFocusReason);
+    QApplication::sendEvent(&editor.area, &away);
+    EXPECT_FALSE(editor.area.isDragging());
+    EXPECT_FALSE(design.rocket().isFrozen());
+    editor.release(editor.pointPixel(1));
+}
+
+TEST_F(FinPointScrollAreaTest, AMoveWithoutTheButtonEndsTheDrag)
+{
+    // The button that began the drag is no longer held: its release went elsewhere. (Without
+    // any button held, Qt delivers no move to a widget that does not track the mouse: then the
+    // next press and release end the drag.)
+    const FreeformDesign design;
+    const Editor         editor(design.selection());
+    editor.press(editor.pointPixel(1));
+    const QPoint at = editor.pixel(0.03, 0.06);
+    QMouseEvent  move(QEvent::MouseMove, QPointF(at), QPointF(editor.figure->mapToGlobal(at)),
+                      Qt::NoButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::sendEvent(editor.figure, &move);
+    EXPECT_FALSE(editor.area.isDragging());
+    EXPECT_FALSE(design.rocket().isFrozen());
+    EXPECT_EQ(finPointsText(design.fins()),
+              "(0.0,0.0) (0.025,0.05) (0.075,0.05) (0.04999999999999999,0.0)");
+    editor.release(at);
 }
 
 TEST_F(FinPointScrollAreaTest, DestroyingTheAreaThawsTheRocket)

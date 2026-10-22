@@ -84,17 +84,30 @@ class ScrollAreaZoomModel;
 /// changes; the tab order leaves out the Point Actions button, the zoom and the check box (Java's
 /// focus traversal policy lists none of them), the table follows the General tab's fields.
 ///
+/// As OpenRocket: Delete point cancels an open cell edit before it removes the point; any other
+/// change of the points leaves an open cell editor on its row with the text typed in it (the
+/// table's delegate does not set an editor's text again once the user has typed in it: Java's
+/// JTable never does).
+///
+/// Once the panel is released (the dialog closing, a TREE or UNDO change ending the selection),
+/// no edit path changes the points any more: the focus loss of an open cell editor as the dialog
+/// hides, Insert point, Delete point, the editor's undo and redo, Import from image after its
+/// question, and the mouse in the figure (the panel drops its events, ending a drag).
+///
 /// Deviations from OpenRocket:
 /// - Enter in a cell commits it and closes its editor (Qt's item views); Java's JTable then moves
 ///   on to edit the cell below. The arrow keys move between the cells without editing them
 ///   (typing, F2 or a press edits); Java edits every cell it moves to.
-/// - An open cell editor follows its point when Delete point removes another row (Qt moves it
-///   with its row); Java cancels the edit first. In the cell editor Ctrl+Z is the editor's own
+/// - An open cell editor that has not been typed in shows its cell's new value when the points
+///   change; Java's keeps the text it began with. In the cell editor Ctrl+Z is the editor's own
 ///   undo of the typing.
+/// - commitAll() (OK, Esc, the window's close button, the dialog's commit before a save or an
+///   undo) commits an open cell editor and closes it, as the editor's focus loss does; Java's
+///   JTable leaves it uncommitted when its dialog closes, and the typed text is lost.
 /// - "Export CSV" ends its lines with '\n' (FinPointTableModel::csvText(); Java: "\r\n") and shows
 ///   a write failure ("Error writing file"); Java prints its stack trace only.
 /// - "Import from image" reads the image with CustomFinImporter, whose deviations are its own (a
-///   walk that never ends, palette images, files that are no image).
+///   walk that never ends, palette images, TIFF files with alpha, files that are no image).
 class FreeformFinSetConfig final : public FinSetConfig
 {
     Q_OBJECT
@@ -140,11 +153,16 @@ public:
     /// (see the class comment).
     void updateFields() override;
 
+    /// Commits the point table's open cell editor (its text set as the cell's edit, then the
+    /// editor closed, as its focus loss does), then the fields (RocketComponentConfig's); true
+    /// when either changed something. Nothing once the panel is released.
+    bool commitAll() override;
+
     // ------------------------------------------------------------------------------ actions
 
     /// Begins and commits an edit of the history, then updates the undo and redo buttons
     /// (beginFinPointEdit(), commitFinPointEdit()); every change of the points is bracketed by
-    /// them (part D1e's image import too).
+    /// them (Import from image too).
     void beginFinPointEdit();
     void commitFinPointEdit();
     /// The undo and redo buttons' and keys' action: nothing while a drag or an edit is in
@@ -171,10 +189,11 @@ public:
     /// failure ("Error loading fin profile" and its text); then stores the dialog's directory as
     /// the default one, after a failure too.
     void importImage();
-    /// Export CSV: asks for the file (UserPrompts::askSaveFile(), "Comma Separated Files
-    /// (*.csv)", in the default directory), forces the extension ".csv", asks before overwriting
-    /// an existing file, writes the table (writeCsvFile()) and stores the dialog's directory as
-    /// the default one.
+    /// Export CSV: asks for the file (UserPrompts::askSaveFile(), the filters "Comma Separated
+    /// Files (*.csv)", chosen, and "All Files (*)", in the default directory), forces the
+    /// extension ".csv", asks before overwriting an existing file, writes the table
+    /// (writeCsvFile()) and stores the dialog's directory as the default one. Nothing more once
+    /// the panel has gone during a question (a modal dialog runs the event loop).
     void exportCsv();
 
     /// Writes @p model's FinPointTableModel::csvText() as UTF-8 to @p file.
@@ -185,7 +204,8 @@ public:
     [[nodiscard]] static std::filesystem::path forceExtension(const std::filesystem::path& file,
                                                               std::string_view extension);
 
-    /// The table's right and middle buttons (see the class comment).
+    /// The table's right and middle buttons (see the class comment), and the figure's mouse once
+    /// the panel is released.
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -204,6 +224,14 @@ private:
     void figurePointMenuRequested(int index, QPoint globalPosition);
     /// The table's selection changed: the figure's point and the actions.
     void pointSelectionChanged();
+    /// Whether the panel is released (its selection ended): no edit path changes the points.
+    [[nodiscard]] bool editsEnded() const;
+    /// The table's open cell editor; null when none is open.
+    [[nodiscard]] QWidget* openCellEditor() const;
+    /// Closes the open cell editor without committing it (Java: cancelCellEditing()).
+    void cancelCellEditing();
+    /// Commits the open cell editor and closes it (see commitAll()); true when the points changed.
+    bool commitCellEditing();
 
     FinPointSelection m_finPoints;
 

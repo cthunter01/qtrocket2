@@ -51,8 +51,8 @@ using Test::FreeformDesign;
 using Test::RecordedPaint;
 using Test::RecordingPaintDevice;
 
-/// D1dProbe's figure of the default outline on its body tube, fitted into 600 x 400 pixels at 96
-/// dots per inch: the fitted view 560 x 360, the user scale and the pixels per metre.
+/// FreeformPanelProbe's figure of the default outline on its body tube, fitted into 600 x 400
+/// pixels at 96 dots per inch: the fitted view 560 x 360, the user scale and the pixels per metre.
 constexpr double kDotsPerInch = 96;
 const QSize      kFittedView{560, 360};
 constexpr double kProbeUserScale = 1.693332418933827;
@@ -82,7 +82,7 @@ struct FittedFigure
 
 TEST_F(FinPointFigureTest, BoundsTheFinAndItsBodyTubeAsOpenRocket)
 {
-    // D1dProbe's "body tube" figures: "figure subject=(0.0,0.0,0.075,0.05)", "figure
+    // FreeformPanelProbe's "body tube" figures: "figure subject=(0.0,0.0,0.075,0.05)", "figure
     // content=(-0.25,-0.021,0.325,0.07100000000000001)".
     const FreeformDesign design;
     const FittedFigure   fitted(design);
@@ -248,7 +248,7 @@ TEST_F(FinPointFigureTest, PaintsTheBodyTheFinTheHighlightAndTheHandles)
 }
 
 /// Rocket > Stage > a conical transition 10 cm long of the radii 2 and 3 cm > a freeform fin set
-/// at its bottom (D1dProbe's "transition").
+/// at its bottom (FreeformPanelProbe's "transition").
 [[nodiscard]] std::unique_ptr<OpenRocketDocument> finsOnTransition()
 {
     auto        rocket     = std::make_unique<Rocket>();

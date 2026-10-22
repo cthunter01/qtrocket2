@@ -1,6 +1,7 @@
 // OpenRocket's panels of the trapezoidal and the elliptical fin set (TrapezoidFinSetConfig and
-// EllipticalFinSetConfig with their base FinSetConfig, OpenRocket 5f164fd0e) made by D1cProbe under
-// Xvfb, against QtRocket's in the same state. The probe printed, and this test replays:
+// EllipticalFinSetConfig with their base FinSetConfig, OpenRocket 5f164fd0e) made by FinPanelProbe
+// (tools/openrocket-panel-pins) under Xvfb, against QtRocket's in the same state. The probe
+// printed, and this test replays:
 // - "panel": the panel of every trapezoidal and elliptical fin set of the 16 examples (loaded
 //   without presets) and the 13 test rockets, in tree order, each after the design was settled
 //   (settleAutomaticDimensions()): the titles and tooltips of the tabs General and Fin tabs, their
@@ -252,7 +253,7 @@ void addFinPanelLines(const RocketComponentConfig& config, bool withLabels,
     }
 }
 
-/// What the replay prints of the trapezoidal and elliptical fin sets (D1cProbe's).
+/// What the replay prints of the trapezoidal and elliptical fin sets (FinPanelProbe's).
 [[nodiscard]] Test::PanelReplayLines finLines()
 {
     return {

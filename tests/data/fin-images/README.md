@@ -8,7 +8,9 @@ blocks). Edit these files through the generator only. `tests/gui/util/CustomFinI
 `tests/gui/configdialog/fin_import_golden_tests.cpp` read them (`tests/gui/util/FinImportReport.h`).
 
 The fin is the dark area that touches the bottom row; one pixel is one millimetre. In the table, a
-rectangle is `x, y, width, height` in pixels, from the top left.
+rectangle is `x, y, width, height` in pixels, from the top left. Qt reads the two TIFF files only with
+the TIFF plugin of its imageformats module, which CI's Qt does not install: the tests that read them
+skip there (CustomFinImporterTests also builds the premultiplied image in memory).
 
 | File | Size | What it holds |
 |---|---|---|
@@ -33,5 +35,7 @@ rectangle is `x, y, width, height` in pixels, from the top left.
 | `overhang.png` | 80 x 45 | A fin whose tip reaches beyond its root. |
 | `arch.png` | 50 x 40 | An arch on two legs. |
 | `swept.png` | 100 x 60 | A swept fin drawn anti-aliased (grey edges), with a hole, a second dark area on the bottom row and a speck above. |
+| `transparent-white.tiff` | 12 x 8 | A TIFF file with alpha: a transparent white background, an opaque black block 3, 3, 6, 5 (Qt reads the TIFF premultiplied: the background is black there, the fin the whole image, as `full-black.png`'s). |
+| `semi-transparent.tiff` | 30 x 20 | A TIFF file with alpha: an opaque white background, an opaque black block 5, 8, 15, 12, white of alpha 100 at 4, 19 (the bottom row, left of the block) and in a notch 9, 8, 3, 4 (white in both). |
 | `not-an-image.png` | 22 bytes | The text "This is not an image." and a line end. |
 | `truncated.png` | 60 bytes | The first 60 bytes of `trapezoid.png`. |
