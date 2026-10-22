@@ -1,14 +1,21 @@
 # GUI area 7, configdialog: the component configuration dialog and its panels.
 # Each source with its header (${gui_include_dir}/configdialog/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    BulkheadConfig.cpp ${gui_include_dir}/configdialog/BulkheadConfig.h
+    CenteringRingConfig.cpp ${gui_include_dir}/configdialog/CenteringRingConfig.h
+    ClusterButton.cpp ${gui_include_dir}/configdialog/ClusterButton.h
+    ClusterSelectionPanel.cpp ${gui_include_dir}/configdialog/ClusterSelectionPanel.h
     CommonStrings.cpp ${gui_include_dir}/configdialog/CommonStrings.h
     ComponentConfigDialog.cpp ${gui_include_dir}/configdialog/ComponentConfigDialog.h
     ConfigFields.cpp ${gui_include_dir}/configdialog/ConfigFields.h
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
+    InnerTubeConfig.cpp ${gui_include_dir}/configdialog/InnerTubeConfig.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h
     MotorConfig.cpp ${gui_include_dir}/configdialog/MotorConfig.h
     PlacementPanel.cpp ${gui_include_dir}/configdialog/PlacementPanel.h
+    RingComponentConfig.cpp ${gui_include_dir}/configdialog/RingComponentConfig.h
     RocketComponentConfig.cpp ${gui_include_dir}/configdialog/RocketComponentConfig.h
     ShoulderPanel.cpp ${gui_include_dir}/configdialog/ShoulderPanel.h
+    ThicknessRingComponentConfig.cpp ${gui_include_dir}/configdialog/ThicknessRingComponentConfig.h
 )
