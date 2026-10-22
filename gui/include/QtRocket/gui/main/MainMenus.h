@@ -15,12 +15,14 @@ class UndoRedoActions;
 /// window is open (macOS: DummyFrameMenuOSX), with OpenRocket's items of Milestone 2 in its
 /// order. An object of this class fills the menu bar it is a child of and gives access to every
 /// menu and item; it does nothing itself. What an item does is connected by whoever owns that
-/// behaviour, which also enables the item: New, Close design and Quit by the WindowManager (now);
-/// Open, Open recent, Open example, Save, Save as, Properties and Preferences by the file
-/// operations and the dialogs (run 3); Edit, Cut, Copy, Paste, Duplicate, Delete and the items
-/// of Select and Visibility by RocketActions (run 2), which also sets their enabled states (and
-/// the toggling text and icon of Hide/Show selected). Until then those items are disabled; Undo
-/// and Redo are UndoRedoActions'.
+/// behaviour, which also enables the item: New, Close design, Quit and Preferences by the
+/// WindowManager; Open, Save, Save as and Properties by the file operations
+/// (DocumentFileOperations); Open recent and Open example by the menus that fill them
+/// (RecentFilesMenu, ExampleDesignsMenu, which the application puts into every window's menus
+/// and those of no window); Edit, Cut, Copy, Paste, Duplicate, Delete and the items of Select
+/// and Visibility by RocketActions, which also sets their enabled states (and the toggling text
+/// and icon of Hide/Show selected). Until then those items are disabled; Undo and Redo are
+/// UndoRedoActions'.
 ///
 /// A design window's menus (the same in every window), in OpenRocket's order:
 /// - File: New | Open... | Open recent > | Open example > | --- | Save | Save as... | --- |
@@ -79,10 +81,11 @@ public:
     [[nodiscard]] QMenu*   fileMenu() const noexcept { return m_fileMenu; }
     [[nodiscard]] QAction* newAction() const noexcept { return m_new; }
     [[nodiscard]] QAction* openAction() const noexcept { return m_open; }
-    /// The submenu of the recent files (MRUDesignFileAction, run 3), empty and disabled now.
+    /// The submenu of the recent files (MRUDesignFileAction): empty and disabled until a
+    /// RecentFilesMenu fills it.
     [[nodiscard]] QMenu* openRecentMenu() const noexcept { return m_openRecent; }
-    /// The submenu of the example designs (ExampleDesignFileAction, run 3), empty and disabled
-    /// now.
+    /// The submenu of the example designs (ExampleDesignFileAction): empty and disabled until an
+    /// ExampleDesignsMenu fills it.
     [[nodiscard]] QMenu*   openExampleMenu() const noexcept { return m_openExample; }
     [[nodiscard]] QAction* saveAction() const noexcept { return m_save; }
     [[nodiscard]] QAction* saveAsAction() const noexcept { return m_saveAs; }

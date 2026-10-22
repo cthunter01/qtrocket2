@@ -9,6 +9,7 @@
 
 #include "QtRocket/gui/app/Application.h"
 #include "QtRocket/gui/main/DocumentFileOperations.h"
+#include "QtRocket/gui/main/RecentFiles.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/util/Guard.h"
 
@@ -16,6 +17,7 @@ namespace QtRocket::Gui
 {
 
 class ApplicationContext;
+class MainMenus;
 class MainWindow;
 
 /// The running application (OpenRocket's SwingStartup.runInEDT() and what it leaves running):
@@ -29,22 +31,23 @@ class MainWindow;
 ///    is handed to it, queued); Quit there ends the application at once with
 ///    kInternalErrorExitCode (exitRequested()), without saving anything;
 /// 2. the windows (WindowManager over the context's services, with the platform's last-window
-///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0); and their
+///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0); their
 ///    file operations (DocumentFileOperations: File > Open, Save, Save as and Properties of every
-///    window and of the menus of no window, and the Save of the "Design not saved" question);
+///    window and of the menus of no window, and the Save of the "Design not saved" question); the
+///    recent files (RecentFiles over the context's store, MRUDesignFile: every file opened and
+///    every file saved as goes to its top) and, in the menus of every window and of no window,
+///    File > Open recent (RecentFilesMenu) and File > Open example (ExampleDesignsMenu over the
+///    data directory's examples);
 /// 3. the platform's requests (OSXSetup): a quit (QEvent::Quit: the macOS Dock and application
 ///    menu) closes the windows as File > Quit does; a file to open (QFileOpenEvent) goes to
 ///    openFiles(); on macOS, where the application runs without a window, it opens one when it
 ///    is reopened (reopenIfNoWindow());
-/// 4. the first window: the files of the command line (openFiles()), or when none was opened,
-///    reopen() (a New design);
+/// 4. the first window: the files of the command line (openFiles()), or when none was opened
+///    and no window is open (one may have opened while a question of the files ran: macOS),
+///    reopen() (the most recent design or a New design);
 /// 5. the problems of the start the user is to know of: the motor database's (a message);
 /// 6. for the tests of the program: with Options::quitAfterStart, a quit as File > Quit does
 ///    as soon as the event loop runs.
-///
-/// Hook left for the recent files (run 3, part P4): reopen() opens a New design only (OpenRocket's
-/// BasicFrame.reopen() opens the most recent design instead when the preference "open the last
-/// design at start" is set).
 ///
 /// Deviations: a report from another thread does not wait for the dialog (SwingExceptionHandler
 /// waits for an uncaught exception's, invokeAndWait()), so that a worker the GUI thread waits for
@@ -93,6 +96,8 @@ public:
     {
         return *m_fileOperations;
     }
+    /// The recent files (the File > Open recent menus').
+    [[nodiscard]] RecentFiles& recentFiles() const noexcept { return *m_recentFiles; }
 
     /// SwingStartup.handleCommandLine() and OSXSetup's open-file handler: opens each of
     /// @p files in a window of its own (DocumentFileOperations::openFiles(), BasicFrame.open(file,
@@ -101,10 +106,15 @@ public:
     /// was opened (or a window of one of the files activated).
     bool openFiles(const std::vector<std::filesystem::path>& files, MainWindow* origin);
 
-    /// BasicFrame.reopen(): opens the window the application starts with: a New design. (Run
-    /// 3: the most recent design when the preference "open the last design at start" is set,
-    /// and a New design when that fails.)
-    MainWindow& reopen();
+    /// BasicFrame.reopen(): opens the window the application starts with (and, on macOS, the
+    /// one it opens when it is reopened without a window). When the preference "Open last design
+    /// file on startup" (AutoOpenLastDesign) is set and the recent files hold one, the most
+    /// recent file is opened (open(), as from no window), and goes to the top of the recent
+    /// files again; when it cannot be opened (its error was shown), it is taken out of the
+    /// recent files and a New design opens. Otherwise a New design opens. The window opened, or
+    /// null when a reopen is under way already (BasicFrame's reopenInProgress: a question of
+    /// the open runs an event loop, in which macOS may ask for a reopen again).
+    MainWindow* reopen();
 
     /// OSXSetup's reopen handler: reopen() when no window is open.
     void reopenIfNoWindow();
@@ -121,6 +131,9 @@ private:
     void showInternalError(const Guard::Failure& failure);
     /// The motor database's problems, as a message over @p window.
     void showStartupProblems(MainWindow& window);
+    /// Fills File > Open recent and File > Open example of @p menus, the menus of @p window
+    /// (null for the menus of no window).
+    void installFileMenus(MainMenus& menus, MainWindow* window);
     /// Puts back each hook this session replaced.
     void restoreHooks();
 
@@ -130,10 +143,14 @@ private:
     std::optional<Guard::Hook>                m_previousErrorHook;
     std::optional<Application::QuitHook>      m_previousQuitHook;
     std::optional<Application::OpenFilesHook> m_previousOpenFilesHook;
+    /// Declared before the windows: their Open recent menus go first.
+    std::unique_ptr<RecentFiles> m_recentFiles;
     /// Declared after the services: the windows go before them.
     std::unique_ptr<WindowManager> m_windows;
     /// Declared last: the file operations go before the windows, whose save hook they are.
     std::unique_ptr<DocumentFileOperations> m_fileOperations;
+    /// Whether reopen() runs (BasicFrame.reopenInProgress).
+    bool m_reopening{false};
 };
 
 }  // namespace QtRocket::Gui
