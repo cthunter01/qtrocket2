@@ -432,7 +432,7 @@ TEST_F(ComponentAddButtonsTest, IconsFollowThePalette)
     const auto                          make     = [&services](ComponentKind kind) {
         std::unique_ptr<RocketComponent> component = ComponentFactory::create(
             kind, services.services().preferences(), services.services().materials());
-        component->setName(std::string(className(kind)));
+        component->setName(className(kind));
         return component;
     };
     static_cast<void>(stage.addChild(make(ComponentKind::NOSE_CONE)));
@@ -547,7 +547,7 @@ TEST_F(ComponentAddButtonsTest, TheFirstSelectedComponentEnablesTheButtonsAsInOp
     RocketComponent&                    sustainer = rocket.getChild(0);
     const auto add = [](RocketComponent& parent, std::unique_ptr<RocketComponent> component,
                         std::string_view name) -> RocketComponent& {
-        component->setName(std::string(name));
+        component->setName(name);
         return parent.addChild(std::move(component));
     };
     RocketComponent& bt1 = add(sustainer, std::make_unique<BodyTube>(), "BT1");

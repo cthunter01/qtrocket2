@@ -252,7 +252,7 @@ TEST_F(EnumBindingTest, PickingTheMainsValueLeavesTheOthersAlone)
 {
     // Java's EnumModel skips the value it shows, so the main's setter, which forwards to the
     // others, is not called.
-    MassRocket rocket;
+    MassRocket const rocket;
     rocket.massB->setMassComponentType(MassType::ALTIMETER);
     const std::array<RocketComponent*, 1> others{rocket.massB};
     const auto                            types = std::make_shared<EnumBinding<MassType>>(
@@ -288,8 +288,8 @@ TEST_F(EnumBindingTest, AHiddenValueIsShownByNoIndex)
 
 TEST_F(EnumBindingTest, TellsOfAChangeOfTheValueOnly)
 {
-    MassRocket rocket;
-    const auto types = std::make_shared<EnumBinding<MassType>>(
+    MassRocket const rocket;
+    const auto       types = std::make_shared<EnumBinding<MassType>>(
         std::make_shared<ComponentSelection>(*rocket.massA), massComponentType(), kMassTypeChoices);
     const ChangeCounter changes(*types);
     rocket.massA->setName("Payload");

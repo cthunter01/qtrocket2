@@ -195,9 +195,9 @@ TEST_F(ConfigurationComboBoxTest, KeepsWorkingWhenAnUndoReplacesTheConfiguration
     QtRocket::Test::TestEstesAlphaIII         alpha;
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createDocumentFromRocket(std::move(alpha.rocket));
-    Rocket&                   rocket = document->getRocket();
-    const InMemoryPreferences preferences;
-    ConfigurationComboBox     combo(rocket, preferences, nullptr);
+    Rocket&                     rocket = document->getRocket();
+    const InMemoryPreferences   preferences;
+    ConfigurationComboBox const combo(rocket, preferences, nullptr);
 
     document->addUndoPosition("Add configuration");
     rocket.createFlightConfiguration();

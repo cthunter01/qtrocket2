@@ -30,7 +30,7 @@ void ChangeEventTypes::clear() noexcept
     m_allFromRocket = true;
 }
 
-void pickComboItem(QComboBox& combo, int index)
+void pickComboItem(QComboBox const& combo, int index)
 {
     QAbstractItemView* view = combo.view();
     ASSERT_NE(view, nullptr);

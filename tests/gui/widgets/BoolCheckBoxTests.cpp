@@ -206,7 +206,7 @@ TEST_F(BoolCheckBoxTest, FollowersAreEnabledExactlyWhileTheValueIsTheirState)
     const auto          selection = std::make_shared<ComponentSelection>(*design.tubeA);
     QWidget             window;
     auto*               check = makeChild<BoolCheckBox>(&window, massBinding(selection), QString());
-    auto                mass  = std::make_shared<DoubleBinding>(
+    auto const          mass  = std::make_shared<DoubleBinding>(
         selection, bodyTubeLength(), unitGroup(UnitGroupId::LENGTH), DoubleBinding::Options{});
     auto* spin    = makeChild<UnitSpinBox>(&window, mass);
     auto* units   = makeChild<UnitSelector>(&window, mass);

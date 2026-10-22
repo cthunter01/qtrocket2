@@ -305,7 +305,7 @@ TEST_F(ComponentConfigDialogTest, AComponentOfAnotherRocketIsABug)
 
 /// Switches the mass override of the open dialog on (its check box clicked) and types @p mass
 /// (in the default unit, g) into its field, committed with Enter when @p commit.
-void overrideMass(ComponentConfigDialog& dialog, const QString& mass, bool commit)
+void overrideMass(ComponentConfigDialog const& dialog, const QString& mass, bool commit)
 {
     dialog.configurator().setSelectedTab(QStringLiteral("Override"));
     auto* check = childNamed<BoolCheckBox>(dialog, QStringLiteral("MassOverridden"));
@@ -323,7 +323,7 @@ void overrideMass(ComponentConfigDialog& dialog, const QString& mass, bool commi
 
 /// Two edits of the body tube's dialog: the finish chosen (polished) and the mass overridden
 /// (50 g, committed with Enter).
-void editBodyTube(ComponentConfigDialog& dialog)
+void editBodyTube(ComponentConfigDialog const& dialog)
 {
     auto* finish = childNamed<EnumComboBox>(dialog, QStringLiteral("Finish"));
     ASSERT_NE(finish, nullptr);
@@ -338,11 +338,11 @@ TEST_F(ComponentConfigDialogTest, EverySessionIsOneUndoStep)
     const ConfigDialogServices services;
     EveryKindDesign            design;
     QWidget                    window;
-    auto&        tube   = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    auto const&  tube   = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
     const Uuid   id     = tube.getId();
     const Finish finish = tube.getFinish();
     const double mass   = tube.getOverrideMass();
-    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    ComponentConfigDialog const* dialog = showBodyTubeDialog(window, services, design);
     ASSERT_NE(dialog, nullptr);
     editBodyTube(*dialog);
     EXPECT_TRUE(tube.isMassOverridden());
@@ -371,7 +371,7 @@ TEST_F(ComponentConfigDialogTest, OkCommitsAPendingEdit)
     const ConfigDialogServices services;
     EveryKindDesign            design;
     QWidget                    window;
-    auto& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    auto const& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
     ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
     ASSERT_NE(dialog, nullptr);
     overrideMass(*dialog, QStringLiteral("20"), false);
@@ -413,8 +413,8 @@ TEST_F(ComponentConfigDialogTest, CancelWithoutTheQuestionUndoesTheSession)
     EveryKindDesign            design;
     QWidget                    window;
     services.services().preferences().setShowDiscardConfirmation(false);
-    const Uuid             id     = design.component(ComponentKind::BODY_TUBE).getId();
-    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    const Uuid                   id     = design.component(ComponentKind::BODY_TUBE).getId();
+    ComponentConfigDialog const* dialog = showBodyTubeDialog(window, services, design);
     ASSERT_NE(dialog, nullptr);
     editBodyTube(*dialog);
     dialog->configurator().cancelButton().click();
@@ -810,8 +810,8 @@ TEST_F(ComponentConfigDialogTest, CommitPendingEditsCommitsTheOpenDialog)
     EveryKindDesign      design;
     QWidget              window;
     EXPECT_FALSE(ComponentConfigDialog::commitPendingEdits());
-    auto& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
-    ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
+    auto const& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    ComponentConfigDialog const* dialog = showBodyTubeDialog(window, services, design);
     ASSERT_NE(dialog, nullptr);
     overrideMass(*dialog, QStringLiteral("40"), false);
     EXPECT_TRUE(ComponentConfigDialog::commitPendingEdits());
@@ -1089,8 +1089,8 @@ TEST_F(ComponentConfigDialogTest, CancelDropsAPendingEditBeforeItUndoes)
     EveryKindDesign      design;
     QWidget              window;
     services.services().preferences().setShowDiscardConfirmation(false);
-    auto&      tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
-    const Uuid id   = tube.getId();
+    auto const& tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    const Uuid  id   = tube.getId();
     ComponentConfigDialog* dialog = showBodyTubeDialog(window, services, design);
     ASSERT_NE(dialog, nullptr);
     dialog->configurator().setSelectedTab(QStringLiteral("Override"));

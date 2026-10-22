@@ -203,9 +203,9 @@ TEST_F(TextCommitterTest, ARemovedFieldIsLeftAlone)
 TEST_F(TextCommitterTest, TheNameFieldAlsoCommitsTheComment)
 {
     // Java: RocketComponentConfig's setName() sets the name and the comment, when they differ.
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     ASSERT_TRUE(fields.active);
     EXPECT_EQ(fields.name->text(), QStringLiteral("A"));
     fields.comment->setFocus();
@@ -227,9 +227,9 @@ TEST_F(TextCommitterTest, EnterInTheNameFieldLeavesTheDialogOpen)
 {
     // Java's text field takes Enter while it has an action listener: the dialog's default button
     // is not pressed.
-    const TwoTubeRocket design;
-    QDialog             dialog;
-    NameAndComment      fields(dialog, design);
+    const TwoTubeRocket  design;
+    QDialog              dialog;
+    NameAndComment const fields(dialog, design);
     ASSERT_TRUE(fields.active);
     fields.name->setFocus();
     fields.name->selectAll();
@@ -254,9 +254,9 @@ TEST_F(TextCommitterTest, EscIsLeftToTheDialog)
 {
     // Java: neither the name field nor the comment area handles Esc: the component dialog closes
     // (keeping the changes), and the focus loss commits.
-    const TwoTubeRocket design;
-    QDialog             dialog;
-    NameAndComment      fields(dialog, design);
+    const TwoTubeRocket  design;
+    QDialog              dialog;
+    NameAndComment const fields(dialog, design);
     ASSERT_TRUE(fields.active);
     fields.name->setFocus();
     fields.name->selectAll();
@@ -322,9 +322,9 @@ TEST_F(TextCommitterTest, AMultiEditRenamesEverySelectedComponent)
 
 TEST_F(TextCommitterTest, AChangeElsewhereIsShownUnlessTheFieldHoldsAnEdit)
 {
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     ASSERT_TRUE(fields.active);
     design.tubeA->setName("Renamed");
     design.tubeA->setComment("noted");
@@ -341,9 +341,9 @@ TEST_F(TextCommitterTest, AChangeElsewhereIsShownUnlessTheFieldHoldsAnEdit)
 TEST_F(TextCommitterTest, TheFieldsGetTheSelectionKeyFilterAndTabLeavesTheCommentArea)
 {
     // Java: TextComponentSelectionKeyListener on both, GUIUtil.setTabToFocusing() on the area.
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     EXPECT_NE(fields.name->findChild<SelectionKeyFilter*>(), nullptr);
     EXPECT_NE(fields.comment->findChild<SelectionKeyFilter*>(), nullptr);
     EXPECT_TRUE(fields.comment->tabChangesFocus());
@@ -359,9 +359,9 @@ TEST_F(TextCommitterTest, TheFieldsOwnContextMenuLeavesTheEditPending)
     // have none. The edit stays pending while it is open (Qt's rule for editingFinished()), so
     // that a stage's new name (a TREE change) does not close the dialog under the menu, and the
     // next focus loss or commit() commits it.
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     ASSERT_TRUE(fields.active);
     const OffscreenPopupWarnings warnings;
     fields.name->setFocus();
@@ -391,9 +391,9 @@ TEST_F(TextCommitterTest, APopupElsewhereCommits)
 {
     // As in OpenRocket, whose focusable popups (a unit selector's menu) take the focus from the
     // field: a temporary focus loss, which RocketComponentConfig's listener commits.
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     ASSERT_TRUE(fields.active);
     fields.name->setFocus();
     fields.name->selectAll();
@@ -409,9 +409,9 @@ TEST_F(TextCommitterTest, APopupElsewhereCommits)
 
 TEST_F(TextCommitterTest, AnInvalidSelectionDisablesTheFieldsAndTakesNothing)
 {
-    const TwoTubeRocket design;
-    QWidget             window;
-    NameAndComment      fields(window, design);
+    const TwoTubeRocket  design;
+    QWidget              window;
+    NameAndComment const fields(window, design);
     ASSERT_TRUE(fields.active);
     fields.name->setFocus();
     fields.name->setText(QStringLiteral("late"));

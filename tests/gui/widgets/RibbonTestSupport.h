@@ -46,6 +46,6 @@ private:
 /// selects it (QComboBox emits activated()). The popup is not opened: the offscreen platform
 /// warns that it can neither raise a popup nor grab the keyboard for it, and the popup's
 /// selection does not depend on it being open.
-void pickComboItem(QComboBox& combo, int index);
+void pickComboItem(QComboBox const& combo, int index);
 
 }  // namespace QtRocket::Gui::Test

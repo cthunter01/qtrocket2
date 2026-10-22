@@ -63,9 +63,9 @@ using Test::PanelHost;
 TEST_F(ShoulderPanelTest, ATransitionHasBothShoulders)
 {
     const EveryKindDesign design;
-    auto&     transition = dynamic_cast<Transition&>(design.component(ComponentKind::TRANSITION));
-    PanelHost host(transition);
-    auto*     panel = &host.make<ShoulderPanel>();
+    auto&       transition = dynamic_cast<Transition&>(design.component(ComponentKind::TRANSITION));
+    PanelHost   host(transition);
+    auto const* panel = &host.make<ShoulderPanel>();
     ASSERT_NE(panel->foreShoulder(), nullptr);
     EXPECT_EQ(panel->foreShoulder()->title(), QStringLiteral("Fore shoulder"));
     auto* aft = qobject_cast<QGroupBox*>(&panel->aftShoulder());
@@ -77,12 +77,12 @@ TEST_F(ShoulderPanelTest, ATransitionHasBothShoulders)
               QStringLiteral("End capped"));
 
     // The diameter field shows the radius times 2; its slider ends at the end's diameter.
-    auto* diameter = childNamed<UnitSpinBox>(*panel, QStringLiteral("ForeShoulderRadius"));
+    auto const* diameter = childNamed<UnitSpinBox>(*panel, QStringLiteral("ForeShoulderRadius"));
     EXPECT_EQ(diameter->binding()->getMultiplier(), 2.0);
-    auto* slider = childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderRadius"));
+    auto const* slider = childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderRadius"));
     EXPECT_EQ(slider->mapping().getMax(), 2 * transition.getForeRadius());
     // The length's slider: 0, 2 cm, 20 cm.
-    auto* length = childNamed<ValueSlider>(*panel, QStringLiteral("AftShoulderLength"));
+    auto const* length = childNamed<ValueSlider>(*panel, QStringLiteral("AftShoulderLength"));
     EXPECT_FALSE(length->mapping().isLinear());
     EXPECT_EQ(length->mapping().getMid(), 0.02);
     EXPECT_EQ(length->mapping().getMax(), 0.2);
@@ -94,28 +94,29 @@ TEST_F(ShoulderPanelTest, TheSlidersFollowTheRadiiTheyEndAt)
     auto& transition = dynamic_cast<Transition&>(design.component(ComponentKind::TRANSITION));
     transition.setForeRadiusAutomatic(false);
     transition.setForeRadius(0.03);
-    PanelHost host(transition);
-    auto*     panel  = &host.make<ShoulderPanel>();
-    auto*     slider = childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderRadius"));
+    PanelHost   host(transition);
+    auto const* panel  = &host.make<ShoulderPanel>();
+    auto const* slider = childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderRadius"));
     EXPECT_EQ(slider->mapping().getMax(), 0.06);
     transition.setForeRadius(0.04);
     EXPECT_EQ(slider->mapping().getMax(), 0.08);
     transition.setForeShoulderRadius(0.02);
-    auto* thickness = childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderThickness"));
+    auto const* thickness =
+        childNamed<ValueSlider>(*panel, QStringLiteral("ForeShoulderThickness"));
     EXPECT_EQ(thickness->mapping().getMax(), 0.02);
 }
 
 TEST_F(ShoulderPanelTest, ANoseConeHasItsOwnShoulderWithoutABorder)
 {
     const EveryKindDesign design;
-    auto&     nose = dynamic_cast<NoseCone&>(design.component(ComponentKind::NOSE_CONE));
-    PanelHost host(nose);
-    auto*     panel = &host.make<ShoulderPanel>();
+    auto&       nose = dynamic_cast<NoseCone&>(design.component(ComponentKind::NOSE_CONE));
+    PanelHost   host(nose);
+    auto const* panel = &host.make<ShoulderPanel>();
     EXPECT_EQ(panel->foreShoulder(), nullptr);
     EXPECT_EQ(qobject_cast<QGroupBox*>(&panel->aftShoulder()), nullptr);
     EXPECT_EQ(missingShoulderFields(*panel, QStringLiteral("Shoulder")), "");
     EXPECT_EQ(childNamed<UnitSpinBox>(*panel, QStringLiteral("AftShoulderRadius")), nullptr);
-    auto* slider = childNamed<ValueSlider>(*panel, QStringLiteral("ShoulderRadius"));
+    auto const* slider = childNamed<ValueSlider>(*panel, QStringLiteral("ShoulderRadius"));
     EXPECT_EQ(slider->mapping().getMax(), 2 * nose.getBaseRadius());
 }
 
@@ -126,8 +127,8 @@ TEST_F(ShoulderPanelTest, EditsReachEverySelectedTransition)
     Transition& second = design.boosterTube->getParent()->addChild(std::make_unique<Transition>());
     const std::array<RocketComponent*, 1> others{&second};
     PanelHost                             host(first, others);
-    auto*                                 panel = &host.make<ShoulderPanel>();
-    auto* length = childNamed<UnitSpinBox>(*panel, QStringLiteral("AftShoulderLength"));
+    auto const*                           panel = &host.make<ShoulderPanel>();
+    auto const* length = childNamed<UnitSpinBox>(*panel, QStringLiteral("AftShoulderLength"));
     ASSERT_TRUE(length->binding()->commitText("3"));
     EXPECT_DOUBLE_EQ(first.getAftShoulderLength(), 0.03);
     EXPECT_DOUBLE_EQ(second.getAftShoulderLength(), 0.03);

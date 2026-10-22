@@ -60,9 +60,9 @@ using Test::RocketEventRecorder;
 TEST_F(MotorConfigTest, TheMountCheckBoxEnablesTheRest)
 {
     const EveryKindDesign design;
-    auto&     tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
-    PanelHost host(tube);
-    auto*     panel = &host.make<MotorConfig>();
+    auto&       tube = dynamic_cast<BodyTube&>(design.component(ComponentKind::BODY_TUBE));
+    PanelHost   host(tube);
+    auto const* panel = &host.make<MotorConfig>();
     EXPECT_EQ(panel->mountCheckBox().text(), QStringLiteral("This component is a motor mount"));
     EXPECT_EQ(panel->mountCheckBox().objectName(), QStringLiteral("MotorMount"));
     EXPECT_FALSE(panel->mountCheckBox().isChecked());
@@ -79,7 +79,7 @@ TEST_F(MotorConfigTest, ShowsJavasFieldsAndNotes)
 {
     const EveryKindDesign              design;
     PanelHost                          host(design.component(ComponentKind::INNER_TUBE));
-    auto*                              panel    = &host.make<MotorConfig>();
+    auto const*                        panel    = &host.make<MotorConfig>();
     const ConfigFields::NumberWidgets& overhang = panel->overhangWidgets();
     ASSERT_NE(overhang.spinBox, nullptr);
     EXPECT_EQ(overhang.spinBox->objectName(), QStringLiteral("MotorOverhang"));
@@ -105,8 +105,8 @@ TEST_F(MotorConfigTest, ADesignOfOneStageSaysHowToAddOne)
     const auto document = OpenRocketDocumentFactory::createNewRocket();
     auto&      tube =
         document->getRocket().getChildren().front()->addChild(std::make_unique<BodyTube>());
-    PanelHost host(tube);
-    auto*     panel = &host.make<MotorConfig>();
+    PanelHost   host(tube);
+    auto const* panel = &host.make<MotorConfig>();
     EXPECT_EQ(panel->stagesLabel().text(),
               QStringLiteral("The current design has only one stage. Stages can be added by "
                              "clicking \"New stage\"."));
@@ -131,7 +131,7 @@ TEST_F(MotorConfigTest, TheDefaultIgnitionOfEverySelectedMountFiresTheMotorEvent
     other.setMotorMount(true);
     const std::array<RocketComponent*, 1> others{&other};
     PanelHost                             host(tube, others);
-    auto*                                 panel = &host.make<MotorConfig>();
+    auto const*                           panel = &host.make<MotorConfig>();
     RocketEventRecorder                   events(design.document->getRocket());
     const int                             burnout = static_cast<int>(IgnitionEvent::BURNOUT);
     Q_EMIT panel->ignitionEventComboBox().activated(burnout);

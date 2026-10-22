@@ -282,7 +282,7 @@ void expectItemsAsJava(const ConfigurationComboBox& combo, const RibbonScenarioP
 }
 
 /// Picks the item of @p pick in @p combo as the probe picked it.
-void pickAsJava(ConfigurationComboBox& combo, ChangeEventTypes& events,
+void pickAsJava(ConfigurationComboBox const& combo, ChangeEventTypes& events,
                 const ConfigurationPickPin& pick)
 {
     SCOPED_TRACE(pick.item);

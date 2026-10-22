@@ -11,6 +11,7 @@
 
 #include <QFont>
 #include <QLabel>
+#include <QLatin1Char>
 #include <QLayout>
 #include <QLineEdit>
 #include <QPlainTextEdit>
@@ -314,8 +315,8 @@ TEST_F(RocketComponentConfigTest, TheCGSliderEndsAtTheExtentOfTheSubtree)
 
 TEST_F(RocketComponentConfigTest, TheCGSliderOfAChildlessFinSetEndsAtItsBoundingBox)
 {
-    OneTubeDesign               design;
-    auto&                       fins   = design.body->addChild(std::make_unique<TrapezoidFinSet>());
+    OneTubeDesign const         design;
+    auto const&                 fins   = design.body->addChild(std::make_unique<TrapezoidFinSet>());
     const std::optional<double> extent = RocketComponentConfig::overrideCGExtent(fins);
     ASSERT_TRUE(extent.has_value());
     EXPECT_EQ(extent.value_or(-1.0), fins.getInstanceBoundingBox().span().x);
@@ -325,8 +326,8 @@ TEST_F(RocketComponentConfigTest, TheCGExtentKeepsJavasStartOfTheMaximum)
 {
     // Java starts maxL at Double.MIN_VALUE, the smallest POSITIVE double: a subtree that ends
     // before 0 spans from its front to 0.
-    OneTubeDesign design;
-    auto&         inner = design.body->addChild(std::make_unique<InnerTube>());
+    OneTubeDesign const design;
+    auto&               inner = design.body->addChild(std::make_unique<InnerTube>());
     inner.setLength(0.07);
     inner.setAxialMethod(AxialMethod::ABSOLUTE);
     inner.setAxialOffset(-1.0);
@@ -551,8 +552,8 @@ TEST_F(RocketComponentConfigTest, AButtonGoesBeforeCancelAndOKLastInTheFocusChai
     EXPECT_FALSE(panel->okButton().autoDefault());
     EXPECT_FALSE(panel->cancelButton().autoDefault());
 
-    auto* page = makeChild<QWidget>(panel.get());
-    auto* late = makeChild<QLineEdit>(page);
+    auto*       page = makeChild<QWidget>(panel.get());
+    auto const* late = makeChild<QLineEdit>(page);
     panel->insertTab(0, *page, QStringLiteral("Late"), QString());
     panel->orderFocus();
     EXPECT_EQ(panel->cancelButton().nextInFocusChain(), &panel->okButton());
@@ -582,7 +583,7 @@ TEST_F(RocketComponentConfigTest, AnInvalidSelectionIsABug)
     const EveryKindDesign      design;
     EXPECT_THROW(RocketComponentConfig(*design.document, services.services(), nullptr, nullptr),
                  BugError);
-    auto selection =
+    auto const selection =
         std::make_shared<ComponentSelection>(design.component(ComponentKind::BODY_TUBE));
     selection->release();
     EXPECT_THROW(RocketComponentConfig(*design.document, services.services(), selection, nullptr),

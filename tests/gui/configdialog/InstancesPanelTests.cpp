@@ -38,8 +38,8 @@ TEST_F(InstancesPanelTest, ShowsTheCountAndTheSeparation)
     const EveryKindDesign design;
     auto& lug = dynamic_cast<LaunchLug&>(design.component(ComponentKind::LAUNCH_LUG));
     lug.setInstanceCount(3);
-    PanelHost host(lug);
-    auto*     panel = &host.make<InstancesPanel>();
+    PanelHost   host(lug);
+    auto const* panel = &host.make<InstancesPanel>();
     EXPECT_EQ(panel->title(), QStringLiteral("Instances"));
     const IntSpinBox& count = panel->countSpinBox();
     EXPECT_EQ(count.objectName(), QStringLiteral("InstanceCount"));
@@ -64,8 +64,8 @@ TEST_F(InstancesPanelTest, AParentWithoutLengthGivesTheSliderTenCentimetres)
     const EveryKindDesign design;
     auto& button = dynamic_cast<RailButton&>(design.component(ComponentKind::RAIL_BUTTON));
     dynamic_cast<BodyTube&>(*button.getParent()).setLength(0.0);
-    PanelHost host(button);
-    auto*     panel = &host.make<InstancesPanel>();
+    PanelHost   host(button);
+    auto const* panel = &host.make<InstancesPanel>();
     EXPECT_EQ(panel->separationWidgets().slider->mapping().getMin(), -0.1);
     EXPECT_EQ(panel->separationWidgets().slider->mapping().getMax(), 0.1);
 }
@@ -77,7 +77,7 @@ TEST_F(InstancesPanelTest, EditsReachEverySelectedComponent)
     auto& button = dynamic_cast<RailButton&>(design.component(ComponentKind::RAIL_BUTTON));
     const std::array<RocketComponent*, 1> others{&button};
     PanelHost                             host(lug, others);
-    auto*                                 panel = &host.make<InstancesPanel>();
+    auto const*                           panel = &host.make<InstancesPanel>();
     panel->countSpinBox().stepBy(3);
     EXPECT_EQ(lug.getInstanceCount(), 4);
     EXPECT_EQ(button.getInstanceCount(), 4);

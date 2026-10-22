@@ -57,7 +57,7 @@ TEST_F(PlacementPanelTest, ShowsTheMethodAndTheOffset)
     const EveryKindDesign design;
     RocketComponent&      fins = design.component(ComponentKind::TRAPEZOID_FIN_SET);
     PanelHost             host(fins);
-    auto*                 panel = &host.make<PlacementPanel>();
+    auto const*           panel = &host.make<PlacementPanel>();
     EXPECT_EQ(panel->title(), QStringLiteral("Placement"));
     EXPECT_EQ(itemTexts(panel->methodComboBox()),
               (QStringList{QStringLiteral("Tip of the rocket"),
@@ -90,7 +90,7 @@ TEST_F(PlacementPanelTest, ChoosingAMethodKeepsThePosition)
     const double          absolute = fins.getAxialOffset(AxialMethod::ABSOLUTE);
     const double          bottom   = fins.getAxialOffset(AxialMethod::BOTTOM);
     PanelHost             host(fins);
-    auto*                 panel = &host.make<PlacementPanel>();
+    auto const*           panel = &host.make<PlacementPanel>();
     Q_EMIT panel->methodComboBox().activated(3);  // Bottom of the parent component
     EXPECT_EQ(fins.getAxialMethod(), AxialMethod::BOTTOM);
     EXPECT_DOUBLE_EQ(fins.getAxialOffset(AxialMethod::ABSOLUTE), absolute);
@@ -115,7 +115,7 @@ TEST_F(PlacementPanelTest, EverySelectedComponentKeepsItsOwnPosition)
     ASSERT_NE(lugAbsolute, buttonAbsolute);
     const std::array<RocketComponent*, 1> others{&button};
     PanelHost                             host(lug, others);
-    auto*                                 panel = &host.make<PlacementPanel>();
+    auto const*                           panel = &host.make<PlacementPanel>();
     Q_EMIT panel->methodComboBox().activated(2);  // Middle of the parent component
     EXPECT_EQ(lug.getAxialMethod(), AxialMethod::MIDDLE);
     EXPECT_EQ(button.getAxialMethod(), AxialMethod::MIDDLE);
@@ -132,7 +132,7 @@ TEST_F(PlacementPanelTest, TheSliderFollowsTheParentsLength)
     const EveryKindDesign design;
     RocketComponent&      fins = design.component(ComponentKind::TRAPEZOID_FIN_SET);
     PanelHost             host(fins);
-    auto*                 panel = &host.make<PlacementPanel>();
+    auto const*           panel = &host.make<PlacementPanel>();
     dynamic_cast<BodyTube&>(*fins.getParent()).setLength(0.7);
     EXPECT_EQ(panel->offsetWidgets().slider->mapping().getMin(), -0.7);
     EXPECT_EQ(panel->offsetWidgets().slider->mapping().getMax(), 0.7);

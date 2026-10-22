@@ -197,7 +197,7 @@ TEST_F(BindingScopeTest, CommitAllCommitsEveryPendingEdit)
     // Before OK, Close, a save or an undo: a button that takes no focus (macOS) leaves the edit
     // of the focused field pending.
     const TwoTubeRocket design;
-    LengthDialog        dialog(*design.tubeA);
+    LengthDialog const  dialog(*design.tubeA);
     ASSERT_TRUE(dialog.active);
     typeInto(*dialog.length, QStringLiteral("45"));
     EXPECT_TRUE(dialog.scope().commitAll());
@@ -245,7 +245,7 @@ TEST_F(BindingScopeTest, ACommitThatThrowsIsReportedAndTheOthersCommit)
 TEST_F(BindingScopeTest, AReleasedScopeCommitsNothing)
 {
     const TwoTubeRocket design;
-    LengthDialog        dialog(*design.tubeA);
+    LengthDialog const  dialog(*design.tubeA);
     ASSERT_TRUE(dialog.active);
     typeInto(*dialog.length, QStringLiteral("45"));
     dialog.scope().release();

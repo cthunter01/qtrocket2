@@ -301,7 +301,7 @@ const std::array<UnitStepRow, 6> kUnitStepTable{{
 
 /// Puts the bean back to the probe's radius 0.0125 m, as the probe did before each text, and has
 /// the selection read it again.
-void resetBean(BeanProperty& bean, DoubleBinding& model)
+void resetBean(BeanProperty& bean, DoubleBinding const& model)
 {
     bean.value = 0.0125;
     bean.sets  = 0;

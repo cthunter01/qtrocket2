@@ -587,7 +587,7 @@ enum class Part
 }
 
 /// A drop through @p view (Test::dropAt() on its viewport).
-ViewDrop dropAt(ComponentTreeView& view, const QMimeData& data, QPoint position,
+ViewDrop dropAt(ComponentTreeView const& view, const QMimeData& data, QPoint position,
                 Qt::KeyboardModifiers modifiers)
 {
     return Test::dropAt(*view.viewport(), data, position, modifiers);

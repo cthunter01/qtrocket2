@@ -24,7 +24,7 @@
 namespace QtRocket::Gui::Test
 {
 
-QLineEdit* editorOf(QAbstractSpinBox& spinBox)
+QLineEdit* editorOf(QAbstractSpinBox const& spinBox)
 {
     return spinBox.findChild<QLineEdit*>(QString(), Qt::FindDirectChildrenOnly);
 }

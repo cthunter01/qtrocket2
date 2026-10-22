@@ -154,7 +154,7 @@ TEST_F(IntBindingTest, SetsTheValueEvenWhenTheMainHasItAlready)
 
 TEST_F(IntBindingTest, AMultiEditSetsEveryFinSetInOneEvent)
 {
-    FinRocket rocket;
+    FinRocket const rocket;
     rocket.finsB->setFinCount(5);
     const std::array<RocketComponent*, 1> others{rocket.finsB};
     const auto                            count = std::make_shared<IntBinding>(
@@ -179,8 +179,8 @@ TEST_F(IntBindingTest, AMultiEditSetsEveryFinSetInOneEvent)
 TEST_F(IntBindingTest, ReReadsTheSourceOnEveryEvent)
 {
     // The scout's decision D16: Java's IntegerModel is no listener of its source.
-    FinRocket  rocket;
-    const auto count = std::make_shared<IntBinding>(
+    FinRocket const rocket;
+    const auto      count = std::make_shared<IntBinding>(
         std::make_shared<ComponentSelection>(*rocket.finsA), finCount(), 1, 8);
     const ChangeCounter changes(*count);
     rocket.finsA->setFinCount(6);
@@ -241,8 +241,8 @@ TEST_F(IntBindingTest, WidgetWritesAreDroppedWhileFiring)
 
 TEST_F(IntBindingTest, AnInvalidSelectionShowsAndAcceptsNothing)
 {
-    FinRocket  rocket;
-    const auto count = std::make_shared<IntBinding>(
+    FinRocket const rocket;
+    const auto      count = std::make_shared<IntBinding>(
         std::make_shared<ComponentSelection>(*rocket.finsA), finCount(), 1, 8);
     const ChangeCounter changes(*count);
     rocket.design.rocket->fireComponentChangeEvent(ComponentChangeEvent::kTreeChange);

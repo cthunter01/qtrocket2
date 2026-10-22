@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include <QChar>
 #include <QColor>
 #include <QFontMetrics>
 #include <QIcon>

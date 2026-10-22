@@ -742,7 +742,7 @@ TEST_F(ComponentTreeModelTest, MarksMassCgAndCdOverrides)
 // subcomponent markers (its own overrides not shown).
 TEST_F(ComponentTreeModelTest, MarksAnOverriddenSubcomponentRatherThanItsOwnOverride)
 {
-    Design design;
+    Design const design;
     design.bodyTube->setMassOverridden(true);
     design.bodyTube->setCGOverridden(true);
 
@@ -859,8 +859,8 @@ TEST_F(ComponentTreeModelTest, DoesNotMarkAnEmptyStageAsInactive)
 
 TEST_F(ComponentTreeModelTest, MarksNothingOfAComponentOutsideARocket)
 {
-    BodyTube tube;
-    auto&    inner = tube.addChild(std::make_unique<InnerTube>());
+    BodyTube    tube;
+    auto const& inner = tube.addChild(std::make_unique<InnerTube>());
 
     EXPECT_FALSE(ComponentTreeModel::isInInactiveStage(inner));
     EXPECT_THAT(ComponentTreeModel::markers(inner), IsEmpty());

@@ -1278,12 +1278,12 @@ TEST_P(RocketActionsOperation, DoesWhatOpenRocketsActionDoes)
     const ProbeDesign        design;
     const Window             window(design.document());
     window.select(scenario.selection);
-    ((window.actions()).*(scenario.action))()->trigger();
+    (window.actions().*scenario.action)()->trigger();
     EXPECT_EQ(outcome(design, window), scenario.expected);
     if (scenario.then != nullptr)
     {
         window.select(scenario.thenSelection);
-        ((window.actions()).*(scenario.then))()->trigger();
+        (window.actions().*scenario.then)()->trigger();
         EXPECT_EQ(outcome(design, window), scenario.thenExpected);
     }
 }
@@ -1898,7 +1898,7 @@ private:
         {
             component = std::make_unique<BodyTube>();
         }
-        component->setName(std::string(name));
+        component->setName(name);
         parent = &parent->addChild(std::move(component));
     }
     return document;

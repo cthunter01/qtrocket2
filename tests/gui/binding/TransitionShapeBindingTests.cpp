@@ -42,7 +42,7 @@ TEST_F(TransitionShapeBindingTest, EveryShapeAsOpenRocket)
 {
     // probe: size=6 selected=OGIVE values=CONICAL OGIVE ELLIPSOID POWER PARABOLIC HAACK;
     // set HAACK: source=HAACK clipped=true parameter=0.0.
-    TransitionRocket rocket;
+    TransitionRocket const rocket;
     rocket.transition->setShapeType(TransitionShape::OGIVE);
     const auto shapes =
         makeTransitionShapeBinding(std::make_shared<ComponentSelection>(*rocket.transition));
@@ -63,8 +63,8 @@ TEST_F(TransitionShapeBindingTest, EveryShapeAsOpenRocket)
 TEST_F(TransitionShapeBindingTest, AShapeChangedElsewhereIsShown)
 {
     // Java: componentChanged() tells the combo when the shape changed.
-    TransitionRocket rocket;
-    const auto       shapes =
+    TransitionRocket const rocket;
+    const auto             shapes =
         makeTransitionShapeBinding(std::make_shared<ComponentSelection>(*rocket.transition));
     const ChangeCounter changes(*shapes);
     rocket.transition->setLength(0.2);
@@ -81,9 +81,9 @@ TEST_F(TransitionShapeBindingTest, PickingTheMainsShapeLeavesTheOthersAlone)
     // CONICAL, other B HAACK with the parameter 0.333 and clipped; A's own CONICAL picked: B stays
     // HAACK 0.333, events 0; OGIVE picked: B OGIVE; B set to POWER, the shown OGIVE picked again:
     // B stays POWER).
-    TransitionRocket rocket;
-    Transition&      main  = *rocket.transition;
-    Transition&      other = rocket.design.stage->addChild(std::make_unique<Transition>());
+    TransitionRocket const rocket;
+    Transition&            main  = *rocket.transition;
+    Transition&            other = rocket.design.stage->addChild(std::make_unique<Transition>());
     main.setShapeType(TransitionShape::CONICAL);
     other.setShapeType(TransitionShape::HAACK);
     other.setShapeParameter(0.333);

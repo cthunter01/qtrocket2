@@ -296,7 +296,7 @@ TEST_F(IntSpinBoxTest, TheShownCountTypedAgainLeavesTheOtherSelectedComponentsAl
 {
     // Java (review probe SameTextProbe.java, OpenRocket 5f164fd0e, JDK 17): a multi-edit of fin
     // sets of 3 and 4 fins; the shown '3' committed: main 3, other 4.
-    FinRocket        rocket;
+    FinRocket const  rocket;
     TrapezoidFinSet& other = rocket.design.tubeB->addChild(std::make_unique<TrapezoidFinSet>());
     other.setFinCount(4);
     const std::array<RocketComponent*, 1> others{&other};

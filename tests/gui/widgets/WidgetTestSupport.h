@@ -18,7 +18,7 @@ namespace QtRocket::Gui::Test
 
 /// The line edit of @p spinBox (QAbstractSpinBox::lineEdit() is protected): its direct QLineEdit
 /// child; null when it has none.
-[[nodiscard]] QLineEdit* editorOf(QAbstractSpinBox& spinBox);
+[[nodiscard]] QLineEdit* editorOf(QAbstractSpinBox const& spinBox);
 
 /// Shows @p window and makes it the active window, which the focus needs (offscreen as well):
 /// whether it became active.

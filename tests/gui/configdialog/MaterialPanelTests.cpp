@@ -132,9 +132,9 @@ TEST_F(MaterialPanelTest, AShockCordHasALineMaterialWithItsOwnLabel)
 {
     const ConfigDialogServices services;
     const EveryKindDesign      design;
-    auto&     cord = dynamic_cast<ShockCord&>(design.component(ComponentKind::SHOCK_CORD));
-    PanelHost host(cord);
-    auto*     panel = &host.make<MaterialPanel>(
+    auto&       cord = dynamic_cast<ShockCord&>(design.component(ComponentKind::SHOCK_CORD));
+    PanelHost   host(cord);
+    auto const* panel = &host.make<MaterialPanel>(
         *design.document, services.services().materials(), Material::Type::LINE,
         QStringLiteral("Shock cord material:"), QStringLiteral("unused"));
     const auto* label = panel->findChild<QLabel*>();

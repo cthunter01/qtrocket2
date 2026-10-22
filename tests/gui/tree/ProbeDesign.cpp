@@ -37,7 +37,7 @@ template <class T>
 RocketComponent& add(RocketComponent& parent, std::string_view name)
 {
     auto component = std::make_unique<T>();
-    component->setName(std::string(name));
+    component->setName(name);
     return parent.addChild(std::move(component));
 }
 
