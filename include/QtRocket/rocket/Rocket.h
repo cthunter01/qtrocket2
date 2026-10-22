@@ -68,6 +68,11 @@ class Preferences;
 /// - loadFrom() copies the source's children, so the source stays usable, and rebuilds the stage
 ///   map from this rocket's own stages (Java copies the source's map and repairs it on the next
 ///   update()).
+/// - loadFrom() also copies the designer, the revision, the kit name and the design type, so
+///   that undo and redo restore them (the user's decision R3-2 of 2026-10-22, a U4 addition: a
+///   fix of an OpenRocket GUI bug). Java's loadFrom() copies none of them, so there an undo keeps
+///   the current values, and a Cancel in the Rocket's configuration dialog undoes its name and
+///   comment but not those four. The event is Java's: they add no event of their own.
 /// - The stage map never keeps a stage that left the tree: removeChild() drops the removed stages
 ///   whatever its StageTracking, and update() rebuilds the map from the tree's stages. Java keeps
 ///   the entry of a stage removed without tracking (a stale but live object there) until its
@@ -404,10 +409,11 @@ public:
     /// the fields RocketComponent::copyFrom() copies, the modification ids, the reference type
     /// and length, the stage map, the configurations (the overrides rebuilt for this rocket with
     /// the source's stage activeness and raw names; the default keeps its own, as in Java) with
-    /// the source's selected id, and the finish. The designer, revision, kit name and design type
-    /// are not copied, as in Java. Then fires UNDO_CHANGE | NONFUNCTIONAL_CHANGE | TREE_CHANGE,
-    /// with MASS_CHANGE / AERODYNAMIC_CHANGE when the mass / aerodynamic ids differ; the previous
-    /// components are destroyed after the event has been delivered.
+    /// the source's selected id, the finish, and the designer, revision, kit name and design type
+    /// (the U4 addition R3-2, see the class comment). Then fires one event, UNDO_CHANGE |
+    /// NONFUNCTIONAL_CHANGE | TREE_CHANGE, with MASS_CHANGE / AERODYNAMIC_CHANGE when the mass /
+    /// aerodynamic ids differ; the previous components are destroyed after the event has been
+    /// delivered.
     void loadFrom(const Rocket& source);
 
 protected:

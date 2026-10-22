@@ -829,6 +829,14 @@ void Rocket::loadFrom(const Rocket& source)
     m_functionalModId       = source.m_functionalModId;
     m_refType               = source.m_refType;
     m_customReferenceLength = source.m_customReferenceLength;
+    // U4 addition R3-2 (the user's decision of 2026-10-22): undo and redo restore the design
+    // information too. Java's Rocket.loadFrom() copies none of these four fields, so there an undo
+    // keeps the designer, revision, kit name and design type of the moment. No event of its own:
+    // each of their setters fires NONFUNCTIONAL_CHANGE, which the one event below includes.
+    m_designer   = source.m_designer;
+    m_revision   = source.m_revision;
+    m_kitName    = source.m_kitName;
+    m_designType = source.m_designType;
     rebuildStageMap(source);
 
     // The configurations refer to this rocket. Java's setDefault(new FlightConfiguration(this))
