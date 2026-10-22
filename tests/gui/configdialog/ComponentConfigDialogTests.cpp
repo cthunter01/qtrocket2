@@ -150,12 +150,16 @@ struct KindTabs
         {.kind = ComponentKind::BULKHEAD, .title = "Bulkhead configuration", .tabs = generalTabs},
         {.kind  = ComponentKind::MASS_COMPONENT,
          .title = "Mass Component configuration",
-         .tabs  = generalTabs},
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
         {.kind  = ComponentKind::SHOCK_CORD,
          .title = "Shock Cord configuration",
-         .tabs  = generalTabs},
-        {.kind = ComponentKind::PARACHUTE, .title = "Parachute configuration", .tabs = generalTabs},
-        {.kind = ComponentKind::STREAMER, .title = "Streamer configuration", .tabs = generalTabs},
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
+        {.kind  = ComponentKind::PARACHUTE,
+         .title = "Parachute configuration",
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
+        {.kind  = ComponentKind::STREAMER,
+         .title = "Streamer configuration",
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
     };
 }
 

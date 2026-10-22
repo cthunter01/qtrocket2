@@ -113,8 +113,12 @@ TEST_F(ConfigPanelFactoryTest, TheGeneralTabHoldsTheSharedPanelsInJavasOrder)
     EXPECT_EQ(general->layout()->indexOf(material), 2);
     EXPECT_EQ(lug->tabs().tabToolTip(0), QStringLiteral("General properties"));
 
-    const auto cord =
-        createdPanel(*design.document, services, design.component(ComponentKind::SHOCK_CORD));
+    // The shared panels of a shock cord (ShockCordConfig is the factory's panel of the kind).
+    CreatedPanel cord;
+    cord.panel = ConfigPanelFactory::createWithSharedPanels(
+        *design.document, services.services(),
+        std::make_shared<ComponentSelection>(design.component(ComponentKind::SHOCK_CORD)),
+        cord.host.get());
     const QWidget* cordGeneral   = cord->tabs().widget(0);
     const auto*    cordMaterial  = cordGeneral->findChild<MaterialPanel*>();
     const auto*    cordPlacement = cordGeneral->findChild<PlacementPanel*>();

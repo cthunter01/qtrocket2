@@ -11,11 +11,18 @@ target_sources(QtRocket_gui PRIVATE
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
     InnerTubeConfig.cpp ${gui_include_dir}/configdialog/InnerTubeConfig.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
+    MassComponentConfig.cpp ${gui_include_dir}/configdialog/MassComponentConfig.h
+    MassObjectFields.cpp ${gui_include_dir}/configdialog/MassObjectFields.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h
     MotorConfig.cpp ${gui_include_dir}/configdialog/MotorConfig.h
+    ParachuteConfig.cpp ${gui_include_dir}/configdialog/ParachuteConfig.h
     PlacementPanel.cpp ${gui_include_dir}/configdialog/PlacementPanel.h
+    RadialPositionPanel.cpp ${gui_include_dir}/configdialog/RadialPositionPanel.h
+    RecoveryDeviceConfig.cpp ${gui_include_dir}/configdialog/RecoveryDeviceConfig.h
     RingComponentConfig.cpp ${gui_include_dir}/configdialog/RingComponentConfig.h
     RocketComponentConfig.cpp ${gui_include_dir}/configdialog/RocketComponentConfig.h
+    ShockCordConfig.cpp ${gui_include_dir}/configdialog/ShockCordConfig.h
     ShoulderPanel.cpp ${gui_include_dir}/configdialog/ShoulderPanel.h
+    StreamerConfig.cpp ${gui_include_dir}/configdialog/StreamerConfig.h
     ThicknessRingComponentConfig.cpp ${gui_include_dir}/configdialog/ThicknessRingComponentConfig.h
 )

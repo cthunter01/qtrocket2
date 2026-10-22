@@ -12,12 +12,20 @@ target_sources(QtRocket_gui_tests PRIVATE
     ConfigPanelFactoryTests.cpp
     InnerTubeConfigTests.cpp
     InstancesPanelTests.cpp
+    MassComponentConfigTests.cpp
+    MassObjectFieldsTests.cpp
+    MassPanelTestSupport.cpp
     MaterialPanelTests.cpp
     MotorConfigTests.cpp
+    ParachuteConfigTests.cpp
     PlacementPanelTests.cpp
+    RadialPositionPanelTests.cpp
+    RecoveryDeviceConfigTests.cpp
     RingComponentConfigTests.cpp
     RingPanelTestSupport.cpp
     RocketComponentConfigTests.cpp
+    ShockCordConfigTests.cpp
     ShoulderPanelTests.cpp
+    StreamerConfigTests.cpp
     ThicknessRingComponentConfigTests.cpp
 )

@@ -12,11 +12,15 @@
 #include "QtRocket/gui/configdialog/CenteringRingConfig.h"
 #include "QtRocket/gui/configdialog/InnerTubeConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
+#include "QtRocket/gui/configdialog/MassComponentConfig.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/MotorConfig.h"
+#include "QtRocket/gui/configdialog/ParachuteConfig.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
+#include "QtRocket/gui/configdialog/ShockCordConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
+#include "QtRocket/gui/configdialog/StreamerConfig.h"
 #include "QtRocket/gui/configdialog/ThicknessRingComponentConfig.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -270,19 +274,19 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::MASS_COMPONENT:
             // MassComponentConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<MassComponentConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::SHOCK_CORD:
             // ShockCordConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ShockCordConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::PARACHUTE:
             // ParachuteConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ParachuteConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::STREAMER:
             // StreamerConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<StreamerConfig>(parent, document, services, std::move(selection));
     }
     // NOLINTEND(bugprone-branch-clone)
     QTROCKET_UNREACHABLE();
