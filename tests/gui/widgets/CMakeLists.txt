@@ -5,6 +5,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     BoolCheckBoxTests.cpp
     ConfigurationComboBoxTests.cpp
     DescriptionAreaTests.cpp
+    DropdownButtonTests.cpp
     EnumComboBoxTests.cpp
     FieldEnablingTests.cpp
     FlowLayoutTests.cpp

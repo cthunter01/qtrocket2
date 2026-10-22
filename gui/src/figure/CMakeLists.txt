@@ -6,6 +6,10 @@ target_sources(QtRocket_gui PRIVATE
     CPCaret.cpp ${gui_include_dir}/figure/CPCaret.h
     DesignPhysics.cpp ${gui_include_dir}/figure/DesignPhysics.h
     ${gui_include_dir}/figure/FigureElement.h
+    FinPointEditHistory.cpp ${gui_include_dir}/figure/FinPointEditHistory.h
+    FinPointFigure.cpp ${gui_include_dir}/figure/FinPointFigure.h
+    FinPointScrollArea.cpp ${gui_include_dir}/figure/FinPointScrollArea.h
+    FinPointSelection.cpp ${gui_include_dir}/figure/FinPointSelection.h
     RocketFigure.cpp ${gui_include_dir}/figure/RocketFigure.h
     RocketFigurePainter.cpp ${gui_include_dir}/figure/RocketFigurePainter.h
     RocketInfo.cpp ${gui_include_dir}/figure/RocketInfo.h

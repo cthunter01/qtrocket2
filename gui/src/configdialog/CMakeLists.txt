@@ -8,8 +8,10 @@ target_sources(QtRocket_gui PRIVATE
     ConfigFields.cpp ${gui_include_dir}/configdialog/ConfigFields.h
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
     EllipticalFinSetConfig.cpp ${gui_include_dir}/configdialog/EllipticalFinSetConfig.h
+    FinPointTableModel.cpp ${gui_include_dir}/configdialog/FinPointTableModel.h
     FinSetConfig.cpp ${gui_include_dir}/configdialog/FinSetConfig.h
     FinTabCalculator.cpp ${gui_include_dir}/configdialog/FinTabCalculator.h
+    FreeformFinSetConfig.cpp ${gui_include_dir}/configdialog/FreeformFinSetConfig.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
     LaunchLugConfig.cpp ${gui_include_dir}/configdialog/LaunchLugConfig.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h

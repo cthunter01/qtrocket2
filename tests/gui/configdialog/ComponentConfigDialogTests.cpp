@@ -124,7 +124,7 @@ struct KindTabs
          .tabs  = {general, QStringLiteral("Fin tabs"), override, comment}},
         {.kind  = ComponentKind::FREEFORM_FIN_SET,
          .title = "Freeform Fin Set configuration",
-         .tabs  = generalTabs},
+         .tabs = {general, QStringLiteral("Shape"), QStringLiteral("Fin tabs"), override, comment}},
         {.kind  = ComponentKind::TUBE_FIN_SET,
          .title = "Tube Fin Set configuration",
          .tabs  = generalTabs},

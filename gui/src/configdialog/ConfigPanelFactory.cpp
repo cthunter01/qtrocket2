@@ -10,6 +10,7 @@
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/BodyTubeConfig.h"
 #include "QtRocket/gui/configdialog/EllipticalFinSetConfig.h"
+#include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/LaunchLugConfig.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
@@ -238,7 +239,8 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::FREEFORM_FIN_SET:
             // FreeformFinSetConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<FreeformFinSetConfig>(parent, document, services,
+                                                   std::move(selection));
 
         case ComponentKind::TUBE_FIN_SET:
             // TubeFinSetConfig

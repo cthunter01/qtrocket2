@@ -5,6 +5,7 @@ target_sources(QtRocket_gui PRIVATE
     BoolCheckBox.cpp ${gui_include_dir}/widgets/BoolCheckBox.h
     ConfigurationComboBox.cpp ${gui_include_dir}/widgets/ConfigurationComboBox.h
     DescriptionArea.cpp ${gui_include_dir}/widgets/DescriptionArea.h
+    DropdownButton.cpp ${gui_include_dir}/widgets/DropdownButton.h
     EnumComboBox.cpp ${gui_include_dir}/widgets/EnumComboBox.h
     FieldEnabling.cpp ${gui_include_dir}/widgets/FieldEnabling.h
     FlowLayout.cpp ${gui_include_dir}/widgets/FlowLayout.h

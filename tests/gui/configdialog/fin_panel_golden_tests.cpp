@@ -68,7 +68,6 @@
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
 #include "QtRocket/rocket/FinSet.h"
-#include "QtRocket/rocket/FreeformFinSet.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -99,7 +98,6 @@ using Test::pinnedDesignDocument;
 using Test::pinnedLineDifferences;
 using Test::quoted;
 using Test::quotedOrNull;
-using Test::tabTitles;
 using Test::withDifference;
 
 // ------------------------------------------------------------------------------- the lines
@@ -882,37 +880,6 @@ void replaceInStep(std::vector<std::string>& lines, std::string_view step,
     ADD_FAILURE() << "the pin has no " << javaLine << " in " << header;
 }
 
-/// Until the freeform fin set has a panel of its own (part D1d), its dialog has no tab "Fin
-/// tabs": it opens on "General" where OpenRocket's opens on the remembered "Fin tabs", and the
-/// dialogs after it remember "General". So every dialog line's tab "Fin tabs" of @p lines is
-/// "General", but in the step @p keptStep (where the test selects "Fin tabs" itself).
-void withoutFreeformFinTabs(std::vector<std::string>& lines, std::string_view keptStep)
-{
-    const std::string kept   = std::format("-- {}", keptStep);
-    bool              inKept = false;
-    for (std::string& line : lines)
-    {
-        if (line.starts_with("-- "))
-        {
-            inKept = line == kept;
-        }
-        const std::size_t tab = line.find(" tab=\"Fin tabs\" ");
-        if (!inKept && line.starts_with("dialog ") && tab != std::string::npos)
-        {
-            line.replace(tab, std::string_view(" tab=\"Fin tabs\" ").size(), " tab=\"General\" ");
-        }
-    }
-}
-
-/// Whether the dialog of a freeform fin set has the tab "Fin tabs" (part D1d's panel).
-[[nodiscard]] bool freeformDialogHasFinTabs(const ConfigDialogServices& services)
-{
-    const std::unique_ptr<OpenRocketDocument> document =
-        onBodyTube([](BodyTube& body) { body.addChild(std::make_unique<FreeformFinSet>()); });
-    const Test::FactoryPanel<> panel(*document, services, *preorder(*document).at(3));
-    return tabTitles(*panel).contains(QStringLiteral("Fin tabs"));
-}
-
 /// The differences between QtRocket's lines @p actual and @p expected.
 [[nodiscard]] std::string flowDifferences(const std::vector<std::string>& actual,
                                           const std::vector<std::string>& expected)
@@ -982,11 +949,9 @@ constexpr std::string_view kAllConvertedFour =
 }
 
 /// The differences of every dialog run of @p actual from @p expected (the pins in the order of
-/// kFinDialogPins, adjusted by withoutFreeformFinTabs() unless @p freeformFinTabs), each run
-/// named.
+/// kFinDialogPins), each run named.
 [[nodiscard]] std::string allFlowDifferences(const std::vector<std::vector<std::string>>& actual,
-                                             std::vector<std::vector<std::string>>        expected,
-                                             bool freeformFinTabs)
+                                             const std::vector<std::vector<std::string>>& expected)
 {
     if (actual.size() != expected.size() || expected.size() != kFinDialogPins.size())
     {
@@ -995,11 +960,6 @@ constexpr std::string_view kAllConvertedFour =
     std::string differences;
     for (std::size_t i = 0; i < expected.size(); ++i)
     {
-        if (!freeformFinTabs && i >= 1)
-        {
-            // In "convert one from fin tabs" the test selects "Fin tabs" itself before converting.
-            withoutFreeformFinTabs(expected[i], i == 1 ? "shown" : "");
-        }
         const std::string run = flowDifferences(actual[i], expected[i]);
         if (!run.empty())
         {
@@ -1016,7 +976,6 @@ TEST_F(FinDialogFlowsGolden, ConvertSplitAndCalculateAsOpenRocket)
     const ConfigDialogServices services;
     QWidget                    window;
     DialogReplay               replay(window, services);
-    const bool                 finTabs = freeformDialogHasFinTabs(services);
 
     std::vector<std::vector<std::string>> expected;
     std::vector<std::vector<std::string>> actual;
@@ -1040,7 +999,7 @@ TEST_F(FinDialogFlowsGolden, ConvertSplitAndCalculateAsOpenRocket)
     expected.push_back(dialogPin("split single fin"));
     actual.push_back(autoCalcFlow(replay));
     expected.push_back(dialogPin("autocalc"));
-    EXPECT_EQ(allFlowDifferences(actual, std::move(expected), finTabs), "");
+    EXPECT_EQ(allFlowDifferences(actual, expected), "");
 }
 
 TEST_F(FinDialogFlowsGolden, OpenRocketConvertsAndSplitsOnlyTwoSelectedFinSets)

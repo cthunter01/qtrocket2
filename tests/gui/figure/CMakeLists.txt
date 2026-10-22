@@ -5,6 +5,11 @@ target_sources(QtRocket_gui_tests PRIVATE
     CGCaretTests.cpp
     CPCaretTests.cpp
     DesignPhysicsTests.cpp
+    FinPointEditHistoryTests.cpp
+    FinPointFigureTests.cpp
+    FinPointScrollAreaTests.cpp
+    FinPointSelectionTests.cpp
+    FinPointTestSupport.cpp
     PaintedRegionRecorder.cpp
     RecordingPaintDevice.cpp
     rocket_figure_paint_golden_tests.cpp
