@@ -3,6 +3,7 @@
 target_sources(QtRocket_gui_tests PRIVATE
     BindingScopeTests.cpp
     BoolCheckBoxTests.cpp
+    ConfigurationComboBoxTests.cpp
     DescriptionAreaTests.cpp
     EnumComboBoxTests.cpp
     FieldEnablingTests.cpp
@@ -13,8 +14,12 @@ target_sources(QtRocket_gui_tests PRIVATE
     IntSpinBoxTests.cpp
     MaterialComboBoxTests.cpp
     number_field_tests.cpp
+    ribbon_golden_tests.cpp
+    RibbonTestSupport.cpp
     SelectionKeyFilterTests.cpp
+    SingleRowScrollAreaTests.cpp
     SpinBoxEditingTests.cpp
+    StageSelectorTests.cpp
     StyledLabelTests.cpp
     TextCommitterTests.cpp
     UnitSelectorTests.cpp

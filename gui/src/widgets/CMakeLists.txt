@@ -3,6 +3,7 @@
 target_sources(QtRocket_gui PRIVATE
     BindingScope.cpp ${gui_include_dir}/widgets/BindingScope.h
     BoolCheckBox.cpp ${gui_include_dir}/widgets/BoolCheckBox.h
+    ConfigurationComboBox.cpp ${gui_include_dir}/widgets/ConfigurationComboBox.h
     DescriptionArea.cpp ${gui_include_dir}/widgets/DescriptionArea.h
     EnumComboBox.cpp ${gui_include_dir}/widgets/EnumComboBox.h
     FieldEnabling.cpp ${gui_include_dir}/widgets/FieldEnabling.h
@@ -13,7 +14,9 @@ target_sources(QtRocket_gui PRIVATE
     IntSpinBox.cpp ${gui_include_dir}/widgets/IntSpinBox.h
     MaterialComboBox.cpp ${gui_include_dir}/widgets/MaterialComboBox.h
     SelectionKeyFilter.cpp ${gui_include_dir}/widgets/SelectionKeyFilter.h
+    SingleRowScrollArea.cpp ${gui_include_dir}/widgets/SingleRowScrollArea.h
     SpinBoxEditing.cpp ${gui_include_dir}/widgets/SpinBoxEditing.h
+    StageSelector.cpp ${gui_include_dir}/widgets/StageSelector.h
     StyledLabel.cpp ${gui_include_dir}/widgets/StyledLabel.h
     TextCommitter.cpp ${gui_include_dir}/widgets/TextCommitter.h
     UnitSelector.cpp ${gui_include_dir}/widgets/UnitSelector.h
