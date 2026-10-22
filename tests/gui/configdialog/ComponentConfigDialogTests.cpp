@@ -97,15 +97,17 @@ struct KindTabs
     const QString     general  = QStringLiteral("General");
     const QStringList generalTabs{general, override, comment};
     return {
+        // RocketConfig hides its base's tab widget, which keeps its tabs (Java's removeAll()).
         {.kind  = ComponentKind::ROCKET,
          .title = "Rocket configuration",
          .tabs  = {override, comment}},
         {.kind  = ComponentKind::AXIAL_STAGE,
          .title = "Stage configuration",
-         .tabs  = {override, comment}},
+         .tabs  = {override, comment, QStringLiteral("Recovery")}},
         {.kind  = ComponentKind::PARALLEL_STAGE,
          .title = "Booster Set configuration",
-         .tabs  = generalTabs},
+         .tabs  = {QStringLiteral("Separation"), general, override, comment,
+                   QStringLiteral("Recovery")}},
         {.kind = ComponentKind::POD_SET, .title = "Pod Set configuration", .tabs = generalTabs},
         {.kind  = ComponentKind::BODY_TUBE,
          .title = "Body Tube configuration",
@@ -136,7 +138,8 @@ struct KindTabs
          .tabs  = generalTabs},
         {.kind  = ComponentKind::INNER_TUBE,
          .title = "Inner Tube configuration",
-         .tabs  = {general, QStringLiteral("Motor"), override, comment}},
+         .tabs  = {general, QStringLiteral("Motor"), QStringLiteral("Cluster"),
+                   QStringLiteral("Radial position"), override, comment}},
         {.kind  = ComponentKind::TUBE_COUPLER,
          .title = "Tube Coupler configuration",
          .tabs  = generalTabs},
@@ -149,12 +152,16 @@ struct KindTabs
         {.kind = ComponentKind::BULKHEAD, .title = "Bulkhead configuration", .tabs = generalTabs},
         {.kind  = ComponentKind::MASS_COMPONENT,
          .title = "Mass Component configuration",
-         .tabs  = generalTabs},
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
         {.kind  = ComponentKind::SHOCK_CORD,
          .title = "Shock Cord configuration",
-         .tabs  = generalTabs},
-        {.kind = ComponentKind::PARACHUTE, .title = "Parachute configuration", .tabs = generalTabs},
-        {.kind = ComponentKind::STREAMER, .title = "Streamer configuration", .tabs = generalTabs},
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
+        {.kind  = ComponentKind::PARACHUTE,
+         .title = "Parachute configuration",
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
+        {.kind  = ComponentKind::STREAMER,
+         .title = "Streamer configuration",
+         .tabs  = {general, QStringLiteral("Radial position"), override, comment}},
     };
 }
 

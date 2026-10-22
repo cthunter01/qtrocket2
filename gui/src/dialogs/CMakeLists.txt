@@ -3,4 +3,5 @@
 target_sources(QtRocket_gui PRIVATE
     DetailDialog.cpp ${gui_include_dir}/dialogs/DetailDialog.h
     InternalErrorDialog.cpp ${gui_include_dir}/dialogs/InternalErrorDialog.h
+    SaveDesignInfoDialog.cpp ${gui_include_dir}/dialogs/SaveDesignInfoDialog.h
 )

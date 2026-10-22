@@ -8,18 +8,29 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/configdialog/AxialStageConfig.h"
 #include "QtRocket/gui/configdialog/BodyTubeConfig.h"
+#include "QtRocket/gui/configdialog/BulkheadConfig.h"
+#include "QtRocket/gui/configdialog/CenteringRingConfig.h"
+#include "QtRocket/gui/configdialog/ComponentAssemblyConfig.h"
 #include "QtRocket/gui/configdialog/EllipticalFinSetConfig.h"
 #include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
+#include "QtRocket/gui/configdialog/InnerTubeConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/LaunchLugConfig.h"
+#include "QtRocket/gui/configdialog/MassComponentConfig.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/MotorConfig.h"
 #include "QtRocket/gui/configdialog/NoseConeConfig.h"
+#include "QtRocket/gui/configdialog/ParachuteConfig.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
 #include "QtRocket/gui/configdialog/RailButtonConfig.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
+#include "QtRocket/gui/configdialog/RocketConfig.h"
+#include "QtRocket/gui/configdialog/ShockCordConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
+#include "QtRocket/gui/configdialog/StreamerConfig.h"
+#include "QtRocket/gui/configdialog/ThicknessRingComponentConfig.h"
 #include "QtRocket/gui/configdialog/TransitionConfig.h"
 #include "QtRocket/gui/configdialog/TrapezoidFinSetConfig.h"
 #include "QtRocket/gui/configdialog/TubeFinSetConfig.h"
@@ -201,19 +212,20 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
     {
         case ComponentKind::ROCKET:
             // RocketConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<RocketConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::AXIAL_STAGE:
             // AxialStageConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<AxialStageConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::PARALLEL_STAGE:
             // AxialStageConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<AxialStageConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::POD_SET:
             // ComponentAssemblyConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ComponentAssemblyConfig>(parent, document, services,
+                                                      std::move(selection));
 
         case ComponentKind::BODY_TUBE:
             // BodyTubeConfig
@@ -256,39 +268,41 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::INNER_TUBE:
             // InnerTubeConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<InnerTubeConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::TUBE_COUPLER:
             // ThicknessRingComponentConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ThicknessRingComponentConfig>(parent, document, services,
+                                                           std::move(selection));
 
         case ComponentKind::ENGINE_BLOCK:
             // ThicknessRingComponentConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ThicknessRingComponentConfig>(parent, document, services,
+                                                           std::move(selection));
 
         case ComponentKind::CENTERING_RING:
             // CenteringRingConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<CenteringRingConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::BULKHEAD:
             // BulkheadConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<BulkheadConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::MASS_COMPONENT:
             // MassComponentConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<MassComponentConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::SHOCK_CORD:
             // ShockCordConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ShockCordConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::PARACHUTE:
             // ParachuteConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ParachuteConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::STREAMER:
             // StreamerConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<StreamerConfig>(parent, document, services, std::move(selection));
     }
     // NOLINTEND(bugprone-branch-clone)
     QTROCKET_UNREACHABLE();

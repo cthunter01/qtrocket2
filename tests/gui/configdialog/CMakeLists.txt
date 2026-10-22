@@ -1,10 +1,17 @@
 # The tests of the GUI area configdialog (gui/src/configdialog): XTests.cpp for the class X, lower_snake_case_tests.cpp
 # for tests about no one class, in alphabetical order (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
+    AssemblyPanelTestSupport.cpp
+    AxialStageConfigTests.cpp
     body_panel_golden_tests.cpp
     BodyPanelTestSupport.cpp
     BodyTubeConfigTests.cpp
+    BulkheadConfigTests.cpp
+    CenteringRingConfigTests.cpp
+    ClusterButtonTests.cpp
+    ClusterSelectionPanelTests.cpp
     CommonStringsTests.cpp
+    ComponentAssemblyConfigTests.cpp
     ComponentConfigDialogTests.cpp
     ConfigDialogTestSupport.cpp
     ConfigFieldsTests.cpp
@@ -17,18 +24,31 @@ target_sources(QtRocket_gui_tests PRIVATE
     FinTabCalculatorTests.cpp
     freeform_panel_golden_tests.cpp
     FreeformFinSetConfigTests.cpp
+    InnerTubeConfigTests.cpp
     InstancesPanelTests.cpp
     LaunchLugConfigTests.cpp
     lug_panel_golden_tests.cpp
+    MassComponentConfigTests.cpp
+    MassObjectFieldsTests.cpp
+    MassPanelTestSupport.cpp
     MaterialPanelTests.cpp
     MotorConfigTests.cpp
     NoseConeConfigTests.cpp
     PanelProbeLines.cpp
     PanelReplay.cpp
+    ParachuteConfigTests.cpp
     PlacementPanelTests.cpp
+    RadialPositionPanelTests.cpp
     RailButtonConfigTests.cpp
+    RecoveryDeviceConfigTests.cpp
+    RingComponentConfigTests.cpp
+    RingPanelTestSupport.cpp
     RocketComponentConfigTests.cpp
+    RocketConfigTests.cpp
+    ShockCordConfigTests.cpp
     ShoulderPanelTests.cpp
+    StreamerConfigTests.cpp
+    ThicknessRingComponentConfigTests.cpp
     TransitionConfigTests.cpp
     TrapezoidFinSetConfigTests.cpp
     TubeFinSetConfigTests.cpp

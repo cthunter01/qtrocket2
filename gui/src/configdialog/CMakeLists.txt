@@ -1,9 +1,15 @@
 # GUI area 7, configdialog: the component configuration dialog and its panels.
 # Each source with its header (${gui_include_dir}/configdialog/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
+    AxialStageConfig.cpp ${gui_include_dir}/configdialog/AxialStageConfig.h
     BodyComponentFields.cpp ${gui_include_dir}/configdialog/BodyComponentFields.h
     BodyTubeConfig.cpp ${gui_include_dir}/configdialog/BodyTubeConfig.h
+    BulkheadConfig.cpp ${gui_include_dir}/configdialog/BulkheadConfig.h
+    CenteringRingConfig.cpp ${gui_include_dir}/configdialog/CenteringRingConfig.h
+    ClusterButton.cpp ${gui_include_dir}/configdialog/ClusterButton.h
+    ClusterSelectionPanel.cpp ${gui_include_dir}/configdialog/ClusterSelectionPanel.h
     CommonStrings.cpp ${gui_include_dir}/configdialog/CommonStrings.h
+    ComponentAssemblyConfig.cpp ${gui_include_dir}/configdialog/ComponentAssemblyConfig.h
     ComponentConfigDialog.cpp ${gui_include_dir}/configdialog/ComponentConfigDialog.h
     ConfigFields.cpp ${gui_include_dir}/configdialog/ConfigFields.h
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
@@ -12,15 +18,26 @@ target_sources(QtRocket_gui PRIVATE
     FinSetConfig.cpp ${gui_include_dir}/configdialog/FinSetConfig.h
     FinTabCalculator.cpp ${gui_include_dir}/configdialog/FinTabCalculator.h
     FreeformFinSetConfig.cpp ${gui_include_dir}/configdialog/FreeformFinSetConfig.h
+    InnerTubeConfig.cpp ${gui_include_dir}/configdialog/InnerTubeConfig.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
     LaunchLugConfig.cpp ${gui_include_dir}/configdialog/LaunchLugConfig.h
+    MassComponentConfig.cpp ${gui_include_dir}/configdialog/MassComponentConfig.h
+    MassObjectFields.cpp ${gui_include_dir}/configdialog/MassObjectFields.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h
     MotorConfig.cpp ${gui_include_dir}/configdialog/MotorConfig.h
     NoseConeConfig.cpp ${gui_include_dir}/configdialog/NoseConeConfig.h
+    ParachuteConfig.cpp ${gui_include_dir}/configdialog/ParachuteConfig.h
     PlacementPanel.cpp ${gui_include_dir}/configdialog/PlacementPanel.h
+    RadialPositionPanel.cpp ${gui_include_dir}/configdialog/RadialPositionPanel.h
     RailButtonConfig.cpp ${gui_include_dir}/configdialog/RailButtonConfig.h
+    RecoveryDeviceConfig.cpp ${gui_include_dir}/configdialog/RecoveryDeviceConfig.h
+    RingComponentConfig.cpp ${gui_include_dir}/configdialog/RingComponentConfig.h
     RocketComponentConfig.cpp ${gui_include_dir}/configdialog/RocketComponentConfig.h
+    RocketConfig.cpp ${gui_include_dir}/configdialog/RocketConfig.h
+    ShockCordConfig.cpp ${gui_include_dir}/configdialog/ShockCordConfig.h
     ShoulderPanel.cpp ${gui_include_dir}/configdialog/ShoulderPanel.h
+    StreamerConfig.cpp ${gui_include_dir}/configdialog/StreamerConfig.h
+    ThicknessRingComponentConfig.cpp ${gui_include_dir}/configdialog/ThicknessRingComponentConfig.h
     TransitionConfig.cpp ${gui_include_dir}/configdialog/TransitionConfig.h
     TrapezoidFinSetConfig.cpp ${gui_include_dir}/configdialog/TrapezoidFinSetConfig.h
     TubeFinSetConfig.cpp ${gui_include_dir}/configdialog/TubeFinSetConfig.h
