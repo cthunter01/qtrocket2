@@ -11,8 +11,8 @@ format versions 1.0 to 1.11 and writes 1.11, OpenRocket's current format) and th
 Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_core`), and the command-line tool
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
-OpenRocket's unit tests. Milestone 2, under way, builds the graphical user interface: the program `QtRocket`
-(Qt 6 Widgets), which so far opens the window of a new design with its menus.
+OpenRocket's unit tests. Milestone 2 adds the graphical program `QtRocket` (Qt 6 Widgets), which designs rockets
+as OpenRocket's Design tab does, without motors, simulations and appearance yet ([The GUI](#the-gui)).
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -80,14 +80,39 @@ CI (GitHub Actions) builds and tests on all three: Linux (`ci-gcc`, `ci-clang`, 
 API docs: `cmake --build --preset clang-debug --target docs`, then open `build/clang-debug/docs/html/index.html`.
 
 ## The GUI
-`QtRocket` is the graphical program (Qt 6 Widgets), which Milestone 2 builds: so far it opens the window of a new
-design, with its menus (New, Close design and Quit work; the design panel, the figure and the other items are still
-empty). Design files named on the command line are not opened yet. `QtRocket --version` prints its version and
-`QtRocket --help` its options, also without a display; on Windows the program has no console of its own, so their
-text shows only when it goes to a file or a pipe (`QtRocket.exe --version | more`). Its preferences are kept in an
-INI file: `~/.config/QtRocket/QtRocket.ini` on Linux (under `$XDG_CONFIG_HOME` when that is set) and macOS,
-`%APPDATA%\QtRocket\QtRocket.ini` on Windows. The release archives hold the command-line tool alone until the GUI
-is released (Milestone 9).
+`QtRocket` is the graphical program. It follows OpenRocket's GUI: its windows, dialogs, texts and rules.
+Milestone 2 gives it what OpenRocket's Design tab offers but motors, simulations and appearance:
+
+- A window per design: the component tree beside the buttons that add components, and below them the design view,
+  the rocket from the side, the top or the back, with zoom, rotation, rulers, the CG and CP, the stage and flight
+  configuration selectors, and the length, diameter, masses, stability, CG and CP over the figure.
+- The configuration dialog of every kind of component, also for several components at once: the shape, the
+  placement, materials, the motor mount tab, the stage's separation and recovery tabs, the Override (mass, CG,
+  CD) and Comment tabs, and the freeform fin editor (point table, dragging points, its own undo, CSV export,
+  import from an image).
+- Edit: undo and redo, cut, copy, paste, duplicate, delete, move up and down, dragging components in the tree
+  (also from one window to another), hiding and showing components, and disabling and enabling stages.
+- File: New, Open (the `.ork` files `QtRocket_cli` reads), Open recent, Open example (OpenRocket's 16 example
+  designs), Save, Save as (with the design information), Properties, Close design and Quit.
+- Preferences: the units, the design options and "Open last design file on startup".
+
+`QtRocket [file...]` opens the design files it is given, each in a window of its own; without one it opens the most
+recent design when the preference "Open last design file on startup" is set, and a New design otherwise. On macOS,
+the files the Finder asks it to open open too. `QtRocket --version` prints its version and `QtRocket --help` its
+options, also without a display; on Windows the program has no console of its own, so their text shows only when it
+goes to a file or a pipe (`QtRocket.exe --version | more`). The program finds the motor database and the example
+designs in `<directory of the program>/../share/QtRocket`, as `QtRocket_cli` does; the build tree has them there.
+
+It needs a desktop and, at run time, the Qt it was built with (Qt 6.8 or newer, the modules of
+[Requirements](#requirements); on Windows, Qt's `bin` on `PATH`). It uses the platform's widget style and follows
+its light or dark scheme. Its preferences are kept in an INI file: `~/.config/QtRocket/QtRocket.ini` on Linux
+(under `$XDG_CONFIG_HOME` when that is set) and macOS, `%APPDATA%\QtRocket\QtRocket.ini` on Windows; OpenRocket's
+preferences are not read. The release archives hold the command-line tool alone until the GUI is released
+(Milestone 9).
+
+[docs/gui-differences.md](docs/gui-differences.md) lists every difference from OpenRocket's GUI that a user can
+notice: the OpenRocket bugs QtRocket fixes, editing several components at once, and the smaller differences of
+each window, with what comes in later milestones.
 
 ## The command-line tool
 `QtRocket_cli` loads `.ork` designs, prints their key figures, runs their simulations and lists motors:
@@ -188,8 +213,14 @@ uses the standard directories (`cmake --install build/<preset> --prefix <dir>`).
 The core's tests are in `QtRocket_core_tests` (GoogleTest, `tests/core/<subsystem>/`), plus the tests that run
 `QtRocket_cli` as a program and check its exit codes, output and files (`tests/core/cli/`). The GUI's tests are in
 `QtRocket_gui_tests` (GoogleTest with QtTest's helpers, `tests/gui/<area>/`); they run on Qt's offscreen platform,
-so no window appears. The lint tests (`tests/lint/`) check rules of the source tree that the compiler cannot, such
-as the include order of the layers. Test data lives in `tests/data/`. ctest labels select parts of the suite:
+so no window appears. Two exit suites check the GUI as a whole against OpenRocket (`tests/gui/exit/`):
+`FromScratchExitGolden` designs a rocket from scratch through the GUI alone (the add buttons, the dialogs' fields,
+undo, copy and paste, Save as), then compares every step and the saved file with what OpenRocket's own GUI code did
+with the same steps (`tools/openrocket-gui-reference/`); `OpenDesignsExitGolden` opens OpenRocket's 16 examples,
+the 49 re-saves of its golden harness and that reference design in QtRocket's windows and compares the tree, the
+dialogs' fields, the figure and the information overlay with OpenRocket's golden data. The lint tests
+(`tests/lint/`) check rules of the source tree that the compiler cannot, such as the include order of the layers.
+Test data lives in `tests/data/`. ctest labels select parts of the suite:
 
 ```sh
 ctest --preset clang-debug                 # everything
@@ -201,17 +232,18 @@ ctest --preset clang-debug -LE golden      # everything but the golden compariso
 build/clang-debug/bin/QtRocket_core_tests --gtest_filter='BodyTube.*'
 ```
 
-A GoogleTest suite whose name contains `Golden` gets the label `golden`, whatever its file; the comparisons are
-mostly in `*_golden_tests.cpp`, and the CLI's milestone run (`cli.milestone`) carries the label too. Re-run them
-after any change to the aerodynamics, mass, simulation, component geometry or file code.
+A GoogleTest suite whose name contains `Golden` gets the label `golden`, whatever its file, in both test
+executables (the GUI's keep the label `gui` too); the comparisons are mostly in `*_golden_tests.cpp`, and the CLI's
+milestone run (`cli.milestone`) carries the label too. Re-run them after any change to the aerodynamics, mass,
+simulation, component geometry, figure or file code.
 
 ### Golden data
 `tests/data/goldens/` holds what OpenRocket computes for its 16 example designs and the 13 rockets of its
 `TestRockets` class: geometry, mass and aerodynamics per flight configuration, the complete simulations at the
 designs' own time step, the simulations at a stable 0.01 s step (complete for the test rockets; the summaries and
-events for the examples), and OpenRocket's own re-save of each design. The Java harness in
-`tools/openrocket-goldens/` writes it from a local OpenRocket checkout; CMake and CI never need Java. To regenerate
-(JDK 17 and an OpenRocket checkout at the commit `tests/data/goldens/manifest.json` records):
+events for the examples), the shapes of the 2D figure in five views, and OpenRocket's own re-save of each design.
+The Java harness in `tools/openrocket-goldens/` writes it from a local OpenRocket checkout; CMake and CI never need
+Java. To regenerate (JDK 17 and an OpenRocket checkout at the commit `tests/data/goldens/manifest.json` records):
 
 ```sh
 tools/openrocket-goldens/generate.sh
@@ -220,6 +252,12 @@ ctest --preset clang-debug -L golden
 
 [tools/openrocket-goldens/README.md](tools/openrocket-goldens/README.md) describes the harness, the file formats,
 the tolerances of the comparisons and the other fixtures it can write.
+
+The GUI's references come from OpenRocket's Swing classes the same way. `tools/openrocket-gui-reference/` runs
+OpenRocket's GUI code on a scenario of GUI steps and writes `tests/data/goldens/gui/from-scratch/` (the scenario,
+the steps' states and OpenRocket's save). The tables the GUI's tests compare with (the `*Pins.h` headers, which
+name their generator, and a few tables in test files) are written by Java probes in `tools/openrocket-gui-pins/`
+and `tools/openrocket-panel-pins/`. Each tool's README says how to run it.
 
 ## Releases
 The Release workflow (`.github/workflows/release.yml`) runs only when started by hand, never on a push:
@@ -250,5 +288,5 @@ before it runs, and Windows SmartScreen warns the first time.
 QtRocket is free software under the GNU General Public License, version 3 or (at your option) any later version:
 see [LICENSE](LICENSE). It is a re-implementation of OpenRocket, Copyright (C) 2007-2025 Sampo Niskanen and
 others, also licensed under the GPL version 3 or later; the motor database, the example designs and the test
-designs are OpenRocket's. [NOTICE](NOTICE) gives the details and the notices of the third-party libraries that the
-program contains.
+designs are OpenRocket's, and so are the GUI's icons (some of them Lucide's). [NOTICE](NOTICE) gives the details
+and the notices of the third-party libraries and icons that the programs contain.
