@@ -97,15 +97,17 @@ struct KindTabs
     const QString     general  = QStringLiteral("General");
     const QStringList generalTabs{general, override, comment};
     return {
+        // RocketConfig hides its base's tab widget, which keeps its tabs (Java's removeAll()).
         {.kind  = ComponentKind::ROCKET,
          .title = "Rocket configuration",
          .tabs  = {override, comment}},
         {.kind  = ComponentKind::AXIAL_STAGE,
          .title = "Stage configuration",
-         .tabs  = {override, comment}},
+         .tabs  = {override, comment, QStringLiteral("Recovery")}},
         {.kind  = ComponentKind::PARALLEL_STAGE,
          .title = "Booster Set configuration",
-         .tabs  = generalTabs},
+         .tabs  = {QStringLiteral("Separation"), general, override, comment,
+                   QStringLiteral("Recovery")}},
         {.kind = ComponentKind::POD_SET, .title = "Pod Set configuration", .tabs = generalTabs},
         {.kind  = ComponentKind::BODY_TUBE,
          .title = "Body Tube configuration",

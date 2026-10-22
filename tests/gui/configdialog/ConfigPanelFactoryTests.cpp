@@ -128,8 +128,12 @@ TEST_F(ConfigPanelFactoryTest, TheGeneralTabHoldsTheSharedPanelsInJavasOrder)
     EXPECT_EQ(cordGeneral->layout()->indexOf(cordPlacement), 1);
     EXPECT_EQ(cordMaterial->materialComboBox().binding()->getType(), Material::Type::LINE);
 
-    const auto pods =
-        createdPanel(*design.document, services, design.component(ComponentKind::POD_SET));
+    // The shared panels of a pod set (ComponentAssemblyConfig is the factory's panel of the kind).
+    CreatedPanel pods;
+    pods.panel = ConfigPanelFactory::createWithSharedPanels(
+        *design.document, services.services(),
+        std::make_shared<ComponentSelection>(design.component(ComponentKind::POD_SET)),
+        pods.host.get());
     EXPECT_EQ(pods->tabs().tabToolTip(0),
               QStringLiteral("Options for locating stages parallel to other stages"));
 

@@ -3,4 +3,5 @@
 target_sources(QtRocket_gui_tests PRIVATE
     DetailDialogTests.cpp
     InternalErrorDialogTests.cpp
+    SaveDesignInfoDialogTests.cpp
 )

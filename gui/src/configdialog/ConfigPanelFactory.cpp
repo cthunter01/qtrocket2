@@ -8,8 +8,10 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/configdialog/AxialStageConfig.h"
 #include "QtRocket/gui/configdialog/BulkheadConfig.h"
 #include "QtRocket/gui/configdialog/CenteringRingConfig.h"
+#include "QtRocket/gui/configdialog/ComponentAssemblyConfig.h"
 #include "QtRocket/gui/configdialog/InnerTubeConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/MassComponentConfig.h"
@@ -18,6 +20,7 @@
 #include "QtRocket/gui/configdialog/ParachuteConfig.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
+#include "QtRocket/gui/configdialog/RocketConfig.h"
 #include "QtRocket/gui/configdialog/ShockCordConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
 #include "QtRocket/gui/configdialog/StreamerConfig.h"
@@ -200,19 +203,20 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
     {
         case ComponentKind::ROCKET:
             // RocketConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<RocketConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::AXIAL_STAGE:
             // AxialStageConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<AxialStageConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::PARALLEL_STAGE:
             // AxialStageConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<AxialStageConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::POD_SET:
             // ComponentAssemblyConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<ComponentAssemblyConfig>(parent, document, services,
+                                                      std::move(selection));
 
         case ComponentKind::BODY_TUBE:
             // BodyTubeConfig

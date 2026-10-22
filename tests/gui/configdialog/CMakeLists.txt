@@ -1,11 +1,14 @@
 # The tests of the GUI area configdialog (gui/src/configdialog): XTests.cpp for the class X, lower_snake_case_tests.cpp
 # for tests about no one class, in alphabetical order (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
+    AssemblyPanelTestSupport.cpp
+    AxialStageConfigTests.cpp
     BulkheadConfigTests.cpp
     CenteringRingConfigTests.cpp
     ClusterButtonTests.cpp
     ClusterSelectionPanelTests.cpp
     CommonStringsTests.cpp
+    ComponentAssemblyConfigTests.cpp
     ComponentConfigDialogTests.cpp
     ConfigDialogTestSupport.cpp
     ConfigFieldsTests.cpp
@@ -24,6 +27,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     RingComponentConfigTests.cpp
     RingPanelTestSupport.cpp
     RocketComponentConfigTests.cpp
+    RocketConfigTests.cpp
     ShockCordConfigTests.cpp
     ShoulderPanelTests.cpp
     StreamerConfigTests.cpp
