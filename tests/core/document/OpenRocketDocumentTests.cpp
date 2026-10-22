@@ -64,7 +64,8 @@
 // - "DocumentProbe3" and "DocumentProbe4": this part's (probes/tier9a-document-d3/logs/*.txt);
 // - "Reenter", "DecalUndo", "DecalUndoFile" and "Files": the review fixes'
 //   (probes/tier9a-fix-document/out/*.txt);
-// - "X1Probe": milestone 2 run 4's part X1 (probes/m2r4-X1/java/x1-probe.out).
+// - "X1Probe": milestone 2 run 4's part X1 (tools/openrocket-probes/design-information:
+//   probe/X1Probe.java, its output expected.txt).
 // The expected strings are the lines of those logs. Where this port deviates from OpenRocket by
 // decision, the test says what Java printed.
 //

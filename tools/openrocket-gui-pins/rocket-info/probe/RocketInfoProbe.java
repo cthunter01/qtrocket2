@@ -148,6 +148,7 @@ public class RocketInfoProbe {
 		String[] examples = new File(dir, ".").list((d, n) -> n.endsWith(".ork"));
 		java.util.Arrays.sort(examples);
 		for (String name : examples) {
+			DeterministicUuids.reseed("example:" + name);
 			scenario("example:" + name, load(dir, name), Double.NaN, Double.NaN, Double.NaN, Double.NaN);
 		}
 		String[] makers = {"makeEstesAlphaIII", "makeBeta", "makeSimple2Stage", "makeBigBlue", "makeIsoHaisu",
@@ -155,12 +156,14 @@ public class RocketInfoProbe {
 				"makeEstesAlphaIIIWithMotorPods", "makeEstesAlphaIIIWithSecondMotor", "makeEstesAlphaIIIwithInlinePod",
 				"makeClusterPods"};
 		for (String maker : makers) {
+			DeterministicUuids.reseed("testrocket:" + maker);
 			Rocket rocket = (Rocket) TestRockets.class.getMethod(maker).invoke(null);
 			settle(rocket);
 			scenario("testrocket:" + maker, rocket, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
 		}
 
 		// RocketInfoContextHelperTest.displayPhysicsIncludesGeometryWarnings's design.
+		DeterministicUuids.reseed("special:alpha-discontinuity");
 		Rocket alpha = TestRockets.makeEstesAlphaIII();
 		NoseCone nose = (NoseCone) alpha.getChild(0).getChild(0);
 		BodyTube body = (BodyTube) alpha.getChild(0).getChild(1);
@@ -170,6 +173,7 @@ public class RocketInfoProbe {
 
 		// RocketInfoContextHelperTest.bodyTubeOnlyUsesSameFiniteCpAndStabilityInBothViews's design, the rocket's
 		// own selected configuration.
+		DeterministicUuids.reseed("special:body-tube-only");
 		Rocket tube = new Rocket();
 		AxialStage stage = new AxialStage();
 		tube.addChild(stage);
@@ -177,10 +181,12 @@ public class RocketInfoProbe {
 		tube.enableEvents();
 		scenario("special:body-tube-only", tube, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
 
+		DeterministicUuids.reseed("special:new-design");
 		scenario("special:new-design", OpenRocketDocumentFactory.createNewRocket().getRocket(), Double.NaN,
 				Double.NaN, Double.NaN, Double.NaN);
 
 		// A stage below two inactive ones (QtRocket's TestBoostersOnBoostersRocket, setOnlyStage(3)).
+		DeterministicUuids.reseed("special:boosters-on-boosters");
 		Rocket nested = TestRockets.makeFalcon9Heavy();
 		BodyTube boosterBody = (BodyTube) nested.getChild(1).getChild(0).getChild(0).getChild(1);
 		ParallelStage inner = new ParallelStage();
@@ -202,25 +208,30 @@ public class RocketInfoProbe {
 		scenario("special:boosters-on-boosters-toggled", nested, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
 
 		// The CP parameters of the component analysis: Mach, AOA, theta (getCP) and roll.
+		DeterministicUuids.reseed("special:simple-cp-parameters");
 		scenario("special:simple-cp-parameters", load(dir, "A simple model rocket.ork"), 0.8, Math.toRadians(5),
 				Math.toRadians(30), 2.0);
+		DeterministicUuids.reseed("special:simple-mach-only");
 		scenario("special:simple-mach-only", load(dir, "A simple model rocket.ork"), 0.5, Double.NaN, Double.NaN,
 				Double.NaN);
 
 		// Imperial units.
 		UnitGroup.setDefaultImperialUnits();
+		DeterministicUuids.reseed("special:simple-imperial");
 		scenario("special:simple-imperial", load(dir, "A simple model rocket.ork"), Double.NaN, Double.NaN,
 				Double.NaN, Double.NaN);
 		UnitGroup.setDefaultMetricUnits();
 
 		// The stability in percent: the secondary unit (%) equals the primary one.
 		UnitGroup.UNITS_STABILITY.setDefaultUnit("%");
+		DeterministicUuids.reseed("special:simple-stability-percent");
 		scenario("special:simple-stability-percent", load(dir, "A simple model rocket.ork"), Double.NaN, Double.NaN,
 				Double.NaN, Double.NaN);
 		UnitGroup.UNITS_STABILITY.setDefaultUnit("cal");
 
 		// The secondary stability switched off.
 		prefs.setDisplaySecondaryStability(false);
+		DeterministicUuids.reseed("special:simple-no-secondary");
 		scenario("special:simple-no-secondary", load(dir, "A simple model rocket.ork"), Double.NaN, Double.NaN,
 				Double.NaN, Double.NaN);
 		prefs.setDisplaySecondaryStability(true);
@@ -228,6 +239,7 @@ public class RocketInfoProbe {
 		// The secondary in calibers, the primary in metres (the stability unit group has m, cm, ...?).
 		UnitGroup.UNITS_SECONDARY_STABILITY.setDefaultUnit("cal");
 		UnitGroup.UNITS_STABILITY.setDefaultUnit("in");
+		DeterministicUuids.reseed("special:simple-stability-in-and-cal");
 		scenario("special:simple-stability-in-and-cal", load(dir, "A simple model rocket.ork"), Double.NaN,
 				Double.NaN, Double.NaN, Double.NaN);
 		UnitGroup.UNITS_STABILITY.setDefaultUnit("cal");
@@ -384,6 +396,8 @@ public class RocketInfoProbe {
 	}
 
 	static void bootstrap() throws Exception {
+		// Before anything makes a UUID: each scenario's design gets the same UUIDs on every run.
+		DeterministicUuids.install();
 		Path bundledDb = Path.of(System.getProperty("probe.motors"));
 		Path dbCopy = Files.createTempFile("probe-motors", ".db");
 		Files.copy(bundledDb, dbCopy, StandardCopyOption.REPLACE_EXISTING);

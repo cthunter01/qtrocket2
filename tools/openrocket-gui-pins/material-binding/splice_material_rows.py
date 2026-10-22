@@ -7,11 +7,15 @@ ROWS holds blocks "// <NAME> <count>" (BULK_ROWS, BULK_GROUPS, LINE_ROWS, LINE_G
 SURFACE_GROUPS), each followed by its rows, one string literal per line. A block replaces the body
 of the table k<Name> of TEST_FILE (BULK_ROWS: kBulkRows, a "constexpr std::array<std::string_view,
 <count>> kBulkRows{" up to the next "};"), with the table's size and the count of the comment above
-it ("// probe: ..., <count> rows.") set to the block's. The caller formats the file afterwards
-(clang-format splits the long literals as the committed file has them).
+it ("// probe: ..., <count> rows.") set to the block's. All six blocks must be there, each with rows
+(a transcript without one is an error, not a table left as it was). The caller formats the file
+afterwards (clang-format splits the long literals as the committed file has them).
 """
 import re
 import sys
+
+
+BLOCKS = ("BULK_ROWS", "BULK_GROUPS", "LINE_ROWS", "LINE_GROUPS", "SURFACE_ROWS", "SURFACE_GROUPS")
 
 
 def table_name(block):
@@ -22,15 +26,25 @@ def main():
     rows_path, test_path = sys.argv[1], sys.argv[2]
     blocks = {}
     order = []
+    current = None
     with open(rows_path, encoding="utf-8") as f:
         for line in f.read().splitlines():
             m = re.match(r"^// ([A-Z_]+) (\d+)$", line)
             if m:
                 current = m.group(1)
+                if current in blocks:
+                    raise SystemExit(f"error: {rows_path}: the block {current} twice")
                 blocks[current] = []
                 order.append(current)
                 continue
+            if current is None:
+                raise SystemExit(f"error: {rows_path}: a row before the first block: {line}")
             blocks[current].append(line)
+    if sorted(order) != sorted(BLOCKS):
+        raise SystemExit(f"error: {rows_path} has the blocks {order}, not {list(BLOCKS)}")
+    empty = [block for block in order if not blocks[block]]
+    if empty:
+        raise SystemExit(f"error: {rows_path}: the blocks {empty} have no row")
     with open(test_path, encoding="utf-8", newline="") as f:
         lines = f.read().split("\n")
     for block in order:

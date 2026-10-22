@@ -17,6 +17,8 @@ def main():
     rows_path, test_path = sys.argv[1], sys.argv[2]
     with open(rows_path, encoding="utf-8") as f:
         rows = f.read().splitlines()
+    if not rows:
+        raise SystemExit(f"error: {rows_path} has no row (the probe printed no '== figure' line)")
     with open(test_path, encoding="utf-8", newline="") as f:
         lines = f.read().split("\n")
     starts = [i for i, line in enumerate(lines) if line == START]

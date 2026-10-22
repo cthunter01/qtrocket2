@@ -232,10 +232,10 @@ TEST(AxialStage, SeparationOfTheSelectedConfiguration)
     EXPECT_EQ(&stage.getSeparationConfiguration(), &separation) << "the same one next time";
 }
 
-/// The copy on first access, against X1Probe of milestone 2 run 4 ("separation copy on first
-/// access"): a sustainer and a booster, each with a body tube; the booster's default separation
-/// is BURNOUT + 1.5 s; a second flight configuration is selected. A listener counts the rocket's
-/// events.
+/// The copy on first access, against X1Probe of milestone 2 run 4
+/// (tools/openrocket-probes/design-information, "separation copy on first access"): a sustainer
+/// and a booster, each with a body tube; the booster's default separation is BURNOUT + 1.5 s; a
+/// second flight configuration is selected. A listener counts the rocket's events.
 class SeparationFirstAccessTest : public ::testing::Test
 {
 protected:

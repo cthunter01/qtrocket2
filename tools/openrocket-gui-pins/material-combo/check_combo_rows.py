@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Checks that MaterialComboBoxTests.cpp holds the texts rows.py wrote.
+"""Checks that MaterialComboBoxTests.cpp holds the groups and searches rows.py wrote.
 
 usage: check_combo_rows.py ROWS TEST_FILE
 
-The test assembles its tables by hand from rows.py's output (the groups popup with Doc foam
-selected, its searches, and single lines of the popups with Balsa and with a loose material
-selected), so they cannot be rewritten in place. This compares what the strings say instead:
-every group line of ROWS must be one string of TEST_FILE (adjacent literals joined, as the compiler
-joins them), and the rows of every search must follow one another there (a search without rows:
-its text must be there). Exit status 1, with the missing texts on standard error, when one is not.
+The test assembles its tables by hand from rows.py's output, so they cannot be rewritten in place;
+this compares what its strings say (adjacent literals joined, as the compiler joins them) with the
+probe's three popups, exactly and in order:
+- "Doc foam groups popup": its group lines are kDocFoamGroups, its searches docFoamSearches()
+  (each Search{.text, .rows}: the text and every row), and the rows of its search 'nylon' are
+  {kSearchNylon};
+- "Balsa groups popup": its group lines are kDocFoamGroups' but the Woods and Foams lines, which are
+  kBalsaWoods and kBalsaFoams; its one search is 'bal', whose rows are {kSearchBalsa};
+- "Loose groups popup": the same with kLooseWoods and kLooseFoams, and no search.
+A popup or a table missing on either side is a difference. Exit status 1, with the differences on
+standard error, when there is one.
 """
 import re
 import sys
@@ -74,38 +79,99 @@ def literals(source):
     return joined
 
 
+def constant(source, name, kind):
+    """The strings of the constant @p name of @p source: "constexpr <kind> <name>{" up to the first "};"
+    that ends a line."""
+    m = re.search(r"^constexpr " + re.escape(kind) + r" " + name + r"\{(.*?)\};$", source, re.S | re.M)
+    if not m:
+        raise SystemExit(f"error: the test has no constant {name}")
+    return literals(m.group(1))
+
+
+def searches_of(source):
+    """docFoamSearches()'s searches: (text, rows) for each Search{.text = ..., .rows = {...}}."""
+    m = re.search(r"docFoamSearches\(\)\n\{\n    return \{\n(.*?)\n    \};\n\}", source, re.S)
+    if not m:
+        raise SystemExit("error: the test has no docFoamSearches() of the form 'return {...};'")
+    chunks = m.group(1).split("Search{")
+    if chunks[0].strip():
+        raise SystemExit("error: docFoamSearches() holds something before its first Search")
+    result = []
+    for chunk in chunks[1:]:
+        if not re.match(r"\s*\.text = ", chunk) or ".rows = {" not in chunk:
+            raise SystemExit(f"error: a search of docFoamSearches() is not Search{{.text, .rows}}: {chunk!r}")
+        values = literals(chunk)
+        result.append((values[0], values[1:]))
+    return result
+
+
+def popups_of(rows):
+    """The popups of rows.py's output: name -> (group lines, [(search text, rows)])."""
+    popups = {}
+    current = None
+    for line in rows:
+        m = re.match(r'^// probe: "(.*) groups popup:"$', line)
+        if m:
+            current = m.group(1)
+            if current in popups:
+                raise SystemExit(f"error: the popup {current!r} twice in the rows")
+            popups[current] = ([], [])
+        elif current is None:
+            raise SystemExit(f"error: a row before the first popup: {line}")
+        elif line.startswith("        Search{"):
+            values = literals(line)
+            popups[current][1].append((values[0], values[1:]))
+        else:
+            (value,) = literals(line)
+            popups[current][0].append(value)
+    return popups
+
+
+def compare(what, probe, test, differences):
+    """Records the items of the lists @p probe and @p test that differ (by index), and their lengths."""
+    if probe == test:
+        return
+    lines = [f"{what}: {len(probe)} items in the probe, {len(test)} in the test"]
+    for index in range(max(len(probe), len(test))):
+        left = probe[index] if index < len(probe) else "(none)"
+        right = test[index] if index < len(test) else "(none)"
+        if left != right:
+            lines.append(f"  [{index}] the probe: {left!r}\n  [{index}] the test:  {right!r}")
+    differences.append("\n".join(lines))
+
+
 def main():
     rows_path, test_path = sys.argv[1], sys.argv[2]
     with open(rows_path, encoding="utf-8") as f:
-        rows = f.read().splitlines()
+        popups = popups_of(f.read().splitlines())
     with open(test_path, encoding="utf-8") as f:
-        texts = literals(f.read())
-    present = set(texts)
-    missing = []
-    groups = searches = 0
-    for line in rows:
-        if line.startswith("// probe: "):
-            continue
-        if line.startswith("        Search{"):
-            searches += 1
-            values = literals(line)
-            text, found = values[0], values[1:]
-            if not found:
-                if text not in present:
-                    missing.append(f"search '{text}': its text")
-                continue
-            runs = [i for i in range(len(texts) - len(found) + 1) if texts[i:i + len(found)] == found]
-            if not runs:
-                missing.append(f"search '{text}': its {len(found)} rows in a row")
-        else:
-            groups += 1
-            (value,) = literals(line)
-            if value not in present:
-                missing.append(f"group line {value!r}")
-    for item in missing:
-        print(f"missing in {test_path}: {item}", file=sys.stderr)
-    print(f"{groups} group lines and {searches} searches checked, {len(missing)} missing", file=sys.stderr)
-    sys.exit(1 if missing else 0)
+        source = f.read()
+    if sorted(popups) != ["Balsa", "Doc foam", "Loose"]:
+        raise SystemExit(f"error: the probe's popups are {sorted(popups)}, not Balsa, Doc foam and Loose")
+    groups = constant(source, "kDocFoamGroups", "std::array<std::string_view, 8>")
+    differences = []
+    doc_groups, doc_searches = popups["Doc foam"]
+    compare("Doc foam: the group lines (kDocFoamGroups)", doc_groups, groups, differences)
+    compare("Doc foam: the searches (docFoamSearches())", doc_searches, searches_of(source), differences)
+    nylon = [found for text, found in doc_searches if text == "nylon"]
+    compare("Doc foam: the search 'nylon' (kSearchNylon)", nylon,
+            [constant(source, "kSearchNylon", "std::string_view")], differences)
+    for popup, name, searches in (("Balsa", "Balsa", [("bal", constant(source, "kSearchBalsa", "std::string_view"))]),
+                                  ("Loose", "Loose", [])):
+        lines, found = popups[popup]
+        expected = list(groups)
+        if len(expected) == 8:
+            (expected[1],) = constant(source, f"k{name}Woods", "std::string_view")
+            (expected[4],) = constant(source, f"k{name}Foams", "std::string_view")
+        compare(f"{popup}: the group lines (kDocFoamGroups' with k{name}Woods and k{name}Foams)", lines,
+                expected, differences)
+        compare(f"{popup}: the searches", found, searches, differences)
+    for item in differences:
+        print(f"{test_path} differs from the probe: {item}", file=sys.stderr)
+    checked = sum(len(lines) + len(found) for lines, found in popups.values())
+    print(f"{checked} group lines and searches of {len(popups)} popups checked, {len(differences)} differences",
+          file=sys.stderr)
+    sys.exit(1 if differences else 0)
 
 
 if __name__ == "__main__":

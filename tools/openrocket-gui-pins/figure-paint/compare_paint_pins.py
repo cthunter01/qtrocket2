@@ -1,22 +1,30 @@
 #!/usr/bin/env python3
-"""Compares two RocketFigurePaintPins.h apart from Java's run-to-run order.
+"""Compares two RocketFigurePaintPins.h apart from Java's run-to-run order in the designs the probe builds.
 
 usage: compare_paint_pins.py COMMITTED REGENERATED
 
-RocketFigure paints the shapes of equal display order in the order of its hash maps, whose keys hash
-the components' UUIDs: random for a design the probe builds (TestRockets.makeBeta), so that order,
-and the order of the hit points the probe picks from the painted shapes, change from run to run.
-rocket_figure_paint_golden_tests.cpp compares each run of shapes of equal display order as a set and
-looks each hit point up on its own; the motors of such a design are drawn in hash order too (the
-test compares them in order: a regenerated table may swap them, see README.md). This compares every
-line exactly, except that in a kPaints table a run of consecutive SHAPE pins of one display order
-and a run of motors (MOTOR_FILL and MOTOR_OUTLINE pairs) are compared as sorted lists, and a kHits
-table as a whole. Exit status 0 when the files are equal so, 1 otherwise.
+RocketFigure paints the shapes of equal display order and the motors in the order of hash maps whose
+keys hash the components' UUIDs. The UUIDs of a design the probe builds (TestRockets.makeBeta and
+new designs, BUILT below) were random when the committed table was made, so that order, and the
+order of the hit points the probe picks from the painted shapes, changed from run to run; the probe
+now seeds them (shared/probe/DeterministicUuids.java), so a regenerated table is the same on every
+run but may still be another permutation of the committed one. rocket_figure_paint_golden_tests.cpp
+compares each run of shapes of equal display order as a set and looks each hit point up on its own,
+but compares the motors in order (README.md, "Reproducibility"). This compares every line exactly,
+except that in the kPaints and kHits tables of a scenario of BUILT a run of consecutive SHAPE pins of
+one display order and a run of motors (MOTOR_FILL and MOTOR_OUTLINE pairs) are compared as sorted
+lists, and a kHits table as a whole; a design loaded from a file keeps the UUIDs stored in it and is
+compared byte for byte, motors and all. Exit status 0 when the files are equal so, 1 otherwise.
 """
 import re
 import sys
 
 PAINT = re.compile(r"^\s*\{PaintPinKind::(\w+), -?\d+, (-?\d+),")
+
+# The scenarios whose design FigurePaintProbe builds (TestRockets.makeBeta, new designs).
+BUILT = ("beta-side", "new-side", "new-back")
+BUILT_TABLES = {prefix + "".join(part.capitalize() for part in name.split("-"))
+                for name in BUILT for prefix in ("kPaints", "kHits")}
 
 
 def kind_of(line):
@@ -55,7 +63,7 @@ def normalized_paints(table):
 
 
 def normalized(path):
-    """The lines of @p path with the runs Java orders by hash sorted."""
+    """The lines of @p path with the runs Java orders by hash sorted in the tables of BUILT."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().split("\n")
     out = []
@@ -64,10 +72,9 @@ def normalized(path):
     for line in lines:
         if table is None:
             out.append(line)
-            if line.startswith("inline constexpr auto kPaints"):
-                table = "paints"
-            elif line.startswith("inline constexpr auto kHits"):
-                table = "hits"
+            m = re.match(r"^inline constexpr auto ((kPaints|kHits)\w+) = ", line)
+            if m and m.group(1) in BUILT_TABLES:
+                table = "paints" if m.group(2) == "kPaints" else "hits"
             continue
         if line == "});":
             out.extend(normalized_paints(body) if table == "paints" else sorted(body))
@@ -92,7 +99,7 @@ def main():
     a, b = normalized(committed), normalized(regenerated)
     if a == b:
         print("equal apart from the order of shapes of equal display order, of motors and of hit "
-              "points (Java's hash order)", file=sys.stderr)
+              f"points in {', '.join(BUILT)} (Java's hash order)", file=sys.stderr)
         sys.exit(0)
     for index, (left, right) in enumerate(zip(a, b)):
         if left != right:

@@ -1,0 +1,66 @@
+== MaterialModel
+BULK (built-in only): size=32 selected=Cardboard (0.68 g/cm³) [PaperProducts]
+  at(-1)=null at(size)=null
+  0 ABS - 100% infill (1.05 g/cm³) [Plastics]
+  1 ASA - 100% infill (1.05 g/cm³) [Plastics]
+  2 Acrylic (1.19 g/cm³) [Plastics]
+  3 Aluminum (2.7 g/cm³) [Metals]
+  4 Balsa (0.17 g/cm³) [Woods]
+  5 Basswood (0.5 g/cm³) [Woods]
+  6 Birch (0.67 g/cm³) [Woods]
+  7 Blue tube (1.3 g/cm³) [Composites]
+  8 Brass (8.6 g/cm³) [Metals]
+  9 Carbon fiber (1.78 g/cm³) [Composites]
+  10 Cardboard (0.68 g/cm³) [PaperProducts]
+  11 Cork (0.24 g/cm³) [Woods]
+  12 Delrin (1.42 g/cm³) [Plastics]
+  13 Depron (XPS) (0.04 g/cm³) [Foams]
+  14 Fiberglass (1.85 g/cm³) [Composites]
+  15 Kraft phenolic (0.95 g/cm³) [Composites]
+  16 Maple (0.755 g/cm³) [Woods]
+  17 Nylon (1.15 g/cm³) [Fibers]
+  18 PETG - 100% infill (1.25 g/cm³) [Plastics]
+  19 PLA - 100% infill (1.25 g/cm³) [Plastics]
+  20 PVC (1.39 g/cm³) [Plastics]
+  21 Paper (office) (0.82 g/cm³) [PaperProducts]
+  22 Pine (0.53 g/cm³) [Woods]
+  23 Plywood (birch) (0.63 g/cm³) [Woods]
+  24 Polycarbonate (Lexan) (1.2 g/cm³) [Plastics]
+  25 Polystyrene (1.05 g/cm³) [Plastics]
+  26 Quantum tubing (1.05 g/cm³) [Plastics]
+  27 Spruce (0.45 g/cm³) [Woods]
+  28 Steel (7.85 g/cm³) [Metals]
+  29 Styrofoam "Blue foam" (XPS) (0.032 g/cm³) [Foams]
+  30 Styrofoam (generic EPS) (0.02 g/cm³) [Foams]
+  31 Titanium (4.5 g/cm³) [Metals]
+BULK (with user and document materials): size=35 selected=(ud) Doc foam (0.03 g/cm³) [Foams, doc]
+  at(-1)=null at(size)=null
+BULK groups:
+LINE: size=43 selected=(ud) Doc string (2 g/m) [Nylons, doc]
+  at(-1)=null at(size)=null
+LINE groups:
+SURFACE: size=8 selected=Ripstop nylon (67 g/m²) [Fabrics]
+  at(-1)=null at(size)=null
+SURFACE groups:
+== IntegerModel
+FinCount=3 next=4 previous=2
+setValue(10): 8 next=null previous=7
+setValue(-5): 1 next=2 previous=null
+spinner setValue(4): 4
+LineCount=0 next=1 previous=null
+LineCount=MAX next=null previous=2147483646
+== BooleanModel
+value=false enabled=true follower(true)=false follower(false)=true
+source set true: value=true follower(true)=true follower(false)=false
+setValue(false): value=false follower(true)=false follower(false)=true
+check box selected=false
+Transition Conical: clipped=false enabled=false
+Transition Ellipsoid: clipped=true enabled=true
+Transition Ogive: clipped=false enabled=false
+own value=false follower=false
+== EnumModel
+MassComponentType size=8 selected=Mass Component values=MASSCOMPONENT ALTIMETER FLIGHTCOMPUTER DEPLOYMENTCHARGE TRACKER PAYLOAD RECOVERYHARDWARE BATTERY 
+set TRACKER: source=TRACKER
+== TransitionShapeModel
+size=6 selected=OGIVE values=CONICAL OGIVE ELLIPSOID POWER PARABOLIC HAACK 
+set HAACK: source=HAACK clipped=true parameter=0.0

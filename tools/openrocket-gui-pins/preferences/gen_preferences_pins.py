@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Writes tests/gui/dialogs/PreferencesPagePins.h from the transcript of PreferencesProbe.java.
 
-usage: gen_preferences_pins.py OUT.txt[.gz] HEADER COMMIT
+usage: gen_preferences_pins.py OUT.txt[.gz] HEADER COMMIT HOME
 
 The transcript's pages (PAGE name ... END name, each ITEM one component; an item's text may run
 over several lines), the two lines of the Default imperial and Default metric steps, and the
 units node of the store after storeAndApplyPreferences() become C++ string tables, non-ASCII
-characters as \\u escapes. clang-format is run on the header.
+characters as \\u escapes; HOME, the probe's user.home (generate.sh gives it a fresh one), is
+written as <home>. clang-format is run on the header.
 """
 import gzip
 import os
@@ -35,7 +36,7 @@ def escape(text):
     return '"' + ''.join(out) + '"'
 
 def main():
-    source, header, commit = sys.argv[1], sys.argv[2], sys.argv[3]
+    source, header, commit, home = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
     opener = gzip.open if source.endswith('.gz') else open
     with opener(source, 'rt', encoding='utf-8') as transcript:
         lines = transcript.read().split('\n')
@@ -49,9 +50,9 @@ def main():
             if line == 'END ' + page:
                 page = None
             elif line.startswith('ITEM '):
-                # The user's home directory of the probe's run (the thrust curve and preset
-                # directories) is no part of the pins.
-                pages[page].append(line[5:].replace(os.path.expanduser('~'), '<home>'))
+                # The home directory of the probe's run (the thrust curve and preset directories)
+                # is no part of the pins.
+                pages[page].append(line[5:].replace(home, '<home>'))
             elif pages[page]:
                 pages[page][-1] += '\n' + line
             continue

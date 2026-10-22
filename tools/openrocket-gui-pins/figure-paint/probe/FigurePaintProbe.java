@@ -120,27 +120,47 @@ public class FigurePaintProbe {
 		prefs = (SwingPreferences) Application.getPreferences();
 		File dir = new File(args[0]);
 
+		DeterministicUuids.reseed("simple-side");
 		scenario("simple-side", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("simple-side-selected");
 		scenario("simple-side-selected", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[] {3}, false, null);
+		DeterministicUuids.reseed("simple-back");
 		scenario("simple-back", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.BackView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("simple-top30");
 		scenario("simple-top30", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.TopView, Math.PI / 6, new int[0], false, null);
+		DeterministicUuids.reseed("simple-side30");
 		scenario("simple-side30", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.SideView, Math.PI / 6, new int[0], false, null);
+		DeterministicUuids.reseed("simple-styled");
 		scenario("simple-styled", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, "styled");
+		DeterministicUuids.reseed("simple-hidden-body");
 		scenario("simple-hidden-body", load(dir, "A simple model rocket.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, "hide3");
+		DeterministicUuids.reseed("pods-side");
 		scenario("pods-side", load(dir, "Pods--airframes and winglets.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("pods-back");
 		scenario("pods-back", load(dir, "Pods--airframes and winglets.ork"), RocketPanel.VIEW_TYPE.BackView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("pods-side-markers");
 		scenario("pods-side-markers", load(dir, "Pods--airframes and winglets.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], true, null);
+		DeterministicUuids.reseed("cluster-back");
 		scenario("cluster-back", load(dir, "Clustered motors.ork"), RocketPanel.VIEW_TYPE.BackView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("cluster-side");
 		scenario("cluster-side", load(dir, "Clustered motors.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("boosters-side");
 		scenario("boosters-side", load(dir, "Parallel booster staging.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("boosters-back30");
 		scenario("boosters-back30", load(dir, "Parallel booster staging.ork"), RocketPanel.VIEW_TYPE.BackView, Math.PI / 6, new int[0], false, null);
+		DeterministicUuids.reseed("dual-side");
 		scenario("dual-side", load(dir, "Dual parachute deployment.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("twostage-side");
 		scenario("twostage-side", load(dir, "Two stage high power rocket.ork"), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("tubefin-back");
 		scenario("tubefin-back", load(dir, "Tube fin rocket.ork"), RocketPanel.VIEW_TYPE.BackView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("beta-side");
 		Rocket beta = TestRockets.makeBeta();
 		settle(beta);
 		scenario("beta-side", beta, RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("new-side");
 		scenario("new-side", OpenRocketDocumentFactory.createNewRocket().getRocket(), RocketPanel.VIEW_TYPE.SideView, 0.0, new int[0], false, null);
+		DeterministicUuids.reseed("new-back");
 		scenario("new-back", OpenRocketDocumentFactory.createNewRocket().getRocket(), RocketPanel.VIEW_TYPE.BackView, 0.0, new int[0], false, null);
 	}
 
@@ -420,6 +440,8 @@ public class FigurePaintProbe {
 	}
 
 	static void bootstrap() throws Exception {
+		// Before anything makes a UUID: each scenario's design gets the same UUIDs on every run.
+		DeterministicUuids.install();
 		Path bundledDb = Path.of(System.getProperty("probe.motors"));
 		Path dbCopy = Files.createTempFile("probe-motors", ".db");
 		Files.copy(bundledDb, dbCopy, StandardCopyOption.REPLACE_EXISTING);

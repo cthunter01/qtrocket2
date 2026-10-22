@@ -1988,8 +1988,8 @@ protected:
 
 // The user's decision R3-2 of 2026-10-22, a U4 addition: loadFrom() (undo, redo) restores the
 // designer, the revision, the kit name and the design type. Java's Rocket.loadFrom() copies none
-// of them: X1Probe of milestone 2 run 4 ("loadFrom directly") printed "loaded:
-// designer='After' ... designType=KIT_BASH" for the same steps.
+// of them: X1Probe of milestone 2 run 4 (tools/openrocket-probes/design-information, "loadFrom
+// directly") printed "loaded: designer='After' ... designType=KIT_BASH" for the same steps.
 TEST_F(LoadFromDesignInformationTest, RestoresTheDesignInformation)
 {
     m_rocket.loadFrom(*m_snapshot);
