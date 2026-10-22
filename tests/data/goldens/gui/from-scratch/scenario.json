@@ -9,7 +9,6 @@
     {"step": "add", "component": "NoseCone"},
     {"step": "choose", "field": "ShapeType", "item": "ELLIPSOID"},
     {"step": "type", "field": "Length", "text": "10", "unit": "cm"},
-    {"step": "check", "field": "BaseRadiusAutomatic", "checked": true, "note": "the Automatic check box of the base diameter"},
     {"step": "type", "field": "Thickness", "text": "0.15", "unit": "cm"},
     {"step": "choose", "field": "Material", "item": "Polycarbonate (Lexan)"},
     {"step": "choose", "field": "Finish", "item": "SMOOTH"},
@@ -29,6 +28,11 @@
     {"step": "type", "field": "Sweep", "text": "4", "unit": "cm"},
     {"step": "type", "field": "Thickness", "text": "2.5", "unit": "mm"},
     {"step": "choose", "field": "CrossSection", "item": "ROUNDED"},
+    {"step": "ok"},
+
+    {"step": "select", "paths": [["Sustainer", "Nose Cone"]]},
+    {"step": "edit", "note": "Edit > Edit: the nose cone's dialog; with the body tube after it, its Automatic check box is enabled (it is not while the nose cone is alone)"},
+    {"step": "check", "field": "BaseRadiusAutomatic", "checked": true, "note": "the Automatic check box of the base diameter"},
     {"step": "ok"},
 
     {"step": "select", "paths": [["Sustainer", "Body Tube"]]},

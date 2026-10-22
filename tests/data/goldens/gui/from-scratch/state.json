@@ -10,9 +10,9 @@
   },
   "scenario": {
     "file": "scenario.json",
-    "sha256": "e448adb0a02569e682a767b4321afff48053d6cbab901db9d55ddb600a4107f8",
+    "sha256": "c197bb1623cbe14111251d89cdc4476756ab7a2308d3b48ce3c481e7ffbf4cb3",
     "title": "A rocket designed from scratch in the GUI",
-    "steps": 98
+    "steps": 101
   },
   "reference": {
     "file": "rocket.ork",
@@ -149,33 +149,6 @@
     },
     {
       "index": 5,
-      "step": "check",
-      "undo": {
-        "text": "Undo (Add Nose Cone)",
-        "enabled": true
-      },
-      "redo": {
-        "text": "Redo",
-        "enabled": false
-      },
-      "saved": false,
-      "selection": [
-        [
-          "Sustainer",
-          "Nose Cone"
-        ]
-      ],
-      "open": {
-        "window": "NoseConeConfig",
-        "component": [
-          "Sustainer",
-          "Nose Cone"
-        ]
-      },
-      "treeSha256": "52aa96583a4fbdff3a496a9456b724e10e5f5a9cc0de348be287c0408a3bee76"
-    },
-    {
-      "index": 6,
       "step": "type",
       "undo": {
         "text": "Undo (Add Nose Cone)",
@@ -199,7 +172,34 @@
           "Nose Cone"
         ]
       },
-      "treeSha256": "a1d4b5963318c00999f89d4487a2590cead7d024026b6f8f3a41d973038d3313"
+      "treeSha256": "853239e473811a40618641dc79036b53ea372f9a84293181e87f98c12199a4a5"
+    },
+    {
+      "index": 6,
+      "step": "choose",
+      "undo": {
+        "text": "Undo (Add Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "5a67778afa198ec45fbe55f85d5b300db7658a12832585c536c98ec6180474e7"
     },
     {
       "index": 7,
@@ -226,37 +226,10 @@
           "Nose Cone"
         ]
       },
-      "treeSha256": "0843f9e5211eabd42e0a3c532efe899988ce5df247332a46228016be6603d470"
+      "treeSha256": "30d0a1b8014ce4d5c1411a6a2840a2066d580e9752542eb98df74fe9f743364e"
     },
     {
       "index": 8,
-      "step": "choose",
-      "undo": {
-        "text": "Undo (Add Nose Cone)",
-        "enabled": true
-      },
-      "redo": {
-        "text": "Redo",
-        "enabled": false
-      },
-      "saved": false,
-      "selection": [
-        [
-          "Sustainer",
-          "Nose Cone"
-        ]
-      ],
-      "open": {
-        "window": "NoseConeConfig",
-        "component": [
-          "Sustainer",
-          "Nose Cone"
-        ]
-      },
-      "treeSha256": "662e38212718a6c652ede55be584dd3b8fdfe1704d26e886309a97cf11e13c28"
-    },
-    {
-      "index": 9,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Nose Cone)",
@@ -273,17 +246,17 @@
           "Nose Cone"
         ]
       ],
-      "treeSha256": "662e38212718a6c652ede55be584dd3b8fdfe1704d26e886309a97cf11e13c28",
+      "treeSha256": "30d0a1b8014ce4d5c1411a6a2840a2066d580e9752542eb98df74fe9f743364e",
       "tree": [
         "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
         "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.1 stage=0 sep=EJECTION:0.0:200.0",
-        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.025:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.025:false thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
         "selected=default",
         "config default name='[{motors}]' preload=null active=[true] motors=0"
       ]
     },
     {
-      "index": 10,
+      "index": 9,
       "step": "add",
       "undo": {
         "text": "Undo (Add Body Tube)",
@@ -307,7 +280,34 @@
           "Body Tube"
         ]
       },
-      "treeSha256": "652965ad8d4e62c388b01356489f878d22fec8dc9854fd8393718412323c9f71"
+      "treeSha256": "eb46c91ae3b5717729802e7ebd14ecd480fd4fa2e5885a837870fd0c7db3b21c"
+    },
+    {
+      "index": 10,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Body Tube)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube"
+        ]
+      ],
+      "open": {
+        "window": "BodyTubeConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube"
+        ]
+      },
+      "treeSha256": "efdaa46b74d5f6153a2ea2ff5889e61de4d784753bfff8d4f9666b1bc5b774e1"
     },
     {
       "index": 11,
@@ -334,7 +334,7 @@
           "Body Tube"
         ]
       },
-      "treeSha256": "f66e2ce4d51d2eda9d68596596c5d5f178a246db5c90d20598ef928fd0e58934"
+      "treeSha256": "5a3bc3b167a92728f924b2a859228eb8b948841e1014fd45a0a5a32e98773ad3"
     },
     {
       "index": 12,
@@ -361,37 +361,10 @@
           "Body Tube"
         ]
       },
-      "treeSha256": "b80b35a4681be49ded184be3069fd907fe8568ca320ae0c9c3ae6fb0da15fb33"
+      "treeSha256": "b3842e9cc8c7c644834e507f3bbf7a4c531485474e8ea91c300d10ac5d9d4bb3"
     },
     {
       "index": 13,
-      "step": "type",
-      "undo": {
-        "text": "Undo (Add Body Tube)",
-        "enabled": true
-      },
-      "redo": {
-        "text": "Redo",
-        "enabled": false
-      },
-      "saved": false,
-      "selection": [
-        [
-          "Sustainer",
-          "Body Tube"
-        ]
-      ],
-      "open": {
-        "window": "BodyTubeConfig",
-        "component": [
-          "Sustainer",
-          "Body Tube"
-        ]
-      },
-      "treeSha256": "b2d808600416e3c48eacb65af01f07a97c17ea63f1df0ad31b2e7f232b2400c6"
-    },
-    {
-      "index": 14,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Body Tube)",
@@ -408,18 +381,18 @@
           "Body Tube"
         ]
       ],
-      "treeSha256": "b2d808600416e3c48eacb65af01f07a97c17ea63f1df0ad31b2e7f232b2400c6",
+      "treeSha256": "b3842e9cc8c7c644834e507f3bbf7a4c531485474e8ea91c300d10ac5d9d4bb3",
       "tree": [
         "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
         "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
-        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.020499999999999997:true thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.025:false thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
         "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
         "selected=default",
         "config default name='[{motors}]' preload=null active=[true] motors=0"
       ]
     },
     {
-      "index": 15,
+      "index": 14,
       "step": "add",
       "undo": {
         "text": "Undo (Add Trapezoidal Fin Set)",
@@ -445,7 +418,36 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "adc4e5b7b2e31319f9de65e75b5ec806d1ea24a50c3c5d0eb75a02f489e5068a"
+      "treeSha256": "0ac9f64dbdda0782e9c3abdb851a106a26307f7114782a62025dd3b83f3b76e3"
+    },
+    {
+      "index": 15,
+      "step": "type",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      ],
+      "open": {
+        "window": "TrapezoidFinSetConfig",
+        "component": [
+          "Sustainer",
+          "Body Tube",
+          "Trapezoidal Fin Set"
+        ]
+      },
+      "treeSha256": "568d1dd5bdf4d32266371ad5a2e379b6fdf8da3790b7371d9217dd49520e7af4"
     },
     {
       "index": 16,
@@ -474,7 +476,7 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "4c75d92835b74a2994d298884572215701ce01015b5162abc2cdf545a1a7357d"
+      "treeSha256": "a846408d634d105f0480bef42f1f71d62c077eba5c2b883765a103a2e48e39e4"
     },
     {
       "index": 17,
@@ -503,7 +505,7 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "0b2eb8c10fb8b2fff7facd2db67ee4f7332da5990b28b2444e3940344d75b378"
+      "treeSha256": "ea21212b824a2244e393a932339101f4788541346af20831dbdf079632a32227"
     },
     {
       "index": 18,
@@ -532,7 +534,7 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "38a2fd5e822e68517e255313a7d87152fc845196f18a3e6af972ef133251e431"
+      "treeSha256": "a5a11783211fafa5e9a9bdde5f39561ca27ff0cade67404c6bba77c34552d048"
     },
     {
       "index": 19,
@@ -561,7 +563,7 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "3091e9340373642d4e542ea5969df32ab7078622381ad25e5026ae938dafa74a"
+      "treeSha256": "892bc7b77b5f5e76a373ce249948239d31bd39bfdcd9c9e54e3936af3dbb9177"
     },
     {
       "index": 20,
@@ -590,39 +592,10 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "62a1cca7c636e491f411ac6cf0f61425a9a1fbdaaaf7f1806ab9d35c4871941c"
+      "treeSha256": "95fc2681e3eac7679ca326e80c753d0cc48660111cc97394b358b422613b7897"
     },
     {
       "index": 21,
-      "step": "type",
-      "undo": {
-        "text": "Undo (Add Trapezoidal Fin Set)",
-        "enabled": true
-      },
-      "redo": {
-        "text": "Redo",
-        "enabled": false
-      },
-      "saved": false,
-      "selection": [
-        [
-          "Sustainer",
-          "Body Tube",
-          "Trapezoidal Fin Set"
-        ]
-      ],
-      "open": {
-        "window": "TrapezoidFinSetConfig",
-        "component": [
-          "Sustainer",
-          "Body Tube",
-          "Trapezoidal Fin Set"
-        ]
-      },
-      "treeSha256": "f6825808c3398f4fe588ffa33299d906b1817b0aa7be26f03fc35f481d152a42"
-    },
-    {
-      "index": 22,
       "step": "choose",
       "undo": {
         "text": "Undo (Add Trapezoidal Fin Set)",
@@ -648,10 +621,10 @@
           "Trapezoidal Fin Set"
         ]
       },
-      "treeSha256": "71e5446f3973620b6b8146a3aa57e2f69c33447b02c3ba6ccc59ff3cf062186e"
+      "treeSha256": "76de0a6584541ece5fcc19526d23c8c186d15b0f18cd088a8e1366b6be29f832"
     },
     {
-      "index": 23,
+      "index": 22,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Trapezoidal Fin Set)",
@@ -669,6 +642,109 @@
           "Trapezoidal Fin Set"
         ]
       ],
+      "treeSha256": "76de0a6584541ece5fcc19526d23c8c186d15b0f18cd088a8e1366b6be29f832",
+      "tree": [
+        "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
+        "  AxialStage 'Sustainer' axial=AFTER:0.0 x=0.0 len=0.4 stage=0 sep=EJECTION:0.0:200.0",
+        "    NoseCone 'Nose Cone' axial=AFTER:0.0 x=0.0 len=0.1 finish=SMOOTH mat=[BULK|Polycarbonate (Lexan)|1200.0|7.86E8|Plastics] shape=ELLIPSOID:0.0:false fore=0.0:false aft=0.025:false thick=0.0015:false foresh=0.0:0.0:0.0:false aftsh=0.0:0.0:0.0:false flipped=false",
+        "    BodyTube 'Body Tube' axial=AFTER:0.0 x=0.1 len=0.3 finish=NORMAL mat=[BULK|Cardboard|680.0|4.0E8|PaperProducts] r=0.020499999999999997:false thick=5.0E-4:false mount=false overhang=0.0 ign=AUTOMATIC:0.0:false",
+        "      TrapezoidFinSet 'Trapezoidal Fin Set' axial=BOTTOM:0.0 x=0.22999999999999998 len=0.07 inst=4 radius=SURFACE:0.0 angle=RELATIVE:0.0 finish=NORMAL mat=[BULK|Balsa|170.0|2.3E8|Woods] fins=4 cant=0.0 thick=0.0025 cross=ROUNDED tab=0.0:0.05:MIDDLE:0.0:0.010000000000000002 fillet=0.0:[BULK|Balsa|170.0|2.3E8|Woods] chord=0.07:0.035 sweep=0.04 height=0.055",
+        "selected=default",
+        "config default name='[{motors}]' preload=null active=[true] motors=0"
+      ]
+    },
+    {
+      "index": 23,
+      "step": "select",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "treeSha256": "76de0a6584541ece5fcc19526d23c8c186d15b0f18cd088a8e1366b6be29f832"
+    },
+    {
+      "index": 24,
+      "step": "edit",
+      "undo": {
+        "text": "Undo (Add Trapezoidal Fin Set)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "76de0a6584541ece5fcc19526d23c8c186d15b0f18cd088a8e1366b6be29f832"
+    },
+    {
+      "index": 25,
+      "step": "check",
+      "undo": {
+        "text": "Undo (Modify Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
+      "open": {
+        "window": "NoseConeConfig",
+        "component": [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      },
+      "treeSha256": "71e5446f3973620b6b8146a3aa57e2f69c33447b02c3ba6ccc59ff3cf062186e"
+    },
+    {
+      "index": 26,
+      "step": "ok",
+      "undo": {
+        "text": "Undo (Modify Nose Cone)",
+        "enabled": true
+      },
+      "redo": {
+        "text": "Redo",
+        "enabled": false
+      },
+      "saved": false,
+      "selection": [
+        [
+          "Sustainer",
+          "Nose Cone"
+        ]
+      ],
       "treeSha256": "71e5446f3973620b6b8146a3aa57e2f69c33447b02c3ba6ccc59ff3cf062186e",
       "tree": [
         "Rocket 'Rocket' axial=ABSOLUTE:0.0 x=0.0 ref=MAXIMUM customref=0.01 design=ORIGINAL",
@@ -681,10 +757,10 @@
       ]
     },
     {
-      "index": 24,
+      "index": 27,
       "step": "select",
       "undo": {
-        "text": "Undo (Add Trapezoidal Fin Set)",
+        "text": "Undo (Modify Nose Cone)",
         "enabled": true
       },
       "redo": {
@@ -701,7 +777,7 @@
       "treeSha256": "71e5446f3973620b6b8146a3aa57e2f69c33447b02c3ba6ccc59ff3cf062186e"
     },
     {
-      "index": 25,
+      "index": 28,
       "step": "add",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -730,7 +806,7 @@
       "treeSha256": "9b3773bdef796ad8fa9b520a406a87a293abe319331bc32e9ff3b4e11d04e63d"
     },
     {
-      "index": 26,
+      "index": 29,
       "step": "type",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -759,7 +835,7 @@
       "treeSha256": "a913831927f816424f027c986963f859813b526249ce0acc824532340835a3ea"
     },
     {
-      "index": 27,
+      "index": 30,
       "step": "type",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -788,7 +864,7 @@
       "treeSha256": "b5f0b4329f563db29735c45b68cafc4c87e4200d6feb84a67de515dc1fc0349d"
     },
     {
-      "index": 28,
+      "index": 31,
       "step": "type",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -817,7 +893,7 @@
       "treeSha256": "89931ee06d4594dad221e209c1392f918106cff724d6a761b9af32108f9353c5"
     },
     {
-      "index": 29,
+      "index": 32,
       "step": "check",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -846,7 +922,7 @@
       "treeSha256": "bc537102b23549971236225463598e2ab673c9939f04bb659b52654a2bb03080"
     },
     {
-      "index": 30,
+      "index": 33,
       "step": "type",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -875,7 +951,7 @@
       "treeSha256": "5d756ecd96c8bd30828ee9b7e2896e6f3e8f39d6f4401b756c252abfd4758e56"
     },
     {
-      "index": 31,
+      "index": 34,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -906,7 +982,7 @@
       ]
     },
     {
-      "index": 32,
+      "index": 35,
       "step": "select",
       "undo": {
         "text": "Undo (Add Inner Tube)",
@@ -926,7 +1002,7 @@
       "treeSha256": "5d756ecd96c8bd30828ee9b7e2896e6f3e8f39d6f4401b756c252abfd4758e56"
     },
     {
-      "index": 33,
+      "index": 36,
       "step": "add",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -955,7 +1031,7 @@
       "treeSha256": "01da2b275d4d352f36498e57959fbd81bbbded4069e6d370b39fb1610aaee527"
     },
     {
-      "index": 34,
+      "index": 37,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -984,7 +1060,7 @@
       "treeSha256": "6ea16325b8d0941b0254bb45860b053dbd1f333a0cc7015f858467d731ae82e5"
     },
     {
-      "index": 35,
+      "index": 38,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1013,7 +1089,7 @@
       "treeSha256": "7d199c9248f1d84d904422c551ba85246f0a627ed1658d29a6028358869c0af0"
     },
     {
-      "index": 36,
+      "index": 39,
       "step": "choose",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1042,7 +1118,7 @@
       "treeSha256": "a19dc86f27dc4f54077dc7e31383267977ac435f21288fbc44618e2a8a6a520d"
     },
     {
-      "index": 37,
+      "index": 40,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1071,7 +1147,7 @@
       "treeSha256": "b0775258fa81c20e3b87d05334e85e7ee70b5345aee12e2795100e0e926cae33"
     },
     {
-      "index": 38,
+      "index": 41,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1103,7 +1179,7 @@
       ]
     },
     {
-      "index": 39,
+      "index": 42,
       "step": "select",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1123,7 +1199,7 @@
       "treeSha256": "b0775258fa81c20e3b87d05334e85e7ee70b5345aee12e2795100e0e926cae33"
     },
     {
-      "index": 40,
+      "index": 43,
       "step": "add",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1152,7 +1228,7 @@
       "treeSha256": "ee36f170b8dc15922f67d0d272413cc804f724c613df9044a00d562985df3f1f"
     },
     {
-      "index": 41,
+      "index": 44,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1181,7 +1257,7 @@
       "treeSha256": "b4edad350ad847af41b26446c184a7056cdedc64e4ddb1707a36cc2474b3c527"
     },
     {
-      "index": 42,
+      "index": 45,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1210,7 +1286,7 @@
       "treeSha256": "667e90d9e167b736a84703b3160bafc5988f9468341f9fa3b5c9287de40567b3"
     },
     {
-      "index": 43,
+      "index": 46,
       "step": "choose",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1239,7 +1315,7 @@
       "treeSha256": "63e49eae1ca3ce1441fd3f7a5e10eb04b28a602d0ddea5bf588c13ffa48d88db"
     },
     {
-      "index": 44,
+      "index": 47,
       "step": "type",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1268,7 +1344,7 @@
       "treeSha256": "78e592316dc5d80a54ab41c405916efda4dd480b8388ff94a33d3837e4292ef9"
     },
     {
-      "index": 45,
+      "index": 48,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1301,7 +1377,7 @@
       ]
     },
     {
-      "index": 46,
+      "index": 49,
       "step": "select",
       "undo": {
         "text": "Undo (Add Centering Ring)",
@@ -1321,7 +1397,7 @@
       "treeSha256": "78e592316dc5d80a54ab41c405916efda4dd480b8388ff94a33d3837e4292ef9"
     },
     {
-      "index": 47,
+      "index": 50,
       "step": "add",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1350,7 +1426,7 @@
       "treeSha256": "1d82c315359ab0aca1a22e471caa83c73aa0e0ac5a157533d0d66deb90541048"
     },
     {
-      "index": 48,
+      "index": 51,
       "step": "type",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1379,7 +1455,7 @@
       "treeSha256": "4a58bb2b0e4362d4d4f58c8f1d3b2970f27bf750752f7d575b6715ef04d42c6d"
     },
     {
-      "index": 49,
+      "index": 52,
       "step": "type",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1408,7 +1484,7 @@
       "treeSha256": "c4bfaf1a23f1ff354a9d213dc9774a27463629062de168673d3d1e2bc69c3e0e"
     },
     {
-      "index": 50,
+      "index": 53,
       "step": "type",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1437,7 +1513,7 @@
       "treeSha256": "f5e142ed98a1052e3e39b746873854cd4230988ae031c360a12612cd3e09eb9c"
     },
     {
-      "index": 51,
+      "index": 54,
       "step": "choose",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1466,7 +1542,7 @@
       "treeSha256": "279c953b348752e2fed5530d3e287468eb2ce481b606892c4f4829482126104e"
     },
     {
-      "index": 52,
+      "index": 55,
       "step": "type",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1495,7 +1571,7 @@
       "treeSha256": "9e8610fbf20035c924304696beadd94aee49e2a3927893a8d1eedf10023760c0"
     },
     {
-      "index": 53,
+      "index": 56,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1529,7 +1605,7 @@
       ]
     },
     {
-      "index": 54,
+      "index": 57,
       "step": "select",
       "undo": {
         "text": "Undo (Add Parachute)",
@@ -1549,7 +1625,7 @@
       "treeSha256": "9e8610fbf20035c924304696beadd94aee49e2a3927893a8d1eedf10023760c0"
     },
     {
-      "index": 55,
+      "index": 58,
       "step": "add",
       "undo": {
         "text": "Undo (Add Shock Cord)",
@@ -1578,7 +1654,7 @@
       "treeSha256": "67ca16d76a541ecd6ddf750d20a9eb1a6e0bddb8d2eeb7564768b0650c766ac9"
     },
     {
-      "index": 56,
+      "index": 59,
       "step": "type",
       "undo": {
         "text": "Undo (Add Shock Cord)",
@@ -1607,7 +1683,7 @@
       "treeSha256": "8f372aa08ed053cc38a1d0e5c67b0a12955b456e0dbc1f55bcae8dc41a69b847"
     },
     {
-      "index": 57,
+      "index": 60,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Shock Cord)",
@@ -1642,7 +1718,7 @@
       ]
     },
     {
-      "index": 58,
+      "index": 61,
       "step": "select",
       "undo": {
         "text": "Undo (Add Shock Cord)",
@@ -1662,7 +1738,7 @@
       "treeSha256": "8f372aa08ed053cc38a1d0e5c67b0a12955b456e0dbc1f55bcae8dc41a69b847"
     },
     {
-      "index": 59,
+      "index": 62,
       "step": "add",
       "undo": {
         "text": "Undo (Add Launch Lug)",
@@ -1691,7 +1767,7 @@
       "treeSha256": "22fd1007e15d36ba50f5d79b84f7f8ce0f8cfae4da230bb52ad77fb24c027bee"
     },
     {
-      "index": 60,
+      "index": 63,
       "step": "type",
       "undo": {
         "text": "Undo (Add Launch Lug)",
@@ -1720,7 +1796,7 @@
       "treeSha256": "1e3b22e0932e1715317ad78eeb6cb946a5cca438bf347c7c62f8454dff5a9e1f"
     },
     {
-      "index": 61,
+      "index": 64,
       "step": "type",
       "undo": {
         "text": "Undo (Add Launch Lug)",
@@ -1749,7 +1825,7 @@
       "treeSha256": "a845f57d3133dfe633aca5f2180e55f519c1f3e4f29fa1736680ed24ab048641"
     },
     {
-      "index": 62,
+      "index": 65,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Launch Lug)",
@@ -1785,7 +1861,7 @@
       ]
     },
     {
-      "index": 63,
+      "index": 66,
       "step": "select",
       "undo": {
         "text": "Undo (Add Launch Lug)",
@@ -1805,7 +1881,7 @@
       "treeSha256": "a845f57d3133dfe633aca5f2180e55f519c1f3e4f29fa1736680ed24ab048641"
     },
     {
-      "index": 64,
+      "index": 67,
       "step": "add",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1834,7 +1910,7 @@
       "treeSha256": "d4e84205df159c82e0cbaefab75cea92ff96e49d457e8898e602c926e07cd32a"
     },
     {
-      "index": 65,
+      "index": 68,
       "step": "type",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1863,7 +1939,7 @@
       "treeSha256": "e5231b2982a42cae662c3036ceef7ed666c22a8adc037ab73d99a82960f8ab23"
     },
     {
-      "index": 66,
+      "index": 69,
       "step": "type",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1892,7 +1968,7 @@
       "treeSha256": "5cdb2d6a9eceb626dd2f412373b07fcdaf6481e8a3cd31bb536a2a99c06338e1"
     },
     {
-      "index": 67,
+      "index": 70,
       "step": "type",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1921,7 +1997,7 @@
       "treeSha256": "cf30ea445b9721764b549b9c33a527f50f2e5d91485afffae452559496ec9eb5"
     },
     {
-      "index": 68,
+      "index": 71,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1958,7 +2034,7 @@
       ]
     },
     {
-      "index": 69,
+      "index": 72,
       "step": "select",
       "undo": {
         "text": "Undo (Add Rail Button)",
@@ -1978,7 +2054,7 @@
       "treeSha256": "cf30ea445b9721764b549b9c33a527f50f2e5d91485afffae452559496ec9eb5"
     },
     {
-      "index": 70,
+      "index": 73,
       "step": "add",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2007,7 +2083,7 @@
       "treeSha256": "881341ba59bcd736813a2593a18ee40d30bdcfc26614126e391065d928cabfe5"
     },
     {
-      "index": 71,
+      "index": 74,
       "step": "type",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2036,7 +2112,7 @@
       "treeSha256": "77fcc3eedb6bf6c9c92da813ba261839c460290feeaa2e7e5581819d95bb5dd3"
     },
     {
-      "index": 72,
+      "index": 75,
       "step": "choose",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2065,7 +2141,7 @@
       "treeSha256": "641e8cdb03152eb8eb7cfc7268411bb8a43b6acee0b43f9a6cc14feea1614355"
     },
     {
-      "index": 73,
+      "index": 76,
       "step": "type",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2094,7 +2170,7 @@
       "treeSha256": "773115af49366ae272e399a4755f22f820f7bec17450c2572abf8a0fd4320d9c"
     },
     {
-      "index": 74,
+      "index": 77,
       "step": "type",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2123,7 +2199,7 @@
       "treeSha256": "3a7f14c7d3f1c6437576076751e5e1d61e28ba9eae81dab6b4124542455fc2bb"
     },
     {
-      "index": 75,
+      "index": 78,
       "step": "ok",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2161,7 +2237,7 @@
       ]
     },
     {
-      "index": 76,
+      "index": 79,
       "step": "select",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2182,7 +2258,7 @@
       "treeSha256": "3a7f14c7d3f1c6437576076751e5e1d61e28ba9eae81dab6b4124542455fc2bb"
     },
     {
-      "index": 77,
+      "index": 80,
       "step": "edit",
       "undo": {
         "text": "Undo (Add Mass Component)",
@@ -2211,7 +2287,7 @@
       "treeSha256": "3a7f14c7d3f1c6437576076751e5e1d61e28ba9eae81dab6b4124542455fc2bb"
     },
     {
-      "index": 78,
+      "index": 81,
       "step": "button",
       "undo": {
         "text": "Undo (Convert fin set)",
@@ -2257,7 +2333,7 @@
       ]
     },
     {
-      "index": 79,
+      "index": 82,
       "step": "editPoint",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2286,7 +2362,7 @@
       "treeSha256": "21e98bd3e0dd0180fb1ff3baea8e6c6022648f6a0599e07e2d8c72093f27735b"
     },
     {
-      "index": 80,
+      "index": 83,
       "step": "insertPoint",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2315,7 +2391,7 @@
       "treeSha256": "a15237d27e4350e2832f1c45b6224afc36f063c64ed5b517eed51e1553171380"
     },
     {
-      "index": 81,
+      "index": 84,
       "step": "editPoint",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2344,7 +2420,7 @@
       "treeSha256": "0d8ce7f07038ea377b55f2cb043e7fc15611afb5c26faa63ab84a3f6767ede46"
     },
     {
-      "index": 82,
+      "index": 85,
       "step": "ok",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2382,7 +2458,7 @@
       ]
     },
     {
-      "index": 83,
+      "index": 86,
       "step": "undo",
       "undo": {
         "text": "Undo (Convert fin set)",
@@ -2420,7 +2496,7 @@
       ]
     },
     {
-      "index": 84,
+      "index": 87,
       "step": "redo",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2458,7 +2534,7 @@
       ]
     },
     {
-      "index": 85,
+      "index": 88,
       "step": "select",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2479,7 +2555,7 @@
       "treeSha256": "0d8ce7f07038ea377b55f2cb043e7fc15611afb5c26faa63ab84a3f6767ede46"
     },
     {
-      "index": 86,
+      "index": 89,
       "step": "copy",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2500,7 +2576,7 @@
       "treeSha256": "0d8ce7f07038ea377b55f2cb043e7fc15611afb5c26faa63ab84a3f6767ede46"
     },
     {
-      "index": 87,
+      "index": 90,
       "step": "select",
       "undo": {
         "text": "Undo (Modify Freeform Fin Set)",
@@ -2520,7 +2596,7 @@
       "treeSha256": "0d8ce7f07038ea377b55f2cb043e7fc15611afb5c26faa63ab84a3f6767ede46"
     },
     {
-      "index": 88,
+      "index": 91,
       "step": "paste",
       "undo": {
         "text": "Undo (Paste Parachute)",
@@ -2562,7 +2638,7 @@
       ]
     },
     {
-      "index": 89,
+      "index": 92,
       "step": "select",
       "undo": {
         "text": "Undo (Paste Parachute)",
@@ -2586,7 +2662,7 @@
       "treeSha256": "b5cc6572c9840f77eb67d97d9868872bcac00a911e0ae64abedfabc63c200406"
     },
     {
-      "index": 90,
+      "index": 93,
       "step": "edit",
       "undo": {
         "text": "Undo (Paste Parachute)",
@@ -2621,7 +2697,7 @@
       "treeSha256": "b5cc6572c9840f77eb67d97d9868872bcac00a911e0ae64abedfabc63c200406"
     },
     {
-      "index": 91,
+      "index": 94,
       "step": "type",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2650,7 +2726,7 @@
       "treeSha256": "97b952b524a1c7942050afff8146a061863b5ba7e91a1e8f16a54c38e571c56c"
     },
     {
-      "index": 92,
+      "index": 95,
       "step": "type",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2679,7 +2755,7 @@
       "treeSha256": "8d36f513b2ea3240bf92ebfc6605da95f6f1e603b4363010c50a81603c2c89cf"
     },
     {
-      "index": 93,
+      "index": 96,
       "step": "ok",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2718,7 +2794,7 @@
       ]
     },
     {
-      "index": 94,
+      "index": 97,
       "step": "saveAs",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2739,7 +2815,7 @@
       "treeSha256": "8d36f513b2ea3240bf92ebfc6605da95f6f1e603b4363010c50a81603c2c89cf"
     },
     {
-      "index": 95,
+      "index": 98,
       "step": "type",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2760,7 +2836,7 @@
       "treeSha256": "7f0ee4aff90d5d867d3aa4ec854351c18a67267d4ccb03a3114f6485b1b1bffb"
     },
     {
-      "index": 96,
+      "index": 99,
       "step": "ok",
       "undo": {
         "text": "Undo (Modify Parachute)",
@@ -2798,7 +2874,7 @@
       ]
     },
     {
-      "index": 97,
+      "index": 100,
       "step": "chooseFile",
       "undo": {
         "text": "Undo (Modify Parachute)",

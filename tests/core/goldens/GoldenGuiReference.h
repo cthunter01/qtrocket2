@@ -15,6 +15,7 @@
 // other and against QtRocket's loader; the GUI's exit test drives the scenario and compares with
 // the records.
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -190,5 +191,33 @@ struct GuiReference
 
 /// The digest of a record's tree: the SHA-256 of @p lines, each followed by a line feed.
 [[nodiscard]] std::string guiTreeSha256(std::span<const std::string> lines);
+
+/// A line of a component tree (describeRocket() with no known id) that a save and a reload of
+/// the scenario's design change: in the line that starts with @p line, @p saved becomes
+/// @p reloaded.
+struct GuiReloadChange
+{
+    std::string_view line;
+    std::string_view saved;
+    std::string_view reloaded;
+};
+
+/// What the save and the reload of the scenario's design change, in OpenRocket as in QtRocket
+/// (from_scratch_reference_golden_tests.cpp for OpenRocket's save, the GUI's exit test for
+/// QtRocket's):
+/// - the inner tube, a motor mount, saves its default ignition (<ignitionevent> of <motormount>),
+///   and the loader sets it with MotorConfiguration.setIgnitionEvent(), which marks it an
+///   override (MotorMountHandler.java:101-115, MotorConfiguration.java:198-205).
+inline constexpr std::array kGuiSaveAndReloadChanges{
+    GuiReloadChange{.line     = "      InnerTube 'Inner Tube' ",
+                    .saved    = " ign=AUTOMATIC:0.0:false",
+                    .reloaded = " ign=AUTOMATIC:0.0:true"},
+};
+
+/// @p tree, the tree of the design as it was saved, as its reload gives it: with the changes of
+/// kGuiSaveAndReloadChanges made, each exactly once. A change made another number of times (its
+/// line is not in @p tree, or more than once) is a line of @p problems.
+[[nodiscard]] std::vector<std::string> guiReloadedTree(std::vector<std::string> tree,
+                                                       std::string&             problems);
 
 }  // namespace QtRocket::Test

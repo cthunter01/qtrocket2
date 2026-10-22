@@ -14,10 +14,10 @@
 //   own load gives (designFileState() of DesignFileState.h, line for line, the component ids of
 //   the file included), with OpenRocket's masses, centres of mass and length;
 // - the reloaded rocket is the one the GUI saved (the tree of the last record, describeRocket()
-//   without ids), but for what OpenRocket's own save and reload changes (kSaveAndReloadChanges).
-//   The exit test compares a reload of QtRocket's save with that record in the same way.
+//   without ids), but for what OpenRocket's own save and reload changes
+//   (kGuiSaveAndReloadChanges of GoldenGuiReference.h). The GUI's exit test compares a reload of
+//   QtRocket's save with that record in the same way.
 
-#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <format>
@@ -34,10 +34,6 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/material/BuiltinMaterials.h"
-#include "QtRocket/material/MaterialPreferences.h"
-#include "QtRocket/material/MaterialStorage.h"
-#include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/Parachute.h"
@@ -48,12 +44,12 @@
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Sha256.h"
 #include "QtRocket/util/Uuid.h"
-#include "file/DesignFileEnvironment.h"
 #include "file/RocketLoaderTestSupport.h"
 #include "file/openrocket/ComponentHandlerTestSupport.h"
 #include "file/openrocket/DesignFileState.h"
 #include "goldens/GoldenData.h"
 #include "goldens/GoldenGuiReference.h"
+#include "goldens/GuiReferenceEnvironment.h"
 #include "unit/DefaultUnitsGuard.h"
 
 namespace
@@ -69,10 +65,8 @@ using QtRocket::Result;
 using QtRocket::Rocket;
 using QtRocket::RocketComponent;
 using QtRocket::ShockCord;
-using QtRocket::ThrustCurveMotorSetDatabase;
 using QtRocket::Uuid;
 using QtRocket::Test::DefaultUnitsGuard;
-using QtRocket::Test::DesignFileEnvironment;
 using QtRocket::Test::GuiComponentPath;
 using QtRocket::Test::guiComponentPathOf;
 using QtRocket::Test::guiComponentPathText;
@@ -82,8 +76,6 @@ using QtRocket::Test::GuiStepKind;
 using QtRocket::Test::guiStepName;
 using QtRocket::Test::GuiStepRecord;
 using QtRocket::Test::resolveGuiComponentPath;
-
-using Presets = DesignFileEnvironment::Presets;
 
 [[nodiscard]] std::filesystem::path scenarioFile()
 {
@@ -116,70 +108,6 @@ using Presets = DesignFileEnvironment::Presets;
 {
     return QtRocket::Test::parseGuiReference(
         textOf(QtRocket::Test::guiFromScratchDir() / "state.json"));
-}
-
-/// The environment of the loads, the one in which the tool loaded the saved design: OpenRocket's
-/// GUI after its start-up (SwingStartup), without component presets and motors (QtRocket's
-/// start-up of Milestone 2 has none either, and the design names none), with the default
-/// component materials the start-up stores (loadDefaultComponentMaterials(): Balsa for fin sets,
-/// Polystyrene for nose cones). A new component of the loader starts with them, so a <material>
-/// that names the same one changes nothing and fires no event: the events of the load count it.
-class GuiEnvironment
-{
-public:
-    GuiEnvironment()
-    {
-        QtRocket::addBuiltinMaterials(m_materials);
-        QtRocket::loadDefaultComponentMaterials(m_environment.preferences(), m_materials);
-    }
-
-    [[nodiscard]] DesignFileEnvironment& get() noexcept { return m_environment; }
-
-private:
-    ThrustCurveMotorSetDatabase m_motors;
-    QtRocket::MaterialStorage   m_materials;
-    DesignFileEnvironment       m_environment{Presets::NONE, m_motors};
-};
-
-/// A line of a tree that OpenRocket's own save and reload of the reference changes: in the line
-/// that starts with @p line, @p saved becomes @p reloaded.
-struct LineChange
-{
-    std::string_view line;
-    std::string_view saved;
-    std::string_view reloaded;
-};
-
-/// What the save and the reload of the scenario's design change, in OpenRocket as in QtRocket:
-/// - the inner tube, a motor mount, saves its default ignition (<ignitionevent> of <motormount>),
-///   and the loader sets it with MotorConfiguration.setIgnitionEvent(), which marks it an
-///   override (MotorMountHandler.java:101-115, MotorConfiguration.java:198-205).
-constexpr std::array kSaveAndReloadChanges{
-    LineChange{.line     = "      InnerTube 'Inner Tube' ",
-               .saved    = " ign=AUTOMATIC:0.0:false",
-               .reloaded = " ign=AUTOMATIC:0.0:true"},
-};
-
-/// @p tree with the changes of kSaveAndReloadChanges made, each exactly once; a test failure for
-/// a change whose line is not there.
-[[nodiscard]] std::vector<std::string> reloadedTree(std::vector<std::string> tree)
-{
-    for (const LineChange& change : kSaveAndReloadChanges)
-    {
-        std::size_t made = 0;
-        for (std::string& line : tree)
-        {
-            const std::size_t at = line.find(change.saved);
-            if (line.starts_with(change.line) && at != std::string::npos)
-            {
-                line.replace(at, change.saved.size(), change.reloaded);
-                made++;
-            }
-        }
-        EXPECT_EQ(made, 1U) << "the saved tree has no line " << change.line << "..."
-                            << change.saved;
-    }
-    return tree;
 }
 
 /// The kinds of the scenario's steps by name.
@@ -409,10 +337,10 @@ TEST(FromScratchReferenceGolden, TheRecordedPathsNameTheirComponentsInTheReload)
     const Result<GuiReference> reference = loadReference();
     ASSERT_TRUE(reference.has_value()) << reference.error().toString();
     ASSERT_FALSE(reference->steps.empty());
-    GuiEnvironment               environment;
-    const DefaultUnitsGuard      units;
-    const GeneralRocketLoader    loader(environment.get().context());
-    const Result<LoadedDocument> loaded = loader.load(referenceFile());
+    QtRocket::Test::GuiReferenceEnvironment environment;
+    const DefaultUnitsGuard                 units;
+    const GeneralRocketLoader               loader(environment.get().context());
+    const Result<LoadedDocument>            loaded = loader.load(referenceFile());
     ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
     const Rocket& rocket = loaded->document->getRocket();
 
@@ -483,10 +411,10 @@ TEST(FromScratchReferenceGolden, AnOccurrenceNamesALaterChildOfTheSameName)
 
 TEST(FromScratchReferenceGolden, TheSavedDesignLoadsWithoutWarnings)
 {
-    GuiEnvironment               environment;
-    const DefaultUnitsGuard      units;
-    const GeneralRocketLoader    loader(environment.get().context());
-    const Result<LoadedDocument> loaded = loader.load(referenceFile());
+    QtRocket::Test::GuiReferenceEnvironment environment;
+    const DefaultUnitsGuard                 units;
+    const GeneralRocketLoader               loader(environment.get().context());
+    const Result<LoadedDocument>            loaded = loader.load(referenceFile());
     ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
     EXPECT_EQ(QtRocket::Test::warningLines(loaded->warnings), "");
 }
@@ -495,8 +423,8 @@ TEST(FromScratchReferenceGolden, TheSavedDesignLoadsIntoOpenRocketsState)
 {
     const Result<GuiReference> reference = loadReference();
     ASSERT_TRUE(reference.has_value()) << reference.error().toString();
-    GuiEnvironment                 environment;
-    const std::vector<std::string> state = QtRocket::Test::designFileState(
+    QtRocket::Test::GuiReferenceEnvironment environment;
+    const std::vector<std::string>          state = QtRocket::Test::designFileState(
         environment.get(), referenceFile(), QtRocket::Test::StateDetail::WITH_DOCUMENT_PREFERENCES);
     const std::vector<std::string_view> expected(reference->loadedLines.begin(),
                                                  reference->loadedLines.end());
@@ -509,10 +437,10 @@ TEST(FromScratchReferenceGolden, TheSavedDesignHasOpenRocketsMassesAndLength)
 {
     const Result<GuiReference> reference = loadReference();
     ASSERT_TRUE(reference.has_value()) << reference.error().toString();
-    GuiEnvironment               environment;
-    const DefaultUnitsGuard      units;
-    const GeneralRocketLoader    loader(environment.get().context());
-    const Result<LoadedDocument> loaded = loader.load(referenceFile());
+    QtRocket::Test::GuiReferenceEnvironment environment;
+    const DefaultUnitsGuard                 units;
+    const GeneralRocketLoader               loader(environment.get().context());
+    const Result<LoadedDocument>            loaded = loader.load(referenceFile());
     ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
     const std::vector<std::string_view> expected(reference->loadedNumbers.begin(),
                                                  reference->loadedNumbers.end());
@@ -527,15 +455,19 @@ TEST(FromScratchReferenceGolden, TheReloadIsTheSavedRocketButForWhatTheReloadCha
     ASSERT_TRUE(reference.has_value()) << reference.error().toString();
     ASSERT_FALSE(reference->steps.empty());
     ASSERT_TRUE(reference->steps.back().tree.has_value());
-    GuiEnvironment               environment;
-    const DefaultUnitsGuard      units;
-    const GeneralRocketLoader    loader(environment.get().context());
-    const Result<LoadedDocument> loaded = loader.load(referenceFile());
+    QtRocket::Test::GuiReferenceEnvironment environment;
+    const DefaultUnitsGuard                 units;
+    const GeneralRocketLoader               loader(environment.get().context());
+    const Result<LoadedDocument>            loaded = loader.load(referenceFile());
     ASSERT_TRUE(loaded.has_value()) << loaded.error().toString();
     // describeRocket() with no known id, as the records print the tree.
+    std::string                    problems;
+    const std::vector<std::string> reloaded = QtRocket::Test::guiReloadedTree(
+        reference->steps.back().tree.value_or(std::vector<std::string>{}), problems);
+    EXPECT_EQ(problems, "");
     EXPECT_EQ(QtRocket::Test::describeRocket(loaded->document->getRocket(),
                                              environment.get().preferences(), std::set<Uuid>{}),
-              reloadedTree(reference->steps.back().tree.value_or(std::vector<std::string>{})));
+              reloaded);
 }
 
 }  // namespace

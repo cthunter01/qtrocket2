@@ -20,7 +20,11 @@
 #include "QtRocket/aero/FlightConditions.h"
 #include "QtRocket/aero/barrowman/FinSetCalc.h"
 #include "QtRocket/logging/WarningSet.h"
+#include "QtRocket/material/BuiltinMaterials.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/material/MaterialPreferences.h"
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -71,8 +75,10 @@ using QtRocket::FinSet;
 using QtRocket::FinSetCalc;
 using QtRocket::FlightConditions;
 using QtRocket::FreeformFinSet;
+using QtRocket::InMemoryPreferences;
 using QtRocket::LineStyle;
 using QtRocket::Material;
+using QtRocket::MaterialStorage;
 using QtRocket::NoseCone;
 using QtRocket::Point2D;
 using QtRocket::Result;
@@ -369,6 +375,40 @@ TEST(FreeformFinSet, ConvertTrapezoidToFreeform)
     EXPECT_NEAR(-0.015, finSet.getTabOffset(), kEpsilon);
     EXPECT_NEAR(0.005, finSet.getThickness(), kEpsilon);
     EXPECT_EQ(result.freeform->getPointCount(), 4U);
+}
+
+TEST(FreeformFinSet, ConvertingWithThePreferencesGivesTheNewFinSetTheirMaterials)
+{
+    // OpenRocket's application: `new FreeformFinSet()` in convertFinSet() asks the preferences for
+    // the default materials of its class (ExternalComponent's and FinSet's constructors, "Balsa"
+    // for a fin set after SwingStartup's loadDefaultComponentMaterials()); copyFrom() then copies
+    // the material of the converted fin set, but not its fillets' (FinSet.copyFrom()). OpenRocket's
+    // GUI on the from-scratch scenario shows the converted fin set so
+    // (tests/data/goldens/gui/from-scratch/state.json: "fillet=0.0:[BULK|Balsa|...").
+    InMemoryPreferences preferences;
+    MaterialStorage     materials;
+    QtRocket::addBuiltinMaterials(materials);
+    QtRocket::loadDefaultComponentMaterials(preferences, materials);
+
+    TrapezoidFinSet source;
+    prepareForConversion(source);
+    source.setFilletMaterial(Material::newMaterial(Material::Type::BULK, "test-fillet", 0.2, true));
+    const FreeformFinSet::ConversionResult result =
+        FreeformFinSet::convertFinSet(source, preferences, materials);
+    ASSERT_NE(result.freeform, nullptr);
+    EXPECT_EQ(result.freeform->getMaterial().getName(), "test-material");
+    EXPECT_EQ(result.freeform->getFilletMaterial().getName(), "Balsa");
+    EXPECT_EQ(result.freeform->getName(), "test-convert-finset");
+    EXPECT_EQ(result.freeform->getPointCount(), 4U);
+
+    // Without the preferences, the fillets keep the built-in default of the constructor.
+    TrapezoidFinSet plain;
+    prepareForConversion(plain);
+    plain.setFilletMaterial(Material::newMaterial(Material::Type::BULK, "test-fillet", 0.2, true));
+    const FreeformFinSet::ConversionResult builtin = FreeformFinSet::convertFinSet(plain);
+    ASSERT_NE(builtin.freeform, nullptr);
+    EXPECT_EQ(builtin.freeform->getMaterial().getName(), "test-material");
+    EXPECT_EQ(builtin.freeform->getFilletMaterial().getName(), "Cardboard");
 }
 
 /// The root points of the conical-transition fin canted by 15 degrees (the Java test's table).

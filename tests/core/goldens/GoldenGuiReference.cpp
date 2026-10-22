@@ -550,4 +550,27 @@ std::string guiTreeSha256(std::span<const std::string> lines)
     return sha256Hex(stringToBytes(text));
 }
 
+std::vector<std::string> guiReloadedTree(std::vector<std::string> tree, std::string& problems)
+{
+    for (const GuiReloadChange& change : std::span<const GuiReloadChange>(kGuiSaveAndReloadChanges))
+    {
+        std::size_t made = 0;
+        for (std::string& line : tree)
+        {
+            const std::size_t at = line.find(change.saved);
+            if (line.starts_with(change.line) && at != std::string::npos)
+            {
+                line.replace(at, change.saved.size(), change.reloaded);
+                made++;
+            }
+        }
+        if (made != 1)
+        {
+            problems += std::format("the saved tree has {} lines {}...{}, not one\n", made,
+                                    change.line, change.saved);
+        }
+    }
+    return tree;
+}
+
 }  // namespace QtRocket::Test
