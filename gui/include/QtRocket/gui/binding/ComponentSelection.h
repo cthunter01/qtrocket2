@@ -38,7 +38,7 @@ namespace QtRocket::Gui
 /// - Java's setters forward the main component's argument but compute the values they derive
 ///   from it with the MAIN component's other values, and those derived values reach the others
 ///   through the forwarding of the setters they call. Here every component derives them from its
-///   own values. The twelve setters whose results therefore differ:
+///   own values. The thirteen setters whose results therefore differ:
 ///   1. BodyTube.setInnerRadius (setThickness(main's outer radius - r));
 ///   2. LaunchLug.setInnerRadius (setOuterRadius(r + main's thickness));
 ///   3. TubeFinSet.setInnerRadius (setThickness(main's outer radius - r));
@@ -54,7 +54,9 @@ namespace QtRocket::Gui
 ///       main: the main's automatic shoulder radius and wall thickness);
 ///   11. NoseCone.setFlipped (the main's radii and shoulders);
 ///   12. ParallelStage.setRadiusMethod and PodSet.setRadiusMethod (setRadius(method, main's
-///       radius)).
+///       radius));
+///   13. InnerTube.setClusterScaleAbsolute (setClusterScale(gap / main's outer radius): every
+///       selected tube gets the main's relative scale; see InnerTubeConfig.h).
 /// - Java's setters without a forwarding loop change the main component only: in OpenRocket the
 ///   placement's "plus" field and slider (RocketComponent.setAxialOffset(double) and
 ///   ComponentAssembly's override, bound by PlacementPanel) move the main component alone, and
@@ -77,8 +79,9 @@ namespace QtRocket::Gui
 /// selected component (the forwarding of the main's setter).
 /// Setters that freeze the rocket themselves (RocketComponent::loadPreset(), splitInstances(true),
 /// FreeformFinSet::convertFinSet(.., true)) must never run inside apply(): the second freeze is a
-/// BugError. Structural operations of several components call their non-freezing forms inside
-/// one freeze of their own, without apply().
+/// BugError. Structural operations of several components (convert, split fins, split cluster,
+/// split assembly) never run inside apply(); each freezes as its Java original does (see the
+/// operation's comment in its panel).
 ///
 /// Lifetime: the selection listens to the rocket. On an event of the rocket that is a TREE or
 /// UNDO change it becomes invalid: Rocket::loadFrom() (undo, redo) replaces every component object,
