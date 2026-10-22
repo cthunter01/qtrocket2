@@ -51,7 +51,7 @@ public:
     InternalErrorDialog& operator=(InternalErrorDialog&&)      = delete;
 
     /// Shows the dialog of @p failure, modal, parented to @p parent (or none), and returns the
-    /// user's answer.
+    /// user's answer (CONTINUE when the dialog was destroyed with its parent: ModalDialog).
     [[nodiscard]] static UserPrompts::InternalErrorAnswer ask(QWidget*              parent,
                                                               const Guard::Failure& failure);
 

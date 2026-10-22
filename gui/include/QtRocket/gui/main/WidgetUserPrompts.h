@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <optional>
 
+#include <QChar>
 #include <QCoreApplication>
 #include <QString>
 
@@ -19,21 +20,57 @@ class OpenRocketDocument;
 namespace QtRocket::Gui
 {
 
-/// The application's UserPrompts: OpenRocket's JOptionPane questions and its dialogs, modal,
-/// parented to the window that asks (or to none).
+/// The application's UserPrompts: OpenRocket's JOptionPane questions, file choosers and dialogs,
+/// modal, parented to the window or dialog that asks (or to none), with OpenRocket's texts:
+/// - askInsertPosition(): ComponentAddButtons.askPosition()'s "Select component position" /
+///   "Select stage position", a question with "Insert here" (the initial option), "Add to the
+///   end" and "Cancel" (also closing it), "Do not ask me again" and, 2 points smaller, "You can
+///   change the default operation in the preferences.";
+/// - askDiscardChanges(): RocketComponentConfig's "Cancel operation" (discard the changes to a
+///   component, or undo adding it) and PreferencesDialog's "Discard Preference Changes",
+///   warnings with Yes and No and "Don't ask me again" (its state is answered whatever the
+///   answer, as OpenRocket stores it as soon as it is ticked);
+/// - askSaveChanges(): BasicFrame.closeAction()'s "Design not saved", with Yes (save), No
+///   (discard) and Cancel (also Esc and the close button), a QMessageBox;
+/// - askOverwrite(): FileHelper.confirmWrite()'s "File exists" ("File '<name>' exists.  Do you
+///   want to overwrite it?"), Yes or No;
+/// - askStorageOptions(): StorageOptionChooser.verifyStorageOptions()'s "Save options"
+///   (StorageOptionsDialog);
+/// - askYesNo(): a question with the caller's title and text, the severity's icon, Yes or No;
+/// - askDecalFile(): DecalNotFoundDialog.showDialog(): the question (DecalNotFoundDialog), then on
+///   Yes a file chooser for the image (any file, starting in the given directory);
+/// - askOpenFiles(), askSaveFile(): the platform's file dialog (QFileDialog), titled as asked (the
+///   platform's "Open" / "Save" title without one), with the name filters (the one asked for
+///   chosen, else the first), starting in the given directory (the user's home directory without
+///   one), the proposed name chosen; the save dialog does not ask itself whether to overwrite a
+///   file (the caller forces the extension first and asks askOverwrite()), so on macOS, whose
+///   save panel always asks, it is Qt's own dialog; with a description (the image import's), a
+///   Qt file dialog with the description beside the files (the JFileChooser accessory); a save
+///   that refuses illegal names (SaveFileChooser's) shows "Illegal filename" ("The filename
+///   '<name>' may not contain the character ' <c> '. Please remove it.") for a name with one of
+///   / \ : * ? " < > | (SaveFileNames, the name relative to the dialog's directory) and asks
+///   again, in that directory with that name; a save that offers a storage option asks "Save
+///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it;
+/// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message (DetailDialog
+///   without details);
+/// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
+/// - showInternalError(): the internal error dialog (InternalErrorDialog).
+/// Each dialog is made for its question (ModalDialog), so that it survives its parent being
+/// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no
+/// file), and a question of two dialogs does not show the second one.
 ///
-/// Done so far (Milestone 2, run 1): what the application shows before the dialogs and file
-/// operations exist:
-/// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message
-///   (DetailDialog without details);
-/// - showInternalError(): the internal error dialog (InternalErrorDialog);
-/// - askSaveChanges(): BasicFrame.closeAction()'s question "Design '<name>' has not been saved.
-///   Do you want to save it?", titled "Design not saved", with Yes (save), No (discard) and
-///   Cancel (also Esc and the close button).
-/// The other questions come with the dialogs and file operations of run 3 (the insert position,
-/// discard, storage-option, decal, file, design-information and warnings dialogs): until then
-/// each of them reports an error condition to the error hook (Guard) and gives the cancelling
-/// answer (Cancel, No, no file).
+/// Not yet: editDesignInformation(), the "Save Design Info" dialog, which comes with the
+/// integration of Milestone 2 (run 4: the SaveDesignInfoDialog of the dialogs): until then it
+/// reports an error condition to the error hook (Guard) and edits nothing.
+///
+/// Deviations: OpenRocket asks the insert position over no window (JOptionPane with a null
+/// parent) and looks for a decal file over none either; here every question has the caller's
+/// parent. The overwrite question puts the file's name into its text as it is: OpenRocket's
+/// L10N.replace() reads the name as a regular expression's replacement, so a name with "$"
+/// throws (the probe: "a$b.ork" IllegalArgumentException, "a$1.ork" IndexOutOfBoundsException)
+/// and one with "\" loses it ("a\b.ork" shows "ab.ork"). The file dialogs are Qt's
+/// (QFileDialog), with the platform's own where it has one (Swing's JFileChooser); the storage
+/// option is a question after the save dialog rather than beside its files.
 ///
 /// Its own state is none: one object serves every window (app/ApplicationContext owns it).
 class WidgetUserPrompts final : public UserPrompts
@@ -50,6 +87,11 @@ public:
 
     /// The text of the "Design not saved" question about the design @p designName.
     [[nodiscard]] static QString saveChangesText(const QString& designName);
+    /// The text of the "File exists" question about the file named @p fileName.
+    [[nodiscard]] static QString overwriteText(const QString& fileName);
+    /// The text of the "Illegal filename" warning about the name @p fileName, which holds the
+    /// character @p character.
+    [[nodiscard]] static QString illegalFileNameText(const QString& fileName, QChar character);
 
     [[nodiscard]] InsertPositionAnswer askInsertPosition(QWidget*               parent,
                                                          InsertPositionQuestion question) override;
@@ -70,12 +112,17 @@ public:
     void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override;
     void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
+    void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override;
 
 private:
     /// Reports that the question @p question is not available yet (see the class comment).
     static void reportNotAvailable(const QString& question);
+    /// The file chooser of askSaveFile(), asked again after the warning while the request
+    /// refuses the name chosen; nullopt when it was cancelled (or its parent destroyed).
+    [[nodiscard]] std::optional<OpenFileAnswer> askLegalFileToSave(QWidget*               parent,
+                                                                   const SaveFileRequest& request);
 };
 
 }  // namespace QtRocket::Gui

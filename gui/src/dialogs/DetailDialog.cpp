@@ -24,6 +24,7 @@
 #include <Qt>
 #include <QtContainerFwd>
 
+#include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/util/BugError.h"
@@ -133,7 +134,8 @@ void DetailDialog::showDetailedMessageDialog(QWidget* parent, const QStringList&
                                              const std::optional<QString>& details,
                                              const QString& title, UserPrompts::Severity severity)
 {
-    DetailDialog dialog(message, details, title, severity, parent);
+    // Made for the message, so that it survives its parent being destroyed while it is open.
+    ModalDialog<DetailDialog> dialog(parent, message, details, title, severity);
     dialog.exec();
 }
 

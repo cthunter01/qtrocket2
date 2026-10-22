@@ -10,21 +10,27 @@
 #include <QLayout>
 #include <QMenuBar>
 #include <QObject>
+#include <QPoint>
 #include <QString>
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/dialogs/PreferencesDialog.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/gui/main/RocketActions.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
@@ -66,6 +72,38 @@ private:
     Action m_action;
 };
 
+/// Puts the design view (RocketPanel) into @p window, below its tabs, and connects it to the
+/// window's @p designPanel as BasicFrame does (rocketpanel.setSelectionModel(tree's), the popup
+/// menu of doComponentTreePopup(), DesignPanel's highlight of the figure) and to the window's
+/// configuration dialog requests.
+void installRocketPanel(MainWindow& window, DesignPanel& designPanel, Preferences& preferences)
+{
+    auto* panel = makeChild<RocketPanel>(&window, window.document(), preferences);
+    panel->setSelectionModel(&designPanel.selection());
+    // What the figure draws as selected is the design panel's highlight (the selection with the
+    // components below a selected assembly; the first stage alone at the start).
+    const auto highlight = [panel, &designPanel] {
+        panel->setHighlightedComponents(designPanel.highlightedComponents());
+    };
+    highlight();
+    QObject::connect(&designPanel, &DesignPanel::highlightChanged, panel,
+                     guarded(highlight, QStringLiteral("Design view selection")));
+    RocketActions& actions = designPanel.rocketActions();
+    QObject::connect(
+        panel, &RocketPanel::componentPopupRequested, &actions,
+        guarded(
+            [&actions](const QPoint& globalPosition) { actions.showContextMenu(globalPosition); },
+            QStringLiteral("Component popup")));
+    QObject::connect(
+        panel, &RocketPanel::editRequested, &window,
+        guarded(
+            [&window](RocketComponent* component, const std::vector<RocketComponent*>& others) {
+                window.requestConfigDialog(*component, others);
+            },
+            QStringLiteral("Design view edit")));
+    window.setRocketPanel(panel);
+}
+
 }  // namespace
 
 WindowManager::LastWindowBehaviour WindowManager::platformLastWindowBehaviour() noexcept
@@ -93,6 +131,11 @@ WindowManager::WindowManager(const GuiServices& services, OpenRocketClipboard& c
 
 WindowManager::~WindowManager()
 {
+    // An open preferences dialog goes with its window, as with close().
+    if (PreferencesDialog* const dialog = m_preferencesDialog.data(); dialog != nullptr)
+    {
+        dialog->accept();
+    }
     // The last opened first; each window before its document (Entry).
     while (!m_entries.empty())
     {
@@ -136,6 +179,13 @@ bool WindowManager::close(MainWindow& window)
     {
         return false;
     }
+    // Java's preferences dialog is owned by its frame: the frame's dispose() disposes it, and its
+    // windowClosed listener stores (as OK does).
+    if (PreferencesDialog* const dialog = m_preferencesDialog.data();
+        dialog != nullptr && dialog->parentWidget() == &window)
+    {
+        dialog->accept();
+    }
     destroyLater(window);
     // BasicFrame.closeAction(): ComponentConfigDialog.disposeDialog() after the frame's
     // dispose() (the window lives until the event loop deletes it).
@@ -164,6 +214,37 @@ bool WindowManager::quit()
     }
     Q_EMIT exitRequested();
     return true;
+}
+
+PreferencesDialog& WindowManager::showPreferences(MainWindow& window)
+{
+    // PreferencesDialog.showPreferences(): "if (dialog != null) dialog.dispose()".
+    if (PreferencesDialog* const open = m_preferencesDialog.data(); open != nullptr)
+    {
+        open->accept();
+    }
+    PreferencesDialog& dialog = PreferencesDialog::showPreferences(
+        m_services.preferences(), m_services.prompts(), [this] { return rocketPanels(); }, window);
+    m_preferencesDialog = &dialog;
+    return dialog;
+}
+
+PreferencesDialog* WindowManager::preferencesDialog() const noexcept
+{
+    return m_preferencesDialog.data();
+}
+
+std::vector<RocketPanel*> WindowManager::rocketPanels() const
+{
+    std::vector<RocketPanel*> panels;
+    panels.reserve(m_entries.size());
+    for (const std::unique_ptr<Entry>& entry : m_entries)
+    {
+        panels.push_back(entry->window->componentRocketPanel());
+    }
+    // A window whose design view is no RocketPanel (none, as the manager opens them).
+    std::erase(panels, nullptr);
+    return panels;
 }
 
 void WindowManager::setSaveHook(SaveHook hook)
@@ -212,6 +293,8 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     auto* designPanel = makeChild<DesignPanel>(&window, window, *m_clipboard);
     window.setDesignPanel(designPanel);
     designPanel->takeTheSpotlight();
+    // BasicFrame's RocketPanel, sharing the tree's selection.
+    installRocketPanel(window, *designPanel, m_services.preferences());
     // BasicFrame.positionRelativeToExistingFrames(), after the remembered geometry.
     if (!m_entries.empty())
     {
@@ -245,6 +328,16 @@ void WindowManager::connectMenus(MainMenus& menus, MainWindow* window)
     }
     connect(menus.quitAction(), &QAction::triggered, this,
             guarded([this] { static_cast<void>(quit()); }, QStringLiteral("Quit")));
+    // Edit > Preferences (BasicFrame: PreferencesDialog.showPreferences(BasicFrame.this)); the
+    // menus of no window have none.
+    if (QAction* const preferences = menus.preferencesAction();
+        preferences != nullptr && window != nullptr)
+    {
+        connect(preferences, &QAction::triggered, this,
+                guarded([this, window] { static_cast<void>(showPreferences(*window)); },
+                        QStringLiteral("Preferences")));
+        preferences->setEnabled(true);
+    }
 }
 
 void WindowManager::closeIfReplaceable(MainWindow* origin, MainWindow& replacement)

@@ -3,14 +3,27 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 #include <QAbstractButton>
+#include <QChar>
+#include <QCheckBox>
+#include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileDialog>
+#include <QLabel>
 #include <QMessageBox>
 #include <QObject>
 #include <QPushButton>
+#include <QRadioButton>
+#include <QSettings>
 #include <QString>
 #include <QStringList>
+#include <QTest>
+#include <QVariant>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
@@ -21,11 +34,21 @@
 #include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
 #include "QtRocket/gui/dialogs/DetailDialog.h"
+#include "QtRocket/gui/dialogs/ErrorWarningDialog.h"
 #include "QtRocket/gui/dialogs/InternalErrorDialog.h"
+#include "QtRocket/gui/dialogs/MessageList.h"
+#include "QtRocket/gui/dialogs/OptionDialog.h"
+#include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
+#include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/util/Guard.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/gui/widgets/DescriptionArea.h"
+#include "QtRocket/gui/widgets/StyledLabel.h"
 #include "RecordingGuardHook.h"
+#include "TestTempDir.h"
 
 // The dialogs are shown (offscreen) and answered by NextModalDialog from their own event loop.
 
@@ -171,33 +194,934 @@ TEST_F(WidgetUserPromptsTest, ShowsTheInternalErrorDialog)
               UserPrompts::InternalErrorAnswer::CONTINUE);
 }
 
-TEST_F(WidgetUserPromptsTest, TheOtherQuestionsAreNotAvailableYetAndCancel)
+TEST_F(WidgetUserPromptsTest, TheDesignInformationIsNotAvailableYet)
 {
+    // The "Save Design Info" dialog comes with run 4 (SaveDesignInfoDialog).
     const Gui::Test::RecordingGuardHook       hook;
     WidgetUserPrompts                         prompts;
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
-    EXPECT_EQ(
-        prompts.askInsertPosition(nullptr, UserPrompts::InsertPositionQuestion::STAGE).position,
-        UserPrompts::InsertPosition::CANCEL);
-    EXPECT_FALSE(prompts.askDiscardChanges(nullptr, UserPrompts::DiscardQuestion::COMPONENT_CHANGES)
-                     .discard);
-    EXPECT_FALSE(prompts.askOverwrite(nullptr, QStringLiteral("rocket.ork")));
-    EXPECT_EQ(prompts.askStorageOptions(nullptr, true), std::nullopt);
-    EXPECT_FALSE(prompts.askYesNo(nullptr, {}));
-    EXPECT_EQ(prompts.askDecalFile(nullptr, QString(), std::filesystem::path()), std::nullopt);
-    EXPECT_EQ(prompts.askOpenFiles(nullptr, {}), std::nullopt);
-    EXPECT_EQ(prompts.askSaveFile(nullptr, {}), std::nullopt);
     prompts.editDesignInformation(nullptr, *document);
-    prompts.showWarnings(nullptr, {});
-    ASSERT_EQ(hook.failures().size(), 10U);
+    ASSERT_EQ(hook.failures().size(), 1U);
     EXPECT_EQ(hook.failures().front().kind, Guard::Failure::Kind::ERROR_CONDITION);
     EXPECT_EQ(hook.failures().front().message,
-              QStringLiteral("UserPrompts::askInsertPosition() is not available yet: its dialog "
-                             "comes later in Milestone 2"));
-    EXPECT_TRUE(hook.failures().back().message.contains(QStringLiteral("showWarnings")));
+              QStringLiteral("UserPrompts::editDesignInformation() is not available yet: its "
+                             "dialog comes later in Milestone 2"));
 }
 
+/// What an OptionDialog question looked like.
+struct OptionQuestion
+{
+    QString     objectName;
+    QString     title;
+    QStringList lines;
+    QStringList options;
+    QString     initial;
+    bool        icon = false;
+    QString     check;
+    QString     note;
+};
+
+/// Records the OptionDialog question, ticks its check box when @p tick, and
+/// answers with the standard option @p standard, or else the option whose text
+/// is @p text, or else Esc.
+struct AnswerOption
+{
+    QDialogButtonBox::StandardButton standard = QDialogButtonBox::NoButton;
+    QString                          text;
+    bool                             tick = false;
+    OptionQuestion*                  seen = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<OptionDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            record(*dialog);
+        }
+        if (tick)
+        {
+            auto* const box = dialog->findChild<QCheckBox*>();
+            ASSERT_NE(box, nullptr);
+            box->click();
+        }
+        if (standard != QDialogButtonBox::NoButton)
+        {
+            dialog->buttonBox()->button(standard)->click();
+            return;
+        }
+        for (QAbstractButton* const option : dialog->buttonBox()->buttons())
+        {
+            if (!text.isEmpty() && option->text() == text)
+            {
+                option->click();
+                return;
+            }
+        }
+        QTest::keyClick(dialog, Qt::Key_Escape);
+    }
+
+    void record(const OptionDialog& dialog) const
+    {
+        seen->objectName = dialog.objectName();
+        seen->title      = dialog.windowTitle();
+        seen->lines      = dialog.messageLines();
+        seen->icon       = !dialog.iconLabel()->pixmap().isNull();
+        for (const QAbstractButton* const option : dialog.buttonBox()->buttons())
+        {
+            seen->options.append(option->text());
+            if (const auto* const push = qobject_cast<const QPushButton*>(option);
+                push != nullptr && push->isDefault())
+            {
+                seen->initial = option->text();
+            }
+        }
+        seen->options.sort();
+        if (const auto* const box = dialog.findChild<QCheckBox*>(); box != nullptr)
+        {
+            seen->check = box->text();
+        }
+        if (const auto* const note = dialog.findChild<StyledLabel*>(QStringLiteral("note"));
+            note != nullptr)
+        {
+            seen->note = note->text();
+        }
+    }
+};
+
+/// The text of the standard option @p button.
+[[nodiscard]] QString optionText(QDialogButtonBox::StandardButton button)
+{
+    const QDialogButtonBox box(button);
+    return box.button(button)->text();
+}
+
+/// The texts of the standard options @p first and @p second, sorted.
+[[nodiscard]] QStringList optionTexts(QDialogButtonBox::StandardButton first,
+                                      QDialogButtonBox::StandardButton second)
+{
+    QStringList texts{optionText(first), optionText(second)};
+    texts.sort();
+    return texts;
+}
+
+TEST_F(WidgetUserPromptsTest, AsksForTheInsertPositionOfAComponent)
+{
+    WidgetUserPrompts                 prompts;
+    OptionQuestion                    seen;
+    UserPrompts::InsertPositionAnswer answer;
+    {
+        const Gui::Test::NextModalDialog choose(
+            AnswerOption{.standard = QDialogButtonBox::NoButton,
+                         .text     = QStringLiteral("Add to the end"),
+                         .tick     = true,
+                         .seen     = &seen});
+        answer =
+            prompts.askInsertPosition(nullptr, UserPrompts::InsertPositionQuestion::BODY_COMPONENT);
+    }
+    EXPECT_EQ(answer.position, UserPrompts::InsertPosition::ADD_TO_END);
+    EXPECT_TRUE(answer.doNotAskAgain);
+    // ComponentAddButtons.askPosition(): QUESTION_MESSAGE, the options with
+    // "Insert here" first.
+    EXPECT_EQ(seen.objectName, QStringLiteral("insertPositionQuestion"));
+    EXPECT_EQ(seen.title, QStringLiteral("Select component position"));
+    EXPECT_EQ(seen.lines, QStringList{QStringLiteral(
+                              "Insert the component after the current component or as the last "
+                              "component?")});
+    EXPECT_EQ(seen.options, (QStringList{QStringLiteral("Add to the end"), QStringLiteral("Cancel"),
+                                         QStringLiteral("Insert here")}));
+    EXPECT_EQ(seen.initial, QStringLiteral("Insert here"));
+    EXPECT_TRUE(seen.icon);
+    EXPECT_EQ(seen.check, QStringLiteral("Do not ask me again"));
+    EXPECT_EQ(seen.note,
+              QStringLiteral("You can change the default operation in the preferences."));
+}
+
+TEST_F(WidgetUserPromptsTest, AsksForTheInsertPositionOfAStage)
+{
+    WidgetUserPrompts prompts;
+    OptionQuestion    seen;
+    {
+        const Gui::Test::NextModalDialog choose(AnswerOption{.standard = QDialogButtonBox::NoButton,
+                                                             .text = QStringLiteral("Insert here"),
+                                                             .tick = false,
+                                                             .seen = &seen});
+        const UserPrompts::InsertPositionAnswer answer =
+            prompts.askInsertPosition(nullptr, UserPrompts::InsertPositionQuestion::STAGE);
+        EXPECT_EQ(answer.position, UserPrompts::InsertPosition::INSERT_HERE);
+        EXPECT_FALSE(answer.doNotAskAgain);
+    }
+    EXPECT_EQ(seen.title, QStringLiteral("Select stage position"));
+    EXPECT_EQ(seen.lines, QStringList{QStringLiteral(
+                              "Insert the stage after the current stage or as the last stage?")});
+    {
+        const Gui::Test::NextModalDialog cancel(AnswerOption{.standard = QDialogButtonBox::NoButton,
+                                                             .text     = QStringLiteral("Cancel"),
+                                                             .tick     = false,
+                                                             .seen     = nullptr});
+        EXPECT_EQ(
+            prompts.askInsertPosition(nullptr, UserPrompts::InsertPositionQuestion::STAGE).position,
+            UserPrompts::InsertPosition::CANCEL);
+    }
+    // Closing the dialog cancels (JOptionPane.CLOSED_OPTION); the box is still
+    // told.
+    const Gui::Test::NextModalDialog        close(AnswerOption{
+        .standard = QDialogButtonBox::NoButton, .text = QString(), .tick = true, .seen = nullptr});
+    const UserPrompts::InsertPositionAnswer closed =
+        prompts.askInsertPosition(nullptr, UserPrompts::InsertPositionQuestion::STAGE);
+    EXPECT_EQ(closed.position, UserPrompts::InsertPosition::CANCEL);
+    EXPECT_TRUE(closed.doNotAskAgain);
+}
+
+/// The question whether to discard @p question's changes, answered by @p
+/// answer.
+[[nodiscard]] UserPrompts::DiscardAnswer askToDiscard(UserPrompts::DiscardQuestion question,
+                                                      const AnswerOption&          answer)
+{
+    WidgetUserPrompts                prompts;
+    const Gui::Test::NextModalDialog respond(answer);
+    return prompts.askDiscardChanges(nullptr, question);
+}
+
+TEST_F(WidgetUserPromptsTest, AsksWhetherToDiscardTheChangesToAComponent)
+{
+    OptionQuestion                   seen;
+    const UserPrompts::DiscardAnswer yes = askToDiscard(
+        UserPrompts::DiscardQuestion::COMPONENT_CHANGES,
+        AnswerOption{
+            .standard = QDialogButtonBox::Yes, .text = QString(), .tick = false, .seen = &seen});
+    EXPECT_TRUE(yes.discard);
+    EXPECT_FALSE(yes.doNotAskAgain);
+    // RocketComponentConfig: JOptionPane.showConfirmDialog(YES_NO_OPTION,
+    // WARNING_MESSAGE).
+    EXPECT_EQ(seen.objectName, QStringLiteral("discardChangesQuestion"));
+    EXPECT_EQ(seen.title, QStringLiteral("Cancel operation"));
+    EXPECT_EQ(seen.lines, QStringList{QStringLiteral(
+                              "<html>Are you sure you want to <b>discard</b> your <b>changes</b> "
+                              "to this component?</html>")});
+    EXPECT_EQ(seen.options, optionTexts(QDialogButtonBox::Yes, QDialogButtonBox::No));
+    EXPECT_EQ(seen.initial, optionText(QDialogButtonBox::Yes));
+    EXPECT_EQ(seen.check, QStringLiteral("Don't ask me again"));
+    EXPECT_TRUE(seen.icon);
+
+    // The box is told whatever the answer (OpenRocket stores it as soon as it is
+    // ticked).
+    const UserPrompts::DiscardAnswer no = askToDiscard(
+        UserPrompts::DiscardQuestion::COMPONENT_CHANGES,
+        AnswerOption{
+            .standard = QDialogButtonBox::No, .text = QString(), .tick = true, .seen = nullptr});
+    EXPECT_FALSE(no.discard);
+    EXPECT_TRUE(no.doNotAskAgain);
+    const UserPrompts::DiscardAnswer closed =
+        askToDiscard(UserPrompts::DiscardQuestion::COMPONENT_CHANGES, AnswerOption{});
+    EXPECT_FALSE(closed.discard);
+    EXPECT_FALSE(closed.doNotAskAgain);
+}
+
+TEST_F(WidgetUserPromptsTest, AsksWhetherToUndoAddingAComponentOrToDiscardThePreferences)
+{
+    OptionQuestion added;
+    EXPECT_TRUE(askToDiscard(UserPrompts::DiscardQuestion::COMPONENT_ADDITION,
+                             AnswerOption{.standard = QDialogButtonBox::Yes,
+                                          .text     = QString(),
+                                          .tick     = false,
+                                          .seen     = &added})
+                    .discard);
+    EXPECT_EQ(added.title, QStringLiteral("Cancel operation"));
+    EXPECT_EQ(added.lines, QStringList{QStringLiteral("<html>Are you sure you want to <b>undo "
+                                                      "adding</b> this component?</html>")});
+
+    OptionQuestion preferences;
+    EXPECT_TRUE(askToDiscard(UserPrompts::DiscardQuestion::PREFERENCE_CHANGES,
+                             AnswerOption{.standard = QDialogButtonBox::Yes,
+                                          .text     = QString(),
+                                          .tick     = false,
+                                          .seen     = &preferences})
+                    .discard);
+    EXPECT_EQ(preferences.title, QStringLiteral("Discard Preference Changes"));
+    EXPECT_EQ(preferences.lines,
+              QStringList{QStringLiteral("<html>Are you sure you want to <b>discard the "
+                                         "preference changes</b>?</html>")});
+    EXPECT_EQ(preferences.check, QStringLiteral("Don't ask me again"));
+}
+
+TEST_F(WidgetUserPromptsTest, AsksWhetherToOverwriteAFile)
+{
+    // FileHelper.confirmWrite() (the Java probe FileOperationsProbe: EXISTS).
+    EXPECT_EQ(WidgetUserPrompts::overwriteText(QStringLiteral("rocket.ork")),
+              QStringLiteral("File 'rocket.ork' exists.  Do you want to overwrite it?"));
+    EXPECT_EQ(WidgetUserPrompts::overwriteText(QStringLiteral("{filename}.ork")),
+              QStringLiteral("File '{filename}.ork' exists.  Do you want to overwrite it?"));
+    // Deviations: Java's L10N.replace() throws for these names, or drops the
+    // backslash.
+    EXPECT_EQ(WidgetUserPrompts::overwriteText(QStringLiteral("a$b.ork")),
+              QStringLiteral("File 'a$b.ork' exists.  Do you want to overwrite it?"));
+    EXPECT_EQ(WidgetUserPrompts::overwriteText(QStringLiteral("a\\b.ork")),
+              QStringLiteral("File 'a\\b.ork' exists.  Do you want to overwrite it?"));
+
+    WidgetUserPrompts prompts;
+    OptionQuestion    seen;
+    {
+        const Gui::Test::NextModalDialog yes(AnswerOption{
+            .standard = QDialogButtonBox::Yes, .text = QString(), .tick = false, .seen = &seen});
+        EXPECT_TRUE(prompts.askOverwrite(nullptr, QStringLiteral("rocket.ork")));
+    }
+    EXPECT_EQ(seen.objectName, QStringLiteral("overwriteQuestion"));
+    EXPECT_EQ(seen.title, QStringLiteral("File exists"));
+    EXPECT_EQ(
+        seen.lines,
+        QStringList{QStringLiteral("File 'rocket.ork' exists.  Do you want to overwrite it?")});
+    EXPECT_EQ(seen.options, optionTexts(QDialogButtonBox::Yes, QDialogButtonBox::No));
+    EXPECT_TRUE(seen.icon);
+    {
+        const Gui::Test::NextModalDialog no(AnswerOption{
+            .standard = QDialogButtonBox::No, .text = QString(), .tick = false, .seen = nullptr});
+        EXPECT_FALSE(prompts.askOverwrite(nullptr, QStringLiteral("rocket.ork")));
+    }
+    const Gui::Test::NextModalDialog close(AnswerOption{});
+    EXPECT_FALSE(prompts.askOverwrite(nullptr, QStringLiteral("rocket.ork")));
+}
+
+TEST_F(WidgetUserPromptsTest, AsksAYesNoQuestionWithTheCallersTexts)
+{
+    WidgetUserPrompts prompts;
+    OptionQuestion    seen;
+    {
+        const Gui::Test::NextModalDialog yes(AnswerOption{
+            .standard = QDialogButtonBox::Yes, .text = QString(), .tick = false, .seen = &seen});
+        EXPECT_TRUE(prompts.askYesNo(
+            nullptr,
+            {.severity = UserPrompts::Severity::WARNING,
+             .title    = QStringLiteral("Reset preferences?"),
+             .text     = QStringLiteral("Are you sure you want to reset all your preferences?")}));
+    }
+    EXPECT_EQ(seen.objectName, QStringLiteral("yesNoQuestion"));
+    EXPECT_EQ(seen.title, QStringLiteral("Reset preferences?"));
+    EXPECT_EQ(seen.lines,
+              QStringList{QStringLiteral("Are you sure you want to reset all your preferences?")});
+    EXPECT_EQ(seen.options, optionTexts(QDialogButtonBox::Yes, QDialogButtonBox::No));
+    const Gui::Test::NextModalDialog no(AnswerOption{
+        .standard = QDialogButtonBox::No, .text = QString(), .tick = false, .seen = nullptr});
+    EXPECT_FALSE(prompts.askYesNo(nullptr, {.severity = UserPrompts::Severity::INFORMATION,
+                                            .title    = QStringLiteral("Title"),
+                                            .text     = QStringLiteral("Text")}));
+}
+
+/// Chooses "Only summary data" in the storage options and OK, or Cancel when @p
+/// cancel.
+struct ChooseStorage
+{
+    bool cancel = false;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<StorageOptionsDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        dialog->summaryButton().click();
+        (cancel ? dialog->cancelButton() : dialog->okButton())->click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, AsksForTheStorageOptions)
+{
+    WidgetUserPrompts prompts;
+    {
+        const Gui::Test::NextModalDialog choose{ChooseStorage{}};
+        EXPECT_EQ(prompts.askStorageOptions(nullptr, true), std::optional<bool>(false));
+    }
+    const Gui::Test::NextModalDialog cancel(ChooseStorage{.cancel = true});
+    EXPECT_EQ(prompts.askStorageOptions(nullptr, true), std::nullopt);
+}
+
+/// Whether the save dialog is Qt's own: on macOS, whose save panel always confirms an overwrite.
+#ifdef __APPLE__
+constexpr bool kQtSaveDialog = true;
+#else
+constexpr bool kQtSaveDialog = false;
+#endif
+
+/// What a file dialog looked like.
+struct FileDialogSeen
+{
+    QString                 objectName;
+    QString                 title;
+    QStringList             nameFilters;
+    QString                 selectedFilter;
+    QString                 directory;
+    QStringList             proposed;
+    QFileDialog::FileMode   fileMode          = QFileDialog::AnyFile;
+    QFileDialog::AcceptMode acceptMode        = QFileDialog::AcceptOpen;
+    bool                    confirmsOverwrite = true;
+    bool                    qtDialog          = false;
+    QString                 description;
+};
+
+/// Records the modal file dialog and chooses @p file in it, or cancels it for
+/// an empty one.
+struct ChooseFile
+{
+    QString         file;
+    FileDialogSeen* seen = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<QFileDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            record(*dialog);
+        }
+        if (file.isEmpty())
+        {
+            dialog->reject();
+            return;
+        }
+        dialog->selectFile(file);
+        // QFileDialog::accept() is protected; QDialog's is its public face.
+        QDialog& asDialog = *dialog;
+        asDialog.accept();
+    }
+
+    void record(const QFileDialog& dialog) const
+    {
+        seen->objectName        = dialog.objectName();
+        seen->title             = dialog.windowTitle();
+        seen->nameFilters       = dialog.nameFilters();
+        seen->selectedFilter    = dialog.selectedNameFilter();
+        seen->directory         = dialog.directory().absolutePath();
+        seen->proposed          = dialog.selectedFiles();
+        seen->fileMode          = dialog.fileMode();
+        seen->acceptMode        = dialog.acceptMode();
+        seen->confirmsOverwrite = !dialog.testOption(QFileDialog::DontConfirmOverwrite);
+        seen->qtDialog          = dialog.testOption(QFileDialog::DontUseNativeDialog);
+        if (const auto* const area = dialog.findChild<DescriptionArea*>(); area != nullptr)
+        {
+            seen->description = area->description();
+        }
+    }
+};
+
+/// The first action, then arms @p next for the dialog that follows (a question
+/// of two dialogs).
+struct ThenNext
+{
+    Gui::Test::NextModalDialog::Action         first;
+    Gui::Test::NextModalDialog::Action         second;
+    std::optional<Gui::Test::NextModalDialog>* next;
+
+    void operator()(QWidget& widget) const
+    {
+        next->emplace(second);
+        first(widget);
+    }
+};
+
+/// The state Qt's file dialog keeps (QSettings(UserScope, "QtProject"), group "FileDialog": its
+/// history, last directory, view), put back as it was when this goes. The dialog writes it in the
+/// native format, the registry on Windows and CFPreferences on macOS, which the test main's
+/// QSettings::setPath() does not redirect; a test leaves the user's state as it found it. (ctest
+/// runs the tests in parallel processes, so a test that starts after another test's dialog wrote
+/// its state may put that state back instead of the user's.)
+class QtFileDialogState
+{
+public:
+    QtFileDialogState()
+    {
+        QSettings settings(QSettings::UserScope, organization());
+        settings.beginGroup(group());
+        for (const QString& key : settings.allKeys())
+        {
+            m_values.emplace_back(key, settings.value(key));
+        }
+    }
+
+    ~QtFileDialogState()
+    {
+        QSettings settings(QSettings::UserScope, organization());
+        settings.remove(group());
+        settings.beginGroup(group());
+        for (const auto& [key, value] : m_values)
+        {
+            settings.setValue(key, value);
+        }
+    }
+
+    QtFileDialogState(const QtFileDialogState&)            = delete;
+    QtFileDialogState& operator=(const QtFileDialogState&) = delete;
+    QtFileDialogState(QtFileDialogState&&)                 = delete;
+    QtFileDialogState& operator=(QtFileDialogState&&)      = delete;
+
+private:
+    [[nodiscard]] static QString organization() { return QStringLiteral("QtProject"); }
+    [[nodiscard]] static QString group() { return QStringLiteral("FileDialog"); }
+
+    std::vector<std::pair<QString, QVariant>> m_values;
+};
+
+/// A directory of the test with the files a.ork and b.png; Qt's file dialog state is put back
+/// afterwards.
+class WidgetFileDialogTest : public Test::GuiTest
+{
+protected:
+    WidgetFileDialogTest()
+    {
+        static_cast<void>(m_directory.write("a.ork", "design"));
+        static_cast<void>(m_directory.write("b.png", "image"));
+    }
+
+    [[nodiscard]] const QtRocket::Test::TempDir& directory() const noexcept { return m_directory; }
+    [[nodiscard]] QString                        path(const char* name) const
+    {
+        return QtStrings::fromPath(m_directory.resolve(name));
+    }
+
+private:
+    /// Declared first: it goes last, after the dialogs (GuiTest::TearDown() deletes those given
+    /// to deleteLater()).
+    QtFileDialogState       m_fileDialogState;
+    QtRocket::Test::TempDir m_directory;
+};
+
+/// Whether @p first and @p second are the same file or directory (by another path too: macOS's
+/// temporary directory is behind a link); false when one does not exist.
+[[nodiscard]] bool isSamePath(const std::filesystem::path& first,
+                              const std::filesystem::path& second)
+{
+    std::error_code error;
+    return std::filesystem::equivalent(first, second, error);
+}
+
+/// Whether @p files is the one file @p expected.
+[[nodiscard]] bool isFile(const std::vector<std::filesystem::path>& files,
+                          const std::filesystem::path&              expected)
+{
+    return files.size() == 1 && isSamePath(files.front(), expected);
+}
+
+/// Whether @p directory is @p expected.
+[[nodiscard]] bool isDirectory(const QString& directory, const std::filesystem::path& expected)
+{
+    return isSamePath(QtStrings::toPath(directory), expected);
+}
+
+/// The files of @p answer, none without an answer.
+[[nodiscard]] std::vector<std::filesystem::path> filesOf(
+    const std::optional<UserPrompts::OpenFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->files : std::vector<std::filesystem::path>();
+}
+
+/// The directory of @p answer, empty without an answer.
+[[nodiscard]] std::filesystem::path openedDirectoryOf(
+    const std::optional<UserPrompts::OpenFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->directory : std::filesystem::path();
+}
+
+/// The file of @p answer, empty without an answer.
+[[nodiscard]] std::filesystem::path savedFileOf(
+    const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->file : std::filesystem::path();
+}
+
+/// The directory of @p answer, empty without an answer.
+[[nodiscard]] std::filesystem::path savedDirectoryOf(
+    const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->directory : std::filesystem::path();
+}
+
+/// The storage option of @p answer, nullopt without an answer.
+[[nodiscard]] std::optional<bool> storageOf(
+    const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->saveSimulationData : std::nullopt;
+}
+
+TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
+{
+    WidgetUserPrompts                          prompts;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::OpenFileAnswer> answer;
+    {
+        const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("a.ork"), .seen = &seen});
+        answer = prompts.askOpenFiles(
+            nullptr, {.title              = QString(),
+                      .nameFilters        = {QStringLiteral("All Files (*)"),
+                                             QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")},
+                      .directory          = directory().path(),
+                      .multipleFiles      = true,
+                      .description        = QString(),
+                      .selectedNameFilter = QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")});
+    }
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("a.ork")));
+    EXPECT_TRUE(isSamePath(openedDirectoryOf(answer), directory().path()));
+    // With the platform's separators, as Java's File (Qt names files with '/' on Windows).
+    EXPECT_EQ(QtStrings::fromPath(filesOf(answer).front()),
+              QDir::toNativeSeparators(QtStrings::fromPath(filesOf(answer).front())));
+    EXPECT_EQ(QtStrings::fromPath(openedDirectoryOf(answer)),
+              QDir::toNativeSeparators(QtStrings::fromPath(openedDirectoryOf(answer))));
+    EXPECT_EQ(seen.objectName, QStringLiteral("openFileDialog"));
+    EXPECT_EQ(seen.nameFilters,
+              (QStringList{QStringLiteral("All Files (*)"),
+                           QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")}));
+    EXPECT_EQ(seen.selectedFilter, QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"));
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    EXPECT_EQ(seen.fileMode, QFileDialog::ExistingFiles);
+    EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptOpen);
+    EXPECT_TRUE(seen.description.isEmpty());
+
+    // Without a filter asked for, the first is chosen.
+    {
+        const Gui::Test::NextModalDialog cancel{ChooseFile{.file = QString(), .seen = &seen}};
+        EXPECT_EQ(prompts.askOpenFiles(nullptr, {.title       = QStringLiteral("Open"),
+                                                 .nameFilters = {QStringLiteral("All Files (*)"),
+                                                                 QStringLiteral("Images (*.png)")},
+                                                 .directory   = directory().path(),
+                                                 .multipleFiles      = false,
+                                                 .description        = QString(),
+                                                 .selectedNameFilter = QString()}),
+                  std::nullopt);
+    }
+    EXPECT_EQ(seen.selectedFilter, QStringLiteral("All Files (*)"));
+}
+
+TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)
+{
+    // FreeformFinSetConfig's image import: the JFileChooser accessory, in Qt's
+    // own dialog.
+    WidgetUserPrompts                prompts;
+    FileDialogSeen                   seen;
+    const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("b.png"), .seen = &seen});
+    const std::optional<UserPrompts::OpenFileAnswer> answer =
+        prompts.askOpenFiles(nullptr, {.title         = QStringLiteral("Import"),
+                                       .nameFilters   = {},
+                                       .directory     = directory().path(),
+                                       .multipleFiles = false,
+                                       .description   = QStringLiteral("The image will be ..."),
+                                       .selectedNameFilter = QString()});
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("b.png")));
+    EXPECT_EQ(seen.title, QStringLiteral("Import"));
+    EXPECT_EQ(seen.fileMode, QFileDialog::ExistingFile);
+    EXPECT_TRUE(seen.qtDialog);
+    EXPECT_EQ(seen.description, QStringLiteral("The image will be ..."));
+}
+
+TEST_F(WidgetFileDialogTest, AsksForTheFileToSaveWithoutConfirmingAnOverwrite)
+{
+    WidgetUserPrompts                          prompts;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    {
+        const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("a.ork"), .seen = &seen});
+        answer = prompts.askSaveFile(
+            nullptr, {.title              = QStringLiteral("Save as OpenRocket ork file"),
+                      .nameFilters        = {QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")},
+                      .directory          = directory().path(),
+                      .fileName           = QStringLiteral("rocket.ork"),
+                      .saveSimulationData = std::nullopt,
+                      .refuseIllegalNames = true});
+    }
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isSamePath(savedFileOf(answer), directory().resolve("a.ork")));
+    EXPECT_TRUE(isSamePath(savedDirectoryOf(answer), directory().path()));
+    EXPECT_EQ(storageOf(answer), std::nullopt);
+    EXPECT_EQ(seen.objectName, QStringLiteral("saveFileDialog"));
+    EXPECT_EQ(seen.title, QStringLiteral("Save as OpenRocket ork file"));
+    EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptSave);
+    EXPECT_EQ(seen.fileMode, QFileDialog::AnyFile);
+    EXPECT_FALSE(seen.confirmsOverwrite);
+    // macOS's save panel would confirm an overwrite all the same: Qt's dialog there.
+    EXPECT_EQ(seen.qtDialog, kQtSaveDialog);
+    // The proposed name in the directory.
+    ASSERT_EQ(seen.proposed.size(), 1);
+    EXPECT_EQ(QtStrings::toPath(seen.proposed.front()).filename(), "rocket.ork");
+    EXPECT_TRUE(std::filesystem::equivalent(QtStrings::toPath(seen.proposed.front()).parent_path(),
+                                            directory().path()));
+}
+
+TEST_F(WidgetFileDialogTest, ASaveThatOffersTheStorageOptionAsksForThemAfterTheFile)
+{
+    WidgetUserPrompts                          prompts;
+    std::optional<Gui::Test::NextModalDialog>  storage;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    const UserPrompts::SaveFileRequest         request{.title              = QString(),
+                                                       .nameFilters        = {},
+                                                       .directory          = directory().path(),
+                                                       .fileName           = QString(),
+                                                       .saveSimulationData = true,
+                                                       .refuseIllegalNames = false};
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("a.ork"), .seen = nullptr},
+                     .second = ChooseStorage{},
+                     .next   = &storage});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_EQ(storageOf(answer), std::optional<bool>(false));
+    storage.reset();
+
+    // Cancel in the storage options cancels the save.
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("a.ork"), .seen = nullptr},
+                     .second = ChooseStorage{.cancel = true},
+                     .next   = &storage});
+        EXPECT_EQ(prompts.askSaveFile(nullptr, request), std::nullopt);
+    }
+    storage.reset();
+}
+
+TEST_F(WidgetFileDialogTest, ASaveThatRefusesIllegalNamesWarnsAndAsksAgain)
+{
+    // SaveFileChooser.approveSelection(): a name with one of FileUtils.ILLEGAL_CHARS is refused
+    // with "Illegal filename" and the chooser stays: here it is shown again, in its directory
+    // with the name (the probe: "x|y.ork" refused, warned of "x|y.ork" and '|'; "ab.ork" taken).
+    WidgetUserPrompts                          prompts;
+    std::optional<Gui::Test::NextModalDialog>  warning;
+    std::optional<Gui::Test::NextModalDialog>  again;
+    QStringList                                lines;
+    QString                                    title;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    const UserPrompts::SaveFileRequest         request{.title              = QString(),
+                                                       .nameFilters        = {},
+                                                       .directory          = directory().path(),
+                                                       .fileName           = QString(),
+                                                       .saveSimulationData = std::nullopt,
+                                                       .refuseIllegalNames = true};
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("x|y.ork"), .seen = nullptr},
+                     .second = ThenNext{.first  = CloseMessage{.lines = &lines, .title = &title},
+                                        .second = ChooseFile{.file = path("ab.ork"), .seen = &seen},
+                                        .next   = &again},
+                     .next   = &warning});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    warning.reset();
+    again.reset();
+    EXPECT_TRUE(isSamePath(savedFileOf(answer).parent_path(), directory().path()));
+    EXPECT_EQ(savedFileOf(answer).filename(), "ab.ork");
+    EXPECT_EQ(title, QStringLiteral("Illegal filename"));
+    EXPECT_EQ(lines, QStringList{QStringLiteral(
+                         "The filename 'x|y.ork' may not contain the character ' | '. Please "
+                         "remove it.")});
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    ASSERT_EQ(seen.proposed.size(), 1);
+    EXPECT_EQ(QtStrings::toPath(seen.proposed.front()).filename(), "x|y.ork");
+
+    // A save that does not refuse them (a plain JFileChooser) takes the name.
+    const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("x|y.ork"), .seen = nullptr});
+    UserPrompts::SaveFileRequest     plain = request;
+    plain.refuseIllegalNames               = false;
+    EXPECT_EQ(savedFileOf(prompts.askSaveFile(nullptr, plain)).filename(), "x|y.ork");
+}
+
+TEST_F(WidgetUserPromptsTest, TheIllegalNameTextPutsInTheNameAsItIs)
+{
+    // String.format("... '%s' ... ' %c ' ...", fileName, c).
+    EXPECT_EQ(WidgetUserPrompts::illegalFileNameText(QStringLiteral("a%1b:c.ork"), QChar(u':')),
+              QStringLiteral("The filename 'a%1b:c.ork' may not contain the character ' : '. "
+                             "Please remove it."));
+}
+
+/// Answers the decal question with Yes or No.
+struct AnswerDecal
+{
+    bool yes;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<DecalNotFoundDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        (yes ? dialog->yesButton() : dialog->noButton())->click();
+    }
+};
+
+TEST_F(WidgetFileDialogTest, AsksWhetherToLookForADecalFileAndThenForTheFile)
+{
+    // DecalNotFoundDialog.showDialog(): the question, then a file chooser in the
+    // directory.
+    WidgetUserPrompts                          prompts;
+    const QString                              message = QStringLiteral("Could not find it.");
+    std::optional<Gui::Test::NextModalDialog>  chooser;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::OpenFileAnswer> answer;
+    {
+        const Gui::Test::NextModalDialog yes(
+            ThenNext{.first  = AnswerDecal{.yes = true},
+                     .second = ChooseFile{.file = path("b.png"), .seen = &seen},
+                     .next   = &chooser});
+        answer = prompts.askDecalFile(nullptr, message, directory().path());
+    }
+    chooser.reset();
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("b.png")));
+    EXPECT_EQ(seen.objectName, QStringLiteral("decalFileDialog"));
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    EXPECT_EQ(seen.fileMode, QFileDialog::ExistingFile);
+    EXPECT_TRUE(seen.nameFilters.isEmpty() ||
+                seen.nameFilters == QStringList{QStringLiteral("All Files (*)")});
+
+    // No: no file chooser; Yes and then Cancel in the chooser: no file.
+    {
+        const Gui::Test::NextModalDialog no(AnswerDecal{.yes = false});
+        EXPECT_EQ(prompts.askDecalFile(nullptr, message, directory().path()), std::nullopt);
+    }
+    {
+        const Gui::Test::NextModalDialog yes(
+            ThenNext{.first = AnswerDecal{.yes = true}, .second = ChooseFile{}, .next = &chooser});
+        EXPECT_EQ(prompts.askDecalFile(nullptr, message, directory().path()), std::nullopt);
+    }
+    chooser.reset();
+}
+
+/// What the modal warnings dialog showed; closed with OK.
+struct CloseWarningsDialog
+{
+    QString*     title;
+    QStringList* lines;
+    QStringList* items;
+
+    void operator()(QWidget& widget) const
+    {
+        if (auto* const warnings = qobject_cast<WarningDialog*>(&widget); warnings != nullptr)
+        {
+            *title = warnings->windowTitle();
+            *lines = warnings->messageLines();
+            *items = warnings->warningList().messages();
+            warnings->buttonBox()->button(QDialogButtonBox::Ok)->click();
+            return;
+        }
+        auto* const both = qobject_cast<ErrorWarningDialog*>(&widget);
+        ASSERT_NE(both, nullptr);
+        *title = both->windowTitle();
+        *lines = both->messageLines();
+        *items = both->errorList().messages() + both->warningList().messages();
+        both->buttonBox()->button(QDialogButtonBox::Ok)->click();
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, ShowsTheWarningsAndTheErrors)
+{
+    WidgetUserPrompts prompts;
+    QString           title;
+    QStringList       lines;
+    QStringList       items;
+    {
+        const Gui::Test::NextModalDialog close(
+            CloseWarningsDialog{.title = &title, .lines = &lines, .items = &items});
+        prompts.showWarnings(nullptr, {.title    = QStringLiteral("Warnings while opening file"),
+                                       .lines    = {QStringLiteral("line")},
+                                       .warnings = {QStringLiteral("warning")}});
+    }
+    EXPECT_EQ(title, QStringLiteral("Warnings while opening file"));
+    EXPECT_EQ(lines, QStringList{QStringLiteral("line")});
+    EXPECT_EQ(items, QStringList{QStringLiteral("warning")});
+
+    const Gui::Test::NextModalDialog close(
+        CloseWarningsDialog{.title = &title, .lines = &lines, .items = &items});
+    prompts.showErrorsAndWarnings(nullptr,
+                                  {.title    = QStringLiteral("Errors/Warnings while saving file"),
+                                   .lines    = {QStringLiteral("line")},
+                                   .errors   = {QStringLiteral("error")},
+                                   .warnings = {QStringLiteral("warning")}});
+    EXPECT_EQ(title, QStringLiteral("Errors/Warnings while saving file"));
+    EXPECT_EQ(items, (QStringList{QStringLiteral("error"), QStringLiteral("warning")}));
+}
+
+/// Destroys the parent of the modal dialog, and so the dialog, while it is
+/// open.
+struct DestroyParent
+{
+    std::unique_ptr<QWidget>* parent;
+
+    void operator()(QWidget& /*dialog*/) const { parent->reset(); }
+};
+
+TEST_F(WidgetUserPromptsTest, AQuestionWhoseParentIsDestroyedGivesItsCancellingAnswer)
+{
+    // The dialog the question is parented to can be deleted while the question is
+    // open (run 2's configuration dialog by its window): each dialog is made for
+    // its question (ModalDialog).
+    WidgetUserPrompts prompts;
+    auto              parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_FALSE(prompts.askOverwrite(parent.get(), QStringLiteral("rocket.ork")));
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        const UserPrompts::DiscardAnswer answer = prompts.askDiscardChanges(
+            parent.get(), UserPrompts::DiscardQuestion::COMPONENT_CHANGES);
+        EXPECT_FALSE(answer.discard);
+        EXPECT_FALSE(answer.doNotAskAgain);
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(prompts
+                      .askInsertPosition(parent.get(),
+                                         UserPrompts::InsertPositionQuestion::BODY_COMPONENT)
+                      .position,
+                  UserPrompts::InsertPosition::CANCEL);
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(prompts.askSaveChanges(parent.get(), QStringLiteral("Rocket")),
+                  SaveChangesAnswer::CANCEL);
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        prompts.showMessage(parent.get(), {.severity = UserPrompts::Severity::ERROR,
+                                           .title    = QStringLiteral("Saving failed"),
+                                           .lines    = {QStringLiteral("gone")}});
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        Guard::Failure                   failure;
+        failure.message = QStringLiteral("boom");
+        EXPECT_EQ(prompts.showInternalError(parent.get(), failure),
+                  UserPrompts::InternalErrorAnswer::CONTINUE);
+    }
+    EXPECT_EQ(parent, nullptr);
+}
+
+TEST_F(WidgetFileDialogTest, AFileQuestionWhoseParentIsDestroyedAsksNothingMore)
+{
+    WidgetUserPrompts prompts;
+    auto              parent = std::make_unique<QWidget>();
+    {
+        // The save dialog goes with its parent: no storage options are asked after
+        // it.
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(prompts.askSaveFile(parent.get(), {.title              = QString(),
+                                                     .nameFilters        = {},
+                                                     .directory          = directory().path(),
+                                                     .fileName           = QString(),
+                                                     .saveSimulationData = true,
+                                                     .refuseIllegalNames = false}),
+                  std::nullopt);
+    }
+    parent = std::make_unique<QWidget>();
+    {
+        // The decal question goes with its parent: no file chooser after it.
+        const Gui::Test::NextModalDialog destroy(DestroyParent{.parent = &parent});
+        EXPECT_EQ(prompts.askDecalFile(parent.get(), QStringLiteral("gone"), directory().path()),
+                  std::nullopt);
+    }
+    EXPECT_EQ(parent, nullptr);
+}
 }  // namespace
 
 }  // namespace QtRocket::Gui

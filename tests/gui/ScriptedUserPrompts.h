@@ -50,6 +50,7 @@ public:
         DESIGN_INFORMATION,
         MESSAGE,
         WARNINGS,
+        ERRORS_AND_WARNINGS,
         INTERNAL_ERROR,
     };
 
@@ -124,6 +125,8 @@ public:
     void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override;
     void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
+    /// Recorded with the lines, then the errors, then the warnings as the texts.
+    void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
     /// Recorded with the failure's kind (BUG, EXCEPTION, UNKNOWN, ERROR_CONDITION), its message
     /// and its context as the texts; the cancelling answer is CONTINUE.
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,

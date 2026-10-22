@@ -5,6 +5,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     CGCaretTests.cpp
     CPCaretTests.cpp
     DesignPhysicsTests.cpp
+    FigureMouse.cpp
     FinPointEditHistoryTests.cpp
     FinPointFigureTests.cpp
     FinPointScrollAreaTests.cpp
@@ -14,14 +15,18 @@ target_sources(QtRocket_gui_tests PRIVATE
     RecordingPaintDevice.cpp
     rocket_figure_paint_golden_tests.cpp
     rocket_info_golden_tests.cpp
+    rocket_panel_golden_tests.cpp
     RocketFigurePainterTests.cpp
     RocketFigureTests.cpp
     RocketInfoTests.cpp
+    RocketPanelTests.cpp
     RulerTests.cpp
+    RulerUnitSelectorTests.cpp
     ScaleFigureTests.cpp
     ScaleScrollAreaTests.cpp
     ScaleSelectorTests.cpp
     ScrollAreaZoomModelTests.cpp
     stage_toggle_tests.cpp
     TestScaleFigure.cpp
+    ViewRotationControlTests.cpp
 )

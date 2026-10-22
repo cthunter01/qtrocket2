@@ -14,6 +14,7 @@
 #include <QtVersion>
 
 #include "QtRocket/gui/dialogs/DetailDialog.h"
+#include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/util/BuildInfo.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -79,9 +80,12 @@ InternalErrorDialog::~InternalErrorDialog() = default;
 UserPrompts::InternalErrorAnswer InternalErrorDialog::ask(QWidget*              parent,
                                                           const Guard::Failure& failure)
 {
-    InternalErrorDialog dialog(failure, parent);
+    // Made for the question, so that it survives its parent being destroyed while it is open
+    // (the answer is then CONTINUE, as for a dialog that was closed).
+    ModalDialog<InternalErrorDialog> dialog(parent, failure);
     dialog.exec();
-    return dialog.answer();
+    const InternalErrorDialog* const answered = dialog.get();
+    return answered != nullptr ? answered->answer() : UserPrompts::InternalErrorAnswer::CONTINUE;
 }
 
 QStringList InternalErrorDialog::messageFor(const Guard::Failure& failure)

@@ -135,17 +135,32 @@ public:
         QStringList warnings;
     };
 
+    /// OpenRocket's ErrorWarningDialog: the message lines above the list of errors and the list
+    /// of warnings ("BasicFrame.ErrorWarningDialog.*" after a save whose saver reported errors),
+    /// each as its toString().
+    struct ErrorsAndWarningsMessage
+    {
+        QString     title;
+        QStringList lines;
+        QStringList errors;
+        QStringList warnings;
+    };
+
     /// The files to open (a JFileChooser in OPEN mode).
     struct OpenFileRequest
     {
         QString title;
-        /// Qt's name filters, "OpenRocket designs (*.ork *.ork.gz)", the selected one first.
+        /// Qt's name filters, "OpenRocket designs (*.ork *.ork.gz)", in their order in the
+        /// dialog.
         QStringList           nameFilters;
         std::filesystem::path directory;
         bool                  multipleFiles = false;
         /// A text shown beside the files (the image import's "CustomFinImport.description");
         /// empty for none.
         QString description;
+        /// The filter chosen when the dialog opens, one of nameFilters (JFileChooser's
+        /// setFileFilter()); empty for the first.
+        QString selectedNameFilter;
     };
 
     struct OpenFileAnswer
@@ -165,10 +180,15 @@ public:
         std::filesystem::path directory;
         /// The proposed name, "<design>.ork".
         QString fileName;
-        /// For a design: the storage option the dialog shows beside the files
-        /// (StorageOptionChooser, "Simulated data to store"), true for all simulated data;
-        /// nullopt for no such option.
+        /// For a design: the storage option the dialog offers with the files
+        /// (StorageOptionChooser, "Simulated data to store"; WidgetUserPrompts asks it once the
+        /// file is chosen), true for all simulated data; nullopt for no such option.
         std::optional<bool> saveSimulationData;
+        /// OpenRocket's SaveFileChooser (Save As and most of its save dialogs, not a plain
+        /// JFileChooser such as the fin points' CSV export): a name with one of the characters
+        /// of SaveFileNames::illegalCharacter() is refused with the warning "Illegal filename"
+        /// and asked for again (WidgetUserPrompts).
+        bool refuseIllegalNames = false;
     };
 
     struct SaveFileAnswer
@@ -241,6 +261,15 @@ public:
     virtual void showMessage(QWidget* parent, const Message& message) = 0;
 
     virtual void showWarnings(QWidget* parent, const WarningsMessage& message) = 0;
+
+    /// OpenRocket's ErrorWarningDialog. An implementation without a dialog of its own for it
+    /// shows the errors and then the warnings as warnings (showWarnings()): the default.
+    virtual void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message)
+    {
+        showWarnings(parent, {.title    = message.title,
+                              .lines    = message.lines,
+                              .warnings = message.errors + message.warnings});
+    }
 
     /// The internal error dialog (OpenRocket's SwingExceptionHandler.showDialog(), in QtRocket's
     /// words: dialogs/InternalErrorDialog) for a failure the error hook (Guard) was given, with

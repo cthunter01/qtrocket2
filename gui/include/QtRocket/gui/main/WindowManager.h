@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <QObject>
+#include <QPointer>
 
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
@@ -23,6 +24,8 @@ namespace QtRocket::Gui
 {
 
 class OpenRocketClipboard;
+class PreferencesDialog;
+class RocketPanel;
 
 /// The open design windows (BasicFrame's static part: its list of frames, newAction(),
 /// closeAction(), quitAction(), closeIfReplaceable(), findFrame()). It owns each window and its
@@ -34,7 +37,10 @@ class OpenRocketClipboard;
 ///   "Rocket" with the stage "Sustainer", saved, no file); addDocument() opens one on a document
 ///   that was loaded (run 3's file operations). A window opens as BasicFrame's: with its design
 ///   panel (a DesignPanel: the component tree, its selection and actions, the add buttons; the
-///   first stage selected, the tree with the keyboard focus), its size and the remembered
+///   first stage selected, the tree with the keyboard focus) and its design view (a RocketPanel
+///   below the tabs: its clicks select in the tree's selection, its figure draws the design
+///   panel's highlight, its right-click shows the actions' popup menu, its double-click asks for
+///   the window's configuration dialog), its size and the remembered
 ///   geometry (MainWindow), then 30 pixels right of and below the window opened before it
 ///   (WindowGeometry::cascade()), then shown. Every window's design panel shares the component
 ///   clipboard (the application's, OpenRocketClipboard::instance(), unless the manager was made
@@ -57,10 +63,20 @@ class OpenRocketClipboard;
 ///   question cancelled, its save failed) stops the quit, and the windows closed so far stay
 ///   closed. When all are closed, the application exits.
 ///
+/// - showPreferences() opens the preferences dialog (PreferencesDialog), which every window's
+///   Edit > Preferences does (on macOS that item is the application menu's Preferences): over
+///   the window, modal for the application, refreshing the design view of every window when it
+///   applies or discards (rocketPanels()). As Java's PreferencesDialog.showPreferences(), a
+///   dialog still open is closed first (as by its OK); it is closed so too when its window
+///   closes (close(), past the question) or the manager is destroyed (Java's dialog is owned by
+///   its frame, which disposes it).
+///
 /// The application connects exitRequested() to the end of its event loop. menusCreated() and
 /// windowOpened() let the code that owns the other items connect them (MainMenus).
 ///
-/// Deviations: the application's exit is a signal, where BasicFrame calls System.exit(0); the
+/// Deviations: the menus of no window (macOS) have no Preferences, so the application menu offers
+/// it only while a window is open (Java's macOS handler opens the dialog over the last frame);
+/// the application's exit is a signal, where BasicFrame calls System.exit(0); the
 /// menu bar of no window is made once and kept (Java makes a new dummy frame every time the last
 /// window closes) and lives as long as this object; quit() returns whether it succeeded, where
 /// OpenRocket's macOS quit handler learns it from the exit not happening.
@@ -120,6 +136,14 @@ public:
     /// already under way.
     bool quit();
 
+    /// Opens the preferences dialog over @p window (see the class comment); the dialog, which is
+    /// deleted once it is closed.
+    PreferencesDialog& showPreferences(MainWindow& window);
+    /// The preferences dialog open now, or null.
+    [[nodiscard]] PreferencesDialog* preferencesDialog() const noexcept;
+    /// The design view (RocketPanel) of every open window, in the order of windows().
+    [[nodiscard]] std::vector<RocketPanel*> rocketPanels() const;
+
     /// Sets what Save in the "Design not saved" question does; an empty hook (the default)
     /// makes it say that saving is not available.
     void setSaveHook(SaveHook hook);
@@ -165,7 +189,8 @@ private:
 
     /// Makes the window of @p document, places, connects and shows it.
     MainWindow& open(std::unique_ptr<OpenRocketDocument> document, bool replaceable);
-    /// Connects New, Close design and Quit of @p menus; @p window is theirs, or null.
+    /// Connects New, Close design, Quit and Preferences of @p menus; @p window is theirs, or
+    /// null.
     void connectMenus(MainMenus& menus, MainWindow* window);
     /// BasicFrame.closeIfReplaceable(): @p origin is closed and @p replacement takes its place
     /// when @p origin is replaceable and saved.
@@ -189,6 +214,7 @@ private:
     std::unique_ptr<QMenuBar>           m_noWindowMenuBar;
     MainMenus*                          m_noWindowMenus{nullptr};
     bool                                m_quitting{false};
+    QPointer<PreferencesDialog>         m_preferencesDialog;
 };
 
 }  // namespace QtRocket::Gui

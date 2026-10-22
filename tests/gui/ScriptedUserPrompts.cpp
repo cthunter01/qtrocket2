@@ -123,6 +123,8 @@ std::string_view ScriptedUserPrompts::kindName(Kind kind)
             return "MESSAGE";
         case Kind::WARNINGS:
             return "WARNINGS";
+        case Kind::ERRORS_AND_WARNINGS:
+            return "ERRORS_AND_WARNINGS";
         case Kind::INTERNAL_ERROR:
             return "INTERNAL_ERROR";
     }
@@ -275,6 +277,15 @@ void ScriptedUserPrompts::showWarnings(QWidget* /*parent*/, const WarningsMessag
     QStringList texts = message.lines;
     texts.append(message.warnings);
     m_prompts.push_back(makePrompt(Kind::WARNINGS, message.title, texts));
+}
+
+void ScriptedUserPrompts::showErrorsAndWarnings(QWidget* /*parent*/,
+                                                const ErrorsAndWarningsMessage& message)
+{
+    QStringList texts = message.lines;
+    texts.append(message.errors);
+    texts.append(message.warnings);
+    m_prompts.push_back(makePrompt(Kind::ERRORS_AND_WARNINGS, message.title, texts));
 }
 
 UserPrompts::InternalErrorAnswer ScriptedUserPrompts::showInternalError(
