@@ -15,6 +15,7 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/dialogs/PreferencesDialog.h"
 #include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
@@ -203,6 +204,37 @@ bool WindowManager::quit()
     return true;
 }
 
+PreferencesDialog& WindowManager::showPreferences(MainWindow& window)
+{
+    // PreferencesDialog.showPreferences(): "if (dialog != null) dialog.dispose()".
+    if (PreferencesDialog* const open = m_preferencesDialog.data(); open != nullptr)
+    {
+        open->accept();
+    }
+    PreferencesDialog& dialog = PreferencesDialog::showPreferences(
+        m_services.preferences(), m_services.prompts(), [this] { return rocketPanels(); }, window);
+    m_preferencesDialog = &dialog;
+    return dialog;
+}
+
+PreferencesDialog* WindowManager::preferencesDialog() const noexcept
+{
+    return m_preferencesDialog.data();
+}
+
+std::vector<RocketPanel*> WindowManager::rocketPanels() const
+{
+    std::vector<RocketPanel*> panels;
+    panels.reserve(m_entries.size());
+    for (const std::unique_ptr<Entry>& entry : m_entries)
+    {
+        panels.push_back(entry->window->componentRocketPanel());
+    }
+    // A window whose design view is no RocketPanel (none, as the manager opens them).
+    std::erase(panels, nullptr);
+    return panels;
+}
+
 void WindowManager::setSaveHook(SaveHook hook)
 {
     m_saveHook = std::move(hook);
@@ -284,6 +316,16 @@ void WindowManager::connectMenus(MainMenus& menus, MainWindow* window)
     }
     connect(menus.quitAction(), &QAction::triggered, this,
             guarded([this] { static_cast<void>(quit()); }, QStringLiteral("Quit")));
+    // Edit > Preferences (BasicFrame: PreferencesDialog.showPreferences(BasicFrame.this)); the
+    // menus of no window have none.
+    if (QAction* const preferences = menus.preferencesAction();
+        preferences != nullptr && window != nullptr)
+    {
+        connect(preferences, &QAction::triggered, this,
+                guarded([this, window] { static_cast<void>(showPreferences(*window)); },
+                        QStringLiteral("Preferences")));
+        preferences->setEnabled(true);
+    }
 }
 
 void WindowManager::closeIfReplaceable(MainWindow* origin, MainWindow& replacement)
