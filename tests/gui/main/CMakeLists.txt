@@ -4,6 +4,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     ComponentAddButtonsTests.cpp
     ComponentEditingTests.cpp
     DesignPanelTests.cpp
+    DocumentFileOperationsTests.cpp
     MainMenusTests.cpp
     MainWindowTests.cpp
     OpenRocketClipboardTests.cpp

@@ -22,6 +22,7 @@
 #include "QtRocket/file/motor/MotorDatabaseLoader.h"
 #include "QtRocket/gui/app/Application.h"
 #include "QtRocket/gui/app/ApplicationContext.h"
+#include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -61,6 +62,8 @@ ApplicationSession::ApplicationSession(Application&                        appli
             std::make_unique<WindowManager>(m_context->services(), options.lastWindowBehaviour);
         connect(m_windows.get(), &WindowManager::exitRequested, this,
                 [this] { Q_EMIT exitRequested(0); });
+        m_fileOperations =
+            std::make_unique<DocumentFileOperations>(*m_windows, m_context->services());
 
         // 3. OSXSetup's handlers.
         m_previousQuitHook = application.setQuitHook([this] { return m_windows->quit(); });
@@ -118,23 +121,7 @@ ApplicationSession::~ApplicationSession()
 bool ApplicationSession::openFiles(const std::vector<std::filesystem::path>& files,
                                    MainWindow*                               origin)
 {
-    if (files.empty())
-    {
-        return false;
-    }
-    // Run 3's file operations open them (DocumentFileOperations).
-    // QtRocket's own text: opening designs comes with the file operations later in Milestone 2.
-    QStringList lines{tr("Opening design files is not available in this version of QtRocket.")};
-    for (const std::filesystem::path& file : files)
-    {
-        lines.append(QtStrings::fromPath(file));
-    }
-    m_context->prompts().showMessage(origin,
-                                     {.severity = UserPrompts::Severity::WARNING,
-                                      // QtRocket's own text (BasicFrame's title of a failed open).
-                                      .title = tr("Error opening file"),
-                                      .lines = lines});
-    return false;
+    return m_fileOperations->openFiles(files, origin);
 }
 
 MainWindow& ApplicationSession::reopen()

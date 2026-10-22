@@ -8,6 +8,7 @@
 #include <QObject>
 
 #include "QtRocket/gui/app/Application.h"
+#include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/util/Guard.h"
 
@@ -28,7 +29,9 @@ class MainWindow;
 ///    is handed to it, queued); Quit there ends the application at once with
 ///    kInternalErrorExitCode (exitRequested()), without saving anything;
 /// 2. the windows (WindowManager over the context's services, with the platform's last-window
-///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0);
+///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0); and their
+///    file operations (DocumentFileOperations: File > Open, Save, Save as and Properties of every
+///    window and of the menus of no window, and the Save of the "Design not saved" question);
 /// 3. the platform's requests (OSXSetup): a quit (QEvent::Quit: the macOS Dock and application
 ///    menu) closes the windows as File > Quit does; a file to open (QFileOpenEvent) goes to
 ///    openFiles(); on macOS, where the application runs without a window, it opens one when it
@@ -39,8 +42,7 @@ class MainWindow;
 /// 6. for the tests of the program: with Options::quitAfterStart, a quit as File > Quit does
 ///    as soon as the event loop runs.
 ///
-/// Hooks left for run 3 (the file operations, recent files and examples, which do not exist
-/// yet): openFiles() opens no file yet, and reopen() opens a New design only (OpenRocket's
+/// Hook left for the recent files (run 3, part P4): reopen() opens a New design only (OpenRocket's
 /// BasicFrame.reopen() opens the most recent design instead when the preference "open the last
 /// design at start" is set).
 ///
@@ -85,15 +87,18 @@ public:
     ApplicationSession(ApplicationSession&&)                 = delete;
     ApplicationSession& operator=(ApplicationSession&&)      = delete;
 
-    [[nodiscard]] ApplicationContext& context() const noexcept { return *m_context; }
-    [[nodiscard]] WindowManager&      windows() const noexcept { return *m_windows; }
+    [[nodiscard]] ApplicationContext&     context() const noexcept { return *m_context; }
+    [[nodiscard]] WindowManager&          windows() const noexcept { return *m_windows; }
+    [[nodiscard]] DocumentFileOperations& fileOperations() const noexcept
+    {
+        return *m_fileOperations;
+    }
 
     /// SwingStartup.handleCommandLine() and OSXSetup's open-file handler: opens each of
-    /// @p files in a window of its own (BasicFrame.open(file, origin): @p origin, the window the
-    /// request came from or null, is replaced when it holds a New design still saved). Whether
-    /// a window was opened. The hook of run 3's file operations: until they exist it opens none
-    /// and says so in a message ("Opening design files is not available in this version of
-    /// QtRocket.", with the files).
+    /// @p files in a window of its own (DocumentFileOperations::openFiles(), BasicFrame.open(file,
+    /// origin): @p origin, the window the request came from or null, is replaced when it holds a
+    /// New design still saved; a file that cannot be opened shows its error). Whether a window
+    /// was opened (or a window of one of the files activated).
     bool openFiles(const std::vector<std::filesystem::path>& files, MainWindow* origin);
 
     /// BasicFrame.reopen(): opens the window the application starts with: a New design. (Run
@@ -125,8 +130,10 @@ private:
     std::optional<Guard::Hook>                m_previousErrorHook;
     std::optional<Application::QuitHook>      m_previousQuitHook;
     std::optional<Application::OpenFilesHook> m_previousOpenFilesHook;
-    /// Declared last: the windows go before the services.
+    /// Declared after the services: the windows go before them.
     std::unique_ptr<WindowManager> m_windows;
+    /// Declared last: the file operations go before the windows, whose save hook they are.
+    std::unique_ptr<DocumentFileOperations> m_fileOperations;
 };
 
 }  // namespace QtRocket::Gui

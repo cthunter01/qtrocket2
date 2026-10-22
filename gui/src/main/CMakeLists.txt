@@ -5,6 +5,7 @@ target_sources(QtRocket_gui PRIVATE
     ComponentButton.cpp ${gui_include_dir}/main/ComponentButton.h
     ComponentEditing.cpp ${gui_include_dir}/main/ComponentEditing.h
     DesignPanel.cpp ${gui_include_dir}/main/DesignPanel.h
+    DocumentFileOperations.cpp ${gui_include_dir}/main/DocumentFileOperations.h
     MainMenus.cpp ${gui_include_dir}/main/MainMenus.h
     MainWindow.cpp ${gui_include_dir}/main/MainWindow.h
     OpenRocketClipboard.cpp ${gui_include_dir}/main/OpenRocketClipboard.h

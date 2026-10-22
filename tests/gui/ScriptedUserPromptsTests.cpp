@@ -130,6 +130,23 @@ TEST_F(ScriptedUserPromptsTest, RecordsMessagesWithoutAScript)
     EXPECT_EQ(prompts.prompts().at(1).texts.size(), 2);
 }
 
+TEST_F(ScriptedUserPromptsTest, RecordsErrorsAndWarnings)
+{
+    ScriptedUserPrompts prompts;
+    prompts.showErrorsAndWarnings(nullptr,
+                                  {.title    = QStringLiteral("Errors/Warnings while saving file"),
+                                   .lines    = {QStringLiteral("line")},
+                                   .errors   = {QStringLiteral("error")},
+                                   .warnings = {QStringLiteral("warning")}});
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts().front().kind, Kind::ERRORS_AND_WARNINGS);
+    EXPECT_EQ(prompts.prompts().front().title, QStringLiteral("Errors/Warnings while saving file"));
+    EXPECT_EQ(
+        prompts.prompts().front().texts,
+        (QStringList{QStringLiteral("line"), QStringLiteral("error"), QStringLiteral("warning")}));
+    EXPECT_EQ(ScriptedUserPrompts::kindName(Kind::ERRORS_AND_WARNINGS), "ERRORS_AND_WARNINGS");
+}
+
 TEST_F(ScriptedUserPromptsTest, AnswersTheInternalErrorAndRecordsTheFailure)
 {
     ScriptedUserPrompts prompts;

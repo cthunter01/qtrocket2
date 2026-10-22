@@ -2,7 +2,9 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -24,15 +26,19 @@
 
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/gui/app/Application.h"
 #include "QtRocket/gui/app/ApplicationContext.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/settings/SettingsPreferences.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
@@ -130,6 +136,19 @@ protected:
 
     [[nodiscard]] const QtRocket::Test::TempDir& directory() const noexcept { return m_directory; }
 
+    /// Writes a design whose rocket is named @p rocketName to @p name in the directory.
+    [[nodiscard]] std::filesystem::path writeDesign(const std::filesystem::path& name,
+                                                    std::string_view             rocketName) const
+    {
+        const std::filesystem::path         file     = m_directory.resolve(name);
+        std::unique_ptr<OpenRocketDocument> document = OpenRocketDocumentFactory::createNewRocket();
+        document->getRocket().setName(rocketName);
+        const InMemoryPreferences preferences;
+        GeneralRocketSaver        saver(preferences);
+        EXPECT_TRUE(saver.save(file, *document).has_value());
+        return file;
+    }
+
 private:
     QtRocket::Test::TempDir             m_directory;
     Gui::Test::ScriptedUserPrompts*     m_prompts{nullptr};
@@ -221,24 +240,39 @@ TEST_F(ApplicationSessionTest, TheServicesAreReadyBeforeTheFirstWindow)
     EXPECT_EQ(startMaterial<TrapezoidFinSet>(session), "Balsa");
 }
 
-TEST_F(ApplicationSessionTest, AFileOfTheCommandLineIsNotOpenedYetAndANewDesignOpens)
+TEST_F(ApplicationSessionTest, AMissingFileOfTheCommandLineIsNotFoundAndANewDesignOpens)
 {
+    // SwingStartup.handleCommandLine() opened nothing: BasicFrame.reopen().
     ApplicationSession::Options startOptions = options();
-    const std::filesystem::path file         = std::filesystem::path("designs") / "rocket.ork";
-    startOptions.files                       = {file};
+    startOptions.files                       = {directory().resolve("designs") / "rocket.ork"};
     const ApplicationSession& session        = start(startOptions);
 
     ASSERT_EQ(prompts().prompts().size(), 1U);
     const Gui::Test::ScriptedUserPrompts::Prompt& message = prompts().prompts().front();
     EXPECT_EQ(message.kind, PromptKind::MESSAGE);
     EXPECT_EQ(message.title, QStringLiteral("Error opening file"));
-    EXPECT_EQ(
-        message.texts,
-        (QStringList{
-            QStringLiteral("WARNING"),
-            QStringLiteral("Opening design files is not available in this version of QtRocket."),
-            QtStrings::fromPath(file)}));
-    EXPECT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_EQ(message.texts,
+              (QStringList{QStringLiteral("ERROR"), QStringLiteral("File not found: rocket.ork")}));
+    ASSERT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_TRUE(session.windows().isReplaceable(firstWindow(session)));
+}
+
+TEST_F(ApplicationSessionTest, TheFilesOfTheCommandLineOpenInWindowsOfTheirOwn)
+{
+    const std::filesystem::path first        = writeDesign("first.ork", "First");
+    const std::filesystem::path second       = writeDesign("second.ork", "Second");
+    ApplicationSession::Options startOptions = options();
+    startOptions.files                       = {first, second};
+    const ApplicationSession& session        = start(startOptions);
+    EXPECT_TRUE(prompts().prompts().empty());
+    ASSERT_EQ(session.windows().windowCount(), 2U);
+    const MainWindow& window = firstWindow(session);
+    EXPECT_EQ(window.document().getRocket().getName(), "First");
+    EXPECT_EQ(window.document().getFile(), std::optional(first));
+    EXPECT_TRUE(window.document().isSaved());
+    EXPECT_FALSE(session.windows().isReplaceable(window));
+    EXPECT_EQ(&session.fileOperations().findWindowOfFile(second)->document().getRocket(),
+              &session.windows().windows().back()->document().getRocket());
 }
 
 TEST_F(ApplicationSessionTest, AGuardedSlotThatThrowsShowsTheInternalErrorAndTheApplicationGoesOn)
@@ -354,17 +388,41 @@ TEST_F(ApplicationSessionTest, AQuitEventClosesTheWindowsAsFileQuitDoes)
     EXPECT_EQ(exits.at(0).at(0).toInt(), 0);
 }
 
-TEST_F(ApplicationSessionTest, AFileTheSystemAsksToOpenIsNotOpenedYet)
+TEST_F(ApplicationSessionTest, AFileTheSystemAsksToOpenTakesThePlaceOfTheNewDesign)
 {
-    const ApplicationSession& session = start();
-    const QString             file    = QStringLiteral("/designs/rocket.ork");
-    QFileOpenEvent            event(file);
+    // OSXSetup's open-file handler: BasicFrame.open(file, lastFrameInstance).
+    const std::filesystem::path file    = writeDesign("rocket.ork", "Mars");
+    const ApplicationSession&   session = start();
+    QFileOpenEvent              event(QtStrings::fromPath(file));
     QCoreApplication::sendEvent(&application(), &event);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(prompts().prompts().empty());
+    ASSERT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_EQ(firstWindow(session).document().getRocket().getName(), "Mars");
+
+    // One that cannot be opened is not found, and the window stays.
+    QFileOpenEvent missing(QtStrings::fromPath(directory().resolve("missing.ork")));
+    QCoreApplication::sendEvent(&application(), &missing);
     ASSERT_EQ(prompts().prompts().size(), 1U);
-    EXPECT_EQ(prompts().prompts().front().kind, PromptKind::MESSAGE);
-    EXPECT_EQ(prompts().prompts().front().texts.value(2),
-              QtStrings::fromPath(QtStrings::toPath(file)));
+    EXPECT_EQ(prompts().prompts().front().texts.value(1),
+              QStringLiteral("File not found: missing.ork"));
     EXPECT_EQ(session.windows().windowCount(), 1U);
+}
+
+TEST_F(ApplicationSessionTest, SaveInTheQuestionOfAClosingWindowSavesTheDesign)
+{
+    // The windows' save hook is the file operations' Save (BasicFrame.closeAction()).
+    const ApplicationSession& session = start();
+    session.context().preferences().setShowSaveRocketInfo(false);
+    MainWindow& window = firstWindow(session);
+    window.document().getRocket().setName("Mars");
+    const std::filesystem::path file = directory().resolve("mars.ork");
+    prompts().answerSaveChanges(UserPrompts::SaveChangesAnswer::SAVE);
+    prompts().answerSaveFile(UserPrompts::SaveFileAnswer{
+        .file = file, .directory = directory().path(), .saveSimulationData = std::nullopt});
+    EXPECT_TRUE(session.windows().close(window));
+    EXPECT_EQ(session.windows().windowCount(), 0U);
+    EXPECT_TRUE(std::filesystem::exists(file));
 }
 
 TEST_F(ApplicationSessionTest, WithoutAWindowTheApplicationReopensANewDesign)

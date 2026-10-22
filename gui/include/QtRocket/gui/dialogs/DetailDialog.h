@@ -49,7 +49,8 @@ public:
     DetailDialog(DetailDialog&&)                 = delete;
     DetailDialog& operator=(DetailDialog&&)      = delete;
 
-    /// Shows the dialog, modal, parented to @p parent (or none), and returns when it is closed.
+    /// Shows the dialog, modal, parented to @p parent (or none), and returns when it is closed
+    /// (or destroyed with its parent: ModalDialog).
     static void showDetailedMessageDialog(QWidget* parent, const QStringList& message,
                                           const std::optional<QString>& details,
                                           const QString& title, UserPrompts::Severity severity);
