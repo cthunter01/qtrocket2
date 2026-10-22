@@ -49,12 +49,14 @@
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ClusterConfiguration.h"
+#include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TubeCoupler.h"
 #include "QtRocket/util/BugError.h"
 #include "RingPanelTestSupport.h"
+#include "binding/BindingTestSupport.h"
 #include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
@@ -67,6 +69,7 @@ using InnerTubeConfigTest = Test::ConfigDialogTest;
 using Test::ConfigDialogServices;
 using Test::FactoryPanel;
 using Test::RingDesign;
+using Test::RocketEventRecorder;
 using Test::rowLabels;
 using Test::showActiveDialog;
 using Test::tabTitles;
@@ -207,6 +210,40 @@ void makeProbeCluster(const RingDesign& design)
         {
             differences += std::format("child {}: '{}' with {} children\n", i, copy.getName(),
                                        copy.getChildCount());
+        }
+    }
+    return differences;
+}
+
+/// How the children of @p body differ from the split "Outer #1" to "#3", each holding the split
+/// "Nested #1" to "#6" (single tubes) and nothing else, one line each.
+[[nodiscard]] std::string nestedSplitDifferences(const RocketComponent& body)
+{
+    std::string differences;
+    if (body.getChildCount() != 3)
+    {
+        return std::format("{} children\n", body.getChildCount());
+    }
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        const RocketComponent& copy = *body.getChildren().at(i);
+        const auto*            tube = dynamic_cast<const InnerTube*>(&copy);
+        if (tube == nullptr || copy.getName() != std::format("Outer #{}", i + 1) ||
+            &tube->getClusterConfiguration() != &layout(0) || copy.getChildCount() != 6)
+        {
+            differences += std::format("child {}: '{}' with {} children\n", i, copy.getName(),
+                                       copy.getChildCount());
+            continue;
+        }
+        for (std::size_t j = 0; j < 6; ++j)
+        {
+            const auto* inside = dynamic_cast<const InnerTube*>(copy.getChildren().at(j));
+            if (inside == nullptr || inside->getName() != std::format("Nested #{}", j + 1) ||
+                &inside->getClusterConfiguration() != &layout(0))
+            {
+                differences +=
+                    std::format("child {}.{}: '{}'\n", i, j, copy.getChildren().at(j)->getName());
+            }
         }
     }
     return differences;
@@ -574,11 +611,18 @@ TEST_F(InnerTubeConfigTest, SplitClusterMakesEachTubeAComponentAsJavaDoes)
     ASSERT_NE(dialog, nullptr);
     const auto* panel = dynamic_cast<const InnerTubeConfig*>(&dialog->configurator());
     ASSERT_NE(panel, nullptr);
+    RocketEventRecorder events(design.document->getRocket());
     panel->splitButton().click();
     // The TREE change closed the dialog.
     EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
     EXPECT_TRUE(dialog->isDisposed());
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    // D2FixerProbe: no freeze, as Java; the removal and the three additions each tell the rocket
+    // a TREE and mass change of the body tube.
+    constexpr int kAddRemove =
+        ComponentChangeEvent::kTreeChange | ComponentChangeEvent::kMassChange;
+    EXPECT_EQ(events.types(), (std::vector<int>{kAddRemove, kAddRemove, kAddRemove, kAddRemove}));
+    EXPECT_EQ(events.sources(), (std::vector<std::string>(4, "Body Tube")));
 
     const RocketComponent& body = bodyOf(*design.document);
     EXPECT_EQ(body.getChildCount(), 6U);
@@ -712,13 +756,12 @@ TEST_F(InnerTubeConfigTest, EverySelectedTubeIsSplitTheMainFirst)
     EXPECT_EQ(design.document->getUndoDescription(), "Split cluster");
 }
 
-TEST_F(InnerTubeConfigTest, ATubeSelectedInsideASplitTubeIsSplitInTheRemovedOriginal)
+TEST_F(InnerTubeConfigTest, ATubeSelectedInsideASplitTubeStaysWholeInTheCopies)
 {
     // D2aProbe (body4), as Java's split button: the main tube is split first, its copies taking the
-    // selected tube inside it as it is; that tube is then split inside the removed original, which
-    // goes with the split. So the copies keep the inner cluster. The removed original lives until
-    // after the thaw: destroyed at once, the second split would reach a destroyed tube (proved
-    // under the asan preset).
+    // selected tube inside it as it is. Java then splits that tube inside the removed original,
+    // which changes nothing in the rocket; here it is no longer found in the rocket and is passed
+    // over. So the copies keep the inner cluster.
     const ConfigDialogServices services;
     const RingDesign           design;
     QWidget                    window;
@@ -739,6 +782,45 @@ TEST_F(InnerTubeConfigTest, ATubeSelectedInsideASplitTubeIsSplitInTheRemovedOrig
 
     EXPECT_EQ(bodyOf(*design.document).getChildCount(), 6U);
     EXPECT_EQ(nestedCopyDifferences(bodyOf(*design.document)), "");
+}
+
+TEST_F(InnerTubeConfigTest, ATubeSelectedAroundTheMainIsSplitAfterIt)
+{
+    // D2FixerProbe: the main 2-tube "Nested" inside the selected 3-ring "Outer" is split first, at
+    // its six absolute locations (three of the outer one's instances times two); the outer one,
+    // found again after the TREE changes of that split, is then split with copies of the six.
+    const ConfigDialogServices services;
+    const RingDesign           design;
+    QWidget                    window;
+    RocketComponent&           stage = *design.document->getRocket().getChildren().front();
+    auto&                      body5 = stage.addChild(std::make_unique<BodyTube>());
+    auto&                      outer = body5.addChild(std::make_unique<InnerTube>());
+    outer.setName("Outer");
+    outer.setClusterConfiguration(layout(4));
+    auto& nested = outer.addChild(std::make_unique<InnerTube>());
+    nested.setName("Nested");
+    nested.setClusterConfiguration(layout(1));
+    design.document->clearUndo();
+    const std::array<RocketComponent*, 1> others{&outer};
+    const ComponentConfigDialog*          dialog =
+        showActiveDialog(window, services.services(), *design.document, nested, others);
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = dynamic_cast<const InnerTubeConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    panel->splitButton().click();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    const RocketComponent& split =
+        *design.document->getRocket().getChildren().front()->getChildren().at(1);
+    EXPECT_EQ(nestedSplitDifferences(split), "");
+    EXPECT_EQ(design.document->getUndoDescription(), "Split cluster");
+    design.document->undo();
+    const RocketComponent& restored =
+        *design.document->getRocket().getChildren().front()->getChildren().at(1);
+    ASSERT_EQ(restored.getChildCount(), 1U);
+    EXPECT_EQ(restored.getChildren().front()->getName(), "Outer");
+    EXPECT_EQ(restored.getChildren().front()->getChildCount(), 1U);
 }
 
 TEST_F(InnerTubeConfigTest, ASingleTubeStaysAsItIs)

@@ -4,6 +4,8 @@
 #include <memory>
 #include <numbers>
 
+#include <QCoreApplication>
+#include <QEvent>
 #include <QString>
 #include <QStringList>
 #include <QTabWidget>
@@ -16,6 +18,7 @@
 #include "MassPanelTestSupport.h"
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
+#include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/configdialog/MassObjectFields.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
@@ -24,10 +27,12 @@
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/gui/widgets/ValueSlider.h"
 #include "QtRocket/rocket/MassComponent.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "RingPanelTestSupport.h"
+#include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
 {
@@ -40,7 +45,9 @@ using Test::ConfigDialogServices;
 using Test::FactoryPanel;
 using Test::labelTextsUnder;
 using Test::MassDesign;
+using Test::showActiveDialog;
 using Test::tabTitles;
+using Test::typeInto;
 using MassComponentType = MassComponent::MassComponentType;
 
 /// The panel of @p created as a MassComponentConfig.
@@ -98,11 +105,16 @@ TEST_F(MassComponentConfigTest, TheGeneralTabHasJavasFieldsAndNoMaterial)
     EXPECT_EQ(panel.massWidgets().spinBox->objectName(), QStringLiteral("ComponentMass"));
     EXPECT_EQ(&panel.massWidgets().spinBox->binding()->getUnitGroup(),
               &unitGroup(UnitGroupId::MASS));
+    // DoubleModel(component, "ComponentMass", UNITS_MASS, 0), getSliderModel(0, 0.05, 0.5).
+    EXPECT_EQ(panel.massWidgets().spinBox->binding()->minimum(), 0.0);
+    EXPECT_EQ(panel.massWidgets().slider->mapping().getMin(), 0.0);
     EXPECT_EQ(panel.massWidgets().slider->mapping().getMid(), 0.05);
     EXPECT_EQ(panel.massWidgets().slider->mapping().getMax(), 0.5);
     EXPECT_EQ(panel.densityWidgets().spinBox->objectName(), QStringLiteral("Density"));
     EXPECT_EQ(&panel.densityWidgets().spinBox->binding()->getUnitGroup(),
               &unitGroup(UnitGroupId::DENSITY_BULK));
+    // DoubleModel(component, "Density", UNITS_DENSITY_BULK, 0).
+    EXPECT_EQ(panel.densityWidgets().spinBox->binding()->minimum(), 0.0);
     EXPECT_EQ(panel.densityWidgets().slider->mapping().getMin(), 500.0);
     EXPECT_EQ(panel.densityWidgets().slider->mapping().getMid(), 2000.0);
     EXPECT_EQ(panel.densityWidgets().slider->mapping().getMax(), 10000.0);
@@ -167,6 +179,35 @@ TEST_F(MassComponentConfigTest, TheDensityGivesEachMassComponentItsOwnMass)
     const double volume        = std::numbers::pi * radiusSquared * 0.05;
     EXPECT_EQ(other.getComponentMass(), 1000 * volume);
     EXPECT_DOUBLE_EQ(other.getDensity(), 1000.0);
+}
+
+TEST_F(MassComponentConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingEdit)
+{
+    // Proved under the asan preset: the pending mass, committed by the focus loss of the hidden
+    // dialog, reaches none of the components the undo replaced, and the diameter's "Automatic"
+    // reads none of them.
+    const ConfigDialogServices services;
+    const MassDesign           design;
+    QWidget                    window;
+    design.document->addUndoPosition("Change");
+    design.cord->setName("Cord");
+    const ComponentConfigDialog* dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.mass);
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = dynamic_cast<const MassComponentConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    typeInto(*panel->massWidgets().spinBox, QStringLiteral("50"));
+
+    design.document->undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(dialog->isDisposed());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    const RocketComponent& body =
+        *design.document->getRocket().getChildren().front()->getChildren().front();
+    const auto* mass = dynamic_cast<const MassComponent*>(body.getChildren().at(0));
+    ASSERT_NE(mass, nullptr);
+    EXPECT_EQ(mass->getComponentMass(), 0.0);
+    EXPECT_EQ(body.getChildren().at(1)->getName(), "Shock Cord");
 }
 
 TEST_F(MassComponentConfigTest, EveryFieldReachesEverySelectedMassComponent)

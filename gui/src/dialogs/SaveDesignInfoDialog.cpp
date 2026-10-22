@@ -5,6 +5,8 @@
 #include <QCheckBox>
 #include <QDialog>
 #include <QHBoxLayout>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QString>
@@ -117,6 +119,9 @@ void SaveDesignInfoDialog::ok()
 
 void SaveDesignInfoDialog::cancel()
 {
+    // Java: the Cancel button takes the focus, whose loss commits the edit in progress, before
+    // the question (a button that takes no focus, on macOS, leaves it pending).
+    static_cast<void>(m_panel->commitAll());
     const UserPrompts::DiscardAnswer answer = m_services.prompts().askDiscardChanges(
         this, UserPrompts::DiscardQuestion::COMPONENT_CHANGES);
     if (answer.doNotAskAgain)
@@ -127,7 +132,7 @@ void SaveDesignInfoDialog::cancel()
     {
         return;
     }
-    // The pending edits are dropped.
+    // Nothing is undone: Java's Cancel only closes the dialog.
     m_panel->release();
     done(QDialog::Rejected);
 }
@@ -135,6 +140,18 @@ void SaveDesignInfoDialog::cancel()
 void SaveDesignInfoDialog::reject()
 {
     ok();
+}
+
+void SaveDesignInfoDialog::keyPressEvent(QKeyEvent* event)
+{
+    // Java's plain JDialog binds nothing to Esc (BasicFrame.showSaveRocketInfoDialog() does not
+    // call GUIUtil.setDisposableDialogOptions()), so Esc does nothing here either.
+    if (event->matches(QKeySequence::Cancel))
+    {
+        event->accept();
+        return;
+    }
+    QDialog::keyPressEvent(event);
 }
 
 }  // namespace QtRocket::Gui

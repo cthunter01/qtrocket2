@@ -64,16 +64,20 @@ class MotorConfig;
 /// each of the tube's instance locations (RocketComponent::getComponentLocations(): absolute
 /// ones, as Java's, which counts the instances of a pod set the tube is in too), a copy of the
 /// tube and its children named "<name> #<n>" (InnerTube::makeIndividualClusterComponent()), in
-/// the tube's place among its siblings; a single tube stays as it is. A selected tube inside
-/// another selected tube is split where it is when its turn comes, as in Java: split after the
-/// outer one, it is inside the removed original, and the copies keep it whole. It is an undo step
-/// of its own, "Split cluster" (added before the split, outside any freeze, as Java), and the
-/// structural change closes the dialog (a TREE change). Deviations from OpenRocket: Java runs the
-/// split later (SwingUtilities.invokeLater()) and fires an event for each tube it removes and adds;
-/// here the split runs at once (the dialog then goes by deleteLater()) inside one freeze of the
-/// rocket (unless it is frozen already), which fires one TREE change at the end, so that nothing
-/// that listens to the rocket (the tree, a dialog opened for a new selection) acts on a half-split
-/// design. Pending edits are committed first (a button takes no focus on macOS).
+/// the tube's place among its siblings; a single tube stays as it is. It is an undo step of its
+/// own, "Split cluster" (added before the split), and runs outside any freeze, as Java: each tube
+/// removed and each copy added fires its TREE change at once (D2FixerProbe: four for a 3-ring),
+/// and the first one closes the dialog. The tubes are found again by id for their turn, as no
+/// component pointer outlives a TREE change: a selected tube inside another selected tube is split
+/// where it is when its turn comes before the outer one (the copies of the outer one then hold its
+/// copies); after the outer one it is in the removed original, no longer in the rocket, and is
+/// passed over, which leaves the rocket as Java's split of it there does (the outer one's copies
+/// keep it whole, and a split inside a detached tree tells nobody). Deviations from OpenRocket:
+/// Java runs the split later (SwingUtilities.invokeLater()); here it runs at once (the dialog then
+/// goes by deleteLater()). Java's other selected tubes, its config listeners while the dialog is
+/// open, tell no change of their own, so the split of a tube inside one of them fires nothing
+/// there; here it fires its TREE changes (the user's decision U3: no config listeners). Pending
+/// edits are committed first (a button takes no focus on macOS).
 ///
 /// The multi-edit (the user's decision U3, ComponentSelection): OpenRocket's InnerTube setters
 /// forward to the other selected tubes before they set the main one, except

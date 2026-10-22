@@ -23,6 +23,7 @@
 #include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/RocketConfig.h"
 #include "QtRocket/gui/widgets/IconToggleButton.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
@@ -76,24 +77,50 @@ void typeDesignerThenCancel(QWidget& widget)
     }
 }
 
-/// Clicks Cancel (the question answered no: the dialog stays), then OK.
-void cancelThenOk(QWidget& widget)
+/// The designer of the rocket that @p dialog edits; nullopt, with a test failure, without one.
+[[nodiscard]] std::optional<std::string> designerOf(const SaveDesignInfoDialog& dialog)
+{
+    const auto* rocket = dynamic_cast<const Rocket*>(&dialog.panel().selection()->getMain());
+    EXPECT_NE(rocket, nullptr) << "the dialog edits no rocket";
+    return rocket != nullptr ? std::optional<std::string>(rocket->getDesigner()) : std::nullopt;
+}
+
+/// Types the designer and clicks Cancel (the question answered no: the dialog stays, the designer
+/// committed before the question), then OK.
+void typeDesignerCancelThenOk(QWidget& widget)
 {
     if (const SaveDesignInfoDialog* dialog = designInfoDialog(widget))
     {
+        typeDesigner(*dialog);
         dialog->cancelButton().click();
         EXPECT_TRUE(dialog->isVisible());
+        EXPECT_EQ(designerOf(*dialog), std::optional<std::string>("Ann"));
         dialog->okButton().click();
     }
 }
 
-/// Types the designer and presses Esc.
-void typeDesignerThenEscape(QWidget& widget)
+/// Types the designer and presses Esc, in the designer area and on the dialog (the dialog stays,
+/// the designer still pending), then clicks OK.
+void typeDesignerEscapeThenOk(QWidget& widget)
 {
     if (SaveDesignInfoDialog* dialog = designInfoDialog(widget))
     {
         typeDesigner(*dialog);
+        QTest::keyClick(&dialog->panel().designerArea(), Qt::Key_Escape);
         QTest::keyClick(dialog, Qt::Key_Escape);
+        EXPECT_TRUE(dialog->isVisible());
+        EXPECT_EQ(designerOf(*dialog), std::optional<std::string>(""));
+        dialog->okButton().click();
+    }
+}
+
+/// Types the designer and closes the window, as its close button does.
+void typeDesignerThenClose(QWidget& widget)
+{
+    if (SaveDesignInfoDialog* dialog = designInfoDialog(widget))
+    {
+        typeDesigner(*dialog);
+        EXPECT_TRUE(dialog->close());
     }
 }
 
@@ -170,14 +197,29 @@ TEST_F(SaveDesignInfoDialogTest, OKKeepsTheEditsAndTheSaveGoesOn)
     EXPECT_TRUE(services.services().preferences().isShowSaveRocketInfo());
 }
 
-TEST_F(SaveDesignInfoDialogTest, EscGoesOnAsOK)
+TEST_F(SaveDesignInfoDialogTest, EscDoesNothingAsInJava)
 {
+    // Java's plain JDialog binds nothing to Esc.
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
-    const NextModalDialog answer(typeDesignerThenEscape);
+    const NextModalDialog answer(typeDesignerEscapeThenOk);
+    EXPECT_TRUE(SaveDesignInfoDialog::edit(nullptr, services.services(), *document));
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(document->getRocket().getDesigner(), "Ann");
+    EXPECT_TRUE(services.prompts().prompts().empty());
+}
+
+TEST_F(SaveDesignInfoDialogTest, TheCloseButtonGoesOnAsOK)
+{
+    // Java's close button hides the JDialog, and Save as goes on.
+    const ConfigDialogServices                services;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    const NextModalDialog answer(typeDesignerThenClose);
     EXPECT_TRUE(SaveDesignInfoDialog::edit(nullptr, services.services(), *document));
     EXPECT_EQ(document->getRocket().getDesigner(), "Ann");
+    EXPECT_TRUE(services.prompts().prompts().empty());
 }
 
 TEST_F(SaveDesignInfoDialogTest, ACancelTheUserConfirmsStopsTheSave)
@@ -190,8 +232,8 @@ TEST_F(SaveDesignInfoDialogTest, ACancelTheUserConfirmsStopsTheSave)
     EXPECT_FALSE(SaveDesignInfoDialog::edit(nullptr, services.services(), *document));
     EXPECT_EQ(questions(services.prompts()),
               (QStringList{QStringLiteral("DISCARD_CHANGES: COMPONENT_CHANGES")}));
-    // The pending edit was dropped.
-    EXPECT_EQ(document->getRocket().getDesigner(), "");
+    // As Java: the pending edit was committed before the question, and Cancel undoes nothing.
+    EXPECT_EQ(document->getRocket().getDesigner(), "Ann");
     EXPECT_TRUE(services.services().preferences().isShowDiscardConfirmation());
 }
 
@@ -201,7 +243,7 @@ TEST_F(SaveDesignInfoDialogTest, ACancelAnsweredNoKeepsTheDialogOpen)
     services.prompts().answerDiscardChanges({.discard = false, .doNotAskAgain = true});
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
-    const NextModalDialog answer(cancelThenOk);
+    const NextModalDialog answer(typeDesignerCancelThenOk);
     EXPECT_TRUE(SaveDesignInfoDialog::edit(nullptr, services.services(), *document));
     // "Don't ask me again" turns the confirmation off whatever the answer.
     EXPECT_FALSE(services.services().preferences().isShowDiscardConfirmation());

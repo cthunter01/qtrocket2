@@ -505,6 +505,32 @@ TEST_F(ComponentAssemblyConfigTest, APanelOutsideTheDialogSplitsToo)
     EXPECT_EQ(firstBody(*design.document).getChildCount(), 3U);
 }
 
+TEST_F(ComponentAssemblyConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingEdit)
+{
+    // Proved under the asan preset: the pending angle, committed by the focus loss of the hidden
+    // dialog, reaches none of the components the undo replaced, and the split button's enabling
+    // reads none of them.
+    const ConfigDialogServices services;
+    const AssemblyDesign       design;
+    QWidget                    window;
+    design.document->addUndoPosition("Change");
+    design.boosters->setName("Boosters");
+    const ComponentConfigDialog* dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.pods);
+    ASSERT_NE(dialog, nullptr);
+    typeInto(*assemblyPanel(*dialog).assemblyWidgets().angle.spinBox, QStringLiteral("45"));
+
+    design.document->undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(dialog->isDisposed());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    const RocketComponent& body = firstBody(*design.document);
+    const auto*            pods = dynamic_cast<const PodSet*>(body.getChildren().at(0));
+    ASSERT_NE(pods, nullptr);
+    EXPECT_EQ(pods->getAngleOffset(), 0.0);
+    EXPECT_EQ(body.getChildren().at(1)->getName(), "Booster Set");
+}
+
 TEST_F(ComponentAssemblyConfigTest, AComponentThatIsNoAssemblyIsABug)
 {
     const ConfigDialogServices services;

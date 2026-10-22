@@ -3,6 +3,8 @@
 #include <array>
 #include <memory>
 
+#include <QCoreApplication>
+#include <QEvent>
 #include <QGridLayout>
 #include <QLabel>
 #include <QString>
@@ -18,6 +20,7 @@
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/MaterialBinding.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
+#include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/configdialog/MassObjectFields.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
@@ -28,10 +31,12 @@
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/gui/widgets/ValueSlider.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/ShockCord.h"
 #include "QtRocket/util/BugError.h"
 #include "RingPanelTestSupport.h"
+#include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
 {
@@ -44,7 +49,9 @@ using Test::ConfigDialogServices;
 using Test::FactoryPanel;
 using Test::labelTextsUnder;
 using Test::MassDesign;
+using Test::showActiveDialog;
 using Test::tabTitles;
+using Test::typeInto;
 
 /// The panel of @p created as a ShockCordConfig.
 [[nodiscard]] ShockCordConfig& cordPanel(const FactoryPanel& created)
@@ -122,6 +129,34 @@ TEST_F(ShockCordConfigTest, TheCordLengthIsAutomaticUntilTyped)
     EXPECT_EQ(design.cord->getCordLength(), 0.6000000000000001);
     panel.cordLengthWidgets().spinBox->binding()->setValue(-1);
     EXPECT_EQ(design.cord->getCordLength(), 0.0);
+}
+
+TEST_F(ShockCordConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingEdit)
+{
+    // Proved under the asan preset: the pending cord length, committed by the focus loss of the
+    // hidden dialog, reaches none of the components the undo replaced.
+    const ConfigDialogServices services;
+    const MassDesign           design;
+    QWidget                    window;
+    design.document->addUndoPosition("Change");
+    design.mass->setName("Payload");
+    const ComponentConfigDialog* dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.cord);
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = dynamic_cast<const ShockCordConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    typeInto(*panel->cordLengthWidgets().spinBox, QStringLiteral("150"));
+
+    design.document->undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(dialog->isDisposed());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    const RocketComponent& body =
+        *design.document->getRocket().getChildren().front()->getChildren().front();
+    const auto* cord = dynamic_cast<const ShockCord*>(body.getChildren().at(1));
+    ASSERT_NE(cord, nullptr);
+    EXPECT_TRUE(cord->isCordLengthAutomatic());
+    EXPECT_EQ(body.getChildren().at(0)->getName(), "Mass Component");
 }
 
 TEST_F(ShockCordConfigTest, EveryFieldReachesEverySelectedShockCord)

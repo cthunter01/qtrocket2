@@ -49,6 +49,7 @@
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Coordinate.h"
+#include "QtRocket/util/Uuid.h"
 
 namespace QtRocket::Gui
 {
@@ -481,58 +482,38 @@ void InnerTubeConfig::splitCluster()
 {
     // The pending edits first: the copies take the tubes as the fields show them.
     static_cast<void>(commitAll());
-    const std::shared_ptr<ComponentSelection>& selection = this->selection();
-    if (!selection->isValid())
+    // A copy: the first TREE change of the split closes the dialog, which releases the selection.
+    const std::shared_ptr<ComponentSelection> selection = this->selection();
+    if (selection == nullptr || !selection->isValid())
     {
         return;
     }
-    // The main tube first, then the others (Java: the config listeners that are inner tubes).
-    std::vector<InnerTube*> tubes;
-    if (auto* main = dynamic_cast<InnerTube*>(&selection->getMain()))
+    // The main tube first, then the others (Java: the config listeners that are inner tubes), by
+    // id: no component pointer outlives the TREE changes the split fires.
+    std::vector<Uuid> ids{selection->getMain().getId()};
+    for (const RocketComponent* other : selection->getOthers())
     {
-        tubes.push_back(main);
+        ids.push_back(other->getId());
     }
-    for (RocketComponent* other : selection->getOthers())
-    {
-        if (auto* tube = dynamic_cast<InnerTube*>(other))
-        {
-            tubes.push_back(tube);
-        }
-    }
-    Rocket& rocket = selection->getRocket();
+    OpenRocketDocument& document = this->document();
+    Rocket&             rocket   = document.getRocket();
     //: Not translated in OpenRocket (InnerTubeConfig.java): the undo step of "Split cluster"
-    document().addUndoPosition(QtStrings::toUtf8(tr("Split cluster")));
+    document.addUndoPosition(QtStrings::toUtf8(tr("Split cluster")));
 
-    // Declared before the freeze: the removed tubes go only after the thaw has told everybody, and
-    // a selected tube inside one of them is split there (as in Java) before it goes.
+    // Without a freeze, as Java: each tube removed and each copy added tells the rocket at once
+    // (the first change closes the dialog; the panel goes later, by deleteLater()). The removed
+    // tubes go when the split is done.
     std::vector<std::unique_ptr<RocketComponent>> removed;
-    const bool                                    freezing = !rocket.isFrozen();
-    if (freezing)
+    for (const Uuid& id : ids)
     {
-        rocket.freeze();
-    }
-    try
-    {
-        for (InnerTube* tube : tubes)
+        // A tube inside one split before is in the removed original: no longer in the rocket.
+        if (auto* tube = dynamic_cast<InnerTube*>(rocket.findComponent(id)))
         {
             if (std::unique_ptr<RocketComponent> split = splitClusterOf(*tube))
             {
                 removed.push_back(std::move(split));
             }
         }
-    }
-    catch (...)
-    {
-        if (freezing)
-        {
-            rocket.thaw();
-        }
-        throw;
-    }
-    if (freezing)
-    {
-        // The TREE change closes the dialog (the panel goes later, by deleteLater()).
-        rocket.thaw();
     }
 }
 

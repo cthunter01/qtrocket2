@@ -146,6 +146,11 @@ TEST_F(ParachuteConfigTest, TheShroudLinesHaveJavasFields)
                            QStringLiteral("Material:")}));
     EXPECT_EQ(panel.lineCountSpinBox().objectName(), QStringLiteral("LineCount"));
     EXPECT_EQ(panel.lineLengthWidgets().spinBox->objectName(), QStringLiteral("LineLength"));
+    // DoubleModel(component, "LineLength", UNITS_LENGTH, 0), getSliderModel(0, 0.4, 1.5).
+    EXPECT_EQ(panel.lineLengthWidgets().spinBox->binding()->minimum(), 0.0);
+    EXPECT_EQ(panel.lineLengthWidgets().slider->mapping().getMin(), 0.0);
+    EXPECT_EQ(panel.lineLengthWidgets().slider->mapping().getMid(), 0.4);
+    EXPECT_EQ(panel.lineLengthWidgets().slider->mapping().getMax(), 1.5);
     EXPECT_EQ(panel.lineLengthAutomatic().objectName(), QStringLiteral("LineLengthAutomatic"));
     EXPECT_EQ(panel.lineLengthAutomatic().toolTip(),
               QStringLiteral("Sets the line length to 1.5x the canopy diameter."));
@@ -190,6 +195,10 @@ TEST_F(ParachuteConfigTest, TheValuesAreJavas)
     EXPECT_EQ(design.parachute->getDiameter(), 0.0);
     lineCount->setValue(-2);
     EXPECT_EQ(design.parachute->getLineCount(), 0);
+    // Java's DoubleModel has the minimum 0, and Parachute::setLineLength() takes any value.
+    panel.lineLengthWidgets().spinBox->binding()->setValue(-1);
+    EXPECT_EQ(design.parachute->getLineLength(), 0.0);
+    EXPECT_FALSE(design.parachute->isLineLengthAutomatic());
 }
 
 TEST_F(ParachuteConfigTest, ResetMakesTheDefaultDragCoefficientManual)

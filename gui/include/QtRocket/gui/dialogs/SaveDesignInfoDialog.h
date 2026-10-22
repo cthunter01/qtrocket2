@@ -6,6 +6,7 @@
 #include "QtRocket/gui/util/GuiServices.h"
 
 class QCheckBox;
+class QKeyEvent;
 class QPushButton;
 class QWidget;
 
@@ -32,16 +33,18 @@ class StyledLabel;
 /// - "Don't show this dialog again" stores Preferences::setShowSaveRocketInfo() of the opposite of
 ///   its state whenever it is toggled (Java: its action listener), also when the dialog is then
 ///   cancelled.
-/// - OK commits the pending edits and closes; Esc and the window's close button do the same (Java:
-///   the window's close button hides the plain JDialog, and Save as goes on).
-/// - Cancel always asks (UserPrompts::askDiscardChanges() with the component dialog's "discard
-///   your changes" question; Java's SaveDesignInfoPanel asks without looking at
+/// - OK commits the pending edits and closes; the window's close button does the same (Java: it
+///   hides the plain JDialog, and Save as goes on). Esc does nothing, as in Java, whose plain
+///   JDialog binds nothing to it.
+/// - Cancel commits the pending edits first (Java: the Cancel button takes the focus, whose loss
+///   commits the field), then always asks (UserPrompts::askDiscardChanges() with the component
+///   dialog's "discard your changes" question; Java's SaveDesignInfoPanel asks without looking at
 ///   Preferences::isShowDiscardConfirmation()); "Don't ask me again" turns that preference off,
-///   whatever the answer. On yes the pending edits are dropped and the dialog closes; the edits
-///   committed before stay (Java keeps them too: its Cancel undoes nothing).
+///   whatever the answer. On yes the dialog closes, and every edit stays (Java's Cancel undoes
+///   nothing); on no it stays open.
 ///
-/// edit() shows the dialog and returns whether the save is to go on: true after OK (and Esc or the
-/// close button), false after a Cancel the user confirmed. Run 4 calls it from Save as through
+/// edit() shows the dialog and returns whether the save is to go on: true after OK (and the close
+/// button), false after a Cancel the user confirmed. Run 4 calls it from Save as through
 /// UserPrompts::editDesignInformation() (main/WidgetUserPrompts), with the rocket selected in the
 /// tree first (Java: setSelectedComponent(rocket)).
 ///
@@ -51,10 +54,8 @@ class StyledLabel;
 ///   so that Save as can stop there.
 /// - The design name field shows the rocket's name. Java's SaveDesignInfoPanel overrides
 ///   updateFields(), which fills the field, with an empty method, so the field starts empty and a
-///   focus loss of it names the rocket "" (which a component takes as its default name).
-/// - Esc closes the dialog as OK; Java's plain JDialog does nothing on Esc.
-/// - A confirmed Cancel drops the edit in progress; in Java the Cancel button takes the focus,
-///   whose loss commits that edit, and Cancel keeps it.
+///   focus loss of it names the rocket "" (which a component takes as its default name). This fix
+///   is not among the user's decision U4's: it is for the user to confirm.
 class SaveDesignInfoDialog final : public QDialog
 {
     Q_OBJECT
@@ -85,8 +86,12 @@ public:
     void ok();
     /// Cancel (see the class comment).
     void cancel();
-    /// Esc and the window's close button: as OK.
+    /// The window's close button: as OK.
     void reject() override;
+
+protected:
+    /// Esc does nothing (see the class comment); every other key as QDialog.
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     GuiServices   m_services;

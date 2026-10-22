@@ -3,6 +3,8 @@
 #include <array>
 #include <memory>
 
+#include <QCoreApplication>
+#include <QEvent>
 #include <QFont>
 #include <QGridLayout>
 #include <QLabel>
@@ -20,6 +22,7 @@
 #include "QtRocket/gui/binding/DoubleBinding.h"
 #include "QtRocket/gui/binding/MaterialBinding.h"
 #include "QtRocket/gui/binding/SliderMapping.h"
+#include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/configdialog/MassObjectFields.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
@@ -32,11 +35,13 @@
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
 #include "QtRocket/gui/widgets/ValueSlider.h"
 #include "QtRocket/material/Material.h"
+#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/Streamer.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/BugError.h"
 #include "RingPanelTestSupport.h"
+#include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
 {
@@ -48,7 +53,9 @@ using StreamerConfigTest = Test::ConfigDialogTest;
 using Test::ConfigDialogServices;
 using Test::FactoryPanel;
 using Test::MassDesign;
+using Test::showActiveDialog;
 using Test::tabTitles;
+using Test::typeInto;
 
 /// The panel of @p created as a StreamerConfig.
 [[nodiscard]] StreamerConfig& streamerPanel(const FactoryPanel& created)
@@ -83,15 +90,24 @@ TEST_F(StreamerConfigTest, TheStripHasJavasFields)
     const StreamerConfig&      panel = streamerPanel(created);
     EXPECT_EQ(panel.stripLengthWidgets().label->text(), QStringLiteral("Strip length:"));
     EXPECT_EQ(panel.stripLengthWidgets().spinBox->objectName(), QStringLiteral("StripLength"));
+    // DoubleModel(component, "StripLength", UNITS_LENGTH, 0), getSliderModel(0, 0.6, 1.5).
+    EXPECT_EQ(panel.stripLengthWidgets().spinBox->binding()->minimum(), 0.0);
+    EXPECT_EQ(panel.stripLengthWidgets().slider->mapping().getMin(), 0.0);
     EXPECT_EQ(panel.stripLengthWidgets().slider->mapping().getMid(), 0.6);
     EXPECT_EQ(panel.stripLengthWidgets().slider->mapping().getMax(), 1.5);
     EXPECT_EQ(panel.stripWidthWidgets().label->text(), QStringLiteral("Strip width:"));
+    // DoubleModel(component, "StripWidth", UNITS_LENGTH, 0), getSliderModel(0, 0.2).
+    EXPECT_EQ(panel.stripWidthWidgets().spinBox->binding()->minimum(), 0.0);
     EXPECT_TRUE(panel.stripWidthWidgets().slider->mapping().isLinear());
+    EXPECT_EQ(panel.stripWidthWidgets().slider->mapping().getMin(), 0.0);
     EXPECT_EQ(panel.stripWidthWidgets().slider->mapping().getMax(), 0.2);
     EXPECT_EQ(panel.areaWidgets().label->text(), QStringLiteral("Strip area:"));
     EXPECT_EQ(panel.areaWidgets().spinBox->objectName(), QStringLiteral("Area"));
     EXPECT_EQ(&panel.areaWidgets().spinBox->binding()->getUnitGroup(),
               &unitGroup(UnitGroupId::AREA));
+    // DoubleModel(component, "Area", UNITS_AREA, 0), getSliderModel(0, 0.04, 0.25).
+    EXPECT_EQ(panel.areaWidgets().spinBox->binding()->minimum(), 0.0);
+    EXPECT_EQ(panel.areaWidgets().slider->mapping().getMin(), 0.0);
     EXPECT_EQ(panel.areaWidgets().slider->mapping().getMid(), 0.04);
     EXPECT_EQ(panel.areaWidgets().slider->mapping().getMax(), 0.25);
     // Java comments the unit selector out; the slider runs from 2 to 15.
@@ -119,6 +135,8 @@ TEST_F(StreamerConfigTest, TheMaterialAndTheDragCoefficientHaveJavasTexts)
         "<br>A larger drag coefficient yields a slowed descent rate.");
     EXPECT_EQ(panel.cdLabel().toolTip(), tip);
     EXPECT_EQ(panel.cdWidgets().spinBox->toolTip(), tip);
+    // DoubleModel(component, "CD", UNITS_COEFFICIENT, 0).
+    EXPECT_EQ(panel.cdWidgets().spinBox->binding()->minimum(), 0.0);
     EXPECT_EQ(panel.cdWidgets().unitSelector, nullptr);
     EXPECT_EQ(panel.cdWidgets().slider, nullptr);
     EXPECT_EQ(panel.cdAutomatic().objectName(), QStringLiteral("CDAutomatic"));
@@ -159,6 +177,27 @@ TEST_F(StreamerConfigTest, TheStripKeepsItsAreaOrItsAspectRatio)
     EXPECT_EQ(design.streamer->getCD(), 0.0719205716486004);
 }
 
+TEST_F(StreamerConfigTest, NoValueOfTheStripGoesBelowZero)
+{
+    // Java's DoubleModels have the minimum 0, and the core's setters take any value.
+    const ConfigDialogServices services;
+    const MassDesign           design;
+    const FactoryPanel         created(*design.document, services.services(), *design.streamer);
+    const StreamerConfig&      panel = streamerPanel(created);
+    panel.stripLengthWidgets().spinBox->binding()->setValue(-1);
+    EXPECT_EQ(design.streamer->getStripLength(), 0.0);
+    panel.stripWidthWidgets().spinBox->binding()->setValue(-1);
+    EXPECT_EQ(design.streamer->getStripWidth(), 0.0);
+    design.streamer->setStripLength(0.5);
+    design.streamer->setStripWidth(0.05);
+    panel.areaWidgets().spinBox->binding()->setValue(-1);
+    EXPECT_EQ(design.streamer->getArea(), 0.0);
+    EXPECT_EQ(design.streamer->getStripWidth(), 0.0);
+    panel.cdWidgets().spinBox->binding()->setValue(-1);
+    EXPECT_EQ(design.streamer->getCD(), 0.0);
+    EXPECT_FALSE(design.streamer->isCDAutomatic());
+}
+
 TEST_F(StreamerConfigTest, ATypedDragCoefficientIsManualUntilAutomaticAgain)
 {
     // D2bProbe: setValue(0.9) is manual; setAutomatic(true) computes 0.0719205716486004 again.
@@ -176,6 +215,34 @@ TEST_F(StreamerConfigTest, ATypedDragCoefficientIsManualUntilAutomaticAgain)
     panel.cdAutomatic().click();
     EXPECT_TRUE(design.streamer->isCDAutomatic());
     EXPECT_EQ(panel.cdWidgets().spinBox->binding()->value(), 0.0719205716486004);
+}
+
+TEST_F(StreamerConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingEdit)
+{
+    // Proved under the asan preset: the pending strip length, committed by the focus loss of the
+    // hidden dialog, reaches none of the components the undo replaced.
+    const ConfigDialogServices services;
+    const MassDesign           design;
+    QWidget                    window;
+    design.document->addUndoPosition("Change");
+    design.mass->setName("Payload");
+    const ComponentConfigDialog* dialog =
+        showActiveDialog(window, services.services(), *design.document, *design.streamer);
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = dynamic_cast<const StreamerConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    typeInto(*panel->stripLengthWidgets().spinBox, QStringLiteral("80"));
+
+    design.document->undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(dialog->isDisposed());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    const RocketComponent& body =
+        *design.document->getRocket().getChildren().front()->getChildren().front();
+    const auto* streamer = dynamic_cast<const Streamer*>(body.getChildren().at(3));
+    ASSERT_NE(streamer, nullptr);
+    EXPECT_EQ(streamer->getStripLength(), 0.5);
+    EXPECT_EQ(body.getChildren().at(0)->getName(), "Mass Component");
 }
 
 TEST_F(StreamerConfigTest, EveryFieldReachesEverySelectedStreamer)

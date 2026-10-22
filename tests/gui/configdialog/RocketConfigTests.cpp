@@ -35,6 +35,7 @@
 #include "QtRocket/rocket/DesignType.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 #include "RingPanelTestSupport.h"
 #include "ScriptedUserPrompts.h"
@@ -315,6 +316,35 @@ TEST_F(RocketConfigTest, CancelUndoesTheNameButNotTheDesignInformation)
     EXPECT_EQ(design.document->getRocket().getDesignType(), DesignType::UPSCALE_KIT);
     // The pending designer was dropped.
     EXPECT_EQ(design.document->getRocket().getDesigner(), "");
+}
+
+TEST_F(RocketConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingDesigner)
+{
+    // Proved under the asan preset. The rocket outlives the undo (Rocket::loadFrom() keeps it and
+    // does not restore its designer), so a pending designer that the focus loss of the hidden
+    // dialog committed would stay: the dialog's release drops it first.
+    const ConfigDialogServices services;
+    const MassDesign           design;
+    QWidget                    window;
+    design.document->addUndoPosition("Change");
+    design.mass->setName("Payload");
+    const ComponentConfigDialog* dialog = showActiveDialog(
+        window, services.services(), *design.document, design.document->getRocket());
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = dynamic_cast<const RocketConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    panel->designerArea().setFocus();
+    QTest::keyClicks(&panel->designerArea(), QStringLiteral("Ann"));
+    EXPECT_TRUE(panel->designerArea().hasFocus());
+
+    design.document->undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_TRUE(dialog->isDisposed());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_EQ(design.document->getRocket().getDesigner(), "");
+    const RocketComponent& body =
+        *design.document->getRocket().getChildren().front()->getChildren().front();
+    EXPECT_EQ(body.getChildren().at(0)->getName(), "Mass Component");
 }
 
 TEST_F(RocketConfigTest, ATreeChangeEndsTheDesignTypeQuietly)
