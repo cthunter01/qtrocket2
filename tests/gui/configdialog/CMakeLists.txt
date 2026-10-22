@@ -10,11 +10,16 @@ target_sources(QtRocket_gui_tests PRIVATE
     ConfigFieldsTests.cpp
     ConfigPanelFactoryTests.cpp
     InstancesPanelTests.cpp
+    LaunchLugConfigTests.cpp
+    lug_panel_golden_tests.cpp
     MaterialPanelTests.cpp
     MotorConfigTests.cpp
     NoseConeConfigTests.cpp
+    PanelProbeLines.cpp
     PlacementPanelTests.cpp
+    RailButtonConfigTests.cpp
     RocketComponentConfigTests.cpp
     ShoulderPanelTests.cpp
     TransitionConfigTests.cpp
+    TubeFinSetConfigTests.cpp
 )

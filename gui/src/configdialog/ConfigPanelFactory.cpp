@@ -10,13 +10,16 @@
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/BodyTubeConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
+#include "QtRocket/gui/configdialog/LaunchLugConfig.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/MotorConfig.h"
 #include "QtRocket/gui/configdialog/NoseConeConfig.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
+#include "QtRocket/gui/configdialog/RailButtonConfig.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
 #include "QtRocket/gui/configdialog/TransitionConfig.h"
+#include "QtRocket/gui/configdialog/TubeFinSetConfig.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/material/Material.h"
@@ -235,15 +238,15 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::TUBE_FIN_SET:
             // TubeFinSetConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<TubeFinSetConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::LAUNCH_LUG:
             // LaunchLugConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<LaunchLugConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::RAIL_BUTTON:
             // RailButtonConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<RailButtonConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::INNER_TUBE:
             // InnerTubeConfig

@@ -21,14 +21,11 @@
 #include <format>
 #include <iterator>
 #include <memory>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include <QLabel>
-#include <QList>
 #include <QObject>
 #include <QString>
 #include <QTabWidget>
@@ -40,19 +37,14 @@
 #include "BodyPanelTestSupport.h"
 #include "ConfigDialogTestSupport.h"
 #include "GuiTestSupport.h"
+#include "PanelProbeLines.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/ConfigPanelFactory.h"
-#include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
-#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/widgets/BoolCheckBox.h"
-#include "QtRocket/gui/widgets/EnumComboBox.h"
-#include "QtRocket/gui/widgets/UnitSelector.h"
-#include "QtRocket/gui/widgets/UnitSpinBox.h"
-#include "QtRocket/gui/widgets/ValueSlider.h"
 #include "QtRocket/rocket/AutomaticDimensions.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -66,6 +58,7 @@
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenExamples.h"
 #include "rocket/TestRockets.h"
+#include "tree/TreeEditingSupport.h"
 
 namespace QtRocket::Gui
 {
@@ -75,22 +68,14 @@ namespace
 
 using BodyPanelBuiltGolden = Test::GuiTest;
 using Test::BodyPanelPin;
+using Test::checkLine;
 using Test::ConfigDialogServices;
 using Test::FactoryPanel;
+using Test::javaBool;
 using Test::kBodyPanelPins;
 using Test::kBodyPanelPinsCommit;
-
-/// Java's Boolean.toString().
-[[nodiscard]] std::string javaBool(bool value)
-{
-    return value ? "true" : "false";
-}
-
-/// @p text in quotes, as the probe prints a String (q()).
-[[nodiscard]] std::string quoted(const QString& text)
-{
-    return '"' + QtStrings::toUtf8(text) + '"';
-}
+using Test::pinnedLineDifferences;
+using Test::quoted;
 
 /// Whether @p kind is one of the kinds the probe opens a panel for.
 [[nodiscard]] bool isBodyKind(ComponentKind kind)
@@ -141,67 +126,6 @@ void addStateLines(const RocketComponent& component, std::string_view prefix,
     }
 }
 
-/// The probe's checkLine().
-[[nodiscard]] std::string checkLine(const BoolCheckBox& box)
-{
-    return std::format("check {} {} checked={} enabled={} tip={}",
-                       QtStrings::toUtf8(box.objectName()), quoted(box.text()),
-                       javaBool(box.isChecked()), javaBool(box.isEnabled()), quoted(box.toolTip()));
-}
-
-/// Whether @p widget lies in a MaterialPanel under @p root (the probe leaves it out).
-[[nodiscard]] bool inMaterialPanel(const QWidget& widget, const QWidget& root)
-{
-    for (const QWidget* ancestor = &widget; ancestor != nullptr && ancestor != &root;
-         ancestor                = ancestor->parentWidget())
-    {
-        if (qobject_cast<const MaterialPanel*>(ancestor) != nullptr)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-/// The line of one widget of the General tab as the probe's walk() prints it; empty for a widget
-/// it does not print.
-[[nodiscard]] std::string widgetLine(const QWidget& widget)
-{
-    const std::string name = QtStrings::toUtf8(widget.objectName());
-    if (const auto* spin = qobject_cast<const UnitSpinBox*>(&widget))
-    {
-        return std::format("spinner {} {} enabled={}", name, quoted(spin->text()),
-                           javaBool(spin->isEnabled()));
-    }
-    if (const auto* unit = qobject_cast<const UnitSelector*>(&widget))
-    {
-        return std::format("unit {} {}", name, quoted(unit->text()));
-    }
-    if (const auto* slider = qobject_cast<const ValueSlider*>(&widget))
-    {
-        return std::format("slider {} {} enabled={}", name, slider->value(),
-                           javaBool(slider->isEnabled()));
-    }
-    if (const auto* box = qobject_cast<const BoolCheckBox*>(&widget))
-    {
-        return checkLine(*box);
-    }
-    if (const auto* combo = qobject_cast<const EnumComboBox*>(&widget))
-    {
-        return std::format("combo {} enabled={}", quoted(combo->shownText()),
-                           javaBool(combo->isEnabled()));
-    }
-    if (const auto* label = qobject_cast<const QLabel*>(&widget))
-    {
-        if (!label->text().isEmpty())
-        {
-            return std::format("label {} enabled={}", quoted(label->text()),
-                               javaBool(label->isEnabled()));
-        }
-    }
-    return {};
-}
-
 /// The probe's general(): the first two tabs and the widgets of the General tab.
 void addGeneralLines(const RocketComponentConfig& panel, std::vector<std::string>& lines)
 {
@@ -211,19 +135,7 @@ void addGeneralLines(const RocketComponentConfig& panel, std::vector<std::string
         lines.push_back(std::format("tab{} {} tip={}", tab, quoted(tabs.tabText(tab)),
                                     quoted(tabs.tabToolTip(tab))));
     }
-    const QWidget& general = *tabs.widget(0);
-    for (const QWidget* widget : general.findChildren<QWidget*>())
-    {
-        if (inMaterialPanel(*widget, general))
-        {
-            continue;
-        }
-        std::string line = widgetLine(*widget);
-        if (!line.empty())
-        {
-            lines.push_back(std::move(line));
-        }
-    }
+    Test::addTabWidgetLines(*tabs.widget(0), {.labels = true, .labelTips = false}, lines);
 }
 
 /// The probe's replay of one design (design()): the sections it prints, each a header and its
@@ -402,25 +314,6 @@ private:
     std::vector<std::string>      m_lines;
 };
 
-/// The differences between QtRocket's lines @p actual and the pinned @p expected, one per line
-/// ("-" pinned, "+" QtRocket's), by position; empty when they are the same.
-[[nodiscard]] std::string differences(const std::vector<std::string>&   actual,
-                                      std::span<const std::string_view> expected)
-{
-    std::string       text;
-    const std::size_t count = std::max(actual.size(), expected.size());
-    for (std::size_t i = 0; i < count; ++i)
-    {
-        const std::string_view pinned = i < expected.size() ? expected[i] : "(none)";
-        const std::string_view ours   = i < actual.size() ? std::string_view(actual[i]) : "(none)";
-        if (pinned != ours)
-        {
-            text += std::format("line {}:\n- {}\n+ {}\n", i, pinned, ours);
-        }
-    }
-    return text;
-}
-
 /// The document of a pinned example or test rocket, settled as the probe settles it.
 [[nodiscard]] std::unique_ptr<OpenRocketDocument> pinnedDocument(const BodyPanelPin& pin)
 {
@@ -491,7 +384,7 @@ TEST_P(BodyPanelGolden, ShowsAndSwitchesAsOpenRocket)
     replay.panels();
     replay.flips();
     replay.multis();
-    EXPECT_EQ(differences(replay.lines(), pin.lines), "");
+    EXPECT_EQ(pinnedLineDifferences(replay.lines(), pin.lines), "");
 }
 
 INSTANTIATE_TEST_SUITE_P(Designs, BodyPanelGolden, ::testing::ValuesIn(designPins()),
@@ -527,7 +420,7 @@ TEST_F(BodyPanelBuiltGolden, TheSwitchOffReachesTheOtherNoseCone)
     DesignReplay                              replay(*document, services);
     replay.settle();
     replay.multi(4, 2);
-    EXPECT_EQ(differences(replay.lines(), builtPin("nose cones").lines), "");
+    EXPECT_EQ(pinnedLineDifferences(replay.lines(), builtPin("nose cones").lines), "");
 }
 
 TEST_F(BodyPanelBuiltGolden, TheSwitchOffReachesAFlippedNoseConesBase)
@@ -557,7 +450,7 @@ TEST_F(BodyPanelBuiltGolden, TheSwitchOffReachesAFlippedNoseConesBase)
         }
     }
     const std::vector<std::string_view> expectedViews(expected.begin(), expected.end());
-    EXPECT_EQ(differences(replay.lines(), expectedViews), "");
+    EXPECT_EQ(pinnedLineDifferences(replay.lines(), expectedViews), "");
     EXPECT_NE(std::ranges::find(builtPin("nose cones flipped").lines,
                                 "state other after BaseRadiusAutomatic=true"),
               builtPin("nose cones flipped").lines.end());
@@ -579,7 +472,7 @@ TEST_F(BodyPanelBuiltGolden, TheSwitchOffReachesTheOtherTransition)
     DesignReplay replay(*document, services);
     replay.settle();
     replay.multi(2, 3);
-    EXPECT_EQ(differences(replay.lines(), builtPin("transitions").lines), "");
+    EXPECT_EQ(pinnedLineDifferences(replay.lines(), builtPin("transitions").lines), "");
 }
 
 }  // namespace

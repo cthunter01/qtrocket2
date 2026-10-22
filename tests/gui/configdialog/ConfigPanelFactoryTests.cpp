@@ -73,6 +73,19 @@ struct CreatedPanel
     return created;
 }
 
+/// The plain configuration with the shared panels of @p main's kind
+/// (ConfigPanelFactory::createWithSharedPanels(): a kind whose own panel arranges them otherwise).
+[[nodiscard]] CreatedPanel sharedPanelsOf(OpenRocketDocument&         document,
+                                          const ConfigDialogServices& services,
+                                          RocketComponent&            main)
+{
+    CreatedPanel created;
+    created.panel = ConfigPanelFactory::createWithSharedPanels(
+        document, services.services(), std::make_shared<ComponentSelection>(main),
+        created.host.get());
+    return created;
+}
+
 TEST_F(ConfigPanelFactoryTest, TheSharedPanelsOfEachKindAreThoseOfItsJavaPanel)
 {
     using SharedPanels     = ConfigPanelFactory::SharedPanels;
@@ -99,7 +112,7 @@ TEST_F(ConfigPanelFactoryTest, TheGeneralTabHoldsTheSharedPanelsInJavasOrder)
     const ConfigDialogServices services;
     const EveryKindDesign      design;
     const auto                 lug =
-        createdPanel(*design.document, services, design.component(ComponentKind::LAUNCH_LUG));
+        sharedPanelsOf(*design.document, services, design.component(ComponentKind::LAUNCH_LUG));
     ASSERT_GE(lug->tabs().count(), 1);
     const QWidget* general   = lug->tabs().widget(0);
     const auto*    instances = general->findChild<InstancesPanel*>();

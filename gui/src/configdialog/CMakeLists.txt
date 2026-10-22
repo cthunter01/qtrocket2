@@ -8,11 +8,14 @@ target_sources(QtRocket_gui PRIVATE
     ConfigFields.cpp ${gui_include_dir}/configdialog/ConfigFields.h
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
+    LaunchLugConfig.cpp ${gui_include_dir}/configdialog/LaunchLugConfig.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h
     MotorConfig.cpp ${gui_include_dir}/configdialog/MotorConfig.h
     NoseConeConfig.cpp ${gui_include_dir}/configdialog/NoseConeConfig.h
     PlacementPanel.cpp ${gui_include_dir}/configdialog/PlacementPanel.h
+    RailButtonConfig.cpp ${gui_include_dir}/configdialog/RailButtonConfig.h
     RocketComponentConfig.cpp ${gui_include_dir}/configdialog/RocketComponentConfig.h
     ShoulderPanel.cpp ${gui_include_dir}/configdialog/ShoulderPanel.h
     TransitionConfig.cpp ${gui_include_dir}/configdialog/TransitionConfig.h
+    TubeFinSetConfig.cpp ${gui_include_dir}/configdialog/TubeFinSetConfig.h
 )

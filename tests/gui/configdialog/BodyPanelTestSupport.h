@@ -8,6 +8,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <vector>
 
 #include <QObject>
 #include <QPointer>
@@ -15,6 +16,7 @@
 
 #include "ConfigDialogTestSupport.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/configdialog/ConfigFields.h"
 #include "QtRocket/gui/configdialog/ConfigPanelFactory.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/util/BugError.h"
@@ -82,5 +84,20 @@ private:
 /// selector or its slider (each named after the property), one per line; empty when none does.
 [[nodiscard]] std::string missingNumberRows(const QWidget&                     root,
                                             std::initializer_list<const char*> properties);
+
+/// Whether the spin box of @p widgets takes every value from 0 up (Java: a DoubleModel whose
+/// minimum is 0, without a maximum).
+[[nodiscard]] bool takesFromZeroUp(const ConfigFields::NumberWidgets& widgets);
+
+/// Whether the slider of @p widgets runs linearly from @p min to @p max.
+[[nodiscard]] bool hasLinearSlider(const ConfigFields::NumberWidgets& widgets, double min,
+                                   double max);
+
+/// The properties of @p properties in the order in which the Tab key reaches their widgets under
+/// @p root (the focus chain from @p root, the widgets that take the focus by Tab), each once per
+/// run of widgets of one property (a spin box and its unit selector): Java's "order" list of a
+/// panel.
+[[nodiscard]] std::vector<std::string> focusOrder(const QWidget&                     root,
+                                                  std::initializer_list<const char*> properties);
 
 }  // namespace QtRocket::Gui::Test
