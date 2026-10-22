@@ -4,6 +4,7 @@ target_sources(QtRocket_gui PRIVATE
     BuildInfo.cpp ${gui_include_dir}/util/BuildInfo.h
     ColorConversion.cpp ${gui_include_dir}/util/ColorConversion.h
     ComponentIcons.cpp ${gui_include_dir}/util/ComponentIcons.h
+    CustomFinImporter.cpp ${gui_include_dir}/util/CustomFinImporter.h
     EnumText.cpp ${gui_include_dir}/util/EnumText.h
     Guard.cpp ${gui_include_dir}/util/Guard.h
     ${gui_include_dir}/util/GuiServices.h
