@@ -21,6 +21,7 @@
 #include <format>
 #include <iterator>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -357,10 +358,11 @@ private:
 /// The pin of the probe's own design @p design.
 [[nodiscard]] const BodyPanelPin& builtPin(std::string_view design)
 {
-    const auto* found = std::ranges::find_if(kBodyPanelPins, [design](const BodyPanelPin& pin) {
+    const std::span pins(kBodyPanelPins);
+    const auto      found = std::ranges::find_if(pins, [design](const BodyPanelPin& pin) {
         return pin.source == "built" && pin.design == design;
     });
-    QTROCKET_ASSERT(found != kBodyPanelPins.end());
+    QTROCKET_ASSERT(found != pins.end());
     return *found;
 }
 

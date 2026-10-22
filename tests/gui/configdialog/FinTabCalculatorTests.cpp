@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -90,9 +91,10 @@ using Test::kFinTabComputePins;
 /// The pinned line of the probe's computeFinTabLength() run @p name.
 [[nodiscard]] std::string_view computePin(std::string_view name)
 {
-    const auto* found = std::ranges::find_if(
-        kFinTabComputePins, [name](const Test::FinTabComputePin& pin) { return pin.name == name; });
-    QTROCKET_ASSERT(found != kFinTabComputePins.end());
+    const std::span pins(kFinTabComputePins);
+    const auto      found = std::ranges::find_if(
+        pins, [name](const Test::FinTabComputePin& pin) { return pin.name == name; });
+    QTROCKET_ASSERT(found != pins.end());
     return found->line;
 }
 

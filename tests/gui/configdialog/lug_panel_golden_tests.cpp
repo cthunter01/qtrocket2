@@ -204,10 +204,11 @@ void addGeneralLines(const RocketComponentConfig& panel, bool withLabels,
 /// The lines of the pin of the probe's own design @p design.
 [[nodiscard]] std::span<const std::string_view> builtLines(std::string_view design)
 {
-    const auto* found = std::ranges::find_if(kLugPanelPins, [design](const LugPanelPin& pin) {
+    const std::span pins(kLugPanelPins);
+    const auto      found = std::ranges::find_if(pins, [design](const LugPanelPin& pin) {
         return pin.source == "built" && pin.design == design;
     });
-    QTROCKET_ASSERT(found != kLugPanelPins.end());
+    QTROCKET_ASSERT(found != pins.end());
     return found->lines;
 }
 

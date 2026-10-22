@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <QByteArray>
+#include <QChar>
 #include <QColor>
 #include <QImage>
 #include <QImageReader>

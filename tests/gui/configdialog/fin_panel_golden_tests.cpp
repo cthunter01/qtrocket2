@@ -276,10 +276,11 @@ void addFinPanelLines(const RocketComponentConfig& config, bool withLabels,
 /// The lines of the pin of the probe's own design @p design.
 [[nodiscard]] std::span<const std::string_view> builtLines(std::string_view design)
 {
-    const auto* found = std::ranges::find_if(kFinPanelPins, [design](const FinPanelPin& pin) {
+    const std::span pins(kFinPanelPins);
+    const auto      found = std::ranges::find_if(pins, [design](const FinPanelPin& pin) {
         return pin.source == "built" && pin.design == design;
     });
-    QTROCKET_ASSERT(found != kFinPanelPins.end());
+    QTROCKET_ASSERT(found != pins.end());
     return found->lines;
 }
 
@@ -851,9 +852,10 @@ void addSortedFinState(DialogReplay& replay, OpenRocketDocument& document)
 /// The pinned lines of the dialog run @p name, as strings.
 [[nodiscard]] std::vector<std::string> dialogPin(std::string_view name)
 {
-    const auto* found = std::ranges::find_if(
-        kFinDialogPins, [name](const FinDialogPin& pin) { return pin.name == name; });
-    QTROCKET_ASSERT(found != kFinDialogPins.end());
+    const std::span pins(kFinDialogPins);
+    const auto      found =
+        std::ranges::find_if(pins, [name](const FinDialogPin& pin) { return pin.name == name; });
+    QTROCKET_ASSERT(found != pins.end());
     return {found->lines.begin(), found->lines.end()};
 }
 

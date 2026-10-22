@@ -1000,10 +1000,10 @@ INSTANTIATE_TEST_SUITE_P(Designs, FreeformPanelEditsGolden, ::testing::ValuesIn(
 TEST_F(FreeformPanelBuiltGolden, OpenRocketMovesSharedPointsTwiceAfterTheHistorysRedo)
 {
     // The pinned difference of FinPointSelection (kSharedPointsLines): Java's 2 cm shift.
-    const auto* found = std::ranges::find_if(kFreeformPanelPins, [](const FreeformPanelPin& pin) {
-        return pin.design == "four and five";
-    });
-    ASSERT_NE(found, kFreeformPanelPins.end());
+    const std::span pins(kFreeformPanelPins);
+    const auto      found = std::ranges::find_if(
+        pins, [](const FreeformPanelPin& pin) { return pin.design == "four and five"; });
+    ASSERT_NE(found, pins.end());
     const auto step = std::ranges::find(found->lines, kSharedPointsStep);
     ASSERT_NE(step, found->lines.end());
     EXPECT_EQ(*std::next(step), kSharedPointsLines.front().first);
@@ -1012,10 +1012,10 @@ TEST_F(FreeformPanelBuiltGolden, OpenRocketMovesSharedPointsTwiceAfterTheHistory
 TEST_F(FreeformPanelBuiltGolden, OpenRocketEndsItsCsvLinesWithCrLf)
 {
     // The pinned difference of the CSV export (FinPointTableModel::csvText()).
-    const auto* found = std::ranges::find_if(kFreeformPanelPins, [](const FreeformPanelPin& pin) {
-        return pin.design == "body tube csv";
-    });
-    ASSERT_NE(found, kFreeformPanelPins.end());
+    const std::span pins(kFreeformPanelPins);
+    const auto      found = std::ranges::find_if(
+        pins, [](const FreeformPanelPin& pin) { return pin.design == "body tube csv"; });
+    ASSERT_NE(found, pins.end());
     EXPECT_NE(std::ranges::find(found->lines,
                                 std::string_view(R"(csv "X / cm, Y / cm, \r\n0, 0, \r\n1.23, 3.1, )"
                                                  R"(\r\n8, 3.1, \r\n6, 0, \r\n")")),
