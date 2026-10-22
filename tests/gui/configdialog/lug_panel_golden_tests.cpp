@@ -17,9 +17,7 @@
 // output.
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <format>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <span>
@@ -28,42 +26,24 @@
 #include <utility>
 #include <vector>
 
-#include <QObject>
-#include <QString>
 #include <QTabWidget>
 
 #include <gtest/gtest.h>
 
-#include "BodyPanelTestSupport.h"
 #include "ConfigDialogTestSupport.h"
 #include "GuiTestSupport.h"
 #include "LugPanelPins.h"
 #include "PanelProbeLines.h"
+#include "PanelReplay.h"
 #include "QtRocket/document/OpenRocketDocument.h"
-#include "QtRocket/document/OpenRocketDocumentFactory.h"
-#include "QtRocket/file/LoadedDocument.h"
-#include "QtRocket/gui/binding/DoubleBinding.h"
-#include "QtRocket/gui/binding/IntBinding.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
-#include "QtRocket/gui/util/QtStrings.h"
-#include "QtRocket/gui/widgets/BoolCheckBox.h"
-#include "QtRocket/gui/widgets/IntSpinBox.h"
-#include "QtRocket/gui/widgets/UnitSpinBox.h"
-#include "QtRocket/rocket/AutomaticDimensions.h"
-#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/LaunchLug.h"
 #include "QtRocket/rocket/RailButton.h"
-#include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TubeFinSet.h"
 #include "QtRocket/util/BugError.h"
-#include "QtRocket/util/Error.h"
-#include "QtRocket/util/FloatingDecimal.h"
-#include "file/DesignFileEnvironment.h"
-#include "goldens/GoldenExamples.h"
-#include "rocket/TestRockets.h"
 #include "tree/TreeEditingSupport.h"
 
 namespace QtRocket::Gui
@@ -74,19 +54,18 @@ namespace
 
 using LugPanelBuiltGolden = Test::GuiTest;
 using Test::ConfigDialogServices;
-using Test::FactoryPanel;
 using Test::javaBool;
+using Test::javaDouble;
 using Test::kLugPanelPins;
 using Test::kLugPanelPinsCommit;
 using Test::LugPanelPin;
+using Test::onBodyTube;
+using Test::PanelEdit;
+using Test::PanelReplay;
+using Test::pinnedDesignDocument;
 using Test::pinnedLineDifferences;
 using Test::quoted;
-
-/// Java's Double.toString() of @p value (JDK 17, which ran the probe).
-[[nodiscard]] std::string javaDouble(double value)
-{
-    return FloatingDecimal::toJavaFormatString(value);
-}
+using Test::withDifference;
 
 /// Whether @p kind is one of the kinds the probe opens a panel for.
 [[nodiscard]] bool isLugKind(ComponentKind kind)
@@ -199,201 +178,17 @@ void addGeneralLines(const RocketComponentConfig& panel, bool withLabels,
     Test::addTabWidgetLines(*tabs.widget(0), {.labels = withLabels, .labelTips = true}, lines);
 }
 
-/// An edit of the probe: the property (the widget's objectName) and what is done to it: the text
-/// its spin box commits, "int:<n>" for a count, "click" for a check box.
-struct Edit
+/// What the replay prints of the tube fin sets, launch lugs and rail buttons (D1bProbe's).
+[[nodiscard]] Test::PanelReplayLines lugLines()
 {
-    std::string_view property;
-    std::string_view value;
-};
-
-/// The count of an edit "int:<n>".
-[[nodiscard]] int editCount(std::string_view value)
-{
-    value.remove_prefix(std::string_view("int:").size());
-    bool      parsed = false;
-    const int count  = QtStrings::fromUtf8(value).toInt(&parsed);
-    QTROCKET_ASSERT(parsed);
-    return count;
-}
-
-/// Makes @p edit through the widgets of @p panel, as the probe's apply() does through the Swing
-/// panel's models (the spinner model's setValue() of the text or the count, doClick()): whether
-/// the widget is there and took the edit.
-[[nodiscard]] bool applyEdit(const RocketComponentConfig& panel, const Edit& edit)
-{
-    const QString name = QtStrings::fromUtf8(edit.property);
-    if (edit.value == "click")
-    {
-        auto* box = panel.findChild<BoolCheckBox*>(name);
-        if (box == nullptr)
-        {
-            return false;
-        }
-        box->click();
-        return true;
-    }
-    if (edit.value.starts_with("int:"))
-    {
-        const auto* count = panel.findChild<IntSpinBox*>(name);
-        if (count == nullptr)
-        {
-            return false;
-        }
-        IntBinding& binding = *count->binding();
-        return binding.setSpinnerValue(editCount(edit.value));
-    }
-    const auto* spin = panel.findChild<UnitSpinBox*>(name);
-    if (spin == nullptr)
-    {
-        return false;
-    }
-    DoubleBinding& binding = *spin->binding();
-    return binding.commitText(edit.value);
-}
-
-/// The probe's replay of one design: the sections it prints, each a header and its sorted lines.
-class DesignReplay
-{
-public:
-    DesignReplay(OpenRocketDocument& document, const ConfigDialogServices& services)
-      : m_document(&document), m_services(&services)
-    {
-        for (RocketComponent& component : document.getRocket().subtree(true))
-        {
-            m_components.push_back(&component);
-        }
-    }
-
-    [[nodiscard]] const std::vector<std::string>& lines() const noexcept { return m_lines; }
-
-    /// The probe's design(): the panel of every tube fin set, launch lug and rail button.
-    void panels()
-    {
-        settle();
-        for (std::size_t i = 0; i < m_components.size(); ++i)
-        {
-            RocketComponent& component = *m_components[i];
-            if (!isLugKind(component.kind()))
-            {
-                continue;
-            }
-            settle();
-            m_lines.push_back(
-                std::format("== panel | {} | {}", i, probeClassName(component.kind())));
-            std::vector<std::string> section;
-            {
-                const FactoryPanel<> made(*m_document, *m_services, component);
-                addGeneralLines(*made, true, section);
-            }
-            addStateLines(component, "", section);
-            addSection(std::move(section));
-        }
-    }
-
-    /// The probe's edits(): the panel of the component @p index, then @p edits through it.
-    void edits(std::size_t index, std::span<const Edit> edits)
-    {
-        settle();
-        RocketComponent& component = *m_components.at(index);
-        m_lines.push_back(
-            std::format("== panel | {} | {}", index, probeClassName(component.kind())));
-        const FactoryPanel<>     made(*m_document, *m_services, component);
-        std::vector<std::string> section;
-        addGeneralLines(*made, true, section);
-        addStateLines(component, "", section);
-        addSection(std::move(section));
-        for (const Edit& edit : edits)
-        {
-            EXPECT_TRUE(applyEdit(*made, edit)) << edit.property << ' ' << edit.value;
-            m_lines.push_back(
-                std::format("== edit | {} | {} {}", index, edit.property, edit.value));
-            std::vector<std::string> edited;
-            addGeneralLines(*made, false, edited);
-            addStateLines(component, "", edited);
-            addSection(std::move(edited));
-        }
-    }
-
-    /// The probe's multi(): the panel of the component @p main with the component @p other
-    /// selected too, and @p edits through it.
-    void multi(std::size_t main, std::size_t other, std::span<const Edit> edits)
-    {
-        settle();
-        RocketComponent& mainComponent  = *m_components.at(main);
-        RocketComponent& otherComponent = *m_components.at(other);
-        m_lines.push_back(std::format("== multi | {} | {} | {}", main, other,
-                                      probeClassName(mainComponent.kind())));
-        addBothStates(mainComponent, otherComponent);
-        const std::array<RocketComponent*, 1> others{&otherComponent};
-        const FactoryPanel<>                  made(*m_document, *m_services, mainComponent, others);
-        for (const Edit& edit : edits)
-        {
-            EXPECT_TRUE(applyEdit(*made, edit)) << edit.property << ' ' << edit.value;
-            m_lines.push_back(std::format("== multi edit | {} {}", edit.property, edit.value));
-            addBothStates(mainComponent, otherComponent);
-        }
-    }
-
-private:
-    void settle() const
-    {
-        const Result<int> settled = settleAutomaticDimensions(m_document->getRocket());
-        EXPECT_TRUE(settled.has_value()) << settled.error().message;
-    }
-
-    void addBothStates(const RocketComponent& main, const RocketComponent& other)
-    {
-        std::vector<std::string> section;
-        addStateLines(main, "main ", section);
-        addStateLines(other, "other ", section);
-        addSection(std::move(section));
-    }
-
-    void addSection(std::vector<std::string> section)
-    {
-        std::ranges::sort(section);
-        for (std::string& line : section)
-        {
-            m_lines.push_back(std::move(line));
-        }
-    }
-
-    OpenRocketDocument*           m_document;
-    const ConfigDialogServices*   m_services;
-    std::vector<RocketComponent*> m_components;
-    std::vector<std::string>      m_lines;
-};
-
-/// The document of a pinned example or test rocket.
-[[nodiscard]] std::unique_ptr<OpenRocketDocument> pinnedDocument(const LugPanelPin& pin)
-{
-    if (pin.source == "example")
-    {
-        const QtRocket::Test::GoldenExample* example =
-            QtRocket::Test::findGoldenExample(pin.design);
-        if (example == nullptr)
-        {
-            return nullptr;
-        }
-        Result<LoadedDocument> loaded = QtRocket::Test::loadSettledGoldenExample(
-            *example, QtRocket::Test::ExampleSource::ORIGINAL,
-            QtRocket::Test::DesignFileEnvironment::Presets::NONE);
-        if (!loaded.has_value())
-        {
-            ADD_FAILURE() << loaded.error().message;
-            return nullptr;
-        }
-        return std::move(loaded->document);
-    }
-    for (const QtRocket::Test::TestRocketMaker& maker : QtRocket::Test::testRocketMakers())
-    {
-        if (maker.method == pin.design)
-        {
-            return OpenRocketDocumentFactory::createDocumentFromRocket(maker.make());
-        }
-    }
-    return nullptr;
+    return {
+        .isPanelKind = [](const RocketComponent& component) { return isLugKind(component.kind()); },
+        .className =
+            [](const RocketComponent& component) { return probeClassName(component.kind()); },
+        .panel = addGeneralLines,
+        .state = [](const RocketComponent& component, std::string_view prefix, bool /*fromDesign*/,
+                    std::vector<std::string>& lines) { addStateLines(component, prefix, lines); },
+    };
 }
 
 /// The pins of the examples and the test rockets.
@@ -415,49 +210,6 @@ private:
     return found->lines;
 }
 
-/// The probe's onBodyTube(): Rocket > Stage > a body tube 30 cm long with a fixed radius of
-/// 2.1 cm, to which @p addChildren adds the components; with its events on.
-[[nodiscard]] std::unique_ptr<OpenRocketDocument> onBodyTube(
-    const std::function<void(BodyTube&)>& addChildren)
-{
-    auto        rocket = std::make_unique<Rocket>();
-    AxialStage& stage  = rocket->addChild(std::make_unique<AxialStage>());
-    auto        body   = std::make_unique<BodyTube>();
-    body->setOuterRadiusAutomatic(false);
-    body->setOuterRadius(0.021);
-    body->setLength(0.3);
-    addChildren(stage.addChild(std::move(body)));
-    rocket->enableEvents();
-    return OpenRocketDocumentFactory::createDocumentFromRocket(std::move(rocket));
-}
-
-/// @p pinned with @p javaLine, a line of the sections after the header @p header, replaced by
-/// @p ourLine: where QtRocket differs from the pin by design. The replacement must happen.
-[[nodiscard]] std::vector<std::string_view> withDifference(std::span<const std::string_view> pinned,
-                                                           std::string_view                  header,
-                                                           std::string_view javaLine,
-                                                           std::string_view ourLine)
-{
-    std::vector<std::string_view> lines;
-    bool                          after    = false;
-    bool                          replaced = false;
-    for (const std::string_view line : pinned)
-    {
-        after = after || line == header;
-        if (after && line == javaLine)
-        {
-            lines.push_back(ourLine);
-            replaced = true;
-        }
-        else
-        {
-            lines.push_back(line);
-        }
-    }
-    EXPECT_TRUE(replaced) << "the pin has no " << javaLine << " after " << header;
-    return lines;
-}
-
 class LugPanelGolden : public Test::GuiTest, public ::testing::WithParamInterface<LugPanelPin>
 { };
 
@@ -472,9 +224,10 @@ TEST_P(LugPanelGolden, ShowsAsOpenRocket)
 {
     const LugPanelPin&                        pin = GetParam();
     const ConfigDialogServices                services;
-    const std::unique_ptr<OpenRocketDocument> document = pinnedDocument(pin);
+    const std::unique_ptr<OpenRocketDocument> document =
+        pinnedDesignDocument(pin.source, pin.design);
     ASSERT_NE(document, nullptr) << "no design " << pin.design;
-    DesignReplay replay(*document, services);
+    PanelReplay replay(*document, services, lugLines());
     replay.panels();
     EXPECT_EQ(pinnedLineDifferences(replay.lines(), pin.lines), "");
 }
@@ -490,22 +243,22 @@ TEST_F(LugPanelBuiltGolden, EditsOfATubeFinSet)
     // typed one and on again, the thickness clamped to the outer radius, the inner diameter
     // setting the thickness, the fin rotation reduced to -180 ... 180 degrees by the setter.
     static constexpr std::array kEdits{
-        Edit{.property = "FinCount", .value = "int:2"},
-        Edit{.property = "FinCount", .value = "int:9"},
-        Edit{.property = "OuterRadius", .value = "3"},
-        Edit{.property = "OuterRadiusAutomatic", .value = "click"},
-        Edit{.property = "OuterRadius", .value = "4"},
-        Edit{.property = "Thickness", .value = "10"},
-        Edit{.property = "InnerRadius", .value = "1"},
-        Edit{.property = "BaseRotation", .value = "200"},
-        Edit{.property = "BaseRotation", .value = "45"},
-        Edit{.property = "Length", .value = "5"},
-        Edit{.property = "FinCount", .value = "int:0"},
+        PanelEdit{.property = "FinCount", .value = "int:2"},
+        PanelEdit{.property = "FinCount", .value = "int:9"},
+        PanelEdit{.property = "OuterRadius", .value = "3"},
+        PanelEdit{.property = "OuterRadiusAutomatic", .value = "click"},
+        PanelEdit{.property = "OuterRadius", .value = "4"},
+        PanelEdit{.property = "Thickness", .value = "10"},
+        PanelEdit{.property = "InnerRadius", .value = "1"},
+        PanelEdit{.property = "BaseRotation", .value = "200"},
+        PanelEdit{.property = "BaseRotation", .value = "45"},
+        PanelEdit{.property = "Length", .value = "5"},
+        PanelEdit{.property = "FinCount", .value = "int:0"},
     };
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document =
         onBodyTube([](BodyTube& body) { body.addChild(std::make_unique<TubeFinSet>()); });
-    DesignReplay replay(*document, services);
+    PanelReplay replay(*document, services, lugLines());
     replay.edits(3, kEdits);
     EXPECT_EQ(pinnedLineDifferences(replay.lines(), builtLines("tube fins")), "");
 }
@@ -516,20 +269,20 @@ TEST_F(LugPanelBuiltGolden, EditsOfALaunchLug)
     // radius, the rotation clamped to 180 degrees by the field's bounds, the instance count to at
     // least 1.
     static constexpr std::array kEdits{
-        Edit{.property = "Length", .value = "4"},
-        Edit{.property = "OuterRadius", .value = "1.5"},
-        Edit{.property = "InnerRadius", .value = "1"},
-        Edit{.property = "Thickness", .value = "1"},
-        Edit{.property = "AngleOffset", .value = "200"},
-        Edit{.property = "AngleOffset", .value = "-45"},
-        Edit{.property = "InstanceCount", .value = "int:3"},
-        Edit{.property = "InstanceSeparation", .value = "5"},
-        Edit{.property = "InstanceCount", .value = "int:0"},
+        PanelEdit{.property = "Length", .value = "4"},
+        PanelEdit{.property = "OuterRadius", .value = "1.5"},
+        PanelEdit{.property = "InnerRadius", .value = "1"},
+        PanelEdit{.property = "Thickness", .value = "1"},
+        PanelEdit{.property = "AngleOffset", .value = "200"},
+        PanelEdit{.property = "AngleOffset", .value = "-45"},
+        PanelEdit{.property = "InstanceCount", .value = "int:3"},
+        PanelEdit{.property = "InstanceSeparation", .value = "5"},
+        PanelEdit{.property = "InstanceCount", .value = "int:0"},
     };
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document =
         onBodyTube([](BodyTube& body) { body.addChild(std::make_unique<LaunchLug>()); });
-    DesignReplay replay(*document, services);
+    PanelReplay replay(*document, services, lugLines());
     replay.edits(3, kEdits);
     EXPECT_EQ(pinnedLineDifferences(replay.lines(), builtLines("launch lug")), "");
 }
@@ -542,24 +295,24 @@ TEST_F(LugPanelBuiltGolden, EditsOfARailButton)
     // to 180 degrees, and clamp -20000 degrees to -180 radians, which the setter clamps to -180
     // degrees.
     static constexpr std::array kEdits{
-        Edit{.property = "OuterDiameter", .value = "0.5"},
-        Edit{.property = "InnerDiameter", .value = "2"},
-        Edit{.property = "OuterDiameter", .value = "1.2"},
-        Edit{.property = "FlangeHeight", .value = "1"},
-        Edit{.property = "TotalHeight", .value = "0.1"},
-        Edit{.property = "BaseHeight", .value = "0.1"},
-        Edit{.property = "TotalHeight", .value = "1.5"},
-        Edit{.property = "ScrewHeight", .value = "-1"},
-        Edit{.property = "ScrewHeight", .value = "0.3"},
-        Edit{.property = "AngleOffset", .value = "200"},
-        Edit{.property = "AngleOffset", .value = "-20000"},
-        Edit{.property = "InstanceCount", .value = "int:2"},
-        Edit{.property = "InstanceSeparation", .value = "10"},
+        PanelEdit{.property = "OuterDiameter", .value = "0.5"},
+        PanelEdit{.property = "InnerDiameter", .value = "2"},
+        PanelEdit{.property = "OuterDiameter", .value = "1.2"},
+        PanelEdit{.property = "FlangeHeight", .value = "1"},
+        PanelEdit{.property = "TotalHeight", .value = "0.1"},
+        PanelEdit{.property = "BaseHeight", .value = "0.1"},
+        PanelEdit{.property = "TotalHeight", .value = "1.5"},
+        PanelEdit{.property = "ScrewHeight", .value = "-1"},
+        PanelEdit{.property = "ScrewHeight", .value = "0.3"},
+        PanelEdit{.property = "AngleOffset", .value = "200"},
+        PanelEdit{.property = "AngleOffset", .value = "-20000"},
+        PanelEdit{.property = "InstanceCount", .value = "int:2"},
+        PanelEdit{.property = "InstanceSeparation", .value = "10"},
     };
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document =
         onBodyTube([](BodyTube& body) { body.addChild(std::make_unique<RailButton>()); });
-    DesignReplay replay(*document, services);
+    PanelReplay replay(*document, services, lugLines());
     replay.edits(3, kEdits);
     EXPECT_EQ(pinnedLineDifferences(replay.lines(), builtLines("rail button")), "");
 }
@@ -571,10 +324,10 @@ TEST_F(LugPanelBuiltGolden, TwoLaunchLugsEachKeepTheirWall)
     // setOuterRadius(r + its 0.1 cm wall), which gives the second one 0.4 cm (the pin's line).
     // The other edits are the same in both.
     static constexpr std::array kEdits{
-        Edit{.property = "InnerRadius", .value = "0.6"},
-        Edit{.property = "Length", .value = "6"},
-        Edit{.property = "AngleOffset", .value = "90"},
-        Edit{.property = "Thickness", .value = "0.05"},
+        PanelEdit{.property = "InnerRadius", .value = "0.6"},
+        PanelEdit{.property = "Length", .value = "6"},
+        PanelEdit{.property = "AngleOffset", .value = "90"},
+        PanelEdit{.property = "Thickness", .value = "0.05"},
     };
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document = onBodyTube([](BodyTube& body) {
@@ -584,7 +337,7 @@ TEST_F(LugPanelBuiltGolden, TwoLaunchLugsEachKeepTheirWall)
         second->setThickness(0.0005);
         body.addChild(std::move(second));
     });
-    DesignReplay                              replay(*document, services);
+    PanelReplay                               replay(*document, services, lugLines());
     replay.multi(3, 4, kEdits);
     const std::vector<std::string_view> expected =
         withDifference(builtLines("launch lugs"), "== multi edit | InnerRadius 0.6",
@@ -598,10 +351,10 @@ TEST_F(LugPanelBuiltGolden, TwoTubeFinSetsEachTakeTheirOwnOuterRadius)
     // of its own outer radius, the second one 0.8 cm - 0.5 cm. OpenRocket forwards the main one's
     // setThickness(its 1 cm - 0.5 cm), which gives the second one 0.5 cm (the pin's line).
     static constexpr std::array kEdits{
-        Edit{.property = "InnerRadius", .value = "1"},
-        Edit{.property = "FinCount", .value = "int:3"},
-        Edit{.property = "BaseRotation", .value = "30"},
-        Edit{.property = "OuterRadiusAutomatic", .value = "click"},
+        PanelEdit{.property = "InnerRadius", .value = "1"},
+        PanelEdit{.property = "FinCount", .value = "int:3"},
+        PanelEdit{.property = "BaseRotation", .value = "30"},
+        PanelEdit{.property = "OuterRadiusAutomatic", .value = "click"},
     };
     const ConfigDialogServices                services;
     TubeFinSet*                               first    = nullptr;
@@ -614,7 +367,7 @@ TEST_F(LugPanelBuiltGolden, TwoTubeFinSetsEachTakeTheirOwnOuterRadius)
     first->setThickness(0.001);
     second->setOuterRadius(0.008);
     second->setThickness(0.002);
-    DesignReplay replay(*document, services);
+    PanelReplay replay(*document, services, lugLines());
     replay.multi(3, 4, kEdits);
     const std::vector<std::string_view> expected =
         withDifference(builtLines("tube fin sets"), "== multi edit | InnerRadius 1",
@@ -628,9 +381,9 @@ TEST_F(LugPanelBuiltGolden, TwoRailButtonsEachKeepTheirInnerDiameter)
     // inner diameter, the second one's 0.6 cm. OpenRocket forwards the main button's
     // setInnerDiameter(its 0.8 cm), which gives the second one 0.8 cm (the pin's line).
     static constexpr std::array kEdits{
-        Edit{.property = "OuterDiameter", .value = "0.9"},
-        Edit{.property = "FlangeHeight", .value = "0.3"},
-        Edit{.property = "AngleOffset", .value = "-90"},
+        PanelEdit{.property = "OuterDiameter", .value = "0.9"},
+        PanelEdit{.property = "FlangeHeight", .value = "0.3"},
+        PanelEdit{.property = "AngleOffset", .value = "-90"},
     };
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document = onBodyTube([](BodyTube& body) {
@@ -639,7 +392,7 @@ TEST_F(LugPanelBuiltGolden, TwoRailButtonsEachKeepTheirInnerDiameter)
         second->setInnerDiameter(0.006);
         body.addChild(std::move(second));
     });
-    DesignReplay                              replay(*document, services);
+    PanelReplay                               replay(*document, services, lugLines());
     replay.multi(3, 4, kEdits);
     const std::vector<std::string_view> expected =
         withDifference(builtLines("rail buttons"), "== multi edit | OuterDiameter 0.9",

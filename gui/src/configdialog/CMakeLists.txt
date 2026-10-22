@@ -7,6 +7,9 @@ target_sources(QtRocket_gui PRIVATE
     ComponentConfigDialog.cpp ${gui_include_dir}/configdialog/ComponentConfigDialog.h
     ConfigFields.cpp ${gui_include_dir}/configdialog/ConfigFields.h
     ConfigPanelFactory.cpp ${gui_include_dir}/configdialog/ConfigPanelFactory.h
+    EllipticalFinSetConfig.cpp ${gui_include_dir}/configdialog/EllipticalFinSetConfig.h
+    FinSetConfig.cpp ${gui_include_dir}/configdialog/FinSetConfig.h
+    FinTabCalculator.cpp ${gui_include_dir}/configdialog/FinTabCalculator.h
     InstancesPanel.cpp ${gui_include_dir}/configdialog/InstancesPanel.h
     LaunchLugConfig.cpp ${gui_include_dir}/configdialog/LaunchLugConfig.h
     MaterialPanel.cpp ${gui_include_dir}/configdialog/MaterialPanel.h
@@ -17,5 +20,6 @@ target_sources(QtRocket_gui PRIVATE
     RocketComponentConfig.cpp ${gui_include_dir}/configdialog/RocketComponentConfig.h
     ShoulderPanel.cpp ${gui_include_dir}/configdialog/ShoulderPanel.h
     TransitionConfig.cpp ${gui_include_dir}/configdialog/TransitionConfig.h
+    TrapezoidFinSetConfig.cpp ${gui_include_dir}/configdialog/TrapezoidFinSetConfig.h
     TubeFinSetConfig.cpp ${gui_include_dir}/configdialog/TubeFinSetConfig.h
 )

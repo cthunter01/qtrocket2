@@ -9,6 +9,10 @@ target_sources(QtRocket_gui_tests PRIVATE
     ConfigDialogTestSupport.cpp
     ConfigFieldsTests.cpp
     ConfigPanelFactoryTests.cpp
+    EllipticalFinSetConfigTests.cpp
+    fin_panel_golden_tests.cpp
+    FinSetConfigTests.cpp
+    FinTabCalculatorTests.cpp
     InstancesPanelTests.cpp
     LaunchLugConfigTests.cpp
     lug_panel_golden_tests.cpp
@@ -16,10 +20,12 @@ target_sources(QtRocket_gui_tests PRIVATE
     MotorConfigTests.cpp
     NoseConeConfigTests.cpp
     PanelProbeLines.cpp
+    PanelReplay.cpp
     PlacementPanelTests.cpp
     RailButtonConfigTests.cpp
     RocketComponentConfigTests.cpp
     ShoulderPanelTests.cpp
     TransitionConfigTests.cpp
+    TrapezoidFinSetConfigTests.cpp
     TubeFinSetConfigTests.cpp
 )

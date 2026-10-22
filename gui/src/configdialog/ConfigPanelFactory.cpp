@@ -9,6 +9,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/BodyTubeConfig.h"
+#include "QtRocket/gui/configdialog/EllipticalFinSetConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/LaunchLugConfig.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
@@ -19,6 +20,7 @@
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
 #include "QtRocket/gui/configdialog/TransitionConfig.h"
+#include "QtRocket/gui/configdialog/TrapezoidFinSetConfig.h"
 #include "QtRocket/gui/configdialog/TubeFinSetConfig.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -226,11 +228,13 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::TRAPEZOID_FIN_SET:
             // TrapezoidFinSetConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<TrapezoidFinSetConfig>(parent, document, services,
+                                                    std::move(selection));
 
         case ComponentKind::ELLIPTICAL_FIN_SET:
             // EllipticalFinSetConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<EllipticalFinSetConfig>(parent, document, services,
+                                                     std::move(selection));
 
         case ComponentKind::FREEFORM_FIN_SET:
             // FreeformFinSetConfig
