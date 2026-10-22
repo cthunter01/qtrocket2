@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/FileIo.h"
 
@@ -72,6 +73,13 @@ void GuiTest::TearDown()
         ADD_FAILURE() << "the test left data on the clipboard: "
                       << data->formats().join(QStringLiteral(", ")).toStdString();
         clipboard->clear();
+    }
+
+    // The application's component clipboard is process-wide too (a test makes its own).
+    if (OpenRocketClipboard& components = OpenRocketClipboard::instance(); !components.isEmpty())
+    {
+        ADD_FAILURE() << "the test left components on the application's component clipboard";
+        components.clear();
     }
 
     // The fixture's DefaultUnitsGuard puts the defaults back afterwards.

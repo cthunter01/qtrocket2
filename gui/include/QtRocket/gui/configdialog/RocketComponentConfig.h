@@ -38,7 +38,7 @@ class TextCommitter;
 
 /// The contents of the component configuration dialog (OpenRocket's RocketComponentConfig, swing
 /// gui/configdialog/RocketComponentConfig.java): the configuration of the selected components,
-/// with the parts every component kind shares. The panel of a kind (run 3: BodyTubeConfig, ...)
+/// with the parts every component kind shares. The panel of a kind (BodyTubeConfig, ...)
 /// derives from it and inserts its own tabs in front (insertTab(), as Java's tabbedPane.insertTab(
 /// ..., 0)); several components of different classes get this class itself (ConfigPanelFactory).
 ///

@@ -15,8 +15,10 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QObject>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSettings>
@@ -34,12 +36,14 @@
 #include "NextModalDialog.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/configdialog/RocketConfig.h"
 #include "QtRocket/gui/dialogs/DecalNotFoundDialog.h"
 #include "QtRocket/gui/dialogs/DetailDialog.h"
 #include "QtRocket/gui/dialogs/ErrorWarningDialog.h"
 #include "QtRocket/gui/dialogs/InternalErrorDialog.h"
 #include "QtRocket/gui/dialogs/MessageList.h"
 #include "QtRocket/gui/dialogs/OptionDialog.h"
+#include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -47,8 +51,10 @@
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DescriptionArea.h"
 #include "QtRocket/gui/widgets/StyledLabel.h"
-#include "RecordingGuardHook.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "ScriptedUserPrompts.h"
 #include "TestTempDir.h"
+#include "configdialog/ConfigDialogTestSupport.h"
 
 // The dialogs are shown (offscreen) and answered by NextModalDialog from their own event loop.
 
@@ -194,19 +200,83 @@ TEST_F(WidgetUserPromptsTest, ShowsTheInternalErrorDialog)
               UserPrompts::InternalErrorAnswer::CONTINUE);
 }
 
-TEST_F(WidgetUserPromptsTest, TheDesignInformationIsNotAvailableYet)
+/// What the "Save Design Info" dialog looked like when it was shown.
+struct DesignInformationSeen
 {
-    // The "Save Design Info" dialog comes with run 4 (SaveDesignInfoDialog).
-    const Gui::Test::RecordingGuardHook       hook;
+    QString        title;
+    const QWidget* parent = nullptr;
+    bool           modal  = false;
+    QString        designName;
+};
+
+/// Records the "Save Design Info" dialog, types the designer "Ann" and clicks OK (@p cancel:
+/// Cancel).
+struct AnswerDesignInformation
+{
+    bool                   cancel;
+    DesignInformationSeen* seen;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<SaveDesignInfoDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        seen->title      = dialog->windowTitle();
+        seen->parent     = dialog->parentWidget();
+        seen->modal      = dialog->isModal();
+        seen->designName = dialog->panel().nameField().text();
+        QTest::keyClicks(&dialog->panel().designerArea(), QStringLiteral("Ann"));
+        if (cancel)
+        {
+            dialog->cancelButton().click();
+        }
+        else
+        {
+            dialog->okButton().click();
+        }
+    }
+};
+
+TEST_F(WidgetUserPromptsTest, TheDesignInformationIsTheSaveDesignInfoDialog)
+{
+    // BasicFrame.showSaveRocketInfoDialog(): SaveDesignInfoPanel in a modal dialog, editing the
+    // rocket in place; the design name shown (the user's decision R3-1).
+    const Gui::Test::ConfigDialogServices     services;
     WidgetUserPrompts                         prompts;
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
-    prompts.editDesignInformation(nullptr, *document);
-    ASSERT_EQ(hook.failures().size(), 1U);
-    EXPECT_EQ(hook.failures().front().kind, Guard::Failure::Kind::ERROR_CONDITION);
-    EXPECT_EQ(hook.failures().front().message,
-              QStringLiteral("UserPrompts::editDesignInformation() is not available yet: its "
-                             "dialog comes later in Milestone 2"));
+    document->getRocket().setName("Mars");
+    QWidget                          parent;
+    DesignInformationSeen            seen;
+    const Gui::Test::NextModalDialog answer{
+        AnswerDesignInformation{.cancel = false, .seen = &seen}};
+    prompts.editDesignInformation(&parent, services.services(), *document);
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(seen.title, QStringLiteral("Save Design Info"));
+    EXPECT_EQ(seen.parent, &parent);
+    EXPECT_TRUE(seen.modal);
+    EXPECT_EQ(seen.designName, QStringLiteral("Mars"));
+    EXPECT_EQ(document->getRocket().getDesigner(), "Ann");
+    EXPECT_TRUE(services.prompts().prompts().empty());
+}
+
+TEST_F(WidgetUserPromptsTest, ACancelledDesignInformationKeepsItsEdits)
+{
+    // The user's decision R3-3: the Save As that asks goes on, and the edits stay (Java's Cancel
+    // undoes nothing).
+    Gui::Test::ConfigDialogServices           services;
+    WidgetUserPrompts                         prompts;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    services.prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
+    DesignInformationSeen            seen;
+    const Gui::Test::NextModalDialog answer{AnswerDesignInformation{.cancel = true, .seen = &seen}};
+    prompts.editDesignInformation(nullptr, services.services(), *document);
+    EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(seen.parent, nullptr);
+    EXPECT_EQ(document->getRocket().getDesigner(), "Ann");
+    ASSERT_EQ(services.prompts().prompts().size(), 1U);
+    EXPECT_EQ(services.prompts().prompts().front().kind,
+              Gui::Test::ScriptedUserPrompts::Kind::DISCARD_CHANGES);
 }
 
 /// What an OptionDialog question looked like.

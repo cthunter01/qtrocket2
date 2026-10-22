@@ -378,7 +378,8 @@ bool WindowManager::confirmClose(MainWindow& window)
                 {.severity = UserPrompts::Severity::WARNING,
                  //: BasicFrame.dlg.title
                  .title = tr("Design not saved"),
-                 // QtRocket's own text: saving comes with the file operations later in Milestone 2.
+                 // QtRocket's own text: a manager without file operations (DocumentFileOperations,
+                 // which the application installs) cannot save.
                  .lines = {tr("Saving designs is not available in this version of QtRocket.")}});
             return false;
         case UserPrompts::SaveChangesAnswer::DISCARD:

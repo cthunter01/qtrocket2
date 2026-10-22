@@ -20,6 +20,8 @@ class OpenRocketDocument;
 namespace QtRocket::Gui
 {
 
+class GuiServices;
+
 /// The application's UserPrompts: OpenRocket's JOptionPane questions, file choosers and dialogs,
 /// modal, parented to the window or dialog that asks (or to none), with OpenRocket's texts:
 /// - askInsertPosition(): ComponentAddButtons.askPosition()'s "Select component position" /
@@ -51,6 +53,9 @@ namespace QtRocket::Gui
 ///   / \ : * ? " < > | (SaveFileNames, the name relative to the dialog's directory) and asks
 ///   again, in that directory with that name; a save that offers a storage option asks "Save
 ///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it;
+/// - editDesignInformation(): BasicFrame.showSaveRocketInfoDialog()'s "Save Design Info"
+///   (SaveDesignInfoDialog, with the services the caller gives), whose outcome changes nothing of
+///   the Save As that asks it (the user's decision R3-3);
 /// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message (DetailDialog
 ///   without details);
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
@@ -58,10 +63,6 @@ namespace QtRocket::Gui
 /// Each dialog is made for its question (ModalDialog), so that it survives its parent being
 /// destroyed while it is open: the question then gives its cancelling answer (Cancel, No, no
 /// file), and a question of two dialogs does not show the second one.
-///
-/// Not yet: editDesignInformation(), the "Save Design Info" dialog, which comes with the
-/// integration of Milestone 2 (run 4: the SaveDesignInfoDialog of the dialogs): until then it
-/// reports an error condition to the error hook (Guard) and edits nothing.
 ///
 /// Deviations: OpenRocket asks the insert position over no window (JOptionPane with a null
 /// parent) and looks for a decal file over none either; here every question has the caller's
@@ -109,7 +110,8 @@ public:
         QWidget* parent, const OpenFileRequest& request) override;
     [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(
         QWidget* parent, const SaveFileRequest& request) override;
-    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override;
+    void editDesignInformation(QWidget* parent, const GuiServices& services,
+                               OpenRocketDocument& document) override;
     void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
@@ -117,8 +119,6 @@ public:
                                                         const Guard::Failure& failure) override;
 
 private:
-    /// Reports that the question @p question is not available yet (see the class comment).
-    static void reportNotAvailable(const QString& question);
     /// The file chooser of askSaveFile(), asked again after the warning while the request
     /// refuses the name chosen; nullopt when it was cancelled (or its parent destroyed).
     [[nodiscard]] std::optional<OpenFileAnswer> askLegalFileToSave(QWidget*               parent,

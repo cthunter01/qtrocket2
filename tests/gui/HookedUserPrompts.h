@@ -17,6 +17,11 @@ namespace QtRocket
 class OpenRocketDocument;
 }
 
+namespace QtRocket::Gui
+{
+class GuiServices;
+}  // namespace QtRocket::Gui
+
 namespace QtRocket::Gui::Test
 {
 
@@ -55,7 +60,8 @@ public:
         QWidget* parent, const OpenFileRequest& request) override;
     [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(
         QWidget* parent, const SaveFileRequest& request) override;
-    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override;
+    void editDesignInformation(QWidget* parent, const GuiServices& services,
+                               OpenRocketDocument& document) override;
     void showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;

@@ -16,6 +16,7 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
 #include "QtRocket/gui/configdialog/RocketConfig.h"
+#include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
@@ -105,7 +106,8 @@ SaveDesignInfoDialog::~SaveDesignInfoDialog()
 bool SaveDesignInfoDialog::edit(QWidget* parent, const GuiServices& services,
                                 OpenRocketDocument& document)
 {
-    SaveDesignInfoDialog dialog(services, document, parent);
+    // Made for the question, so that the window (and the design) closed during it takes it along.
+    ModalDialog<SaveDesignInfoDialog> dialog(parent, services, document);
     return dialog.exec() == QDialog::Accepted;
 }
 

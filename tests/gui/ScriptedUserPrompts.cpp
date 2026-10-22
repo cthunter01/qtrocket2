@@ -255,7 +255,9 @@ std::optional<UserPrompts::SaveFileAnswer> ScriptedUserPrompts::askSaveFile(
                 std::optional<SaveFileAnswer>());
 }
 
-void ScriptedUserPrompts::editDesignInformation(QWidget* /*parent*/, OpenRocketDocument& document)
+void ScriptedUserPrompts::editDesignInformation(QWidget* /*parent*/,
+                                                const GuiServices& /*services*/,
+                                                OpenRocketDocument& document)
 {
     const DesignInformationEdit edit =
         next(makePrompt(Kind::DESIGN_INFORMATION, {}, {}), DesignInformationEdit());

@@ -35,7 +35,7 @@ class RocketPanel;
 ///
 /// - newDesign() opens a window on a new design (OpenRocketDocumentFactory::createNewRocket():
 ///   "Rocket" with the stage "Sustainer", saved, no file); addDocument() opens one on a document
-///   that was loaded (run 3's file operations). A window opens as BasicFrame's: with its design
+///   that was loaded (DocumentFileOperations). A window opens as BasicFrame's: with its design
 ///   panel (a DesignPanel: the component tree, its selection and actions, the add buttons; the
 ///   first stage selected, the tree with the keyboard focus) and its design view (a RocketPanel
 ///   below the tabs: its clicks select in the tree's selection, its figure draws the design
@@ -51,7 +51,8 @@ class RocketPanel;
 ///   changed, unless it has been saved since.
 /// - close() closes one window: when its design is not saved, it asks first ("Design not
 ///   saved", UserPrompts::askSaveChanges()): Save saves it through the save hook (the file
-///   operations of run 3 set it; without one, a message says that saving is not available, and
+///   operations, DocumentFileOperations, set it; without one, a message says that saving is not
+///   available, and
 ///   the window stays), and a save that fails or is cancelled keeps the window; Discard closes
 ///   it; Cancel keeps it. When the last window is closed, the application exits (exitRequested())
 ///   on Linux and Windows; on macOS it keeps running with the menu bar of no window (File: New,

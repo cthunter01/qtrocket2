@@ -36,7 +36,11 @@ namespace QtRocket::Gui
 /// Ctrl+Shift+Z on Linux and Cmd+Shift+Z on macOS, Ctrl+Y on Windows) where BasicFrame binds
 /// Menu+Y everywhere; an '&' of a description is shown as it is (MenuText::escaped()); an undo
 /// error is reported once the event loop runs again, not in the middle of the document's event
-/// (an error dialog there would run an event loop inside a rocket event).
+/// (an error dialog there would run an event loop inside a rocket event); the edits still being
+/// typed are committed first (aboutToUndoOrRedo()), so that an action finds nothing more to do
+/// when that commit removed the redo history (decision of plan 9.3, for the macOS menu bar, which
+/// takes no focus; OpenRocket's spinner fields commit on a permanent focus loss only, so a number
+/// still being typed is lost in its undo or redo).
 class UndoRedoActions final : public QObject
 {
     Q_OBJECT
@@ -68,7 +72,10 @@ public:
 
 Q_SIGNALS:
     /// Emitted right before an action undoes or redoes, so that edits still being typed can be
-    /// committed first (the configuration dialog's bindings, BindingScope::commitAll()).
+    /// committed first (the configuration dialog's: ConfigDialogRequests connects
+    /// ComponentConfigDialog::commitPendingEdits()). An edit committed then is a change of the
+    /// design, which removes the redo history: the action then does nothing more (a redo is not
+    /// there any more; the edit stays the latest change).
     void aboutToUndoOrRedo();
 
 private:

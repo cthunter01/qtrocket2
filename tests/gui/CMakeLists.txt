@@ -7,6 +7,7 @@
 add_executable(QtRocket_gui_tests
     ExpectedQtMessage.cpp
     ExpectedQtMessageTests.cpp
+    ForwardingUserPromptsTests.cpp
     gui_test_environment_tests.cpp
     GuiTestMain.cpp
     GuiTestSupport.cpp

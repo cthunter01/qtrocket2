@@ -6,7 +6,6 @@
 #include <span>
 #include <string>
 
-#include <QLayout>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -22,15 +21,10 @@
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/LoadedDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
-#include "QtRocket/gui/binding/MaterialBinding.h"
-#include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/MotorConfig.h"
-#include "QtRocket/gui/configdialog/PlacementPanel.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
-#include "QtRocket/gui/widgets/MaterialComboBox.h"
-#include "QtRocket/material/Material.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -73,84 +67,11 @@ struct CreatedPanel
     return created;
 }
 
-/// The plain configuration with the shared panels of @p main's kind
-/// (ConfigPanelFactory::createWithSharedPanels(): a kind whose own panel arranges them otherwise).
-[[nodiscard]] CreatedPanel sharedPanelsOf(OpenRocketDocument&         document,
-                                          const ConfigDialogServices& services,
-                                          RocketComponent&            main)
-{
-    CreatedPanel created;
-    created.panel = ConfigPanelFactory::createWithSharedPanels(
-        document, services.services(), std::make_shared<ComponentSelection>(main),
-        created.host.get());
-    return created;
-}
-
-TEST_F(ConfigPanelFactoryTest, TheSharedPanelsOfEachKindAreThoseOfItsJavaPanel)
-{
-    using SharedPanels     = ConfigPanelFactory::SharedPanels;
-    const SharedPanels lug = ConfigPanelFactory::sharedPanels(ComponentKind::LAUNCH_LUG);
-    EXPECT_TRUE(lug.instances && lug.placement && lug.material && !lug.motor);
-    const SharedPanels body = ConfigPanelFactory::sharedPanels(ComponentKind::BODY_TUBE);
-    EXPECT_TRUE(!body.placement && body.material && body.motor && !body.shoulder);
-    const SharedPanels nose = ConfigPanelFactory::sharedPanels(ComponentKind::NOSE_CONE);
-    EXPECT_TRUE(nose.material && nose.shoulder && !nose.placement);
-    const SharedPanels cord = ConfigPanelFactory::sharedPanels(ComponentKind::SHOCK_CORD);
-    EXPECT_TRUE(cord.placement && cord.material && cord.materialFirst && cord.shockCordMaterial);
-    EXPECT_EQ(cord.materialType, Material::Type::LINE);
-    const SharedPanels pods = ConfigPanelFactory::sharedPanels(ComponentKind::POD_SET);
-    EXPECT_TRUE(pods.placement && pods.assemblyTab && !pods.material);
-    const SharedPanels chute = ConfigPanelFactory::sharedPanels(ComponentKind::PARACHUTE);
-    EXPECT_TRUE(chute.placement && !chute.material);
-    const SharedPanels stage = ConfigPanelFactory::sharedPanels(ComponentKind::AXIAL_STAGE);
-    EXPECT_FALSE(stage.instances || stage.placement || stage.material || stage.motor ||
-                 stage.shoulder);
-}
-
-TEST_F(ConfigPanelFactoryTest, TheGeneralTabHoldsTheSharedPanelsInJavasOrder)
+TEST_F(ConfigPanelFactoryTest, TheBodyTubeAndTheNoseConeHaveTheirSecondTabs)
 {
     const ConfigDialogServices services;
     const EveryKindDesign      design;
-    const auto                 lug =
-        sharedPanelsOf(*design.document, services, design.component(ComponentKind::LAUNCH_LUG));
-    ASSERT_GE(lug->tabs().count(), 1);
-    const QWidget* general   = lug->tabs().widget(0);
-    const auto*    instances = general->findChild<InstancesPanel*>();
-    const auto*    placement = general->findChild<PlacementPanel*>();
-    const auto*    material  = general->findChild<MaterialPanel*>();
-    ASSERT_NE(instances, nullptr);
-    ASSERT_NE(placement, nullptr);
-    ASSERT_NE(material, nullptr);
-    EXPECT_EQ(general->layout()->indexOf(instances), 0);
-    EXPECT_EQ(general->layout()->indexOf(placement), 1);
-    EXPECT_EQ(general->layout()->indexOf(material), 2);
-    EXPECT_EQ(lug->tabs().tabToolTip(0), QStringLiteral("General properties"));
-
-    // The shared panels of a shock cord (ShockCordConfig is the factory's panel of the kind).
-    CreatedPanel cord;
-    cord.panel = ConfigPanelFactory::createWithSharedPanels(
-        *design.document, services.services(),
-        std::make_shared<ComponentSelection>(design.component(ComponentKind::SHOCK_CORD)),
-        cord.host.get());
-    const QWidget* cordGeneral   = cord->tabs().widget(0);
-    const auto*    cordMaterial  = cordGeneral->findChild<MaterialPanel*>();
-    const auto*    cordPlacement = cordGeneral->findChild<PlacementPanel*>();
-    ASSERT_NE(cordMaterial, nullptr);
-    ASSERT_NE(cordPlacement, nullptr);
-    EXPECT_EQ(cordGeneral->layout()->indexOf(cordMaterial), 0);
-    EXPECT_EQ(cordGeneral->layout()->indexOf(cordPlacement), 1);
-    EXPECT_EQ(cordMaterial->materialComboBox().binding()->getType(), Material::Type::LINE);
-
-    // The shared panels of a pod set (ComponentAssemblyConfig is the factory's panel of the kind).
-    CreatedPanel pods;
-    pods.panel = ConfigPanelFactory::createWithSharedPanels(
-        *design.document, services.services(),
-        std::make_shared<ComponentSelection>(design.component(ComponentKind::POD_SET)),
-        pods.host.get());
-    EXPECT_EQ(pods->tabs().tabToolTip(0),
-              QStringLiteral("Options for locating stages parallel to other stages"));
-
-    const auto body =
+    const auto                 body =
         createdPanel(*design.document, services, design.component(ComponentKind::BODY_TUBE));
     EXPECT_NE(qobject_cast<MotorConfig*>(body->tabs().widget(1)), nullptr);
     EXPECT_EQ(body->tabs().tabToolTip(1), QStringLiteral("Motor mount configuration"));

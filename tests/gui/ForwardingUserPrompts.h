@@ -74,9 +74,10 @@ public:
     {
         return m_delegate->askSaveFile(parent, request);
     }
-    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override
+    void editDesignInformation(QWidget* parent, const GuiServices& services,
+                               OpenRocketDocument& document) override
     {
-        m_delegate->editDesignInformation(parent, document);
+        m_delegate->editDesignInformation(parent, services, document);
     }
     void showMessage(QWidget* parent, const Message& message) override
     {
@@ -85,6 +86,10 @@ public:
     void showWarnings(QWidget* parent, const WarningsMessage& message) override
     {
         m_delegate->showWarnings(parent, message);
+    }
+    void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override
+    {
+        m_delegate->showErrorsAndWarnings(parent, message);
     }
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override

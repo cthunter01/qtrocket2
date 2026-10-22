@@ -8,6 +8,7 @@
 #include <QObject>
 
 #include "QtRocket/gui/app/Application.h"
+#include "QtRocket/gui/main/ConfigDialogRequests.h"
 #include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/RecentFiles.h"
 #include "QtRocket/gui/main/WindowManager.h"
@@ -32,8 +33,10 @@ class MainWindow;
 ///    kInternalErrorExitCode (exitRequested()), without saving anything;
 /// 2. the windows (WindowManager over the context's services, with the platform's last-window
 ///    behaviour); their exit (the last window closed, File > Quit) is exitRequested(0); their
-///    file operations (DocumentFileOperations: File > Open, Save, Save as and Properties of every
-///    window and of the menus of no window, and the Save of the "Design not saved" question); the
+///    component configuration dialog (ConfigDialogRequests: every window's requests for it
+///    answered by ComponentConfigDialog); their file operations (DocumentFileOperations: File >
+///    Open, Save, Save as and Properties of every window and of the menus of no window, and the
+///    Save of the "Design not saved" question); the
 ///    recent files (RecentFiles over the context's store, MRUDesignFile: every file opened and
 ///    every file saved as goes to its top) and, in the menus of every window and of no window,
 ///    File > Open recent (RecentFilesMenu) and File > Open example (ExampleDesignsMenu over the
@@ -98,6 +101,11 @@ public:
     }
     /// The recent files (the File > Open recent menus').
     [[nodiscard]] RecentFiles& recentFiles() const noexcept { return *m_recentFiles; }
+    /// What answers the windows' requests for the configuration dialog.
+    [[nodiscard]] ConfigDialogRequests& configDialogRequests() const noexcept
+    {
+        return *m_configDialogRequests;
+    }
 
     /// SwingStartup.handleCommandLine() and OSXSetup's open-file handler: opens each of
     /// @p files in a window of its own (DocumentFileOperations::openFiles(), BasicFrame.open(file,
@@ -150,6 +158,8 @@ private:
     std::unique_ptr<RecentFiles> m_recentFiles;
     /// Declared after the services: the windows go before them.
     std::unique_ptr<WindowManager> m_windows;
+    /// Declared after the windows: its connections go before them.
+    std::unique_ptr<ConfigDialogRequests> m_configDialogRequests;
     /// Declared last: the file operations go before the windows, whose save hook they are.
     std::unique_ptr<DocumentFileOperations> m_fileOperations;
     /// Whether reopen() runs (BasicFrame.reopenInProgress).

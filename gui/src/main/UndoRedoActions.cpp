@@ -119,6 +119,13 @@ void UndoRedoActions::resetUndoErrorReported() noexcept
 void UndoRedoActions::perform(bool undo)
 {
     Q_EMIT aboutToUndoOrRedo();
+    // An edit committed now is a change of the design, which removes the redo history: the redo
+    // is not there any more (the document would report an undo error), and the edit stays as the
+    // latest change.
+    if (undo ? !m_document->isUndoAvailable() : !m_document->isRedoAvailable())
+    {
+        return;
+    }
     if (undo)
     {
         m_document->undo();

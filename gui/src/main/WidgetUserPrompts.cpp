@@ -28,10 +28,12 @@
 #include "QtRocket/gui/dialogs/InternalErrorDialog.h"
 #include "QtRocket/gui/dialogs/ModalDialog.h"
 #include "QtRocket/gui/dialogs/OptionDialog.h"
+#include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
 #include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
@@ -508,9 +510,11 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askLegalFileToSave
     }
 }
 
-void WidgetUserPrompts::editDesignInformation(QWidget* /*parent*/, OpenRocketDocument& /*document*/)
+void WidgetUserPrompts::editDesignInformation(QWidget* parent, const GuiServices& services,
+                                              OpenRocketDocument& document)
 {
-    reportNotAvailable(QStringLiteral("editDesignInformation"));
+    // BasicFrame.saveAsAction() goes on to the file chooser however the dialog closed.
+    static_cast<void>(SaveDesignInfoDialog::edit(parent, services, document));
 }
 
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)
@@ -535,14 +539,6 @@ UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*  
                                                                       const Guard::Failure& failure)
 {
     return InternalErrorDialog::ask(parent, failure);
-}
-
-void WidgetUserPrompts::reportNotAvailable(const QString& question)
-{
-    Guard::reportErrorCondition(
-        QStringLiteral("UserPrompts::%1() is not available yet: its dialog comes later in "
-                       "Milestone 2")
-            .arg(question));
 }
 
 }  // namespace QtRocket::Gui

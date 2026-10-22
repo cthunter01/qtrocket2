@@ -136,8 +136,8 @@ public:
     void takeTheSpotlight();
 
     /// Tells the panel whether the configuration dialog is visible
-    /// (ComponentConfigDialog.isDialogVisible()); an empty function (the default) says it never
-    /// is. See the class comment.
+    /// (ComponentConfigDialog.isDialogVisible(): ConfigDialogRequests sets it in the application's
+    /// windows); an empty function (the default) says it never is. See the class comment.
     void setConfigDialogVisible(std::function<bool()> visible);
 
     /// What the rocket's figure is to highlight (see the class comment): the first stage alone

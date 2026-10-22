@@ -1072,7 +1072,10 @@ public:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         return SaveFileAnswer{.file = m_file, .directory = {}, .saveSimulationData = std::nullopt};
     }
-    void editDesignInformation(QWidget* /*parent*/, OpenRocketDocument& /*document*/) override { }
+    void editDesignInformation(QWidget* /*parent*/, const GuiServices& /*services*/,
+                               OpenRocketDocument& /*document*/) override
+    {
+    }
     void showMessage(QWidget* /*parent*/, const Message& /*message*/) override { }
     void showWarnings(QWidget* /*parent*/, const WarningsMessage& /*message*/) override { }
     void showErrorsAndWarnings(QWidget* /*parent*/,
