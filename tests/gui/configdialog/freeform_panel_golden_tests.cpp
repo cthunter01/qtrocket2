@@ -395,8 +395,7 @@ void addStateLines(const FreeformFinSetConfig& panel, const FreeformFinSet& main
 
 /// The pin @p pinned with QtRocket's differences by design:
 /// - the Appearance tab is Milestone 5 (Comment is the fifth tab);
-/// - the Point Actions menu has no "Scale Fin" (Milestone 5) and, until part D1e, no "Import from
-///   image";
+/// - the Point Actions menu has no "Scale Fin" (Milestone 5);
 /// - the CSV lines end with '\n' (Java: "\r\n");
 /// - a right click on a point shows the figure's menu (Java's popup, which cannot show in a
 ///   dialog that is not, throws an IllegalComponentStateException, after selecting the row).
@@ -406,8 +405,7 @@ void addStateLines(const FreeformFinSetConfig& panel, const FreeformFinSet& main
     for (const std::string_view line : pinned)
     {
         if (line.starts_with("tab4 \"Appearance\"") ||
-            line == R"(shape menu "Scale Fin" enabled=true)" ||
-            line == R"(shape menu "Import from image" enabled=true)")
+            line == R"(shape menu "Scale Fin" enabled=true)")
         {
             continue;
         }

@@ -52,9 +52,9 @@ class ScrollAreaZoomModel;
 ///   the right button selects the row it is on (when it is one) and shows the menu
 ///   "Insert point" (a point halfway to the next one, for every row but the last) and "Delete
 ///   point" (not the first nor the last); the middle button does nothing) and below it "Point
-///   Actions..." (DropdownButton; its menu: "Export CSV"); on the right the FinPointFigure in a
-///   FinPointScrollArea, fitted when first shown, whose mouse rules are the area's and whose
-///   right click on a point shows the menu "Delete point";
+///   Actions..." (DropdownButton; its menu: "Import from image", "Export CSV"); on the right the
+///   FinPointFigure in a FinPointScrollArea, fitted when first shown, whose mouse rules are the
+///   area's and whose right click on a point shows the menu "Delete point";
 /// - below it the hints "Ctrl+click: Delete point", "Click+drag: Add and move points",
 ///   "Shift+click+drag: Lock angle to previous point" and "Ctrl+shift+click+drag: Lock angle to
 ///   following point" (2 points smaller), in two rows;
@@ -67,18 +67,18 @@ class ScrollAreaZoomModel;
 ///   which do not reach a dialog, and two shortcuts active for one key would cancel each other).
 ///
 /// The table selects the figure's point (and the figure's press on a point the table's row);
-/// every edit path (a cell, Insert point, Delete point, a drag, a press on a segment, Ctrl+click)
-/// is one edit of the history (beginFinPointEdit(), commitFinPointEdit()), and the points of
-/// several selected fin sets are edited as FinPointSelection edits them (the user's decision U3,
-/// OpenRocket's config listeners). The history's undo and redo set the snapshot on every selected
-/// fin set (Java's setPoints() forwards it).
+/// every edit path (a cell, Insert point, Delete point, a drag, a press on a segment, Ctrl+click,
+/// Import from image) is one edit of the history (beginFinPointEdit(), commitFinPointEdit()), and
+/// the points of several selected fin sets are edited as FinPointSelection edits them (the user's
+/// decision U3, OpenRocket's config listeners). The history's undo and redo set the snapshot on
+/// every selected fin set (Java's setPoints() forwards it).
 ///
 /// updateFields() (the dialog's, after every change of the rocket; the area's after a drag step)
 /// refreshes the table, selects the dragged point's row (or none) and the figure's point, brings
 /// the figure up to date and the undo and redo buttons.
 ///
-/// "Import from image" (part D1e) goes into the Point Actions menu before "Export CSV"; "Scale
-/// Fin" (Milestone 5, the scale dialog) is not there.
+/// The Point Actions menu has no "Scale Fin" (Milestone 5, the scale dialog), which Java shows
+/// before "Import from image".
 ///
 /// As OpenRocket: Insert point and Delete point are enabled until the table's selection first
 /// changes; the tab order leaves out the Point Actions button, the zoom and the check box (Java's
@@ -93,6 +93,8 @@ class ScrollAreaZoomModel;
 ///   undo of the typing.
 /// - "Export CSV" ends its lines with '\n' (FinPointTableModel::csvText(); Java: "\r\n") and shows
 ///   a write failure ("Error writing file"); Java prints its stack trace only.
+/// - "Import from image" reads the image with CustomFinImporter, whose deviations are its own (a
+///   walk that never ends, palette images, files that are no image).
 class FreeformFinSetConfig final : public FinSetConfig
 {
     Q_OBJECT
@@ -113,6 +115,7 @@ public:
     [[nodiscard]] FinPointScrollArea& figureArea() const noexcept { return *m_area; }
     [[nodiscard]] ScaleSelector&      scaleSelector() const noexcept { return *m_selector; }
     [[nodiscard]] DropdownButton& pointActionsButton() const noexcept { return *m_pointActions; }
+    [[nodiscard]] QAction&        importImageAction() const noexcept { return *m_importImage; }
     [[nodiscard]] QAction&        exportCsvAction() const noexcept { return *m_exportCsv; }
     [[nodiscard]] QAction&        insertPointAction() const noexcept { return *m_insertPoint; }
     [[nodiscard]] QAction&        deletePointAction() const noexcept { return *m_deletePoint; }
@@ -159,6 +162,15 @@ public:
     /// A cell's edit (FinPointTableModel::pointEntered(), Java's setValueAt()): the point @p row
     /// to (@p x, @p y) as one edit, then updateFields().
     void setPointFromTable(int row, double x, double y);
+    /// Import from image (importImage()): asks for the image (UserPrompts::askOpenFiles(), the
+    /// filters CustomFinImporter::imageNameFilter() and "All Files (*)", the text
+    /// "CustomFinImport.description", in the default directory) and, unless cancelled, as one
+    /// edit of the history: reads the fin's points from it (CustomFinImporter::getPoints()) and
+    /// sets them on every selected fin set (FinPointSelection::setPoints()) inside
+    /// OpenRocketDocument::startUndo("Import freeform fin set") and stopUndo(), or shows the
+    /// failure ("Error loading fin profile" and its text); then stores the dialog's directory as
+    /// the default one, after a failure too.
+    void importImage();
     /// Export CSV: asks for the file (UserPrompts::askSaveFile(), "Comma Separated Files
     /// (*.csv)", in the default directory), forces the extension ".csv", asks before overwriting
     /// an existing file, writes the table (writeCsvFile()) and stores the dialog's directory as
@@ -203,6 +215,7 @@ private:
     ScrollAreaZoomModel* m_zoomModel{nullptr};
     ScaleSelector*       m_selector{nullptr};
     DropdownButton*      m_pointActions{nullptr};
+    QAction*             m_importImage{nullptr};
     QAction*             m_exportCsv{nullptr};
     QAction*             m_insertPoint{nullptr};
     QAction*             m_deletePoint{nullptr};

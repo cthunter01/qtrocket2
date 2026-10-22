@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <QAction>
@@ -47,6 +48,7 @@
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/util/CustomFinImporter.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/gui/widgets/DropdownButton.h"
@@ -63,6 +65,7 @@
 #include "ScriptedUserPrompts.h"
 #include "TestTempDir.h"
 #include "figure/FinPointTestSupport.h"
+#include "util/FinImportReport.h"
 #include "widgets/WidgetTestSupport.h"
 
 namespace QtRocket::Gui
@@ -75,6 +78,7 @@ using FreeformFinSetConfigTest = Test::ConfigDialogTest;
 using Test::ConfigDialogServices;
 using Test::EveryKindDesign;
 using Test::FactoryPanel;
+using Test::finImage;
 using Test::finPointsText;
 using Test::focusOrder;
 using Test::FreeformDesign;
@@ -149,7 +153,10 @@ TEST_F(FreeformFinSetConfigTest, TheShapeTabHoldsTheEditor)
     EXPECT_EQ(panel->pointTable().objectName(), QStringLiteral("FinPoints"));
     EXPECT_EQ(panel->figureArea().figure(), &panel->finPointFigure());
     EXPECT_EQ(panel->pointActionsButton().text(), QStringLiteral("Point Actions\u2026  | \u25BC "));
-    ASSERT_EQ(panel->pointActionsButton().popupMenu().actions().size(), 1);
+    // Java's order (Scale Fin, Milestone 5, would come first).
+    EXPECT_EQ(panel->pointActionsButton().popupMenu().actions(),
+              (QList<QAction*>{&panel->importImageAction(), &panel->exportCsvAction()}));
+    EXPECT_EQ(panel->importImageAction().text(), QStringLiteral("Import from image"));
     EXPECT_EQ(panel->exportCsvAction().text(), QStringLiteral("Export CSV"));
     EXPECT_EQ(hintTexts(*panel),
               (QStringList{QStringLiteral("Ctrl+click: Delete point"),
@@ -441,6 +448,90 @@ TEST_F(FreeformFinSetConfigTest, ForcesTheCsvExtension)
               pathFromUtf8("dir/.csv.csv"));
 }
 
+/// CustomFinImport.description.
+constexpr const char* kImportDescription =
+    "The image will be converted internally to black and white image (black for the fin), so "
+    "make sure you use a solid dark color for the fin, and white or a light color for the "
+    "background. The fin must be touching the bottom of the image, which is the base of the fin.";
+
+/// The answer of the open dialog that chose @p image of tests/data/fin-images.
+[[nodiscard]] UserPrompts::OpenFileAnswer finImageAnswer(std::string_view image)
+{
+    return {.files = {finImage(image)}, .directory = finImage("").parent_path()};
+}
+
+TEST_F(FreeformFinSetConfigTest, ImportFromImageAsksForAnImageFileInTheDefaultDirectory)
+{
+    const QtRocket::Test::TempDir directory;
+    ConfigDialogServices          services;
+    services.preferences().setDefaultDirectory(directory.path());
+    const FreeformDesign                     design;
+    const FactoryPanel<FreeformFinSetConfig> panel(design.document(), services, design.fins());
+    services.prompts().answerOpenFiles(std::nullopt);
+    panel->importImageAction().trigger();
+    ASSERT_EQ(services.prompts().openFileRequests().size(), 1U);
+    const UserPrompts::OpenFileRequest& request = services.prompts().openFileRequests().front();
+    EXPECT_EQ(request.nameFilters,
+              (QStringList{CustomFinImporter::imageNameFilter(), QStringLiteral("All Files (*)")}));
+    EXPECT_EQ(request.directory, directory.path());
+    EXPECT_FALSE(request.multipleFiles);
+    EXPECT_EQ(request.description, QString::fromLatin1(kImportDescription));
+    // Cancelled: nothing changes, and the default directory stays.
+    EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
+    EXPECT_FALSE(design.document().isUndoAvailable());
+    EXPECT_FALSE(panel->finPointFigure().editHistory().canUndo());
+    EXPECT_EQ(services.preferences().getDefaultDirectory(), directory.path());
+}
+
+TEST_F(FreeformFinSetConfigTest, ImportsAnImageAsOneEditOfTheDocumentAndOfTheEditor)
+{
+    // FinImportDumper's "import trapezoid": Java's points and undo steps.
+    ConfigDialogServices                     services;
+    const FreeformDesign                     design;
+    const FactoryPanel<FreeformFinSetConfig> panel(design.document(), services, design.fins());
+    services.prompts().answerOpenFiles(finImageAnswer("trapezoid.png"));
+    panel->importImageAction().trigger();
+    constexpr const char* kImported =
+        "(0.0,0.0) (0.02,0.039) (0.058,0.039) (0.03899999999999998,0.0)";
+    EXPECT_EQ(finPointsText(design.fins()), kImported);
+    EXPECT_EQ(panel->pointTableModel().rowCount(), 4);
+    EXPECT_EQ(design.document().getUndoDescription(), "Import freeform fin set");
+    EXPECT_EQ(services.preferences().getDefaultDirectory(), finImage("").parent_path());
+    // The editor's own history has the import as one edit.
+    EXPECT_TRUE(panel->finPointUndoButton().isEnabled());
+    panel->performFinPointUndo();
+    EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
+    panel->performFinPointRedo();
+    EXPECT_EQ(finPointsText(design.fins()), kImported);
+    // (FinImportPanelGolden compares the document's undo and redo of an import with Java's.)
+}
+
+TEST_F(FreeformFinSetConfigTest, AnImageWithoutAFinOnItsBottomRowShowsJavasError)
+{
+    const QtRocket::Test::TempDir directory;
+    ConfigDialogServices          services;
+    services.preferences().setDefaultDirectory(directory.path());
+    const FreeformDesign                     design;
+    const FactoryPanel<FreeformFinSetConfig> panel(design.document(), services, design.fins());
+    services.prompts().answerOpenFiles(finImageAnswer("floating.png"));
+    panel->importImageAction().trigger();
+    ASSERT_FALSE(services.prompts().prompts().empty());
+    const ScriptedUserPrompts::Prompt& message = services.prompts().prompts().back();
+    EXPECT_EQ(message.kind, ScriptedUserPrompts::Kind::MESSAGE);
+    EXPECT_EQ(message.title, QStringLiteral("Error loading fin profile"));
+    EXPECT_EQ(
+        message.texts,
+        (QStringList{QStringLiteral("ERROR"),
+                     QStringLiteral("Invalid fin image. Make sure the fin is a solid black or "
+                                    "dark color and touching the bottom of the image.")}));
+    EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
+    EXPECT_FALSE(design.document().isUndoAvailable());
+    EXPECT_FALSE(panel->finPointFigure().editHistory().canUndo());
+    EXPECT_FALSE(panel->finPointFigure().editHistory().isEditInProgress());
+    // Java's finally: the chooser's directory is the default one, after the failure too.
+    EXPECT_EQ(services.preferences().getDefaultDirectory(), finImage("").parent_path());
+}
+
 TEST_F(FreeformFinSetConfigTest, TheTabKeyVisitsTheFieldsInJavasOrder)
 {
     const ConfigDialogServices               services;
@@ -605,6 +696,29 @@ TEST_F(FreeformFinSetConfigTest, TheDialogRefreshesTheTableOnEveryChange)
     EXPECT_EQ(panel->pointTableModel().valueText(1, 0), QStringLiteral("3"));
     EXPECT_EQ(panel->selectedPointRow(), -1);
     ComponentConfigDialog::disposeDialog();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+TEST_F(FreeformFinSetConfigTest, ImportsIntoTheDialogsFinSet)
+{
+    ConfigDialogServices services;
+    const FreeformDesign design;
+    QWidget              window;
+    ASSERT_TRUE(showActive(window));
+    const FreeformFinSetConfig* panel = openShapeTab(services, design, window);
+    ASSERT_NE(panel, nullptr);
+    services.prompts().answerOpenFiles(finImageAnswer("rectangle.png"));
+    panel->importImageAction().trigger();
+    EXPECT_EQ(finPointsText(design.fins()),
+              "(0.0,0.0) (0.0,0.019) (0.029,0.019) (0.029000000000000026,0.0)");
+    // The dialog's refresh shows the new points.
+    EXPECT_EQ(panel->pointTableModel().rowCount(), 4);
+    EXPECT_EQ(panel->pointTableModel().valueText(2, 0), QStringLiteral("2.9"));
+    EXPECT_EQ(design.document().getUndoDescription(), "Import freeform fin set");
+    // The document's undo closes the dialog and gives the fin its points back.
+    design.document().undo();
+    EXPECT_EQ(ComponentConfigDialog::dialog(), nullptr);
+    EXPECT_EQ(finPointsText(design.fins()), kDefaultPoints);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 }
 

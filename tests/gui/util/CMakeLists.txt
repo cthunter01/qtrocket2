@@ -4,7 +4,9 @@ target_sources(QtRocket_gui_tests PRIVATE
     BuildInfoTests.cpp
     ColorConversionTests.cpp
     ComponentIconsTests.cpp
+    CustomFinImporterTests.cpp
     EnumTextTests.cpp
+    FinImportReport.cpp
     GuardTests.cpp
     GuiServicesTests.cpp
     icon_resources_tests.cpp

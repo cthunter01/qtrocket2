@@ -10,6 +10,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     ConfigFieldsTests.cpp
     ConfigPanelFactoryTests.cpp
     EllipticalFinSetConfigTests.cpp
+    fin_import_golden_tests.cpp
     fin_panel_golden_tests.cpp
     FinPointTableModelTests.cpp
     FinSetConfigTests.cpp

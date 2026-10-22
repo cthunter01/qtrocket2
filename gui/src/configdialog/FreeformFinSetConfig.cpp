@@ -27,6 +27,7 @@
 #include <QMouseEvent>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QPushButton>
 #include <QShortcut>
 #include <QSplitter>
@@ -49,6 +50,7 @@
 #include "QtRocket/gui/figure/ScaleSelector.h"
 #include "QtRocket/gui/figure/ScrollAreaZoomModel.h"
 #include "QtRocket/gui/settings/GuiPreferenceKeys.h"
+#include "QtRocket/gui/util/CustomFinImporter.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/Icons.h"
@@ -323,7 +325,13 @@ QWidget& FreeformFinSetConfig::makePointList(QWidget& page)
     m_pointActions->setObjectName(QStringLiteral("pointActionsButton"));
     m_pointActions->setAutoDefault(false);
     m_pointActions->setFocusPolicy(Qt::ClickFocus);
-    // Scale Fin: Milestone 5 (the scale dialog); Import from image: part D1e, before Export CSV.
+    // Scale Fin: Milestone 5 (the scale dialog).
+    //// Import from image
+    //: CustomFinImport.button.label
+    m_importImage = m_pointActions->addMenuItem(tr("Import from image"));
+    m_importImage->setObjectName(QStringLiteral("importImageAction"));
+    connect(m_importImage, &QAction::triggered, this,
+            guarded([this] { importImage(); }, QStringLiteral("importImageAction")));
     //// Export CSV
     //: FreeformFinSetConfig.lbl.exportCSV
     m_exportCsv = m_pointActions->addMenuItem(tr("Export CSV"));
@@ -627,6 +635,87 @@ void FreeformFinSetConfig::setPointFromTable(int row, double x, double y)
     commitFinPointEdit();
 
     updateFields();
+}
+
+void FreeformFinSetConfig::importImage()
+{
+    Preferences&                 preferences = services().preferences();
+    UserPrompts&                 prompts     = services().prompts();
+    UserPrompts::OpenFileRequest request;
+    // FileHelper.getImageFileFilter(), chosen, and the accept-all filter of Swing's file chooser
+    // (FileChooser.acceptAllFileFilterText).
+    request.nameFilters =
+        QStringList{CustomFinImporter::imageNameFilter(), tr("All Files") + QStringLiteral(" (*)")};
+    if (const std::optional<std::filesystem::path> directory = preferences.getDefaultDirectory())
+    {
+        request.directory = *directory;
+    }
+    //: CustomFinImport.description
+    request.description =
+        tr("The image will be converted internally to black and white image (black for the fin), "
+           "so make sure you use a solid dark color for the fin, and white or a light color for "
+           "the background. The fin must be touching the bottom of the image, which is the base "
+           "of the fin.");
+    // A modal dialog runs the event loop, in which the configuration dialog may go (an undo in
+    // another window, for one): nothing of the panel is used once it has gone.
+    const QPointer<FreeformFinSetConfig>             alive(this);
+    const std::optional<UserPrompts::OpenFileAnswer> answer = prompts.askOpenFiles(this, request);
+    if (alive.isNull() || !answer.has_value() || answer->files.empty())
+    {
+        return;
+    }
+
+    bool startedUndo = false;
+    // Java's finally: the undo operation ends, the edit of the history is committed and the
+    // dialog's directory becomes the default one, whatever happened.
+    const auto finish = [&] {
+        if (alive.isNull())
+        {
+            // Gone during the message box, before any undo operation started.
+            preferences.setDefaultDirectory(answer->directory);
+            return;
+        }
+        try
+        {
+            if (startedUndo)
+            {
+                document().stopUndo();
+            }
+        }
+        catch (...)
+        {
+            commitFinPointEdit();
+            throw;
+        }
+        commitFinPointEdit();
+        preferences.setDefaultDirectory(answer->directory);
+    };
+    beginFinPointEdit();
+    try
+    {
+        const Result<std::vector<Coordinate>> points =
+            CustomFinImporter::getPoints(answer->files.front());
+        if (points.has_value())
+        {
+            //: CustomFinImport.undo
+            document().startUndo(QtStrings::toUtf8(tr("Import freeform fin set")));
+            startedUndo = true;
+            m_finPoints.setPoints(*points);
+        }
+        else
+        {
+            prompts.showMessage(this, {.severity = UserPrompts::Severity::ERROR,
+                                       //: CustomFinImport.error.title
+                                       .title = tr("Error loading fin profile"),
+                                       .lines = {QtStrings::fromUtf8(points.error().message)}});
+        }
+    }
+    catch (...)
+    {
+        finish();
+        throw;
+    }
+    finish();
 }
 
 void FreeformFinSetConfig::exportCsv()
