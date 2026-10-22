@@ -104,6 +104,36 @@ std::unique_ptr<Node> mirror(RocketComponent& component, Node* parent, int row, 
     return node;
 }
 
+/// Whether the mirror @p node has the ids and the child counts of @p component's tree, compared
+/// from the live components (a node's pointer is never read: it may point at a component that a
+/// change made while the rocket's events were off destroyed); when so, each node takes its
+/// component's pointer and mass type again. False at the first difference.
+bool matchAndRefresh(Node& node, RocketComponent& component)
+{
+    const std::size_t count = component.getChildCount();
+    if (node.id != component.getId() || node.children.size() != count)
+    {
+        return false;
+    }
+    node.component = &component;
+    node.massType  = massTypeOf(component);
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        if (!matchAndRefresh(*node.children[i], component.getChild(i)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Whether @p type has the TREE or the UNDO bit: a change the model answers with a reset.
+[[nodiscard]] bool isStructural(int type) noexcept
+{
+    return ComponentChangeEvent::matches(ComponentChangeEvent::Type::TREE, type) ||
+           ComponentChangeEvent::matches(ComponentChangeEvent::Type::UNDO, type);
+}
+
 /// Sets a flag for its lifetime.
 class Resetting
 {
@@ -543,7 +573,7 @@ RocketComponent* ComponentTreeModel::resolve(const Node& node) const
 bool ComponentTreeModel::mirrorIsCurrent() const noexcept
 {
     return !m_resetting && m_rocket->isEventsEnabled() && !m_rocket->isFrozen() &&
-           m_rocket->getTreeModId() == m_treeModId;
+           m_rocket->getTreeModId() == m_treeModId && m_rocket->getModId() == m_modId;
 }
 
 void ComponentTreeModel::componentChanged(const ComponentChangeEvent& event)
@@ -552,18 +582,33 @@ void ComponentTreeModel::componentChanged(const ComponentChangeEvent& event)
     const int  type   = event.getType();
     if (m_resetting)
     {
-        // A change made while the views answer the reset: one more reset when this one ends.
-        m_pendingReset = std::pair{source, type};
+        // A change made while the views answer the reset: one more reset when this one ends,
+        // for all such changes together (as Rocket::thaw() merges the events of a freeze): their
+        // bits merged, and the source of the last that changed the tree or was an undo, which
+        // the views make visible.
+        if (!m_pendingReset.has_value())
+        {
+            m_pendingReset = std::pair{source, type};
+            return;
+        }
+        auto& [pendingSource, pendingType] = *m_pendingReset;
+        if (isStructural(type) || !isStructural(pendingType))
+        {
+            pendingSource = source;
+        }
+        pendingType |= type;
         return;
     }
-    if (event.isTreeChange() || event.isUndoChange() || !mirrorIsCurrent())
+    // A change event that arrives before the tree change it follows (a listener that changed
+    // the rocket in its slot for that tree change, before this model's turn), and one that
+    // follows a change made while the rocket's events were off (enableEvents(true) fires
+    // AEROMASS: the tree may have changed without a modification id telling), find the mirror
+    // different from the tree.
+    if (event.isTreeChange() || event.isUndoChange() || !refreshNodes())
     {
-        // Also a change event that arrives before the tree change it follows (a listener that
-        // changed the rocket in its slot for that tree change, before this model's turn).
         reset(source, type);
         return;
     }
-    refreshNodes();
     emitDataChangedForAll();
 }
 
@@ -588,6 +633,7 @@ void ComponentTreeModel::reset(const Uuid& source, int changeType)
             std::swap(m_root, root);
             std::swap(m_nodes, nodes);
             m_treeModId = m_rocket->getTreeModId();
+            m_modId     = m_rocket->getModId();
             endResetModel();
         }
         // The old mirror goes after the views have let go of its indexes.
@@ -602,21 +648,18 @@ void ComponentTreeModel::rebuild()
     m_nodes.clear();
     m_root      = mirror(*m_rocket, nullptr, 0, order, m_nodes);
     m_treeModId = m_rocket->getTreeModId();
+    m_modId     = m_rocket->getModId();
 }
 
-void ComponentTreeModel::refreshNodes()
+bool ComponentTreeModel::refreshNodes()
 {
-    std::vector<Node*> nodes{m_root.get()};
-    while (!nodes.empty())
+    if (m_root == nullptr || !m_rocket->isEventsEnabled() || m_rocket->isFrozen() ||
+        m_rocket->getTreeModId() != m_treeModId || !matchAndRefresh(*m_root, *m_rocket))
     {
-        Node* node = nodes.back();
-        nodes.pop_back();
-        node->massType = massTypeOf(*node->component);
-        for (const std::unique_ptr<Node>& child : node->children)
-        {
-            nodes.push_back(child.get());
-        }
+        return false;
     }
+    m_modId = m_rocket->getModId();
+    return true;
 }
 
 void ComponentTreeModel::emitDataChangedForAll()

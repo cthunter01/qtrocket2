@@ -28,32 +28,28 @@
 
 #include "GuiTestSupport.h"
 #include "QtRocket/document/ComponentCopy.h"
-#include "QtRocket/document/DecalImage.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/gui/tree/ComponentLimits.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
-#include "QtRocket/rocket/Appearance.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
-#include "QtRocket/rocket/Decal.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Parachute.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/rocket/TransitionShape.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
-#include "QtRocket/util/Color.h"
-#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
 #include "ScriptedUserPrompts.h"
-#include "document/TestAttachments.h"
 #include "goldens/GoldenExamples.h"
 #include "tree/ProbeDesign.h"
 #include "tree/TreeEditingSupport.h"
@@ -66,14 +62,19 @@ namespace
 
 using Names = std::vector<std::string_view>;
 using Test::archiveEntries;
+using Test::decalAppearance;
 using Test::decalListOf;
 using Test::decalProbeArchiveEntries;
+using Test::fillAssembliesUpTo;
 using Test::fillUpTo;
 using Test::firstBodyComponentWithDecal;
+using Test::giveDecal;
 using Test::javaBool;
 using Test::linesOf;
+using Test::nestInnerTubes;
 using Test::ProbeDesign;
 using Test::redoText;
+using Test::registerImages;
 using Test::savedWithoutWarnings;
 using Test::scenarioName;
 using Test::ScriptedUserPrompts;
@@ -92,7 +93,7 @@ enum class Action
 };
 
 /// The name of @p action's class in RocketActions, as the probes print it.
-[[nodiscard]] std::string actionName(Action action)
+[[nodiscard]] std::string_view actionName(Action action)
 {
     switch (action)
     {
@@ -718,7 +719,7 @@ void pasteTwice(const ProbeDesign& design, Window& window, const Names& pasteOn,
     window.select(scenario.selection);
     lines.push_back("  enabled with " + window.selection() + ": " + window.enablesWithEdit());
     window.run(scenario.action);
-    lines.push_back("  " + actionName(scenario.action) + ": tree=" + design.tree());
+    lines.push_back("  " + std::string(actionName(scenario.action)) + ": tree=" + design.tree());
     lines.push_back("  clipboard=" + design.clipboard(clipboard.components()) +
                     " selection=" + window.selection() + " " + undoText(design.document()));
     if (scenario.pasteOn.has_value())
@@ -1117,7 +1118,7 @@ void actAlone(const ProbeDesign& design, Window& window, const OpenRocketClipboa
         lines.push_back("  copy: clipboard=" + design.clipboard(clipboard.components()));
         return;
     }
-    lines.push_back("  " + actionName(action) + ": tree=" + design.tree());
+    lines.push_back("  " + std::string(actionName(action)) + ": tree=" + design.tree());
     lines.push_back("  clipboard=" + design.clipboard(clipboard.components()) +
                     " selection=" + window.selection() + " " + undoText(design.document()));
 }
@@ -1619,32 +1620,130 @@ TEST_F(ComponentEditingTest, RefusesADuplicateBeyondTheComponentBound)
     EXPECT_EQ(design.clipboard(clipboard.components()), "[NC*]");
 }
 
-/// An appearance with a decal of the image named @p image.
-[[nodiscard]] Appearance decalAppearance(const std::string& image)
+// The bounds the M2 run 2 review added to decision O27 (ComponentLimits): the stages, booster sets
+// and pod sets of the rocket (DocumentConfig::kMaxAssemblies), up to the bound and beyond it.
+TEST_F(ComponentEditingTest, RefusesAPasteBeyondTheAssemblyBound)
 {
-    return {Color(10, 20, 30, 200), 0.25,
-            Decal(Coordinate(0.125, 0.25), Coordinate(0.375, 0.5), Coordinate(1.5, 2.5), 0.75,
-                  image, Decal::EdgeMode::MIRROR),
-            true};
+    const ProbeDesign   design;
+    OpenRocketClipboard clipboard;
+    ScriptedUserPrompts prompts;
+    Window              window(design, clipboard, prompts);
+    // The Booster holds a booster set: two assemblies.
+    window.select({"Booster"});
+    ASSERT_TRUE(window.editing().copy());
+    fillAssembliesUpTo(design.rocket(), DocumentConfig::kMaxAssemblies - 2);
+    window.select({"Rocket"});
+    ASSERT_TRUE(window.editing().paste());
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_THAT(prompts.prompts(), IsEmpty());
+    design.document().addUndoPosition("Rename");
+    const std::size_t components = DocumentConfig::componentCount(design.rocket());
+
+    EXPECT_FALSE(window.editing().paste());
+
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts()[0].title, QStringLiteral("Paste Stage"));
+    EXPECT_EQ(
+        prompts.prompts()[0].texts,
+        QStringList({QStringLiteral("WARNING"),
+                     QStringLiteral("The rocket would have 102 stages, booster sets and pod "
+                                    "sets. QtRocket opens at most 100 of them in a design and "
+                                    "would ignore the ones beyond, with everything in them, "
+                                    "when it opens this design again.")}));
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), components);
+    design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(design.document()), "undo='Rename'");
 }
 
-/// Registers @p count images of their own in @p document ("decals/fill<k>.png").
-void registerImages(OpenRocketDocument& document, std::size_t count)
+TEST_F(ComponentEditingTest, RefusesADuplicateBeyondTheAssemblyBound)
 {
-    for (std::size_t k = 0; k < count; ++k)
-    {
-        const std::string name = "decals/fill" + std::to_string(k) + ".png";
-        static_cast<void>(document.getDecalImage(
-            std::make_shared<QtRocket::Test::MemoryAttachment>(name, "fill " + name)));
-    }
+    const ProbeDesign   design;
+    OpenRocketClipboard clipboard;
+    ScriptedUserPrompts prompts;
+    Window              window(design, clipboard, prompts);
+    fillAssembliesUpTo(design.rocket(), DocumentConfig::kMaxAssemblies - 1);
+    window.select({"Sustainer"});
+    ASSERT_TRUE(window.editing().duplicate());
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    design.document().addUndoPosition("Rename");
+    const std::size_t components = DocumentConfig::componentCount(design.rocket());
+    window.select({"Booster"});
+
+    EXPECT_FALSE(window.editing().duplicate());
+
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts()[0].title, QStringLiteral("Duplicate Stage"));
+    EXPECT_EQ(
+        prompts.prompts()[0].texts,
+        QStringList({QStringLiteral("WARNING"),
+                     QStringLiteral("The rocket would have 102 stages, booster sets and pod "
+                                    "sets. QtRocket opens at most 100 of them in a design and "
+                                    "would ignore the ones beyond, with everything in them, "
+                                    "when it opens this design again.")}));
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), components);
+    // The clipboard holds the duplicate before (Java sets it before it duplicates).
+    EXPECT_EQ(design.clipboard(clipboard.components()),
+              "[Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]]");
+    design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(design.document()), "undo='Rename'");
 }
 
-/// Gives @p component of @p document a decal of a new image named @p name.
-void giveDecal(OpenRocketDocument& document, RocketComponent& component, const std::string& name)
+// A duplicate counts the copy as it goes in: the copy rule keeps of a partly selected tree what
+// was selected (here the Sustainer with its nose cone alone: two components), so the copy fits
+// where the whole tree would not.
+TEST_F(ComponentEditingTest, CountsADuplicateAsTheCopyRuleMakesIt)
 {
-    const std::shared_ptr<DecalImage> image = document.getDecalImage(
-        std::make_shared<QtRocket::Test::MemoryAttachment>(name, "bytes of " + name));
-    component.setAppearance(decalAppearance(image->getName()));
+    const ProbeDesign   design;
+    OpenRocketClipboard clipboard;
+    ScriptedUserPrompts prompts;
+    Window              window(design, clipboard, prompts);
+    fillUpTo(design.rocket(), design.find("BT2"), DocumentConfig::kMaxComponents - 2);
+    window.select({"Sustainer", "NC"});
+
+    EXPECT_TRUE(window.editing().duplicate());
+
+    EXPECT_THAT(prompts.prompts(), IsEmpty());
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), DocumentConfig::kMaxComponents);
+    EXPECT_EQ(design.clipboard(clipboard.components()), "[Sustainer*[NC*]]");
+}
+
+// ... and how deep a component stands below the Rocket (ComponentHandler::kMaxDepth).
+TEST_F(ComponentEditingTest, RefusesAPasteNestedBeyondTheDepthBound)
+{
+    const ProbeDesign   design;
+    OpenRocketClipboard clipboard;
+    ScriptedUserPrompts prompts;
+    Window              window(design, clipboard, prompts);
+    window.select({"EB"});
+    ASSERT_TRUE(window.editing().copy());
+    // IT stands at level 3: inner tubes down to level 100.
+    const RocketComponent& innermost =
+        nestInnerTubes(design.rocket(), design.find("IT"), ComponentHandler::kMaxDepth - 3);
+    ASSERT_EQ(ComponentLimits::levelOf(innermost), 100U);
+    const RocketComponent* above = innermost.getParent();
+    window.selectionModel().setSelectedComponent(*above);
+    ASSERT_TRUE(window.editing().paste());
+    EXPECT_EQ(above->getChildCount(), 2U);
+    design.document().addUndoPosition("Rename");
+    const std::size_t components = DocumentConfig::componentCount(design.rocket());
+    window.selectionModel().setSelectedComponent(innermost);
+
+    EXPECT_FALSE(window.editing().paste());
+
+    ASSERT_EQ(prompts.prompts().size(), 1U);
+    EXPECT_EQ(prompts.prompts()[0].title, QStringLiteral("Paste Engine Block"));
+    EXPECT_EQ(prompts.prompts()[0].texts,
+              QStringList({QStringLiteral("WARNING"),
+                           QStringLiteral("Components would stand 101 levels below the rocket. "
+                                          "QtRocket opens components at most 100 levels deep and "
+                                          "would ignore the deeper ones, with everything in them, "
+                                          "when it opens this design again.")}));
+    EXPECT_EQ(innermost.getChildCount(), 0U);
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), components);
+    design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(design.document()), "undo='Rename'");
 }
 
 TEST_F(ComponentEditingTest, RefusesAPasteBeyondTheDecalImageBound)

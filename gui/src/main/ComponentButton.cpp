@@ -231,18 +231,17 @@ bool ComponentButton::addComponent()
     std::unique_ptr<RocketComponent> component =
         ComponentFactory::create(m_kind, m_services.preferences(), m_services.materials());
     //: Hard-coded English in OpenRocket (ComponentButton): "Add " + getComponentName()
-    const QString description = tr("Add %1").arg(enumText(m_kind));
+    const QString    description = tr("Add %1").arg(enumText(m_kind));
+    RocketComponent* parent      = rocket.findComponent(parentId);
+    if (parent == nullptr)
+    {
+        return false;
+    }
     if (const std::optional<UserPrompts::Message> refusal = ComponentLimits::refusal(
-            document, ComponentLimits::treeSize(*component), 0, description);
+            document, ComponentLimits::placing(*component, *parent), description);
         refusal.has_value())
     {
         m_services.prompts().showMessage(this, *refusal);
-        return false;
-    }
-
-    RocketComponent* parent = rocket.findComponent(parentId);
-    if (parent == nullptr)
-    {
         return false;
     }
     document.addUndoPosition(QtStrings::toUtf8(description));

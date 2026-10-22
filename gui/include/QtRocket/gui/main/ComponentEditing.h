@@ -12,6 +12,7 @@
 #include <QWidget>
 
 #include "QtRocket/document/ComponentCopy.h"
+#include "QtRocket/gui/tree/ComponentLimits.h"
 #include "QtRocket/util/Uuid.h"
 
 namespace QtRocket
@@ -66,9 +67,11 @@ class UserPrompts;
 /// English in Java; here through tr(), the component name through enumText() (Java's
 /// getComponentName() is translated).
 ///
-/// Bounds (decision O27): a paste or a duplicate that would give the rocket more components or
-/// the document more decal images than QtRocket loads (ComponentLimits) is refused with a
-/// message through UserPrompts, before anything changes (the clipboard too).
+/// Bounds (decision O27, ComponentLimits): a paste or a duplicate that would give the rocket
+/// more components, more stages, booster sets and pod sets, or components nested deeper than
+/// QtRocket loads, or the document more decal images, is refused with a message through
+/// UserPrompts, before anything changes (the clipboard too). The copies are counted as they
+/// go in (a duplicate of a partly selected tree holds what the copy rule keeps).
 ///
 /// No component pointer is kept across a change of the rocket: the operations work through ids
 /// between the changes, so that a listener that changes the tree cannot leave them a freed
@@ -196,10 +199,9 @@ private:
     /// the user why there is none, under @p title.
     [[nodiscard]] std::optional<ComponentCopy> copyOf(
         std::span<const RocketComponent* const> completed, const QString& title) const;
-    /// Whether the rocket can take @p newComponents more components and the document
-    /// @p newDecalImages more images; tells the user why not under @p title.
-    [[nodiscard]] bool fits(std::size_t newComponents, std::size_t newDecalImages,
-                            const QString& title) const;
+    /// Whether the design can take @p addition (ComponentLimits::refusal()); tells the user why
+    /// not under @p title.
+    [[nodiscard]] bool fits(const ComponentLimits::Addition& addition, const QString& title) const;
     /// Selects the components @p ids that are in the rocket, in their order.
     void select(const std::vector<Uuid>& ids) const;
     /// Moves every top selected component @p step places (-1 up, +1 down) within its parent.

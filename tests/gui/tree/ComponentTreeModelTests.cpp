@@ -36,6 +36,7 @@
 #include "QtRocket/gui/tree/ComponentToolTip.h"
 #include "QtRocket/gui/util/ComponentIcons.h"
 #include "QtRocket/gui/util/Icons.h"
+#include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/BodyTube.h"
@@ -526,6 +527,117 @@ TEST_F(ComponentTreeModelTest, ResetsAgainForAChangeMadeWhileTheViewsAnswerARese
 
     EXPECT_EQ(resets.count(), 2);
     EXPECT_EQ(design.noseCone->getChildCount(), 0U);
+    EXPECT_THAT(mirrorDifferences(model, design.rocket()), IsEmpty());
+}
+
+// Changes made while the views answer a reset come in one more reset, with all their bits and the
+// source of the last that changed the tree (which the views make visible), as Rocket::thaw()
+// merges the events of a freeze; Java answers each tree change with
+// fireTreeStructureChanged(source).
+TEST_F(ComponentTreeModelTest, ResetsOnceMoreForAllTheChangesMadeWhileTheViewsAnswerAReset)
+{
+    Design                         design;
+    ComponentTreeModel             model(*design.document, design.preferences);
+    const QAbstractItemModelTester tester(&model,
+                                          QAbstractItemModelTester::FailureReportingMode::Warning);
+    const QSignalSpy               resets(&model, &QAbstractItemModel::modelReset);
+    bool                           changed = false;
+    QObject::connect(&model, &QAbstractItemModel::modelReset, &model, [&design, &changed] {
+        if (!changed)
+        {
+            changed = true;
+            design.bodyTube->addChild(std::make_unique<MassComponent>());
+            design.noseCone->setName("Nose");
+            design.noseCone->setName("Nose cone");
+        }
+    });
+
+    design.innerTube->addChild(std::make_unique<MassComponent>());
+
+    EXPECT_EQ(resets.count(), 2);
+    EXPECT_EQ(model.lastResetSource(), design.bodyTube->getId());
+    EXPECT_TRUE(has(model.lastResetChangeType(), ComponentChangeEvent::Type::TREE));
+    EXPECT_TRUE(has(model.lastResetChangeType(), ComponentChangeEvent::Type::NON_FUNCTIONAL));
+    EXPECT_THAT(mirrorDifferences(model, design.rocket()), IsEmpty());
+}
+
+/// A listener of @p rocket, connected now (so before a model made later), that asks @p model, once
+/// there is one, at every change event for the data of the rows below the second row of the
+/// Rocket's first row (the design's body tube), into @p seen.
+[[nodiscard]] ComponentChangeSignal::ScopedConnection askingForTheBodyTubesRows(
+    Rocket& rocket, const std::unique_ptr<ComponentTreeModel>& model, std::vector<QVariant>& seen)
+{
+    return ComponentChangeSignal::ScopedConnection{
+        rocket.addComponentChangeListener([&model, &seen](const ComponentChangeEvent& /*event*/) {
+            if (model == nullptr)
+            {
+                return;
+            }
+            const QModelIndex bodyTube =
+                model->index(1, 0, model->index(0, 0, model->rocketIndex()));
+            for (int row = 0; row < model->rowCount(bodyTube); ++row)
+            {
+                seen.push_back(model->data(model->index(row, 0, bodyTube)));
+            }
+        })};
+}
+
+// A change made while the rocket's events are off changes no modification id; enableEvents(true)
+// tells of it with an AEROMASS event only. The model finds the tree changed (and its mirror's
+// pointer of the removed component dangling, which it never reads: ASan), also for a listener
+// that asks before the model's turn.
+TEST_F(ComponentTreeModelTest, FindsAChangeMadeWhileTheRocketsEventsWereOff)
+{
+    Design                                        design;
+    std::unique_ptr<ComponentTreeModel>           model;
+    std::vector<QVariant>                         seen;
+    const ComponentChangeSignal::ScopedConnection before =
+        askingForTheBodyTubesRows(design.rocket(), model, seen);
+    model = std::make_unique<ComponentTreeModel>(*design.document, design.preferences);
+    const QAbstractItemModelTester tester(model.get(),
+                                          QAbstractItemModelTester::FailureReportingMode::Warning);
+    const QSignalSpy               resets(model.get(), &QAbstractItemModel::modelReset);
+    const Uuid                     innerTube = design.innerTube->getId();
+
+    design.rocket().enableEvents(false);
+    static_cast<void>(design.bodyTube->removeChild(design.innerTube));
+    design.rocket().enableEvents(true);
+
+    EXPECT_EQ(resets.count(), 1);
+    EXPECT_FALSE(model->indexOf(innerTube).isValid());
+    EXPECT_THAT(mirrorDifferences(*model, design.rocket()), IsEmpty());
+    // The listener asked for the rows of the body tube as the mirror had them: the removed inner
+    // tube's row answered nothing, the fin set's its name.
+    ASSERT_EQ(seen.size(), 2U);
+    EXPECT_FALSE(seen[0].isValid());
+    EXPECT_EQ(seen[1].toString(), QtStrings::fromUtf8(design.fins->getName()));
+}
+
+// During an undo's reset the components are the new ones: component() looks them up by id while the
+// views answer modelAboutToBeReset (Rocket::loadFrom() has replaced every object, and an undo of a
+// change that kept the tree gives the tree's modification id back).
+TEST_F(ComponentTreeModelTest, GivesTheNewComponentsWhileAnUndoResets)
+{
+    Design             design;
+    ComponentTreeModel model(*design.document, design.preferences);
+    const std::string  name = design.noseCone->getName();
+    design.document->addUndoPosition("Rename");
+    design.noseCone->setName("Nose");
+    const Uuid             noseCone = design.noseCone->getId();
+    const RocketComponent* old      = design.noseCone;
+    const RocketComponent* answered = nullptr;
+    const RocketComponent* found    = nullptr;
+    QObject::connect(&model, &QAbstractItemModel::modelAboutToBeReset, &model, [&] {
+        answered = model.component(model.indexOf(noseCone));
+        found    = design.rocket().findComponent(noseCone);
+    });
+
+    design.document->undo();
+
+    ASSERT_NE(found, nullptr);
+    EXPECT_NE(found, old);
+    EXPECT_EQ(answered, found);
+    EXPECT_EQ(found->getName(), name);
     EXPECT_THAT(mirrorDifferences(model, design.rocket()), IsEmpty());
 }
 

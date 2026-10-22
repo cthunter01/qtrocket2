@@ -17,20 +17,13 @@
 #include <utility>
 #include <vector>
 
-#include <QApplication>
 #include <QCoreApplication>
-#include <QDragEnterEvent>
-#include <QDragLeaveEvent>
-#include <QDragMoveEvent>
-#include <QDropEvent>
 #include <QMimeData>
 #include <QModelIndex>
 #include <QPoint>
-#include <QPointF>
 #include <QRect>
 #include <QString>
 #include <QStringList>
-#include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
 
@@ -41,7 +34,9 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
+#include "QtRocket/gui/tree/ComponentLimits.h"
 #include "QtRocket/gui/tree/ComponentMimeData.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
@@ -56,6 +51,7 @@
 #include "goldens/GoldenExamples.h"
 #include "tree/ProbeDesign.h"
 #include "tree/TreeEditingSupport.h"
+#include "tree/TreeViewMouse.h"
 
 namespace QtRocket::Gui
 {
@@ -67,14 +63,19 @@ using Names = std::vector<std::string_view>;
 using Test::archiveEntries;
 using Test::decalListOf;
 using Test::decalProbeArchiveEntries;
+using Test::fillAssembliesUpTo;
 using Test::fillUpTo;
 using Test::firstBodyComponentWithDecal;
+using Test::giveDecal;
 using Test::javaBool;
 using Test::linesOf;
+using Test::nestInnerTubes;
 using Test::ProbeDesign;
+using Test::registerImages;
 using Test::savedWithoutWarnings;
 using Test::scenarioName;
 using Test::undoText;
+using Test::ViewDrop;
 using ::testing::IsEmpty;
 
 /// The component tree of a design window: the model, the view and its selection of @p document.
@@ -462,7 +463,8 @@ TEST_F(ComponentDropTest, MapsQtsDropPositions)
     const ComponentDrop::Target onRow   = required(ComponentDrop::target(model, -1, bt1));
     const ComponentDrop::Target atRow   = required(ComponentDrop::target(model, 2, bt1));
     const ComponentDrop::Target blank   = required(ComponentDrop::target(model, -1, QModelIndex()));
-    const auto                  aboveIt = ComponentDrop::target(model, 0, QModelIndex());
+    const ComponentDrop::Target aboveIt = required(ComponentDrop::target(model, 0, QModelIndex()));
+    const ComponentDrop::Target belowIt = required(ComponentDrop::target(model, 1, QModelIndex()));
 
     // On a row: its first child (Java: -1 becomes 0).
     EXPECT_EQ(onRow.parent, &design.find("BT1"));
@@ -471,9 +473,83 @@ TEST_F(ComponentDropTest, MapsQtsDropPositions)
     // Below the rows: the end of the Rocket.
     EXPECT_EQ(blank.parent, &design.rocket());
     EXPECT_EQ(blank.index, 2U);
-    // Above or below the Rocket's row, beyond the children: nowhere.
-    EXPECT_FALSE(aboveIt.has_value());
+    // Above or below the Rocket's row: its first child, as JTree drops anywhere on that row (the
+    // M2 run 2 review's DropLocationProbe).
+    EXPECT_EQ(aboveIt.parent, &design.rocket());
+    EXPECT_EQ(aboveIt.index, 0U);
+    EXPECT_EQ(belowIt.parent, &design.rocket());
+    EXPECT_EQ(belowIt.index, 0U);
+    // Beyond the children, and a row of the invisible root that is not there: nowhere.
+    EXPECT_FALSE(ComponentDrop::target(model, 2, QModelIndex()).has_value());
     EXPECT_FALSE(ComponentDrop::target(model, 4, bt1).has_value());
+}
+
+// Another document's components are copied whatever the action (Java's importData() forces COPY);
+// the view reports the copy to the drag, but the drop does not depend on it.
+TEST_F(ComponentDropTest, CopiesAnotherDocumentsComponentsWhateverTheAction)
+{
+    const ProbeDesign                source(ProbeDesign::Booster::NONE);
+    const ProbeDesign                target;
+    TreeWindow                       sourceWindow(source.document());
+    const std::unique_ptr<QMimeData> data = sourceWindow.drag({&source.find("BT1")});
+    ASSERT_NE(data, nullptr);
+    const ComponentMimeData* drag = ComponentMimeData::fromMimeData(data.get());
+    ASSERT_NE(drag, nullptr);
+
+    EXPECT_EQ(ComponentDrop::operation(target.document(), *drag, Qt::MoveAction),
+              ComponentDrop::Operation::COPY);
+    EXPECT_EQ(ComponentDrop::operation(target.document(), *drag, Qt::CopyAction),
+              ComponentDrop::Operation::COPY);
+    EXPECT_EQ(ComponentDrop::operation(source.document(), *drag, Qt::MoveAction),
+              ComponentDrop::Operation::MOVE);
+    EXPECT_EQ(ComponentDrop::operation(target.document(), *drag, Qt::LinkAction), std::nullopt);
+
+    const ComponentDrop::Outcome outcome = ComponentDrop::drop(
+        target.document(), *drag, Qt::MoveAction, {.parent = &target.find("Booster"), .index = 0});
+
+    EXPECT_TRUE(outcome.dropped);
+    EXPECT_FALSE(outcome.refusal.has_value());
+    EXPECT_EQ(target.tree(),
+              "Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], "
+              "Booster[BT1*[IT*[EB*], CR1*, Fins*], BBT[Side boosters[PBT]]]]");
+    EXPECT_EQ(undoText(target.document()), "undo='Copy component'");
+    EXPECT_EQ(source.tree(), "Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]]]");
+}
+
+// What a drag carries is taken as the tree is at the drop: in its order, and one that has come
+// into another dragged component since goes with it (draggedComponents()).
+TEST_F(ComponentDropTest, DropsWhatIsDraggedAsTheTreeIsAtTheDrop)
+{
+    const ProbeDesign                design;
+    TreeWindow                       window(design.document());
+    const std::unique_ptr<QMimeData> ncBt2 = window.drag({&design.find("NC"), &design.find("BT2")});
+    const std::unique_ptr<QMimeData> bt1Chute =
+        window.drag({&design.find("BT1"), &design.find("Chute")});
+    ASSERT_NE(ncBt2, nullptr);
+    ASSERT_NE(bt1Chute, nullptr);
+    const ComponentMimeData* first  = ComponentMimeData::fromMimeData(ncBt2.get());
+    const ComponentMimeData* second = ComponentMimeData::fromMimeData(bt1Chute.get());
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+
+    // BT2 before NC since the drag.
+    design.find("Sustainer").moveChild(&design.find("BT2"), 0);
+    EXPECT_TRUE(ComponentDrop::drop(design.document(), *first, Qt::MoveAction,
+                                    {.parent = &design.find("Booster"), .index = 0})
+                    .dropped);
+    EXPECT_EQ(design.tree(),
+              "Rocket[Sustainer[BT1[IT[EB], CR1, Fins]], "
+              "Booster[BT2[Chute], NC, BBT[Side boosters[PBT]]]]");
+
+    // The parachute in BT1 since the drag: it goes along with BT1.
+    std::unique_ptr<RocketComponent> chute = design.find("BT2").removeChild(&design.find("Chute"));
+    design.find("BT1").addChild(std::move(chute));
+    EXPECT_TRUE(ComponentDrop::drop(design.document(), *second, Qt::MoveAction,
+                                    {.parent = &design.find("Booster"), .index = 0})
+                    .dropped);
+    EXPECT_EQ(design.tree(),
+              "Rocket[Sustainer, Booster[BT1[IT[EB], CR1, Fins, Chute], BT2, NC, "
+              "BBT[Side boosters[PBT]]]]");
 }
 
 // ================================================================================ through the view
@@ -510,35 +586,11 @@ enum class Part
     return {20, view.visualRect(rows.last()).bottom() + 40};
 }
 
-/// What a drop through the view did.
-struct ViewDrop
-{
-    /// Whether the view accepted the drag over the point (the cursor allows a drop).
-    bool moveAccepted = false;
-    /// The action it proposed there.
-    Qt::DropAction moveAction = Qt::IgnoreAction;
-    /// Whether the drop was accepted (QAbstractItemView: the model dropped).
-    bool dropAccepted = false;
-};
-
-/// A drag of @p data entering @p view's viewport, moving to @p position and dropped there, the keys
-/// @p modifiers held (Shift: a move, Ctrl: a copy; QPlatformDrag's rule, offscreen too); as a
-/// platform delivers the events to a widget.
+/// A drop through @p view (Test::dropAt() on its viewport).
 ViewDrop dropAt(ComponentTreeView& view, const QMimeData& data, QPoint position,
                 Qt::KeyboardModifiers modifiers)
 {
-    QWidget*              viewport = view.viewport();
-    const Qt::DropActions actions  = Qt::CopyAction | Qt::MoveAction;
-    QDragEnterEvent       enter(position, actions, &data, Qt::LeftButton, modifiers);
-    QApplication::sendEvent(viewport, &enter);
-    QDragMoveEvent move(position, actions, &data, Qt::LeftButton, modifiers);
-    QApplication::sendEvent(viewport, &move);
-    ViewDrop result{.moveAccepted = move.isAccepted(), .moveAction = move.dropAction()};
-    // Dropped also where the view refused the drag: the model must refuse it then too.
-    QDropEvent drop(QPointF(position), actions, &data, Qt::LeftButton, modifiers);
-    QApplication::sendEvent(viewport, &drop);
-    result.dropAccepted = drop.isAccepted();
-    return result;
+    return Test::dropAt(*view.viewport(), data, position, modifiers);
 }
 
 /// The fixture of the drops through a view of the probes' design.
@@ -607,6 +659,7 @@ TEST_F(ComponentDropViewTest, DropsOnTheMiddleOfARowAsItsFirstChild)
     EXPECT_TRUE(drop.moveAccepted);
     EXPECT_EQ(drop.moveAction, Qt::MoveAction);
     EXPECT_TRUE(drop.dropAccepted);
+    EXPECT_EQ(drop.dropAction, Qt::MoveAction);
     EXPECT_EQ(tree(),
               "Rocket[Sustainer[BT2[Chute], NC, BT1[IT[EB], CR1, Fins]], "
               "Booster[BBT[Side boosters[PBT]]]]");
@@ -663,19 +716,27 @@ TEST_F(ComponentDropViewTest, DropsBelowTheRowsAtTheEndOfTheRocket)
               "Fins], BT2[Chute]]]");
 }
 
-TEST_F(ComponentDropViewTest, DropsNothingAboveOrBelowTheRocketsRow)
+// The M2 run 2 review's DropLocationProbe (JTree.dropLocationForPoint() and the handler's
+// convertDropLocation() on the probes' design): "Rocket y0-13 -> (Rocket,0); y14-19 ->
+// (Rocket,0)", the Rocket's first child anywhere on its row, also in Qt's margins of that row.
+TEST_F(ComponentDropViewTest, DropsAboveOrBelowTheRocketsRowAsItsFirstChild)
 {
-    const std::string before = tree();
-
     const ViewDrop above = dragAndDrop({"Booster"}, "Rocket", Part::TOP);
-    const ViewDrop under = dragAndDrop({"Booster"}, "Rocket", Part::BOTTOM);
 
-    EXPECT_FALSE(above.moveAccepted);
-    EXPECT_FALSE(above.dropAccepted);
-    EXPECT_FALSE(under.moveAccepted);
-    EXPECT_FALSE(under.dropAccepted);
-    EXPECT_EQ(tree(), before);
-    EXPECT_EQ(undoText(m_design.document()), "undo='null'");
+    EXPECT_TRUE(above.moveAccepted);
+    EXPECT_TRUE(above.dropAccepted);
+    EXPECT_EQ(tree(),
+              "Rocket[Booster[BBT[Side boosters[PBT]]], Sustainer[NC, BT1[IT[EB], CR1, Fins], "
+              "BT2[Chute]]]");
+
+    const ViewDrop under = dragAndDrop({"Sustainer"}, "Rocket", Part::BOTTOM);
+
+    EXPECT_TRUE(under.moveAccepted);
+    EXPECT_TRUE(under.dropAccepted);
+    EXPECT_EQ(tree(),
+              "Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], "
+              "Booster[BBT[Side boosters[PBT]]]]");
+    EXPECT_EQ(undoText(m_design.document()), "undo='Move component'");
 }
 
 // DndProbe "copy [BT1] to (Sustainer, 1)", with the key of a copy.
@@ -685,6 +746,7 @@ TEST_F(ComponentDropViewTest, CopiesWithControl)
 
     EXPECT_EQ(drop.moveAction, Qt::CopyAction);
     EXPECT_TRUE(drop.dropAccepted);
+    EXPECT_EQ(drop.dropAction, Qt::CopyAction);
     EXPECT_EQ(tree(),
               "Rocket[Sustainer[NC, BT1*[IT*[EB*], CR1*, Fins*], "
               "BT1[IT[EB], CR1, Fins], "
@@ -740,7 +802,8 @@ TEST_F(ComponentDropViewTest, AMoveIsOneUndoStep)
 // ================================================================================ another document
 
 // A drag from another window: always a copy (the view proposes the copy action whatever the keys,
-// as Java's canImportTarget() changes the action), the source unchanged.
+// as Java's canImportTarget() changes the action, and tells the drag it copied, as importData()
+// does), the source unchanged.
 TEST_F(ComponentDropViewTest, CopiesFromAnotherDocument)
 {
     const ProbeDesign                source(ProbeDesign::Booster::NONE);
@@ -755,6 +818,8 @@ TEST_F(ComponentDropViewTest, CopiesFromAnotherDocument)
     EXPECT_TRUE(drop.moveAccepted);
     EXPECT_EQ(drop.moveAction, Qt::CopyAction);
     EXPECT_TRUE(drop.dropAccepted);
+    // Shift held: the drag proposed a move, and is told of a copy.
+    EXPECT_EQ(drop.dropAction, Qt::CopyAction);
     EXPECT_EQ(tree(),
               "Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], "
               "Booster[BT1*[IT*[EB*], CR1*, Fins*], BBT[Side boosters[PBT]]]]");
@@ -785,6 +850,112 @@ TEST_F(ComponentDropViewTest, RefusesACopyBeyondTheComponentBoundWithAMessage)
                            QStringLiteral("The rocket would have 1001 components. QtRocket opens "
                                           "at most 1000 components of a design and would ignore "
                                           "the ones beyond when it opens this design again.")}));
+}
+
+// The bounds the M2 run 2 review added to decision O27 (ComponentLimits): the stages, booster sets
+// and pod sets of the rocket (DocumentConfig::kMaxAssemblies) ...
+TEST_F(ComponentDropViewTest, RefusesACopyBeyondTheAssemblyBoundWithAMessage)
+{
+    fillAssembliesUpTo(m_design.rocket(), DocumentConfig::kMaxAssemblies);
+    m_design.document().addUndoPosition("Rename");
+    const std::size_t components = DocumentConfig::componentCount(m_design.rocket());
+
+    // The Booster holds a booster set: two more.
+    const ViewDrop drop = dragAndDrop({"Booster"}, "Sustainer", Part::TOP, Qt::ControlModifier);
+
+    EXPECT_TRUE(drop.moveAccepted);
+    EXPECT_FALSE(drop.dropAccepted);
+    EXPECT_EQ(DocumentConfig::assemblyCount(m_design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(DocumentConfig::componentCount(m_design.rocket()), components);
+    QCoreApplication::processEvents();
+    ASSERT_EQ(m_prompts.prompts().size(), 1U);
+    EXPECT_EQ(m_prompts.prompts()[0].title, QStringLiteral("Copy component"));
+    EXPECT_EQ(
+        m_prompts.prompts()[0].texts,
+        QStringList({QStringLiteral("WARNING"),
+                     QStringLiteral("The rocket would have 102 stages, booster sets and pod "
+                                    "sets. QtRocket opens at most 100 of them in a design and "
+                                    "would ignore the ones beyond, with everything in them, "
+                                    "when it opens this design again.")}));
+    m_design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(m_design.document()), "undo='Rename'");
+}
+
+// ... and how deep a component stands below the Rocket (ComponentHandler::kMaxDepth), which a move
+// can exceed too: refused before anything moves. (Through the model's drop, as the view calls it:
+// the deepest rows stand far to the right of the view.)
+TEST_F(ComponentDropViewTest, RefusesAMoveBeyondTheDepthBoundWithAMessage)
+{
+    // BT2 stands at level 2: inner tubes down to level 99.
+    const RocketComponent& innermost =
+        nestInnerTubes(m_design.rocket(), m_design.find("BT2"), ComponentHandler::kMaxDepth - 3);
+    ASSERT_EQ(ComponentLimits::levelOf(innermost), 99U);
+    m_design.document().addUndoPosition("Rename");
+    const std::string                before = tree();
+    ComponentTreeModel&              model  = m_window->model();
+    const std::unique_ptr<QMimeData> data   = m_window->drag({&m_design.find("IT")});
+    ASSERT_NE(data, nullptr);
+
+    // IT holds EB, which would stand at level 101.
+    EXPECT_TRUE(model.canDropMimeData(data.get(), Qt::MoveAction, -1, 0, model.indexOf(innermost)));
+    EXPECT_FALSE(model.dropMimeData(data.get(), Qt::MoveAction, -1, 0, model.indexOf(innermost)));
+
+    EXPECT_EQ(tree(), before);
+    EXPECT_THAT(m_prompts.prompts(), IsEmpty());
+    QCoreApplication::processEvents();
+    ASSERT_EQ(m_prompts.prompts().size(), 1U);
+    EXPECT_EQ(m_prompts.prompts()[0].title, QStringLiteral("Move component"));
+    EXPECT_EQ(m_prompts.prompts()[0].texts,
+              QStringList({QStringLiteral("WARNING"),
+                           QStringLiteral("Components would stand 101 levels below the rocket. "
+                                          "QtRocket opens components at most 100 levels deep and "
+                                          "would ignore the deeper ones, with everything in them, "
+                                          "when it opens this design again.")}));
+    m_design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(m_design.document()), "undo='Rename'");
+
+    // One level up, EB stands at level 100.
+    const QModelIndex above = model.indexOf(*innermost.getParent());
+    EXPECT_TRUE(model.dropMimeData(data.get(), Qt::MoveAction, -1, 0, above));
+    EXPECT_EQ(ComponentLimits::levelOf(m_design.find("EB")), 100U);
+    EXPECT_EQ(undoText(m_design.document()), "undo='Move component'");
+}
+
+// Decision O27's decal images: a copy that would give the design more images than QtRocket loads
+// is refused with a message once the drop is over.
+TEST_F(ComponentDropViewTest, RefusesACopyBeyondTheDecalImageBoundWithAMessage)
+{
+    const ProbeDesign source(ProbeDesign::Booster::NONE);
+    giveDecal(source.document(), source.find("NC"), "decals/nose.png");
+    giveDecal(source.document(), source.find("BT2"), "decals/tube.png");
+    TreeWindow                       sourceWindow(source.document());
+    const std::unique_ptr<QMimeData> data =
+        sourceWindow.drag({&source.find("NC"), &source.find("BT2")});
+    ASSERT_NE(data, nullptr);
+    registerImages(m_design.document(), DocumentConfig::kMaxDecalImages - 1);
+    m_design.document().addUndoPosition("Rename");
+    const std::string before = tree();
+
+    const ViewDrop drop =
+        dropAt(m_window->view(), *data, pointIn(m_window->view(), row("Sustainer"), Part::MIDDLE),
+               Qt::ShiftModifier);
+
+    EXPECT_TRUE(drop.moveAccepted);
+    EXPECT_FALSE(drop.dropAccepted);
+    EXPECT_EQ(tree(), before);
+    EXPECT_EQ(m_design.document().getDecalImageCount(), DocumentConfig::kMaxDecalImages - 1);
+    EXPECT_THAT(m_prompts.prompts(), IsEmpty());
+    QCoreApplication::processEvents();
+    ASSERT_EQ(m_prompts.prompts().size(), 1U);
+    EXPECT_EQ(m_prompts.prompts()[0].title, QStringLiteral("Copy components"));
+    EXPECT_EQ(m_prompts.prompts()[0].texts,
+              QStringList({QStringLiteral("WARNING"),
+                           QStringLiteral("The design would have 1001 decal images. QtRocket "
+                                          "opens at most 1000 decal images of a design and would "
+                                          "ignore the decals of the ones beyond when it opens "
+                                          "this design again.")}));
+    m_design.find("NC").setName("Nose");
+    EXPECT_EQ(undoText(m_design.document()), "undo='Rename'");
 }
 
 // A move adds nothing: no bound.

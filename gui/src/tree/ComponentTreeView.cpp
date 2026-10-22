@@ -80,7 +80,7 @@ ComponentTreeView::ComponentTreeView(ComponentTreeModel& model, QWidget* parent)
   : QTreeView(parent), m_model(&model)
 {
     setObjectName(QStringLiteral("componentTree"));
-    // BasicTree: no handle on the Rocket, 15 pixels of indentation, no toggle on double-click.
+    // BasicTree: no handle on the Rocket, 26 pixels of indentation, no toggle on double-click.
     setHeaderHidden(true);
     setRootIsDecorated(false);
     setIndentation(kIndentation);
@@ -319,12 +319,16 @@ void ComponentTreeView::dragMoveEvent(QDragMoveEvent* event)
 
 void ComponentTreeView::dropEvent(QDropEvent* event)
 {
-    if (isForeignDrag(*event))
-    {
-        // Not accepted: QAbstractItemView drops only an event that is not accepted yet.
-        event->setDropAction(Qt::CopyAction);
-    }
+    // The drop first (an event accepted before would not be dropped); the model copies another
+    // document's components whatever the action (ComponentDrop::operation()). Then the drag is
+    // told so: QAbstractItemView accepts the proposed action, which for a plain drag is a move
+    // (importData()'s forced COPY).
     QTreeView::dropEvent(event);
+    if (event->isAccepted() && isForeignDrag(*event))
+    {
+        event->setDropAction(Qt::CopyAction);
+        event->accept();
+    }
 }
 
 bool ComponentTreeView::isForeignDrag(const QDropEvent& event) const

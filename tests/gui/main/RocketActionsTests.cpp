@@ -11,11 +11,13 @@
 #include "QtRocket/gui/main/RocketActions.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -600,6 +602,576 @@ std::string makerTestName(const ::testing::TestParamInfo<QtRocket::Test::TestRoc
 
 INSTANTIATE_TEST_SUITE_P(Makers, RocketActionsTestRocket,
                          ::testing::ValuesIn(QtRocket::Test::testRocketMakers()), makerTestName);
+
+/// A transcript of ActionsRulesProbe (Milestone 2 run 2, the fixer of group T, for the review's
+/// finding that the rules above are QtRocket's own: OpenRocket 5f164fd0e run headless with JDK 17,
+/// RocketActions' inner actions as in the scouting's ActionsProbe, each action's clipboardChanged()
+/// asked, the clipboard empty) for one of OpenRocket's test rockets: the components in pre-order
+/// with their indexes (0 the Rocket; the last one hidden first, "(hidden)"), then for nothing
+/// selected, each component alone and each with the one before it (the component first), the
+/// selection as indexes and the enabled states, 1 or 0, of Edit, Cut, Copy, Paste, Duplicate,
+/// Delete, Deselect all, Move up, Move down, Hide/Show (the menu's), Hide/Show (the popup's) and
+/// Show all. (The probe's simulation panel is null: a rule whose component part is false and that
+/// then asks it throws there; that state is the component part, false, as the design window's
+/// is with no simulation selected.)
+struct RulesTranscript
+{
+    std::string_view method;
+    std::string_view transcript;
+};
+
+/// ActionsRulesProbe.out, maker by maker.
+[[nodiscard]] std::span<const RulesTranscript> rulesTranscripts()
+{
+    static constexpr std::array<RulesTranscript, 13> kTranscripts{{
+        {.method     = "makeEstesAlphaIII",
+         .transcript = R"(0 Estes Alpha III / Code Verification Rocket
+1 Stage
+2 Nose Cone
+3 Body Tube
+4 3 Fin Set
+5 Launch Lugs
+6 Motor Mount Tube
+7 Engine Block
+8 Parachute
+9 Centering Rings (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011111111
+[6, 5] 111011111111
+[7] 111011100111
+[7, 6] 111011111111
+[8] 111011111111
+[8, 7] 111011100111
+[9] 111011110111
+[9, 8] 111011110111
+[] 000000000001)"},
+        {.method = "makeBeta", .transcript = R"(0 Kit-bash Beta
+1 Sustainer Stage
+2 Nose Cone
+3 Sustainer Body Tube
+4 3 Fin Set
+5 Launch Lugs
+6 Motor Mount Tube
+7 Engine Block
+8 Parachute
+9 Centering Rings
+10 Booster Stage
+11 Booster Body
+12 Coupler
+13 Booster Fins
+14 Booster MMT
+15 Launch Lugs
+16 Booster Tail Cone (hidden)
+[0] 100000100111
+[1] 111011101111
+[1, 0] 101011100111
+[2] 111011101111
+[2, 1] 111011101111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011111111
+[6, 5] 111011111111
+[7] 111011100111
+[7, 6] 111011111111
+[8] 111011111111
+[8, 7] 111011100111
+[9] 111011110111
+[9, 8] 111011110111
+[10] 111011110111
+[10, 9] 111011110111
+[11] 111011101111
+[11, 10] 111011110111
+[12] 111011101111
+[12, 11] 111011101111
+[13] 111011111111
+[13, 12] 111011101111
+[14] 111011111111
+[14, 13] 111011111111
+[15] 111011110111
+[15, 14] 111011110111
+[16] 111011110111
+[16, 15] 111011110111
+[] 000000000001)"},
+        {.method = "makeSimple2Stage", .transcript = R"(0 Simple 2-Stage Rocket
+1 Sustainer Stage
+2 Sustainer Body Tube
+3 Booster Stage
+4 Booster Body Tube (hidden)
+[0] 100000100111
+[1] 111011101111
+[1, 0] 101011100111
+[2] 111011100111
+[2, 1] 111011101111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011100111
+[4, 3] 111011110111
+[] 000000000001)"},
+        {.method = "makeBigBlue", .transcript = R"(0 Rocket
+1 Stage1
+2 Nose Cone
+3 Body Tube
+4 Freeform Fin Set
+5 Mass Component (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011110111
+[5, 4] 111011100111
+[] 000000000001)"},
+        {.method = "makeIsoHaisu", .transcript = R"(0 Rocket
+1 Stage1
+2 Nose Cone
+3 Body Tube
+4 Launch Lug
+5 Tube Coupler
+6 Mass Component
+7 Mass Component
+8 Mass Component
+9 CONTROL
+10 Body Tube
+11 Tube Coupler
+12 Mass Component
+13 Bulkhead
+14 Mass Component
+15 Body Tube
+16 Inner Tube
+17 Centering Ring
+18 Centering Ring
+19 Centering Ring
+20 Trapezoidal Fin Set (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011111111
+[3, 2] 111011101111
+[4] 111011101111
+[4, 3] 111011111111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011111111
+[6, 5] 111011111111
+[7] 111011111111
+[7, 6] 111011111111
+[8] 111011111111
+[8, 7] 111011111111
+[9] 111011110111
+[9, 8] 111011110111
+[10] 111011111111
+[10, 9] 111011110111
+[11] 111011101111
+[11, 10] 111011111111
+[12] 111011111111
+[12, 11] 111011101111
+[13] 111011111111
+[13, 12] 111011111111
+[14] 111011110111
+[14, 13] 111011110111
+[15] 111011110111
+[15, 14] 111011110111
+[16] 111011101111
+[16, 15] 111011110111
+[17] 111011111111
+[17, 16] 111011101111
+[18] 111011111111
+[18, 17] 111011111111
+[19] 111011111111
+[19, 18] 111011111111
+[20] 111011110111
+[20, 19] 111011110111
+[] 000000000001)"},
+        {.method = "makeFalcon9Heavy", .transcript = R"(0 Falcon9H Scale Rocket
+1 Payload Fairing Stage
+2 PL Fairing Nose
+3 PL Fairing Body
+4 PL Fairing Transition
+5 Upper Stage Body
+6 Parachute
+7 Shock Cord
+8 Interstage
+9 Core Stage
+10 Core Stage Body
+11 Booster Stage
+12 Booster Nose
+13 Booster Body
+14 Booster Motor Tubes
+15 Booster Fins (hidden)
+[0] 100000100111
+[1] 111011101111
+[1, 0] 101011100111
+[2] 111011101111
+[2, 1] 111011101111
+[3] 111011111111
+[3, 2] 111011101111
+[4] 111011111111
+[4, 3] 111011111111
+[5] 111011111111
+[5, 4] 111011111111
+[6] 111011101111
+[6, 5] 111011111111
+[7] 111011110111
+[7, 6] 111011100111
+[8] 111011110111
+[8, 7] 111011110111
+[9] 111011110111
+[9, 8] 111011110111
+[10] 111011100111
+[10, 9] 111011110111
+[11] 111011100111
+[11, 10] 111011100111
+[12] 111011101111
+[12, 11] 111011100111
+[13] 111011110111
+[13, 12] 111011100111
+[14] 111011101111
+[14, 13] 111011110111
+[15] 111011110111
+[15, 14] 111011100111
+[] 000000000001)"},
+        {.method = "makeMultiStageEventTestRocket", .transcript = R"(0 Rocket
+1 Sustainer
+2 Sustainer Nose Cone
+3 Sustainer Body Tube
+4 Sustainer Parachute
+5 Center Booster
+6 Center Booster Body Tube
+7 Center Booster Fin Set
+8 Side boosters
+9 Side Booster Nose Cones
+10 Side Booster Body Tubes
+11 Side Chutes (hidden)
+[0] 100000100111
+[1] 111011101111
+[1, 0] 101011100111
+[2] 111011101111
+[2, 1] 111011101111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011100111
+[4, 3] 111011110111
+[5] 111011110111
+[5, 4] 111011100111
+[6] 111011100111
+[6, 5] 111011110111
+[7] 111011101111
+[7, 6] 111011100111
+[8] 111011110111
+[8, 7] 111011100111
+[9] 111011101111
+[9, 8] 111011110111
+[10] 111011110111
+[10, 9] 111011100111
+[11] 111011100111
+[11, 10] 111011110111
+[] 000000000001)"},
+        {.method = "makeEndPlateRocket", .transcript = R"(0 End Plate Test
+1 Sustainer
+2 Nose Cone
+3 Body tube
+4 Body Tube FinSet
+5 Pod Set
+6 Phantom
+7 End plates (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011110111
+[5, 4] 111011100111
+[6] 111011100111
+[6, 5] 111011110111
+[7] 111011100111
+[7, 6] 111011100111
+[] 000000000001)"},
+        {.method     = "makeEstesAlphaIIIWithPods",
+         .transcript = R"(0 Estes Alpha III / Code Verification Rocket
+1 Stage
+2 Nose Cone
+3 Body Tube
+4 Launch Lugs
+5 Motor Mount Tube
+6 Engine Block
+7 Parachute
+8 Centering Rings
+9 Pod Set
+10 Pod Body
+11 3 Fin Set (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011100111
+[6, 5] 111011111111
+[7] 111011111111
+[7, 6] 111011100111
+[8] 111011111111
+[8, 7] 111011111111
+[9] 111011110111
+[9, 8] 111011110111
+[10] 111011100111
+[10, 9] 111011110111
+[11] 111011100111
+[11, 10] 111011100111
+[] 000000000001)"},
+        {.method = "makeEstesAlphaIIIWithMotorPods", .transcript = R"(0 Alpha III with motor pods
+1 Stage
+2 Nose Cone
+3 Body Tube
+4 3 Fin Set
+5 Launch Lugs
+6 Motor Mount Tube
+7 Engine Block
+8 Parachute
+9 Centering Rings
+10 Motor Pods
+11 Pod Body Tube
+12 Pod Motor Mount (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011111111
+[6, 5] 111011111111
+[7] 111011100111
+[7, 6] 111011111111
+[8] 111011111111
+[8, 7] 111011100111
+[9] 111011111111
+[9, 8] 111011111111
+[10] 111011110111
+[10, 9] 111011110111
+[11] 111011100111
+[11, 10] 111011110111
+[12] 111011100111
+[12, 11] 111011100111
+[] 000000000001)"},
+        {.method     = "makeEstesAlphaIIIWithSecondMotor",
+         .transcript = R"(0 Alpha III with a second motor
+1 Stage
+2 Nose Cone
+3 Body Tube
+4 3 Fin Set
+5 Launch Lugs
+6 Motor Mount Tube
+7 Engine Block
+8 Parachute
+9 Centering Rings
+10 Second Motor Mount Tube (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011101111
+[4, 3] 111011110111
+[5] 111011111111
+[5, 4] 111011101111
+[6] 111011111111
+[6, 5] 111011111111
+[7] 111011100111
+[7, 6] 111011111111
+[8] 111011111111
+[8, 7] 111011100111
+[9] 111011111111
+[9, 8] 111011111111
+[10] 111011110111
+[10, 9] 111011110111
+[] 000000000001)"},
+        {.method     = "makeEstesAlphaIIIwithInlinePod",
+         .transcript = R"(0 Estes Alpha III / Code Verification Rocket
+1 Stage
+2 Nose Cone
+3 Front Body Tube
+4 Pod Set
+5 Middle Body Tube
+6 Aft body tube
+7 3 Fin Set
+8 Launch Lugs
+9 Motor Mount Tube
+10 Engine Block
+11 Parachute
+12 Centering Rings (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011101111
+[2, 1] 101011100111
+[3] 111011110111
+[3, 2] 111011100111
+[4] 111011100111
+[4, 3] 111011110111
+[5] 111011101111
+[5, 4] 111011100111
+[6] 111011110111
+[6, 5] 111011100111
+[7] 111011101111
+[7, 6] 111011110111
+[8] 111011111111
+[8, 7] 111011101111
+[9] 111011111111
+[9, 8] 111011111111
+[10] 111011100111
+[10, 9] 111011111111
+[11] 111011111111
+[11, 10] 111011100111
+[12] 111011110111
+[12, 11] 111011110111
+[] 000000000001)"},
+        {.method = "makeClusterPods", .transcript = R"(0 Rocket
+1 Sustainer
+2 Sustainer Body Tube
+3 Inner Tube
+4 Booster Set
+5 Side Booster Body Tubes
+6 Inner Tube (hidden)
+[0] 100000100111
+[1] 101010100111
+[1, 0] 101010100111
+[2] 111011100111
+[2, 1] 101011100111
+[3] 111011101111
+[3, 2] 111011100111
+[4] 111011110111
+[4, 3] 111011100111
+[5] 111011100111
+[5, 4] 111011110111
+[6] 111011100111
+[6, 5] 111011100111
+[] 000000000001)"},
+
+    }};
+    return kTranscripts;
+}
+
+/// The enabled states of @p window's actions as ActionsRulesProbe prints them.
+[[nodiscard]] std::string enabledStates(const Window& window)
+{
+    const RocketActions&                 actions = window.actions();
+    const std::array<const QAction*, 12> inProbeOrder{actions.editAction(),
+                                                      actions.cutAction(),
+                                                      actions.copyAction(),
+                                                      actions.pasteAction(),
+                                                      actions.duplicateAction(),
+                                                      actions.deleteAction(),
+                                                      actions.deselectAllAction(),
+                                                      actions.moveUpAction(),
+                                                      actions.moveDownAction(),
+                                                      actions.toggleVisibilityAction(),
+                                                      actions.toggleVisibilityContextMenuAction(),
+                                                      actions.showAllComponentsAction()};
+    std::string                          states;
+    for (const QAction* action : inProbeOrder)
+    {
+        states += action->isEnabled() ? '1' : '0';
+    }
+    return states;
+}
+
+/// The line of ActionsRulesProbe for @p window with the components @p indexes of @p components
+/// selected, in this order.
+[[nodiscard]] std::string rulesLine(const Window&                        window,
+                                    const std::vector<RocketComponent*>& components,
+                                    const std::vector<std::size_t>&      indexes)
+{
+    std::vector<RocketComponent*> selected;
+    std::string                   line = "[";
+    for (const std::size_t index : indexes)
+    {
+        selected.push_back(components.at(index));
+        line += (selected.size() > 1 ? ", " : "") + std::to_string(index);
+    }
+    window.selection().setSelectedComponents(selected);
+    return line + "] " + enabledStates(window);
+}
+
+/// ActionsRulesProbe's transcript of @p window's rocket.
+[[nodiscard]] Lines rulesTranscriptOf(const Window& window)
+{
+    const std::vector<RocketComponent*> components = preOrder(window.rocket());
+    components.back()->setVisible(false);
+    Lines lines;
+    for (std::size_t i = 0; i < components.size(); ++i)
+    {
+        lines.push_back(std::to_string(i) + " " + components[i]->getName() +
+                        (components[i]->isVisible() ? "" : " (hidden)"));
+    }
+    for (std::size_t i = 0; i < components.size(); ++i)
+    {
+        lines.push_back(rulesLine(window, components, {i}));
+        if (i > 0)
+        {
+            lines.push_back(rulesLine(window, components, {i, i - 1}));
+        }
+    }
+    lines.push_back(rulesLine(window, components, {}));
+    return lines;
+}
+
+/// The transcript of the maker @p method; a failure and an empty one when there is none.
+[[nodiscard]] std::string_view rulesTranscriptFor(std::string_view method)
+{
+    for (const RulesTranscript& transcript : rulesTranscripts())
+    {
+        if (transcript.method == method)
+        {
+            return transcript.transcript;
+        }
+    }
+    ADD_FAILURE() << "no transcript of " << method;
+    return {};
+}
+
+TEST_P(RocketActionsTestRocket, AreEnabledAsInOpenRocketsTranscript)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createDocumentFromRocket(GetParam().make());
+    const Window window(*document);
+    const Lines  expected = linesOf(rulesTranscriptFor(GetParam().method));
+    EXPECT_EQ(lineDifferences(rulesTranscriptOf(window), expected), Lines{});
+}
 
 TEST_F(RocketActionsTest, AreEvaluatedAgainWhenTheSelectionChanges)
 {

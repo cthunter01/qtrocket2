@@ -38,9 +38,10 @@ class ComponentTreeModel;
 /// mouse handling of DesignPanel and the state that ComponentTreeModel keeps across a change of
 /// the tree): a QTreeView of a ComponentTreeModel drawn by a ComponentTreeDelegate.
 ///
-/// - BasicTree's look: the Rocket's row without an expand handle (showsRootHandles false), 15
-///   pixels of indentation, a double-click that does not expand or collapse (toggleClickCount
-///   0); no header, one column; several rows selectable at once (DISCONTIGUOUS_TREE_SELECTION).
+/// - BasicTree's look: the Rocket's row without an expand handle (showsRootHandles false), 26
+///   pixels of indentation per level (kIndentation), a double-click that does not expand or
+///   collapse (toggleClickCount 0); no header, one column; several rows selectable at once
+///   (DISCONTIGUOUS_TREE_SELECTION).
 ///   The whole tree is expanded at creation (expandTree()).
 /// - Childless rows: whenever rows become visible (a change of the tree, an expansion), every
 ///   visible row that allows children but has none is expanded (BasicTree.treeDidChange()'s
@@ -69,7 +70,8 @@ class ComponentTreeModel;
 ///   the model to remove the moved rows, which the drop moved already). A collapsed row hovered
 ///   for 2 seconds during a drag expands (JTree's 2000 ms timer).
 /// - Dropping: the model's rules (ComponentDrop); a drag of another document's components is
-///   always a copy, so the view proposes the copy action for it (Java's canImportTarget()).
+///   always a copy, so the view proposes the copy action for it and reports a copy to the drag
+///   once it is dropped (Java's canImportTarget() and importData()).
 ///
 /// THE STATE ACROSS A CHANGE OF THE TREE. The model answers every change event of the rocket
 /// with the TREE or the UNDO bit with a model reset (ComponentTreeModel), after which a QTreeView
@@ -106,8 +108,11 @@ class ComponentTreeView final : public QTreeView
     Q_OBJECT
 
 public:
-    /// BasicTreeUI.setLeftChildIndent(15).
-    static constexpr int kIndentation = 15;
+    /// The indentation of a level: BasicTreeUI's totalChildIndent, leftChildIndent 15
+    /// (BasicTree's setLeftChildIndent(15)) + rightChildIndent 11 (FlatLaf's
+    /// Tree.rightChildIndent, OpenRocket's look) = 26 pixels per level, as OpenRocket's rows
+    /// stand (the M2 run 2 review's TreeIndentProbe: x 0, 26, 52, 78, 104 for the depths 0 to 4).
+    static constexpr int kIndentation = 26;
     /// How long a collapsed row is hovered during a drag before it expands (JTree's TreeTimer).
     static constexpr int kAutoExpandDelay = 2000;
 
@@ -165,7 +170,8 @@ protected:
     void startDrag(Qt::DropActions supportedActions) override;
     /// QTreeView's, then the copy action for another document's components (ComponentDrop).
     void dragMoveEvent(QDragMoveEvent* event) override;
-    /// QTreeView's with the copy action for another document's components.
+    /// QTreeView's, then the copy action reported for another document's components once they
+    /// are dropped (the model copies them whatever the action).
     void dropEvent(QDropEvent* event) override;
     /// The rows from the top of @p rect to its bottom (a range selected with Shift, or by
     /// dragging over rows), in their order from the top, as JTree's getPathBetweenRows() gives

@@ -306,7 +306,7 @@ bool ComponentEditing::paste()
     ComponentCopy    pasted      = m_clipboard->components().copy();
     // Every position before anything goes in (getPastePositions()).
     std::vector<ComponentCopy::Placement> placements;
-    std::size_t                           newComponents = 0;
+    ComponentLimits::Addition             addition;
     for (std::size_t i = 0; i < pasted.size(); ++i)
     {
         const std::optional<PastePosition> position =
@@ -315,7 +315,7 @@ bool ComponentEditing::paste()
         {
             placements.push_back(
                 {.component = i, .parent = position->parent, .index = position->index});
-            newComponents += ComponentLimits::treeSize(pasted.getComponent(i));
+            addition += ComponentLimits::placing(pasted.getComponent(i), *position->parent);
         }
     }
     if (placements.empty())
@@ -330,7 +330,8 @@ bool ComponentEditing::paste()
                                     ? tr("Paste %1").arg(nameOf(pasted.getComponent(0)))
                                     //: Hard-coded English in OpenRocket
                                     : tr("Paste components");
-    if (!fits(newComponents, pasted.countNewDecalImages(document(), placements), description))
+    addition.decalImages      = pasted.countNewDecalImages(document(), placements);
+    if (!fits(addition, description))
     {
         return false;
     }
@@ -373,14 +374,16 @@ bool ComponentEditing::duplicate()
     // first (Java reverses both lists), so that the duplicates of one parent keep their order.
     Rocket&                               rocket = document().getRocket();
     std::vector<ComponentCopy::Placement> placements;
-    std::size_t                           newComponents = 0;
+    ComponentLimits::Addition             addition;
     for (std::size_t k = tops.size(); k-- > 0;)
     {
         RocketComponent* parent = rocket.findComponent(tops[k]->getParent()->getId());
         placements.push_back({.component = k, .parent = parent, .index = parent->getChildCount()});
-        newComponents += ComponentLimits::treeSize(*tops[k]);
+        // The copy, which holds what was selected of the original's children (the copy rule).
+        addition += ComponentLimits::placing(duplicates.getComponent(k), *parent);
     }
-    if (!fits(newComponents, duplicates.countNewDecalImages(document(), placements), description))
+    addition.decalImages = duplicates.countNewDecalImages(document(), placements);
+    if (!fits(addition, description))
     {
         return false;
     }
@@ -594,11 +597,10 @@ std::optional<ComponentCopy> ComponentEditing::copyOf(
     return std::move(*copied);
 }
 
-bool ComponentEditing::fits(std::size_t newComponents, std::size_t newDecalImages,
-                            const QString& title) const
+bool ComponentEditing::fits(const ComponentLimits::Addition& addition, const QString& title) const
 {
     const std::optional<UserPrompts::Message> refusal =
-        ComponentLimits::refusal(document(), newComponents, newDecalImages, title);
+        ComponentLimits::refusal(document(), addition, title);
     if (refusal.has_value())
     {
         m_prompts->showMessage(m_dialogParent.data(), *refusal);

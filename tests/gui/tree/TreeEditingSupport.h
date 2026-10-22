@@ -1,9 +1,9 @@
 #pragma once
 
 // What the tests of the component tree's editing share (the drops of ComponentDropTests.cpp, the
-// actions of main/ComponentEditingTests.cpp): the texts of the Java probes' transcripts
-// (tree/ProbeDesign.h), a rocket filled up to a bound, and a design carried into another one with
-// its decal images, saved and loaded again (the M2 scout's decal probe).
+// actions of main/ComponentEditingTests.cpp, the add buttons): the texts of the Java probes'
+// transcripts (tree/ProbeDesign.h), a rocket filled up to a bound, decals, and a design carried
+// into another one with its decal images, saved and loaded again (the M2 scout's decal probe).
 
 #include <cstddef>
 #include <string>
@@ -11,6 +11,8 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#include "QtRocket/rocket/Appearance.h"
 
 namespace QtRocket
 {
@@ -52,6 +54,23 @@ template <class Scenario>
 /// Adds mass components to @p parent, a component of @p rocket, until the rocket has @p count
 /// components (DocumentConfig::componentCount()), within one freeze.
 void fillUpTo(Rocket& rocket, RocketComponent& parent, std::size_t count);
+
+/// Adds empty stages ("Stage") to the end of @p rocket until it has @p count stages, booster sets
+/// and pod sets (DocumentConfig::assemblyCount()), within one freeze.
+void fillAssembliesUpTo(Rocket& rocket, std::size_t count);
+
+/// Puts a chain of @p count inner tubes into @p parent, a component of @p rocket, each in the one
+/// before, within one freeze; the innermost (@p parent for none).
+RocketComponent& nestInnerTubes(Rocket& rocket, RocketComponent& parent, std::size_t count);
+
+/// An appearance with a decal of the image named @p image.
+[[nodiscard]] Appearance decalAppearance(const std::string& image);
+
+/// Registers @p count images of their own in @p document ("decals/fill<k>.png").
+void registerImages(OpenRocketDocument& document, std::size_t count);
+
+/// Gives @p component of @p document a decal of a new image named @p name.
+void giveDecal(OpenRocketDocument& document, RocketComponent& component, const std::string& name);
 
 /// The names of @p document's decal list, in its order.
 [[nodiscard]] std::vector<std::string> decalListOf(const OpenRocketDocument& document);

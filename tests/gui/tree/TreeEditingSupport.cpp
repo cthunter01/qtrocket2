@@ -17,17 +17,24 @@
 #include "QtRocket/file/ZipArchive.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/rocket/Appearance.h"
+#include "QtRocket/rocket/AxialStage.h"
 #include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/Decal.h"
+#include "QtRocket/rocket/InnerTube.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/Color.h"
+#include "QtRocket/util/Coordinate.h"
 #include "QtRocket/util/Error.h"
+#include "document/TestAttachments.h"
 #include "file/DesignFileEnvironment.h"
 #include "goldens/GoldenExamples.h"
 
 namespace QtRocket::Gui::Test
 {
 
+// NOLINTNEXTLINE(modernize-use-string-view): the transcripts' lines are concatenated from it
 std::string javaBool(bool value)
 {
     return value ? "true" : "false";
@@ -85,6 +92,53 @@ void fillUpTo(Rocket& rocket, RocketComponent& parent, std::size_t count)
         parent.addChild(std::make_unique<MassComponent>());
     }
     rocket.thaw();
+}
+
+void fillAssembliesUpTo(Rocket& rocket, std::size_t count)
+{
+    rocket.freeze();
+    while (DocumentConfig::assemblyCount(rocket) < count)
+    {
+        rocket.addChild(std::make_unique<AxialStage>());
+    }
+    rocket.thaw();
+}
+
+RocketComponent& nestInnerTubes(Rocket& rocket, RocketComponent& parent, std::size_t count)
+{
+    RocketComponent* innermost = &parent;
+    rocket.freeze();
+    for (std::size_t k = 0; k < count; ++k)
+    {
+        innermost = &innermost->addChild(std::make_unique<InnerTube>());
+    }
+    rocket.thaw();
+    return *innermost;
+}
+
+Appearance decalAppearance(const std::string& image)
+{
+    return {Color(10, 20, 30, 200), 0.25,
+            Decal(Coordinate(0.125, 0.25), Coordinate(0.375, 0.5), Coordinate(1.5, 2.5), 0.75,
+                  image, Decal::EdgeMode::MIRROR),
+            true};
+}
+
+void registerImages(OpenRocketDocument& document, std::size_t count)
+{
+    for (std::size_t k = 0; k < count; ++k)
+    {
+        const std::string name = "decals/fill" + std::to_string(k) + ".png";
+        static_cast<void>(document.getDecalImage(
+            std::make_shared<QtRocket::Test::MemoryAttachment>(name, "fill " + name)));
+    }
+}
+
+void giveDecal(OpenRocketDocument& document, RocketComponent& component, const std::string& name)
+{
+    const std::shared_ptr<DecalImage> image = document.getDecalImage(
+        std::make_shared<QtRocket::Test::MemoryAttachment>(name, "bytes of " + name));
+    component.setAppearance(decalAppearance(image->getName()));
 }
 
 std::vector<std::string> decalListOf(const OpenRocketDocument& document)

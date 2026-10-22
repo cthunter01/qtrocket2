@@ -81,9 +81,9 @@ TEST_F(UndoRedoSelectionTest, UndoAddedChildComponentSelectsParent)
     EXPECT_EQ(bodyTubeId, selectionModel->selectedComponent()->getId());
 }
 
-// Beyond the Java tests: the selected component comes back after the redo, and the
-// components are the rocket's new objects.
-TEST_F(UndoRedoSelectionTest, RedoSelectsTheComponentAgain)
+// Beyond the Java tests: the redo keeps the selection the undo made (the stage, as the redone
+// body tube was not selected then), on the rocket's new objects.
+TEST_F(UndoRedoSelectionTest, RedoKeepsTheUndosSelectionOnTheNewObjects)
 {
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();

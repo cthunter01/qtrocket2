@@ -31,14 +31,17 @@ class ComponentTreeModel;
 ///
 /// - What is dragged: the selected components without a selected ancestor, in tree order; the
 ///   Rocket is never dragged (ComponentTreeModel::mimeData()).
-/// - Where it goes (target()): Qt's drop position as QAbstractItemView measures it, which
-///   differs from JTree's (measured by the scouting's drop_position_probe, Qt 6.11): in the top
-///   margin of a row, before it in its parent (row, parent); on the middle of a row that takes
-///   children, its first child (Qt's row -1, OnItem; Java's index -1, getSourceAndTarget()); in
-///   the bottom margin of a row, or on the middle of one that takes none, after it (row + 1,
-///   parent), also for an expanded row with children (JTree inserts as the first child there);
-///   on the blank space below the rows, the end of the Rocket (Java: the root's end below the
-///   last row). Above or below the Rocket's own row is no place.
+/// - Where it goes (target()): Qt's drop position as QAbstractItemView measures it, which agrees
+///   with JTree's but in one place and in the height of the margins (measured by the scouting's
+///   drop_position_probe, Qt 6.11, and the M2 run 2 review's DropLocationProbe,
+///   JTree.dropLocationForPoint() with convertDropLocation()): in the top margin of a row, before
+///   it in its parent (row, parent); on the middle of a row that takes children, its first child
+///   (Qt's row -1, OnItem; Java's index -1, getSourceAndTarget()); in the bottom margin of a row,
+///   or on the middle of one that takes none, after it (row + 1, parent), also for an expanded row
+///   with children, where JTree drops at the end of the row's parent (see the deviations); on the
+///   blank space below the rows, the end of the Rocket (Java: the root's end below the last row);
+///   anywhere on the Rocket's own row, its first child, as JTree's (Qt's margins of that row are
+///   places in the invisible root, row 0 above and 1 below it).
 /// - The operation (operation()): a move for Qt::MoveAction and a copy for Qt::CopyAction
 ///   (Ctrl held), as Java's; a drag from another document (another window) is always copied,
 ///   and the view shows the copy cursor for it (Java: canImportTarget() sets COPY).
@@ -54,9 +57,11 @@ class ComponentTreeModel;
 ///   their identity (and ids), so they stay selected.
 /// - A copy ("Copy component(s)"): copies with new ids (ComponentCopy::copyOf(), Java's
 ///   copy()), with the decal images they show when they come from another document, inserted
-///   in tree order at the drop index and after it. A copy that would give the design more
-///   components or decal images than QtRocket loads is refused with a message
-///   (ComponentLimits, decision O27).
+///   in tree order at the drop index and after it.
+/// - The bounds (ComponentLimits, decision O27): a copy that would give the rocket more
+///   components, more stages, booster sets and pod sets, or components nested deeper than
+///   QtRocket loads, or the document more decal images, is refused with a message, and so is a
+///   move that would put a component deeper than QtRocket loads; nothing changes then.
 ///
 /// Deviations from OpenRocket:
 /// - A drop of several components is checked whole before anything moves (decision U4): Java's
@@ -75,10 +80,12 @@ class ComponentTreeModel;
 ///   the source document's image objects, which the target never registers).
 /// - The cycle check compares objects; Java compares with equals() (class and id), which would
 ///   refuse a drop into another document whose component has the dragged one's id.
-/// - The bounds of a copy (ComponentLimits) are QtRocket's.
+/// - The bounds (ComponentLimits) are QtRocket's.
 /// - Qt's drop positions (see above): the bottom margin of an expanded row with children is the
-///   place after the row, where JTree inserts as the row's first child (the scouting's decision
-///   D3: the drop goes where Qt's indicator shows it).
+///   place right after the row, where Qt's indicator shows it (the scouting's decision D3).
+///   JTree drops at the end of the row's parent there (DropLocationProbe: the bottom margin of
+///   Sustainer gives (Rocket, end), of BT1 (Sustainer, end), of IT (BT1, end)), which is the
+///   place after the row only when the row is its parent's last child.
 class ComponentDrop
 {
     Q_DECLARE_TR_FUNCTIONS(ComponentDrop)
@@ -107,8 +114,8 @@ public:
     {
         /// Whether the components were moved or copied.
         bool dropped = false;
-        /// Why a drop the rules allow was refused all the same, for the user (a copy beyond a
-        /// bound of ComponentLimits); nullopt otherwise.
+        /// Why a drop the rules allow was refused all the same, for the user (a copy or a move
+        /// beyond a bound of ComponentLimits); nullopt otherwise.
         std::optional<UserPrompts::Message> refusal;
     };
 
@@ -154,9 +161,11 @@ public:
                         Qt::DropAction action, const Target& target);
 
 private:
-    /// Moves @p components of @p document (in tree order) to @p target.
+    /// Moves @p components of @p document (in tree order) to @p target, one undo step named
+    /// @p description.
     static void move(OpenRocketDocument&                     document,
-                     std::span<const RocketComponent* const> components, const Target& target);
+                     std::span<const RocketComponent* const> components, const Target& target,
+                     const QString& description);
     /// Copies @p components of @p source (in tree order) to @p target in @p document.
     static Outcome copy(OpenRocketDocument& document, const OpenRocketDocument& source,
                         std::span<const RocketComponent* const> components, const Target& target);

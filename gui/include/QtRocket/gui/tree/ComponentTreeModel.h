@@ -57,10 +57,16 @@ class UserPrompts;
 /// ancestors and the selected configuration, where Java repaints the source alone.
 ///
 /// The pointers of the mirror are valid from one reset to the next. data() and component()
-/// trust them while the rocket's events are enabled, it is not frozen and its tree has not
-/// changed since the reset (Rocket::getTreeModId()); otherwise they look the component up by
-/// id (Rocket::findComponent()) and answer nothing for one that is gone. So nothing reads a
-/// component that a frozen operation destroyed before thaw() delivered its event.
+/// trust them while the rocket's events are enabled, it is not frozen and neither it nor its
+/// tree has changed since the model last heard of it (Rocket::getModId(), getTreeModId());
+/// otherwise they look the component up by id (Rocket::findComponent()) and answer nothing for
+/// one that is gone. So nothing reads a component that a frozen operation destroyed before
+/// thaw() delivered its event, nor one that a listener connected before the model reads
+/// during an event. At every change event without the TREE and the UNDO bits the model
+/// compares the mirror with the rocket's tree, from the live components (the ids and the child
+/// counts), and takes the pointers again, or resets when they differ: a change made while the
+/// rocket's events were off changes no modification id (Rocket::fireComponentChangeEvent()),
+/// and enableEvents(true) announces it with an AEROMASS event only.
 ///
 /// The reset keeps what the view needs to restore its state (OpenRocket's
 /// fireTreeStructureChanged(source) and expandAll() after an undo): lastResetSource() and
@@ -235,9 +241,12 @@ private:
     void reset(const Uuid& source, int changeType);
     /// Builds the mirror of the rocket as it is now.
     void rebuild();
-    /// The cached fields of every node that a non-tree change may change (the mass component
-    /// type), from the components; only while the mirror is current.
-    void refreshNodes();
+    /// Whether the mirror still has the shape of the rocket's tree (see the class comment): the
+    /// rocket's events on, not frozen, its tree not changed since the reset, and the ids and
+    /// the child counts of the live tree those of the mirror. When so, every node takes its
+    /// component's pointer and the cached fields a non-tree change may change (the mass
+    /// component type) again, and the model has heard of the rocket's last change.
+    [[nodiscard]] bool refreshNodes();
     /// dataChanged() for every row.
     void emitDataChangedForAll();
 
@@ -247,6 +256,7 @@ private:
     std::unique_ptr<Node>                   m_root;
     std::unordered_map<Uuid, Node*>         m_nodes;
     ModId                                   m_treeModId;
+    ModId                                   m_modId;
     std::optional<Uuid>                     m_lastResetSource;
     int                                     m_lastResetChangeType{0};
     bool                                    m_resetting{false};

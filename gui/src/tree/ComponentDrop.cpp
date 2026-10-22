@@ -101,15 +101,25 @@ std::optional<ComponentDrop::Target> ComponentDrop::target(const ComponentTreeMo
 {
     if (!parent.isValid())
     {
-        // The blank space below the rows (Qt's OnViewport, row -1): the end of the Rocket, as
-        // JTree's drop location below the last row. Above or below the Rocket's own row (a row
-        // of the invalid root): no place.
         RocketComponent* rocket = model.component(model.rocketIndex());
-        if (row != -1 || rocket == nullptr)
+        if (rocket == nullptr)
         {
             return std::nullopt;
         }
-        return Target{.parent = rocket, .index = rocket->getChildCount()};
+        if (row == -1)
+        {
+            // The blank space below the rows (Qt's OnViewport): the end of the Rocket, as JTree's
+            // drop location below the last row.
+            return Target{.parent = rocket, .index = rocket->getChildCount()};
+        }
+        if (row == 0 || row == 1)
+        {
+            // Above or below the Rocket's own row (a row of the invalid root): its first child,
+            // as JTree drops anywhere on the root's row (DropLocationProbe: "Rocket y0-13 ->
+            // (Rocket,0); y14-19 -> (Rocket,0)").
+            return Target{.parent = rocket, .index = 0};
+        }
+        return std::nullopt;
     }
     RocketComponent* component = model.component(parent);
     if (component == nullptr || row < -1)
@@ -235,7 +245,23 @@ ComponentDrop::Outcome ComponentDrop::drop(OpenRocketDocument&      document,
             // checkImportAction(): dropped at the same place.
             return {};
         }
-        move(document, dragged, target);
+        //: Hard-coded English in OpenRocket (ComponentTreeTransferHandler.importData())
+        const QString description =
+            dragged.size() == 1 ? tr("Move component") : tr("Move components");
+        // A move adds no component, but it may put one deeper than QtRocket loads: refused
+        // before anything moves.
+        ComponentLimits::Addition moved;
+        for (const RocketComponent* component : dragged)
+        {
+            moved += ComponentLimits::moving(*component, *target.parent);
+        }
+        std::optional<UserPrompts::Message> refusal =
+            ComponentLimits::refusal(document, moved, description);
+        if (refusal.has_value())
+        {
+            return {.dropped = false, .refusal = std::move(refusal)};
+        }
+        move(document, dragged, target, description);
         return {.dropped = true, .refusal = std::nullopt};
     }
     return copy(document, data.isFrom(document) ? document : data.sourceDocument(), dragged,
@@ -243,7 +269,8 @@ ComponentDrop::Outcome ComponentDrop::drop(OpenRocketDocument&      document,
 }
 
 void ComponentDrop::move(OpenRocketDocument&                     document,
-                         std::span<const RocketComponent* const> components, const Target& target)
+                         std::span<const RocketComponent* const> components, const Target& target,
+                         const QString& description)
 {
     // The drop index once the dragged siblings before it are out (Java's destIndex--).
     const auto before = static_cast<std::size_t>(
@@ -256,9 +283,6 @@ void ComponentDrop::move(OpenRocketDocument&                     document,
     {
         ids.push_back(component->getId());
     }
-    //: Hard-coded English in OpenRocket (ComponentTreeTransferHandler.importData())
-    const QString description =
-        components.size() == 1 ? tr("Move component") : tr("Move components");
     document.startUndo(QtStrings::toUtf8(description));
     try
     {
@@ -291,14 +315,15 @@ ComponentDrop::Outcome ComponentDrop::copy(OpenRocketDocument&                  
                                          .lines = {QtStrings::fromUtf8(copied.error().message)}}};
     }
     std::vector<ComponentCopy::Placement> placements;
-    std::size_t                           newComponents = 0;
+    ComponentLimits::Addition             addition;
     for (std::size_t i = 0; i < components.size(); ++i)
     {
         placements.push_back({.component = i, .parent = target.parent, .index = target.index + i});
-        newComponents += ComponentLimits::treeSize(*components[i]);
+        addition += ComponentLimits::placing(copied->getComponent(i), *target.parent);
     }
-    std::optional<UserPrompts::Message> refusal = ComponentLimits::refusal(
-        document, newComponents, copied->countNewDecalImages(document, placements), description);
+    addition.decalImages = copied->countNewDecalImages(document, placements);
+    std::optional<UserPrompts::Message> refusal =
+        ComponentLimits::refusal(document, addition, description);
     if (refusal.has_value())
     {
         return {.dropped = false, .refusal = std::move(refusal)};

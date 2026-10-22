@@ -23,6 +23,7 @@
 #include <QGroupBox>
 #include <QList>
 #include <QMenu>
+#include <QMimeData>
 #include <QObject>
 #include <QPoint>
 #include <QRect>
@@ -30,6 +31,7 @@
 #include <QSignalSpy>
 #include <QSizePolicy>
 #include <QString>
+#include <QStringList>
 #include <QTabWidget>
 #include <QTest>
 #include <QWidget>
@@ -41,6 +43,7 @@
 #include "ExpectedQtMessage.h"
 #include "GuiTestSupport.h"
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/gui/main/ComponentAddButtons.h"
 #include "QtRocket/gui/main/ComponentButton.h"
 #include "QtRocket/gui/main/MainMenus.h"
@@ -64,6 +67,7 @@
 #include "TestGuiServices.h"
 #include "tree/ComponentTreeTranscript.h"
 #include "tree/ProbeDesign.h"
+#include "tree/TreeEditingSupport.h"
 #include "tree/TreeViewMouse.h"
 
 namespace QtRocket::Gui
@@ -74,6 +78,7 @@ namespace
 
 using Lines               = std::vector<std::string>;
 using LastWindowBehaviour = WindowManager::LastWindowBehaviour;
+using Test::fillUpTo;
 using Test::ProbeDesign;
 using Booster = ProbeDesign::Booster;
 
@@ -524,6 +529,37 @@ TEST_F(DesignPanelTest, WindowsShareTheClipboard)
     select({"NC"});
     menus().pasteAction()->trigger();
     EXPECT_EQ(tree(), "Rocket[Sustainer[NC, BT2[Chute], BT1[IT[EB], CR1, Fins], BT2[Chute]]]");
+}
+
+// The tree's refusals reach the window's prompts (ComponentTreeModel::setUserPrompts()): a copy
+// dropped into the tree beyond the component bound (decision O27), told once the drop is over.
+TEST_F(DesignPanelTest, ARefusedDropIsToldThroughTheWindowsPrompts)
+{
+    open();
+    fillUpTo(rocket(), find("BT2"), DocumentConfig::kMaxComponents - 4);
+    const std::size_t                components = DocumentConfig::componentCount(rocket());
+    const ComponentTreeModel&        model      = panel().treeModel();
+    const std::unique_ptr<QMimeData> data(model.mimeData({model.indexOf(find("BT1"))}));
+    ASSERT_NE(data, nullptr);
+
+    // In the bottom margin of the nose cone's row: after it in the stage.
+    const QRect               nose = panel().tree().visualRect(model.indexOf(find("NC")));
+    const Gui::Test::ViewDrop drop = Gui::Test::dropAt(
+        viewport(), *data, QPoint(nose.center().x(), nose.bottom() - 1), Qt::ControlModifier);
+
+    EXPECT_TRUE(drop.moveAccepted);
+    EXPECT_FALSE(drop.dropAccepted);
+    EXPECT_EQ(DocumentConfig::componentCount(rocket()), components);
+    EXPECT_TRUE(prompts().prompts().empty());
+    QCoreApplication::processEvents();
+    ASSERT_EQ(prompts().prompts().size(), 1U);
+    EXPECT_EQ(prompts().prompts()[0].kind, Gui::Test::ScriptedUserPrompts::Kind::MESSAGE);
+    EXPECT_EQ(prompts().prompts()[0].title, QStringLiteral("Copy component"));
+    EXPECT_EQ(prompts().prompts()[0].texts,
+              (QStringList{QStringLiteral("WARNING"),
+                           QStringLiteral("The rocket would have 1001 components. QtRocket opens "
+                                          "at most 1000 components of a design and would ignore "
+                                          "the ones beyond when it opens this design again.")}));
 }
 
 // =========================================================================== the popup

@@ -63,9 +63,11 @@ class UserPrompts;
 /// from the application's preferences and materials, adds the undo position "Add <component
 /// name>", adds the component there, selects it alone and asks for its configuration dialog
 /// (addedComponentEditRequested(): OpenRocket opens it with isNewComponent and without the
-/// remembered tab). A component that would give the rocket more components than QtRocket opens
-/// again (DocumentConfig::kMaxComponents) is refused with a message before anything changes
-/// (decision O27, ComponentLimits).
+/// remembered tab). A component that would give the rocket more components, or more stages,
+/// booster sets and pod sets, than QtRocket opens again, or that would stand deeper below the
+/// Rocket than it opens (DocumentConfig::kMaxComponents, kMaxAssemblies,
+/// ComponentHandler::kMaxDepth), is refused with a message before anything changes (decision
+/// O27, ComponentLimits).
 ///
 /// No component pointer is kept: the selected component and the parent are found again by id
 /// after the question (whose dialog runs an event loop) and after the addition.
@@ -79,7 +81,7 @@ class UserPrompts;
 ///   not ported: the button is disabled then, so Java never takes it.
 /// - The button's padding is the platform style's (Java sets a 6 px margin); its texts are
 ///   escaped (a '&' of a translation stays a character, not a mnemonic).
-/// - The bound (decision O27) is QtRocket's.
+/// - The bounds (decision O27, ComponentLimits) are QtRocket's.
 class ComponentButton final : public QToolButton
 {
     Q_OBJECT

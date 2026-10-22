@@ -208,7 +208,8 @@ protected:
 TEST_F(ComponentTreeViewTest, HasBasicTreesLook)
 {
     EXPECT_EQ(m_view->objectName(), QStringLiteral("componentTree"));
-    EXPECT_EQ(m_view->indentation(), 15);
+    // BasicTreeUI's leftChildIndent 15 and FlatLaf's rightChildIndent 11.
+    EXPECT_EQ(m_view->indentation(), 26);
     EXPECT_FALSE(m_view->rootIsDecorated());
     EXPECT_FALSE(m_view->expandsOnDoubleClick());
     EXPECT_TRUE(m_view->isHeaderHidden());
@@ -218,6 +219,20 @@ TEST_F(ComponentTreeViewTest, HasBasicTreesLook)
     EXPECT_NE(dynamic_cast<ComponentTreeDelegate*>(m_view->itemDelegate()), nullptr);
     EXPECT_EQ(&m_view->componentModel(), m_model.get());
     EXPECT_EQ(m_view->model(), m_model.get());
+}
+
+// The M2 run 2 review's TreeIndentProbe (OpenRocket's BasicTree with its ComponentTreeModel and
+// ComponentTreeRenderer under FlatLightLaf, headless): the rows of the depths 0 to 4 at x 0, 26,
+// 52, 78 and 104.
+TEST_F(ComponentTreeViewTest, IndentsTheRowsAsOpenRocketDoes)
+{
+    show();
+
+    EXPECT_EQ(m_view->visualRect(m_model->rocketIndex()).left(), 0);
+    EXPECT_EQ(m_view->visualRect(index(*m_stage)).left(), 26);
+    EXPECT_EQ(m_view->visualRect(index(*m_bodyTube)).left(), 52);
+    EXPECT_EQ(m_view->visualRect(index(*m_inner)).left(), 78);
+    EXPECT_EQ(m_view->visualRect(index(*m_mass)).left(), 104);
 }
 
 TEST_F(ComponentTreeViewTest, DragsAndTakesDrops)
@@ -477,6 +492,32 @@ TEST_F(ComponentTreeViewTest, AChildAddedToACollapsedRowShowsIt)
               "body tube collapsed again, parachute added to it: rows=7 {Rocket+, Sustainer+, Nose "
               "Cone+, Body Tube+, Inner Tube-, Mass Component(hidden), Parachute(hidden), "
               "Trapezoidal Fin Set-, Parachute-, } selected=[]");
+}
+
+// Changes made while the view answers a reset (a slot of modelReset) come in one more reset: a
+// child added to a collapsed row there shows too, also when other changes follow it (the model
+// keeps the source of the tree change, ComponentTreeModel).
+TEST_F(ComponentTreeViewTest, AChildAddedToACollapsedRowDuringAResetShowsIt)
+{
+    bool changed = false;
+    QObject::connect(m_model.get(), &QAbstractItemModel::modelReset, m_view.get(), [&] {
+        if (!changed)
+        {
+            changed = true;
+            collapse(*m_bodyTube);
+            m_bodyTube->addChild(std::make_unique<Parachute>());
+            m_noseCone->setName("Nose");
+            m_noseCone->setName("Nose Cone");
+        }
+    });
+
+    m_noseCone->addChild(std::make_unique<MassComponent>());
+
+    EXPECT_TRUE(m_view->isExpanded(index(*m_bodyTube)));
+    EXPECT_EQ(transcript("parachute added during the reset"),
+              "parachute added during the reset: rows=8 {Rocket+, Sustainer+, Nose Cone+, Mass "
+              "Component+, Body Tube+, Inner Tube-, Mass Component(hidden), Trapezoidal Fin Set-, "
+              "Parachute-, } selected=[]");
 }
 
 TEST_F(ComponentTreeViewTest, SelectionOrderSurvivesAChange)

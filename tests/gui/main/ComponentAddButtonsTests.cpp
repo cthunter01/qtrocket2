@@ -36,8 +36,10 @@
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
+#include "QtRocket/file/openrocket/ComponentHandler.h"
 #include "QtRocket/file/openrocket/DocumentConfig.h"
 #include "QtRocket/gui/main/ComponentButton.h"
+#include "QtRocket/gui/tree/ComponentLimits.h"
 #include "QtRocket/gui/tree/ComponentTreeModel.h"
 #include "QtRocket/gui/tree/ComponentTreeView.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
@@ -84,8 +86,10 @@ using Names     = std::vector<std::string_view>;
 using Placement = ComponentButton::Placement;
 using Position  = ComponentButton::Position;
 using Answer    = UserPrompts::InsertPositionAnswer;
+using Test::fillAssembliesUpTo;
 using Test::fillUpTo;
 using Test::linesOf;
+using Test::nestInnerTubes;
 using Test::ProbeDesign;
 using Test::ScriptedUserPrompts;
 using Test::undoText;
@@ -1042,6 +1046,74 @@ TEST_F(ComponentAddButtonsTest, AnAdditionBeyondTheComponentBoundIsRefused)
                                           "the ones beyond when it opens this design again.")}));
     EXPECT_EQ(window.dialogs(), Lines{"Inner Tube"});
     EXPECT_EQ(design.names(window.selection().selectedComponents()), "[BT1]");
+}
+
+// The bounds the M2 run 2 review added to decision O27 (ComponentLimits): the stages, booster sets
+// and pod sets of the rocket (DocumentConfig::kMaxAssemblies) ...
+TEST_F(ComponentAddButtonsTest, AStageBeyondTheAssemblyBoundIsRefused)
+{
+    AddServices       services;
+    const ProbeDesign design;
+    const AddWindow   window(design.document(), services);
+    fillAssembliesUpTo(design.rocket(), DocumentConfig::kMaxAssemblies - 1);
+    window.select({"Sustainer"});
+    window.button(ComponentKind::AXIAL_STAGE).click();
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(undoText(design.document()), "undo='Add Stage'");
+    const std::size_t states     = design.document().getUndoDetail().descriptions.size();
+    const std::size_t components = DocumentConfig::componentCount(design.rocket());
+    window.select({"Sustainer"});
+    window.button(ComponentKind::AXIAL_STAGE).click();
+    EXPECT_EQ(DocumentConfig::assemblyCount(design.rocket()), DocumentConfig::kMaxAssemblies);
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), components);
+    EXPECT_EQ(design.document().getUndoDetail().descriptions.size(), states);
+    ASSERT_EQ(services.prompts().prompts().size(), 1U);
+    const ScriptedUserPrompts::Prompt& message = services.prompts().prompts().front();
+    EXPECT_EQ(message.kind, ScriptedUserPrompts::Kind::MESSAGE);
+    EXPECT_EQ(message.title, QStringLiteral("Add Stage"));
+    EXPECT_EQ(
+        message.texts,
+        (QStringList{QStringLiteral("WARNING"),
+                     QStringLiteral("The rocket would have 101 stages, booster sets and pod "
+                                    "sets. QtRocket opens at most 100 of them in a design and "
+                                    "would ignore the ones beyond, with everything in them, "
+                                    "when it opens this design again.")}));
+    EXPECT_EQ(window.dialogs(), Lines{"Stage"});
+    EXPECT_EQ(design.names(window.selection().selectedComponents()), "[Sustainer]");
+}
+
+// ... and how deep a component stands below the Rocket (ComponentHandler::kMaxDepth).
+TEST_F(ComponentAddButtonsTest, AComponentBeyondTheDepthBoundIsRefused)
+{
+    AddServices       services;
+    const ProbeDesign design;
+    const AddWindow   window(design.document(), services);
+    // IT stands at level 3: inner tubes down to level 99.
+    const RocketComponent& innermost =
+        nestInnerTubes(design.rocket(), design.find("IT"), ComponentHandler::kMaxDepth - 4);
+    ASSERT_EQ(ComponentLimits::levelOf(innermost), 99U);
+    window.selection().setSelectedComponent(innermost);
+    window.button(ComponentKind::INNER_TUBE).click();
+    // The new tube, at level 100, is the selection.
+    const std::vector<RocketComponent*> added = window.selection().selectedComponents();
+    ASSERT_EQ(added.size(), 1U);
+    EXPECT_EQ(ComponentLimits::levelOf(*added.front()), 100U);
+    const std::size_t states     = design.document().getUndoDetail().descriptions.size();
+    const std::size_t components = DocumentConfig::componentCount(design.rocket());
+    window.button(ComponentKind::INNER_TUBE).click();
+    EXPECT_EQ(DocumentConfig::componentCount(design.rocket()), components);
+    EXPECT_EQ(added.front()->getChildCount(), 0U);
+    EXPECT_EQ(design.document().getUndoDetail().descriptions.size(), states);
+    ASSERT_EQ(services.prompts().prompts().size(), 1U);
+    const ScriptedUserPrompts::Prompt& message = services.prompts().prompts().front();
+    EXPECT_EQ(message.title, QStringLiteral("Add Inner Tube"));
+    EXPECT_EQ(message.texts,
+              (QStringList{QStringLiteral("WARNING"),
+                           QStringLiteral("Components would stand 101 levels below the rocket. "
+                                          "QtRocket opens components at most 100 levels deep and "
+                                          "would ignore the deeper ones, with everything in them, "
+                                          "when it opens this design again.")}));
+    EXPECT_EQ(window.dialogs(), Lines{"Inner Tube"});
 }
 
 /// A listener of @p rocket that takes the first component added to BT1 beyond its three out of
