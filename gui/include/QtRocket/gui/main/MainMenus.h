@@ -26,7 +26,7 @@ class UndoRedoActions;
 /// - File: New | Open... | Open recent > | Open example > | --- | Save | Save as... | --- |
 ///   Properties | Close design | --- | Quit
 /// - Edit: Undo | Redo | --- | Edit | Cut | Copy | Paste | Duplicate | Delete | --- |
-///   Select > (Components of same color, Deselect all) | --- |
+///   Select > (Deselect all) | --- |
 ///   Visibility > (Hide selected, Show all) | --- | Preferences
 /// - Help: none of its items is in Milestone 2 (the About and License dialogs come in Milestone
 ///   5), so it is hidden while it is empty.
@@ -46,7 +46,8 @@ class UndoRedoActions;
 ///
 /// Deviations: the items of later milestones are left out where OpenRocket has them (File:
 /// Import > (RockSim M8), Export as > (RockSim, SVG M8), Save decal images... (M5), Print design
-/// info... (M8), Export simulations table as CSV file (M4); Edit: Scale (M5); Tools (M7); Help:
+/// info... (M8), Export simulations table as CSV file (M4); Edit: Select > Components of same
+/// color (M5: it needs the default appearances), Scale (M5); Tools (M7); Help:
 /// License, About (M5), Bug report (M9)), and OpenRocket's items that QtRocket does not have
 /// (RASAero, Wavefront OBJ, Photo Studio, Guided tours, online Documentation, Debug log, Check for
 /// updates, the debug menu and the banana); a separator that would then stand between nothing is
@@ -103,7 +104,6 @@ public:
     [[nodiscard]] QAction* duplicateAction() const noexcept { return m_duplicate; }
     [[nodiscard]] QAction* deleteAction() const noexcept { return m_delete; }
     [[nodiscard]] QMenu*   selectMenu() const noexcept { return m_selectMenu; }
-    [[nodiscard]] QAction* selectSameColorAction() const noexcept { return m_selectSameColor; }
     [[nodiscard]] QAction* deselectAllAction() const noexcept { return m_deselectAll; }
     [[nodiscard]] QMenu*   visibilityMenu() const noexcept { return m_visibilityMenu; }
     /// Hide selected / Show selected / Hide all / Show all (RocketActions'
@@ -158,7 +158,6 @@ private:
     QAction*  m_duplicate{nullptr};
     QAction*  m_delete{nullptr};
     QMenu*    m_selectMenu{nullptr};
-    QAction*  m_selectSameColor{nullptr};
     QAction*  m_deselectAll{nullptr};
     QMenu*    m_visibilityMenu{nullptr};
     QAction*  m_toggleVisibility{nullptr};

@@ -276,12 +276,7 @@ void MainMenus::addSelectMenu()
         addSubmenu(*m_editMenu, QStringLiteral("selectMenu"), MenuText::escaped(tr("Select")));
     m_selectMenu->setToolTipsVisible(true);
 
-    //: RocketActions.Select.SelectSameColorAct
-    m_selectSameColor = addAction(*m_selectMenu, QStringLiteral("selectSameColorAction"),
-                                  MenuText::escaped(tr("Components of same color")));
-    m_selectSameColor->setToolTip(
-        //: RocketActions.Select.SelectSameColorAct.ttip
-        tr("Select all components of the same color as this component."));
+    // RocketActions.Select.SelectSameColorAct ("Components of same color") comes with Milestone 5.
 
     //: RocketActions.Select.DeselectAllAct
     m_deselectAll = addAction(*m_selectMenu, QStringLiteral("deselectAllAction"),

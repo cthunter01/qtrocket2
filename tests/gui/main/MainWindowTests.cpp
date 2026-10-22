@@ -1,5 +1,6 @@
 #include "QtRocket/gui/main/MainWindow.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -11,6 +12,7 @@
 #include <QEvent>
 #include <QGuiApplication>
 #include <QList>
+#include <QObject>
 #include <QPointer>
 #include <QScreen>
 #include <QSignalSpy>
@@ -36,6 +38,8 @@
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/util/BugError.h"
 #include "QtRocket/util/FileIo.h"
 #include "TestGuiServices.h"
 
@@ -44,6 +48,37 @@ namespace QtRocket::Gui
 
 namespace
 {
+
+/// The requests of a window for the configuration dialog, as texts: "<name> <number of others>
+/// new|existing tab|first tab", or "close".
+class DialogRequests
+{
+public:
+    explicit DialogRequests(MainWindow& window)
+    {
+        QObject::connect(
+            &window, &MainWindow::configDialogRequested, &window,
+            [this](RocketComponent* component, const std::vector<RocketComponent*>& others,
+                   bool isNewComponent, bool rememberPreviousTab) {
+                add(*component, others.size(), isNewComponent, rememberPreviousTab);
+            });
+        QObject::connect(&window, &MainWindow::closeConfigDialogRequested, &window,
+                         [this] { m_texts.emplace_back("close"); });
+    }
+
+    [[nodiscard]] const std::vector<std::string>& texts() const noexcept { return m_texts; }
+
+private:
+    void add(const RocketComponent& component, std::size_t others, bool isNewComponent,
+             bool rememberPreviousTab)
+    {
+        m_texts.push_back(component.getName() + " " + std::to_string(others) + " " +
+                          (isNewComponent ? "new" : "existing") + " " +
+                          (rememberPreviousTab ? "tab" : "first tab"));
+    }
+
+    std::vector<std::string> m_texts;
+};
 
 /// A window of a new design.
 class MainWindowTest : public Test::GuiTest
@@ -261,6 +296,40 @@ TEST_F(MainWindowTest, ClosingAsksInsteadOfClosing)
     EXPECT_FALSE(window().close());
     EXPECT_EQ(closeRequested.count(), 1);
     EXPECT_TRUE(window().isVisible());
+}
+
+TEST_F(MainWindowTest, RequestsForTheConfigurationDialogComeOutAsSignals)
+{
+    const DialogRequests                requests(window());
+    RocketComponent&                    stage = rocket().getChild(0);
+    const std::vector<RocketComponent*> both{&stage, &rocket()};
+    window().requestConfigDialog(rocket());
+    window().requestConfigDialog(stage, both, true, false);
+    window().requestConfigDialogClose();
+    EXPECT_EQ(requests.texts(), (std::vector<std::string>{"Rocket 0 existing tab",
+                                                          "Sustainer 2 new first tab", "close"}));
+}
+
+TEST_F(MainWindowTest, RequestsTheConfigurationDialogOfItsOwnComponentsOnly)
+{
+    const DialogRequests                      requests(window());
+    RocketComponent&                          stage = rocket().getChild(0);
+    const std::unique_ptr<OpenRocketDocument> other = OpenRocketDocumentFactory::createNewRocket();
+    EXPECT_THROW(window().requestConfigDialog(other->getRocket()), BugError);
+    const std::vector<RocketComponent*> foreign{&other->getRocket().getChild(0)};
+    EXPECT_THROW(window().requestConfigDialog(stage, foreign), BugError);
+    const std::vector<RocketComponent*> none{nullptr};
+    EXPECT_THROW(window().requestConfigDialog(stage, none), BugError);
+    EXPECT_TRUE(requests.texts().empty());
+}
+
+TEST_F(MainWindowTest, HasNoComponentDesignPanelOfItsOwn)
+{
+    // The WindowManager puts a DesignPanel in (DesignPanelTests); a placeholder or another
+    // widget is none.
+    EXPECT_EQ(window().componentDesignPanel(), nullptr);
+    window().setDesignPanel(makeChild<QWidget>(&window()));
+    EXPECT_EQ(window().componentDesignPanel(), nullptr);
 }
 
 }  // namespace

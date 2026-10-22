@@ -14,8 +14,10 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
+#include "QtRocket/gui/main/OpenRocketClipboard.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
@@ -79,7 +81,13 @@ WindowManager::LastWindowBehaviour WindowManager::platformLastWindowBehaviour() 
 
 WindowManager::WindowManager(const GuiServices& services, LastWindowBehaviour behaviour,
                              QObject* parent)
-  : QObject(parent), m_services(services), m_behaviour(behaviour)
+  : WindowManager(services, OpenRocketClipboard::instance(), behaviour, parent)
+{
+}
+
+WindowManager::WindowManager(const GuiServices& services, OpenRocketClipboard& clipboard,
+                             LastWindowBehaviour behaviour, QObject* parent)
+  : QObject(parent), m_services(services), m_clipboard(&clipboard), m_behaviour(behaviour)
 {
 }
 
@@ -129,6 +137,9 @@ bool WindowManager::close(MainWindow& window)
         return false;
     }
     destroyLater(window);
+    // BasicFrame.closeAction(): ComponentConfigDialog.disposeDialog() after the frame's
+    // dispose() (the window lives until the event loop deletes it).
+    window.requestConfigDialogClose();
     if (m_entries.empty())
     {
         lastWindowClosed();
@@ -196,6 +207,11 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     entry->window      = std::make_unique<MainWindow>(*entry->document, m_services);
     entry->replaceable = replaceable;
     MainWindow& window = *entry->window;
+    // BasicFrame's DesignPanel, which selects the first stage; the tree has the focus when the
+    // window is shown.
+    auto* designPanel = makeChild<DesignPanel>(&window, window, *m_clipboard);
+    window.setDesignPanel(designPanel);
+    designPanel->takeTheSpotlight();
     // BasicFrame.positionRelativeToExistingFrames(), after the remembered geometry.
     if (!m_entries.empty())
     {
@@ -254,7 +270,8 @@ bool WindowManager::confirmClose(MainWindow& window)
     {
         return true;
     }
-    // (BasicFrame first closes the component configuration dialog: run 2.)
+    // BasicFrame first closes the component configuration dialog.
+    window.requestConfigDialogClose();
     switch (m_services.prompts().askSaveChanges(
         &window, QtStrings::fromUtf8(document.getRocket().getName())))
     {

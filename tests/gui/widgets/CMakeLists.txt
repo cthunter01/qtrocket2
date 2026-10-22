@@ -8,6 +8,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     FieldEnablingTests.cpp
     FlowLayoutTests.cpp
     HtmlLabelTests.cpp
+    IconButtonTests.cpp
     IconToggleButtonTests.cpp
     IntSpinBoxTests.cpp
     MaterialComboBoxTests.cpp

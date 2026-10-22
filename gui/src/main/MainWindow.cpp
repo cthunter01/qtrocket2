@@ -3,15 +3,13 @@
 #include <algorithm>
 #include <filesystem>
 #include <optional>
+#include <span>
+#include <vector>
 
 #include <QCloseEvent>
-#include <QEvent>
-#include <QList>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QObject>
-#include <QResizeEvent>
-#include <QShowEvent>
 #include <QSplitter>
 #include <QString>
 #include <QTabWidget>
@@ -19,7 +17,9 @@
 #include <Qt>
 
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
+#include "QtRocket/gui/main/SplitPane.h"
 #include "QtRocket/gui/main/UndoRedoActions.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -28,49 +28,18 @@
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
 {
-
-namespace
-{
-
-/// The height below which a side of the splitter does not go (JSplitPane's
-/// getMinimumSizeOfComponent()).
-[[nodiscard]] int sideMinimumHeight(const QWidget* side)
-{
-    return side == nullptr ? 0 : std::max(side->minimumHeight(), side->minimumSizeHint().height());
-}
-
-/// The part of BasicSplitPaneUI.distributeSpace() for a side @p lacking below its minimum
-/// @p lackingMinimum: it takes what it lacks from the @p other side when that one keeps its own
-/// minimum @p otherMinimum; when it cannot, only a negative height goes.
-void takeWhatItLacks(int& lacking, int& other, int lackingMinimum, int otherMinimum)
-{
-    if (other - (lackingMinimum - lacking) < otherMinimum)
-    {
-        if (lacking < 0)
-        {
-            other += lacking;
-            lacking = 0;
-        }
-    }
-    else
-    {
-        other -= lackingMinimum - lacking;
-        lacking = lackingMinimum;
-    }
-}
-
-}  // namespace
 
 MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services)
   : m_document(&document),
     m_services(services),
     m_undoRedo(makeChild<UndoRedoActions>(this, document)),
     m_menus(makeChild<MainMenus>(menuBar(), *m_undoRedo)),
-    m_splitter(makeChild<QSplitter>(this, Qt::Vertical)),
+    m_splitter(makeChild<SplitPane>(this, Qt::Vertical, kResizeWeight, kDividerLocation)),
     m_tabs(makeChild<QTabWidget>(m_splitter)),
     m_designPanel(makeChild<QWidget>(m_tabs)),
     m_rocketPanel(makeChild<QWidget>(m_splitter))
@@ -85,11 +54,9 @@ MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services
     m_splitter->addWidget(m_tabs);
     m_splitter->addWidget(m_rocketPanel);
     // Both sides stretch; how a change of the height is shared is JSplitPane's resize weight
-    // (eventFilter()).
+    // (SplitPane).
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
-    m_splitter->setChildrenCollapsible(false);
-    m_splitter->installEventFilter(this);
     setCentralWidget(m_splitter);
 
     setWindowIcon(Icons::windowIcon());
@@ -101,6 +68,16 @@ MainWindow::MainWindow(OpenRocketDocument& document, const GuiServices& services
     WindowGeometry::setInitialSize(*this);
     m_geometry =
         makeChild<WindowGeometry>(this, m_services.preferences(), QStringLiteral("MainWindow"));
+}
+
+QSplitter* MainWindow::splitter() const noexcept
+{
+    return m_splitter;
+}
+
+DesignPanel* MainWindow::componentDesignPanel() const
+{
+    return qobject_cast<DesignPanel*>(m_designPanel);
 }
 
 void MainWindow::setDesignPanel(QWidget* panel)
@@ -157,58 +134,22 @@ QString MainWindow::titleFor(const OpenRocketDocument& document)
     return title;
 }
 
-bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+void MainWindow::requestConfigDialog(RocketComponent&                  component,
+                                     std::span<RocketComponent* const> others, bool isNewComponent,
+                                     bool rememberPreviousTab)
 {
-    // After the divider's first place: until then the sizes are the layout's own.
-    if (watched == m_splitter && m_dividerPlaced && event->type() == QEvent::Resize)
-    {
-        if (const auto* resize = dynamic_cast<const QResizeEvent*>(event);
-            resize != nullptr && resize->oldSize().isValid())
-        {
-            distributeSpace(resize->size().height() - resize->oldSize().height());
-        }
-    }
-    return QMainWindow::eventFilter(watched, event);
+    const RocketComponent& rocket = m_document->getRocket();
+    QTROCKET_ASSERT(&component.getRoot() == &rocket);
+    QTROCKET_ASSERT(std::ranges::all_of(others, [&rocket](const RocketComponent* other) {
+        return other != nullptr && &other->getRoot() == &rocket;
+    }));
+    const std::vector<RocketComponent*> otherComponents(others.begin(), others.end());
+    Q_EMIT configDialogRequested(&component, otherComponents, isNewComponent, rememberPreviousTab);
 }
 
-void MainWindow::distributeSpace(int change)
+void MainWindow::requestConfigDialogClose()
 {
-    // The splitter has not laid its sides out for its new height yet: sizes() are the old ones.
-    const QList<int> sizes = m_splitter->sizes();
-    if (change == 0 || sizes.size() != 2)
-    {
-        return;
-    }
-    const int topExtra =
-        static_cast<int>(kResizeWeight * static_cast<double>(change));  // Java's (int) cast
-    int        top           = sizes.at(0) + topExtra;
-    int        bottom        = sizes.at(1) + (change - topExtra);
-    const int  topMinimum    = sideMinimumHeight(m_splitter->widget(0));
-    const int  bottomMinimum = sideMinimumHeight(m_splitter->widget(1));
-    const bool topValid      = top >= topMinimum;
-    const bool bottomValid   = bottom >= bottomMinimum;
-    if (!topValid && !bottomValid)
-    {
-        if (top < 0)
-        {
-            bottom += top;
-            top = 0;
-        }
-        else if (bottom < 0)
-        {
-            top += bottom;
-            bottom = 0;
-        }
-    }
-    else if (!topValid)
-    {
-        takeWhatItLacks(top, bottom, topMinimum, bottomMinimum);
-    }
-    else if (!bottomValid)
-    {
-        takeWhatItLacks(bottom, top, bottomMinimum, topMinimum);
-    }
-    m_splitter->setSizes({std::max(top, 0), std::max(bottom, 0)});
+    Q_EMIT closeConfigDialogRequested();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -216,23 +157,6 @@ void MainWindow::closeEvent(QCloseEvent* event)
     // BasicFrame: DO_NOTHING_ON_CLOSE, and windowClosing() calls closeAction().
     event->ignore();
     Q_EMIT closeRequested();
-}
-
-void MainWindow::showEvent(QShowEvent* event)
-{
-    QMainWindow::showEvent(event);
-    if (m_dividerPlaced)
-    {
-        return;
-    }
-    // JSplitPane.setDividerLocation(0.4): (int) ((height - divider size) * 0.4) above the divider.
-    const int length = m_splitter->height() - m_splitter->handleWidth();
-    if (length > 0)
-    {
-        m_dividerPlaced = true;
-        const int top   = static_cast<int>(static_cast<double>(length) * kDividerLocation);
-        m_splitter->setSizes({top, length - top});
-    }
 }
 
 }  // namespace QtRocket::Gui

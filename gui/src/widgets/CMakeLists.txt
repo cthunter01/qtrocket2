@@ -8,6 +8,7 @@ target_sources(QtRocket_gui PRIVATE
     FieldEnabling.cpp ${gui_include_dir}/widgets/FieldEnabling.h
     FlowLayout.cpp ${gui_include_dir}/widgets/FlowLayout.h
     HtmlLabel.cpp ${gui_include_dir}/widgets/HtmlLabel.h
+    IconButton.cpp ${gui_include_dir}/widgets/IconButton.h
     IconToggleButton.cpp ${gui_include_dir}/widgets/IconToggleButton.h
     IntSpinBox.cpp ${gui_include_dir}/widgets/IntSpinBox.h
     MaterialComboBox.cpp ${gui_include_dir}/widgets/MaterialComboBox.h

@@ -1,5 +1,17 @@
 # The tests of the GUI area tree (gui/src/tree): XTests.cpp for the class X, lower_snake_case_tests.cpp
 # for tests about no one class, in alphabetical order (ignoring case).
 target_sources(QtRocket_gui_tests PRIVATE
-    # No files yet.
+    ComponentDropTests.cpp
+    ComponentLimitsTests.cpp
+    ComponentMimeDataTests.cpp
+    ComponentToolTipTests.cpp
+    ComponentTreeDelegateTests.cpp
+    ComponentTreeModelTests.cpp
+    ComponentTreeTranscript.cpp
+    ComponentTreeViewTests.cpp
+    DocumentSelectionModelTests.cpp
+    ProbeDesign.cpp
+    TreeEditingSupport.cpp
+    TreeViewMouse.cpp
+    undo_redo_selection_tests.cpp
 )
