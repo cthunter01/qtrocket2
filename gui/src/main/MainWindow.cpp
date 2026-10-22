@@ -17,6 +17,7 @@
 #include <Qt>
 
 #include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/SplitPane.h"
@@ -78,6 +79,11 @@ QSplitter* MainWindow::splitter() const noexcept
 DesignPanel* MainWindow::componentDesignPanel() const
 {
     return qobject_cast<DesignPanel*>(m_designPanel);
+}
+
+RocketPanel* MainWindow::componentRocketPanel() const
+{
+    return qobject_cast<RocketPanel*>(m_rocketPanel);
 }
 
 void MainWindow::setDesignPanel(QWidget* panel)

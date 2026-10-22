@@ -7,6 +7,7 @@ target_sources(QtRocket_gui_tests PRIVATE
     MainMenusTests.cpp
     MainWindowTests.cpp
     OpenRocketClipboardTests.cpp
+    rocket_panel_window_tests.cpp
     RocketActionsTests.cpp
     SplitPaneTests.cpp
     UndoRedoActionsTests.cpp

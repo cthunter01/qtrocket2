@@ -10,21 +10,26 @@
 #include <QLayout>
 #include <QMenuBar>
 #include <QObject>
+#include <QPoint>
 #include <QString>
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/figure/RocketPanel.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/gui/main/RocketActions.h"
 #include "QtRocket/gui/settings/WindowGeometry.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui
@@ -65,6 +70,38 @@ public:
 private:
     Action m_action;
 };
+
+/// Puts the design view (RocketPanel) into @p window, below its tabs, and connects it to the
+/// window's @p designPanel as BasicFrame does (rocketpanel.setSelectionModel(tree's), the popup
+/// menu of doComponentTreePopup(), DesignPanel's highlight of the figure) and to the window's
+/// configuration dialog requests.
+void installRocketPanel(MainWindow& window, DesignPanel& designPanel, Preferences& preferences)
+{
+    auto* panel = makeChild<RocketPanel>(&window, window.document(), preferences);
+    panel->setSelectionModel(&designPanel.selection());
+    // What the figure draws as selected is the design panel's highlight (the selection with the
+    // components below a selected assembly; the first stage alone at the start).
+    const auto highlight = [panel, &designPanel] {
+        panel->setHighlightedComponents(designPanel.highlightedComponents());
+    };
+    highlight();
+    QObject::connect(&designPanel, &DesignPanel::highlightChanged, panel,
+                     guarded(highlight, QStringLiteral("Design view selection")));
+    RocketActions& actions = designPanel.rocketActions();
+    QObject::connect(
+        panel, &RocketPanel::componentPopupRequested, &actions,
+        guarded(
+            [&actions](const QPoint& globalPosition) { actions.showContextMenu(globalPosition); },
+            QStringLiteral("Component popup")));
+    QObject::connect(
+        panel, &RocketPanel::editRequested, &window,
+        guarded(
+            [&window](RocketComponent* component, const std::vector<RocketComponent*>& others) {
+                window.requestConfigDialog(*component, others);
+            },
+            QStringLiteral("Design view edit")));
+    window.setRocketPanel(panel);
+}
 
 }  // namespace
 
@@ -212,6 +249,8 @@ MainWindow& WindowManager::open(std::unique_ptr<OpenRocketDocument> document, bo
     auto* designPanel = makeChild<DesignPanel>(&window, window, *m_clipboard);
     window.setDesignPanel(designPanel);
     designPanel->takeTheSpotlight();
+    // BasicFrame's RocketPanel, sharing the tree's selection.
+    installRocketPanel(window, *designPanel, m_services.preferences());
     // BasicFrame.positionRelativeToExistingFrames(), after the remembered geometry.
     if (!m_entries.empty())
     {

@@ -29,6 +29,7 @@ namespace QtRocket::Gui
 
 class DesignPanel;
 class MainMenus;
+class RocketPanel;
 class SplitPane;
 class UndoRedoActions;
 class WindowGeometry;
@@ -40,8 +41,8 @@ class WindowGeometry;
 ///
 /// - The design panel and the rocket panel are placeholders (empty widgets named designPanel and
 ///   rocketPanel) until a panel takes their places through setDesignPanel() and
-///   setRocketPanel(): the WindowManager puts a DesignPanel into every window it opens (the
-///   rocket panel, RocketPanel, comes in run 3).
+///   setRocketPanel(): the WindowManager puts a DesignPanel and a RocketPanel into every window
+///   it opens.
 /// - The title is BasicFrame.setTitle()'s: the rocket's name, then " (<file name>)" when the
 ///   document has a file, marked modified (the "*" of BasicFrame, "[*]" in Qt's title) when the
 ///   document is not saved. It is renewed whenever the document changes (every rocket event comes
@@ -95,6 +96,9 @@ public:
     [[nodiscard]] DesignPanel* componentDesignPanel() const;
     /// The widget below the tabs.
     [[nodiscard]] QWidget* rocketPanel() const noexcept { return m_rocketPanel; }
+    /// The widget below the tabs when it is a RocketPanel (the WindowManager puts one into every
+    /// window it opens); null otherwise.
+    [[nodiscard]] RocketPanel* componentRocketPanel() const;
 
     /// Puts @p panel (not null) into the "Rocket design" tab, which takes it over, in place of
     /// the design panel there, which is deleted later.

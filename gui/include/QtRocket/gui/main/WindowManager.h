@@ -34,7 +34,10 @@ class OpenRocketClipboard;
 ///   "Rocket" with the stage "Sustainer", saved, no file); addDocument() opens one on a document
 ///   that was loaded (run 3's file operations). A window opens as BasicFrame's: with its design
 ///   panel (a DesignPanel: the component tree, its selection and actions, the add buttons; the
-///   first stage selected, the tree with the keyboard focus), its size and the remembered
+///   first stage selected, the tree with the keyboard focus) and its design view (a RocketPanel
+///   below the tabs: its clicks select in the tree's selection, its figure draws the design
+///   panel's highlight, its right-click shows the actions' popup menu, its double-click asks for
+///   the window's configuration dialog), its size and the remembered
 ///   geometry (MainWindow), then 30 pixels right of and below the window opened before it
 ///   (WindowGeometry::cascade()), then shown. Every window's design panel shares the component
 ///   clipboard (the application's, OpenRocketClipboard::instance(), unless the manager was made
