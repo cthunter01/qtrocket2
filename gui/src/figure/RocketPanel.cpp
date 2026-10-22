@@ -96,7 +96,7 @@ void addGap(QGridLayout& layout, int column, int width)
 }
 
 /// Moves @p widget from the layout of @p from into @p layout at @p row, @p column.
-void moveInto(QWidget& from, QWidget& widget, QGridLayout& layout, int row, int column)
+void moveInto(QWidget const& from, QWidget& widget, QGridLayout& layout, int row, int column)
 {
     from.layout()->removeWidget(&widget);
     layout.addWidget(&widget, row, column);

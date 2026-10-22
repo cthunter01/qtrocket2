@@ -130,8 +130,8 @@ TEST_F(MassObjectFieldsTest, AutomaticNeedsAParentThatOffersARadius)
     const SizeRows rows = makeSizeRows(host);
     EXPECT_FALSE(rows.widgets.automatic->isEnabled());
 
-    auto& nose = design.stage->addChild(std::make_unique<NoseCone>(), 0);
-    auto& cord = nose.addChild(std::make_unique<ShockCord>());
+    auto&       nose = design.stage->addChild(std::make_unique<NoseCone>(), 0);
+    auto const& cord = nose.addChild(std::make_unique<ShockCord>());
     EXPECT_EQ(cord.getMaxParentRadius(), 0.025);
     EXPECT_TRUE(MassObjectFields::isAutomaticRadiusEnabled(cord));
 }

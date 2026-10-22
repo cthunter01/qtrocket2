@@ -49,7 +49,7 @@ using ExampleDesignsMenuTest = Gui::Test::FileMenusTest;
 /// Fills the Open example menu of @p menus with the examples of @p directory, opened by
 /// @p operations from @p window; the menu object (a pointer: GCC's -Wdangling-reference takes a
 /// reference returned for a temporary path as dangling).
-ExampleDesignsMenu* fillExampleMenu(MainMenus& menus, const std::filesystem::path& directory,
+ExampleDesignsMenu* fillExampleMenu(MainMenus const& menus, const std::filesystem::path& directory,
                                     DocumentFileOperations& operations, MainWindow* window)
 {
     auto* filler =
@@ -214,7 +214,7 @@ TEST_F(ExampleDesignsMenuTest, TheMenuOfNoWindowOpensFromNoWindow)
     static_cast<void>(operations());
     EXPECT_TRUE(manager().close(window));
     Gui::Test::FileMenusTest::deleteLaterNow();
-    MainMenus* const menus = manager().noWindowMenus();
+    MainMenus const* const menus = manager().noWindowMenus();
     ASSERT_NE(menus, nullptr);
     const ExampleDesignsMenu& filler =
         *fillExampleMenu(*menus, shippedExamples(), operations(), nullptr);

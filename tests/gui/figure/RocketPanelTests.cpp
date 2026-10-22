@@ -393,7 +393,7 @@ TEST_F(RocketPanelTest, TheConfigurationComboSelectsTheRocketsConfiguration)
     const Panel                 shown;
     const FlightConfigurationId second = shown.rocket().createFlightConfiguration().getId();
     settle();
-    ConfigurationComboBox& configurations = shown.panel.configurationSelector();
+    ConfigurationComboBox const& configurations = shown.panel.configurationSelector();
     ASSERT_EQ(configurations.count(), 2);
     Gui::Test::pickComboItem(configurations, 1);
     EXPECT_EQ(shown.rocket().getSelectedConfiguration().getId(), second);
@@ -580,7 +580,7 @@ TEST_F(RocketPanelTest, TheFigureDrawsTheHighlightedComponents)
 
 TEST_F(RocketPanelTest, OutlivesItsSelectionModel)
 {
-    Panel        shown;
+    Panel const  shown;
     const QPoint pixel = shown.pixelOf("BT1");
     shown.selection->deleteLater();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);

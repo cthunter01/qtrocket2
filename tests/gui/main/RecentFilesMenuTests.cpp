@@ -41,7 +41,7 @@ using PromptKind          = Gui::Test::ScriptedUserPrompts::Kind;
 
 /// Fills the Open recent menu of @p menus with @p recentFiles, opened by @p operations from
 /// @p window.
-RecentFilesMenu& fillRecentMenu(MainMenus& menus, RecentFiles& recentFiles,
+RecentFilesMenu& fillRecentMenu(MainMenus const& menus, RecentFiles& recentFiles,
                                 DocumentFileOperations& operations, MainWindow* window)
 {
     auto* filler =
@@ -192,7 +192,7 @@ TEST_F(RecentFilesMenuTest, TheMenuOfNoWindowOpensFromNoWindow)
     static_cast<void>(operations());
     EXPECT_TRUE(manager().close(window));
     Gui::Test::FileMenusTest::deleteLaterNow();
-    MainMenus* const menus = manager().noWindowMenus();
+    MainMenus const* const menus = manager().noWindowMenus();
     ASSERT_NE(menus, nullptr);
     RecentFilesMenu& filler = fillRecentMenu(*menus, recent, operations(), nullptr);
     EXPECT_TRUE(menus->openRecentMenu()->menuAction()->isEnabled());

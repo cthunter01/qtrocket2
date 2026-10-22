@@ -661,9 +661,37 @@ private:
 
 /// A directory of the test with the files a.ork and b.png; Qt's file dialog state is put back
 /// afterwards.
+// Whether this build runs under ThreadSanitizer (GCC defines the macro, Clang has the feature).
+#ifdef __SANITIZE_THREAD__
+constexpr bool kThreadSanitizer = true;
+#else
+#ifdef __has_feature
+#if __has_feature(thread_sanitizer)
+constexpr bool kThreadSanitizer = true;
+#else
+constexpr bool kThreadSanitizer = false;
+#endif
+#else
+constexpr bool kThreadSanitizer = false;
+#endif
+#endif
+
 class WidgetFileDialogTest : public Test::GuiTest
 {
 protected:
+    void SetUp() override
+    {
+        GuiTest::SetUp();
+        // A QFileDialog starts Qt's QFileInfoGatherer thread. Under ThreadSanitizer the
+        // uninstrumented libQt6Core then shows races on implicitly shared QStrings between that
+        // thread and the main thread, and TSan's own thread registry fails a CHECK: false
+        // positives of Qt's code, not of QtRocket's (O7). These tests run in every other preset.
+        if constexpr (kThreadSanitizer)
+        {
+            GTEST_SKIP() << "ThreadSanitizer: Qt's QFileInfoGatherer thread (uninstrumented Qt)";
+        }
+    }
+
     WidgetFileDialogTest()
     {
         static_cast<void>(m_directory.write("a.ork", "design"));
@@ -991,7 +1019,7 @@ struct CloseWarningsDialog
 
     void operator()(QWidget& widget) const
     {
-        if (auto* const warnings = qobject_cast<WarningDialog*>(&widget); warnings != nullptr)
+        if (auto const* const warnings = qobject_cast<WarningDialog*>(&widget); warnings != nullptr)
         {
             *title = warnings->windowTitle();
             *lines = warnings->messageLines();
