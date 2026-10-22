@@ -43,11 +43,13 @@ class WindowManager;
 /// have been loaded correctly.", then each warning). The document gets the file and is saved
 /// (OpenFileWorker), and opens in a window of its own, which takes the place of the window the
 /// open came from when that one is a New design still saved (WindowManager::addDocument()).
-/// openAction() asks for the files first (File > Open: "OpenRocket designs (*.ork *.ork.gz)" and
-/// "All Files (*)", several at once, starting in the default directory, which the directory the
-/// user ended in becomes) and opens each. openExample() opens an example design as BasicFrame's
-/// open(URL): read as bytes without a directory (GeneralRocketLoader(URL)), without a file, saved,
-/// and the rocket's configuration dialog is asked for once the window is shown.
+/// openAction() asks for the files first (File > Open: "All Files (*)" and "OpenRocket designs
+/// (*.ork *.ork.gz)" in JFileChooser's order, the designs chosen, several at once, starting in the
+/// default directory, which the directory the user ended in becomes) and opens each. A file
+/// opened gets the absolute path of what was opened, with the platform's separators. openExample()
+/// opens an example design as BasicFrame's open(URL): read as bytes without a directory
+/// (GeneralRocketLoader(URL)), without a file, saved, and the rocket's configuration dialog is
+/// asked for once the window is shown.
 ///
 /// SAVE (save()): BasicFrame.saveAction(): the document is told first
 /// (fireDocumentSavingEvent()); a document without a file, or of RockSim or RASAero, is saved as
@@ -56,11 +58,14 @@ class WindowManager;
 /// SAVE AS (saveAs()): the "Save Design Info" dialog first when the preference asks for it (the
 /// rocket selected in the tree; UserPrompts::editDesignInformation(), the hook of run 4); then the
 /// file ("Save as OpenRocket ork file", the OpenRocket designs only, starting in the default
-/// directory, or in the directory of the document's file with its name, the proposed name its
-/// file's with the extension forced; the storage option offered when the design holds simulated
-/// data); the storage options are stored and marked explicitly set, the directory becomes the
-/// default one, the extension "ork" is forced (forceExtension()), and an existing file is
-/// overwritten only when the user agrees ("File exists"). Then saveAsOpenRocket().
+/// directory (the user's home directory without one); the document's file with the extension
+/// forced is proposed, in its directory, only when SaveFileChooser takes it
+/// (SaveFileNames::isProposable(): a file of the default directory, not one of another directory
+/// or of a subdirectory); names with an illegal character refused (SaveFileChooser); the storage
+/// option offered when the design holds simulated data); the storage options are stored and
+/// marked explicitly set, the directory becomes the default one, the extension "ork" is forced
+/// (forceExtension()), and an existing file is overwritten only when the user agrees ("File
+/// exists"). Then saveAsOpenRocket().
 ///
 /// WRITING (saveAsOpenRocket()): the extension forced again; the storage options asked when they
 /// are not set explicitly and the design holds simulated data (verifyStorageOptions(): "Save
@@ -120,14 +125,15 @@ public:
     [[nodiscard]] static QString openRocketDesignFilter();
     /// The file chooser's accept-all filter: "All Files (*)".
     [[nodiscard]] static QString allFilesFilter();
-    /// The name filters of File > Open, the selected one first.
+    /// The name filters of File > Open, in JFileChooser's order (its accept-all filter first);
+    /// openAction() chooses openRocketDesignFilter().
     [[nodiscard]] static QStringList openFilters();
 
     /// FileHelper.forceExtension(@p file, @p extension): @p file when the text after the last
     /// dot of its name (a dot that is not its first character) is @p extension, ignoring case;
     /// otherwise the absolute path of @p file with "." and @p extension added ("x.ork.gz" ->
     /// "x.ork.gz.ork", ".ork" -> ".ork.ork", "x." -> "x..ork"). An @p extension that starts with
-    /// a dot is added as it is.
+    /// a dot is added as it is. A file made absolute has the platform's separators.
     [[nodiscard]] static std::filesystem::path forceExtension(const std::filesystem::path& file,
                                                               const QString& extension);
 

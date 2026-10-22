@@ -14,6 +14,7 @@ target_sources(QtRocket_gui PRIVATE
     RecentFiles.cpp ${gui_include_dir}/main/RecentFiles.h
     RecentFilesMenu.cpp ${gui_include_dir}/main/RecentFilesMenu.h
     RocketActions.cpp ${gui_include_dir}/main/RocketActions.h
+    SaveFileNames.cpp ${gui_include_dir}/main/SaveFileNames.h
     SplitPane.cpp ${gui_include_dir}/main/SplitPane.h
     UndoRedoActions.cpp ${gui_include_dir}/main/UndoRedoActions.h
     WidgetUserPrompts.cpp ${gui_include_dir}/main/WidgetUserPrompts.h

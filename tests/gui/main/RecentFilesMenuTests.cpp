@@ -7,6 +7,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QtContainerFwd>
@@ -136,6 +137,31 @@ TEST_F(RecentFilesMenuTest, AFileThatCannotBeOpenedIsTakenOutOfTheList)
     EXPECT_EQ(manager().windowCount(), 1U);
     EXPECT_EQ(recent.files(), QStringList{alpha});
     EXPECT_EQ(Gui::Test::menuTexts(*filler.menu()), QStringList{alpha});
+}
+
+TEST_F(RecentFilesMenuTest, TheListIsUpdatedWhenTheMenuGoesWithItsWindowDuringTheOpen)
+{
+    // The window of the menu is closed and destroyed while the open's message is shown (another
+    // window's event; on macOS a design file the Finder opens, or the Dock's Quit): the menu goes
+    // with it, and the file is taken out of the list all the same, as MRUDesignFileAction updates
+    // the list whatever became of the menu (ASan checks that nothing of the menu is used after
+    // the open).
+    const QString alpha   = QtStrings::fromPath(writeDesign("alpha.ork", "Alpha"));
+    const QString missing = QtStrings::fromPath(directory().resolve("missing.ork"));
+    RecentFiles   recent(preferences());
+    recent.setFiles({missing, alpha});
+    MainWindow&                     origin = loadedWindow(manager());
+    const QPointer<RecentFilesMenu> filler(
+        &fillRecentMenu(origin.menus(), recent, operations(), &origin));
+    closeBeforeNextMessage(origin);
+    QAction* const item = Gui::Test::menuItem(*origin.menus().openRecentMenu(), missing);
+    ASSERT_NE(item, nullptr);
+    item->trigger();
+    EXPECT_TRUE(filler.isNull());
+    EXPECT_EQ(manager().windowCount(), 0U);
+    ASSERT_EQ(asked().size(), 1U);
+    EXPECT_EQ(asked().front().texts.value(1), QStringLiteral("File not found: missing.ork"));
+    EXPECT_EQ(recent.files(), QStringList{alpha});
 }
 
 TEST_F(RecentFilesMenuTest, AFileChosenInANewDesignTakesItsPlace)

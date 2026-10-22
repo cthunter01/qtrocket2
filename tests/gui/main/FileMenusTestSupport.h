@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -10,8 +11,10 @@
 #include <QtContainerFwd>
 
 #include "GuiTestSupport.h"
+#include "HookedUserPrompts.h"
 #include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/WindowManager.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "ScriptedUserPrompts.h"
 #include "TestGuiServices.h"
@@ -19,6 +22,11 @@
 
 class QAction;
 class QMenu;
+
+namespace QtRocket::Gui
+{
+class MainWindow;
+}
 
 // The fixture of the tests of the menus that open design files (RecentFilesMenu,
 // ExampleDesignsMenu): windows and their file operations over test services, and a directory of
@@ -28,8 +36,10 @@ namespace QtRocket::Gui::Test
 {
 
 /// A window manager and its file operations (made on first use) over test services, whose
-/// questions ScriptedUserPrompts answers, and a directory of the test. TearDown() destroys the
-/// operations, then the windows (and what waits for deleteLater()), before GuiTest's checks.
+/// questions ScriptedUserPrompts answers (through HookedUserPrompts, so that a test can act
+/// while a message is shown: beforeNextMessage()), and a directory of the test. TearDown()
+/// destroys the operations, then the windows (and what waits for deleteLater()), before
+/// GuiTest's checks.
 class FileMenusTest : public GuiTest
 {
 protected:
@@ -42,14 +52,21 @@ protected:
     /// Destroys the file operations (the manager stays).
     void destroyOperations();
 
-    [[nodiscard]] ScriptedUserPrompts& prompts() noexcept { return m_services.prompts(); }
+    [[nodiscard]] ScriptedUserPrompts& prompts() noexcept { return m_prompts.scripted(); }
     [[nodiscard]] InMemoryPreferences& preferences() noexcept { return m_services.preferences(); }
     [[nodiscard]] const QtRocket::Test::TempDir& directory() const noexcept { return m_directory; }
     /// The questions and messages so far.
     [[nodiscard]] const std::vector<ScriptedUserPrompts::Prompt>& asked() const noexcept
     {
-        return m_services.prompts().prompts();
+        return m_prompts.scripted().prompts();
     }
+    /// Calls @p hook before the next message the questions show, once (as the event loop of a
+    /// message box may run another window's events).
+    void beforeNextMessage(std::function<void()> hook);
+    /// Closes @p window of the manager, and deletes it at once, before the next message the
+    /// questions show (another window's event while the message box runs: on macOS a design file
+    /// the Finder opens, the Dock's Quit).
+    void closeBeforeNextMessage(MainWindow& window);
 
     /// Writes a design whose rocket is named @p rocketName to @p name in the directory.
     [[nodiscard]] std::filesystem::path writeDesign(const std::filesystem::path& name,
@@ -59,8 +76,13 @@ protected:
     static void deleteLaterNow();
 
 private:
-    QtRocket::Test::TempDir                 m_directory;
-    TestGuiServices                         m_services;
+    QtRocket::Test::TempDir m_directory;
+    TestGuiServices         m_services;
+    HookedUserPrompts       m_prompts;
+    /// The test services with the hooked questions.
+    GuiServices m_hookedServices{m_services.preferences(), m_services.services().materials(),
+                                 m_services.services().motors(),
+                                 m_services.services().loadingContext(), m_prompts};
     std::unique_ptr<WindowManager>          m_manager;
     std::unique_ptr<DocumentFileOperations> m_operations;
 };

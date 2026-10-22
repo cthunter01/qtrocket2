@@ -55,8 +55,12 @@ MainWindow* RecentFilesMenu::open(const QString& file)
     {
         return nullptr;
     }
-    MainWindow* const  opened      = operations->open(QtStrings::toPath(file), m_window.data());
-    RecentFiles* const recentFiles = m_recentFiles.data();
+    // The open's questions run an event loop, in which this menu may go with its window: what
+    // the list needs afterwards is taken now (MRUDesignFileAction updates the MRUDesignFile
+    // singleton, whatever became of the menu).
+    const QPointer<RecentFiles> recent = m_recentFiles;
+    MainWindow* const           opened = operations->open(QtStrings::toPath(file), m_window.data());
+    RecentFiles* const          recentFiles = recent.data();
     if (recentFiles == nullptr)
     {
         return opened;

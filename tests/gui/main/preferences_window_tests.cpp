@@ -191,6 +191,38 @@ TEST_F(PreferencesWindowTest, ANewDialogClosesTheOpenOneAsOk)
     second.okButton()->click();
 }
 
+TEST_F(PreferencesWindowTest, ADialogWhoseWindowClosesStoresAsOk)
+{
+    // Java's dialog is owned by its frame, whose dispose() disposes it: its windowClosed
+    // listener stores. A window can close while the dialog is open (on macOS a design file the
+    // Finder opens in place of a New design, the Dock's Quit).
+    PreferencesDialog* const shown = openPreferences(*m_first);
+    ASSERT_NE(shown, nullptr);
+    const QPointer<PreferencesDialog> dialog(shown);
+    Gui::Test::chooseItem(*shown->unitsPage()->unitSelector(UnitGroupId::LENGTH), 3);  // in
+    EXPECT_TRUE(m_manager->close(*m_first));
+    m_first = nullptr;
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(dialog.isNull());
+    EXPECT_EQ(m_manager->preferencesDialog(), nullptr);
+    EXPECT_EQ(m_services.preferences().getNode(PreferenceKeys::kUnitsNode).get("LENGTH"), "in");
+    EXPECT_EQ(rulerUnit(*m_second), "in");
+}
+
+TEST_F(PreferencesWindowTest, ADialogOfAManagerThatGoesStoresAsOk)
+{
+    PreferencesDialog* const shown = openPreferences(*m_second);
+    ASSERT_NE(shown, nullptr);
+    const QPointer<PreferencesDialog> dialog(shown);
+    Gui::Test::chooseItem(*shown->unitsPage()->unitSelector(UnitGroupId::MASS), 1);  // kg
+    m_manager = nullptr;
+    m_first   = nullptr;
+    m_second  = nullptr;
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(dialog.isNull());
+    EXPECT_EQ(m_services.preferences().getNode(PreferenceKeys::kUnitsNode).get("MASS"), "kg");
+}
+
 }  // namespace
 
 }  // namespace QtRocket::Gui

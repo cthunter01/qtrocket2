@@ -144,6 +144,11 @@ ApplicationSession::~ApplicationSession()
 bool ApplicationSession::openFiles(const std::vector<std::filesystem::path>& files,
                                    MainWindow*                               origin)
 {
+    // The questions of the files run event loops, in which macOS may tell that the application
+    // became active while it has no window yet: the files' windows are to come, so no reopen
+    // (OpenRocket reopens only for the Dock's reopen).
+    const bool wasOpeningFiles = std::exchange(m_openingFiles, true);
+    const auto reset = qScopeGuard([this, wasOpeningFiles] { m_openingFiles = wasOpeningFiles; });
     return m_fileOperations->openFiles(files, origin);
 }
 
@@ -178,7 +183,7 @@ MainWindow* ApplicationSession::reopen()
 
 void ApplicationSession::reopenIfNoWindow()
 {
-    if (m_windows->windowCount() == 0)
+    if (!m_openingFiles && m_windows->windowCount() == 0)
     {
         static_cast<void>(reopen());
     }

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <QCheckBox>
+#include <QPointer>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QString>
@@ -15,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "HookedUserPrompts.h"
 #include "QtRocket/preferences/InMemoryPreferences.h"
 #include "QtRocket/preferences/PreferenceKeys.h"
 #include "QtRocket/unit/UnitGroup.h"
@@ -105,6 +107,27 @@ TEST_F(GeneralPreferencesPanelTest, ResetAllPreferencesEmptiesTheStoreAndResetsT
                            QStringLiteral("You may need to restart QtRocket for some of the "
                                           "changes to take effect.")}));
     EXPECT_EQ(cleared.count(), 1);
+}
+
+TEST_F(GeneralPreferencesPanelTest, APageThatGoesDuringTheReloadMessageTellsNothingMore)
+{
+    // The page goes with its dialog's window while "Reload QtRocket" is shown (macOS: a design
+    // file the Finder opens in place of the dialog's New design): the preferences are reset, and
+    // nothing of the page is used afterwards (no preferencesCleared() of a destroyed page).
+    m_preferences.setAutoOpenLastDesignOnStartup(true);
+    Gui::Test::HookedUserPrompts prompts;
+    auto page = std::make_unique<GeneralPreferencesPanel>(m_preferences, prompts, nullptr);
+    GeneralPreferencesPanel* const          shown = page.get();
+    const QPointer<GeneralPreferencesPanel> alive(shown);
+    const QSignalSpy cleared(shown, &GeneralPreferencesPanel::preferencesCleared);
+    prompts.scripted().answerYesNo(true);
+    prompts.beforeNextMessage([&page] { page.reset(); });
+    EXPECT_TRUE(shown->resetAllPreferences());
+    EXPECT_TRUE(alive.isNull());
+    EXPECT_EQ(cleared.count(), 0);
+    EXPECT_FALSE(m_preferences.isAutoOpenLastDesignOnStartupEnabled());
+    ASSERT_EQ(prompts.scripted().prompts().size(), 2U);
+    EXPECT_EQ(prompts.scripted().prompts().back().title, QStringLiteral("Reload QtRocket"));
 }
 
 TEST_F(GeneralPreferencesPanelTest, TheResetButtonIsJavas)

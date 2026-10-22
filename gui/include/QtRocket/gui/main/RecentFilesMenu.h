@@ -39,7 +39,8 @@ public:
 
     /// What choosing the item of @p file does (MRUDesignFileAction.createAction()): opens it, and
     /// then puts it at the top of the list, or takes it out when it could not be opened. The
-    /// window of the file, or null.
+    /// window of the file, or null. The list is updated also when this menu went with its window
+    /// during one of the open's questions; nothing of the menu is used after the open.
     MainWindow* open(const QString& file);
 
 private:

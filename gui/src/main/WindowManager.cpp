@@ -131,6 +131,11 @@ WindowManager::WindowManager(const GuiServices& services, OpenRocketClipboard& c
 
 WindowManager::~WindowManager()
 {
+    // An open preferences dialog goes with its window, as with close().
+    if (PreferencesDialog* const dialog = m_preferencesDialog.data(); dialog != nullptr)
+    {
+        dialog->accept();
+    }
     // The last opened first; each window before its document (Entry).
     while (!m_entries.empty())
     {
@@ -173,6 +178,13 @@ bool WindowManager::close(MainWindow& window)
     if (!confirmClose(window))
     {
         return false;
+    }
+    // Java's preferences dialog is owned by its frame: the frame's dispose() disposes it, and its
+    // windowClosed listener stores (as OK does).
+    if (PreferencesDialog* const dialog = m_preferencesDialog.data();
+        dialog != nullptr && dialog->parentWidget() == &window)
+    {
+        dialog->accept();
     }
     destroyLater(window);
     // BasicFrame.closeAction(): ComponentConfigDialog.disposeDialog() after the frame's

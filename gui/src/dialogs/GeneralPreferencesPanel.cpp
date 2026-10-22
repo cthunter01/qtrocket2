@@ -3,6 +3,7 @@
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QMargins>
+#include <QPointer>
 #include <QPushButton>
 #include <QString>
 #include <QVBoxLayout>
@@ -97,14 +98,18 @@ GeneralPreferencesPanel::~GeneralPreferencesPanel() = default;
 
 bool GeneralPreferencesPanel::resetAllPreferences()
 {
+    // The question and the message run event loops, in which the page may go with its dialog's
+    // window: nothing of it is used once it is gone.
+    const QPointer<GeneralPreferencesPanel> self(this);
     // JOptionPane.showConfirmDialog(parent, ..., YES_NO_OPTION, WARNING_MESSAGE), the parent the
     // dialog.
-    if (!m_prompts->askYesNo(window(),
-                             {.severity = UserPrompts::Severity::WARNING,
-                              //: pref.dlg.clearCachedPreferences.title
-                              .title = tr("Reset preferences?"),
-                              //: pref.dlg.clearCachedPreferences.message
-                              .text = tr("Are you sure you want to reset all your preferences?")}))
+    const bool reset = m_prompts->askYesNo(
+        window(), {.severity = UserPrompts::Severity::WARNING,
+                   //: pref.dlg.clearCachedPreferences.title
+                   .title = tr("Reset preferences?"),
+                   //: pref.dlg.clearCachedPreferences.message
+                   .text = tr("Are you sure you want to reset all your preferences?")});
+    if (!reset || self.isNull())
     {
         return false;
     }
@@ -118,6 +123,11 @@ bool GeneralPreferencesPanel::resetAllPreferences()
          //: generalprefs.ImportWarning.msg
          .lines = {
              tr("You may need to restart QtRocket for some of the changes to take effect.")}});
+    if (self.isNull())
+    {
+        // The preferences are reset; there is no dialog left to show them anew.
+        return true;
+    }
     Q_EMIT preferencesCleared();
     return true;
 }

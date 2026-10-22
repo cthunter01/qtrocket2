@@ -4,6 +4,7 @@
 #include <optional>
 #include <vector>
 
+#include <QChar>
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -29,6 +30,7 @@
 #include "QtRocket/gui/dialogs/OptionDialog.h"
 #include "QtRocket/gui/dialogs/StorageOptionsDialog.h"
 #include "QtRocket/gui/dialogs/WarningDialog.h"
+#include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/util/QtStrings.h"
@@ -93,15 +95,18 @@ void addDescription(QFileDialog& dialog, const QString& description)
     }
     const QFileDialog&          chooser = *dialog.get();
     UserPrompts::OpenFileAnswer answer;
+    // With the platform's separators, as Java's File has them: Qt names files with '/' on
+    // Windows too.
     for (const QString& file : chooser.selectedFiles())
     {
-        answer.files.push_back(QtStrings::toPath(file));
+        answer.files.push_back(QtStrings::toPath(QDir::toNativeSeparators(file)));
     }
     if (answer.files.empty())
     {
         return std::nullopt;
     }
-    answer.directory = QtStrings::toPath(chooser.directory().absolutePath());
+    answer.directory =
+        QtStrings::toPath(QDir::toNativeSeparators(chooser.directory().absolutePath()));
     return answer;
 }
 
@@ -122,12 +127,57 @@ void addDescription(QFileDialog& dialog, const QString& description)
     if (!request.nameFilters.isEmpty())
     {
         chooser.setNameFilters(request.nameFilters);
-        chooser.selectNameFilter(request.nameFilters.front());
+        chooser.selectNameFilter(request.selectedNameFilter.isEmpty() ? request.nameFilters.front()
+                                                                      : request.selectedNameFilter);
     }
     chooser.setDirectory(startDirectory(request.directory));
     if (!request.description.isEmpty())
     {
         addDescription(chooser, request.description);
+    }
+    return chosenFiles(dialog);
+}
+
+/// Whether the platform's own save dialog asks itself before it replaces a file, whatever the
+/// dialog is told: macOS's save panel (QFileDialog::DontConfirmOverwrite is not supported there).
+[[nodiscard]] constexpr bool platformSaveDialogConfirmsOverwrite() noexcept
+{
+#ifdef __APPLE__
+    return true;
+#else
+    return false;
+#endif
+}
+
+/// A file chooser in SAVE mode (JFileChooser.showSaveDialog()) for @p request, starting in
+/// @p directory with the name @p fileName proposed.
+[[nodiscard]] std::optional<UserPrompts::OpenFileAnswer> chooseFileToSave(
+    QWidget* parent, const UserPrompts::SaveFileRequest& request,
+    const std::filesystem::path& directory, const QString& fileName)
+{
+    ModalDialog<QFileDialog> dialog(parent);
+    QFileDialog&             chooser = *dialog.get();
+    chooser.setObjectName(QStringLiteral("saveFileDialog"));
+    // The caller forces the extension and then asks askOverwrite(): the dialog must not ask
+    // first, so on macOS, whose save panel always asks, it is Qt's own dialog (as Swing's
+    // JFileChooser is no platform dialog either).
+    chooser.setOption(QFileDialog::DontUseNativeDialog, platformSaveDialogConfirmsOverwrite());
+    chooser.setOption(QFileDialog::DontConfirmOverwrite, true);
+    if (!request.title.isEmpty())
+    {
+        chooser.setWindowTitle(request.title);
+    }
+    chooser.setAcceptMode(QFileDialog::AcceptSave);
+    chooser.setFileMode(QFileDialog::AnyFile);
+    if (!request.nameFilters.isEmpty())
+    {
+        chooser.setNameFilters(request.nameFilters);
+        chooser.selectNameFilter(request.nameFilters.front());
+    }
+    chooser.setDirectory(startDirectory(directory));
+    if (!fileName.isEmpty())
+    {
+        chooser.selectFile(fileName);
     }
     return chosenFiles(dialog);
 }
@@ -239,6 +289,14 @@ QString WidgetUserPrompts::overwriteText(const QString& fileName)
     //: error.fileExists.desc
     QString text = tr("File '{filename}' exists.  Do you want to overwrite it?");
     return text.replace(QStringLiteral("{filename}"), fileName);
+}
+
+QString WidgetUserPrompts::illegalFileNameText(const QString& fileName, QChar character)
+{
+    // String.format(message, fileName, c): both put in at once, so that a '%' of the name stays.
+    //: SaveAsFileChooser.illegalFilename.message
+    return tr("The filename '%1' may not contain the character ' %2 '. Please remove it.")
+        .arg(fileName, QString(character));
 }
 
 UserPrompts::InsertPositionAnswer WidgetUserPrompts::askInsertPosition(
@@ -388,29 +446,8 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
 std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
     QWidget* parent, const SaveFileRequest& request)
 {
-    const QPointer<QWidget>  guard(parent);
-    ModalDialog<QFileDialog> dialog(parent);
-    QFileDialog&             chooser = *dialog.get();
-    chooser.setObjectName(QStringLiteral("saveFileDialog"));
-    if (!request.title.isEmpty())
-    {
-        chooser.setWindowTitle(request.title);
-    }
-    chooser.setAcceptMode(QFileDialog::AcceptSave);
-    chooser.setFileMode(QFileDialog::AnyFile);
-    // The caller forces the extension and then asks askOverwrite().
-    chooser.setOption(QFileDialog::DontConfirmOverwrite, true);
-    if (!request.nameFilters.isEmpty())
-    {
-        chooser.setNameFilters(request.nameFilters);
-        chooser.selectNameFilter(request.nameFilters.front());
-    }
-    chooser.setDirectory(startDirectory(request.directory));
-    if (!request.fileName.isEmpty())
-    {
-        chooser.selectFile(request.fileName);
-    }
-    const std::optional<OpenFileAnswer> chosen = chosenFiles(dialog);
+    const QPointer<QWidget>             guard(parent);
+    const std::optional<OpenFileAnswer> chosen = askLegalFileToSave(parent, request);
     if (!chosen.has_value())
     {
         return std::nullopt;
@@ -432,6 +469,43 @@ std::optional<UserPrompts::SaveFileAnswer> WidgetUserPrompts::askSaveFile(
         }
     }
     return answer;
+}
+
+std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askLegalFileToSave(
+    QWidget* parent, const SaveFileRequest& request)
+{
+    const QPointer<QWidget> guard(parent);
+    std::filesystem::path   directory = request.directory;
+    QString                 fileName  = request.fileName;
+    while (true)
+    {
+        std::optional<OpenFileAnswer> chosen =
+            chooseFileToSave(parent, request, directory, fileName);
+        if (!chosen.has_value() || !request.refuseIllegalNames)
+        {
+            return chosen;
+        }
+        // SaveFileChooser.approveSelection(): the name as the chooser reads it
+        // (getFilenameInput(), relative to the directory the dialog ended in).
+        const QString name = SaveFileNames::filenameInput(chosen->files.front(), chosen->directory);
+        const std::optional<QChar> illegal = SaveFileNames::illegalCharacter(name);
+        if (!illegal.has_value())
+        {
+            return chosen;
+        }
+        // showIllegalFilenameWarning(); Java's chooser stays open: here it is shown again, in its
+        // directory with the name.
+        showMessage(parent, {.severity = Severity::WARNING,
+                             //: SaveAsFileChooser.illegalFilename.title
+                             .title = tr("Illegal filename"),
+                             .lines = {illegalFileNameText(name, *illegal)}});
+        if (parentGone(parent, guard))
+        {
+            return std::nullopt;
+        }
+        directory = chosen->directory;
+        fileName  = name;
+    }
 }
 
 void WidgetUserPrompts::editDesignInformation(QWidget* /*parent*/, OpenRocketDocument& /*document*/)

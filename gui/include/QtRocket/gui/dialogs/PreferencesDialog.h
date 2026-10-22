@@ -81,8 +81,11 @@ class UserPrompts;
 ///   does), so the application has no global dialog.
 /// - showPreferences() returns as soon as the dialog is shown (Java's setVisible() of the modal
 ///   dialog returns once it is closed): no event loop of its own runs under the menu item.
-/// - A dialog destroyed while it is open (with its window, which no user can close while the
-///   dialog is modal) neither stores nor restores anything: the pages' changes stay as made.
+/// - A dialog destroyed while it is open neither stores nor restores anything: the pages' changes
+///   stay as made. The WindowManager closes a dialog as by OK before its window closes (Java's
+///   dialog, owned by its frame, is disposed with it and stores), as a window can close while
+///   the dialog is open (macOS: a design file opened from the Finder in place of a New design,
+///   the Dock's Quit).
 class PreferencesDialog final : public QDialog
 {
     Q_OBJECT

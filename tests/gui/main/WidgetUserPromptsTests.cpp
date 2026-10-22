@@ -4,21 +4,26 @@
 #include <memory>
 #include <optional>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <QAbstractButton>
+#include <QChar>
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFileDialog>
 #include <QLabel>
 #include <QMessageBox>
 #include <QObject>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSettings>
 #include <QString>
 #include <QStringList>
 #include <QTest>
+#include <QVariant>
 #include <QWidget>
 #include <Qt>
 #include <QtContainerFwd>
@@ -529,6 +534,13 @@ TEST_F(WidgetUserPromptsTest, AsksForTheStorageOptions)
     EXPECT_EQ(prompts.askStorageOptions(nullptr, true), std::nullopt);
 }
 
+/// Whether the save dialog is Qt's own: on macOS, whose save panel always confirms an overwrite.
+#ifdef __APPLE__
+constexpr bool kQtSaveDialog = true;
+#else
+constexpr bool kQtSaveDialog = false;
+#endif
+
 /// What a file dialog looked like.
 struct FileDialogSeen
 {
@@ -605,7 +617,50 @@ struct ThenNext
     }
 };
 
-/// A directory of the test with the files a.ork and b.png.
+/// The state Qt's file dialog keeps (QSettings(UserScope, "QtProject"), group "FileDialog": its
+/// history, last directory, view), put back as it was when this goes. The dialog writes it in the
+/// native format, the registry on Windows and CFPreferences on macOS, which the test main's
+/// QSettings::setPath() does not redirect; a test leaves the user's state as it found it. (ctest
+/// runs the tests in parallel processes, so a test that starts after another test's dialog wrote
+/// its state may put that state back instead of the user's.)
+class QtFileDialogState
+{
+public:
+    QtFileDialogState()
+    {
+        QSettings settings(QSettings::UserScope, organization());
+        settings.beginGroup(group());
+        for (const QString& key : settings.allKeys())
+        {
+            m_values.emplace_back(key, settings.value(key));
+        }
+    }
+
+    ~QtFileDialogState()
+    {
+        QSettings settings(QSettings::UserScope, organization());
+        settings.remove(group());
+        settings.beginGroup(group());
+        for (const auto& [key, value] : m_values)
+        {
+            settings.setValue(key, value);
+        }
+    }
+
+    QtFileDialogState(const QtFileDialogState&)            = delete;
+    QtFileDialogState& operator=(const QtFileDialogState&) = delete;
+    QtFileDialogState(QtFileDialogState&&)                 = delete;
+    QtFileDialogState& operator=(QtFileDialogState&&)      = delete;
+
+private:
+    [[nodiscard]] static QString organization() { return QStringLiteral("QtProject"); }
+    [[nodiscard]] static QString group() { return QStringLiteral("FileDialog"); }
+
+    std::vector<std::pair<QString, QVariant>> m_values;
+};
+
+/// A directory of the test with the files a.ork and b.png; Qt's file dialog state is put back
+/// afterwards.
 class WidgetFileDialogTest : public Test::GuiTest
 {
 protected:
@@ -622,6 +677,9 @@ protected:
     }
 
 private:
+    /// Declared first: it goes last, after the dialogs (GuiTest::TearDown() deletes those given
+    /// to deleteLater()).
+    QtFileDialogState       m_fileDialogState;
     QtRocket::Test::TempDir m_directory;
 };
 
@@ -690,32 +748,45 @@ TEST_F(WidgetFileDialogTest, AsksForTheFilesToOpen)
     {
         const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("a.ork"), .seen = &seen});
         answer = prompts.askOpenFiles(
-            nullptr, {.title         = QString(),
-                      .nameFilters   = {QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
-                                        QStringLiteral("All Files (*)")},
-                      .directory     = directory().path(),
-                      .multipleFiles = true,
-                      .description   = QString()});
+            nullptr, {.title              = QString(),
+                      .nameFilters        = {QStringLiteral("All Files (*)"),
+                                             QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")},
+                      .directory          = directory().path(),
+                      .multipleFiles      = true,
+                      .description        = QString(),
+                      .selectedNameFilter = QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")});
     }
     ASSERT_TRUE(answer.has_value());
     EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("a.ork")));
     EXPECT_TRUE(isSamePath(openedDirectoryOf(answer), directory().path()));
+    // With the platform's separators, as Java's File (Qt names files with '/' on Windows).
+    EXPECT_EQ(QtStrings::fromPath(filesOf(answer).front()),
+              QDir::toNativeSeparators(QtStrings::fromPath(filesOf(answer).front())));
+    EXPECT_EQ(QtStrings::fromPath(openedDirectoryOf(answer)),
+              QDir::toNativeSeparators(QtStrings::fromPath(openedDirectoryOf(answer))));
     EXPECT_EQ(seen.objectName, QStringLiteral("openFileDialog"));
-    EXPECT_EQ(seen.nameFilters, (QStringList{QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
-                                             QStringLiteral("All Files (*)")}));
+    EXPECT_EQ(seen.nameFilters,
+              (QStringList{QStringLiteral("All Files (*)"),
+                           QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")}));
     EXPECT_EQ(seen.selectedFilter, QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"));
     EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
     EXPECT_EQ(seen.fileMode, QFileDialog::ExistingFiles);
     EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptOpen);
     EXPECT_TRUE(seen.description.isEmpty());
 
-    const Gui::Test::NextModalDialog cancel{ChooseFile{}};
-    EXPECT_EQ(prompts.askOpenFiles(nullptr, {.title         = QStringLiteral("Open"),
-                                             .nameFilters   = {},
-                                             .directory     = directory().path(),
-                                             .multipleFiles = false,
-                                             .description   = QString()}),
-              std::nullopt);
+    // Without a filter asked for, the first is chosen.
+    {
+        const Gui::Test::NextModalDialog cancel{ChooseFile{.file = QString(), .seen = &seen}};
+        EXPECT_EQ(prompts.askOpenFiles(nullptr, {.title       = QStringLiteral("Open"),
+                                                 .nameFilters = {QStringLiteral("All Files (*)"),
+                                                                 QStringLiteral("Images (*.png)")},
+                                                 .directory   = directory().path(),
+                                                 .multipleFiles      = false,
+                                                 .description        = QString(),
+                                                 .selectedNameFilter = QString()}),
+                  std::nullopt);
+    }
+    EXPECT_EQ(seen.selectedFilter, QStringLiteral("All Files (*)"));
 }
 
 TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)
@@ -730,7 +801,8 @@ TEST_F(WidgetFileDialogTest, ADescriptionStandsBesideTheFiles)
                                        .nameFilters   = {},
                                        .directory     = directory().path(),
                                        .multipleFiles = false,
-                                       .description   = QStringLiteral("The image will be ...")});
+                                       .description   = QStringLiteral("The image will be ..."),
+                                       .selectedNameFilter = QString()});
     ASSERT_TRUE(answer.has_value());
     EXPECT_TRUE(isFile(filesOf(answer), directory().resolve("b.png")));
     EXPECT_EQ(seen.title, QStringLiteral("Import"));
@@ -751,7 +823,8 @@ TEST_F(WidgetFileDialogTest, AsksForTheFileToSaveWithoutConfirmingAnOverwrite)
                       .nameFilters        = {QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")},
                       .directory          = directory().path(),
                       .fileName           = QStringLiteral("rocket.ork"),
-                      .saveSimulationData = std::nullopt});
+                      .saveSimulationData = std::nullopt,
+                      .refuseIllegalNames = true});
     }
     ASSERT_TRUE(answer.has_value());
     EXPECT_TRUE(isSamePath(savedFileOf(answer), directory().resolve("a.ork")));
@@ -762,6 +835,8 @@ TEST_F(WidgetFileDialogTest, AsksForTheFileToSaveWithoutConfirmingAnOverwrite)
     EXPECT_EQ(seen.acceptMode, QFileDialog::AcceptSave);
     EXPECT_EQ(seen.fileMode, QFileDialog::AnyFile);
     EXPECT_FALSE(seen.confirmsOverwrite);
+    // macOS's save panel would confirm an overwrite all the same: Qt's dialog there.
+    EXPECT_EQ(seen.qtDialog, kQtSaveDialog);
     // The proposed name in the directory.
     ASSERT_EQ(seen.proposed.size(), 1);
     EXPECT_EQ(QtStrings::toPath(seen.proposed.front()).filename(), "rocket.ork");
@@ -778,7 +853,8 @@ TEST_F(WidgetFileDialogTest, ASaveThatOffersTheStorageOptionAsksForThemAfterTheF
                                                        .nameFilters        = {},
                                                        .directory          = directory().path(),
                                                        .fileName           = QString(),
-                                                       .saveSimulationData = true};
+                                                       .saveSimulationData = true,
+                                                       .refuseIllegalNames = false};
     {
         const Gui::Test::NextModalDialog choose(
             ThenNext{.first  = ChooseFile{.file = path("a.ork"), .seen = nullptr},
@@ -799,6 +875,60 @@ TEST_F(WidgetFileDialogTest, ASaveThatOffersTheStorageOptionAsksForThemAfterTheF
         EXPECT_EQ(prompts.askSaveFile(nullptr, request), std::nullopt);
     }
     storage.reset();
+}
+
+TEST_F(WidgetFileDialogTest, ASaveThatRefusesIllegalNamesWarnsAndAsksAgain)
+{
+    // SaveFileChooser.approveSelection(): a name with one of FileUtils.ILLEGAL_CHARS is refused
+    // with "Illegal filename" and the chooser stays: here it is shown again, in its directory
+    // with the name (the probe: "x|y.ork" refused, warned of "x|y.ork" and '|'; "ab.ork" taken).
+    WidgetUserPrompts                          prompts;
+    std::optional<Gui::Test::NextModalDialog>  warning;
+    std::optional<Gui::Test::NextModalDialog>  again;
+    QStringList                                lines;
+    QString                                    title;
+    FileDialogSeen                             seen;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    const UserPrompts::SaveFileRequest         request{.title              = QString(),
+                                                       .nameFilters        = {},
+                                                       .directory          = directory().path(),
+                                                       .fileName           = QString(),
+                                                       .saveSimulationData = std::nullopt,
+                                                       .refuseIllegalNames = true};
+    {
+        const Gui::Test::NextModalDialog choose(
+            ThenNext{.first  = ChooseFile{.file = path("x|y.ork"), .seen = nullptr},
+                     .second = ThenNext{.first  = CloseMessage{.lines = &lines, .title = &title},
+                                        .second = ChooseFile{.file = path("ab.ork"), .seen = &seen},
+                                        .next   = &again},
+                     .next   = &warning});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    warning.reset();
+    again.reset();
+    EXPECT_TRUE(isSamePath(savedFileOf(answer).parent_path(), directory().path()));
+    EXPECT_EQ(savedFileOf(answer).filename(), "ab.ork");
+    EXPECT_EQ(title, QStringLiteral("Illegal filename"));
+    EXPECT_EQ(lines, QStringList{QStringLiteral(
+                         "The filename 'x|y.ork' may not contain the character ' | '. Please "
+                         "remove it.")});
+    EXPECT_TRUE(isDirectory(seen.directory, directory().path()));
+    ASSERT_EQ(seen.proposed.size(), 1);
+    EXPECT_EQ(QtStrings::toPath(seen.proposed.front()).filename(), "x|y.ork");
+
+    // A save that does not refuse them (a plain JFileChooser) takes the name.
+    const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("x|y.ork"), .seen = nullptr});
+    UserPrompts::SaveFileRequest     plain = request;
+    plain.refuseIllegalNames               = false;
+    EXPECT_EQ(savedFileOf(prompts.askSaveFile(nullptr, plain)).filename(), "x|y.ork");
+}
+
+TEST_F(WidgetUserPromptsTest, TheIllegalNameTextPutsInTheNameAsItIs)
+{
+    // String.format("... '%s' ... ' %c ' ...", fileName, c).
+    EXPECT_EQ(WidgetUserPrompts::illegalFileNameText(QStringLiteral("a%1b:c.ork"), QChar(u':')),
+              QStringLiteral("The filename 'a%1b:c.ork' may not contain the character ' : '. "
+                             "Please remove it."));
 }
 
 /// Answers the decal question with Yes or No.
@@ -979,7 +1109,8 @@ TEST_F(WidgetFileDialogTest, AFileQuestionWhoseParentIsDestroyedAsksNothingMore)
                                                      .nameFilters        = {},
                                                      .directory          = directory().path(),
                                                      .fileName           = QString(),
-                                                     .saveSimulationData = true}),
+                                                     .saveSimulationData = true,
+                                                     .refuseIllegalNames = false}),
                   std::nullopt);
     }
     parent = std::make_unique<QWidget>();

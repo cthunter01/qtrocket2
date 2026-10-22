@@ -1,8 +1,10 @@
 #include "FileMenusTestSupport.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string_view>
+#include <utility>
 
 #include <QAction>
 #include <QCoreApplication>
@@ -39,8 +41,8 @@ WindowManager& FileMenusTest::manager(WindowManager::LastWindowBehaviour behavio
 {
     if (m_manager == nullptr)
     {
-        m_manager    = std::make_unique<WindowManager>(m_services.services(), behaviour);
-        m_operations = std::make_unique<DocumentFileOperations>(*m_manager, m_services.services());
+        m_manager    = std::make_unique<WindowManager>(m_hookedServices, behaviour);
+        m_operations = std::make_unique<DocumentFileOperations>(*m_manager, m_hookedServices);
     }
     return *m_manager;
 }
@@ -55,6 +57,19 @@ DocumentFileOperations& FileMenusTest::operations()
 void FileMenusTest::destroyOperations()
 {
     m_operations.reset();
+}
+
+void FileMenusTest::beforeNextMessage(std::function<void()> hook)
+{
+    m_prompts.beforeNextMessage(std::move(hook));
+}
+
+void FileMenusTest::closeBeforeNextMessage(MainWindow& window)
+{
+    m_prompts.beforeNextMessage([this, &window] {
+        EXPECT_TRUE(manager().close(window));
+        deleteLaterNow();
+    });
 }
 
 std::filesystem::path FileMenusTest::writeDesign(const std::filesystem::path& name,

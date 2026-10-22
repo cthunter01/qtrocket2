@@ -7,6 +7,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QtContainerFwd>
@@ -157,6 +158,29 @@ TEST_F(ExampleDesignsMenuTest, AnExampleOfAnotherWindowOpensBesideIt)
     ASSERT_NE(window, nullptr);
     EXPECT_EQ(manager().windowCount(), 2U);
     EXPECT_EQ(window->document().getRocket().getName(), "3D printable nose cone and fins");
+    Gui::Test::FileMenusTest::deleteLaterNow();
+}
+
+TEST_F(ExampleDesignsMenuTest, AnExampleWhoseMenuGoesWithItsWindowDuringTheOpenStillOpens)
+{
+    // The window of the menu is closed and destroyed while the example's warnings are shown (the
+    // test services hold no motor): the menu goes with it, and the example opens in a window of
+    // its own, as from no window (ASan checks that nothing of the menu or of the window is used
+    // afterwards).
+    MainWindow& origin = manager().addDocument(OpenRocketDocumentFactory::createNewRocket());
+    const QPointer<ExampleDesignsMenu> filler(
+        fillExampleMenu(origin.menus(), shippedExamples(), operations(), &origin));
+    closeBeforeNextMessage(origin);
+    QAction* const item =
+        Gui::Test::menuItem(*origin.menus().openExampleMenu(), QStringLiteral("Tube fin rocket"));
+    ASSERT_NE(item, nullptr);
+    item->trigger();
+    EXPECT_TRUE(filler.isNull());
+    ASSERT_EQ(asked().size(), 1U);
+    EXPECT_EQ(asked().front().kind, Gui::Test::ScriptedUserPrompts::Kind::WARNINGS);
+    ASSERT_EQ(manager().windowCount(), 1U);
+    EXPECT_EQ(manager().windows().front()->document().getRocket().getName(), "Tube fin rocket");
+    EXPECT_EQ(manager().windows().front()->document().getFile(), std::nullopt);
     Gui::Test::FileMenusTest::deleteLaterNow();
 }
 

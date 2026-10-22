@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QDir>
 #include <QEvent>
 #include <QGuiApplication>
 #include <QString>
@@ -97,6 +99,8 @@ struct Proposal
 {
     QString               fileName;
     std::filesystem::path directory;
+
+    [[nodiscard]] bool operator==(const Proposal& other) const = default;
 };
 
 /// The window manager and its file operations over test services and a directory of the test.
@@ -281,13 +285,15 @@ TEST_F(DocumentFileOperationsTest, ForcesTheExtensionAsFileHelperDoes)
 TEST_F(DocumentFileOperationsTest, TheFiltersAreTheDesignsAndAllFiles)
 {
     // FileHelper.OPENROCKET_DESIGN_FILTER ("OpenRocket designs (*.ork)", which takes .ork.gz
-    // too) and Swing's accept-all filter "All Files".
+    // too) and Swing's accept-all filter "All Files", which JFileChooser lists first (the JDK
+    // probe of BasicFrame.openAction()'s calls: All Files, All rocket designs, OpenRocket
+    // designs; the second comes with RockSim in Milestone 8).
     EXPECT_EQ(DocumentFileOperations::openRocketDesignFilter(),
               QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"));
     EXPECT_EQ(DocumentFileOperations::allFilesFilter(), QStringLiteral("All Files (*)"));
     EXPECT_EQ(DocumentFileOperations::openFilters(),
-              (QStringList{QStringLiteral("OpenRocket designs (*.ork *.ork.gz)"),
-                           QStringLiteral("All Files (*)")}));
+              (QStringList{QStringLiteral("All Files (*)"),
+                           QStringLiteral("OpenRocket designs (*.ork *.ork.gz)")}));
 }
 
 // ------------------------------------------------------------------ open
@@ -380,6 +386,30 @@ TEST_F(DocumentFileOperationsTest, TheWarningsOfALoadAreShownBeforeTheWindowOpen
             QStringLiteral("Unknown element unknowncomponent, ignoring.")}));
 }
 
+TEST_F(DocumentFileOperationsTest, AnOpenedFileHasThePlatformsSeparators)
+{
+    // Java's File has the platform's separators whatever it was named with: a file named with
+    // '/' (as Qt's file dialogs name it on Windows) is the same document file and recent file as
+    // the one the command line names with '\' (on Linux and macOS both are '/' anyway).
+    const std::filesystem::path file = writeDesign("rocket.ork", "Mars");
+    const QString native = QtStrings::fromPath(std::filesystem::path(file).make_preferred());
+    const std::filesystem::path generic =
+        QtStrings::toPath(QDir::fromNativeSeparators(QtStrings::fromPath(file)));
+    QStringList opened;
+    QObject::connect(&operations(), &DocumentFileOperations::designFileOpened, &operations(),
+                     RecordFiles{.files = &opened});
+    const MainWindow* const window = operations().open(generic, nullptr);
+    ASSERT_NE(window, nullptr);
+    EXPECT_EQ(QtStrings::fromPath(window->document().getFile().value_or(std::filesystem::path())),
+              native);
+    EXPECT_EQ(opened, QStringList{native});
+    // A file whose extension is forced, too.
+    const std::filesystem::path bare = QtStrings::toPath(
+        QDir::fromNativeSeparators(QtStrings::fromPath(directory().resolve("x"))));
+    std::filesystem::path forced = directory().resolve("x.ork");
+    EXPECT_EQ(QtStrings::fromPath(forceOrk(bare)), QtStrings::fromPath(forced.make_preferred()));
+}
+
 TEST_F(DocumentFileOperationsTest, TheSameFileOpenedTwiceActivatesItsWindow)
 {
     // Decision U4 (OpenRocket opens a second window on the same file).
@@ -420,6 +450,8 @@ TEST_F(DocumentFileOperationsTest, OpenAsksForTheFilesInTheDefaultDirectory)
     const UserPrompts::OpenFileRequest& request = prompts().openFileRequests().front();
     EXPECT_TRUE(request.title.isEmpty());
     EXPECT_EQ(request.nameFilters, DocumentFileOperations::openFilters());
+    // "SELECTED OpenRocket designs (*.ork)".
+    EXPECT_EQ(request.selectedNameFilter, DocumentFileOperations::openRocketDesignFilter());
     EXPECT_EQ(request.directory, directory().path());
     EXPECT_TRUE(request.multipleFiles);
     EXPECT_TRUE(request.description.isEmpty());
@@ -519,23 +551,56 @@ TEST_F(DocumentFileOperationsTest, SaveOfADesignWithoutAFileIsSaveAs)
     EXPECT_TRUE(request.directory.empty());
     EXPECT_TRUE(request.fileName.isEmpty());
     EXPECT_EQ(request.saveSimulationData, std::nullopt);
+    // SaveFileChooser.approveSelection(): names with illegal characters refused.
+    EXPECT_TRUE(request.refuseIllegalNames);
     ASSERT_EQ(asked().size(), 1U);
     EXPECT_EQ(asked().front().kind, PromptKind::SAVE_FILE);
 }
 
 TEST_F(DocumentFileOperationsTest, SaveAsProposesTheDesignsFileWithTheExtensionForced)
 {
-    // forceExtension(document.getFileNoExtension(), "ork") (the Java probe's PROPOSED lines),
-    // in the file's directory (JFileChooser.setSelectedFile()).
-    preferences().setDefaultDirectory(directory().resolve("default"));
-    const std::filesystem::path designs = directory().resolve("designs");
-    const Proposal              gzip    = proposalFor(designs / "x.ork.gz");
+    // forceExtension(document.getFileNoExtension(), "ork") (the Java probe's PROPOSED lines), for
+    // files of the default directory, where SaveFileChooser.setSelectedFile() takes them.
+    const std::filesystem::path defaultDirectory = directory().resolve("default");
+    preferences().setDefaultDirectory(defaultDirectory);
+    const Proposal gzip = proposalFor(defaultDirectory / "x.ork.gz");
     EXPECT_EQ(gzip.fileName, QStringLiteral("x.ork.gz.ork"));
-    EXPECT_EQ(gzip.directory, designs);
-    EXPECT_EQ(proposalFor(designs / "x.ORK").fileName, QStringLiteral("x.ORK"));
-    EXPECT_EQ(proposalFor(designs / "x.rkt").fileName, QStringLiteral("x.ork"));
-    EXPECT_EQ(proposalFor(designs / "x").fileName, QStringLiteral("x.ork"));
-    EXPECT_EQ(proposalFor(designs / "rocket.ork").directory, designs);
+    EXPECT_EQ(gzip.directory, defaultDirectory);
+    EXPECT_EQ(proposalFor(defaultDirectory / "x.ORK").fileName, QStringLiteral("x.ORK"));
+    EXPECT_EQ(proposalFor(defaultDirectory / "x.rkt").fileName, QStringLiteral("x.ork"));
+    EXPECT_EQ(proposalFor(defaultDirectory / "x").fileName, QStringLiteral("x.ork"));
+}
+
+TEST_F(DocumentFileOperationsTest, SaveAsProposesOnlyAFileSaveFileChooserTakes)
+{
+    // SaveFileChooser.setSelectedFile(): the file's path relative to the chooser's directory
+    // (getFilenameInput()) must be a legal name; JFileChooser.setSelectedFile() then takes the
+    // chooser to the file's directory. The probe of DesignFileSaveAsFileChooser.build() with the
+    // default directory <work>/default (selected file, directory):
+    const std::filesystem::path defaultDirectory = directory().resolve("default");
+    preferences().setDefaultDirectory(defaultDirectory);
+    // default/x.ork: proposed, in default.
+    const Proposal inDefault = proposalFor(defaultDirectory / "x.ork");
+    EXPECT_EQ(inDefault.fileName, QStringLiteral("x.ork"));
+    EXPECT_EQ(inDefault.directory, defaultDirectory);
+    // other/y.ork, default/sub/z.ork, default/a:b.ork and other/w.rkt: nothing, in default.
+    const Proposal nothing{.fileName = QString(), .directory = defaultDirectory};
+    EXPECT_EQ(proposalFor(directory().resolve("other") / "y.ork"), nothing);
+    EXPECT_EQ(proposalFor(defaultDirectory / "sub" / "z.ork"), nothing);
+    EXPECT_EQ(proposalFor(defaultDirectory / "a:b.ork"), nothing);
+    EXPECT_EQ(proposalFor(directory().resolve("other") / "w.rkt"), nothing);
+    // defaultX/s.ork: "X" + "/s.ork" without its first separator is a legal name: proposed, in
+    // defaultX.
+    const Proposal sibling = proposalFor(directory().resolve("defaultX") / "s.ork");
+    EXPECT_EQ(sibling.fileName, QStringLiteral("s.ork"));
+    EXPECT_EQ(sibling.directory, directory().resolve("defaultX"));
+
+    // Without a default directory, the chooser's directory is the user's home directory, which
+    // the test's directory is not: nothing is proposed.
+    preferences().setDefaultDirectory(std::nullopt);
+    const Proposal noDefault = proposalFor(defaultDirectory / "x.ork");
+    EXPECT_TRUE(noDefault.fileName.isEmpty());
+    EXPECT_TRUE(noDefault.directory.empty());
 }
 
 TEST_F(DocumentFileOperationsTest, SaveAsAsksBeforeOverwritingAFile)
@@ -630,6 +695,39 @@ TEST_F(DocumentFileOperationsTest, AFailedSaveSaysSoAndSavesNothing)
     EXPECT_EQ(QGuiApplication::overrideCursor(), nullptr);
 }
 
+/// The number of entries of the directory @p directory.
+[[nodiscard]] std::ptrdiff_t entryCount(const std::filesystem::path& directory)
+{
+    return std::distance(std::filesystem::directory_iterator(directory),
+                         std::filesystem::directory_iterator());
+}
+
+TEST_F(DocumentFileOperationsTest, AFailedSaveOfADesignWithAFileKeepsItsFile)
+{
+    // BasicFrame.saveAsOpenRocket(): an IOException leaves the document's file as it was and the
+    // design not saved. Here a directory took the file's place, which the save cannot replace
+    // (as root too, as the CI containers run); it stays as it was, and no temporary file is left.
+    const std::filesystem::path file   = writeDesign("rocket.ork", "Mars");
+    MainWindow* const           window = operations().open(file, nullptr);
+    ASSERT_NE(window, nullptr);
+    const std::optional<std::filesystem::path> opened = window->document().getFile();
+    ASSERT_TRUE(std::filesystem::remove(file));
+    static_cast<void>(directory().write("rocket.ork/kept.txt", "kept"));
+    window->document().getRocket().setName("Venus");
+    EXPECT_FALSE(operations().save(*window));
+    EXPECT_EQ(window->document().getFile(), opened);
+    EXPECT_FALSE(window->document().isSaved());
+    ASSERT_EQ(asked().size(), 1U);
+    EXPECT_EQ(asked().front().kind, PromptKind::MESSAGE);
+    EXPECT_EQ(asked().front().title, QStringLiteral("Saving failed"));
+    EXPECT_EQ(asked().front().texts.value(1),
+              QStringLiteral("An I/O error occurred while saving:"));
+    EXPECT_TRUE(std::filesystem::is_directory(file));
+    EXPECT_EQ(readTextFile(file / "kept.txt").value_or(""), "kept");
+    EXPECT_EQ(entryCount(directory().path()), 1);
+    EXPECT_EQ(QGuiApplication::overrideCursor(), nullptr);
+}
+
 TEST_F(DocumentFileOperationsTest, TheSaversWarningsAreShownAfterTheSave)
 {
     // Decision U4: GeneralRocketSaver's warnings, here the read-only file it replaced, with the
@@ -697,6 +795,8 @@ TEST_F(DocumentFileOperationsTest, SaveAsksForTheStorageOptionsOfSimulatedData)
 
 TEST_F(DocumentFileOperationsTest, SaveAsOffersTheStorageOptionOfSimulatedData)
 {
+    // The design's file in the default directory, where Save as proposes it.
+    preferences().setDefaultDirectory(directory().path());
     const std::filesystem::path file   = copyExample("Tube fin rocket.ork");
     MainWindow* const           window = operations().open(file, nullptr);
     ASSERT_NE(window, nullptr);

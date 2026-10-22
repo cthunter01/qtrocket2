@@ -67,7 +67,9 @@ class RocketPanel;
 ///   Edit > Preferences does (on macOS that item is the application menu's Preferences): over
 ///   the window, modal for the application, refreshing the design view of every window when it
 ///   applies or discards (rocketPanels()). As Java's PreferencesDialog.showPreferences(), a
-///   dialog still open is closed first (as by its OK).
+///   dialog still open is closed first (as by its OK); it is closed so too when its window
+///   closes (close(), past the question) or the manager is destroyed (Java's dialog is owned by
+///   its frame, which disposes it).
 ///
 /// The application connects exitRequested() to the end of its event loop. menusCreated() and
 /// windowOpened() let the code that owns the other items connect them (MainMenus).

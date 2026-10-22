@@ -35,6 +35,7 @@
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
+#include "QtRocket/gui/main/SaveFileNames.h"
 #include "QtRocket/gui/main/WindowManager.h"
 #include "QtRocket/gui/tree/DocumentSelectionModel.h"
 #include "QtRocket/gui/util/Guard.h"
@@ -69,17 +70,24 @@ public:
 };
 
 /// @p file made absolute as Java's File.getAbsolutePath() makes it: resolved against the
-/// current directory as text, nothing of it changed (std::filesystem::absolute() on Windows
-/// drops the dots and spaces that end a name); @p file when the current directory is unknown.
+/// current directory as text, nothing of its name changed (std::filesystem::absolute() on
+/// Windows drops the dots and spaces that end a name), with the platform's separators (Java's
+/// File turns '/' into '\\' on Windows: a file chosen in a file dialog, which Qt names with '/',
+/// and the same file from the command line are one recent file); @p file with the platform's
+/// separators when the current directory is unknown.
 [[nodiscard]] std::filesystem::path absoluteFile(const std::filesystem::path& file)
 {
-    if (file.is_absolute())
+    std::filesystem::path absolute = file;
+    if (!file.is_absolute())
     {
-        return file;
+        std::error_code             error;
+        const std::filesystem::path current = std::filesystem::current_path(error);
+        if (!error)
+        {
+            absolute = current / file;
+        }
     }
-    std::error_code             error;
-    const std::filesystem::path current = std::filesystem::current_path(error);
-    return error ? file : current / file;
+    return absolute.make_preferred();
 }
 
 /// Whether @p first and @p second are the same file: the same file of the file system when
@@ -187,9 +195,11 @@ QString DocumentFileOperations::allFilesFilter()
 
 QStringList DocumentFileOperations::openFilters()
 {
-    // BasicFrame.openAction(parent, OPENROCKET_DESIGN_FILTER): the OpenRocket designs chosen,
-    // and the accept-all filter (the filter of all designs comes with RockSim, Milestone 8).
-    return {openRocketDesignFilter(), allFilesFilter()};
+    // BasicFrame.openAction(parent, OPENROCKET_DESIGN_FILTER): JFileChooser lists its accept-all
+    // filter first, then the filters added (the filter of all designs, which comes with RockSim
+    // in Milestone 8, goes between the two), and the OpenRocket designs are chosen
+    // (openAction()).
+    return {allFilesFilter(), openRocketDesignFilter()};
 }
 
 std::filesystem::path DocumentFileOperations::forceExtension(const std::filesystem::path& file,
@@ -266,7 +276,8 @@ void DocumentFileOperations::openAction(MainWindow* origin)
     const QPointer<MainWindow>   alive(origin);
     Preferences&                 preferences = m_services.preferences();
     UserPrompts::OpenFileRequest request;
-    request.nameFilters   = openFilters();
+    request.nameFilters        = openFilters();
+    request.selectedNameFilter = openRocketDesignFilter();
     request.directory     = preferences.getDefaultDirectory().value_or(std::filesystem::path());
     request.multipleFiles = true;
     const std::optional<UserPrompts::OpenFileAnswer> answer =
@@ -577,16 +588,25 @@ std::optional<std::filesystem::path> DocumentFileOperations::askSaveAsFile(MainW
     request.title       = tr("Save as OpenRocket ork file");
     request.nameFilters = {openRocketDesignFilter()};
     request.directory   = preferences.getDefaultDirectory().value_or(std::filesystem::path());
+    // SaveFileChooser.approveSelection(): a name with an illegal character is refused.
+    request.refuseIllegalNames = true;
     if (const std::optional<std::filesystem::path> name = document.getFileNoExtension();
         name.has_value())
     {
-        // JFileChooser.setSelectedFile(): an absolute file takes the chooser to its directory.
+        // SaveFileChooser.setSelectedFile(): the file is proposed only when its name relative to
+        // the chooser's directory (the default directory, or the user's home directory) is a
+        // legal name, so only a file of that directory; then JFileChooser.setSelectedFile() takes
+        // the chooser to the file's directory.
         const std::filesystem::path proposed = forceExtension(*name, orkExtension());
-        if (proposed.is_absolute())
+        if (SaveFileNames::isProposable(proposed,
+                                        SaveFileNames::chooserDirectory(request.directory)))
         {
-            request.directory = proposed.parent_path();
+            if (proposed.is_absolute())
+            {
+                request.directory = proposed.parent_path();
+            }
+            request.fileName = QtStrings::fromPath(proposed.filename());
         }
-        request.fileName = QtStrings::fromPath(proposed.filename());
     }
     StorageOptions& options = document.getDefaultStorageOptions();
     if (hasSimulatedData(document))

@@ -29,6 +29,7 @@
 #include <gtest/gtest.h>
 
 #include "GuiTestSupport.h"
+#include "HookedUserPrompts.h"
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/document/OpenRocketDocumentFactory.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
@@ -439,6 +440,24 @@ TEST_F(ApplicationSessionTest, AFileTheSystemAsksToOpenTakesThePlaceOfTheNewDesi
     EXPECT_EQ(session.windows().windowCount(), 1U);
 }
 
+TEST_F(ApplicationSessionTest, AFileTheSystemAskedToOpenBeforeTheStartOpensAsTheFirstWindow)
+{
+    // macOS starts the application to open a design file: its QFileOpenEvent comes before the
+    // session, the Application holds it, and the session's open-file handler opens it as the
+    // first window, with no New design beside it.
+    const std::filesystem::path file = writeDesign("rocket.ork", "Mars");
+    QFileOpenEvent              event(QtStrings::fromPath(file));
+    QCoreApplication::sendEvent(&application(), &event);
+    EXPECT_EQ(application().pendingFiles().size(), 1U);
+    const ApplicationSession& session = start(options(Behaviour::KEEP_RUNNING));
+    EXPECT_TRUE(application().pendingFiles().empty());
+    ASSERT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_EQ(firstWindow(session).document().getRocket().getName(), "Mars");
+    EXPECT_FALSE(session.windows().isReplaceable(firstWindow(session)));
+    EXPECT_TRUE(prompts().prompts().empty());
+    EXPECT_EQ(session.recentFiles().files(), QStringList{QtStrings::fromPath(file)});
+}
+
 TEST_F(ApplicationSessionTest, SaveInTheQuestionOfAClosingWindowSavesTheDesign)
 {
     // The windows' save hook is the file operations' Save (BasicFrame.closeAction()).
@@ -709,90 +728,6 @@ TEST_F(ApplicationSessionTest, TheMenusOfNoWindowOpenRecentFilesAndExamples)
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 }
 
-/// The questions of a ScriptedUserPrompts, which also calls a hook before the first message it
-/// shows (as an event loop of a message box may run other code).
-class HookedPrompts final : public UserPrompts
-{
-public:
-    [[nodiscard]] Gui::Test::ScriptedUserPrompts& scripted() noexcept { return m_scripted; }
-    /// Calls @p hook before the next message, once.
-    void beforeNextMessage(std::function<void()> hook) { m_hook = std::move(hook); }
-
-    [[nodiscard]] InsertPositionAnswer askInsertPosition(QWidget*               parent,
-                                                         InsertPositionQuestion question) override
-    {
-        return m_scripted.askInsertPosition(parent, question);
-    }
-    [[nodiscard]] DiscardAnswer askDiscardChanges(QWidget*        parent,
-                                                  DiscardQuestion question) override
-    {
-        return m_scripted.askDiscardChanges(parent, question);
-    }
-    [[nodiscard]] SaveChangesAnswer askSaveChanges(QWidget*       parent,
-                                                   const QString& designName) override
-    {
-        return m_scripted.askSaveChanges(parent, designName);
-    }
-    [[nodiscard]] bool askOverwrite(QWidget* parent, const QString& fileName) override
-    {
-        return m_scripted.askOverwrite(parent, fileName);
-    }
-    [[nodiscard]] std::optional<bool> askStorageOptions(QWidget* parent,
-                                                        bool     saveSimulationData) override
-    {
-        return m_scripted.askStorageOptions(parent, saveSimulationData);
-    }
-    [[nodiscard]] bool askYesNo(QWidget* parent, const Question& question) override
-    {
-        return m_scripted.askYesNo(parent, question);
-    }
-    [[nodiscard]] std::optional<OpenFileAnswer> askDecalFile(
-        QWidget* parent, const QString& message, const std::filesystem::path& directory) override
-    {
-        return m_scripted.askDecalFile(parent, message, directory);
-    }
-    [[nodiscard]] std::optional<OpenFileAnswer> askOpenFiles(
-        QWidget* parent, const OpenFileRequest& request) override
-    {
-        return m_scripted.askOpenFiles(parent, request);
-    }
-    [[nodiscard]] std::optional<SaveFileAnswer> askSaveFile(QWidget*               parent,
-                                                            const SaveFileRequest& request) override
-    {
-        return m_scripted.askSaveFile(parent, request);
-    }
-    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override
-    {
-        m_scripted.editDesignInformation(parent, document);
-    }
-    void showMessage(QWidget* parent, const Message& message) override
-    {
-        if (m_hook)
-        {
-            const std::function<void()> hook = std::exchange(m_hook, {});
-            hook();
-        }
-        m_scripted.showMessage(parent, message);
-    }
-    void showWarnings(QWidget* parent, const WarningsMessage& message) override
-    {
-        m_scripted.showWarnings(parent, message);
-    }
-    void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override
-    {
-        m_scripted.showErrorsAndWarnings(parent, message);
-    }
-    [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
-                                                        const Guard::Failure& failure) override
-    {
-        return m_scripted.showInternalError(parent, failure);
-    }
-
-private:
-    Gui::Test::ScriptedUserPrompts m_scripted;
-    std::function<void()>          m_hook;
-};
-
 TEST_F(ApplicationSessionTest, AReopenWhileTheStartReopensIsRefused)
 {
     // BasicFrame.reopenInProgress: on macOS the application becomes active while the message of
@@ -800,7 +735,7 @@ TEST_F(ApplicationSessionTest, AReopenWhileTheStartReopensIsRefused)
     // nothing, and the start opens one New design.
     const QString missing = QtStrings::fromPath(directory().resolve("missing.ork"));
     storeStartPreferences(true, {missing});
-    auto                            hooked   = std::make_unique<HookedPrompts>();
+    auto                            hooked   = std::make_unique<Gui::Test::HookedUserPrompts>();
     Gui::Test::ScriptedUserPrompts& scripted = hooked->scripted();
     hooked->beforeNextMessage(
         [] { Q_EMIT application().applicationStateChanged(Qt::ApplicationActive); });
@@ -812,6 +747,56 @@ TEST_F(ApplicationSessionTest, AReopenWhileTheStartReopensIsRefused)
     EXPECT_EQ(scripted.prompts().front().texts.value(1),
               QStringLiteral("File not found: missing.ork"));
     EXPECT_TRUE(session.recentFiles().files().isEmpty());
+}
+
+/// A design file with a component the loader does not know: its open shows one warning.
+constexpr std::string_view kWarnedDesign = R"(<?xml version='1.0' encoding='utf-8'?>
+<openrocket version="1.9" creator="QtRocket test">
+  <rocket>
+    <name>Warned</name>
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <subcomponents>
+          <unknowncomponent/>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+</openrocket>
+)";
+
+/// The application becoming active (Qt's report of the macOS Dock's reopen too).
+void becomeActive()
+{
+    Application* const application = Application::current();
+    QTROCKET_ASSERT(application != nullptr);
+    Q_EMIT application->applicationStateChanged(Qt::ApplicationActive);
+}
+
+TEST_F(ApplicationSessionTest, ADesignOfTheCommandLineOpensAloneWhenTheApplicationBecomesActive)
+{
+    // macOS: the application becomes active while the warnings of a design of the command line
+    // are shown, before its window opens. That is no reopen (OpenRocket reopens only for the
+    // Dock's reopen): the design's window is the only one.
+    const std::filesystem::path     file     = directory().write("warned.ork", kWarnedDesign);
+    auto                            hooked   = std::make_unique<Gui::Test::HookedUserPrompts>();
+    Gui::Test::ScriptedUserPrompts& scripted = hooked->scripted();
+    hooked->beforeNextMessage(becomeActive);
+    ApplicationSession::Options startOptions = options(Behaviour::KEEP_RUNNING);
+    startOptions.files                       = {file};
+    const ApplicationSession& session =
+        start(makeContext(std::move(hooked), scripted), startOptions);
+    ASSERT_EQ(session.windows().windowCount(), 1U);
+    EXPECT_EQ(firstWindow(session).document().getRocket().getName(), "Warned");
+    EXPECT_FALSE(session.windows().isReplaceable(firstWindow(session)));
+    ASSERT_EQ(scripted.prompts().size(), 1U);
+    EXPECT_EQ(scripted.prompts().front().kind, PromptKind::WARNINGS);
+
+    // Once the files are open, the application becoming active without a window reopens again.
+    EXPECT_TRUE(session.windows().close(firstWindow(session)));
+    Q_EMIT application().applicationStateChanged(Qt::ApplicationActive);
+    EXPECT_EQ(session.windows().windowCount(), 1U);
 }
 
 }  // namespace

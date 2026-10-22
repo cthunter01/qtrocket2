@@ -150,13 +150,17 @@ public:
     struct OpenFileRequest
     {
         QString title;
-        /// Qt's name filters, "OpenRocket designs (*.ork *.ork.gz)", the selected one first.
+        /// Qt's name filters, "OpenRocket designs (*.ork *.ork.gz)", in their order in the
+        /// dialog.
         QStringList           nameFilters;
         std::filesystem::path directory;
         bool                  multipleFiles = false;
         /// A text shown beside the files (the image import's "CustomFinImport.description");
         /// empty for none.
         QString description;
+        /// The filter chosen when the dialog opens, one of nameFilters (JFileChooser's
+        /// setFileFilter()); empty for the first.
+        QString selectedNameFilter;
     };
 
     struct OpenFileAnswer
@@ -180,6 +184,11 @@ public:
         /// (StorageOptionChooser, "Simulated data to store"; WidgetUserPrompts asks it once the
         /// file is chosen), true for all simulated data; nullopt for no such option.
         std::optional<bool> saveSimulationData;
+        /// OpenRocket's SaveFileChooser (Save As and most of its save dialogs, not a plain
+        /// JFileChooser such as the fin points' CSV export): a name with one of the characters
+        /// of SaveFileNames::illegalCharacter() is refused with the warning "Illegal filename"
+        /// and asked for again (WidgetUserPrompts).
+        bool refuseIllegalNames = false;
     };
 
     struct SaveFileAnswer

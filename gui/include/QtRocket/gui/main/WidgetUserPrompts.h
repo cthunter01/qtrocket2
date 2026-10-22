@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <optional>
 
+#include <QChar>
 #include <QCoreApplication>
 #include <QString>
 
@@ -39,13 +40,17 @@ namespace QtRocket::Gui
 /// - askDecalFile(): DecalNotFoundDialog.showDialog(): the question (DecalNotFoundDialog), then on
 ///   Yes a file chooser for the image (any file, starting in the given directory);
 /// - askOpenFiles(), askSaveFile(): the platform's file dialog (QFileDialog), titled as asked (the
-///   platform's "Open" / "Save" title without one), with the name filters (the first chosen),
-///   starting in the given directory (the user's home directory without one), the proposed name
-///   chosen; the save dialog does not ask itself whether to overwrite a file (the caller forces
-///   the extension first and asks askOverwrite()); with a description (the image import's), a
+///   platform's "Open" / "Save" title without one), with the name filters (the one asked for
+///   chosen, else the first), starting in the given directory (the user's home directory without
+///   one), the proposed name chosen; the save dialog does not ask itself whether to overwrite a
+///   file (the caller forces the extension first and asks askOverwrite()), so on macOS, whose
+///   save panel always asks, it is Qt's own dialog; with a description (the image import's), a
 ///   Qt file dialog with the description beside the files (the JFileChooser accessory); a save
-///   that offers a storage option asks "Save options" (StorageOptionsDialog) once the file is
-///   chosen, whose Cancel cancels it;
+///   that refuses illegal names (SaveFileChooser's) shows "Illegal filename" ("The filename
+///   '<name>' may not contain the character ' <c> '. Please remove it.") for a name with one of
+///   / \ : * ? " < > | (SaveFileNames, the name relative to the dialog's directory) and asks
+///   again, in that directory with that name; a save that offers a storage option asks "Save
+///   options" (StorageOptionsDialog) once the file is chosen, whose Cancel cancels it;
 /// - showMessage(): JOptionPane.showMessageDialog() with the lines of the message (DetailDialog
 ///   without details);
 /// - showWarnings(), showErrorsAndWarnings(): WarningDialog, ErrorWarningDialog;
@@ -84,6 +89,9 @@ public:
     [[nodiscard]] static QString saveChangesText(const QString& designName);
     /// The text of the "File exists" question about the file named @p fileName.
     [[nodiscard]] static QString overwriteText(const QString& fileName);
+    /// The text of the "Illegal filename" warning about the name @p fileName, which holds the
+    /// character @p character.
+    [[nodiscard]] static QString illegalFileNameText(const QString& fileName, QChar character);
 
     [[nodiscard]] InsertPositionAnswer askInsertPosition(QWidget*               parent,
                                                          InsertPositionQuestion question) override;
@@ -111,6 +119,10 @@ public:
 private:
     /// Reports that the question @p question is not available yet (see the class comment).
     static void reportNotAvailable(const QString& question);
+    /// The file chooser of askSaveFile(), asked again after the warning while the request
+    /// refuses the name chosen; nullopt when it was cancelled (or its parent destroyed).
+    [[nodiscard]] std::optional<OpenFileAnswer> askLegalFileToSave(QWidget*               parent,
+                                                                   const SaveFileRequest& request);
 };
 
 }  // namespace QtRocket::Gui

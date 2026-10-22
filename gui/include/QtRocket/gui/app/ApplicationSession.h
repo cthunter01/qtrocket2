@@ -43,8 +43,8 @@ class MainWindow;
 ///    openFiles(); on macOS, where the application runs without a window, it opens one when it
 ///    is reopened (reopenIfNoWindow());
 /// 4. the first window: the files of the command line (openFiles()), or when none was opened
-///    and no window is open (one may have opened while a question of the files ran: macOS),
-///    reopen() (the most recent design or a New design);
+///    and no window is open (one may have opened while a question of the files ran: a file the
+///    macOS Finder asked to open), reopen() (the most recent design or a New design);
 /// 5. the problems of the start the user is to know of: the motor database's (a message);
 /// 6. for the tests of the program: with Options::quitAfterStart, a quit as File > Quit does
 ///    as soon as the event loop runs.
@@ -103,7 +103,9 @@ public:
     /// @p files in a window of its own (DocumentFileOperations::openFiles(), BasicFrame.open(file,
     /// origin): @p origin, the window the request came from or null, is replaced when it holds a
     /// New design still saved; a file that cannot be opened shows its error). Whether a window
-    /// was opened (or a window of one of the files activated).
+    /// was opened (or a window of one of the files activated). While they open,
+    /// reopenIfNoWindow() opens nothing: the application becoming active during one of their
+    /// questions (macOS) is no reopen.
     bool openFiles(const std::vector<std::filesystem::path>& files, MainWindow* origin);
 
     /// BasicFrame.reopen(): opens the window the application starts with (and, on macOS, the
@@ -116,7 +118,8 @@ public:
     /// the open runs an event loop, in which macOS may ask for a reopen again).
     MainWindow* reopen();
 
-    /// OSXSetup's reopen handler: reopen() when no window is open.
+    /// OSXSetup's reopen handler: reopen() when no window is open and no files are being opened
+    /// (openFiles()).
     void reopenIfNoWindow();
 
 Q_SIGNALS:
@@ -151,6 +154,8 @@ private:
     std::unique_ptr<DocumentFileOperations> m_fileOperations;
     /// Whether reopen() runs (BasicFrame.reopenInProgress).
     bool m_reopening{false};
+    /// Whether openFiles() runs.
+    bool m_openingFiles{false};
 };
 
 }  // namespace QtRocket::Gui

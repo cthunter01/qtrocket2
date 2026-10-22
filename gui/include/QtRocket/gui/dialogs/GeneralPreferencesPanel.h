@@ -55,7 +55,8 @@ public:
     [[nodiscard]] QPushButton* resetAllPreferencesButton() const noexcept { return m_reset; }
 
     /// What "Reset all preferences" does (see the class comment): true when the preferences were
-    /// reset.
+    /// reset. The page may be destroyed during its question or its message (with the window of
+    /// its dialog): then nothing more is done, and preferencesCleared() is not emitted.
     bool resetAllPreferences();
 
 Q_SIGNALS:
