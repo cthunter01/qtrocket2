@@ -94,8 +94,9 @@ ComponentKind checkedKind(ComponentKind kind)
 /// @p question when it says so (the second half of BodyComponentButton's and StageButton's
 /// getAdditionPosition()); nullopt for a cancel. Both are found again by id after the question.
 [[nodiscard]] std::optional<ComponentButton::Position> besideBy(
-    Rocket& rocket, RocketComponent& parent, const RocketComponent& reference, std::string_view key,
-    Question question, Preferences& preferences, UserPrompts& prompts, QWidget* dialogParent)
+    Rocket& rocket, const RocketComponent& parent, const RocketComponent& reference,
+    std::string_view key, Question question, Preferences& preferences, UserPrompts& prompts,
+    QWidget* dialogParent)
 {
     const Uuid parentId    = parent.getId();
     const Uuid referenceId = reference.getId();
@@ -199,7 +200,7 @@ std::optional<ComponentButton::Position> ComponentButton::additionPosition(
         return Position{.parent = selected, .index = std::nullopt};
     }
     // A body component beside a selected body component.
-    RocketComponent* parent = selected->getParent();
+    const RocketComponent* parent = selected->getParent();
     QTROCKET_ASSERT(parent != nullptr);
     return besideBy(rocket, *parent, *selected, PreferenceKeys::kBodyComponentInsertPositionKey,
                     Question::BODY_COMPONENT, preferences, prompts, this);

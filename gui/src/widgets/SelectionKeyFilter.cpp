@@ -119,7 +119,7 @@ bool SelectionKeyFilter::eventFilter(QObject* watched, QEvent* event)
     {
         prepareKey(*line, *key);
     }
-    else if (auto* const spinBox = qobject_cast<QAbstractSpinBox*>(watched))
+    else if (const auto* const spinBox = qobject_cast<const QAbstractSpinBox*>(watched))
     {
         // The spin box hands its keys to its line edit, its direct child.
         if (auto* const edit =

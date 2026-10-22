@@ -479,6 +479,41 @@ TEST_P(RocketFigurePaintGolden, PaintsAsOpenRocket)
     expectCaretsAsJava(records, pin.carets);
 }
 
+/// The tree indices of the components the figure finds at @p pixel.
+[[nodiscard]] std::vector<int> componentIndicesAt(const ScenarioFigure& shown, QPointF pixel)
+{
+    std::vector<int> found;
+    for (const RocketComponent* component : shown.figure().componentsAt(pixel))
+    {
+        found.push_back(shown.treeIndex(component));
+    }
+    return found;
+}
+
+/// What componentIndicesAt() gives at @p pixel, unless @p pixel lies on an edge of a shape and a
+/// point a thousandth of a pixel away gives @p expected: which side of an edge a point exactly on
+/// it falls is decided by the last bits of the transformation, which differ by platform (Apple's
+/// arm64 code, Qt's QTransform and QPainterPath included, fuses a * b + c into one operation).
+[[nodiscard]] std::vector<int> componentIndicesNear(const ScenarioFigure& shown, QPointF pixel,
+                                                    const std::vector<int>& expected)
+{
+    std::vector<int> found = componentIndicesAt(shown, pixel);
+    if (found == expected)
+    {
+        return found;
+    }
+    constexpr double kEdge = 1e-3;
+    for (const QPointF offset :
+         {QPointF(0.0, kEdge), QPointF(0.0, -kEdge), QPointF(kEdge, 0.0), QPointF(-kEdge, 0.0)})
+    {
+        if (componentIndicesAt(shown, pixel + offset) == expected)
+        {
+            return expected;
+        }
+    }
+    return found;
+}
+
 TEST_P(RocketFigurePaintGolden, FindsTheComponentsOpenRocketFinds)
 {
     const PaintScenarioPin& pin = GetParam();
@@ -488,12 +523,9 @@ TEST_P(RocketFigurePaintGolden, FindsTheComponentsOpenRocketFinds)
     std::ignore = paintedRecords(shown.figure());
     for (const Gui::Test::HitPin& hit : pin.hits)
     {
-        std::vector<int> found;
-        for (const RocketComponent* component : shown.figure().componentsAt(QPointF(hit.x, hit.y)))
-        {
-            found.push_back(shown.treeIndex(component));
-        }
-        EXPECT_EQ(found, indicesOf(hit.components)) << "at " << hit.x << ", " << hit.y;
+        const std::vector<int> expected = indicesOf(hit.components);
+        EXPECT_EQ(componentIndicesNear(shown, QPointF(hit.x, hit.y), expected), expected)
+            << "at " << hit.x << ", " << hit.y;
     }
 }
 

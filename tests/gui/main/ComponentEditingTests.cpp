@@ -228,15 +228,14 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
 /// or the nearest of its ancestors that remains (ComponentTreeModel.fireTreeStructureChanged(),
 /// UndoRedoSelectionTest), and so does the view here (ComponentTreeView): the selections after a
 /// Cut or a Delete are the view's.
-[[nodiscard]] const std::vector<ActionsScenario>& actionsScenarios()
+[[nodiscard]] std::vector<ActionsScenario> makeActionsScenarios()
 {
-    static const std::vector<ActionsScenario>
-        kScenarios{
-            {.name       = "CopyBT1PasteOnBT2",
-             .selection  = {"BT1"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT2"},
-             .transcript = R"(== copy [BT1], paste on BT2
+    return {
+        {.name       = "CopyBT1PasteOnBT2",
+         .selection  = {"BT1"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT2"},
+         .transcript = R"(== copy [BT1], paste on BT2
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1] undo='null'
@@ -245,11 +244,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT1*] undo='Paste Body Tube'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Body Tube')"},
-            {.name       = "CopyBT1PasteOnSustainer",
-             .selection  = {"BT1"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"Sustainer"},
-             .transcript = R"(== copy [BT1], paste on Sustainer
+        {.name       = "CopyBT1PasteOnSustainer",
+         .selection  = {"BT1"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"Sustainer"},
+         .transcript = R"(== copy [BT1], paste on Sustainer
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1] undo='null'
@@ -258,11 +257,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT1*] undo='Paste Body Tube'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Body Tube')"},
-            {.name       = "CopyBT1PasteOnITNowhereFits",
-             .selection  = {"BT1"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"IT"},
-             .transcript = R"(== copy [BT1], paste on IT (nowhere fits)
+        {.name       = "CopyBT1PasteOnITNowhereFits",
+         .selection  = {"BT1"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"IT"},
+         .transcript = R"(== copy [BT1], paste on IT (nowhere fits)
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1] undo='null'
@@ -271,11 +270,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[] undo='null'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "CopyBT1PasteWithNothingSelected",
-             .selection  = {"BT1"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{},
-             .transcript = R"(== copy [BT1], paste with nothing selected
+        {.name       = "CopyBT1PasteWithNothingSelected",
+         .selection  = {"BT1"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{},
+         .transcript = R"(== copy [BT1], paste with nothing selected
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1] undo='null'
@@ -284,11 +283,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[] undo='null'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "CopyBT1ITParentAndOneChild",
-             .selection  = {"BT1", "IT"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"Booster"},
-             .transcript = R"(== copy [BT1, IT] (parent and one child)
+        {.name       = "CopyBT1ITParentAndOneChild",
+         .selection  = {"BT1", "IT"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"Booster"},
+         .transcript = R"(== copy [BT1, IT] (parent and one child)
   enabled with [BT1, IT]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*]]] selection=[BT1, IT] undo='null'
@@ -297,11 +296,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT1*] undo='Paste Body Tube'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]], BT1*[IT*[EB*]], BT1*[IT*[EB*]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]], BT1*[IT*[EB*]]]] redo='Paste Body Tube')"},
-            {.name       = "CopyITFinsTwoSiblings",
-             .selection  = {"IT", "Fins"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT2"},
-             .transcript = R"(== copy [IT, Fins] (two siblings)
+        {.name       = "CopyITFinsTwoSiblings",
+         .selection  = {"IT", "Fins"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT2"},
+         .transcript = R"(== copy [IT, Fins] (two siblings)
   enabled with [IT, Fins]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Fins*, IT*[EB*]] selection=[IT, Fins] undo='null'
@@ -310,11 +309,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Fins*, IT*] undo='Paste components'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute, IT*[EB*], Fins*, IT*[EB*], Fins*]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute, IT*[EB*], Fins*]], Booster[BBT[Side boosters[PBT]]]] redo='Paste components')"},
-            {.name       = "CopyFinsITTwoSiblingsReverseOrder",
-             .selection  = {"Fins", "IT"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT2"},
-             .transcript = R"(== copy [Fins, IT] (two siblings, reverse order)
+        {.name       = "CopyFinsITTwoSiblingsReverseOrder",
+         .selection  = {"Fins", "IT"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT2"},
+         .transcript = R"(== copy [Fins, IT] (two siblings, reverse order)
   enabled with [Fins, IT]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Fins*, IT*[EB*]] selection=[Fins, IT] undo='null'
@@ -323,11 +322,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Fins*, IT*] undo='Paste components'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute, IT*[EB*], Fins*, IT*[EB*], Fins*]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute, IT*[EB*], Fins*]], Booster[BBT[Side boosters[PBT]]]] redo='Paste components')"},
-            {.name       = "CopyNCBT2PasteOnBT1",
-             .selection  = {"NC", "BT2"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT1"},
-             .transcript = R"(== copy [NC, BT2], paste on BT1
+        {.name       = "CopyNCBT2PasteOnBT1",
+         .selection  = {"NC", "BT2"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT1"},
+         .transcript = R"(== copy [NC, BT2], paste on BT1
   enabled with [NC, BT2]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT2*[Chute*], NC*] selection=[NC, BT2] undo='null'
@@ -336,11 +335,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT2*, NC*] undo='Paste components'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], NC*, BT2*[Chute*], NC*, BT2*[Chute*], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], NC*, BT2*[Chute*], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Paste components')"},
-            {.name       = "CopyNCChuteDifferentParentsPasteOnBT1",
-             .selection  = {"NC", "Chute"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT1"},
-             .transcript = R"(== copy [NC, Chute] (different parents), paste on BT1
+        {.name       = "CopyNCChuteDifferentParentsPasteOnBT1",
+         .selection  = {"NC", "Chute"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT1"},
+         .transcript = R"(== copy [NC, Chute] (different parents), paste on BT1
   enabled with [NC, Chute]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[NC*, Chute*] selection=[NC, Chute] undo='null'
@@ -349,11 +348,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[NC*, Chute*] undo='Paste components'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, Chute*], NC*[Chute*], NC*, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, Chute*], NC*, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Paste components')"},
-            {.name       = "CopySustainerPasteOnRocket",
-             .selection  = {"Sustainer"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"Rocket"},
-             .transcript = R"(== copy [Sustainer], paste on Rocket
+        {.name       = "CopySustainerPasteOnRocket",
+         .selection  = {"Sustainer"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"Rocket"},
+         .transcript = R"(== copy [Sustainer], paste on Rocket
   enabled with [Sustainer]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]] selection=[Sustainer] undo='null'
@@ -362,11 +361,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Sustainer*] undo='Paste Stage'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]], Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]], Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]], Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]] redo='Paste Stage')"},
-            {.name       = "CopySustainerPasteOnBT1",
-             .selection  = {"Sustainer"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT1"},
-             .transcript = R"(== copy [Sustainer], paste on BT1
+        {.name       = "CopySustainerPasteOnBT1",
+         .selection  = {"Sustainer"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT1"},
+         .transcript = R"(== copy [Sustainer], paste on BT1
   enabled with [Sustainer]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]] selection=[Sustainer] undo='null'
@@ -375,11 +374,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[] undo='null'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "CopyRocket",
-             .selection  = {"Rocket"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"Sustainer"},
-             .transcript = R"(== copy [Rocket]
+        {.name       = "CopyRocket",
+         .selection  = {"Rocket"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"Sustainer"},
+         .transcript = R"(== copy [Rocket]
   enabled with [Rocket]: cut=false copy=false paste=false dup=false del=false up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Rocket] undo='null'
@@ -388,11 +387,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Sustainer] undo='null'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "CopyChutePasteOnBT1NCFirstSelectedDecides",
-             .selection  = {"Chute"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"BT1", "NC"},
-             .transcript = R"(== copy [Chute], paste on [BT1, NC] (first selected decides)
+        {.name       = "CopyChutePasteOnBT1NCFirstSelectedDecides",
+         .selection  = {"Chute"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"BT1", "NC"},
+         .transcript = R"(== copy [Chute], paste on [BT1, NC] (first selected decides)
   enabled with [Chute]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Chute*] selection=[Chute] undo='null'
@@ -401,11 +400,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Chute*] undo='Paste Parachute'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, Chute*, Chute*], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, Chute*], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Parachute')"},
-            {.name       = "CopyChutePasteOnNCBT1FirstSelectedDecides",
-             .selection  = {"Chute"},
-             .action     = Action::COPY,
-             .pasteOn    = Names{"NC", "BT1"},
-             .transcript = R"(== copy [Chute], paste on [NC, BT1] (first selected decides)
+        {.name       = "CopyChutePasteOnNCBT1FirstSelectedDecides",
+         .selection  = {"Chute"},
+         .action     = Action::COPY,
+         .pasteOn    = Names{"NC", "BT1"},
+         .transcript = R"(== copy [Chute], paste on [NC, BT1] (first selected decides)
   enabled with [Chute]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CopyAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Chute*] selection=[Chute] undo='null'
@@ -414,11 +413,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Chute*] undo='Paste Parachute'
   paste again: tree=Rocket[Sustainer[NC[Chute*, Chute*], BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC[Chute*], BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Parachute')"},
-            {.name       = "CutBT1",
-             .selection  = {"BT1"},
-             .action     = Action::CUT,
-             .pasteOn    = Names{"BT2"},
-             .transcript = R"(== cut [BT1]
+        {.name       = "CutBT1",
+         .selection  = {"BT1"},
+         .action     = Action::CUT,
+         .pasteOn    = Names{"BT2"},
+         .transcript = R"(== cut [BT1]
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CutAction: tree=Rocket[Sustainer[NC, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[Sustainer] undo='Cut components'
@@ -427,11 +426,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT1*] undo='Paste Body Tube'
   paste again: tree=Rocket[Sustainer[NC, BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Body Tube')"},
-            {.name       = "CutBT1IT",
-             .selection  = {"BT1", "IT"},
-             .action     = Action::CUT,
-             .pasteOn    = Names{"BT2"},
-             .transcript = R"(== cut [BT1, IT]
+        {.name       = "CutBT1IT",
+         .selection  = {"BT1", "IT"},
+         .action     = Action::CUT,
+         .pasteOn    = Names{"BT2"},
+         .transcript = R"(== cut [BT1, IT]
   enabled with [BT1, IT]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   CutAction: tree=Rocket[Sustainer[NC, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*]]] selection=[Sustainer] undo='Cut components'
@@ -440,11 +439,11 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[BT1*] undo='Paste Body Tube'
   paste again: tree=Rocket[Sustainer[NC, BT2[Chute], BT1*[IT*[EB*]], BT1*[IT*[EB*]]], Booster[BBT[Side boosters[PBT]]]]
   after undo: tree=Rocket[Sustainer[NC, BT2[Chute], BT1*[IT*[EB*]]], Booster[BBT[Side boosters[PBT]]]] redo='Paste Body Tube')"},
-            {.name       = "CutBooster",
-             .selection  = {"Booster"},
-             .action     = Action::CUT,
-             .pasteOn    = Names{"Rocket"},
-             .transcript = R"(== cut [Booster]
+        {.name       = "CutBooster",
+         .selection  = {"Booster"},
+         .action     = Action::CUT,
+         .pasteOn    = Names{"Rocket"},
+         .transcript = R"(== cut [Booster]
   enabled with [Booster]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   CutAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]]]
   clipboard=[Booster*[BBT*[Side boosters*[PBT*]]]] selection=[Rocket] undo='Cut components'
@@ -453,24 +452,24 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Booster*] undo='Paste Stage'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster*[BBT*[Side boosters*[PBT*]]], Booster*[BBT*[Side boosters*[PBT*]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster*[BBT*[Side boosters*[PBT*]]]] redo='Paste Stage')"},
-            // Decision U4: Java deletes the completed selection one by one and throws (Report bug!
-            // Component Stage not deletable, IllegalArgumentException) with
-            // "tree=Rocket[Sustainer[NC]]"; here the tops go by Delete's rule and the last stage
-            // stays, as Delete keeps it.
-            {.name       = "CutSustainerBoosterAllStages",
-             .selection  = {"Sustainer", "Booster"},
-             .action     = Action::CUT,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== cut [Sustainer, Booster] (all stages)
+        // Decision U4: Java deletes the completed selection one by one and throws (Report bug!
+        // Component Stage not deletable, IllegalArgumentException) with
+        // "tree=Rocket[Sustainer[NC]]"; here the tops go by Delete's rule and the last stage
+        // stays, as Delete keeps it.
+        {.name       = "CutSustainerBoosterAllStages",
+         .selection  = {"Sustainer", "Booster"},
+         .action     = Action::CUT,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== cut [Sustainer, Booster] (all stages)
   enabled with [Sustainer, Booster]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CutAction: tree=Rocket[Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Booster*[BBT*[Side boosters*[PBT*]]], Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]] selection=[Rocket, Booster] undo='Cut components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Cut components')"},
-            {.name       = "CutPodsBoosterParallelStage",
-             .selection  = {"Side boosters"},
-             .action     = Action::CUT,
-             .pasteOn    = Names{"BBT"},
-             .transcript = R"(== cut [Pods-Booster] (parallel stage)
+        {.name       = "CutPodsBoosterParallelStage",
+         .selection  = {"Side boosters"},
+         .action     = Action::CUT,
+         .pasteOn    = Names{"BBT"},
+         .transcript = R"(== cut [Pods-Booster] (parallel stage)
   enabled with [Side boosters]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   CutAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT]]
   clipboard=[Side boosters*[PBT*]] selection=[BBT] undo='Cut components'
@@ -479,218 +478,223 @@ std::ostream& operator<<(std::ostream& stream, const ActionsScenario& scenario)
   selection=[Side boosters*] undo='Paste Booster Set'
   paste again: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters*[PBT*], Side boosters*[PBT*]]]]
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters*[PBT*]]]] redo='Paste Booster Set')"},
-            {.name       = "DuplicateBT1",
-             .selection  = {"BT1"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [BT1]
+        {.name       = "DuplicateBT1",
+         .selection  = {"BT1"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [BT1]
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1*] undo='Duplicate Body Tube'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate Body Tube')"},
-            {.name       = "DuplicateIT",
-             .selection  = {"IT"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [IT]
+        {.name       = "DuplicateIT",
+         .selection  = {"IT"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [IT]
   enabled with [IT]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, IT*[EB*]], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[IT*[EB*]] selection=[IT*] undo='Duplicate Inner Tube'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate Inner Tube')"},
-            {.name       = "DuplicateNCBT2",
-             .selection  = {"NC", "BT2"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [NC, BT2]
+        {.name       = "DuplicateNCBT2",
+         .selection  = {"NC", "BT2"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [NC, BT2]
   enabled with [NC, BT2]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], NC*, BT2*[Chute*]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[NC*, BT2*[Chute*]] selection=[BT2*, NC*] undo='Duplicate components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate components')"},
-            {.name       = "DuplicateBT1IT",
-             .selection  = {"BT1", "IT"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [BT1, IT]
+        {.name       = "DuplicateBT1IT",
+         .selection  = {"BT1", "IT"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [BT1, IT]
   enabled with [BT1, IT]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute], BT1*[IT*[EB*]]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[BT1*[IT*[EB*]]] selection=[BT1*] undo='Duplicate Body Tube'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate Body Tube')"},
-            {.name       = "DuplicateNCITDifferentParents",
-             .selection  = {"NC", "IT"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [NC, IT] (different parents)
+        {.name       = "DuplicateNCITDifferentParents",
+         .selection  = {"NC", "IT"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [NC, IT] (different parents)
   enabled with [NC, IT]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, IT*[EB*]], BT2[Chute], NC*], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[NC*, IT*[EB*]] selection=[IT*, NC*] undo='Duplicate components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate components')"},
-            {.name       = "DuplicateITNCDifferentParentsReverse",
-             .selection  = {"IT", "NC"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [IT, NC] (different parents, reverse)
+        {.name       = "DuplicateITNCDifferentParentsReverse",
+         .selection  = {"IT", "NC"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [IT, NC] (different parents, reverse)
   enabled with [IT, NC]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins, IT*[EB*]], BT2[Chute], NC*], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[IT*[EB*], NC*] selection=[NC*, IT*] undo='Duplicate components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate components')"},
-            {.name       = "DuplicateBT1ChuteDifferentParents",
-             .selection  = {"BT1", "Chute"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [BT1, Chute] (different parents)
+        {.name       = "DuplicateBT1ChuteDifferentParents",
+         .selection  = {"BT1", "Chute"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [BT1, Chute] (different parents)
   enabled with [BT1, Chute]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute, Chute*], BT1*[IT*[EB*], CR1*, Fins*]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[Chute*, BT1*[IT*[EB*], CR1*, Fins*]] selection=[BT1*, Chute*] undo='Duplicate components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate components')"},
-            {.name       = "DuplicateSustainer",
-             .selection  = {"Sustainer"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [Sustainer]
+        {.name       = "DuplicateSustainer",
+         .selection  = {"Sustainer"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [Sustainer]
   enabled with [Sustainer]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]], Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]]
   clipboard=[Sustainer*[NC*, BT1*[IT*[EB*], CR1*, Fins*], BT2*[Chute*]]] selection=[Sustainer*] undo='Duplicate Stage'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Duplicate Stage')"},
-            {.name       = "DuplicateRocket",
-             .selection  = {"Rocket"},
-             .action     = Action::DUPLICATE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== duplicate [Rocket]
+        {.name       = "DuplicateRocket",
+         .selection  = {"Rocket"},
+         .action     = Action::DUPLICATE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== duplicate [Rocket]
   enabled with [Rocket]: cut=false copy=false paste=false dup=false del=false up=false down=false edit=true
   DuplicateAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Rocket] undo='null'
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "DeleteBT1",
-             .selection  = {"BT1"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [BT1]
+        {.name       = "DeleteBT1",
+         .selection  = {"BT1"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [BT1]
   enabled with [BT1]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   DeleteAction: tree=Rocket[Sustainer[NC, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Sustainer] undo='Delete Body Tube'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Delete Body Tube')"},
-            {.name       = "DeleteNCBT2IT",
-             .selection  = {"NC", "BT2", "IT"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [NC, BT2, IT]
+        {.name       = "DeleteNCBT2IT",
+         .selection  = {"NC", "BT2", "IT"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [NC, BT2, IT]
   enabled with [NC, BT2, IT]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   DeleteAction: tree=Rocket[Sustainer[BT1[CR1, Fins]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Sustainer, BT1] undo='Delete components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Delete components')"},
-            {.name       = "DeleteBT1ITParentAndChild",
-             .selection  = {"BT1", "IT"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [BT1, IT] (parent and child)
+        {.name       = "DeleteBT1ITParentAndChild",
+         .selection  = {"BT1", "IT"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [BT1, IT] (parent and child)
   enabled with [BT1, IT]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   DeleteAction: tree=Rocket[Sustainer[NC, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Sustainer] undo='Delete components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Delete components')"},
-            {.name       = "DeleteBooster",
-             .selection  = {"Booster"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [Booster]
+        {.name       = "DeleteBooster",
+         .selection  = {"Booster"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [Booster]
   enabled with [Booster]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   DeleteAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]]]
   clipboard=[] selection=[Rocket] undo='Delete Stage'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Delete Stage')"},
-            {.name       = "DeleteSustainerBoosterAllStages",
-             .selection  = {"Sustainer", "Booster"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [Sustainer, Booster] (all stages)
+        {.name       = "DeleteSustainerBoosterAllStages",
+         .selection  = {"Sustainer", "Booster"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [Sustainer, Booster] (all stages)
   enabled with [Sustainer, Booster]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   DeleteAction: tree=Rocket[Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Rocket, Booster] undo='Delete components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Delete components')"},
-            {.name       = "DeleteRocketNC",
-             .selection  = {"Rocket", "NC"},
-             .action     = Action::DELETE,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== delete [Rocket, NC]
+        {.name       = "DeleteRocketNC",
+         .selection  = {"Rocket", "NC"},
+         .action     = Action::DELETE,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== delete [Rocket, NC]
   enabled with [Rocket, NC]: cut=false copy=false paste=false dup=false del=false up=false down=false edit=true
   DeleteAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[Rocket, NC] undo='null'
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "MoveUpBT2",
-             .selection  = {"BT2"},
-             .action     = Action::MOVE_UP,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move up [BT2]
+        {.name       = "MoveUpBT2",
+         .selection  = {"BT2"},
+         .action     = Action::MOVE_UP,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move up [BT2]
   enabled with [BT2]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   MoveUpAction: tree=Rocket[Sustainer[NC, BT2[Chute], BT1[IT[EB], CR1, Fins]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[BT2] undo='Move Body Tube'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Move Body Tube')"},
-            {.name       = "MoveUpCR1Fins",
-             .selection  = {"CR1", "Fins"},
-             .action     = Action::MOVE_UP,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move up [CR1, Fins]
+        {.name       = "MoveUpCR1Fins",
+         .selection  = {"CR1", "Fins"},
+         .action     = Action::MOVE_UP,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move up [CR1, Fins]
   enabled with [CR1, Fins]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   MoveUpAction: tree=Rocket[Sustainer[NC, BT1[CR1, Fins, IT[EB]], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[CR1, Fins] undo='Move components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Move components')"},
-            // Move up is disabled here, and the operation does nothing. The probe calls Java's
-            // action all the same, which adds the undo position "Move Nose Cone" and fires its
-            // TREE_CHANGE: an undo step that changes nothing.
-            {.name       = "MoveUpNCFirstChild",
-             .selection  = {"NC"},
-             .action     = Action::MOVE_UP,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move up [NC] (first child)
+        // Move up is disabled here, and the operation does nothing. The probe calls Java's
+        // action all the same, which adds the undo position "Move Nose Cone" and fires its
+        // TREE_CHANGE: an undo step that changes nothing.
+        {.name       = "MoveUpNCFirstChild",
+         .selection  = {"NC"},
+         .action     = Action::MOVE_UP,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move up [NC] (first child)
   enabled with [NC]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   MoveUpAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[NC] undo='null'
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            // Move up is disabled (IT cannot move), and the operation does nothing; Java's action,
-            // called all the same, moves BT2 ("tree=Rocket[Sustainer[NC, BT2[Chute], BT1[IT[EB],
-            // CR1, Fins]], ...", undo 'Move components').
-            {.name       = "MoveUpITBT2ITIsFirstInBT1",
-             .selection  = {"IT", "BT2"},
-             .action     = Action::MOVE_UP,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move up [IT, BT2] (IT is first in BT1)
+        // Move up is disabled (IT cannot move), and the operation does nothing; Java's action,
+        // called all the same, moves BT2 ("tree=Rocket[Sustainer[NC, BT2[Chute], BT1[IT[EB],
+        // CR1, Fins]], ...", undo 'Move components').
+        {.name       = "MoveUpITBT2ITIsFirstInBT1",
+         .selection  = {"IT", "BT2"},
+         .action     = Action::MOVE_UP,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move up [IT, BT2] (IT is first in BT1)
   enabled with [IT, BT2]: cut=true copy=true paste=false dup=true del=true up=false down=false edit=true
   MoveUpAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[IT, BT2] undo='null'
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name       = "MoveUpBT1ITParentAndChild",
-             .selection  = {"BT1", "IT"},
-             .action     = Action::MOVE_UP,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move up [BT1, IT] (parent and child)
+        {.name       = "MoveUpBT1ITParentAndChild",
+         .selection  = {"BT1", "IT"},
+         .action     = Action::MOVE_UP,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move up [BT1, IT] (parent and child)
   enabled with [BT1, IT]: cut=true copy=true paste=false dup=true del=true up=true down=true edit=true
   MoveUpAction: tree=Rocket[Sustainer[BT1[IT[EB], CR1, Fins], NC, BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[IT, BT1] undo='Move components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Move components')"},
-            {.name       = "MoveDownNCBT1",
-             .selection  = {"NC", "BT1"},
-             .action     = Action::MOVE_DOWN,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move down [NC, BT1]
+        {.name       = "MoveDownNCBT1",
+         .selection  = {"NC", "BT1"},
+         .action     = Action::MOVE_DOWN,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move down [NC, BT1]
   enabled with [NC, BT1]: cut=true copy=true paste=false dup=true del=true up=false down=true edit=true
   MoveDownAction: tree=Rocket[Sustainer[BT2[Chute], NC, BT1[IT[EB], CR1, Fins]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[BT1, NC] undo='Move components'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Move components')"},
-            // Move down is disabled here, and the operation does nothing; Java's action, called all
-            // the same, makes the empty undo step "Move Body Tube".
-            {.name       = "MoveDownBT2LastChild",
-             .selection  = {"BT2"},
-             .action     = Action::MOVE_DOWN,
-             .pasteOn    = std::nullopt,
-             .transcript = R"(== move down [BT2] (last child)
+        // Move down is disabled here, and the operation does nothing; Java's action, called all
+        // the same, makes the empty undo step "Move Body Tube".
+        {.name       = "MoveDownBT2LastChild",
+         .selection  = {"BT2"},
+         .action     = Action::MOVE_DOWN,
+         .pasteOn    = std::nullopt,
+         .transcript = R"(== move down [BT2] (last child)
   enabled with [BT2]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   MoveDownAction: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]]
   clipboard=[] selection=[BT2] undo='null'
   after undo: tree=Rocket[Sustainer] redo='null')"},
-            {.name = "MoveUpBooster", .selection = {"Booster"}, .action = Action::MOVE_UP, .pasteOn = std::nullopt, .transcript = R"(== move up [Booster]
+        {.name = "MoveUpBooster", .selection = {"Booster"}, .action = Action::MOVE_UP, .pasteOn = std::nullopt, .transcript = R"(== move up [Booster]
   enabled with [Booster]: cut=true copy=true paste=false dup=true del=true up=true down=false edit=true
   MoveUpAction: tree=Rocket[Booster[BBT[Side boosters[PBT]]], Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]]]
   clipboard=[] selection=[Booster] undo='Move Stage'
   after undo: tree=Rocket[Sustainer[NC, BT1[IT[EB], CR1, Fins], BT2[Chute]], Booster[BBT[Side boosters[PBT]]]] redo='Move Stage')"},
-        };
+    };
+}
+
+[[nodiscard]] const std::vector<ActionsScenario>& actionsScenarios()
+{
+    static const std::vector<ActionsScenario> kScenarios = makeActionsScenarios();
     return kScenarios;
 }
 

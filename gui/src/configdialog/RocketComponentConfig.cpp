@@ -305,7 +305,7 @@ DoubleSource RocketComponentConfig::overrideCDSource(const Preferences& preferen
 BoolSource RocketComponentConfig::cdOverriddenSource(
     const Preferences& preferences, const std::shared_ptr<ComponentSelection>& selection)
 {
-    auto snapshot = std::make_shared<CalculatedCDs>(selection);
+    const auto snapshot = std::make_shared<CalculatedCDs>(selection);
     return BoolSource::of<RocketComponent>({
         .get = [](const RocketComponent& component) { return component.isCDOverridden(); },
         .set =

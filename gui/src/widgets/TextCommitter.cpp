@@ -65,12 +65,10 @@ void writeText(QWidget& edit, const QString& text)
     {
         line->setText(text);
     }
-    else if (auto* area = qobject_cast<QPlainTextEdit*>(&edit))
+    else if (auto* area = qobject_cast<QPlainTextEdit*>(&edit);
+             area != nullptr && readText(*area) != text)
     {
-        if (readText(*area) != text)
-        {
-            area->setPlainText(text);
-        }
+        area->setPlainText(text);
     }
 }
 

@@ -72,13 +72,11 @@ public:
 protected:
     void keyPressEvent(QKeyEvent* event) override
     {
-        if (event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::KeypadModifier)
+        if ((event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::KeypadModifier) &&
+            m_popupKey(event->key()))
         {
-            if (m_popupKey(event->key()))
-            {
-                event->accept();
-                return;
-            }
+            event->accept();
+            return;
         }
         QLineEdit::keyPressEvent(event);
     }

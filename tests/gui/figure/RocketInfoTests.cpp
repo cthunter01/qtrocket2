@@ -64,6 +64,9 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr QRect kVisible{20, 10, 1000, 700};
 /// Positions are computed from the same numbers: they agree to the last bits.
 constexpr double kTolerance = 1e-9;
+/// Where a text is drawn passes through Qt's 26.6 fixed point (QFixed, 1/64 px) on its way to the
+/// paint engine; on macOS (Core Text) a fractional layout position comes back rounded to it.
+constexpr double kTextPositionTolerance = 1.0 / 64.0;
 
 /// The configuration of @p rocket that has motors.
 [[nodiscard]] const FlightConfiguration& configurationWithMotors(const Rocket& rocket)
@@ -207,7 +210,9 @@ void expectTextPainted(const RecordedPaint& record, const Item& item,
 {
     ASSERT_EQ(record.kind, RecordedPaint::Kind::TEXT);
     EXPECT_EQ(record.text, item.text);
-    EXPECT_EQ(record.transform.map(record.position), item.position);
+    const QPointF drawnAt = record.transform.map(record.position);
+    EXPECT_NEAR(drawnAt.x(), item.position.x(), kTextPositionTolerance) << textOf(item);
+    EXPECT_NEAR(drawnAt.y(), item.position.y(), kTextPositionTolerance) << textOf(item);
     EXPECT_EQ(record.pen.color(), item.colour);
     const QFont& font = item.font == Item::FontRole::SMALL ? fonts.small : fonts.regular;
     EXPECT_EQ(record.font.pointSizeF(), font.pointSizeF());

@@ -162,7 +162,7 @@ void ComponentConfigDialog::forgetPreviousDialogs()
 
 bool ComponentConfigDialog::commitPendingEdits()
 {
-    ComponentConfigDialog* open = dialog();
+    const ComponentConfigDialog* open = dialog();
     return open != nullptr && open->m_configurator != nullptr && open->m_configurator->commitAll();
 }
 

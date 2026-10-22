@@ -7,6 +7,7 @@
 #include <QFont>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QLatin1Char>
 #include <QSizePolicy>
 #include <QString>
 #include <QToolButton>
