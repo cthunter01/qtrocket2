@@ -8,12 +8,15 @@
 
 #include "QtRocket/document/OpenRocketDocument.h"
 #include "QtRocket/gui/binding/ComponentSelection.h"
+#include "QtRocket/gui/configdialog/BodyTubeConfig.h"
 #include "QtRocket/gui/configdialog/InstancesPanel.h"
 #include "QtRocket/gui/configdialog/MaterialPanel.h"
 #include "QtRocket/gui/configdialog/MotorConfig.h"
+#include "QtRocket/gui/configdialog/NoseConeConfig.h"
 #include "QtRocket/gui/configdialog/PlacementPanel.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/configdialog/ShoulderPanel.h"
+#include "QtRocket/gui/configdialog/TransitionConfig.h"
 #include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/material/Material.h"
@@ -208,15 +211,15 @@ RocketComponentConfig* ConfigPanelFactory::create(OpenRocketDocument&           
 
         case ComponentKind::BODY_TUBE:
             // BodyTubeConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<BodyTubeConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::TRANSITION:
             // TransitionConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<TransitionConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::NOSE_CONE:
             // NoseConeConfig
-            return createWithSharedPanels(document, services, std::move(selection), parent);
+            return makeChild<NoseConeConfig>(parent, document, services, std::move(selection));
 
         case ComponentKind::TRAPEZOID_FIN_SET:
             // TrapezoidFinSetConfig
