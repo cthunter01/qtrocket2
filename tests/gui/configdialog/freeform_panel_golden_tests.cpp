@@ -859,9 +859,13 @@ private:
         m_popup                      = false;
         {
             // Offscreen, a popup warns that the platform cannot grab the keyboard or the mouse.
-            const std::optional<Test::OffscreenPopupWarnings> warnings =
-                m_expectPopup ? std::optional<Test::OffscreenPopupWarnings>(std::in_place)
-                              : std::nullopt;
+            // Emplaced, not initialised from a conditional: MSVC wants a copy there, and the
+            // warnings cannot be copied or moved.
+            std::optional<Test::OffscreenPopupWarnings> warnings;
+            if (m_expectPopup)
+            {
+                warnings.emplace();
+            }
             QTest::mouseClick(&figureWidget(), button, modifiers(w.subspan(2)), pixel);
         }
         if (m_popup)
