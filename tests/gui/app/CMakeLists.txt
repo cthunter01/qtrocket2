@@ -5,5 +5,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     ApplicationSessionTests.cpp
     ApplicationTests.cpp
     DataPathsTests.cpp
+    design_window_integration_tests.cpp
     StartupGuardTests.cpp
 )

@@ -748,12 +748,14 @@ TEST_F(DesignPanelTest, ClosingTheWindowClosesTheDialog)
     EXPECT_TRUE(manager().close(window()));
     EXPECT_EQ(requests(), (Lines{"close", "close"}));
 
-    // A saved design: no question, after the window closed.
+    // A saved design: no question; before the window looks whether its design is saved (closing
+    // the dialog commits an edit still being typed, which then counts: WindowManager) and after
+    // the window closed.
     requests().clear();
     open();
     window().document().setSaved(true);
     EXPECT_TRUE(manager().close(window()));
-    EXPECT_EQ(requests(), (Lines{"close"}));
+    EXPECT_EQ(requests(), (Lines{"close", "close"}));
 }
 
 }  // namespace

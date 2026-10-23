@@ -115,7 +115,7 @@ TEST_F(ScaleScrollAreaTest, PutsTheRulersAroundTheViewport)
     EXPECT_EQ(area.rulerCornerWidget()->geometry(),
               QRect(view.left() - 20, view.top() - 20, 20, 20));
 
-    // Until run 3 puts the unit selector there: the unit's symbol.
+    // Until a unit selector is put there (RulerUnitSelector::install()): the unit's symbol.
     const auto* label = qobject_cast<const QLabel*>(area.rulerCornerWidget());
     ASSERT_NE(label, nullptr);
     EXPECT_EQ(&area.rulerUnit(), &unitGroup(UnitGroupId::LENGTH).getDefaultUnit());

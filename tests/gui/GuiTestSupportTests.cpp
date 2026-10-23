@@ -1,6 +1,9 @@
 #include "GuiTestSupport.h"
 
 #include <filesystem>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include <QApplication>
 #include <QClipboard>
@@ -13,7 +16,14 @@
 #include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 
+#include "QtRocket/document/ComponentCopy.h"
+#include "QtRocket/document/OpenRocketDocument.h"
+#include "QtRocket/document/OpenRocketDocumentFactory.h"
+#include "QtRocket/gui/main/OpenRocketClipboard.h"
+#include "QtRocket/rocket/Rocket.h"
+#include "QtRocket/rocket/RocketComponent.h"
 #include "QtRocket/unit/UnitGroup.h"
+#include "QtRocket/util/Error.h"
 #include "ScopedApplicationPalette.h"
 #include "TestTempDir.h"
 
@@ -73,6 +83,26 @@ TEST(GuiTest, FailsATestThatLeavesDataOnTheClipboardAndClearsIt)
         "the test left data on the clipboard: text/plain");
     const QMimeData* data = QGuiApplication::clipboard()->mimeData();
     EXPECT_TRUE(data == nullptr || data->formats().isEmpty());
+}
+
+TEST(GuiTest, FailsATestThatLeavesComponentsOnTheApplicationsComponentClipboardAndClearsIt)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    EXPECT_NONFATAL_FAILURE(
+        {
+            GuiTestProbe probe;
+            probe.runSetUp();
+            Result<ComponentCopy> copy = ComponentCopy::copyOf(
+                *document, std::vector<const RocketComponent*>{&document->getRocket().getChild(0)});
+            if (copy.has_value())
+            {
+                OpenRocketClipboard::instance().setComponents(std::move(*copy));
+            }
+            probe.runTearDown();
+        },
+        "the test left components on the application's component clipboard");
+    EXPECT_TRUE(OpenRocketClipboard::instance().isEmpty());
 }
 
 TEST(GuiTest, FailsATestThatChangesADefaultUnit)

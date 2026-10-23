@@ -11,7 +11,10 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/material/MaterialStorage.h"
+#include "QtRocket/preferences/Preferences.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
+#include "QtRocket/rocket/ComponentFactory.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -61,6 +64,23 @@ std::unique_ptr<RocketComponent> FreeformFinSet::cloneShallow() const
 
 FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, bool freezeRocket)
 {
+    return convertInto(finset, std::make_unique<FreeformFinSet>(), freezeRocket);
+}
+
+FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet&                finset,
+                                                               const Preferences&     preferences,
+                                                               const MaterialStorage& materials,
+                                                               bool                   freezeRocket)
+{
+    // Java's constructor: the default materials of the class.
+    auto freeform = std::make_unique<FreeformFinSet>();
+    ComponentFactory::applyDefaultMaterials(*freeform, preferences, materials);
+    return convertInto(finset, std::move(freeform), freezeRocket);
+}
+
+FreeformFinSet::ConversionResult FreeformFinSet::convertInto(
+    FinSet& finset, std::unique_ptr<FreeformFinSet> freeform, bool freezeRocket)
+{
     Rocket* const rocket = freezeRocket ? dynamic_cast<Rocket*>(&finset.getRoot()) : nullptr;
     if (rocket != nullptr)
     {
@@ -70,10 +90,9 @@ FreeformFinSet::ConversionResult FreeformFinSet::convertFinSet(FinSet& finset, b
     ConversionResult       result;
     RocketComponent* const parent   = finset.getParent();
     std::size_t            position = 0;
-    // Made before anything changes (Java makes it once the fin set is out of the tree; the
-    // constructor has no side effects), so that the handler below can tell whether the tree has
-    // taken it: addChild() empties the pointer only when it does.
-    auto freeform = std::make_unique<FreeformFinSet>();
+    // @p freeform is made before anything changes (Java makes it once the fin set is out of the
+    // tree; the constructor has no side effects), so that the handler below can tell whether the
+    // tree has taken it: addChild() empties the pointer only when it does.
     try
     {
         // Get fin set position and remove fin set

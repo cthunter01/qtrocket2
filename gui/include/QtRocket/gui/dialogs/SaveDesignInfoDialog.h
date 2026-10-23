@@ -43,19 +43,17 @@ class StyledLabel;
 ///   whatever the answer. On yes the dialog closes, and every edit stays (Java's Cancel undoes
 ///   nothing); on no it stays open.
 ///
-/// edit() shows the dialog and returns whether the save is to go on: true after OK (and the close
-/// button), false after a Cancel the user confirmed. Run 4 calls it from Save as through
-/// UserPrompts::editDesignInformation() (main/WidgetUserPrompts), with the rocket selected in the
-/// tree first (Java: setSelectedComponent(rocket)).
+/// edit() shows the dialog and returns how it closed: true after OK (and the close button), false
+/// after a Cancel the user confirmed (or when its parent was destroyed while it was open). Save as
+/// calls it through UserPrompts::editDesignInformation() (main/WidgetUserPrompts), with the rocket
+/// selected in the tree first (Java: setSelectedComponent(rocket)), and goes on to the file
+/// chooser either way, as BasicFrame.saveAsAction() does (the user's decision R3-3: a Cancel
+/// keeps the edits and does not cancel the save).
 ///
-/// Deviations from OpenRocket:
-/// - The result: Java's Save as goes on to the file chooser after Cancel too
-///   (BasicFrame.saveAsAction() does not look at how the dialog closed); edit() reports the Cancel,
-///   so that Save as can stop there.
-/// - The design name field shows the rocket's name. Java's SaveDesignInfoPanel overrides
-///   updateFields(), which fills the field, with an empty method, so the field starts empty and a
-///   focus loss of it names the rocket "" (which a component takes as its default name). This fix
-///   is not among the user's decision U4's: it is for the user to confirm.
+/// Deviation from OpenRocket: the design name field shows the rocket's name (the user's decision
+/// R3-1, an addition to U4's fixes of OpenRocket's GUI bugs). Java's SaveDesignInfoPanel overrides
+/// updateFields(), which fills the field, with an empty method, so the field starts empty and a
+/// focus loss of it names the rocket "" (which a component takes as its default name).
 class SaveDesignInfoDialog final : public QDialog
 {
     Q_OBJECT
@@ -72,7 +70,9 @@ public:
     SaveDesignInfoDialog& operator=(SaveDesignInfoDialog&&)      = delete;
 
     /// Shows the dialog of @p document's rocket, modal, parented to @p parent (or none), and
-    /// returns whether the save is to go on (see the class comment).
+    /// returns how it closed (see the class comment). The dialog is made for the call
+    /// (ModalDialog): a parent destroyed while it is open takes it along, and the result is
+    /// false.
     [[nodiscard]] static bool edit(QWidget* parent, const GuiServices& services,
                                    OpenRocketDocument& document);
 

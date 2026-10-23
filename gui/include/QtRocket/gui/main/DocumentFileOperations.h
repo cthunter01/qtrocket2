@@ -51,15 +51,21 @@ class WindowManager;
 /// (GeneralRocketLoader(URL)), without a file, saved, and the rocket's configuration dialog is
 /// asked for once the window is shown.
 ///
+/// Save and Save as first commit the edits still being typed in the configuration dialog
+/// (ComponentConfigDialog::commitPendingEdits(): Java's field commits on its focus loss before
+/// the menu's action, which a field keeps while the macOS menu bar is used).
+///
 /// SAVE (save()): BasicFrame.saveAction(): the document is told first
 /// (fireDocumentSavingEvent()); a document without a file, or of RockSim or RASAero, is saved as
 /// (saveAs()); otherwise it is written to its file (saveAsOpenRocket()).
 ///
 /// SAVE AS (saveAs()): the "Save Design Info" dialog first when the preference asks for it (the
-/// rocket selected in the tree; UserPrompts::editDesignInformation(), the hook of run 4); then the
-/// file ("Save as OpenRocket ork file", the OpenRocket designs only, starting in the default
-/// directory (the user's home directory without one); the document's file with the extension
-/// forced is proposed, in its directory, only when SaveFileChooser takes it
+/// rocket selected in the tree, which an open configuration dialog follows before the dialog
+/// shows: DesignPanel::reopenPendingConfigDialog(); UserPrompts::editDesignInformation() with the
+/// services, whose outcome changes nothing: a Cancel there goes on too, the user's decision R3-3);
+/// then the file ("Save as OpenRocket ork file", the OpenRocket designs only, starting in the
+/// default directory (the user's home directory without one); the document's file with the
+/// extension forced is proposed, in its directory, only when SaveFileChooser takes it
 /// (SaveFileNames::isProposable(): a file of the default directory, not one of another directory
 /// or of a subdirectory); names with an illegal character refused (SaveFileChooser); the storage
 /// option offered when the design holds simulated data); the storage options are stored and

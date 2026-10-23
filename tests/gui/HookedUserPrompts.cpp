@@ -69,9 +69,10 @@ std::optional<UserPrompts::SaveFileAnswer> HookedUserPrompts::askSaveFile(
     return m_scripted.askSaveFile(parent, request);
 }
 
-void HookedUserPrompts::editDesignInformation(QWidget* parent, OpenRocketDocument& document)
+void HookedUserPrompts::editDesignInformation(QWidget* parent, const GuiServices& services,
+                                              OpenRocketDocument& document)
 {
-    m_scripted.editDesignInformation(parent, document);
+    m_scripted.editDesignInformation(parent, services, document);
 }
 
 void HookedUserPrompts::showMessage(QWidget* parent, const Message& message)

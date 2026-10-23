@@ -16,6 +16,9 @@
 namespace QtRocket
 {
 
+class MaterialStorage;
+class Preferences;
+
 /// A set of fins of any outline (OpenRocket's FreeformFinSet): a list of points in the fin frame
 /// (see FinSet), the first at the origin and the last on the parent's surface, the length being
 /// the last point's x. It is the only fin set a transition or a nose cone accepts.
@@ -106,6 +109,21 @@ public:
     ///         changed then.
     static ConversionResult convertFinSet(FinSet& finset, bool freezeRocket = true);
 
+    /// convertFinSet() with the new fin set made as OpenRocket's application makes it: Java's
+    /// `new FreeformFinSet()` asks the application's preferences for the default materials of its
+    /// class (ExternalComponent's and FinSet's constructors), here @p preferences with
+    /// @p materials (ComponentFactory::applyDefaultMaterials()). The fin set's material is then
+    /// @p finset's (copyFrom()), and its fillets keep the default ("Balsa" after OpenRocket's
+    /// start-up, loadDefaultComponentMaterials()), since FinSet::copyFrom() does not copy them;
+    /// the overload above leaves them the built-in "Cardboard". The GUI's "Convert to freeform"
+    /// (FinSetConfig) converts with this one.
+    /// @throws BugError as the overload above, and when @p materials lacks a built-in material
+    ///         the lookup falls back on (ComponentFactory::applyDefaultMaterials()); nothing has
+    ///         changed then.
+    static ConversionResult convertFinSet(FinSet& finset, const Preferences& preferences,
+                                          const MaterialStorage& materials,
+                                          bool                   freezeRocket = true);
+
     /// Inserts a point at @p location before the point @p index and fires NONFUNCTIONAL_CHANGE;
     /// the point is not checked.
     /// Fails ("Cannot add new point before the first or after the last point") unless
@@ -182,6 +200,10 @@ protected:
 private:
     /// Differences below this are no change (IGNORE_SMALLER_THAN).
     static constexpr double kIgnoreSmallerThan = 1.0e-12;
+
+    /// convertFinSet() into @p freeform, a new fin set as its constructor made it (not null).
+    static ConversionResult convertInto(FinSet& finset, std::unique_ptr<FreeformFinSet> freeform,
+                                        bool freezeRocket);
 
     /// Puts the first point at the origin and moves every other point by (@p deltaX, @p deltaY).
     void movePoints(double deltaX, double deltaY);

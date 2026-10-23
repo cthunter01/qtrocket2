@@ -160,7 +160,9 @@ public:
     /// dialog commits its fields and ends its bindings), adds the undo position "Convert fin set",
     /// converts the main fin set and every other selected fin set into freeform ones
     /// (FreeformFinSet::convertFinSet() without its own freeze, all inside one freeze of the
-    /// rocket, so that one event tells the tree), and opens the dialog again, for the window the
+    /// rocket, so that one event tells the tree; each new fin set with the default materials of
+    /// the application's preferences, as Java's `new FreeformFinSet()`: its fillets keep the
+    /// default, "Balsa" after the start-up), and opens the dialog again, for the window the
     /// dialog was shown for, on the new main fin set with the other new ones selected (Java's
     /// convertFinSet() makes the converted config listeners the new fin set's).
     ///

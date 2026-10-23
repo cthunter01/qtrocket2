@@ -61,7 +61,8 @@ class WindowGeometry;
 ///   time); the window does not open it: every request for it, from the window's design panel
 ///   (the component tree, Edit, the add buttons) and from whoever calls requestConfigDialog(),
 ///   comes out as one signal, configDialogRequested(), and every request to close it as
-///   closeConfigDialogRequested(), which the application connects to the dialog (decision O12).
+///   closeConfigDialogRequested(), which the application connects to the dialog (decision O12:
+///   ConfigDialogRequests).
 ///
 /// Deviations: an "[*]" in the rocket's name is shown with a zero-width space after the "*"
 /// ("[*\u200B]"), since Qt takes every "[*]" of a title for the place of the modified mark; the
@@ -137,8 +138,8 @@ Q_SIGNALS:
     /// addition is the dialog's undo step: OpenRocket's isNewComponent) and
     /// @p rememberPreviousTab when the dialog is to open on the tab the previous one had
     /// (ComponentConfigDialog.showDialog(); false for a new component). The application
-    /// connects it to the dialog (run 4); until then nothing opens. The pointers are valid during
-    /// the emission only: connect directly.
+    /// connects it to the dialog (ConfigDialogRequests); without that nothing opens. The pointers
+    /// are valid during the emission only: connect directly.
     void configDialogRequested(QtRocket::RocketComponent*                     component,
                                const std::vector<QtRocket::RocketComponent*>& others,
                                bool isNewComponent, bool rememberPreviousTab);

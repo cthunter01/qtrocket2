@@ -27,8 +27,11 @@
 #include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
 #include "QtRocket/gui/configdialog/TrapezoidFinSetConfig.h"
+#include "QtRocket/gui/util/GuiServices.h"
 #include "QtRocket/gui/util/MakeChild.h"
 #include "QtRocket/gui/widgets/UnitSpinBox.h"
+#include "QtRocket/material/Material.h"
+#include "QtRocket/material/MaterialPreferences.h"
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentKind.h"
 #include "QtRocket/rocket/EllipticalFinSet.h"
@@ -250,6 +253,33 @@ TEST_F(FinSetConfigTest, ConvertToFreeformCommitsWhatWasTypedFirst)
     const auto* restored = dynamic_cast<const TrapezoidFinSet*>(finSetWithId(design, id));
     ASSERT_NE(restored, nullptr);
     EXPECT_DOUBLE_EQ(restored->getRootChord(), 0.07);
+}
+
+TEST_F(FinSetConfigTest, ConvertToFreeformGivesTheNewFinSetTheDefaultMaterials)
+{
+    // Java's `new FreeformFinSet()` takes the default materials of the application's preferences
+    // ("Balsa" for fin sets after the start-up); the converted fin set's material is copied, its
+    // fillets' is not (FreeformFinSet::convertFinSet() with the preferences). Found by the exit
+    // suite FromScratchExitGolden: the fillets were the built-in "Cardboard".
+    ConfigDialogServices services;
+    loadDefaultComponentMaterials(services.preferences(), services.services().materials());
+    EveryKindDesign  design;
+    QWidget          window;
+    TrapezoidFinSet& fins = trapezoid(design);
+    const Uuid       id   = fins.getId();
+    ASSERT_EQ(fins.getFilletMaterial().getName(), "Cardboard");  // made with the built-in ones
+    const std::string material = fins.getMaterial().getName();
+    ComponentConfigDialog::showDialog(window, services.services(), *design.document, fins);
+    const ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    const auto* panel = qobject_cast<const TrapezoidFinSetConfig*>(&dialog->configurator());
+    ASSERT_NE(panel, nullptr);
+    panel->convertButton()->click();
+    const auto* freeform = dynamic_cast<const FreeformFinSet*>(finSetWithId(design, id));
+    ASSERT_NE(freeform, nullptr);
+    EXPECT_EQ(freeform->getMaterial().getName(), material);
+    EXPECT_EQ(freeform->getFilletMaterial().getName(), "Balsa");
+    ComponentConfigDialog::disposeDialog();
 }
 
 TEST_F(FinSetConfigTest, SplitFinsKeepsWhatWasTypedInTheDialogsStep)

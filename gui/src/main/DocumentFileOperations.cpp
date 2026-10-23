@@ -32,6 +32,7 @@
 #include "QtRocket/file/GeneralRocketLoader.h"
 #include "QtRocket/file/GeneralRocketSaver.h"
 #include "QtRocket/file/LoadedDocument.h"
+#include "QtRocket/gui/configdialog/ComponentConfigDialog.h"
 #include "QtRocket/gui/main/DesignPanel.h"
 #include "QtRocket/gui/main/MainMenus.h"
 #include "QtRocket/gui/main/MainWindow.h"
@@ -152,6 +153,15 @@ void activate(MainWindow& window)
 [[nodiscard]] QString orkExtension()
 {
     return QStringLiteral("ork");
+}
+
+/// Commits the edits still being typed in the configuration dialog (the application's one,
+/// ComponentConfigDialog) before a save: a menu item or a key may leave them pending (a field
+/// keeps its focus while the macOS menu bar is used), where Java's field commits on its focus
+/// loss before the action.
+void commitConfigDialog()
+{
+    static_cast<void>(ComponentConfigDialog::commitPendingEdits());
 }
 
 }  // namespace
@@ -359,7 +369,8 @@ MainWindow* DocumentFileOperations::openExample(const std::filesystem::path& fil
 bool DocumentFileOperations::save(MainWindow& window)
 {
     const QPointer<MainWindow> alive(&window);
-    OpenRocketDocument&        document = window.document();
+    commitConfigDialog();
+    OpenRocketDocument& document = window.document();
     document.fireDocumentSavingEvent(DocumentChangeEvent{});
     if (alive.isNull())
     {
@@ -378,6 +389,11 @@ bool DocumentFileOperations::save(MainWindow& window)
 bool DocumentFileOperations::saveAs(MainWindow& window)
 {
     const QPointer<MainWindow> alive(&window);
+    commitConfigDialog();
+    if (alive.isNull())
+    {
+        return false;
+    }
     showSaveDesignInfoDialog(window);
     if (alive.isNull())
     {
@@ -571,11 +587,17 @@ void DocumentFileOperations::showSaveDesignInfoDialog(MainWindow& window)
     }
     // "Select the rocket in the component tree to indicate to users that they can edit the
     // rocket info by editing the rocket".
-    if (const DesignPanel* const panel = window.componentDesignPanel(); panel != nullptr)
+    if (DesignPanel* const panel = window.componentDesignPanel(); panel != nullptr)
     {
         panel->selection().setSelectedComponent(window.document().getRocket());
+        // An open configuration dialog follows the selection: Java's listener shows the rocket's
+        // at once, before the modal dialog, which then stands above it. The change came from no
+        // event of the rocket, so the reopen the panel queued is done now.
+        panel->reopenPendingConfigDialog();
     }
-    m_services.prompts().editDesignInformation(&window, window.document());
+    // BasicFrame.saveAsAction() goes on to the file chooser however the dialog closes (the
+    // user's decision R3-3).
+    m_services.prompts().editDesignInformation(&window, m_services, window.document());
 }
 
 std::optional<std::filesystem::path> DocumentFileOperations::askSaveAsFile(MainWindow& window)

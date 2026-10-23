@@ -358,13 +358,16 @@ void WindowManager::closeIfReplaceable(MainWindow* origin, MainWindow& replaceme
 
 bool WindowManager::confirmClose(MainWindow& window)
 {
+    // BasicFrame first closes the component configuration dialog, when the design is not saved.
+    // Here before that is looked at: closing the dialog commits the edit still being typed in it
+    // (which the macOS menu bar or a key leaves pending), so that it counts as a change of the
+    // design, as before an undo or a save (Java loses it when the design was saved).
+    window.requestConfigDialogClose();
     const OpenRocketDocument& document = window.document();
     if (document.isSaved())
     {
         return true;
     }
-    // BasicFrame first closes the component configuration dialog.
-    window.requestConfigDialogClose();
     switch (m_services.prompts().askSaveChanges(
         &window, QtStrings::fromUtf8(document.getRocket().getName())))
     {
@@ -378,7 +381,8 @@ bool WindowManager::confirmClose(MainWindow& window)
                 {.severity = UserPrompts::Severity::WARNING,
                  //: BasicFrame.dlg.title
                  .title = tr("Design not saved"),
-                 // QtRocket's own text: saving comes with the file operations later in Milestone 2.
+                 // QtRocket's own text: a manager without file operations (DocumentFileOperations,
+                 // which the application installs) cannot save.
                  .lines = {tr("Saving designs is not available in this version of QtRocket.")}});
             return false;
         case UserPrompts::SaveChangesAnswer::DISCARD:

@@ -11,14 +11,19 @@ aerodynamic and mass calculations, simulation engine and the .ork file format fo
 algorithms. The bundled motor database (data/motors/initial_motors.db) and example designs (data/examples/) are
 taken from OpenRocket unchanged. The designs of older file format versions that the tests read (tests/data/ork/)
 are example and test designs of OpenRocket's releases 0.9.3 to 23.09, copied unchanged from its repository;
-tests/data/ork/README.md lists the release and the path of each.
+tests/data/ork/README.md lists the release and the path of each. The reference data the tests compare with
+(tests/data/goldens/, tests/data/component-factory/, tests/data/fin-images/report.txt and the tables that name a
+generator) is OpenRocket's output, written by the Java programs in tools/, which run OpenRocket's compiled
+classes. Where those programs cannot run a part of OpenRocket as it is, they contain its code adapted line for
+line (tools/openrocket-gui-reference/: OpenRocket's GUI actions; tools/openrocket-goldens/: the geometry of its
+rocket figure), each place naming its source: part of OpenRocket, GPL version 3 or later, as above.
 
 
 Third-party software
 --------------------
 
-QtRocket_cli contains the following libraries (cmake/Dependencies.cmake; the release archives build them from
-source and link them in):
+QtRocket_cli and the GUI contain the following libraries, the core's (cmake/Dependencies.cmake; the release
+archives build them from source and link them in):
 
 - pugixml 1.16 (https://pugixml.org): Copyright (c) 2006-2026 Arseny Kapoulkine. MIT License (below).
 - fast_float 8.3.0 (https://github.com/fastfloat/fast_float): Copyright (c) 2021 The fast_float authors.
@@ -33,8 +38,11 @@ source and link them in):
 The tests also use GoogleTest (BSD 3-Clause License) and nlohmann/json (MIT License); neither is part of the
 program.
 
-The GUI (the program QtRocket, gui/; not yet part of the release archives) contains icons copied from OpenRocket
-(gui/resources/icons/, whose README.md lists the files):
+The GUI (the program QtRocket, gui/; not yet part of the release archives) uses Qt 6 (https://www.qt.io), the
+modules Core, Gui, Widgets and Svg of the Qt installation it is built with (the tests also Test): Copyright (C) The
+Qt Company Ltd. and other contributors, GNU Lesser General Public License version 3 (also available under the GNU
+General Public License version 2 or 3). It contains icons copied from OpenRocket (gui/resources/icons/, whose
+README.md lists the files):
 
 - OpenRocket's component icons, window icons and its own icons in Lucide's style: part of OpenRocket, GNU General
   Public License version 3 or later, as above.

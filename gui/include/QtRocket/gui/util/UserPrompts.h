@@ -19,6 +19,8 @@ class OpenRocketDocument;
 namespace QtRocket::Gui
 {
 
+class GuiServices;
+
 /// Every modal question the GUI asks and every message box it shows, as one interface, so that
 /// no code below the main windows opens a modal dialog itself: an offscreen test would hang in
 /// it. The application's implementation shows OpenRocket's dialogs, with their texts (main/,
@@ -252,9 +254,12 @@ public:
         QWidget* parent, const SaveFileRequest& request) = 0;
 
     /// The "Save Design Info" dialog before a Save As (BasicFrame.showSaveRocketInfoDialog):
-    /// the rocket's designer, revision and comment of @p document, edited in place, with
-    /// "Don't show this dialog again".
-    virtual void editDesignInformation(QWidget* parent, OpenRocketDocument& document) = 0;
+    /// the rocket's name, designer, design type, kit name, revision and comment of @p document,
+    /// edited in place, with "Don't show this dialog again"; @p services are the application's
+    /// (the preferences the dialog stores, the materials and the questions it asks). The Save As
+    /// goes on however the dialog closes (OpenRocket's, the user's decision R3-3).
+    virtual void editDesignInformation(QWidget* parent, const GuiServices& services,
+                                       OpenRocketDocument& document) = 0;
 
     // ------------------------------------------------------------------ the messages
 

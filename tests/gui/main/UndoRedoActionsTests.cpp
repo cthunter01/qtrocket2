@@ -163,6 +163,29 @@ TEST_F(UndoRedoActionsTest, SaysSoBeforeItUndoesOrRedoes)
     EXPECT_EQ(document->getRocket().getName(), "Mars");
 }
 
+TEST_F(UndoRedoActionsTest, AChangeBeforeTheRedoLeavesNothingToRedo)
+{
+    // An edit committed before the redo (aboutToUndoOrRedo()) is a change, which removes the redo
+    // history: the redo is not done, and no undo error is reported.
+    const UndoErrorReportReset                reset;
+    const Gui::Test::RecordingGuardHook       hook;
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    UndoRedoActions actions(*document, nullptr);
+    document->addUndoPosition("Rename");
+    document->getRocket().setName("Mars");
+    actions.undoAction()->trigger();
+    ASSERT_TRUE(actions.redoAction()->isEnabled());
+    QObject::connect(&actions, &UndoRedoActions::aboutToUndoOrRedo, &actions,
+                     [&document] { document->getRocket().setName("Venus"); });
+    actions.redoAction()->trigger();
+    QCoreApplication::sendPostedEvents();
+    EXPECT_EQ(document->getRocket().getName(), "Venus");
+    EXPECT_FALSE(actions.redoAction()->isEnabled());
+    EXPECT_TRUE(hook.failures().empty());
+    EXPECT_FALSE(UndoRedoActions::undoErrorReported());
+}
+
 TEST_F(UndoRedoActionsTest, ReportsTheProcesssFirstUndoErrorOnly)
 {
     const UndoErrorReportReset                reset;

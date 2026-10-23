@@ -81,8 +81,8 @@ using Test::ScriptedUserPrompts;
 using Test::tabTitles;
 using Test::typeInto;
 
-/// The tabs this run's panels show for each kind (ConfigPanelFactory::createWithSharedPanels():
-/// the shared panels of OpenRocket's panel of the kind before Override and Comment).
+/// The title of the dialog of each kind and the tabs of its panel (ConfigPanelFactory: the
+/// kind's own panel), OpenRocket's.
 struct KindTabs
 {
     ComponentKind kind;
@@ -912,9 +912,10 @@ public:
     {
         return m_delegate->askSaveFile(parent, request);
     }
-    void editDesignInformation(QWidget* parent, OpenRocketDocument& document) override
+    void editDesignInformation(QWidget* parent, const GuiServices& services,
+                               OpenRocketDocument& document) override
     {
-        m_delegate->editDesignInformation(parent, document);
+        m_delegate->editDesignInformation(parent, services, document);
     }
     void showMessage(QWidget* parent, const Message& message) override
     {

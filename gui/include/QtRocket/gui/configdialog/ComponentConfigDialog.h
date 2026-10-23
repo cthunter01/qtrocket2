@@ -64,7 +64,7 @@ class RocketComponentConfig;
 ///
 /// Deviations from OpenRocket:
 /// - Modifications count only after the session's undo position (the user's decision U4): what
-///   the panel changes while it is made (the run-3 panels switch an automatic radius off when no
+///   the panel changes while it is made (the panels switch an automatic radius off when no
 ///   neighbour gives one) neither marks the dialog modified nor puts the '*' in the title, so an
 ///   unchanged Cancel closes without an undo. Java counts those changes, and its unchanged Cancel
 ///   then undid the step before the dialog.
@@ -79,8 +79,11 @@ class RocketComponentConfig;
 /// - A different-class selection opens on its first tab (Java selects tab 1, the Appearance tab of
 ///   Milestone 5).
 ///
-/// Reopening the dialog when the selection changes (Java's DesignPanel and RocketPanel) is the main
-/// window's: the tree and the figure request it by signal (run 4).
+/// Who shows it: the parts of a design window ask their window by signal (the tree, the figure,
+/// Edit, the add buttons, File > Properties, the examples), and the application's
+/// main/ConfigDialogRequests calls showDialog(), disposeDialog() and commitPendingEdits() for
+/// them; reopening the dialog when the selection changes (Java's DesignPanel) is the window's
+/// design panel's (main/DesignPanel), queued.
 class ComponentConfigDialog final : public QDialog
 {
     Q_OBJECT

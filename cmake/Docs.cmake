@@ -22,7 +22,8 @@ if(DOXYGEN_DOT_FOUND)
     set(DOXYGEN_HAVE_DOT YES)
 endif()
 
-# The core's headers and, with the GUI, its headers (gui/include: "QtRocket/gui/util/MakeChild.h").
+# The core's headers and, with the GUI, its headers (gui/include: "QtRocket/gui/util/MakeChild.h"); README.md as the
+# main page and the page it links to, the GUI's differences from OpenRocket.
 set(docs_inputs ${PROJECT_SOURCE_DIR}/include)
 if(QTROCKET_BUILD_GUI)
     list(APPEND docs_inputs ${PROJECT_SOURCE_DIR}/gui/include)
@@ -30,4 +31,5 @@ endif()
 doxygen_add_docs(docs
     ${docs_inputs}
     ${PROJECT_SOURCE_DIR}/README.md
+    ${PROJECT_SOURCE_DIR}/docs/gui-differences.md
     COMMENT "Generating Doxygen HTML")

@@ -3,6 +3,7 @@
 target_sources(QtRocket_gui_tests PRIVATE
     ComponentAddButtonsTests.cpp
     ComponentEditingTests.cpp
+    ConfigDialogRequestsTests.cpp
     DesignPanelTests.cpp
     DocumentFileOperationsTests.cpp
     ExampleDesignsMenuTests.cpp

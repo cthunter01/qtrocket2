@@ -689,7 +689,8 @@ void FinSetConfig::convertToFreeform()
     inOneFreeze(rocket, [&] {
         for (FinSet* fins : finSets)
         {
-            converted.push_back(FreeformFinSet::convertFinSet(*fins, false));
+            converted.push_back(
+                FreeformFinSet::convertFinSet(*fins, gui.preferences(), gui.materials(), false));
         }
     });
     // The replaced fin sets go now that the event has been delivered; the new ones keep the ids.

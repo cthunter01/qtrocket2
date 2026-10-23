@@ -25,6 +25,7 @@
 #include "QtRocket/gui/app/Application.h"
 #include "QtRocket/gui/app/ApplicationContext.h"
 #include "QtRocket/gui/app/DataPaths.h"
+#include "QtRocket/gui/main/ConfigDialogRequests.h"
 #include "QtRocket/gui/main/DocumentFileOperations.h"
 #include "QtRocket/gui/main/ExampleDesignsMenu.h"
 #include "QtRocket/gui/main/MainMenus.h"
@@ -74,6 +75,7 @@ ApplicationSession::ApplicationSession(Application&                        appli
             std::make_unique<WindowManager>(m_context->services(), options.lastWindowBehaviour);
         connect(m_windows.get(), &WindowManager::exitRequested, this,
                 [this] { Q_EMIT exitRequested(0); });
+        m_configDialogRequests = std::make_unique<ConfigDialogRequests>(*m_windows);
         m_fileOperations =
             std::make_unique<DocumentFileOperations>(*m_windows, m_context->services());
         // BasicFrame's MRUDesignFile.addFile() after an open and after a Save as.

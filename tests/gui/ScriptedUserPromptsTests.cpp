@@ -18,6 +18,7 @@
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/UserPrompts.h"
 #include "QtRocket/rocket/Rocket.h"
+#include "TestGuiServices.h"
 
 // The test double itself: it answers in order, records every question, and fails a test that
 // asks what the script does not answer or leaves an answer unused.
@@ -105,7 +106,8 @@ TEST_F(ScriptedUserPromptsTest, EditsTheDesignInformationAsScripted)
         [](OpenRocketDocument& document) { document.getRocket().setDesigner("Sampo"); });
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
-    prompts.editDesignInformation(nullptr, *document);
+    const TestGuiServices services;
+    prompts.editDesignInformation(nullptr, services.services(), *document);
     EXPECT_EQ(document->getRocket().getDesigner(), "Sampo");
 }
 

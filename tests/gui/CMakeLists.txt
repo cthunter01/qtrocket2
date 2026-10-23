@@ -3,10 +3,12 @@
 # QTest::keyClicks, QSignalSpy, QTest::qWaitFor, QAbstractItemModelTester in its Warning mode); its assertion macros
 # pass silently outside QtTest's own runner, so lint.no-qttest-macros rejects them here. The test support of the
 # core (QtRocket_test_support: the test rockets and documents, the golden data, ...) is linked too. The tests of an
-# area are in <area>/, added by <area>/CMakeLists.txt; the test support of the GUI tests is here.
+# area are in <area>/, added by <area>/CMakeLists.txt, the exit suites of Milestone 2 (plan section 9.5) in exit/;
+# the test support of the GUI tests is here.
 add_executable(QtRocket_gui_tests
     ExpectedQtMessage.cpp
     ExpectedQtMessageTests.cpp
+    ForwardingUserPromptsTests.cpp
     gui_test_environment_tests.cpp
     GuiTestMain.cpp
     GuiTestSupport.cpp
@@ -29,6 +31,7 @@ add_subdirectory(configdialog)
 add_subdirectory(dialogs)
 add_subdirectory(main)
 add_subdirectory(app)
+add_subdirectory(exit)
 target_include_directories(QtRocket_gui_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # GTest::gtest, not gtest_main: main() is GuiTestMain.cpp. GTest::gmock for GoogleMock's matchers.
 target_link_libraries(QtRocket_gui_tests PRIVATE QtRocket::gui QtRocket_test_support Qt6::Test GTest::gtest
@@ -42,10 +45,14 @@ include(GoogleTest)
 # As tests/core: listed when ctest runs (PRE_TEST), a generous listing timeout, and the label golden on the suites
 # whose name contains "Golden" (the comparisons with OpenRocket's reference). Every test also gets the label gui and
 # the offscreen platform (main() picks it as well when the variable is unset: the listing run gets no ENVIRONMENT).
+# The label gui is this directory's (the LABELS directory property, which ctest gives every test of the directory,
+# the discovered ones included): a list given to gtest_discover_tests' PROPERTIES loses its escaped ";" on the way
+# into the generated test file, so that LABELS "gui;golden" became the label gui alone and a property named golden.
+set_property(DIRECTORY PROPERTY LABELS gui)
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "-*Golden*.*"
-    PROPERTIES LABELS gui ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+    PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 gtest_discover_tests(QtRocket_gui_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60 TEST_FILTER "*Golden*.*"
-    PROPERTIES LABELS "gui;golden" ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+    PROPERTIES LABELS golden ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
 # The application run as a program (smoke tests, labels gui and lint), through the runner of the command-line tool's
 # tests (tests/core/cli/RunCli.cmake). Nothing may reach the standard error: QT_FORCE_STDERR_LOGGING sends Qt's
