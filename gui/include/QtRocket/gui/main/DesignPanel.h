@@ -81,7 +81,9 @@ class SplitPane;
 /// keyboard focus when the window opens (takeTheSpotlight(), which BasicFrame calls when the
 /// design tab is chosen); the start-up highlight ends at the first mouse button released in the
 /// tree (Java's first mouseClicked); the dialog opens again for a new selection one turn of the
-/// event loop later (Java: at once).
+/// event loop later (Java: at once), unless the code that changed the selection outside the
+/// rocket's events has it done at once (reopenPendingConfigDialog(): Save as, before its modal
+/// dialog).
 class DesignPanel final : public QWidget
 {
     Q_OBJECT
@@ -139,6 +141,12 @@ public:
     /// (ComponentConfigDialog.isDialogVisible(): ConfigDialogRequests sets it in the application's
     /// windows); an empty function (the default) says it never is. See the class comment.
     void setConfigDialogVisible(std::function<bool()> visible);
+
+    /// Opens the dialog again for the selection now, when a change of the selection asked for
+    /// that and it has not been done yet (see the class comment); nothing otherwise. For a change
+    /// of the selection that comes from no event of the rocket (Save as selecting the rocket), so
+    /// that the dialog opens before what follows, as Java's listener opens it at once.
+    void reopenPendingConfigDialog();
 
     /// What the rocket's figure is to highlight (see the class comment): the first stage alone
     /// at the start, then DocumentSelectionModel::highlightedComponents(). The pointers are

@@ -274,6 +274,12 @@ void DesignPanel::selectionChanged()
     }
 }
 
+void DesignPanel::reopenPendingConfigDialog()
+{
+    // The queued call then finds nothing pending.
+    reopenConfigDialog();
+}
+
 void DesignPanel::reopenConfigDialog()
 {
     if (!m_reopenPending)

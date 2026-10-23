@@ -181,8 +181,9 @@ TEST_F(SaveDesignInfoDialogTest, ShowsTheRocketsRowsBelowJavasNote)
     EXPECT_EQ(panel.nameField().text(), QStringLiteral("Rocket"));
 }
 
-TEST_F(SaveDesignInfoDialogTest, OKKeepsTheEditsAndTheSaveGoesOn)
+TEST_F(SaveDesignInfoDialogTest, OKReturnsTrueAndKeepsTheEdits)
 {
+    // Save as goes on however the dialog closes (the user's decision R3-3, as BasicFrame).
     const ConfigDialogServices                services;
     const std::unique_ptr<OpenRocketDocument> document =
         OpenRocketDocumentFactory::createNewRocket();
@@ -222,8 +223,9 @@ TEST_F(SaveDesignInfoDialogTest, TheCloseButtonGoesOnAsOK)
     EXPECT_TRUE(services.prompts().prompts().empty());
 }
 
-TEST_F(SaveDesignInfoDialogTest, ACancelTheUserConfirmsStopsTheSave)
+TEST_F(SaveDesignInfoDialogTest, AConfirmedCancelReturnsFalseAndKeepsTheEdits)
 {
+    // Save as goes on all the same (the user's decision R3-3, as BasicFrame).
     ConfigDialogServices services;
     services.prompts().answerDiscardChanges({.discard = true, .doNotAskAgain = false});
     const std::unique_ptr<OpenRocketDocument> document =

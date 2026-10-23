@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,6 +16,7 @@
 
 #include "QtRocket/gui/main/MainWindow.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
 #include "goldens/GoldenGuiReference.h"
 
@@ -120,8 +122,10 @@ public:
     {
         return m_savedFile;
     }
-    /// The design as Save as saved it, taken when the file chooser was answered:
-    /// describeRocket() with no known id ...
+    /// The design as Save as saved it, taken when the file chooser was answered: the ids of its
+    /// components and flight configurations ...
+    [[nodiscard]] const std::set<Uuid>& savedIds() const noexcept { return m_savedIds; }
+    /// ... describeRocket() with those ids known ...
     [[nodiscard]] const std::vector<std::string>& savedTree() const noexcept { return m_savedTree; }
     /// ... and documentPreferenceLines() of DesignFileState.h.
     [[nodiscard]] const std::string& savedDocumentPreferences() const noexcept
@@ -213,6 +217,7 @@ private:
     std::string m_saveAsProblem;
 
     std::optional<std::filesystem::path> m_savedFile;
+    std::set<Uuid>                       m_savedIds;
     std::vector<std::string>             m_savedTree;
     std::string                          m_savedPreferences;
 };

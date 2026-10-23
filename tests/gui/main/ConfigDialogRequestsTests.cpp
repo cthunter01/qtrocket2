@@ -118,6 +118,7 @@ protected:
 
     [[nodiscard]] WindowManager& manager() const noexcept { return *m_manager; }
     void                         destroyRequests() noexcept { m_requests = nullptr; }
+    void makeRequests() { m_requests = std::make_unique<ConfigDialogRequests>(*m_manager); }
     [[nodiscard]] Gui::Test::ScriptedUserPrompts& prompts() noexcept
     {
         return m_services.prompts();
@@ -438,7 +439,55 @@ TEST_F(ConfigDialogRequestsTest, ClosingTheWindowClosesTheDialogFirst)
     EXPECT_DOUBLE_EQ(find(window, "BT1").getLength(), 0.05);
 }
 
+TEST_F(ConfigDialogRequestsTest, AnEditBeingTypedInASavedDesignIsAskedAboutOnClosing)
+{
+    // The dialog is closed, committing the edit, before the window looks whether its design is
+    // saved: the edit makes it unsaved, so the question comes (OpenRocket closes a saved design
+    // and loses the edit; the edit is committed as before a save or an undo).
+    MainWindow& window = open();
+    window.document().setSaved(true);
+    doubleClickRow(window, "BT1");
+    ASSERT_TRUE(activateDialog());
+    typeIntoDialog(QStringLiteral("Length"), QStringLiteral("5"));
+    ASSERT_TRUE(window.document().isSaved());
+    prompts().answerSaveChanges(UserPrompts::SaveChangesAnswer::CANCEL);
+    EXPECT_FALSE(manager().close(window));
+    ASSERT_EQ(prompts().prompts().size(), 1U);
+    EXPECT_EQ(prompts().prompts().front().kind, Gui::Test::ScriptedUserPrompts::Kind::SAVE_CHANGES);
+    EXPECT_EQ(manager().windowCount(), 1U);
+    EXPECT_EQ(openDialog(), "none");
+    EXPECT_DOUBLE_EQ(find(window, "BT1").getLength(), 0.05);
+    EXPECT_FALSE(window.document().isSaved());
+}
+
+TEST_F(ConfigDialogRequestsTest, ASavedDesignWithoutAnEditClosesWithoutAQuestion)
+{
+    MainWindow& window = open();
+    window.document().setSaved(true);
+    doubleClickRow(window, "BT1");
+    ASSERT_TRUE(ComponentConfigDialog::isDialogVisible());
+    ASSERT_TRUE(window.document().isSaved());
+    EXPECT_TRUE(manager().close(window));
+    EXPECT_TRUE(prompts().prompts().empty());
+    EXPECT_EQ(manager().windowCount(), 0U);
+    EXPECT_EQ(openDialog(), "none");
+}
+
 // =========================================================================== without it
+
+TEST_F(ConfigDialogRequestsTest, ItAnswersTheWindowsOpenWhenItIsMade)
+{
+    // Those open when it is made (the class comment), as those opened later.
+    destroyRequests();
+    const MainWindow& window = open();
+    makeRequests();
+    doubleClickRow(window, "BT1");
+    EXPECT_EQ(openDialog(), "Body Tube configuration: BT1 [] General");
+    // The design panel learnt whether the dialog is visible: the dialog follows the selection.
+    select(window, {"NC"});
+    QCoreApplication::processEvents();
+    EXPECT_EQ(openDialog(), "Nose Cone configuration: NC [] General");
+}
 
 TEST_F(ConfigDialogRequestsTest, WithoutItTheRequestsGoUnanswered)
 {

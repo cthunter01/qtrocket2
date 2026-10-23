@@ -30,7 +30,7 @@ class WindowManager;
 ///   (DesignPanel::setConfigDialogVisible() with ComponentConfigDialog::isDialogVisible()): while
 ///   it is, a double-click in the tree does not edit, and the dialog follows the tree's selection
 ///   (closed and shown again for the first selected component with the others, the remembered tab
-///   kept, one turn of the event loop later: DesignPanel).
+///   kept, one turn of the event loop later, or at once for Save as: DesignPanel).
 /// The dialog is the application's, so that a request of one window closes the dialog another
 /// window showed, as in OpenRocket.
 ///

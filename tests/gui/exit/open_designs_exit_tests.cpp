@@ -16,13 +16,14 @@
 //   diameters, height, chords, the mass of a mass component, the mass and CG overrides with their
 //   check boxes): the component's own values, in the field's unit, and for the designs with
 //   goldens OpenRocket's (geometry.json, within the golden tolerance). Its Cancel leaves the
-//   design as the dialog found it (saved, the undo history, no question asked); opening a dialog
-//   changes nothing either, but for the dialogs of kOpeningChanges, which OpenRocket's change
-//   too;
+//   design as the dialog found it (saved, the undo history, no question asked), also after an
+//   edit made first (the rocket's comment, whose step of the history every Cancel keeps);
+//   opening a dialog changes nothing either, but for the dialogs of kOpeningChanges, which
+//   OpenRocket's change too;
 // - the figure paints every view of the view selector without a Qt warning, and its subject
 //   bounds hold every shape it draws, but for what OpenRocket draws past them too (outsideOf():
-//   the aft end of a motor, the marker of a pod set or a booster set, the tubes of a tube fin
-//   set);
+//   the aft end of a motor, the marker of a pod set or a booster set, the tubes of a tube fin set
+//   by less than 0.1 mm);
 // - the information overlay shows, as opened and for every flight configuration chosen in the
 //   configuration selector, OpenRocket's launch CG and worst CP at the default Mach number with
 //   their texts and that of the stability margin, painted in the figure (GoldenDesign's mass.json
@@ -39,10 +40,10 @@
 // DocumentFileOperations, as ApplicationSession connects them (the application's own start is
 // tested in tests/gui/app/).
 //
-// Each of the four tests of a design opens it anew, so that ctest runs them as separate processes
-// in parallel: 265 tests, about 17 s on 8 jobs in a debug build (115 s of processes, none above
-// 1.2 s; the examples, whose archives hold flight data, take the longest) and about 50 s under
-// the asan preset (410 to 480 s of processes, none above 6 s).
+// Each of the five tests of a design opens it anew, so that ctest runs them as separate processes
+// in parallel: 331 tests, about 20 s on 8 jobs in a debug build (145 s of processes, none above
+// 1.2 s; the examples, whose archives hold flight data, take the longest) and about 65 s under
+// the asan preset (500 s of processes, none above 6 s).
 
 #include <algorithm>
 #include <array>
@@ -78,11 +79,14 @@
 #include <QList>
 #include <QModelIndex>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QPoint>
 #include <QPointer>
 #include <QPushButton>
 #include <QRegion>
 #include <QString>
+#include <QTest>
+#include <QTextCursor>
 #include <QVariant>
 #include <QWidget>
 #include <Qt>
@@ -1249,6 +1253,59 @@ TEST_P(OpenDesignsExitGolden, ShowsEveryComponentInItsDialogAndCancels)
     EXPECT_TRUE(golden.empty() || run.counts.goldenValues > 0);
 }
 
+/// Gives the design of @p window a step of history through its GUI: the rocket's dialog (File >
+/// Properties), @p text typed at the end of its comment, OK. The step is stored by the next undo
+/// position (OpenRocketDocument::addUndoPosition() after a change): the rocket's dialog is opened
+/// again for that and cancelled, which keeps the step (nothing changed in that dialog).
+void appendToTheRocketsComment(const MainWindow& window, const QString& text)
+{
+    window.menus().propertiesAction()->trigger();
+    const ComponentConfigDialog* dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    QPlainTextEdit& comment = dialog->configurator().commentArea();
+    comment.moveCursor(QTextCursor::End);
+    QTest::keyClicks(&comment, text);
+    dialog->configurator().okButton().click();
+    EXPECT_FALSE(ComponentConfigDialog::isDialogVisible());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    window.menus().propertiesAction()->trigger();
+    dialog = ComponentConfigDialog::dialog();
+    ASSERT_NE(dialog, nullptr);
+    dialog->configurator().cancelButton().click();
+    EXPECT_FALSE(ComponentConfigDialog::isDialogVisible());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+}
+
+/// Expects the history of @p window's design to be @p edited after the dialogs of @p run, unless
+/// a dialog changed the design when it opened (kOpeningChanges: that change is history too).
+void expectHistoryKept(const MainWindow& window, const UndoState& edited, const DialogRun& run)
+{
+    if (run.changedOnOpening.empty())
+    {
+        EXPECT_EQ(undoStateOf(window), edited);
+    }
+}
+
+TEST_P(OpenDesignsExitGolden, EveryCancelKeepsTheEditBeforeIt)
+{
+    // A Cancel takes back what its own dialog changed, never an earlier step of the history (the
+    // user's decision U4): with the rocket's comment edited first, through its dialog, every
+    // dialog is opened and cancelled, and the edit stays in the design and in the history.
+    const OpenDesign&       design = GetParam();
+    const MainWindow* const window = open();
+    ASSERT_NE(window, nullptr);
+    const std::string comment = window->document().getRocket().getComment() + "Checked.";
+    appendToTheRocketsComment(*window, QStringLiteral("Checked."));
+    ASSERT_EQ(window->document().getRocket().getComment(), comment);
+    const UndoState edited = undoStateOf(*window);
+    ASSERT_TRUE(edited.undoEnabled);
+    const DialogRun run = showEveryDialog(*window, goldenComponents(design), prompts());
+    EXPECT_EQ(run.changedOnOpening, expectedOpeningChanges(design));
+    EXPECT_EQ(window->document().getRocket().getComment(), comment);
+    EXPECT_FALSE(window->document().isSaved());
+    expectHistoryKept(*window, edited, run);
+}
+
 // ========================================================================= the figure
 
 /// Whether @p inner lies in @p outer, within @p tolerance on every side.
@@ -1293,11 +1350,14 @@ TEST_P(OpenDesignsExitGolden, ShowsEveryComponentInItsDialogAndCancels)
 /// all of it); the marker of a pod set or a booster set (ComponentAssemblyShapes) sits at the
 /// assembly's reference point, at its aft end for a bottom placement, with a radius of its own
 /// (the point is to lie in the subject); and the tubes of a tube fin set reach a little past the
-/// subject's radius (by 0.04 mm in the tube fin rocket's figure.json; each tube's centre is to
-/// lie in the subject).
+/// subject's radius (by 0.04 mm in the tube fin rocket's figure.json; each tube is to lie in the
+/// subject but for kTubeFinOvershoot).
 [[nodiscard]] std::vector<std::string> outsideOf(const RocketFigureGeometry& geometry,
                                                  const Rectangle2D&          subject)
 {
+    // How far a tube of a tube fin set may stand out of the subject: just above OpenRocket's 0.04
+    // mm.
+    constexpr double kTubeFinOvershoot = 1e-4;
     // The shapes are made in single precision, as OpenRocket's (Path2D.Float, a float
     // Rectangle2D), the subject in double: an edge may stand out by the rounding of a float.
     const double tolerance =
@@ -1328,8 +1388,10 @@ TEST_P(OpenDesignsExitGolden, ShowsEveryComponentInItsDialogAndCancels)
             }
             continue;
         }
-        const Rectangle2D checked = kind == ComponentKind::TUBE_FIN_SET ? centreOf(bounds) : bounds;
-        if (!contains(subject, checked, tolerance))
+        const double allowed = kind == ComponentKind::TUBE_FIN_SET
+                                   ? std::max(tolerance, kTubeFinOvershoot)
+                                   : tolerance;
+        if (!contains(subject, bounds, allowed))
         {
             outside.push_back(component.getName() + ": " + boundsText(bounds));
         }

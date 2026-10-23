@@ -587,9 +587,13 @@ void DocumentFileOperations::showSaveDesignInfoDialog(MainWindow& window)
     }
     // "Select the rocket in the component tree to indicate to users that they can edit the
     // rocket info by editing the rocket".
-    if (const DesignPanel* const panel = window.componentDesignPanel(); panel != nullptr)
+    if (DesignPanel* const panel = window.componentDesignPanel(); panel != nullptr)
     {
         panel->selection().setSelectedComponent(window.document().getRocket());
+        // An open configuration dialog follows the selection: Java's listener shows the rocket's
+        // at once, before the modal dialog, which then stands above it. The change came from no
+        // event of the rocket, so the reopen the panel queued is done now.
+        panel->reopenPendingConfigDialog();
     }
     // BasicFrame.saveAsAction() goes on to the file chooser however the dialog closes (the
     // user's decision R3-3).

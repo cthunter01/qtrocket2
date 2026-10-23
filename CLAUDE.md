@@ -3,8 +3,9 @@
 C++23 re-implementation of OpenRocket (Java, GPLv3): the Qt-free library `QtRocket_core` (component model,
 aerodynamics, mass, flight simulation, `.ork` files, motor database, CSV export, the 2D figure's geometry), the
 command-line tool `QtRocket_cli` (Milestone 1, the headless core) and the Qt 6 Widgets GUI `QtRocket` (`gui/`,
-Milestone 2: OpenRocket's Design tab without motors, simulations and appearance). Built with CMake presets + Ninja,
-tested with GoogleTest. Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
+Milestone 2: OpenRocket's Design tab without motors, component presets, simulations, appearance and the 3D views;
+`docs/gui-differences.md` lists what comes later). Built with CMake presets + Ninja, tested with GoogleTest.
+Cross-platform: Linux (GCC, Clang), macOS (Apple Clang) and Windows (MSVC).
 
 ## Commands
 - Build and test (Clang Debug): `cmake --workflow --preset dev`
@@ -173,12 +174,14 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   may be destroyed during its event loop; `dialogs/OptionDialog` for JOptionPane's)
 - Services: `util/GuiServices` (preferences, materials, motors, loading context, `UserPrompts`, by reference), built
   for the program only by `app/ApplicationContext`. Every modal question goes through `UserPrompts` (widgets:
-  `main/WidgetUserPrompts`). The only globals: `main/OpenRocketClipboard::instance()` and the configuration dialog
-  (`ComponentConfigDialog`'s statics). A window's parts ask for that dialog by signal
-  (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers; `app/ApplicationSession` makes
-  it, with the error hook, the windows, the file operations and the recent files (a `WindowManager` alone answers
-  no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`, `QTROCKET_TEST_QUIT_AFTER_START`
-  (the ctests `gui.version`, `gui.help`, `gui.start`, labels `gui` and `lint`: nothing may reach the standard error)
+  `main/WidgetUserPrompts`). The only process-wide state: `main/OpenRocketClipboard::instance()`, the configuration
+  dialog (`ComponentConfigDialog`'s statics), `Guard`'s error hook and `UndoRedoActions`' undo-error flag
+  (`resetUndoErrorReported()`); `ComponentIcons`' icon cache is a cache. A window's parts ask for the configuration
+  dialog by signal (`MainWindow::configDialogRequested`), which `main/ConfigDialogRequests` answers;
+  `app/ApplicationSession` makes it, with the error hook, the windows, the file operations and the recent files (a
+  `WindowManager` alone answers no request). `gui/main.cpp`'s test hooks: `QTROCKET_TEST_SETTINGS_DIRECTORY`,
+  `QTROCKET_TEST_QUIT_AFTER_START` (the ctests `gui.version`, `gui.help`, `gui.start`, labels `gui` and `lint`:
+  nothing may reach the standard error)
 - Text: every user-visible string is `tr("<the English text of OpenRocket's messages.properties>")` with a
   `//: <key>` translator comment above it (OpenRocket's typos verbatim; "OpenRocket" becomes "QtRocket" in
   QtRocket's own texts); core enums through `util/EnumText`, menu texts through `util/MenuText` (mnemonics, `&`);
@@ -219,8 +222,9 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   reference through File > Open and compares the tree, the dialogs, the figure and the overlay with the goldens. A
   scenario change is followed by `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do
   in OpenRocket's own GUI (the tool cannot see a disabled box). The DISABLED_ `FromScratchInteropSave` writes the
-  save into `build/<preset>/interop-saves/` (after the core's `OrkInteropSaves`), the input of
-  `tools/openrocket-goldens/interop.sh`
+  save into `build/<preset>/interop-saves/` (after the core's `OrkInteropSaves`, which removes it as an earlier
+  save) for `tools/openrocket-goldens/interop.sh`; InteropCheck has no input `gui-from-scratch` yet and reports it
+  "not checked" (exit status 1), so check the core's saves first or write it elsewhere (`--interop-saves=<dir>`)
 - Traps: `QCoreApplication::processEvents()` does not run `deleteLater()` (`sendPostedEvents(nullptr,
   QEvent::DeferredDelete)`); `QTreeView::visualRect()` is no visibility test; a window shown offscreen warns "This
   plugin does not support propagateSizeHints()" unless its layout was activated before `show()` (the tests'

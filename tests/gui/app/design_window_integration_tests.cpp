@@ -144,6 +144,37 @@ struct DesignInformationAnswer
     }
 };
 
+/// The titles of the windows shown while it lives, in the order they were shown (an event filter
+/// of the application).
+class ShownWindows final : public QObject
+{
+public:
+    ShownWindows() { QCoreApplication::instance()->installEventFilter(this); }
+    ~ShownWindows() override { QCoreApplication::instance()->removeEventFilter(this); }
+    ShownWindows(const ShownWindows&)            = delete;
+    ShownWindows& operator=(const ShownWindows&) = delete;
+    ShownWindows(ShownWindows&&)                 = delete;
+    ShownWindows& operator=(ShownWindows&&)      = delete;
+
+    [[nodiscard]] const std::vector<std::string>& titles() const noexcept { return m_titles; }
+
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() == QEvent::Show)
+        {
+            if (const auto* const widget = qobject_cast<const QWidget*>(watched);
+                widget != nullptr && widget->isWindow())
+            {
+                m_titles.push_back(QtStrings::toUtf8(widget->windowTitle()));
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::vector<std::string> m_titles;
+};
+
 /// The open configuration dialog as "<title>: <main> [<others>]", or "none".
 [[nodiscard]] std::string openDialog()
 {
@@ -243,6 +274,18 @@ protected:
         DesignPanel* const panel = window.componentDesignPanel();
         QTROCKET_ASSERT(panel != nullptr);
         return *panel;
+    }
+
+    /// Opens the rocket's dialog of @p window (File > Properties) and types @p name over its name,
+    /// without Enter: the edit is still pending.
+    static void typeTheRocketsName(const MainWindow& window, const QString& name)
+    {
+        window.menus().propertiesAction()->trigger();
+        const ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
+        ASSERT_NE(dialog, nullptr);
+        QLineEdit& field = dialog->configurator().nameField();
+        field.selectAll();
+        QTest::keyClicks(&field, name);
     }
 
 private:
@@ -373,7 +416,9 @@ TEST_F(DesignWindowIntegrationTest, DontShowThisDialogAgainLeavesItOutOfTheNextS
 TEST_F(DesignWindowIntegrationTest, SaveAsShowsTheRocketInTheOpenDialog)
 {
     // The rocket selected for the design information: the open configuration dialog follows the
-    // selection (DesignPanel), as in OpenRocket.
+    // selection (DesignPanel) at once, before the modal dialog shows, as in OpenRocket
+    // (BasicFrame.showSaveRocketInfoDialog(): setSelectedComponent(rocket), whose listener shows
+    // the rocket's dialog, then the modal JDialog), which then stands above it.
     const MainWindow& window = firstWindow();
     window.menus().editAction()->trigger();
     EXPECT_EQ(openDialog(), "Stage configuration: Sustainer []");
@@ -386,8 +431,14 @@ TEST_F(DesignWindowIntegrationTest, SaveAsShowsTheRocketInTheOpenDialog)
                                 .rocketSelected = &rocketSelected,
                                 .selection      = &panelOf(window).selection()}};
     answerSaveAs("open.ork");
-    window.menus().saveAsAction()->trigger();
+    std::vector<std::string> shown;
+    {
+        const ShownWindows windows;
+        window.menus().saveAsAction()->trigger();
+        shown = windows.titles();
+    }
     EXPECT_TRUE(answer.acted());
+    EXPECT_EQ(shown, (std::vector<std::string>{"Rocket configuration", "Save Design Info"}));
     QCoreApplication::processEvents();
     // Opened before the designer was typed in the design information, which modified it.
     EXPECT_EQ(openDialog(), "*Rocket configuration: Rocket []");
@@ -400,12 +451,7 @@ TEST_F(DesignWindowIntegrationTest, SaveCommitsTheEditStillBeingTypedInTheDialog
     // it is committed before the save.
     preferences().setShowSaveRocketInfo(false);
     const MainWindow& window = firstWindow();
-    window.menus().propertiesAction()->trigger();
-    const ComponentConfigDialog* const dialog = ComponentConfigDialog::dialog();
-    ASSERT_NE(dialog, nullptr);
-    QLineEdit& name = dialog->configurator().nameField();
-    name.selectAll();
-    QTest::keyClicks(&name, QStringLiteral("Mars"));
+    typeTheRocketsName(window, QStringLiteral("Mars"));
     EXPECT_EQ(window.document().getRocket().getName(), "Rocket");
     answerSaveAs("mars.ork");
     window.menus().saveAction()->trigger();
@@ -415,6 +461,40 @@ TEST_F(DesignWindowIntegrationTest, SaveCommitsTheEditStillBeingTypedInTheDialog
     EXPECT_EQ(saved->getRocket().getName(), "Mars");
     EXPECT_TRUE(window.document().isSaved());
     EXPECT_EQ(window.windowTitle(), QStringLiteral("[*]Mars (mars.ork)"));
+}
+
+TEST_F(DesignWindowIntegrationTest, SaveOfADesignWithAFileCommitsTheEditStillBeingTyped)
+{
+    // Save writes a design that has a file at once (BasicFrame.saveAction()): its own commit.
+    preferences().setShowSaveRocketInfo(false);
+    const MainWindow& window = firstWindow();
+    answerSaveAs("venus.ork");
+    window.menus().saveAsAction()->trigger();
+    ASSERT_EQ(window.document().getFile(), std::optional(directory().resolve("venus.ork")));
+    typeTheRocketsName(window, QStringLiteral("Venus"));
+    EXPECT_TRUE(window.document().isSaved());
+    window.menus().saveAction()->trigger();
+    // The file was asked for once, by Save as.
+    ASSERT_EQ(prompts().prompts().size(), 1U);
+    EXPECT_EQ(window.document().getRocket().getName(), "Venus");
+    const std::unique_ptr<OpenRocketDocument> saved = reload("venus.ork");
+    ASSERT_NE(saved, nullptr);
+    EXPECT_EQ(saved->getRocket().getName(), "Venus");
+    EXPECT_TRUE(window.document().isSaved());
+}
+
+TEST_F(DesignWindowIntegrationTest, SaveAsCommitsTheEditStillBeingTyped)
+{
+    preferences().setShowSaveRocketInfo(false);
+    const MainWindow& window = firstWindow();
+    typeTheRocketsName(window, QStringLiteral("Juno"));
+    answerSaveAs("juno.ork");
+    window.menus().saveAsAction()->trigger();
+    EXPECT_EQ(window.document().getRocket().getName(), "Juno");
+    const std::unique_ptr<OpenRocketDocument> saved = reload("juno.ork");
+    ASSERT_NE(saved, nullptr);
+    EXPECT_EQ(saved->getRocket().getName(), "Juno");
+    EXPECT_EQ(window.windowTitle(), QStringLiteral("[*]Juno (juno.ork)"));
 }
 
 // =========================================================================== between windows

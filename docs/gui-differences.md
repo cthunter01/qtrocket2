@@ -108,9 +108,10 @@ component's wall, mass or sweep. Also:
   OpenRocket binds Ctrl+Y (Cmd+Y) everywhere. The other items with standard keys (Close design, Cut, Copy, ...)
   also answer the platform's alternatives, such as Ctrl+F4 on Windows.
 - Paste and Delete have no menu mnemonic: their mnemonic letters (V, and the Delete key) are not in their texts.
-- Undo, Redo, Save and Save as first commit the number or text still being typed in the configuration dialog.
-  OpenRocket loses it on an undo or redo. A commit that is itself a change ends the redo history, so Redo then
-  does nothing more (`main/UndoRedoActions.h`, `main/DocumentFileOperations.h`).
+- Undo, Redo, Save, Save as and Close design (also through Quit) first commit the number or text still being typed
+  in the configuration dialog. OpenRocket loses it on an undo or redo, and when it closes a saved design; QtRocket
+  then asks whether to save the change. A commit that is itself a change ends the redo history, so Redo then does
+  nothing more (`main/UndoRedoActions.h`, `main/DocumentFileOperations.h`, `main/WindowManager.h`).
 - The component tree has the keyboard focus when a window opens.
 - On macOS, Preferences is in the application menu only while a design window is open.
 - Left out until later milestones: the menu items listed in the last section. The Help menu is hidden while it is
@@ -122,7 +123,9 @@ component's wall, mass or sweep. Also:
 - The storage options ("Save options") are asked only for a design that holds simulated data, as a question
   after the file dialog. OpenRocket's Save as dialog always shows them beside the files.
 - File > Open's filter is "OpenRocket designs (*.ork *.ork.gz)". The RockSim filter comes with Milestone 8.
-- The platform's native file dialogs are used.
+- The platform's native file dialogs are used, but for two that are Qt's own: Save as on macOS (the native panel
+  would ask whether to overwrite before QtRocket forces the `.ork` extension) and Import from image (it shows
+  OpenRocket's description of the import beside the files).
 - Designs open and save without OpenRocket's progress dialog and its Cancel. Even the largest example takes a
   fraction of a second.
 - A failed save shows QtRocket's error text after "An I/O error occurred while saving:", where OpenRocket shows
@@ -169,8 +172,6 @@ component's wall, mass or sweep. Also:
   overwrites the name field even while it is edited, and never refreshes the comment area.
 - The material combo box's search lists every material that matches, including two whose names differ only in
   case. The check mark goes to the material equal to the component's.
-- Save Design Info: Esc closes the dialog as OK does. A confirmed Cancel drops the text being typed and keeps the
-  earlier edits, and Save as goes on, as in OpenRocket.
 - Texts in which OpenRocket names itself (a tube fin set's and a mass component's notes, "Reload QtRocket"
   after resetting the preferences) name QtRocket.
 

@@ -13,9 +13,10 @@
 //   with no known id, by its digest, and line for line where the record has the lines); every
 //   failure names its step;
 // - (a) the save, closed (File > Close design) and opened again (File > Open), is the design
-//   that was saved: its tree as describeRocket() gives it (no ids), but for what a reload
-//   changes in OpenRocket as in QtRocket (kGuiSaveAndReloadChanges of GoldenGuiReference.h), and
-//   its document preferences and materials (documentPreferenceLines() of DesignFileState.h);
+//   that was saved: its tree as describeRocket() gives it (with the ids of the saved design, which
+//   the reopened one keeps), but for what a reload changes in OpenRocket as in QtRocket
+//   (kGuiSaveAndReloadChanges of GoldenGuiReference.h), and its document preferences and
+//   materials (documentPreferenceLines() of DesignFileState.h);
 // - (b) the save loads, in the environment of the reference's load (GuiReferenceEnvironment),
 //   into the state OpenRocket's save loads into (designFileState() with the document
 //   preferences, state.json's "loaded"), the component ids numbered on both sides, with the same
@@ -341,10 +342,13 @@ TEST_F(FromScratchExitGolden, TheSaveOpensAgainAsTheDesignThatWasSaved)
     const std::vector<std::string> reloaded =
         QtRocket::Test::guiReloadedTree(scenario().savedTree(), changes);
     EXPECT_EQ(changes, "");
-    EXPECT_EQ(
-        QtRocket::Test::describeRocket(document.getRocket(),
-                                       scenario().session().context().services().preferences(), {}),
-        reloaded);
+    // With the ids of the saved design known: the reopened design keeps every component's id and
+    // every flight configuration's.
+    ASSERT_FALSE(scenario().savedIds().empty());
+    EXPECT_EQ(QtRocket::Test::describeRocket(
+                  document.getRocket(), scenario().session().context().services().preferences(),
+                  scenario().savedIds()),
+              reloaded);
     EXPECT_EQ(QtRocket::Test::documentPreferenceLines(document),
               scenario().savedDocumentPreferences());
     // The file was asked for, and the load gave no warning.
@@ -455,17 +459,24 @@ using FromScratchInteropSave = FromScratchExitGolden;
 
 // The scenario's save for the interop check of the milestone's exit (plan section 9.5: the
 // design QtRocket's GUI made opens in OpenRocket): a DISABLED_ test, which neither ctest nor CI
-// runs. By hand, from the build tree, after the core's saves (which the check reads too):
+// runs. It writes build/<preset>/interop-saves/gui-from-scratch.zip-nodata.ork (or into the
+// directory of --interop-saves=<directory>), replacing the one an earlier run wrote, and touches
+// no other file. The core's writer (OrkInteropSaves of
+// tests/core/goldens/ork_interop_saves_tests.cpp) removes it with its own saves of an earlier
+// run, so it runs first. By hand, from the source tree, one command per line:
 //
-//   bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
-//   bin/QtRocket_gui_tests --gtest_also_run_disabled_tests
-//   --gtest_filter='FromScratchInteropSave.*' tools/openrocket-goldens/interop.sh
-//   build/<preset>/interop-saves
+// clang-format off
+//   build/<preset>/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
+//   build/<preset>/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='FromScratchInteropSave.*'
+//   tools/openrocket-goldens/interop.sh build/<preset>/interop-saves
+// clang-format on
 //
-// It writes build/<preset>/interop-saves/gui-from-scratch.zip-nodata.ork (or into the directory
-// of --interop-saves=<directory>), replacing the one an earlier run wrote, and touches no other
-// file. InteropCheck reads it as the input "gui-from-scratch", whose source is OpenRocket's save of
-// the same scenario (tests/data/goldens/gui/from-scratch/rocket.ork).
+// InteropCheck (tools/openrocket-goldens) has no input "gui-from-scratch" yet: it reports this
+// save as "not checked", and its exit status is then 1 although the core's saves pass. Until it
+// has one (its source OpenRocket's save of the same scenario,
+// tests/data/goldens/gui/from-scratch/rocket.ork, loaded as the GUI reference's start-up loads
+// it), check the core's saves with interop.sh before this test writes into their directory, or
+// write this save into another directory (--interop-saves=<directory>).
 TEST_F(FromScratchInteropSave, DISABLED_WritesTheSaveForTheInteropCheck)
 {
     ASSERT_EQ(runScenario(), "");

@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -53,6 +54,7 @@
 #include "QtRocket/gui/configdialog/FinPointTableModel.h"
 #include "QtRocket/gui/configdialog/FreeformFinSetConfig.h"
 #include "QtRocket/gui/configdialog/RocketComponentConfig.h"
+#include "QtRocket/gui/configdialog/RocketConfig.h"
 #include "QtRocket/gui/dialogs/SaveDesignInfoDialog.h"
 #include "QtRocket/gui/main/ComponentAddButtons.h"
 #include "QtRocket/gui/main/ComponentButton.h"
@@ -76,6 +78,7 @@
 #include "QtRocket/rocket/DeploymentConfiguration.h"
 #include "QtRocket/rocket/FinSet.h"
 #include "QtRocket/rocket/Finish.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/MassComponent.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
@@ -84,6 +87,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
+#include "QtRocket/util/Uuid.h"
 #include "ScriptedUserPrompts.h"
 #include "dialogs/PreferencesPageTranscript.h"
 #include "exit/FromScratchPrompts.h"
@@ -510,6 +514,21 @@ template <class E>
     return ComponentConfigDialog::isDialogVisible() ? "the dialog stays open" : std::string();
 }
 
+/// The ids of the components of @p rocket and of its flight configurations.
+[[nodiscard]] std::set<Uuid> idsOf(const Rocket& rocket)
+{
+    std::set<Uuid> ids;
+    for (const RocketComponent& component : rocket.subtree())
+    {
+        ids.insert(component.getId());
+    }
+    for (const FlightConfigurationId& id : rocket.getIds())
+    {
+        ids.insert(id.key());
+    }
+    return ids;
+}
+
 }  // namespace
 
 FromScratchScenario::FromScratchScenario(std::filesystem::path directory)
@@ -920,10 +939,11 @@ std::optional<UserPrompts::SaveFileAnswer> FromScratchScenario::chooseFile()
         return std::nullopt;
     }
     m_chosenFile = &(*m_steps)[m_next++];
-    // The design as it is saved.
+    // The design as it is saved, with its ids.
     const OpenRocketDocument& document = scenarioWindow().document();
-    m_savedTree = QtRocket::Test::describeRocket(document.getRocket(),
-                                                 m_session->context().services().preferences(), {});
+    m_savedIds                         = idsOf(document.getRocket());
+    m_savedTree                        = QtRocket::Test::describeRocket(
+        document.getRocket(), m_session->context().services().preferences(), m_savedIds);
     m_savedPreferences = QtRocket::Test::documentPreferenceLines(document);
     return UserPrompts::SaveFileAnswer{.file      = m_directory / pathFromUtf8(m_chosenFile->file),
                                        .directory = m_directory,
@@ -1001,9 +1021,15 @@ GuiStepRecord FromScratchScenario::record(const GuiScenarioStep& step) const
     }
     else if (m_designInformation != nullptr)
     {
-        // OpenRocket's panel of the dialog, of the rocket.
-        record.window          = "SaveDesignInfoPanel";
-        record.windowComponent = QtRocket::Test::guiComponentPathOf(document.getRocket());
+        // OpenRocket's panel of the dialog, with the component the dialog edits (the rocket in
+        // OpenRocket); none once its panel let it go.
+        record.window = "SaveDesignInfoPanel";
+        if (const std::shared_ptr<ComponentSelection>& edited =
+                m_designInformation->panel().selection();
+            edited != nullptr)
+        {
+            record.windowComponent = QtRocket::Test::guiComponentPathOf(edited->getMain());
+        }
     }
     else if (ComponentConfigDialog::isDialogVisible())
     {

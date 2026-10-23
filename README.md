@@ -12,7 +12,8 @@ Version 0.2.0 is Milestone 1: the headless core, a Qt-free library (`QtRocket_co
 `QtRocket_cli`. Its results are checked against OpenRocket's own: golden data that OpenRocket computed for its 16
 example designs and 13 test rockets (geometry, masses, aerodynamics, complete flights, re-saved files) and ports of
 OpenRocket's unit tests. Milestone 2 adds the graphical program `QtRocket` (Qt 6 Widgets), which designs rockets
-as OpenRocket's Design tab does, without motors, simulations and appearance yet ([The GUI](#the-gui)).
+as OpenRocket's Design tab does, without motors, component presets, simulations, appearance and the 3D views yet
+([The GUI](#the-gui)).
 
 ## Requirements
 - CMake 3.28+ and Ninja
@@ -81,7 +82,8 @@ API docs: `cmake --build --preset clang-debug --target docs`, then open `build/c
 
 ## The GUI
 `QtRocket` is the graphical program. It follows OpenRocket's GUI: its windows, dialogs, texts and rules.
-Milestone 2 gives it what OpenRocket's Design tab offers but motors, simulations and appearance:
+Milestone 2 gives it what OpenRocket's Design tab offers but motors, component presets, simulations, appearance and
+the 3D views ([docs/gui-differences.md](docs/gui-differences.md) lists what comes later):
 
 - A window per design: the component tree beside the buttons that add components, and below them the design view,
   the rocket from the side, the top or the back, with zoom, rotation, rulers, the CG and CP, the stage and flight
