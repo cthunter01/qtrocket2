@@ -75,6 +75,7 @@
 #include <QEvent>
 #include <QIcon>
 #include <QImage>
+#include <QLatin1Char>
 #include <QLineEdit>
 #include <QList>
 #include <QModelIndex>
