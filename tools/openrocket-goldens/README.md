@@ -981,9 +981,10 @@ save of the same input. It is run by hand, at a milestone exit or after a change
 has no Java and never runs it. Two steps:
 
 ```sh
-# 1. QtRocket writes its saves (a DISABLED_ test, which ctest and CI never run):
+# 1. QtRocket writes its saves (DISABLED_ tests, which ctest and CI never run), the core's first:
 cmake --build --preset clang-debug
 build/clang-debug/bin/QtRocket_core_tests --gtest_also_run_disabled_tests --gtest_filter='OrkInteropSaves.*'
+build/clang-debug/bin/QtRocket_gui_tests --gtest_also_run_disabled_tests --gtest_filter='FromScratchInteropSave.*'
 # 2. OpenRocket reads them:
 tools/openrocket-goldens/interop.sh            # or: interop.sh <saves directory>
 ```
@@ -993,12 +994,17 @@ The test `OrkInteropSaves.DISABLED_WritesTheSavesOfTheInteropCheck`
 directory above the `bin/` of the test program (`build/clang-debug/interop-saves` here, which is
 the default directory of `interop.sh`); a command-line argument `--interop-saves=<directory>` of the
 test program names another directory. It removes the saves of an earlier run from the directory
-first (the files of the names it can write, nothing else) and writes 65 files, each named
-`<input>.<form>.ork` after the input of `manifest.json` and the form of the save (`zip-data`,
-`zip-nodata`: an `.ork` archive of `GeneralRocketSaver` with or without the simulation data;
-`plain-data`, `plain-nodata`: the plain XML of `OpenRocketSaver`). A directory that holds any other
-`*.ork` file is refused: the test fails, names the files and writes nothing. Each save is the first
-save of a load of its own, as OpenRocket's save it is compared with:
+first (the files of the names it can write, and the GUI's save below, nothing else) and writes 65
+files, each named `<input>.<form>.ork` after the input of `manifest.json` and the form of the save
+(`zip-data`, `zip-nodata`: an `.ork` archive of `GeneralRocketSaver` with or without the simulation
+data; `plain-data`, `plain-nodata`: the plain XML of `OpenRocketSaver`). A directory that holds any
+other `*.ork` file is refused: the test fails, names the files and writes nothing. Each save is the
+first save of a load of its own, as OpenRocket's save it is compared with. The GUI tests'
+`FromScratchInteropSave.DISABLED_WritesTheSaveForTheInteropCheck`
+(`tests/gui/exit/from_scratch_exit_tests.cpp`, the same `--interop-saves=<directory>`) then adds a
+66th file, `gui-from-scratch.zip-nodata.ork`, the input `gui-from-scratch`, which `manifest.json` does
+not list: the rocket QtRocket's GUI designs from scratch in the exit test `FromScratchExitGolden` (the
+steps of `tests/data/goldens/gui/from-scratch/scenario.json`), saved with Save as.
 
 | Inputs | Loaded by QtRocket | Saved as |
 |---|---|---|
@@ -1006,6 +1012,7 @@ save of a load of its own, as OpenRocket's save it is compared with:
 | the 13 test rockets | from their re-saves, against the seven motors of TestRockets (`loadResave()`) | an archive with the document's default storage options (no data) |
 | the 18 legacy files | from `tests/data/ork`, as `RecordedOrkFiles.h` records them | an archive with the simulation data; plain XML with it for `v1.6-apocd.ork`, whose archive OpenRocket cannot save either (`archiveError`) |
 | the 2 coverage documents | from their re-saves | an archive with the document's default storage options |
+| the GUI's from-scratch design | made in QtRocket's GUI (`FromScratchScenario`), not loaded; its input is OpenRocket's own save of the same scenario, `tests/data/goldens/gui/from-scratch/rocket.ork` (`tools/openrocket-gui-reference`) | Save as: an archive with the document's default storage options (no data: the design has no simulation) |
 
 `interop.sh` needs what `generate.sh` needs (Java 17; the OpenRocket checkout at the commit of the
 goldens with its preset submodule, without local changes, or `ALLOW_DIRTY=1`; it warns when the
@@ -1020,7 +1027,11 @@ input, fails too. Gradle leaves a daemon running: stop it afterwards (`<openrock
 Each input is loaded in the environment of its goldens: the harness's (the examples and the coverage
 documents), the legacy files' (six presets) or, for the test rockets, a motor database of exactly
 the seven motors of TestRockets and no preset (their motors are synthetic: the bundled database would
-give the mounts real motors of the same designations). With Q OpenRocket's load of QtRocket's save,
+give the mounts real motors of the same designations); the GUI's design in that of OpenRocket's GUI
+after its start-up, in which `tools/openrocket-gui-reference` loads the saved design (as
+`GuiReferenceEnvironment.h` of the C++ tests has it): no preset, no motor, and the default component
+materials the start-up stores (Balsa for fin sets, Polystyrene for nose cones), the test preferences
+otherwise (`InteropCheck.guiInjector()`). With Q OpenRocket's load of QtRocket's save,
 O its load of the input and OO its load of its own save of O in the same form, a file passes when:
 
 - every load warning of Q is on the allow-list below and O gives the same warning;
@@ -1030,7 +1041,9 @@ O its load of the input and OO its load of its own save of O in the same form, a
   did;
 - OpenRocket's re-save of Q (`OpenRocketSaver`, with the simulation data) is its re-save of OO, line for
   line, the ids the loaders drew for a design that names none numbered by their first occurrence
-  (`withDrawnIdsNumbered()` of `GoldenResaves.h`), but for the lines on the allow-list. OO, not the
+  (`withDrawnIdsNumbered()` of `GoldenResaves.h`; every id for the GUI's design, whose ids QtRocket's
+  GUI drew at random and the reference tool's `DeterministicUuids` for OpenRocket's save of the
+  scenario), but for the lines on the allow-list. OO, not the
   committed re-save: OpenRocket's own round trip changes a design (its saver writes the warning type
   `RecoveryHighSpeedDeployment`, which its loader reads as `Other` without the speed);
 - the geometry, mass and aerodynamics documents of Q, dumped after the re-save and the settling of
@@ -1041,7 +1054,8 @@ O its load of the input and OO its load of its own save of O in the same form, a
   components have the same ids in Q and OO (the coverage documents and `v1.9-chute-release.ork`; the
   files of the formats 1.0 to 1.8 name no component id, so the two loaders draw other ones, and
   OpenRocket's sums follow the ids in the last bit: the report lists these seventeen under "not
-  compared");
+  compared", and the GUI's design, whose components have other ids than in OpenRocket's save of the
+  scenario; it has no goldens of its own either);
 - the options of every simulation are those of O, or of OO where OpenRocket's own save changes them
   (a random seed that is not fixed is drawn by each load and left out); for an example or a test
   rocket, made reproducible as the harness makes them, also the options and extensions of the golden
@@ -1059,7 +1073,7 @@ O its load of the input and OO its load of its own save of O in the same form, a
 
 The allow-list (`InteropCheck.ALLOWED_WARNINGS`, `ALLOWED_RESAVE_CHANGES`, and the thrust curves:
 a synthetic digest in a test rocket, `ALLOWED_CURVES` in any other input). Each allowance has to be
-used exactly as often as `EXPECTED_ALLOWANCES` says over all 65 files (the counts below), so that it
+used exactly as often as `EXPECTED_ALLOWANCES` says over all 66 files (the counts below), so that it
 cannot hide a new case of its kind:
 
 | What | Where | Why |
@@ -1077,7 +1091,10 @@ files of the formats 1.0 to 1.8. On the standard error, where the tool names eac
 before its check (`[interop] <file>`), OpenRocket logs four errors "attempt to add an empty motorConfig"
 with their stack traces, all while it loads legacy inputs (`v1.0-roll-stabilized.ork`,
 `v1.4-roll-stabilized.ork`, twice `v1.6-boosted-dart.ork`: an empty motor of a flight configuration),
-none for a QtRocket save. The whole check takes about 25 s.
+none for a QtRocket save. The whole check takes about 25 s. The run of Milestone 2's exit (QtRocket
+at the merge of its run 4, OpenRocket 5f164fd0e, JDK 17), with the GUI's save: 66 files of 50
+inputs, 0 failed; the same allowances; not compared: the dumps of those seventeen legacy files and of
+the GUI's design (whose re-save, 235 lines, is OpenRocket's re-save of its own save of the scenario).
 
 ## Figure pin tables
 

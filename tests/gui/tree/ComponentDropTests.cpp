@@ -1,10 +1,10 @@
 // The drop rules of the component tree (ComponentDrop), compared with OpenRocket's: the transcript
-// of the M2 component-tree scout's DndProbe (evidence/DndProbe.out: OpenRocket 5f164fd0e,
-// ComponentTreeTransferHandler's createTransferable() and the loop of importData() run headless),
-// then drops through the view as a platform delivers them (QDragEnterEvent, QDragMoveEvent and
-// QDropEvent sent to the viewport run QAbstractItemView's own drop logic: Qt's drop positions as
-// the scouting's drop_position_probe measured them), drops from another document, with decal
-// images, and the bounds.
+// of the M2 component-tree scout's DndProbe (tools/openrocket-gui-pins/component-drop: OpenRocket
+// 5f164fd0e, ComponentTreeTransferHandler's createTransferable() and the loop of importData() run
+// headless), then drops through the view as a platform delivers them (QDragEnterEvent,
+// QDragMoveEvent and QDropEvent sent to the viewport run QAbstractItemView's own drop logic: Qt's
+// drop positions as the scouting's drop_position_probe measured them), drops from another document,
+// with decal images, and the bounds.
 
 #include "QtRocket/gui/tree/ComponentDrop.h"
 

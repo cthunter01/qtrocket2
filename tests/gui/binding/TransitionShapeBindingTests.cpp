@@ -1,7 +1,7 @@
 // The shape combo box's binding (Java: TransitionShapeModel).
 //
 // Expectations marked "probe" are OpenRocket's own results, printed by the Java probe of this part
-// (scratchpad probes/m2r2-B2/java/src/probe/B2Probe.java -> b2-probe.out, run on OpenRocket
+// (tools/openrocket-gui-pins/material-binding/probe/B2Probe.java, run on OpenRocket
 // 5f164fd0e with JDK 17: TransitionShapeModel(transition) of a transition set to OGIVE).
 
 #include "QtRocket/gui/binding/TransitionShapeBinding.h"

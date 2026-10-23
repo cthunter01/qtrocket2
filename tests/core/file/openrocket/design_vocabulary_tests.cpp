@@ -55,8 +55,8 @@ struct ElementPair
     bool inTestRockets;
 };
 
-// The table is written by scripts/vocabulary.py of the scratchpad's
-// probes/tier9b-document-handlers from the design files themselves: do not edit it by hand.
+// The table is written by vocabulary.py of tier 9b, part R4, from the design files themselves: do
+// not edit it by hand.
 // clang-format off
 // BEGIN GENERATED TABLE pairs
 constexpr std::array<ElementPair, 337> kPairs{{

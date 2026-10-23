@@ -44,8 +44,9 @@ constexpr Rectangle2D kSubject{.x = 0.0, .y = -0.05, .width = 0.4, .height = 0.1
     return unit == nullptr ? unitGroup(UnitGroupId::LENGTH).getDefaultUnit() : *unit;
 }
 
-/// The marks as ScaleProbe writes them: "n=<count>", then " <position>:<length>" for each
-/// tick, with ":<label>" for a major one and ":b" when its label is bold.
+/// The marks as ScaleProbe (tools/openrocket-gui-pins/scale-figure/probe/ScaleProbe.java) writes
+/// them: "n=<count>", then " <position>:<length>" for each tick, with ":<label>" for a major one
+/// and ":b" when its label is bold.
 [[nodiscard]] std::string describe(const std::vector<Ruler::Mark>& marks)
 {
     std::string text = "n=" + std::to_string(marks.size());

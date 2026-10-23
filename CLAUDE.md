@@ -220,11 +220,11 @@ with Qt required) builds it; `-DQTROCKET_BUILD_GUI=OFF` builds the core and the 
   `tests/data/goldens/gui/from-scratch/scenario.json` through the GUI alone (no core setter), saves it and compares
   every step and the save with OpenRocket's; `OpenDesignsExitGolden` opens the examples, the re-saves and that
   reference through File > Open and compares the tree, the dialogs, the figure and the overlay with the goldens. A
-  scenario change is followed by `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do
-  in OpenRocket's own GUI (the tool cannot see a disabled box). The DISABLED_ `FromScratchInteropSave` writes the
-  save into `build/<preset>/interop-saves/` (after the core's `OrkInteropSaves`, which removes it as an earlier
-  save) for `tools/openrocket-goldens/interop.sh`; InteropCheck has no input `gui-from-scratch` yet and reports it
-  "not checked" (exit status 1), so check the core's saves first or write it elsewhere (`--interop-saves=<dir>`)
+  scenario change is followed by `tools/openrocket-gui-reference/generate.sh`, and a step must be one a user can do in
+  OpenRocket's own GUI (the tool refuses a disabled button or Automatic box, but no other disabled field). The
+  DISABLED_ `FromScratchInteropSave` writes the save into `build/<preset>/interop-saves/` (after the core's
+  `OrkInteropSaves`, which removes it as an earlier save) for `tools/openrocket-goldens/interop.sh`, which checks it
+  as the input `gui-from-scratch` against OpenRocket's save of the scenario
 - Traps: `QCoreApplication::processEvents()` does not run `deleteLater()` (`sendPostedEvents(nullptr,
   QEvent::DeferredDelete)`); `QTreeView::visualRect()` is no visibility test; a window shown offscreen warns "This
   plugin does not support propagateSizeHints()" unless its layout was activated before `show()` (the tests'

@@ -2,10 +2,10 @@
 // enabled by OpenRocket's rules, its own actions (Move up, Move down, the popup's Hide/Show, the
 // stages' Disable/Enable), the popup menu, the requests for the configuration dialog, and what the
 // visibility and stage actions do, compared with OpenRocket's transcripts: the enables of the M2
-// component-tree scout's ActionsProbe (evidence/ActionsProbe.out) and the visibility and stage
-// sections of T4Probe (Milestone 2 run 2, part T4: OpenRocket 5f164fd0e run headless with JDK 17,
-// RocketActions' inner actions made by their own constructors), on the probes' design
-// (tree/ProbeDesign.h). What the editing actions do is ComponentEditing's
+// component-tree scout's ActionsProbe (tools/openrocket-gui-pins/component-editing) and the
+// visibility and stage sections of T4Probe (Milestone 2 run 2, part T4: OpenRocket 5f164fd0e run
+// headless with JDK 17, RocketActions' inner actions made by their own constructors), on the
+// probes' design (tree/ProbeDesign.h). What the editing actions do is ComponentEditing's
 // (main/ComponentEditingTests.cpp); here a few of them run through their QActions.
 
 #include "QtRocket/gui/main/RocketActions.h"
@@ -603,17 +603,17 @@ std::string makerTestName(const ::testing::TestParamInfo<QtRocket::Test::TestRoc
 INSTANTIATE_TEST_SUITE_P(Makers, RocketActionsTestRocket,
                          ::testing::ValuesIn(QtRocket::Test::testRocketMakers()), makerTestName);
 
-/// A transcript of ActionsRulesProbe (Milestone 2 run 2, the fixer of group T, for the review's
-/// finding that the rules above are QtRocket's own: OpenRocket 5f164fd0e run headless with JDK 17,
-/// RocketActions' inner actions as in the scouting's ActionsProbe, each action's clipboardChanged()
-/// asked, the clipboard empty) for one of OpenRocket's test rockets: the components in pre-order
-/// with their indexes (0 the Rocket; the last one hidden first, "(hidden)"), then for nothing
-/// selected, each component alone and each with the one before it (the component first), the
-/// selection as indexes and the enabled states, 1 or 0, of Edit, Cut, Copy, Paste, Duplicate,
-/// Delete, Deselect all, Move up, Move down, Hide/Show (the menu's), Hide/Show (the popup's) and
-/// Show all. (The probe's simulation panel is null: a rule whose component part is false and that
-/// then asks it throws there; that state is the component part, false, as the design window's
-/// is with no simulation selected.)
+/// A transcript of ActionsRulesProbe (tools/openrocket-gui-pins/actions-rules; Milestone 2 run 2,
+/// the fixer of group T, for the review's finding that the rules above are QtRocket's own:
+/// OpenRocket 5f164fd0e run headless with JDK 17, RocketActions' inner actions as in the scouting's
+/// ActionsProbe, each action's clipboardChanged() asked, the clipboard empty) for one of
+/// OpenRocket's test rockets: the components in pre-order with their indexes (0 the Rocket; the
+/// last one hidden first, "(hidden)"), then for nothing selected, each component alone and each
+/// with the one before it (the component first), the selection as indexes and the enabled states, 1
+/// or 0, of Edit, Cut, Copy, Paste, Duplicate, Delete, Deselect all, Move up, Move down, Hide/Show
+/// (the menu's), Hide/Show (the popup's) and Show all. (The probe's simulation panel is null: a
+/// rule whose component part is false and that then asks it throws there; that state is the
+/// component part, false, as the design window's is with no simulation selected.)
 struct RulesTranscript
 {
     std::string_view method;

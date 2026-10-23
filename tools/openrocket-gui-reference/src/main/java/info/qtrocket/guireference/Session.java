@@ -72,15 +72,20 @@ final class Session {
 
 	private static final Translator trans = Application.getTranslator();
 
-	/** An open dialog: its panel class, its component, and the controls the scenario used. */
+	/**
+	 * An open dialog: its panel class, its component, the Automatic check boxes its panel set when it was
+	 * made, and the controls the scenario used.
+	 */
 	private static final class Dialog {
 		final String panel;
 		final RocketComponent component;
+		final DialogFields.AutomaticBoxes automaticBoxes;
 		final Map<String, DialogFields.Control> controls = new LinkedHashMap<>();
 
 		Dialog(String panel, RocketComponent component) {
 			this.panel = panel;
 			this.component = component;
+			automaticBoxes = new DialogFields.AutomaticBoxes(panel, component);
 		}
 	}
 
@@ -290,7 +295,8 @@ final class Session {
 	/**
 	 * The configuration dialog of @p component opens: what ComponentConfigDialog.showDialog
 	 * (ComponentConfigDialog.java:246-292) does after it made the dialog (:269), which a headless JVM cannot
-	 * make. The parts library it may open for a new component (:285-291) is closed without a choice.
+	 * make; of the making, what the panel does to its Automatic check boxes (DialogFields.AutomaticBoxes).
+	 * The parts library it may open for a new component (:285-291) is closed without a choice.
 	 */
 	private void open(RocketComponent component, boolean isNewComponent) throws Exception {
 		dialog = new Dialog(configPanelOf(component), component);
@@ -323,13 +329,14 @@ final class Session {
 		if (control == null) {
 			String suffix = "Automatic";
 			if (field.endsWith(suffix) && field.length() > suffix.length()) {
-				DoubleModel model = control(field.substring(0, field.length() - suffix.length())).doubleModel();
+				String property = field.substring(0, field.length() - suffix.length());
+				DoubleModel model = control(property).doubleModel();
 				if (model == null) {
 					throw new IllegalArgumentException("the field " + field + " is no spinner's Automatic check box");
 				}
-				control = DialogFields.automatic(model);
+				control = DialogFields.automatic(model, property, dialog.automaticBoxes);
 			} else {
-				control = DialogFields.make(dialog.panel, field, document, dialog.component);
+				control = DialogFields.make(dialog.panel, field, document, dialog.component, dialog.automaticBoxes);
 			}
 			dialog.controls.put(field, control);
 		}

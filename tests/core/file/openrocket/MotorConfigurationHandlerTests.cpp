@@ -41,9 +41,8 @@ using QtRocket::Test::warningTexts;
 
 using Texts = std::vector<std::string>;
 
-// The tables are written by scripts/make_tables.py of the scratchpad's
-// probes/tier9b-component-handlers from the cases (scripts/make_cases.py) and OpenRocket's answers
-// to them (HandlerProbe.java): do not edit them by hand.
+// The tables are written by make_tables.py of tier 9b, part R3, from the cases (make_cases.py)
+// and OpenRocket's answers to them (HandlerProbe.java): do not edit them by hand.
 // clang-format off
 // BEGIN GENERATED TABLES MotorConfigurationHandler
 // What OpenRocket makes of each case (HandlerProbe.java of part R3), which QtRocket has to

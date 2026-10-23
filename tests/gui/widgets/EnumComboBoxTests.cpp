@@ -1,8 +1,8 @@
 // The combo box of an enum property (Java: a JComboBox on an EnumModel or a TransitionShapeModel).
 //
 // Expectations marked "probe" are OpenRocket's own texts, the toString() of the enums the
-// dialogs' combo boxes show, printed by the Java probe of this part (scratchpad
-// probes/m2r2-B4/java/src/probe/B4Probe.java -> b4-probe.out, run on OpenRocket 5f164fd0e with
+// dialogs' combo boxes show, printed by the Java probe of this part
+// (tools/openrocket-gui-pins/material-combo/probe/B4Probe.java, run on OpenRocket 5f164fd0e with
 // JDK 17, English messages).
 
 #include "QtRocket/gui/widgets/EnumComboBox.h"

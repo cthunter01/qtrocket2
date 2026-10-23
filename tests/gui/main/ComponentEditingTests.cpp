@@ -1,11 +1,12 @@
 // The logic of the component actions (ComponentEditing): the rules and operations of OpenRocket's
 // RocketActions (Cut, Copy, Paste, Duplicate, Delete, Move up and Move down), compared with what
-// OpenRocket does, line for line: the transcripts of the M2 component-tree scout's ActionsProbe
-// (evidence/ActionsProbe.out) and of ClipboardProbe (Milestone 2 run 2, part T3: more selections,
-// orders, paste positions, duplicates, cuts, deletes and moves), both OpenRocket 5f164fd0e run
-// headless with JDK 17, on the same design (tree/ProbeDesign.h). The probes call each action's
-// method directly, also when the action is disabled; the exception each records at its end
-// (parentFrame.selectTab() on the frame the probe has not) is left out of the lines here.
+// OpenRocket does, line for line: the transcripts of the M2 component-tree scout's ActionsProbe and
+// of ClipboardProbe (Milestone 2 run 2, part T3: more selections, orders, paste positions,
+// duplicates, cuts, deletes and moves; both in tools/openrocket-gui-pins/component-editing), both
+// OpenRocket 5f164fd0e run headless with JDK 17, on the same design (tree/ProbeDesign.h). The
+// probes call each action's method directly, also when the action is disabled; the exception each
+// records at its end (parentFrame.selectTab() on the frame the probe has not) is left out of the
+// lines here.
 
 #include "QtRocket/gui/main/ComponentEditing.h"
 
@@ -771,8 +772,8 @@ std::ostream& operator<<(std::ostream& stream, const ClipboardScenario& scenario
     return stream << scenario.name;
 }
 
-/// ClipboardProbe's scenarios: the transcripts of ClipboardProbe.out
-/// (probes/m2r2-T3/java/ClipboardProbe.out), but where a comment says otherwise.
+/// ClipboardProbe's scenarios: the transcripts of ClipboardProbe.out, but where a comment says
+/// otherwise.
 ///
 /// After Cut and Delete the probe's selection model, which belongs to no tree, still names the
 /// removed components ("selection=[BT1]"); OpenRocket's tree selects each selected component again,

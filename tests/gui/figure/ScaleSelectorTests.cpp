@@ -49,8 +49,9 @@ public:
     double requestedScale = kNaN;
 };
 
-/// A model of a scale and a fit that writes down every request (as ScaleProbe's Recording):
-/// " setScale(<Java's text of the scale>)" or " setFit()". publish() changes what it shows.
+/// A model of a scale and a fit that writes down every request (as the Recording of ScaleProbe,
+/// tools/openrocket-gui-pins/scale-figure/probe/ScaleProbe.java): " setScale(<Java's text of the
+/// scale>)" or " setFit()". publish() changes what it shows.
 class RecordingZoomModel final : public ZoomModel
 {
 public:

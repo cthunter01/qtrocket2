@@ -98,7 +98,7 @@ change only the window or the application, which the table lists:
 | A click on rows of the component tree | `JTree.setSelectionPaths` on the tree, with the paths of `ComponentTreeModel.makeTreePath` |
 | An add button | `ComponentButton.doClick()`: Swing's own add logic (`ComponentButton.fireActionPerformed`, `ComponentAddButtons`' body component and stage rules, the undo position "Add ...", the new component selected). It stops with a `HeadlessException` where `ComponentConfigDialog.showDialog` makes the dialog. |
 | The configuration dialog opens | What `ComponentConfigDialog.showDialog` does after it made the dialog (`ComponentConfigDialog.java:275-291`): the undo position "Modify <component name>" for an existing component (none for a new one). The parts library it opens for a new component with a preset type (`AutoOpenPartsLibrary`, on by default) is taken as closed without a choice: QtRocket has no parts library before Milestone 3. |
-| A field of a dialog | The model the dialog builds for that field, with the same class and arguments (`DialogFields`, each field with its source line): a spinner's `DoubleModel` gets the unit chosen in its `UnitSelector` (`setCurrentUnit`) and the typed text through its `ValueSpinnerModel.setValue(String)` (OpenRocket's `ExpressionParser`, the unit conversion, the bounds), an integer spinner its `IntegerModel` spinner model, a combo box `setSelectedItem` of its `EnumModel`, `TransitionShapeModel` or `MaterialModel` (only the model's own items), a check box its `BooleanModel` (clicked only when its state differs), an Automatic check box its `DoubleModel.getAutomaticAction()` (`putValue(SELECTED_KEY)`), a text field what its `TextFieldListener` does on focus lost. The dialogs themselves are JDialogs, which a headless JVM cannot make, and their panels need the dialog as their parent. |
+| A field of a dialog | The model the dialog builds for that field, with the same class and arguments (`DialogFields`, each field with its source line): a spinner's `DoubleModel` gets the unit chosen in its `UnitSelector` (`setCurrentUnit`) and the typed text through its `ValueSpinnerModel.setValue(String)` (OpenRocket's `ExpressionParser`, the unit conversion, the bounds), an integer spinner its `IntegerModel` spinner model, a combo box `setSelectedItem` of its `EnumModel`, `TransitionShapeModel` or `MaterialModel` (only the model's own items), a check box its `BooleanModel` (clicked only when its state differs), an Automatic check box its `DoubleModel.getAutomaticAction()` (`putValue(SELECTED_KEY)`; refused where the panel disabled the box: `DialogFields.AutomaticBoxes` copies the rules of `NoseConeConfig`, `BodyTubeConfig` and the packed diameter of `ParachuteConfig`, `ShockCordConfig` and `MassComponentConfig`, with what they do to the component when the dialog opens), a text field what its `TextFieldListener` does on focus lost. The dialogs themselves are JDialogs, which a headless JVM cannot make, and their panels need the dialog as their parent. |
 | OK | The dialog's `windowClosed` handler: the models invalidated, the component's config listeners cleared (`ComponentConfigDialog.java:73-81`) |
 | Edit > Edit (or a double click) | `RocketActions.EditAction.editComponents()`, copied (`EditActions`), then the dialog as above |
 | Edit > Copy, Edit > Paste | `RocketActions.CopyAction.copyComponents()` and `PasteAction.pasteComponents()` with their helpers and enabling rules, copied (`EditActions`), on OpenRocket's `OpenRocketClipboard` and `RocketActions.copyComponentsMaintainParent`: the action classes cannot be made headless (their constructors read the menu shortcut key of the toolkit, `RocketActions.KeyStrokes`, which the headless toolkit refuses). Left out: the branches for simulations and the last call, `parentFrame.selectTab(DESIGN_TAB)`. |
@@ -108,7 +108,8 @@ change only the window or the application, which the table lists:
 | File > Save as | `BasicFrame.saveAsAction` and `saveAsOpenRocket` (`BasicFrame.java:2167-2250`): the design information dialog when `ShowSaveRocketInfo` asks for it (on by default; the rocket selected first, its Designer, Kit name and Revision fields through `RocketConfig`'s `TextFieldListener`), the file name with `FileHelper.forceExtension(..., "ork")`, `StorageOptionChooser.verifyStorageOptions` (it asks nothing for a design without simulation data), the file type, `GeneralRocketSaver.save(file, document, progress)` as `SaveFileWorker` calls it, `setFile` and `setSaved(true)`. No preview image: `generatePreviewImage()` draws the rocket panel's figure, and QtRocket's saves carry none before Milestone 5 (decision O26). Left out: `MRUDesignFile.addFile` (`:2180-2181`, the list of recent files), `setTitle()` (`:2250`, the window's title) and `restoreFocus()` (`:2185`). The tool fails rather than overwrite a file (Save as would ask). |
 
 The tool fails on anything a GUI would show a message box or a question for: a disabled button or
-action, an item a combo box does not have, an unknown field, a step of a dialog while none is open
+action, an Automatic check box its panel disabled (a nose cone's base diameter while no body
+component follows it, say), an item a combo box does not have, an unknown field, a step of a dialog while none is open
 (or the other way round), a step in a dialog that changes the tree (which closes the dialog). It
 also fails on a step that sets a value (`type`, `choose`, `check`, `editPoint`, `insertPoint`) but
 leaves the component tree as it was (its digest the same as after the step before): a value the
@@ -186,17 +187,18 @@ The fields the tool knows, by dialog (the panel class `ComponentConfigDialog` pi
 
 To use another field, add it to `DialogFields` from the dialog's source.
 
-The committed scenario: New; the sustainer selected; a nose cone (ellipsoid, 10 cm, automatic base
-diameter, 0.15 cm wall, polycarbonate, smooth paint); a body tube after it (30 cm, outer diameter
-4.1 cm, 0.05 cm wall); four trapezoidal fins in the tube (chords 7 and 3.5 cm, height 5.5 cm, sweep
-4 cm, 2.5 mm thick, rounded); an inner tube as the motor mount (7.5 cm, diameters 2.6 and 2.4 cm,
-overhang 0.5 cm); two named centering rings, the fore one placed from the top (23.7 cm), the aft one
-from the middle (14.35 cm; a new ring is placed from the bottom); a parachute (35 cm, 8 lines,
-deployed at 150 m); a shock cord (60 cm); a launch lug (5 cm, at 135 degrees) and two rail buttons
-(15 cm apart, at 90 degrees); an altimeter (a mass component of 15 g); the fin set converted to
-freeform, two points edited and one inserted; Undo and Redo of those edits; the parachute copied and
-pasted into the tube, the copy renamed "Drogue" and made 15 cm; Save as with a designer, file
-`rocket`. Every step that sets a value changes the design (see above).
+The committed scenario, 101 steps: New; the sustainer selected; a nose cone (ellipsoid, 10 cm, 0.15
+cm wall, polycarbonate, smooth paint); a body tube after it (30 cm, outer diameter 4.1 cm, 0.05 cm
+wall); four trapezoidal fins in the tube (chords 7 and 3.5 cm, height 5.5 cm, sweep 4 cm, 2.5 mm
+thick, rounded); the nose cone edited again (Edit > Edit) for its automatic base diameter, whose
+Automatic check box is enabled only now that the body tube follows it; an inner tube as the motor
+mount (7.5 cm, diameters 2.6 and 2.4 cm, overhang 0.5 cm); two named centering rings, the fore one
+placed from the top (23.7 cm), the aft one from the middle (14.35 cm; a new ring is placed from the
+bottom); a parachute (35 cm, 8 lines, deployed at 150 m); a shock cord (60 cm); a launch lug (5 cm,
+at 135 degrees) and two rail buttons (15 cm apart, at 90 degrees); an altimeter (a mass component of
+15 g); the fin set converted to freeform, two points edited and one inserted; Undo and Redo of those
+edits; the parachute copied and pasted into the tube, the copy renamed "Drogue" and made 15 cm; Save
+as with a designer, file `rocket`. Every step that sets a value changes the design (see above).
 
 ## state.json
 

@@ -65,6 +65,11 @@ protected:
     InMemoryPreferences m_preferences;
 };
 
+TEST(PreferencesPagePinsGolden, ComeFromTheGoldensOpenRocket)
+{
+    EXPECT_EQ(Pins::kOpenRocketCommit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
+}
+
 TEST_F(PreferencesPagesGolden, TheUnitsPageIsOpenRockets)
 {
     const UnitsPreferencesPanel page(m_preferences, nullptr);

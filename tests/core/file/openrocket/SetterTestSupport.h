@@ -7,10 +7,10 @@
 //
 // The expectations of the tables come from the Java probe SetterProbe of tier 9b, part R1
 // (info.openrocket.core.file.openrocket.importt.SetterProbe; its cases are made by
-// scripts/make_cases.py and its answers turned into table rows by scripts/make_tests.py, all
-// under the scratchpad's probes/tier9b-registry). The probe applies an entry of OpenRocket's
-// DocumentConfig.setters to a component and prints the warnings and what the component's getters
-// give. SetterFixture::make() builds the same tree as the probe does.
+// make_cases.py and its answers turned into table rows by make_tests.py, both of that part). The
+// probe applies an entry of OpenRocket's DocumentConfig.setters to a component and prints the
+// warnings and what the component's getters give. SetterFixture::make() builds the same tree as
+// the probe does.
 //
 // The setters of part R2 (positions, fin tab, cluster, material, preset) have a second form of
 // case, SetterScript: several elements applied in order to one component, as a file has them,

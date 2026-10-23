@@ -1,7 +1,7 @@
 // The model of a check box (Java: BooleanModel) and its enable followers.
 //
 // Expectations marked "probe" are OpenRocket's own results, printed by the Java probe of this part
-// (scratchpad probes/m2r2-B2/java/src/probe/B2Probe.java -> b2-probe.out, run on OpenRocket
+// (tools/openrocket-gui-pins/material-binding/probe/B2Probe.java, run on OpenRocket
 // 5f164fd0e with JDK 17: BooleanModel(tube, "MassOverridden") with two JPanels added by
 // addEnableComponent(panel, true) and (panel, false); BooleanModel(transition, "Clipped");
 // BooleanModel(true)).

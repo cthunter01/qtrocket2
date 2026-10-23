@@ -16,7 +16,7 @@
 
 // SaveFileChooser's rules about names (getFilenameInput(), setSelectedFile(), approveSelection())
 // and FileUtils.getIllegalFilenameChar(), against the Java probe of DesignFileSaveAsFileChooser
-// with the default directory <work>/default (scratchpad probes/m2r3-verify-P, VerifyChooserProbe).
+// with the default directory <work>/default (VerifyChooserProbe, handoff/m2-probes/m2r3-verify-P).
 
 namespace QtRocket::Gui
 {

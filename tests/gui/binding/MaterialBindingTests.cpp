@@ -5,7 +5,7 @@
 // MaterialModelTest.java).
 //
 // Expectations marked "probe" are OpenRocket's own results, printed by the Java probe of this part
-// (scratchpad probes/m2r2-B2/java/src/probe/B2Probe.java -> b2-probe.out, run on OpenRocket
+// (tools/openrocket-gui-pins/material-binding/probe/B2Probe.java, run on OpenRocket
 // 5f164fd0e with JDK 17): MaterialModel(null, document, component, type) over a new rocket's
 // document with a body tube in its stage and a parachute in the tube, after the user material
 // "Aardvark resin" was added to the application's bulk materials, the document materials "Doc
@@ -13,7 +13,8 @@
 // parachute's line material). A row is the combo box's text of the material
 // (MaterialComboBox.getDisplayString()) with its group and whether it is a document material; a
 // group line is the combo box's menu of the group (its private itemGroupMap, read by reflection).
-// The texts are generated from the probe's output (scripts/rows.py).
+// The texts are generated from the probe's output (tools/openrocket-gui-pins/generate.sh
+// material-binding).
 
 #include "QtRocket/gui/binding/MaterialBinding.h"
 

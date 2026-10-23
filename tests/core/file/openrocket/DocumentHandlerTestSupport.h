@@ -4,8 +4,7 @@
 // <docmaterials>, <photostudio>, <datatypes>): one such element is read by its handler for the
 // document a load starts from, through the test root of HandlerTestSupport.h, and what came of
 // it is printed as the Java probe of tier 9b, part R4 prints it for OpenRocket
-// (DocumentProbe.java under the scratchpad's probes/tier9b-document-handlers; its outputs are
-// the expectations of the case tables). Test-only.
+// (DocumentProbe.java; its outputs are the expectations of the case tables). Test-only.
 //
 // What a case gives (runDocumentCase()), one line each:
 //

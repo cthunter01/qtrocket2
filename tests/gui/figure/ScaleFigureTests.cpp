@@ -46,12 +46,12 @@ constexpr Rectangle2D kSimpleSide{.x      = 0.0,
                                   .height = 0.11179233283797528};
 
 /// OpenRocket's RocketFigure showing a subject in a visible area: the probe ScaleProbe.figures()
-/// (OpenRocket 5f164fd0e, headless, so at 96 dots per inch) for "A simple model rocket.ork"
-/// ("simple"), "Two stage high power rocket.ork" ("twoStage") and a new Rocket ("empty"), each
-/// view, each visible size, on a new figure: getFitScale(visible), then scaleTo(visible) and the
-/// user scale after it, the preferred size, and after setSize(max(preferred, visible + 3)) and
-/// updateFigure() the size, getSubjectOrigin() and getAutoZoomPoint(). The subject is the
-/// figure's subjectBounds_m.
+/// (tools/openrocket-gui-pins/scale-figure/probe/ScaleProbe.java; OpenRocket 5f164fd0e, headless,
+/// so at 96 dots per inch) for "A simple model rocket.ork" ("simple"), "Two stage high power
+/// rocket.ork" ("twoStage") and a new Rocket ("empty"), each view, each visible size, on a new
+/// figure: getFitScale(visible), then scaleTo(visible) and the user scale after it, the preferred
+/// size, and after setSize(max(preferred, visible + 3)) and updateFigure() the size,
+/// getSubjectOrigin() and getAutoZoomPoint(). The subject is the figure's subjectBounds_m.
 struct FigureRow
 {
     const char* design;

@@ -2,6 +2,7 @@ package info.qtrocket.guireference;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -12,12 +13,16 @@ import javax.swing.ComboBoxModel;
 
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.material.Material;
+import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.ExternalComponent;
 import info.openrocket.core.rocketcomponent.FinSet;
 import info.openrocket.core.rocketcomponent.MassComponent;
+import info.openrocket.core.rocketcomponent.MassObject;
+import info.openrocket.core.rocketcomponent.NoseCone;
 import info.openrocket.core.rocketcomponent.Parachute;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.rocketcomponent.SymmetricComponent;
 import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
 import info.openrocket.core.rocketcomponent.position.AxialMethod;
 import info.openrocket.core.unit.Unit;
@@ -43,7 +48,9 @@ import info.openrocket.swing.gui.adaptors.TransitionShapeModel;
  * <li>A combo box is an {@link EnumModel}, a {@link TransitionShapeModel} or a {@link MaterialModel}:
  * choosing an item calls {@code setSelectedItem} with it, and only the model's own items can be
  * chosen.</li>
- * <li>A check box is a {@link BooleanModel} ({@code setValue}).</li>
+ * <li>A check box is a {@link BooleanModel} ({@code setValue}); the "Automatic" check box beside a
+ * spinner is the spinner model's automatic action, which a click fails on where the panel disabled the
+ * box ({@link AutomaticBoxes}).</li>
  * <li>A text field (the name, the comment, the design information) is what the dialog's
  * TextFieldListener does when the field loses focus: the setter, when the text differs.</li>
  * </ul>
@@ -88,8 +95,12 @@ final class DialogFields {
 	private DialogFields() {
 	}
 
-	/** The control of @p property in the dialog @p dialog of @p component. */
-	static Control make(String dialog, String property, OpenRocketDocument document, RocketComponent component) {
+	/**
+	 * The control of @p property in the dialog @p dialog of @p component, whose panel set the Automatic
+	 * check boxes @p boxes.
+	 */
+	static Control make(String dialog, String property, OpenRocketDocument document, RocketComponent component,
+			AutomaticBoxes boxes) {
 		Map<String, Factory> fields = DIALOGS.get(dialog);
 		if (fields == null) {
 			throw new IllegalArgumentException("the tool knows no field of the dialog " + dialog);
@@ -99,7 +110,120 @@ final class DialogFields {
 			throw new IllegalArgumentException("the dialog " + dialog + " has no field " + property
 					+ " the tool knows (" + new TreeSet<>(fields.keySet()) + ")");
 		}
-		return factory.make(document, component);
+		return boxes.listening(property, factory.make(document, component));
+	}
+
+	// ------------------------------------------------------------------ the panels' Automatic check boxes
+
+	/**
+	 * The Automatic check boxes whose enabled state a dialog's panel sets itself. A JCheckBox made with an
+	 * action takes the action's enabled state, but a panel's setEnabled overrides it, and nothing gives it
+	 * back: DoubleModel.AutomaticActionModel fires only SELECTED_KEY changes. Made when the dialog opens, as
+	 * the panel is (in ComponentConfigDialog's constructor, setComponent, so before the undo position of
+	 * showDialog), with the panel's code copied line for line but for the tool tips it sets. A box this
+	 * class does not name follows its action.
+	 */
+	static final class AutomaticBoxes {
+
+		/** The dialogs whose packed diameter (the property "Radius") has an Automatic check box. */
+		private static final Set<String> PACKED_RADIUS_DIALOGS = Set.of("ParachuteConfig", "ShockCordConfig",
+				"MassComponentConfig");
+
+		private final String dialog;
+		private final RocketComponent component;
+		/** The state the panel's setEnabled left on the box of each property it names. */
+		private final Map<String, Boolean> enabled = new HashMap<>();
+
+		AutomaticBoxes(String dialog, RocketComponent component) {
+			this.dialog = dialog;
+			this.component = component;
+			if (dialog.equals("NoseConeConfig")) {
+				// NoseConeConfig.java:128-133: the box of the base diameter, then updateCheckboxAutoBaseRadius.
+				updateCheckboxAutoBaseRadius(((NoseCone) component).isFlipped());
+			} else if (dialog.equals("BodyTubeConfig")) {
+				// BodyTubeConfig.java:72-77: the box of the outer diameter, then updateCheckboxAutoAftRadius.
+				updateCheckboxAutoAftRadius();
+			}
+		}
+
+		/** Whether the panel leaves the Automatic check box of @p property enabled. */
+		boolean isEnabled(String property) {
+			// ParachuteConfig.java:222-231, ShockCordConfig.java:117-126 and MassComponentConfig.java:129-138:
+			// the box of the packed diameter is enabled when the parent gives a radius; the panel sets it when
+			// it is made and after every change of the rocket (a listener it never removes), so as of now.
+			if (property.equals("Radius") && PACKED_RADIUS_DIALOGS.contains(dialog)) {
+				return ((MassObject) component).getMaxParentRadius() > 0;
+			}
+			return enabled.getOrDefault(property, true);
+		}
+
+		/**
+		 * @p control, with what the panel's listeners on it do: NoseConeConfig.java:163-177, the Flipped
+		 * check box's ItemListener, which a click runs with the new state before the box's action sets the
+		 * value (JToggleButton.ToggleButtonModel.setPressed selects, then fires the action).
+		 */
+		Control listening(String property, Control control) {
+			if (!dialog.equals("NoseConeConfig") || !property.equals("Flipped")) {
+				return control;
+			}
+			NoseCone noseCone = (NoseCone) component;
+			return new Control() {
+				@Override
+				public void check(boolean checked) {
+					// The check box control clicks only when the state differs (checkBox()).
+					if (noseCone.isFlipped() != checked) {
+						updateCheckboxAutoBaseRadius(checked);
+					}
+					control.check(checked);
+				}
+
+				@Override
+				public void invalidateMe() {
+					control.invalidateMe();
+				}
+			};
+		}
+
+		/** NoseConeConfig.updateCheckboxAutoBaseRadius (:227-248). */
+		private void updateCheckboxAutoBaseRadius(boolean isFlipped) {
+			// Disable check button if there is no component to get the diameter from
+			NoseCone noseCone = ((NoseCone) component);
+			SymmetricComponent referenceComp = isFlipped ? noseCone.getPreviousSymmetricComponent()
+					: noseCone.getNextSymmetricComponent();
+			if (referenceComp == null) {
+				enabled.put("BaseRadius", false);
+				((NoseCone) component).setBaseRadiusAutomatic(false);
+				return;
+			}
+			if ((!isFlipped && !referenceComp.usesPreviousCompAutomatic())
+					|| isFlipped && !referenceComp.usesNextCompAutomatic()) {
+				enabled.put("BaseRadius", true);
+			} else {
+				enabled.put("BaseRadius", false);
+				((NoseCone) component).setBaseRadiusAutomatic(false);
+			}
+		}
+
+		/** BodyTubeConfig.updateCheckboxAutoAftRadius (:152-175). */
+		private void updateCheckboxAutoAftRadius() {
+			// Disable check button if there is no component to get the diameter from
+			SymmetricComponent prevComp = ((BodyTube) component).getPreviousSymmetricComponent();
+			SymmetricComponent nextComp = ((BodyTube) component).getNextSymmetricComponent();
+			if (prevComp == null && nextComp == null) {
+				enabled.put("OuterRadius", false);
+				((BodyTube) component).setOuterRadiusAutomatic(false);
+				return;
+			}
+			if (!(prevComp != null && nextComp == null && prevComp.usesNextCompAutomatic())
+					&& !(nextComp != null && prevComp == null && nextComp.usesPreviousCompAutomatic())
+					&& !(nextComp != null && prevComp != null && prevComp.usesNextCompAutomatic()
+							&& nextComp.usesPreviousCompAutomatic())) {
+				enabled.put("OuterRadius", true);
+			} else {
+				enabled.put("OuterRadius", false);
+				((BodyTube) component).setOuterRadiusAutomatic(false);
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------ controls
@@ -222,11 +346,13 @@ final class DialogFields {
 	}
 
 	/**
-	 * The "Automatic" check box beside a spinner: a JCheckBox made with the spinner model's
-	 * {@link DoubleModel#getAutomaticAction()}; its click stores the new state as the action's
-	 * SELECTED_KEY, which sets the automatic flag (DoubleModel.AutomaticActionModel.putValue).
+	 * The "Automatic" check box beside the spinner of @p property: a JCheckBox made with the spinner
+	 * model's {@link DoubleModel#getAutomaticAction()}; its click stores the new state as the action's
+	 * SELECTED_KEY, which sets the automatic flag (DoubleModel.AutomaticActionModel.putValue). A box
+	 * that its panel disabled ({@link AutomaticBoxes}) cannot be clicked: the step fails, as one on a
+	 * disabled button does.
 	 */
-	static Control automatic(DoubleModel model) {
+	static Control automatic(DoubleModel model, String property, AutomaticBoxes boxes) {
 		Action action = model.getAutomaticAction();
 		if (!action.isEnabled()) {
 			throw new IllegalArgumentException("the field has no automatic value");
@@ -234,6 +360,9 @@ final class DialogFields {
 		return new Control() {
 			@Override
 			public void check(boolean checked) {
+				if (!boxes.isEnabled(property)) {
+					throw new IllegalStateException("the check box " + property + "Automatic is disabled");
+				}
 				if (!Boolean.valueOf(checked).equals(action.getValue(Action.SELECTED_KEY))) {
 					action.putValue(Action.SELECTED_KEY, checked);
 				}

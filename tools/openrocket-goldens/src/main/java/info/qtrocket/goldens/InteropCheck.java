@@ -39,6 +39,7 @@ import info.openrocket.core.ServicesForTesting;
 import info.openrocket.core.appearance.DecalImage;
 import info.openrocket.core.database.ComponentPresetDao;
 import info.openrocket.core.database.ComponentPresetDatabase;
+import info.openrocket.core.database.Databases;
 import info.openrocket.core.database.motor.MotorDatabase;
 import info.openrocket.core.database.motor.ThrustCurveMotorSetDatabase;
 import info.openrocket.core.document.OpenRocketDocument;
@@ -49,9 +50,13 @@ import info.openrocket.core.file.GeneralRocketSaver;
 import info.openrocket.core.file.motor.GeneralMotorLoader;
 import info.openrocket.core.logging.Warning;
 import info.openrocket.core.logging.WarningSet;
+import info.openrocket.core.material.Material;
 import info.openrocket.core.motor.MotorDigest;
 import info.openrocket.core.motor.ThrustCurveMotor;
 import info.openrocket.core.plugin.PluginModule;
+import info.openrocket.core.preferences.ApplicationPreferences;
+import info.openrocket.core.rocketcomponent.FinSet;
+import info.openrocket.core.rocketcomponent.NoseCone;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.simulation.FlightData;
@@ -65,7 +70,8 @@ import info.openrocket.core.util.TestRockets;
 
 /**
  * Section 7's interop check (README.md, "Interop check"): OpenRocket reads the design files QtRocket
- * saved (the DISABLED_ test of tests/core/goldens/ork_interop_saves_tests.cpp writes them, named
+ * saved (the DISABLED_ test of tests/core/goldens/ork_interop_saves_tests.cpp writes them, and the
+ * GUI's save the DISABLED_ FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp, named
  * {@code <input>.<form>.ork}, the form being {@code zip-data}, {@code zip-nodata}, {@code plain-data}
  * or {@code plain-nodata}) and gets from each the design it gets from its own save of the same input.
  * <p>
@@ -73,10 +79,15 @@ import info.openrocket.core.util.TestRockets;
  * document's default storage options, and plain XML without simulation data), the thirteen test
  * rockets (loaded from their re-saves; an archive), the eighteen legacy files of tests/data/ork (an
  * archive with simulation data, or plain XML with it where OpenRocket's archive fails: v1.6-apocd) and
- * the two saver-coverage documents (loaded from their re-saves; an archive). Each input is loaded in
- * the environment of its goldens: the harness's (the examples and the coverage documents), the
- * legacy files' ({@link GoldenDumper#legacyInjector}) or the seven motors of TestRockets with no
- * component preset (the test rockets, whose motors are synthetic).
+ * the two saver-coverage documents (loaded from their re-saves; an archive); and the GUI's from-scratch
+ * design ({@value #GUI_INPUT}: the design QtRocket's GUI made from the scenario of
+ * tests/data/goldens/gui/from-scratch and saved with Save as, an archive with the document's default
+ * storage options; the input is OpenRocket's own save of the same scenario, rocket.ork there). Each
+ * input is loaded in the environment of its goldens: the harness's (the examples and the coverage
+ * documents), the legacy files' ({@link GoldenDumper#legacyInjector}), the seven motors of TestRockets
+ * with no component preset (the test rockets, whose motors are synthetic) or that of OpenRocket's GUI
+ * after its start-up ({@link #guiInjector}: the GUI's design, as tools/openrocket-gui-reference loads
+ * it).
  * <p>
  * Per file, with Q OpenRocket's load of QtRocket's save, O its load of the input and OO its load of its
  * own save of O in the same form (the first save of a fresh load, as QtRocket's is):
@@ -88,17 +99,18 @@ import info.openrocket.core.util.TestRockets;
  * <li>for a save with the document's default storage options, O's defaults save the simulation data
  * where QtRocket's did;</li>
  * <li>OpenRocket's re-save of Q (OpenRocketSaver, with the simulation data) is its re-save of OO, byte
- * for byte, but for the lines of {@link #ALLOWED_RESAVE_CHANGES} (decided deviations). Not the
- * committed re-save: OpenRocket's own round trip changes a design (its saver writes the warning type
- * RecoveryHighSpeedDeployment, which its loader reads as Other);</li>
+ * for byte, but for the lines of {@link #ALLOWED_RESAVE_CHANGES} (decided deviations), the ids that the
+ * input does not name numbered on both sides (every id for the GUI's design, whose component ids
+ * QtRocket's GUI drew). Not the committed re-save: OpenRocket's own round trip changes a design (its
+ * saver writes the warning type RecoveryHighSpeedDeployment, which its loader reads as Other);</li>
  * <li>the geometry, mass and aerodynamics documents of Q, written by the harness's dumpers after the
  * re-save and the settling of the automatic dimensions as GoldenDumper writes them, are the goldens,
  * byte for byte, for an example; those of OO for a test rocket (the goldens of a test rocket describe
  * the maker's rocket, which OpenRocket's reload of its re-save changes in fourteen values: README.md,
  * "resave/rocket.ork"), and for a coverage document or a legacy file whose components have the same
  * ids in Q and OO (a loader draws the component ids of the formats 1.0 to 1.8, which store none, and
- * OpenRocket's sums follow them in the last bit; the report lists a comparison it leaves out under
- * "not compared");</li>
+ * OpenRocket's sums follow them in the last bit; the GUI's design has other ids than OpenRocket's save
+ * of the scenario too; the report lists a comparison it leaves out under "not compared");</li>
  * <li>the options of every simulation of Q are those of O (or of OO, where OpenRocket's own save
  * changes them); for an example or a test rocket also, made reproducible as the harness makes them,
  * the options and extensions of the golden simulation documents (and the harness's record of what it
@@ -128,13 +140,23 @@ public final class InteropCheck {
 
 	/** The kinds of the inputs, by the prefixes of their names. */
 	private enum Kind {
-		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE
+		EXAMPLE, TEST_ROCKET, LEGACY, COVERAGE, GUI
 	}
 
 	/**
-	 * An input of the manifest: what OpenRocket loads as the input ({@code source}), the golden simulation
-	 * documents of an example or a test rocket ({@code simulations}, relative to the goldens), and the
-	 * failure of OpenRocket's archive of a legacy file ({@code archiveError}, or null).
+	 * The input of the GUI's from-scratch design, which no manifest lists: the name of QtRocket's save
+	 * (FromScratchInteropSave of tests/gui/exit/from_scratch_exit_tests.cpp).
+	 */
+	private static final String GUI_INPUT = "gui-from-scratch";
+
+	/** OpenRocket's save of the GUI's from-scratch scenario (tools/openrocket-gui-reference), in the goldens. */
+	private static final String GUI_REFERENCE = "gui/from-scratch/rocket.ork";
+
+	/**
+	 * An input of the manifest, or the GUI's from-scratch design: what OpenRocket loads as the input
+	 * ({@code source}), the golden simulation documents of an example or a test rocket ({@code simulations},
+	 * relative to the goldens), and the failure of OpenRocket's archive of a legacy file ({@code archiveError},
+	 * or null).
 	 */
 	private record Input(String name, Kind kind, Path source, List<String> simulations, String archiveError) {
 	}
@@ -253,13 +275,14 @@ public final class InteropCheck {
 		}
 	}
 
-	/** The injectors of the three environments. */
-	private record Injectors(Injector harness, Injector legacy, Injector testRockets) {
+	/** The injectors of the four environments. */
+	private record Injectors(Injector harness, Injector legacy, Injector testRockets, Injector gui) {
 		Injector of(Kind kind) {
 			return switch (kind) {
 				case EXAMPLE, COVERAGE -> harness;
 				case LEGACY -> legacy;
 				case TEST_ROCKET -> testRockets;
+				case GUI -> gui;
 			};
 		}
 	}
@@ -284,7 +307,7 @@ public final class InteropCheck {
 		GoldenDumper.Environment environment = GoldenDumper.bootstrap(a.openrocket.resolve("core"),
 				processDirectory);
 		Injectors injectors = new Injectors(Application.getInjector(), GoldenDumper.legacyInjector(environment),
-				testRocketInjector());
+				testRocketInjector(), guiInjector());
 		Application.setInjector(injectors.harness());
 
 		JsonObject manifest = JsonParser.parseString(Files.readString(a.goldens.resolve("manifest.json")))
@@ -306,7 +329,7 @@ public final class InteropCheck {
 			if (!expected.contains(file)) {
 				Report report = new Report(file);
 				report.failures.add("not checked: the file name (<input>.<form>.ork) names no input of the manifest "
-						+ "with that form, or a second save of one kind");
+						+ "(or " + GUI_INPUT + ") with that form, or a second save of one kind");
 				reports.add(report);
 			}
 		}
@@ -365,10 +388,73 @@ public final class InteropCheck {
 				new PluginModule());
 	}
 
+	/**
+	 * The injector of the GUI's from-scratch design: OpenRocket's GUI after its start-up, in which
+	 * tools/openrocket-gui-reference loaded the design its scenario saved (its README, "How OpenRocket is
+	 * run") and the C++ tests load a save of that scenario (tests/core/goldens/GuiReferenceEnvironment.h):
+	 * no component preset and no motor (the start-up bypasses both databases), and the default component
+	 * materials the start-up stores (SwingPreferences.loadDefaultComponentMaterials, :911-914: Balsa for fin
+	 * sets, Polystyrene for nose cones), with which a new component of the loader starts. The other
+	 * preferences are those of OpenRocket's tests, as for the other inputs and in GuiReferenceEnvironment.h.
+	 */
+	private static Injector guiInjector() {
+		GuiStartupPreferences preferences = new GuiStartupPreferences();
+		ComponentPresetDatabase presets = new ComponentPresetDatabase();
+		ThrustCurveMotorSetDatabase motors = new ThrustCurveMotorSetDatabase();
+		Module overrides = new AbstractModule() {
+			@Override
+			protected void configure() {
+				bind(ApplicationPreferences.class).toInstance(preferences);
+				bind(ComponentPresetDao.class).toInstance(presets);
+				bind(ThrustCurveMotorSetDatabase.class).toInstance(motors);
+				bind(MotorDatabase.class).to(ThrustCurveMotorSetDatabase.class);
+			}
+		};
+		Injector injector = Guice.createInjector(Modules.override(new ServicesForTesting()).with(overrides),
+				new PluginModule());
+		preferences.setDefaultComponentMaterial(FinSet.class, Databases.findMaterial(Material.Type.BULK, "Balsa"));
+		preferences.setDefaultComponentMaterial(NoseCone.class,
+				Databases.findMaterial(Material.Type.BULK, "Polystyrene"));
+		return injector;
+	}
+
+	/**
+	 * OpenRocket's test preferences (ServicesForTesting.PreferencesForTesting, which keep nothing) that keep
+	 * the default component materials (the directory "componentMaterials" of
+	 * ApplicationPreferences.setDefaultComponentMaterial and getDefaultComponentMaterial).
+	 */
+	private static final class GuiStartupPreferences extends ServicesForTesting.PreferencesForTesting {
+		private static final String COMPONENT_MATERIALS = "componentMaterials";
+
+		private final Map<String, String> componentMaterials = new TreeMap<>();
+
+		@Override
+		public String getString(String directory, String key, String defaultValue) {
+			if (COMPONENT_MATERIALS.equals(directory)) {
+				return componentMaterials.getOrDefault(key, defaultValue);
+			}
+			return super.getString(directory, key, defaultValue);
+		}
+
+		@Override
+		public void putString(String directory, String key, String value) {
+			if (!COMPONENT_MATERIALS.equals(directory)) {
+				super.putString(directory, key, value);
+			} else if (value == null) {
+				componentMaterials.remove(key);
+			} else {
+				componentMaterials.put(key, value);
+			}
+		}
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// The inputs and the files
 
-	/** The inputs of the manifest: "inputs" (examples and test rockets), then "resaves.inputs". */
+	/**
+	 * The inputs of the manifest: "inputs" (examples and test rockets), then "resaves.inputs"; and last the
+	 * GUI's from-scratch design, which the manifest does not list.
+	 */
 	private static List<Input> inputs(Arguments a, JsonObject manifest) {
 		List<Input> inputs = new ArrayList<>();
 		for (JsonElement element : manifest.getAsJsonArray("inputs")) {
@@ -393,6 +479,7 @@ public final class InteropCheck {
 					: null;
 			inputs.add(new Input(name, legacy ? Kind.LEGACY : Kind.COVERAGE, source, List.of(), archiveError));
 		}
+		inputs.add(new Input(GUI_INPUT, Kind.GUI, a.goldens.resolve(GUI_REFERENCE), List.of(), null));
 		return inputs;
 	}
 
@@ -416,9 +503,10 @@ public final class InteropCheck {
 	}
 
 	/**
-	 * The saved files of {@code input}: its archive and, for an example, its plain XML without data; for
-	 * a legacy file whose archive OpenRocket cannot save, its plain XML with data instead. A file that
-	 * is missing is a failed report of its own.
+	 * The saved files of {@code input}: its archive (with or without data, as the document's default storage
+	 * options save it; a legacy file's with data) and, for an example, its plain XML without data; for a
+	 * legacy file whose archive OpenRocket cannot save, its plain XML with data instead. A file that is
+	 * missing is a failed report of its own.
 	 */
 	private static List<String> expectedFiles(Input input, Map<String, Path> saves, List<Report> reports) {
 		List<List<String>> choices = new ArrayList<>();
@@ -494,7 +582,10 @@ public final class InteropCheck {
 			if (form.archive()) {
 				checkArchive(input, saved, own, report);
 			}
-			checkResaves(input, idsOf(documentText(originalFile)), qtRocket.document(), ownLoad.document(), report);
+			// The ids of the input that a save keeps; none for the GUI's design, whose ids QtRocket's GUI drew
+			// where the reference's DeterministicUuids drew those of OpenRocket's save.
+			Set<String> inputIds = input.kind() == Kind.GUI ? Set.of() : idsOf(documentText(originalFile));
+			checkResaves(input, inputIds, qtRocket.document(), ownLoad.document(), report);
 			checkGoldenSimulations(a, input, qtRocket.document(), report);
 			checkDumps(a, input, qtRocket, ownLoad, q, oo, report);
 		} catch (Exception e) {
@@ -713,7 +804,7 @@ public final class InteropCheck {
 
 	private static void checkDefaultOptions(Input input, Form form, OpenRocketDocument original, Report report) {
 		// The archives of the examples, the test rockets and the coverage documents are saved with the
-		// document's default storage options.
+		// document's default storage options, and so is the GUI's design (Save as).
 		if (!form.archive() || input.kind() == Kind.LEGACY) {
 			return;
 		}
@@ -1035,8 +1126,10 @@ public final class InteropCheck {
 			expected = dumps(input.name(), ownLoad.document(), new WarningSet());
 			reference = "those of OpenRocket's own save";
 		} else {
+			String drawn = input.kind() == Kind.GUI ? "drawn by QtRocket's GUI, and by DeterministicUuids for "
+					+ "OpenRocket's save of the scenario" : "drawn by the loaders";
 			report.notCompared.add("geometry.json, mass.json and aero.json: the components have other ids than in "
-					+ "OpenRocket's own save (drawn by the loaders), and OpenRocket's sums follow the ids in the last bit");
+					+ "OpenRocket's own save (" + drawn + "), and OpenRocket's sums follow the ids in the last bit");
 			return;
 		}
 		WarningSet warnings = input.kind() == Kind.EXAMPLE ? qtRocket.warnings() : new WarningSet();

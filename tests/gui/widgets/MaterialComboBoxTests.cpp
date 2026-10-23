@@ -2,7 +2,7 @@
 // GroupableAndSearchableComboBox on a MaterialModel).
 //
 // Expectations marked "probe" are OpenRocket's own results, printed by the Java probe of this part
-// (scratchpad probes/m2r2-B4/java/src/probe/B4Probe.java -> b4-probe.out, run on OpenRocket
+// (tools/openrocket-gui-pins/material-combo/probe/B4Probe.java, run on OpenRocket
 // 5f164fd0e with JDK 17): the combo box of a body tube's bulk material over a new rocket's
 // document, after B2's probe additions (the user material "Aardvark resin" in the application's
 // bulk materials, the document materials "Doc foam", set on the tube, and "Zz custom"). A group
@@ -10,7 +10,8 @@
 // " [checked]" when Java draws the check mark on it (containsSelectedItem()), and its items, "[x] "
 // before a checked one. A search is GroupableAndSearchableComboBox.filter() of the text, the rows
 // of its filtered list with Java's check mark before the selected material. The rows are
-// generated from the probe's output (scripts/rows.py).
+// generated from the probe's output (tools/openrocket-gui-pins/material-combo/rows.py, checked
+// by generate.sh material-combo).
 
 #include "QtRocket/gui/widgets/MaterialComboBox.h"
 

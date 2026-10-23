@@ -471,12 +471,9 @@ using FromScratchInteropSave = FromScratchExitGolden;
 //   tools/openrocket-goldens/interop.sh build/<preset>/interop-saves
 // clang-format on
 //
-// InteropCheck (tools/openrocket-goldens) has no input "gui-from-scratch" yet: it reports this
-// save as "not checked", and its exit status is then 1 although the core's saves pass. Until it
-// has one (its source OpenRocket's save of the same scenario,
-// tests/data/goldens/gui/from-scratch/rocket.ork, loaded as the GUI reference's start-up loads
-// it), check the core's saves with interop.sh before this test writes into their directory, or
-// write this save into another directory (--interop-saves=<directory>).
+// InteropCheck (tools/openrocket-goldens) checks this save as its input "gui-from-scratch",
+// against OpenRocket's save of the same scenario (tests/data/goldens/gui/from-scratch/rocket.ork),
+// both loaded in the environment of the GUI reference's start-up.
 TEST_F(FromScratchInteropSave, DISABLED_WritesTheSaveForTheInteropCheck)
 {
     ASSERT_EQ(runScenario(), "");

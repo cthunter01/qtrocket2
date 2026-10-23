@@ -232,6 +232,11 @@ private:
     bool                                m_popup  = false;
 };
 
+TEST(RocketPanelPinsGolden, ComeFromTheGoldensOpenRocket)
+{
+    EXPECT_EQ(Gui::Test::kRocketPanelPinsCommit, "5f164fd0e05d6e188857b0185601293b7a6e9eaf");
+}
+
 TEST_F(RocketPanelGolden, SnapsRotationsAsOpenRocket)
 {
     for (const Gui::Test::SnapRotationPin& pin : Gui::Test::kSnapRotationPins)

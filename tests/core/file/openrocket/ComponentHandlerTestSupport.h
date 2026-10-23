@@ -3,9 +3,8 @@
 // What the tests of the .ork loader's component handlers share: the content of a <rocket>
 // element is read by a ComponentParameterHandler for the rocket of a document as a load starts
 // it, through the test root of HandlerTestSupport.h, and what came of it is printed as the Java
-// probe of tier 9b, part R3 prints it for OpenRocket (HandlerProbe.java under the scratchpad's
-// probes/tier9b-component-handlers; its outputs are the expectations of the case tables).
-// Test-only.
+// probe of tier 9b, part R3 prints it for OpenRocket (HandlerProbe.java; its outputs are the
+// expectations of the case tables). Test-only.
 //
 // What a case gives (runRocketCase()), one line each:
 //

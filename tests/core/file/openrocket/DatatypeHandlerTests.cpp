@@ -42,9 +42,8 @@ using QtRocket::Test::warningTexts;
 
 using Texts = std::vector<std::string>;
 
-// The tables are written by scripts/make_tables.py of the scratchpad's
-// probes/tier9b-document-handlers from the cases (scripts/r4_cases.py) and OpenRocket's answers
-// to them (DocumentProbe.java): do not edit them by hand.
+// The tables are written by make_tables.py of tier 9b, part R4, from the cases (r4_cases.py) and
+// OpenRocket's answers to them (DocumentProbe.java): do not edit them by hand.
 // clang-format off
 // BEGIN GENERATED TABLES DatatypeHandler
 // What OpenRocket makes of each case (DocumentProbe.java of part R4), which QtRocket has to
