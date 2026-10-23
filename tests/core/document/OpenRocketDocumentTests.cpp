@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -28,11 +29,13 @@
 #include "QtRocket/rocket/BodyTube.h"
 #include "QtRocket/rocket/ComponentChangeEvent.h"
 #include "QtRocket/rocket/Decal.h"
+#include "QtRocket/rocket/DesignType.h"
 #include "QtRocket/rocket/FlightConfiguration.h"
 #include "QtRocket/rocket/FlightConfigurationId.h"
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
 #include "QtRocket/simulation/FlightDataType.h"
 #include "QtRocket/simulation/Simulation.h"
 #include "QtRocket/simulation/SimulationConditions.h"
@@ -60,7 +63,9 @@
 // - "DocumentProbe" and "DocumentProbe2": the tier 9 scout's (tier9-scout-document/logs/*.out);
 // - "DocumentProbe3" and "DocumentProbe4": this part's (probes/tier9a-document-d3/logs/*.txt);
 // - "Reenter", "DecalUndo", "DecalUndoFile" and "Files": the review fixes'
-//   (probes/tier9a-fix-document/out/*.txt).
+//   (probes/tier9a-fix-document/out/*.txt);
+// - "X1Probe": milestone 2 run 4's part X1 (tools/openrocket-probes/design-information:
+//   probe/X1Probe.java, its output expected.txt).
 // The expected strings are the lines of those logs. Where this port deviates from OpenRocket by
 // decision, the test says what Java printed.
 //
@@ -77,12 +82,17 @@ using QtRocket::AbstractSimulationExtension;
 using QtRocket::Appearance;
 using QtRocket::AppearanceBuilder;
 using QtRocket::Attachment;
+using QtRocket::AxialStage;
+using QtRocket::BodyTube;
 using QtRocket::BugError;
 using QtRocket::Color;
+using QtRocket::ComponentChangeEvent;
 using QtRocket::ComponentChangeSignal;
 using QtRocket::CustomExpression;
 using QtRocket::Decal;
 using QtRocket::DecalImage;
+using QtRocket::DesignType;
+using QtRocket::designTypeName;
 using QtRocket::DocumentChangeEvent;
 using QtRocket::DocumentPreferences;
 using QtRocket::FileSystemAttachment;
@@ -94,6 +104,7 @@ using QtRocket::Rocket;
 using QtRocket::Simulation;
 using QtRocket::SimulationConditions;
 using QtRocket::SimulationExtension;
+using QtRocket::StageSeparationConfiguration;
 using QtRocket::StorageOptions;
 using QtRocket::UnitGroupId;
 using QtRocket::Test::AlphaDocument;
@@ -482,6 +493,214 @@ TEST(OpenRocketDocumentUndo, TrimmingKeepsTheDescriptionsOfTheStatesThatStay)
     EXPECT_EQ(detail.descriptions.at(50), "E60");
     EXPECT_EQ(alpha.document().getUndoDescription(), "E60");
     EXPECT_FALSE(detail.clean);
+}
+
+// =========================================== the rocket's design information on undo (R3-2)
+
+/// One field of the rocket's design information, as X1Probe edits it: its name, the edit, the
+/// text of its value, and the value before and after the edit.
+struct DesignInformationField
+{
+    std::string_view                          name;
+    std::function<void(Rocket&)>              edit;
+    std::function<std::string(const Rocket&)> value;
+    std::string_view                          initial;
+    std::string_view                          edited;
+};
+
+/// What GoogleTest prints for the field of a test (and ctest's test name): the field's name.
+// NOLINTNEXTLINE(readability-identifier-naming): the name GoogleTest looks for
+void PrintTo(const DesignInformationField& field, std::ostream* out)
+{
+    *out << field.name;
+}
+
+/// The event of an undo or a redo of a rocket edit (X1Probe: "Rocket type=25").
+constexpr int kUndoEventType = ComponentChangeEvent::kUndoChange |
+                               ComponentChangeEvent::kNonFunctionalChange |
+                               ComponentChangeEvent::kTreeChange;
+
+/// A new design's document (OpenRocketDocumentFactory.createNewRocket(), as X1Probe makes it),
+/// with a listener that notes the type of each event of its rocket.
+class OpenRocketDocumentDesignInformationUndo
+  : public ::testing::TestWithParam<DesignInformationField>
+{
+protected:
+    OpenRocketDocumentDesignInformationUndo()
+      : m_document(OpenRocketDocumentFactory::createNewRocket()),
+        m_connection(m_document->getRocket().addComponentChangeListener(
+            [this](const ComponentChangeEvent& event) { m_types.push_back(event.getType()); }))
+    {
+    }
+
+    /// The event types noted since the last call.
+    [[nodiscard]] std::vector<int> takeTypes() { return std::exchange(m_types, {}); }
+
+    std::unique_ptr<OpenRocketDocument>     m_document;
+    std::vector<int>                        m_types;
+    ComponentChangeSignal::ScopedConnection m_connection;
+};
+
+/// The name of the test of a field: the field's name.
+[[nodiscard]] std::string fieldTestName(
+    const ::testing::TestParamInfo<DesignInformationField>& info)
+{
+    return std::string(info.param.name);
+}
+
+// X1Probe of milestone 2 run 4 ("undo and redo of each field"), for each field: "<field> edit:
+// value=<edited> events=[Rocket type=1] undoAvail=true undoDesc=Edit <field> saved=false",
+// "<field> undo: value=<edited> events=[Rocket type=25] redoAvail=true redoDesc=Edit <field>",
+// "<field> redo: value=<edited> events=[Rocket type=25]", but "name undo: value=Rocket". The
+// user's decision R3-2 (a U4 addition, see Rocket.h): the undo restores the designer, the
+// revision, the kit name and the design type as it restores the name; Java's undo keeps them.
+TEST_P(OpenRocketDocumentDesignInformationUndo, IsUndoneAndRedone)
+{
+    const DesignInformationField& field       = GetParam();
+    OpenRocketDocument&           d           = *m_document;
+    Rocket&                       rocket      = d.getRocket();
+    const std::string             description = std::format("Edit {}", field.name);
+    EXPECT_EQ(field.value(rocket), field.initial);
+
+    d.addUndoPosition(description);
+    field.edit(rocket);
+    EXPECT_EQ(field.value(rocket), field.edited);
+    EXPECT_EQ(takeTypes(), std::vector<int>{ComponentChangeEvent::kNonFunctionalChange});
+    EXPECT_TRUE(d.isUndoAvailable());
+    EXPECT_EQ(d.getUndoDescription(), description);
+    EXPECT_FALSE(d.isSaved());
+
+    d.undo();
+    EXPECT_EQ(field.value(rocket), field.initial) << "R3-2: Java's undo keeps the edited value";
+    EXPECT_EQ(takeTypes(), std::vector<int>{kUndoEventType});
+    EXPECT_TRUE(d.isRedoAvailable());
+    EXPECT_EQ(d.getRedoDescription(), description);
+
+    d.redo();
+    EXPECT_EQ(field.value(rocket), field.edited);
+    EXPECT_EQ(takeTypes(), std::vector<int>{kUndoEventType});
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Fields, OpenRocketDocumentDesignInformationUndo,
+    ::testing::Values(
+        DesignInformationField{.name    = "designer",
+                               .edit    = [](Rocket& r) { r.setDesigner("Ann"); },
+                               .value   = [](const Rocket& r) { return r.getDesigner(); },
+                               .initial = "",
+                               .edited  = "Ann"},
+        DesignInformationField{.name    = "revision",
+                               .edit    = [](Rocket& r) { r.setRevision("v2"); },
+                               .value   = [](const Rocket& r) { return r.getRevision(); },
+                               .initial = "",
+                               .edited  = "v2"},
+        DesignInformationField{.name    = "kitName",
+                               .edit    = [](Rocket& r) { r.setKitName("Alpha"); },
+                               .value   = [](const Rocket& r) { return r.getKitName(); },
+                               .initial = "",
+                               .edited  = "Alpha"},
+        DesignInformationField{
+            .name  = "designType",
+            .edit  = [](Rocket& r) { r.setDesignType(DesignType::KIT_BASH); },
+            .value = [](const Rocket& r) { return std::string(designTypeName(r.getDesignType())); },
+            .initial = "ORIGINAL",
+            .edited  = "KIT_BASH"},
+        DesignInformationField{.name    = "name",
+                               .edit    = [](Rocket& r) { r.setName("Renamed"); },
+                               .value   = [](const Rocket& r) { return r.getName(); },
+                               .initial = "Rocket",
+                               .edited  = "Renamed"}),
+    fieldTestName);
+
+/// The design information and the name of @p rocket as X1Probe prints them.
+[[nodiscard]] std::string designInformation(const Rocket& rocket)
+{
+    return std::format("designer='{}' revision='{}' kitName='{}' designType={} name='{}'",
+                       rocket.getDesigner(), rocket.getRevision(), rocket.getKitName(),
+                       designTypeName(rocket.getDesignType()), rocket.getName());
+}
+
+// X1Probe, "all four with the name in one step, two steps of undo". Java prints "designer='Bob'
+// revision='v2' kitName='Alpha' designType=UPSCALE_KIT" after every undo and redo, only the name
+// going from 'Renamed' to 'Rocket' and back; here each step brings its own values back (R3-2).
+TEST(OpenRocketDocumentDesignInformation, EachUndoStepRestoresItsOwnValues)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    OpenRocketDocument& d      = *document;
+    Rocket&             rocket = d.getRocket();
+    d.addUndoPosition("First");
+    rocket.setDesigner("Ann");
+    rocket.setRevision("v2");
+    rocket.setKitName("Alpha");
+    rocket.setDesignType(DesignType::COMMERCIAL_KIT);
+    rocket.setName("Renamed");
+    d.addUndoPosition("Second");
+    rocket.setDesigner("Bob");
+    rocket.setDesignType(DesignType::UPSCALE_KIT);
+    constexpr std::string_view kFirst =
+        "designer='Ann' revision='v2' kitName='Alpha' designType=COMMERCIAL_KIT name='Renamed'";
+    constexpr std::string_view kSecond =
+        "designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Renamed'";
+    EXPECT_EQ(designInformation(rocket), kSecond);
+
+    d.undo();
+    EXPECT_EQ(designInformation(rocket), kFirst);
+    d.undo();
+    EXPECT_EQ(designInformation(rocket),
+              "designer='' revision='' kitName='' designType=ORIGINAL name='Rocket'");
+    d.redo();
+    EXPECT_EQ(designInformation(rocket), kFirst);
+    d.redo();
+    EXPECT_EQ(designInformation(rocket), kSecond);
+}
+
+// ================================== the stage separation copied on first access, and undo
+
+/// The second stage of @p rocket (looked up anew: an undo replaces the components).
+[[nodiscard]] AxialStage& boosterOf(Rocket& rocket)
+{
+    return dynamic_cast<AxialStage&>(rocket.getChild(1));
+}
+
+// X1Probe, "separation copy on first access": the first access to the booster's separation in a
+// flight configuration without one of its own stores a copy of the default (Java's
+// AxialStage.getSeparationConfiguration(); AxialStageConfig does it when its panel is made). That
+// is no change of the document: "saved=true undoAvail=false" after it. An undo to a state from
+// before the access drops the copy, its redo brings it back: "after undo: override kept=false
+// name=Sustainer events=[Rocket type=25]", "after redo: override kept=true name=Renamed".
+TEST(OpenRocketDocumentSeparation, TheCopyOnFirstAccessIsNoChangeOfTheDocument)
+{
+    const std::unique_ptr<OpenRocketDocument> document =
+        OpenRocketDocumentFactory::createNewRocket();
+    OpenRocketDocument& d      = *document;
+    Rocket&             rocket = d.getRocket();
+    rocket.getChild(0).addChild(std::make_unique<BodyTube>());
+    AxialStage& booster = rocket.addChild(std::make_unique<AxialStage>());
+    booster.setName("Booster");
+    booster.addChild(std::make_unique<BodyTube>());
+    booster.getSeparationConfigurations().getDefault().setSeparationEvent(
+        StageSeparationConfiguration::SeparationEvent::BURNOUT);
+    booster.getSeparationConfigurations().getDefault().setSeparationDelay(1.5);
+    const FlightConfigurationId fcid;
+    rocket.createFlightConfiguration(fcid);
+    rocket.setSelectedConfiguration(fcid);
+    d.setSaved(true);
+    d.clearUndo();
+
+    static_cast<void>(booster.getSeparationConfiguration());
+    EXPECT_TRUE(booster.getSeparationConfigurations().containsId(fcid));
+    EXPECT_TRUE(d.isSaved());
+    EXPECT_FALSE(d.isUndoAvailable());
+
+    d.addUndoPosition("Rename");
+    rocket.getChild(0).setName("Renamed");
+    d.undo();
+    EXPECT_FALSE(boosterOf(rocket).getSeparationConfigurations().containsId(fcid));
+    EXPECT_EQ(rocket.getChild(0).getName(), "Sustainer");
+    d.redo();
+    EXPECT_TRUE(boosterOf(rocket).getSeparationConfigurations().containsId(fcid));
+    EXPECT_EQ(rocket.getChild(0).getName(), "Renamed");
 }
 
 // ====================================================== simulations: add, change, remove, undo

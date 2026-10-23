@@ -1,0 +1,35 @@
+== undo and redo of each field
+designer edit: value=Ann events=[Rocket type=1] undoAvail=true undoDesc=Edit designer saved=false
+designer undo: value=Ann events=[Rocket type=25] redoAvail=true redoDesc=Edit designer
+designer redo: value=Ann events=[Rocket type=25]
+revision edit: value=v2 events=[Rocket type=1] undoAvail=true undoDesc=Edit revision saved=false
+revision undo: value=v2 events=[Rocket type=25] redoAvail=true redoDesc=Edit revision
+revision redo: value=v2 events=[Rocket type=25]
+kitName edit: value=Alpha events=[Rocket type=1] undoAvail=true undoDesc=Edit kitName saved=false
+kitName undo: value=Alpha events=[Rocket type=25] redoAvail=true redoDesc=Edit kitName
+kitName redo: value=Alpha events=[Rocket type=25]
+designType edit: value=KIT_BASH events=[Rocket type=1] undoAvail=true undoDesc=Edit designType saved=false
+designType undo: value=KIT_BASH events=[Rocket type=25] redoAvail=true redoDesc=Edit designType
+designType redo: value=KIT_BASH events=[Rocket type=25]
+name edit: value=Renamed events=[Rocket type=1] undoAvail=true undoDesc=Edit name saved=false
+name undo: value=Rocket events=[Rocket type=25] redoAvail=true redoDesc=Edit name
+name redo: value=Renamed events=[Rocket type=25]
+== all four with the name in one step, two steps of undo
+edited: designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Renamed'
+undo 1: designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Renamed' events=[Rocket type=25]
+undo 2: designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Rocket' events=[Rocket type=25]
+redo 1: designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Renamed' events=[Rocket type=25]
+redo 2: designer='Bob' revision='v2' kitName='Alpha' designType=UPSCALE_KIT name='Renamed' events=[Rocket type=25]
+== loadFrom directly
+snapshot: designer='Snapshot' revision='' kitName='' designType=MODIFIED_KIT name='Rocket'
+loaded: designer='After' revision='' kitName='' designType=KIT_BASH name='Rocket' events=[Rocket type=25]
+== separation copy on first access
+before: ids=0 isDefault=false saved=true undoAvail=false
+after: events=[] modIdsUnchanged=true ids=1 contains=true isDefault=false copy=BURNOUT/1.5/200.0 default=BURNOUT/1.5/200.0 sameObject=false saved=true undoAvail=false
+second access same object: true events=[]
+sustainer (stage 0) access: ids before=0
+sustainer ids after=1 events=[]
+snapshot has override: true
+after undo: override kept=false name=Sustainer events=[Rocket type=25]
+after redo: override kept=true name=Renamed events=[Rocket type=25]
+default selected: ids before=1 after=1 isDefaultObject=true events=[]

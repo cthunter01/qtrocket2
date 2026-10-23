@@ -1,0 +1,34 @@
+== material combo (BULK, tube material Doc foam)
+placeholder='Enter the material name'
+selected display='(ud) Doc foam (0.03 g/cm³)'
+Doc foam groups popup:
+  PlaceholderTextField text=''
+  Separator
+  JButton
+  JButton
+highlightedListIdx=-1
+after setSelectedItem(Balsa): tube material=Balsa same object=true
+Balsa groups popup:
+  PlaceholderTextField text=''
+  Separator
+  JButton
+  JButton
+loose: selected display='(ud) Loose (0.123 g/cm³)' index=-1
+Loose groups popup:
+  PlaceholderTextField text=''
+  Separator
+  JButton
+  JButton
+== enum texts (toString)
+AxialMethod.axialOffsetMethods: | Tip of the rocket | Top of the parent component | Middle of the parent component | Bottom of the parent component
+AxialMethod.values: | Tip of the rocket | After the sibling component | Top of the parent component | Middle of the parent component | Bottom of the parent component
+RadiusMethod.choices: | Center of the parent component | Surface of the parent component
+Finish: | Rough (500 µm) | Rough unfinished (250 µm) | Unfinished (150 µm) | Regular paint (60 µm) | Smooth paint (20 µm) | Optimum paint (5 µm) | Aircraft sheet-metal (2 µm) | Finished/polished surface (0.5 µm) | Mirror surface (0 µm)
+CrossSection: | Square | Rounded | Airfoil
+MassComponentType: | Mass Component | Altimeter | Flight Computer | Deployment Charge | Tracker | Payload | Recovery Hardware | Battery
+DeployEvent: | Launch (plus NN seconds) | First ejection charge of this stage | Apogee | Specific altitude during descent | Lower stage separation | Never
+SeparationEvent: | Launch | Current stage motor ignition | Current stage motor burnout | Current stage ejection charge | Upper stage motor ignition | Specific altitude during ascent | Apogee | Specific altitude during descent | Never
+IgnitionEvent: | Automatic (launch or ejection charge) | Launch | First ejection charge of previous stage | First burnout of previous stage | Never
+Transition.Shape: | Conical | Ogive | Ellipsoid | Power series | Parabolic series | Haack series
+DesignType: | ORIGINAL | COMMERCIAL_KIT | CLONE_KIT | UPSCALE_KIT | DOWNSCALE_KIT | MODIFIED_KIT | KIT_BASH
+MaterialGroup: | Metals | Woods | Plastics | Fabrics | Paper Products | Foams | Composites | Fibers | Elastics | Kevlars | Nylons | Other | Custom

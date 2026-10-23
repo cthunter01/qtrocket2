@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OpenRocket logs through slf4j/logback. The probes write their transcripts to standard output, so
+     OpenRocket's own messages go to standard error (the probe's log), its warnings and errors only. -->
+<configuration>
+	<appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+		<target>System.err</target>
+		<encoder>
+			<pattern>[openrocket] %-5level %logger{0}: %msg%n</pattern>
+		</encoder>
+	</appender>
+	<root level="WARN">
+		<appender-ref ref="STDERR"/>
+	</root>
+</configuration>

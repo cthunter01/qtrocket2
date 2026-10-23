@@ -1897,7 +1897,8 @@ TEST_F(LoadFromTest, RestoresTheSnapshotState)
 
     EXPECT_EQ(m_rocket.getModId(), m_snapshotMod) << "undo restores the ids";
     EXPECT_EQ(m_rocket.getReferenceType(), ReferenceType::NOSECONE);
-    EXPECT_EQ(m_rocket.getDesigner(), "After") << "Java's loadFrom() keeps the designer";
+    // The U4 addition R3-2: Java's loadFrom() keeps the designer ("After").
+    EXPECT_EQ(m_rocket.getDesigner(), "") << "loadFrom() restores the designer";
     ASSERT_EQ(m_rocket.getChildCount(), 1U);
     EXPECT_EQ(m_rocket.getStageCount(), 1U);
     EXPECT_NO_THROW(m_rocket.checkComponentStructure());
@@ -1948,6 +1949,88 @@ TEST_F(RocketTest, LoadFromWithUnchangedMassIsNoMassChange)
     EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kUndoChange |
                                     ComponentChangeEvent::kNonFunctionalChange |
                                     ComponentChangeEvent::kTreeChange);
+}
+
+// ---- The design information on undo (the U4 addition R3-2) ----
+
+/// A RocketTest whose designer, revision, kit name and design type are set, copied into a
+/// snapshot and then changed. A second listener notes the designer and the design type the
+/// rocket has while each event is delivered.
+class LoadFromDesignInformationTest : public RocketTest
+{
+protected:
+    LoadFromDesignInformationTest()
+    {
+        m_rocket.setDesigner("Snapshot");
+        m_rocket.setRevision("r1");
+        m_rocket.setKitName("Kit 1");
+        m_rocket.setDesignType(DesignType::MODIFIED_KIT);
+        m_snapshot    = m_rocket.copyRocketWithOriginalId();
+        m_snapshotMod = m_rocket.getModId();
+
+        m_rocket.setDesigner("After");
+        m_rocket.setRevision("r2");
+        m_rocket.setKitName("Kit 2");
+        m_rocket.setDesignType(DesignType::KIT_BASH);
+        m_events.clear();
+        m_watcher = m_rocket.addComponentChangeListener([this](const ComponentChangeEvent&) {
+            m_designerDuringEvent = m_rocket.getDesigner();
+            m_typeDuringEvent     = m_rocket.getDesignType();
+        });
+    }
+
+    std::unique_ptr<Rocket>                 m_snapshot;
+    ModId                                   m_snapshotMod{ModId::zero()};
+    std::string                             m_designerDuringEvent;
+    DesignType                              m_typeDuringEvent{DesignType::ORIGINAL};
+    ComponentChangeSignal::ScopedConnection m_watcher;
+};
+
+// The user's decision R3-2 of 2026-10-22, a U4 addition: loadFrom() (undo, redo) restores the
+// designer, the revision, the kit name and the design type. Java's Rocket.loadFrom() copies none
+// of them: X1Probe of milestone 2 run 4 (tools/openrocket-probes/design-information, "loadFrom
+// directly") printed "loaded: designer='After' ... designType=KIT_BASH" for the same steps.
+TEST_F(LoadFromDesignInformationTest, RestoresTheDesignInformation)
+{
+    m_rocket.loadFrom(*m_snapshot);
+
+    EXPECT_EQ(m_rocket.getDesigner(), "Snapshot");
+    EXPECT_EQ(m_rocket.getRevision(), "r1");
+    EXPECT_EQ(m_rocket.getKitName(), "Kit 1");
+    EXPECT_EQ(m_rocket.getDesignType(), DesignType::MODIFIED_KIT);
+    EXPECT_EQ(m_rocket.getModId(), m_snapshotMod) << "undo restores the ids";
+    // The source keeps its own.
+    EXPECT_EQ(m_snapshot->getDesigner(), "Snapshot");
+    EXPECT_EQ(m_snapshot->getDesignType(), DesignType::MODIFIED_KIT);
+}
+
+// Java's one event of a loadFrom() ("events=[Rocket type=25]" in X1Probe): the four fields add
+// none of their own, and the listeners see them restored.
+TEST_F(LoadFromDesignInformationTest, FiresJavasOneEventWithTheValuesRestored)
+{
+    m_rocket.loadFrom(*m_snapshot);
+
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_events[0].type, ComponentChangeEvent::kUndoChange |
+                                    ComponentChangeEvent::kNonFunctionalChange |
+                                    ComponentChangeEvent::kTreeChange);
+    EXPECT_EQ(m_events[0].source, &m_rocket);
+    EXPECT_EQ(m_designerDuringEvent, "Snapshot");
+    EXPECT_EQ(m_typeDuringEvent, DesignType::MODIFIED_KIT);
+}
+
+// While the rocket is frozen the fields are restored at once; the event waits for the thaw.
+TEST_F(LoadFromDesignInformationTest, WhileFrozenTheFieldsAreRestoredAtOnce)
+{
+    m_rocket.freeze();
+    m_rocket.loadFrom(*m_snapshot);
+    EXPECT_TRUE(m_events.empty());
+    EXPECT_EQ(m_rocket.getKitName(), "Kit 1");
+    EXPECT_EQ(m_rocket.getRevision(), "r1");
+
+    m_rocket.thaw();
+    ASSERT_EQ(m_events.size(), 1U);
+    EXPECT_EQ(m_designerDuringEvent, "Snapshot");
 }
 
 // ---- The document pointer ----

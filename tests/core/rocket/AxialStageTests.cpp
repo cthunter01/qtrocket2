@@ -24,6 +24,7 @@
 #include "QtRocket/rocket/Streamer.h"
 #include "QtRocket/rocket/position/AxialMethod.h"
 #include "QtRocket/util/BugError.h"
+#include "QtRocket/util/ModId.h"
 #include "QtRocket/util/Uuid.h"
 #include "rocket/TestRockets.h"
 
@@ -229,6 +230,95 @@ TEST(AxialStage, SeparationOfTheSelectedConfiguration)
     EXPECT_EQ(stage.getSeparationConfigurations().getDefault().getSeparationEvent(),
               SeparationEvent::EJECTION);
     EXPECT_EQ(&stage.getSeparationConfiguration(), &separation) << "the same one next time";
+}
+
+/// The copy on first access, against X1Probe of milestone 2 run 4
+/// (tools/openrocket-probes/design-information, "separation copy on first access"): a sustainer
+/// and a booster, each with a body tube; the booster's default separation is BURNOUT + 1.5 s; a
+/// second flight configuration is selected. A listener counts the rocket's events.
+class SeparationFirstAccessTest : public ::testing::Test
+{
+protected:
+    SeparationFirstAccessTest()
+      : m_sustainer(&m_rocket.addChild(std::make_unique<AxialStage>())),
+        m_booster(&m_rocket.addChild(std::make_unique<AxialStage>()))
+    {
+        m_sustainer->addChild(std::make_unique<BodyTube>(0.1, 0.02));
+        m_booster->addChild(std::make_unique<BodyTube>(0.1, 0.02));
+        m_rocket.enableEvents();
+        StageSeparationConfiguration& defaults =
+            m_booster->getSeparationConfigurations().getDefault();
+        defaults.setSeparationEvent(SeparationEvent::BURNOUT);
+        defaults.setSeparationDelay(1.5);
+        m_rocket.createFlightConfiguration(m_fcid);
+        m_rocket.setSelectedConfiguration(m_fcid);
+        m_connection = m_rocket.addComponentChangeListener(
+            [this](const ComponentChangeEvent& /*event*/) { m_events++; });
+    }
+
+    [[nodiscard]] const StageSeparationConfiguration& boosterDefault() const
+    {
+        return m_booster->getSeparationConfigurations().getDefault();
+    }
+
+    Rocket                                  m_rocket;
+    AxialStage*                             m_sustainer;
+    AxialStage*                             m_booster;
+    FlightConfigurationId                   m_fcid;
+    int                                     m_events{0};
+    ComponentChangeSignal::ScopedConnection m_connection;
+};
+
+// "after: events=[] modIdsUnchanged=true ids=1 contains=true isDefault=false
+// copy=BURNOUT/1.5/200.0 default=BURNOUT/1.5/200.0 sameObject=false". The core matches Java's
+// AxialStage.getSeparationConfiguration() here; AxialStageConfig (gui/) makes the first access
+// when its panel is made, as Java's panel does.
+TEST_F(SeparationFirstAccessTest, StoresACopyOfTheDefaultQuietly)
+{
+    const QtRocket::ModId modId      = m_rocket.getModId();
+    const QtRocket::ModId functional = m_rocket.getFunctionalModId();
+    EXPECT_EQ(m_booster->getSeparationConfigurations().size(), 0U);
+
+    const StageSeparationConfiguration& copy = m_booster->getSeparationConfiguration();
+
+    EXPECT_EQ(m_events, 0);
+    EXPECT_EQ(m_rocket.getModId(), modId);
+    EXPECT_EQ(m_rocket.getFunctionalModId(), functional);
+    EXPECT_EQ(m_booster->getSeparationConfigurations().getIds(),
+              std::vector<FlightConfigurationId>{m_fcid});
+    EXPECT_FALSE(m_booster->getSeparationConfigurations().isDefault(m_fcid));
+    EXPECT_NE(&copy, &boosterDefault());
+    EXPECT_EQ(copy.getSeparationEvent(), SeparationEvent::BURNOUT);
+    EXPECT_EQ(copy.getSeparationDelay(), 1.5);
+    EXPECT_EQ(copy.getSeparationAltitude(), 200.0);
+    EXPECT_EQ(copy, boosterDefault());
+}
+
+// "second access same object: true events=[]"; "sustainer ids after=1 events=[]": the topmost
+// stage, whose separation no panel shows, gets its copy too (Java does not look at the number).
+TEST_F(SeparationFirstAccessTest, TheNextAccessAndTheTopmostStage)
+{
+    const StageSeparationConfiguration& copy = m_booster->getSeparationConfiguration();
+    EXPECT_EQ(&m_booster->getSeparationConfiguration(), &copy);
+    static_cast<void>(m_sustainer->getSeparationConfiguration());
+    EXPECT_EQ(m_sustainer->getSeparationConfigurations().size(), 1U);
+    EXPECT_EQ(m_events, 0);
+}
+
+// "snapshot has override: true": a copy of the rocket (an undo snapshot) carries the copy;
+// "default selected: ids before=1 after=1 isDefaultObject=true events=[]".
+TEST_F(SeparationFirstAccessTest, ACopyOfTheRocketCarriesItAndTheDefaultConfigurationStoresNone)
+{
+    static_cast<void>(m_booster->getSeparationConfiguration());
+    const std::unique_ptr<Rocket> snapshot = m_rocket.copyRocketWithOriginalId();
+    const auto& snapshotBooster            = dynamic_cast<const AxialStage&>(snapshot->getChild(1));
+    EXPECT_TRUE(snapshotBooster.getSeparationConfigurations().containsId(m_fcid));
+
+    m_rocket.setSelectedConfiguration(FlightConfigurationId::defaultValueId());
+    m_events = 0;
+    EXPECT_EQ(&m_booster->getSeparationConfiguration(), &boosterDefault());
+    EXPECT_EQ(m_booster->getSeparationConfigurations().size(), 1U);
+    EXPECT_EQ(m_events, 0);
 }
 
 // ---- Ported from AxialStageTest.java, on TestRockets.makeFalcon9Heavy()'s shape ----

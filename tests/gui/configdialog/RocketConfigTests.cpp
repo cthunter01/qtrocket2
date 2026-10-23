@@ -290,11 +290,12 @@ TEST_F(RocketConfigTest, TheDialogOfTheRocketShowsTheRows)
     ComponentConfigDialog::disposeDialog();
 }
 
-TEST_F(RocketConfigTest, CancelUndoesTheNameButNotTheDesignInformation)
+TEST_F(RocketConfigTest, CancelUndoesTheNameAndTheDesignInformation)
 {
     // Cancel undoes the session (Rocket::loadFrom()), which restores the components' names and
-    // comments but not the rocket's designer, revision, design type and kit name: Java's
-    // Rocket.loadFrom() copies none of them either.
+    // comments and the rocket's designer, revision, design type and kit name: the user's
+    // decision R3-2, a U4 addition (Java's Rocket.loadFrom() copies none of those four, so
+    // there the design type stays UPSCALE_KIT).
     const ConfigDialogServices services;
     const MassDesign           design;
     QWidget                    window;
@@ -313,16 +314,16 @@ TEST_F(RocketConfigTest, CancelUndoesTheNameButNotTheDesignInformation)
     dialog->configurator().cancelButton().click();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_EQ(design.document->getRocket().getName(), "Rocket");
-    EXPECT_EQ(design.document->getRocket().getDesignType(), DesignType::UPSCALE_KIT);
+    EXPECT_EQ(design.document->getRocket().getDesignType(), DesignType::ORIGINAL);
     // The pending designer was dropped.
     EXPECT_EQ(design.document->getRocket().getDesigner(), "");
 }
 
 TEST_F(RocketConfigTest, AnUndoWhileOpenClosesTheDialogAndDropsThePendingDesigner)
 {
-    // Proved under the asan preset. The rocket outlives the undo (Rocket::loadFrom() keeps it and
-    // does not restore its designer), so a pending designer that the focus loss of the hidden
-    // dialog committed would stay: the dialog's release drops it first.
+    // Proved under the asan preset. The rocket outlives the undo (Rocket::loadFrom() keeps it,
+    // restoring its designer), so a pending designer that the focus loss of the hidden dialog
+    // committed after the undo would stay: the dialog's release drops it first.
     const ConfigDialogServices services;
     const MassDesign           design;
     QWidget                    window;
