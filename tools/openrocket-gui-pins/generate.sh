@@ -20,11 +20,9 @@
 #   actions-rules      the table kTranscripts of tests/gui/main/RocketActionsTests.cpp
 #
 # Every table is written into the work directory first (a spliced test file into a copy of the committed
-# one) and compared with the committed file: an equal table leaves the committed file as it is, another one
-# replaces it. Two families compare apart from the run-to-run noise of the committed tables (README.md,
-# "Reproducibility"): figure-paint the order of shapes of equal display order, of motors and of hit points
-# of the designs the probe builds, rocket-info the last bits (at most 4 units in the last place) of the
-# floating-point values of those designs; such a difference alone leaves the committed table as it is.
+# one) and compared with the committed file byte for byte: an equal table leaves the committed file as it
+# is, another one replaces it. Every family is reproducible (the figure-paint and rocket-info probes seed
+# OpenRocket's UUIDs with shared/probe/DeterministicUuids.java: README.md, "Reproducibility").
 # --check compares only: the exit status is 1 when a table differs. scale-figure, material-binding and
 # material-combo also compare the values tests pin by hand with their hand-pinned.txt, in either mode, and
 # never rewrite it (README.md, "Values pinned by hand").
@@ -270,17 +268,13 @@ format() {
     "${clang_format}" -i --style="file:${repo}/.clang-format" "$1"
 }
 
-# Compares a generated table with the committed one; installs it (unless --check) when they differ.
-#   finish <family> <repository path>
+# Compares a generated table with the committed one, byte for byte; installs it (unless --check) when they
+# differ.
+#   finish <repository path>
 finish() {
-    local family="$1" file="$2"
+    local file="$1"
     local path="${out}/$(basename "${file}")"
-    local -a compare=(cmp -s)
-    case "${family}" in
-    figure-paint) compare=(python3 -I "${here}/${family}/compare_paint_pins.py") ;;
-    rocket-info) compare=(python3 -I "${here}/${family}/compare_info_pins.py") ;;
-    esac
-    if "${compare[@]}" "${repo}/${file}" "${path}"; then
+    if cmp -s "${repo}/${file}" "${path}"; then
         echo "same: ${file}" >&2
     elif [[ "${check}" == true ]]; then
         echo "DIFFERENT: ${file} (the generated one: ${path})" >&2
@@ -402,6 +396,6 @@ for family in "${families[@]}"; do
         format "${spliced}"
         ;;
     esac
-    finish "${family}" "${file}"
+    finish "${file}"
 done
 exit "${status}"

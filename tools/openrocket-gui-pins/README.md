@@ -150,9 +150,10 @@ and encoding, a fresh `java.util.prefs` store and home directory, OpenRocket's b
 (`-Dprobe.motors`) and OpenRocket's log on standard error (`logback.xml`), the transcript on standard output.
 The generator writes the table into the work directory (a spliced test file into a copy of the committed
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
-leaves it as it is, another one replaces it, and `--check` only reports (exit status 1 when a table
-differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`, `GUI_PINS_WORK`; a
-temporary work directory is kept when the script fails). All eleven families take about a minute.
+byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
+when a table differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`,
+`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All eleven families take about a
+minute.
 
 The tables in test code: `scale-figure` replaces the rows of `kFigureRows` (a "clang-format off" block),
 `material-binding` the bodies of `kBulkRows`, `kBulkGroups`, `kLineRows`, `kLineGroups`, `kSurfaceRows` and
@@ -180,27 +181,32 @@ lines of the run-2 transcripts the tests were written from (`b2-probe.out`, `b4-
 
 ## Reproducibility
 
+Every probe prints the same transcript on every run, so every table regenerates byte for byte.
+
 OpenRocket keys hash maps by components, whose `hashCode()` is that of their UUID, and a design a probe
 builds (the `TestRockets` makers, a new design) draws random UUIDs; designs loaded from a file keep the UUIDs
-stored in it. That made two families change from run to run when their tables were written: `figure-paint`
-(for `makeBeta`, the order of the shapes of equal display order, of the two motors and of the hit points
-the probe picks from the painted shapes) and `rocket-info` (the CG and CP are sums over such maps; their
-last bits changed, by up to 2 units in the last place, for `makeFalcon9Heavy` and `makeClusterPods`). Their
-probes now install `DeterministicUuids` (a copy of `tools/openrocket-goldens`') before the first UUID and
-reseed it before each scenario's design, so every run prints the same transcript (3 of 3 runs identical).
+stored in it. Two families print what such maps order: `figure-paint` (for `makeBeta`, the order of the
+shapes of equal display order, of the two motors and of the hit points the probe picks from the painted
+shapes) and `rocket-info` (the CG and CP are sums over such maps; unseeded, their last bits changed from run
+to run, by up to 2 units in the last place, for `makeFalcon9Heavy`, `makeMultiStageEventTestRocket` and
+`makeClusterPods`). Their probes install `DeterministicUuids` in `bootstrap()`, before the first UUID, as
+`tools/openrocket-goldens` does (a seeded `SecureRandom` provider inserted first, which `UUID.randomUUID()`
+then draws from), and reseed it from the scenario's name before each scenario's design, so that a scenario's
+UUIDs depend neither on the run nor on the scenarios before it.
 
-The committed tables are one of the old random runs, and the seeded run is another permutation of them: 36
-lines of `RocketFigurePaintPins.h` (shapes of equal display order and hit points of `beta-side`; the two motors
-keep their committed order, which is QtRocket's) and 30 lines of `RocketInfoPins.h` (17 values of
-`makeFalcon9Heavy` and `makeClusterPods`, 1 unit in the last place apart). So these two families still compare
-apart from that noise (`figure-paint/compare_paint_pins.py`, `rocket-info/compare_info_pins.py`), but only in
-the designs the probes build (`beta-side`, `new-side` and `new-back`; the `testrocket:` scenarios and the
-probe's own `special:` designs): a design loaded from a file is compared byte for byte, its motors in order
-too. A difference of that kind alone leaves the committed table as it is; a real change rewrites the whole
-table, in the seeded order. `rocket_figure_paint_golden_tests.cpp` compares a run of shapes of equal display
-order as a set and looks every hit point up on its own, but compares the motors in order, and
-`rocket_info_golden_tests.cpp` compares the CG and CP within a relative 1e-9, so the seeded order passes both.
-Rewriting the two tables once in the seeded order would let a plain `cmp` replace both comparers.
+Their tables were first written from unseeded runs and rewritten once in the seeded order (the user's
+decision of 2026-10-23): 36 lines of `RocketFigurePaintPins.h` changed (18 out, 18 in: the shapes of equal
+display order and the hit points of `beta-side`; the two motors kept their order) and 30 of `RocketInfoPins.h`
+(15 out, 15 in: 17 values of the three designs above, each 1 unit in the last place). The seeded order is one
+of Java's hash orders, not QtRocket's: `rocket_figure_paint_golden_tests.cpp` compares a run of shapes of
+equal display order as a set and looks every hit point up on its own, and `rocket_info_golden_tests.cpp`
+compares the CG and CP within a relative 1e-9. The figure-paint test compares the motors in order, which holds
+because the seeded order of `makeBeta`'s two motors is QtRocket's; another reseed key, a change of `makeBeta`
+or another OpenRocket commit may swap them, and that test then fails.
+
+The other nine families print nothing such a map orders, and their probes are not seeded: each printed the
+same transcript in two unseeded runs and in four runs seeded with different keys (2026-10-23), where the two
+seeded probes print another transcript for every other key.
 
 ## History
 
@@ -213,7 +219,9 @@ path of the author's machine); OpenRocket's log goes to standard error, so the t
 the generators format with the repository's `.clang-format` wherever they write, name this directory in the
 headers they write and read their probes' sources from it; the two component generators carry the run-2
 amendments of the tables as `EDITS`; `figure-paint` and `rocket-info` seed OpenRocket's UUIDs. Every table
-regenerated as committed (the two families above apart from their noise).
+regenerated as committed, but for those two families, which until then compared apart from the unseeded
+runs' noise (`compare_paint_pins.py`, `compare_info_pins.py`): their tables were rewritten once in the seeded
+order, and they compare byte for byte like the others ("Reproducibility").
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,
