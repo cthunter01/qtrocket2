@@ -48,7 +48,8 @@ class GuiServices;
 ///   platform's "Open" / "Save" title without one), with the name filters (the one asked for
 ///   chosen, else the first), starting in the given directory (the user's home directory without
 ///   one), the proposed name chosen, the accepting button named as asked (the platform's name
-///   without a text); the save dialog does not ask itself whether to overwrite a
+///   without a text); the save dialog answers the name filter chosen in it too (asked again, it
+///   starts with that one), and does not ask itself whether to overwrite a
 ///   file (the caller forces the extension first and asks askOverwrite()), so on macOS, whose
 ///   save panel always asks, it is Qt's own dialog; with a description (the image import's), a
 ///   Qt file dialog with the description beside the files (the JFileChooser accessory); a save
@@ -146,8 +147,9 @@ public:
 
 private:
     /// The file chooser of askSaveFile(), asked again after the warning while the request
-    /// refuses the name chosen; nullopt when it was cancelled (or its parent destroyed).
-    [[nodiscard]] std::optional<OpenFileAnswer> askLegalFileToSave(QWidget*               parent,
+    /// refuses the name chosen: the file, the directory and the name filter chosen (no storage
+    /// option yet); nullopt when it was cancelled (or its parent destroyed).
+    [[nodiscard]] std::optional<SaveFileAnswer> askLegalFileToSave(QWidget*               parent,
                                                                    const SaveFileRequest& request);
 };
 

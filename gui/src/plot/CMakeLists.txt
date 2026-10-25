@@ -4,4 +4,6 @@
 # Each source with its header (${gui_include_dir}/plot/X.h): AUTOMOC reads only the headers listed here.
 target_sources(QtRocket_gui PRIVATE
     PlotColors.cpp ${gui_include_dir}/plot/PlotColors.h
+    PlotExport.cpp ${gui_include_dir}/plot/PlotExport.h
+    PlotInputBindings.cpp ${gui_include_dir}/plot/PlotInputBindings.h
 )

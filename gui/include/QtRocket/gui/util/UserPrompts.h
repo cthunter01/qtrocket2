@@ -241,6 +241,12 @@ public:
         /// The storage option chosen, when the request had one; the caller stores it in the
         /// document's storage options and marks them explicitly set.
         std::optional<bool> saveSimulationData;
+        /// The name filter chosen in the dialog, one of the request's nameFilters (JFileChooser's
+        /// getFileFilter()); empty when the dialog does not tell (the caller then takes the
+        /// first). A plot's export gives a name without the suffix of a kind it writes the
+        /// chosen filter's suffix (PlotExport).
+        // NOLINTNEXTLINE(readability-redundant-member-init): designated initializers omit it
+        QString selectedNameFilter = {};
     };
 
     // ---------------------------------------------- the flight configuration dialogs (M3)

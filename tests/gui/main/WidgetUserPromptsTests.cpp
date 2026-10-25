@@ -678,6 +678,27 @@ struct ChooseFile
     }
 };
 
+/// Records the modal file dialog as it opened, chooses the name filter @p filter in it and then
+/// @p file (ChooseFile).
+struct ChooseFileAs
+{
+    QString         file;
+    QString         filter;
+    FileDialogSeen* seen = nullptr;
+
+    void operator()(QWidget& widget) const
+    {
+        auto* const dialog = qobject_cast<QFileDialog*>(&widget);
+        ASSERT_NE(dialog, nullptr);
+        if (seen != nullptr)
+        {
+            ChooseFile{.file = file, .seen = seen}.record(*dialog);
+        }
+        dialog->selectNameFilter(filter);
+        ChooseFile{.file = file, .seen = nullptr}(widget);
+    }
+};
+
 /// The first action, then arms @p next for the dialog that follows (a question
 /// of two dialogs).
 struct ThenNext
@@ -835,6 +856,12 @@ private:
     const std::optional<UserPrompts::SaveFileAnswer>& answer)
 {
     return answer.has_value() ? answer->directory : std::filesystem::path();
+}
+
+/// The name filter of @p answer, empty without an answer.
+[[nodiscard]] QString nameFilterOf(const std::optional<UserPrompts::SaveFileAnswer>& answer)
+{
+    return answer.has_value() ? answer->selectedNameFilter : QString();
 }
 
 /// The storage option of @p answer, nullopt without an answer.
@@ -1033,6 +1060,57 @@ TEST_F(WidgetFileDialogTest, ASaveThatRefusesIllegalNamesWarnsAndAsksAgain)
     UserPrompts::SaveFileRequest     plain = request;
     plain.refuseIllegalNames               = false;
     EXPECT_EQ(savedFileOf(prompts.askSaveFile(nullptr, plain)).filename(), "x|y.ork");
+}
+
+TEST_F(WidgetFileDialogTest, ASaveAnswersTheNameFilterChosenAndKeepsItWhenAskedAgain)
+{
+    // JFileChooser.getFileFilter() after the save dialog (a plot's export gives the name the
+    // chosen kind's suffix); SaveFileChooser's chooser stays open after "Illegal filename", with
+    // its filter: shown again here, the dialog starts with the filter chosen.
+    WidgetUserPrompts                          prompts;
+    const QString                              png = QStringLiteral("PNG image (*.png)");
+    const QString                              svg = QStringLiteral("SVG files (*.svg)");
+    std::optional<Gui::Test::NextModalDialog>  warning;
+    std::optional<Gui::Test::NextModalDialog>  again;
+    QStringList                                lines;
+    QString                                    title;
+    FileDialogSeen                             first;
+    FileDialogSeen                             second;
+    std::optional<UserPrompts::SaveFileAnswer> answer;
+    const UserPrompts::SaveFileRequest         request{.title              = QString(),
+                                                       .nameFilters        = {png, svg},
+                                                       .directory          = directory().path(),
+                                                       .fileName           = QString(),
+                                                       .saveSimulationData = std::nullopt,
+                                                       .refuseIllegalNames = true};
+    {
+        const Gui::Test::NextModalDialog choose(ThenNext{
+            .first = ChooseFileAs{.file = path("x|y"), .filter = svg, .seen = &first},
+            .second =
+                ThenNext{
+                    .first  = CloseMessage{.lines = &lines, .title = &title},
+                    .second = ChooseFileAs{.file = path("plot"), .filter = svg, .seen = &second},
+                    .next   = &again},
+            .next = &warning});
+        answer = prompts.askSaveFile(nullptr, request);
+    }
+    warning.reset();
+    again.reset();
+    EXPECT_EQ(first.selectedFilter, png);
+    EXPECT_EQ(title, QStringLiteral("Illegal filename"));
+    EXPECT_EQ(second.selectedFilter, svg);
+    ASSERT_TRUE(answer.has_value());
+    EXPECT_EQ(savedFileOf(answer).filename(), "plot");
+    EXPECT_EQ(nameFilterOf(answer), svg);
+
+    // Without filters, none.
+    const Gui::Test::NextModalDialog choose(ChooseFile{.file = path("plain"), .seen = nullptr});
+    UserPrompts::SaveFileRequest     plain = request;
+    plain.nameFilters.clear();
+    const std::optional<UserPrompts::SaveFileAnswer> unfiltered =
+        prompts.askSaveFile(nullptr, plain);
+    ASSERT_TRUE(unfiltered.has_value());
+    EXPECT_TRUE(nameFilterOf(unfiltered).isEmpty());
 }
 
 TEST_F(WidgetUserPromptsTest, TheIllegalNameTextPutsInTheNameAsItIs)
