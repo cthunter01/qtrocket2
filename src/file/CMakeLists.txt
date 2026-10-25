@@ -76,6 +76,7 @@ target_sources(QtRocket_core PRIVATE
     openrocket/WarningHandler.cpp
     openrocket/WindHandler.cpp
     preset/JaxbLexical.cpp
+    preset/OpenRocketComponentLoader.cpp
     preset/OrcDocument.cpp
     preset/OrcElement.cpp
     simplesax/AbstractElementHandler.cpp

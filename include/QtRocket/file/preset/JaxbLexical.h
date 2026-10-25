@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 /// How JAXB reads the text of an element of an .orc component preset file into the fields of
 /// OpenRocket's DTOs (info.openrocket.core.preset.xml): a double or Double, an Integer, a Boolean,
@@ -19,7 +20,8 @@
 /// element hands over, and how the readings of several texts and several elements combine into
 /// the value a field ends up with. A text that a function rejects is a recoverable error for JAXB:
 /// it reports it to nobody (OpenRocket installs no event handler), and the field keeps the value
-/// it had. The functions take UTF-8 text and never throw.
+/// it had. The functions take UTF-8 text and never throw. parseBase64Binary() is the byte[] of a
+/// <Thumbnail>, which OpenRocket reads through its own Base64Adapter.
 namespace QtRocket::JaxbLexical
 {
 
@@ -106,5 +108,24 @@ enum class ParsedBoolean
 /// null: [61], [62], [S01] to [S04], [XS04]).
 [[nodiscard]] std::optional<std::size_t> parseEnum(
     std::string_view text, std::span<const std::string_view> names) noexcept;
+
+/// The bytes of a base64 text as OpenRocket's Base64Adapter reads a <Thumbnail> (JAXB's
+/// DatatypeConverter.parseBase64Binary()), or nullopt when it rejects the text (an exception to
+/// JAXB, which reports it to nobody; the field keeps the value it had):
+/// - A text with a character beyond U+007F is rejected ([XH32]), and so is one whose length is
+///   not a multiple of four; the text is not trimmed, so "Q", "QQ", "QQ=", "QUJD=", "QU=JD",
+///   " QUJD ", "aGVsbG8" and "aGVsbG8=" with a line feed after it are all rejected ([76],
+///   [XH00] to [XH02], [XH05] to [XH07], [XH10] to [XH12], [XH28], [XH34]).
+/// - Otherwise the characters 'A' to 'Z', 'a' to 'z', '0' to '9', '+' and '/' (the values 0 to
+///   63) and the padding '=' are taken in groups of four, and every other character is skipped,
+///   so "QU D", "QU!D" and "-_-_" make no group and give zero bytes, as an empty text does
+///   ([XH03], [XH25] to [XH27]). A group a, b, c, d gives the byte a << 2 | b >> 4, then
+///   b << 4 | c >> 2 unless c is a padding, then c << 6 | d unless d is a padding, each the low
+///   eight bits of its value, where a padding counts as 127: "QUJD" is 41 42 43, "QQ==" 41,
+///   "QUI=" 41 42, "====" ff, "Q===" 47, "=QUJ" fd 05 09, "QU=D" 41 c3 ([75], [XH04], [XH08],
+///   [XH09], [XH13] to [XH19], [XH22] to [XH24], [XH29] to [XH31], [XH35], [XH36]). A padding
+///   ends nothing ("QQ==QUJD" is 41 41 42 43, "QUJD====" 41 42 43 ff: [XH20], [XH21], [XH33]),
+///   and the characters after the last full group are dropped.
+[[nodiscard]] std::optional<std::vector<std::byte>> parseBase64Binary(std::string_view text);
 
 }  // namespace QtRocket::JaxbLexical

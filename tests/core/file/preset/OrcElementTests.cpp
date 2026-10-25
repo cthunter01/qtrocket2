@@ -1,5 +1,6 @@
 #include "QtRocket/file/preset/OrcElement.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -217,6 +218,22 @@ TEST(OrcElement, IgnoresPropertiesInANamespace)
         parsed(R"(<r xmlns:q="urn:q"><q:s>a</q:s><s xmlns="urn:x">b</s><q:i>6</q:i></r>)");
     EXPECT_EQ(document.root().stringProperty("s"), std::nullopt);
     EXPECT_EQ(document.root().integerProperty("i"), std::nullopt);
+}
+
+TEST(OrcElement, ReadsTheLastBase64TextThatDecodes)
+{
+    // [75], [XH03]: the thumbnail's image; a rejected text leaves an earlier value, as for an
+    // Integer (the probe has one element with one text only).
+    const OrcDocument document = parsed(
+        "<r><t>QUJD</t><t>QQ</t><u></u><v>QQ</v><w>QQ==<b/>!!!</w><x xmlns=\"urn:x\">QUJD</x></r>");
+    const OrcElement             root = document.root();
+    const std::vector<std::byte> abc{std::byte{0x41}, std::byte{0x42}, std::byte{0x43}};
+    EXPECT_EQ(root.base64BinaryProperty("t"), abc);
+    EXPECT_EQ(root.base64BinaryProperty("u"), std::vector<std::byte>{});
+    EXPECT_EQ(root.base64BinaryProperty("v"), std::nullopt);
+    EXPECT_EQ(root.base64BinaryProperty("w"), std::vector<std::byte>{std::byte{0x41}});
+    EXPECT_EQ(root.base64BinaryProperty("x"), std::nullopt);
+    EXPECT_EQ(root.base64BinaryProperty("none"), std::nullopt);
 }
 
 }  // namespace

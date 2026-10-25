@@ -2,10 +2,13 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -209,6 +212,81 @@ TEST(JaxbLexical, EnumsMatchTheirNamesExactly)
          {" OGIVE ", "\nOGIVE\n", "OGIVE\u00A0", "Ogive", "ogive", "BLUNT", "", "OGIVE "})
     {
         EXPECT_EQ(JaxbLexical::parseEnum(text, kShapes), std::nullopt) << '[' << text << ']';
+    }
+}
+
+/// The bytes @p values, for comparing with parseBase64Binary().
+[[nodiscard]] std::vector<std::byte> bytesOf(std::initializer_list<unsigned int> values)
+{
+    std::vector<std::byte> bytes;
+    for (const unsigned int value : values)
+    {
+        bytes.push_back(static_cast<std::byte>(value));
+    }
+    return bytes;
+}
+
+TEST(JaxbLexical, Base64TakesGroupsOfFourCharacters)
+{
+    using Bytes = std::optional<std::vector<std::byte>>;
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("aGVsbG8="),
+              Bytes(bytesOf({0x68, 0x65, 0x6c, 0x6c, 0x6f})));                  // [75]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary(""), Bytes(bytesOf({})));          // [XH03]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QQ=="), Bytes(bytesOf({0x41})));  // [XH04]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJD"),
+              Bytes(bytesOf({0x41, 0x42, 0x43})));  // [XH09]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("4pyI"),
+              Bytes(bytesOf({0xe2, 0x9c, 0x88})));                                    // [XH13]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QU=="), Bytes(bytesOf({0x41})));        // [XH14]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUI="), Bytes(bytesOf({0x41, 0x42})));  // [XH15]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJDQQ=="),
+              Bytes(bytesOf({0x41, 0x42, 0x43, 0x41})));                           // [XH16]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("AAAA"), Bytes(bytesOf({0, 0, 0})));  // [XH22]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("////"),
+              Bytes(bytesOf({0xff, 0xff, 0xff})));  // [XH23]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("++++"),
+              Bytes(bytesOf({0xfb, 0xef, 0xbe})));                              // [XH24]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("AA=="), Bytes(bytesOf({0x00})));  // [XH31]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJDQUJD"),
+              Bytes(bytesOf({0x41, 0x42, 0x43, 0x41, 0x42, 0x43})));                  // [XH33]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QR=="), Bytes(bytesOf({0x41})));        // [XH35]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUK="), Bytes(bytesOf({0x41, 0x42})));  // [XH36]
+}
+
+TEST(JaxbLexical, Base64PaddingsCountAs127AndEndNothing)
+{
+    using Bytes = std::optional<std::vector<std::byte>>;
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("===="), Bytes(bytesOf({0xff})));  // [XH08]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("Q==="), Bytes(bytesOf({0x47})));  // [XH17]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("=QUJ"),
+              Bytes(bytesOf({0xfd, 0x05, 0x09})));                                    // [XH18]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QU=D"), Bytes(bytesOf({0x41, 0xc3})));  // [XH19]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QQ==QUJD"),
+              Bytes(bytesOf({0x41, 0x41, 0x42, 0x43})));  // [XH20]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJD===="),
+              Bytes(bytesOf({0x41, 0x42, 0x43, 0xff})));                              // [XH21]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QQ=A"), Bytes(bytesOf({0x41, 0xc0})));  // [XH29]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("A==="), Bytes(bytesOf({0x07})));        // [XH30]
+}
+
+TEST(JaxbLexical, Base64SkipsOtherCharactersAndDropsAnIncompleteGroup)
+{
+    using Bytes = std::optional<std::vector<std::byte>>;
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("-_-_"), Bytes(bytesOf({})));  // [XH25]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QU!D"), Bytes(bytesOf({})));  // [XH26]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QU D"), Bytes(bytesOf({})));  // [XH27]
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJD QU!D"), std::nullopt);
+    EXPECT_EQ(JaxbLexical::parseBase64Binary("QUJD!QUJ"), Bytes(bytesOf({0x41, 0x42, 0x43})));
+}
+
+TEST(JaxbLexical, Base64RejectsALengthThatIsNoMultipleOfFourAndNonAsciiCharacters)
+{
+    // [76], [XH00] to [XH02], [XH05] to [XH07], [XH10] to [XH12], [XH28], [XH32], [XH34].
+    for (const std::string_view text :
+         {"!!!", "aGVsbG8", "aGVs bG8=", "aGVsbG8=\n", "QQ", "Q", "aGV!sbG8=", " QUJD ",
+          "QUJD=", "QU=JD", "QQ=", "QUJ\u00E9", "QUJD\tQUJD", "\u00E9\u00E9"})
+    {
+        EXPECT_EQ(JaxbLexical::parseBase64Binary(text), std::nullopt) << '[' << text << ']';
     }
 }
 

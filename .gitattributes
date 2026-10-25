@@ -25,3 +25,7 @@ tests/data/cli/crlf-lines.txt -text
 # byte for byte as OpenRocket ships them: their SHA-256 are pinned (bundled_preset_files_tests.cpp,
 # tests/data/goldens/manifest.json), so git must never convert their line ends.
 data/components/** -text
+
+# The .orc fixtures of the component preset loader's tests (tests/data/presets/README.md): the probe
+# tools/openrocket-probes/orc-loader prints the size and the SHA-256 of each, which the tests pin.
+tests/data/presets/** -text

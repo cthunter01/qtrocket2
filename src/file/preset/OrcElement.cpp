@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "OrcNodes.h"
@@ -200,6 +201,22 @@ std::optional<bool> OrcElement::booleanProperty(std::string_view name) const
         for (const std::string& text : child.texts())
         {
             value = readBoolean(value, text);
+        }
+    }
+    return value;
+}
+
+std::optional<std::vector<std::byte>> OrcElement::base64BinaryProperty(std::string_view name) const
+{
+    std::optional<std::vector<std::byte>> value;
+    for (const OrcElement& child : children(name))
+    {
+        for (const std::string& text : child.texts())
+        {
+            if (std::optional<std::vector<std::byte>> read = JaxbLexical::parseBase64Binary(text))
+            {
+                value = std::move(read);
+            }
         }
     }
     return value;

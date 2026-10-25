@@ -120,6 +120,14 @@ public:
     /// any of them that JaxbLexical::parseBoolean() does not reject makes of it, nullopt for null.
     [[nodiscard]] std::optional<bool> booleanProperty(std::string_view name) const;
 
+    /// A byte[] field bound to the child elements named @p name through OpenRocket's
+    /// Base64Adapter (BaseComponentDTO's Thumbnail): the last value any text of any of them gives
+    /// (JaxbLexical::parseBase64Binary()), or nullopt (null) when none gives one. As for an
+    /// Integer, a text the adapter rejects leaves the value an earlier text gave; the probe has a
+    /// single element with a single text only ([75], [76], [XH00] to [XH36]).
+    [[nodiscard]] std::optional<std::vector<std::byte>> base64BinaryProperty(
+        std::string_view name) const;
+
 private:
     friend class OrcDocument;
 

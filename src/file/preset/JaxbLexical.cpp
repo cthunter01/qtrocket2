@@ -1,12 +1,14 @@
 #include "QtRocket/file/preset/JaxbLexical.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
 #include <span>
 #include <string_view>
+#include <vector>
 
 #include "QtRocket/util/Strings.h"
 
@@ -24,6 +26,44 @@ namespace
 
 /// The largest code point a single UTF-16 unit holds.
 constexpr char32_t kLastBmpCodePoint = 0xFFFF;
+
+/// The value a base64 padding '=' has in parseBase64Binary()'s arithmetic.
+constexpr std::uint32_t kBase64Padding = 127;
+
+/// The value of the base64 character @p c (0 to 63, kBase64Padding for '='), or nullopt for a
+/// character parseBase64Binary() skips.
+[[nodiscard]] constexpr std::optional<std::uint32_t> base64Value(char c) noexcept
+{
+    if (c >= 'A' && c <= 'Z')
+    {
+        return static_cast<std::uint32_t>(c - 'A');
+    }
+    if (c >= 'a' && c <= 'z')
+    {
+        return static_cast<std::uint32_t>(c - 'a') + 26U;
+    }
+    if (c >= '0' && c <= '9')
+    {
+        return static_cast<std::uint32_t>(c - '0') + 52U;
+    }
+    switch (c)
+    {
+        case '+':
+            return 62U;
+        case '/':
+            return 63U;
+        case '=':
+            return kBase64Padding;
+        default:
+            return std::nullopt;
+    }
+}
+
+/// The low eight bits of @p value.
+[[nodiscard]] constexpr std::byte lowByte(std::uint32_t value) noexcept
+{
+    return static_cast<std::byte>(value & 0xFFU);
+}
 
 }  // namespace
 
@@ -159,6 +199,46 @@ std::optional<std::size_t> parseEnum(std::string_view                  text,
         return std::nullopt;
     }
     return static_cast<std::size_t>(found - names.begin());
+}
+
+std::optional<std::vector<std::byte>> parseBase64Binary(std::string_view text)
+{
+    constexpr unsigned char kFirstNonAscii = 0x80;
+    if (text.size() % 4 != 0 || std::ranges::any_of(text, [](char c) {
+            return static_cast<unsigned char>(c) >= kFirstNonAscii;
+        }))
+    {
+        return std::nullopt;
+    }
+    std::vector<std::byte> bytes;
+    bytes.reserve(text.size() / 4 * 3);
+    std::array<std::uint32_t, 4> group{};
+    std::size_t                  filled = 0;
+    for (const char c : text)
+    {
+        const std::optional<std::uint32_t> value = base64Value(c);
+        if (!value)
+        {
+            continue;
+        }
+        group.at(filled) = *value;
+        filled++;
+        if (filled < group.size())
+        {
+            continue;
+        }
+        bytes.push_back(lowByte((group[0] << 2U) | (group[1] >> 4U)));
+        if (group[2] != kBase64Padding)
+        {
+            bytes.push_back(lowByte((group[1] << 4U) | (group[2] >> 2U)));
+        }
+        if (group[3] != kBase64Padding)
+        {
+            bytes.push_back(lowByte((group[2] << 6U) | group[3]));
+        }
+        filled = 0;
+    }
+    return bytes;
 }
 
 }  // namespace QtRocket::JaxbLexical

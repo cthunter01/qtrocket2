@@ -6,7 +6,7 @@
 // conversion (an inch is 0.0254 m); the tests pin the numbers as they are written in the document,
 // before that conversion, which is OpenRocketComponentLoader's. What the loader then does (the
 // units, the materials, the presets and the failures that are Java exceptions: "THROWS ...") is
-// pinned with it.
+// pinned in orc_loader_edge_case_tests.cpp.
 
 #include <array>
 #include <cmath>
