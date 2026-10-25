@@ -115,6 +115,7 @@ add_executable(QtRocket_core_tests
     motor/IgnitionEventTests.cpp
     motor/ManufacturerTests.cpp
     motor/MotorConfigurationIdTests.cpp
+    motor/MotorCorrelationTests.cpp
     motor/MotorDigestTests.cpp
     motor/MotorTests.cpp
     motor/SqliteMotorDatabaseReaderTests.cpp
