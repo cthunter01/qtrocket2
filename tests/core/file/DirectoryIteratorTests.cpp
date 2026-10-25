@@ -40,6 +40,11 @@ using QtRocket::Test::TempDir;
     return true;
 }
 
+[[nodiscard]] bool isOrcFile(const std::filesystem::path& file)
+{
+    return file.extension() == ".orc";
+}
+
 TEST(DirectoryIterator, WalksDepthFirstInTheOrderOfTheUtf8Names)
 {
     const TempDir tempDir;
@@ -164,6 +169,81 @@ TEST(DirectoryIterator, RecordsADirectoryBelowItCannotListAndGoesOn)
     ASSERT_EQ(listing.problems.size(), 1U);
     EXPECT_EQ(listing.problems.front().directory, closed);
     EXPECT_EQ(listing.problems.front().error.code, ErrorCode::IO);
+}
+
+TEST(DirectoryIterator, EndsAWalkAtItsBoundOfFiles)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.write("a/1.orc", "x"));
+    static_cast<void>(tempDir.write("a/2.orc", "x"));
+    static_cast<void>(tempDir.write("b.orc", "x"));
+    static_cast<void>(tempDir.write("c.orc", "x"));
+    static_cast<void>(tempDir.write("skipped.txt", "x"));
+
+    // As many files as the bound: no problem.
+    const DirectoryIterator::Listing all =
+        DirectoryIterator::listFiles(tempDir.path(), isOrcFile, {.files = 4});
+    EXPECT_TRUE(all.problems.empty());
+    EXPECT_EQ(all.files.size(), 4U);
+
+    // One more is a problem for the directory the walk started from, which ends there; the files
+    // the filter refuses do not count.
+    const DirectoryIterator::Listing bounded =
+        DirectoryIterator::listFiles(tempDir.path(), isOrcFile, {.files = 3});
+    EXPECT_EQ(relativeNames(bounded.files, tempDir.path()),
+              (std::vector<std::string>{"a/1.orc", "a/2.orc", "b.orc"}));
+    ASSERT_EQ(bounded.problems.size(), 1U);
+    EXPECT_EQ(bounded.problems.front().directory, tempDir.path());
+    EXPECT_EQ(bounded.problems.front().error.code, ErrorCode::UNSUPPORTED_FORMAT);
+    EXPECT_EQ(
+        bounded.problems.front().error.message,
+        QtRocket::pathToUtf8(tempDir.path()) + " holds more than 3 files; the first 3 were taken");
+
+    // The bound is reached in a subdirectory: the walk ends there too.
+    const DirectoryIterator::Listing inside =
+        DirectoryIterator::listFiles(tempDir.path(), isOrcFile, {.files = 1});
+    EXPECT_EQ(relativeNames(inside.files, tempDir.path()), std::vector<std::string>{"a/1.orc"});
+    EXPECT_EQ(inside.problems.size(), 1U);
+
+    // No file at all, then.
+    const DirectoryIterator::Listing none =
+        DirectoryIterator::listFiles(tempDir.path(), isOrcFile, {.files = 0});
+    EXPECT_TRUE(none.files.empty());
+    EXPECT_EQ(none.problems.size(), 1U);
+}
+
+TEST(DirectoryIterator, EntersDirectoriesDownToItsBoundOfDepth)
+{
+    const TempDir tempDir;
+    static_cast<void>(tempDir.write("0.orc", "x"));
+    static_cast<void>(tempDir.write("a/1.orc", "x"));
+    static_cast<void>(tempDir.write("a/b/2.orc", "x"));
+    static_cast<void>(tempDir.write("a/b/c/3.orc", "x"));
+    static_cast<void>(tempDir.write("z/1.orc", "x"));
+
+    const DirectoryIterator::Listing deep =
+        DirectoryIterator::listFiles(tempDir.path(), acceptAll, {.depth = 3});
+    EXPECT_TRUE(deep.problems.empty());
+    EXPECT_EQ(deep.files.size(), 5U);
+
+    // Depth 1: the directory and the directories in it; a/b is not entered, with a problem for
+    // it, and the walk goes on with z.
+    const DirectoryIterator::Listing shallow =
+        DirectoryIterator::listFiles(tempDir.path(), acceptAll, {.depth = 1});
+    EXPECT_EQ(relativeNames(shallow.files, tempDir.path()),
+              (std::vector<std::string>{"0.orc", "a/1.orc", "z/1.orc"}));
+    ASSERT_EQ(shallow.problems.size(), 1U);
+    EXPECT_EQ(shallow.problems.front().directory, tempDir.resolve("a") / "b");
+    EXPECT_EQ(shallow.problems.front().error.code, ErrorCode::UNSUPPORTED_FORMAT);
+    EXPECT_EQ(shallow.problems.front().error.message,
+              QtRocket::pathToUtf8(tempDir.resolve("a") / "b") +
+                  " is more than 1 directories deep; it was not searched");
+
+    // Depth 0: the directory alone.
+    const DirectoryIterator::Listing flat =
+        DirectoryIterator::listFiles(tempDir.path(), acceptAll, {.depth = 0});
+    EXPECT_EQ(relativeNames(flat.files, tempDir.path()), std::vector<std::string>{"0.orc"});
+    EXPECT_EQ(flat.problems.size(), 2U);
 }
 
 TEST(DirectoryIterator, FindsTheBundledPresetFilesInTheManifestsOrder)

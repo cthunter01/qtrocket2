@@ -6,6 +6,7 @@
 # EXPECT_*), and pugixml and nlohmann_json (the golden data). Listed per subsystem in the same order as src/.
 add_library(QtRocket_test_support STATIC
     rocket/preset/ExamplePresets.cpp
+    rocket/preset/TestPresetDatabase.cpp
     rocket/TestRockets.cpp
     aero/BarrowmanTestRockets.cpp
     simulation/extension/example/ExtensionFlightSupport.cpp
@@ -27,6 +28,7 @@ add_library(QtRocket_test_support STATIC
     goldens/GoldenGeometry.cpp
     goldens/GoldenGuiReference.cpp
     goldens/GoldenMismatches.cpp
+    goldens/GoldenPresets.cpp
     goldens/GoldenResaves.cpp
     goldens/GoldenSettings.cpp
     goldens/GoldenSimulations.cpp
@@ -167,6 +169,7 @@ add_executable(QtRocket_core_tests
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp
     rocket/preset/example_presets_tests.cpp
+    rocket/preset/test_preset_database_tests.cpp
     rocket/preset/TypedPropertyMapTests.cpp
     rocket/RadiusMethodTests.cpp
     rocket/RadiusRingComponentTests.cpp
@@ -408,6 +411,7 @@ add_executable(QtRocket_core_tests
     file/openrocket/WarningHandlerTests.cpp
     file/openrocket/WindHandlerTests.cpp
     file/preset/bundled_preset_files_tests.cpp
+    file/preset/ComponentPresetDatabaseLoaderTests.cpp
     file/preset/JaxbLexicalTests.cpp
     file/preset/OpenRocketComponentLoaderTests.cpp
     file/preset/orc_edge_case_tests.cpp
@@ -480,6 +484,7 @@ add_executable(QtRocket_core_tests
     goldens/ork_interop_saves_tests.cpp
     goldens/ork_resave_diff_golden_tests.cpp
     goldens/ork_roundtrip_golden_tests.cpp
+    goldens/preset_golden_tests.cpp
     goldens/resave_golden_tests.cpp
     goldens/simulation_golden_tests.cpp
     goldens/simulation_stable_golden_tests.cpp

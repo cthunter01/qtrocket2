@@ -686,5 +686,6 @@
    {"name": "coverage-kitchen-sink", "kind": "coverage", "source": "info.qtrocket.goldens.CoverageDocuments.kitchenSink()", "sourceSha256": null, "saveSimulationData": false, "resave": "coverage-kitchen-sink/resave/rocket.ork"},
    {"name": "coverage-stored-flight", "kind": "coverage", "source": "info.qtrocket.goldens.CoverageDocuments.storedFlight()", "sourceSha256": null, "saveSimulationData": true, "resave": "coverage-stored-flight/resave/rocket.ork"}
   ]
- }
+ },
+ "presets": {"json": "presets/presets.json", "sha256": "aee114e4c516d3829d2aeecd2b380e00435696ec549eb148a1157f13e11374f2", "fileCount": 31, "presetCount": 5231, "databaseCount": 5228}
 }

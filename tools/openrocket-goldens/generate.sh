@@ -2,6 +2,11 @@
 # Regenerates tests/data/goldens from a local OpenRocket checkout. See README.md.
 #
 #   tools/openrocket-goldens/generate.sh [--only <input name>]...
+#   tools/openrocket-goldens/generate.sh --presets
+#
+# "--presets" runs PresetDumper alone: it rewrites presets/presets.json, the preset golden, and its entry in
+# manifest.json (which must have one), and nothing else; a full run writes the same bytes. The environment
+# variables of the scratch dumps (STABLE_EXAMPLES, UUID_SALT, LAST_BIT) do not change it and are refused with it.
 #
 # Environment:
 #   OPENROCKET_DIR   the OpenRocket checkout (default: "openrocket" next to the QtRocket repository)
@@ -34,11 +39,20 @@ set -euo pipefail
 # replace what this script checks (the output directory, the salt, the perturbation, the examples'
 # stable-step set).
 only=()
+presets_only=false
+usage() {
+    echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
+    echo "       $(basename "${BASH_SOURCE[0]}") --presets" >&2
+    echo "       (see the head of the script for the environment variables)" >&2
+    exit 2
+}
+if [[ $# == 1 && "$1" == --presets ]]; then
+    presets_only=true
+    shift
+fi
 while (($# > 0)); do
     if [[ "$1" != --only || $# -lt 2 || -z "$2" || "$2" == --* ]]; then
-        echo "usage: $(basename "${BASH_SOURCE[0]}") [--only <input name>]..." >&2
-        echo "       (see the head of the script for the environment variables)" >&2
-        exit 2
+        usage
     fi
     only+=(--only "$2")
     shift 2
@@ -120,6 +134,10 @@ documents | full | none) ;;
     exit 2
     ;;
 esac
+if [[ "$presets_only" == true && ( -n "$uuid_salt" || -n "$last_bit" || "$stable_examples" != documents ) ]]; then
+    echo "error: --presets writes the preset golden alone; UUID_SALT, LAST_BIT and STABLE_EXAMPLES do not apply" >&2
+    exit 2
+fi
 # What makes a dump that is never the committed data.
 scratch_only=()
 if [[ -n "$uuid_salt" ]]; then
@@ -155,6 +173,13 @@ mkdir -p "$out" "$work"
 out="$(cd "$out" && pwd)"
 
 # A fixed locale, time zone and encoding; headless AWT (OpenRocket's core touches java.awt.geom).
+if [[ "$presets_only" == true ]]; then
+    "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
+        -Dfile.encoding=UTF-8 \
+        -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.PresetDumper \
+        --openrocket "$openrocket" --out "$out"
+    exit 0
+fi
 "$java" -Djava.awt.headless=true -Duser.language=en -Duser.country=US -Duser.timezone=UTC \
     -Dfile.encoding=UTF-8 \
     -cp "$(cat "$here/build/goldens-classpath.txt")" info.qtrocket.goldens.GoldenDumper \
