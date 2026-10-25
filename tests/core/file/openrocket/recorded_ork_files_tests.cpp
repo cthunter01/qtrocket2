@@ -38,15 +38,16 @@
 // every flight configuration with every stage active, and the length, compared to a relative
 // 1e-9 (the positions of the lugs and fins go through sines and cosines).
 //
-// The component presets. OpenRocket's own preset database holds 5228 presets, among them six
-// that these files name and the tests do not have (five parts of SEMROC in
-// v1.5-preset-usage.ork and v1.6-preset-usage-decals-first.ork, one of FlisKits in
-// v1.7-tube-fin.ork; reading .orc preset files is Milestone 3). With its whole database
-// OpenRocket therefore gives one warning for v1.5-preset-usage.ork (the nose cone's BNC-55F,
-// which it does not find either) and none for v1.7-tube-fin.ork, which is what
-// tests/data/ork/README.md records. With the six presets of the examples, as here, OpenRocket
-// gives the six and the one warning that QtRocket gives, and the components keep what the
-// files store.
+// The component presets. OpenRocket's own preset database, which QtRocket ships as its bundled
+// presets (data/components, 5228 presets), holds six presets that these files name and the six
+// presets of the examples do not (five parts of SEMROC in v1.5-preset-usage.ork and
+// v1.6-preset-usage-decals-first.ork, one of FlisKits in v1.7-tube-fin.ork). With its whole
+// database OpenRocket therefore gives one warning for v1.5-preset-usage.ork (the nose cone's
+// BNC-55F, which it does not find either) and none for v1.7-tube-fin.ork, which is what
+// tests/data/ork/README.md records and what QtRocket gives with the bundled presets
+// (RecordedOrkFilesWarnings.WithTheBundledPresetsAreTheOnesOpenRocketGives). With the six presets
+// of the examples, as in the other tests here, OpenRocket gives the six and the one warning that
+// QtRocket gives, and the components keep what the files store.
 
 #include <algorithm>
 #include <cstddef>

@@ -22,8 +22,9 @@ int main(int argc, char* argv[])
         const std::span<char*>        all(argv, static_cast<std::size_t>(argc > 0 ? argc : 0));
         const std::string_view        argv0 = !all.empty() && all[0] != nullptr ? all[0] : "";
         const QtRocket::Cli::Settings settings{
-            .dataDirectory = QtRocket::DataDirectory::dataDirectory(argv0),
-            .motorDatabase = nullptr};
+            .dataDirectory  = QtRocket::DataDirectory::dataDirectory(argv0),
+            .motorDatabase  = nullptr,
+            .presetDatabase = nullptr};
         return QtRocket::exitStatus(
             QtRocket::Cli::runWithStreams(arguments, settings, stdout, stderr));
     }

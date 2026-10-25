@@ -96,8 +96,8 @@ public:
     [[nodiscard]] InMemoryPreferences&       preferences() noexcept { return m_preferences; }
     [[nodiscard]] const InMemoryPreferences& preferences() const noexcept { return m_preferences; }
 
-private:
-    /// The presets of @p presets.
+    /// A new database of the presets @p presets: empty, the six of the examples, or a copy of the
+    /// bundled ones, which shares them (the first call of a process reads them).
     [[nodiscard]] static ComponentPresetDatabase presetDatabase(Presets presets)
     {
         switch (presets)
@@ -112,6 +112,7 @@ private:
         return {};
     }
 
+private:
     InMemoryPreferences         m_preferences;
     MaterialStorage             m_materials;
     ComponentPresetDatabase     m_presets;

@@ -570,8 +570,9 @@ constexpr std::string_view kBodyTubePreset =
     return withWarnings(presetPartNoOf(tube), warnings);
 }
 
-// The product until it reads preset files (Milestone 3): OpenRocket with an empty preset
-// database gives the same warning (the scouts' examples-no-presets.out).
+// A context without a preset database (as a loader that is given none) or with an empty one:
+// OpenRocket with an empty preset database gives the same warning (the scouts'
+// examples-no-presets.out).
 TEST(ComponentPresetSetter, WithoutAPresetDatabaseOrWithAnEmptyOneNoPresetIsFound)
 {
     const ComponentPresetDatabase empty;

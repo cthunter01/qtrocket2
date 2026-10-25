@@ -12,6 +12,7 @@ namespace QtRocket
 {
 
 class CliOutput;
+class ComponentPresetDatabase;
 class ThrustCurveMotorSetDatabase;
 
 /// The command-line tool QtRocket_cli (QtRocket's own; OpenRocket has no command line), as a
@@ -27,8 +28,17 @@ class ThrustCurveMotorSetDatabase;
 /// - every other command first reads the motor database: --db FILE, else the one Settings hands
 ///   in, else CliEnvironment::defaultMotorDatabase() of the data directory. A database that
 ///   cannot be read is ExitCode::IO. Then 'motors' lists it (MotorsCommand::list()), and 'info'
-///   and 'simulate' load their design in a CliEnvironment over it (InfoCommand,
-///   SimulateCommand).
+///   and 'simulate' load their design in a CliEnvironment over it and over the component presets
+///   (InfoCommand, SimulateCommand): the ones Settings hands in, else those the two commands read
+///   from the data directory (CliEnvironment::readComponentPresets() of
+///   CliEnvironment::defaultComponentPresetDirectory(), the user's decision U-M3-4 of
+///   2026-10-24; 'motors', --help and --version read none). What cannot be read of the presets is
+///   a line "warning: cannot load the component presets of '<file>': <message>" on the standard
+///   error for each problem of the load, then a line "warning: <text>" for each of its warnings
+///   (as the warnings of a design's load), and the command goes on with the presets that were
+///   read, as OpenRocket logs these problems and goes on. The presets are read after the motor
+///   database and before the design.
+///
 /// A BugError or any other exception that reaches run() is reported on the standard error as an
 /// internal error, ExitCode::INTERNAL; nothing is thrown out of run() unless writing that report
 /// throws.
@@ -39,12 +49,17 @@ public:
     struct Settings
     {
         /// The data directory (DataDirectory::dataDirectory() for the executable; data/ of the
-        /// source tree has the same layout), where the default motor database is.
+        /// source tree has the same layout), where the default motor database and the bundled
+        /// component presets are.
         std::filesystem::path dataDirectory;
         /// A motor database to use instead of reading the data directory's, or null: for the
         /// tests, which read the database once per process. --db still reads its file. It must
         /// outlive the call.
         const ThrustCurveMotorSetDatabase* motorDatabase{nullptr};
+        /// The component presets of 'info' and 'simulate', to use instead of reading the data
+        /// directory's, or null: for the tests, which read the bundled presets once per process
+        /// or hand in fewer. It must outlive the call.
+        const ComponentPresetDatabase* presetDatabase{nullptr};
     };
 
     Cli() = delete;

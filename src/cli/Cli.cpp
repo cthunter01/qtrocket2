@@ -15,7 +15,9 @@
 #include "QtRocket/cli/InfoCommand.h"
 #include "QtRocket/cli/MotorsCommand.h"
 #include "QtRocket/cli/SimulateCommand.h"
+#include "QtRocket/file/preset/ComponentPresetDatabaseLoader.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Version.h"
@@ -26,20 +28,49 @@ namespace QtRocket
 namespace
 {
 
-/// Runs a command that needs the motor database @p motors.
-[[nodiscard]] ExitCode runWithMotors(const CliArguments&                arguments,
+/// Runs 'info' or 'simulate', the command of @p arguments, in an environment over @p motors and
+/// @p presets.
+[[nodiscard]] ExitCode runDesignCommand(const CliArguments&                arguments,
+                                        const ThrustCurveMotorSetDatabase& motors,
+                                        const ComponentPresetDatabase& presets, CliOutput& output)
+{
+    CliEnvironment environment(motors, presets);
+    if (arguments.command == CliArguments::Command::INFO)
+    {
+        return InfoCommand::run(arguments, environment, output);
+    }
+    return SimulateCommand::run(arguments, environment, output);
+}
+
+/// Writes what went wrong in reading @p presets to the standard error, as warnings (see
+/// Cli.h).
+void printPresetProblems(const CliEnvironment::ComponentPresets& presets, CliOutput& output)
+{
+    for (const ComponentPresetDatabaseLoader::Problem& problem : presets.problems)
+    {
+        output.errLine("warning: cannot load the component presets of '{}': {}",
+                       pathToUtf8(problem.file), problem.error.message);
+    }
+    output.warningLines(presets.warnings);
+}
+
+/// Runs a command that needs the motor database @p motors; 'info' and 'simulate' with the
+/// component presets of @p settings or of its data directory.
+[[nodiscard]] ExitCode runWithMotors(const CliArguments& arguments, const Cli::Settings& settings,
                                      const ThrustCurveMotorSetDatabase& motors, CliOutput& output)
 {
     if (arguments.command == CliArguments::Command::MOTORS)
     {
         return MotorsCommand::list(motors, arguments.search, output);
     }
-    CliEnvironment environment(motors);
-    if (arguments.command == CliArguments::Command::INFO)
+    if (settings.presetDatabase != nullptr)
     {
-        return InfoCommand::run(arguments, environment, output);
+        return runDesignCommand(arguments, motors, *settings.presetDatabase, output);
     }
-    return SimulateCommand::run(arguments, environment, output);
+    const CliEnvironment::ComponentPresets presets = CliEnvironment::readComponentPresets(
+        CliEnvironment::defaultComponentPresetDirectory(settings.dataDirectory));
+    printPresetProblems(presets, output);
+    return runDesignCommand(arguments, motors, presets.database, output);
 }
 
 /// Runs the command of @p arguments.
@@ -65,7 +96,7 @@ namespace
     }
     if (settings.motorDatabase != nullptr && !arguments.database.has_value())
     {
-        return runWithMotors(arguments, *settings.motorDatabase, output);
+        return runWithMotors(arguments, settings, *settings.motorDatabase, output);
     }
     const std::filesystem::path file =
         arguments.database.has_value()
@@ -78,7 +109,7 @@ namespace
                        motors.error().message);
         return ExitCode::IO;
     }
-    return runWithMotors(arguments, *motors, output);
+    return runWithMotors(arguments, settings, *motors, output);
 }
 
 }  // namespace
@@ -164,7 +195,9 @@ Commands:
 
 --db FILE reads the motors from the motor database FILE instead of
 motors/initial_motors.db in the data directory (share/QtRocket beside the
-directory of the program).
+directory of the program). 'info' and 'simulate' read the component presets
+of components/ in the data directory, where a design finds the presets it
+names.
 
 Every value is printed in SI units. The warnings of a load go to the standard
 error.

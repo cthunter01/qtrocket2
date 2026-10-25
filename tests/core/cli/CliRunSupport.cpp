@@ -15,11 +15,13 @@
 #include "QtRocket/cli/Cli.h"
 #include "QtRocket/cli/CliOutput.h"
 #include "QtRocket/cli/ExitCode.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
 #include "TestPaths.h"
 #include "TestTempDir.h"
+#include "file/DesignFileEnvironment.h"
 #include "motor/TestMotorDatabase.h"
 
 namespace QtRocket::Test
@@ -32,10 +34,13 @@ CliRun runCli(const std::vector<std::string>& arguments, const Cli::Settings& se
     return CliRun{.code = code, .out = output.out(), .err = output.err()};
 }
 
-CliRun runCliWithMotors(const std::vector<std::string>& arguments)
+CliRun runCliWithMotors(const std::vector<std::string>& arguments,
+                        DesignFileEnvironment::Presets  presets)
 {
-    return runCli(arguments, Cli::Settings{.dataDirectory = dataDir(),
-                                           .motorDatabase = &bundledMotorDatabase()});
+    const ComponentPresetDatabase database = DesignFileEnvironment::presetDatabase(presets);
+    return runCli(arguments, Cli::Settings{.dataDirectory  = dataDir(),
+                                           .motorDatabase  = &bundledMotorDatabase(),
+                                           .presetDatabase = &database});
 }
 
 std::string exampleArgument(std::string_view name)

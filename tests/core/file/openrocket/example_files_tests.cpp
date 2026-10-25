@@ -42,8 +42,8 @@
 //    every stored column, the decal images with their bytes, the document materials in the
 //    order a save writes them, the photo settings, the storage options and the undo state.
 //
-// 4. The same files without component presets, which is how the product loads them until it
-//    reads preset files: the six warnings OpenRocket gives then, and the state it has then.
+// 4. The same files without component presets (an empty preset database): the six warnings
+//    OpenRocket gives then, and the state it has then.
 //
 // 5. OpenRocket's re-saves of the examples (resave/rocket.ork of their goldens) load without a
 //    warning into the rocket of the original.
@@ -2409,13 +2409,12 @@ TEST(ExampleFiles, TheDualParachuteDesignIsStaleAsLoaded)
     return std::format("{} loads, {} warnings{}", loads, warnings, problems);
 }
 
-// Without component presets (the product has none before it reads preset files, Milestone 3)
-// the sixteen examples load with exactly six warnings, OpenRocket's for a preset its database
-// does not hold: one, two and three in the three designs that name presets. The state of each
-// of the three is the one OpenRocket has then: the six components keep what their elements
-// store and have no preset, the document materials stand in another order (a preset registers
-// its material before the element's own), and two nose cones lose the one value their preset
-// alone supplied (see the next test).
+// Without component presets (an empty preset database) the sixteen examples load with exactly
+// six warnings, OpenRocket's for a preset its database does not hold: one, two and three in the
+// three designs that name presets. The state of each of the three is the one OpenRocket has
+// then: the six components keep what their elements store and have no preset, the document
+// materials stand in another order (a preset registers its material before the element's own),
+// and two nose cones lose the one value their preset alone supplied (see the next test).
 //
 // The other thirteen examples are loaded without presets too, and give no warning. Their
 // state is not compared a second time: their documents have no <preset> element, which is

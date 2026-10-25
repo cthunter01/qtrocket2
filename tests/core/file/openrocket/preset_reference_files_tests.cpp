@@ -4,8 +4,11 @@
 // for a save to write back; and with the presets known nothing of the kind is left.
 //
 // The files are OpenRocket's sixteen example designs, of which three name six presets, their
-// re-saves, and the recorded files of tests/data/ork. QtRocket knows no preset at all until it
-// reads preset files (Milestone 3), so the first case is the product's.
+// re-saves, and the recorded files of tests/data/ork. The first case is made with an empty preset
+// database. With the bundled presets (OpenRocket's own database, which the command-line tool
+// reads) it is that of a preset of another version of the database or of a user's preset file
+// that is not there, such as the nose cone's BNC-55F of v1.5-preset-usage.ork, which no database
+// has.
 
 #include <array>
 #include <cstddef>
@@ -156,9 +159,9 @@ using Presets = DesignFileEnvironment::Presets;
     };
 }
 
-// The product until it reads preset files: the three examples that carry presets hold the six
-// references their files give, each on the component whose element named it, and no other
-// component of the sixteen designs holds anything.
+// With an empty preset database the three examples that carry presets hold the six references
+// their files give, each on the component whose element named it, and no other component of the
+// sixteen designs holds anything.
 TEST(PresetReferenceFiles, TheExamplesWithoutPresetsHoldTheSixReferencesOfTheirFiles)
 {
     EXPECT_EQ(presetsOfTheExamples(ExampleSource::ORIGINAL, Presets::NONE), theSixReferences());

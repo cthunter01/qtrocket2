@@ -27,11 +27,11 @@
 // - the component presets are the six the examples refer to (DesignFileEnvironment::Presets::
 //   EXAMPLES), with which a load gives what OpenRocket's whole preset database gives; that whole
 //   database, the bundled presets (Presets::BUNDLED, read once per process: about a second and a
-//   half in a debug build), with which a load gives the same; or none (Presets::NONE), which is
-//   what the product has before it reads preset files: then three examples give six "No
-//   matching ComponentPreset ..." warnings and the six components have no preset, each keeping
-//   the reference its <preset> makes (getUnresolvedPreset(), decision U8 of 2026-10-08); the
-//   other thirteen examples name no preset;
+//   half in a debug build), with which a load gives the same; or none (Presets::NONE), as an
+//   application whose database lacks them: then three examples give six "No matching
+//   ComponentPreset ..." warnings and the six components have no preset, each keeping the
+//   reference its <preset> makes (getUnresolvedPreset(), decision U8 of 2026-10-08); the other
+//   thirteen examples name no preset;
 // - the preference store holds what OpenRocket's test preferences answer
 //   (storeJavaTestPreferences()), shows a motor by its common name (setMotorNameColumn(false):
 //   the names of the goldens, "[G40-7]" and not "[G40W-7]") and names no default material;

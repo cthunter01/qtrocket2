@@ -1,10 +1,12 @@
 // Tests of cli/Cli.h: QtRocket_cli run in this process, every command and every exit code.
 // QtRocket's own: OpenRocket has no command line. The commands that need motors share the bundled
 // database, read once per test process (TestMotorDatabase.h); a test that needs none hands in an
-// empty one. Fresh flights are chaotic in their last digits, so no number of a flight is pinned
-// here (cli_golden_tests.cpp compares the milestone flight with its golden within a tolerance),
-// and neither are the bytes of its CSV. The executable itself is run by
-// tests/core/cli/CMakeLists.txt.
+// empty one. The commands that open a design are handed the six component presets of the
+// examples (runCliWithMotors()) or an empty database, but where a test reads the presets of a
+// data directory as the executable does. Fresh flights are chaotic in their last digits, so no
+// number of a flight is pinned here (cli_golden_tests.cpp compares the milestone flight with its
+// golden within a tolerance), and neither are the bytes of its CSV. The executable itself is run
+// by tests/core/cli/CMakeLists.txt.
 
 #include "QtRocket/cli/Cli.h"
 
@@ -21,6 +23,7 @@
 #include "QtRocket/cli/ExitCode.h"
 #include "QtRocket/motor/ThrustCurveMotorSet.h"
 #include "QtRocket/motor/ThrustCurveMotorSetDatabase.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/util/Error.h"
 #include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/Strings.h"
@@ -28,6 +31,7 @@
 #include "TestPaths.h"
 #include "TestTempDir.h"
 #include "cli/CliRunSupport.h"
+#include "file/DesignFileEnvironment.h"
 #include "motor/TestMotorDatabase.h"
 
 namespace
@@ -35,6 +39,7 @@ namespace
 
 using QtRocket::Cli;
 using QtRocket::CliOutput;
+using QtRocket::ComponentPresetDatabase;
 using QtRocket::ExitCode;
 using QtRocket::pathToUtf8;
 using QtRocket::ThrustCurveMotorSetDatabase;
@@ -44,6 +49,7 @@ using QtRocket::Test::CFileMode;
 using QtRocket::Test::cliFixtureArgument;
 using QtRocket::Test::CliRun;
 using QtRocket::Test::dataDir;
+using Presets = QtRocket::Test::DesignFileEnvironment::Presets;
 using QtRocket::Test::exampleArgument;
 using QtRocket::Test::numberAfter;
 using QtRocket::Test::openCFile;
@@ -194,9 +200,12 @@ TEST(Cli, AStandardOutputThatCannotBeWrittenIsAnIoError)
 
     // An aborted simulation prints its summary: its own code stays, the line is added.
     const ThrustCurveMotorSetDatabase noMotors;
+    const ComponentPresetDatabase     noPresets;
     const CliRun                      aborted = runCliWithStreams(
         std::vector<std::string>{"simulate", cliFixtureArgument("no-motors.ork")},
-        Cli::Settings{.dataDirectory = {}, .motorDatabase = &noMotors}, readOnly.get());
+        Cli::Settings{
+            .dataDirectory = {}, .motorDatabase = &noMotors, .presetDatabase = &noPresets},
+        readOnly.get());
     EXPECT_EQ(aborted.code, ExitCode::SIMULATION);
     EXPECT_NE(aborted.err.find("QtRocket_cli: simulation 1 'Without a motor' was aborted"),
               std::string::npos)
@@ -229,7 +238,8 @@ TEST(Cli, AMotorDatabaseThatCannotBeReadIsAnIoError)
     EXPECT_NE(missing.err.find("QtRocket_cli: cannot read the motor database '"), std::string::npos)
         << missing.err;
 
-    // --db wins over a database handed in, and it is read before the design is loaded.
+    // --db wins over a database handed in, and it is read before the component presets (the
+    // data directory has none, which would be warnings) and the design are loaded.
     const ThrustCurveMotorSetDatabase handedIn;
     const std::filesystem::path       broken = directory.write("broken.db", "not a database");
     const CliRun                      given =
@@ -237,6 +247,10 @@ TEST(Cli, AMotorDatabaseThatCannotBeReadIsAnIoError)
                Cli::Settings{.dataDirectory = directory.path(), .motorDatabase = &handedIn});
     EXPECT_EQ(given.code, ExitCode::IO);
     EXPECT_TRUE(given.out.empty());
+    EXPECT_TRUE(given.err.starts_with("QtRocket_cli: cannot read the motor database '" +
+                                      pathToUtf8(broken) + "': "))
+        << given.err;
+    EXPECT_EQ(outputLines(given.err).size(), 1U) << given.err;
 }
 
 TEST(Cli, MotorsListsAndSearchesTheDatabaseAndLoadsAMotorFile)
@@ -376,8 +390,11 @@ TEST(Cli, SimulateChecksTheCsvFilesBeforeItRuns)
     const std::string before = QtRocket::readTextFile(design).value_or("");
     EXPECT_FALSE(before.empty());
     const ThrustCurveMotorSetDatabase noMotors;
-    const CliRun itself = runCli({"simulate", pathToUtf8(design), "--csv", pathToUtf8(design)},
-                                 Cli::Settings{.dataDirectory = {}, .motorDatabase = &noMotors});
+    const ComponentPresetDatabase     noPresets;
+    const CliRun                      itself =
+        runCli({"simulate", pathToUtf8(design), "--csv", pathToUtf8(design)},
+               Cli::Settings{
+                   .dataDirectory = {}, .motorDatabase = &noMotors, .presetDatabase = &noPresets});
     EXPECT_EQ(itself.code, ExitCode::USAGE);
     EXPECT_TRUE(itself.out.empty()) << itself.out;
     EXPECT_EQ(itself.err,
@@ -409,10 +426,12 @@ TEST(Cli, AnAbortedSimulationIsASimulationError)
 {
     const TempDir                     directory;
     const ThrustCurveMotorSetDatabase noMotors;
+    const ComponentPresetDatabase     noPresets;
     const std::filesystem::path       csv = directory.resolve("aborted.csv");
     const CliRun                      aborted =
         runCli({"simulate", cliFixtureArgument("no-motors.ork"), "--csv", pathToUtf8(csv)},
-               Cli::Settings{.dataDirectory = {}, .motorDatabase = &noMotors});
+               Cli::Settings{
+                   .dataDirectory = {}, .motorDatabase = &noMotors, .presetDatabase = &noPresets});
     EXPECT_EQ(aborted.code, ExitCode::SIMULATION);
     EXPECT_TRUE(aborted.out.starts_with("Simulation 1: Without a motor\n")) << aborted.out;
     EXPECT_NE(aborted.out.find(" s: SIM_ABORT: No motors defined in the simulation\n"),
@@ -431,6 +450,108 @@ TEST(Cli, AnAbortedSimulationIsASimulationError)
         << *text;
 }
 
+// 'info' and 'simulate' read the component presets of the data directory when none are handed in
+// (data/components here, share/QtRocket/components beside an installed program; the user's
+// decision U-M3-4): the three presets the Pods example names are found, so it opens without a
+// warning, as OpenRocket opens it with its bundled presets (ExampleFilesTest). Without presets
+// each of the three gives OpenRocket's warning and the output is the same, as the components keep
+// what the file stores (the one value only the presets supply, the thickness of two nose cones'
+// fore shoulders, is that of shoulders without length). With the six presets of the examples,
+// which the other tests hand in, the tool prints what it prints with the bundled ones.
+TEST(Cli, DesignCommandsReadTheComponentPresetsOfTheDataDirectory)
+{
+    const std::string design = exampleArgument("Pods--powered with recovery deployment.ork");
+    const CliRun      bundled =
+        runCli({"info", design}, Cli::Settings{.dataDirectory  = dataDir(),
+                                               .motorDatabase  = &bundledMotorDatabase(),
+                                               .presetDatabase = nullptr});
+    EXPECT_EQ(bundled.code, ExitCode::OK);
+    EXPECT_EQ(bundled.err, "");
+    EXPECT_TRUE(bundled.out.starts_with("Design: " + design + "\nRocket: ")) << bundled.out;
+
+    const CliRun none = runCliWithMotors({"info", design}, Presets::NONE);
+    EXPECT_EQ(none.code, ExitCode::OK);
+    EXPECT_EQ(none.err,
+              "warning: No matching ComponentPreset for component Nose Cone found matching Estes "
+              "PNC-50YR, 72604\n"
+              "warning: No matching ComponentPreset for component Body Tube found matching Estes "
+              "BT-50, 30352\n"
+              "warning: No matching ComponentPreset for component Nose Cone found matching Estes "
+              "PNC-20, 072606\n");
+    EXPECT_EQ(none.out, bundled.out);
+
+    const CliRun examples = runCliWithMotors({"info", design});
+    EXPECT_EQ(examples.code, ExitCode::OK);
+    EXPECT_EQ(examples.err, "");
+    EXPECT_EQ(examples.out, bundled.out);
+}
+
+// What cannot be read of the component presets of the data directory is a warning on the standard
+// error, and the command goes on with the presets that were read, as OpenRocket logs these
+// problems and goes on: a missing directory (which cannot be listed and has no preset file), a
+// file the loader refuses (broken.orc of tests/data/presets) and the components it skips
+// (skipped.orc). 'motors' reads no presets.
+TEST(Cli, ComponentPresetsThatCannotBeReadAreWarnings)
+{
+    const TempDir                     directory;
+    const std::filesystem::path       components = directory.path() / "components";
+    const ThrustCurveMotorSetDatabase noMotors;
+    const Cli::Settings               settings{
+        .dataDirectory = directory.path(), .motorDatabase = &noMotors, .presetDatabase = nullptr};
+
+    const std::string missingWarnings =
+        "warning: cannot load the component presets of '" + pathToUtf8(components) +
+        "': not a directory or IOException occurred when listing files from " +
+        pathToUtf8(components) + "\nwarning: cannot load the component presets of '" +
+        pathToUtf8(components) + "': No component preset file found in " + pathToUtf8(components) +
+        "\n";
+    const CliRun missing = runCli({"info", cliFixtureArgument("no-motors.ork")}, settings);
+    EXPECT_EQ(missing.code, ExitCode::OK);
+    EXPECT_EQ(missing.err, missingWarnings);
+    const ComponentPresetDatabase noPresets;
+    EXPECT_EQ(missing.out, runCli({"info", cliFixtureArgument("no-motors.ork")},
+                                  Cli::Settings{.dataDirectory  = directory.path(),
+                                                .motorDatabase  = &noMotors,
+                                                .presetDatabase = &noPresets})
+                               .out);
+
+    const CliRun aborted = runCli({"simulate", cliFixtureArgument("no-motors.ork")}, settings);
+    EXPECT_EQ(aborted.code, ExitCode::SIMULATION);
+    EXPECT_TRUE(aborted.err.starts_with(missingWarnings + "QtRocket_cli: simulation 1 "))
+        << aborted.err;
+
+    const CliRun motors = runCli({"motors"}, settings);
+    EXPECT_EQ(motors.code, ExitCode::OK);
+    EXPECT_EQ(motors.err, "");
+
+    // The two parachutes "Deployable payload" names are in OpenRocket's estes_classic.orc.
+    static_cast<void>(directory.copy(dataDir() / "components" / "database" / "estes_classic.orc",
+                                     std::filesystem::path("components") / "estes_classic.orc"));
+    static_cast<void>(directory.copy(testDataDir() / "presets" / "broken.orc",
+                                     std::filesystem::path("components") / "broken.orc"));
+    static_cast<void>(directory.copy(testDataDir() / "presets" / "skipped.orc",
+                                     std::filesystem::path("components") / "skipped.orc"));
+    const std::string design = exampleArgument("Deployable payload.ork");
+    const CliRun      read =
+        runCli({"info", design}, Cli::Settings{.dataDirectory  = directory.path(),
+                                               .motorDatabase  = &bundledMotorDatabase(),
+                                               .presetDatabase = nullptr});
+    EXPECT_EQ(read.code, ExitCode::OK);
+    EXPECT_EQ(read.err,
+              "warning: cannot load the component presets of '" +
+                  pathToUtf8(components / "broken.orc") +
+                  "': Unable to parse component preset file: broken.orc: the BodyTube 'BT-50' "
+                  "(component 2) has no <Length>\n"
+                  "warning: Component preset file skipped.orc: the Parachute 'PK-12' (component "
+                  "2) was skipped: it has no <LineCount> that is an integer\n"
+                  "warning: Component preset file skipped.orc: the BodyTube 'BT-INF' (component "
+                  "3) was skipped: its <Length> is not a finite number (Infinity)\n"
+                  "warning: Component preset file skipped.orc: the BulkHead 'BH-N' (component 4) "
+                  "was skipped: the density of its <Material> 'Neutronium' is not a finite "
+                  "number (Infinity)\n");
+    EXPECT_EQ(read.out, runCliWithMotors({"info", design}).out);
+}
+
 #ifdef __linux__
 // On Linux a file name is bytes, which need not be UTF-8: an argument names the file of its own
 // bytes (a Latin-1 e with acute accent here, byte E9), for the design, --csv and motors --load.
@@ -440,7 +561,9 @@ TEST(Cli, AFileNameThatIsNotUtf8NamesItsOwnFile)
     const std::filesystem::path design = directory.path() / std::string("lat\xE9.ork");
     std::filesystem::copy_file(testDataDir() / "cli" / "no-motors.ork", design);
     const ThrustCurveMotorSetDatabase noMotors;
-    const Cli::Settings               settings{.dataDirectory = {}, .motorDatabase = &noMotors};
+    const ComponentPresetDatabase     noPresets;
+    const Cli::Settings               settings{
+        .dataDirectory = {}, .motorDatabase = &noMotors, .presetDatabase = &noPresets};
 
     const CliRun info = runCli({"info", design.native()}, settings);
     EXPECT_EQ(info.code, ExitCode::OK) << info.err;

@@ -56,10 +56,10 @@
 // holds the tolerances of the comparison of mass.json, which the examples meet through
 // compareLoadedDesign(), by a value just inside and one just outside each.
 //
-// Without component presets (ExampleDesignGoldenWithoutPresets), which is how the product loads
-// a design before it reads preset files (Milestone 3), the same comparison of the original
-// files of the three examples that name a preset has to find exactly what OpenRocket's own
-// harness writes then (the tier 9 scouts ran it with an empty preset database: probe
+// Without component presets (ExampleDesignGoldenWithoutPresets), which is how an application
+// whose preset database lacks the presets of a design loads it, the same comparison of the
+// original files of the three examples that name a preset has to find exactly what OpenRocket's
+// own harness writes then (the tier 9 scouts ran it with an empty preset database: probe
 // "golden-tests", out/nopresets.diff): six load warnings, and 0 instead of 0.0015748 m for the
 // thickness of the fore shoulder of two nose cones, which their presets alone supply.
 // Everything else is equal: every other value of geometry.json and all of mass.json and

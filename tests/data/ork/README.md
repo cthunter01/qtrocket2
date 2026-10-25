@@ -112,11 +112,12 @@ golden harness sets OpenRocket up (the probes of the tier 9 scouts; their output
 the repository). "Warnings" are the loader's; a simulation's own stored warnings are named with
 it. Components are counted with the rocket; a status is `Simulation.getStatus()` after loading.
 This is OpenRocket's result, not a specification of QtRocket's: the tests of QtRocket's loader pin
-what it makes of each file, and say where that differs on purpose. Two differences are known
-beforehand: QtRocket has no component presets before Milestone 3, so a preset reference that
-OpenRocket resolves gives the warning of an unknown preset there (`v1.5-preset-usage.ork`,
-`v1.7-tube-fin.ork`); and QtRocket's plan takes the `*.ork` entry of an archive as the document,
-where OpenRocket looks at the first entry only (`v1.6-preset-usage-decals-first.ork`).
+what it makes of each file, and say where that differs on purpose. One difference is known
+beforehand: QtRocket takes the `*.ork` entry of an archive as the document, where OpenRocket looks
+at the first entry only (`v1.6-preset-usage-decals-first.ork`). With the bundled component presets
+(`data/components`, OpenRocket's database) QtRocket resolves the preset references OpenRocket
+resolves (`v1.5-preset-usage.ork`, `v1.7-tube-fin.ork`); a test that loads with fewer presets gets
+the warning of an unknown preset for each of the others.
 
 - **`simplerocket.ork`** (OpenRocket's own test file). Warnings: 1, "Multiple motors with
   designation 'A8' for manufacturer 'Estes' found, one chosen arbitrarily." (the motor has a

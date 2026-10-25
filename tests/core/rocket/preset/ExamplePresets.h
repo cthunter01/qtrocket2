@@ -7,15 +7,19 @@
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 
 /// The component presets the 16 example designs refer to, for the tests that load the examples
-/// (tier 9, runs 9b and 9c): six presets of Estes, all from OpenRocket's estes_classic.orc.
-/// Reading .orc preset files is Milestone 3, so the six are built here with
-/// ComponentPresetFactory::create() from the property values OpenRocket's .orc reader hands its
-/// factory. They are the same presets: the digests equal the ones the example files store
-/// (example_presets_tests.cpp pins them), so a loader that looks them up finds them, as
-/// OpenRocket does with its full preset database when the golden data is made.
+/// (tier 9, runs 9b and 9c): six presets of Estes, all from OpenRocket's estes_classic.orc. They
+/// are built here with ComponentPresetFactory::create() from the property values OpenRocket's
+/// .orc reader hands its factory, so that a test has them at no cost: the bundled presets
+/// (bundledPresetDatabase(), TestPresetDatabase.h) take a second and a half to read in a debug
+/// build. They are the same presets: the digests equal the ones the example files store
+/// (example_presets_tests.cpp pins them) and those of the bundled database
+/// (ExampleFilesWithTheBundledPresets), so a loader that looks them up finds them, as OpenRocket
+/// does with its full preset database when the golden data is made and as QtRocket's
+/// command-line tool does with the bundled presets of its data directory.
 ///
-/// With a database that lacks them (the product until Milestone 3) the loader gives one "No
-/// matching ComponentPreset for component <name> found matching Estes <part number>" warning per
+/// With a database that lacks them (an empty one, DesignFileEnvironment::Presets::NONE, or the
+/// presets of another version of OpenRocket's database) the loader gives one "No matching
+/// ComponentPreset for component <name> found matching Estes <part number>" warning per
 /// reference, the components keep the values the files store, and the two nose cones' fore
 /// shoulder thickness stays 0 instead of the presets' 0.0015748 m.
 namespace QtRocket::Test
