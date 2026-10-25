@@ -70,25 +70,9 @@ add_custom_target(QtRocket_data DEPENDS ${qtrocket_data_copies})
 
 add_subdirectory(src)
 
-# The GUI (gui/): Qt is required when it is on, never just used when found, so that a build without Qt cannot
-# silently lose the GUI. Qt 6.8 is the oldest Qt supported (CI builds it on macOS and Windows, the newest on Linux).
+# The GUI (gui/). Qt, which it requires when it is on, and rocketplot, its plots, are found or fetched in
+# cmake/Dependencies.cmake (its GUI section, with the macOS work-around for Qt 6.8.3).
 if(QTROCKET_BUILD_GUI)
-    set(qtrocket_qt_components Core Gui Widgets Svg)
-    if(QTROCKET_BUILD_TESTS)
-        list(APPEND qtrocket_qt_components Test)
-    endif()
-    # A work-around for Qt before 6.8.4 and 6.9.2 on macOS 26: Qt's FindWrapOpenGL.cmake links the AGL framework on
-    # every Apple build ('-framework AGL' when it finds none), and the macOS 26 SDK no longer has it ('ld: framework
-    # AGL not found'; Qt commit cdb33c3d5621 removed the linkage, which nothing of Qt needs). Its
-    # find_library(WrapOpenGL_AGL NAMES AGL) keeps a value found before, so that variable names the OpenGL framework,
-    # which Qt links anyway. On every Apple build: a search for AGL itself can find the run-time framework under
-    # /System/Library/Frameworks although the SDK lacks it (CI's first macOS run). CI's macOS job builds against Qt
-    # 6.8.3 on macOS 26. Remove this once the oldest Qt supported is 6.9.2 or newer.
-    if(APPLE)
-        find_library(WrapOpenGL_AGL NAMES OpenGL)
-    endif()
-    find_package(Qt6 6.8 REQUIRED COMPONENTS ${qtrocket_qt_components})
-    message(STATUS "QtRocket GUI: Qt ${Qt6_VERSION}")
     add_subdirectory(gui)
 endif()
 

@@ -45,7 +45,8 @@ jobs:
       - name: Install Ninja
         run: brew install ninja
       # Puts Qt's bin on PATH, where CMake finds Qt and the tests its libraries and plugins. Qt 6.8.3 predates the
-      # macOS 26 SDK, which has no AGL framework: the root CMakeLists.txt works around Qt's link to it.
+      # macOS 26 SDK, which has no AGL framework: cmake/Dependencies.cmake works around Qt's link to it (before
+      # rocketplot, which the configure step clones, finds Qt again).
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:

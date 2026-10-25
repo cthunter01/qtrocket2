@@ -1,7 +1,7 @@
 # The lint tests (label lint): cmake -P scripts that check rules of the source tree the compiler cannot, with no build.
 # lint.layers (cmake/CheckLayers.cmake): the include order of the core's subsystems and of the GUI's areas, the
-#     Qt-free core and binding/, and the rules of gui/ (makeChild() as the only `new`, no Q_SLOTS, no <windows.h>,
-#     no .ui or .qrc file).
+#     Qt-free core and binding/, rocketplot's headers only in plot/, and the rules of gui/ (makeChild() as the only
+#     `new`, no Q_SLOTS, no <windows.h>, no .ui or .qrc file).
 # lint.no-qttest-macros (cmake/CheckNoQtTestMacros.cmake): none of QtTest's assertion macros in tests/gui.
 # The GUI's smoke test (gui.version, tests/gui/CMakeLists.txt) carries the label too.
 foreach(lint IN ITEMS layers no-qttest-macros)
@@ -49,7 +49,8 @@ function(lint_plant_test tree lint)
     endif()
 endfunction()
 
-# Every rule kept, with figure/ in the core (above file/) and words that only look like violations.
+# Every rule kept, with figure/ in the core (above file/), rocketplot in plot/, the areas plot/ and flightconfig/ in
+# their places, and words that only look like violations.
 lint_plant(clean-tree src/figure/Shapes.cpp "#include \"QtRocket/file/GeneralRocketLoader.h\"")
 lint_plant(clean-tree src/cli/Cli.cpp "#include \"QtRocket/figure/Shapes.h\"\n#include <vector>")
 lint_plant(clean-tree src/file/ZipArchive.cpp "#include \"MinizipHandle.h\"\n#include <minizip/mz.h>")
@@ -65,6 +66,14 @@ lint_plant(clean-tree gui/src/app/Application.cpp
     "#include \"QtRocket/gui/main/MainWindow.h\"\n#include \"QtRocket/figure/Shapes.h\"")
 lint_plant(clean-tree gui/main.cpp "#include \"QtRocket/gui/app/Application.h\"")
 lint_plant(clean-tree tests/gui/util/MakeChildTests.cpp "QTest::keyClicks(widget, text)\nEXPECT_EQ(QTestable, 1)")
+lint_plant(clean-tree gui/include/QtRocket/gui/plot/ThrustCurvePlot.h
+    "#include <rocketplot/PlotWidget.h>\n#include \"QtRocket/gui/widgets/UnitSpinBox.h\"")
+lint_plant(clean-tree gui/src/plot/ThrustCurvePlot.cpp
+    "#include <rocketplot/text.h>\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/tree/ComponentTreeModel.cpp "#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/flightconfig/MotorConfigurationPanel.cpp
+    "#include \"QtRocket/gui/dialogs/IgnitionSelectionDialog.h\"\n#include \"QtRocket/gui/plot/ThrustCurvePlot.h\"")
+lint_plant(clean-tree gui/src/main/MainWindow.cpp "#include \"QtRocket/gui/flightconfig/FlightConfigurationPanel.h\"")
 lint_plant_test(clean-tree layers)
 lint_plant_test(clean-tree no-qttest-macros)
 
@@ -85,6 +94,33 @@ lint_plant(gui-order gui/src/tree/ComponentTreeModel.cpp "#include \"QtRocket/gu
 lint_plant_test(gui-order layers "gui/src/tree/ComponentTreeModel\\.cpp:1: tree includes main")
 lint_plant(unknown-area gui/src/plots/Plot.cpp "#include <QWidget>")
 lint_plant_test(unknown-area layers "'plots' is not an area of the GUI's layer order")
+lint_plant(widgets-before-plot gui/src/widgets/Panel.cpp "#include \"QtRocket/gui/plot/PlotColors.h\"")
+lint_plant_test(widgets-before-plot layers "gui/src/widgets/Panel\\.cpp:1: widgets includes plot")
+lint_plant(plot-before-tree gui/include/QtRocket/gui/plot/Plot.h "#include \"QtRocket/gui/tree/ComponentTreeModel.h\"")
+lint_plant_test(plot-before-tree layers "gui/include/QtRocket/gui/plot/Plot\\.h:1: plot includes tree")
+lint_plant(dialogs-before-flightconfig gui/src/dialogs/IgnitionSelectionDialog.cpp
+    "#include \"QtRocket/gui/flightconfig/FlightConfigurationPanel.h\"")
+lint_plant_test(dialogs-before-flightconfig layers
+    "gui/src/dialogs/IgnitionSelectionDialog\\.cpp:1: dialogs includes flightconfig")
+lint_plant(flightconfig-before-main gui/src/flightconfig/FlightConfigurationPanel.cpp
+    "#include \"QtRocket/gui/main/MainWindow.h\"")
+lint_plant_test(flightconfig-before-main layers
+    "gui/src/flightconfig/FlightConfigurationPanel\\.cpp:1: flightconfig includes main")
+lint_plant(rocketplot-outside-plot gui/src/dialogs/ThrustCurveMotorPlotDialog.cpp
+    "#include <QDialog>\n#include <rocketplot/PlotWidget.h>")
+lint_plant_test(rocketplot-outside-plot layers
+    "gui/src/dialogs/ThrustCurveMotorPlotDialog\\.cpp:2: <rocketplot/PlotWidget\\.h>: rocketplot's headers are included only in plot/")
+lint_plant(rocketplot-in-a-header-outside-plot gui/include/QtRocket/gui/widgets/Chart.h "#include <RocketPlot/Axis.h>")
+lint_plant_test(rocketplot-in-a-header-outside-plot layers
+    "gui/include/QtRocket/gui/widgets/Chart\\.h:1: <RocketPlot/Axis\\.h>: rocketplot's headers")
+lint_plant(rocketplot-in-the-application gui/main.cpp "#include <rocketplot/text.h>")
+lint_plant_test(rocketplot-in-the-application layers "gui/main\\.cpp:1: <rocketplot/text\\.h>: rocketplot's headers")
+lint_plant(rocketplot-in-core src/motor/ThrustCurve.cpp "#include <rocketplot/text.h>")
+lint_plant_test(rocketplot-in-core layers
+    "src/motor/ThrustCurve\\.cpp:1: the core includes rocketplot's header <rocketplot/text\\.h>")
+lint_plant(quoted-rocketplot gui/src/plot/ThrustCurvePlot.cpp "#include \"rocketplot/PlotWidget.h\"")
+lint_plant_test(quoted-rocketplot layers
+    "gui/src/plot/ThrustCurvePlot\\.cpp:1: \"rocketplot/PlotWidget\\.h\": a quoted include is")
 lint_plant(new-outside-make-child gui/src/widgets/Panel.cpp "#include <QLabel>\n\nauto* label = new QLabel(this)")
 lint_plant_test(new-outside-make-child layers "gui/src/widgets/Panel\\.cpp:3: `new`")
 lint_plant(slots gui/include/QtRocket/gui/widgets/Panel.h "class Panel\npublic Q_SLOTS:")

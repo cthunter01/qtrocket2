@@ -80,19 +80,31 @@
       "name": "asan",
       "displayName": "Clang Debug, AddressSanitizer + UndefinedBehaviorSanitizer",
       "inherits": "clang",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "QTROCKET_SANITIZERS": "address;undefined" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QTROCKET_SANITIZERS": "address;undefined",
+        "FETCHCONTENT_TRY_FIND_PACKAGE_MODE": "NEVER"
+      }
     },
     {
       "name": "tsan",
       "displayName": "Clang RelWithDebInfo, ThreadSanitizer",
       "inherits": "clang",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "QTROCKET_SANITIZERS": "thread" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "QTROCKET_SANITIZERS": "thread",
+        "FETCHCONTENT_TRY_FIND_PACKAGE_MODE": "NEVER"
+      }
     },
     {
       "name": "coverage",
       "displayName": "Clang Debug, source-based coverage",
       "inherits": "clang",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "QTROCKET_ENABLE_COVERAGE": "ON" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QTROCKET_ENABLE_COVERAGE": "ON",
+        "FETCHCONTENT_TRY_FIND_PACKAGE_MODE": "NEVER"
+      }
     },
     {
       "name": "tidy",

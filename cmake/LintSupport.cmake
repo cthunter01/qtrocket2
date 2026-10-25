@@ -143,3 +143,15 @@ function(qtrocket_lint_is_qt_include out_var path)
     endif()
     set(${out_var} ${qt} PARENT_SCOPE)
 endfunction()
+
+# qtrocket_lint_is_rocketplot_include(<out_var> <path>)
+# TRUE when the included path is one of rocketplot's headers: <rocketplot/PlotWidget.h>, ... (in any case, as the file
+# systems of Windows and macOS find <RocketPlot/PlotWidget.h> too).
+function(qtrocket_lint_is_rocketplot_include out_var path)
+    string(TOLOWER "${path}" lower_path)
+    set(rocketplot FALSE)
+    if(lower_path MATCHES "^rocketplot/")
+        set(rocketplot TRUE)
+    endif()
+    set(${out_var} ${rocketplot} PARENT_SCOPE)
+endfunction()
