@@ -18,6 +18,7 @@ CI ever needs Java. They change only through this tool. Each subdirectory is one
 | `component-editing` | `makeActionsScenarios()` and `clipboardScenarios()` in `tests/gui/main/ComponentEditingTests.cpp` | `ActionsProbe`, `ClipboardProbe` | `gen_component_editing.py` | that file |
 | `component-drop` | `dndScenarios()` in `tests/gui/tree/ComponentDropTests.cpp` | `DndProbe` | `gen_component_drop.py` | that file |
 | `actions-rules` | `kTranscripts` in `tests/gui/main/RocketActionsTests.cpp` | `ActionsRulesProbe` | `gen_actions_rules.py` | that file |
+| `thrust-curves` | `tests/gui/plot/ThrustCurvePins.h` | `ThrustCurvesProbe` | `gen_thrust_curve_pins.py` | `thrust_curve_plot_golden_tests.cpp` |
 
 `shared/probe/DelegatingGraphics2D.java` is a `Graphics2D` that forwards every call to another one (written
 once from the JDK's `Graphics2D` with a reflection helper that is not kept; edit it by hand); `figure-paint`
@@ -27,8 +28,9 @@ OpenRocket's UUIDs reproducible (see "Reproducibility"). Every probe is compiled
 ## What the probes pin
 
 Every probe starts OpenRocket with core's or swing's `ServicesForTesting`. Those of the Swing views
-(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`) bind `SwingPreferences`, at their
-defaults (a fresh `java.util.prefs` store), and apply FlatLaf Light, as the application does; `scale-figure`
+(`figure-paint`, `rocket-info`, `ribbon`, `rocket-panel`, `preferences`, `thrust-curves`) bind
+`SwingPreferences`, at their defaults (a fresh `java.util.prefs` store), and apply FlatLaf Light, as the
+application does (`thrust-curves` switches to FlatLaf Dark for its dark charts and back); `scale-figure`
 binds `SwingPreferences` without a theme; the two material probes keep `ServicesForTesting`'s preferences, the
 four component probes swing's. All but the material, component and `preferences` probes load OpenRocket's
 motor database and no component presets. `figure-paint`, `rocket-info`, `ribbon` and `rocket-panel` settle a
@@ -86,6 +88,19 @@ Java 17's `Double.toString`).
 - `actions-rules`: the enabled states of `RocketActions`' twelve component actions over OpenRocket's 13 test
   rockets, for nothing selected, each component alone and with the one before it (`ActionsRulesProbe`, run 2,
   the fixer of group T).
+- `thrust-curves`: the motor chooser's thrust-curve charts, `MotorInformationPanel`'s preview (its private
+  constructor, `updateData()` and `clearData()` called by reflection) and `ThrustCurveMotorPlotDialog`, for
+  every motor set of the bundled database (1458 sets, 1588 curves), each set's curves sorted with
+  `ThrustCurveMotorComparator` as the chooser lists them: the curves' keys (manufacturer, designation and
+  digest: 708 curves share their digest with a curve of another manufacturer or designation), both charts'
+  axis ranges with the first curve selected, and for the 107 sets of more than one curve, with the first and
+  the last curve selected, the series of both charts (key, paint, stroke width, marker, points) and the
+  dialog's legend items, again for the set with the most curves in FlatLaf Dark; also the curve colours, the
+  texts, the empty preview, the dialog's modality, keys, chart size and button, and the thrust axis with each
+  force unit as the default unit (OpenRocket's label names the unit, its range stays in newtons). The dialog
+  is a `JDialog`, which a headless AWT refuses, so the probe runs under `xvfb-run` with
+  `-Djava.awt.headless=false`; no window is shown. The test builds each list from the keys, so it does not
+  depend on QtRocket's port of the comparator.
 
 The two component generators hold QtRocket's deliberate differences from OpenRocket's transcripts in their
 `EDITS` tables (30 rows: the selection after a Cut or a Delete, which the probe's tree-less selection model
@@ -123,7 +138,7 @@ Requirements:
 - OpenRocket's classes built from that checkout: the script reads `build.version` from core's
   `build.properties` on the class path (`<version>-SNAPSHOT-<short commit>`, stamped by OpenRocket's build)
   and refuses classes of another commit (`ALLOW_OTHER_COMMIT=1` overrides).
-- `python3`, `clang-format` and, for `rocket-panel`, `xvfb-run`.
+- `python3`, `clang-format` and, for `rocket-panel` and `thrust-curves`, `xvfb-run`.
 
 ```sh
 OPENROCKET_DIR=/path/to/openrocket OPENROCKET_CLASSPATH=... tools/openrocket-gui-pins/generate.sh        # every family
@@ -152,7 +167,7 @@ The generator writes the table into the work directory (a spliced test file into
 one, which `clang-format` formats with the repository's `.clang-format`); a table equal to the committed one
 byte for byte (`cmp`) leaves it as it is, another one replaces it, and `--check` only reports (exit status 1
 when a table differs). The head of `generate.sh` lists the other environment variables (`CLANG_FORMAT`,
-`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All eleven families take about a
+`GUI_PINS_WORK`; a temporary work directory is kept when the script fails). All twelve families take about a
 minute.
 
 The tables in test code: `scale-figure` replaces the rows of `kFigureRows` (a "clang-format off" block),
@@ -204,9 +219,11 @@ compares the CG and CP within a relative 1e-9. The figure-paint test compares th
 because the seeded order of `makeBeta`'s two motors is QtRocket's; another reseed key, a change of `makeBeta`
 or another OpenRocket commit may swap them, and that test then fails.
 
-The other nine families print nothing such a map orders, and their probes are not seeded: each printed the
-same transcript in two unseeded runs and in four runs seeded with different keys (2026-10-23), where the two
-seeded probes print another transcript for every other key.
+The other nine families of Milestone 2 print nothing such a map orders, and their probes are not seeded: each
+printed the same transcript in two unseeded runs and in four runs seeded with different keys (2026-10-23),
+where the two seeded probes print another transcript for every other key. The families of Milestone 3 seed
+their probes whatever they print (the rule since then): `thrust-curves` builds no design and prints nothing
+a hash map orders, and installs `DeterministicUuids` in `bootstrap()` all the same.
 
 ## History
 
@@ -222,6 +239,10 @@ amendments of the tables as `EDITS`; `figure-paint` and `rocket-info` seed OpenR
 regenerated as committed, but for those two families, which until then compared apart from the unseeded
 runs' noise (`compare_paint_pins.py`, `compare_info_pins.py`): their tables were rewritten once in the seeded
 order, and they compare byte for byte like the others ("Reproducibility").
+
+Milestone 3 added `thrust-curves` (run 1, part K5, from the M3 plot scout's `ThrustCurveChartProbe`): the
+first family of a probe that runs under `xvfb-run` besides `rocket-panel`, and the first whose table pins
+every motor set of the bundled database.
 
 The other generators of GUI-related tables: `tools/openrocket-panel-pins` (the configuration panels' pins),
 `tools/openrocket-goldens/figure-pins` (the core's figure shapes), `tools/openrocket-component-factory`,

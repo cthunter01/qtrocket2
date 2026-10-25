@@ -16,6 +16,7 @@ target_sources(QtRocket_gui PRIVATE
     PreferencesStore.cpp ${gui_include_dir}/dialogs/PreferencesStore.h
     SaveDesignInfoDialog.cpp ${gui_include_dir}/dialogs/SaveDesignInfoDialog.h
     StorageOptionsDialog.cpp ${gui_include_dir}/dialogs/StorageOptionsDialog.h
+    ThrustCurveMotorPlotDialog.cpp ${gui_include_dir}/dialogs/ThrustCurveMotorPlotDialog.h
     UnitsPreferencesPanel.cpp ${gui_include_dir}/dialogs/UnitsPreferencesPanel.h
     WarningDialog.cpp ${gui_include_dir}/dialogs/WarningDialog.h
 )
