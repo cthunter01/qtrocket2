@@ -14,6 +14,7 @@ add_executable(QtRocket_gui_tests
     GuiTestSupport.cpp
     GuiTestSupportTests.cpp
     HookedUserPrompts.cpp
+    HookedUserPromptsTests.cpp
     NextModalDialog.cpp
     RecordingGuardHook.cpp
     ScopedApplicationPalette.cpp

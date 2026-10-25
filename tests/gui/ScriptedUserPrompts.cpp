@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -14,6 +15,14 @@
 #include "QtRocket/gui/util/Guard.h"
 #include "QtRocket/gui/util/QtStrings.h"
 #include "QtRocket/gui/util/UserPrompts.h"
+#include "QtRocket/motor/IgnitionEvent.h"
+#include "QtRocket/rocket/ComponentKind.h"
+#include "QtRocket/rocket/DeploymentConfiguration.h"
+#include "QtRocket/rocket/FlightConfigurationId.h"
+#include "QtRocket/rocket/MotorMount.h"
+#include "QtRocket/rocket/RocketComponent.h"
+#include "QtRocket/rocket/StageSeparationConfiguration.h"
+#include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 
 namespace QtRocket::Gui::Test
@@ -60,6 +69,50 @@ namespace
             return QStringLiteral("ERROR");
     }
     QTROCKET_UNREACHABLE();
+}
+
+[[nodiscard]] QString databaseKindName(UserPrompts::DatabaseKind database)
+{
+    switch (database)
+    {
+        case UserPrompts::DatabaseKind::THRUST_CURVES:
+            return QStringLiteral("THRUST_CURVES");
+        case UserPrompts::DatabaseKind::COMPONENT_PRESETS:
+            return QStringLiteral("COMPONENT_PRESETS");
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+[[nodiscard]] QString presetOutcomeName(UserPrompts::PresetOutcome outcome)
+{
+    switch (outcome)
+    {
+        case UserPrompts::PresetOutcome::CHOSEN:
+            return QStringLiteral("CHOSEN");
+        case UserPrompts::PresetOutcome::NONE:
+            return QStringLiteral("NONE");
+        case UserPrompts::PresetOutcome::CLOSED:
+            return QStringLiteral("CLOSED");
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+/// @p value as the texts of a prompt have a number (QString::number()).
+[[nodiscard]] QString numberText(double value)
+{
+    return QString::number(value);
+}
+
+/// "true" or "false".
+[[nodiscard]] QString booleanText(bool value)
+{
+    return value ? QStringLiteral("true") : QStringLiteral("false");
+}
+
+/// @p diameter, or "none" without one.
+[[nodiscard]] QString diameterText(const std::optional<double>& diameter)
+{
+    return diameter.has_value() ? numberText(*diameter) : QStringLiteral("none");
 }
 
 [[nodiscard]] QString failureKindName(Guard::Failure::Kind kind)
@@ -127,6 +180,32 @@ std::string_view ScriptedUserPrompts::kindName(Kind kind)
             return "ERRORS_AND_WARNINGS";
         case Kind::INTERNAL_ERROR:
             return "INTERNAL_ERROR";
+        case Kind::IGNITION:
+            return "IGNITION";
+        case Kind::DEPLOYMENT:
+            return "DEPLOYMENT";
+        case Kind::SEPARATION:
+            return "SEPARATION";
+        case Kind::RENAME_CONFIGURATION:
+            return "RENAME_CONFIGURATION";
+        case Kind::MOTOR:
+            return "MOTOR";
+        case Kind::PRESET:
+            return "PRESET";
+        case Kind::DATABASE_PROBLEMS:
+            return "DATABASE_PROBLEMS";
+    }
+    QTROCKET_UNREACHABLE();
+}
+
+QString ScriptedUserPrompts::scopeName(ConfigurationScope scope)
+{
+    switch (scope)
+    {
+        case ConfigurationScope::ALL_CONFIGURATIONS:
+            return QStringLiteral("ALL_CONFIGURATIONS");
+        case ConfigurationScope::THIS_CONFIGURATION:
+            return QStringLiteral("THIS_CONFIGURATION");
     }
     QTROCKET_UNREACHABLE();
 }
@@ -189,6 +268,50 @@ void ScriptedUserPrompts::answerDesignInformation(DesignInformationEdit edit)
 void ScriptedUserPrompts::answerInternalError(InternalErrorAnswer answer)
 {
     script(Kind::INTERNAL_ERROR, Answer(std::in_place_type<InternalErrorAnswer>, answer));
+}
+
+void ScriptedUserPrompts::answerIgnition(std::optional<IgnitionChoice> answer)
+{
+    script(Kind::IGNITION, Answer(std::in_place_type<std::optional<IgnitionChoice>>, answer));
+}
+
+void ScriptedUserPrompts::answerDeployment(std::optional<DeploymentChoice> answer)
+{
+    script(Kind::DEPLOYMENT, Answer(std::in_place_type<std::optional<DeploymentChoice>>, answer));
+}
+
+void ScriptedUserPrompts::answerSeparation(std::optional<SeparationChoice> answer)
+{
+    script(Kind::SEPARATION, Answer(std::in_place_type<std::optional<SeparationChoice>>, answer));
+}
+
+void ScriptedUserPrompts::answerRenameConfiguration(RenameConfigurationAnswer answer,
+                                                    QStringList               saveAsDefault)
+{
+    script(Kind::RENAME_CONFIGURATION,
+           Answer(std::in_place_type<RenameScript>,
+                  RenameScript{.answer        = std::move(answer),
+                               .saveAsDefault = std::move(saveAsDefault)}));
+}
+
+void ScriptedUserPrompts::answerMotor(std::optional<MotorChoice> answer)
+{
+    if (answer.has_value() && answer->motor == nullptr)
+    {
+        ADD_FAILURE() << "a scripted motor choice without a motor";
+    }
+    script(Kind::MOTOR, Answer(std::in_place_type<std::optional<MotorChoice>>, std::move(answer)));
+}
+
+void ScriptedUserPrompts::answerPreset(PresetAnswer answer)
+{
+    if ((answer.outcome == PresetOutcome::CHOSEN) != (answer.preset != nullptr))
+    {
+        ADD_FAILURE() << "a scripted " << QtStrings::toUtf8(presetOutcomeName(answer.outcome))
+                      << " parts library answer " << (answer.preset != nullptr ? "with" : "without")
+                      << " a preset";
+    }
+    script(Kind::PRESET, Answer(std::in_place_type<PresetAnswer>, std::move(answer)));
 }
 
 UserPrompts::InsertPositionAnswer ScriptedUserPrompts::askInsertPosition(
@@ -267,6 +390,91 @@ void ScriptedUserPrompts::editDesignInformation(QWidget* /*parent*/,
     }
 }
 
+std::optional<UserPrompts::IgnitionChoice> ScriptedUserPrompts::askIgnition(
+    QWidget* /*parent*/, const IgnitionRequest& request)
+{
+    m_ignitionRequests.push_back(request);
+    return next(makePrompt(Kind::IGNITION, {},
+                           {request.configurationName, scopeName(request.initial.scope),
+                            QtStrings::fromUtf8(QtRocket::name(request.initial.event)),
+                            numberText(request.initial.delay)}),
+                std::optional<IgnitionChoice>());
+}
+
+std::optional<UserPrompts::DeploymentChoice> ScriptedUserPrompts::askDeployment(
+    QWidget* /*parent*/, const DeploymentRequest& request)
+{
+    m_deploymentRequests.push_back(request);
+    const DeploymentConfiguration& deployment = request.initial.deployment;
+    return next(
+        makePrompt(Kind::DEPLOYMENT, {},
+                   {request.configurationName, scopeName(request.initial.scope),
+                    QtStrings::fromUtf8(deployEventName(deployment.getDeployEvent())),
+                    numberText(deployment.getDeployAltitude()),
+                    numberText(deployment.getDeployDelay()), booleanText(request.bottomStage)}),
+        std::optional<DeploymentChoice>());
+}
+
+std::optional<UserPrompts::SeparationChoice> ScriptedUserPrompts::askSeparation(
+    QWidget* /*parent*/, const SeparationRequest& request)
+{
+    m_separationRequests.push_back(request);
+    const StageSeparationConfiguration& separation = request.initial.separation;
+    return next(
+        makePrompt(Kind::SEPARATION, {},
+                   {request.configurationName, scopeName(request.initial.scope),
+                    QtStrings::fromUtf8(separationEventName(separation.getSeparationEvent())),
+                    numberText(separation.getSeparationAltitude()),
+                    numberText(separation.getSeparationDelay())}),
+        std::optional<SeparationChoice>());
+}
+
+UserPrompts::RenameConfigurationAnswer ScriptedUserPrompts::askRenameConfiguration(
+    QWidget* parent, const RenameConfigurationRequest& request)
+{
+    const RenameScript script = next(makePrompt(Kind::RENAME_CONFIGURATION, {}, {request.name}),
+                                     RenameScript{.answer = {}, .saveAsDefault = {}});
+    for (const QString& name : script.saveAsDefault)
+    {
+        if (!request.saveAsDefault)
+        {
+            ADD_FAILURE() << "the script clicks Save as default, but the rename has no callback";
+            break;
+        }
+        request.saveAsDefault(parent, name);
+    }
+    return script.answer;
+}
+
+std::optional<UserPrompts::MotorChoice> ScriptedUserPrompts::chooseMotor(
+    QWidget* /*parent*/, const GuiServices& /*services*/, const MotorMount& mount,
+    const FlightConfigurationId& configurationId)
+{
+    const RocketComponent& component = asComponent(mount);
+    const MotorQuestion    question{.mountName       = QtStrings::fromUtf8(component.getName()),
+                                    .mountId         = component.getId(),
+                                    .configurationId = configurationId};
+    m_motorQuestions.push_back(question);
+    return next(makePrompt(Kind::MOTOR, {},
+                           {question.mountName, QtStrings::fromUtf8(configurationId.toString())}),
+                std::optional<MotorChoice>());
+}
+
+UserPrompts::PresetAnswer ScriptedUserPrompts::choosePreset(QWidget* /*parent*/,
+                                                            const GuiServices& /*services*/,
+                                                            const PresetRequest& request)
+{
+    m_presetRequests.push_back(request);
+    const std::optional<ComponentPresetType> type = presetTypeOf(request.componentKind);
+    return next(makePrompt(Kind::PRESET, {},
+                           {QtStrings::fromUtf8(displayName(request.componentKind)),
+                            type.has_value() ? QtStrings::fromUtf8(componentPresetTypeName(*type))
+                                             : QStringLiteral("none"),
+                            diameterText(request.foreDiameter), diameterText(request.aftDiameter),
+                            booleanText(request.flippedNoseCone)}),
+                PresetAnswer{});
+}
+
 void ScriptedUserPrompts::showMessage(QWidget* /*parent*/, const Message& message)
 {
     QStringList texts{severityName(message.severity)};
@@ -288,6 +496,20 @@ void ScriptedUserPrompts::showErrorsAndWarnings(QWidget* /*parent*/,
     texts.append(message.errors);
     texts.append(message.warnings);
     m_prompts.push_back(makePrompt(Kind::ERRORS_AND_WARNINGS, message.title, texts));
+}
+
+void ScriptedUserPrompts::showDatabaseProblems(QWidget* /*parent*/,
+                                               std::span<const DatabaseProblem> problems)
+{
+    QStringList texts;
+    for (const DatabaseProblem& problem : problems)
+    {
+        m_databaseProblems.push_back(problem);
+        texts.append(databaseKindName(problem.database));
+        texts.append(QtStrings::fromPath(problem.file));
+        texts.append(problem.message);
+    }
+    m_prompts.push_back(makePrompt(Kind::DATABASE_PROBLEMS, {}, texts));
 }
 
 UserPrompts::InternalErrorAnswer ScriptedUserPrompts::showInternalError(

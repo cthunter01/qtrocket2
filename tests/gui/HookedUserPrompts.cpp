@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 #include <utility>
 
 #include <QString>
@@ -75,6 +76,44 @@ void HookedUserPrompts::editDesignInformation(QWidget* parent, const GuiServices
     m_scripted.editDesignInformation(parent, services, document);
 }
 
+std::optional<UserPrompts::IgnitionChoice> HookedUserPrompts::askIgnition(
+    QWidget* parent, const IgnitionRequest& request)
+{
+    return m_scripted.askIgnition(parent, request);
+}
+
+std::optional<UserPrompts::DeploymentChoice> HookedUserPrompts::askDeployment(
+    QWidget* parent, const DeploymentRequest& request)
+{
+    return m_scripted.askDeployment(parent, request);
+}
+
+std::optional<UserPrompts::SeparationChoice> HookedUserPrompts::askSeparation(
+    QWidget* parent, const SeparationRequest& request)
+{
+    return m_scripted.askSeparation(parent, request);
+}
+
+UserPrompts::RenameConfigurationAnswer HookedUserPrompts::askRenameConfiguration(
+    QWidget* parent, const RenameConfigurationRequest& request)
+{
+    return m_scripted.askRenameConfiguration(parent, request);
+}
+
+std::optional<UserPrompts::MotorChoice> HookedUserPrompts::chooseMotor(
+    QWidget* parent, const GuiServices& services, const MotorMount& mount,
+    const FlightConfigurationId& configurationId)
+{
+    return m_scripted.chooseMotor(parent, services, mount, configurationId);
+}
+
+UserPrompts::PresetAnswer HookedUserPrompts::choosePreset(QWidget*             parent,
+                                                          const GuiServices&   services,
+                                                          const PresetRequest& request)
+{
+    return m_scripted.choosePreset(parent, services, request);
+}
+
 void HookedUserPrompts::showMessage(QWidget* parent, const Message& message)
 {
     runHook();
@@ -92,6 +131,13 @@ void HookedUserPrompts::showErrorsAndWarnings(QWidget*                        pa
 {
     runHook();
     m_scripted.showErrorsAndWarnings(parent, message);
+}
+
+void HookedUserPrompts::showDatabaseProblems(QWidget*                         parent,
+                                             std::span<const DatabaseProblem> problems)
+{
+    runHook();
+    m_scripted.showDatabaseProblems(parent, problems);
 }
 
 UserPrompts::InternalErrorAnswer HookedUserPrompts::showInternalError(QWidget*              parent,

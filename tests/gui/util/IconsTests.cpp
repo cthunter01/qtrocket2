@@ -124,6 +124,7 @@ struct IconColors
         single(Id::EDIT_UNDO, Key::ICONS_UNDO),
         single(Id::EDIT_REDO, Key::ICONS_REDO),
         tinted(Id::EDIT_EDIT, 0xFAC132, Key::ICONS_PENCIL),
+        tinted(Id::EDIT_RENAME, 0x2D2DBD, Key::ICONS_TINT_COLOR),
         plain(Id::EDIT_CUT),
         plain(Id::EDIT_COPY),
         tinted(Id::EDIT_PASTE, 0xC80000, Key::ICONS_IMPORT),
@@ -260,6 +261,9 @@ TEST_F(IconsTest, TheOtherPlaceholdersAreTheirThemeKeys)
     // file-plus-corner.svg: black and OpenRocket's green #499c54 (OR.icons.plus).
     EXPECT_EQ(opaqueColors(Id::FILE_NEW),
               (std::set<QRgb>{text, themeRgb(Key::ICONS_PLUS, Theme::LIGHT)}));
+    // rename.svg: black and OpenRocket's blue #2d2dbd (OR.icons.tintColor).
+    EXPECT_EQ(opaqueColors(Id::EDIT_RENAME),
+              (std::set<QRgb>{text, themeRgb(Key::ICONS_TINT_COLOR, Theme::LIGHT)}));
     // zoom-fit.svg writes its blue as rgb(45,45,189) (OR.icons.zoomFit).
     EXPECT_EQ(opaqueColors(Id::ZOOM_RESET),
               (std::set<QRgb>{text, themeRgb(Key::ICONS_ZOOM_FIT, Theme::LIGHT)}));
@@ -333,7 +337,8 @@ TEST_F(IconsTest, NamesEachIconAsIconsJava)
     EXPECT_EQ(Icons::name(Id::FILE_NEW), QStringLiteral("FILE_NEW"));
     EXPECT_EQ(Icons::name(Id::CD_OVERRIDE_SUBCOMPONENT),
               QStringLiteral("CD_OVERRIDE_SUBCOMPONENT"));
-    EXPECT_EQ(Icons::kAllIds.size(), 42U);
+    EXPECT_EQ(Icons::name(Id::EDIT_RENAME), QStringLiteral("EDIT_RENAME"));
+    EXPECT_EQ(Icons::kAllIds.size(), 43U);
 }
 
 }  // namespace

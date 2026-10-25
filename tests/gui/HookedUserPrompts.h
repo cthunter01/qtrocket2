@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 
 #include <QString>
 
@@ -14,8 +15,10 @@ class QWidget;
 
 namespace QtRocket
 {
+class FlightConfigurationId;
+class MotorMount;
 class OpenRocketDocument;
-}
+}  // namespace QtRocket
 
 namespace QtRocket::Gui
 {
@@ -27,8 +30,9 @@ namespace QtRocket::Gui::Test
 
 /// The questions of a ScriptedUserPrompts of its own (scripted(): the script and the record),
 /// which also runs a hook of the test before the next message it shows (showMessage(),
-/// showWarnings() or showErrorsAndWarnings()), once: the event loop of a message box may run
-/// other code, such as the platform's events that close a window or start a reopen.
+/// showWarnings(), showErrorsAndWarnings() or showDatabaseProblems()), once: the event loop of a
+/// message box may run other code, such as the platform's events that close a window or start a
+/// reopen.
 class HookedUserPrompts final : public UserPrompts
 {
 public:
@@ -62,9 +66,23 @@ public:
         QWidget* parent, const SaveFileRequest& request) override;
     void editDesignInformation(QWidget* parent, const GuiServices& services,
                                OpenRocketDocument& document) override;
-    void showMessage(QWidget* parent, const Message& message) override;
+    [[nodiscard]] std::optional<IgnitionChoice> askIgnition(
+        QWidget* parent, const IgnitionRequest& request) override;
+    [[nodiscard]] std::optional<DeploymentChoice> askDeployment(
+        QWidget* parent, const DeploymentRequest& request) override;
+    [[nodiscard]] std::optional<SeparationChoice> askSeparation(
+        QWidget* parent, const SeparationRequest& request) override;
+    [[nodiscard]] RenameConfigurationAnswer askRenameConfiguration(
+        QWidget* parent, const RenameConfigurationRequest& request) override;
+    [[nodiscard]] std::optional<MotorChoice> chooseMotor(
+        QWidget* parent, const GuiServices& services, const MotorMount& mount,
+        const FlightConfigurationId& configurationId) override;
+    [[nodiscard]] PresetAnswer choosePreset(QWidget* parent, const GuiServices& services,
+                                            const PresetRequest& request) override;
+    void                       showMessage(QWidget* parent, const Message& message) override;
     void showWarnings(QWidget* parent, const WarningsMessage& message) override;
     void showErrorsAndWarnings(QWidget* parent, const ErrorsAndWarningsMessage& message) override;
+    void showDatabaseProblems(QWidget* parent, std::span<const DatabaseProblem> problems) override;
     [[nodiscard]] InternalErrorAnswer showInternalError(QWidget*              parent,
                                                         const Guard::Failure& failure) override;
 

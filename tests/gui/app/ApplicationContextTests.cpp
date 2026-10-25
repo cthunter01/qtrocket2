@@ -27,6 +27,7 @@
 #include "QtRocket/rocket/NoseCone.h"
 #include "QtRocket/rocket/Rocket.h"
 #include "QtRocket/rocket/TrapezoidFinSet.h"
+#include "QtRocket/rocket/preset/ComponentPresetDatabase.h"
 #include "QtRocket/unit/UnitGroup.h"
 #include "QtRocket/util/Error.h"
 #include "ScriptedUserPrompts.h"
@@ -113,6 +114,7 @@ TEST_F(ApplicationContextTest, TheServicesAreTheContextsObjects)
     EXPECT_EQ(&services.preferences(), &context.preferences());
     EXPECT_EQ(&services.materials(), &context.materials());
     EXPECT_EQ(&services.motors(), &context.motors());
+    EXPECT_EQ(&services.presets(), &context.presets());
     EXPECT_EQ(&services.loadingContext(), &context.loadingContext());
     EXPECT_EQ(&services.prompts(), prompts());
     EXPECT_EQ(&context.prompts(), prompts());
@@ -129,7 +131,9 @@ TEST_F(ApplicationContextTest, DesignsLoadWithTheContextsObjects)
     EXPECT_NE(loading.getMotorFinder(), nullptr);
     EXPECT_EQ(loading.getApplicationMaterials(), &context.services().materials());
     EXPECT_EQ(loading.getPreferences(), &context.preferences());
-    EXPECT_NE(loading.getComponentPresetDatabase(), nullptr);
+    // The services' presets, empty until the bundled .orc files are loaded (Milestone 3, run 3).
+    EXPECT_EQ(loading.getComponentPresetDatabase(), &context.services().presets());
+    EXPECT_TRUE(context.presets().empty());
     EXPECT_NE(loading.getSimulationExtensionRegistry(), nullptr);
 }
 

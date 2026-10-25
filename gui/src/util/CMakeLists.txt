@@ -13,6 +13,7 @@ target_sources(QtRocket_gui PRIVATE
     MenuText.cpp ${gui_include_dir}/util/MenuText.h
     QtStrings.cpp ${gui_include_dir}/util/QtStrings.h
     SvgIconEngine.cpp ${gui_include_dir}/util/SvgIconEngine.h
+    TableSortKeys.cpp ${gui_include_dir}/util/TableSortKeys.h
     ThemeColors.cpp ${gui_include_dir}/util/ThemeColors.h
     ${gui_include_dir}/util/UserPrompts.h
 )

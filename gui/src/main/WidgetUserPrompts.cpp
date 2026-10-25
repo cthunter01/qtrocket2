@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include <QChar>
@@ -133,6 +134,10 @@ void addDescription(QFileDialog& dialog, const QString& description)
                                                                       : request.selectedNameFilter);
     }
     chooser.setDirectory(startDirectory(request.directory));
+    if (!request.approveButtonText.isEmpty())
+    {
+        chooser.setLabelText(QFileDialog::Accept, request.approveButtonText);
+    }
     if (!request.description.isEmpty())
     {
         addDescription(chooser, request.description);
@@ -442,6 +447,12 @@ std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askDecalFile(
 std::optional<UserPrompts::OpenFileAnswer> WidgetUserPrompts::askOpenFiles(
     QWidget* parent, const OpenFileRequest& request)
 {
+    if (request.selection == OpenFileSelection::FILES_AND_DIRECTORIES)
+    {
+        // Run 3 of Milestone 3 (the preferences' user files): the menu "File..." /
+        // "Directory..." and the platform's dialog for the choice. Until then: cancelled.
+        return std::nullopt;
+    }
     return chooseFilesToOpen(parent, request, QStringLiteral("openFileDialog"));
 }
 
@@ -517,6 +528,50 @@ void WidgetUserPrompts::editDesignInformation(QWidget* parent, const GuiServices
     static_cast<void>(SaveDesignInfoDialog::edit(parent, services, document));
 }
 
+std::optional<UserPrompts::IgnitionChoice> WidgetUserPrompts::askIgnition(
+    QWidget* /*parent*/, const IgnitionRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: IgnitionSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+std::optional<UserPrompts::DeploymentChoice> WidgetUserPrompts::askDeployment(
+    QWidget* /*parent*/, const DeploymentRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: DeploymentSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+std::optional<UserPrompts::SeparationChoice> WidgetUserPrompts::askSeparation(
+    QWidget* /*parent*/, const SeparationRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: SeparationSelectionDialog. Until then: cancelled.
+    return std::nullopt;
+}
+
+UserPrompts::RenameConfigurationAnswer WidgetUserPrompts::askRenameConfiguration(
+    QWidget* /*parent*/, const RenameConfigurationRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: RenameConfigDialog. Until then: cancelled.
+    return {.action = RenameAction::CANCEL, .name = QString()};
+}
+
+std::optional<UserPrompts::MotorChoice> WidgetUserPrompts::chooseMotor(
+    QWidget* /*parent*/, const GuiServices& /*services*/, const MotorMount& /*mount*/,
+    const FlightConfigurationId& /*configurationId*/)
+{
+    // Run 2 of Milestone 3: MotorChooserDialog, one per top-level window. Until then: cancelled.
+    return std::nullopt;
+}
+
+UserPrompts::PresetAnswer WidgetUserPrompts::choosePreset(QWidget* /*parent*/,
+                                                          const GuiServices& /*services*/,
+                                                          const PresetRequest& /*request*/)
+{
+    // Run 2 of Milestone 3: ComponentPresetChooserDialog. Until then: closed without a choice.
+    return {.outcome = PresetOutcome::CLOSED, .preset = nullptr};
+}
+
 void WidgetUserPrompts::showMessage(QWidget* parent, const Message& message)
 {
     DetailDialog::showDetailedMessageDialog(parent, message.lines, std::nullopt, message.title,
@@ -533,6 +588,13 @@ void WidgetUserPrompts::showErrorsAndWarnings(QWidget*                        pa
 {
     ErrorWarningDialog::showErrorsAndWarnings(parent, message.lines, message.title, message.errors,
                                               message.warnings);
+}
+
+void WidgetUserPrompts::showDatabaseProblems(QWidget* /*parent*/,
+                                             std::span<const DatabaseProblem> /*problems*/)
+{
+    // Run 3 of Milestone 3 (the start-up): one message with OpenRocket's MotorDbLoaderDlg and
+    // ComponentDbLoaderDlg texts. Until then: nothing is shown.
 }
 
 UserPrompts::InternalErrorAnswer WidgetUserPrompts::showInternalError(QWidget*              parent,
