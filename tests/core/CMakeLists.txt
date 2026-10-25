@@ -5,6 +5,7 @@
 # (CliRunSupport runs the command-line tool's commands), GoogleTest (the helpers report through ADD_FAILURE() and
 # EXPECT_*), and pugixml and nlohmann_json (the golden data). Listed per subsystem in the same order as src/.
 add_library(QtRocket_test_support STATIC
+    util/RandomTextPairs.cpp
     rocket/preset/ExamplePresets.cpp
     rocket/TestRockets.cpp
     aero/BarrowmanTestRockets.cpp
@@ -44,6 +45,7 @@ QtRocket_configure_target(QtRocket_test_support)
 # QtRocket_core_tests: every test of the Qt-free core. Sources are listed per subsystem in the same order as src/.
 add_executable(QtRocket_core_tests
     ThirdPartyTests.cpp
+    util/AlphanumComparatorTests.cpp
     util/BigDecimalTests.cpp
     util/BoundingBoxTests.cpp
     util/BugErrorTests.cpp
@@ -58,6 +60,7 @@ add_executable(QtRocket_core_tests
     util/GeodeticComputationStrategyTests.cpp
     util/Geometry2DTests.cpp
     util/InertiaTests.cpp
+    util/JavaCollatorTests.cpp
     util/JavaRandomTests.cpp
     util/L10NTests.cpp
     util/LinearInterpolatorTests.cpp

@@ -276,9 +276,11 @@ std::string_view trim(const String&& text) = delete;
 /// OpenRocket sorts manufacturer names and motor designations with: -1, 0 or 1. Case and accents
 /// are ignored ("AeroTech" equals "aerotech", "été" equals "ete"), expansions apply ("Æ" equals
 /// "ae", "ß" equals "ss"), and spaces, hyphens and control characters are ignorable ("a-b"
-/// equals "ab") while most other punctuation is not ("a.b" sorts before "ab"). The weights are
-/// JDK 17's for every BMP character, transcribed from its CollationElementIterator; characters
-/// the rules do not map (CJK, for one) sort after all mapped ones by UTF-16 code unit, as there.
+/// equals "ab") while most other punctuation is not ("a.b" sorts before "ab"); characters the
+/// rules do not map (CJK, for one) sort after all mapped ones by UTF-16 code unit, as there. It is
+/// JavaCollator::compare(a, b, JavaCollator::Strength::PRIMARY): Collator.getInstance(Locale.US)
+/// and the default locale's Collator.getInstance() are one collator in en_US, and the weights are
+/// JDK 17's, generated from the JDK (util/JavaCollator.h).
 [[nodiscard]] int javaPrimaryCollatorCompare(std::string_view a, std::string_view b);
 
 /// Splits at every @p separator, keeping empty fields: "a,,b" gives {"a", "", "b"} and "" gives
