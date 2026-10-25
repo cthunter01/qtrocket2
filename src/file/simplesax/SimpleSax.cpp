@@ -115,43 +115,6 @@ namespace
     return {};
 }
 
-/// XML 1.1's line ends as its parser reads them: "\r\n", "\r\u0085", "\r", U+0085 and U+2028
-/// all become "\n" (pugixml knows only XML 1.0's).
-[[nodiscard]] std::string normalizeXml11LineEnds(std::string_view text)
-{
-    constexpr std::string_view kNel = "\u0085";
-    constexpr std::string_view kLs  = "\u2028";
-    std::string                normalized;
-    normalized.reserve(text.size());
-    for (std::size_t i = 0; i < text.size();)
-    {
-        const std::string_view rest = text.substr(i);
-        if (rest.starts_with('\r'))
-        {
-            i++;
-            if (rest.substr(1).starts_with('\n'))
-            {
-                i++;
-            }
-            else if (rest.substr(1).starts_with(kNel))
-            {
-                i += kNel.size();
-            }
-            normalized += '\n';
-        }
-        else if (rest.starts_with(kNel) || rest.starts_with(kLs))
-        {
-            i += rest.starts_with(kNel) ? kNel.size() : kLs.size();
-            normalized += '\n';
-        }
-        else
-        {
-            normalized += text[i++];
-        }
-    }
-    return normalized;
-}
-
 /// Reads the document @p valid, well-formed UTF-8, for readXml(). With @p decodeFailure,
 /// @p valid is only the part of a document that could be decoded, and that is why the rest
 /// could not be: the JDK's parser fails with it where it asks its reader for the characters
@@ -176,7 +139,7 @@ namespace
         std::string_view document = valid;
         if (report.xml11)
         {
-            normalized = normalizeXml11LineEnds(valid);
+            normalized = XmlScanner::normalizeXml11LineEnds(valid);
             document   = normalized;
         }
         pugi::xml_document dom;

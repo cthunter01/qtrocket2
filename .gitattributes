@@ -20,3 +20,8 @@ tests/data/ork/** -text
 # A fixture of the command-line tool's test runner whose lines end with "\r\n" on purpose
 # (tests/data/cli/README.md): no line-end conversion.
 tests/data/cli/crlf-lines.txt -text
+
+# OpenRocket's component preset files (and the openrocket-database's LICENSE and README.md), shipped
+# byte for byte as OpenRocket ships them: their SHA-256 are pinned (bundled_preset_files_tests.cpp,
+# tests/data/goldens/manifest.json), so git must never convert their line ends.
+data/components/** -text

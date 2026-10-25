@@ -5,7 +5,6 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
-#include <set>
 #include <source_location>
 #include <span>
 #include <string>
@@ -14,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "QtRocket/file/DirectoryIterator.h"
 #include "QtRocket/file/motor/GeneralMotorLoader.h"
 #include "QtRocket/motor/SqliteMotorDatabaseReader.h"
 #include "QtRocket/motor/ThrustCurveMotor.h"
@@ -51,70 +51,19 @@ namespace
     return lowerCaseName(file).ends_with(".db");
 }
 
-/// The files DirectoryIterator finds under a directory, and the entries it could not read.
-struct DirectoryListing
+/// The files DirectoryIterator::listFiles() finds under @p directory, whose problems go to
+/// @p problems.
+[[nodiscard]] std::vector<std::filesystem::path> collectFiles(
+    const std::filesystem::path& directory, bool (*accept)(const std::filesystem::path&),
+    std::vector<MotorDatabaseLoader::Problem>& problems)
 {
-    std::vector<std::filesystem::path>        files;
-    std::vector<MotorDatabaseLoader::Problem> problems;
-};
-
-/// DirectoryIterator(directory, filter, recursive = true) with DirSelectionFileFilter: every file
-/// accepted by @p accept under @p directory, depth first, skipping names that start with '.'.
-/// Entries are taken in name order and a directory already visited (through a link) is skipped.
-void collectFiles(const std::filesystem::path& directory,
-                  bool (*accept)(const std::filesystem::path&),
-                  std::set<std::filesystem::path>& visited, DirectoryListing& listing)
-{
-    std::error_code             error;
-    const std::filesystem::path canonical = std::filesystem::weakly_canonical(directory, error);
-    if (!visited.insert(error ? directory : canonical).second)
+    DirectoryIterator::Listing listing = DirectoryIterator::listFiles(directory, accept);
+    for (DirectoryIterator::Problem& problem : listing.problems)
     {
-        return;
+        problems.push_back(MotorDatabaseLoader::Problem{.file  = std::move(problem.directory),
+                                                        .error = std::move(problem.error)});
     }
-
-    std::vector<std::filesystem::path>  entries;
-    std::filesystem::directory_iterator iterator(directory, error);
-    for (; !error && iterator != std::filesystem::directory_iterator(); iterator.increment(error))
-    {
-        if (!pathToUtf8(iterator->path().filename()).starts_with('.'))
-        {
-            entries.push_back(iterator->path());
-        }
-    }
-    if (error)
-    {
-        listing.problems.push_back(MotorDatabaseLoader::Problem{
-            .file  = directory,
-            .error = Error{.code    = ErrorCode::IO,
-                           .message = "not a directory or IOException occurred when listing files "
-                                      "from " +
-                                      pathToUtf8(directory),
-                           .where   = std::source_location::current()}});
-        return;
-    }
-    std::ranges::sort(entries, {},
-                      [](const std::filesystem::path& path) { return path.filename().u8string(); });
-
-    for (const std::filesystem::path& entry : entries)
-    {
-        if (std::filesystem::is_directory(entry, error))
-        {
-            collectFiles(entry, accept, visited, listing);
-        }
-        else if (accept(entry))
-        {
-            listing.files.push_back(entry);
-        }
-    }
-}
-
-[[nodiscard]] DirectoryListing collectFiles(const std::filesystem::path& directory,
-                                            bool (*accept)(const std::filesystem::path&))
-{
-    DirectoryListing                listing;
-    std::set<std::filesystem::path> visited;
-    collectFiles(directory, accept, visited, listing);
-    return listing;
+    return std::move(listing.files);
 }
 
 [[nodiscard]] bool isUserMotorFile(const std::filesystem::path& file)
@@ -164,12 +113,9 @@ Result<void> MotorDatabaseLoader::loadInternalMotorDatabase(
     }
 
     // Fall back to the bundled databases (OpenRocket logs the directories it cannot read)
-    DirectoryListing listing = collectFiles(bundledDirectory, isSqliteFile);
-    for (Problem& problem : listing.problems)
-    {
-        m_problems.push_back(std::move(problem));
-    }
-    if (listing.files.empty())
+    const std::vector<std::filesystem::path> files =
+        collectFiles(bundledDirectory, isSqliteFile, m_problems);
+    if (files.empty())
     {
         addProblem(bundledDirectory, Error{.code    = ErrorCode::NOT_FOUND,
                                            .message = "No SQLite motor database found in " +
@@ -177,7 +123,7 @@ Result<void> MotorDatabaseLoader::loadInternalMotorDatabase(
                                            .where   = std::source_location::current()});
         return {};
     }
-    for (const std::filesystem::path& file : listing.files)
+    for (const std::filesystem::path& file : files)
     {
         if (Result<void> loaded = loadSqlite(file); !loaded)
         {
@@ -269,12 +215,7 @@ void MotorDatabaseLoader::loadFile(const std::filesystem::path& file)
 
 void MotorDatabaseLoader::loadDirectory(const std::filesystem::path& directory)
 {
-    DirectoryListing listing = collectFiles(directory, isUserMotorFile);
-    for (Problem& problem : listing.problems)
-    {
-        m_problems.push_back(std::move(problem));
-    }
-    for (const std::filesystem::path& file : listing.files)
+    for (const std::filesystem::path& file : collectFiles(directory, isUserMotorFile, m_problems))
     {
         loadFile(file);
     }

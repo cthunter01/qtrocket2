@@ -16,6 +16,7 @@ add_library(QtRocket_test_support STATIC
     file/openrocket/DesignFileState.cpp
     file/openrocket/DocumentHandlerTestSupport.cpp
     file/openrocket/OpenRocketSaverTestMotors.cpp
+    file/preset/OrcEdgeCases.cpp
     cli/CliRunSupport.cpp
     goldens/GoldenBodies.cpp
     goldens/GoldenData.cpp
@@ -309,6 +310,7 @@ add_executable(QtRocket_core_tests
     file/csv_export_golden_tests.cpp
     file/CsvExportTests.cpp
     file/DatabaseMotorFinderTests.cpp
+    file/DirectoryIteratorTests.cpp
     file/DocumentLoadingContextTests.cpp
     file/FileSystemAttachmentFactoryTests.cpp
     file/GeneralRocketLoaderTests.cpp
@@ -404,6 +406,11 @@ add_executable(QtRocket_core_tests
     file/openrocket/ThrustCurveSelectionRoundTripTests.cpp
     file/openrocket/WarningHandlerTests.cpp
     file/openrocket/WindHandlerTests.cpp
+    file/preset/bundled_preset_files_tests.cpp
+    file/preset/JaxbLexicalTests.cpp
+    file/preset/orc_edge_case_tests.cpp
+    file/preset/OrcDocumentTests.cpp
+    file/preset/OrcElementTests.cpp
     file/simplesax/AbstractElementHandlerTests.cpp
     file/simplesax/DelegatorHandlerTests.cpp
     file/simplesax/NullElementHandlerTests.cpp

@@ -80,6 +80,11 @@ public:
     /// Scans @p text, the document decoded to UTF-8 (a malformed byte reads as U+FFFD).
     [[nodiscard]] static Report scan(std::string_view text);
 
+    /// @p text with XML 1.1's line ends as its parser reads them: "\r\n", "\r\u0085", "\r",
+    /// U+0085 and U+2028 all become "\n". pugixml knows only XML 1.0's ("\r\n" and "\r"), so a
+    /// reader hands it an XML 1.1 document (Report::xml11) normalised this way.
+    [[nodiscard]] static std::string normalizeXml11LineEnds(std::string_view text);
+
     /// The value of the encoding pseudo attribute of the XML declaration @p text starts with,
     /// or nullopt when @p text has no XML declaration, the declaration names no encoding, or
     /// Xerces does not read the declaration to its end (it then reports the declaration's

@@ -1856,6 +1856,41 @@ XmlScanner::Report XmlScanner::scan(std::string_view text)
     return Scanner(Strings::toCodePoints(text)).run();
 }
 
+std::string XmlScanner::normalizeXml11LineEnds(std::string_view text)
+{
+    constexpr std::string_view kNel = "\u0085";
+    constexpr std::string_view kLs  = "\u2028";
+    std::string                normalized;
+    normalized.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();)
+    {
+        const std::string_view rest = text.substr(i);
+        if (rest.starts_with('\r'))
+        {
+            i++;
+            if (rest.substr(1).starts_with('\n'))
+            {
+                i++;
+            }
+            else if (rest.substr(1).starts_with(kNel))
+            {
+                i += kNel.size();
+            }
+            normalized += '\n';
+        }
+        else if (rest.starts_with(kNel) || rest.starts_with(kLs))
+        {
+            i += rest.starts_with(kNel) ? kNel.size() : kLs.size();
+            normalized += '\n';
+        }
+        else
+        {
+            normalized += text[i++];
+        }
+    }
+    return normalized;
+}
+
 std::optional<std::string> XmlScanner::declaredEncoding(std::string_view text)
 {
     return Scanner(Strings::toCodePoints(text)).declaredEncoding();
