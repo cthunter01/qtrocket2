@@ -7,4 +7,6 @@ target_sources(QtRocket_gui_tests PRIVATE
     PlotReadback.cpp
     PlotReadbackTests.cpp
     rocketplot_build_tests.cpp
+    ThrustCurvePlotTests.cpp
+    ThrustCurvePreviewTests.cpp
 )

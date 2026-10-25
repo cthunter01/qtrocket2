@@ -6,4 +6,6 @@ target_sources(QtRocket_gui PRIVATE
     PlotColors.cpp ${gui_include_dir}/plot/PlotColors.h
     PlotExport.cpp ${gui_include_dir}/plot/PlotExport.h
     PlotInputBindings.cpp ${gui_include_dir}/plot/PlotInputBindings.h
+    ThrustCurvePlot.cpp ${gui_include_dir}/plot/ThrustCurvePlot.h
+    ThrustCurvePreview.cpp ${gui_include_dir}/plot/ThrustCurvePreview.h
 )
