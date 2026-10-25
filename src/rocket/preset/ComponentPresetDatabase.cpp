@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "QtRocket/rocket/preset/ComponentPreset.h"
+#include "QtRocket/rocket/preset/ComponentPresetFavorites.h"
 #include "QtRocket/rocket/preset/ComponentPresetType.h"
 #include "QtRocket/util/BugError.h"
 
@@ -70,6 +71,20 @@ std::vector<ComponentPresetDatabase::PresetPtr> ComponentPresetDatabase::listFor
     for (const PresetPtr& preset : m_list)
     {
         if (preset->getType() == type)
+        {
+            result.push_back(preset);
+        }
+    }
+    return result;
+}
+
+std::vector<ComponentPresetDatabase::PresetPtr> ComponentPresetDatabase::listForType(
+    ComponentPresetType type, const ComponentPresetFavorites::FavoriteKeys& favorites) const
+{
+    std::vector<PresetPtr> result;
+    for (const PresetPtr& preset : m_list)
+    {
+        if (preset->getType() == type && favorites.contains(preset->preferenceKey()))
         {
             result.push_back(preset);
         }

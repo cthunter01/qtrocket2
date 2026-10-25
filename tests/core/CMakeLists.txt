@@ -120,6 +120,7 @@ add_executable(QtRocket_core_tests
     motor/MotorConfigurationIdTests.cpp
     motor/MotorCorrelationTests.cpp
     motor/MotorDigestTests.cpp
+    motor/MotorPreferencesTests.cpp
     motor/MotorTests.cpp
     motor/SqliteMotorDatabaseReaderTests.cpp
     motor/ThrustCurveMotorSetDatabaseTests.cpp
@@ -165,6 +166,7 @@ add_executable(QtRocket_core_tests
     rocket/PodSetTests.cpp
     rocket/preset/ComponentPresetDatabaseTests.cpp
     rocket/preset/ComponentPresetFactoryTests.cpp
+    rocket/preset/ComponentPresetFavoritesTests.cpp
     rocket/preset/ComponentPresetReferenceTests.cpp
     rocket/preset/ComponentPresetTests.cpp
     rocket/preset/ComponentPresetTypeTests.cpp

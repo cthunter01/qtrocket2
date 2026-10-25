@@ -11,9 +11,11 @@
 /// and the rest lower-cased, with a `k` in front (`LAUNCH_USE_ISA` -> kLaunchUseIsa,
 /// `OPENGL_ENABLE_MSAA` -> kOpenglEnableMsaa, `OBJ_SRGB` -> kObjSrgb). The three directory names
 /// ApplicationPreferences uses as string literals ("componentStyle", "componentMaterials",
-/// "componentColors") are here as k...Node constants, and so are the two node names of
-/// SwingPreferences ("units", "userMaterials") whose storage the core ports. The keys
-/// DocumentPreferences.java declares (PREF_SHOW_WARNINGS, ...) are members of
+/// "componentColors") are here as k...Node constants, and so are the node names of
+/// SwingPreferences ("units", "userMaterials", "favoritePresets", "excludedMotorManufacturers")
+/// whose storage the core ports, and the two keys the motor chooser's MotorFilterPanel writes as
+/// string literals ("motorFilterLimitLength", "motorFilterLimitDiameter"), named after their
+/// text. The keys DocumentPreferences.java declares (PREF_SHOW_WARNINGS, ...) are members of
 /// DocumentPreferences, as in Java.
 namespace QtRocket::PreferenceKeys
 {
@@ -225,9 +227,26 @@ inline constexpr std::string_view kUnitsNode = "units";
 /// Node of the user-defined materials, each a Material.toStorableString() under a key
 /// "material0", "material1", ... (addUserMaterial(), getUserMaterials(), removeUserMaterial()).
 inline constexpr std::string_view kUserMaterialsNode = "userMaterials";
+/// Node of the favourite component presets: a child node per preset type, named by the type's
+/// constant name ("BODY_TUBE"), holding every favourite's ComponentPreset.preferenceKey()
+/// ("Estes|BT-20") with the value "true" (setComponentFavorite(), getComponentFavorites();
+/// rocket/preset/ComponentPresetFavorites.h).
+inline constexpr std::string_view kFavoritePresetsNode = "favoritePresets";
+/// Node of the manufacturers the motor chooser hides: each one's simple name with the value
+/// "true" (getExcludedMotorManufacturers(), setExcludedMotorManufacturers();
+/// motor/MotorPreferences.h).
+inline constexpr std::string_view kExcludedMotorManufacturersNode = "excludedMotorManufacturers";
 
-/// The separator of the user thrust-curve and component-preset file lists
-/// (ApplicationPreferences.SPLIT_CHARACTER).
+// The keys MotorFilterPanel names with string literals (MotorFilterPanel.java:124-125, 446, 454).
+/// Whether the motor chooser limits the motor length to the mount's length (default false).
+inline constexpr std::string_view kMotorFilterLimitLength = "motorFilterLimitLength";
+/// Whether the motor chooser limits the motor diameter to the mount's diameter (default false).
+inline constexpr std::string_view kMotorFilterLimitDiameter = "motorFilterLimitDiameter";
+
+/// The separator of the user thrust-curve and component-preset file lists as they are stored
+/// (ApplicationPreferences.SPLIT_CHARACTER; Preferences::setUserThrustCurveFiles()). The text
+/// form the preferences page shows and edits joins them with ';' instead
+/// (Preferences::getUserThrustCurveFilesAsString(), Preferences::parseUserFilesText()).
 inline constexpr std::string_view kSplitCharacter = "|";
 
 }  // namespace QtRocket::PreferenceKeys

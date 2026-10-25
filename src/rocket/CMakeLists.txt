@@ -43,6 +43,7 @@ target_sources(QtRocket_core PRIVATE
     preset/ComponentPreset.cpp
     preset/ComponentPresetDatabase.cpp
     preset/ComponentPresetFactory.cpp
+    preset/ComponentPresetFavorites.cpp
     preset/ComponentPresetType.cpp
     preset/TypedPropertyMap.cpp
     RadiusRingComponent.cpp

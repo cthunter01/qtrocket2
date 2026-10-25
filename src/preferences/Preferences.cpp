@@ -22,6 +22,7 @@
 #include "QtRocket/util/BugError.h"
 #include "QtRocket/util/Chars.h"
 #include "QtRocket/util/Color.h"
+#include "QtRocket/util/FileIo.h"
 #include "QtRocket/util/LineStyle.h"
 #include "QtRocket/util/MathUtil.h"
 #include "QtRocket/util/Strings.h"
@@ -238,6 +239,64 @@ constexpr Color kAwtGray{128, 128, 128};
         return value < 0 ? "-Infinity" : "Infinity";
     }
     return std::format("{}", value);
+}
+
+// ------------------------------------------------------------------- user files
+
+/// The separator of the user file lists in the store (kSplitCharacter, one character).
+constexpr char kStoredFilesSeparator = Keys::kSplitCharacter.front();
+static_assert(Keys::kSplitCharacter.size() == 1);
+/// The separator of their text form (getUser...FilesAsString(), the preferences page's field).
+constexpr char kTextFilesSeparator = ';';
+
+/// Java's new File(text) of the UTF-8 @p text: runs of separators as one, none at the end.
+[[nodiscard]] std::filesystem::path javaFile(std::string_view text)
+{
+    return withoutRedundantSeparators(pathFromUtf8(text));
+}
+
+/// @p text split at every @p separator, each part trimmed as String.trim() does and the empty
+/// ones skipped, as javaFile()s (the loops of getUser...Files() and of the preferences page).
+[[nodiscard]] std::vector<std::filesystem::path> splitFiles(std::string_view text, char separator)
+{
+    std::vector<std::filesystem::path> files;
+    for (const std::string& part : Strings::split(text, separator))
+    {
+        const std::string_view trimmed = Strings::trim(part);
+        if (!trimmed.empty())
+        {
+            files.push_back(javaFile(trimmed));
+        }
+    }
+    return files;
+}
+
+/// getUser...Files(): @p defaultDirectory alone when nothing is stored, else the stored list.
+[[nodiscard]] std::vector<std::filesystem::path> storedFiles(
+    const std::optional<std::string>& stored, const std::filesystem::path& defaultDirectory)
+{
+    if (!stored.has_value())
+    {
+        return {withoutRedundantSeparators(defaultDirectory)};
+    }
+    return splitFiles(*stored, kStoredFilesSeparator);
+}
+
+/// File.getAbsolutePath() of every one of @p files (each normalised as new File() would have
+/// done), UTF-8, joined by @p separator the way Java's StringBuilder loops join them: the
+/// separator goes before a path whenever the text so far is not empty.
+[[nodiscard]] std::string joinAbsolute(std::span<const std::filesystem::path> files, char separator)
+{
+    std::string text;
+    for (const std::filesystem::path& file : files)
+    {
+        if (!text.empty())
+        {
+            text += separator;
+        }
+        text += pathToUtf8(absolutePath(withoutRedundantSeparators(file)));
+    }
+    return text;
 }
 
 }  // namespace
@@ -671,6 +730,57 @@ void Preferences::setDefaultDirectory(const std::optional<std::filesystem::path>
     // character outside it into '?'.
     const std::u8string utf8 = absolute.u8string();
     put(Keys::kDefaultDirectory, std::string(utf8.begin(), utf8.end()));
+}
+
+// ------------------------------------------------ user thrust curves and presets
+
+std::vector<std::filesystem::path> Preferences::getUserThrustCurveFiles(
+    const std::filesystem::path& defaultDirectory) const
+{
+    return storedFiles(get(Keys::kUserThrustCurvesKey), defaultDirectory);
+}
+
+std::string Preferences::getUserThrustCurveFilesAsString(
+    const std::filesystem::path& defaultDirectory) const
+{
+    return joinAbsolute(getUserThrustCurveFiles(defaultDirectory), kTextFilesSeparator);
+}
+
+void Preferences::setUserThrustCurveFiles(std::span<const std::filesystem::path> files)
+{
+    put(Keys::kUserThrustCurvesKey, joinAbsolute(files, kStoredFilesSeparator));
+}
+
+void Preferences::resetUserThrustCurveFiles()
+{
+    remove(Keys::kUserThrustCurvesKey);
+}
+
+std::vector<std::filesystem::path> Preferences::getUserComponentPresetFiles(
+    const std::filesystem::path& defaultDirectory) const
+{
+    return storedFiles(get(Keys::kUserComponentPresetsKey), defaultDirectory);
+}
+
+std::string Preferences::getUserComponentPresetFilesAsString(
+    const std::filesystem::path& defaultDirectory) const
+{
+    return joinAbsolute(getUserComponentPresetFiles(defaultDirectory), kTextFilesSeparator);
+}
+
+void Preferences::setUserComponentPresetFiles(std::span<const std::filesystem::path> files)
+{
+    put(Keys::kUserComponentPresetsKey, joinAbsolute(files, kStoredFilesSeparator));
+}
+
+void Preferences::resetUserComponentPresetFiles()
+{
+    remove(Keys::kUserComponentPresetsKey);
+}
+
+std::vector<std::filesystem::path> Preferences::parseUserFilesText(std::string_view text)
+{
+    return splitFiles(text, kTextFilesSeparator);
 }
 
 // ------------------------------------------------------------- flight configurations
